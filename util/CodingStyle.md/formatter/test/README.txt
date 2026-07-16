@@ -816,157 +816,74 @@ Real-code regressions:
                                             Verified: minimal repro, full `make test`.
 
   real_code_regressions_62_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing: two
-                                            round1-vs-round2 idempotency bugs found chasing the
-                                            flaps deferred by RDD_KEY_173. (A)
-                                            `KotlinSignatureRule.parseKotlinSignature`'s first
+                                            idempotency bugs deferred by RDD_KEY_173. (A) RDD_KEY_174
+                                            -- `KotlinSignatureRule.parseKotlinSignature`'s first
                                             `IDENTIFIER (` scan mistook a leading `context(raise:
-                                            Raise<Error>)` clause's own paren for the real
-                                            parameter list while both still shared one line
-                                            (before `MiscRule.enforceCallLineBreaking` split
-                                            `context(...)` out); its close paren wasn't the
-                                            slice's last token so parsing bailed (returned null),
-                                            leaving `fun ensureNotNull(...)` unwrapped past the
-                                            line-length limit on round1 but correctly wrapped on
-                                            round2. Fixed by skipping a non-matching candidate
-                                            paren and continuing the scan instead of bailing.
-                                            Found in `RaiseContext.kt`'s `ensureNotNull`. (B)
-                                            `Formatter.java`'s pipeline ran
-                                            `KotlinSpecificRule.formatWhenExpressions` (can insert
-                                            blank lines in a `when {}` body, STYLE_KOTLIN.md §4)
-                                            in Phase 4, after `BlockStructureRule
-                                            .addClosingComments` (Phase 3) had already counted
-                                            `closing-comment-min-lines` against the enclosing
-                                            `for` loop -- a fresh format missed the pre-insertion
-                                            count and skipped the `// for` comment, while
-                                            reformatting already-formatted output (blank lines
-                                            baked in) added it. Fixed by moving
-                                            `formatWhenExpressions` ahead of
-                                            `addClosingComments`, same precedent as
-                                            `alignInlineSwitches`/`markFallthrough`. Found in
-                                            `Iterable.kt`'s `separateEither`. Verified: minimal
-                                            repro combining both, both real files individually
-                                            round1/round2 byte-identical, full `make test`.
+                                            Raise<Error>)` clause's paren for the real parameter
+                                            list when both shared one line, bailing instead of
+                                            continuing the scan (`RaiseContext.kt`'s
+                                            `ensureNotNull`). (B) RDD_KEY_175 -- `Formatter.java` ran
+                                            `formatWhenExpressions` after `addClosingComments` had
+                                            already counted `closing-comment-min-lines` against the
+                                            enclosing `for` loop, dropping its `// for` comment on a
+                                            fresh format; fixed by reordering the passes
+                                            (`Iterable.kt`'s `separateEither`). Verified: minimal
+                                            repro + both real files round1/round2 byte-identical +
+                                            full `make test`.
 
-  real_code_regressions_63_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing:
-                                            `BlockStructureRule.collapseBracelessBody`'s
-                                            braceless-body scan (bare `else`/braceless `if`) only
-                                            tracked `(`/`[`/`{` nesting depth to find where the
-                                            body ends -- it never checked whether that body was
-                                            actually a single statement once it could itself own a
-                                            multi-line `{...}` block (e.g. a trailing-lambda call
-                                            like `buildList(10) { ... }` as the sole statement of
-                                            a bare `else`). `renderInline` then flattened every
-                                            WHITESPACE/NEWLINE in the body to one space with no
-                                            brace-depth awareness, fusing the block's internal
-                                            statements onto one line with no `;` separator -- a
-                                            genuine Kotlin compile error. Fixed by reusing the
-                                            existing `containsMultilineNestedBrace` helper as a
-                                            bail-out guard, mirroring the analogous protection
-                                            already present in the braced-body collapse path
-                                            (`tryCollapse` -> `isKotlinSingleStatementBody`).
-                                            Found in `Either.kt`'s `zipOrAccumulate`
-                                            (`buildList(10) { if (a is Left) add(a.value) if (b is
-                                            Left) add(b.value) ... }`). Verified: minimal repro,
-                                            `Either.kt` passes `kotlin_sc` cleanly (was 18 errors,
-                                            now 0), full `make test`.
+  real_code_regressions_63_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing: RDD_KEY_176 --
+                                            `BlockStructureRule.collapseBracelessBody`'s bare-`else`/
+                                            braceless-`if` body scan never checked whether the body
+                                            was a single statement once it could itself own a
+                                            multi-line `{...}` block (e.g. a trailing-lambda call);
+                                            `renderInline` fused the block's internal statements with
+                                            no `;` separator, a genuine compile error. Fixed by
+                                            reusing `containsMultilineNestedBrace` as a bail-out
+                                            guard. Found in `Either.kt`'s `zipOrAccumulate`. Verified:
+                                            `kotlin_sc` on `Either.kt` (18 errors -> 0), full
+                                            `make test`.
 
-  real_code_regressions_64_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing: a pure
-                                            idempotency (non-compile-breaking) round1-vs-round2
-                                            flap in `Comparison.kt`'s `sort2` -- the last open
-                                            item of the arrow-kt/arrow investigation.
-                                            `BlockStructureRule.collapseSingleExpressionBlocks`'s
-                                            `isKotlinExpressionIf` exemption only covered a
-                                            parenthesized (`kotlinParenDepth > 0`) expression-
-                                            position `if`; an unparenthesized depth-0 if-expression
-                                            used as an entire expression-bodied function's whole
-                                            body (`fun sort2(...) = if (...) ... else ...`) was
-                                            still treated as an ordinary collapsible statement,
-                                            so this pass unconditionally re-flattened the body on
-                                            every format pass -- on a fresh format the whole
-                                            signature+body was still one long physical line, so
-                                            the too-long line correctly drove
-                                            `MiscRule.enforceCallLineBreaking` to wrap everything
-                                            consistently, but reformatting that already-wrapped
-                                            output let this pass re-collapse just the body in
-                                            isolation onto its own now-short-looking line, which
-                                            then measured as fitting and stayed collapsed -- two
-                                            different stable states depending on pass ordering.
+  real_code_regressions_64_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing: RDD_KEY_177,
+                                            closing item of the investigation. Pure idempotency flap
+                                            in `Comparison.kt`'s `sort2`:
+                                            `collapseSingleExpressionBlocks`'s `isKotlinExpressionIf`
+                                            exemption only covered a parenthesized expression-position
+                                            `if`, not an unparenthesized depth-0 if-expression used as
+                                            an entire expression-bodied function's whole body, so a
+                                            fresh format and a reformat of already-wrapped output
+                                            converged to two different stable states.
 
-  real_code_regressions_65_inp/out.java  -- Java, local `src/jxm` real-code testing: two
-                                            idempotency bugs combined in one fixture.
-                                            (1) `TokenizerCore.reclassifyAngleBrackets` had no
-                                            case for a literal `>>>` token (only `>` and `>>`),
-                                            needed for triple-nested generics
-                                            (`HashMap<String, HashMap<String,
-                                            ArrayList<String>>>>`); round1 renders the three
-                                            closes tight (correct), but re-lexing that output on
-                                            round2 greedily matches all three `>` as one `>>>`
-                                            token, which fell through to the generic-safe-token
-                                            fallback and invalidated the whole open-`<` stack,
-                                            spacing the generics out as ordinary relational
-                                            operators (`HashMap < String, ...`). Fixed by adding
-                                            an explicit `>>>` case mirroring the existing `>>`
-                                            one, generalized to split three nesting levels (plus
-                                            the 2-open/1-leftover-`>` and 1-open/2-leftover-`>`
-                                            partial-match cases).
-                                            (2) `JavaSpecificRule.isSingleLineBody`'s
-                                            fits-under-`lineLengthLimit` prediction (used to
-                                            decide whether a one-liner method stays K&R even
-                                            though its call body will be broken across lines by
-                                            `MiscRule.enforceCallLineBreaking`) measured only the
-                                            method's own significant-token span, omitting both
-                                            the line's leading indentation and any trailing
-                                            same-line `//` comment (e.g. a hand-aligned §14-group
-                                            comment) -- both of which count toward
-                                            `enforceCallLineBreaking`'s own whole-physical-line
-                                            fit-check. When the indent+comment alone pushed an
-                                            otherwise-under-limit line over the limit, round1
-                                            wrongly predicted "fits" and kept `{` K&R while the
-                                            call body still got broken under it anyway; round2
-                                            then saw genuine embedded newlines in the body and
-                                            flipped to Allman -- an idempotency bug. Fixed by
-                                            including the leading indent width and any trailing
-                                            same-line comment in the measurement, whitespace-run-
-                                            collapsed the same way `MiscRule.collapseToOneLine`
-                                            does (not raw character count, to avoid overstating
-                                            width from un-collapsed original-source padding).
+  real_code_regressions_65_inp/out.java  -- Java, local `src/jxm` real-code testing: two idempotency
+                                            bugs combined in one fixture (RDD_KEY_171, RDD_KEY_172).
+                                            (1) `TokenizerCore.reclassifyAngleBrackets` had no case for
+                                            a literal `>>>` token (triple-nested generics); round2
+                                            re-lexed round1's tight `>>>` as one token and mis-spaced
+                                            the generics. Fixed by adding an explicit `>>>` case
+                                            generalizing the existing `>>` split to 3 nesting levels.
+                                            (2) `JavaSpecificRule.isSingleLineBody`'s fits-under-limit
+                                            prediction omitted leading indentation and any trailing
+                                            same-line `//` comment, causing a K&R-vs-Allman flip-flop
+                                            across rounds. Fixed by including both in the measurement,
+                                            whitespace-collapsed like `collapseToOneLine`.
 
-  real_code_regressions_66_inp/out.java  -- Java, local `src/jxm` real-code testing: STYLE.md
-                                            §8 multi-line parameter-list rendering's `leadPrefix`/
-                                            `typeCell` logic (`MiscRule.render` and its near-
-                                            duplicate multi-line-declaration renderer) had two
-                                            related bugs around a standalone `//` banner comment
-                                            used as a section divider between parameter groups
-                                            (found in `ugc/fl/SWDFlashLoader.java`'s `Specifier`
-                                            constructor and `ugc/stm32xf/STM32QSPI.java`'s
-                                            `newQSPICmd`). (1) The leading `//` line comment was
-                                            being inlined as a text prefix on the same physical
-                                            output line as the following parameter's type+name;
-                                            since `//` comments extend to end-of-line, this
-                                            silently swallowed the parameter declaration (and, once
-                                            re-tokenized on a later pass, cascaded into swallowing
-                                            the next parameter too) into the comment text -- a
-                                            compile-breaking corruption. Fixed by emitting a
-                                            leading `//` line comment on its own separate output
-                                            line instead of inlining it (a `/* ... */` block
-                                            comment, being self-terminating within the line, still
-                                            inlines safely as before). (2) The column-width used to
-                                            align each param's name after its type
-                                            (`typeColWidth`, from `maxTypeLen`) is computed only
-                                            over params with no leading comment at all, so a param
-                                            preceded by a line comment -- excluded from that
-                                            computation -- can have a `typeText` as long as or
-                                            longer than `typeColWidth`; `padRight` is then a no-op,
-                                            leaving zero space between the type and the name and
-                                            merging them into one token on the next reformat pass
-                                            (e.g. `InstModeinstMode`). Fixed by never padding to
-                                            less than `typeText.length() + 1`, guaranteeing at
-                                            least one space regardless of the shared column width.
-                                            Verified idempotent against both real files plus this
-                                            synthetic fixture (which additionally exercises a
-                                            standalone banner comment following two params that
-                                            each already carry their own same-line trailing
-                                            comment, matching the real files' exact shape).
+  real_code_regressions_66_inp/out.java  -- Java, local `src/jxm` real-code testing: RDD_KEY_178, two
+                                            bugs in STYLE.md §8's multi-line parameter-list renderer
+                                            (`MiscRule.render` and its near-duplicate multi-line-
+                                            declaration renderer) around a standalone `//` banner
+                                            comment used as a section divider between parameter groups
+                                            (`SWDFlashLoader.Specifier`'s constructor,
+                                            `STM32QSPI.newQSPICmd`). (1) A leading `//` line comment
+                                            was inlined onto the same output line as the following
+                                            parameter's type+name, swallowing that declaration (and
+                                            cascading to the next) into the comment -- compile-
+                                            breaking. Fixed by emitting it on its own line. (2) The
+                                            shared type/name column width was computed only over
+                                            params with no leading comment, so an excluded param's
+                                            `typeText` could be as long as the column width, making
+                                            `padRight` a no-op and merging type+name with zero space
+                                            on the next pass. Fixed by never padding to less than
+                                            `typeText.length() + 1`. Verified idempotent against both
+                                            real files plus this fixture.
 
                                             Fixed in two parts: (1) extended the exemption to also
                                             cover a depth-0 `if` directly preceded by a bare `=`

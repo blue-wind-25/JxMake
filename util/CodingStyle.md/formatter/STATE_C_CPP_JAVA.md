@@ -377,56 +377,29 @@ on the noted commits/fixtures)
      audit below (no code change); `applyArrowAlignment` joining arrow-case with no
      line-length check (fixture `_7`); `findNameBeforeParen` misparsing `case`/`default` arrow
      arms as one-liner members (fixture `_8`). Verified (4).
-(16) MEDIUM `javaparser/javaparser` (1997 `.java` files across 7 modules) — 6 idempotency bugs
-     found and fixed across sessions, verified via full-tree round1/round2 (in-place-copy
-     methodology — NOT `--out DIR`, which flattens all files to basenames in one flat directory
-     and silently collides same-named files across modules) + `make test`:
-     - `GetterSetterRule.parseOneLinerMember`/`findNameBeforeParen`: braceless `if (cond)
-       throw/return ...` misparsed as a one-liner getter/setter, grid-padding garbage. Fixed by
-       rejecting any "return type" span containing a control-flow keyword.
-     - `MiscRule.stripSoleTrailingPeriod`/`stripSoleTrailingPeriodAcrossLines`: stripped a
-       comment's sole trailing `.` but left the separating whitespace, caught only by a later
-       unrelated trim. Both fixed in fixture `real_code_regressions_54_{inp,out}.java`.
-     - `ScopePipeline.processScope`'s trailing-gap force-reindent always collapsed to exactly one
-       newline once `findParentIndent` returned a text-derivable indent — which it only does for
-       a statement anchored on a bare `else`/`catch`/`finally` once that keyword is Allman
-       (own line), not K&R. Dropped a real blank line before `}` in `TypeExtractor.java` (both
-       `javaparser-symbol-solver-core`/`-testing` copies) once round2 rendered `else` as Allman.
-       Fixed via a new `trailingRunNewlineCount` helper replaying the original newline count.
-       Fixture `_55`.
-     - Pass ordering: `MiscRule.enforceCallLineBreaking`'s line-fits check ran before
-       `SwitchRule.formatNonInlineSwitches` reindented case bodies one level deeper, so a call
-       could measure "fits" pre-reindent then overflow post-reindent on the next pass
-       (`CsmAttribute.java`'s `getTokenType`). Fixed by re-running `enforceCallLineBreaking`
-       again immediately after `formatNonInlineSwitches`. Fixture `_56`.
-     - `DeclarationAlignmentRule.isCStyleCastClose`'s guard against misreading a call/subscript
-       `)` as a C-style cast close excluded a preceding IDENTIFIER/`)`/`]` but not control-flow
-       KEYWORD tokens, so `if(node instanceof RecordPatternExpr)` misclassified as a cast
-       `(Type)`, dropping the space before the body statement — only surfaced when rendered as a
-       declaration initializer (`Java1_0Validator.java`/`Java5Validator.java`). Fixed via a new
-       `CONTROL_FLOW_KEYWORDS` exclusion set. Fixture `_57`.
-     - `DeclarationAlignmentRule.groupDeclarations` had no Java-enum-constant-list exclusion, so a
-       constant list could merge into an adjacent field's alignment group and grid-pad a bogus
-       column into it on a fresh parse only; compounded by `JavaSpecificRule
-       .findEnumConstantListTerminators` re-deriving its indent from the first member's own
-       *current* line each pass instead of an absolute depth (drift compounding 8→10→12→...).
-       Symptom: `JavaParserJsonSerializer.java`'s enum indentation/column differed round1 vs
-       round2. Fixed via a new `isJavaEnumConstantListShape` singleton-group helper (isolates the
-       constant list the same way `isMemberFunctionForwardDecl` already does, preserving its
-       one-line-when-it-fits collapsing) plus deriving the re-emitted indent from the enum body's
-       own stable `{`-line indent. Fixture `_58`.
+(16) MEDIUM `javaparser/javaparser` (1997 `.java` files across 7 modules) — 6 idempotency bugs,
+     verified via full-tree round1/round2 (in-place-copy methodology — NOT `--out DIR`, which
+     flattens to basenames and silently collides same-named files across modules) + `make test`:
+     braceless `if (cond) throw/return ...` misparsed as a one-liner getter/setter (fixed by
+     rejecting a "return type" span containing a control-flow keyword); a comment's sole trailing
+     `.` stripped without its separating whitespace (fixture `_54`); `else`/`catch`/`finally`
+     force-reindent dropping a real blank line before `}` once that keyword rendered Allman
+     (new `trailingRunNewlineCount` helper, fixture `_55`); `enforceCallLineBreaking`'s fits-check
+     running before `formatNonInlineSwitches` reindented case bodies, so a call could overflow
+     post-reindent (re-run ordering fix, fixture `_56`); `isCStyleCastClose`'s guard missing a
+     control-flow-KEYWORD exclusion, misreading `if(node instanceof RecordPatternExpr)` as a cast
+     (new `CONTROL_FLOW_KEYWORDS` set, fixture `_57`); Java enum-constant-list merging into an
+     adjacent field's alignment group plus drifting indent across passes (new
+     `isJavaEnumConstantListShape` helper + stable-indent derivation, fixture `_58`).
 
-     One residual gap accepted as a documented known limitation rather than fixed:
-     `.../javaparser-generated-sources/com/github/javaparser/ASTParser.java` (JavaCC-generated
-     parser, ~5500 lines) has one switch-case body whose own source indentation is internally
-     inconsistent (a generator quirk), causing one non-idempotent re-indent; root-caused via
-     minimal repro + temporary debug prints (reverted, not committed) but not fixed (nontrivial
+     One residual gap accepted as a documented known limitation, not fixed:
+     `ASTParser.java` (JavaCC-generated, ~5500 lines) has one switch-case body whose own source
+     indentation is internally inconsistent (generator quirk), causing one non-idempotent
+     re-indent — same architectural root cause as "Known Gaps — Open" below (nontrivial
      `SwitchRule.applyNonInlineCaseIndent`/`shiftLines` rework needed, real regression risk, 1
-     file out of 1997 affected, no other file in any candidate tested exhibits the pattern) — see
-     "Known Gaps — Open" below and `README.md`'s "Known Limitations" section. Full-tree
-     round1/round2 clean except that one file; `javac` compile-check not run (gated on fully-clean
-     idempotency, which this candidate doesn't reach) — accepted as Finished with this documented
-     caveat per user decision.
+     file out of 1997 affected). Full-tree round1/round2 clean except that file; `javac`
+     compile-check not run (gated on fully-clean idempotency) — accepted as Finished with this
+     documented caveat per user decision. See `README.md`'s "Known Limitations" section.
 (17) HUGE `openrewrite/rewrite` — see "Not started" below (queued, not started).
 (18) Local `VMA-GIT/anemonesoft/` (82 `.java`) — 1 bug: `renderCallCandidate` swallowed a
      multi-line brace-bodied trailing argument (brace depth not tracked). Verified (4).
@@ -448,20 +421,16 @@ on the noted commits/fixtures)
      an unrelated following struct's "function close paren" (scan didn't stop at a depth-0 `;`).
      Verified with minimal repro, `make test` 72/72, full-tree idempotency, and (2)/(3) compile
      checks matching baseline. Fixture: `real_code_regressions_52`.
-(22) C++20/23 `microsoft/proxy` (28 `.h`/`.cpp`, `include/proxy/{,v4/}proxy{,_macros,_fmt}.h`
-     + `tests/`/`benchmarks/`/`tools/`) — 3 bugs in `CppSpecificRule.enforceRequiresClausePlacement`
-     (trailing `requires` clause after a wrapped multi-line parameter list): (a)/(b) unstable
-     baseIndent/fit-check derived from the closing-paren's own physical line (varies across
-     passes and across chained `noexcept(...)` specifiers) instead of the parameter list's real
-     opening-paren line; (c) a preprocessor directive inside the clause's own constraint
-     expression got spliced mid-line by `collapseToOneLine`, producing invalid C++ (compile-
-     breaking, not just cosmetic) — fixed by leaving any clause containing a `PREPROCESSOR` token
+(22) C++20/23 `microsoft/proxy` (28 `.h`/`.cpp`) — 3 bugs in
+     `CppSpecificRule.enforceRequiresClausePlacement` (trailing `requires` clause after a wrapped
+     multi-line parameter list, RDD_KEY_170): (a)/(b) unstable baseIndent/fit-check derived from
+     the closing-paren's own physical line instead of the parameter list's opening-paren line;
+     (c) a preprocessor directive inside the clause's constraint expression got spliced mid-line,
+     producing invalid C++ — fixed by leaving any clause containing a `PREPROCESSOR` token
      untouched. Verified with `clang++ -std=c++23 -stdlib=libc++ -fsyntax-only` (0-error baseline
-     unchanged on `include/proxy/{,v4/}proxy.h` before/after), full round1/round2 idempotency over
-     the whole tree, and `make test` 77/77. Fixture: `real_code_regressions_53`. RDD_KEY_170.
-(23) Local `../../../src/jxm` (JxMake's own Java source tree, real `.java` files plus PCPP
-     `.java.in` templates and `.java.inc` include fragments, ~272 relevant files) — 3 bugs, all
-     plain-Java, none PCPP-specific (no preprocessor directive/`#include`/macro syntax touched):
+     unchanged), full round1/round2 idempotency, `make test` 77/77. Fixture: `real_code_regressions_53`.
+(23) Local `../../../src/jxm` (JxMake's own Java source tree, real `.java` plus PCPP `.java.in`
+     templates and `.java.inc` fragments, ~272 files) — 3 plain-Java bugs, none PCPP-specific:
      (a) `TokenizerCore.reclassifyAngleBrackets` had no `>>>` case (triple-nested generics),
      RDD_KEY_171; (b) `JavaSpecificRule.isSingleLineBody`'s fit-prediction omitted leading indent
      and trailing same-line comment width, causing a K&R/Allman flip-flop, RDD_KEY_172; (c)
@@ -474,8 +443,8 @@ on the noted commits/fixtures)
      idempotency over the whole tree (clean except the one accepted gap); every `.java.in`
      run through `pcpp_java` in-place, `java_sc` over both real and pcpp-generated `.java` (32
      pre-existing "SYNTAX ERRORS FOUND" results, all traced to a pre-existing U+200B
-     zero-width-space character already present byte-for-byte in the pristine original source,
-     not formatter-introduced); `make test` 90/90 forward + 90/90 idempotency (up from 88/88).
+     zero-width-space character already present in the pristine original source, not
+     formatter-introduced); `make test` 90/90 forward + 90/90 idempotency (up from 88/88).
      Fixtures: `real_code_regressions_65` (a+b combined), `real_code_regressions_66` (c).
 
 **Not started dogfood / real-code testing**

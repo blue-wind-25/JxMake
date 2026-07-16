@@ -241,7 +241,7 @@ existing test suite after this step, before moving to Step 1.
 |---|---|---|---|
 | 1 | Semicolons (strip optional `;`) | (c), **done** | No shared class strips statement-terminating `;` for any language — Kotlin-only `KotlinSpecificRule.stripOptionalSemicolons`. See RDD_KEY_115 for the rewrite from an earlier flawed version. |
 | 2 | `enum class` with members | (a)/(c), **done** | `BlockStructureRule.classifyNamed`'s "keyword before `class` is `enum`" check already labels the closing comment for free once `enum`/`class` are Kotlin keywords. Body-open/close blank lines already free via `insertNamedConstructBlankLines`. Blank-line emphasis around the entry-list-terminating `;` needed new `KotlinSpecificRule.separateEnumConstantListTerminator`, mirroring the Java equivalent. RDD_KEY_111. |
-| 3 | Brace style (Allman fn bodies / K&R everything else) | (a) K&R direction **verified**; (c) Allman-conversion direction **done** | `BlockStructureRule.qualifiesForKAndR`'s keyword sets already cover Kotlin's control-flow vocabulary — confirmed via harness. Function-body K&R→Allman conversion needed new `KotlinSpecificRule.enforceFunctionDefinitionAllmanBraceStyle`, with a more conservative candidate signal than Java/C++ since Kotlin's trailing-lambda call syntax is token-shape-identical to a function body brace and there's no `new` to rule ordinary calls out; requires a backward scan landing on `fun`/`constructor`. Also handles `: ReturnType` between `)` and `{`, and a one-liner body staying K&R (RDD_KEY_75/RDD_KEY_89 exception). RDD_KEY_114. |
+| 3 | Brace style (Allman fn bodies / K&R everything else) | (a) K&R direction **verified**; (c) Allman-conversion direction **done** | `BlockStructureRule.qualifiesForKAndR`'s keyword sets already cover Kotlin's vocabulary. Function-body K&R→Allman needed new `KotlinSpecificRule.enforceFunctionDefinitionAllmanBraceStyle` (backward scan to `fun`/`constructor`, more conservative than Java/C++ since a trailing-lambda call is token-shape-identical to a function body brace and there's no `new` to rule calls out). Also handles `: ReturnType` between `)` and `{`, and a one-liner body staying K&R (RDD_KEY_75/RDD_KEY_89 exception). RDD_KEY_114. |
 | 3.1 | Class/Object/Companion Object bodies | (b), **done** | Named constructs already worked; the headless gap (anonymous `companion object {}`, anonymous `object : Interface {}`, `init {}`) fixed via RDD_KEY_99 (`BlockStructureRule.classifyKotlinHeadlessNamed`, gated by `Lang.isKotlin`), which also fixed a related tokenizer bug (`:` wrongly arming a supertype identifier as the construct name). |
 | 3.2 | `catch`/`for`/`while`/`when` no space before `(` | (b), **done** | Added `"when"` to `MiscRule.TIGHT_PAREN_KEYWORDS`. No-op for C/C++/Java. RDD_KEY_100. |
 | 3.3 | Secondary constructors (Allman body) | (c), **done** | Covered by the same §3 method — a secondary constructor is recognized by the token before `(` being `constructor` itself. Verified via harness. RDD_KEY_114. |
@@ -596,72 +596,58 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
 
 **Finished dogfood / real-code testing**
 1. **RobotCoding `gui_frontend_android`** (Android/Gradle app, 46 `.kt`
-   files) — complete, config: default (no override). 9 idempotency bugs
-   found/fixed one root cause at a time (RDD_KEY_134–140: multi-line
-   trailing-lambda call collapse, call-wrapped-initializer
-   misclassification, lambda-brace indent anchor, if/else-as-value-expression
-   collapse, `&&`-vs-C-style-`&` confusion, §9 column-width flapping, Allman
-   width-prediction gap). Separately, `./gradlew compileDebugKotlin` then
-   found ~50 first-pass compile errors across 9 files, resolved one file at a
-   time (RDD_KEY_141–144: return-type-tail misdetection eating a fluent-chain
+   files) — complete, config: default. 9 idempotency bugs (RDD_KEY_134–140:
+   trailing-lambda collapse, call-wrapped-initializer misclassification,
+   lambda-brace indent anchor, if/else-as-value collapse, `&&`-vs-`&`
+   confusion, §9 column-width flap, Allman width-prediction gap). Then
+   `./gradlew compileDebugKotlin` found ~50 compile errors across 9 files
+   (RDD_KEY_141–144: return-type-tail misdetection eating a fluent-chain
    call, `@Annotation`-vs-label false positive, `when`-arm `else ->`
    mismatched by braceless-`else` collapse, two unrelated bugs in one
-   `ProgramBuilder.kt` statement). Final: `./gradlew compileDebugKotlin` →
-   `BUILD SUCCESSFUL`, zero errors (2 pre-existing, unrelated deprecation
-   warnings in `WifiStaDialog.kt` only). Verified via tool (2).
-2. **`github.com/square/okio`** — core bugs fixed, config:
-   `.jxmake-code-formatter` with `indent-size=2` (matches okio's own
-   `.editorconfig`; RDD_KEY_145 confirmed the default `indent-size=4`
-   produces spurious diffs against this candidate). Fixed: RDD_KEY_146
+   statement). Final: `BUILD SUCCESSFUL`, zero errors (2 pre-existing
+   unrelated deprecation warnings only). Verified via tool (2).
+2. **`github.com/square/okio`** — core bugs fixed, config `indent-size=2`
+   (matches okio's own `.editorconfig`; RDD_KEY_145 confirmed default
+   `indent-size=4` produces spurious diffs, not a bug). Fixed: RDD_KEY_146
    (unary minus mis-spacing), RDD_KEY_147 (blank-line signature-tail merge),
-   RDD_KEY_148 (stale-prefix over-wrap of a braceless `if`) — combined into
-   `test/real_code_regressions_30_inp.kt`/`_out.kt`; RDD_KEY_150 (missing
-   `===`/`!==` tokenizer entries), RDD_KEY_151 (do-while trailing `while`
-   misread as loop-start) — combined into
-   `test/real_code_regressions_31_inp.kt`/`_out.kt`. Verified via round1/
-   round2 idempotency diffing + tool (1) against `commonMain` only
-   (full multiplatform-aware build not run). One bug found but **not**
-   fixed — RDD_KEY_149, affecting `RealBufferedSink.kt`/`FakeFileSystem.kt`
-   — see **Not started** below (kept open, not deleted).
+   RDD_KEY_148 (stale-prefix over-wrap of a braceless `if`) — fixture `_30`;
+   RDD_KEY_150 (missing `===`/`!==` tokenizer entries), RDD_KEY_151
+   (do-while trailing `while` misread as loop-start) — fixture `_31`.
+   Verified via round1/round2 idempotency diffing + tool (1) against
+   `commonMain` only. One bug found but **not** fixed at the time —
+   RDD_KEY_149 (later resolved by RDD_KEY_163) — see **Not started** below.
 3. **`github.com/Kotlin/kotlinx.coroutines`** — fully closed, config:
-   default (`indent_size=4` matches the project's own `.editorconfig`, no
-   override needed). Scoped to `kotlinx-coroutines-core`'s `common`+`jvm`
-   source sets (163 `.kt` files), per user instruction to use tool (3)
-   instead of a Gradle build. Idempotency: 11 non-idempotent files found,
-   all resolved across RDD_KEY_154 (baked trailing-space growth) and
-   RDD_KEY_158–162 (try/catch-as-expression brace confusion; a shared
-   named-scope-with-wrapped-header root cause across 4 files; a call-argument
-   continuation-indent flap; a dangling braceless-`else` mis-anchoring bare
-   `}` drift; a declaration-alignment padding-width flap — see RDD table for
-   per-bug detail). Compile-check via tool (3): 9 of 163 files had genuine
-   syntax errors, all resolved via RDD_KEY_155 (nesting-unaware block-comment
-   truncation), RDD_KEY_156 (`this@Label` spacing), RDD_KEY_157 (a
-   `synchronized(...)` block's statements fused with no separators). Verified
-   via round1/round2 idempotency diffing + tool (3) only (weaker compile-check
-   confidence than `gui_frontend_android` — no semantic/type checking).
+   default. Scoped to `kotlinx-coroutines-core`'s `common`+`jvm` source sets
+   (163 `.kt` files), tool (3) per user instruction instead of a Gradle
+   build. Idempotency: 11 non-idempotent files, resolved across RDD_KEY_154
+   (baked trailing-space growth) and RDD_KEY_158–162 (try/catch-as-expression
+   brace confusion; a shared named-scope-with-wrapped-header root cause
+   across 4 files; a call-argument continuation-indent flap; a dangling
+   braceless-`else` mis-anchoring bare `}` drift; a declaration-alignment
+   padding-width flap — see RDD table for per-bug detail). Compile-check:
+   9 of 163 files had genuine syntax errors, resolved via RDD_KEY_155
+   (nesting-unaware block-comment truncation), RDD_KEY_156 (`this@Label`
+   spacing), RDD_KEY_157 (a `synchronized(...)` block's statements fused
+   with no separators). Verified via round1/round2 diffing + tool (3) only
+   (weaker compile-check confidence than `gui_frontend_android`).
 4. **`github.com/square/kotlinpoet`** — fully closed, all 4 idempotency
-   shapes resolved, config: `indent_size=2` (matches kotlinpoet's own
-   `.editorconfig`, same convention as okio). Initial pass fixed 2 compile/
-   idempotency bugs (RDD_KEY_152 stale when-branch brace-indent anchor,
-   RDD_KEY_153 Allman-conversion misfiring on an expr-bodied function's own
-   trailing-lambda body). A later 125-file re-run surfaced a residual
-   10-file idempotency gap in 4 distinct shapes, resolved across three
-   follow-up sessions: Shape 1 (6 files: `CodeWriter.kt`, `LambdaTypeName.kt`,
-   `MemberSpecHolder.kt`, `ParameterizedTypeName.kt`, `TypeVariableName.kt`,
-   `WildcardTypeName.kt`) via RDD_KEY_163 (also resolved RDD_KEY_149's
-   deferred `okio` bug); Shape 2 (`AbstractTypesTest.kt`) via RDD_KEY_164;
-   Shape 3 (`ReflectiveClassInspector.kt`/`kmAnnotations.kt`) via RDD_KEY_165;
-   Shape 4 (`KotlinPoetMetadataSpecsTest.kt`) via RDD_KEY_166 (which also
-   surfaced/fixed two masked bugs in `signatureLineIndent` via a from-clean
-   rebuild). Fixtures `_46`–`_49`. `make test`: 68/68 clean-rebuild final.
-   **Confirmed via a fresh full-125-file re-run, `diff -rq round1 round2`
-   empty — fully round1-vs-round2 idempotent.**
+   shapes resolved, config `indent-size=2` (matches kotlinpoet's own
+   `.editorconfig`). Initial pass fixed 2 bugs (RDD_KEY_152 stale
+   when-branch brace-indent anchor, RDD_KEY_153 Allman-conversion misfiring
+   on an expr-bodied function's own trailing-lambda body). A later 125-file
+   re-run surfaced a residual 10-file idempotency gap in 4 shapes: Shape 1
+   (6 files) via RDD_KEY_163 (also resolved RDD_KEY_149's deferred `okio`
+   bug); Shape 2 (`AbstractTypesTest.kt`) via RDD_KEY_164; Shape 3
+   (`ReflectiveClassInspector.kt`/`kmAnnotations.kt`) via RDD_KEY_165;
+   Shape 4 (`KotlinPoetMetadataSpecsTest.kt`) via RDD_KEY_166 (also fixed
+   two masked bugs in `signatureLineIndent` found via a from-clean rebuild).
+   Fixtures `_46`–`_49`. `make test`: 68/68 clean-rebuild final. Confirmed
+   via a fresh full-125-file re-run, `diff -rq round1 round2` empty.
 5. **`github.com/arrow-kt/arrow`** — fully closed, all bugs resolved.
-   Functional-programming library (typed errors, optics, effects). Scoped
-   to `arrow-core`'s and `arrow-optics`'s `commonMain/kotlin` source sets
-   (63 `.kt` files total), config `indent-size=2` (matches arrow's own
-   `.editorconfig`), compile-checked via tool (3) `kotlin_sc` per explicit
-   user instruction instead of the Gradle-copy dance. Compile-breaking bugs:
+   Functional-programming library, scoped to `arrow-core`'s and
+   `arrow-optics`'s `commonMain/kotlin` source sets (63 `.kt` files),
+   config `indent-size=2`, compile-checked via tool (3) per explicit user
+   instruction instead of the Gradle-copy dance. Compile-breaking bugs:
    RDD_KEY_171 (generic type-parameter bound `:` corrupting angle-bracket
    tracking), RDD_KEY_172 (`val`/`var` declaration wrongly collapsed into a
    braceless `if`), RDD_KEY_173 (annotation `@` sharing its line with a
@@ -672,16 +658,15 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
    `context(...)`-clause paren misdetected as the real signature's paren),
    RDD_KEY_175 (`Iterable.kt`'s `separateEither`, a `formatWhenExpressions`/
    `addClosingComments` pipeline-ordering bug), and RDD_KEY_177
-   (`Comparison.kt`'s `sort2` — the investigation's last open item: an
+   (`Comparison.kt`'s `sort2`, the investigation's last open item — an
    unparenthesized depth-0 if-expression used as an entire expression-bodied
    function's whole body wasn't exempted from `collapseSingleExpressionBlocks`,
-   plus a sibling bug in its paired bare `else` arm's own separate dispatch
-   branch). Fixtures `test/real_code_regressions_59`–`_64`. Verified: a
-   fresh full-scope 63-file reformat is round1/round2 byte-identical
-   end-to-end (`diff -rq` empty); `kotlin_sc` reports 0 syntax errors across
-   all 63 files (started at 5 files with genuine syntax errors before
-   RDD_KEY_171-173, then 1 file — `Either.kt` — after RDD_KEY_173, now 0
-   after RDD_KEY_176); `make test` 88/88 clean, zero regressions throughout.
+   plus a sibling bug in its paired bare `else` arm). Fixtures
+   `test/real_code_regressions_59`–`_64`. Verified: a fresh full-scope
+   63-file reformat is round1/round2 byte-identical (`diff -rq` empty);
+   `kotlin_sc` reports 0 syntax errors across all 63 files (started at 5
+   before RDD_KEY_171-173, 1 after RDD_KEY_173, 0 after RDD_KEY_176);
+   `make test` 88/88 clean, zero regressions throughout.
 
 **Not started dogfood / real-code testing**
 1. **`github.com/JetBrains/kotlin`** (NOT STARTED) — the Kotlin compiler's

@@ -89,6 +89,7 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
      *     RDD_KEY_107 entry) -- kept only because {@link #parseKotlinDeclaration} is still used
      *     standalone by the merged pass; no longer called from {@code ScopePipeline} directly.
      */
+    @Deprecated
     public List<List<KotlinDecl>> groupPropertyDeclarations(final List<Token> scopeTokens) {
         final List<List<Token>> statements = splitKotlinStatements(scopeTokens);
         final List<List<KotlinDecl>> groups = new ArrayList<>();
@@ -545,6 +546,7 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
      *     kept only because {@link #parseDestructuringDeclaration} is still used standalone by
      *     the merged pass; no longer called from {@code ScopePipeline} directly.
      */
+    @Deprecated
     public List<List<DestructuringDecl>> groupDestructuringDeclarations(final List<Token> scopeTokens) {
         final List<List<Token>> statements = splitKotlinStatements(scopeTokens);
         final List<List<DestructuringDecl>> groups = new ArrayList<>();
@@ -690,6 +692,7 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
      * @deprecated superseded by {@link #renderAlignedGroup} (RDD_KEY_107 revision) -- kept only
      *     as a standalone fallback renderer, no longer called from {@code ScopePipeline} directly.
      */
+    @Deprecated
     public List<String> renderDestructuringGroup(final List<DestructuringDecl> group) {
         final ColumnGrid grid = new ColumnGrid();
         for (final DestructuringDecl d : group) {

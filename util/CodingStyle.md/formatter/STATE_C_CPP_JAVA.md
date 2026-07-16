@@ -146,6 +146,7 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_170 | microsoft/proxy dogfood: 3 bugs in `CppSpecificRule.enforceRequiresClausePlacement` -- (a)/(b) baseIndent/fit-check derived from the trailing `requires` clause's unstable-across-passes closing-paren line instead of the parameter list's own opening-paren line (with chained-specifier unwinding for `noexcept(...)`); (c) a preprocessor directive inside the clause's own constraint expression got spliced mid-line, producing invalid C++ -- fixed by leaving any clause containing a `PREPROCESSOR` token untouched |
 | RDD_KEY_171 | Local `src/jxm` dogfood: `TokenizerCore.reclassifyAngleBrackets` had no case for a literal `>>>` token (triple-nested generics), only `>`/`>>` -- round2 re-lexed round1's tight `>>>` as one token, fell through to the generic-safe-token fallback, invalidated the whole open-`<` stack, spaced the generics out. Fixed by adding an explicit `>>>` case generalizing the existing `>>` split to 3 nesting levels plus its 2/1-leftover-`>` partial-match variants. |
 | RDD_KEY_172 | Local `src/jxm` dogfood: `JavaSpecificRule.isSingleLineBody`'s fits-under-limit prediction omitted the line's leading indentation and any trailing same-line `//` comment, both of which `MiscRule.enforceCallLineBreaking`'s own fit-check counts -- caused a K&R-vs-Allman flip-flop when indent+comment alone pushed an otherwise-fitting one-liner over the limit. Fixed by including both, whitespace-collapsed the same way `collapseToOneLine` does. |
+| RDD_KEY_178 | Local `src/jxm` dogfood: two related bugs in `MiscRule`'s STYLE.md §8 multi-line parameter-list renderer (`render` and its near-duplicate multi-line-declaration renderer) around a standalone `//` banner comment used as a section divider between parameter groups (found in `SWDFlashLoader.Specifier`'s constructor and `STM32QSPI.newQSPICmd`). (1) A leading `//` line comment was inlined as a text prefix on the same physical output line as the following parameter's type+name, silently swallowing that parameter's declaration (and, once re-tokenized, the next one too) into the comment -- compile-breaking. Fixed by emitting a leading `//` line comment on its own separate line; a self-terminating `/* ... */` block comment still inlines as before. (2) The shared column-width used to align type/name (`typeColWidth`, from `maxTypeLen`) is computed only over params with no leading comment at all, so a param preceded by a line comment -- excluded from that computation -- could have a `typeText` as long as or longer than `typeColWidth`, making `padRight` a no-op and merging type+name with zero space (`InstModeinstMode`) on the next reformat. Fixed by never padding to less than `typeText.length() + 1`. |
 
 ---
 
@@ -603,6 +604,22 @@ fallback-to-standalone-on-delegation-failure behavior); `Config.lineEndings()` i
   candidate tested so far (1 file out of 1997 in this candidate; zero elsewhere). Left open;
   revisit only if a broader real-world pattern of impact emerges. Documented for users in
   `README.md`'s "Known Limitations" section. No fixture (nothing was fixed).
+
+  **Second occurrence** — local `src/jxm` dogfood (candidate 23): `tool/JSONEncoderLite.java`
+  has a lone declaration statement inside a deeply/inconsistently hand-indented `switch`
+  `default` block whose indentation drifts by 1 space per round (non-idempotent). Root-caused
+  via a minimal synthetic repro (deliberately deep 41/45-space hand-indentation matching the
+  real file's shape, not committed as a fixture) to the same architectural bug class as the
+  entry above: `ScopePipeline.applyDeclarationsPass`'s raw-source-derived indent computation
+  (via `normalizeIndent`/leading-gap-stripping) diverges from ordinary statements'
+  scope-depth-derived indent specifically when the *original* source's raw indentation for that
+  one line is inconsistent with the block's structural depth — the same root cause shape as
+  `SwitchRule.applyNonInlineCaseIndent`'s gap above, just triggered via the declarations pass
+  instead of the switch-case reindent pass. Same disposition: ACCEPTED, not fixed — single
+  occurrence (1 file across this candidate's ~272-file scope), real fix requires the same
+  nontrivial rework (derive each line's absolute target from structural depth rather than a
+  raw-source-derived delta), same regression risk against the current passing test suite for a
+  narrow real-world shape. Left open alongside the entry above; no fixture (nothing was fixed).
 
 ## Known Gaps — Fixed
 

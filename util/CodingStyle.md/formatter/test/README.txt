@@ -930,6 +930,44 @@ Real-code regressions:
                                             collapsed the same way `MiscRule.collapseToOneLine`
                                             does (not raw character count, to avoid overstating
                                             width from un-collapsed original-source padding).
+
+  real_code_regressions_66_inp/out.java  -- Java, local `src/jxm` real-code testing: STYLE.md
+                                            §8 multi-line parameter-list rendering's `leadPrefix`/
+                                            `typeCell` logic (`MiscRule.render` and its near-
+                                            duplicate multi-line-declaration renderer) had two
+                                            related bugs around a standalone `//` banner comment
+                                            used as a section divider between parameter groups
+                                            (found in `ugc/fl/SWDFlashLoader.java`'s `Specifier`
+                                            constructor and `ugc/stm32xf/STM32QSPI.java`'s
+                                            `newQSPICmd`). (1) The leading `//` line comment was
+                                            being inlined as a text prefix on the same physical
+                                            output line as the following parameter's type+name;
+                                            since `//` comments extend to end-of-line, this
+                                            silently swallowed the parameter declaration (and, once
+                                            re-tokenized on a later pass, cascaded into swallowing
+                                            the next parameter too) into the comment text -- a
+                                            compile-breaking corruption. Fixed by emitting a
+                                            leading `//` line comment on its own separate output
+                                            line instead of inlining it (a `/* ... */` block
+                                            comment, being self-terminating within the line, still
+                                            inlines safely as before). (2) The column-width used to
+                                            align each param's name after its type
+                                            (`typeColWidth`, from `maxTypeLen`) is computed only
+                                            over params with no leading comment at all, so a param
+                                            preceded by a line comment -- excluded from that
+                                            computation -- can have a `typeText` as long as or
+                                            longer than `typeColWidth`; `padRight` is then a no-op,
+                                            leaving zero space between the type and the name and
+                                            merging them into one token on the next reformat pass
+                                            (e.g. `InstModeinstMode`). Fixed by never padding to
+                                            less than `typeText.length() + 1`, guaranteeing at
+                                            least one space regardless of the shared column width.
+                                            Verified idempotent against both real files plus this
+                                            synthetic fixture (which additionally exercises a
+                                            standalone banner comment following two params that
+                                            each already carry their own same-line trailing
+                                            comment, matching the real files' exact shape).
+
                                             Fixed in two parts: (1) extended the exemption to also
                                             cover a depth-0 `if` directly preceded by a bare `=`
                                             that is itself a function's (not a `val`/`var`

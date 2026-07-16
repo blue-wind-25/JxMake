@@ -1480,8 +1480,31 @@ public class MiscRule {
             final String nameText = p.comment != null
                     ? padRight(nameCommaText, maxNameCommaLen) + " " + p.comment.text
                     : nameCommaText;
-            final String leadPrefix = p.leadingComment != null ? p.leadingComment.text + " " : "";
-            final String typeCell = p.leadingComment != null ? typeText + " " : padRight(typeText, typeColWidth);
+            // A `//` line comment can never share a physical line with anything after it -- it
+            // extends to end-of-line, so inlining it as a prefix before the type/name would
+            // silently swallow this param's own declaration (and, once re-tokenized on a later
+            // pass, cascade into swallowing whatever followed too) into the comment text,
+            // corrupting the parameter list (found via `src/jxm` real-code testing:
+            // `SWDFlashLoader.Specifier`'s constructor has a standalone `////...////` banner
+            // comment as a section divider between parameter groups). Only a block comment
+            // (`/* ... */`, which is self-terminating within the line) is safe to inline this way.
+            final boolean leadingIsLineComment = p.leadingComment != null
+                    && p.leadingComment.type == TokenType.COMMENT_LINE;
+            if (leadingIsLineComment) {
+                lines.add(paramIndent + p.leadingComment.text);
+            }
+            final String leadPrefix = (p.leadingComment != null && !leadingIsLineComment)
+                    ? p.leadingComment.text + " " : "";
+            // `typeColWidth` is derived only from params with no leadingComment at all (see the
+            // `maxTypeLen` loop above), so a param preceded by a line comment -- excluded from
+            // that computation -- can have a `typeText` as long as or longer than `typeColWidth`.
+            // `padRight` is a no-op once the string already reaches the target width, which would
+            // leave zero space between the type and the name, silently merging them into one
+            // token on reformat (found via `src/jxm` real-code testing: `STM32QSPI.newQSPICmd`'s
+            // `// Instruction` comment before its first param). Guarantee at least one space by
+            // never padding to less than `typeText.length() + 1`.
+            final String typeCell = (p.leadingComment != null && !leadingIsLineComment)
+                    ? typeText + " " : padRight(typeText, Math.max(typeColWidth, typeText.length() + 1));
             lines.add(paramIndent + leadPrefix + typeCell + nameText);
         }
         lines.add(indentText(indentLevel, indentStyle) + ")");
@@ -2870,8 +2893,19 @@ public class MiscRule {
             final String nameText = p.comment != null
                     ? padRight(nameCommaText, maxNameCommaLen) + " " + p.comment.text
                     : nameCommaText;
-            final String leadPrefix = p.leadingComment != null ? p.leadingComment.text + " " : "";
-            final String typeCell = p.leadingComment != null ? typeText + " " : padRight(typeText, typeColWidth);
+            // Same `//` line-comment-can't-share-a-line fix as `render`'s identical loop above --
+            // see that method's doc comment for the full root-cause narrative.
+            final boolean leadingIsLineComment = p.leadingComment != null
+                    && p.leadingComment.type == TokenType.COMMENT_LINE;
+            if (leadingIsLineComment) {
+                lines.add(paramIndent + p.leadingComment.text);
+            }
+            final String leadPrefix = (p.leadingComment != null && !leadingIsLineComment)
+                    ? p.leadingComment.text + " " : "";
+            // Same guaranteed-minimum-space fix as `render`'s identical loop above -- see that
+            // method's doc comment for the full root-cause narrative.
+            final String typeCell = (p.leadingComment != null && !leadingIsLineComment)
+                    ? typeText + " " : padRight(typeText, Math.max(typeColWidth, typeText.length() + 1));
             lines.add(paramIndent + leadPrefix + typeCell + nameText);
         }
         lines.add(baseIndent + ")");

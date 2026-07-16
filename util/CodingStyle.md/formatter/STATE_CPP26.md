@@ -79,9 +79,23 @@ the tokenizer validation pass, so it's premature to define config for it —
 any knob added now would be speculation about a rule set that isn't
 trusted yet. Revisit once §5 graduates out of draft status.
 
+## Test Fixtures (External, corpus-scale)
+
+For §5 Reflection tokenizer/rule validation (see Scope §5 and the Checklist
+below), real-code testing against:
+- `bloomberg/clang-p2996`
+- `wrocpp/cpp26-reflection-examples`
+- `simdjson/experimental_json_builder`
+- `stephenberry/glaze`
+- `ryanjk5.github.io/posts/rjk-duck` (blog post, not a repo — `^^`/`[:`/`:]`/
+  `template for` examples covering vtable generation and member-pointer
+  substitution; formatting-wise the examples are plain, no unusual
+  whitespace/nesting, so it's useful as an extra real-world source but
+  doesn't substitute for the repos above)
+
 ## Test Fixtures (Local)
 
-Planned local dogfood pairs (distinct from §5's external-repo list, which
+Planned local dogfood pairs (distinct from the external-repo list above, which
 is for corpus-scale reflection validation — see Scope §5 above) are staged
 in **FUTURE_TEST_FIXTURES.md**, under its "CPP26" section — not duplicated
 here. See that file for the pair list and what each covers. Its reflection
@@ -137,7 +151,5 @@ formal blocked Open Question here since real implementation hasn't started.
       validation pass, per that section's own note) and register in the
       Makefile's `INP_FILES` / `test/README.txt`.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
-      `STYLE_CPP26.md` §5's listed test-fixture repos
-      (`bloomberg/clang-p2996`, `wrocpp/cpp26-reflection-examples`,
-      `simdjson/experimental_json_builder`, `stephenberry/glaze`,
-      `ryanjk5.github.io/posts/rjk-duck`) once §5 is implemented.
+      this file's "Test Fixtures (External, corpus-scale)" list, once §5
+      is implemented.

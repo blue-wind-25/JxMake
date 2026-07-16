@@ -127,16 +127,6 @@ constexpr auto computed = [: computeRefl(x) :];   // splice brackets — loose, 
   `constexpr auto x = ^^...;` statements) — revisit once the tokenizer pass confirms
   the tokens are handled correctly at all.
 
-**Test-fixture repos** (same list as FUTURE_FEATURE_DISCUSSION.md, carried here since
-this is the section that actually needs them for validation):
-- `bloomberg/clang-p2996`
-- `wrocpp/cpp26-reflection-examples`
-- `simdjson/experimental_json_builder`
-- `stephenberry/glaze`
-- `ryanjk5.github.io/posts/rjk-duck` (blog post, not a repo — `^^`/`[:`/`:]`/`template for`
-  examples covering vtable generation and member-pointer substitution; formatting-wise
-  the examples are plain, no unusual whitespace/nesting, so it's useful as an extra
-  real-world source but doesn't substitute for the repos above)
-
-Implementation-tracker content (config keys, test-fixture tracking) for this
-file lives in `formatter/STATE_CPP26.md`, not here — see that file.
+Implementation-tracker content (config keys, test-fixture tracking, including
+the external test-fixture-repo list for §5 validation) for this file lives in
+`formatter/STATE_CPP26.md`, not here — see that file.

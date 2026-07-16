@@ -2,7 +2,7 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
-# Complete, verify, and improve the implementation of 'util/CodingStyle.md/formatter'.
+# Further complete, verify, and improve the implementation of 'util/CodingStyle.md/formatter'.
 
 # Verify the remaining changes made by AI coding agents, and then delete all '_0_*.diff' files:
       hardware/JxMake_USB_GPIO_II/Firmware/_0_ATmega8A_Common.diff

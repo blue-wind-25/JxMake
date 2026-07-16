@@ -98,6 +98,47 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 
 ---
 
+## Config
+
+- `python-import-sort` (on/off) — toggles §3.1's alphabetical sort.
+- `python-import-blank-lines` — blank lines between import groups (mirrors
+  `java-import-blank-lines`'s shape in `STYLE_JAVA.md` §7 / README.md's
+  config table).
+
+No `python-import-stdlib-list` / `python-import-first-party-packages` keys
+are needed — §3's simplified sort rule has no tier classification to
+configure.
+
+---
+
+## Test-Fixture Repos
+
+- `python/cpython` — the reference implementation's own standard library;
+  large, disciplined, real-world Python at scale.
+- `pallets/flask` — small-to-medium, idiomatic, widely-read real Python.
+- `django/django` — large real-world Python with heavy decorator/class-based-
+  pattern and dict/list literal density (good §1.5 dict-vs-set stress test).
+- `psf/black` — worth including specifically because it's a formatter
+  itself: its own source is real Python, and its test-fixture corpus
+  (`tests/data`) is itself a curated set of formatting edge cases that may
+  be directly reusable.
+- `pallets/click` — dense decorator and nested-call-argument use, good
+  additional stress test for the §1.1 tight/loose bracket heuristic on call
+  sites.
+
+---
+
+## Test Fixtures (Local)
+
+Planned local dogfood pairs (distinct from the external-repo list above,
+which is for corpus-scale validation) are staged in
+**FUTURE_TEST_FIXTURES.md**, under its "Python3" section — not duplicated
+here. See that file for the pair list and what each covers. Once authored,
+register pairs in the Makefile's `INP_FILES` / `test/README.txt`, and empty
+out FUTURE_TEST_FIXTURES.md's "Python3" section accordingly.
+
+---
+
 ## Open Questions
 
 None currently — `STYLE_PYTHON3.md`'s own "Known Open Items" (§10) states

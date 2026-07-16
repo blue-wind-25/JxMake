@@ -38,15 +38,22 @@ baseline in `STYLE_CPP20.md`) with:
    Kotlin's Step 0 tokenizer work). Not validated against real JAR behavior
    yet — style doc treats this section as draft.
 6. Config — no new config keys for §1–4; §5 deliberately has none yet since
-   its rules aren't trusted.
+   its rules aren't trusted. See "Config" below.
 7. Test fixtures — planned pairs live in `FUTURE_TEST_FIXTURES.md`'s "CPP26"
-   section (not yet moved here).
+   section (not yet moved here). See "Test Fixtures (Local)" below.
 
-No `src/` files yet — scaffold dispatch lives in the shared
-`Lang.java`/`Main.java`/`ServerMode.java`/`Config.java`, described in the
-routing `CLAUDE.md` table; this job's own rule classes (a future
-`CppSpecificRule.java` extension or new C++26-specific class) do not exist
-yet.
+**C++26 is NOT a separately selectable language.** It has no `Lang.isCpp26`
+flag, no `--lang cpp26` / `lang=cpp26` selector, and no `SCAFFOLD_ONLY_LANGUAGES`
+entry — `.cpp`/`.hpp` files resolve to the existing, already-implemented
+`"cpp"` pipeline exactly as they always have. C++26 rule coverage lands
+directly inside that pipeline's existing rule classes (primarily
+`CppSpecificRule.java`) when implemented, the same way C++20 support was
+folded additively into `"cpp"` with no separate `isCpp20`/`--lang cpp20`
+selector (`STYLE_CPP20.md` extends `STYLE_C_CPP.md` in place). See RDD_KEY_180.
+
+No `src/` files yet — this job's own rule coverage (extending
+`CppSpecificRule.java` or similar) does not exist yet; when it lands it is
+gated on `isCpp`, not a new flag.
 
 ---
 
@@ -59,7 +66,30 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 
 | Key | Topic |
 |---|---|
-| RDD_KEY_179 | Language-selection mechanism — C++26 is explicit-only via `--lang cpp26` / `lang=cpp26` (never auto-`Lang.infer`red from `.cpp`/`.hpp`, which stay `"cpp"` as before) |
+| RDD_KEY_179 | (**REVERSED by RDD_KEY_180** — no longer in effect) Language-selection mechanism — C++26 was made explicit-only via `--lang cpp26` / `lang=cpp26` |
+| RDD_KEY_180 | **REVERSES RDD_KEY_179** — C++26 is not a separate selectable language; it is future incremental rule coverage on the existing `"cpp"` pipeline, same pattern as C++20 |
+
+---
+
+## Config
+
+No new config keys. §1–4 reuse existing STYLE.md/STYLE_CPP20.md logic with
+no toggle-able behavior; §5 (Reflection) is still provisional and pending
+the tokenizer validation pass, so it's premature to define config for it —
+any knob added now would be speculation about a rule set that isn't
+trusted yet. Revisit once §5 graduates out of draft status.
+
+## Test Fixtures (Local)
+
+Planned local dogfood pairs (distinct from §5's external-repo list, which
+is for corpus-scale reflection validation — see Scope §5 above) are staged
+in **FUTURE_TEST_FIXTURES.md**, under its "CPP26" section — not duplicated
+here. See that file for the pair list and what each covers. Its reflection
+pair (`cpp_26_reflection_inp/out.cpp`) is sequenced *after* §5's
+external-repo tokenizer validation, not alongside the other two pairs — see
+that file for why. Once authored, register pairs in the Makefile's
+`INP_FILES` / `test/README.txt`, and empty out FUTURE_TEST_FIXTURES.md's
+"CPP26" section accordingly.
 
 ---
 
@@ -79,17 +109,17 @@ formal blocked Open Question here since real implementation hasn't started.
       by existing C++ support (§1–3 look like they may already be
       structurally covered; §4/§5 look genuinely new — confirm by diffing,
       don't assume).
-- [x] **Language-selection mechanism resolved (RDD_KEY_179), this session.**
-      Both C++26 and C++20 (and earlier) share the same `.cpp`/`.hpp`
-      extensions, so `Lang.infer` deliberately never returns `"cpp26"` —
-      extension-based detection still resolves to `"cpp"` (C++20/17
-      baseline) exactly as before, unchanged. C++26 mode is explicit-only:
-      `--lang cpp26` (CLI, extends the existing `--lang` escape valve
-      already used for other extension ambiguities, e.g. `.h`) or
-      `lang=cpp26` (server query param). Both currently dispatch straight to
-      `UnsupportedLanguageException` (scaffold-only), verified via
-      `./code-formatter.sh --standalone --lang cpp26 --diff <file>.cpp`
-      smoke test.
+- [x] **Language-selection mechanism resolved (RDD_KEY_180, reversing
+      RDD_KEY_179), this session.** C++26 is NOT a separate selectable
+      language — no `Lang.isCpp26` flag, no `--lang cpp26`/`lang=cpp26`
+      selector, no `SCAFFOLD_ONLY_LANGUAGES` entry. `.cpp`/`.hpp` files
+      resolve to `"cpp"` exactly as before; C++26 rule coverage lands
+      directly inside the existing `"cpp"`-gated pipeline
+      (`CppSpecificRule.java` etc.) when implemented, matching how C++20
+      was folded in with no separate selector. (An earlier session had
+      introduced `--lang cpp26` as an explicit-only selector under
+      RDD_KEY_179 — reverted this session as an unnecessary departure from
+      that precedent.)
 - [ ] Tokenizer support pass for §5 Reflection (`^^`, `[:`, `:]`) — new
       `MULTI_CHAR_OPS` entries, longest-prefix-first ordering, full
       existing C/C++/Java/Kotlin regression suite re-run for zero

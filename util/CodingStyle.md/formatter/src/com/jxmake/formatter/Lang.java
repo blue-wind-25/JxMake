@@ -15,8 +15,8 @@ import java.util.Locale;
  * {@link #isJava}/{@link #isKotlin} instead of each re-comparing the raw {@link #language} string.
  *
  * <p>Also recognizes ("dispatches") a second tier of languages that are wired into detection but
- * have no real formatting logic yet -- {@link #isCpp26}, {@link #isJson}/{@link #isJson5}/
- * {@link #isYaml}/{@link #isToml}, {@link #isJs}/{@link #isTs}, {@link #isPython3}. These are
+ * have no real formatting logic yet -- {@link #isJson}/{@link #isJson5}/{@link #isYaml}/
+ * {@link #isToml}, {@link #isJs}/{@link #isTs}, {@link #isPython3}. These are
  * intentionally excluded from {@link #isSupported}/{@link #SUPPORTED_LANGUAGES} (the `--lang`
  * CLI flag / server `lang` param whitelist) so a caller can never construct a {@link Formatter}
  * pipeline for them; {@link #isScaffoldOnly} is the single source of truth callers use to route
@@ -29,7 +29,6 @@ public final class Lang {
     public final boolean isCpp;
     public final boolean isJava;
     public final boolean isKotlin;
-    public final boolean isCpp26;
     public final boolean isJson;
     public final boolean isJson5;
     public final boolean isYaml;
@@ -47,7 +46,6 @@ public final class Lang {
         this.isCpp = "cpp".equals(language);
         this.isJava = "java".equals(language);
         this.isKotlin = "kotlin".equals(language);
-        this.isCpp26 = "cpp26".equals(language);
         this.isJson = "json".equals(language);
         this.isJson5 = "json5".equals(language);
         this.isYaml = "yaml".equals(language);
@@ -70,12 +68,14 @@ public final class Lang {
     /**
      * Scaffold-only languages: recognized by {@link #infer} and accepted by `--lang`/`lang=`, but
      * every real formatting attempt throws {@link UnsupportedLanguageException} -- no rule classes
-     * exist for them yet. See `STATE_CPP26.md`/`STATE_DATA_FORMATS.md`/`STATE_JS_TS.md`/
-     * `STATE_PYTHON3.md`. C++26 is never auto-{@link #infer}red from `.cpp`/`.hpp` (ambiguous with
-     * C++20 -- same extension); it is only selectable explicitly via `--lang cpp26` / `lang=cpp26`.
+     * exist for them yet. See `STATE_DATA_FORMATS.md`/`STATE_JS_TS.md`/`STATE_PYTHON3.md`. (C++26
+     * is deliberately NOT a separate scaffold entry here -- it is future incremental rule coverage
+     * on the existing, already-implemented {@code "cpp"} pipeline, the same way C++20 support was
+     * folded in with no separate {@code isCpp20}/{@code --lang cpp20} selector. See RDD_KEY_180,
+     * which supersedes RDD_KEY_179's now-reverted separate-language approach.)
      */
     public static final String SCAFFOLD_ONLY_LANGUAGES =
-            "cpp26, json, json5, yaml, toml, xml, css, html5, js, ts, python3";
+            "json, json5, yaml, toml, xml, css, html5, js, ts, python3";
 
     public static boolean isSupported(final String language) {
         return "c".equals(language) || "cpp".equals(language)
@@ -83,7 +83,7 @@ public final class Lang {
     }
 
     public static boolean isScaffoldOnly(final String language) {
-        return "cpp26".equals(language) || "json".equals(language) || "json5".equals(language)
+        return "json".equals(language) || "json5".equals(language)
                 || "yaml".equals(language) || "toml".equals(language) || "xml".equals(language)
                 || "css".equals(language) || "html5".equals(language) || "js".equals(language)
                 || "ts".equals(language) || "python3".equals(language);
@@ -102,8 +102,6 @@ public final class Lang {
         if (lower.endsWith(".c") || lower.endsWith(".h")) {
             return "c";
         }
-        // Deliberately NOT auto-inferred as "cpp26" -- .cpp/.hpp are shared with C++20, and the
-        // extension alone cannot distinguish them (RDD_KEY_179). Callers select C++26 explicitly.
         if (lower.endsWith(".cc") || lower.endsWith(".cpp") || lower.endsWith(".cxx")
                 || lower.endsWith(".hh") || lower.endsWith(".hpp") || lower.endsWith(".hxx")) {
             return "cpp";

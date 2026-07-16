@@ -166,10 +166,6 @@ is handed to the same script/style dispatch logic described in §4.2 below, then
 re-wrapped in `<![CDATA[ ]]>` on output. This is a check inside the existing
 dispatcher, not a separate CDATA formatter class.
 
-### 2.5 Config
-
-No new config beyond the existing global `indent-size` / `indent-style`.
-
 ---
 
 ## 3. CSS
@@ -300,54 +296,6 @@ The main design point for HTML5 is dispatch, not new formatting rules:
   `text/template`) is not dispatched to the JS/TS formatter; treat as opaque unless a
   future rule specifically recognizes that type.
 
-### 4.3 Config
-
-No HTML5-specific config beyond the CSS/JSON keys above and whatever the JS/TS
-formatter defines in its own file.
-
----
-
-## Test-Fixture Repos
-
-Recorded here for regression testing once any of this is implemented (not a
-commitment to implement it — see FUTURE_FEATURE_DISCUSSION.md for status):
-
-- **JSON/JSON5:** `json5/json5`, `microsoft/vscode`, `babel/babel`, `eslint/eslint`
-- **XML:** `apache/maven`, `apache/ant`, `jenkinsci/jenkins`, `w3c/svgwg`
-- **CSS:** `twbs/bootstrap`, `necolas/normalize.css`, `foundation/foundation-sites`,
-  `primer/css`
-- **HTML5:** `h5bp/html5-boilerplate`, `twbs/bootstrap` (docs site), `mdn/content`,
-  `whatwg/html`
-
----
-
-## Test Fixtures (Local)
-
-Planned local dogfood pairs (unlike the external-repo list above, which is for
-corpus-scale validation) are staged in **FUTURE_TEST_FIXTURES.md**, under its
-"JSON", "JSON5", "XML", "CSS", and "HTML5" sections — not written here, so this file
-doesn't carry fixture-status content that isn't actually a style rule. See that file
-for the pair list and what each covers.
-
-**Not a style reference — must move at implementation time.** This cross-reference
-itself is implementation-tracker information, not a style rule. When
-`STATE_DATA_FORMATS.md` is created (Implementation Note below), this pointer moves
-there too — FUTURE_TEST_FIXTURES.md's relevant sections are then emptied out (their
-pairs having been authored and registered in `formatter/test/README.txt` per that
-file's own instructions).
-
----
-
-## Implementation Note
-
-This file is style rules only — no implementation-tracker content (open questions,
-commit history, ambiguity log), same separation STATE_C_CPP_JAVA.md keeps from
-STYLE_C_CPP.md/STYLE_CPP20.md.
-
-When actual JAR implementation of JSON/JSON5, XML, CSS, or HTML5 support begins,
-create `STATE_DATA_FORMATS.md`: copy `formatter/STATE_C_CPP_JAVA.md`, strip everything
-not relevant to these formats, and fold in this file's non-style content (open items,
-provisional notes, the Test Fixtures (Local) pointer above) as tracker entries. This
-file then goes back to being pure style rules — same extract-copy-modify step applies
-independently to each new language's style file when its own implementation begins,
-regardless of which order they're picked up in.
+Implementation-tracker content (config keys, test-fixture repos, local test
+fixtures) for this file lives in `formatter/STATE_DATA_FORMATS.md`, not
+here — see that file.

@@ -213,15 +213,6 @@ import os
 import sys
 ```
 
-### 3.4 Config
-
-- `python-import-sort` (on/off) — toggles §3.1's alphabetical sort.
-- `python-import-blank-lines` — blank lines between groups (mirrors
-  `java-import-blank-lines`'s shape in STYLE_JAVA.md §7 / README.md's config table).
-
-No `python-import-stdlib-list` / `python-import-first-party-packages` keys are
-needed — the simplified sort rule above has no tier classification to configure.
-
 ---
 
 ## 4. Decorators
@@ -518,48 +509,6 @@ resolved the same way. Section kept for future use if new gaps surface.
 
 ---
 
-## Test-Fixture Repos
-
-- `python/cpython` — the reference implementation's own standard library; large,
-  disciplined, real-world Python at scale.
-- `pallets/flask` — small-to-medium, idiomatic, widely-read real Python.
-- `django/django` — large real-world Python with heavy decorator/class-based-pattern
-  and dict/list literal density (good §1.5 dict-vs-set stress test).
-- `psf/black` — worth including specifically because it's a formatter itself: its
-  own source is real Python, and its test-fixture corpus (`tests/data`) is itself a
-  curated set of formatting edge cases that may be directly reusable.
-- `pallets/click` — dense decorator and nested-call-argument use, good additional
-  stress test for the §1.1 tight/loose bracket heuristic on call sites.
-
----
-
-## Test Fixtures (Local)
-
-Planned local dogfood pairs (unlike the external-repo list above, which is for
-corpus-scale validation) are staged in **FUTURE_TEST_FIXTURES.md**, under its
-"Python3" section — not written here, so this file doesn't carry fixture-status
-content that isn't actually a style rule. See that file for the pair list and what
-each covers.
-
-**Not a style reference — must move at implementation time.** This cross-reference
-itself is implementation-tracker information, not a style rule. When
-`STATE_PYTHON3.md` is created (Implementation Note below), this pointer moves there
-too — FUTURE_TEST_FIXTURES.md's "Python3" section is then emptied out (its pairs
-having been authored and registered in `formatter/test/README.txt` per that file's
-own instructions).
-
----
-
-## Implementation Note
-
-This file is style rules only — no implementation-tracker content (open questions,
-commit history, ambiguity log), same separation STATE_C_CPP_JAVA.md keeps from
-STYLE_C_CPP.md/STYLE_CPP20.md.
-
-When actual JAR implementation of Python3 support begins, create `STATE_PYTHON3.md`:
-copy `formatter/STATE_C_CPP_JAVA.md`, strip everything not relevant to Python3, and
-fold in this file's non-style content (open items, provisional notes, the Test
-Fixtures (Local) pointer above) as tracker entries. This file then goes back to being
-pure style rules — same extract-copy-modify step applies independently to each new
-language's style file when its own implementation begins, regardless of which order
-they're picked up in.
+Implementation-tracker content (config keys, test-fixture repos, local test
+fixtures) for this file lives in `formatter/STATE_PYTHON3.md`, not here —
+see that file.

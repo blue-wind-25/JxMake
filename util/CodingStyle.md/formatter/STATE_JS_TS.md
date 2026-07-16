@@ -94,6 +94,37 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 
 ---
 
+## Test-Fixture Repos
+
+- `nodejs/node` — large, real, mixed-style JS codebase (core + tooling).
+- `expressjs/express` — smaller, idiomatic, widely-read real-world JS.
+- `lodash/lodash` — dense functional-style JS, good stress test for
+  complexity-based bracket padding (STYLE.md §3.1) on chained calls.
+- `microsoft/TypeScript` — the compiler itself; canonical, heavily-typed
+  real-world TS at scale; also doubles as a JS fixture.
+- `angular/angular` — large, idiomatic, decorator-heavy real TS.
+- `nestjs/nest` — decorator- and generic-heavy backend TS, good coverage of
+  the type-annotation-alignment cases (§11, §14).
+- `vuejs/core` — modern TS with heavy generics and type-level code.
+
+---
+
+## Test Fixtures (Local)
+
+Planned local dogfood pairs (distinct from the external-repo list above,
+which is for corpus-scale validation) are staged in
+**FUTURE_TEST_FIXTURES.md**, under its "JavaScript" and "TypeScript"
+sections — not duplicated here. Note the pairs are split by extension
+(`.js` vs. `.ts`), not shared — same separation C/C++ already have across
+their own fixture families, since TS-only constructs (decorators, enums,
+generics, interfaces) can't live in a valid `.js` file. See that file for
+the pair list and what each covers. Once authored, register pairs in the
+Makefile's `INP_FILES` / `test/README.txt`, and empty out
+FUTURE_TEST_FIXTURES.md's "JavaScript" and "TypeScript" sections
+accordingly.
+
+---
+
 ## Open Questions
 
 ### Open Design Questions

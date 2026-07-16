@@ -431,41 +431,6 @@ the responsibility of the IDE or a separate lint tool (e.g. ESLint).
 
 ---
 
-## Test-Fixture Repos
-
-- `nodejs/node` — large, real, mixed-style JS codebase (core + tooling).
-- `expressjs/express` — smaller, idiomatic, widely-read real-world JS.
-- `lodash/lodash` — dense functional-style JS, good stress test for complexity-based
-  bracket padding (STYLE.md §3.1) on chained calls.
-- `microsoft/TypeScript` — the compiler itself; canonical, heavily-typed real-world TS
-  at scale; also doubles as a JS fixture.
-- `angular/angular` — large, idiomatic, decorator-heavy real TS.
-- `nestjs/nest` — decorator- and generic-heavy backend TS, good coverage of the
-  type-annotation-alignment cases (§11, §14).
-- `vuejs/core` — modern TS with heavy generics and type-level code.
-
----
-
-## Test Fixtures (Local)
-
-Planned local dogfood pairs (unlike the external-repo list above, which is for
-corpus-scale validation) are staged in **FUTURE_TEST_FIXTURES.md**, under its
-"JavaScript" and "TypeScript" sections — not written here, so this file doesn't
-carry fixture-status content that isn't actually a style rule. Note the pairs are
-split by extension (`.js` vs. `.ts`), not shared — same separation C/C++ already have
-across their own fixture families, since TS-only constructs (decorators, enums,
-generics, interfaces) can't live in a valid `.js` file. See that file for the pair
-list and what each covers.
-
-**Not a style reference — must move at implementation time.** This cross-reference
-itself is implementation-tracker information, not a style rule. When
-`STATE_JS_TS.md` is created (Implementation Note below), this pointer moves there
-too — FUTURE_TEST_FIXTURES.md's "JavaScript" and "TypeScript" sections are then
-emptied out (their pairs having been authored and registered in
-`formatter/test/README.txt` per that file's own instructions).
-
----
-
 ## Known Open Items
 
 Not yet designed, deliberately deferred:
@@ -476,18 +441,6 @@ Not yet designed, deliberately deferred:
 - Import-path built-in/third-party/local classification's resolution logic (§15) —
   not yet designed.
 
----
-
-## Implementation Note
-
-This file is style rules only — no implementation-tracker content (open questions,
-commit history, ambiguity log), same separation STATE_C_CPP_JAVA.md keeps from
-STYLE_C_CPP.md/STYLE_CPP20.md.
-
-When actual JAR implementation of JavaScript/TypeScript support begins, create
-`STATE_JS_TS.md`: copy `formatter/STATE_C_CPP_JAVA.md`, strip everything not
-relevant to JS/TS, and fold in this file's non-style content (open items, provisional
-notes, the Test Fixtures (Local) pointer above) as tracker entries. This file then
-goes back to being pure style rules — same extract-copy-modify step applies
-independently to each new language's style file when its own implementation begins,
-regardless of which order they're picked up in.
+Implementation-tracker content (test-fixture repos, local test fixtures,
+open design questions) for this file lives in `formatter/STATE_JS_TS.md`,
+not here — see that file.

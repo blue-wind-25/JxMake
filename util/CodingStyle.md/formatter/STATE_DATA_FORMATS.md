@@ -77,6 +77,45 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 
 ---
 
+## Config
+
+- **JSON/JSON5:** no new config keys beyond what's implied by §1.1's
+  unconditional colon alignment (no toggle, matching STYLE.md §5/§6).
+- **XML:** no new config beyond the existing global `indent-size` /
+  `indent-style`.
+- **CSS:** §3.1's property/value alignment is unconditional, same reasoning
+  as JSON's — no config toggle.
+- **HTML5:** no HTML5-specific config beyond the CSS/JSON keys above and
+  whatever the JS/TS formatter defines in its own state file.
+
+---
+
+## Test-Fixture Repos
+
+Recorded here for regression testing once any of this is implemented (not a
+commitment to implement it — see FUTURE_FEATURE_DISCUSSION.md for status):
+
+- **JSON/JSON5:** `json5/json5`, `microsoft/vscode`, `babel/babel`, `eslint/eslint`
+- **XML:** `apache/maven`, `apache/ant`, `jenkinsci/jenkins`, `w3c/svgwg`
+- **CSS:** `twbs/bootstrap`, `necolas/normalize.css`, `foundation/foundation-sites`,
+  `primer/css`
+- **HTML5:** `h5bp/html5-boilerplate`, `twbs/bootstrap` (docs site), `mdn/content`,
+  `whatwg/html`
+
+---
+
+## Test Fixtures (Local)
+
+Planned local dogfood pairs (distinct from the external-repo list above,
+which is for corpus-scale validation) are staged in
+**FUTURE_TEST_FIXTURES.md**, under its "JSON", "JSON5", "XML", "CSS", and
+"HTML5" sections — not duplicated here. See that file for the pair list and
+what each covers. Once authored, register pairs in the Makefile's
+`INP_FILES` / `test/README.txt`, and empty out FUTURE_TEST_FIXTURES.md's
+relevant sections accordingly.
+
+---
+
 ## Open Questions
 
 None recorded yet in this file.

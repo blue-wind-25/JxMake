@@ -885,48 +885,6 @@ public class GetterSetterRule {
         return -1;
     }
 
-    /**
-     * True iff [from, to) contains exactly one `;` at local bracket depth 0, and that `;` is the
-     * last significant token in the range -- i.e. exactly one statement, nothing trailing after
-     * it (STYLE.md §14's "single-statement one-liner" requirement).
-     */
-    private boolean isSingleStatementBody(final List<Token> tokens, final int from, final int to) {
-        int depth = 0;
-        int semiCount = 0;
-        int semiIdx = -1;
-        int lastSig = -1;
-        for (int i = from; i < to; i++) {
-            final Token t = tokens.get(i);
-            if (isInsignificant(t)) {
-                continue;
-            }
-            lastSig = i;
-            if (t.type == TokenType.PUNCT) {
-                switch (t.text) {
-                    case "(":
-                    case "[":
-                    case "{":
-                        depth++;
-                        break;
-                    case ")":
-                    case "]":
-                    case "}":
-                        depth--;
-                        break;
-                    case ";":
-                        if (depth == 0) {
-                            semiCount++;
-                            semiIdx = i;
-                        }
-                        break;
-                    default:
-                        break;
-                }
-            }
-        }
-        return semiCount == 1 && semiIdx == lastSig;
-    }
-
     // ── Local bracket matching ──────────────────────────────────────────────────
     protected int matchBracket(final List<Token> tokens, final int openIdx, final String open,
             final String close) {
@@ -953,15 +911,6 @@ public class GetterSetterRule {
 
     protected int firstSignificantIndex(final List<Token> tokens, final int from, final int to) {
         for (int i = from; i < to; i++) {
-            if (!isInsignificant(tokens.get(i))) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    private int lastSignificantIndex(final List<Token> tokens, final int from, final int to) {
-        for (int i = to - 1; i >= from; i--) {
             if (!isInsignificant(tokens.get(i))) {
                 return i;
             }

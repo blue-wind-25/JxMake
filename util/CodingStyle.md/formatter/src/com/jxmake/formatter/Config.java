@@ -20,7 +20,6 @@ import java.util.Locale;
 import java.util.Map;
 
 public final class Config {
-    private static final String APP_NAME = "jxmake-code-formatter";
     private static final String CONFIG_DIR = ".config/jxmake-code-formatter";
     private static final String CONFIG_FILE = "config";
     private static final String STYLE_FMT_FILE_NAME = ".jxmake-code-formatter";

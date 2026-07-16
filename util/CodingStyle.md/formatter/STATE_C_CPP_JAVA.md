@@ -464,6 +464,19 @@ on the noted commits/fixtures)
     priority given size, pick up once smaller candidates are exhausted. Likely some
     annotation-processor-generated/Lombok-style code (`AI_PREAMBLE`-adjacent gaps). Would
     verify with (4). (NOT STARTED)
+(7) Local `../../../src` minus the already-DONE `../../../src/jxm` subtree (item 23 above) —
+    vendored third-party Java libraries under `src/com/`/`src/org/` (~173 `.java` files):
+    `com.j256.simplemagic`, `com.intellectualsites.http`, `org.tukaani.xz`,
+    `org.kamranzafar.jtar`, `org.itadaki.bzip2`. Plain `.java` only, no PCPP `.java.in`/
+    `.java.inc` involved (those live only under `src/jxm`), so this is a plain real-code
+    round1/round2 + `java_sc` pass, not the PCPP-aware methodology item 23 needed. Multiple
+    distinct third-party authorial styles in one tree — good "does this hold up against code
+    JxMake didn't write" coverage, distinct from item 23's self-dogfood angle. `src/`'s other
+    top-level loose `.java` files (`ATest1.java`, `GTest1.java`, `GTest2.java`, `PTest1B.java`,
+    `PTest1X.java`, `PTest2B.java`, `PTest2X.java`, `PTest3X.java`, `PTestF.java`) and the
+    `0-JxMake`/`1-TestData` directories were not surveyed for language/hand-written-vs-generated
+    status when this entry was queued — check before including them in the same pass, they may
+    warrant their own separate candidate entry instead. (NOT STARTED)
 
 Priority order for the C/C++ queue above unless the user redirects:
 `STL` → `llvm-project` → `gcc-mirror` (`mp11`/`lexy`/`stdexec`/`range-v3`/`boost-ext/ut`/

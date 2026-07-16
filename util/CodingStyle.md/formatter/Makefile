@@ -165,6 +165,8 @@ REF_FILES := $(subst _inp,_out,$(INP_FILES))
 # svn add util/CodingStyle.md/formatter/test/real_code_regressions*
 # svn commit -m 'Follow GIT changes' && git push && echo && git status && echo && svn stat && echo
 
+# echo && sensors && free -h && echo
+
 # make test
 # make test 2>/dev/null
 # make test 2>&1 | grep -E 'PASS|FAIL'

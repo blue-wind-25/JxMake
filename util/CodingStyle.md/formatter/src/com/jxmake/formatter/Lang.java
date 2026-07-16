@@ -34,6 +34,9 @@ public final class Lang {
     public final boolean isJson5;
     public final boolean isYaml;
     public final boolean isToml;
+    public final boolean isXml;
+    public final boolean isCss;
+    public final boolean isHtml5;
     public final boolean isJs;
     public final boolean isTs;
     public final boolean isPython3;
@@ -49,6 +52,9 @@ public final class Lang {
         this.isJson5 = "json5".equals(language);
         this.isYaml = "yaml".equals(language);
         this.isToml = "toml".equals(language);
+        this.isXml = "xml".equals(language);
+        this.isCss = "css".equals(language);
+        this.isHtml5 = "html5".equals(language);
         this.isJs = "js".equals(language);
         this.isTs = "ts".equals(language);
         this.isPython3 = "python3".equals(language);
@@ -69,7 +75,7 @@ public final class Lang {
      * C++20 -- same extension); it is only selectable explicitly via `--lang cpp26` / `lang=cpp26`.
      */
     public static final String SCAFFOLD_ONLY_LANGUAGES =
-            "cpp26, json, json5, yaml, toml, js, ts, python3";
+            "cpp26, json, json5, yaml, toml, xml, css, html5, js, ts, python3";
 
     public static boolean isSupported(final String language) {
         return "c".equals(language) || "cpp".equals(language)
@@ -78,7 +84,8 @@ public final class Lang {
 
     public static boolean isScaffoldOnly(final String language) {
         return "cpp26".equals(language) || "json".equals(language) || "json5".equals(language)
-                || "yaml".equals(language) || "toml".equals(language) || "js".equals(language)
+                || "yaml".equals(language) || "toml".equals(language) || "xml".equals(language)
+                || "css".equals(language) || "html5".equals(language) || "js".equals(language)
                 || "ts".equals(language) || "python3".equals(language);
     }
 
@@ -115,6 +122,15 @@ public final class Lang {
         }
         if (lower.endsWith(".toml")) {
             return "toml";
+        }
+        if (lower.endsWith(".xml")) {
+            return "xml";
+        }
+        if (lower.endsWith(".css")) {
+            return "css";
+        }
+        if (lower.endsWith(".html") || lower.endsWith(".htm")) {
+            return "html5";
         }
         // .jsx folds into "js" and .tsx into "ts" for detection/dispatch purposes this session --
         // JSX/TSX need their own future embedding-aware dispatcher (STATE_JS_TS.md Open Design

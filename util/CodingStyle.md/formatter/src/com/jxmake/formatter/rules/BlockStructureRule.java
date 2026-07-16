@@ -684,6 +684,23 @@ public class BlockStructureRule {
         if (first.type == TokenType.KEYWORD && COMPOUND_BODY_KEYWORDS.contains(first.text)) {
             return null;
         }
+        // Unlike `tryCollapse`'s braced-body path (which routes through
+        // `isKotlinSingleStatementBody`, itself gated by `containsMultilineNestedBrace`), this
+        // braceless-body scan above only tracks `(`/`[`/`{` nesting depth to find where the body
+        // *ends* -- it never verifies the body is actually a single statement once it can itself
+        // own a multi-line `{...}` block (e.g. a trailing-lambda call like `buildList(10) { ... }`
+        // as the sole statement of a braceless `if`/bare `else`). `renderInline` below flattens
+        // every WHITESPACE/NEWLINE in `contents` to one space with no brace-depth awareness, so
+        // without this check such a body's own internal multi-statement block gets fused onto one
+        // line with no `;` separator between its statements -- a genuine Kotlin compile error.
+        // Found via arrow-kt/arrow real-code testing (`Either.kt`'s `zipOrAccumulate`: `else
+        // buildList(10) { if (a is Left) add(a.value) if (b is Left) add(b.value) ... }` had its
+        // ten `if`/`add` statements fused with no separator). Bail (leave the input untouched,
+        // same conservative posture as every other guard in this method) whenever the body
+        // contains such a block -- mirrors `tryCollapse`'s own guard exactly.
+        if (containsMultilineNestedBrace(contents)) {
+            return null;
+        }
 
         final String body = renderInline(contents);
         outBodyEnd[0] = bodyEnd;

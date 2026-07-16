@@ -847,6 +847,29 @@ Real-code regressions:
                                             repro combining both, both real files individually
                                             round1/round2 byte-identical, full `make test`.
 
+  real_code_regressions_63_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing:
+                                            `BlockStructureRule.collapseBracelessBody`'s
+                                            braceless-body scan (bare `else`/braceless `if`) only
+                                            tracked `(`/`[`/`{` nesting depth to find where the
+                                            body ends -- it never checked whether that body was
+                                            actually a single statement once it could itself own a
+                                            multi-line `{...}` block (e.g. a trailing-lambda call
+                                            like `buildList(10) { ... }` as the sole statement of
+                                            a bare `else`). `renderInline` then flattened every
+                                            WHITESPACE/NEWLINE in the body to one space with no
+                                            brace-depth awareness, fusing the block's internal
+                                            statements onto one line with no `;` separator -- a
+                                            genuine Kotlin compile error. Fixed by reusing the
+                                            existing `containsMultilineNestedBrace` helper as a
+                                            bail-out guard, mirroring the analogous protection
+                                            already present in the braced-body collapse path
+                                            (`tryCollapse` -> `isKotlinSingleStatementBody`).
+                                            Found in `Either.kt`'s `zipOrAccumulate`
+                                            (`buildList(10) { if (a is Left) add(a.value) if (b is
+                                            Left) add(b.value) ... }`). Verified: minimal repro,
+                                            `Either.kt` passes `kotlin_sc` cleanly (was 18 errors,
+                                            now 0), full `make test`.
+
 How Tests Are Run
 -----------------
 

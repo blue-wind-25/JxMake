@@ -153,6 +153,7 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_162 | **RESOLVES RDD_KEY_161's last open question**, `ChannelFlow.kt` declaration-alignment padding flap (final file of the `kotlinx.coroutines` investigation) — early alignment phase widened a sibling line enough to trigger a later wrap, which then un-widened it next pass; fix plumbs indent-width/line-length awareness into `renderAlignedGroup` with a brace-bodied-initializer-only exclusion. Fixture `_45`. Closes the entire investigation. |
 | RDD_KEY_174 | `arrow-kt/arrow` dogfood, idempotency bug 1 (`RaiseContext.kt`'s `ensureNotNull`, deferred by RDD_KEY_173): `KotlinSignatureRule.parseKotlinSignature`'s first-`IDENTIFIER (` scan mistook a leading `context(raise: Raise<Error>)` clause's own paren for the real signature's param list when both shared one physical line — fixed by skipping a non-matching candidate paren and continuing the scan. Combined fixture `_62` (with RDD_KEY_175). |
 | RDD_KEY_175 | `arrow-kt/arrow` dogfood, idempotency bug 2 (`Iterable.kt`'s `separateEither`, deferred by RDD_KEY_173): `Formatter.java` ran `formatWhenExpressions` (can insert `when{}` blank lines) after `addClosingComments` had already counted the enclosing `for` loop's line total against `closing-comment-min-lines` — fixed by moving `formatWhenExpressions` ahead of `addClosingComments`, same precedent as `alignInlineSwitches`/`markFallthrough`. Combined fixture `_62` (with RDD_KEY_174). |
+| RDD_KEY_176 | `arrow-kt/arrow` dogfood, bug 4 (`Either.kt`'s `zipOrAccumulate`, deferred by RDD_KEY_173): `BlockStructureRule.collapseBracelessBody` (bare-`else`/braceless-`if` body collapse) never checked whether its found body was actually a single statement once that body could itself own a multi-line `{...}` block (a trailing-lambda call like `buildList(10) { ... }`) — `renderInline` fused the block's internal statements with no `;` separator, a genuine compile error. Fixed by reusing `containsMultilineNestedBrace` as a bail-out guard, mirroring `tryCollapse`'s existing protection. Fixture `_63`. Sibling `Comparison.kt` `sort2` idempotency flap (also deferred by RDD_KEY_173) remains open — see Open Questions. |
 
 ---
 
@@ -688,40 +689,88 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
    files individually confirmed round1/round2 byte-identical after the
    fixes; `make test` 86/86 clean, zero regressions.
 
+   **The `Either.kt` compile-breaking bug above is now FIXED (RDD_KEY_176,
+   this session)** — its root cause was mis-attributed to
+   `MiscRule.enforceCallLineBreaking` by the deferral note; debug tracing
+   showed the fused-without-`;` text was already present *before*
+   `enforceCallLineBreaking` ever ran. True cause:
+   `BlockStructureRule.collapseBracelessBody` (bare-`else`/braceless-`if`
+   body collapse) never checked whether its found "body" was actually a
+   single statement once that body could itself own a multi-line `{...}`
+   block (a trailing-lambda call like `buildList(10) { ... }`), so
+   `renderInline` fused the block's internal statements with no separator.
+   Fixed by reusing `containsMultilineNestedBrace` as a bail-out guard,
+   mirroring `tryCollapse`'s existing protection. Fixture
+   `test/real_code_regressions_63_{inp,out}.kt`. `Either.kt`: 18 `kotlin_sc`
+   errors → 0. `make test`: 87/87 clean, zero regressions.
+
    **One bug remains found but NOT fixed, deferred (same posture as
    RDD_KEY_149's earlier `okio` deferral) — still the only known gap for
    this candidate:**
-   - `MiscRule.enforceCallLineBreaking`'s width measurement for nested call
-     candidates (e.g. `leq(a, b)` inside an expression-bodied function tail)
-     uses the full original physical line's width even when an
-     enclosing/preceding candidate on the same line has already been
-     claimed for multi-line rewriting, causing spurious redundant wrapping.
-     Confirmed as a genuine `kotlin_sc` compile error (not just cosmetic)
-     in `arrow-core`'s `Either.kt` (a `buildList(10) { if (a is Left)
-     add(a.value) ... }` block with 10 sequential `if`/`add` statements gets
-     its statements fused with no separator between them, since Kotlin has
-     no mandatory `;`) — this is the ONLY remaining `kotlin_sc`-flagged
-     syntax error in the 63-file scope as of this session. Also produces a
-     pure idempotency (non-compile-breaking) flap in `Comparison.kt`'s
-     `sort2` (confirmed still present, unchanged, this session's full-scope
-     round1/round2 re-diff). A fix was attempted (threading a
-     `lastClaimedEnd`/`floor` value into `renderCallCandidate`) but caused 3
-     regressions in existing fixtures (`_33`, `_46`, `_55`) because
-     `enforceCallLineBreaking` runs twice in `Formatter`'s pipeline and the
-     floor logic incorrectly suppressed a legitimately-needed wrap on the
-     second pass — reverted via `git checkout --`, not committed. Needs a
-     more careful fix that accounts for both pipeline passes before
-     attempting again. Not attempted this session (explicit user priority:
-     chase the idempotency bugs first; both finished with no budget spent
-     confirming this one is still tractable-but-unattempted).
+   - A pure idempotency (non-compile-breaking) flap in `Comparison.kt`'s
+     `sort2`: `private inline fun <A> sort2(a: A, b: A, leq: (A, A) ->
+     Boolean) = if (leq(a, b)) Pair(a, b) else Pair(b, a)`. Round1 (fresh
+     source) wraps the whole signature+body across multiple lines; round2
+     (reformatting round1's own output) leaves the signature wrapped but
+     re-collapses `leq(...)`/`Pair(...)`/`else Pair(...)` back onto one
+     short line, since it now measures as fitting in isolation — a genuine
+     non-fixed-point flap, not a compile error (confirmed via minimal repro
+     `sort2.kt`; both forms are valid Kotlin).
+   - A fix was attempted twice now (this session and the prior one),
+     threading a `lastClaimedEnd`/`floor` value into `renderCallCandidate`
+     so that a nested call's width measurement wouldn't include a sibling
+     candidate's already-claimed span. Both attempts fixed `sort2.kt` but
+     regressed the SAME 3 existing fixtures (`_33`, `_46`, `_55`) because
+     `enforceCallLineBreaking` runs twice in `Formatter.java`'s pipeline —
+     reverted both times via `git checkout --`, never committed.
+   - **New diagnostic finding this session** (not yet turned into a fix):
+     the true mechanism is upstream of `enforceCallLineBreaking` entirely.
+     `BlockStructureRule.collapseSingleExpressionBlocks`'s braceless-`if`
+     handling (`tryCollapseBraceless` / `collapseBracelessBody`) treats
+     `sort2`'s `if (leq(a, b)) Pair(a, b) else Pair(b, a)` — an
+     *if-expression* used as the function's whole body after `=`, not an
+     if-*statement* — as a collapsible braceless body, because the
+     existing `isKotlinExpressionIf` exemption (RDD_KEY_142-ish, see that
+     key) only guards the case where the `if` sits at `kotlinParenDepth >
+     0` (parenthesized/argument position); an unparenthesized
+     expression-bodied `if` after `=` has depth 0 and is NOT exempted, so
+     it's treated as an ordinary control-flow statement whose "body"
+     (`Pair(a, b) else Pair(b, a)`, scanned by tracking only `(`/`[`/`{`
+     depth) gets unconditionally flattened via `renderInline` on EVERY
+     format pass — including collapsing an already-multi-line nested call
+     that a PRIOR round's `enforceCallLineBreaking` had deliberately
+     wrapped. On round1, the whole `sort2(...) = if (...) ... else ...` is
+     still one giant physical line when this collapse runs (nothing has
+     separated signature from body yet), so the too-long fresh line
+     correctly drives `enforceCallLineBreaking` to wrap everything
+     (signature AND `leq`/`Pair`) consistently. On round2, the *signature*
+     wrap is sticky/preserved by an earlier stage (before
+     `collapseSingleExpressionBlocks` runs, likely `KotlinSignatureRule` /
+     `ScopePipeline`), so only the body gets re-collapsed by
+     `collapseSingleExpressionBlocks`, in isolation, onto its own short
+     line — `enforceCallLineBreaking` then correctly (by its own local,
+     line-scoped logic) measures that short line as fitting and leaves it
+     alone. The combined one-line form (signature + body joined, tightened)
+     is ~109 chars, over the 100-char default limit, so "un-wrap the
+     signature too" isn't the fix either — the two fragments are
+     independently valid-looking to their respective passes but represent
+     two different STABLE states depending on which order the collapse and
+     wrap decisions run in. A correct fix likely needs either (a)
+     `isKotlinExpressionIf` extended to also exempt a depth-0 if-expression
+     used as an entire function body (so `collapseSingleExpressionBlocks`
+     never touches it at all, leaving `enforceCallLineBreaking` as the sole
+     source of truth for this shape), or (b) some other mechanism to make
+     the collapse-then-rewrap sequence converge to the same fixed point
+     regardless of which physical-line grouping happens to exist when each
+     pass runs. Not reattempted this session beyond the above diagnosis, to
+     avoid a third regression-prone attempt without a clearer design.
    Verification method: `kotlin_sc` run against a fresh round1 build of the
    full 63-file scope (baseline: 0 errors on unmodified `orig/`; before
-   RDD_KEY_171-173: 5 files with genuine syntax errors; after RDD_KEY_173
-   and still true after RDD_KEY_174/175 this session, which touched no
-   `enforceCallLineBreaking`-related code: 1 file, `Either.kt`). Full-scope
+   RDD_KEY_171-173: 5 files with genuine syntax errors; after RDD_KEY_173:
+   1 file, `Either.kt`; after RDD_KEY_176 this session: 0 files). Full-scope
    round1/round2 idempotency diff this session: only `Comparison.kt` differs
-   (the known `Either.kt`-sibling flap above) — every other file in the
-   63-file scope is round1/round2 byte-identical.
+   (the `sort2` flap above, unchanged) — every other file in the 63-file
+   scope is round1/round2 byte-identical.
 
 **When a test completes:** move/compact its entry from "Not started" (or its
 "In progress" detail) into "Finished dogfood / real-code testing", and add a

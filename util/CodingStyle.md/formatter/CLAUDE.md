@@ -1,24 +1,37 @@
 # formatter/ — working rules
 
-This directory has two independent tracked jobs. Both share one common
+This directory has several independent tracked jobs. All share one common
 process file plus their own job-specific file. Before doing any work,
 identify which job the current task belongs to, then read `STATE_COMMON.md`
-first, followed by **only** that job's own file — do not read the other
+first, followed by **only** that job's own file — do not read any other
 job's file.
 
 | Job | Read first | Then read |
 |---|---|---|
 | C/C++/Java formatter (existing, most work happens here) | `STATE_COMMON.md` | `STATE_C_CPP_JAVA.md` |
 | Kotlin JAR support | `STATE_COMMON.md` | `STATE_KOTLIN.md` |
+| C++26 support (scaffold only — throws "not yet implemented") | `STATE_COMMON.md` | `STATE_CPP26.md` |
+| Data-format support: JSON/JSON5/YAML/TOML/etc. (scaffold only — JSON/JSON5 first real impl) | `STATE_COMMON.md` | `STATE_DATA_FORMATS.md` |
+| JS/TS support (scaffold only — HTML5/JSX/TSX need their own future dispatcher) | `STATE_COMMON.md` | `STATE_JS_TS.md` |
+| Python3 support (scaffold only) | `STATE_COMMON.md` | `STATE_PYTHON3.md` |
 
 `STATE_COMMON.md` holds the shared commit workflow, ambiguity-handling
 protocol, file-exclusion rules, and real-code-testing methodology used by
-both jobs. `STATE_C_CPP_JAVA.md` is the authoritative source for the
+every job. `STATE_C_CPP_JAVA.md` is the authoritative source for the
 C/C++/Java job's progress, implementation protocol, and "Resolved Design
 Decisions" table — it supersedes general guesswork for that job.
-`STATE_KOTLIN.md` is the Kotlin job's own equivalent. Do not cross-reference
-between `STATE_C_CPP_JAVA.md` and `STATE_KOTLIN.md` unless a state file's own
-text says otherwise.
+`STATE_KOTLIN.md`, `STATE_CPP26.md`, `STATE_DATA_FORMATS.md`,
+`STATE_JS_TS.md`, and `STATE_PYTHON3.md` are each job's own equivalent. Do
+not cross-reference between any two job state files unless a state file's
+own text says otherwise.
+
+The four newer jobs (C++26, data formats, JS/TS, Python3) are scaffold-only
+as of their kickoff: wired into `Lang.java`/`Config.java`/`Main.java`/
+`ServerMode.java` for detection/dispatch, but every unimplemented language
+throws a clear "not yet implemented" error rather than silently passing
+text through or attempting real formatting. `README.md`/`../README.txt` are
+intentionally NOT updated for these — track their status via TODOs in each
+job's own `STATE_*.md` file instead.
 
 (The comment-grammar classifier accuracy upgrade, formerly tracked in its
 own `STATE_COMMENT_GRAMMAR.md`, shipped and was folded into

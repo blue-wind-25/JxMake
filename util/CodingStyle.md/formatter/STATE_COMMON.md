@@ -58,6 +58,13 @@ are very long, and `-A` context will flood output unnecessarily.
   explicitly asked (they are the reference output files that show the
   expected results).
 - Ignore `XL.txt` — that is the user tracker file.
+- When registering a new local test fixture pair that did **not** come from
+  real-code testing (e.g. a hand-authored dogfood pair moved out of
+  `FUTURE_TEST_FIXTURES.md`), add its entry in both `test/README.txt` and the
+  `Makefile`'s `INP_FILES` **before** the `Real-code regressions:` section/
+  entries — the same "ahead of `real_code_regressions_*`" ordering the
+  Real-code testing methodology section below already uses for bug-fix
+  fixtures.
 - Use `/tmp` for temporary smoke-test and mini-test files.
 - NEVER perform a filesystem-wide find; search first in `/tmp/claude-1000`
   or the project root. If still not found, ask the user.

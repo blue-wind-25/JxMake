@@ -289,3 +289,21 @@ auto` carve-out, hard-error posture, placement semantics, test fixture
 design) are resolved and implemented as described above. Full narrative:
 `RDD_KEY_167` (core mechanism/precedence/hard-error rules) and `RDD_KEY_168`
 (fixture design pivot) in `RDD_LOG.md`.
+
+---
+
+## Future Cleanup TODOs
+
+- Some `STYLE_*.md` files carry a closing pointer sentence along the lines of
+  "Implementation-tracker content (config keys, test-fixture repos, local
+  test fixtures) for this file lives in `formatter/STATE_*.md`, not here —
+  see that file." That sentence is itself tracker metadata, not a style
+  rule, so it doesn't strictly belong in a STYLE file either — it exists as
+  a breadcrumb for jobs whose STYLE file used to hold that content directly
+  before being split out. Low priority (one line, doesn't cause drift the
+  way stale duplicated content would), but worth removing from whichever
+  `STYLE_*.md` files still have it next time that job's STYLE file is
+  touched for an unrelated reason — don't hunt for it standalone. Check
+  `grep -l "Implementation-tracker content" STYLE_*.md` at that time rather
+  than trusting any specific file list recorded here, since new jobs may add
+  their own copy of the sentence later.

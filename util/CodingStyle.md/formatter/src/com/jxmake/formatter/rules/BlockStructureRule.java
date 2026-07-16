@@ -95,6 +95,19 @@ public class BlockStructureRule {
         // comment below for why this matters; also used directly to gate the bare `else` branch,
         // which has no condition of its own to anchor a similar check against.
         int kotlinParenDepth = 0;
+        // Kotlin-only: set true the moment the main loop passes an `if` keyword exempted via
+        // the new depth-0 function/property-expression-body case (`isKotlinExprBodyIf` below,
+        // RDD_KEY_177) and cleared the moment it's consumed by that same if's paired bare
+        // `else` (or overwritten/cleared by the next `if` reached). The bare-`else` branch
+        // further below has no condition of its own to run the same "preceded by a fun-tail
+        // `=`" check against, so it needs this flag carried forward from its own `if` to know
+        // it must be exempted from collapse too -- else-branch handling is a structurally
+        // separate case of this same loop's dispatch, so without this flag it would still treat
+        // the exempted if-expression's own trailing `else` arm as an ordinary statement-`else`
+        // and collapse its (possibly multi-line, `enforceCallLineBreaking`-wrapped) body back
+        // onto one line, reproducing the exact round1/round2 flap this fix targets one token
+        // later (found via arrow-kt/arrow's Comparison.kt `sort2` while verifying this fix).
+        boolean pendingKotlinExprBodyElse = false;
 
         while (i < n) {
             final Token t = tokens.get(i);
@@ -128,7 +141,36 @@ public class BlockStructureRule {
             // bug: with no wrapping paren to hide behind, the whole if/else IS the statement's
             // entire RHS, so there is no following sibling content within the same statement for
             // it to over-consume.
-            final boolean isKotlinExpressionIf = lang.isKotlin && "if".equals(t.text) && kotlinParenDepth > 0;
+            // Depth-0 sibling case (RDD_KEY_177): an if-expression used as an entire
+            // expression-bodied function/property's whole body (`fun sort2(...) = if (leq(a, b))
+            // Pair(a, b) else Pair(b, a)`) is likewise NOT a statement, even though it sits at
+            // kotlinParenDepth == 0 (no wrapping paren) -- it's directly preceded by a bare `=`
+            // at the same depth, i.e. the RHS of a `KotlinSignatureRule` function-tail or a `val`/
+            // `var` initializer. Left uncollapsed, this pass and `enforceCallLineBreaking` fought
+            // over two different stable states depending on pass ordering: round1 (whole
+            // signature+body still one long physical line) let `enforceCallLineBreaking` wrap
+            // everything consistently, but round2 (an earlier stage had already stickily wrapped
+            // just the signature) let this pass re-collapse the body alone onto its own
+            // now-short-looking line, which then measured as fitting in isolation and stayed
+            // collapsed -- a genuine non-fixed-point flap (found via arrow-kt/arrow's
+            // Comparison.kt `sort2`). Exempting this shape here leaves
+            // `enforceCallLineBreaking` as the sole source of truth for it, same as the
+            // depth-0 unparenthesized (no preceding `=`) case already left alone above.
+            final boolean isKotlinExprBodyIf;
+            if (lang.isKotlin && "if".equals(t.text) && kotlinParenDepth == 0) {
+                final int prevIdx = prevSignificantIndex(tokens, i - 1);
+                isKotlinExprBodyIf = prevIdx >= 0 && isOp(tokens.get(prevIdx), "=")
+                        && isFunctionExprBodyEquals(tokens, prevIdx);
+            } else {
+                isKotlinExprBodyIf = false;
+            }
+            final boolean isKotlinExpressionIf = lang.isKotlin && "if".equals(t.text)
+                    && (kotlinParenDepth > 0 || isKotlinExprBodyIf);
+            if (lang.isKotlin && "if".equals(t.text)) {
+                // Track/refresh for the paired bare `else` further below -- see the flag's own
+                // declaration comment above the loop.
+                pendingKotlinExprBodyElse = isKotlinExprBodyIf;
+            }
             // A `while` at the tail of a `do { ... } while (cond)` looks identical, at this
             // scan's level, to a genuine loop-starting `while (cond)` -- both are a KEYWORD
             // "while" followed by a `(...)` condition with no `{` after it (a do-while's
@@ -177,6 +219,16 @@ public class BlockStructureRule {
                         }
                     }
                 }
+            } else if (t.type == TokenType.KEYWORD && "else".equals(t.text) && lang.isKotlin
+                    && kotlinParenDepth == 0 && pendingKotlinExprBodyElse) {
+                // Paired `else` of an `isKotlinExprBodyIf`-exempted if-expression (RDD_KEY_177) --
+                // consume the flag and fall through to the default single-token append below,
+                // leaving this `else` and its (possibly multi-line, `enforceCallLineBreaking`-
+                // owned) body completely untouched, mirroring the `if` arm's own exemption.
+                pendingKotlinExprBodyElse = false;
+                out.append(t.text);
+                i++;
+                continue;
             } else if (t.type == TokenType.KEYWORD && "else".equals(t.text) && lang.isKotlin
                     && kotlinParenDepth == 0) {
                 // Bare `else` (not `else if` -- that's still an `if`, handled by the branch
@@ -1172,6 +1224,48 @@ public class BlockStructureRule {
         final int beforeOpenBrace = prevSignificantIndex(tokens, j);
         return beforeOpenBrace >= 0 && tokens.get(beforeOpenBrace).type == TokenType.KEYWORD
                 && "do".equals(tokens.get(beforeOpenBrace).text);
+    }
+
+    /**
+     * True when the `=` at {@code eqIdx} is a Kotlin expression-bodied *function's* tail
+     * separator (`fun ... (...) = expr`) rather than a `val`/`var` declaration's initializer
+     * separator (`val x = expr`) -- both look identical at the point of the `=` itself
+     * (RDD_KEY_177). Distinguishes them by walking backward from `eqIdx` to the enclosing
+     * statement's own leading keyword, tracking bracket depth so a nested `(`/`{` inside the
+     * signature/initializer doesn't false-trigger on a boundary token that belongs to a nested
+     * scope. Stops at the first depth-0 `fun` (function) or `val`/`var` (property) keyword seen,
+     * or at a depth-0 statement boundary (`;`, `{`, `}`, or a depth-0 NEWLINE) if neither is
+     * found first.
+     */
+    private boolean isFunctionExprBodyEquals(final List<Token> tokens, final int eqIdx) {
+        int depth = 0;
+        for (int j = eqIdx - 1; j >= 0; j--) {
+            final Token tok = tokens.get(j);
+            if (isPunct(tok, ")") || isPunct(tok, "]") || isPunct(tok, "}")) {
+                depth++;
+                continue;
+            }
+            if (isPunct(tok, "(") || isPunct(tok, "[") || isPunct(tok, "{")) {
+                if (depth == 0) {
+                    return false;
+                }
+                depth--;
+                continue;
+            }
+            if (depth > 0) {
+                continue;
+            }
+            if (tok.type == TokenType.KEYWORD && "fun".equals(tok.text)) {
+                return true;
+            }
+            if (tok.type == TokenType.KEYWORD && ("val".equals(tok.text) || "var".equals(tok.text))) {
+                return false;
+            }
+            if (isPunct(tok, ";") || tok.type == TokenType.NEWLINE) {
+                return false;
+            }
+        }
+        return false;
     }
 
     /** Index of the nearest significant token at or before `from`, or -1 if none. */

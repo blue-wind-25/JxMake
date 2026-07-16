@@ -870,6 +870,48 @@ Real-code regressions:
                                             `Either.kt` passes `kotlin_sc` cleanly (was 18 errors,
                                             now 0), full `make test`.
 
+  real_code_regressions_64_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing: a pure
+                                            idempotency (non-compile-breaking) round1-vs-round2
+                                            flap in `Comparison.kt`'s `sort2` -- the last open
+                                            item of the arrow-kt/arrow investigation.
+                                            `BlockStructureRule.collapseSingleExpressionBlocks`'s
+                                            `isKotlinExpressionIf` exemption only covered a
+                                            parenthesized (`kotlinParenDepth > 0`) expression-
+                                            position `if`; an unparenthesized depth-0 if-expression
+                                            used as an entire expression-bodied function's whole
+                                            body (`fun sort2(...) = if (...) ... else ...`) was
+                                            still treated as an ordinary collapsible statement,
+                                            so this pass unconditionally re-flattened the body on
+                                            every format pass -- on a fresh format the whole
+                                            signature+body was still one long physical line, so
+                                            the too-long line correctly drove
+                                            `MiscRule.enforceCallLineBreaking` to wrap everything
+                                            consistently, but reformatting that already-wrapped
+                                            output let this pass re-collapse just the body in
+                                            isolation onto its own now-short-looking line, which
+                                            then measured as fitting and stayed collapsed -- two
+                                            different stable states depending on pass ordering.
+                                            Fixed in two parts: (1) extended the exemption to also
+                                            cover a depth-0 `if` directly preceded by a bare `=`
+                                            that is itself a function's (not a `val`/`var`
+                                            declaration's) expression-body tail -- new
+                                            `isFunctionExprBodyEquals` backward scan, distinguishing
+                                            `fun sort2(...) = if (...)` (exempt) from `val display =
+                                            if (...)` (still collapsed -- `real_code_regressions_18`
+                                            relies on that collapse-then-rewrap path and must stay
+                                            unaffected); (2) the paired bare `else` arm is a
+                                            structurally separate branch of the same dispatch loop
+                                            with no condition of its own to run the same check
+                                            against, so it still mis-collapsed the exempted if's
+                                            `else` body back onto one line on a reformat -- fixed
+                                            by a `pendingKotlinExprBodyElse` flag carried forward
+                                            from the exempted `if` to its paired `else`. Verified:
+                                            minimal repro (`sort2.kt`) and full-scope 63-file
+                                            arrow-core+arrow-optics `commonMain` reformat both
+                                            round1/round2 byte-identical; `kotlin_sc` clean on all
+                                            63 files; full `make test`. Closes the entire
+                                            arrow-kt/arrow investigation.
+
 How Tests Are Run
 -----------------
 

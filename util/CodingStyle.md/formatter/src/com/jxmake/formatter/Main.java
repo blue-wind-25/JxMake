@@ -102,11 +102,13 @@ public final class Main {
                 }
             } else if ("--lang".equals(arg)) {
                 if (i + 1 >= args.length) {
-                    return usageError("--lang requires an argument (" + Lang.SUPPORTED_LANGUAGES + ")");
+                    return usageError("--lang requires an argument (" + Lang.SUPPORTED_LANGUAGES + ", "
+                            + Lang.SCAFFOLD_ONLY_LANGUAGES + ")");
                 }
                 final String langArg = args[++i];
-                if (!Lang.isSupported(langArg)) {
-                    return usageError("--lang must be one of: " + Lang.SUPPORTED_LANGUAGES + " (got: " + langArg + ")");
+                if (!Lang.isRecognized(langArg)) {
+                    return usageError("--lang must be one of: " + Lang.SUPPORTED_LANGUAGES + ", "
+                            + Lang.SCAFFOLD_ONLY_LANGUAGES + " (got: " + langArg + ")");
                 }
                 explicitLanguage = langArg;
             } else if ("--preserve-tree".equals(arg)) {
@@ -192,7 +194,9 @@ public final class Main {
     }
 
     private static void printUsage() {
-        System.err.println("usage: jxmake-code-formatter [--standalone] [--format-off] [--lang c|cpp|java|kotlin] "
+        System.err.println("usage: jxmake-code-formatter [--standalone] [--format-off] "
+                + "[--lang " + Lang.SUPPORTED_LANGUAGES.replace(", ", "|") + "|"
+                + Lang.SCAFFOLD_ONLY_LANGUAGES.replace(", ", "|") + "] "
                 + "[--diff | --check | --out DIR [--preserve-tree --root DIR]] [file...]");
         System.err.println("       jxmake-code-formatter --server [--port N]");
         System.err.println("       jxmake-code-formatter --stop");
@@ -209,6 +213,9 @@ public final class Main {
         if (language == null) {
             throw new IOException("could not infer language from file extension: " + path
                     + " (use --lang c|cpp|java to override)");
+        }
+        if (Lang.isScaffoldOnly(language)) {
+            throw new UnsupportedLanguageException(language);
         }
 
         final String original = readFile(path);

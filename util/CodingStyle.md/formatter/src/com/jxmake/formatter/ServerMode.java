@@ -307,10 +307,13 @@ public final class ServerMode {
                     }
                 }
 
-                if (language != null && !Lang.isSupported(language)) {
+                if (language != null && !Lang.isRecognized(language)) {
                     respond(exchange, 400, "'lang' query parameter must be one of: " + Lang.SUPPORTED_LANGUAGES
-                            + " (got: " + language + ")");
+                            + ", " + Lang.SCAFFOLD_ONLY_LANGUAGES + " (got: " + language + ")");
                     return;
+                }
+                if (language != null && Lang.isScaffoldOnly(language)) {
+                    throw new UnsupportedLanguageException(language);
                 }
 
                 final boolean formatOff = "true".equals(params.get("format-off"));

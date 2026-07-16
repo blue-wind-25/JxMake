@@ -71,9 +71,9 @@ JSON/JSON5 has no function calls, but the same nesting-complexity signal that go
 "contains a call → loose" in STYLE.md §3.1 applies to "contains a nested
 object/array → loose" here.
 
-### 1.3 Config
-
-- `json-colon-align` (on/off) — toggles §1.1's key/value alignment.
+§1.1's key/value alignment is unconditional, same as STYLE.md §5/§6's declaration
+and assignment alignment — no config toggle, for the same reason those have none:
+alignment is baseline formatting behavior in this project, not an opt-in feature.
 
 ---
 
@@ -199,9 +199,8 @@ directly to the property name:
 Standard indent handling for rule blocks (§2.1's global indent config), no bespoke
 bracket-complexity rule needed beyond the alignment above.
 
-### 3.3 Config
-
-- `css-colon-align` (on/off) — toggles §3.1's property/value alignment.
+§3.1's property/value alignment is unconditional, same reasoning as §1.1's JSON
+colon alignment above — no config toggle, matching STYLE.md §5/§6 having none.
 
 ---
 

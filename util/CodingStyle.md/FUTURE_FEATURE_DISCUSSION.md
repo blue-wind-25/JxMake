@@ -160,10 +160,10 @@ data format with no functions or control flow, and a reader skimming
 STYLE.md's "applies to all languages" framing shouldn't be misled into
 assuming they do.
 
-**Config properties (not yet scoped):** `json-colon-align` (on/off) — toggle
-for the §5-style key/value alignment above. Tracked here, same reasoning as
-the Python3 config-properties note below — not yet in the real config schema
-or a `STATE.md` task.
+No config toggle is planned for the §5-style key/value alignment above — same
+reasoning as STYLE.md §5/§6 having none for C/Java/Kotlin's own declaration and
+assignment alignment: it's unconditional baseline formatting behavior, not an
+opt-in feature.
 
 **Update (Q&A, drafted):** folded into `STYLE_DATA_FORMATS.md` §1 as planned, alongside
 XML/CSS/HTML5.
@@ -340,9 +340,9 @@ line, a comment, or a nested at-rule/selector boundary breaks the group).
 CSS has no functions, no control flow, and only needs the one borrowed
 alignment rule plus standard bracket/indent handling for rule blocks.
 
-**Config properties (not yet scoped):** `css-colon-align` (on/off) — toggle
-for the property/value alignment above. Same "tracked here, not yet in the
-real schema" reasoning as JSON's and Python3's config-properties notes.
+No config toggle is planned for the property/value alignment above — same
+reasoning as JSON's colon-alignment note: unconditional, matching STYLE.md
+§5/§6 having no toggle for their own alignment rules.
 
 **Test-fixture repos:**
 - `twbs/bootstrap` — large, hand-authored, real-world source Sass/CSS with
@@ -532,19 +532,20 @@ dedicated file C, Java, and Kotlin each got.
 
 **Config properties (not yet scoped — tracked here so they aren't lost before
 a config schema / `STATE.md` task exists for them):**
-- `python-complexity-detector` (on/off) — toggle for the extended §3.1-style
-  bracket/comprehension/slice heuristic above.
-- `python-assignment-align` (on/off) — toggle for the `=`-alignment rule.
 - `python-import-sort` (on/off), `python-import-blank-lines` — resolved and
   drafted in `STYLE_PYTHON3.md` §3.4. The `python-import-stdlib-list` /
   `python-import-first-party-packages` keys originally anticipated here are
   **no longer needed** — the simplified sort rule decided via Q&A has no tier
   classification to configure.
 
-The complexity-detector and assignment-alignment config keys above, plus the
-import-sort keys, are drafted in `STYLE_PYTHON3.md` — still not yet in the
-real config schema or a `STATE.md` task, but no longer just a placeholder
-list; see that file for the resolved shape.
+No config key is planned for the bracket-complexity detector (§1) or
+assignment alignment (§2) — neither is configurable for any other language
+either (STYLE.md §3.1's tight/loose padding and §6's `=`-alignment are both
+unconditional baseline behavior in C/C++/Java/Kotlin, with no on/off key in
+`formatter/README.md`'s config table), so Python3 doesn't get one either.
+The import-sort keys above are drafted in `STYLE_PYTHON3.md` §3.4 — still not
+yet in the real config schema or a `STATE.md` task, but no longer just a
+placeholder list; see that file for the resolved shape.
 
 **Test-fixture repos:**
 - `python/cpython` — the reference implementation's own standard library;

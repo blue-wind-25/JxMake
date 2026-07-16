@@ -32,6 +32,16 @@ drafted there before this staging file existed.
   placeholder `_`, contracts (`pre`/`post`/`contract_assert`).
 - **cpp_26_comments_inp/out.cpp** — uncommon comment placement around the above
   constructs, same purpose as `cpp_comments_inp/out.cpp` for CPP20.
+- **cpp_26_reflection_inp/out.cpp** — reflection (`^^`, `[:`, `:]` splicing).
+  Authored **after**, not alongside, the other two pairs above: §5's tokenizer pass
+  is validated against the external corpus (`bloomberg/clang-p2996`,
+  `wrocpp/cpp26-reflection-examples`, `simdjson/experimental_json_builder`,
+  `stephenberry/glaze` — see `STYLE_CPP26.md` §5) first, since that's real-world
+  code exercising the new tokens the tokenizer doesn't support yet. Only once that
+  pass confirms the tokens are handled correctly does it make sense to write a
+  fixed expected-output pair here — a local fixture locks in behavior that's
+  already been validated, it isn't how that behavior gets validated in the first
+  place. Until then this pair does not exist and §5's rules stay provisional.
 
 Referenced from: `STYLE_CPP26.md`.
 

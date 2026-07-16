@@ -1,13 +1,13 @@
-# STYLE.md — Code Style Guide (Entry Point)
+# STYLE.md — Common Formatting Rules
 
-This file defines **common formatting rules** that apply across all supported languages.
-Language-specific rules are in separate files — read them after this one:
+This file defines the **common formatting rules** shared across every supported
+language — indentation, bracket/parenthesis spacing, alignment, comment style, and
+so on. Read it together with the specific `STYLE_*.md` file(s) for the language
+you're formatting — each layers its own rules on top of this one. Don't read the
+others; they don't apply to a file that isn't in that language.
 
-- C and C++: see [STYLE_C_CPP.md](STYLE_C_CPP.md), then [STYLE_CPP20.md](STYLE_CPP20.md) for C++17/20/23
-- Java:      see [STYLE_JAVA.md](STYLE_JAVA.md), then [STYLE_JAVA17.md](STYLE_JAVA17.md) for Java 17+
-- Kotlin:    see [STYLE_KOTLIN.md](STYLE_KOTLIN.md), then [STYLE_KOTLIN2.md](STYLE_KOTLIN2.md) for 2.0+
-
-When a language-specific rule conflicts with a common rule, the language-specific rule wins.
+When a language-specific rule conflicts with a rule here, the language-specific rule
+wins.
 
 ---
 

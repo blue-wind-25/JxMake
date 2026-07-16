@@ -150,7 +150,9 @@ Planned local dogfood pairs (unlike §5's external-repo list above, which is for
 corpus-scale reflection validation) are staged in **FUTURE_TEST_FIXTURES.md**, under
 its "CPP26" section — not written here, so this file doesn't carry fixture-status
 content that isn't actually a style rule. See that file for the pair list and what
-each covers.
+each covers. Note its reflection pair (`cpp_26_reflection_inp/out.cpp`) is sequenced
+*after* §5's external-repo tokenizer validation, not alongside the other two pairs —
+see that file for why.
 
 **Not a style reference — must move at implementation time.** Like the rest of this
 section's content, the cross-reference to FUTURE_TEST_FIXTURES.md itself is

@@ -41,8 +41,174 @@ drafted there before this staging file existed.
 
 - **cpp_26ext_inp/out.cpp** — pack indexing (`T...[i]`), `= delete("reason")`,
   placeholder `_`, contracts (`pre`/`post`/`contract_assert`).
+
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  `cpp_26ext_inp.cpp`:
+  ```cpp
+  template<typename... T>
+  using Nth = T ...[N];
+
+  template<typename... T>
+  using Selected = T...[ computeIndex() ];
+
+  void oldApi() = delete( "use newApi() instead" );
+
+  auto [_,count] = getResult();
+  if(auto _ = acquireLock(); true) { doWork(); }
+
+  int divide(int a, int b)
+  pre(b!=0)
+  post(r:r*b==a)
+  {
+  return a / b;
+  }
+
+  void process(int x) {
+  contract_assert(x>=0);
+  }
+  ```
+
+  `cpp_26ext_out.cpp`:
+  ```cpp
+  template<typename... T>
+  using Nth = T...[N];
+
+  template<typename... T>
+  using Selected = T...[ computeIndex() ];
+
+  void oldApi() = delete("use newApi() instead");
+
+  auto [_, count] = getResult();
+  if (auto _ = acquireLock(); true)
+  {
+      doWork();
+  }
+
+  int divide(int a, int b)
+      pre(b != 0)
+      post(r: r * b == a)
+  {
+      return a / b;
+  }
+
+  void process(int x)
+  {
+      contract_assert(x >= 0);
+  }
+  ```
+
+  Covers: `T...[N]` as a constant index staying tight, no space between the pack
+  name/`...`/`[` (§1); `T...[ computeIndex() ]` as a call-inside-index case going
+  loose. **Flagged assumption:** §1's own inline example in `STYLE_CPP26.md`
+  labels this "loose" but shows no added bracket-interior spaces, which reads as
+  inconsistent with the general tight/loose convention every other bracket-
+  complexity section in this project uses (loose = spaces added inside the
+  bracket, e.g. `STYLE_PYTHON3.md` §1.1's `a[ callSomething(x) ]`) — this draft
+  follows that general convention rather than the style doc's own possibly-stale
+  example text, since §1 explicitly says it "falls under the existing
+  array-index bracket rules... with no new padding logic." Worth confirming
+  against real JAR behavior once implemented, and possibly fixing the style
+  doc's own example if this draft's reading turns out right. Also covers:
+  `= delete("reason")`'s string argument taking ordinary call-argument spacing,
+  no special padding for the parens themselves (§2); placeholder `_` as an
+  ordinary identifier in both a structured-binding slot and an `if`-init
+  statement, comma spacing unaffected (§3); the contract clauses (`pre`/`post`)
+  each getting their own line indented one level from the function signature,
+  `post(r: ...)`'s result-binding `:` taking normal identifier/colon spacing,
+  and `contract_assert(...)` formatted as an ordinary function-call-shaped
+  statement inside a block body (§4).
+  </details>
+
 - **cpp_26_comments_inp/out.cpp** — uncommon comment placement around the above
   constructs, same purpose as `cpp_comments_inp/out.cpp` for CPP20.
+
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  `cpp_26_comments_inp.cpp`:
+  ```cpp
+  // Pack indexing examples
+  template<typename... T>
+  using Nth = T...[N];
+
+  template<typename... T>
+  using Selected = T...[computeIndex()];  // call inside index
+
+  // Deprecated API marker
+  void oldApi() = delete("use newApi() instead");
+
+  /* Placeholder examples */
+  auto [_, count] = getResult();
+  if (auto _ = acquireLock(); true)
+  {
+      doWork();
+  }
+
+  // Contract clauses
+  int divide(int a, int b)
+  // pre-condition: divisor nonzero
+  pre(b != 0)
+  // post-condition: result matches
+  post(r: r * b == a)
+  {
+  return a / b;
+  }
+
+  void process(int x) {
+  // runtime assertion
+  contract_assert(x >= 0);
+  }
+  ```
+
+  `cpp_26_comments_out.cpp`:
+  ```cpp
+  // Pack indexing examples
+  template<typename... T>
+  using Nth = T...[N];
+
+  template<typename... T>
+  using Selected = T...[ computeIndex() ];  // call inside index
+
+  // Deprecated API marker
+  void oldApi() = delete("use newApi() instead");
+
+  /* Placeholder examples */
+  auto [_, count] = getResult();
+  if (auto _ = acquireLock(); true)
+  {
+      doWork();
+  }
+
+  // Contract clauses
+  int divide(int a, int b)
+      // pre-condition: divisor nonzero
+      pre(b != 0)
+      // post-condition: result matches
+      post(r: r * b == a)
+  {
+      return a / b;
+  }
+
+  void process(int x)
+  {
+      // runtime assertion
+      contract_assert(x >= 0);
+  }
+  ```
+
+  Covers: a standalone leading `//` comment preceding a pack-indexing/deprecated-
+  API/placeholder construct, position preserved exactly as written; a trailing
+  `//` comment on the same line as `T...[computeIndex()]`, surviving the §1
+  loose-bracket reformatting without being disturbed; each contract clause's own
+  leading `//` comment (`// pre-condition: ...`, `// post-condition: ...`)
+  reindented to match its clause's own indent level (one level from the
+  signature, same as the clause itself) rather than staying at column 0 as
+  originally written — a comment attaches to and follows the indentation of the
+  line it precedes, same convention this project applies everywhere else; a
+  `/* */` block comment standing alone before the placeholder examples.
+  </details>
 - **cpp_26_reflection_inp/out.cpp** — reflection (`^^`, `[:`, `:]` splicing).
   Authored **after**, not alongside, the other two pairs above: §5's tokenizer pass
   is validated against the external corpus (`bloomberg/clang-p2996`,

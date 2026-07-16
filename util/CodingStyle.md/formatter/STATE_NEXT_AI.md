@@ -274,13 +274,17 @@ blocks formatting.
 
 ---
 
-## TODO: `//` comment sentence-boundary detection defeated by mid-word dots (now FEASIBLE — Step 3 candidate)
+## TODO: Comment sentence-boundary detection defeated by mid-word dots (now FEASIBLE — Step 3 candidate)
 
 `MiscRule.stripSoleTrailingPeriod` (§15) strips a comment's trailing `.` only when it
 is the *sole* `.` in the comment text — a deliberately conservative heuristic to avoid
 mangling an ellipsis or an abbreviation followed by more sentence text. This
 misfires whenever the comment legitimately contains an unrelated dot earlier in the
-sentence that is *not* an end-of-sentence period, e.g.:
+sentence that is *not* an end-of-sentence period. Example, using C++'s `//` form
+(the same problem class applies to any comment syntax under the general
+single-sentence-comments-never-end-in-a-period principle — Python's `#`, CSS/XML/
+HTML5's block-only `/* */`/`<!-- -->` forms, per AI_PREAMBLE_FULL.md §15's note that
+the mechanism varies by language but the underlying rule doesn't):
 
 ```
 // Combined .hpp test: pragma once, concepts, templates, classes, extern C.
@@ -288,8 +292,9 @@ sentence that is *not* an end-of-sentence period, e.g.:
 
 Here `.hpp` (a file extension) and the trailing `C.` both count as dots, so
 `dotCount != 1` and the genuinely-sentence-ending trailing period is left in place
-(expected: stripped, since STYLE.md's single-sentence-never-ends-in-a-period rule
-should still apply).
+(expected: stripped — the general rule above should still apply regardless of which
+language's comment syntax is in play; treat the snippet above as one worked example,
+not the scope of the problem).
 
 Distinguishing a mid-word/mid-token dot (file extensions, `e.g.`, `i.e.`, `v1.0`,
 single-letter abbreviations like `extern C.`) from a true sentence-ending dot is a

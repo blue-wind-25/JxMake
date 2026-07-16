@@ -140,18 +140,6 @@ C/C++ Headers:
                                             template base class, concrete subclass, factory
                                             declaration, extern "C" block.
 
-K&R brace / preprocessor interaction:
-  kandr_brace_preprocessor_inp/out.hpp   -- RDD_KEY_169: a named construct (struct/namespace)
-                                            whose base-clause is guarded by #if/#endif, with
-                                            the body `{` immediately following the bare #endif
-                                            line. Proves enforceKAndRBraceStyle no longer glues
-                                            the `{` onto the #endif line (which a later
-                                            retokenize would swallow into the PREPROCESSOR
-                                            token, desyncing brace/frame tracking and producing
-                                            wrong closing-comment labels/indentation --
-                                            originally found via ericniebler/range-v3 item 20
-                                            bug (a), see STATE_C_CPP_JAVA.md Open Questions).
-
 In-file config directive:
   in_file_config_inp/out.hpp             -- Top-of-file JXM_CFMT_CFG directive (STATE_COMMON.md
                                             "In-file Config Support", RDD_KEY_167/168): sets every
@@ -885,26 +873,15 @@ Real-code regressions:
                                             `typeText.length() + 1`. Verified idempotent against both
                                             real files plus this fixture.
 
-                                            Fixed in two parts: (1) extended the exemption to also
-                                            cover a depth-0 `if` directly preceded by a bare `=`
-                                            that is itself a function's (not a `val`/`var`
-                                            declaration's) expression-body tail -- new
-                                            `isFunctionExprBodyEquals` backward scan, distinguishing
-                                            `fun sort2(...) = if (...)` (exempt) from `val display =
-                                            if (...)` (still collapsed -- `real_code_regressions_18`
-                                            relies on that collapse-then-rewrap path and must stay
-                                            unaffected); (2) the paired bare `else` arm is a
-                                            structurally separate branch of the same dispatch loop
-                                            with no condition of its own to run the same check
-                                            against, so it still mis-collapsed the exempted if's
-                                            `else` body back onto one line on a reformat -- fixed
-                                            by a `pendingKotlinExprBodyElse` flag carried forward
-                                            from the exempted `if` to its paired `else`. Verified:
-                                            minimal repro (`sort2.kt`) and full-scope 63-file
-                                            arrow-core+arrow-optics `commonMain` reformat both
-                                            round1/round2 byte-identical; `kotlin_sc` clean on all
-                                            63 files; full `make test`. Closes the entire
-                                            arrow-kt/arrow investigation.
+  real_code_regressions_67_inp/out.hpp   -- RDD_KEY_169: a named construct (struct/namespace) whose
+                                            base-clause is guarded by #if/#endif, with the body `{`
+                                            immediately following the bare #endif line. Proves
+                                            enforceKAndRBraceStyle no longer glues the `{` onto the
+                                            #endif line (which a later retokenize would swallow into
+                                            the PREPROCESSOR token, desyncing brace/frame tracking and
+                                            producing wrong closing-comment labels/indentation --
+                                            originally found via ericniebler/range-v3 item 20 bug (a),
+                                            see STATE_C_CPP_JAVA.md Open Questions).
 
 How Tests Are Run
 -----------------

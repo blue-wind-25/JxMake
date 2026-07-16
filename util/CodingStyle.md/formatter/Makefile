@@ -81,8 +81,6 @@ INP_FILES += java_preprocessor_method_inp.java
 INP_FILES += kt_combined_inp.kt
 INP_FILES += kt_comments_inp.kt
 
-INP_FILES += kandr_brace_preprocessor_inp.hpp
-
 INP_FILES += in_file_config_inp.hpp
 INP_FILES += in_file_config_inp.java
 INP_FILES += in_file_config_inp.kt
@@ -159,6 +157,7 @@ INP_FILES += real_code_regressions_63_inp.kt
 INP_FILES += real_code_regressions_64_inp.kt
 INP_FILES += real_code_regressions_65_inp.java
 INP_FILES += real_code_regressions_66_inp.java
+INP_FILES += real_code_regressions_67_inp.hpp
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

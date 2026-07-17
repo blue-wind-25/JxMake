@@ -11,9 +11,13 @@ not in tension with each other:
 - **Step 2** (argument-layout / getter-setter-grouping candidate selection) —
   **NOT FEASIBLE**. No tractable grouping-intent signal exists for the JAR to hand an
   LLM, at any model size tested.
-- **Step 3** (comment-classifier abstain-case resolution) — **FEASIBLE**. This is a
-  narrow classification decision, not a layout-authorship judgment call, and reuses
-  Step 2's confirmed infrastructure pattern retargeted at a different decision point.
+- **Step 3** (comment-classifier abstain-case resolution) — **FEASIBLE, GRU only**.
+  This is a narrow classification decision, not a layout-authorship judgment call,
+  and reuses Step 2's confirmed infrastructure pattern retargeted at a different
+  decision point — but only via a purpose-trained bidirectional GRU (see "GRU
+  implementation design" below). The small-instruction-tuned-LLM-as-classifier
+  variant of Step 3 is **NOT FEASIBLE** — see "Small-LLM classifier fallback:
+  NOT FEASIBLE" below.
 
 ---
 
@@ -45,16 +49,20 @@ Checklist status — Step 2 (all NOT FEASIBLE — no implementation needed):
 - [~] `README.md` ai-assist section — DONE (AI section removed and replaced in chat session)
 - [~] `FORMATTER_DISCUSSION.md` — update Key Decisions table to record this decision (NOT STARTED)
 
-Checklist status — Step 3 (FEASIBLE, design-only — see full section below; nothing
-started, this is a design note, not scoped implementation work yet):
+Checklist status — Step 3 (FEASIBLE via GRU only, design-only — see full section
+below; nothing started, this is a design note, not scoped implementation work yet):
 
-- [ ] Search Hugging Face for a current small instruction-tuned model per hardware
-      tier (Pi CM5 / Core i5 CPU-only / <1GB VRAM GPU / 1–2GB VRAM GPU) — NOT STARTED,
-      deliberately deferred to implementation time (see Step 3 below)
-- [ ] `Config.java` — new keys for enabling the LLM abstain-fallback and pointing at
-      an endpoint — NOT STARTED
-- [ ] Wire the LLM fallback into the existing `CommentClassifier` ABSTAIN path —
-      NOT STARTED
+- [~] Search Hugging Face for a current small instruction-tuned model per hardware
+      tier (Pi CM5 / Core i5 CPU-only / <1GB VRAM GPU / 1–2GB VRAM GPU) —
+      **NOT FEASIBLE, superseded** — see "Small-LLM classifier fallback: NOT
+      FEASIBLE" below; no longer applicable, GRU is the only Step 3 approach
+- [~] `Config.java` — new keys for enabling the LLM abstain-fallback and pointing at
+      an endpoint — **NOT FEASIBLE, superseded** — no LLM fallback exists to
+      configure; GRU has its own weights-file config surface instead (see "GRU
+      implementation design" below)
+- [~] Wire the LLM fallback into the existing `CommentClassifier` ABSTAIN path —
+      **NOT FEASIBLE, superseded** — ABSTAIN now routes to the GRU classifier only
+      (see "Fail-safe" note in "GRU implementation design" below)
 - [ ] `com.jxmake.formatter.classifier.gru` package — GRU now determined to be the
       preferred v1 approach (see "Model size determination" below), supersedes the
       earlier LLM-for-v1 lean — NOT STARTED
@@ -114,18 +122,23 @@ decisions that *are* externally logged appear in the main index in `STATE.md`.
 
 ---
 
-## Step 3 — Comment-Classifier Abstain Resolution: FEASIBLE
+## Step 3 — Comment-Classifier Abstain Resolution: FEASIBLE (via purpose-trained GRU only — see "Small-LLM classifier fallback: NOT FEASIBLE" further down)
 
 Unlike Step 2, this is not a layout-authorship judgment call — it's a narrow
 classification decision (does this word function as a keyword or as prose here; is
-this trailing dot a sentence-ender or part of a token) that a small model can plausibly
-handle as a pure classifier, not a generator. Builds on the already-implemented
-rule-based comment-grammar classifier (Task H in `STATE.md`, `RDD_KEY_94`–`98`):
+this trailing dot a sentence-ender or part of a token) that a small **purpose-trained**
+classifier can plausibly handle, not a generator. "Small" here means the GRU's
+~500k-parameter footprint, not a small instruction-tuned LLM — testing confirmed the
+latter fails at exactly this task (see below); the two are different kinds of "small
+model" and this section's feasibility claim applies only to the former. Builds on
+the already-implemented rule-based comment-grammar classifier (Task H in
+`STATE.md`, `RDD_KEY_94`–`98`):
 `CommentFeatureExtractor`/`CommentFeatureVector`, `NonLatinScriptGate`,
 `KeywordAmbiguityGate`, `CommentClassifier`/`CommentClassifierWeights`
 (`YES`/`NO`/`ABSTAIN`), gated behind `comment-normalization-classifier` (default `off`).
 
-### Proposed pipeline
+### Proposed pipeline (superseded — see "Small-LLM classifier fallback: NOT FEASIBLE"
+below; kept for historical context, the LLM branch shown here does not work)
 
 ```text
 Rule-based classifier (already implemented, Task H)
@@ -137,19 +150,52 @@ Rule-based classifier (already implemented, Task H)
              Small instruction-tuned LLM, used purely as a classifier
              (single-class output, not generation — e.g. "is 'return' used
              as a programming keyword, an English word, or an identifier
-             here? Return only the class.")
+             here? Return only the class.")   ← CONFIRMED NOT FEASIBLE, see below
                     │
                Final decision
 ```
+
+For the current, working pipeline (GRU only, no LLM branch), see "GRU implementation
+design" below.
 
 Reuses Step 2's already-confirmed architecture pattern rather than reinventing it:
 grammar-constrained short response, `temperature = 0.0`, `/v1/chat/completions` via
 llama.cpp/Ollama/vLLM/LM Studio, fail-safe fallback to `ABSTAIN`-equivalent behavior
 (classifier `off`) on an unreachable endpoint, and the same endpoint-unavailability
 caching described in `RDD_EXT_9`. Only the target decision changes — a class label
-instead of a layout-candidate index.
+instead of a layout-candidate index. **This architecture pattern is confirmed sound
+(Step 2 validated it end-to-end) — what's confirmed NOT FEASIBLE is small models'
+accuracy at this specific classification task, not the plumbing around them.**
 
-### Model size determination — GRU now preferred for v1 (supersedes earlier LLM-for-v1 lean)
+### Small-LLM classifier fallback: NOT FEASIBLE (confirmed by testing)
+
+> Small instruction-tuned models (1B–3B class) cannot reliably tell whether a word
+> at the start of a sentence is being used as plain English prose or as a
+> language keyword — exactly the `KeywordAmbiguityGate`/Step 3 classification task
+> this fallback was designed for. **Tested and failed:** Qwen (1B–3B), Qwen2.5-Coder
+> (1B–3B), Gemma (1B–3B). **Not tested, but not expected to fare better:** Llama 3B —
+> same parameter-count class as the three tested families, no reason to expect a
+> different outcome, so it is not being carried forward as an open question.
+>
+> This supersedes the "Earlier reasoning... favored a small instruction-tuned LLM"
+> discussion below — that reasoning was correct about the *advantages* (no training
+> pipeline, existing multi-language/programming-terminology understanding) but wrong
+> about small models being *accurate enough* to cash in those advantages for this
+> specific task. **A small on-device LLM will not be used for Step 3, full stop —**
+> not as the v1 approach, not as a fallback behind the GRU, not for the non-Latin-
+> comment routing option floated further below. The bidirectional GRU (see "GRU
+> implementation design" below) is the only Step 3 approach going forward.
+>
+> This does not reopen Step 2's determination (Step 2 was already NOT FEASIBLE for
+> an unrelated reason — no tractable grouping-intent signal exists at any model
+> size, small or large) — the two determinations remain independent, as the file
+> intro says. This also does not by itself rule out a *larger* model (7B+) for this
+> task; no such test has been run. But no larger-model path is being designed here
+> either — the GRU already covers v1, and revisiting an LLM approach of any size
+> for Step 3 would need its own fresh justification and its own stop-and-ask,
+> same as reopening Step 2 would.
+
+### Model size determination — GRU is the only v1 approach (small-LLM fallback removed)
 
 Earlier reasoning in this doc favored a small instruction-tuned LLM for v1, since it
 needs no training set and already understands programming terminology and multiple
@@ -157,14 +203,16 @@ languages out of the box, while a GRU/LSTM/MLP would need a training pipeline an
 labeled dataset built from scratch.
 
 Further research changes this determination: a **bidirectional GRU with ~500k
-parameters, trained on ~5M examples, is the best balance** of accuracy, latency, and
-footprint for this narrow classification decision (not open-ended generation), and is
-preferred over an LLM fallback for v1. Bidirectional is chosen because the full
-comment text is available upfront at inference time (not streamed token-by-token),
-so there is no autoregressive-latency downside — only roughly 2x encoding compute
-for the added backward pass, which should be affordable at this parameter count.
-This is a design-only determination — nothing scoped or started yet; see "GRU
-implementation design" below for the layout this targets.
+parameters is the best balance** of accuracy, latency, and footprint for this
+narrow classification decision (not open-ended generation), and is preferred over
+an LLM fallback for v1. Bidirectional is chosen because the full comment text is
+available upfront at inference time (not streamed token-by-token), so there is no
+autoregressive-latency downside — only roughly 2x encoding compute for the added
+backward pass, which should be affordable at this parameter count. This is a
+design-only determination — nothing scoped or started yet; see "GRU implementation
+design" below for the finalized architecture and the training-set sizing approach
+(training-set size is deliberately not pinned to a number here — an earlier ~5M
+estimate was superseded by a measure-first, two-pool approach; see that section).
 
 ```text
 Rules
@@ -173,29 +221,41 @@ Rules
    │
    └── Abstain
          │
-      Bidirectional GRU classifier (~500k params, ~5M training examples) — v1
+      Bidirectional GRU classifier (~500k params) — v1
          │
       Final decision
 ```
 
-The small-LLM fallback design above (grammar-constrained selection,
-`/v1/chat/completions`, fail-safe caching) remains documented as a valid architecture
-and is kept as a fallback option if the GRU's accuracy proves insufficient in
-practice — but GRU is now the v1 target, not a future-only option.
+The small-LLM fallback design above is kept in this document **only as a historical
+record of a rejected approach**, not as a valid fallback option — see "Small-LLM
+classifier fallback: NOT FEASIBLE" above. If GRU accuracy proves insufficient in
+practice, the next step is not "fall back to a small LLM" (confirmed not to work);
+it would need to be a fresh design discussion (larger model? different GRU
+hyperparameters/training set? something else entirely), not a revival of this
+rejected fallback.
 
 ### Non-Latin comments
 
 `RDD_KEY_95`'s `NonLatinScriptGate` currently disables the rule-based classifier
 entirely (equivalent to `ABSTAIN`) for any comment containing a non-Latin codepoint,
-deferring those comments to the full-file AI pass instead. The small LLM's
-multi-language understanding means some non-Latin/mixed-language ABSTAIN cases could
-now route to the same Step 3 LLM fallback rather than falling all the way back to a
-full-file pass. **This is flagged as an open option, not a decision** — changing
-`RDD_KEY_95`'s established behavior needs its own stop-and-ask per `STATE.md`'s
-ambiguity process before implementation, since it changes already-shipped classifier
-behavior rather than adding new behavior behind a new gate.
+deferring those comments to the full-file AI pass instead. **This open option is
+now closed, not just unstarted:** it depended on the small-LLM fallback's
+multi-language understanding to route some non-Latin/mixed-language ABSTAIN cases
+away from the full-file pass — since that fallback is confirmed NOT FEASIBLE (see
+"Small-LLM classifier fallback: NOT FEASIBLE" above), there is no Step 3 LLM branch
+left to route them to. `RDD_KEY_95`'s established behavior (full-file AI pass for
+any non-Latin-containing comment) stands unchanged. A GRU-based path for this case
+would be a distinct, unexplored idea — training a classifier on non-Latin/mixed-
+language examples specifically — not something this document currently designs;
+raise as its own topic if it's worth pursuing later, rather than assuming it falls
+out of the existing GRU design above.
 
-### Model selection — search at implementation time, not now
+### Model selection — search at implementation time, not now — NOT FEASIBLE, superseded
+
+**This entire section is moot** — it was model-selection guidance for the small-LLM
+classifier fallback, which is confirmed NOT FEASIBLE (see "Small-LLM classifier
+fallback: NOT FEASIBLE" above). Kept below only as a historical record of what the
+now-rejected approach would have needed; do not act on it.
 
 Do not pin a specific Hugging Face model in this document — open-weight model
 availability and quality shift too quickly for a name written today to still be the
@@ -225,8 +285,25 @@ Qwen2.5-Coder-3B reference.
 
 ### GRU implementation design (v1 target)
 
-Design layout for when this is picked up (~500k param bidirectional GRU, ~5M
-training examples, per the determination above):
+Design layout for when this is picked up. Architecture finalized via Q&A
+(session-refined, superseding the earlier bare "~500k param bidirectional GRU"
+placeholder — the ~500k param budget itself was already correct, this section now
+fills in the specific config that hits it):
+
+**Architecture:**
+
+| Component | Value |
+|---|---|
+| Input | word-level tokens, case-preserved (case is a real signal — `Return` reads less like a keyword than `return`), whitespace/punctuation split |
+| Explicit vocab | ~3.5k: every keyword across every supported/planned language gets a guaranteed slot (never left to the hash bucket — a keyword is definitionally what triggers `KeywordAmbiguityGate`, so a hash collision landing it next to a random identifier would hurt the one thing this model must get right), plus ~3k common English comment-corpus words filling the rest |
+| OOV handling | 1024-bucket hashing, not a single shared `<UNK>` — different unknown identifiers stay distinguishable from each other even if noisy, rather than collapsing to one meaningless vector |
+| Embedding init | trained from scratch, not pretrained (GloVe/fastText vocabularies are 400k+ words at 100–300 dim — even pruned and frozen, they blow past the whole param budget; training from scratch also sidesteps the licensing/provenance question bulk-sourced embeddings would reopen) |
+| Embedding dim | 16 (kept small deliberately — context modeling capacity, i.e. GRU hidden size, matters more for this task than word-identity richness, since the whole point is resolving *ambiguous* usage from surrounding words) |
+| Sequence cap | ~64 tokens per comment (truncate/pad) |
+| GRU | single-layer bidirectional, hidden=224 |
+| Target-word handling | index into the target word's own biGRU output (concat forward+backward) as the classification feature — no marker token. A biGRU's per-timestep output is already a full contextualized representation of that word given its surroundings; a marker token would add a vocab slot, an embedding, and sequence length to solve a problem the architecture already solves natively |
+| Head | concat(448) → dense(64, ReLU) → softmax(N classes) |
+| **Total params** | **~425k** (~75k headroom under the 500k budget — deliberately conservative over squeezing the ceiling, since headroom absorbs formula-vs-reality gaps like bias terms and possible later additions, e.g. word-shape features for camelCase/snake_case/ALL_CAPS) |
 
 **Files** (new `com.jxmake.formatter.classifier.gru` package, parallel to the
 existing `com.jxmake.formatter.classifier` package):
@@ -249,30 +326,138 @@ existing `com.jxmake.formatter.classifier` package):
 
 **Training-set acquisition, verification, fixing** (extends the existing `cwg/`
 pattern from `RDD_KEY_97`, which is already frontier-model-assisted rather than
-corpus-trained; reaching ~5M examples is a materially larger acquisition effort than
-`cwg/`'s current 40-example set):
-- **Acquisition:** primary source is public web/search data (e.g. sourced via Google
-  search or similar large-scale crawling) of real code comments across languages,
-  supplemented with real comments pulled from this codebase and the `test/` fixtures
-  (per the open TODO already in `cwg/`'s own notes). Licensing/provenance of any
-  bulk-sourced data needs checking before use — not addressed yet, flagged as open
-  work for implementation time.
-- **Labeling:** frontier-model-assisted labeling (same precedent as `RDD_KEY_97`),
-  with spot-check review rather than blind acceptance — at 5M-example scale this
-  spot-check needs to be sampling-based rather than exhaustive.
+corpus-trained; the design below replaces the earlier flat "~5M examples" estimate
+with a measure-first, two-pool approach — session-refined, see rationale in each
+step):
+
+- **Don't pre-commit to a total size before measuring.** The earlier "~5M examples"
+  figure was a blanket guess made before this refinement pass. First step is to run
+  the *existing* rule-based classifier (`CommentClassifier`, already implemented)
+  over a large local+GitHub comment sample — no labeling yet, just counting — to
+  find the real ABSTAIN rate. That number, plus the hit rate of the targeted
+  extraction below, determines how much raw extraction actually gets you to a
+  usable pool size, rather than assuming 5M up front.
+
+- **Pre-filter through the existing classifier before labeling anything.** Every
+  extracted comment gets run through `CommentClassifier` first:
+  - **High-confidence YES/NO** → already resolved correctly for free — the rule-based
+    classifier's own output *is* the label, no labeling cost. Keep a modest sample
+    of these in the training set too (so the GRU also sees easy/unambiguous cases
+    and doesn't develop a bias toward assuming everything is ambiguous), but the
+    bulk of labeling effort should not go here.
+  - **ABSTAIN** → this is the actual target, and where labeling effort concentrates.
+    Labeling 5M *random* comments would spend full labeling cost on millions of
+    cases the rule-based classifier already gets right for free; pre-filtering to
+    ABSTAIN-only keeps the expensive part (frontier-model labeling + spot-check)
+    focused on a much smaller, denser, more useful set.
+
+- **Two separate pools, not one uniform corpus** — the two ambiguity classes this
+  targets have different shapes and need different acquisition strategies:
+  - **Pool A (keyword-ambiguity)** — the large pool. Observed pattern: ABSTAIN
+    clusters around *short* comments (roughly ≤6-8 words) containing a known
+    keyword with too little surrounding context to disambiguate — e.g. `// for i`
+    or `// for matrix` (genuinely ambiguous) vs. `// for matrix below` or
+    `// for error message handler` (clearly English once one more word of context
+    is present). Extraction should therefore be **targeted, not random**: filter
+    toward short comments containing a keyword from any supported/planned
+    language, rather than sampling broadly across all comments (which would mostly
+    pull in long unambiguous prose and waste extraction volume).
+  - **Pool B (period-ambiguity)** — a separate, much smaller pool. This is not
+    about brevity the way Pool A is — it's comments that discuss punctuation
+    itself (`// The variable dot . is used...`) or unusual abbreviation patterns
+    beyond the already-handled `e.g.`/`i.e.`/file-extension cases
+    (`MiscRule.stripSoleTrailingPeriod`, see the mid-word-dot TODO elsewhere in
+    this file). Expected to occur naturally at a low rate — likely low
+    hundreds-to-thousands of examples via a targeted grep-and-review pass, not a
+    bulk-extraction effort.
+  - This split can be refined further once real data is in hand (e.g. if
+    period-ambiguity turns out to occur at a high-enough natural rate inside Pool
+    A's own extraction, a separate Pool B extraction pass may prove unnecessary) —
+    noted here as the current best guess, not a final commitment.
+
+- **Acquisition sources (both pools):** primary source is public web/search data
+  (e.g. sourced via Google search or similar large-scale crawling) of real code
+  comments across languages, supplemented with real comments pulled from this
+  codebase and the `test/` fixtures (per the open TODO already in `cwg/`'s own
+  notes). Licensing/provenance of any bulk-sourced data needs checking before use —
+  not addressed yet, flagged as open work for implementation time.
+
+- **Labeling — Pool A:** primary approach is a free frontier model labeling every
+  extracted example (same precedent as `RDD_KEY_97`), not blind acceptance —
+  spot-check review covers both a random baseline sample (~1-2%, to catch
+  *confidently wrong* systematic blind spots that a confidence signal alone
+  wouldn't flag) and every example the frontier model itself flags as
+  low-confidence/hedged (cheap, high-yield on top of the random baseline). If free
+  frontier-model access can't sustain the needed volume, fall back to a cheaper
+  heuristic first pass (e.g. simple word-position rules) and only send what that
+  heuristic can't confidently resolve to the frontier model — reduces call volume
+  at some cost to catching the heuristic's own blind spots.
+
+- **Labeling — Pool B:** no frontier-model pipeline needed — given its expected
+  small size and that period-ambiguity is an easy call for a human to make at a
+  glance, label by hand directly. Frontier-model assistance is still useful for the
+  *extraction* step (finding candidate comments worth reviewing), just not for the
+  labeling decision itself.
+
 - **Verification:** flag likely-mislabeled examples via disagreement between the
   existing rule-based classifier's confidence and the assigned label, and via
   held-out accuracy regressions when a new batch is added — not just eyeballing.
-- **Fixing:** relabeling/removal follows the same reproducible-and-versioned pattern
-  `cwg/derive_weights.py`/`cwg/weights.md` already established for the linear
-  classifier's weights — document each addition/correction and re-derive.
+
+- **Fixing:** reuses the existing `cwg/derive_weights.py`/`cwg/weights.md`
+  reproducible-and-versioned pattern already established for the linear
+  classifier's weights — when a spot-check finds a mislabeled example, correct it
+  in place and document *why* it was wrong (which pattern, what the frontier model
+  got confused by), not just that it was wrong. Over successive batches those notes
+  become a working record of the frontier model's actual failure modes, useful for
+  triaging future batches faster.
 
 **Fail-safe:** a missing or unreadable weights file makes `GruClassifier` behave as
-`ABSTAIN` (falls through to the LLM fallback, or classifier `off` if that is also
-unavailable), matching the fail-safe posture everywhere else in this design — never
+`ABSTAIN` — i.e. classifier `off` for that comment, falling back to whatever
+Tier-1/Tier-2 mechanical behavior applies without it (there is no further LLM
+fallback to fall through to — see "Small-LLM classifier fallback: NOT FEASIBLE"
+above), matching the fail-safe posture everywhere else in this design — never
 blocks formatting.
 
----
+### Open refinement items (v1 target) — not yet decided
+
+Architecture (embedding/vocab/hidden-size/target-word-handling) and the
+training-data pipeline shape (measure-first sizing, two-pool split, labeling/
+verification/fixing approach) are settled above via session Q&A. Still open, roughly
+in the order worth tackling next:
+
+1. **Output classes** — same `YES`/`NO`/`ABSTAIN` as the existing rule-based
+   classifier, or something more granular (e.g. `KEYWORD`/`PROSE`/`IDENTIFIER`) that
+   then maps back down to `YES`/`NO`/`ABSTAIN`? Affects the head's output size and
+   how a not-confident GRU prediction gets handled.
+2. **GRU's own abstain threshold** — does the GRU always commit to a class, or can
+   it also abstain (e.g. softmax confidence below some cutoff) and fall through to
+   mechanical default? The Fail-safe note above only covers a missing/unreadable
+   weights file, not a low-confidence prediction from a loaded model.
+3. **Training hyperparameters** — loss function, learning rate, batch size, epoch
+   count, dropout/regularization, train/val/test split ratios. None chosen yet.
+4. **Evaluation target** — what accuracy/precision-recall bar makes this "good
+   enough" to ship, and against which held-out set.
+5. **Tokenization edge cases** — how punctuation attached to a word gets split
+   (`matrix.` vs. `matrix`), whether camelCase/snake_case identifiers get split into
+   sub-tokens or stay whole as single vocab/hash entries.
+6. **Hash function choice** — for the 1024-bucket OOV hashing; needs to be stable/
+   deterministic across training and inference (same string always hashes to the
+   same bucket in both the Java runtime and whatever trains the weights).
+7. **Weights file schema/versioning** — so a future retrain with a changed format
+   doesn't silently break `GruWeights.java`'s loader; no schema-version field
+   designed yet.
+8. **Pool B's concrete extraction method** — flagged during the training-data
+   refinement as "revisit later," still open: grep patterns / heuristics for
+   finding period-ambiguity candidate comments haven't been specified.
+9. **Real ABSTAIN-rate measurement** — the "run the existing rule-based classifier
+   over a large sample first, measure before committing to a training-set size"
+   step is planned but not yet executed; current pool-size estimates are
+   directional, not measured.
+10. **Licensing/provenance check** for bulk-sourced GitHub comment data — flagged
+    open in multiple places above (acquisition, `cwg/`'s own notes), not
+    investigated yet.
+
+
 
 ## TODO: Comment sentence-boundary detection defeated by mid-word dots (now FEASIBLE — Step 3 candidate)
 
@@ -300,9 +485,11 @@ Distinguishing a mid-word/mid-token dot (file extensions, `e.g.`, `i.e.`, `v1.0`
 single-letter abbreviations like `extern C.`) from a true sentence-ending dot is a
 natural-language judgment call, not a mechanical token-shape rule — no tractable
 heuristic was found within Tier-1/Tier-2 mechanical rules alone. **This is exactly
-the class of ambiguous, ABSTAIN-worthy case Step 3's hybrid pipeline above targets**:
-the existing rule-based classifier's `dotCount != 1` case would ABSTAIN here rather
-than guess, and the Step 3 LLM fallback would resolve it with real language
-understanding. No longer blanket NOT FEASIBLE — feasible via Step 3 once that
-pipeline is implemented; until then, remains an accepted mechanical-rule limitation
-(`dotCount != 1` → leave as-is).
+the class of ambiguous, ABSTAIN-worthy case Step 3 targets**: the existing
+rule-based classifier's `dotCount != 1` case would ABSTAIN here rather than guess,
+and the GRU classifier (see "GRU implementation design" above — Step 3's only
+feasible approach, now that the small-LLM classifier fallback is confirmed NOT
+FEASIBLE) would resolve it, provided its training set includes enough mid-word-dot
+examples to learn the distinction. No longer blanket NOT FEASIBLE — feasible via
+Step 3's GRU once that pipeline is implemented; until then, remains an accepted
+mechanical-rule limitation (`dotCount != 1` → leave as-is).

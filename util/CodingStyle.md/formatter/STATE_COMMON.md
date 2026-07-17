@@ -368,19 +368,43 @@ zero regressions) before moving to the next group.
 - [x] `make test`: 90/90 forward + 90/90 idempotency, zero regressions.
 
 ### ScopePipeline.java → ScopePipelineCore + ScopePipelineCurly + ScopePipelineIndent + ScopePipelineTags
-- [ ] `ScopePipelineCore.java`: `Span`/`Replacement`, splice/indent/
-      whitespace primitives, `buildIndexMap`, other zero-language-gating
-      helpers (`indentUnit`, `isWhitespaceOrNewline`, `hasTopLevelNewline`,
-      `anyFrozen`, `prevSignificantIndex`/`nextSignificantIndex`,
-      `matchParenForward/Backward`, `matchBraceForward`, etc.).
-- [ ] `ScopePipelineCurly.java`: `process()` entry point plus all four
+- [x] `ScopePipelineCore.java`: abstract class holding `Span`/`Replacement`,
+      splice/indent/whitespace primitives, `buildIndexMap`, and every
+      zero-language-gating helper (`indentUnit`, `isWhitespaceOrNewline`,
+      `hasTopLevelNewline`, `anyFrozen`, `trailingGapHasComment`,
+      `prevSignificantIndex`/`nextSignificantIndex`,
+      `matchParenForward/Backward`, `matchBraceForward`, `splice`,
+      `joinText`, `trailingIndent`, `leadingSpaceCount`,
+      `stripTrailingSpaces`, `normalizeIndent`, `normalizeLeadingGap`,
+      `trimTrailingWhitespace`, `trailingRunNewlineCount`,
+      `findSpanContaining`). `normalizeIndent`/`indentUnit` used to read
+      `miscRule.indentWidth` (a curly-only field) -- Core now holds its own
+      `protected final int indentWidth` set via constructor, same value,
+      no behavior change. `process(String)` is Core's one abstract entry
+      point, matching the `FormatterCore.forLanguage`-style dispatcher
+      shape (though nothing currently needs a `ScopePipelineCore` factory,
+      since `ScopePipelineCurly` is only ever constructed directly by
+      `FormatterCurly`, never dispatched-to from `Main`/`ServerMode`).
+- [x] `ScopePipelineCurly.java`: `process()` entry point plus all four
       rule-driving passes (`applyDeclarationsPass`,
       `applyOversizedAggregateInitClosingBracePass`, `applyAssignmentsPass`,
       `applySignaturePass`, `applyGetterSetterPass`) and their
-      Kotlin-vs-C/C++/Java internal branches, unchanged.
-- [ ] `ScopePipelineIndent.java` / `ScopePipelineTags.java`: skeletons.
-- [ ] Update callers (`FormatterCurly`, tests) to use `ScopePipelineCurly`.
-- [ ] `make test` full pass, zero regressions.
+      Kotlin-vs-C/C++/Java internal branches, unchanged -- mechanical move
+      via a Python brace-matching script (not hand-retyped) to guarantee
+      byte-identical method bodies; only the class header/fields/
+      constructors were hand-edited (extends `ScopePipelineCore`, calls
+      `super(indentWidth)`, drops the now-inherited `indentWidth` field).
+- [x] `ScopePipelineIndent.java` / `ScopePipelineTags.java`: skeletons,
+      constructor takes `indentWidth` (passed to `super`), `process` throws
+      `UnsupportedOperationException` referencing STATE_PYTHON3.md /
+      STATE_DATA_FORMATS.md respectively.
+- [x] Update callers: `FormatterCurly.java`'s `new ScopePipeline(...)` →
+      `new ScopePipelineCurly(...)`. Confirmed via grep this was the only
+      real caller (no test file constructs `ScopePipeline` directly).
+      Old `ScopePipeline.java` removed via `git rm` (plain `rm` + `git add`
+      does NOT stage a working-tree deletion on this system's git version --
+      see the `Formatter.java` removal note above, same fix reused).
+- [x] `make test`: 90/90 forward + 90/90 idempotency, zero regressions.
 
 ### DeclarationAlignmentRule.java → DeclarationAlignmentRuleCore + DeclarationAlignmentRuleCurly + DeclarationAlignmentRuleIndent (no Tags)
 - [ ] `DeclarationAlignmentRuleCore.java`: `splitStatements`,

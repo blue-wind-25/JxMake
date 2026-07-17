@@ -78,7 +78,7 @@ public final class FormatterCurly extends FormatterCore {
         if (lang.isCpp) {
             text = cppRule.enforceTemplateAngleBracketSpacing(tokenizer.apply(text));
         }
-        text = new ScopePipeline(lang, config.indentStyle(), config.isNormalizeCommentStartCase(),
+        text = new ScopePipelineCurly(lang, config.indentStyle(), config.isNormalizeCommentStartCase(),
                 config.isNormalizeCommentEndPeriod(), config.isCommentNormalizationClassifier(),
                 formatOff, indentWidth, lineLengthLimit).process(text);
 

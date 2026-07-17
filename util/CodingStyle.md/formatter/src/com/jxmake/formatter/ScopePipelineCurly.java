@@ -29,12 +29,16 @@ import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
 
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Finds scope/signature boundaries in a whole-file token stream and splices grouped/rendered
+ * Curly-brace-family (C/C++/Java/Kotlin) scope pipeline -- everything in this file used to live
+ * directly in {@code ScopePipeline} before the curly/indent/tags class-refactor (see
+ * `STATE_COMMON.md`'s "Class Refactor" checklist). No behavior change, mechanical move only;
+ * every existing Kotlin-vs-C/C++/Java internal branch is unchanged.
+ *
+ * <p>Finds scope/signature boundaries in a whole-file token stream and splices grouped/rendered
  * output from {@link DeclarationAlignmentRule}, {@link GetterSetterRule}, and {@link MiscRule}
  * back into the source text on their behalf -- those rule classes' grouping methods explicitly
  * document that boundary-finding and splice-back are the caller's job (see STATE.md's
@@ -46,7 +50,7 @@ import java.util.Map;
  * §5/§6 apply anywhere in code, recursively, not just class/struct bodies -- see STATE.md's
  * "STYLE.md §5/§6 scope -- anywhere in code, recursively").
  */
-public class ScopePipeline {
+public final class ScopePipelineCurly extends ScopePipelineCore {
 
     private final Lang lang;
     private final String indentStyle;
@@ -61,34 +65,31 @@ public class ScopePipeline {
     private final KotlinDeclarationAlignmentRule kotlinDeclarationRule;
     private final KotlinSignatureRule kotlinSignatureRule;
     private final boolean formatOff;
-    // RDD_KEY_162: needed so applyKotlinDeclarationsPass can estimate a group's rendered column
-    // (depth * indentWidth) and pass it to KotlinDeclarationAlignmentRule.renderAlignedGroup's
-    // width-budget check.
-    private final int indentWidth;
 
-    public ScopePipeline(final Lang lang, final String indentStyle,
+    public ScopePipelineCurly(final Lang lang, final String indentStyle,
             final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod) {
         this(lang, indentStyle, normalizeCommentStartCase, normalizeCommentEndPeriod, false);
     }
 
-    public ScopePipeline(final Lang lang, final String indentStyle,
+    public ScopePipelineCurly(final Lang lang, final String indentStyle,
             final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod,
             final boolean formatOff) {
         this(lang, indentStyle, normalizeCommentStartCase, normalizeCommentEndPeriod, formatOff,
                 MiscRule.DEFAULT_INDENT_WIDTH, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
     }
 
-    public ScopePipeline(final Lang lang, final String indentStyle,
+    public ScopePipelineCurly(final Lang lang, final String indentStyle,
             final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod,
             final boolean formatOff, final int indentWidth, final int lineLengthLimit) {
         this(lang, indentStyle, normalizeCommentStartCase, normalizeCommentEndPeriod, false,
                 formatOff, indentWidth, lineLengthLimit);
     }
 
-    public ScopePipeline(final Lang lang, final String indentStyle,
+    public ScopePipelineCurly(final Lang lang, final String indentStyle,
             final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod,
             final boolean commentNormalizationClassifier, final boolean formatOff,
             final int indentWidth, final int lineLengthLimit) {
+        super(indentWidth);
         this.lang = lang;
         this.indentStyle = indentStyle;
         this.tokenizer = new TokenizerCurly(lang);
@@ -103,7 +104,6 @@ public class ScopePipeline {
         this.kotlinSignatureRule = lang.isKotlin
                 ? new KotlinSignatureRule(lang, indentWidth, lineLengthLimit) : null;
         this.formatOff = formatOff;
-        this.indentWidth = indentWidth;
     }
 
     /** Wraps {@link TokenizerCore#tokenize} and stamps frozen-span state (RDD_KEY_90 §A) on every
@@ -115,26 +115,6 @@ public class ScopePipeline {
         final List<Token> tokens = tokenizer.tokenize(s);
         TokenizerCore.markFrozenSpans(tokens, startFrozen);
         return tokens;
-    }
-
-    // ── Top-level span splitting ─────────────────────────────────────────────────
-
-    /** One top-level (depth-0) span of a scope's token list: either a `;`-terminated statement,
-     *  or a `{ }`-block-terminated member, plus any same-line trailing comment. {@code end} is
-     *  exclusive. {@code openBraceIdx}/{@code closeBraceIdx} are -1 for a statement span;
-     *  otherwise they are this span's own top-level brace pair. */
-    private static final class Span {
-        final int start;
-        final int end;
-        final int openBraceIdx;
-        final int closeBraceIdx;
-
-        Span(final int start, final int end, final int openBraceIdx, final int closeBraceIdx) {
-            this.start = start;
-            this.end = end;
-            this.openBraceIdx = openBraceIdx;
-            this.closeBraceIdx = closeBraceIdx;
-        }
     }
 
     /**
@@ -324,131 +304,6 @@ public class ScopePipeline {
             }
         }
         return idx;
-    }
-
-    private Span findSpanContaining(final List<Span> spans, final int idx) {
-        for (final Span s : spans) {
-            if (s.start <= idx && idx < s.end) {
-                return s;
-            }
-        }
-        return null;
-    }
-
-    // ── Splice-back primitives ───────────────────────────────────────────────────
-
-    /** One contiguous source-text replacement, by token-index range (end exclusive). */
-    private static final class Replacement {
-        final int start;
-        final int end;
-        final String text;
-
-        Replacement(final int start, final int end, final String text) {
-            this.start = start;
-            this.end = end;
-            this.text = text;
-        }
-    }
-
-    /** Reassembles {@code tokens}' source text, substituting each {@code replacements} range
-     *  (assumed sorted by {@code start}, non-overlapping) and passing every other token through
-     *  verbatim. */
-    private String splice(final List<Token> tokens, final List<Replacement> replacements) {
-        final StringBuilder out = new StringBuilder();
-        final int n = tokens.size();
-        int i = 0;
-        int r = 0;
-        while (i < n) {
-            if (r < replacements.size() && replacements.get(r).start == i) {
-                final Replacement rep = replacements.get(r);
-                out.append(rep.text);
-                i = rep.end;
-                r++;
-                continue;
-            }
-            out.append(tokens.get(i).text);
-            i++;
-        }
-        return out.toString();
-    }
-
-    private String joinText(final List<Token> tokens, final int from, final int to) {
-        final StringBuilder sb = new StringBuilder();
-        for (int i = from; i < to; i++) {
-            sb.append(tokens.get(i).text);
-        }
-        return sb.toString();
-    }
-
-    /** The indentation of the line a leading gap ends on -- the text after its last `\n`, or the
-     *  whole gap if it contains none. */
-    private String trailingIndent(final String gap) {
-        final int nl = gap.lastIndexOf('\n');
-        return nl >= 0 ? gap.substring(nl + 1) : gap;
-    }
-
-    /** Count of leading `' '` characters in {@code s} (0 if it doesn't start with one). */
-    private int leadingSpaceCount(final String s) {
-        int count = 0;
-        while (count < s.length() && s.charAt(count) == ' ') {
-            count++;
-        }
-        return count;
-    }
-
-    /** Removes up to {@code n} trailing `' '` characters from the end of {@code s}. */
-    private String stripTrailingSpaces(final String s, final int n) {
-        int end = s.length();
-        int remaining = n;
-        while (remaining > 0 && end > 0 && s.charAt(end - 1) == ' ') {
-            end--;
-            remaining--;
-        }
-        return s.substring(0, end);
-    }
-
-    /** Rounds `rawIndent` (spaces/tabs) up to the nearest multiple of {@link MiscRule#indentWidth}.
-     *  Returns `rawIndent` unchanged when it is already a valid indentation (zero, or a positive
-     *  multiple of indentWidth).  Only non-zero non-multiples (e.g. 2-space source) are touched. */
-    private String normalizeIndent(final String rawIndent) {
-        final int indentWidth = miscRule.indentWidth;
-        int width = 0;
-        for (int i = 0; i < rawIndent.length(); i++) {
-            final char c = rawIndent.charAt(i);
-            if (c == '\t') {
-                width = ((width / indentWidth) + 1) * indentWidth;
-            } else {
-                width++;
-            }
-        }
-        // Zero-width is valid (global/top-level scope, column 0).  Multiples of indentWidth
-        // are valid.  Only round up a non-zero non-multiple (malformed indentation in source).
-        if (width == 0 || width % indentWidth == 0) {
-            return rawIndent;
-        }
-        final int normalized = ((width + indentWidth - 1) / indentWidth)
-                * indentWidth;
-        final StringBuilder sb = new StringBuilder(normalized);
-        for (int i = 0; i < normalized; i++) {
-            sb.append(' ');
-        }
-        return sb.toString();
-    }
-
-    /** Returns a `leadingGap` that ends with `normalizedIndent` on its final line.  Only acts
-     *  when `leadingGap` already has a newline (multi-line indented content); if `leadingGap`
-     *  has no newline the content is inline and the gap is left unchanged -- callers that need
-     *  to expand a one-liner named-scope body pre-process it before calling processScope. */
-    private String normalizeLeadingGap(final String leadingGap, final String rawIndent,
-            final String normalizedIndent) {
-        if (rawIndent.equals(normalizedIndent)) {
-            return leadingGap;
-        }
-        final int nl = leadingGap.lastIndexOf('\n');
-        if (nl < 0) {
-            return leadingGap;
-        }
-        return leadingGap.substring(0, nl + 1) + normalizedIndent;
     }
 
     /** True if the `{` at {@code braceIdx} opens a `namespace NAME { ... }` (or nested
@@ -774,48 +629,6 @@ public class ScopePipeline {
             q--;
         }
         return q;
-    }
-
-    /** Strips trailing spaces/tabs/newlines/carriage-returns from {@code s} -- used to discard a
-     *  scope's original, unnormalized gap before its closing `}` so a fresh {@code "\n" + indent}
-     *  can be appended in its place. */
-    private String trimTrailingWhitespace(final String s) {
-        int end = s.length();
-        while (end > 0) {
-            final char c = s.charAt(end - 1);
-            if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
-                break;
-            }
-            end--;
-        }
-        return s.substring(0, end);
-    }
-
-    /** Counts the {@code '\n'} characters in the pure-whitespace run at the very end of {@code s}
-     *  (what {@link #trimTrailingWhitespace} would strip) -- one for a plain trailing newline,
-     *  two or more when genuine blank source line(s) sat in the gap being force-reindented. */
-    private int trailingRunNewlineCount(final String s) {
-        int newlineCount = 0;
-        int i = s.length() - 1;
-        while (i >= 0) {
-            final char c = s.charAt(i);
-            if (c != ' ' && c != '\t' && c != '\n' && c != '\r') {
-                break;
-            }
-            if (c == '\n') {
-                newlineCount++;
-            }
-            i--;
-        }
-        return newlineCount;
-    }
-
-    private Map<Token, Integer> buildIndexMap(final List<Token> tokens) {
-        final Map<Token, Integer> indexOf = new IdentityHashMap<>();
-        for (int i = 0; i < tokens.size(); i++) {
-            indexOf.put(tokens.get(i), i);
-        }
-        return indexOf;
     }
 
     // ── §5 declarations pass ─────────────────────────────────────────────────────
@@ -1661,95 +1474,10 @@ public class ScopePipeline {
         return splice(current, replacements);
     }
 
-    /** One indentation level's worth of literal spaces, per {@link MiscRule#indentWidth}. */
-    private String indentUnit() {
-        final StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < miscRule.indentWidth; i++) {
-            sb.append(' ');
-        }
-        return sb.toString();
-    }
-
     /** Public entry point: tokenizes {@code source} and runs the recursive scope pipeline,
      *  starting at depth 0. The one method {@code Main.java} calls once per file. */
     public String process(final String source) {
         return processScope(tokenize(source, formatOff), 0, formatOff, "");
-    }
-
-    // ── Token-scanning helpers ───────────────────────────────────────────────────
-    // isPunct/isOp/isGapToken are centralized on TokenizerCore.Token (static-imported below);
-    // prevSignificantIndex/nextSignificantIndex use the exclusive-of-`from` convention (matching
-    // JavaSpecificRule/CppSpecificRule, since isCandidateSignatureName/isEnumConstantBody above
-    // are ported verbatim from there), not MiscRule's inclusive-of-`from` convention.
-
-    /** Like {@code Token.isGapToken} but excludes comments -- used to trim a declaration/assignment
-     *  group's replaced span down to its true trailing content without eating a same-line trailing
-     *  comment that the group's own rendered {@code text} did NOT already re-include verbatim
-     *  (unlike a mid-group member, the group's *last* member's trailing comment is only captured
-     *  once, by {@code Declaration.trailingComment}/{@code Assignment.trailingComment} and rendered
-     *  into `text` -- if this trim treated the comment as trimmable "gap" too, it would stay behind
-     *  in the untouched source right after the replaced span, duplicating it in the output). */
-    private boolean isWhitespaceOrNewline(final Token t) {
-        return t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE;
-    }
-
-    /**
-     * True iff a {@code NEWLINE} appears anywhere in {@code [fromInclusive, toExclusive)} while
-     * paren/bracket depth (relative to {@code fromInclusive}) is exactly 0. Used instead of a
-     * raw {@code String.contains("\n")} check to decide whether a one-liner body is still a
-     * single logical statement: on a fresh format a one-liner body never contains a newline at
-     * all, but on a *reformat* of already-formatted output, {@code MiscRule.enforceCallLineBreaking}
-     * may have already broken an over-length call's argument list across multiple physical
-     * lines while leaving it one logical statement -- those newlines are strictly inside the
-     * call's own parens (depth > 0) and must not be mistaken for a real multi-statement body.
-     */
-    private boolean hasTopLevelNewline(final List<Token> tokens, final int fromInclusive, final int toExclusive) {
-        int depth = 0;
-        for (int i = fromInclusive; i < toExclusive; i++) {
-            final Token t = tokens.get(i);
-            if (t.type == TokenType.PUNCT && ("(".equals(t.text) || "[".equals(t.text))) {
-                depth++;
-            } else if (t.type == TokenType.PUNCT && (")".equals(t.text) || "]".equals(t.text))) {
-                depth--;
-            } else if (t.type == TokenType.NEWLINE && depth == 0) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean anyFrozen(final List<Token> tokens, final int fromInclusive, final int toExclusive) {
-        for (int i = fromInclusive; i < toExclusive; i++) {
-            if (tokens.get(i).frozen) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /** True iff a {@code COMMENT_LINE}/{@code COMMENT_BLOCK} token sits anywhere in the pure-gap
-     *  run immediately before {@code closeBraceIdx} (i.e. between it and the nearest preceding
-     *  non-gap token). */
-    private boolean trailingGapHasComment(final List<Token> tokens, final int closeBraceIdx) {
-        for (int i = closeBraceIdx - 1; i >= 0; i--) {
-            final TokenType ty = tokens.get(i).type;
-            if (ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK) {
-                return true;
-            }
-            if (!isGapToken(tokens.get(i))) {
-                return false;
-            }
-        }
-        return false;
-    }
-
-    private int prevSignificantIndex(final List<Token> tokens, final int from) {
-        for (int i = from - 1; i >= 0; i--) {
-            if (!isGapToken(tokens.get(i))) {
-                return i;
-            }
-        }
-        return -1;
     }
 
     /** Starting from the declarator's own line ({@code lineFirst}), pulls in an immediately
@@ -1823,59 +1551,5 @@ public class ScopePipeline {
             break;
         }
         return cur;
-    }
-
-    private int nextSignificantIndex(final List<Token> tokens, final int from) {
-        for (int i = from + 1; i < tokens.size(); i++) {
-            if (!isGapToken(tokens.get(i))) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    private int matchParenForward(final List<Token> tokens, final int openIdx) {
-        int depth = 0;
-        for (int i = openIdx; i < tokens.size(); i++) {
-            if (isPunct(tokens.get(i), "(")) {
-                depth++;
-            } else if (isPunct(tokens.get(i), ")")) {
-                depth--;
-                if (depth == 0) {
-                    return i;
-                }
-            }
-        }
-        return -1;
-    }
-
-    private int matchParenBackward(final List<Token> tokens, final int closeIdx) {
-        int depth = 0;
-        for (int i = closeIdx; i >= 0; i--) {
-            if (isPunct(tokens.get(i), ")")) {
-                depth++;
-            } else if (isPunct(tokens.get(i), "(")) {
-                depth--;
-                if (depth == 0) {
-                    return i;
-                }
-            }
-        }
-        return -1;
-    }
-
-    private int matchBraceForward(final List<Token> tokens, final int openIdx) {
-        int depth = 0;
-        for (int i = openIdx; i < tokens.size(); i++) {
-            if (isPunct(tokens.get(i), "{")) {
-                depth++;
-            } else if (isPunct(tokens.get(i), "}")) {
-                depth--;
-                if (depth == 0) {
-                    return i;
-                }
-            }
-        }
-        return -1;
     }
 }

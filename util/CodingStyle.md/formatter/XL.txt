@@ -8,64 +8,6 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 ####################################################################################################
 ####################################################################################################
 
-Enter plan mode to generate the steps/checklist/scoping table for:
-1. Refactoring the existing classes.
-2. Fixing `**PROMOTION GATE — flagged assumptions/contradictions.**` in `FUTURE_TEST_FIXTURES.md`
-   and all the related files.
-3. Generating the classes for the new languages.
-
-Discuss with me first as needed.
-
-(1)
-The refactoring steps should be put in `STATE_COMMON.md` and later executed first.
-
-`TokenizerCore.java` should be split into:
-    `TokenizerCore.java`   : All shared/common functions
-    `TokenizerCurly.java`  : Functions for "curly" languange such as C/C++/Java/Kotlin/JS/TS
-    `TokenizerIndent.java` : Functions for "indent" languages such as Python3
-    `TokenizerTags.java`   : Functions for "tag" languages such as XML and HTML
-
-`Formatter.java` should be split/renamed into:
-    `FormatterCore.java`   : All shared/common functions (this common parent class may not be necessary)
-    `FormatterCurly.java`  : Functions for "curly" languange such as C/C++/Java/Kotlin/JS/TS
-    `FormatterIndent.java` : Functions for "indent" languages such as Python3
-    `FormatterTags.java`   : Functions for "tag" languages such as XML and HTML
-The same with `ScopePipeline.java`, `DeclarationAlignmentRule.java`, `GetterSetterRule.java`, and `MiscRule.java`.
-
-`ComplexityPaddingEvaluator.java` can be extended to simply contains the needed new functions.
-This file is still small enough.
-
-I think, the dispatcher for languages that need one (e.g., HTML, and in the future JSX, TSX) should
-put in the tokenizer and formatter class.
-
-The other files should be fine as they are, but if necessary discuss them with me.
-
-(2)
-Discuss with me if there is something unclear.
-
-(3)
-The full steps/checklist/scoping table for the new languages should be put in:
-    `STATE_CPP26.md`
-    `STATE_PYTHON3.md`
-    `STATE_DATA_FORMATS.md`
-    `STATE_JS_TS.md`
-
-I think JSON/JSON5 and CSS can share formatter classes either by child classes extending a parent class
-or combined classes gated by `if` using `Lang.isXXX`.
-
-HTML formatter classes can extend the XML formatter classes; or make XML classes can also parse also
-HTML tags and gated `if` using `Lang.isXXX` when called.
-
-JS and TS formatter should be able to share some formatter classes.
-
-The implementation order is:
-    JSON/JSON5 -> CSS -> XML -> JS -> TS -> HTML -> CPP26
-
-If for some reason HTML is then implemented before JS/TS, make the HTML formatter can pass-through
-embedded scripts.
-
-####################################################################################################
-
 Compact (use one sub-agent) `STATE_COMMON.md`, `STATE_C_CPP_JAVA.md` and `STATE_KOTLIN.md`.
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.
@@ -92,6 +34,38 @@ the sub-agent can launch up to two more research sub-sub-agents):
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
 recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
+    `github.com/json5/json5`
+    `github.com/microsoft/vscode`
+    `github.com/babel/babel`
+    `github.com/eslint/eslint`
+
+----------------------------------------------------------------------------------------------------
+
+Continue with YAML work (search in /tmp first, clone the repo if not found; use one sub-agent,
+the sub-agent can launch up to two more research sub-sub-agents):
+...
+When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
+already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
+recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
+
+NOTE: not yet drafted in STYLE_DATA_FORMATS.md/STATE_DATA_FORMATS.md -- no rule sections or
+test-fixture repos recorded yet; only the scaffold-only dispatch and boilerplate
+`YamlSpecificRule.java` stub exist so far.
+    ???
+
+----------------------------------------------------------------------------------------------------
+
+Continue with TOML work (search in /tmp first, clone the repo if not found; use one sub-agent,
+the sub-agent can launch up to two more research sub-sub-agents):
+...
+When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
+already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
+recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
+
+NOTE: not yet drafted in STYLE_DATA_FORMATS.md/STATE_DATA_FORMATS.md -- no rule sections or
+test-fixture repos recorded yet; only the scaffold-only dispatch and boilerplate
+`TomlSpecificRule.java` stub exist so far.
+    ???
 
 ----------------------------------------------------------------------------------------------------
 
@@ -101,6 +75,10 @@ the sub-agent can launch up to two more research sub-sub-agents):
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
 recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
+    `github.com/twbs/bootstrap`
+    `github.com/necolas/normalize.css`
+    `github.com/foundation/foundation-sites`
+    `github.com/primer/css`
 
 ----------------------------------------------------------------------------------------------------
 
@@ -110,15 +88,10 @@ the sub-agent can launch up to two more research sub-sub-agents):
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
 recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-
-----------------------------------------------------------------------------------------------------
-
-Continue with HTML work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
-...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
+    `github.com/apache/maven`
+    `github.com/apache/ant`
+    `github.com/jenkinsci/jenkins`
+    `github.com/w3c/svgwg`
 
 ----------------------------------------------------------------------------------------------------
 
@@ -128,6 +101,29 @@ the sub-agent can launch up to two more research sub-sub-agents):
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
 recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
+    `github.com/nodejs/node`             [large, mixed-style JS core + tooling]
+    `github.com/expressjs/express`       [smaller, idiomatic, widely-read real-world JS]
+    `github.com/lodash/lodash`           [dense functional-style JS, bracket-padding stress test]
+    `github.com/microsoft/TypeScript`    [the compiler itself; canonical, heavily-typed real TS at scale]
+    `github.com/angular/angular`         [large, idiomatic, decorator-heavy real TS]
+    `github.com/nestjs/nest`             [decorator/generic-heavy backend TS, type-annotation alignment]
+    `github.com/vuejs/core`              [modern TS, heavy generics and type-level code]
+
+----------------------------------------------------------------------------------------------------
+
+Continue with HTML work (search in /tmp first, clone the repo if not found; use one sub-agent,
+the sub-agent can launch up to two more research sub-sub-agents):
+...
+When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
+already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
+recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
+    `github.com/h5bp/html5-boilerplate`
+    `github.com/twbs/bootstrap` (docs site)
+    `github.com/mdn/content`
+    `github.com/whatwg/html`
+
+NOTE: depends on CSS support above and JS/TS support (separate job) both being available
+before the `<script>`/`<style>` embedded-content dispatcher can be exercised end-to-end.
 
 ----------------------------------------------------------------------------------------------------
 
@@ -137,6 +133,11 @@ the sub-agent can launch up to two more research sub-sub-agents):
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
 recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
+    `github.com/python/cpython`  [reference implementation's own stdlib; large, disciplined, real-world]
+    `github.com/pallets/flask`   [small-to-medium, idiomatic, widely-read real Python]
+    `github.com/django/django`  [large real-world Python, heavy decorator/class-based-pattern density]
+    `github.com/psf/black`      [a formatter itself; its own tests/data corpus may be directly reusable]
+    `github.com/pallets/click`  [dense decorator and nested-call-argument use]
 
 ----------------------------------------------------------------------------------------------------
 
@@ -146,6 +147,15 @@ the sub-agent can launch up to two more research sub-sub-agents):
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
 recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
+
+NOTE: C++26 is not a separate language -- §1-4 rule coverage lands in the existing "cpp"
+pipeline and reuses the C/C++ block's fixtures below. Only §5 Reflection (`^^`/`[:`/`:]`)
+needs its own corpus, once its tokenizer support pass lands:
+    `github.com/bloomberg/clang-p2996`
+    `github.com/wrocpp/cpp26-reflection-examples`
+    `github.com/simdjson/experimental_json_builder`
+    `github.com/stephenberry/glaze`
+    `ryanjk5.github.io/posts/rjk-duck` (blog post, not a repo)
 
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------

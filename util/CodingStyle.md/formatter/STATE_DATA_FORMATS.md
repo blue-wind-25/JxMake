@@ -116,6 +116,30 @@ relevant sections accordingly.
 
 ---
 
+## Class Scoping (post Core/Curly/Indent/Tags refactor)
+
+- **XML/HTML5** are tag-based (`Lang.isTagBased()`). `XmlTokenizer`/
+  `XmlFormatter` extend `TokenizerTags`/`FormatterTags`. `HtmlTokenizer`/
+  `HtmlFormatter` either extend the XML classes directly, or share the same
+  `*Tags` classes gated internally on `Lang.isHtml5` (mirroring how curly
+  classes branch on `isKotlin` today) — **open question**, not resolved now;
+  decide when XML implementation actually starts, once real tag-parsing
+  structure exists to judge which shape fits better.
+- **JSON/JSON5/CSS** are neither tag-based, curly, nor indent-based per the
+  `Lang.java` family predicates added in the refactor (flat/braced, no
+  block-scoping semantics) — **open question**: do they need their own
+  `TokenizerCore` sibling (e.g. a hypothetical `TokenizerFlat`), or do they
+  extend `TokenizerCore` directly with a minimal override? Not resolved now;
+  revisit when JSON/JSON5 work (the first of the four to be implemented,
+  per the Checklist below) actually starts.
+- Implementation order is unchanged by the refactor: JSON/JSON5 → CSS → XML
+  → HTML5 (HTML5 last, depends on both CSS and JS/TS support).
+- **HTML-before-JS/TS contingency:** if HTML5 implementation is reached
+  before `STATE_JS_TS.md`'s job has landed a real JS/TS formatter, the
+  `<script>` splice-out step must pass embedded script content through
+  opaque (preserved verbatim, re-indented only) rather than attempting to
+  dispatch to a not-yet-existing JS/TS formatter class.
+
 ## Open Questions
 
 None recorded yet in this file.

@@ -140,6 +140,29 @@ out FUTURE_TEST_FIXTURES.md's "Python3" section accordingly.
 
 ---
 
+## Class Scoping (post Core/Curly/Indent/Tags refactor)
+
+Python3 is the first real implementation to land in the `*Indent` skeleton
+classes created by the refactor: `TokenizerIndent`, `FormatterIndent`,
+`ScopePipelineIndent`, and `MiscRuleIndent` (all currently throw
+`UnsupportedOperationException` pointing back at this file) are Python3's
+landing spot — fill them in in place rather than creating new top-level
+classes.
+
+`DeclarationAlignmentRuleIndent`/`GetterSetterRuleIndent` skeletons also
+exist and are available if Python3's own alignment-grid work (§1 bracket
+complexity feeding §2 assignment alignment, §6 signature wrapping, §7
+`match`/`case` compact-form alignment) turns out to overlap enough with the
+curly-family shape to reuse. This is optional reuse, not a requirement —
+Python's `match`/`case`, indentation-as-scope, and bracket-complexity work
+may end up entirely bespoke inside the `*Indent` classes instead. Decide
+per-rule as each is implemented, not up front.
+
+Implementation order is unchanged by the refactor: tokenizer pass
+(indentation-as-load-bearing architecture decision) → statement/
+indentation skeleton → §1 bracket-complexity → §2–9 → fixtures → real-code
+testing.
+
 ## Open Questions
 
 None currently — `STYLE_PYTHON3.md`'s own "Known Open Items" (§10) states

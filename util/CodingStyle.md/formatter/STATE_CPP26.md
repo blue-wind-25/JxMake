@@ -108,6 +108,15 @@ that file for why. Once authored, register pairs in the Makefile's
 
 ---
 
+## Class Scoping (post Core/Curly/Indent/Tags refactor)
+
+No new classes. C++26 rule coverage lands entirely inside the existing
+`isCpp`-gated curly-family classes: `TokenizerCurly.java`,
+`FormatterCurly.java`, `ScopePipelineCurly.java`, `MiscRuleCurly.java`, and
+`CppSpecificRule.java`. "Tokenizer support pass" in the Checklist below
+means editing `TokenizerCurly.java` specifically (not `TokenizerCore.java`,
+which is family-generic and has no C++-specific branching to extend).
+
 ## Open Questions
 
 None recorded yet in this file. Note: `STYLE_CPP26.md` §5 (Reflection) is

@@ -126,6 +126,27 @@ accordingly.
 
 ---
 
+## Class Scoping (post Core/Curly/Indent/Tags refactor)
+
+JS/TS are curly-family (`Lang.isCurly()` covers `isJs`/`isTs` alongside
+C/C++/Java/Kotlin). `JsTokenizer`/`TsTokenizer` both extend `TokenizerCurly`
+— or, since JS and TS share far more with each other than either shares
+with C/C++/Java/Kotlin, a shared intermediate `JsTsTokenizerCurly` sitting
+between `TokenizerCurly` and the two per-language classes. **Open
+question:** exact intermediate-class shape is not resolved now — the
+explore/design work behind the main refactor didn't cover JS/TS-specific
+structure (no JS/TS code exists yet to judge the split by); settle this at
+tokenizer-support-pass time, once real JS/TS tokens are being handled.
+
+Same pattern applies one level up: a shared JS/TS base sits between
+`FormatterCurly`/`ScopePipelineCurly`/`MiscRuleCurly` and the concrete JS
+and TS formatter/rule classes, with TS adding type-annotation/interface/
+enum-only rule methods (§11–14) on top of the shared JS base. Also an open
+question, deferred to implementation time for the same reason.
+
+The existing HTML5-dispatcher and JSX/TSX-out-of-scope open questions
+below are unaffected by the refactor.
+
 ## Open Questions
 
 ### Open Design Questions

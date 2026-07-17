@@ -78,10 +78,11 @@ Sections:
    when the preceding block's last statement is `return`/`break`/
    `continue` (not `raise`).
 
-No `src/` files yet — scaffold dispatch lives in the shared
-`Lang.java`/`Main.java`/`ServerMode.java`/`Config.java`, described in the
-routing `CLAUDE.md` table; this job's own rule classes (a future
-`PythonSpecificRule.java` or similar) do not exist yet.
+Scaffold dispatch lives in the shared `Lang.java`/`Main.java`/
+`ServerMode.java`/`Config.java`, described in the routing `CLAUDE.md`
+table. This job's own rule class, `rules/PythonSpecificRule.java`, exists
+only as a boilerplate stub (constructor throws
+`UnsupportedOperationException`) — no real logic yet.
 
 ---
 

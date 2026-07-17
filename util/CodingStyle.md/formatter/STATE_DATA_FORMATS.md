@@ -57,10 +57,14 @@ language rules do not apply. Four sub-formats, each stating explicitly which
    formatter (see `STYLE_JS_TS.md`) and back, including the CDATA-wrapped
    variant; a `<script type="...">` with a non-JS/TS type is left opaque.
 
-No `src/` files yet — scaffold dispatch lives in the shared
-`Lang.java`/`Main.java`/`ServerMode.java`/`Config.java`, described in the
-routing `CLAUDE.md` table; this job's own rule classes (per-sub-format
-formatters/dispatchers) do not exist yet.
+Scaffold dispatch lives in the shared `Lang.java`/`Main.java`/
+`ServerMode.java`/`Config.java`, described in the routing `CLAUDE.md`
+table. This job's own per-sub-format rule classes —
+`rules/JsonSpecificRule.java` (JSON/JSON5), `rules/YamlSpecificRule.java`,
+`rules/TomlSpecificRule.java`, `rules/CssSpecificRule.java`, and
+`rules/XmlSpecificRule.java` (XML/HTML5) — exist only as boilerplate stubs
+(each constructor throws `UnsupportedOperationException`) — no real logic
+yet.
 
 ---
 
@@ -74,6 +78,8 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 | Key | Topic |
 |---|---|
 | RDD_KEY_185 | §2.2/§2.4/§4 (new §4.3) — `<pre>` content is opaque like CDATA; bare text-node siblings reindent to parent structural depth like any content line |
+| RDD_KEY_188 | Class Scoping — no separate HtmlTokenizer/HtmlFormatter; shared `*Tags` classes gated internally on `isHtml5`, concrete rules in `XmlSpecificRule.java` |
+| RDD_KEY_189 | Class Scoping — JSON/JSON5/CSS/YAML/TOML extend `TokenizerCore` directly (no `TokenizerFlat`); concrete rules in `JsonSpecificRule.java`/`YamlSpecificRule.java`/`TomlSpecificRule.java`/`CssSpecificRule.java` |
 
 ---
 
@@ -118,20 +124,27 @@ relevant sections accordingly.
 
 ## Class Scoping (post Core/Curly/Indent/Tags refactor)
 
-- **XML/HTML5** are tag-based (`Lang.isTagBased()`). `XmlTokenizer`/
-  `XmlFormatter` extend `TokenizerTags`/`FormatterTags`. `HtmlTokenizer`/
-  `HtmlFormatter` either extend the XML classes directly, or share the same
-  `*Tags` classes gated internally on `Lang.isHtml5` (mirroring how curly
-  classes branch on `isKotlin` today) — **open question**, not resolved now;
-  decide when XML implementation actually starts, once real tag-parsing
-  structure exists to judge which shape fits better.
+- **XML/HTML5** are tag-based (`Lang.isTagBased()`). Their eventual
+  `Tokenizer`/`Formatter` extend `TokenizerTags`/`FormatterTags`. **Resolved
+  (RDD_KEY_188):** no separate `HtmlTokenizer`/`HtmlFormatter` — XML and
+  HTML5 share the same `*Tags` classes gated internally on `lang.isHtml5`,
+  mirroring how curly classes branch on `isKotlin` today. Concrete XML/
+  HTML5-only rule logic (§2/§4) lands in a single `XmlSpecificRule.java`
+  (boilerplate stub created, throws `UnsupportedOperationException` until
+  real logic lands), gating HTML5-only additions (void elements, the
+  `<script>`/`<style>` embedded-content dispatcher) internally on
+  `lang.isHtml5`.
 - **JSON/JSON5/CSS** are neither tag-based, curly, nor indent-based per the
   `Lang.java` family predicates added in the refactor (flat/braced, no
-  block-scoping semantics) — **open question**: do they need their own
-  `TokenizerCore` sibling (e.g. a hypothetical `TokenizerFlat`), or do they
-  extend `TokenizerCore` directly with a minimal override? Not resolved now;
-  revisit when JSON/JSON5 work (the first of the four to be implemented,
-  per the Checklist below) actually starts.
+  block-scoping semantics). **Resolved (RDD_KEY_189):** no new
+  `TokenizerCore` sibling (no `TokenizerFlat`) — each extends `TokenizerCore`
+  directly with a minimal override when implemented. JSON and JSON5 share
+  one `JsonSpecificRule.java` (gated internally on `lang.isJson5` for
+  JSON5-only additions), CSS gets its own `CssSpecificRule.java`. YAML and
+  TOML (sharing the same "neither curly/indent/tag-based" characteristic,
+  though not named in the original open question) get
+  `YamlSpecificRule.java`/`TomlSpecificRule.java` on the same reasoning.
+  All four are boilerplate stubs created this session — no real logic yet.
 - Implementation order is unchanged by the refactor: JSON/JSON5 → CSS → XML
   → HTML5 (HTML5 last, depends on both CSS and JS/TS support).
 - **HTML-before-JS/TS contingency:** if HTML5 implementation is reached

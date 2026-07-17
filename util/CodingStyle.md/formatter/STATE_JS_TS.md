@@ -74,10 +74,11 @@ Sections:
     item from the style doc, separate from the HTML5/JSX dispatcher
     questions).
 
-No `src/` files yet — scaffold dispatch lives in the shared
-`Lang.java`/`Main.java`/`ServerMode.java`/`Config.java`, described in the
-routing `CLAUDE.md` table; this job's own rule classes (a future
-`JsTsSpecificRule.java` or similar) do not exist yet.
+Scaffold dispatch lives in the shared `Lang.java`/`Main.java`/
+`ServerMode.java`/`Config.java`, described in the routing `CLAUDE.md`
+table. This job's own rule class, `rules/JsTsSpecificRule.java`, exists
+only as a boilerplate stub (constructor throws
+`UnsupportedOperationException`) — no real logic yet.
 
 ---
 
@@ -92,6 +93,7 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 |---|---|
 | RDD_KEY_182 | §3/§6 destructuring-pattern LHS joins the const/let alignment grid like any ordinary declaration |
 | RDD_KEY_183 | §11.1 consecutive `type X = ...` aliases form their own `=`-aligned group, same as const/let |
+| RDD_KEY_187 | Class Scoping — no separate JsTokenizer/TsTokenizer etc.; shared curly classes gated internally on `isJs`/`isTs`, concrete rules in one `JsTsSpecificRule.java` |
 
 ---
 
@@ -129,20 +131,17 @@ accordingly.
 ## Class Scoping (post Core/Curly/Indent/Tags refactor)
 
 JS/TS are curly-family (`Lang.isCurly()` covers `isJs`/`isTs` alongside
-C/C++/Java/Kotlin). `JsTokenizer`/`TsTokenizer` both extend `TokenizerCurly`
-— or, since JS and TS share far more with each other than either shares
-with C/C++/Java/Kotlin, a shared intermediate `JsTsTokenizerCurly` sitting
-between `TokenizerCurly` and the two per-language classes. **Open
-question:** exact intermediate-class shape is not resolved now — the
-explore/design work behind the main refactor didn't cover JS/TS-specific
-structure (no JS/TS code exists yet to judge the split by); settle this at
-tokenizer-support-pass time, once real JS/TS tokens are being handled.
-
-Same pattern applies one level up: a shared JS/TS base sits between
-`FormatterCurly`/`ScopePipelineCurly`/`MiscRuleCurly` and the concrete JS
-and TS formatter/rule classes, with TS adding type-annotation/interface/
-enum-only rule methods (§11–14) on top of the shared JS base. Also an open
-question, deferred to implementation time for the same reason.
+C/C++/Java/Kotlin). **Resolved (RDD_KEY_187):** no separate `JsTokenizer`/
+`TsTokenizer` (or `JsTsTokenizerCurly` intermediate) — JS and TS share
+`TokenizerCurly`/`FormatterCurly`/`ScopePipelineCurly`/`MiscRuleCurly`
+directly, gated internally on `lang.isJs`/`lang.isTs`, the same way Kotlin
+is gated inside those same classes today rather than getting its own
+`KotlinTokenizer`/`KotlinFormatter`. Concrete JS/TS-only rule logic (§2–15)
+lands in a single `JsTsSpecificRule.java` (boilerplate stub created, throws
+`UnsupportedOperationException` until real logic lands), mirroring
+`KotlinSpecificRule.java`'s role, gating TS-only additions (type
+annotations/interfaces/enums, §11–14) internally on `lang.isTs` rather than
+splitting into `JsSpecificRule`/`TsSpecificRule`.
 
 The existing HTML5-dispatcher and JSX/TSX-out-of-scope open questions
 below are unaffected by the refactor.

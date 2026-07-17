@@ -41,7 +41,7 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
     private final ModifierPriority modifierPriority; // null for C/C++ -- no modifier column there
 
     public GetterSetterRuleCurly(final Lang lang) {
-        this(lang, MiscRule.DEFAULT_INDENT_WIDTH, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
+        this(lang, MiscRuleCurly.DEFAULT_INDENT_WIDTH, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
     }
 
     public GetterSetterRuleCurly(final Lang lang, final int indentWidth, final int lineLengthLimit) {

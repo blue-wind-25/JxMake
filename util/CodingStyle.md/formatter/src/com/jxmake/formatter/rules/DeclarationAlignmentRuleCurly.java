@@ -45,7 +45,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
     private final Set<String> typeKeywords;
 
     public DeclarationAlignmentRuleCurly(final Lang lang) {
-        this(lang, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
+        this(lang, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
     }
 
     public DeclarationAlignmentRuleCurly(final Lang lang, final int lineLengthLimit) {

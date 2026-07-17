@@ -42,11 +42,11 @@ public class KotlinSpecificRule {
     private final String indentUnit;
 
     public KotlinSpecificRule(final Lang lang) {
-        this(lang, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
+        this(lang, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
     }
 
     public KotlinSpecificRule(final Lang lang, final int lineLengthLimit) {
-        this(lang, lineLengthLimit, MiscRule.DEFAULT_INDENT_WIDTH);
+        this(lang, lineLengthLimit, MiscRuleCurly.DEFAULT_INDENT_WIDTH);
     }
 
     public KotlinSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth) {

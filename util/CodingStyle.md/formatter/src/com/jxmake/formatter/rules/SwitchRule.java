@@ -30,14 +30,14 @@ public class SwitchRule {
 
     // Fallback unit-width when a switch's own line indentation can't be used to derive the
     // project's actual indent unit (see deriveUnit) -- STYLE.md §1 default.
-    private static final int DEFAULT_INDENT_WIDTH = MiscRule.DEFAULT_INDENT_WIDTH;
+    private static final int DEFAULT_INDENT_WIDTH = MiscRuleCurly.DEFAULT_INDENT_WIDTH;
 
     private final TokenizerCurly tokenizer;
     private final int lineLengthLimit;
     private final String defaultIndentUnit;
 
     public SwitchRule(final Lang lang) {
-        this(lang, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
+        this(lang, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
     }
 
     public SwitchRule(final Lang lang, final int lineLengthLimit) {

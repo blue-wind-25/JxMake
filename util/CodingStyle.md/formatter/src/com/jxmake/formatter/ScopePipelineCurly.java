@@ -16,9 +16,9 @@ import com.jxmake.formatter.rules.KotlinDeclarationAlignmentRule.Row;
 import com.jxmake.formatter.rules.KotlinSignatureRule;
 import com.jxmake.formatter.rules.KotlinSignatureRule.FunctionTail;
 import com.jxmake.formatter.rules.KotlinSignatureRule.KotlinSignature;
-import com.jxmake.formatter.rules.MiscRule;
-import com.jxmake.formatter.rules.MiscRule.Assignment;
-import com.jxmake.formatter.rules.MiscRule.Signature;
+import com.jxmake.formatter.rules.MiscRuleCurly;
+import com.jxmake.formatter.rules.MiscRuleCore.Assignment;
+import com.jxmake.formatter.rules.MiscRuleCurly.Signature;
 import com.jxmake.formatter.tokenizer.TokenizerCore;
 import com.jxmake.formatter.tokenizer.TokenizerCurly;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
@@ -39,7 +39,7 @@ import java.util.Map;
  * every existing Kotlin-vs-C/C++/Java internal branch is unchanged.
  *
  * <p>Finds scope/signature boundaries in a whole-file token stream and splices grouped/rendered
- * output from {@link DeclarationAlignmentRule}, {@link GetterSetterRule}, and {@link MiscRule}
+ * output from {@link DeclarationAlignmentRule}, {@link GetterSetterRule}, and {@link MiscRuleCurly}
  * back into the source text on their behalf -- those rule classes' grouping methods explicitly
  * document that boundary-finding and splice-back are the caller's job (see STATE.md's
  * "ScopePipeline.java" section).
@@ -57,7 +57,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     private final TokenizerCurly tokenizer;
     private final DeclarationAlignmentRuleCurly declarationRule;
     private final GetterSetterRuleCurly getterSetterRule;
-    private final MiscRule miscRule;
+    private final MiscRuleCurly miscRule;
     // STYLE_KOTLIN.md §6/§7/§7.1/§7.2/§9/§12: reversed `name : type` grammar needs its own parser/
     // renderer (see KotlinDeclarationAlignmentRule/KotlinSignatureRule's own class comments) --
     // null for every other language, same "constructed only if needed" precedent as Formatter's
@@ -75,7 +75,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod,
             final boolean formatOff) {
         this(lang, indentStyle, normalizeCommentStartCase, normalizeCommentEndPeriod, formatOff,
-                MiscRule.DEFAULT_INDENT_WIDTH, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
+                MiscRuleCurly.DEFAULT_INDENT_WIDTH, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
     }
 
     public ScopePipelineCurly(final Lang lang, final String indentStyle,
@@ -97,7 +97,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         this.getterSetterRule = lang.isKotlin
                 ? new com.jxmake.formatter.rules.KotlinGetterSetterRule(lang, indentWidth, lineLengthLimit)
                 : new GetterSetterRuleCurly(lang, indentWidth, lineLengthLimit);
-        this.miscRule = new MiscRule(lang, normalizeCommentStartCase, normalizeCommentEndPeriod,
+        this.miscRule = new MiscRuleCurly(lang, normalizeCommentStartCase, normalizeCommentEndPeriod,
                 commentNormalizationClassifier, indentWidth, lineLengthLimit);
         this.kotlinDeclarationRule = lang.isKotlin
                 ? new KotlinDeclarationAlignmentRule(lang, indentWidth, lineLengthLimit) : null;
@@ -120,7 +120,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     /**
      * Splits a scope's full token range into contiguous top-level spans -- a third port of the
      * depth-aware splitting algorithm already duplicated in
-     * {@code DeclarationAlignmentRule.splitStatements} and {@code MiscRule.splitAssignmentStatements},
+     * {@code DeclarationAlignmentRule.splitStatements} and {@code MiscRuleCurly.splitAssignmentStatements},
      * but additionally recording the matching open-brace index for any span that closes via a
      * top-level `}` rather than a `;`. This one helper serves three jobs (see STATE.md's
      * "Child-scope / signature-candidate discovery"): anchor-token-to-span lookup for §5/§6
@@ -848,9 +848,9 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     // ── §6 assignments pass ──────────────────────────────────────────────────────
 
-    /** Identical shape to {@link #applyDeclarationsPass} using {@code MiscRule.groupAssignments}/
+    /** Identical shape to {@link #applyDeclarationsPass} using {@code MiscRuleCurly.groupAssignments}/
      *  {@code render} -- an {@code Assignment}'s {@code target} is always the statement's own
-     *  first significant token (per {@code MiscRule.parseAssignment}), so it doubles as both the
+     *  first significant token (per {@code MiscRuleCurly.parseAssignment}), so it doubles as both the
      *  start- and end-anchor. */
     private String applyAssignmentsPass(final List<Token> tokens) {
         final List<List<Assignment>> groups = miscRule.groupAssignments(tokens);
@@ -893,7 +893,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
      * brace is directly preceded (skipping gaps) by a `)` whose matching `(` is itself preceded by
      * an IDENTIFIER not preceded by `new` (ported from {@code JavaSpecificRule.isCandidateMethodName}/
      * {@code CppSpecificRule.isCandidateSignatureName}), excluding a Java enum constant body
-     * ({@code isEnumConstantBody}) -- and splices {@code MiscRule.render(Signature, depth,
+     * ({@code isEnumConstantBody}) -- and splices {@code MiscRuleCurly.render(Signature, depth,
      * indentStyle)}'s output over just the `[leadStart, closeParenIdx]` range, leaving the body
      * untouched.
      */

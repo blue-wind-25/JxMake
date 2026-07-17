@@ -59,7 +59,7 @@ public class BlockStructureRule {
     }
 
     public BlockStructureRule(final Lang lang, final int closingCommentMinLines) {
-        this(lang, closingCommentMinLines, MiscRule.DEFAULT_INDENT_WIDTH);
+        this(lang, closingCommentMinLines, MiscRuleCurly.DEFAULT_INDENT_WIDTH);
     }
 
     public BlockStructureRule(final Lang lang, final int closingCommentMinLines, final int indentWidth) {

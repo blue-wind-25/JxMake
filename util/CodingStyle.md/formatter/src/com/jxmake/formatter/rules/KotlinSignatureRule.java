@@ -32,7 +32,7 @@ import java.util.List;
  * {@code [modifiers] name : type [= default]} grammar is reversed (name before type), so §7 gets
  * its own parameter model, parser, and grid-rendering method here.
  */
-public class KotlinSignatureRule extends MiscRule {
+public class KotlinSignatureRule extends MiscRuleCurly {
 
     private static final List<String> PARAM_MODIFIERS =
             java.util.Arrays.asList("vararg", "crossinline", "noinline", "val", "var");

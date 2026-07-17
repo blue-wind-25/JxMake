@@ -501,25 +501,96 @@ zero regressions) before moving to the next group.
 - [x] `make test`: 90/90 forward + 90/90 idempotency, zero regressions.
 
 ### MiscRule.java → MiscRuleCore + MiscRuleCurly + MiscRuleIndent + MiscRuleTags
-- [ ] `MiscRuleCore.java`: the fully-generic passes and helpers —
+- [x] `MiscRuleCore.java`: the fully-generic passes and helpers —
       `convertIndentation`, `enforceKeywordSpacing`,
       `enforceComplexityPadding`, `enforceInitializerBraceSpacing`,
       `groupAssignments`/`render(Assignment)`, `enforceCommentStyle`/
-      `alignCommentSeparators` (the two tiny Java/Cpp-gated spots move with
-      their enclosing method into Curly instead, not Core), generic
-      token-scan utilities.
-- [ ] `MiscRuleCurly.java`: `enforcePreIncrement`+helpers,
-      `parseSignature`/`render(Signature,...)`,
+      `alignCommentSeparators` and their non-lang-gated helpers, generic
+      token-scan utilities (`matchParenForward`/`Backward`,
+      `nextSignificantIndex`/`prevSignificantIndex`, `anyFrozen`,
+      `significantOnly`/`significantWithComments`, `renderTokens`,
+      `templateAngleTokens`, etc.).
+- [x] Deviations from the plan's literal per-method list (same pattern as
+      the DeclarationAlignmentRule/GetterSetterRule splits — the plan's
+      assignment didn't compile as written because a "Core" method called a
+      "Curly" one, so the callee moved to Core alongside its caller):
+      - `needsSpaceBetween`/`isTightToken` were plan-assigned to Curly, but
+        Core's own `renderTokens` calls `needsSpaceBetween` directly (it's
+        the shared token-join renderer used by both `parseAssignment`
+        (Core) and the Signature/call-rendering family (Curly)) — both
+        methods moved to Core instead. Their internal `lang.isKotlin`
+        branches are unchanged.
+      - `capitalizeFirstLetter`/`isCommentNoCapitalizeWord` (the plan's "two
+        tiny Java/Cpp-gated comment-capitalization spots") were plan-
+        assigned to Curly, but three Core methods
+        (`computeLineCommentGroups`, `reformatMultiLineBlockComment`,
+        `stripSoleTrailingPeriod`) call `capitalizeFirstLetter` directly —
+        both methods (plus the `COMMENT_NO_CAPITALIZE_C/CPP/JAVA` constants)
+        moved to Core instead. Internal `lang.isJava`/`lang.isCpp` branches
+        unchanged.
+      - `renderTokens`/`templateAngleTokens` were plan-assigned to Curly (by
+        association with the Signature-rendering family) but are also used
+        by Core's `parseAssignment` — kept in Core.
+      - `matchParenForward`/`nextSignificantIndex`/`prevSignificantIndex`/
+        `matchParenBackward`/`anyFrozen`/`significantOnly`/
+        `significantWithComments` are shared generic scan helpers used by
+        both Core and Curly methods — kept in Core (not explicitly listed
+        either way by the plan).
+      - `splitTopLevelCommas` is used exclusively by Curly's Signature/call-
+        rendering methods (`parseSignature`, `renderCallCandidate`,
+        `renderCallDropped`, `renderCallOnePerLine`) — moved to Curly
+        despite its generic-looking name.
+- [x] `MiscRuleCurly.java`: `enforcePreIncrement`+helpers,
+      `parseSignature`/`render(Signature,...)`, `splitTopLevelCommas`,
+      `groupByOriginalLine`, `parseParam`, `renderParamsInline`,
       `insertBlankLineBeforeReturn`+helpers (incl. Kotlin-only islands),
-      `enforceCallLineBreaking`+render helpers, `templateAngleTokens`,
-      `isTightToken`, and the two Java/Cpp-gated comment-capitalization
-      spots — unchanged internal branching.
-- [ ] `MiscRuleIndent.java` / `MiscRuleTags.java`: skeletons.
-- [ ] Update `FormatterCurly` caller.
-- [ ] `make test` full pass, zero regressions.
+      `enforceCallLineBreaking`+render helpers, `effectiveCallBaseIndent` —
+      unchanged internal branching (all `lang.isKotlin`/`lang.isJava`/
+      `lang.isCpp` checks preserved verbatim).
+- [x] `MiscRuleIndent.java` / `MiscRuleTags.java`: skeletons, throw
+      `UnsupportedOperationException` referencing `STATE_PYTHON3.md`/
+      `STATE_DATA_FORMATS.md` respectively.
+- [x] Extraction technique: same comment/string-masking Python brace-
+      matching script used for the three prior splits (`/tmp/split_misc.py`,
+      adapted with MiscRule's much larger marker list — 113 extraction
+      markers across a 3353-line source file). One marker's field
+      (`DEFAULT_LINE_LENGTH_LIMIT`) was accidentally omitted from the
+      script's marker list on the first pass and had to be manually
+      appended to `MiscRuleCore.java` afterward — caught by comparing the
+      two output files' combined size against the original before writing
+      the class files.
+- [x] Nested nested-class visibility bug caught during extraction: the
+      script's method-boundary markers for `Assignment`/`Param`/`Signature`/
+      `FuncFrame`/`SepMatch` all started mid-declaration (at `final class X
+      {`), silently dropping each one's actual `public static`/`private
+      static` modifier prefix — fixed by patching each class's modifiers
+      back in by hand after extraction, verified against the original
+      file's declarations.
+- [x] Visibility fixes after first `make test` compile-error round (same
+      pattern as both prior splits — very large this time given the file's
+      size): bulk-converted every top-level `private` method in
+      `MiscRuleCore.java` to `protected` (all of them turned out to be
+      called from `MiscRuleCurly`), plus targeted fixes: `Arrays`/
+      `Collections`/`Map`/`HashMap`/`ColumnGrid`/`isGapToken` imports missing
+      from `MiscRuleCurly.java` (present in the original file's shared
+      import block, needed splitting per-file same as every previous split).
+- [x] Grepped all other files referencing `MiscRule` by name and updated
+      every real caller: `FormatterCurly.java`, `ScopePipelineCurly.java`
+      (incl. the `MiscRule.Assignment`/`MiscRule.Signature` imports —
+      `Assignment` needed the same import-canonical-name fix as
+      `GetterSetterRuleCore.Member` — `import
+      com.jxmake.formatter.rules.MiscRuleCore.Assignment;`, not
+      `MiscRuleCurly.Assignment`), `SwitchRule.java`, `BlockStructureRule.java`,
+      `KotlinSpecificRule.java`, `JavaSpecificRule.java`,
+      `CppSpecificRule.java` (all six via `MiscRule.DEFAULT_*` constant
+      references), `KotlinSignatureRule.java` (`extends MiscRule` →
+      `extends MiscRuleCurly`). Every other hit across the codebase
+      confirmed comment/javadoc-only, left stale per established precedent.
+- [x] Old `MiscRule.java` removed via `git rm`.
+- [x] `make test`: 90/90 forward + 90/90 idempotency, zero regressions.
 
 ### ComplexityPaddingEvaluator.java — no split
-- [ ] Confirmed: extend in place with new functions as new languages need
+- [x] Confirmed: extend in place with new functions as new languages need
       them. No action now.
 
 ### Wrap-up

@@ -1,0 +1,26 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake build system and is distributed under the MIT License.
+ * See the LICENSE file in the formatter root directory for the full MIT license text.
+ */
+
+package com.jxmake.formatter.rules;
+
+import com.jxmake.formatter.Lang;
+
+/**
+ * Skeleton landing spot for the tag-based language family (XML/HTML5) -- see
+ * `STATE_DATA_FORMATS.md`. Not yet implemented.
+ */
+public final class MiscRuleTags extends MiscRuleCore {
+
+    public MiscRuleTags(final Lang lang, final boolean normalizeCommentStartCase,
+            final boolean normalizeCommentEndPeriod, final boolean commentNormalizationClassifier,
+            final int indentWidth, final int lineLengthLimit) {
+        super(lang, normalizeCommentStartCase, normalizeCommentEndPeriod, commentNormalizationClassifier,
+                indentWidth, lineLengthLimit);
+        throw new UnsupportedOperationException(
+                "MiscRuleTags (XML/HTML5) is not yet implemented -- see STATE_DATA_FORMATS.md");
+    }
+}

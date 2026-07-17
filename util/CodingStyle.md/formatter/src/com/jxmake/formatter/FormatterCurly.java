@@ -11,7 +11,7 @@ import com.jxmake.formatter.rules.BlockStructureRule;
 import com.jxmake.formatter.rules.CppSpecificRule;
 import com.jxmake.formatter.rules.JavaSpecificRule;
 import com.jxmake.formatter.rules.KotlinSpecificRule;
-import com.jxmake.formatter.rules.MiscRule;
+import com.jxmake.formatter.rules.MiscRuleCurly;
 import com.jxmake.formatter.rules.SwitchRule;
 import com.jxmake.formatter.tokenizer.TokenizerCore;
 import com.jxmake.formatter.tokenizer.TokenizerCurly;
@@ -46,7 +46,7 @@ public final class FormatterCurly extends FormatterCore {
         final int lineLengthLimit = config.lineLength();
         final BlockStructureRule blockRule = new BlockStructureRule(lang, config.closingCommentMinLines(), indentWidth);
         final SwitchRule switchRule = new SwitchRule(lang, lineLengthLimit, indentWidth);
-        final MiscRule miscRule = new MiscRule(lang, config.isNormalizeCommentStartCase(),
+        final MiscRuleCurly miscRule = new MiscRuleCurly(lang, config.isNormalizeCommentStartCase(),
                 config.isNormalizeCommentEndPeriod(), config.isCommentNormalizationClassifier(),
                 indentWidth, lineLengthLimit);
         final CppSpecificRule cppRule = isCOrCpp

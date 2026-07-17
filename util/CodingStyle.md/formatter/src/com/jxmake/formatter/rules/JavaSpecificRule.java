@@ -49,11 +49,11 @@ public class JavaSpecificRule {
     private final String defaultIndentUnit;
 
     public JavaSpecificRule(final Lang lang) {
-        this(lang, MiscRule.DEFAULT_LINE_LENGTH_LIMIT);
+        this(lang, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
     }
 
     public JavaSpecificRule(final Lang lang, final int lineLengthLimit) {
-        this(lang, lineLengthLimit, MiscRule.DEFAULT_INDENT_WIDTH);
+        this(lang, lineLengthLimit, MiscRuleCurly.DEFAULT_INDENT_WIDTH);
     }
 
     public JavaSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth) {

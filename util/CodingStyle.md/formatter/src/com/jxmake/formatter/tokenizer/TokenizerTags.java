@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 2022-2026 Aloysius Indrayanto
  *
- * This file is part of the JxMake build system and is distributed under the MIT License.
- * See the LICENSE file in the formatter root directory for the full MIT license text.
+ * This file is part of the JxMake build system and is distributed under the Apache License, Version 2.0.
+ * See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
  */
 
 package com.jxmake.formatter.tokenizer;

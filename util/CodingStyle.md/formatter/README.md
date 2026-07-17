@@ -412,6 +412,6 @@ third-party client only needs to speak this HTTP protocol, not link against the 
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+Apache License, Version 2.0 — see [LICENSE.txt](LICENSE.txt)
 
 > **Note:** The LICENSE file year should read `2022-2026`, matching the JxMake project origin year.

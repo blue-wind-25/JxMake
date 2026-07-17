@@ -326,26 +326,27 @@ zero regressions) before moving to the next group.
       `make test` 90/90 forward + 90/90 idempotency, zero regressions.
 
 ### TokenizerCore.java → TokenizerCore + TokenizerCurly + TokenizerIndent + TokenizerTags
-- [ ] New slim `TokenizerCore.java`: `Token`/`TokenType` (generic members
+- [x] New slim `TokenizerCore.java`: `Token`/`TokenType` (generic members
       only), `markFrozenSpans`, generic char/number/whitespace/newline
       emitters, `peek`, shared static keyword-set-selection *pattern* (not
       curly's concrete sets) — whatever a subclass constructor needs to call.
-- [ ] `TokenizerCurly.java` (new file, extends `TokenizerCore`): everything
+- [x] `TokenizerCurly.java` (new file, extends `TokenizerCore`): everything
       else in today's `TokenizerCore.java` — constructor's C/Cpp/Java/Kotlin
       switch, `tokenize`, `trackSignificant`, brace/bracket name-stack emit
       methods, preprocessor/raw-string/text-block/Kotlin-string helpers,
       `reclassifyAngleBrackets`. No behavior change — mechanical move only.
       Existing Kotlin-vs-C/C++/Java branches inside these methods stay
       exactly as they are today (out of scope for this refactor).
-- [ ] `TokenizerIndent.java` (new, skeleton): extends `TokenizerCore`, throws
-      `UnsupportedLanguageException` (or equivalent) until Python3 job fills
-      it in.
-- [ ] `TokenizerTags.java` (new, skeleton): same skeleton pattern for
+- [x] `TokenizerIndent.java` (new, skeleton): extends `TokenizerCore`, throws
+      `UnsupportedOperationException` until Python3 job fills it in.
+- [x] `TokenizerTags.java` (new, skeleton): same skeleton pattern for
       XML/HTML5.
-- [ ] Update every caller (`Formatter`/`Main`/`ServerMode`/tests) that
-      directly instantiates `TokenizerCore` for a curly language to
-      instantiate `TokenizerCurly` instead.
-- [ ] `make test`: full forward + idempotency pass, zero regressions.
+- [x] Update every caller (`Formatter.java`, `ScopePipeline.java`,
+      `rules/SwitchRule.java`) that directly instantiated `TokenizerCore` for
+      a curly language to instantiate `TokenizerCurly` instead. (`Main.java`/
+      `ServerMode.java`/tests never instantiated `TokenizerCore` directly —
+      confirmed via grep, nothing else to update.)
+- [x] `make test`: 90/90 forward + 90/90 idempotency, zero regressions.
 
 ### Formatter.java → FormatterCore + FormatterCurly + FormatterIndent + FormatterTags
 - [ ] Decide final shape of `FormatterCore`: a thin abstract class with one

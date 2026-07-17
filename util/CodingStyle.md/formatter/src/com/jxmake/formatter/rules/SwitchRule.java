@@ -10,6 +10,7 @@ package com.jxmake.formatter.rules;
 import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.tokenizer.TokenizerCore;
+import com.jxmake.formatter.tokenizer.TokenizerCurly;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
@@ -31,7 +32,7 @@ public class SwitchRule {
     // project's actual indent unit (see deriveUnit) -- STYLE.md §1 default.
     private static final int DEFAULT_INDENT_WIDTH = MiscRule.DEFAULT_INDENT_WIDTH;
 
-    private final TokenizerCore tokenizer;
+    private final TokenizerCurly tokenizer;
     private final int lineLengthLimit;
     private final String defaultIndentUnit;
 
@@ -44,7 +45,7 @@ public class SwitchRule {
     }
 
     public SwitchRule(final Lang lang, final int lineLengthLimit, final int indentWidth) {
-        this.tokenizer = new TokenizerCore(lang);
+        this.tokenizer = new TokenizerCurly(lang);
         this.lineLengthLimit = lineLengthLimit;
         final StringBuilder sb = new StringBuilder();
         for (int i = 0; i < indentWidth; i++) {

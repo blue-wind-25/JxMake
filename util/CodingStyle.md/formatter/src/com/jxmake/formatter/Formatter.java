@@ -14,6 +14,7 @@ import com.jxmake.formatter.rules.KotlinSpecificRule;
 import com.jxmake.formatter.rules.MiscRule;
 import com.jxmake.formatter.rules.SwitchRule;
 import com.jxmake.formatter.tokenizer.TokenizerCore;
+import com.jxmake.formatter.tokenizer.TokenizerCurly;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 
 import java.util.List;
@@ -30,7 +31,7 @@ public final class Formatter {
     public static String formatOne(final String content, final String language, final String filePath,
             final Config config, final boolean formatOff) {
         final Lang lang = new Lang(language);
-        final TokenizerCore tokenizerCore = new TokenizerCore(lang);
+        final TokenizerCurly tokenizerCore = new TokenizerCurly(lang);
         final boolean isCOrCpp = lang.isCpp || lang.isC;
 
         final java.util.function.Function<String, List<Token>> tokenizer = (final String s) -> {

@@ -20,6 +20,7 @@ import com.jxmake.formatter.rules.MiscRule;
 import com.jxmake.formatter.rules.MiscRule.Assignment;
 import com.jxmake.formatter.rules.MiscRule.Signature;
 import com.jxmake.formatter.tokenizer.TokenizerCore;
+import com.jxmake.formatter.tokenizer.TokenizerCurly;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
@@ -49,7 +50,7 @@ public class ScopePipeline {
 
     private final Lang lang;
     private final String indentStyle;
-    private final TokenizerCore tokenizer;
+    private final TokenizerCurly tokenizer;
     private final DeclarationAlignmentRule declarationRule;
     private final GetterSetterRule getterSetterRule;
     private final MiscRule miscRule;
@@ -90,7 +91,7 @@ public class ScopePipeline {
             final int indentWidth, final int lineLengthLimit) {
         this.lang = lang;
         this.indentStyle = indentStyle;
-        this.tokenizer = new TokenizerCore(lang);
+        this.tokenizer = new TokenizerCurly(lang);
         this.declarationRule = new DeclarationAlignmentRule(lang, lineLengthLimit);
         this.getterSetterRule = lang.isKotlin
                 ? new com.jxmake.formatter.rules.KotlinGetterSetterRule(lang, indentWidth, lineLengthLimit)

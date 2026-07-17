@@ -22,17 +22,17 @@ The formatter's tokenizer and several rule classes are **shared across all
 languages** (C, C++, Java, and now Kotlin) — they are not per-language files:
 
 ```
-tokenizer/TokenizerCore.java
+tokenizer/TokenizerCore.java (TokenizerCore + TokenizerCurly)
 grid/ColumnGrid.java
 grid/ModifierPriority.java
 evaluator/ComplexityPaddingEvaluator.java
-rules/DeclarationAlignmentRule.java
+rules/DeclarationAlignmentRule.java (DeclarationAlignmentRuleCore + DeclarationAlignmentRuleCurly)
 rules/BlockStructureRule.java
 rules/SwitchRule.java
-rules/GetterSetterRule.java
-rules/MiscRule.java
-ScopePipeline.java
-Formatter.java
+rules/GetterSetterRule.java (GetterSetterRuleCore + GetterSetterRuleCurly)
+rules/MiscRule.java (MiscRuleCore + MiscRuleCurly)
+ScopePipeline.java (ScopePipelineCore + ScopePipelineCurly)
+Formatter.java (FormatterCore + FormatterCurly)
 ```
 
 **Any change to one of these files for Kotlin's benefit must not change

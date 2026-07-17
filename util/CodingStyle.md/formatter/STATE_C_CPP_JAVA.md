@@ -20,11 +20,11 @@ util/CodingStyle.md/formatter/
       Main.java
       Config.java
       ServerMode.java
-      Formatter.java
+      Formatter.java (FormatterCore + FormatterCurly, curly logic in FormatterCurly)
       IndentationDetector.java
-      ScopePipeline.java
+      ScopePipeline.java (ScopePipelineCore + ScopePipelineCurly)
       tokenizer/
-        TokenizerCore.java
+        TokenizerCore.java (TokenizerCore + TokenizerCurly)
       grid/
         ColumnGrid.java
         ModifierPriority.java
@@ -33,11 +33,11 @@ util/CodingStyle.md/formatter/
       evaluator/
         ComplexityPaddingEvaluator.java
       rules/
-        DeclarationAlignmentRule.java
+        DeclarationAlignmentRule.java (DeclarationAlignmentRuleCore + DeclarationAlignmentRuleCurly)
         BlockStructureRule.java
         SwitchRule.java
-        GetterSetterRule.java
-        MiscRule.java
+        GetterSetterRule.java (GetterSetterRuleCore + GetterSetterRuleCurly)
+        MiscRule.java (MiscRuleCore + MiscRuleCurly)
         CppSpecificRule.java
         JavaSpecificRule.java
 ```

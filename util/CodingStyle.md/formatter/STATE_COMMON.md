@@ -407,21 +407,62 @@ zero regressions) before moving to the next group.
 - [x] `make test`: 90/90 forward + 90/90 idempotency, zero regressions.
 
 ### DeclarationAlignmentRule.java → DeclarationAlignmentRuleCore + DeclarationAlignmentRuleCurly + DeclarationAlignmentRuleIndent (no Tags)
-- [ ] `DeclarationAlignmentRuleCore.java`: `splitStatements`,
-      `renderTokens`/`renderInitTokens`, `significantOnly`, comment/blank-
-      line helpers, other zero-gating helpers.
-- [ ] `DeclarationAlignmentRuleCurly.java`: constructors, `groupDeclarations`,
-      `reorderStatics`, `parseDeclaration`, `render`, all C/C++/Java-specific
-      helpers (`splitCppType`, `isCStyleCastClose`,
-      `isJavaEnumConstantListShape`), unchanged. Note the existing stray
-      `lang.isKotlin` check in `needsSpaceBetween` — leave as-is (out of
-      scope; this class is dispatched-around for Kotlin already via
+- [x] Discovered mid-refactor: `KotlinDeclarationAlignmentRule extends
+      DeclarationAlignmentRule` (not called out explicitly in the original
+      plan text). Resolved by having it extend `DeclarationAlignmentRuleCurly`
+      instead of `Core` post-split, since it directly reuses several
+      protected members (`hasBlankLineBefore`, `hasCommentBefore`,
+      `significantOnly`, the inherited `needsSpaceBetween`, and the
+      `lineLengthLimit` field) that only make sense together on the Curly
+      side, not as bare Core primitives.
+- [x] The plan's literal per-method Core/Curly split does not compile as
+      written: it assigns `renderInitTokens` to Core but `isCStyleCastClose`
+      (which `renderInitTokens` calls) to Curly. Resolved pragmatically by
+      keeping `renderTokens`/`renderInitTokens`/`needsSpaceBetween`/
+      `isTightToken`/`isCStyleCastClose` (plus the `CONTROL_FLOW_KEYWORDS`
+      constant they depend on) together in Core instead — deviates from the
+      plan's literal method list but preserves its intent and the
+      "no behavior change, mechanical move only" mandate.
+- [x] `DeclarationAlignmentRuleCore.java`: `lang`/`lineLengthLimit` fields +
+      constructor, `setOf` helper, `CONTROL_FLOW_KEYWORDS` constant,
+      `renderTokens`/`renderInitTokens`/`isCStyleCastClose`/
+      `needsSpaceBetween`/`isTightToken`, `splitStatements`,
+      `pullTrailingSameLine`, `isAccessSpecifierColon`, `hasCommentBefore`,
+      `hasBlankLineBefore`, `lastSignificantIdx`, `findTrailingComment`,
+      `significantOnly`. Used the same Python brace-matching extraction
+      script technique as the `ScopePipeline` split (proven reliable there)
+      rather than hand-retyping; the script's naive brace counter needed one
+      fix this time — prose comments with an unbalanced single backtick-brace
+      (e.g. "before the `{`") threw off simple char-by-char counting, so the
+      script was extended to mask out comment/string/char-literal spans
+      before counting braces.
+- [x] `DeclarationAlignmentRuleCurly.java`: constructors (call
+      `super(lang, lineLengthLimit)`), `groupDeclarations`, `reorderStatics`,
+      `parseDeclaration`, `render`, all C/C++/Java-specific helpers
+      (`splitCppType`, `isJavaEnumConstantListShape`), `union` helper,
+      unchanged. Class stays non-final (`KotlinDeclarationAlignmentRule`
+      extends it). Note the existing stray `lang.isKotlin` check in
+      `needsSpaceBetween` (now on Core) — left as-is (out of scope; this
+      class is dispatched-around for Kotlin already via
       `KotlinDeclarationAlignmentRule`, do not investigate/remove the
       vestigial check as part of this refactor).
-- [ ] `DeclarationAlignmentRuleIndent.java`: skeleton for future Python3
-      assignment-alignment reuse.
-- [ ] Update `ScopePipelineCurly`'s `applyDeclarationsPass` caller.
-- [ ] `make test` full pass, zero regressions.
+- [x] `DeclarationAlignmentRuleIndent.java`: skeleton for future Python3
+      assignment-alignment reuse (optional, not required — Python3's own
+      alignment-grid work may end up entirely bespoke instead).
+- [x] Updated `KotlinDeclarationAlignmentRule.java`'s
+      `extends DeclarationAlignmentRule` → `extends DeclarationAlignmentRuleCurly`.
+- [x] Updated `ScopePipelineCurly`'s `applyDeclarationsPass` caller (import,
+      field type, and constructor call all changed
+      `DeclarationAlignmentRule` → `DeclarationAlignmentRuleCurly`). Grepped
+      all 10 other files referencing `DeclarationAlignmentRule` by name and
+      confirmed every other hit is a comment/javadoc mention only, no code
+      change needed (`KotlinGetterSetterRule.java`, `KotlinSignatureRule.java`,
+      `JavaSpecificRule.java`, `GetterSetterRule.java`, `CppSpecificRule.java`,
+      `MiscRule.java`, `KotlinSpecificRule.java`, `BlockStructureRule.java`).
+- [x] Old `DeclarationAlignmentRule.java` removed via `git rm` (not plain
+      `rm`, per the established fix for this system's old git version not
+      staging working-tree deletions via `git add`).
+- [x] `make test`: 90/90 forward + 90/90 idempotency, zero regressions.
 
 ### GetterSetterRule.java → GetterSetterRuleCore + GetterSetterRuleCurly + GetterSetterRuleIndent (no Tags)
 - [ ] `GetterSetterRuleCore.java`: `bodyWidth`, `padRight`, `cellText`,

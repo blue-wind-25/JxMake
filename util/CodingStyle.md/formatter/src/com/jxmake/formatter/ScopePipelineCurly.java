@@ -7,8 +7,8 @@
 
 package com.jxmake.formatter;
 
-import com.jxmake.formatter.rules.DeclarationAlignmentRule;
-import com.jxmake.formatter.rules.DeclarationAlignmentRule.Declaration;
+import com.jxmake.formatter.rules.DeclarationAlignmentRuleCurly;
+import com.jxmake.formatter.rules.DeclarationAlignmentRuleCurly.Declaration;
 import com.jxmake.formatter.rules.GetterSetterRule;
 import com.jxmake.formatter.rules.GetterSetterRule.Member;
 import com.jxmake.formatter.rules.KotlinDeclarationAlignmentRule;
@@ -55,7 +55,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     private final Lang lang;
     private final String indentStyle;
     private final TokenizerCurly tokenizer;
-    private final DeclarationAlignmentRule declarationRule;
+    private final DeclarationAlignmentRuleCurly declarationRule;
     private final GetterSetterRule getterSetterRule;
     private final MiscRule miscRule;
     // STYLE_KOTLIN.md §6/§7/§7.1/§7.2/§9/§12: reversed `name : type` grammar needs its own parser/
@@ -93,7 +93,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         this.lang = lang;
         this.indentStyle = indentStyle;
         this.tokenizer = new TokenizerCurly(lang);
-        this.declarationRule = new DeclarationAlignmentRule(lang, lineLengthLimit);
+        this.declarationRule = new DeclarationAlignmentRuleCurly(lang, lineLengthLimit);
         this.getterSetterRule = lang.isKotlin
                 ? new com.jxmake.formatter.rules.KotlinGetterSetterRule(lang, indentWidth, lineLengthLimit)
                 : new GetterSetterRule(lang, indentWidth, lineLengthLimit);

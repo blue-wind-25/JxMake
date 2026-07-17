@@ -32,7 +32,7 @@ import java.util.List;
  * {@code [modifiers] val/var name [: type] [= init]} grammar is fundamentally reversed (name
  * before type), so §6 gets its own declaration model, parser, and grid-rendering method here.
  */
-public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule {
+public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly {
 
     private final KotlinModifierPriority modifierPriority = new KotlinModifierPriority();
     // RDD_KEY_162: needed so renderAlignedGroup can estimate a row's true rendered column (this

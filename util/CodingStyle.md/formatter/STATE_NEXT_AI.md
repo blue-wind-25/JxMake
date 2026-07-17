@@ -119,6 +119,12 @@ decisions that *are* externally logged appear in the main index in `STATE.md`.
 | RDD_EXT_7 | Call/declaration breaking is distinct from signature breaking — signatures (param list directly followed by `{`) remain fully deterministic (existing §8 implementation unchanged); candidate forms apply to calls and forward declarations/prototypes |
 | RDD_EXT_8 | No-AI fallback for line-breaking when ai-assist is off or endpoint unavailable: attempt dropped (option 1) — if params-only line fits ≤ 100 chars when indented → use dropped; if still exceeds → one-per-line (option 3). No ratio or threshold check — fit check is the sole criterion. Applies to both calls and forward declarations |
 | RDD_EXT_9 | Endpoint unavailability cache: standalone mode — static `endpointDead` boolean, skip all AI calls for process lifetime after first failure, single warning log; server mode — static `lastFailedAt` timestamp, skip AI calls for `ai-retry-interval` seconds (default 60) then retry once; connect timeout 500ms; fail-safe always falls back to mechanical result, never aborts formatting |
+| RDD_EXT_10 | Step 3 GRU output classes: same `YES`/`NO`/`ABSTAIN` as the existing rule-based classifier, no more granular intermediate class — nothing downstream consumes a finer signal |
+| RDD_EXT_11 | Step 3 GRU can abstain on low softmax confidence (default cutoff 0.5, stored in the weights file, tunable), falling through to mechanical default — same posture as the missing-weights-file fail-safe |
+| RDD_EXT_12 | Step 3 GRU tokenization: trailing/attached punctuation splits into its own token (`matrix.` → `matrix` + `.`); camelCase/snake_case identifiers stay whole, not sub-tokenized |
+| RDD_EXT_13 | Step 3 GRU OOV hashing: FNV-1a (32-bit) mod 1024 for the bucket index — deterministic, no external dependency, trivial to reimplement identically on the training and runtime sides |
+| RDD_EXT_14 | Step 3 GRU weights file: top-level `"schemaVersion"` integer field (starts at 1), `GruWeights.java`'s loader throws a clear mismatch error rather than silently misparsing; the abstain-threshold (RDD_EXT_11) also lives in this file, not hardcoded |
+| RDD_EXT_15 | Step 3 GRU Pool B (period-ambiguity) extraction: grep-based recall-favoring filter — comments with 2+ `.` where one is whitespace-surrounded, or containing an abbreviation-adjacent token (`etc.`/`vs.`/`approx.`/single-capital-dot) not followed by more lowercase text; false positives discarded during existing frontier-model labeling, not filtered here |
 
 ---
 
@@ -418,37 +424,24 @@ fallback to fall through to — see "Small-LLM classifier fallback: NOT FEASIBLE
 above), matching the fail-safe posture everywhere else in this design — never
 blocks formatting.
 
-### Open refinement items (v1 target) — not yet decided
+### Open refinement items (v1 target)
 
 Architecture (embedding/vocab/hidden-size/target-word-handling) and the
 training-data pipeline shape (measure-first sizing, two-pool split, labeling/
-verification/fixing approach) are settled above via session Q&A. Still open, roughly
-in the order worth tackling next:
+verification/fixing approach) are settled above via session Q&A. Items 1, 2, 5, 6,
+7, 8 below were pure judgment calls with no data dependency, so they're now
+resolved (RDD_EXT_10–15, added to the index above). Items 3, 4, 9, 10 remain open
+— each needs a real measurement, training run, or external lookup that hasn't
+happened yet, not just a decision:
 
-1. **Output classes** — same `YES`/`NO`/`ABSTAIN` as the existing rule-based
-   classifier, or something more granular (e.g. `KEYWORD`/`PROSE`/`IDENTIFIER`) that
-   then maps back down to `YES`/`NO`/`ABSTAIN`? Affects the head's output size and
-   how a not-confident GRU prediction gets handled.
-2. **GRU's own abstain threshold** — does the GRU always commit to a class, or can
-   it also abstain (e.g. softmax confidence below some cutoff) and fall through to
-   mechanical default? The Fail-safe note above only covers a missing/unreadable
-   weights file, not a low-confidence prediction from a loaded model.
 3. **Training hyperparameters** — loss function, learning rate, batch size, epoch
-   count, dropout/regularization, train/val/test split ratios. None chosen yet.
+   count, dropout/regularization, train/val/test split ratios. None chosen yet —
+   deferred to implementation time, once a real training set exists to tune
+   against (picking these on paper now, before any data, would be guesswork).
 4. **Evaluation target** — what accuracy/precision-recall bar makes this "good
-   enough" to ship, and against which held-out set.
-5. **Tokenization edge cases** — how punctuation attached to a word gets split
-   (`matrix.` vs. `matrix`), whether camelCase/snake_case identifiers get split into
-   sub-tokens or stay whole as single vocab/hash entries.
-6. **Hash function choice** — for the 1024-bucket OOV hashing; needs to be stable/
-   deterministic across training and inference (same string always hashes to the
-   same bucket in both the Java runtime and whatever trains the weights).
-7. **Weights file schema/versioning** — so a future retrain with a changed format
-   doesn't silently break `GruWeights.java`'s loader; no schema-version field
-   designed yet.
-8. **Pool B's concrete extraction method** — flagged during the training-data
-   refinement as "revisit later," still open: grep patterns / heuristics for
-   finding period-ambiguity candidate comments haven't been specified.
+   enough" to ship, and against which held-out set. Deferred until item 9's
+   measured ABSTAIN rate and a real held-out set exist — a target set against no
+   baseline data is arbitrary.
 9. **Real ABSTAIN-rate measurement** — the "run the existing rule-based classifier
    over a large sample first, measure before committing to a training-set size"
    step is planned but not yet executed; current pool-size estimates are
@@ -456,6 +449,58 @@ in the order worth tackling next:
 10. **Licensing/provenance check** for bulk-sourced GitHub comment data — flagged
     open in multiple places above (acquisition, `cwg/`'s own notes), not
     investigated yet.
+
+Resolved this session (design-only, no code — GRU implementation itself remains
+NOT STARTED per the checklist above):
+
+- **Output classes (was item 1):** same `YES`/`NO`/`ABSTAIN` as the existing
+  rule-based classifier — no more granular intermediate class (`KEYWORD`/`PROSE`/
+  `IDENTIFIER`). Nothing downstream of the classifier consumes anything finer than
+  `YES`/`NO`/`ABSTAIN` (the `ABSTAIN`-fallback wiring, `MiscRule.stripSoleTrailingPeriod`,
+  etc.), so a granular head would add vocabulary/training-label complexity (a
+  four-way labeling scheme instead of three) to feed a mapping step whose only
+  output is the same three classes — no consumer benefits from the extra
+  granularity. See RDD_EXT_10.
+- **GRU's own abstain threshold (was item 2):** yes, the GRU can abstain — a
+  softmax confidence check below a cutoff falls through to mechanical default,
+  same posture as the missing-weights-file fail-safe. Default cutoff: 0.5 (i.e.
+  requires the top class to hold a clear plurality over the other two combined,
+  not just be the argmax) — a starting default, tunable, stored as a field in the
+  weights file itself (see RDD_EXT_14) so retraining can adjust it without a code
+  change. See RDD_EXT_11.
+- **Tokenization edge cases (was item 5):** trailing/attached punctuation splits
+  off into its own token (`matrix.` → `matrix` + `.`) — consistent with the
+  existing rule-based classifier's own `dotCount`-based reasoning, which already
+  treats dots as separable signal rather than part of the word. camelCase/
+  snake_case identifiers stay whole as a single vocab/hash entry, not sub-
+  tokenized — sub-word splitting would need its own segmentation scheme and adds
+  complexity with no clear benefit for this task (identifiers are typically OOV
+  either way and fall into the hash buckets; the classification signal comes from
+  surrounding context words, not from decomposing the identifier itself). See
+  RDD_EXT_12.
+- **Hash function choice (was item 6):** FNV-1a (32-bit), result taken mod 1024
+  for the bucket index — simple, well-known, single-pass, no external dependency,
+  and trivially identical to reimplement on both the training side and in
+  `GruClassifier.java` since both are just "hash this UTF-8 string the same way."
+  See RDD_EXT_13.
+- **Weights file schema/versioning (was item 7):** the JSON weights file carries
+  a top-level `"schemaVersion"` integer field (starting at `1`). `GruWeights.java`'s
+  loader checks it explicitly and throws a clear error naming the expected vs.
+  found version on any mismatch or missing field, rather than attempting to parse
+  a shape it wasn't written for. The abstain-threshold value from the item above
+  also lives in this same weights file (not hardcoded in `GruClassifier.java`),
+  so a retrain can ship a new threshold alongside new weights in one file. See
+  RDD_EXT_14.
+- **Pool B's concrete extraction method (was item 8):** grep-based candidate
+  extraction over the comment corpus, keyed on either (a) a comment containing
+  two or more `.` characters where at least one is surrounded by whitespace on
+  both sides (the punctuation-discussion case, e.g. `the dot . here`), or (b) a
+  comment matching a short list of known abbreviation-adjacent tokens beyond the
+  already-handled `e.g.`/`i.e.` (`etc.`, `vs.`, `approx.`, single-capital-letter-
+  dot patterns like `extern C.`) not immediately followed by more lowercase
+  sentence text. This is a recall-favoring first-pass filter, not a precise
+  classifier — expected false positives get discarded during the existing
+  frontier-model labeling step, not filtered out here. See RDD_EXT_15.
 
 
 

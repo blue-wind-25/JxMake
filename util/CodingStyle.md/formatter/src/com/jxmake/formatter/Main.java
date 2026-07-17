@@ -286,7 +286,8 @@ public final class Main {
             merged.put("indent-style", resolvedStyle);
             config = Config.resolve(path, merged, inFileOverrides);
         }
-        final String formatted = Formatter.formatOne(original, language, path.toString(), config, formatOff);
+        final String formatted = FormatterCore.forLanguage(language)
+                .formatOne(original, path.toString(), config, formatOff);
         return applyLineEndings(formatted, original, config.lineEndings());
     }
 

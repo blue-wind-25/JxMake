@@ -322,7 +322,8 @@ public final class ServerMode {
                 final Map<String, String> inFileOverrides = InFileConfig.parse(content);
                 final Config config = Config.resolve(targetFile, inlineConfig.isEmpty() ? null : inlineConfig,
                         inFileOverrides);
-                final String formatted = Formatter.formatOne(content, language, path == null ? "" : path, config, formatOff);
+                final String formatted = FormatterCore.forLanguage(language)
+                        .formatOne(content, path == null ? "" : path, config, formatOff);
                 respond(exchange, 200, formatted);
             } catch (final Exception e) {
                 respond(exchange, 500, e.getMessage() != null ? e.getMessage() : e.toString());

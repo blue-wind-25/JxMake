@@ -349,19 +349,23 @@ zero regressions) before moving to the next group.
 - [x] `make test`: 90/90 forward + 90/90 idempotency, zero regressions.
 
 ### Formatter.java → FormatterCore + FormatterCurly + FormatterIndent + FormatterTags
-- [ ] Decide final shape of `FormatterCore`: a thin abstract class with one
-      entry point (e.g. `abstract String formatOne(...)`) so
-      `Main.java`/`ServerMode.java` can pick a concrete formatter by `Lang`
-      family without a big if/else at the call site.
-- [ ] `FormatterCurly.java`: today's entire `Formatter.formatOne` body,
-      renamed, unchanged logic (all of it is curly-only already).
-- [ ] `FormatterIndent.java` / `FormatterTags.java`: skeleton classes
-      implementing `FormatterCore`'s contract, throwing not-yet-implemented
-      until their jobs start.
-- [ ] Update `Main.java`/`ServerMode.java` call sites: pick
-      `FormatterCurly`/`FormatterIndent`/`FormatterTags` via the new `Lang`
-      family predicates instead of constructing `Formatter` directly.
-- [ ] `make test` full pass, zero regressions.
+- [x] `FormatterCore`: thin abstract class holding `lang` + the abstract
+      `formatOne(content, filePath, config, formatOff)` contract, plus a
+      static `forLanguage(String)` factory that constructs a `Lang` and
+      dispatches to `FormatterCurly`/`FormatterIndent`/`FormatterTags` by
+      family predicate -- this is the "dispatcher lives in the formatter
+      class" placement, so `Main.java`/`ServerMode.java` never need their
+      own if/else on language.
+- [x] `FormatterCurly.java`: today's entire `Formatter.formatOne` body,
+      renamed, unchanged logic (all of it is curly-only already); old static
+      `Formatter.java` deleted.
+- [x] `FormatterIndent.java` / `FormatterTags.java`: skeleton classes
+      implementing `FormatterCore`'s contract, throwing
+      `UnsupportedOperationException` until their jobs start.
+- [x] Update `Main.java`/`ServerMode.java` call sites: both now call
+      `FormatterCore.forLanguage(language).formatOne(...)` instead of
+      constructing `Formatter` directly.
+- [x] `make test`: 90/90 forward + 90/90 idempotency, zero regressions.
 
 ### ScopePipeline.java → ScopePipelineCore + ScopePipelineCurly + ScopePipelineIndent + ScopePipelineTags
 - [ ] `ScopePipelineCore.java`: `Span`/`Replacement`, splice/indent/

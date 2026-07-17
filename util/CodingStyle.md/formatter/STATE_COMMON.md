@@ -465,17 +465,40 @@ zero regressions) before moving to the next group.
 - [x] `make test`: 90/90 forward + 90/90 idempotency, zero regressions.
 
 ### GetterSetterRule.java → GetterSetterRuleCore + GetterSetterRuleCurly + GetterSetterRuleIndent (no Tags)
-- [ ] `GetterSetterRuleCore.java`: `bodyWidth`, `padRight`, `cellText`,
+- [x] `GetterSetterRuleCore.java`: `lang`/`indentWidth`/`lineLengthLimit`
+      fields + constructor, the `Member` nested class (needed here since
+      `bodyWidth` takes one), `bodyWidth`, `padRight`, `cellText`,
       `splitMembers`, `consumeTrailingSameLine`, `hasBreakableCall`,
-      `findNameBeforeParen`, significance/whitespace helpers, etc.
-- [ ] `GetterSetterRuleCurly.java`: constructors, `groupOneLiners`,
-      `excludeOutliers`, `render`, `parseOneLinerMember`,
-      `hasAccessSpecifier`, unchanged.
-- [ ] `GetterSetterRuleIndent.java`: skeleton (Python3 `@property`/
+      `findNameBeforeParen`, `matchBracket`, significance/whitespace helpers
+      (`isInsignificant`, `firstSignificantIndex`, `nextSignificant`,
+      `trimLeadingWs`, `trimTrailingWs`, `hasNewlineBetween`,
+      `hasBlankLineRun`, `prevSignificant`). Used the same Python
+      comment/string-masked brace-matching extraction script as the
+      `DeclarationAlignmentRule` split (proven reliable there).
+- [x] `GetterSetterRuleCurly.java`: `STATEMENT_KEYWORDS` constant,
+      `modifierPriority` field, constructors (call
+      `super(lang, indentWidth, lineLengthLimit)`), `groupOneLiners`,
+      `OUTLIER_RATIO`, `excludeOutliers`, `render`, `parseOneLinerMember`,
+      `isPostParenQualifier`, `hasAccessSpecifier`, unchanged.
+- [x] `GetterSetterRuleIndent.java`: skeleton (Python3 `@property`/
       `@x.setter` pair handling, if that job ever wants to reuse this shape —
       not committed, just a landing spot).
-- [ ] Update `ScopePipelineCurly`'s `applyGetterSetterPass` caller.
-- [ ] `make test` full pass, zero regressions.
+- [x] Updated `KotlinGetterSetterRule.java`'s
+      `extends GetterSetterRule` → `extends GetterSetterRuleCurly`.
+- [x] Updated `ScopePipelineCurly`'s `applyGetterSetterPass` caller (import,
+      field type, constructor call). Note: the `Member` inner-class import
+      must name its actual declaring class (`GetterSetterRuleCore.Member`),
+      not the subclass (`GetterSetterRuleCurly.Member`) — javac rejects an
+      import of an inherited nested type via the subclass's canonical name
+      ("import requires canonical name"), even though plain code references
+      to `GetterSetterRuleCurly.Member` work fine via inheritance.
+- [x] Grepped all other files referencing `GetterSetterRule` by name and
+      confirmed every other hit is a comment/javadoc mention only
+      (`FormatterCurly.java`, `JavaSpecificRule.java`,
+      `KotlinDeclarationAlignmentRule.java`, `MiscRule.java`,
+      `KotlinSpecificRule.java`).
+- [x] Old `GetterSetterRule.java` removed via `git rm`.
+- [x] `make test`: 90/90 forward + 90/90 idempotency, zero regressions.
 
 ### MiscRule.java → MiscRuleCore + MiscRuleCurly + MiscRuleIndent + MiscRuleTags
 - [ ] `MiscRuleCore.java`: the fully-generic passes and helpers —

@@ -60,7 +60,7 @@ import java.util.List;
  * requirement, same posture §9's own scoping note took for block-bodied functions). See
  * STATE_KOTLIN.md's Open Questions for the full narrative and remaining gaps.
  */
-public class KotlinGetterSetterRule extends GetterSetterRule {
+public class KotlinGetterSetterRule extends GetterSetterRuleCurly {
 
     private static final List<String> FUN_MODIFIERS = Arrays.asList(
             "public", "private", "protected", "internal", "override", "open", "final",

@@ -73,7 +73,7 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 
 | Key | Topic |
 |---|---|
-| — | none yet |
+| RDD_KEY_185 | §2.2/§2.4/§4 (new §4.3) — `<pre>` content is opaque like CDATA; bare text-node siblings reindent to parent structural depth like any content line |
 
 ---
 

@@ -90,7 +90,8 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 
 | Key | Topic |
 |---|---|
-| — | none yet |
+| RDD_KEY_182 | §3/§6 destructuring-pattern LHS joins the const/let alignment grid like any ordinary declaration |
+| RDD_KEY_183 | §11.1 consecutive `type X = ...` aliases form their own `=`-aligned group, same as const/let |
 
 ---
 

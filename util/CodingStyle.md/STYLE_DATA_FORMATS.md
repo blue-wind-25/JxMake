@@ -296,6 +296,20 @@ The main design point for HTML5 is dispatch, not new formatting rules:
   `text/template`) is not dispatched to the JS/TS formatter; treat as opaque unless a
   future rule specifically recognizes that type.
 
+### 4.3 `<pre>` Content and Bare Text Nodes
+
+**`<pre>` is opaque**, same treatment as CDATA (§2.4's default case) — its content is
+preserved byte-for-byte, including exact whitespace and line breaks, since reflowing
+or reindenting it would change the rendered output (`<pre>` disables normal HTML
+whitespace collapsing). The `<pre>` tag itself is not reindented to the surrounding
+structural depth the way an ordinary content line would be — only the tags
+immediately before/after it participate in normal indentation.
+
+**Bare text nodes** (text sitting directly between element siblings, not inside a
+tag) reindent to their parent's structural depth like any other content line, same
+as an element child would — by analogy with §2.2's normal tag-indentation rule,
+applied to text content rather than a nested tag (RDD_KEY_185).
+
 Implementation-tracker content (config keys, test-fixture repos, local test
 fixtures) for this file lives in `formatter/STATE_DATA_FORMATS.md`, not
 here — see that file.

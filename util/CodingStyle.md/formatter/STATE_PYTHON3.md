@@ -94,7 +94,8 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 
 | Key | Topic |
 |---|---|
-| — | none yet |
+| RDD_KEY_184 | §1.4/§1.5 non-empty `{}` (dict/set) is always loose per §3.3, no unpacking-only carve-out; fixed stale tight example |
+| RDD_KEY_186 | New §10 — triple-quoted docstrings/multiline strings are opaque, preserved verbatim beyond the opening line (extends §4's precedent) |
 
 ---
 

@@ -115,18 +115,10 @@ drafted there before this staging file existed.
 
   Covers: `T...[N]` as a constant index staying tight, no space between the pack
   name/`...`/`[` (§1); `T...[ computeIndex() ]` as a call-inside-index case going
-  loose. **Flagged assumption:** §1's own inline example in `STYLE_CPP26.md`
-  labels this "loose" but shows no added bracket-interior spaces, which reads as
-  inconsistent with the general tight/loose convention every other bracket-
-  complexity section in this project uses (loose = spaces added inside the
-  bracket, e.g. `STYLE_PYTHON3.md` §1.1's `a[ callSomething(x) ]`) — this draft
-  follows that general convention rather than the style doc's own possibly-stale
-  example text, since §1 explicitly says it "falls under the existing
-  array-index bracket rules... with no new padding logic." Worth confirming
-  against real JAR behavior once implemented, and possibly fixing the style
-  doc's own example if this draft's reading turns out right. **🚫 PROMOTION
-  GATE — do not move this pair to `formatter/test/` until this is discussed and
-  `STYLE_CPP26.md` §1 is fixed; see file intro.** Also covers:
+  loose, per the general tight/loose convention every other bracket-complexity
+  section in this project uses (loose = spaces added inside the bracket, e.g.
+  `STYLE_PYTHON3.md` §1.1's `a[ callSomething(x) ]`) — confirmed and fixed in
+  `STYLE_CPP26.md` §1 itself (RDD_KEY_181). Also covers:
   `= delete("reason")`'s string argument taking ordinary call-argument spacing,
   no special padding for the parens themselves (§2); placeholder `_` as an
   ordinary identifier in both a structured-binding slot and an `if`-init
@@ -854,15 +846,10 @@ pass and the comment-placement pass, not just one.
   siblings, reindented to their parent's structural depth like any other content
   line; `<pre>` content left byte-for-byte untouched, including its exact
   indentation and line breaks, with the tag itself not reindented to the
-  surrounding structural depth. **Flagged assumptions:** neither `<pre>`'s opaque
-  treatment nor bare-text-node indentation is spelled out explicitly in this
-  file's §2.2/§2.4/§4 — this draft treats `<pre>` as opaque like CDATA (since
-  reindenting its content would change rendered meaning) and extends the
-  "content line reindents to nesting depth" rule to text nodes by analogy with
-  element children. Worth confirming both against real JAR behavior once
-  implemented. **🚫 PROMOTION GATE — do not move this pair to `formatter/test/`
-  until this is discussed and `STYLE_DATA_FORMATS.md` §2.2/§2.4/§4 is updated
-  with an explicit `<pre>`/text-node rule; see file intro.**
+  surrounding structural depth — `<pre>` opaque like CDATA, bare text nodes
+  reindent to parent structural depth like any other content line, both now
+  confirmed and spelled out explicitly in `STYLE_DATA_FORMATS.md` §4.3
+  (RDD_KEY_185).
   </details>
 - **html_comments_inp/out.html** — uncommon `<!-- -->` placement, the
   `<script><![CDATA[ ... ]]></script>` CDATA-wrapped script idiom (§2.3 exception),
@@ -1048,15 +1035,9 @@ section below), same separation C/C++ already have across `.c`/`.cpp`/`.hpp`.
   (§6's own `const add = .../const isEven = .../const process = ...` example
   confirms consts align as a group) — padded to the widest LHS, which here is
   the array-destructuring pattern `const [first, second, ...others]`.
-  **Flagged assumption:** §3/§6 don't explicitly say whether a destructuring
-  pattern counts as a normal declaration for alignment-grid purposes, or should
-  be treated as a group-breaker like a comment/blank-line would be — this draft
-  takes the more literal reading (any consecutive `const`/`let` run is a group,
-  regardless of what the LHS looks like) since nothing in either section carves
-  out an exception. Worth confirming against real JAR behavior once
-  implemented. **🚫 PROMOTION GATE — do not move this pair to `formatter/test/`
-  until this is discussed and `STYLE_JS_TS.md` §3/§6 is updated with an
-  explicit destructuring-pattern alignment rule; see file intro.**
+  a destructuring-pattern LHS joins the group like any ordinary declaration,
+  regardless of LHS shape — now confirmed and spelled out explicitly in
+  `STYLE_JS_TS.md` §3 (RDD_KEY_182).
   </details>
 - **js_comments_inp/out.js** — uncommon `//`/`/* */` placement around the above
   constructs.
@@ -1274,13 +1255,9 @@ JavaScript pair above.
   Covers: tight union/intersection spacing on one line, with `type Status` and
   `type Combined` forming a two-member `=`-aligned group since nothing separates
   them (same declaration-alignment grid as the `const` group in `js_combined`).
-  **Flagged assumption:** same caveat as `js_combined` — §11.1 shows the union
-  type example standalone, never two consecutive `type` aliases, so grouping
-  them here is this draft's literal reading of the general alignment-grid rule,
-  not a directly-confirmed case. **🚫 PROMOTION GATE — do not move this pair to
-  `formatter/test/` until this is discussed and `STYLE_JS_TS.md` §11.1 is
-  updated with an explicit consecutive-type-alias alignment rule; see file
-  intro.** Both break-before and
+  Consecutive `type` aliases forming their own `=`-aligned group is now
+  confirmed and spelled out explicitly in `STYLE_JS_TS.md` §11.1 (RDD_KEY_183).
+  Both break-before and
   break-after continuation styles preserved exactly as written, with only the
   continuation column re-aligned (§11.1); generics on both a function and a
   class; `interface`/`type`-alias `:` alignment (§14's shape, reused via §11); both
@@ -1396,17 +1373,10 @@ Referenced from: `STYLE_JS_TS.md`.
   <details>
   <summary>Draft content (unverified — see file intro)</summary>
 
-  **Flagged contradiction found while drafting:** §1.5's own dict/set examples
-  (`a_set = { 1, 2, 3 }`, `a_dict = { "a": 1, "b": 2 }`) are loose, citing
-  STYLE.md §3.3's "always pad non-empty `{}`" rule, but §1.4's own example
-  (`config = {**defaults, **overrides}`) is tight — both are non-empty `{}`
-  literals. This draft resolves in favor of §3.3's explicit rule (loose), so
-  `config`/`merged`/`a_set`/`a_dict` below are all drafted loose, diverging from
-  §1.4's own tight example. Worth fixing in the style doc itself, not just this
-  fixture — same kind of stale-inline-example issue already flagged for C++26
-  pack indexing above. **🚫 PROMOTION GATE — do not move this pair to
-  `formatter/test/` until this is discussed and `STYLE_PYTHON3.md` §1.4/§1.5's
-  contradiction is resolved; see file intro.**
+  Non-empty `{}` (dict/set) is always loose per §3.3, with no unpacking-only
+  carve-out — `config`/`merged`/`a_set`/`a_dict` below are all loose,
+  now confirmed and spelled out explicitly in `STYLE_PYTHON3.md` §1.4/§1.5
+  (RDD_KEY_184).
 
   `py_combined_inp.py`:
   ```python
@@ -1768,14 +1738,9 @@ Referenced from: `STYLE_JS_TS.md`.
   comment on a compact `case` line, with `case 1`/`case 2` colons landing in the
   same column with zero padding (equal-width patterns need none), contrasted
   with `case _` sitting outside that group, unaligned, due to the preceding
-  `# fallback` comment per §7's all-or-nothing rule. **Flagged assumption:**
-  docstring/multiline-string handling isn't addressed anywhere in
-  `STYLE_PYTHON3.md` — this draft extends §4's template-literal opaque-
-  preservation principle by analogy, since nothing else in the file speaks to
-  it. Worth adding as an explicit open item if this reading holds. **🚫
-  PROMOTION GATE — do not move this pair to `formatter/test/` until this is
-  discussed and `STYLE_PYTHON3.md` gets an explicit docstring section; see
-  file intro.**
+  `# fallback` comment per §7's all-or-nothing rule. Docstring/multiline-string
+  opaque preservation is now confirmed and spelled out explicitly in new
+  `STYLE_PYTHON3.md` §10 (RDD_KEY_186).
   </details>
 
 Referenced from: `STYLE_PYTHON3.md`.

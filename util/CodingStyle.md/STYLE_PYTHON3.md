@@ -79,13 +79,15 @@ applies to, whether in a call, a definition, or a literal:
 def merge(*args, **kwargs): ...
 result = combine(*first, *second)
 merged = [*a, *b, *c]
-config = {**defaults, **overrides}
+config = { **defaults, **overrides }
 ```
 
 Presence of `*`/`**` unpacking inside `[]`/`{}` does not by itself force looseness —
 it's evaluated as any other content atom under §1.1/§1.2's rules (a plain
 `[*a, *b]` stays tight; `[*get_items(), *b]` goes loose because `get_items()` is a
-call).
+call). A non-empty `{}` (dict or set, whether or not it contains `**`/`*` unpacking)
+always gets §3.3's mandatory padding regardless — see §1.5, which applies uniformly
+with no unpacking-only carve-out (RDD_KEY_184).
 
 ### 1.5 Dict vs. Set Literal Disambiguation
 
@@ -97,6 +99,10 @@ presence of `:` at the top level of the `{}` content before applying padding:
 - No top-level `:` → set — same padding rules as a list/array literal.
 - Empty `{}` → dict (Python's own semantics — an empty set has no literal form and
   must be written `set()`), tight, same as STYLE.md §3.3's empty-braces rule.
+- **Any non-empty `{}` is always loose**, per STYLE.md §3.3's "always pad non-empty
+  `{}`" rule, applied uniformly regardless of content shape — including a dict/set
+  literal whose only content is `*`/`**` unpacking (e.g. `{ **defaults, **overrides }`,
+  see §1.4). There is no tight carve-out for unpacking-only literals (RDD_KEY_184).
 
 ```python
 empty_dict = {}
@@ -495,7 +501,34 @@ line with no blank line, same as the C-family default.
 
 ---
 
-## 10. Known Open Items
+## 10. Docstrings / Triple-Quoted Multiline Strings
+
+A triple-quoted string (`"""..."""`/`'''...'''`), whether used as a docstring
+immediately following a `def`/`class`/module header or as an ordinary multiline
+string literal elsewhere, is opaque — its content is preserved exactly as written,
+byte-for-byte, beyond the opening `"""`/`'''` itself. This extends §4's template-
+literal/f-string opaque-content principle by analogy: the formatter never reflows,
+reindents, or otherwise rewrites text inside the string, including any inconsistent
+internal indentation the original author left in place.
+
+```python
+def status():
+    """
+    Health check endpoint.
+        Always returns "ok" for now.
+    """
+    return "ok"
+```
+
+Here, the docstring's own internal indentation (`Health check endpoint.` at one
+depth, `Always returns "ok" for now.` at a deeper, inconsistent depth) is left
+exactly as written — the formatter only ensures the opening `"""` line itself sits
+at the correct structural indent for its enclosing block, same as any other
+statement (RDD_KEY_186).
+
+---
+
+## 11. Known Open Items
 
 Not yet designed, deliberately deferred (see FUTURE_FEATURE_DISCUSSION.md if this
 ever needs revisiting):

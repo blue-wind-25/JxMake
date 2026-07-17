@@ -23,14 +23,17 @@ call or nested bracket goes loose, same as any other `[]`:
 
 ```cpp
 template<typename... T>
-using Nth = T...[N];                     // constant index — tight
+using Nth = T...[N];                       // constant index — tight
 
 template<typename... T>
-using Selected = T...[computeIndex()];   // call inside index — loose (per §3.1)
+using Selected = T...[ computeIndex() ];   // call inside index — loose (per §3.1)
 ```
 
 No space between the pack name, `...`, and `[`; `...` binds tight to the pack name
-the same way STYLE_CPP20.md treats other pack-expansion ellipses.
+the same way STYLE_CPP20.md treats other pack-expansion ellipses. The interior
+padding itself follows the ordinary tight/loose bracket-complexity rule like any
+other `[]` — a call-containing index (`computeIndex()`) gets interior spaces the
+same way a loose array index would anywhere else in the project (RDD_KEY_181).
 
 ---
 

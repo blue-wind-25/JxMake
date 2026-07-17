@@ -143,26 +143,9 @@ the already-implemented rule-based comment-grammar classifier (Task H in
 `KeywordAmbiguityGate`, `CommentClassifier`/`CommentClassifierWeights`
 (`YES`/`NO`/`ABSTAIN`), gated behind `comment-normalization-classifier` (default `off`).
 
-### Proposed pipeline (superseded — see "Small-LLM classifier fallback: NOT FEASIBLE"
-below; kept for historical context, the LLM branch shown here does not work)
-
-```text
-Rule-based classifier (already implemented, Task H)
-        │
-        ├── High confidence (YES/NO) → use classifier result
-        │
-        └── ABSTAIN
-                    │
-             Small instruction-tuned LLM, used purely as a classifier
-             (single-class output, not generation — e.g. "is 'return' used
-             as a programming keyword, an English word, or an identifier
-             here? Return only the class.")   ← CONFIRMED NOT FEASIBLE, see below
-                    │
-               Final decision
-```
-
-For the current, working pipeline (GRU only, no LLM branch), see "GRU implementation
-design" below.
+The originally proposed pipeline routed `ABSTAIN` to a small instruction-tuned LLM
+classifier — confirmed NOT FEASIBLE (see below), superseded by the GRU-only pipeline
+in "GRU implementation design" below.
 
 Reuses Step 2's already-confirmed architecture pattern rather than reinventing it:
 grammar-constrained short response, `temperature = 0.0`, `/v1/chat/completions` via
@@ -255,39 +238,6 @@ would be a distinct, unexplored idea — training a classifier on non-Latin/mixe
 language examples specifically — not something this document currently designs;
 raise as its own topic if it's worth pursuing later, rather than assuming it falls
 out of the existing GRU design above.
-
-### Model selection — search at implementation time, not now — NOT FEASIBLE, superseded
-
-**This entire section is moot** — it was model-selection guidance for the small-LLM
-classifier fallback, which is confirmed NOT FEASIBLE (see "Small-LLM classifier
-fallback: NOT FEASIBLE" above). Kept below only as a historical record of what the
-now-rejected approach would have needed; do not act on it.
-
-Do not pin a specific Hugging Face model in this document — open-weight model
-availability and quality shift too quickly for a name written today to still be the
-right pick later. When this is actually implemented, search Hugging Face at that time
-and recommend a model against these criteria, evaluated **separately per target
-hardware tier** since each has different constraints:
-
-- **Raspberry Pi CM5** (ARM, no GPU) — must stay compatible with the same llama.cpp
-  runtime path Step 2 already validated on this hardware; since this is now a
-  secondary abstain-fallback rather than the primary decision-maker, prefer something
-  smaller than Step 2's 3B reference point if quality allows.
-- **Core i5, no dedicated GPU** — CPU-only inference via llama.cpp; more RAM headroom
-  than the Pi, but still latency-sensitive since this sits in the formatter's hot
-  path — check realistic tokens/sec for a single-class response, not just that it
-  loads.
-- **Cheap dedicated GPU, VRAM < 1GB** — forces a heavily quantized ~0.5B-class model;
-  confirm a GGUF/quantized variant actually exists at this footprint before assuming
-  the model qualifies.
-- **Cheap dedicated GPU, VRAM 1–2GB** — opens up more of the small instruction-tuned
-  range; still confirm quantized (Q4/Q5) VRAM footprint against the 2GB ceiling, not
-  just the unquantized parameter count.
-
-For each tier, check: instruction-tuned (not base), a maintained GGUF/quantized
-release exists, and realistic single-token/short-response latency on that hardware —
-then document the chosen model(s) here the same way Step 2 documents its tested
-Qwen2.5-Coder-3B reference.
 
 ### GRU implementation design (v1 target)
 

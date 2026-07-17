@@ -18,6 +18,19 @@ carefully" scrutiny `README.txt` asks of any AI-pass output. A pair is only
 `formatter/test/README.txt` per that file's own instructions — draft content
 staying here, even pre-written, doesn't skip that step.
 
+**PROMOTION GATE — flagged assumptions/contradictions.** Several draft pairs below
+carry a **Flagged assumption** or **Flagged contradiction** note — a spot where the
+draft had to guess at an unstated rule, or where two parts of the relevant
+`STYLE_*.md`/`STYLE.md` file disagree with each other. These are not just FYI: **a
+pair carrying one of these notes must not be moved to `formatter/test/` and
+registered in `README.txt` until the flag is resolved.** Resolving means an actual
+discussion with Aloysius about what the rule *should* be, followed by a fix to the
+corresponding `STYLE_*.md` section — not a unilateral pick, even if the fixture's
+own draft content already leans one way. If Claude (in Claude Code or any other
+session) is asked to promote a fixture pair and its entry still carries a Flagged
+note, stop and raise the flag for discussion before touching `formatter/test/` or
+`README.txt`, same as any other unresolved open item in this project.
+
 **Sections are named, not numbered**, and never will be — this file is meant to be
 referenced from multiple `STYLE_*.md` files by section name, and numbering would go
 stale every time a section is added, removed, or reordered.
@@ -27,6 +40,7 @@ external GitHub repos (for corpus-scale validation once a language is actually
 implemented) — those lists are unaffected by this file. This file covers only local,
 committed-to-the-repo dogfood pairs, same role `cpp_modern_inp/out.cpp` and
 `cpp_comments_inp/out.cpp` already play for CPP20.
+
 
 When a pair is actually authored, move its entry out of this file and into
 `formatter/test/README.txt` alongside the existing entries, same as any other
@@ -110,7 +124,9 @@ drafted there before this staging file existed.
   example text, since §1 explicitly says it "falls under the existing
   array-index bracket rules... with no new padding logic." Worth confirming
   against real JAR behavior once implemented, and possibly fixing the style
-  doc's own example if this draft's reading turns out right. Also covers:
+  doc's own example if this draft's reading turns out right. **🚫 PROMOTION
+  GATE — do not move this pair to `formatter/test/` until this is discussed and
+  `STYLE_CPP26.md` §1 is fixed; see file intro.** Also covers:
   `= delete("reason")`'s string argument taking ordinary call-argument spacing,
   no special padding for the parens themselves (§2); placeholder `_` as an
   ordinary identifier in both a structured-binding slot and an `if`-init
@@ -210,15 +226,73 @@ drafted there before this staging file existed.
   `/* */` block comment standing alone before the placeholder examples.
   </details>
 - **cpp_26_reflection_inp/out.cpp** — reflection (`^^`, `[:`, `:]` splicing).
-  Authored **after**, not alongside, the other two pairs above: §5's tokenizer pass
-  is validated against the external corpus (`bloomberg/clang-p2996`,
-  `wrocpp/cpp26-reflection-examples`, `simdjson/experimental_json_builder`,
-  `stephenberry/glaze` — see `STYLE_CPP26.md` §5) first, since that's real-world
-  code exercising the new tokens the tokenizer doesn't support yet. Only once that
-  pass confirms the tokens are handled correctly does it make sense to write a
-  fixed expected-output pair here — a local fixture locks in behavior that's
-  already been validated, it isn't how that behavior gets validated in the first
-  place. Until then this pair does not exist and §5's rules stay provisional.
+  Drafted alongside the other two pairs above, same unverified-draft status as
+  `cpp_26ext`/`cpp_26_comments` — see file intro. What's still gated on the
+  external-corpus pass (`bloomberg/clang-p2996`, `wrocpp/cpp26-reflection-examples`,
+  `simdjson/experimental_json_builder`, `stephenberry/glaze` — see
+  `STYLE_CPP26.md` §5) is *trusting* the rules, not *drafting* the fixture that
+  will check them. §5's rules stay provisional, and this pair's expected output
+  stays flagged unverified, until that pass runs.
+
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  `cpp_26_reflection_inp.cpp`:
+  ```cpp
+  constexpr auto refl=^^SomeType;
+  constexpr auto splice=[:refl:];
+  constexpr auto computed=[:  computeRefl(x)  :];
+
+  template<typename T>
+  constexpr auto reflectMember(T&& obj) {
+  return ^^obj;
+  }
+
+  void useSplice() {
+  constexpr auto r = ^^int;
+  auto v = [:r:];
+  }
+  ```
+
+  `cpp_26_reflection_out.cpp`:
+  ```cpp
+  constexpr auto refl     = ^^SomeType;
+  constexpr auto splice   = [:refl:];
+  constexpr auto computed = [: computeRefl(x) :];
+
+  template<typename T>
+  constexpr auto reflectMember(T&& obj)
+  {
+      return ^^obj;
+  }
+
+  void useSplice()
+  {
+      constexpr auto r = ^^int;
+      auto v = [:r:];
+  }
+  ```
+
+  Covers: `^^` binding tight to its operand with no space in both an initializer
+  (`^^SomeType`) and a `return` expression (`^^obj`) (§5); the three-member
+  `constexpr auto` group's `=` alignment (§5's own example, reused verbatim here to
+  keep the drafted pair consistent with the style doc it's testing); `[:refl:]` as
+  a bare-value splice staying tight vs. `[: computeRefl(x) :]` going loose because
+  its content contains a call, mirroring the existing JAR-verified `[[ assume(a >=
+  0) ]]` precedent §5 cites; a single unpadded splice (`[:r:]`) outside any
+  alignment group, confirming §5's tight rule holds standalone and not just inside
+  the three-member example; both function bodies reformatted to Allman braces per
+  STYLE_C_CPP.md, independent of the reflection tokens themselves. **Flagged
+  status:** this pair is drafted, not validated — it still needs the same
+  tokenizer-support pass (`^^`, `[:`, `:]` as new `MULTI_CHAR_OPS` entries) and the
+  same external-corpus cross-check §5 already calls for before its rules can be
+  trusted. Drafting the fixture now doesn't skip that work; it just means the
+  expected output is written down and ready to verify against, rather than
+  invented after the fact. **🚫 PROMOTION GATE — do not move this pair to
+  `formatter/test/` until the tokenizer-support pass and external-corpus
+  cross-check run and `STYLE_CPP26.md` §5 is updated from provisional to
+  confirmed; see file intro.**
+  </details>
 
 Referenced from: `STYLE_CPP26.md`.
 
@@ -680,9 +754,201 @@ pass and the comment-placement pass, not just one.
   (dispatches to CSS combined fixture's constructs at small scale) and a small
   embedded `<script>` block (dispatches to JS combined fixture's constructs at small
   scale), re-indentation after splice-back.
+
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  `html_combined_inp.html`:
+  ```html
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+  <meta charset="UTF-8">
+  <title>Demo</title>
+  <style>
+  .box{display:flex;color:#333;}
+  </style>
+  </head>
+  <body>
+  <div class="container">
+  <p>Welcome to the <span class="highlight">demo</span> page.</p>
+  Here is a list of items:
+  <ul>
+  <li>First item</li>
+  <li>Second item</li>
+  <li>Third item</li>
+  </ul>
+  <pre>
+  function raw() {
+    return 1;
+  }
+  </pre>
+  </div>
+  <img src="photo.jpg" alt="A photo" />
+  <input type="text" name="q"/>
+  <br/>
+  <script>
+  function greet(name) {
+  return "Hello, " + name
+  }
+  </script>
+  End of demo page.
+  </body>
+  </html>
+  ```
+
+  `html_combined_out.html`:
+  ```html
+  <!DOCTYPE html>
+  <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <title>Demo</title>
+          <style>
+              .box
+              {
+                  display : flex;
+                  color   : #333;
+              }
+          </style>
+      </head>
+      <body>
+          <div class="container">
+              <p>Welcome to the <span class="highlight">demo</span> page.</p>
+              Here is a list of items:
+              <ul>
+                  <li>First item</li>
+                  <li>Second item</li>
+                  <li>Third item</li>
+              </ul>
+              <pre>
+  function raw() {
+    return 1;
+  }
+  </pre>
+          </div>
+          <img src="photo.jpg" alt="A photo">
+          <input type="text" name="q">
+          <br>
+          <script>
+              function greet(name)
+              {
+                  return "Hello, " + name;
+              }
+          </script>
+          End of demo page.
+      </body>
+  </html>
+  ```
+
+  Covers: `<img>`/`<input>`/`<br>` void elements losing their self-closing `/`
+  (§4.1); `<style>` content spliced out, formatted per §3's CSS colon-alignment
+  (single-member group here, no padding needed), spliced back reindented to its
+  own nesting depth; `<script>` content spliced to the JS/TS formatter — Allman
+  brace on the named function, inserted semicolon on `return` — then reindented
+  on splice-back; `<div>`/`<ul>`/`<li>` as ordinary block-level nesting, each
+  reindented one level deeper per §2.2's normal tag-indentation rule; `<p>` with
+  an inline `<span>` child staying on one line since it fits the line-length
+  limit, no forced wrap just because a child tag is present; bare text nodes
+  (`Here is a list of items:` and `End of demo page.`) sitting between element
+  siblings, reindented to their parent's structural depth like any other content
+  line; `<pre>` content left byte-for-byte untouched, including its exact
+  indentation and line breaks, with the tag itself not reindented to the
+  surrounding structural depth. **Flagged assumptions:** neither `<pre>`'s opaque
+  treatment nor bare-text-node indentation is spelled out explicitly in this
+  file's §2.2/§2.4/§4 — this draft treats `<pre>` as opaque like CDATA (since
+  reindenting its content would change rendered meaning) and extends the
+  "content line reindents to nesting depth" rule to text nodes by analogy with
+  element children. Worth confirming both against real JAR behavior once
+  implemented. **🚫 PROMOTION GATE — do not move this pair to `formatter/test/`
+  until this is discussed and `STYLE_DATA_FORMATS.md` §2.2/§2.4/§4 is updated
+  with an explicit `<pre>`/text-node rule; see file intro.**
+  </details>
 - **html_comments_inp/out.html** — uncommon `<!-- -->` placement, the
   `<script><![CDATA[ ... ]]></script>` CDATA-wrapped script idiom (§2.3 exception),
   a `<script type="application/json">` block that must stay opaque (not dispatched).
+
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  `html_comments_inp.html`:
+  ```html
+  <div>
+  <!-- top banner -->
+  <p>Hello</p><!-- inline note -->
+  <notes><![CDATA[Raw <config> data & "quoted" bits, <left> untouched.]]></notes>
+  <img class="icon" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=" alt="icon">
+  <script><![CDATA[
+  function tick() {
+  var now = Date.now();
+  var elapsed = now - startTime;
+  console.log("tick", elapsed);
+  return now
+  }
+
+  function reset() {
+  startTime = Date.now()
+  }
+  ]]></script>
+  <script type="application/json">
+  {"a":1,"b":2}
+  </script>
+  </div>
+  ```
+
+  `html_comments_out.html`:
+  ```html
+  <div>
+      <!-- top banner -->
+      <p>Hello</p><!-- inline note -->
+      <notes><![CDATA[Raw <config> data & "quoted" bits, <left> untouched.]]></notes>
+      <img
+          class="icon"
+          src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+          alt="icon">
+      <script><![CDATA[
+          function tick()
+          {
+              var now = Date.now();
+              var elapsed = now - startTime;
+              console.log("tick", elapsed);
+              return now;
+          }
+
+          function reset()
+          {
+              startTime = Date.now();
+          }
+      ]]></script>
+      <script type="application/json">
+  {"a":1,"b":2}
+  </script>
+  </div>
+  ```
+
+  Covers: a standalone leading `<!-- -->` comment reindented to its structural
+  nesting depth, same treatment as any other content line (§2.2); an inline
+  trailing comment staying on the same line as its preceding `<p>` tag rather
+  than being moved to its own line; `<notes>`'s CDATA content preserved
+  byte-for-byte — untouched by the surrounding reindentation despite containing
+  `<`/`&`/`"` characters that would otherwise need escaping outside CDATA — the
+  §2.4 **default** opaque case, placed directly next to the `<script>` CDATA
+  below specifically to contrast the two: same `<![CDATA[ ]]>` syntax, opposite
+  treatment depending on the enclosing tag; a `data:` URI as an attribute value,
+  long enough on its own to push `<img>` past STYLE.md §2's line-length limit,
+  so the tag wraps one attribute per line (§2.2's overflow rule, triggered here
+  by attribute *length* rather than attribute *count*), while the base64 string
+  itself stays intact on its own line, never split mid-value; the CDATA-wrapped
+  `<script>` idiom (§2.4 **exception**) unwrapped, its two-function JS content
+  (including the blank line between them) dispatched to the JS/TS formatter —
+  Allman brace on both named functions, inserted semicolon on every statement
+  including the `var`-less `startTime = Date.now()` — then re-wrapped in
+  `<![CDATA[ ]]>` and reindented to the `<script>` tag's own nesting depth;
+  `<script type="application/json">` left byte-for-byte opaque — not dispatched
+  to the JS/TS formatter and not reindented, since §4.2 only dispatches script
+  content whose type is JS/TS (or the type attribute is absent), and
+  `application/json` is explicitly called out as staying opaque.
+  </details>
 
 Referenced from: `STYLE_DATA_FORMATS.md`.
 
@@ -698,8 +964,166 @@ section below), same separation C/C++ already have across `.c`/`.cpp`/`.hpp`.
   (stage-3 JS decorators, not TS-only usage), getter/setter accessors (`get`/`set` —
   plain ES6, not TS-only, so it belongs here rather than in the TypeScript pair),
   always-explicit semicolon insertion, import ordering/grouping.
+
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  `js_combined_inp.js`:
+  ```javascript
+  import fs from "fs";
+  import {debounce} from "lodash";
+  import express from "express";
+  import {Widget} from "../components";
+  import {helper} from "./helper";
+
+  @Component({selector: "app-widget"})
+  export class Widget {
+  @Input() name
+  @Output() changed = new EventEmitter()
+
+  get x() { return this._x }
+  set x(value) { this._x = value }
+
+  async load() {
+  const {id,name,...rest} = await fetchUser()
+  const [first,second,...others] = await fetchItems()
+  const merged = {...defaults,...overrides}
+  const label = `User: ${name}`
+  const len = this.profile?.bio?.length ?? 0
+  const calc = (a,b) => a + b
+  const process = (data) => {
+  return transform(data)
+  }
+  return merged
+  }
+  }
+  ```
+
+  `js_combined_out.js`:
+  ```javascript
+  import fs from "fs";
+
+  import express from "express";
+  import { debounce } from "lodash";
+
+  import { Widget } from "../components";
+  import { helper } from "./helper";
+
+  @Component({ selector: "app-widget" })
+  export class Widget {
+      @Input() name;
+      @Output() changed = new EventEmitter();
+
+      get x(     ) { return this._x; }
+      set x(value) { this._x = value; }
+
+      async load()
+      {
+          const { id, name, ...rest }      = await fetchUser();
+          const [first, second, ...others] = await fetchItems();
+          const merged                     = { ...defaults, ...overrides };
+          const label                      = `User: ${name}`;
+          const len                        = this.profile?.bio?.length ?? 0;
+          const calc                       = (a, b) => a + b;
+          const process                    = (data) => {
+              return transform(data);
+          };
+          return merged;
+      } // async load
+  } // class Widget
+  ```
+
+  Covers: import grouping/sorting (builtin → third-party alphabetical → local,
+  blank line between groups); inline decorator placement preserved on
+  `@Input`/`@Output`; own-line decorator placement preserved on `@Component`;
+  getter/setter one-liner group alignment (§14) — `x`/`x` being equal-width names
+  needs no name-side padding, while the empty `()` vs. `(value)` parameter lists
+  differ in width and get the internal-parens padding instead, keeping the `)`/`{`
+  columns aligned; object/array destructuring with rest, spread merge, template
+  literal, optional chaining/nullish coalescing, both arrow forms
+  (single-expression and K&R block body); always-explicit semicolons throughout,
+  including after the arrow block's `}`; closing comments on both the class and
+  the Allman-brace `async load` method (§1's inherited STYLE.md §7); the run of
+  seven consecutive `const` declarations forming a single `=`-aligned group
+  (§6's own `const add = .../const isEven = .../const process = ...` example
+  confirms consts align as a group) — padded to the widest LHS, which here is
+  the array-destructuring pattern `const [first, second, ...others]`.
+  **Flagged assumption:** §3/§6 don't explicitly say whether a destructuring
+  pattern counts as a normal declaration for alignment-grid purposes, or should
+  be treated as a group-breaker like a comment/blank-line would be — this draft
+  takes the more literal reading (any consecutive `const`/`let` run is a group,
+  regardless of what the LHS looks like) since nothing in either section carves
+  out an exception. Worth confirming against real JAR behavior once
+  implemented. **🚫 PROMOTION GATE — do not move this pair to `formatter/test/`
+  until this is discussed and `STYLE_JS_TS.md` §3/§6 is updated with an
+  explicit destructuring-pattern alignment rule; see file intro.**
+  </details>
 - **js_comments_inp/out.js** — uncommon `//`/`/* */` placement around the above
   constructs.
+
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  `js_comments_inp.js`:
+  ```javascript
+  // Core imports
+  import fs from "fs";
+  import {debounce} from "lodash"; // utility for rate limiting
+  import express from "express";
+
+  /* Widget component */
+  @Component({selector: "app-widget"})
+  export class Widget {
+  // exposed input
+  @Input() name
+  @Output() changed = new EventEmitter() // fired on change
+
+  async load() {
+  // destructure the fetched user
+  const {id,name,...rest} = await fetchUser()
+  const label = `User: ${name}` // greeting label
+  // nullish fallback to zero
+  const len = this.profile?.bio?.length ?? 0
+  return merged
+  }
+  }
+  ```
+
+  `js_comments_out.js`:
+  ```javascript
+  // Core imports
+  import fs from "fs";
+
+  import express from "express";
+  import { debounce } from "lodash"; // utility for rate limiting
+
+  /* Widget component */
+  @Component({ selector: "app-widget" })
+  export class Widget {
+      // exposed input
+      @Input() name;
+      @Output() changed = new EventEmitter(); // fired on change
+
+      async load()
+      {
+          // destructure the fetched user
+          const { id, name, ...rest } = await fetchUser();
+          const label                 = `User: ${name}`; // greeting label
+          // nullish fallback to zero
+          const len = this.profile?.bio?.length ?? 0;
+          return merged;
+      } // async load
+  } // class Widget
+  ```
+
+  Covers: a leading `//` comment surviving import-group reordering (it stays
+  attached to `fs`, which stays in group 1 regardless of sort); a trailing `//`
+  comment on an import line surviving the alphabetical resort within its group; a
+  `/* */` block comment preceding the decorated class; a leading `//` inside the
+  class body reindented to member depth; trailing `//` comments on a decorator
+  line and on statements inside `async load` staying attached through semicolon
+  insertion and reindentation.
+  </details>
 
 Referenced from: `STYLE_JS_TS.md`.
 
@@ -716,8 +1140,235 @@ JavaScript pair above.
   modifiers (all six priority-table slots exercised, including a mixed-modifier-
   length alignment group), decorators (own-line and inline placement, plus the
   two-step overflow cascade).
+
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  `ts_combined_inp.ts`:
+  ```typescript
+  type Status = "active"|"inactive"|"pending";
+  type Combined = Base&Extra;
+
+  type LongUnion = FirstOptionName |
+  SecondOptionName |
+  ThirdOptionName;
+
+  type AnotherLongUnion = FirstOptionName
+  | SecondOptionName
+  | ThirdOptionName;
+
+  function identity<T>(value:T):T {
+  return value
+  }
+
+  class Container<T extends Comparable<T>> {}
+
+  interface Props {
+  id:string
+  label:string
+  onSelect:(id:string)=>void
+  }
+
+  type Point = {
+  x:number
+  y:number
+  }
+
+  enum Color {
+  Red,
+  Green,
+  Blue
+  }
+
+  enum Status2 {
+  Active=1,
+  Inactive=2,
+  Pending=3
+  }
+
+  class Widget extends Base {
+  declare public static readonly MAX_COUNT:number
+  protected override readonly cache:Map<string,number>
+  private static instance:Widget
+  }
+
+  class Config {
+  private static readonly DEFAULT:string="en"
+  private locale:string
+  protected count:number
+  }
+
+  @Injectable() export class UserAuthenticationAndAuditLoggingServiceForEnterpriseApplications {}
+
+  class MetricsHost {
+  @LogPerformanceMetricsAndReportDetailedTimingInformation({threshold: 500, unit: "ms", verbose: true}) process(): void {}
+  }
+  ```
+
+  `ts_combined_out.ts`:
+  ```typescript
+  type Status   = "active" | "inactive" | "pending";
+  type Combined = Base & Extra;
+
+  type LongUnion = FirstOptionName |
+                   SecondOptionName |
+                   ThirdOptionName;
+
+  type AnotherLongUnion = FirstOptionName
+                         | SecondOptionName
+                         | ThirdOptionName;
+
+  function identity<T>(value: T): T
+  {
+      return value;
+  } // identity
+
+  class Container<T extends Comparable<T>> {} // class Container
+
+  interface Props {
+      id       : string;
+      label    : string;
+      onSelect : (id: string) => void;
+  } // interface Props
+
+  type Point = {
+      x : number;
+      y : number;
+  };
+
+  enum Color {
+      Red,
+      Green,
+      Blue,
+  } // enum Color
+
+  enum Status2 {
+      Active   = 1,
+      Inactive = 2,
+      Pending  = 3,
+  } // enum Status2
+
+  class Widget extends Base {
+      declare public static readonly MAX_COUNT: number;
+      protected override readonly cache: Map<string, number>;
+      private static instance: Widget;
+  } // class Widget
+
+  class Config {
+      private static readonly DEFAULT : string = "en";
+      private                 locale  : string;
+      protected               count   : number;
+  } // class Config
+
+  @Injectable()
+  export class UserAuthenticationAndAuditLoggingServiceForEnterpriseApplications {} // class UserAuthenticationAndAuditLoggingServiceForEnterpriseApplications
+
+  class MetricsHost {
+      @LogPerformanceMetricsAndReportDetailedTimingInformation(
+          { threshold: 500, unit: "ms", verbose: true }
+      )
+      process(): void {}
+  } // class MetricsHost
+  ```
+
+  Covers: tight union/intersection spacing on one line, with `type Status` and
+  `type Combined` forming a two-member `=`-aligned group since nothing separates
+  them (same declaration-alignment grid as the `const` group in `js_combined`).
+  **Flagged assumption:** same caveat as `js_combined` — §11.1 shows the union
+  type example standalone, never two consecutive `type` aliases, so grouping
+  them here is this draft's literal reading of the general alignment-grid rule,
+  not a directly-confirmed case. **🚫 PROMOTION GATE — do not move this pair to
+  `formatter/test/` until this is discussed and `STYLE_JS_TS.md` §11.1 is
+  updated with an explicit consecutive-type-alias alignment rule; see file
+  intro.** Both break-before and
+  break-after continuation styles preserved exactly as written, with only the
+  continuation column re-aligned (§11.1); generics on both a function and a
+  class; `interface`/`type`-alias `:` alignment (§14's shape, reused via §11); both
+  enum forms — one-per-line always, `=` column-alignment only when explicit
+  values are present (§12); the full six-slot modifier order on `Widget`
+  (`declare` → visibility → `static` → `abstract`/`override` → `readonly`), and
+  the mixed-modifier-length alignment group on `Config` where the shorter
+  modifier phrases are padded as a unit so the type column still aligns (§11.2);
+  decorator overflow's step 1 only (`@Injectable()` — the combined
+  decorator+class line is 111 chars, but dropping the decorator to its own line
+  brings the target down to 97 chars, so it stops there) vs. step 2
+  (`@LogPerformanceMetricsAndReportDetailedTimingInformation(...)` is 103 chars
+  even alone on its own line, so its single object-literal argument gets the
+  normal dropped-form call-argument wrap per STYLE.md §3.1) (§9).
+  </details>
 - **ts_comments_inp/out.ts** — uncommon comment placement around the above
   constructs.
+
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  `ts_comments_inp.ts`:
+  ```typescript
+  // Status values
+  type Status = "active"|"inactive"|"pending";
+
+  /* Long union, author broke after each operator */
+  type LongUnion = FirstOptionName |
+  SecondOptionName | // middle option
+  ThirdOptionName;
+
+  interface Props {
+  id:string // unique identifier
+  // display label
+  label:string
+  }
+
+  enum Color {
+  Red, // primary
+  Green,
+  Blue
+  }
+
+  class Widget extends Base {
+  // ambient max count
+  declare public static readonly MAX_COUNT:number
+  protected override readonly cache:Map<string,number> // lookup cache
+  }
+  ```
+
+  `ts_comments_out.ts`:
+  ```typescript
+  // Status values
+  type Status = "active" | "inactive" | "pending";
+
+  /* Long union, author broke after each operator */
+  type LongUnion = FirstOptionName |
+                   SecondOptionName | // middle option
+                   ThirdOptionName;
+
+  interface Props {
+      id : string; // unique identifier
+      // display label
+      label : string;
+  } // interface Props
+
+  enum Color {
+      Red, // primary
+      Green,
+      Blue,
+  } // enum Color
+
+  class Widget extends Base {
+      // ambient max count
+      declare public static readonly MAX_COUNT: number;
+      protected override readonly cache: Map<string, number>; // lookup cache
+  } // class Widget
+  ```
+
+  Covers: a trailing comment on a middle line of a wrapped union surviving the
+  continuation-column realignment; a trailing comment on `id` plus a leading
+  comment on `label` breaking `interface Props`'s alignment into two
+  single-member groups instead of one two-member group (nothing left to align
+  `id`/`label` against each other once the comments interrupt the run); a
+  trailing comment on an enum member with no explicit value; a leading comment
+  inside a class body reindented to member depth, and a trailing comment on a
+  modifier-heavy field declaration surviving the full six-slot reordering.
+  </details>
 
 Referenced from: `STYLE_JS_TS.md`.
 
@@ -741,7 +1392,390 @@ Referenced from: `STYLE_JS_TS.md`.
   `else` triggered by a preceding nested `return`/`break`/`continue`), and a
   `@property`/`@x.setter` pair (to confirm it's just two ordinary decorated methods
   with no special alignment, per §4's note).
+
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  **Flagged contradiction found while drafting:** §1.5's own dict/set examples
+  (`a_set = { 1, 2, 3 }`, `a_dict = { "a": 1, "b": 2 }`) are loose, citing
+  STYLE.md §3.3's "always pad non-empty `{}`" rule, but §1.4's own example
+  (`config = {**defaults, **overrides}`) is tight — both are non-empty `{}`
+  literals. This draft resolves in favor of §3.3's explicit rule (loose), so
+  `config`/`merged`/`a_set`/`a_dict` below are all drafted loose, diverging from
+  §1.4's own tight example. Worth fixing in the style doc itself, not just this
+  fixture — same kind of stale-inline-example issue already flagged for C++26
+  pack indexing above. **🚫 PROMOTION GATE — do not move this pair to
+  `formatter/test/` until this is discussed and `STYLE_PYTHON3.md` §1.4/§1.5's
+  contradiction is resolved; see file intro.**
+
+  `py_combined_inp.py`:
+  ```python
+  from __future__ import annotations
+  import sys
+  import os
+
+  if platform.system() == "Windows":
+      import winreg
+
+  import json
+  from . import sibling
+  from os import path,sep
+
+  flags=0x01
+  flags|=0x02
+  timeout=100
+  retries=3
+  # a comment breaks the group
+  name="worker"
+
+  total = (something
+  + something_else)
+
+  total = (
+  something +
+  something_else
+  )
+
+  squares = [x*x for x in range(10)]
+  evens = [x for x in range(10) if x%2==0]
+  lookup = {k:v for k,v in items.items()}
+
+  a_slice = data[i+1:j-1]
+  b_slice = data[ i+1:(j*k)-1 ]
+  merged = [*a,*b,*c]
+  config = {**defaults,**overrides}
+  a_set = {1,2,3}
+  a_dict = {"a":1,"b":2}
+
+  @app.route("/users/<int:user_id>/orders/<int:order_id>/items/<int:item_id>/details", methods=["GET","POST"])
+  def get_user_order_items(user_id: int, order_id: int, item_id: int):
+      ...
+
+  @property
+  def x(self) -> int:
+      return self._x
+
+  @x.setter
+  def x(self, value: int) -> None:
+      self._x = value
+
+  def process(extra, x: int, y: "List[int]", name: str = "default", desc: str = "default") -> Optional[str]:
+      ...
+
+  def greet(user):
+      label = f"Hello {user.first} {user.last}"
+      formatted = f"{user.score:.2f}"
+      raw = f"{user.score !r}"
+      nested = f"{user.score+1:>{width}}"
+      return label
+
+  def run_command(command):
+      match command.split():
+          case [action]:
+              run(action)
+          case [action,obj]:
+              run(action,obj)
+          case Point(x=0,y=0):
+              print("Origin")
+          case Point(x=x,y=y) if x==y:
+              print("Diagonal")
+          case 1|2|3:
+              print("small")
+          case [1,2,*rest]:
+              handle(rest)
+          case {"action":action,**rest}:
+              handle(action,rest)
+          case _:
+              unknown()
+
+  def classify(code):
+      match code:
+          case 1: return "one"
+          case 2: return "two"
+          case _: return "unknown"
+
+  def check(x):
+      if x < 0:
+          return None
+
+      if x == 0:
+          return 0
+
+      return x * 2
+
+  def process_data(data):
+      result = transform(data)
+      validate(result)
+      return result
+
+  def small(x):
+      if x: return x
+      while x: x -= 1
+
+  def guarded(some_long_condition_that_is_already_quite_verbose_and_overflows_the_limit_here):
+      if some_long_condition_that_is_already_quite_verbose_and_overflows_the_limit_here:
+          do_something()
+  ```
+
+  `py_combined_out.py`:
+  ```python
+  from __future__ import annotations
+
+  import os
+  import sys
+
+  if platform.system() == "Windows":
+      import winreg
+
+  import json
+  from . import sibling
+  from os import path, sep
+
+  flags    = 0x01
+  flags   |= 0x02
+  timeout  = 100
+  retries  = 3
+  # a comment breaks the group
+  name = "worker"
+
+  total = (something
+         + something_else)
+
+  total = (
+      something +
+      something_else
+  )
+
+  squares = [ x * x for x in range(10) ]
+  evens   = [ x for x in range(10) if x % 2 == 0 ]
+  lookup  = { k: v for k, v in items.items() }
+
+  a_slice = data[i+1:j-1]
+  b_slice = data[ i+1:(j*k)-1 ]
+  merged  = [*a, *b, *c]
+  config  = { **defaults, **overrides }
+  a_set   = { 1, 2, 3 }
+  a_dict  = { "a": 1, "b": 2 }
+
+  @app.route(
+      "/users/<int:user_id>/orders/<int:order_id>/items/<int:item_id>/details",
+      methods=["GET", "POST"],
+  )
+  def get_user_order_items(user_id: int, order_id: int, item_id: int):
+      ...
+
+  @property
+  def x(self) -> int:
+      return self._x
+
+  @x.setter
+  def x(self, value: int) -> None:
+      self._x = value
+
+  def process(
+      extra,
+      x    : int,
+      y    : "List[int]",
+      name : str = "default",
+      desc : str = "default"
+  ) -> Optional[str]:
+      ...
+
+  def greet(user):
+      label     = f"Hello {user.first} {user.last}"
+      formatted = f"{user.score:.2f}"
+      raw       = f"{user.score !r}"
+      nested    = f"{user.score + 1:>{width}}"
+
+      return label
+
+  def run_command(command):
+      match command.split():
+          case [action]:
+              run(action)
+          case [action, obj]:
+              run(action, obj)
+          case Point(x=0, y=0):
+              print("Origin")
+          case Point(x=x, y=y) if x == y:
+              print("Diagonal")
+          case 1 | 2 | 3:
+              print("small")
+          case [1, 2, *rest]:
+              handle(rest)
+          case { "action": action, **rest }:
+              handle(action, rest)
+          case _:
+              unknown()
+      # match command.split()
+
+  def classify(code):
+      match code:
+          case 1: return "one"
+          case 2: return "two"
+          case _: return "unknown"
+      # match code
+
+  def check(x):
+      if x < 0:
+          return None
+
+      if x == 0:
+          return 0
+
+      return x * 2
+
+  def process_data(data):
+      result = transform(data)
+      validate(result)
+
+      return result
+
+  def small(x):
+      if x: return x
+      while x: x -= 1
+
+  def guarded(some_long_condition_that_is_already_quite_verbose_and_overflows_the_limit_here):
+      if some_long_condition_that_is_already_quite_verbose_and_overflows_the_limit_here:
+          do_something()
+  ```
+
+  Covers: import grouping split by the `if platform...`/`winreg` non-import
+  statement, `__future__` promoted to its own top group, `os`/`sys` sorted
+  alphabetically; an assignment-alignment group with an augmented-assignment
+  operator in the same group, and both break-before/break-after continuation-
+  alignment targets; all five bracket-complexity categories (comprehensions
+  always loose, slicing colons never spaced even under an outer-loose bracket,
+  star-unpacking not itself forcing looseness, dict/set disambiguation by
+  top-level `:`); decorator overflow triggering the one-per-line drop (109 chars
+  alone, exceeding STYLE.md §2's 100-char limit); `@property`/`@x.setter` as two
+  ordinary decorated defs, no special alignment; function signature one-per-line
+  wrap with a bare no-hint parameter (`extra`) not influencing the `:` alignment
+  column; f-string expression spacing (`user.score + 1`) vs. opaque format-spec/
+  conversion (`.2f`, ` !r`, `>{width}` all untouched); every pattern-matching
+  shape including an or-pattern (`1 | 2 | 3`, not in the style doc's own
+  example) plus the closing `# match ...` comment; the compact
+  `case N: return ...` run's `:`-column alignment; blank-line-before-`return` at
+  function scope only (`check`, `process_data`) vs. never for the compact
+  one-liner form (`small`); blank line before the second `if` in `check` since
+  the first block ends in `return`; the single-statement-body overflow
+  expansion (`guarded`'s condition alone is long enough to force block form even
+  though it's a single simple statement).
+  </details>
 - **py_comments_inp/out.py** — uncommon `#` comment placement around the above
   constructs.
+
+  <details>
+  <summary>Draft content (unverified — see file intro)</summary>
+
+  `py_comments_inp.py`:
+  ```python
+  # Module setup
+  import sys
+  import os
+  # local helper
+  from . import sibling
+
+  flags=0x01
+  flags|=0x02
+  # comment breaks the group
+  timeout=100
+
+  # Build the lookup table
+  lookup = {k:v for k,v in items.items()} # inline note
+
+  @app.route("/status") # health check endpoint
+  def status():
+      """
+      Health check endpoint.
+          Always returns "ok" for now.
+      """
+      return "ok"
+
+  def check(x):
+      if x < 0:
+          # negative case
+          return None
+
+      # zero case
+      if x == 0:
+          return 0
+
+      return x * 2
+
+  def classify(code):
+      match code:
+          case 1: return "one" # first
+          case 2: return "two"
+          # fallback
+          case _: return "unknown"
+  ```
+
+  `py_comments_out.py`:
+  ```python
+  # Module setup
+  import os
+  import sys
+
+  # local helper
+  from . import sibling
+
+  flags   = 0x01
+  flags  |= 0x02
+  # comment breaks the group
+  timeout = 100
+
+  # Build the lookup table
+  lookup = { k: v for k, v in items.items() } # inline note
+
+  @app.route("/status") # health check endpoint
+  def status():
+      """
+      Health check endpoint.
+          Always returns "ok" for now.
+      """
+      return "ok"
+
+  def check(x):
+      if x < 0:
+          # Negative case
+          return None
+
+      # Zero case
+      if x == 0:
+          return 0
+
+      return x * 2
+
+  def classify(code):
+      match code:
+          case 1: return "one" # first
+          case 2: return "two"
+          # fallback
+          case _: return "unknown"
+      # match code
+  ```
+
+  Covers: a leading `#` comment surviving import-group resort; a comment inside
+  an assignment run breaking it into two alignment groups (`flags`/`flags` vs.
+  lone `timeout`); a trailing comment on a comprehension assignment surviving
+  the loose-bracket reformatting; a trailing comment on a decorator line; a
+  triple-quoted docstring's content — including its own inconsistent internal
+  indentation — preserved exactly byte-for-byte, not reflowed or reindented
+  beyond its opening `"""` line; `# Negative case`/`# Zero case` capitalized as
+  sentence-fragment comments per STYLE.md §15 (not left as labels, since they
+  read as descriptive fragments, not markers like `// for i`); a trailing
+  comment on a compact `case` line, with `case 1`/`case 2` colons landing in the
+  same column with zero padding (equal-width patterns need none), contrasted
+  with `case _` sitting outside that group, unaligned, due to the preceding
+  `# fallback` comment per §7's all-or-nothing rule. **Flagged assumption:**
+  docstring/multiline-string handling isn't addressed anywhere in
+  `STYLE_PYTHON3.md` — this draft extends §4's template-literal opaque-
+  preservation principle by analogy, since nothing else in the file speaks to
+  it. Worth adding as an explicit open item if this reading holds. **🚫
+  PROMOTION GATE — do not move this pair to `formatter/test/` until this is
+  discussed and `STYLE_PYTHON3.md` gets an explicit docstring section; see
+  file intro.**
+  </details>
 
 Referenced from: `STYLE_PYTHON3.md`.

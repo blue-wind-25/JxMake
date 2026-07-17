@@ -292,320 +292,79 @@ design) are resolved and implemented as described above. Full narrative:
 
 ---
 
-## Class Refactor (curly/indent/tags split)
+## Class Refactor (curly/indent/tags split) — DONE
 
 **Purpose:** `TokenizerCore`, `Formatter`, `ScopePipeline`,
-`DeclarationAlignmentRule`, `GetterSetterRule`, `MiscRule` currently contain
-only curly-brace-family (C/C++/Java/Kotlin) logic — zero indent/tag branching
-exists in them today. Before any Python3/data-format/JS-TS job lands real
-logic in these files, split each into a slim `*Core` base plus family
-siblings, so each future job gets a clean landing file instead of adding to
-already-large, already-entangled classes. This is a mechanical rename/move,
-not a behavior change or a disentangling of mixed logic — every method's
-existing internal branching (including any Kotlin-vs-C/C++/Java checks)
-moves unchanged into whichever sibling it lands in.
+`DeclarationAlignmentRule`, `GetterSetterRule`, `MiscRule` contained only
+curly-brace-family (C/C++/Java/Kotlin) logic. Before Python3/data-format/
+JS-TS jobs land real logic, each was split into a slim `*Core` base plus
+family siblings (`*Curly`, and skeletons for `*Indent`/`*Tags`), so each
+future job gets a clean landing file instead of adding to already-large,
+already-entangled classes. Mechanical rename/move only — no behavior change;
+every method's existing internal branching (including Kotlin-vs-C/C++/Java
+checks) moved unchanged into whichever sibling it landed in.
 
-`DeclarationAlignmentRule`/`GetterSetterRule` get **Core+Curly(+Indent
-skeleton)** only, no `Tags` sibling — XML/HTML have no declaration/
-getter-setter concept. `TokenizerCore`/`Formatter`/`ScopePipeline`/
-`MiscRule` get the full **Core+Curly+Indent+Tags** 4-way split.
-`ComplexityPaddingEvaluator.java` is not split — extend in place when a new
-job needs it.
+**Scoping:** `DeclarationAlignmentRule`/`GetterSetterRule` got
+**Core+Curly(+Indent skeleton)** only, no `Tags` sibling — XML/HTML have no
+declaration/getter-setter concept. `TokenizerCore`/`Formatter`/
+`ScopePipeline`/`MiscRule` got the full **Core+Curly+Indent+Tags** 4-way
+split. `ComplexityPaddingEvaluator.java` was not split (extend in place when
+a new job needs it). `Lang.java` gained `isCurly`/`isIndentBased`/
+`isTagBased` family predicates first, since everything else depends on them.
+`FormatterCore.forLanguage(String)` is the static dispatcher factory (picks
+`FormatterCurly`/`Indent`/`Tags` by family), so `Main.java`/`ServerMode.java`
+never need their own if/else on language.
 
-Execute as its own checkpoint-committed sequence, one file group per commit,
-`make test` green (78/78 forward + 78/78 idempotency, or current live count,
-zero regressions) before moving to the next group.
+**Key plan deviations** (the original plan's literal per-method Core/Curly
+assignment didn't always compile as written — when a "Core" method called a
+"Curly" one, the callee moved to Core alongside its caller instead):
+- `DeclarationAlignmentRule`: `renderTokens`/`renderInitTokens`/
+  `needsSpaceBetween`/`isTightToken`/`isCStyleCastClose` (+
+  `CONTROL_FLOW_KEYWORDS`) all kept together in Core.
+- `MiscRule`: `needsSpaceBetween`/`isTightToken` moved to Core (Core's
+  `renderTokens` calls `needsSpaceBetween` directly); `capitalizeFirstLetter`/
+  `isCommentNoCapitalizeWord` (+ `COMMENT_NO_CAPITALIZE_C/CPP/JAVA`
+  constants) moved to Core (three Core comment-formatting methods call them
+  directly); `renderTokens`/`templateAngleTokens` kept in Core (also used by
+  Core's `parseAssignment`); generic scan helpers (`matchParenForward`/
+  `Backward`, `nextSignificantIndex`/`prevSignificantIndex`, `anyFrozen`,
+  `significantOnly`/`significantWithComments`) kept in Core. Conversely,
+  `splitTopLevelCommas` moved to Curly despite its generic name — used
+  exclusively by Curly's Signature/call-rendering methods.
+- `KotlinDeclarationAlignmentRule`/`KotlinGetterSetterRule`/
+  `KotlinSignatureRule` all ended up extending the `*Curly` sibling (not
+  `Core`), since they reuse protected members that only make sense together
+  on the Curly side.
 
-### Lang.java — add family predicates first (everything else depends on this)
-- [x] Add `isCurly` (`isC||isCpp||isJava||isKotlin||isJs||isTs`),
-      `isIndentBased` (`isPython3`), `isTagBased` (`isXml||isHtml5`) to
-      `Lang.java` as instance fields (consistent with existing
-      `isC`/`isCpp`/etc. style). JSON/JSON5/YAML/TOML/CSS are none of the
-      three (neither brace-block, indent-block, nor tag-nested) — left
-      ungated by these predicates; scope note only, not a blocker.
-      `make test` 90/90 forward + 90/90 idempotency, zero regressions.
+**Reusable technical gotchas** (apply to future similar splits):
+- A Python script that masks out `//`/`/* */`/string/char-literal spans
+  before brace-counting was used to mechanically extract method bodies into
+  Core vs Curly files (byte-identical, not hand-retyped) — proven reliable
+  across all four splits; scale to the target file's marker-list size
+  (MiscRule's needed 113 markers for its 3353-line source).
+- An inherited static nested class must be imported via its actual
+  declaring class's canonical name, not the subclass — e.g.
+  `GetterSetterRuleCore.Member`, `MiscRuleCore.Assignment`, not
+  `GetterSetterRuleCurly.Member`/`MiscRuleCurly.Assignment` — javac rejects
+  the subclass form ("import requires canonical name") even though plain
+  code references to the subclass name work fine via inheritance.
+- Bulk `private`→`protected` visibility fixes are needed wherever a Core
+  method (originally private) is now called from a Curly sibling.
+- `git rm` (not plain `rm` + `git add`) is required to stage a working-tree
+  deletion on this system's old git version.
+- Watch for extraction scripts starting a method-boundary marker
+  mid-declaration and silently dropping a `public static`/`private static`
+  modifier prefix — verify each extracted nested class's modifiers against
+  the original.
 
-### TokenizerCore.java → TokenizerCore + TokenizerCurly + TokenizerIndent + TokenizerTags
-- [x] New slim `TokenizerCore.java`: `Token`/`TokenType` (generic members
-      only), `markFrozenSpans`, generic char/number/whitespace/newline
-      emitters, `peek`, shared static keyword-set-selection *pattern* (not
-      curly's concrete sets) — whatever a subclass constructor needs to call.
-- [x] `TokenizerCurly.java` (new file, extends `TokenizerCore`): everything
-      else in today's `TokenizerCore.java` — constructor's C/Cpp/Java/Kotlin
-      switch, `tokenize`, `trackSignificant`, brace/bracket name-stack emit
-      methods, preprocessor/raw-string/text-block/Kotlin-string helpers,
-      `reclassifyAngleBrackets`. No behavior change — mechanical move only.
-      Existing Kotlin-vs-C/C++/Java branches inside these methods stay
-      exactly as they are today (out of scope for this refactor).
-- [x] `TokenizerIndent.java` (new, skeleton): extends `TokenizerCore`, throws
-      `UnsupportedOperationException` until Python3 job fills it in.
-- [x] `TokenizerTags.java` (new, skeleton): same skeleton pattern for
-      XML/HTML5.
-- [x] Update every caller (`Formatter.java`, `ScopePipeline.java`,
-      `rules/SwitchRule.java`) that directly instantiated `TokenizerCore` for
-      a curly language to instantiate `TokenizerCurly` instead. (`Main.java`/
-      `ServerMode.java`/tests never instantiated `TokenizerCore` directly —
-      confirmed via grep, nothing else to update.)
-- [x] `make test`: 90/90 forward + 90/90 idempotency, zero regressions.
-
-### Formatter.java → FormatterCore + FormatterCurly + FormatterIndent + FormatterTags
-- [x] `FormatterCore`: thin abstract class holding `lang` + the abstract
-      `formatOne(content, filePath, config, formatOff)` contract, plus a
-      static `forLanguage(String)` factory that constructs a `Lang` and
-      dispatches to `FormatterCurly`/`FormatterIndent`/`FormatterTags` by
-      family predicate -- this is the "dispatcher lives in the formatter
-      class" placement, so `Main.java`/`ServerMode.java` never need their
-      own if/else on language.
-- [x] `FormatterCurly.java`: today's entire `Formatter.formatOne` body,
-      renamed, unchanged logic (all of it is curly-only already); old static
-      `Formatter.java` deleted.
-- [x] `FormatterIndent.java` / `FormatterTags.java`: skeleton classes
-      implementing `FormatterCore`'s contract, throwing
-      `UnsupportedOperationException` until their jobs start.
-- [x] Update `Main.java`/`ServerMode.java` call sites: both now call
-      `FormatterCore.forLanguage(language).formatOne(...)` instead of
-      constructing `Formatter` directly.
-- [x] `make test`: 90/90 forward + 90/90 idempotency, zero regressions.
-
-### ScopePipeline.java → ScopePipelineCore + ScopePipelineCurly + ScopePipelineIndent + ScopePipelineTags
-- [x] `ScopePipelineCore.java`: abstract class holding `Span`/`Replacement`,
-      splice/indent/whitespace primitives, `buildIndexMap`, and every
-      zero-language-gating helper (`indentUnit`, `isWhitespaceOrNewline`,
-      `hasTopLevelNewline`, `anyFrozen`, `trailingGapHasComment`,
-      `prevSignificantIndex`/`nextSignificantIndex`,
-      `matchParenForward/Backward`, `matchBraceForward`, `splice`,
-      `joinText`, `trailingIndent`, `leadingSpaceCount`,
-      `stripTrailingSpaces`, `normalizeIndent`, `normalizeLeadingGap`,
-      `trimTrailingWhitespace`, `trailingRunNewlineCount`,
-      `findSpanContaining`). `normalizeIndent`/`indentUnit` used to read
-      `miscRule.indentWidth` (a curly-only field) -- Core now holds its own
-      `protected final int indentWidth` set via constructor, same value,
-      no behavior change. `process(String)` is Core's one abstract entry
-      point, matching the `FormatterCore.forLanguage`-style dispatcher
-      shape (though nothing currently needs a `ScopePipelineCore` factory,
-      since `ScopePipelineCurly` is only ever constructed directly by
-      `FormatterCurly`, never dispatched-to from `Main`/`ServerMode`).
-- [x] `ScopePipelineCurly.java`: `process()` entry point plus all four
-      rule-driving passes (`applyDeclarationsPass`,
-      `applyOversizedAggregateInitClosingBracePass`, `applyAssignmentsPass`,
-      `applySignaturePass`, `applyGetterSetterPass`) and their
-      Kotlin-vs-C/C++/Java internal branches, unchanged -- mechanical move
-      via a Python brace-matching script (not hand-retyped) to guarantee
-      byte-identical method bodies; only the class header/fields/
-      constructors were hand-edited (extends `ScopePipelineCore`, calls
-      `super(indentWidth)`, drops the now-inherited `indentWidth` field).
-- [x] `ScopePipelineIndent.java` / `ScopePipelineTags.java`: skeletons,
-      constructor takes `indentWidth` (passed to `super`), `process` throws
-      `UnsupportedOperationException` referencing STATE_PYTHON3.md /
-      STATE_DATA_FORMATS.md respectively.
-- [x] Update callers: `FormatterCurly.java`'s `new ScopePipeline(...)` →
-      `new ScopePipelineCurly(...)`. Confirmed via grep this was the only
-      real caller (no test file constructs `ScopePipeline` directly).
-      Old `ScopePipeline.java` removed via `git rm` (plain `rm` + `git add`
-      does NOT stage a working-tree deletion on this system's git version --
-      see the `Formatter.java` removal note above, same fix reused).
-- [x] `make test`: 90/90 forward + 90/90 idempotency, zero regressions.
-
-### DeclarationAlignmentRule.java → DeclarationAlignmentRuleCore + DeclarationAlignmentRuleCurly + DeclarationAlignmentRuleIndent (no Tags)
-- [x] Discovered mid-refactor: `KotlinDeclarationAlignmentRule extends
-      DeclarationAlignmentRule` (not called out explicitly in the original
-      plan text). Resolved by having it extend `DeclarationAlignmentRuleCurly`
-      instead of `Core` post-split, since it directly reuses several
-      protected members (`hasBlankLineBefore`, `hasCommentBefore`,
-      `significantOnly`, the inherited `needsSpaceBetween`, and the
-      `lineLengthLimit` field) that only make sense together on the Curly
-      side, not as bare Core primitives.
-- [x] The plan's literal per-method Core/Curly split does not compile as
-      written: it assigns `renderInitTokens` to Core but `isCStyleCastClose`
-      (which `renderInitTokens` calls) to Curly. Resolved pragmatically by
-      keeping `renderTokens`/`renderInitTokens`/`needsSpaceBetween`/
-      `isTightToken`/`isCStyleCastClose` (plus the `CONTROL_FLOW_KEYWORDS`
-      constant they depend on) together in Core instead — deviates from the
-      plan's literal method list but preserves its intent and the
-      "no behavior change, mechanical move only" mandate.
-- [x] `DeclarationAlignmentRuleCore.java`: `lang`/`lineLengthLimit` fields +
-      constructor, `setOf` helper, `CONTROL_FLOW_KEYWORDS` constant,
-      `renderTokens`/`renderInitTokens`/`isCStyleCastClose`/
-      `needsSpaceBetween`/`isTightToken`, `splitStatements`,
-      `pullTrailingSameLine`, `isAccessSpecifierColon`, `hasCommentBefore`,
-      `hasBlankLineBefore`, `lastSignificantIdx`, `findTrailingComment`,
-      `significantOnly`. Used the same Python brace-matching extraction
-      script technique as the `ScopePipeline` split (proven reliable there)
-      rather than hand-retyping; the script's naive brace counter needed one
-      fix this time — prose comments with an unbalanced single backtick-brace
-      (e.g. "before the `{`") threw off simple char-by-char counting, so the
-      script was extended to mask out comment/string/char-literal spans
-      before counting braces.
-- [x] `DeclarationAlignmentRuleCurly.java`: constructors (call
-      `super(lang, lineLengthLimit)`), `groupDeclarations`, `reorderStatics`,
-      `parseDeclaration`, `render`, all C/C++/Java-specific helpers
-      (`splitCppType`, `isJavaEnumConstantListShape`), `union` helper,
-      unchanged. Class stays non-final (`KotlinDeclarationAlignmentRule`
-      extends it). Note the existing stray `lang.isKotlin` check in
-      `needsSpaceBetween` (now on Core) — left as-is (out of scope; this
-      class is dispatched-around for Kotlin already via
-      `KotlinDeclarationAlignmentRule`, do not investigate/remove the
-      vestigial check as part of this refactor).
-- [x] `DeclarationAlignmentRuleIndent.java`: skeleton for future Python3
-      assignment-alignment reuse (optional, not required — Python3's own
-      alignment-grid work may end up entirely bespoke instead).
-- [x] Updated `KotlinDeclarationAlignmentRule.java`'s
-      `extends DeclarationAlignmentRule` → `extends DeclarationAlignmentRuleCurly`.
-- [x] Updated `ScopePipelineCurly`'s `applyDeclarationsPass` caller (import,
-      field type, and constructor call all changed
-      `DeclarationAlignmentRule` → `DeclarationAlignmentRuleCurly`). Grepped
-      all 10 other files referencing `DeclarationAlignmentRule` by name and
-      confirmed every other hit is a comment/javadoc mention only, no code
-      change needed (`KotlinGetterSetterRule.java`, `KotlinSignatureRule.java`,
-      `JavaSpecificRule.java`, `GetterSetterRule.java`, `CppSpecificRule.java`,
-      `MiscRule.java`, `KotlinSpecificRule.java`, `BlockStructureRule.java`).
-- [x] Old `DeclarationAlignmentRule.java` removed via `git rm` (not plain
-      `rm`, per the established fix for this system's old git version not
-      staging working-tree deletions via `git add`).
-- [x] `make test`: 90/90 forward + 90/90 idempotency, zero regressions.
-
-### GetterSetterRule.java → GetterSetterRuleCore + GetterSetterRuleCurly + GetterSetterRuleIndent (no Tags)
-- [x] `GetterSetterRuleCore.java`: `lang`/`indentWidth`/`lineLengthLimit`
-      fields + constructor, the `Member` nested class (needed here since
-      `bodyWidth` takes one), `bodyWidth`, `padRight`, `cellText`,
-      `splitMembers`, `consumeTrailingSameLine`, `hasBreakableCall`,
-      `findNameBeforeParen`, `matchBracket`, significance/whitespace helpers
-      (`isInsignificant`, `firstSignificantIndex`, `nextSignificant`,
-      `trimLeadingWs`, `trimTrailingWs`, `hasNewlineBetween`,
-      `hasBlankLineRun`, `prevSignificant`). Used the same Python
-      comment/string-masked brace-matching extraction script as the
-      `DeclarationAlignmentRule` split (proven reliable there).
-- [x] `GetterSetterRuleCurly.java`: `STATEMENT_KEYWORDS` constant,
-      `modifierPriority` field, constructors (call
-      `super(lang, indentWidth, lineLengthLimit)`), `groupOneLiners`,
-      `OUTLIER_RATIO`, `excludeOutliers`, `render`, `parseOneLinerMember`,
-      `isPostParenQualifier`, `hasAccessSpecifier`, unchanged.
-- [x] `GetterSetterRuleIndent.java`: skeleton (Python3 `@property`/
-      `@x.setter` pair handling, if that job ever wants to reuse this shape —
-      not committed, just a landing spot).
-- [x] Updated `KotlinGetterSetterRule.java`'s
-      `extends GetterSetterRule` → `extends GetterSetterRuleCurly`.
-- [x] Updated `ScopePipelineCurly`'s `applyGetterSetterPass` caller (import,
-      field type, constructor call). Note: the `Member` inner-class import
-      must name its actual declaring class (`GetterSetterRuleCore.Member`),
-      not the subclass (`GetterSetterRuleCurly.Member`) — javac rejects an
-      import of an inherited nested type via the subclass's canonical name
-      ("import requires canonical name"), even though plain code references
-      to `GetterSetterRuleCurly.Member` work fine via inheritance.
-- [x] Grepped all other files referencing `GetterSetterRule` by name and
-      confirmed every other hit is a comment/javadoc mention only
-      (`FormatterCurly.java`, `JavaSpecificRule.java`,
-      `KotlinDeclarationAlignmentRule.java`, `MiscRule.java`,
-      `KotlinSpecificRule.java`).
-- [x] Old `GetterSetterRule.java` removed via `git rm`.
-- [x] `make test`: 90/90 forward + 90/90 idempotency, zero regressions.
-
-### MiscRule.java → MiscRuleCore + MiscRuleCurly + MiscRuleIndent + MiscRuleTags
-- [x] `MiscRuleCore.java`: the fully-generic passes and helpers —
-      `convertIndentation`, `enforceKeywordSpacing`,
-      `enforceComplexityPadding`, `enforceInitializerBraceSpacing`,
-      `groupAssignments`/`render(Assignment)`, `enforceCommentStyle`/
-      `alignCommentSeparators` and their non-lang-gated helpers, generic
-      token-scan utilities (`matchParenForward`/`Backward`,
-      `nextSignificantIndex`/`prevSignificantIndex`, `anyFrozen`,
-      `significantOnly`/`significantWithComments`, `renderTokens`,
-      `templateAngleTokens`, etc.).
-- [x] Deviations from the plan's literal per-method list (same pattern as
-      the DeclarationAlignmentRule/GetterSetterRule splits — the plan's
-      assignment didn't compile as written because a "Core" method called a
-      "Curly" one, so the callee moved to Core alongside its caller):
-      - `needsSpaceBetween`/`isTightToken` were plan-assigned to Curly, but
-        Core's own `renderTokens` calls `needsSpaceBetween` directly (it's
-        the shared token-join renderer used by both `parseAssignment`
-        (Core) and the Signature/call-rendering family (Curly)) — both
-        methods moved to Core instead. Their internal `lang.isKotlin`
-        branches are unchanged.
-      - `capitalizeFirstLetter`/`isCommentNoCapitalizeWord` (the plan's "two
-        tiny Java/Cpp-gated comment-capitalization spots") were plan-
-        assigned to Curly, but three Core methods
-        (`computeLineCommentGroups`, `reformatMultiLineBlockComment`,
-        `stripSoleTrailingPeriod`) call `capitalizeFirstLetter` directly —
-        both methods (plus the `COMMENT_NO_CAPITALIZE_C/CPP/JAVA` constants)
-        moved to Core instead. Internal `lang.isJava`/`lang.isCpp` branches
-        unchanged.
-      - `renderTokens`/`templateAngleTokens` were plan-assigned to Curly (by
-        association with the Signature-rendering family) but are also used
-        by Core's `parseAssignment` — kept in Core.
-      - `matchParenForward`/`nextSignificantIndex`/`prevSignificantIndex`/
-        `matchParenBackward`/`anyFrozen`/`significantOnly`/
-        `significantWithComments` are shared generic scan helpers used by
-        both Core and Curly methods — kept in Core (not explicitly listed
-        either way by the plan).
-      - `splitTopLevelCommas` is used exclusively by Curly's Signature/call-
-        rendering methods (`parseSignature`, `renderCallCandidate`,
-        `renderCallDropped`, `renderCallOnePerLine`) — moved to Curly
-        despite its generic-looking name.
-- [x] `MiscRuleCurly.java`: `enforcePreIncrement`+helpers,
-      `parseSignature`/`render(Signature,...)`, `splitTopLevelCommas`,
-      `groupByOriginalLine`, `parseParam`, `renderParamsInline`,
-      `insertBlankLineBeforeReturn`+helpers (incl. Kotlin-only islands),
-      `enforceCallLineBreaking`+render helpers, `effectiveCallBaseIndent` —
-      unchanged internal branching (all `lang.isKotlin`/`lang.isJava`/
-      `lang.isCpp` checks preserved verbatim).
-- [x] `MiscRuleIndent.java` / `MiscRuleTags.java`: skeletons, throw
-      `UnsupportedOperationException` referencing `STATE_PYTHON3.md`/
-      `STATE_DATA_FORMATS.md` respectively.
-- [x] Extraction technique: same comment/string-masking Python brace-
-      matching script used for the three prior splits (`/tmp/split_misc.py`,
-      adapted with MiscRule's much larger marker list — 113 extraction
-      markers across a 3353-line source file). One marker's field
-      (`DEFAULT_LINE_LENGTH_LIMIT`) was accidentally omitted from the
-      script's marker list on the first pass and had to be manually
-      appended to `MiscRuleCore.java` afterward — caught by comparing the
-      two output files' combined size against the original before writing
-      the class files.
-- [x] Nested nested-class visibility bug caught during extraction: the
-      script's method-boundary markers for `Assignment`/`Param`/`Signature`/
-      `FuncFrame`/`SepMatch` all started mid-declaration (at `final class X
-      {`), silently dropping each one's actual `public static`/`private
-      static` modifier prefix — fixed by patching each class's modifiers
-      back in by hand after extraction, verified against the original
-      file's declarations.
-- [x] Visibility fixes after first `make test` compile-error round (same
-      pattern as both prior splits — very large this time given the file's
-      size): bulk-converted every top-level `private` method in
-      `MiscRuleCore.java` to `protected` (all of them turned out to be
-      called from `MiscRuleCurly`), plus targeted fixes: `Arrays`/
-      `Collections`/`Map`/`HashMap`/`ColumnGrid`/`isGapToken` imports missing
-      from `MiscRuleCurly.java` (present in the original file's shared
-      import block, needed splitting per-file same as every previous split).
-- [x] Grepped all other files referencing `MiscRule` by name and updated
-      every real caller: `FormatterCurly.java`, `ScopePipelineCurly.java`
-      (incl. the `MiscRule.Assignment`/`MiscRule.Signature` imports —
-      `Assignment` needed the same import-canonical-name fix as
-      `GetterSetterRuleCore.Member` — `import
-      com.jxmake.formatter.rules.MiscRuleCore.Assignment;`, not
-      `MiscRuleCurly.Assignment`), `SwitchRule.java`, `BlockStructureRule.java`,
-      `KotlinSpecificRule.java`, `JavaSpecificRule.java`,
-      `CppSpecificRule.java` (all six via `MiscRule.DEFAULT_*` constant
-      references), `KotlinSignatureRule.java` (`extends MiscRule` →
-      `extends MiscRuleCurly`). Every other hit across the codebase
-      confirmed comment/javadoc-only, left stale per established precedent.
-- [x] Old `MiscRule.java` removed via `git rm`.
-- [x] `make test`: 90/90 forward + 90/90 idempotency, zero regressions.
-
-### ComplexityPaddingEvaluator.java — no split
-- [x] Confirmed: extend in place with new functions as new languages need
-      them. No action now.
-
-### Wrap-up
-- [ ] Update `STATE_C_CPP_JAVA.md` and `STATE_KOTLIN.md`'s own file/class
-      references (e.g. any prose naming `TokenizerCore.java`/
-      `Formatter.java`/etc. that now needs the `*Curly` suffix) so they
-      don't go stale.
-- [ ] Full `make test` + a real-code regression re-run (per this file's
-      Real-code testing methodology) against the same candidate(s) already
-      used for C/C++/Java/Kotlin, to confirm the rename/split introduced
-      zero behavior change.
-- [ ] Series of checkpoint commits per this file's ~50-line-diff convention
-      (this refactor needs many commits — one group of file(s) per commit,
-      e.g. Tokenizer split as one commit, Formatter split as the next,
-      etc.), each with `make test` green before committing.
+**Result:** every file group (Lang.java, Tokenizer, Formatter, ScopePipeline,
+DeclarationAlignmentRule, GetterSetterRule, MiscRule) landed as its own
+checkpoint commit, `make test` green (90/90 forward + 90/90 idempotency,
+zero regressions) after each. `STATE_C_CPP_JAVA.md`/`STATE_KOTLIN.md`'s own
+file/class references were updated to the new `*Curly` names (commit
+`9cce1a5`). Full regression re-run confirmed zero behavior change. All
+stale pre-refactor class-name mentions in comments/javadoc were later swept
+and fixed (commit `949b7a9`).
 
 ---
 

@@ -11,6 +11,16 @@ support and has not yet been through the same real-world dogfood testing —
 see `STATE_KOTLIN.md` for current status before relying on it for a large
 existing codebase.
 
+**Scaffold-only languages (not yet implemented):** JSON/JSON5, YAML, TOML,
+XML, CSS, HTML5, JavaScript/TypeScript, and Python3 are all recognized by
+file extension (and accepted by `--lang`/the server's `lang` param), but
+every real formatting attempt currently throws
+`UnsupportedLanguageException` — no rule classes exist for them yet. See
+`STATE_DATA_FORMATS.md`, `STATE_JS_TS.md`, and `STATE_PYTHON3.md` for
+implementation status. (C++26 is not a separate language — its rule
+coverage lands directly in the existing C/C++ pipeline; see
+`STATE_CPP26.md`.)
+
 ---
 
 ## Requirements
@@ -44,7 +54,10 @@ java -jar code-formatter-1.00.jar include/Module.h
 ```
 
 Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.cc`/`.cxx` → C++,
-`.java` → Java, `.kt`/`.kts` → Kotlin).
+`.java` → Java, `.kt`/`.kts` → Kotlin). The scaffold-only languages are also detected by
+extension (`.json`/`.json5`/`.yaml`/`.yml`/`.toml`/`.xml`/`.css`/`.html`/`.htm`/`.js`/`.mjs`/
+`.cjs`/`.jsx`/`.ts`/`.tsx`/`.py`) but every real formatting attempt on one of them currently
+throws `UnsupportedLanguageException` — see the scaffold-only note above.
 
 For a file with a non-standard extension (e.g. `.java.in`, `.txt`, no extension at all),
 override detection with `--lang`:
@@ -54,13 +67,15 @@ java -jar code-formatter-1.00.jar --lang java Template.java.in
 java -jar code-formatter-1.00.jar --lang cpp Module.inc
 ```
 
-`--lang` accepts exactly one of `c`, `cpp`, `java`, and applies to every file given on that
-command line (mixing file types with a single forced `--lang` in one invocation isn't
-supported — run the formatter once per language instead). There is no `--lang kotlin`
-override — Kotlin files must be recognized by their `.kt`/`.kts` extension. Without
-`--lang`, a file whose extension can't be recognized is an error. `--lang` also works with
-server mode (below) — the client sends the chosen language to the server, which uses it in
-place of its own extension-based guess for that request.
+`--lang` accepts exactly one of `c`, `cpp`, `java` (the implemented languages), or one of
+`json`, `json5`, `yaml`, `toml`, `xml`, `css`, `html5`, `js`, `ts`, `python3` (scaffold-only —
+accepted for dispatch/testing purposes but every real format attempt throws), and applies to
+every file given on that command line (mixing file types with a single forced `--lang` in one
+invocation isn't supported — run the formatter once per language instead). There is no
+`--lang kotlin` override — Kotlin files must be recognized by their `.kt`/`.kts` extension.
+Without `--lang`, a file whose extension can't be recognized is an error. `--lang` also works
+with server mode (below) — the client sends the chosen language to the server, which uses it
+in place of its own extension-based guess for that request.
 
 ### Output modes
 
@@ -320,9 +335,18 @@ Newer-language-construct support:
   concepts/`requires`, `consteval`/`constinit`)
 - [`../STYLE_KOTLIN2.md`](../STYLE_KOTLIN2.md) — Kotlin 2.0/2.1 constructs
   (guard conditions, `data object`), read after `STYLE_KOTLIN.md`
+- [`../STYLE_CPP26.md`](../STYLE_CPP26.md) — C++26 rule coverage (lands
+  directly in the existing C/C++ pipeline, no separate language identity)
+- [`../STYLE_JS_TS.md`](../STYLE_JS_TS.md) — JavaScript/TypeScript (scaffold-only)
+- [`../STYLE_DATA_FORMATS.md`](../STYLE_DATA_FORMATS.md) — JSON/JSON5/YAML/TOML/
+  XML/CSS/HTML5 (scaffold-only)
+- [`../STYLE_PYTHON3.md`](../STYLE_PYTHON3.md) — Python 3 (scaffold-only)
 
 See `STATE.md`'s Phase Status / End Goal sections for current progress, and
-[`STATE_KOTLIN.md`](STATE_KOTLIN.md) for the Kotlin support tracker specifically.
+[`STATE_KOTLIN.md`](STATE_KOTLIN.md) for the Kotlin support tracker
+specifically. The scaffold-only languages each have their own tracker:
+[`STATE_CPP26.md`](STATE_CPP26.md), [`STATE_DATA_FORMATS.md`](STATE_DATA_FORMATS.md),
+[`STATE_JS_TS.md`](STATE_JS_TS.md), [`STATE_PYTHON3.md`](STATE_PYTHON3.md).
 
 ---
 
@@ -331,12 +355,15 @@ See `STATE.md`'s Phase Status / End Goal sections for current progress, and
 The server (`--server`) exposes two plain-HTTP endpoints on `localhost:<port>` (default
 `17173`, override with `--port N` / `server-port` config key):
 
-- `POST /format?path=<abs-path>&lang=<c|cpp|java|kotlin>[&format-off=true][&<config-key>=<value>...]`
+- `POST /format?path=<abs-path>&lang=<c|cpp|java|kotlin|json|json5|yaml|toml|xml|css|html5|js|ts|python3>[&format-off=true][&<config-key>=<value>...]`
   — request body is the file's raw content (UTF-8); response body is the formatted content
   (UTF-8), HTTP 200. The `lang` parameter is required by the client and always takes priority
   over any extension-based guess the server could make from `path` — this is how `--lang`
   (above) reaches the server, and is also why the server itself never needs its own
   `--lang`-style flag. An unrecognized `lang` value gets HTTP 400 with a plain text error body.
+  The scaffold-only `lang` values (`json`/`json5`/`yaml`/`toml`/`xml`/`css`/`html5`/`js`/`ts`/
+  `python3`) are recognized but throw `UnsupportedLanguageException` (surfaced as HTTP 500) since
+  no rule classes exist for them yet — see the scaffold-only note near the top of this file.
   Any other failure (e.g. a malformed file) gets HTTP 500.
   - **Inline config.** Any config key from the formatter's config-file property set (e.g.
     `indent-size`, `line-length`, `java-import-order`) may be passed as its own query

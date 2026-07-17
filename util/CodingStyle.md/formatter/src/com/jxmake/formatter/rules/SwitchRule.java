@@ -754,7 +754,7 @@ public class SwitchRule {
      * unpadded form fit -- and since this rule never breaks a row across lines (it only aligns
      * columns), a padded row that overflows has nowhere else for the extra width to go. Left
      * unchecked, that overflowing row would then be re-measured -- and re-broken -- by
-     * `MiscRule.enforceCallLineBreaking` the next time the file is formatted (it runs earlier in
+     * `MiscRuleCurly.enforceCallLineBreaking` the next time the file is formatted (it runs earlier in
      * the pipeline than this pass and never re-runs after it), which is not idempotent: this
      * pass would see the resulting multi-line call and, no longer recognizing the case as
      * one-statement-per-line, leave the switch alone -- silently un-fixing its own output the

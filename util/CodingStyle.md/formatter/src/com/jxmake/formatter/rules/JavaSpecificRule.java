@@ -30,7 +30,7 @@ import java.util.Set;
  * Allman conversion) and §7 (Import Ordering). (§1/§4/§5/§6/§8 are already fully covered by
  * already-COMPLETE general/shared rule files -- see STATE.md's "`JavaSpecificRule.java` scoping"
  * Resolved Design Decision for the full cross-check; §3 needs zero code in this file either, since
- * it is satisfied by {@code MiscRule.enforceConditionComplexityPadding}, STYLE.md §3.1.)
+ * it is satisfied by {@code MiscRuleCore.enforceConditionComplexityPadding}, STYLE.md §3.1.)
  */
 public class JavaSpecificRule {
 
@@ -210,12 +210,12 @@ public class JavaSpecificRule {
 
     /** True iff no {@code NEWLINE} token appears between {@code braceIdx} and {@code closeBraceIdx}
      *  inclusive -- the whole `{ ... }` span is one physical line -- AND the body isn't predicted
-     *  to be broken across lines later by {@code MiscRule.enforceCallLineBreaking} (Phase 1, later
+     *  to be broken across lines later by {@code MiscRuleCurly.enforceCallLineBreaking} (Phase 1, later
      *  in the pipeline) anyway. Without that second condition, a fresh format sees the body still
      *  on one physical line (still short, pre-call-breaking) and keeps `{` K&amp;R inline, but
      *  reformatting that already-broken output sees a genuinely multi-line body and moves `{` to
      *  Allman -- a pass-ordering idempotency bug identical in shape to the one already documented
-     *  on {@code GetterSetterRule.parseOneLinerMember}. The prediction only has to agree with
+     *  on {@code GetterSetterRuleCurly.parseOneLinerMember}. The prediction only has to agree with
      *  {@code enforceCallLineBreaking}'s own verdict well enough to avoid flip-flopping: once this
      *  method predicts "too long" and goes Allman, the body only ever grows more lines after that
      *  (never re-collapses), so every later pass keeps agreeing. */
@@ -228,7 +228,7 @@ public class JavaSpecificRule {
         if (hasBreakableCall(tokens, braceIdx, closeBraceIdx)) {
             final int lineStart = lineStartIndex(tokens, braceIdx);
             // Find the end of the physical line, including any trailing same-line `//` comment
-            // (e.g. a §14-group alignment comment) -- `MiscRule.enforceCallLineBreaking`'s own
+            // (e.g. a §14-group alignment comment) -- `MiscRuleCurly.enforceCallLineBreaking`'s own
             // fit-check (`collapseToOneLine`) measures the whole physical line including such a
             // trailing comment, so omitting it here made this prediction disagree with that later
             // pass whenever the comment alone pushed an otherwise-under-limit line over
@@ -249,7 +249,7 @@ public class JavaSpecificRule {
             // padding (e.g. hand-aligned comment columns already present in the *original*
             // source, not yet re-collapsed by this early pass) could overstate the width and
             // wrongly predict "too long" for a line that, once rendered, actually fits.
-            // `MiscRule.enforceCallLineBreaking`'s own fit-check measures `baseIndent +
+            // `MiscRuleCurly.enforceCallLineBreaking`'s own fit-check measures `baseIndent +
             // collapseToOneLine(...)` -- the physical line's leading indentation counts too, not
             // just the significant-token span starting at `lineStart` (which is the first
             // *significant* token, excluding leading whitespace). Omitting it undercounted every
@@ -276,9 +276,9 @@ public class JavaSpecificRule {
     }
 
     /** True if {@code [from, to]} contains at least one {@code name(args)} call with a non-empty
-     *  argument list -- the shape {@code MiscRule.enforceCallLineBreaking} may later break across
+     *  argument list -- the shape {@code MiscRuleCurly.enforceCallLineBreaking} may later break across
      *  lines if it doesn't fit (zero-arg calls are never broken, see that method's own doc
-     *  comment). Duplicated from {@code GetterSetterRule}'s identical helper -- same "each rule
+     *  comment). Duplicated from {@code GetterSetterRuleCurly}'s identical helper -- same "each rule
      *  class matches its own local conventions" precedent as {@code isSingleLineBody} itself,
      *  already duplicated across this class and {@code CppSpecificRule}. */
     private boolean hasBreakableCall(final List<Token> tokens, final int from, final int to) {
@@ -565,7 +565,7 @@ public class JavaSpecificRule {
      * reordering is not an acceptable failure mode. A file with zero import statements is also a
      * no-op. Regenerated import lines are canonical text ({@code "import " ["static "] path ";"}),
      * discarding original internal spacing -- same "restructured content is regenerated, not
-     * preserved verbatim" precedent as {@code DeclarationAlignmentRule}'s static reordering.
+     * preserved verbatim" precedent as {@code DeclarationAlignmentRuleCurly}'s static reordering.
      * "Unused imports are not removed" (STYLE_JAVA.md's own words) is honored by construction: no
      * usage analysis is performed anywhere in this method.
      *
@@ -700,7 +700,7 @@ public class JavaSpecificRule {
      * unrecognized import shape.
      *
      * <p>Dot/star OP tokens need a dedicated check ({@link #isPathOp}) rather than a literal `"."`/
-     * `"*"` text match: {@code TokenizerCore}'s {@code MULTI_CHAR_OPS} list includes C++'s
+     * `"*"` text match: {@code TokenizerCurly}'s {@code MULTI_CHAR_OPS} list includes C++'s
      * pointer-to-member operator `".*"`, shared across languages, so a wildcard import's trailing
      * `.{@literal *}` lexes as a single combined OP token with text {@code ".*"}, not two separate
      * single-char tokens -- discovered via a failing smoke-test case on `import pkg.*;`.</p>
@@ -1151,7 +1151,7 @@ public class JavaSpecificRule {
             // Predict the resulting single physical line's width before actually joining --
             // otherwise a case whose body was originally split onto its own line (fitting there)
             // can be joined here into a line that overflows lineLengthLimit, a decision
-            // MiscRule.enforceCallLineBreaking (Phase 1, earlier in the pipeline) never gets a
+            // MiscRuleCurly.enforceCallLineBreaking (Phase 1, earlier in the pipeline) never gets a
             // chance to react to since it already ran against the pre-join layout. Left
             // unchecked, this flip-flops across reformats: fresh format joins+overflows, then
             // reformatting the already-joined (over-length) output lets enforceCallLineBreaking
@@ -1258,7 +1258,7 @@ public class JavaSpecificRule {
     }
 
     /** True iff {@code t} is an OP token consisting solely of `.`/`*` characters -- covers a plain
-     *  `.` separator, a plain `*` wildcard, and {@code TokenizerCore}'s combined `.* ` multi-char
+     *  `.` separator, a plain `*` wildcard, and {@code TokenizerCurly}'s combined `.* ` multi-char
      *  pointer-to-member OP token (see {@link #parseImportStatement}'s doc comment). */
     private boolean isPathOp(final Token t) {
         if (t == null || t.type != TokenType.OP || t.text.isEmpty()) {

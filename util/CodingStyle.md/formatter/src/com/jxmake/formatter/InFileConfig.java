@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
 /**
  * Raw-text scanner for the top-of-file {@code JXM_CFMT_CFG} directive (RDD_KEY_167,
  * STATE_COMMON.md's "In-file Config Support"). Runs on the raw source text before {@link
- * Config#resolve}/{@code Formatter} construction, since config values are baked into rule
+ * Config#resolve}/{@code FormatterCore} construction, since config values are baked into rule
  * objects before tokenizing starts. When present, its values are the highest-priority config
  * layer -- they override file-based {@code .jxmake-code-formatter}, env vars, CLI flags, AND
  * the server's own inline query-param config, all for the same key.

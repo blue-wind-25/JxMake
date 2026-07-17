@@ -20,9 +20,9 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * STYLE_KOTLIN.md §8/§9: extends {@link GetterSetterRule} for Kotlin expression-bodied
+ * STYLE_KOTLIN.md §8/§9: extends {@link GetterSetterRuleCurly} for Kotlin expression-bodied
  * one-liner functions (e.g. {@code fun getX(): Int = 1}), fixing the RDD_KEY_132 gap where
- * {@code GetterSetterRule.groupOneLiners} never grouped Kotlin one-liners at all --
+ * {@code GetterSetterRuleCurly.groupOneLiners} never grouped Kotlin one-liners at all --
  * {@code isClassScope}'s gate (Java, or a C++-style {@code public:}/{@code private:} label)
  * never recognizes Kotlin, and {@code parseOneLinerMember}'s modifier-consuming loop plus
  * name/return-type scanning assume C/Java's {@code [modifiers] ReturnType name(...)} token
@@ -33,7 +33,7 @@ import java.util.List;
  * (RDD_KEY_104): the base class's C/C++/Java-agnostic private helpers were raised to
  * {@code protected} (no behavior change), and this subclass supplies its own newline-terminated
  * member splitter, its own name-before-type one-liner parser, and its own column-grid renderer,
- * reusing {@link GetterSetterRule.Member} purely as an index-range container (its
+ * reusing {@link GetterSetterRuleCore.Member} purely as an index-range container (its
  * {@code bodyFrom}/{@code bodyTo} fields are repurposed here to hold the expression-bodied
  * function's {@code = expr} span rather than a brace-delimited block body, so
  * {@code excludeOutliers}'s width-based outlier exclusion still works unmodified).
@@ -443,7 +443,7 @@ public class KotlinGetterSetterRule extends GetterSetterRuleCurly {
         // break it; reformatting that already-broken output then correctly excludes the
         // now-multi-line member via `hasNewlineBetween` above, splitting the run into different
         // subgroups with different padding on the second pass (RDD_KEY_138) -- same length
-        // pre-check GetterSetterRule.parseOneLinerMember already uses for this exact reason (its
+        // pre-check GetterSetterRuleCurly.parseOneLinerMember already uses for this exact reason (its
         // own doc comment explains the flip-flop), never previously ported to this Kotlin sibling.
         if (hasBreakableCall(tokens, bodyFrom, bodyTo)) {
             final int estimatedColumn = nestDepth * indentWidth;

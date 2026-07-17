@@ -14,7 +14,7 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
 /** Builds a {@link CommentFeatureVector} from raw comment text. Pure function, no formatter
  *  mutation -- see STATE_COMMENT_GRAMMAR.md's hard architectural constraint. Not yet wired into
- *  {@code MiscRule}; implementation is step 1 of that file's "Handoff note" suggested order. */
+ *  {@code MiscRuleCore}; implementation is step 1 of that file's "Handoff note" suggested order. */
 public final class CommentFeatureExtractor {
 
     // Deliberately permissive -- a false-positive URL/filename/number match only ever costs a
@@ -51,7 +51,7 @@ public final class CommentFeatureExtractor {
     }
 
     /** [start, end) of the first contiguous run of letters/digits/underscore after skipping
-     *  leading whitespace -- same extraction MiscRule.capitalizeFirstLetter and
+     *  leading whitespace -- same extraction MiscRuleCore.capitalizeFirstLetter and
      *  KeywordAmbiguityGate.hasLeadingKeywordMatch use, kept in sync by construction here since
      *  both callers now route through this. */
     private static int[] leadingWordBounds(final String commentText) {

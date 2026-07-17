@@ -328,7 +328,7 @@ public class BlockStructureRule {
     /**
      * Locates the `( ... )` condition following the keyword at {@code kwIndex}, and the
      * `{ ... }` body after it if one is present. Bracket matching is local depth counting
-     * (mirrors `DeclarationAlignmentRule`'s `[`/`]` matching) rather than relying on the
+     * (mirrors `DeclarationAlignmentRuleCurly`'s `[`/`]` matching) rather than relying on the
      * tokenizer's running depth fields, since this method must work on any bounded slice.
      * Returns null on unbalanced brackets -- caller leaves the input untouched.
      */
@@ -630,7 +630,7 @@ public class BlockStructureRule {
      *  caller's main loop can resume scanning from there). */
     /** Keywords whose own text is directly tight against a following `(` with no space
      *  (`if(`, `while(`, `for(`, `switch(`, `catch(`, `when(`) -- mirrors {@code
-     *  MiscRule.TIGHT_PAREN_KEYWORDS} exactly (kept as its own private copy rather than a shared
+     *  MiscRuleCore.TIGHT_PAREN_KEYWORDS} exactly (kept as its own private copy rather than a shared
      *  import since the two classes have no other coupling). Used by {@link #tryCollapseBraceless}
      *  below to make its collapsed prefix already reflect the final tight spacing, rather than the
      *  original source's `if (` form. */
@@ -640,7 +640,7 @@ public class BlockStructureRule {
     private String tryCollapseBraceless(final List<Token> tokens, final int kwIndex,
             final ControlBlock block, final int[] outBodyEnd) {
         // Tighten `keyword (` -> `keyword(` here, at collapse time, rather than leaving it to a
-        // later pass (MiscRule's own tight-paren-keyword spacing fix). Left untightened, this
+        // later pass (MiscRuleCore's own tight-paren-keyword spacing fix). Left untightened, this
         // collapsed line is one character too wide right at the line-length boundary -- found via
         // real-code testing against `square/okio`'s `ZipFiles.kt`: a braced `if (...) { throw
         // IOException("...") }` whose true final-width single-line form is exactly 100 chars (the

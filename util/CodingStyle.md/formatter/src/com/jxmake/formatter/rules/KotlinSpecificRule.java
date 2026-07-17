@@ -439,7 +439,7 @@ public class KotlinSpecificRule {
      * C/C++'s `*`/`&`); `?:` is spaced like a normal binary operator (`&&`, `+`). Unlike §4, this
      * isn't scoped to one construct -- these operators can appear in any expression anywhere in
      * the file, and no shared class does general expression-level operator re-spacing today
-     * (`MiscRule.isTightToken`/`needsSpaceBetween` only fire inside signature/param rendering,
+     * (`MiscRuleCore.isTightToken`/`needsSpaceBetween` only fire inside signature/param rendering,
      * and assignment RHS values are joined verbatim). This is therefore a single flat pass over
      * the whole token stream, collapsing/normalizing the whitespace gap on either side of every
      * `?.`/`!!`/`?:` occurrence -- conservative like every other whitespace-collapsing pass in
@@ -1045,7 +1045,7 @@ public class KotlinSpecificRule {
     /** Line-leading indent of the physical line where the multi-line construct governing
      *  {@code idx} truly begins -- scans backward from {@code idx} tracking paren/bracket/angle
      *  depth, stopping at the nearest depth-0 {@code ;}/{@code }}/{@code {}, same "true statement
-     *  start" posture as {@code ScopePipeline.findParentIndent}. Distinct from
+     *  start" posture as {@code ScopePipelineCurly.findParentIndent}. Distinct from
      *  {@link #lineStartIndex}/{@link #lineIndent}, which only back up to the immediately
      *  preceding physical line and can land on a continuation line of an already-wrapped
      *  multi-line header (e.g. a generic parameter list broken across several lines) instead of
@@ -1421,7 +1421,7 @@ public class KotlinSpecificRule {
      * idempotent. A body whose entire `{ ... }` span sits on one physical line is never converted
      * (same one-liner exception as the Java/C++ versions, RDD_KEY_75/RDD_KEY_89) -- unlike those
      * two, this method has no call-line-breaking-prediction refinement, since no Kotlin equivalent
-     * of {@code MiscRule.enforceCallLineBreaking} exists yet; if one is added later, this method
+     * of {@code MiscRuleCurly.enforceCallLineBreaking} exists yet; if one is added later, this method
      * may need the same idempotency refinement those two already carry.
      */
     public String enforceFunctionDefinitionAllmanBraceStyle(final List<Token> tokens) {
@@ -1615,13 +1615,13 @@ public class KotlinSpecificRule {
 
     /** True iff no {@code NEWLINE} appears between {@code braceIdx} and {@code closeBraceIdx}
      *  inclusive -- the whole `{ ... }` body sits on one physical line -- AND the body isn't
-     *  predicted to be broken across lines later by {@code MiscRule.enforceCallLineBreaking}
+     *  predicted to be broken across lines later by {@code MiscRuleCurly.enforceCallLineBreaking}
      *  (Phase 1, later in the pipeline) anyway. Without that second condition, a fresh format
      *  sees the body still on one physical line (still short, pre-call-breaking) and keeps `{`
      *  K&amp;R inline, but reformatting that already-broken output sees a genuinely multi-line
      *  body and moves `{` to Allman -- a pass-ordering idempotency bug identical in shape to the
      *  one already documented and fixed on {@code JavaSpecificRule.isSingleLineBody}/
-     *  {@code GetterSetterRule.parseOneLinerMember}, never previously ported to this Kotlin
+     *  {@code GetterSetterRuleCurly.parseOneLinerMember}, never previously ported to this Kotlin
      *  sibling (RDD_KEY_140). The prediction only has to agree with
      *  {@code enforceCallLineBreaking}'s own verdict well enough to avoid flip-flopping: once
      *  this method predicts "too long" and goes Allman, the body only ever grows more lines
@@ -1649,9 +1649,9 @@ public class KotlinSpecificRule {
     }
 
     /** True if {@code [from, to]} contains at least one {@code name(args)} call with a non-empty
-     *  argument list -- the shape {@code MiscRule.enforceCallLineBreaking} may later break across
+     *  argument list -- the shape {@code MiscRuleCurly.enforceCallLineBreaking} may later break across
      *  lines if it doesn't fit (zero-arg calls are never broken, see that method's own doc
-     *  comment). Duplicated from {@code JavaSpecificRule}/{@code GetterSetterRule}'s identical
+     *  comment). Duplicated from {@code JavaSpecificRule}/{@code GetterSetterRuleCurly}'s identical
      *  helper -- same "each rule class matches its own local conventions" precedent already used
      *  across those classes. */
     private boolean hasBreakableCall(final List<Token> tokens, final int from, final int to) {
@@ -1970,7 +1970,7 @@ public class KotlinSpecificRule {
     }
 
     /** True iff {@code t} is an OP token consisting solely of `.`/`*` characters -- covers a plain
-     *  `.` separator, a plain `*` wildcard, and {@code TokenizerCore}'s combined `.*` multi-char
+     *  `.` separator, a plain `*` wildcard, and {@code TokenizerCurly}'s combined `.*` multi-char
      *  pointer-to-member OP token (shared across all languages, so a wildcard import's trailing
      *  `.*` lexes as one combined OP token here too, same discovery as
      *  {@code JavaSpecificRule.isPathOp}'s own doc comment). */

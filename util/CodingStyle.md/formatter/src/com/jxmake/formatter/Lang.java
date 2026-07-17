@@ -11,21 +11,21 @@ import java.util.Locale;
 
 /**
  * Precomputes the `"c"`/`"cpp"`/`"java"`/`"kotlin"` language identity of the file being formatted
- * exactly once per {@link Formatter#formatOne}, so rule classes read {@link #isC}/{@link #isCpp}/
+ * exactly once per {@link FormatterCore#formatOne}, so rule classes read {@link #isC}/{@link #isCpp}/
  * {@link #isJava}/{@link #isKotlin} instead of each re-comparing the raw {@link #language} string.
  *
  * <p>Also recognizes ("dispatches") a second tier of languages that are wired into detection but
  * have no real formatting logic yet -- {@link #isJson}/{@link #isJson5}/{@link #isYaml}/
  * {@link #isToml}, {@link #isJs}/{@link #isTs}, {@link #isPython3}. These are
  * intentionally excluded from {@link #isSupported}/{@link #SUPPORTED_LANGUAGES} (the `--lang`
- * CLI flag / server `lang` param whitelist) so a caller can never construct a {@link Formatter}
+ * CLI flag / server `lang` param whitelist) so a caller can never construct a {@link FormatterCore}
  * pipeline for them; {@link #isScaffoldOnly} is the single source of truth callers use to route
  * a recognized-but-unimplemented language to {@link UnsupportedLanguageException} instead -- see
  * `Main.processFile`/`ServerMode.FormatHandler.handle`.
  *
  * <p>{@link #isCurly}/{@link #isIndentBased}/{@link #isTagBased} classify by scoping-delimiter
  * family (brace-block, indentation-block, tag-nested) -- used to pick the right `*Curly`/
- * `*Indent`/`*Tags` sibling class in `TokenizerCore`/`Formatter`/`ScopePipeline`/`MiscRule` and
+ * `*Indent`/`*Tags` sibling class in `TokenizerCore`/`FormatterCore`/`ScopePipelineCore`/`MiscRuleCore` and
  * friends. JSON/JSON5/YAML/TOML/CSS are none of the three.
  */
 public final class Lang {

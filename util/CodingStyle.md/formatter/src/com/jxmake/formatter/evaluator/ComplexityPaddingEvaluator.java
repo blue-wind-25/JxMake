@@ -22,7 +22,7 @@ public class ComplexityPaddingEvaluator {
      * local token shape -- a `(` immediately preceded by `.` whose matching `)` is immediately
      * followed by `->` -- with no language check, since C/C++/Java never produce a `.` directly
      * followed by `(` in this position (Java has no `Type.() -> Ret` syntax at all), making this a
-     * pure no-op for those languages, same reasoning as `MiscRule.TIGHT_PAREN_KEYWORDS`'s Kotlin
+     * pure no-op for those languages, same reasoning as `MiscRuleCore.TIGHT_PAREN_KEYWORDS`'s Kotlin
      * `"when"` addition (RDD_KEY_100). Only the receiver-parens span itself is skipped over (not
      * recursed into) -- a function type genuinely nested *inside* one of its own parameters (e.g.
      * `((Int) -> String, Boolean) -> Unit`) is STYLE_KOTLIN.md §17's own documented "Known gap"

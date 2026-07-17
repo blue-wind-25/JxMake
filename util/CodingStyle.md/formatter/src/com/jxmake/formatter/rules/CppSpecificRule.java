@@ -28,8 +28,8 @@ import java.util.regex.Pattern;
 
 /**
  * C/C++-specific STYLE_C_CPP.md sections not owned by another rule class: §1, §2 (Allman
- * conversion), §3, §4, §9, §10, §11. (§5/§6 are already handled by {@code MiscRule}/
- * {@code DeclarationAlignmentRule}; §7's additional C/C++ closing-comment cases and the lambda
+ * conversion), §3, §4, §9, §10, §11. (§5/§6 are already handled by {@code MiscRuleCurly}/
+ * {@code DeclarationAlignmentRuleCurly}; §7's additional C/C++ closing-comment cases and the lambda
  * part of §2 are already handled by {@code BlockStructureRule}; §8 is explicitly
  * preserve-as-is.)
  */
@@ -493,7 +493,7 @@ public class CppSpecificRule {
      * this one rule, with no remaining ambiguity to resolve.
      *
      * <p>Pair matching reuses the tokenizer's own {@code ANGLE_BRACKET_OPEN}/{@code _CLOSE}
-     * disambiguation (the same token types {@code MiscRule.parseSignature} tracks for Java
+     * disambiguation (the same token types {@code MiscRuleCurly.parseSignature} tracks for Java
      * generics) via a simple forward stack, since the tokenizer has already resolved any `>>`
      * lexing ambiguity at tokenize time -- by the time these tokens reach this rule, nesting is
      * already unambiguous and properly paired. A pair "contains another `<>` at any depth" iff at
@@ -503,7 +503,7 @@ public class CppSpecificRule {
      * (`A< B< C<int> > >`), not just the immediate outer pair, while leaving the innermost,
      * childless pair tight.
      *
-     * <p>Rendering reuses the same gap-buffering technique as {@code MiscRule}'s spacing passes
+     * <p>Rendering reuses the same gap-buffering technique as {@code MiscRuleCore}'s spacing passes
      * (e.g. {@code enforceInitializerBraceSpacing}): the gap immediately after a flagged
      * {@code ANGLE_BRACKET_OPEN} and immediately before a flagged {@code ANGLE_BRACKET_CLOSE} is
      * collapsed to exactly one space (zero width for an unflagged/tight pair's own open or
@@ -679,7 +679,7 @@ public class CppSpecificRule {
             // continuation line that has nothing to do with the declaration's real leading
             // indent, and its collapsed single-line content varies depending on whether the
             // params have already been wrapped by a prior/future enforceCallLineBreaking pass
-            // (which runs AFTER this one in Formatter's Phase 1/2 ordering). Measuring fit off
+            // (which runs AFTER this one in FormatterCurly's Phase 1/2 ordering). Measuring fit off
             // of the CLOSE paren's own current physical line was therefore unstable across
             // passes: on a fresh source the params are still on their original (unwrapped)
             // line(s), so the combined length overflowed and `requires` was pushed to its own
@@ -821,7 +821,7 @@ public class CppSpecificRule {
      * or an `#ifndef NAME` one immediately (whitespace/newlines only, no comment) followed by a
      * matching `#define NAME`; for the `#ifndef` form, the matching closing `#endif` is located by
      * depth-counting every `#if`/`#ifdef`/`#ifndef` (+1) and `#endif` (-1) {@code PREPROCESSOR}
-     * token after the guard (mirroring {@code TokenizerCore}'s own `preprocessorDepth` tracking,
+     * token after the guard (mirroring {@code TokenizerCurly}'s own `preprocessorDepth` tracking,
      * applied after tokenization since that depth isn't stored per-token), and nothing but
      * trailing whitespace/newline may follow it. Any deviation from this shape -- a missing
      * copyright block, a comment between zones, a mismatched `#ifndef`/`#define` name pair, an

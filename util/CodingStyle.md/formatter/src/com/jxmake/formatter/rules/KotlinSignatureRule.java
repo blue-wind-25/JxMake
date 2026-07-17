@@ -22,7 +22,7 @@ import java.util.List;
 /**
  * STYLE_KOTLIN.md §7: constructor/function parameter list line-breaking and column alignment
  * (§7.1's default-value `=` spacing folds into the same parser, since a default value is just
- * one more optional trailing part of a single parameter's grammar). Extends {@link MiscRule} to
+ * one more optional trailing part of a single parameter's grammar). Extends {@link MiscRuleCurly} to
  * reuse its language-agnostic boundary-finding/rendering primitives ({@code matchParenForward},
  * {@code significantWithComments}, {@code splitTopLevelCommas}, {@code renderTokens},
  * {@code indentText} -- each raised private -> protected in the base class for this purpose,
@@ -49,7 +49,7 @@ public class KotlinSignatureRule extends MiscRuleCurly {
      *  empty on a successfully parsed param -- Kotlin requires an explicit type on every
      *  function/constructor parameter, unlike a `val`/`var` property's optional inferred type
      *  (STYLE_KOTLIN.md §6) -- so {@link #parseKotlinParam} returns null (bailing the whole
-     *  signature, same "never guess past an unrecognized shape" posture as {@code MiscRule}'s own
+     *  signature, same "never guess past an unrecognized shape" posture as {@code MiscRuleCore}'s own
      *  {@code parseParam}) rather than modeling a missing type. */
     public static final class KotlinParam {
         public final List<Token> modifiers;
@@ -72,7 +72,7 @@ public class KotlinSignatureRule extends MiscRuleCurly {
 
     /** One parsed signature: `leadTokens name ( params )`, `leadTokens` being every token before
      *  the name (`fun`, an optional `<T>` generic-parameter clause, an optional extension-function
-     *  receiver type, modifiers) -- same "not split apart" posture as {@code MiscRule.Signature},
+     *  receiver type, modifiers) -- same "not split apart" posture as {@code MiscRuleCurly.Signature},
      *  since §7 has no per-row alignment across multiple signatures. {@code trailingComma} records
      *  whether the source's last parameter was itself followed by a comma before `)`, so
      *  {@link #render} can preserve it exactly as written (STYLE_KOTLIN.md §7.2 -- never added,
@@ -96,7 +96,7 @@ public class KotlinSignatureRule extends MiscRuleCurly {
      * Parses `sigTokens` -- already isolated by the caller, spanning from the first lead token
      * through the parameter list's closing `)` and nothing past it -- into a {@link KotlinSignature}.
      * Boundary-finding (locating the name via the IDENTIFIER immediately before the first depth-0
-     * `(`) duplicates {@code MiscRule.parseSignature}'s own logic rather than reusing it directly --
+     * `(`) duplicates {@code MiscRuleCurly.parseSignature}'s own logic rather than reusing it directly --
      * same "exact copy, not shared utility" precedent already used for this file's {@code
      * renderTokens} lineage, since that boundary-finding is small and neither class currently
      * exposes it as a standalone method. Returns null if the shape doesn't match, if there are
@@ -118,7 +118,7 @@ public class KotlinSignatureRule extends MiscRuleCurly {
                 // The first `IDENTIFIER (` on the line is not always the real signature -- a
                 // leading `context(raise: Raise<Error>)` clause (Kotlin context receivers) is
                 // itself an `IDENTIFIER (...)` shape that can share the same physical line as the
-                // real `fun name(...)` when this pass runs before MiscRule.enforceCallLineBreaking
+                // real `fun name(...)` when this pass runs before MiscRuleCurly.enforceCallLineBreaking
                 // has had a chance to split it onto its own line(s) -- confirmed via harness
                 // (arrow-kt/arrow's `RaiseContext.kt`, `context(raise: Raise<Error>) @RaiseDSL
                 // @IgnorableReturnValue public inline fun <Error, B : Any> ensureNotNull(...)`)
@@ -263,7 +263,7 @@ public class KotlinSignatureRule extends MiscRuleCurly {
     /**
      * Renders one signature (STYLE_KOTLIN.md §7) inline if it fits within {@link #lineLengthLimit}
      * at its starting column, or broken to one parameter per line otherwise -- same line-length
-     * decision as {@code MiscRule.render(Signature, ...)}. Broken form uses a {@link ColumnGrid}
+     * decision as {@code MiscRuleCurly.render(Signature, ...)}. Broken form uses a {@link ColumnGrid}
      * (name, `: type`, `= default`) rather than the base class's manual width pre-computation,
      * same "grammar simple enough that the grid alone produces the required alignment" reasoning
      * as {@link KotlinDeclarationAlignmentRule#renderPropertyGroup} -- the worked example's

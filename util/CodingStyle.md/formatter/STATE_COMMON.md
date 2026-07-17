@@ -317,11 +317,13 @@ Execute as its own checkpoint-committed sequence, one file group per commit,
 zero regressions) before moving to the next group.
 
 ### Lang.java — add family predicates first (everything else depends on this)
-- [ ] Add `isCurly()` (`isC||isCpp||isJava||isKotlin||isJs||isTs`),
-      `isIndentBased()` (`isPython3`), `isTagBased()` (`isXml||isHtml5`) to
-      `Lang.java`. JSON/JSON5/YAML/TOML/CSS are none of the three (neither
-      brace-block, indent-block, nor tag-nested) — leave them ungated by
-      these predicates for now; scope note only, not a blocker.
+- [x] Add `isCurly` (`isC||isCpp||isJava||isKotlin||isJs||isTs`),
+      `isIndentBased` (`isPython3`), `isTagBased` (`isXml||isHtml5`) to
+      `Lang.java` as instance fields (consistent with existing
+      `isC`/`isCpp`/etc. style). JSON/JSON5/YAML/TOML/CSS are none of the
+      three (neither brace-block, indent-block, nor tag-nested) — left
+      ungated by these predicates; scope note only, not a blocker.
+      `make test` 90/90 forward + 90/90 idempotency, zero regressions.
 
 ### TokenizerCore.java → TokenizerCore + TokenizerCurly + TokenizerIndent + TokenizerTags
 - [ ] New slim `TokenizerCore.java`: `Token`/`TokenType` (generic members

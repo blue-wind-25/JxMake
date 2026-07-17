@@ -22,6 +22,11 @@ import java.util.Locale;
  * pipeline for them; {@link #isScaffoldOnly} is the single source of truth callers use to route
  * a recognized-but-unimplemented language to {@link UnsupportedLanguageException} instead -- see
  * `Main.processFile`/`ServerMode.FormatHandler.handle`.
+ *
+ * <p>{@link #isCurly}/{@link #isIndentBased}/{@link #isTagBased} classify by scoping-delimiter
+ * family (brace-block, indentation-block, tag-nested) -- used to pick the right `*Curly`/
+ * `*Indent`/`*Tags` sibling class in `TokenizerCore`/`Formatter`/`ScopePipeline`/`MiscRule` and
+ * friends. JSON/JSON5/YAML/TOML/CSS are none of the three.
  */
 public final class Lang {
     public final String language;
@@ -39,6 +44,9 @@ public final class Lang {
     public final boolean isJs;
     public final boolean isTs;
     public final boolean isPython3;
+    public final boolean isCurly;
+    public final boolean isIndentBased;
+    public final boolean isTagBased;
 
     public Lang(final String language) {
         this.language = language;
@@ -56,6 +64,9 @@ public final class Lang {
         this.isJs = "js".equals(language);
         this.isTs = "ts".equals(language);
         this.isPython3 = "python3".equals(language);
+        this.isCurly = isC || isCpp || isJava || isKotlin || isJs || isTs;
+        this.isIndentBased = isPython3;
+        this.isTagBased = isXml || isHtml5;
     }
 
     /* When updating the supported language here, also update the language/extension list in:

@@ -15,7 +15,15 @@ SOURCE_EXTS = (
     ".hpp",
     ".cpp",
     ".java",
-    ".kt",
+    ".json",
+    ".json5",
+    ".css",
+    ".yaml",
+    ".toml",
+    ".xml",
+    ".js",
+    ".ts",
+    ".html"
 )
 
 

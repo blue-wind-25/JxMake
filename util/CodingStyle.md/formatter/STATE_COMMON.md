@@ -91,7 +91,8 @@ are very long, and `-A` context will flood output unnecessarily.
   to insert debug prints. Use debug prints and `make test` to diagnose and
   validate fixes, not static analysis as the primary method. After a fix is
   verified with `make test`, remove all debug prints, then commit only the
-  files you actually modified. If unsure, ask.
+  files you actually modified. Do not add `RDD_KEY_*` text in test fixture
+  group title in `test/README.txt`. If unsure, ask.
 
 ## When a file reaches COMPLETE
 

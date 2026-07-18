@@ -18,6 +18,8 @@ Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_62_inp/out.kt`
     to   `real_code_regressions_67_inp/out.hpp`
 
+Start on YAML and TOML formatter.
+
 
 
 I have run `make test` and all test passed.
@@ -43,34 +45,6 @@ recompile test allowed. Try reformat with `indent-size = 2` if the idempotency t
 
 ----------------------------------------------------------------------------------------------------
 
-Continue with YAML work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
-...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-
-NOTE: not yet drafted in STYLE_DATA_FORMATS.md/STATE_DATA_FORMATS.md -- no rule sections or
-test-fixture repos recorded yet; only the scaffold-only dispatch and boilerplate
-`YamlSpecificRule.java` stub exist so far.
-    ???
-
-----------------------------------------------------------------------------------------------------
-
-Continue with TOML work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
-...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-
-NOTE: not yet drafted in STYLE_DATA_FORMATS.md/STATE_DATA_FORMATS.md -- no rule sections or
-test-fixture repos recorded yet; only the scaffold-only dispatch and boilerplate
-`TomlSpecificRule.java` stub exist so far.
-    ???
-
-----------------------------------------------------------------------------------------------------
-
 Continue with CSS work (search in /tmp first, clone the repo if not found; use one sub-agent,
 the sub-agent can launch up to two more research sub-sub-agents):
 ...
@@ -84,6 +58,33 @@ recompile test allowed. Try reformat with `indent-size = 2` if the idempotency t
 
 ----------------------------------------------------------------------------------------------------
 
+Continue with YAML work (search in /tmp first, clone the repo if not found; use one sub-agent,
+the sub-agent can launch up to two more research sub-sub-agents):
+...
+When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
+already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
+recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
+    `github.com/kubernetes/kubernetes`
+    `github.com/docker/compose`
+    `github.com/ansible/ansible`
+    `github.com/actions/starter-workflows`
+
+----------------------------------------------------------------------------------------------------
+
+Continue with TOML work (search in /tmp first, clone the repo if not found; use one sub-agent,
+the sub-agent can launch up to two more research sub-sub-agents):
+...
+When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
+already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
+recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
+    `github.com/rust-lang/cargo`
+    `github.com/python-poetry/poetry`
+    `github.com/pola-rs/polars`
+    `github.com/toml-lang/toml`
+
+----------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+
 Continue with XML work (search in /tmp first, clone the repo if not found; use one sub-agent,
 the sub-agent can launch up to two more research sub-sub-agents):
 ..
@@ -94,6 +95,24 @@ recompile test allowed. Try reformat with `indent-size = 2` if the idempotency t
     `github.com/apache/ant`
     `github.com/jenkinsci/jenkins`
     `github.com/w3c/svgwg`
+
+----------------------------------------------------------------------------------------------------
+
+Continue with C++26 work (search in /tmp first, clone the repo if not found; use one sub-agent,
+the sub-agent can launch up to two more research sub-sub-agents):
+...
+When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
+already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
+recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
+
+NOTE: C++26 is not a separate language -- §1-4 rule coverage lands in the existing "cpp"
+pipeline and reuses the C/C++ block's fixtures below. Only §5 Reflection (`^^`/`[:`/`:]`)
+needs its own corpus, once its tokenizer support pass lands:
+    `github.com/bloomberg/clang-p2996`
+    `github.com/wrocpp/cpp26-reflection-examples`
+    `github.com/simdjson/experimental_json_builder`
+    `github.com/stephenberry/glaze`
+    `ryanjk5.github.io/posts/rjk-duck` (blog post, not a repo)
 
 ----------------------------------------------------------------------------------------------------
 
@@ -140,24 +159,6 @@ recompile test allowed. Try reformat with `indent-size = 2` if the idempotency t
     `github.com/django/django`  [large real-world Python, heavy decorator/class-based-pattern density]
     `github.com/psf/black`      [a formatter itself; its own tests/data corpus may be directly reusable]
     `github.com/pallets/click`  [dense decorator and nested-call-argument use]
-
-----------------------------------------------------------------------------------------------------
-
-Continue with C++26 work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
-...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-
-NOTE: C++26 is not a separate language -- §1-4 rule coverage lands in the existing "cpp"
-pipeline and reuses the C/C++ block's fixtures below. Only §5 Reflection (`^^`/`[:`/`:]`)
-needs its own corpus, once its tokenizer support pass lands:
-    `github.com/bloomberg/clang-p2996`
-    `github.com/wrocpp/cpp26-reflection-examples`
-    `github.com/simdjson/experimental_json_builder`
-    `github.com/stephenberry/glaze`
-    `ryanjk5.github.io/posts/rjk-duck` (blog post, not a repo)
 
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------

@@ -156,26 +156,26 @@ In-file config directive:
                                             invocation path and _inp/_out always differ).
 
   in_file_config_inp/out.java            -- Same directive coverage as the .hpp fixture, plus
-                                            java-import-order reversed from its default
-                                            (java, com, org, other, local, static) to
-                                            (static, local, other, org, com, java); one import per
-                                            bucket proves the full reversed order is honored.
+                                            java-import-order reversed from its default (java, com,
+                                            org, other, local, static) to (static, local, other,
+                                            org, com, java); one import per bucket proves the full
+                                            reversed order is honored.
 
-  in_file_config_inp/out.kt              -- Same directive coverage again, plus
-                                            kotlin-import-order reversed from its default
-                                            (kotlin, java, android, com, org, other, local) to
-                                            (local, other, org, com, android, java, kotlin); one
-                                            import per bucket proves the full reversed order.
+  in_file_config_inp/out.kt              -- Same directive coverage again, plus kotlin-import-order
+                                            reversed from its default (kotlin, java, android, com,
+                                            org, other, local) to (local, other, org, com, android,
+                                            java, kotlin); one import per bucket proves the full
+                                            reversed order.
 
-  in_file_config_error_inp/out.hpp       -- Proves the hard-error path (two JXM_CFMT_CFG
-                                            directives in one file must be rejected, never
-                                            silently resolved). Deliberately not run by `make
-                                            test` (commented out of the Makefile's INP_FILES) --
-                                            a hard-erroring input has no formatted result to diff
-                                            against, and would always show as a spurious FAIL.
-                                            See the file itself for how to exercise it manually.
+  in_file_config_error_inp/out.hpp       -- Proves the hard-error path (two JXM_CFMT_CFG directives
+                                            in one file must be rejected, never silently resolved).
+                                            Deliberately not run by `make test` (commented out of
+                                            the Makefile's INP_FILES) -- a hard-erroring input has
+                                            no formatted result to diff against, and would always
+                                            show as a spurious FAIL. See the file itself for how to
+                                            exercise it manually.
 
-JSON / JSON5 (STYLE_DATA_FORMATS.md §1, RDD_KEY_189/190):
+JSON / JSON5:
   json_core_inp/out.json                 -- Plain RFC 8259 JSON: colon-alignment groups, tight
                                             atoms-only arrays, loose arrays containing objects,
                                             empty object/array.
@@ -194,7 +194,7 @@ JSON / JSON5 (STYLE_DATA_FORMATS.md §1, RDD_KEY_189/190):
                                             alignment, and comment-start-case normalization on
                                             leading/trailing/mid comments.
 
-CSS (STYLE_DATA_FORMATS.md §3, RDD_KEY_190):
+CSS:
   css_combined_inp/out.css               -- Property/value colon-alignment groups broken by a
                                             comment then re-merging, a custom property (`--gap`)
                                             joining an ordinary group, `@media`/`@supports`/
@@ -213,11 +213,12 @@ CSS (STYLE_DATA_FORMATS.md §3, RDD_KEY_190):
                                             content before declarations inside a native-nesting
                                             `&:hover` block.
 
-YAML / TOML (STYLE_DATA_FORMATS.md §5/§6, RDD_KEY_191) -- scaffold-only,
-formatting not yet implemented (YamlSpecificRule.java/TomlSpecificRule.java
+YAML / TOML:
+**scaffold-only, formatting not yet implemented (YamlSpecificRule.java/TomlSpecificRule.java
 are boilerplate stubs). These pairs are hand-drafted against the style rules,
 not generated or verified by a JAR, and are commented out of the Makefile's
-INP_FILES so `make test` stays green; uncomment once real logic lands:
+INP_FILES so `make test` stays green; uncomment once real logic lands:**
+
   yaml_core_inp/out.yaml                 -- Mapping colon-alignment group, a
                                             flow mapping short enough to stay
                                             flow, a flow mapping converted to
@@ -477,31 +478,31 @@ Real-code regressions:
 
   real_code_regressions_28_inp/out.hpp   -- C++, real-code test against taocpp/PEGTL
                                             (rematch_input.hpp): reclassifyAngleBrackets'
-                                            single-open-`<` branch retyped a literal `>>` token
-                                            via `retype()` (preserving its 2-char text) while
-                                            also appending a new 1-char `>` token, duplicating a
+                                            single-open-`<` branch retyped a literal `>>` token via
+                                            `retype()` (preserving its 2-char text) while also
+                                            appending a new 1-char `>` token, duplicating a
                                             character on the first format pass and breaking a
-                                            `template<...>` forward declaration. Fixed by giving
-                                            the retyped token its own explicit 1-char text.
+                                            `template<...>` forward declaration. Fixed by giving the
+                                            retyped token its own explicit 1-char text.
 
   real_code_regressions_29_inp/out.java  -- Java, real-code test against local `anemonesoft`
                                             candidate (HelpBox.java/Spreadsheet.java):
                                             renderCallCandidate's groupByOriginalLine tracks only
                                             paren/bracket depth, not brace depth, so a call's
                                             multi-line brace-body trailing argument got silently
-                                            swallowed into one unbounded output line, flapping to
-                                            an idempotency failure once a later pass reacted to
-                                            the now-multi-line body. Fixed by widening an existing
+                                            swallowed into one unbounded output line, flapping to an
+                                            idempotency failure once a later pass reacted to the
+                                            now-multi-line body. Fixed by widening an existing
                                             Kotlin-only "leave such an argument untouched" bail to
                                             all languages via a new containsInternalNewline check.
 
   real_code_regressions_30_inp/out.kt    -- Kotlin, real-code test against `square/okio`: three
                                             co-occurring bugs. (1) renderTokens had no unary-vs-
-                                            binary `-`/`+` notion, corrupting `val x = -1` into
-                                            `= - 1`; fixed with an isUnaryMinusOperand lookback.
-                                            (2) applySignaturePass's `: ReturnType` tail detection
-                                            merged a headerless declaration with an unrelated
-                                            later one across a blank line; fixed with a
+                                            binary `-`/`+` notion, corrupting `val x = -1` into `= -
+                                            1`; fixed with an isUnaryMinusOperand lookback. (2)
+                                            applySignaturePass's `: ReturnType` tail detection
+                                            merged a headerless declaration with an unrelated later
+                                            one across a blank line; fixed with a
                                             hasTopLevelBlankLine guard. (3) braceless if/while/for
                                             collapse rendered a stale, untightened keyword-paren
                                             space, causing enforceCallLineBreaking to over-wrap a
@@ -510,13 +511,13 @@ Real-code regressions:
 
   real_code_regressions_31_inp/out.kt    -- Kotlin, two compile-breaking bugs found via `kotlinc`
                                             against `square/okio` (not caught by idempotency
-                                            diffing). (1) MULTI_CHAR_OPS was missing `===`/`!==`,
-                                            so `!==` lexed as separate tokens and got re-spaced
-                                            into invalid `!= =`; fixed by adding both operators.
-                                            (2) the braceless-collapse dispatch treated a
-                                            do-while's trailing `while (cond)` as a loop-starting
-                                            `while`, fusing the next statement onto the same line;
-                                            fixed with an isDoWhileTailKeyword lookback.
+                                            diffing). (1) MULTI_CHAR_OPS was missing `===`/`!==`, so
+                                            `!==` lexed as separate tokens and got re-spaced into
+                                            invalid `!= =`; fixed by adding both operators. (2) the
+                                            braceless-collapse dispatch treated a do-while's
+                                            trailing `while (cond)` as a loop-starting `while`,
+                                            fusing the next statement onto the same line; fixed with
+                                            an isDoWhileTailKeyword lookback.
 
   real_code_regressions_32_inp/out.kt    -- Kotlin, real-code test against `square/kotlinpoet`: a
                                             nested `when { ... }` used as a `when` branch's body
@@ -524,53 +525,52 @@ Real-code regressions:
                                             since Kotlin's braceLineIndent anchors on the brace's
                                             pre-merge physical line at Phase 0 but
                                             formatWhenExpressions' Phase 4 arrow-alignment pass
-                                            later merges the branch label onto that same line.
-                                            Fixed with a findMergingWhenBranchLineStart lookahead
-                                            that anchors on the eventual post-merge line up front.
+                                            later merges the branch label onto that same line. Fixed
+                                            with a findMergingWhenBranchLineStart lookahead that
+                                            anchors on the eventual post-merge line up front.
 
   real_code_regressions_33_inp/out.kt    -- Kotlin, real-code test against `square/kotlinpoet`: a
                                             first-pass compile-breaking bug found via `kotlinc` --
                                             an expression-bodied function whose body is itself a
                                             trailing-lambda call (`fun addTypes(...): T = apply {
                                             ... } as T`) had `apply`'s own unrelated `{` wrongly
-                                            Allman-converted as the function's own body brace.
-                                            Root cause: findSignatureCloseParenBeforeBrace's
-                                            backward scan for `: ReturnType` had no bail-out on an
+                                            Allman-converted as the function's own body brace. Root
+                                            cause: findSignatureCloseParenBeforeBrace's backward
+                                            scan for `: ReturnType` had no bail-out on an
                                             intervening depth-0 `=`. Fixed with that bail-out.
 
-  real_code_regressions_34_inp/out.hpp   -- C++, real-code test against `NVIDIA/stdexec`:
-                                            combines two bugs. (1) A requires-expression
-                                            compound-requirement's inner `}` (followed by `->`,
-                                            not `;`) was misidentified by splitTopLevelSpans as a
+  real_code_regressions_34_inp/out.hpp   -- C++, real-code test against `NVIDIA/stdexec`: combines
+                                            two bugs. (1) A requires-expression
+                                            compound-requirement's inner `}` (followed by `->`, not
+                                            `;`) was misidentified by splitTopLevelSpans as a
                                             scope-closing brace, corrupting indentation
-                                            non-idempotently; fixed by also checking for a
-                                            following `->`. (2) Compile-breaking: semicolon-less
+                                            non-idempotently; fixed by also checking for a following
+                                            `->`. (2) Compile-breaking: semicolon-less
                                             macro-invocation statements before a `#if`/`#endif`
-                                            guard caused splitStatements to never close the
-                                            current statement, silently dropping the `#if` and
-                                            cascading 150+ downstream errors; fixed with a depth-0
-                                            check that always closes the statement at a
-                                            preprocessor token.
+                                            guard caused splitStatements to never close the current
+                                            statement, silently dropping the `#if` and cascading
+                                            150+ downstream errors; fixed with a depth-0 check that
+                                            always closes the statement at a preprocessor token.
 
-  real_code_regressions_35_inp/out.hpp   -- C++, real-code test against `NVIDIA/stdexec`
-                                            (continuing the candidate above): a compile-breaking
-                                            bug ("Bug 3") in `__counting_scopes.hpp` -- tryCollapse's
-                                            renderInline flattened a multi-line `if` condition
-                                            containing a `//` comment between call arguments,
-                                            silently absorbing every following token (including
-                                            the closing `}`) into the comment and producing a
-                                            50-error unmatched-brace cascade. Fixed with a
-                                            containsLineComment guard that refuses the collapse
-                                            when the condition carries a line comment.
+  real_code_regressions_35_inp/out.hpp   -- C++, real-code test against `NVIDIA/stdexec` (continuing
+                                            the candidate above): a compile-breaking bug ("Bug 3")
+                                            in `__counting_scopes.hpp` -- tryCollapse's renderInline
+                                            flattened a multi-line `if` condition containing a `//`
+                                            comment between call arguments, silently absorbing every
+                                            following token (including the closing `}`) into the
+                                            comment and producing a 50-error unmatched-brace
+                                            cascade. Fixed with a containsLineComment guard that
+                                            refuses the collapse when the condition carries a line
+                                            comment.
 
-  real_code_regressions_36_inp/out.cpp   -- C++, real-code test against `NVIDIA/stdexec`
-                                            (continuing the candidate above): the last remaining
-                                            idempotency flap -- parseDeclaration had no guard
-                                            rejecting an already-collapsed one-liner `if`/`while`/
+  real_code_regressions_36_inp/out.cpp   -- C++, real-code test against `NVIDIA/stdexec` (continuing
+                                            the candidate above): the last remaining idempotency
+                                            flap -- parseDeclaration had no guard rejecting an
+                                            already-collapsed one-liner `if`/`while`/
                                             `for`/`switch`/`do`/`else` statement (produced by
-                                            STYLE.md §10/§11's collapse) as a candidate
-                                            declaration, so on a second pass it misparsed one as a
-                                            bogus `Declaration` and padded a neighboring real
+                                            STYLE.md §10/§11's collapse) as a candidate declaration,
+                                            so on a second pass it misparsed one as a bogus
+                                            `Declaration` and padded a neighboring real
                                             declaration's column. Fixed by rejecting those six
                                             leading keywords, mirroring the existing `case`/
                                             `default` guard; confirmed via full-tree round1/round2
@@ -585,18 +585,18 @@ Real-code regressions:
                                             Fixed by omitting the space when `exprTokens` is empty.
 
   real_code_regressions_38_inp/out.kt    -- Kotlin, real-code test against
-                                            `Kotlin/kotlinx.coroutines`: a KDoc's own nested
-                                            `/* ... */` snippet closed the outer `/**` doc-comment
-                                            early, mis-lexing and silently truncating the rest of
-                                            the file (`Guidance.kt`, ~330 lines dropped). Fixed by
-                                            tracking block-comment nesting depth, Kotlin-only.
+                                            `Kotlin/kotlinx.coroutines`: a KDoc's own nested `/* ...
+                                            */` snippet closed the outer `/**` doc-comment early,
+                                            mis-lexing and silently truncating the rest of the file
+                                            (`Guidance.kt`, ~330 lines dropped). Fixed by tracking
+                                            block-comment nesting depth, Kotlin-only.
 
   real_code_regressions_39_inp/out.kt    -- Kotlin, real-code test against
                                             `Kotlin/kotlinx.coroutines`: `this@Label` got a stray
                                             space inserted before `@` (`this @Label`, a real syntax
-                                            error) since `enforceLabeledJumpSpacing`'s state
-                                            machine didn't recognize `this` before `@`. Fixed with a
-                                            new state pair tightening `this@Label`.
+                                            error) since `enforceLabeledJumpSpacing`'s state machine
+                                            didn't recognize `this` before `@`. Fixed with a new
+                                            state pair tightening `this@Label`.
 
   real_code_regressions_40_inp/out.kt    -- Kotlin, real-code test against
                                             `Kotlin/kotlinx.coroutines`: `LimitedDispatcher.kt`'s
@@ -633,10 +633,10 @@ Real-code regressions:
                                             call used as a keyword-less `when` branch body had its
                                             continuation lines one level deeper on round1 than
                                             round2, since `enforceCallLineBreaking` computed the
-                                            base indent before the branch label/body got merged
-                                            onto one line by a later phase. Fixed with
-                                            `effectiveCallBaseIndent`, which uses the preceding
-                                            `->` line's indent when present.
+                                            base indent before the branch label/body got merged onto
+                                            one line by a later phase. Fixed with
+                                            `effectiveCallBaseIndent`, which uses the preceding `->`
+                                            line's indent when present.
 
   real_code_regressions_44_inp/out.kt    -- Kotlin, real-code idempotency test against
                                             `Kotlin/kotlinx.coroutines`: a nested-lambda-chain's
@@ -660,22 +660,21 @@ Real-code regressions:
                                             line-length budget once padded.
 
   real_code_regressions_46_inp/out.kt    -- Kotlin, real-code idempotency test against
-                                            `square/kotlinpoet`'s Shape 1 idempotency-gap group
-                                            (6 files), two bugs in `enforceCallLineBreaking`.
-                                            Bug A: a wrapped signature with a trailing
-                                            `= apply { ... }` body re-collapsed on reformat because
-                                            `lineEndIndex`'s width check stopped at the first
-                                            NEWLINE, undercounting width when the tail's own nested
-                                            call was already wrapped from a previous round; fixed
-                                            with a depth-aware `effectiveLineEndIndex` that skips
-                                            NEWLINEs still inside an unclosed bracket. Bug B
-                                            (RDD_KEY_149, now root-caused): a signature with an
-                                            explicit `: ReturnType {` block body got its correctly
-                                            wrapped, padded param list re-wrapped as a plain call,
-                                            discarding padding/trailing comma, since the "is this a
-                                            call" exemption only recognized `{` right after `)`.
-                                            Fixed with an `isKotlinReturnTypeThenBlockBody`
-                                            lookahead.
+                                            `square/kotlinpoet`'s Shape 1 idempotency-gap group (6
+                                            files), two bugs in `enforceCallLineBreaking`. Bug A: a
+                                            wrapped signature with a trailing `= apply { ... }` body
+                                            re-collapsed on reformat because `lineEndIndex`'s width
+                                            check stopped at the first NEWLINE, undercounting width
+                                            when the tail's own nested call was already wrapped from
+                                            a previous round; fixed with a depth-aware
+                                            `effectiveLineEndIndex` that skips NEWLINEs still inside
+                                            an unclosed bracket. Bug B (RDD_KEY_149, now
+                                            root-caused): a signature with an explicit `: ReturnType
+                                            {` block body got its correctly wrapped, padded param
+                                            list re-wrapped as a plain call, discarding
+                                            padding/trailing comma, since the "is this a call"
+                                            exemption only recognized `{` right after `)`. Fixed
+                                            with an `isKotlinReturnTypeThenBlockBody` lookahead.
 
   real_code_regressions_47_inp/out.kt    -- Kotlin, real-code idempotency test against
                                             `square/kotlinpoet`'s Shape 2 (`AbstractTypesTest.kt`):
@@ -691,11 +690,11 @@ Real-code regressions:
                                             `square/kotlinpoet`'s Shape 3: a `when` branch's
                                             multi-line body (nested `when(subject) { ... }` or a
                                             trailing-lambda call) had its closing `}` sit 2 spaces
-                                            shallower on round2, since `findMergingWhenBranchLineStart`
-                                            (RDD_KEY_152) only recognized a bare `when {` as the
-                                            merging shape. Fixed by generalizing the lookahead to
-                                            accept a parenthesized `when` subject or a plain
-                                            call-head identifier.
+                                            shallower on round2, since
+                                            `findMergingWhenBranchLineStart` (RDD_KEY_152) only
+                                            recognized a bare `when {` as the merging shape. Fixed
+                                            by generalizing the lookahead to accept a parenthesized
+                                            `when` subject or a plain call-head identifier.
 
   real_code_regressions_49_inp/out.kt    -- Kotlin, real-code idempotency test against
                                             `square/kotlinpoet`'s Shape 4: a `val` declaration's
@@ -712,11 +711,11 @@ Real-code regressions:
                                             token, and a boundary-anchoring correction matching
                                             `real_code_regressions_47`'s original fix intent.
 
-  real_code_regressions_50_inp/out.cpp   -- C++, real-code test against
-                                            `ericniebler/range-v3`'s concept-emulation-macro
-                                            convention (`template(...)`/`CPP_ret`/`CPP_member`,
-                                            see `detail/prologue.hpp`): two compile-breaking bugs.
-                                            (1) `extendOverLeadingRequiresAndTemplate` pulled a
+  real_code_regressions_50_inp/out.cpp   -- C++, real-code test against `ericniebler/range-v3`'s
+                                            concept-emulation-macro convention
+                                            (`template(...)`/`CPP_ret`/`CPP_member`, see
+                                            `detail/prologue.hpp`): two compile-breaking bugs. (1)
+                                            `extendOverLeadingRequiresAndTemplate` pulled a
                                             preceding `template(...)`-macro invocation onto a
                                             declarator's line without checking for a following `<`,
                                             gluing a `requires`-line's trailing `//` comment onto
@@ -762,27 +761,27 @@ Real-code regressions:
 
   real_code_regressions_53_inp/out.cpp   -- C++, microsoft/proxy: 3 bugs in
                                             `CppSpecificRule.enforceRequiresClausePlacement`. (a)
-                                            baseIndent/fit-check anchored on the trailing
-                                            `requires` clause's preceding `)`, unstable across
-                                            passes when that `)` sits on a continuation-alignment
-                                            or dedented line; fixed by deriving from the parameter
-                                            list's own opening paren instead, unwinding any chained
-                                            trailing specifier (e.g. `noexcept(...)`). (b)/(c) a
-                                            preprocessor directive inside the clause's constraint
-                                            expression got spliced mid-line by `collapseToOneLine`,
-                                            producing invalid C++; fixed by leaving any clause
-                                            containing a `PREPROCESSOR` token untouched. Verified
-                                            with `clang++ -std=c++23 -fsyntax-only` and full
-                                            round1/round2 idempotency over `microsoft/proxy`.
+                                            baseIndent/fit-check anchored on the trailing `requires`
+                                            clause's preceding `)`, unstable across passes when that
+                                            `)` sits on a continuation-alignment or dedented line;
+                                            fixed by deriving from the parameter list's own opening
+                                            paren instead, unwinding any chained trailing specifier
+                                            (e.g. `noexcept(...)`). (b)/(c) a preprocessor directive
+                                            inside the clause's constraint expression got spliced
+                                            mid-line by `collapseToOneLine`, producing invalid C++;
+                                            fixed by leaving any clause containing a `PREPROCESSOR`
+                                            token untouched. Verified with `clang++ -std=c++23
+                                            -fsyntax-only` and full round1/round2 idempotency over
+                                            `microsoft/proxy`.
 
-  real_code_regressions_54_inp/out.java  -- Java, javaparser/javaparser real-code testing: 2
-                                            bugs. (a) `GetterSetterRule.parseOneLinerMember`
-                                            misparsed a braceless `if (cond) throw new X(...)`/
-                                            `if (cond) return ...` as a one-liner getter/setter,
-                                            grid-aligning bogus padding that grew unboundedly
-                                            across passes; fixed by rejecting any candidate whose
-                                            "return type" span contains a control-flow keyword.
-                                            (b) `MiscRule.stripSoleTrailingPeriod`/
+  real_code_regressions_54_inp/out.java  -- Java, javaparser/javaparser real-code testing: 2 bugs.
+                                            (a) `GetterSetterRule.parseOneLinerMember` misparsed a
+                                            braceless `if (cond) throw new X(...)`/ `if (cond)
+                                            return ...` as a one-liner getter/setter, grid-aligning
+                                            bogus padding that grew unboundedly across passes; fixed
+                                            by rejecting any candidate whose "return type" span
+                                            contains a control-flow keyword. (b)
+                                            `MiscRule.stripSoleTrailingPeriod`/
                                             `stripSoleTrailingPeriodAcrossLines` stripped a
                                             comment's sole trailing `.` but left the preceding
                                             whitespace, a stray-space idempotency bug; fixed by
@@ -797,9 +796,9 @@ Real-code regressions:
                                             `else`/`catch`/`finally` that moved to its own line
                                             (Allman) -- an idempotency bug (round1 K&R vs. round2
                                             Allman), found in `TypeExtractor.java`. Fixed by
-                                            counting the trailing whitespace run's own newline
-                                            count (`trailingRunNewlineCount`) and replaying that
-                                            many newlines instead of always forcing one. Verified:
+                                            counting the trailing whitespace run's own newline count
+                                            (`trailingRunNewlineCount`) and replaying that many
+                                            newlines instead of always forcing one. Verified:
                                             minimal repro, both real `TypeExtractor.java` copies
                                             round1/round2 byte-identical, full `make test` 78/78.
 
@@ -819,19 +818,20 @@ Real-code regressions:
                                             fix), full `make test` 79/79.
 
   real_code_regressions_57_inp/out.java  -- Java, javaparser/javaparser real-code testing
-                                            (continued): `DeclarationAlignmentRule.isCStyleCastClose`
+                                            (continued):
+                                            `DeclarationAlignmentRule.isCStyleCastClose`
                                             misclassified a braceless control-flow condition's own
                                             closing paren (`if(node instanceof RecordPatternExpr)`)
                                             as a C-style cast close, because its guard excluded
                                             IDENTIFIER/`)`/`]` before the matching `(` but not
                                             control-flow KEYWORD tokens, suppressing a required
-                                            space when the construct was rendered as a
-                                            declaration's initializer via `renderInitTokens`. Fixed
-                                            by adding a `CONTROL_FLOW_KEYWORDS` exclusion set to
+                                            space when the construct was rendered as a declaration's
+                                            initializer via `renderInitTokens`. Fixed by adding a
+                                            `CONTROL_FLOW_KEYWORDS` exclusion set to
                                             `isCStyleCastClose`. Found in `Java1_0Validator.java`/
                                             `Java5Validator.java`. Verified: minimal repro, both
-                                            real files round1/round2 byte-identical, full
-                                            `make test`.
+                                            real files round1/round2 byte-identical, full `make
+                                            test`.
 
   real_code_regressions_58_inp/out.java  -- Java, javaparser/javaparser real-code testing
                                             (continued): a Java enum constant list
@@ -842,17 +842,17 @@ Real-code regressions:
                                             it into an unrelated adjacent field's alignment group,
                                             and `JavaSpecificRule.findEnumConstantListTerminators`
                                             derived its re-emitted indent from the first member's
-                                            own current (possibly drifted) line indent instead of
-                                            an absolute recompute, compounding drift each pass.
-                                            Fixed by (a) isolating a Java enum-constant-list
-                                            statement into its own singleton group in
+                                            own current (possibly drifted) line indent instead of an
+                                            absolute recompute, compounding drift each pass. Fixed
+                                            by (a) isolating a Java enum-constant-list statement
+                                            into its own singleton group in
                                             `DeclarationAlignmentRule.groupDeclarations` (new
                                             `isJavaEnumConstantListShape` helper), and (b) deriving
-                                            `findEnumConstantListTerminators`'s indent from the
-                                            enum body's own stable `{`-line indent plus one indent
-                                            unit. Found in `JavaParserJsonSerializer.java`.
-                                            Verified: minimal repro, real file round1/round2
-                                            byte-identical, full `make test`.
+                                            `findEnumConstantListTerminators`'s indent from the enum
+                                            body's own stable `{`-line indent plus one indent unit.
+                                            Found in `JavaParserJsonSerializer.java`. Verified:
+                                            minimal repro, real file round1/round2 byte-identical,
+                                            full `make test`.
 
   real_code_regressions_59_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing: a generic
                                             bound's `:` (e.g. `<A : Comparable<A>>`) wasn't
@@ -870,107 +870,112 @@ Real-code regressions:
                                             round1/round2 diffing): `BlockStructureRule
                                             .isKotlinSingleStatementBody` let a braced `if` body
                                             whose sole statement was a `val`/`var` declaration
-                                            collapse to braceless form (`if (x) val y = ...`),
-                                            which is illegal Kotlin. Fixed by disqualifying a body
-                                            whose first token is `val`/`var` from collapse, same
-                                            as `COMPOUND_BODY_KEYWORDS` does for nested compound
+                                            collapse to braceless form (`if (x) val y = ...`), which
+                                            is illegal Kotlin. Fixed by disqualifying a body whose
+                                            first token is `val`/`var` from collapse, same as
+                                            `COMPOUND_BODY_KEYWORDS` does for nested compound
                                             bodies. Found in `RaiseAccumulate.kt`'s `addErrors`.
                                             Verified: minimal repro, full `make test`.
 
-  real_code_regressions_61_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing (also found
-                                            via `kotlin_sc`): `MiscRule.needsSpaceBetween` had no
+  real_code_regressions_61_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing (also found via
+                                            `kotlin_sc`): `MiscRule.needsSpaceBetween` had no
                                             tight-after case for a Kotlin annotation's `@` when it
                                             shares its source line with the function signature
-                                            (rendered through `MiscRule.renderTokens`'s shared
-                                            join point, used by `KotlinSignatureRule`); the
-                                            default space-insert fallback produced invalid
-                                            `@ RaiseDSL`. Fixed by adding a Kotlin-gated
-                                            tight-after case for `@`. Kotlin's other `@`-uses
-                                            (`return@label`, `label@`, `this@Label`) go through a
-                                            separate rule (`KotlinSpecificRule
-                                            .enforceLabeledJumpSpacing`) and are unaffected. Found
-                                            in `RaiseAccumulateContext.kt`'s `mapOrAccumulate`.
-                                            Verified: minimal repro, full `make test`.
+                                            (rendered through `MiscRule.renderTokens`'s shared join
+                                            point, used by `KotlinSignatureRule`); the default
+                                            space-insert fallback produced invalid `@ RaiseDSL`.
+                                            Fixed by adding a Kotlin-gated tight-after case for `@`.
+                                            Kotlin's other `@`-uses (`return@label`, `label@`,
+                                            `this@Label`) go through a separate rule
+                                            (`KotlinSpecificRule .enforceLabeledJumpSpacing`) and
+                                            are unaffected. Found in `RaiseAccumulateContext.kt`'s
+                                            `mapOrAccumulate`. Verified: minimal repro, full `make
+                                            test`.
 
   real_code_regressions_62_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing: two
-                                            idempotency bugs deferred by RDD_KEY_173. (A) RDD_KEY_174
-                                            -- `KotlinSignatureRule.parseKotlinSignature`'s first
+                                            idempotency bugs deferred by RDD_KEY_173. (A)
+                                            RDD_KEY_174 --
+                                            `KotlinSignatureRule.parseKotlinSignature`'s first
                                             `IDENTIFIER (` scan mistook a leading `context(raise:
                                             Raise<Error>)` clause's paren for the real parameter
                                             list when both shared one line, bailing instead of
                                             continuing the scan (`RaiseContext.kt`'s
-                                            `ensureNotNull`). (B) RDD_KEY_175 -- `Formatter.java` ran
-                                            `formatWhenExpressions` after `addClosingComments` had
-                                            already counted `closing-comment-min-lines` against the
-                                            enclosing `for` loop, dropping its `// for` comment on a
-                                            fresh format; fixed by reordering the passes
+                                            `ensureNotNull`). (B) RDD_KEY_175 -- `Formatter.java`
+                                            ran `formatWhenExpressions` after `addClosingComments`
+                                            had already counted `closing-comment-min-lines` against
+                                            the enclosing `for` loop, dropping its `// for` comment
+                                            on a fresh format; fixed by reordering the passes
                                             (`Iterable.kt`'s `separateEither`). Verified: minimal
                                             repro + both real files round1/round2 byte-identical +
                                             full `make test`.
 
   real_code_regressions_63_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing: RDD_KEY_176 --
-                                            `BlockStructureRule.collapseBracelessBody`'s bare-`else`/
-                                            braceless-`if` body scan never checked whether the body
-                                            was a single statement once it could itself own a
-                                            multi-line `{...}` block (e.g. a trailing-lambda call);
-                                            `renderInline` fused the block's internal statements with
-                                            no `;` separator, a genuine compile error. Fixed by
-                                            reusing `containsMultilineNestedBrace` as a bail-out
-                                            guard. Found in `Either.kt`'s `zipOrAccumulate`. Verified:
-                                            `kotlin_sc` on `Either.kt` (18 errors -> 0), full
-                                            `make test`.
+                                            `BlockStructureRule.collapseBracelessBody`'s
+                                            bare-`else`/ braceless-`if` body scan never checked
+                                            whether the body was a single statement once it could
+                                            itself own a multi-line `{...}` block (e.g. a
+                                            trailing-lambda call); `renderInline` fused the block's
+                                            internal statements with no `;` separator, a genuine
+                                            compile error. Fixed by reusing
+                                            `containsMultilineNestedBrace` as a bail-out guard.
+                                            Found in `Either.kt`'s `zipOrAccumulate`. Verified:
+                                            `kotlin_sc` on `Either.kt` (18 errors -> 0), full `make
+                                            test`.
 
   real_code_regressions_64_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing: RDD_KEY_177,
                                             closing item of the investigation. Pure idempotency flap
                                             in `Comparison.kt`'s `sort2`:
-                                            `collapseSingleExpressionBlocks`'s `isKotlinExpressionIf`
-                                            exemption only covered a parenthesized expression-position
-                                            `if`, not an unparenthesized depth-0 if-expression used as
-                                            an entire expression-bodied function's whole body, so a
-                                            fresh format and a reformat of already-wrapped output
+                                            `collapseSingleExpressionBlocks`'s
+                                            `isKotlinExpressionIf` exemption only covered a
+                                            parenthesized expression-position `if`, not an
+                                            unparenthesized depth-0 if-expression used as an entire
+                                            expression-bodied function's whole body, so a fresh
+                                            format and a reformat of already-wrapped output
                                             converged to two different stable states.
 
   real_code_regressions_65_inp/out.java  -- Java, local `src/jxm` real-code testing: two idempotency
                                             bugs combined in one fixture (RDD_KEY_171, RDD_KEY_172).
-                                            (1) `TokenizerCore.reclassifyAngleBrackets` had no case for
-                                            a literal `>>>` token (triple-nested generics); round2
-                                            re-lexed round1's tight `>>>` as one token and mis-spaced
-                                            the generics. Fixed by adding an explicit `>>>` case
-                                            generalizing the existing `>>` split to 3 nesting levels.
-                                            (2) `JavaSpecificRule.isSingleLineBody`'s fits-under-limit
+                                            (1) `TokenizerCore.reclassifyAngleBrackets` had no case
+                                            for a literal `>>>` token (triple-nested generics);
+                                            round2 re-lexed round1's tight `>>>` as one token and
+                                            mis-spaced the generics. Fixed by adding an explicit
+                                            `>>>` case generalizing the existing `>>` split to 3
+                                            nesting levels. (2)
+                                            `JavaSpecificRule.isSingleLineBody`'s fits-under-limit
                                             prediction omitted leading indentation and any trailing
-                                            same-line `//` comment, causing a K&R-vs-Allman flip-flop
-                                            across rounds. Fixed by including both in the measurement,
-                                            whitespace-collapsed like `collapseToOneLine`.
+                                            same-line `//` comment, causing a K&R-vs-Allman
+                                            flip-flop across rounds. Fixed by including both in the
+                                            measurement, whitespace-collapsed like
+                                            `collapseToOneLine`.
 
-  real_code_regressions_66_inp/out.java  -- Java, local `src/jxm` real-code testing: RDD_KEY_178, two
-                                            bugs in STYLE.md §8's multi-line parameter-list renderer
-                                            (`MiscRule.render` and its near-duplicate multi-line-
-                                            declaration renderer) around a standalone `//` banner
-                                            comment used as a section divider between parameter groups
-                                            (`SWDFlashLoader.Specifier`'s constructor,
-                                            `STM32QSPI.newQSPICmd`). (1) A leading `//` line comment
-                                            was inlined onto the same output line as the following
-                                            parameter's type+name, swallowing that declaration (and
-                                            cascading to the next) into the comment -- compile-
-                                            breaking. Fixed by emitting it on its own line. (2) The
-                                            shared type/name column width was computed only over
-                                            params with no leading comment, so an excluded param's
-                                            `typeText` could be as long as the column width, making
-                                            `padRight` a no-op and merging type+name with zero space
-                                            on the next pass. Fixed by never padding to less than
-                                            `typeText.length() + 1`. Verified idempotent against both
-                                            real files plus this fixture.
+  real_code_regressions_66_inp/out.java  -- Java, local `src/jxm` real-code testing: RDD_KEY_178,
+                                            two bugs in STYLE.md §8's multi-line parameter-list
+                                            renderer (`MiscRule.render` and its near-duplicate
+                                            multi-line- declaration renderer) around a standalone
+                                            `//` banner comment used as a section divider between
+                                            parameter groups (`SWDFlashLoader.Specifier`'s
+                                            constructor, `STM32QSPI.newQSPICmd`). (1) A leading `//`
+                                            line comment was inlined onto the same output line as
+                                            the following parameter's type+name, swallowing that
+                                            declaration (and cascading to the next) into the comment
+                                            -- compile- breaking. Fixed by emitting it on its own
+                                            line. (2) The shared type/name column width was computed
+                                            only over params with no leading comment, so an excluded
+                                            param's `typeText` could be as long as the column width,
+                                            making `padRight` a no-op and merging type+name with
+                                            zero space on the next pass. Fixed by never padding to
+                                            less than `typeText.length() + 1`. Verified idempotent
+                                            against both real files plus this fixture.
 
   real_code_regressions_67_inp/out.hpp   -- RDD_KEY_169: a named construct (struct/namespace) whose
                                             base-clause is guarded by #if/#endif, with the body `{`
                                             immediately following the bare #endif line. Proves
                                             enforceKAndRBraceStyle no longer glues the `{` onto the
                                             #endif line (which a later retokenize would swallow into
-                                            the PREPROCESSOR token, desyncing brace/frame tracking and
-                                            producing wrong closing-comment labels/indentation --
-                                            originally found via ericniebler/range-v3 item 20 bug (a),
-                                            see STATE_C_CPP_JAVA.md Open Questions).
+                                            the PREPROCESSOR token, desyncing brace/frame tracking
+                                            and producing wrong closing-comment labels/indentation
+                                            -- originally found via ericniebler/range-v3 item 20 bug
+                                            (a), see STATE_C_CPP_JAVA.md Open Questions).
 
 How Tests Are Run
 -----------------

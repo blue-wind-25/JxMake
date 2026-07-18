@@ -104,6 +104,7 @@ INP_FILES += css_comments_inp.css
 # once YamlSpecificRule.java/TomlSpecificRule.java have real logic.
 # INP_FILES += yaml_core_inp.yaml
 # INP_FILES += yaml_comments_inp.yaml
+
 # INP_FILES += toml_core_inp.toml
 # INP_FILES += toml_comments_inp.toml
 

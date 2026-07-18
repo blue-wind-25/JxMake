@@ -18,7 +18,11 @@ Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_62_inp/out.kt`
     to   `real_code_regressions_67_inp/out.hpp`
 
-Start on YAML and TOML formatter.
+
+
+Implement the C++26 formatter.
+Implement the JS/TS formatter.
+Implement the HTML formatter.
 
 
 
@@ -83,7 +87,6 @@ recompile test allowed. Try reformat with `indent-size = 2` if the idempotency t
     `github.com/toml-lang/toml`
 
 ----------------------------------------------------------------------------------------------------
-----------------------------------------------------------------------------------------------------
 
 Continue with XML work (search in /tmp first, clone the repo if not found; use one sub-agent,
 the sub-agent can launch up to two more research sub-sub-agents):
@@ -96,6 +99,7 @@ recompile test allowed. Try reformat with `indent-size = 2` if the idempotency t
     `github.com/jenkinsci/jenkins`
     `github.com/w3c/svgwg`
 
+----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 
 Continue with C++26 work (search in /tmp first, clone the repo if not found; use one sub-agent,
@@ -122,13 +126,13 @@ the sub-agent can launch up to two more research sub-sub-agents):
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
 recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-    `github.com/nodejs/node`             [large, mixed-style JS core + tooling]
-    `github.com/expressjs/express`       [smaller, idiomatic, widely-read real-world JS]
-    `github.com/lodash/lodash`           [dense functional-style JS, bracket-padding stress test]
-    `github.com/microsoft/TypeScript`    [the compiler itself; canonical, heavily-typed real TS at scale]
-    `github.com/angular/angular`         [large, idiomatic, decorator-heavy real TS]
-    `github.com/nestjs/nest`             [decorator/generic-heavy backend TS, type-annotation alignment]
-    `github.com/vuejs/core`              [modern TS, heavy generics and type-level code]
+    `github.com/nodejs/node`          [large, mixed-style JS core + tooling]
+    `github.com/expressjs/express`    [smaller, idiomatic, widely-read real-world JS]
+    `github.com/lodash/lodash`        [dense functional-style JS, bracket-padding stress test]
+    `github.com/microsoft/TypeScript` [the compiler itself; canonical, heavily-typed real TS at scale]
+    `github.com/angular/angular`      [large, idiomatic, decorator-heavy real TS]
+    `github.com/nestjs/nest`          [decorator/generic-heavy backend TS, type-annotation alignment]
+    `github.com/vuejs/core`           [modern TS, heavy generics and type-level code]
 
 ----------------------------------------------------------------------------------------------------
 
@@ -154,8 +158,8 @@ the sub-agent can launch up to two more research sub-sub-agents):
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
 recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-    `github.com/python/cpython`  [reference implementation's own stdlib; large, disciplined, real-world]
-    `github.com/pallets/flask`   [small-to-medium, idiomatic, widely-read real Python]
+    `github.com/python/cpython` [reference implementation's own stdlib; large, disciplined, real-world]
+    `github.com/pallets/flask`  [small-to-medium, idiomatic, widely-read real Python]
     `github.com/django/django`  [large real-world Python, heavy decorator/class-based-pattern density]
     `github.com/psf/black`      [a formatter itself; its own tests/data corpus may be directly reusable]
     `github.com/pallets/click`  [dense decorator and nested-call-argument use]

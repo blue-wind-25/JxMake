@@ -389,6 +389,22 @@ and fixed (commit `949b7a9`).
 
 ## Future Cleanup TODOs
 
+- `../FUTURE_FEATURE_DISCUSSION.md` and `../FUTURE_TEST_FIXTURES.md` (both one
+  directory above `formatter/`) were considered for deletion but are not yet
+  safe to remove. `FUTURE_TEST_FIXTURES.md`'s draft content is fully spent
+  (every section now just points to `formatter/test/README.txt`), but this
+  file and several job `STATE_*.md` files still name it as the canonical
+  staging area to check before hand-inventing new fixtures (see this file's
+  own reference to it above). `FUTURE_FEATURE_DISCUSSION.md` still holds live,
+  unresolved rationale that several `STYLE_*.md` files depend on (e.g.
+  `STYLE_CPP26.md`'s C++29-exclusion reasoning, `STYLE_JS_TS.md`'s JSX/TSX
+  scoping rationale, `STYLE_PYTHON3.md`'s deferred-design note) — not settled
+  history that's been folded elsewhere. Deleting either file now would leave
+  those references dangling. To make deletion safe: fold each still-live
+  rationale from `FUTURE_FEATURE_DISCUSSION.md` into its owning `STYLE_*.md`
+  section, and drop this file's (and each job `STATE_*.md`'s) dependency on
+  `FUTURE_TEST_FIXTURES.md` as a staging area before removing it.
+
 - Some `STYLE_*.md` files carry a closing pointer sentence along the lines of
   "Implementation-tracker content (config keys, test-fixture repos, local
   test fixtures) for this file lives in `formatter/STATE_*.md`, not here —

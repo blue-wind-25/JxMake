@@ -284,8 +284,8 @@ test: $(JAR_FILE)
 		echo "";                                                               \
 		if [ $$fail -ne 0 ]; then exit 1; fi;                                  \
 		printf "All tests passed:\n";                                          \
-		printf "    %2d/%2d forward\n"     $$forward_pass $$forward_total;     \
-		printf "    %2d/%2d idempotency\n" $$idem_pass $$idem_total;           \
+		printf "    %3d/%3d forward\n"     $$forward_pass $$forward_total;     \
+		printf "    %3d/%3d idempotency\n" $$idem_pass $$idem_total;           \
 		printf "\n";                                                           \
 	)
 

@@ -93,6 +93,10 @@ INP_FILES += in_file_config_inp.kt
 
 INP_FILES += json_core_inp.json
 INP_FILES += json5_core_inp.json5
+INP_FILES += json5_comments_inp.json5
+
+INP_FILES += css_combined_inp.css
+INP_FILES += css_comments_inp.css
 
 INP_FILES += real_code_regressions_1_inp.cpp
 INP_FILES += real_code_regressions_2_inp.java
@@ -165,6 +169,7 @@ INP_FILES += real_code_regressions_67_inp.hpp
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 
 # clear && git status && echo && svn stat && echo
+# svn add util/CodingStyle.md/formatter/test/*
 # svn add util/CodingStyle.md/formatter/test/real_code_regressions*
 # svn commit -m 'Follow GIT changes' && git push && echo && git status && echo && svn stat && echo
 

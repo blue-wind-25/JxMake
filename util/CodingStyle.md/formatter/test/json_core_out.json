@@ -2,20 +2,25 @@
     "id"          : 1001,
     "displayName" : "Widget",
     "enabled"     : true,
-    "tags"        : ["a", "b"],
-    "nested"      : {
-        "x" : 1,
-        "y" : 2
-    },
+    "disabled"    : false,
+    "deletedAt"   : null,
+    "tags"        : ["a", "b", "c"],
     "scores"      : [1, 2, 3],
-    "variants"    : [
-        {
-            "id" : 1
-        },
-        {
-            "id" : 2
-        }
+    "matrix"      : [
+        [1, 2],
+        [3, 4]
     ],
-    "empty"       : {},
-    "emptyArr"    : []
+    "metrics"     : [
+        { "id" : 1 },
+        { "id" : 2 }
+    ],
+    "nested"      : {
+        "a"  : 1,
+        "bb" : 2
+    },
+    "emptyObj"    : {},
+    "emptyArr"    : [],
+    "price"       : -19.99,
+    "factor"      : 1.5e10,
+    "label"       : "Caf\u00e9 Widget"
 }

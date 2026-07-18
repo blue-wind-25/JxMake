@@ -1,0 +1,23 @@
+.alert {
+color: red;
+/* first sentence.
+   second sentence. */
+background:pink;
+/*% JXM_CFMT_DIS */
+border:  2px    dashed    red;
+/*% JXM_CFMT_ENA */
+padding:8px;
+/* trailing comment, no blank line before close */
+}
+
+.badge /* comment before brace */ {
+display: inline-block;
+color /* comment before colon */: white;
+}
+
+.tooltip {
+&:hover {
+/* comment as sole content before declarations */
+opacity:1;
+}
+}

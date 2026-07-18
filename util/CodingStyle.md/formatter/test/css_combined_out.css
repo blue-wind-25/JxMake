@@ -1,0 +1,60 @@
+.widget {
+    display     : flex;
+    align-items : center;
+    color       : #333;
+    /* A comment breaks the group */
+    margin  : 0 auto;
+    --gap   : 8px;
+    padding : var(--gap) calc(var(--gap) * 2);
+    z-index : 10 !important;
+}
+
+@media (min-width: 600px) {
+    .widget {
+        display     : flex;
+        align-items : center;
+    }
+}
+
+@supports (display: grid) {
+    .widget {
+        display : grid;
+        gap     : 16px;
+    }
+}
+
+@font-face {
+    font-family : "Custom";
+    src         : url("custom.woff2") format("woff2");
+}
+
+@keyframes spin {
+    0% {
+        transform : rotate(0deg);
+    }
+    50% {
+        transform : rotate(180deg);
+    }
+    100% {
+        transform : rotate(360deg);
+    }
+}
+
+.card {
+    display : flex;
+    color   : #555;
+
+    &:hover {
+        color  : #777;
+        cursor : pointer;
+    }
+
+    & .icon {
+        margin-right : 4px;
+    }
+}
+
+.card::before {
+    content : "";
+    display : block;
+}

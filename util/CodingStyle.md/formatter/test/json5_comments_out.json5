@@ -1,0 +1,25 @@
+/*
+ * Copyright (C) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+{
+    id          : 1001,
+    displayName : "Widget",
+    // Comment breaks the group here
+    enabled : true,
+    timeout : 30,
+    /* Block comment
+       describing config below */
+    config : {
+        retries : 3,
+        backoff : 100
+    },
+    tags   : [
+        "a",
+        // Comment inside array
+        "b",
+    ],
+    // First leading comment
+    // Second leading comment, stacked
+    label /* Comment before colon */ : "value", // Trailing comment too
+}

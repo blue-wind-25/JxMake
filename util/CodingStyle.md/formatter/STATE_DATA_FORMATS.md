@@ -11,11 +11,12 @@ other jobs' files) are NOT required reading for this one — only
 
 Tracks implementation of data/markup format support in the deterministic JAR
 formatter (`util/CodingStyle.md/formatter/`), per `STYLE_DATA_FORMATS.md`
-(JSON/JSON5, XML, CSS, HTML5). **JSON/JSON5 (§1) is DONE -- real tokenizer,
-recursive-descent parser, and printer landed, `make test` green (see
-Checklist). XML, CSS, and HTML5 remain scaffold-only: dispatch exists only
-as a "not yet implemented" error thrown for these formats, no real
-formatting logic exists yet.**
+(JSON/JSON5, XML, CSS, HTML5). **JSON/JSON5 (§1) and CSS (§3) are DONE --
+real tokenizer, recursive-descent parser, and printer landed for both,
+`make test` green (see Checklist; CSS still has a few deferred edge cases,
+see its checklist entry). XML and HTML5 remain scaffold-only: dispatch
+exists only as a "not yet implemented" error thrown for these formats, no
+real formatting logic exists yet.**
 
 ---
 
@@ -203,20 +204,90 @@ None recorded yet in this file.
       strings, hex/negative numbers, comment- and blank-line-broken groups,
       opaque multi-line string, trailing comment before close), both
       registered in the Makefile's `INP_FILES` and `test/README.txt` ahead of
-      `real_code_regressions_*`. `make test`: 92/92 forward + 92/92
-      idempotency, zero regressions. `FUTURE_TEST_FIXTURES.md` (referenced by
-      this file's original checklist wording) does not actually exist in
-      this repo — fixtures were authored directly instead; if that file is
-      created later for another sub-format, this deviation is worth a note
-      there.
+      `real_code_regressions_*`. `FUTURE_TEST_FIXTURES.md` (at
+      `util/CodingStyle.md/FUTURE_TEST_FIXTURES.md`, one directory above
+      `formatter/`) *does* exist and holds hand-drafted, explicitly
+      "unverified" fixture content for not-yet-authored pairs across every
+      job — check it (and strip its markdown bullet-list 2-space indent
+      before transcribing) before hand-writing new fixtures from scratch.
+      Follow-up session found and fixed two real bugs the doc-sourced
+      fixtures exposed that the original thinner ad-hoc ones hadn't: an
+      object can only render tight when it has exactly ONE member (2+-member
+      objects always render loose regardless of fit/nesting, unlike arrays);
+      trailing commas were being silently dropped by both tight-array and
+      tight-object rendering paths. Also added: `normalize-comment-start-case`
+      (`FormatterSimpleBraced.capitalizeCommentStart`) and block-comment
+      reindentation (`FormatterSimpleBraced.reindentBlockComment`, shared
+      with CSS), plus JSON5's `key /* comment */ : value` mid-comment
+      handling (`Item.midComment`, excluded from alignment groups). Fixture:
+      `test/json5_comments_{inp,out}.json5` (group broken then re-merged by
+      a comment, multi-line comment reindented, comment inside an array,
+      mid-comment before colon, comment-case normalization), registered the
+      same way. `make test`: 95/95 forward + 95/95 idempotency, zero
+      regressions.
 - [ ] Implement XML support (§2): tokenizer/parser for tag structure,
       indentation, attribute wrapping, DOCTYPE/PI/CDATA opacity handling.
-- [ ] Implement CSS support (§3): property/value colon alignment, at-rule
-      and native-nesting (`&`) header/group recursion. Reuses the new
-      "SimpleBraced" family (RDD_KEY_190) landed for JSON — `CssSpecificRule`
-      should extend/use `TokenizerSimpleBraced`/`FormatterSimpleBraced`
-      (incl. `padKeysForColonAlignment`) rather than reinventing
-      colon-alignment grouping from scratch.
+- [x] **Implement CSS support (§3).** DONE. `CssTokenizer` (extends
+      `TokenizerSimpleBraced`) is deliberately coarse-grained -- emits
+      WHITESPACE/NEWLINE/`/* */` COMMENT_BLOCK/STRING/PUNCT (`{}();:,&`) and
+      one contiguous OP run for everything else (selector/value text,
+      property names, at-rule keywords); `CssSpecificRule`'s parser
+      reconstructs header/value text by concatenating token text and
+      tracking paren-depth, rather than modeling CSS's selector/value
+      grammar token-by-token. A single recursive `parseBlockBody`/`Rule`/
+      `Decl` AST covers plain rules, at-rules (`@media`/`@supports`/
+      `@keyframes`/`@font-face`), and native-nesting `&` blocks uniformly --
+      any header text terminated by `{` recurses into the same body parser,
+      giving at-rules and `&` blocks their own independent colon-alignment
+      group one level deeper for free, no special-casing needed per
+      at-rule kind. Colon-alignment groups reuse
+      `FormatterSimpleBraced.padKeysForColonAlignment`, broken by blank
+      lines/comments/a Rule-vs-Decl boundary, with the item breaking a group
+      itself becoming the start of the next group (same fix shape as
+      JSON's group-boundary bug, applied proactively here after finding the
+      identical bug live during fixture testing — see below).
+      `FormatterCss` (new `FormatterCore.forLanguage` branch, `isCss`) wires
+      `line-length`/`indent-size`/`indent-style` from `Config`; whole-file
+      `--format-off` returns content unchanged (CSS has no per-region
+      frozen-span mechanism, same posture as JSON/JSON5).
+      `Lang.isSupported`/`SUPPORTED_LANGUAGES` gained `css`;
+      `isScaffoldOnly`/`SCAFFOLD_ONLY_LANGUAGES` dropped it.
+      Fixture: `test/css_combined_{inp,out}.css` (three-member group broken
+      by a comment then re-merging into a four-member group, `--gap` custom
+      property joining an ordinary group, `@media`/`@supports`/`@font-face`/
+      `@keyframes` at-rules each starting an independent nested group,
+      `&:hover`/`& .icon` native nesting recursing the same way), registered
+      in the Makefile's `INP_FILES` and `test/README.txt` ahead of
+      `real_code_regressions_*`.
+      Comment-handling follow-up (same session): `normalize-comment-start-case`
+      (lightweight `FormatterSimpleBraced.capitalizeCommentStart`, same as
+      JSON5) applied to leading/trailing comments and header-embedded
+      comments; multi-line block comments reindented to their new structural
+      depth via `FormatterSimpleBraced.reindentBlockComment`; a
+      `prop /* comment */ : value` mid-comment (comment wedged before the
+      colon) extracted onto `Decl.midComment`, excluded from colon-alignment
+      groups, rendered `prop + " " + midComment + " : " + value`; comments
+      between a selector and its `{` left embedded in the header text
+      as-is; `/*% JXM_CFMT_DIS */`/`ENA` per-region frozen spans implemented
+      by reusing `TokenizerCore.markFrozenSpans` directly on the CSS token
+      list before parsing, then capturing the frozen token run (plus the
+      single line-separator newline before it, so the marker's own original
+      indentation is preserved byte-for-byte) as opaque `Item.rawFrozen`
+      text emitted verbatim. Fixture: `test/css_comments_{inp,out}.css`
+      (multi-line comment breaking a group, only its first sentence
+      capitalized; a `JXM_CFMT_DIS`/`ENA` pair freezing a declaration's
+      original spacing/indentation; a trailing comment before a block's
+      closing `}`; a comment between a selector and its `{`; a
+      `prop /* comment */ : value` mid-comment; a comment as the sole
+      content before declarations inside a native-nesting `&:hover` block),
+      registered the same way. `make test`: 95/95 forward + 95/95
+      idempotency, zero regressions.
+      **Deferred, not yet implemented:** the curly family's heavier
+      classifier-backed keyword-exclusion comment normalization
+      (`MiscRuleCore`) is deliberately NOT reused here (see JSON5's own
+      note) — CSS/JSON have no language keywords a comment could start with
+      that would need protecting from titlecasing, so the lightweight
+      version is sufficient and intentionally scoped smaller.
 - [ ] Implement HTML5 support (§4), including the `<script>`/`<style>`
       embedded-content dispatcher (splice out, format via CSS/JS-TS, splice
       back with correct re-indentation) — depends on both CSS support above

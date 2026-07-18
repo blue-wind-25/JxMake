@@ -187,6 +187,32 @@ JSON / JSON5 (STYLE_DATA_FORMATS.md §1, RDD_KEY_189/190):
                                             opaque (§1.3), a trailing comment before the closing
                                             brace.
 
+  json5_comments_inp/out.json5           -- A comment breaking then re-merging a colon-alignment
+                                            group, a multi-line `/* */` comment reindented to its
+                                            new structural depth, a comment inside an array, a
+                                            `key /* comment */ : value` mid-comment excluded from
+                                            alignment, and comment-start-case normalization on
+                                            leading/trailing/mid comments.
+
+CSS (STYLE_DATA_FORMATS.md §3, RDD_KEY_190):
+  css_combined_inp/out.css               -- Property/value colon-alignment groups broken by a
+                                            comment then re-merging, a custom property (`--gap`)
+                                            joining an ordinary group, `@media`/`@supports`/
+                                            `@font-face`/`@keyframes` at-rules as headers starting
+                                            their own independent nested group, and native CSS
+                                            nesting (`&:hover`, `& .icon`) recursing the same way.
+
+  css_comments_inp/out.css               -- A multi-line `/* */` comment breaking a group (only
+                                            its first sentence gets comment-start-case
+                                            normalization), a `JXM_CFMT_DIS`/`ENA` marker pair
+                                            freezing a declaration's original spacing/indentation
+                                            byte-for-byte, a trailing comment before a block's
+                                            closing brace, a comment between a selector and its
+                                            `{`, a comment between a property and its `:`
+                                            (`prop /* ... */ : value`), and a comment as the sole
+                                            content before declarations inside a native-nesting
+                                            `&:hover` block.
+
 Real-code regressions:
   real_code_regressions_1_inp/out.cpp    -- Distilled from tinyexpr-plusplus: same-line-sibling
                                             call-argument mis-split, an undercounted call "does it

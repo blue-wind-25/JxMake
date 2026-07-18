@@ -34,6 +34,7 @@ public final class JsonSpecificRule {
     private final int lineLengthLimit;
     private final int indentWidth;
     private final String indentUnit;
+    private final boolean normalizeCommentStartCase;
 
     public JsonSpecificRule(final Lang lang) {
         this(lang, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
@@ -49,10 +50,21 @@ public final class JsonSpecificRule {
 
     public JsonSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth,
             final String indentStyle) {
+        this(lang, lineLengthLimit, indentWidth, indentStyle, true);
+    }
+
+    public JsonSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth,
+            final String indentStyle, final boolean normalizeCommentStartCase) {
         this.lang = lang;
         this.lineLengthLimit = lineLengthLimit;
         this.indentWidth = indentWidth;
         this.indentUnit = "tabs".equals(indentStyle) ? "\t" : repeatChar(' ', Math.max(0, indentWidth));
+        this.normalizeCommentStartCase = normalizeCommentStartCase;
+    }
+
+    private String normComment(final String commentText) {
+        return normalizeCommentStartCase
+                ? FormatterSimpleBraced.capitalizeCommentStart(commentText) : commentText;
     }
 
     /** Malformed JSON/JSON5 input that the parser cannot make sense of -- caught generically by
@@ -81,6 +93,8 @@ public final class JsonSpecificRule {
         List<String> leadingComments = new ArrayList<>();
         boolean blankBefore;
         String key;
+        String midComment; // a comment wedged between the key and its ':' -- forces this item out
+                            // of any colon-alignment group, same posture as a leading comment
         Node value;
         String trailingComment;
         boolean hasComma;
@@ -135,7 +149,7 @@ public final class JsonSpecificRule {
                 continue;
             }
             if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
-                comments.add(t.text);
+                comments.add(normComment(t.text));
                 newlines = 0;
                 c.i++;
                 continue;
@@ -154,7 +168,7 @@ public final class JsonSpecificRule {
         final Token t = c.cur();
         if (t != null && (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK)) {
             c.i++;
-            return t.text;
+            return normComment(t.text);
         }
         c.i = save;
         return null;
@@ -217,6 +231,15 @@ public final class JsonSpecificRule {
                 while (c.cur() != null && (c.cur().type == TokenType.WHITESPACE
                         || c.cur().type == TokenType.NEWLINE)) {
                     c.i++;
+                }
+                if (c.cur() != null && (c.cur().type == TokenType.COMMENT_LINE
+                        || c.cur().type == TokenType.COMMENT_BLOCK)) {
+                    item.midComment = normComment(c.cur().text);
+                    c.i++;
+                    while (c.cur() != null && (c.cur().type == TokenType.WHITESPACE
+                            || c.cur().type == TokenType.NEWLINE)) {
+                        c.i++;
+                    }
                 }
                 if (!Token.isPunct(c.cur(), ":")) {
                     throw new JsonParseException("expected ':' after key " + item.key);
@@ -284,7 +307,44 @@ public final class JsonSpecificRule {
         }
     }
 
+    /** True if every item in {@code c} is a plain scalar-valued member/element with no comments/
+     *  blank lines -- the shared tight-rendering eligibility check for both objects and arrays. */
+    private boolean canBeTight(final Container c) {
+        for (final Item item : c.items) {
+            if (item.value == null || containsContainer(item.value) || !item.leadingComments.isEmpty()
+                    || item.trailingComment != null || item.blankBefore) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** §1.2: an object stays tight (single line, {@code { key : value, ... }} with inner padding
+     *  spaces) only if every member is a scalar (no nested object/array), no member carries a
+     *  comment, and the tight rendering fits within the configured line-length limit. */
     private void renderObject(final Container c, final int depth, final StringBuilder out) {
+        // Unlike arrays, an object with 2+ members always goes loose (multi-line, so its members
+        // get their own independent colon-alignment group per §1.1) -- only a single-member object
+        // is eligible for tight single-line rendering, since there's nothing to align otherwise.
+        if (c.items.size() == 1 && canBeTight(c)) {
+            final StringBuilder tight = new StringBuilder("{ ");
+            for (int i = 0; i < c.items.size(); i++) {
+                final Item item = c.items.get(i);
+                if (i > 0) {
+                    tight.append(", ");
+                }
+                tight.append(item.key).append(" : ");
+                render(item.value, depth + 1, tight);
+                if (item.hasComma && i == c.items.size() - 1) {
+                    tight.append(',');
+                }
+            }
+            tight.append(" }");
+            if (indent(depth).length() + tight.length() <= lineLengthLimit) {
+                out.append(tight);
+                return;
+            }
+        }
         out.append('{').append('\n');
         renderItems(c.items, depth + 1, out, true);
         out.append(indent(depth)).append('}');
@@ -294,21 +354,17 @@ public final class JsonSpecificRule {
      *  object/array) and no element carries a comment, and the tight rendering fits within the
      *  configured line-length limit at this nesting depth. */
     private void renderArray(final Container c, final int depth, final StringBuilder out) {
-        boolean canBeTight = true;
-        for (final Item item : c.items) {
-            if (item.value == null || containsContainer(item.value) || !item.leadingComments.isEmpty()
-                    || item.trailingComment != null || item.blankBefore) {
-                canBeTight = false;
-                break;
-            }
-        }
-        if (canBeTight) {
+        if (canBeTight(c)) {
             final StringBuilder tight = new StringBuilder("[");
             for (int i = 0; i < c.items.size(); i++) {
+                final Item item = c.items.get(i);
                 if (i > 0) {
                     tight.append(", ");
                 }
-                render(c.items.get(i).value, depth + 1, tight);
+                render(item.value, depth + 1, tight);
+                if (item.hasComma && i == c.items.size() - 1) {
+                    tight.append(',');
+                }
             }
             tight.append(']');
             if (indent(depth).length() + tight.length() <= lineLengthLimit) {
@@ -337,7 +393,8 @@ public final class JsonSpecificRule {
                 // comment/blank line (§1.1) or is a dangling trailing-comment placeholder (no
                 // key at all) -- the item itself (if it has a key) still starts a fresh group
                 // rather than being dropped from alignment entirely.
-                final boolean breaksBefore = atEnd || isDangling
+                final boolean hasMidComment = !atEnd && items.get(i).midComment != null;
+                final boolean breaksBefore = atEnd || isDangling || hasMidComment
                         || !items.get(i).leadingComments.isEmpty() || items.get(i).blankBefore;
                 if (breaksBefore) {
                     if (groupStart >= 0 && i > groupStart) {
@@ -350,7 +407,7 @@ public final class JsonSpecificRule {
                             padding[g] = groupPad[g - groupStart];
                         }
                     }
-                    groupStart = (!atEnd && !isDangling) ? i : -1;
+                    groupStart = (!atEnd && !isDangling && !hasMidComment) ? i : -1;
                 } else if (groupStart < 0) {
                     groupStart = i;
                 }
@@ -363,14 +420,21 @@ public final class JsonSpecificRule {
                 out.append('\n');
             }
             for (final String comment : item.leadingComments) {
-                out.append(indent(depth)).append(comment).append('\n');
+                out.append(indent(depth))
+                        .append(FormatterSimpleBraced.reindentBlockComment(comment, indent(depth)))
+                        .append('\n');
             }
             if (item.value == null) {
                 continue; // dangling trailing-comment placeholder, no value to render
             }
             out.append(indent(depth));
             if (isObject) {
-                out.append(item.key).append(padding[i]).append(':').append(' ');
+                out.append(item.key);
+                if (item.midComment != null) {
+                    out.append(' ').append(item.midComment).append(" : ");
+                } else {
+                    out.append(padding[i]).append(':').append(' ');
+                }
             }
             render(item.value, depth, out);
             if (item.hasComma) {

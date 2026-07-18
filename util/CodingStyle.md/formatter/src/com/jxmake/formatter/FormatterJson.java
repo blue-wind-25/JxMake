@@ -28,7 +28,7 @@ public final class FormatterJson extends FormatterSimpleBraced {
             return content;
         }
         final JsonSpecificRule rule = new JsonSpecificRule(lang, config.lineLength(),
-                config.indentSize(), config.indentStyle());
+                config.indentSize(), config.indentStyle(), config.isNormalizeCommentStartCase());
         return rule.format(content);
     }
 }

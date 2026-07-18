@@ -28,6 +28,9 @@ public abstract class FormatterCore {
         if (lang.isJson || lang.isJson5) {
             return new FormatterJson(lang);
         }
+        if (lang.isCss) {
+            return new FormatterCss(lang);
+        }
         if (lang.isCurly) {
             return new FormatterCurly(lang);
         }

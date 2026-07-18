@@ -11,12 +11,12 @@ other jobs' files) are NOT required reading for this one — only
 
 Tracks implementation of data/markup format support in the deterministic JAR
 formatter (`util/CodingStyle.md/formatter/`), per `STYLE_DATA_FORMATS.md`
-(JSON/JSON5, XML, CSS, HTML5). **JSON/JSON5 (§1) and CSS (§3) are DONE --
-real tokenizer, recursive-descent parser, and printer landed for both,
-`make test` green (see Checklist; CSS still has a few deferred edge cases,
-see its checklist entry). XML and HTML5 remain scaffold-only: dispatch
-exists only as a "not yet implemented" error thrown for these formats, no
-real formatting logic exists yet.**
+(JSON/JSON5, XML, CSS, HTML5, YAML, TOML). **JSON/JSON5 (§1) and CSS (§3) are
+DONE -- real tokenizer, recursive-descent parser, and printer landed for
+both, `make test` green (see Checklist; CSS still has a few deferred edge
+cases, see its checklist entry). XML, HTML5, YAML, and TOML remain
+scaffold-only: dispatch exists only as a "not yet implemented" error thrown
+for these formats, no real formatting logic exists yet.**
 
 ---
 
@@ -24,7 +24,7 @@ real formatting logic exists yet.**
 
 `STYLE_DATA_FORMATS.md` covers non-imperative data and markup formats — no
 functions, no control flow, so most of the shared `STYLE.md` imperative-
-language rules do not apply. Four sub-formats, each stating explicitly which
+language rules do not apply. Six sub-formats, each stating explicitly which
 `STYLE.md` sections it borrows from:
 
 1. **JSON / JSON5** (§1) — RFC 8259 JSON plus JSON5. Key/value `:` column
@@ -59,15 +59,34 @@ language rules do not apply. Four sub-formats, each stating explicitly which
    formatter (§3) and back; `<script>` content splices out to the JS/TS
    formatter (see `STYLE_JS_TS.md`) and back, including the CDATA-wrapped
    variant; a `<script type="...">` with a non-JS/TS type is left opaque.
+5. **YAML** (§5) — YAML 1.1/1.2, including multi-document streams. Key/value
+   `:` column alignment (same group shape as JSON's, space-before-`:`
+   convention); sequence items indent one level deeper than their parent
+   mapping key; flow-style collections (`{a: 1}`, `[1, 2]`) preserved as
+   written unless they'd exceed `line-length`, in which case converted to
+   block style; anchors/aliases/tags and block scalars (`|`/`>`) preserved
+   verbatim/opaque. Uses the existing global `indent-size`, but
+   **`indent-style` is ignored for YAML** (YAML forbids tab indentation —
+   always space-indented). Directives use the single `# ...` line form (YAML
+   has no block comment).
+6. **TOML** (§6) — TOML v1.0. Key/value `=` column alignment reuses STYLE.md
+   §5/§6's assignment-alignment shape directly (no forced space-before-`=`
+   needed, unlike JSON/YAML's `:`); table/array-of-table headers
+   (`[section]`/`[[array]]`) are headers, not declarations, and get no added
+   indentation for the keys under them (TOML nests via dotted header names,
+   not indentation); arrays reuse the tight/loose bracket rule; inline
+   tables are always single-line (a TOML grammar constraint, not a style
+   choice); dotted keys and string quote styles preserved as written.
+   Directives use the single `# ...` line form (TOML has no block comment).
 
 Scaffold dispatch lives in the shared `Lang.java`/`Main.java`/
 `ServerMode.java`/`Config.java`, described in the routing `CLAUDE.md`
 table. This job's own per-sub-format rule classes —
-`rules/JsonSpecificRule.java` (JSON/JSON5), `rules/YamlSpecificRule.java`,
-`rules/TomlSpecificRule.java`, `rules/CssSpecificRule.java`, and
-`rules/XmlSpecificRule.java` (XML/HTML5) — exist only as boilerplate stubs
-(each constructor throws `UnsupportedOperationException`) — no real logic
-yet.
+`rules/JsonSpecificRule.java` (JSON/JSON5) and `rules/CssSpecificRule.java`
+(CSS) have real logic; `rules/YamlSpecificRule.java`,
+`rules/TomlSpecificRule.java`, and `rules/XmlSpecificRule.java` (XML/HTML5)
+still exist only as boilerplate stubs (each constructor throws
+`UnsupportedOperationException`) — no real logic yet.
 
 ---
 
@@ -84,6 +103,7 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 | RDD_KEY_188 | Class Scoping — no separate HtmlTokenizer/HtmlFormatter; shared `*Tags` classes gated internally on `isHtml5`, concrete rules in `XmlSpecificRule.java` |
 | RDD_KEY_189 | Class Scoping — JSON/JSON5/CSS/YAML/TOML extend `TokenizerCore` directly (no `TokenizerFlat`); concrete rules in `JsonSpecificRule.java`/`YamlSpecificRule.java`/`TomlSpecificRule.java`/`CssSpecificRule.java` |
 | RDD_KEY_190 | `FormatterCore.forLanguage` dispatch for JSON/JSON5/CSS — new "SimpleBraced" family (`TokenizerSimpleBraced`/`FormatterSimpleBraced`), distinct from `*Curly` and the still-hypothetical YAML/TOML-only "Flat" family; `Lang.isSupported`/`SUPPORTED_LANGUAGES` gained json/json5, `isScaffoldOnly`/`SCAFFOLD_ONLY_LANGUAGES` dropped them |
+| RDD_KEY_191 | `STYLE_DATA_FORMATS.md` §5/§6 (YAML/TOML formatting rules, drafted by user request): YAML mapping colons column-align matching JSON/CSS (§1.1/§3.1); sequence items indent one level deeper than their parent mapping key; flow-style collections preserved as written unless they'd overflow `line-length`, in which case converted to block style (one-directional, never block→flow); `indent-size` reuses the global default (4), no YAML-specific override, but local fixtures should exercise `indent-size=2` via an in-file `# JXM_CFMT_CFG` directive; `indent-style` is explicitly ignored/inapplicable for YAML since the spec forbids tab indentation. TOML drafted with standard high-confidence conventions (no user question needed): `=` alignment reuses STYLE.md §5/§6's assignment shape directly; table/array-of-table headers get no added indentation for their keys (nesting is via dotted header names, matching real-world tooling like `taplo`/`cargo fmt`); inline tables are always single-line per the TOML v1.0 grammar itself, not a style choice. |
 
 ---
 
@@ -97,6 +117,18 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
   as JSON's — no config toggle.
 - **HTML5:** no HTML5-specific config beyond the CSS/JSON keys above and
   whatever the JS/TS formatter defines in its own state file.
+- **YAML:** uses the existing global `indent-size` (no YAML-specific
+  default override — the global default of 4 stands). **`indent-style` is
+  ignored/inapplicable for YAML** — YAML forbids tab indentation, so output
+  is always space-indented regardless of the configured value (RDD_KEY_191).
+  Local test fixtures for YAML should set `indent-size=2` via an in-file
+  `# JXM_CFMT_CFG indent-size=2` directive to exercise YAML's own
+  community-standard indent width, rather than changing the tool-wide
+  default (RDD_KEY_191).
+- **TOML:** no new config beyond the existing global `indent-size` (unused,
+  since §6.2 gives table-header keys no added indentation) /
+  `indent-style` (governs any incidental indentation the same as elsewhere,
+  though TOML rarely produces any).
 
 ---
 
@@ -166,7 +198,16 @@ relevant sections accordingly.
   `isJson || isJson5` branch. This is distinct from the still-hypothetical
   YAML/TOML-only "Flat" family (no braces at all) — do not conflate the two
   when YAML/TOML land. CSS remains a scaffold stub (`CssSpecificRule.java`)
-  until its own session.
+  until its own session. Now that concrete YAML/TOML style rules exist
+  (§5/§6, RDD_KEY_191), the "Flat" family placeholder name still stands as
+  the working name for their eventual `Lang.isSimpleBraced`-sibling
+  predicate — YAML's colon-alignment (§5.2) and TOML's `=`-alignment (§6.1)
+  are structurally different enough from JSON/CSS's brace-delimited grouping
+  (no enclosing `{}`/`[]` at the top level, indentation- and header-driven
+  instead) that they should NOT simply join `SimpleBraced` when implemented;
+  this is not yet a class-scoping decision that needs resolving before
+  implementation starts, only a naming note for whoever picks up YAML/TOML's
+  checklist items.
 - Implementation order is unchanged by the refactor: JSON/JSON5 → CSS → XML
   → HTML5 (HTML5 last, depends on both CSS and JS/TS support).
 - **HTML-before-JS/TS contingency:** if HTML5 implementation is reached
@@ -302,11 +343,25 @@ None recorded yet in this file.
       and JS/TS support (tracked in `STATE_JS_TS.md`, a separate job) being
       available before the `<script>` dispatch path can be exercised
       end-to-end.
-- [ ] Author local test fixture pairs for XML/CSS/HTML5 (JSON/JSON5's are
-      done above) and register in the Makefile's `INP_FILES` /
-      `test/README.txt`.
+- [ ] Implement YAML support (§5): tokenizer/parser for block mappings/
+      sequences and flow collections, colon-alignment groups, sequence-item
+      one-level indent, flow→block conversion on `line-length` overflow,
+      block-scalar/anchor/alias/tag opacity, multi-document `---` handling,
+      and the `indent-style`-ignored/`indent-size`-only config posture
+      (RDD_KEY_191).
+- [ ] Implement TOML support (§6): tokenizer/parser for table headers,
+      `=`-alignment groups, no-indentation-under-table-headers, tight/loose
+      arrays, always-single-line inline tables, dotted-key and string
+      quote-style preservation.
+- [ ] Author local test fixture pairs for XML/CSS/HTML5/YAML/TOML
+      (JSON/JSON5's are done above) and register in the Makefile's
+      `INP_FILES` / `test/README.txt`. No pre-drafted content exists in
+      `FUTURE_TEST_FIXTURES.md` for YAML/TOML (unlike the other formats) —
+      these will need to be hand-authored fresh, or a new section added to
+      that doc first.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format
       (`json5/json5`/`microsoft/vscode`/etc. for JSON — still open, not yet
       run; `apache/maven`/etc. for XML; `twbs/bootstrap`/etc. for CSS;
-      `h5bp/html5-boilerplate`/etc. for HTML5).
+      `h5bp/html5-boilerplate`/etc. for HTML5; `kubernetes/kubernetes`/etc.
+      for YAML; `rust-lang/cargo`/etc. for TOML).

@@ -1,8 +1,8 @@
-# STYLE_DATA_FORMATS.md — Data & Markup Format Rules (JSON/JSON5, XML, CSS, HTML5)
+# STYLE_DATA_FORMATS.md — Data & Markup Format Rules (JSON/JSON5, XML, CSS, HTML5, YAML, TOML)
 
 This file covers non-imperative data and markup formats: JSON, JSON5, XML (and its
 dialects — XHTML, SVG, MathML, RSS, Atom, Android XML, Maven POM, Ant `build.xml`,
-IntelliJ XML, etc.), CSS, and HTML5. Unlike [STYLE.md](STYLE.md), which applies to all
+IntelliJ XML, etc.), CSS, HTML5, YAML, and TOML. Unlike [STYLE.md](STYLE.md), which applies to all
 imperative languages (function signatures, switch formatting, getter/setter grouping,
 and so on), most of STYLE.md does not apply here — these formats have no functions and
 no control flow. Each subsection below states explicitly which STYLE.md sections it
@@ -309,6 +309,219 @@ immediately before/after it participate in normal indentation.
 tag) reindent to their parent's structural depth like any other content line, same
 as an element child would — by analogy with §2.2's normal tag-indentation rule,
 applied to text content rather than a nested tag (RDD_KEY_185).
+
+---
+
+## 5. YAML
+
+Covers YAML 1.1/1.2, including multi-document streams.
+
+YAML has only `#` line comments — no block-comment form — so `JXM_CFMT_DIS`/`ENA`/`CFG`
+directives use a single line-comment syntax, not the two-form (line/block) pattern
+C-family files use: `# JXM_CFMT_DIS`, `# JXM_CFMT_ENA`, `# JXM_CFMT_CFG ...`. This is
+the same "only one comment form exists, so only one directive syntax exists" posture
+as XML/CSS (§2/§3), just with a line form instead of a block form.
+
+### 5.1 Indentation
+
+Uses the formatter's existing global `indent-size` config key, same as every other
+supported language — no YAML-specific default. **`indent-style` does not apply to
+YAML and is ignored**: the YAML spec forbids tab characters for structural
+indentation entirely, so YAML output is always space-indented regardless of the
+configured `indent-style` (spaces/tabs/auto). This is the one config key in this
+entire file that a format has to explicitly opt out of, rather than just reusing —
+called out here and in `STATE_DATA_FORMATS.md`'s Config section so it isn't
+mistaken for an oversight.
+
+### 5.2 Key/Value Alignment
+
+The `:` between a mapping key and its value is column-aligned within a group, same
+grouping/group-break shape as §1.1's JSON colon alignment (itself borrowed from
+STYLE.md §5), including §1.1's space-before-`:` convention — the colon never sticks
+directly to the key:
+
+```yaml
+name        : Widget
+displayName : Widget Extended
+enabled     : true
+# a comment breaks the group
+tags        : [a, b]
+```
+
+- Adjacent same-level mapping keys form a group.
+- A blank line, a comment line, or a nesting-depth change breaks the group, same as
+  §1.1.
+- A sequence item that is itself a mapping (`- name: Widget`) starts its own
+  independent alignment group, same recursion §3.1 already applies to nested
+  selector/at-rule blocks.
+
+### 5.3 Sequences (Lists)
+
+A `-` sequence item indents **one level deeper** than its parent mapping key:
+
+```yaml
+fruits:
+    - apple
+    - banana
+
+items:
+    - name  : Widget
+      price : 9.99
+    - name  : Gadget
+      price : 4.5
+```
+
+A sequence item that is itself a mapping keeps its first key inline after the `-`;
+subsequent keys in that same item-mapping align one column past the `-` and space,
+under the first key — shown above with `items`.
+
+### 5.4 Flow-Style Collections
+
+Flow-style mappings/sequences (`{a: 1}`, `[1, 2]`) are **preserved as written** by
+default — a block-style construct in the source stays block, a flow-style construct
+stays flow. Internal spacing within a flow collection that stays flow-style follows
+the same tight-atom spacing STYLE.md/§1.2 already use (single space after `,` and
+`:`).
+
+**Exception:** if a flow-style collection would exceed the configured `line-length`
+if kept on one line, it is converted to block style instead — the same "does it fit"
+overflow signal that drives XML's attribute-wrapping (§2.2) and JSON's tight/loose
+array rule (§1.2), applied here as a flow→block conversion rather than a wrap:
+
+```yaml
+# fits within line-length -> stays flow, as written
+point: {x: 1, y: 2}
+
+# exceeds line-length as flow -> converted to block
+config:
+    timeout: 30
+    retries: 5
+    endpoints:
+        - https://a.example.com
+        - https://b.example.com
+```
+
+A block-style construct is never converted to flow, regardless of how short it is —
+this rule is one-directional (overflow forces flow→block; nothing forces block→flow).
+
+### 5.5 Anchors, Aliases, and Tags
+
+`&anchor`, `*alias`, and explicit tags (`!!str`, `!!int`, custom `!Tag`) are
+**preserved verbatim** wherever they appear — no special formatting logic beyond
+normal alignment/indentation of the surrounding key or sequence item they're attached
+to. An anchor/tag sitting in a value position does not change that key's
+participation in §5.2's colon-alignment group.
+
+### 5.6 Block Scalars
+
+Literal (`|`) and folded (`>`) block scalars, with their optional chomping (`-`, `+`)
+and explicit indentation indicators, are **opaque, preserved exactly as written**
+beyond the header line — same treatment as JSON5's line-continuation strings (§1.3)
+and XML's CDATA (§2.4):
+
+```yaml
+description: |
+    First line.
+      Indented on purpose.
+    Third line.
+```
+
+Only the header line (`key: |`) participates in §5.2's colon alignment; nothing in
+the block scalar's body is reindented, reflowed, or realigned, even if the
+surrounding mapping's indentation level changes.
+
+### 5.7 Multi-Document Streams
+
+`---` document separators and `...` end markers are preserved as written. Each
+document's indentation is independent — structural depth resets at every `---`
+boundary, it does not carry over or compound across documents in the same stream.
+
+§5.2's key/value alignment is unconditional, same reasoning as §1.1's JSON colon
+alignment — no config toggle.
+
+---
+
+## 6. TOML
+
+Covers TOML v1.0.
+
+TOML has only `#` line comments — same single-form directive posture as YAML (§5):
+`# JXM_CFMT_DIS`, `# JXM_CFMT_ENA`, `# JXM_CFMT_CFG ...`.
+
+### 6.1 Key/Value Alignment
+
+The `=` between a key and its value is column-aligned within a group, reusing
+STYLE.md §5/§6's assignment-alignment shape directly — unlike JSON/YAML's `:`,
+TOML's `=` needs no forced space-before-it rule, since STYLE.md §5/§6's own
+convention already pads up to (and never sticks to) the identifier:
+
+```toml
+name        = "widget"
+version     = "1.0.0"
+description = "A sample package"
+```
+
+- Adjacent top-level or same-table key/value lines form a group.
+- A blank line, a comment line, or a table-header boundary (§6.2) breaks the group.
+
+### 6.2 Tables and Array-of-Tables Headers
+
+`[section]` and `[[array-of-table]]` headers are rule *headers*, not declarations —
+same distinction as CSS's at-rules/selectors (§3.1) — so a header never joins an
+alignment group.
+
+Key/value pairs under a table header get **no added indentation**: TOML expresses
+nesting through dotted header names (`[section.subsection]`), not through
+indentation, so top-level keys under any `[section]` sit at column 0, matching
+real-world TOML tooling conventions (e.g. `taplo`, `cargo fmt`-adjacent formatters)
+rather than this project's usual "nesting indents one level" default:
+
+```toml
+[package]
+name    = "widget"
+version = "1.0.0"
+
+[package.metadata]
+color = "blue"
+
+[[bin]]
+name = "widget-cli"
+path = "src/main.rs"
+```
+
+Blank lines between table sections are preserved as written, not mandated or
+stripped — same optional-grouping posture as STYLE.md §12's blank-line-before-`else`
+guidance and CSS's blank-line-before-`&` (§3.1).
+
+### 6.3 Arrays
+
+Reuses STYLE.md §3.1/§1.2's tight/loose bracket rule directly: an array of atoms
+stays tight (`[1, 2, 3]`); an array containing an inline table or a nested array goes
+loose, one element per line, same as JSON's §1.2 treatment.
+
+### 6.4 Inline Tables
+
+`{ key = "value" }` inline tables are **always single-line** — this is a TOML v1.0
+grammar constraint, not a style choice (the spec forbids a line break inside an
+inline table), so unlike arrays there is no tight/loose decision to make here. Only
+internal spacing is normalized: one space after `{`, before `}`, and after each `,`.
+
+### 6.5 Dotted Keys and String Types
+
+Dotted keys (`a.b.c = 1`) are left exactly as written — never expanded into a nested
+`[a.b]`-style table header, and never the reverse. A dotted key and a nested table
+header are semantically distinct TOML constructs; this formatter does not rewrite
+one into the other.
+
+Basic strings (`"..."`), literal strings (`'...'`), and their multi-line forms
+(`"""..."""`, `'''...'''`) are preserved verbatim, including quote style — no forced
+normalization, same "preserve as written" posture as JSON5's per-key quote-style
+preservation (§1.1). A multi-line string's body is opaque, preserved exactly as
+written, same treatment as YAML block scalars (§5.6) and JSON5's line-continuation
+strings (§1.3).
+
+§6.1's key/value alignment is unconditional, same reasoning as §1.1's JSON colon
+alignment — no config toggle.
 
 Implementation-tracker content (config keys, test-fixture repos, local test
 fixtures) for this file lives in `formatter/STATE_DATA_FORMATS.md`, not

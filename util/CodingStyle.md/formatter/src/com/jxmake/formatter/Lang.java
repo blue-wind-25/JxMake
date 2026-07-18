@@ -47,6 +47,7 @@ public final class Lang {
     public final boolean isCurly;
     public final boolean isIndentBased;
     public final boolean isTagBased;
+    public final boolean isSimpleBraced;
 
     public Lang(final String language) {
         this.language = language;
@@ -67,6 +68,11 @@ public final class Lang {
         this.isCurly = isC || isCpp || isJava || isKotlin || isJs || isTs;
         this.isIndentBased = isPython3;
         this.isTagBased = isXml || isHtml5;
+        // JSON/JSON5 + CSS: brace/bracket-delimited like the curly family, but no imperative
+        // control flow (no keywords, no preprocessor, no functions) -- share a distinct
+        // "SimpleBraced" family (`TokenizerSimpleBraced`/`FormatterSimpleBraced`) instead of either
+        // `*Curly` or the flat, indentation-only family reserved for YAML/TOML.
+        this.isSimpleBraced = isJson || isJson5 || isCss;
     }
 
     /* When updating the supported language here, also update the language/extension list in:
@@ -74,7 +80,7 @@ public final class Lang {
      *    the `--lang` validation in `Main.run()`
      *    `ServerMode.FormatHandler.handle()`
      */
-    public static final String SUPPORTED_LANGUAGES = "c, cpp, java, kotlin";
+    public static final String SUPPORTED_LANGUAGES = "c, cpp, java, kotlin, json, json5";
 
     /**
      * Scaffold-only languages: recognized by {@link #infer} and accepted by `--lang`/`lang=`, but
@@ -83,19 +89,20 @@ public final class Lang {
      * is deliberately NOT a separate scaffold entry here -- it is future incremental rule coverage
      * on the existing, already-implemented {@code "cpp"} pipeline, the same way C++20 support was
      * folded in with no separate {@code isCpp20}/{@code --lang cpp20} selector. See RDD_KEY_180,
-     * which supersedes RDD_KEY_179's now-reverted separate-language approach.)
+     * which supersedes RDD_KEY_179's now-reverted separate-language approach.) JSON/JSON5 moved out
+     * of this list once `FormatterJson`/`JsonSpecificRule` landed real logic -- see RDD_KEY_190.
      */
     public static final String SCAFFOLD_ONLY_LANGUAGES =
-            "json, json5, yaml, toml, xml, css, html5, js, ts, python3";
+            "yaml, toml, xml, css, html5, js, ts, python3";
 
     public static boolean isSupported(final String language) {
         return "c".equals(language) || "cpp".equals(language)
-                || "java".equals(language) || "kotlin".equals(language);
+                || "java".equals(language) || "kotlin".equals(language)
+                || "json".equals(language) || "json5".equals(language);
     }
 
     public static boolean isScaffoldOnly(final String language) {
-        return "json".equals(language) || "json5".equals(language)
-                || "yaml".equals(language) || "toml".equals(language) || "xml".equals(language)
+        return "yaml".equals(language) || "toml".equals(language) || "xml".equals(language)
                 || "css".equals(language) || "html5".equals(language) || "js".equals(language)
                 || "ts".equals(language) || "python3".equals(language);
     }

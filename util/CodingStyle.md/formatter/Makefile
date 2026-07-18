@@ -91,6 +91,9 @@ INP_FILES += in_file_config_inp.kt
 # message.
 # INP_FILES += in_file_config_error_inp.hpp
 
+INP_FILES += json_core_inp.json
+INP_FILES += json5_core_inp.json5
+
 INP_FILES += real_code_regressions_1_inp.cpp
 INP_FILES += real_code_regressions_2_inp.java
 INP_FILES += real_code_regressions_3_inp.java

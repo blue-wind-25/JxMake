@@ -1,0 +1,29 @@
+/*
+ * Copyright (C) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+{
+    // unquoted keys, single-quoted strings, trailing commas
+    id       : 1001,
+    name     : 'Widget',
+    hex      : 0x1A,
+    negative : -5,
+
+    // blank line above breaks the group
+    message  : "First line \
+second line",
+    tags     : ['a', 'b'],
+    nested   : {
+        x : 1,
+        y : 2
+    },
+    variants : [
+        {
+            id : 1
+        },
+        {
+            id : 2
+        }
+    ],
+    // trailing comment before close
+}

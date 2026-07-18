@@ -175,6 +175,18 @@ In-file config directive:
                                             against, and would always show as a spurious FAIL.
                                             See the file itself for how to exercise it manually.
 
+JSON / JSON5 (STYLE_DATA_FORMATS.md §1, RDD_KEY_189/190):
+  json_core_inp/out.json                 -- Plain RFC 8259 JSON: colon-alignment groups, tight
+                                            atoms-only arrays, loose arrays containing objects,
+                                            empty object/array.
+
+  json5_core_inp/out.json5               -- JSON5-only additions: unquoted keys, single-quoted
+                                            strings, hex/negative numbers, `//` and `/* */`
+                                            comments and a blank line each breaking an alignment
+                                            group, a backslash-newline multi-line string preserved
+                                            opaque (§1.3), a trailing comment before the closing
+                                            brace.
+
 Real-code regressions:
   real_code_regressions_1_inp/out.cpp    -- Distilled from tinyexpr-plusplus: same-line-sibling
                                             call-argument mis-split, an undercounted call "does it

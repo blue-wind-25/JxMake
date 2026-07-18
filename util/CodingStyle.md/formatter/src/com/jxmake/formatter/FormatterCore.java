@@ -25,6 +25,9 @@ public abstract class FormatterCore {
 
     public static FormatterCore forLanguage(final String language) {
         final Lang lang = new Lang(language);
+        if (lang.isJson || lang.isJson5) {
+            return new FormatterJson(lang);
+        }
         if (lang.isCurly) {
             return new FormatterCurly(lang);
         }

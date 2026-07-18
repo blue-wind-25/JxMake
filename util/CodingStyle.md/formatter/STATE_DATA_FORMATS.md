@@ -11,9 +11,11 @@ other jobs' files) are NOT required reading for this one — only
 
 Tracks implementation of data/markup format support in the deterministic JAR
 formatter (`util/CodingStyle.md/formatter/`), per `STYLE_DATA_FORMATS.md`
-(JSON/JSON5, XML, CSS, HTML5). **Current status is scaffold-only: dispatch
-exists only as a "not yet implemented" error thrown for these formats, no
-real formatting logic exists yet.**
+(JSON/JSON5, XML, CSS, HTML5). **JSON/JSON5 (§1) is DONE -- real tokenizer,
+recursive-descent parser, and printer landed, `make test` green (see
+Checklist). XML, CSS, and HTML5 remain scaffold-only: dispatch exists only
+as a "not yet implemented" error thrown for these formats, no real
+formatting logic exists yet.**
 
 ---
 
@@ -80,6 +82,7 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 | RDD_KEY_185 | §2.2/§2.4/§4 (new §4.3) — `<pre>` content is opaque like CDATA; bare text-node siblings reindent to parent structural depth like any content line |
 | RDD_KEY_188 | Class Scoping — no separate HtmlTokenizer/HtmlFormatter; shared `*Tags` classes gated internally on `isHtml5`, concrete rules in `XmlSpecificRule.java` |
 | RDD_KEY_189 | Class Scoping — JSON/JSON5/CSS/YAML/TOML extend `TokenizerCore` directly (no `TokenizerFlat`); concrete rules in `JsonSpecificRule.java`/`YamlSpecificRule.java`/`TomlSpecificRule.java`/`CssSpecificRule.java` |
+| RDD_KEY_190 | `FormatterCore.forLanguage` dispatch for JSON/JSON5/CSS — new "SimpleBraced" family (`TokenizerSimpleBraced`/`FormatterSimpleBraced`), distinct from `*Curly` and the still-hypothetical YAML/TOML-only "Flat" family; `Lang.isSupported`/`SUPPORTED_LANGUAGES` gained json/json5, `isScaffoldOnly`/`SCAFFOLD_ONLY_LANGUAGES` dropped them |
 
 ---
 
@@ -144,7 +147,17 @@ relevant sections accordingly.
   TOML (sharing the same "neither curly/indent/tag-based" characteristic,
   though not named in the original open question) get
   `YamlSpecificRule.java`/`TomlSpecificRule.java` on the same reasoning.
-  All four are boilerplate stubs created this session — no real logic yet.
+  **Resolved further (RDD_KEY_190), once JSON/JSON5 real logic landed:**
+  JSON/JSON5 and CSS form a new "SimpleBraced" `Lang.isSimpleBraced` family —
+  `TokenizerSimpleBraced` (shared `/* */` block-comment scan) and
+  `FormatterSimpleBraced` (shared `padKeysForColonAlignment` group-padding
+  computation, §1.1/§3.1's identical colon-alignment shape). `JsonTokenizer`
+  extends `TokenizerSimpleBraced`; `FormatterJson` extends
+  `FormatterSimpleBraced` and is `FormatterCore.forLanguage`'s new
+  `isJson || isJson5` branch. This is distinct from the still-hypothetical
+  YAML/TOML-only "Flat" family (no braces at all) — do not conflate the two
+  when YAML/TOML land. CSS remains a scaffold stub (`CssSpecificRule.java`)
+  until its own session.
 - Implementation order is unchanged by the refactor: JSON/JSON5 → CSS → XML
   → HTML5 (HTML5 last, depends on both CSS and JS/TS support).
 - **HTML-before-JS/TS contingency:** if HTML5 implementation is reached
@@ -161,25 +174,60 @@ None recorded yet in this file.
 
 ## Checklist
 
-- [ ] **Implement JSON/JSON5 first (simplest grammar).** This is the literal
-      first actionable item — JSON/JSON5 has the smallest grammar of the
-      four sub-formats (no tags, no selectors, no dispatch problem) and is
-      the natural starting point before XML/CSS/HTML5.
+- [x] **Implement JSON/JSON5 first (simplest grammar).** DONE. `JsonTokenizer`
+      (extends new `TokenizerSimpleBraced`, RDD_KEY_190) tokenizes strings
+      (incl. JSON5 single-quote and backslash-newline continuations, kept as
+      one opaque token per §1.3), numbers (incl. JSON5 hex/leading sign),
+      unquoted identifiers, `//`/`/* */` comments. `JsonSpecificRule` is a
+      recursive-descent parser building a small object/array/scalar AST with
+      per-item leading-comment/blank-line trivia, then a printer implementing
+      §1.1 (colon alignment per contiguous group, broken by blank
+      line/comment/dangling-trailing-comment) via the new
+      `FormatterSimpleBraced.padKeysForColonAlignment` shared helper, and
+      §1.2 (tight atoms-only arrays that fit `line-length`, loose otherwise
+      or when containing an object/array). `FormatterJson` (new
+      `FormatterCore.forLanguage` branch, `isJson || isJson5`) wires
+      `line-length`/`indent-size`/`indent-style` from `Config`; whole-file
+      `--format-off` returns content unchanged (JSON/JSON5 have no per-region
+      frozen-span mechanism the way curly-family `//%`/`/*%` markers do).
+      Malformed input throws `JsonSpecificRule.JsonParseException`, caught
+      generically by `Main`'s existing per-file error handling (same as any
+      other rule class's runtime failure) — exercised manually with an
+      unterminated `{bad`, produced a clean non-zero-exit error, no crash.
+      `Lang.isSupported`/`SUPPORTED_LANGUAGES` gained `json`/`json5`;
+      `isScaffoldOnly`/`SCAFFOLD_ONLY_LANGUAGES` dropped them — no `Main.java`/
+      `ServerMode.java` changes needed since both already gate generically
+      off those two lists. Fixtures: `test/json_core_{inp,out}.json` (plain
+      RFC 8259: colon groups, tight/loose arrays, empty object/array) and
+      `test/json5_core_{inp,out}.json5` (unquoted keys, single-quoted
+      strings, hex/negative numbers, comment- and blank-line-broken groups,
+      opaque multi-line string, trailing comment before close), both
+      registered in the Makefile's `INP_FILES` and `test/README.txt` ahead of
+      `real_code_regressions_*`. `make test`: 92/92 forward + 92/92
+      idempotency, zero regressions. `FUTURE_TEST_FIXTURES.md` (referenced by
+      this file's original checklist wording) does not actually exist in
+      this repo — fixtures were authored directly instead; if that file is
+      created later for another sub-format, this deviation is worth a note
+      there.
 - [ ] Implement XML support (§2): tokenizer/parser for tag structure,
       indentation, attribute wrapping, DOCTYPE/PI/CDATA opacity handling.
 - [ ] Implement CSS support (§3): property/value colon alignment, at-rule
-      and native-nesting (`&`) header/group recursion.
+      and native-nesting (`&`) header/group recursion. Reuses the new
+      "SimpleBraced" family (RDD_KEY_190) landed for JSON — `CssSpecificRule`
+      should extend/use `TokenizerSimpleBraced`/`FormatterSimpleBraced`
+      (incl. `padKeysForColonAlignment`) rather than reinventing
+      colon-alignment grouping from scratch.
 - [ ] Implement HTML5 support (§4), including the `<script>`/`<style>`
       embedded-content dispatcher (splice out, format via CSS/JS-TS, splice
       back with correct re-indentation) — depends on both CSS support above
       and JS/TS support (tracked in `STATE_JS_TS.md`, a separate job) being
       available before the `<script>` dispatch path can be exercised
       end-to-end.
-- [ ] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
-      "JSON", "JSON5", "XML", "CSS", and "HTML5" sections and register in
-      the Makefile's `INP_FILES` / `test/README.txt`.
+- [ ] Author local test fixture pairs for XML/CSS/HTML5 (JSON/JSON5's are
+      done above) and register in the Makefile's `INP_FILES` /
+      `test/README.txt`.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format
-      (`json5/json5`/`microsoft/vscode`/etc. for JSON; `apache/maven`/etc.
-      for XML; `twbs/bootstrap`/etc. for CSS; `h5bp/html5-boilerplate`/etc.
-      for HTML5).
+      (`json5/json5`/`microsoft/vscode`/etc. for JSON — still open, not yet
+      run; `apache/maven`/etc. for XML; `twbs/bootstrap`/etc. for CSS;
+      `h5bp/html5-boilerplate`/etc. for HTML5).

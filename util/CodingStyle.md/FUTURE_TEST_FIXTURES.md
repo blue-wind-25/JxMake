@@ -66,101 +66,12 @@ drafted there before this staging file existed.
 coverage -- see `STATE_CPP26.md`). Their draft content formerly staged here has been
 removed; see `formatter/test/README.txt` for a description of what each covers.
 
-- **cpp_26_reflection_inp/out.cpp** — reflection (`^^`, `[:`, `:]` splicing).
-  Drafted alongside the other two pairs above, same unverified-draft status as
-  `cpp_26ext`/`cpp_26_comments` — see file intro. What's still gated on the
-  external-corpus pass (`bloomberg/clang-p2996`, `wrocpp/cpp26-reflection-examples`,
-  `simdjson/experimental_json_builder`, `stephenberry/glaze` — see
-  `STYLE_CPP26.md` §5) is *trusting* the rules, not *drafting* the fixture that
-  will check them. §5's rules stay provisional, and this pair's expected output
-  stays flagged unverified, until that pass runs.
-
-  <details>
-  <summary>Draft content (unverified — see file intro)</summary>
-
-  `cpp_26_reflection_inp.cpp`:
-  ```cpp
-  constexpr auto refl=^^SomeType;
-  constexpr auto splice=[:refl:];
-  constexpr auto computed=[:  computeRefl(x)  :];
-  constexpr auto nested=^^(a + b);
-
-  template<typename T>
-  constexpr auto reflectMember(T&& obj) {
-  return ^^obj;
-  }
-
-  void useSplice() {
-  constexpr auto r = ^^int;
-  auto v = [:r:];
-  total += [:r:];
-  }
-
-  constexpr auto x1 = ^^Foo;
-  constexpr auto x2 = ^^Bar;
-
-  void checkReflected(int x) {
-  if(isReflected(x)) return;
-  }
-  ```
-
-  `cpp_26_reflection_out.cpp`:
-  ```cpp
-  constexpr auto refl     = ^^SomeType;
-  constexpr auto splice   = [:refl:];
-  constexpr auto computed = [: computeRefl(x) :];
-  constexpr auto nested   = ^^(a + b);
-
-  template<typename T>
-  constexpr auto reflectMember(T&& obj)
-  {
-      return ^^obj;
-  }
-
-  void useSplice()
-  {
-      constexpr auto r = ^^int;
-      auto v = [:r:];
-      total += [:r:];
-  }
-
-  constexpr auto x1 = ^^Foo;
-  constexpr auto x2 = ^^Bar;
-
-  void checkReflected(int x)
-  {
-      if( isReflected(x) ) return;
-  }
-  ```
-
-  Covers: `^^` binding tight to its operand with no space in an initializer
-  (`^^SomeType`), a `return` expression (`^^obj`), and a parenthesized
-  sub-expression (`^^(a + b)`) (§5); the four-member `constexpr auto` group's `=`
-  alignment, extended from §5's own three-member example to confirm the
-  alignment logic finds the correct longest-name column with a fourth, longer
-  member added; `[:refl:]` as a bare-value splice staying tight vs.
-  `[: computeRefl(x) :]` going loose because its content contains a call,
-  mirroring the existing JAR-verified `[[ assume(a >= 0) ]]` precedent §5 cites;
-  a single unpadded splice (`[:r:]`) outside any alignment group, confirming
-  §5's tight rule holds standalone and not just inside the four-member example,
-  plus that same splice reused as an operand inside a larger expression
-  (`total += [:r:]`) rather than only as an initializer's sole RHS; `x1`/`x2` as
-  a second, separate two-member alignment group after a blank line, per STYLE.md
-  §6's grouping rule; `checkReflected`'s `if(isReflected(x))` going loose per
-  §3.1's "contains a function call" row and then collapsing to an inline
-  single-statement `if` per STYLE.md §10, since it has no comment forcing it to
-  stay a block; both function bodies reformatted to Allman braces per
-  STYLE_C_CPP.md, independent of the reflection tokens themselves. **Flagged
-  status:** this pair is drafted, not validated — it still needs the same
-  tokenizer-support pass (`^^`, `[:`, `:]` as new `MULTI_CHAR_OPS` entries) and the
-  same external-corpus cross-check §5 already calls for before its rules can be
-  trusted. Drafting the fixture now doesn't skip that work; it just means the
-  expected output is written down and ready to verify against, rather than
-  invented after the fact. **🚫 PROMOTION GATE — do not move this pair to
-  `formatter/test/` until the tokenizer-support pass and external-corpus
-  cross-check run and `STYLE_CPP26.md` §5 is updated from provisional to
-  confirmed; see file intro.**
-  </details>
+`cpp_26_reflection_inp/out.cpp` has also been extracted to `formatter/test/`
+(registered commented-out in the Makefile pending real §5 rule coverage -- see
+`STATE_CPP26.md`), promoted ahead of its original promotion gate (external-corpus
+cross-check still pending) to seed the initial tokenizer test, per explicit
+instruction. Its draft content formerly staged here has been removed; see
+`formatter/test/README.txt` for a description of what it covers.
 
 Referenced from: `STYLE_CPP26.md`.
 

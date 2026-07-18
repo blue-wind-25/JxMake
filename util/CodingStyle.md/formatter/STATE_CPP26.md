@@ -159,13 +159,14 @@ formal blocked Open Question here since real implementation hasn't started.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "CPP26" section (reflection pair sequenced after the §5 tokenizer
       validation pass, per that section's own note) and register in the
-      Makefile's `INP_FILES` / `test/README.txt`. Done: `cpp_26ext_inp/out.cpp`
-      and `cpp_26_comments_inp/out.cpp` extracted to `test/`, registered
-      commented-out in the Makefile (real §1–4 rule coverage not yet
-      implemented), documented in `test/README.txt`.
-      `cpp_26_reflection_inp/out.cpp` intentionally left in
-      `FUTURE_TEST_FIXTURES.md`, NOT extracted -- its promotion gate is still
-      unmet.
+      Makefile's `INP_FILES` / `test/README.txt`. Done: `cpp_26ext_inp/out.cpp`,
+      `cpp_26_comments_inp/out.cpp`, and `cpp_26_reflection_inp/out.cpp` all
+      extracted to `test/`, registered commented-out in the Makefile (real
+      §1–4/§5 rule coverage not yet implemented), documented in
+      `test/README.txt`. `cpp_26_reflection`'s promotion gate (external-corpus
+      cross-check for §5) was explicitly overridden per user instruction, since
+      the pair is needed to seed the initial tokenizer test for `^^`/`[:`/`:]` --
+      its expected output still isn't validated against that cross-check.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       this file's "Test Fixtures (External, corpus-scale)" list, once §5
       is implemented.

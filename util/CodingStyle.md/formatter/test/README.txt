@@ -273,9 +273,22 @@ STATE_CPP26.md):
                                             leading/trailing contract comments, and `/* */`
                                             block comments between contract clauses.
 
-  (cpp_26_reflection_inp/out.cpp is deliberately NOT extracted here -- it carries a
-  promotion gate pending a tokenizer-support pass and external-corpus cross-check; see
-  FUTURE_TEST_FIXTURES.md/STATE_CPP26.md.)
+  cpp_26_reflection_inp/out.cpp          -- Reflection (`^^`, `[:`/`:]` splicing):
+                                            `^^` binding tight to an initializer, a
+                                            `return` expression, and a parenthesized
+                                            sub-expression; a four-member `constexpr
+                                            auto` `=`-alignment group; `[:refl:]`
+                                            staying tight vs. `[: computeRefl(x) :]`
+                                            going loose because it contains a call; a
+                                            standalone splice reused as an operand; a
+                                            second alignment group after a blank
+                                            line; and an `if` going loose then
+                                            collapsing to inline. Promoted ahead of
+                                            its original promotion gate (external-
+                                            corpus cross-check for STYLE_CPP26.md §5
+                                            still pending) to seed the initial
+                                            tokenizer test for `^^`/`[:`/`:]`; see
+                                            STATE_CPP26.md.
 
 HTML5 (fixtures authored ahead of implementation -- registered commented-out in the
 Makefile's INP_FILES until real dispatch/formatting logic lands; see

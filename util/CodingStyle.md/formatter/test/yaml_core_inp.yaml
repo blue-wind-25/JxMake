@@ -4,7 +4,7 @@ name: widget
 displayName: "Widget Extended"
 enabled: true
 point: {x: 1, y: 2}
-config: {timeout: 30, retries: 5, endpoints: [https://a.example.com, https://b.example.com, https://c.example.com]}
+config: {timeout: 30, retries: 5, endpoints: [https://a.example.com, https://b.example.com, https://c.example.com], endpointsExt: [https://d.a_long_domain_name.com, https://e.a_long_domain_name.com, https://f.a_long_domain_name.com]}
 fruits:
 - apple
 - banana

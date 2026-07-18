@@ -1,0 +1,34 @@
+<div>
+    <!-- Top banner -->
+    <!-- Second banner line, stacked -->
+    <p>Hello</p><!-- Inline note -->
+    <notes><![CDATA[Raw <config> data & "quoted" bits, <left> untouched.]]></notes>
+    <img
+        class="icon"
+        src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        alt="icon">
+    <style>
+        .icon {
+            /* Comment as sole content before declarations */
+            width : 16px;
+        }
+    </style>
+    <script><![CDATA[
+        function tick()
+        {
+            var now = Date.now();
+            var elapsed = now - startTime;
+            console.log("tick", elapsed);
+            return now;
+        }
+
+        function reset()
+        {
+            startTime = Date.now();
+        }
+    ]]></script>
+    <script type="application/json">
+{"a":1,"b":2}
+</script>
+    <!-- Trailing comment right before close, no blank line -->
+</div>

@@ -107,6 +107,34 @@ INP_FILES += toml_comments_inp.toml
 INP_FILES += xml_core_inp.xml
 INP_FILES += xml_comments_inp.xml
 
+# cpp_26ext/cpp_26_comments: fixtures authored ahead of implementation, hand-drafted
+# against STYLE_CPP26.md -- not yet verified by a real JAR (new C++26 rule coverage is
+# not yet implemented in the existing cpp pipeline). Uncomment once real logic lands.
+# (cpp_26_reflection is deliberately NOT registered here at all -- see its promotion
+# gate in STATE_CPP26.md/FUTURE_TEST_FIXTURES.md.)
+# INP_FILES += cpp_26ext_inp.cpp
+# INP_FILES += cpp_26_comments_inp.cpp
+
+# html_combined/html_comments: fixtures authored ahead of implementation, hand-drafted
+# against STYLE_DATA_FORMATS.md -- not yet verified by a real JAR (HTML5 is still
+# scaffold-only). Uncomment once real logic lands.
+# INP_FILES += html_combined_inp.html
+# INP_FILES += html_comments_inp.html
+
+# js_combined/js_comments/ts_combined/ts_comments: fixtures authored ahead of
+# implementation, hand-drafted against STYLE_JS_TS.md -- not yet verified by a real
+# JAR (JS/TS are still scaffold-only). Uncomment once real logic lands.
+# INP_FILES += js_combined_inp.js
+# INP_FILES += js_comments_inp.js
+# INP_FILES += ts_combined_inp.ts
+# INP_FILES += ts_comments_inp.ts
+
+# py_combined/py_comments: fixtures authored ahead of implementation, hand-drafted
+# against STYLE_PYTHON3.md -- not yet verified by a real JAR (Python3 is still
+# scaffold-only). Uncomment once real logic lands.
+# INP_FILES += py_combined_inp.py
+# INP_FILES += py_comments_inp.py
+
 INP_FILES += real_code_regressions_1_inp.cpp
 INP_FILES += real_code_regressions_2_inp.java
 INP_FILES += real_code_regressions_3_inp.java

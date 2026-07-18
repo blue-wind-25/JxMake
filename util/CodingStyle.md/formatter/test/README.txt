@@ -241,8 +241,7 @@ YAML / TOML:
                                             malformed-spacing line verbatim, a trailing comment, and
                                             comment-start-case normalization.
 
-XML (authored ahead of implementation, commented out of the Makefile -- see
-STATE_DATA_FORMATS.md's Checklist):
+XML:
   xml_core_inp/out.xml                   -- `<?xml?>` PI and `<!DOCTYPE>` preserved opaque/verbatim,
                                             preserved attribute order including `xmlns`/`xmlns:foo`,
                                             an empty open/close pair left unexpanded, a preserved
@@ -253,6 +252,104 @@ STATE_DATA_FORMATS.md's Checklist):
   xml_comments_inp/out.xml               -- An `<!-- -->` comment reindented and case-normalized, a
                                             `<!--% JXM_CFMT_DIS -->`/`ENA` marker pair freezing a
                                             malformed-spacing tag verbatim, and a trailing comment.
+
+C++26 (fixtures authored ahead of implementation -- registered commented-out in the
+Makefile's INP_FILES until real rule coverage lands on the cpp pipeline; see
+STATE_CPP26.md):
+  cpp_26ext_inp/out.cpp                  -- Pack indexing (`T...[N]` tight vs. going loose
+                                            when the index contains a call or a nested
+                                            bracket), `= delete("reason")` vs. bare
+                                            `= delete;`, placeholder `_` in structured
+                                            bindings and if-init, and contract clauses
+                                            (`pre`/`post`/`contract_assert`) staying inline
+                                            when the signature fits vs. one-per-line when it
+                                            doesn't.
+
+  cpp_26_comments_inp/out.cpp            -- Uncommon comment placement around the above:
+                                            leading comment before pack indexing, comment
+                                            between `template<>` and its `using`, comments
+                                            forcing an `if`-init to stay a braced block
+                                            instead of collapsing to inline, per-clause
+                                            leading/trailing contract comments, and `/* */`
+                                            block comments between contract clauses.
+
+  (cpp_26_reflection_inp/out.cpp is deliberately NOT extracted here -- it carries a
+  promotion gate pending a tokenizer-support pass and external-corpus cross-check; see
+  FUTURE_TEST_FIXTURES.md/STATE_CPP26.md.)
+
+HTML5 (fixtures authored ahead of implementation -- registered commented-out in the
+Makefile's INP_FILES until real dispatch/formatting logic lands; see
+STATE_DATA_FORMATS.md):
+  html_combined_inp/out.html             -- Void element normalization (`<img>`/`<input>`/
+                                            `<br>` lose self-closing `/`, contrasted with
+                                            `<link>`), bare boolean attributes, a tag whose
+                                            combined attribute width overflows and wraps one
+                                            per line, an embedded `<style>` block dispatched
+                                            to CSS formatting, an embedded `<script>` block
+                                            dispatched to JS formatting, ordinary nesting, and
+                                            `<pre>` content preserved byte-for-byte.
+
+  html_comments_inp/out.html             -- Stacked leading `<!-- -->` comments, an inline
+                                            trailing comment, opaque CDATA in a non-script
+                                            tag, a `data:` URI attribute overflowing by
+                                            length (not count), a comment as sole content
+                                            inside a spliced `<style>` block, the
+                                            CDATA-wrapped `<script>` idiom dispatched to JS
+                                            formatting and re-wrapped, and a
+                                            `<script type="application/json">` block staying
+                                            fully opaque.
+
+JS/TS (fixtures authored ahead of implementation -- registered commented-out in the
+Makefile's INP_FILES until real formatting logic lands; see STATE_JS_TS.md):
+  js_combined_inp/out.js                 -- Import grouping/sorting, inline vs. own-line
+                                            decorator placement, a private class field,
+                                            static vs. instance getter/setter one-liner
+                                            alignment groups, destructuring/spread/template
+                                            literals/optional chaining/nullish coalescing,
+                                            both arrow forms, an eight-member `const`
+                                            `=`-alignment group, mandatory blank line before
+                                            `return`, and closing comments on the class and an
+                                            Allman-brace method but not a short generator.
+
+  js_comments_inp/out.js                 -- Leading/trailing comments surviving import
+                                            resort, a comment forcing a destructuring pattern
+                                            multi-line (and out of any `=`-alignment group),
+                                            and comments around a generator method's `yield`s.
+
+  ts_combined_inp/out.ts                 -- Tight union/intersection `=`-alignment, both
+                                            break-before/break-after long-union continuation
+                                            styles, generics with a default type parameter,
+                                            `interface`/`type`-alias `:` alignment, both enum
+                                            forms, the full six-slot class-field modifier
+                                            order, a mixed-modifier-length alignment group,
+                                            and the two-step decorator-overflow cascade.
+
+  ts_comments_inp/out.ts                 -- A trailing comment surviving union-continuation
+                                            realignment, a comment inside a generic
+                                            type-parameter list staying tight, comments
+                                            breaking `interface`/enum alignment groups, and a
+                                            trailing comment on an overflow-wrapped decorator
+                                            staying attached to its closing `)`.
+
+Python3 (fixtures authored ahead of implementation -- registered commented-out in the
+Makefile's INP_FILES until real formatting logic lands; see STATE_PYTHON3.md):
+  py_combined_inp/out.py                 -- Bracket-complexity categories, assignment
+                                            alignment (augmented assignment, both
+                                            continuation-break styles), import
+                                            ordering/grouping including `__future__`
+                                            promotion, decorators, f-strings, function
+                                            signature wrapping with type hints, structural
+                                            pattern matching, single-statement compound
+                                            bodies, control-flow blank lines, `async`/`await`,
+                                            and a `@property`/`@x.setter` pair.
+
+  py_comments_inp/out.py                 -- Uncommon `#` comment placement: a comment
+                                            breaking an assignment-alignment group, trailing
+                                            comments not breaking a comprehension-assignment
+                                            group, a comment forcing a signature to wrap, a
+                                            byte-for-byte-preserved docstring, a comment
+                                            between two `case` blocks, and a comment breaking
+                                            a compact `case`-line alignment group.
 
 Real-code regressions:
   real_code_regressions_1_inp/out.cpp    -- Distilled from tinyexpr-plusplus: same-line-sibling

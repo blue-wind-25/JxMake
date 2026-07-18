@@ -422,6 +422,11 @@ None recorded yet in this file.
       and JS/TS support (tracked in `STATE_JS_TS.md`, a separate job) being
       available before the `<script>` dispatch path can be exercised
       end-to-end.
+- [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s "HTML5"
+      section and register in the Makefile's `INP_FILES` / `test/README.txt`.
+      Done: `html_combined_inp/out.html` and `html_comments_inp/out.html`
+      extracted to `test/`, registered commented-out in the Makefile (real
+      logic not yet implemented), documented in `test/README.txt`.
 - [x] **Implement YAML support (§5).** `YamlSpecificRule.java` implements a
       from-scratch line-based recursive-descent parser (NOT a reuse of
       `TokenizerCore`/`Token` — YAML's grammar is indentation-significant,

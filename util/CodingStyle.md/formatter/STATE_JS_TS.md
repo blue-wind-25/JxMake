@@ -189,10 +189,14 @@ attempted this session, future work:
       `STATE_KOTLIN.md` Step 0 used).
 - [ ] Implement §2–15 rule-by-rule, each its own checkpoint commit, per
       `STATE_COMMON.md`'s workflow.
-- [ ] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
+- [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "JavaScript" and "TypeScript" sections (split by extension, `.js` vs.
       `.ts`, since TS-only constructs can't live in a valid `.js` file) and
-      register in the Makefile's `INP_FILES` / `test/README.txt`.
+      register in the Makefile's `INP_FILES` / `test/README.txt`. Done:
+      `js_combined_inp/out.js`, `js_comments_inp/out.js`,
+      `ts_combined_inp/out.ts`, `ts_comments_inp/out.ts` extracted to `test/`,
+      registered commented-out in the Makefile (real logic not yet
+      implemented), documented in `test/README.txt`.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_JS_TS.md`'s listed test-fixture repos (`nodejs/node`,
       `expressjs/express`, `lodash/lodash`, `microsoft/TypeScript`,

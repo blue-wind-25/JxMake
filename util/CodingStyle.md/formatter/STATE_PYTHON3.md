@@ -197,9 +197,12 @@ unresolved in the style doc itself as of this session.
       §2/§6/§7 all depend on its alignment/padding primitives.
 - [ ] Implement §2–9 rule-by-rule, each its own checkpoint commit, per
       `STATE_COMMON.md`'s workflow.
-- [ ] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
+- [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "Python3" section and register in the Makefile's `INP_FILES` /
-      `test/README.txt`.
+      `test/README.txt`. Done: `py_combined_inp/out.py` and
+      `py_comments_inp/out.py` extracted to `test/`, registered
+      commented-out in the Makefile (real logic not yet implemented),
+      documented in `test/README.txt`.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_PYTHON3.md`'s listed test-fixture repos (`python/cpython`,
       `pallets/flask`, `django/django`, `psf/black`, `pallets/click`).

@@ -1,0 +1,24 @@
+<?xml   version="1.0"   encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="catalog.xsl"?>
+<!DOCTYPE catalog   SYSTEM  "catalog.dtd">
+<catalog xmlns="http://example.com/catalog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://example.com/catalog catalog.xsd">
+<book id="bk101" category="fiction" available="true">
+<title>The Great Adventure</title>
+<author>Jane Doe</author>
+</book>
+<book id="bk102" category="reference" available="false" publisher="Example Publishing House" edition="3rd">
+<title>Widgets &amp; Gadgets</title>
+<author>John Smith</author>
+</book>
+<image href="cover.png"/>
+<thumbnail href="cover-thumb.png" width="100" height="150" alt="Cover thumbnail image"/>
+<notes><![CDATA[Raw <unparsed> content & symbols, left untouched.]]></notes>
+<script><![CDATA[
+function greet(name) {
+return "Hello, " + name
+}
+]]></script>
+<style><![CDATA[
+.title{font-weight:bold;color:#333}
+]]></style>
+</catalog>

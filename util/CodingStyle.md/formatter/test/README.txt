@@ -242,16 +242,30 @@ YAML/TOML:
                                             comment-start-case normalization.
 
 XML:
-  xml_core_inp/out.xml                   -- `<?xml?>` PI and `<!DOCTYPE>` preserved opaque/verbatim,
-                                            preserved attribute order including `xmlns`/`xmlns:foo`,
-                                            an empty open/close pair left unexpanded, a preserved
-                                            self-closing tag, nested-tag reindentation, an
-                                            overflowing tag's attributes wrapped one per line, and
-                                            opaque CDATA content.
+  xml_combined_inp/out.xml               -- `<?xml?>` PI plus a second `<?xml-stylesheet?>` PI and
+                                            `<!DOCTYPE>` all preserved opaque/verbatim including
+                                            irregular internal spacing; a multi-attribute opening
+                                            tag overflowing and wrapping one attribute per line,
+                                            with `xmlns`/`xmlns:xsi` order preserved; a short
+                                            attribute list staying on one line right next to a
+                                            longer one that wraps; an entity reference in ordinary
+                                            text left untouched; self-closing tags (never wrapped
+                                            regardless of length -- no wrap support for self-closing
+                                            tags yet, a known gap); and `<notes>`/`<script>`/
+                                            `<style>` CDATA content all staying fully opaque --
+                                            `<script>`/`<style>` splicing to JS/CSS is an HTML5-only
+                                            addition (§4.2), not implemented for plain XML.
 
-  xml_comments_inp/out.xml               -- An `<!-- -->` comment reindented and case-normalized, a
-                                            `<!--% JXM_CFMT_DIS -->`/`ENA` marker pair freezing a
-                                            malformed-spacing tag verbatim, and a trailing comment.
+  xml_comments_inp/out.xml               -- A standalone leading `<!-- -->` comment reindented and
+                                            case-normalized, now also exercised two levels deep
+                                            inside a nested block; an inline trailing comment
+                                            gaining a leading space before `<!--`; a multi-line
+                                            `<!-- -->` comment whose opening line reindents and
+                                            capitalizes while its interior/closing line is folded
+                                            onto the same line as the closing `-->`; a `<!--%
+                                            JXM_CFMT_DIS -->`/`ENA` marker pair freezing a
+                                            malformed-spacing tag verbatim; and a trailing comment
+                                            right before the closing tag.
 
 C++26:
 Fixtures authored ahead of implementation -- registered commented-out in the

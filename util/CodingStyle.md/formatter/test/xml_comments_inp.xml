@@ -1,8 +1,19 @@
-<root>
-<!--   leading comment, needs case fix and reindent   -->
-<a>1</a>
+<config>
+<!-- top-level settings -->
+<timeout>30</timeout>
+<retries>3</retries> <!-- inline trailing comment -->
 <!--% JXM_CFMT_DIS -->
-  <b   attr="weird spacing" ></b>
+<weird    attr="1"   other = "2" ></weird>
 <!--% JXM_CFMT_ENA -->
-<c>2</c> <!-- trailing comment -->
-</root>
+<database>
+<host>localhost</host>
+<!-- nested comment inside database block -->
+<port>5432</port>
+</database>
+<!--
+multi-line comment
+spanning several lines
+-->
+<name>worker</name>
+<!-- trailing comment right before close -->
+</config>

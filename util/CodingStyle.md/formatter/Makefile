@@ -104,7 +104,7 @@ INP_FILES += yaml_comments_inp.yaml
 INP_FILES += toml_core_inp.toml
 INP_FILES += toml_comments_inp.toml
 
-INP_FILES += xml_core_inp.xml
+INP_FILES += xml_combined_inp.xml
 INP_FILES += xml_comments_inp.xml
 
 # cpp_26ext/cpp_26_comments/cpp_26_reflection: fixtures authored ahead of
@@ -118,12 +118,6 @@ INP_FILES += xml_comments_inp.xml
 # INP_FILES += cpp_26_comments_inp.cpp
 # INP_FILES += cpp_26_reflection_inp.cpp
 
-# html_combined/html_comments: fixtures authored ahead of implementation, hand-drafted
-# against STYLE_DATA_FORMATS.md -- not yet verified by a real JAR (HTML5 is still
-# scaffold-only). Uncomment once real logic lands.
-# INP_FILES += html_combined_inp.html
-# INP_FILES += html_comments_inp.html
-
 # js_combined/js_comments/ts_combined/ts_comments: fixtures authored ahead of
 # implementation, hand-drafted against STYLE_JS_TS.md -- not yet verified by a real
 # JAR (JS/TS are still scaffold-only). Uncomment once real logic lands.
@@ -131,6 +125,12 @@ INP_FILES += xml_comments_inp.xml
 # INP_FILES += js_comments_inp.js
 # INP_FILES += ts_combined_inp.ts
 # INP_FILES += ts_comments_inp.ts
+
+# html_combined/html_comments: fixtures authored ahead of implementation, hand-drafted
+# against STYLE_DATA_FORMATS.md -- not yet verified by a real JAR (HTML5 is still
+# scaffold-only). Uncomment once real logic lands.
+# INP_FILES += html_combined_inp.html
+# INP_FILES += html_comments_inp.html
 
 # py_combined/py_comments: fixtures authored ahead of implementation, hand-drafted
 # against STYLE_PYTHON3.md -- not yet verified by a real JAR (Python3 is still

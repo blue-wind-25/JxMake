@@ -175,7 +175,7 @@ In-file config directive:
                                             show as a spurious FAIL. See the file itself for how to
                                             exercise it manually.
 
-JSON / JSON5:
+JSON/JSON5:
   json_core_inp/out.json                 -- Plain RFC 8259 JSON: colon-alignment groups, tight
                                             atoms-only arrays, loose arrays containing objects,
                                             empty object/array.
@@ -211,7 +211,7 @@ CSS:
                                             */ : value`), and a comment as the sole content before
                                             declarations inside a native-nesting `&:hover` block.
 
-YAML / TOML:
+YAML/TOML:
   yaml_core_inp/out.yaml                 -- Mapping colon-alignment group, a flow mapping short
                                             enough to stay flow, a flow mapping converted to block
                                             on `line-length` overflow (including its own nested
@@ -253,9 +253,11 @@ XML:
                                             `<!--% JXM_CFMT_DIS -->`/`ENA` marker pair freezing a
                                             malformed-spacing tag verbatim, and a trailing comment.
 
-C++26 (fixtures authored ahead of implementation -- registered commented-out in the
+C++26:
+Fixtures authored ahead of implementation -- registered commented-out in the
 Makefile's INP_FILES until real rule coverage lands on the cpp pipeline; see
-STATE_CPP26.md):
+STATE_CPP26.md).
+
   cpp_26ext_inp/out.cpp                  -- Pack indexing (`T...[N]` tight vs. going loose
                                             when the index contains a call or a nested
                                             bracket), `= delete("reason")` vs. bare
@@ -290,30 +292,10 @@ STATE_CPP26.md):
                                             tokenizer test for `^^`/`[:`/`:]`; see
                                             STATE_CPP26.md.
 
-HTML5 (fixtures authored ahead of implementation -- registered commented-out in the
-Makefile's INP_FILES until real dispatch/formatting logic lands; see
-STATE_DATA_FORMATS.md):
-  html_combined_inp/out.html             -- Void element normalization (`<img>`/`<input>`/
-                                            `<br>` lose self-closing `/`, contrasted with
-                                            `<link>`), bare boolean attributes, a tag whose
-                                            combined attribute width overflows and wraps one
-                                            per line, an embedded `<style>` block dispatched
-                                            to CSS formatting, an embedded `<script>` block
-                                            dispatched to JS formatting, ordinary nesting, and
-                                            `<pre>` content preserved byte-for-byte.
+JS/TS:
+Fixtures authored ahead of implementation -- registered commented-out in the
+Makefile's INP_FILES until real formatting logic lands; see STATE_JS_TS.md).
 
-  html_comments_inp/out.html             -- Stacked leading `<!-- -->` comments, an inline
-                                            trailing comment, opaque CDATA in a non-script
-                                            tag, a `data:` URI attribute overflowing by
-                                            length (not count), a comment as sole content
-                                            inside a spliced `<style>` block, the
-                                            CDATA-wrapped `<script>` idiom dispatched to JS
-                                            formatting and re-wrapped, and a
-                                            `<script type="application/json">` block staying
-                                            fully opaque.
-
-JS/TS (fixtures authored ahead of implementation -- registered commented-out in the
-Makefile's INP_FILES until real formatting logic lands; see STATE_JS_TS.md):
   js_combined_inp/out.js                 -- Import grouping/sorting, inline vs. own-line
                                             decorator placement, a private class field,
                                             static vs. instance getter/setter one-liner
@@ -344,8 +326,34 @@ Makefile's INP_FILES until real formatting logic lands; see STATE_JS_TS.md):
                                             trailing comment on an overflow-wrapped decorator
                                             staying attached to its closing `)`.
 
-Python3 (fixtures authored ahead of implementation -- registered commented-out in the
-Makefile's INP_FILES until real formatting logic lands; see STATE_PYTHON3.md):
+HTML5:
+Fixtures authored ahead of implementation -- registered commented-out in the
+Makefile's INP_FILES until real dispatch/formatting logic lands; see
+STATE_DATA_FORMATS.md.
+
+  html_combined_inp/out.html             -- Void element normalization (`<img>`/`<input>`/
+                                            `<br>` lose self-closing `/`, contrasted with
+                                            `<link>`), bare boolean attributes, a tag whose
+                                            combined attribute width overflows and wraps one
+                                            per line, an embedded `<style>` block dispatched
+                                            to CSS formatting, an embedded `<script>` block
+                                            dispatched to JS formatting, ordinary nesting, and
+                                            `<pre>` content preserved byte-for-byte.
+
+  html_comments_inp/out.html             -- Stacked leading `<!-- -->` comments, an inline
+                                            trailing comment, opaque CDATA in a non-script
+                                            tag, a `data:` URI attribute overflowing by
+                                            length (not count), a comment as sole content
+                                            inside a spliced `<style>` block, the
+                                            CDATA-wrapped `<script>` idiom dispatched to JS
+                                            formatting and re-wrapped, and a
+                                            `<script type="application/json">` block staying
+                                            fully opaque.
+
+Python3:
+Fixtures authored ahead of implementation -- registered commented-out in the
+Makefile's INP_FILES until real formatting logic lands; see STATE_PYTHON3.md).
+
   py_combined_inp/out.py                 -- Bracket-complexity categories, assignment
                                             alignment (augmented assignment, both
                                             continuation-break styles), import

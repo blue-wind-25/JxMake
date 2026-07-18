@@ -212,11 +212,6 @@ CSS:
                                             declarations inside a native-nesting `&:hover` block.
 
 YAML / TOML:
-**scaffold-only, formatting not yet implemented (YamlSpecificRule.java/TomlSpecificRule.java
-are boilerplate stubs). These pairs are hand-drafted against the style rules,
-not generated or verified by a JAR, and are commented out of the Makefile's
-INP_FILES so `make test` stays green; uncomment once real logic lands:**
-
   yaml_core_inp/out.yaml                 -- Mapping colon-alignment group, a flow mapping short
                                             enough to stay flow, a flow mapping converted to block
                                             on `line-length` overflow (including its own nested
@@ -245,6 +240,19 @@ INP_FILES so `make test` stays green; uncomment once real logic lands:**
                                             JXM_CFMT_DIS`/`ENA` marker pair freezing a
                                             malformed-spacing line verbatim, a trailing comment, and
                                             comment-start-case normalization.
+
+XML (authored ahead of implementation, commented out of the Makefile -- see
+STATE_DATA_FORMATS.md's Checklist):
+  xml_core_inp/out.xml                   -- `<?xml?>` PI and `<!DOCTYPE>` preserved opaque/verbatim,
+                                            preserved attribute order including `xmlns`/`xmlns:foo`,
+                                            an empty open/close pair left unexpanded, a preserved
+                                            self-closing tag, nested-tag reindentation, an
+                                            overflowing tag's attributes wrapped one per line, and
+                                            opaque CDATA content.
+
+  xml_comments_inp/out.xml               -- An `<!-- -->` comment reindented and case-normalized, a
+                                            `<!--% JXM_CFMT_DIS -->`/`ENA` marker pair freezing a
+                                            malformed-spacing tag verbatim, and a trailing comment.
 
 Real-code regressions:
   real_code_regressions_1_inp/out.cpp    -- Distilled from tinyexpr-plusplus: same-line-sibling

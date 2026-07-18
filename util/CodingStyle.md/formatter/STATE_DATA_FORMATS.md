@@ -288,6 +288,23 @@ None recorded yet in this file.
       regressions.
 - [ ] Implement XML support (§2): tokenizer/parser for tag structure,
       indentation, attribute wrapping, DOCTYPE/PI/CDATA opacity handling.
+      **Fixtures authored ahead of implementation** (same precedent as
+      YAML/TOML, RDD_KEY_191/192): `test/xml_core_{inp,out}.xml` (`<?xml?>`
+      PI and `<!DOCTYPE>` preserved opaque/verbatim, preserved attribute
+      order including `xmlns`/`xmlns:foo`, an empty open/close pair left
+      unexpanded, a preserved self-closing tag, nested-tag reindentation, an
+      overflowing tag's attributes wrapped one per line, opaque CDATA
+      content) and `test/xml_comments_{inp,out}.xml` (a `<!-- -->` comment
+      reindented and case-normalized, a `<!--% JXM_CFMT_DIS -->`/`ENA`
+      marker pair freezing a malformed-spacing tag verbatim, a trailing
+      comment), described in `test/README.txt`, **commented out** of the
+      Makefile's `INP_FILES` pending real logic. One design decision made
+      by judgment call while authoring (§2.2 doesn't specify exactly how an
+      overflowing *empty* tag's wrap should place its closing bracket/close
+      tag): the wrapped tag's final `>` goes on its own line at the tag's
+      own indent, followed by `</tagname>` on the next line at the same
+      indent (mirrors common real-world XML formatter convention, e.g.
+      IntelliJ/Prettier-XML) -- see `xml_core_out.xml`'s `<longtag>` case.
 - [x] **Implement CSS support (§3).** DONE. `CssTokenizer` (extends
       `TokenizerSimpleBraced`) is deliberately coarse-grained -- emits
       WHITESPACE/NEWLINE/`/* */` COMMENT_BLOCK/STRING/PUNCT (`{}();:,&`) and

@@ -1,0 +1,8 @@
+<root>
+    <!-- Leading comment, needs case fix and reindent -->
+    <a>1</a>
+<!--% JXM_CFMT_DIS -->
+  <b   attr="weird spacing" ></b>
+<!--% JXM_CFMT_ENA -->
+    <c>2</c> <!-- Trailing comment -->
+</root>

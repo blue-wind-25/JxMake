@@ -65,6 +65,24 @@ are very long, and `-A` context will flood output unnecessarily.
   entries — the same "ahead of `real_code_regressions_*`" ordering the
   Real-code testing methodology section below already uses for bug-fix
   fixtures.
+- **For new languages' local test fixtures, use the ones embedded in
+  `../FUTURE_TEST_FIXTURES.md`** (one directory above `formatter/`, i.e. at
+  `util/CodingStyle.md/FUTURE_TEST_FIXTURES.md`) rather than hand-inventing
+  fixture content — most new languages have more than one embedded fixture
+  (`grep -n "^## "` to find each job's section). The `inp`/`out` pairs in
+  that file are hand-crafted drafts and **may contain errors** — check as
+  needed before using; if a draft's expected output disagrees with
+  already-established, already-tested behavior elsewhere, trust the
+  established behavior and correct the draft, don't blindly copy it. Each
+  fixture's file names are stated in the doc text right before the actual
+  test code (a bold bullet header) — use those names exactly, don't
+  improvise your own. Every fenced code block in the doc sits inside a
+  markdown bullet-list item and so carries a uniform 2-space indent purely
+  for the MD formatting — strip that common 2-space prefix from every line
+  before writing the real fixture file. Once a fixture pair has been
+  extracted and registered as a real `test/*_inp.*`/`*_out.*` pair, remove
+  its now-redundant embedded copy from `../FUTURE_TEST_FIXTURES.md` so the
+  doc doesn't drift out of sync with what's already been extracted.
 - Use `/tmp` for temporary smoke-test and mini-test files.
 - NEVER perform a filesystem-wide find; search first in `/tmp/claude-1000`
   or the project root. If still not found, ask the user.

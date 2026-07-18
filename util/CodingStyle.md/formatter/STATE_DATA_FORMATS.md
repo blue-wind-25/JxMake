@@ -111,6 +111,14 @@ commitment to implement it — see FUTURE_FEATURE_DISCUSSION.md for status):
   `primer/css`
 - **HTML5:** `h5bp/html5-boilerplate`, `twbs/bootstrap` (docs site), `mdn/content`,
   `whatwg/html`
+- **YAML:** `kubernetes/kubernetes` (manifests/Helm-adjacent config, heavy real-world
+  nesting/anchors), `docker/compose` (compose-file corpus), `ansible/ansible`
+  (playbooks — heavy on lists-of-maps, block scalars), `actions/starter-workflows`
+  (small, dense GitHub Actions YAML, good for quick spot checks)
+- **TOML:** `rust-lang/cargo` (`Cargo.toml` corpus across its own repo and any
+  vendored crates), `python-poetry/poetry` (`pyproject.toml`-heavy), `pola-rs/polars`
+  (large Rust workspace, many `Cargo.toml` files), `toml-lang/toml` (the spec repo
+  itself — includes a compliance-test-style example corpus)
 
 ---
 

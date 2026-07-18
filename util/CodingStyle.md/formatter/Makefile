@@ -104,11 +104,8 @@ INP_FILES += yaml_comments_inp.yaml
 INP_FILES += toml_core_inp.toml
 INP_FILES += toml_comments_inp.toml
 
-# xml_core_inp.xml / xml_comments_inp.xml: fixtures authored ahead of implementation, hand-drafted
-# against STYLE_DATA_FORMATS.md §2 -- not yet verified by a real JAR (XmlSpecificRule is still a
-# boilerplate stub). Uncomment once real logic lands. See STATE_DATA_FORMATS.md's Checklist.
-# INP_FILES += xml_core_inp.xml
-# INP_FILES += xml_comments_inp.xml
+INP_FILES += xml_core_inp.xml
+INP_FILES += xml_comments_inp.xml
 
 INP_FILES += real_code_regressions_1_inp.cpp
 INP_FILES += real_code_regressions_2_inp.java

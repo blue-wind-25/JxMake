@@ -105,6 +105,7 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 | RDD_KEY_190 | `FormatterCore.forLanguage` dispatch for JSON/JSON5/CSS — new "SimpleBraced" family (`TokenizerSimpleBraced`/`FormatterSimpleBraced`), distinct from `*Curly` and the still-hypothetical YAML/TOML-only "Flat" family; `Lang.isSupported`/`SUPPORTED_LANGUAGES` gained json/json5, `isScaffoldOnly`/`SCAFFOLD_ONLY_LANGUAGES` dropped them |
 | RDD_KEY_191 | `STYLE_DATA_FORMATS.md` §5/§6 (YAML/TOML formatting rules, drafted by user request): YAML mapping colons column-align matching JSON/CSS (§1.1/§3.1); sequence items indent one level deeper than their parent mapping key; flow-style collections preserved as written unless they'd overflow `line-length`, in which case converted to block style (one-directional, never block→flow); `indent-size` reuses the global default (4), no YAML-specific override, but local fixtures should exercise `indent-size=2` via an in-file `#% JXM_CFMT_CFG` directive; `indent-style` is explicitly ignored/inapplicable for YAML since the spec forbids tab indentation. TOML drafted with standard high-confidence conventions (no user question needed): `=` alignment reuses STYLE.md §5/§6's assignment shape directly; table/array-of-table headers get no added indentation for their keys (nesting is via dotted header names, matching real-world tooling like `taplo`/`cargo fmt`); inline tables are always single-line per the TOML v1.0 grammar itself, not a style choice. |
 | RDD_KEY_192 | YAML/TOML real-logic implementation: line-based recursive-descent parser for YAML, flat single-pass line-scanner for TOML, independent `#%` frozen-span/comment-normalization logic (no `TokenizerCore.markFrozenSpans`/`FormatterSimpleBraced.capitalizeCommentStart` reuse); migrated out of `Lang.SCAFFOLD_ONLY_LANGUAGES` into `Lang.SUPPORTED_LANGUAGES`; all 8 fixtures pass `make test`; two YAML bugs (same-indent sequence-child silent truncation, untrimmed key breaking idempotency) and one TOML bug (multi-line array continuation breaking idempotency) found and fixed; one fixture-authoring error found and corrected. |
+| RDD_KEY_193 | XML real-logic implementation: character-cursor recursive-descent parser (no natural line boundary in tag grammar, no `TokenizerCore` reuse); independent `<!--%`-based frozen-span/comment-normalization logic; `InFileConfig` extended for `<!--% JXM_CFMT_CFG ... -->`; migrated `xml` out of `Lang.SCAFFOLD_ONLY_LANGUAGES` into `Lang.SUPPORTED_LANGUAGES` (HTML5 stays scaffold-only); unlike YAML/TOML, XML's rule constructor takes `indentStyle` (§2.1 has no ignored-setting exception); wrap-shape judgment call (closing `>` attached to last attribute line); one bug found+fixed (childless-tag overflow wrap never triggered); all 4 fixtures pass `make test`, 202/202 total. |
 
 ---
 
@@ -286,25 +287,74 @@ None recorded yet in this file.
       mid-comment before colon, comment-case normalization), registered the
       same way. `make test`: 95/95 forward + 95/95 idempotency, zero
       regressions.
-- [ ] Implement XML support (§2): tokenizer/parser for tag structure,
-      indentation, attribute wrapping, DOCTYPE/PI/CDATA opacity handling.
-      **Fixtures authored ahead of implementation** (same precedent as
-      YAML/TOML, RDD_KEY_191/192): `test/xml_core_{inp,out}.xml` (`<?xml?>`
-      PI and `<!DOCTYPE>` preserved opaque/verbatim, preserved attribute
-      order including `xmlns`/`xmlns:foo`, an empty open/close pair left
-      unexpanded, a preserved self-closing tag, nested-tag reindentation, an
-      overflowing tag's attributes wrapped one per line, opaque CDATA
-      content) and `test/xml_comments_{inp,out}.xml` (a `<!-- -->` comment
-      reindented and case-normalized, a `<!--% JXM_CFMT_DIS -->`/`ENA`
-      marker pair freezing a malformed-spacing tag verbatim, a trailing
-      comment), described in `test/README.txt`, **commented out** of the
-      Makefile's `INP_FILES` pending real logic. One design decision made
-      by judgment call while authoring (§2.2 doesn't specify exactly how an
-      overflowing *empty* tag's wrap should place its closing bracket/close
-      tag): the wrapped tag's final `>` goes on its own line at the tag's
-      own indent, followed by `</tagname>` on the next line at the same
-      indent (mirrors common real-world XML formatter convention, e.g.
-      IntelliJ/Prettier-XML) -- see `xml_core_out.xml`'s `<longtag>` case.
+- [x] **Implement XML support (§2).** DONE. `XmlSpecificRule.java` is a
+      from-scratch character-cursor recursive-descent parser (NOT line-based
+      like YAML, and NOT a `TokenizerCore` reuse -- XML's tag/attribute
+      grammar has no natural line boundary and is unrelated to brace-
+      delimited imperative grammars). A `Node` AST (`PI`/`DOCTYPE`/`COMMENT`/
+      `ELEMENT`/`TEXT`/`CDATA`/`FROZEN`) covers: `<?...?>` PIs and
+      `<!DOCTYPE ...>` (bracket-depth-aware scan so a DOCTYPE's internal
+      subset, e.g. nested `<!ENTITY ...>`, doesn't terminate the scan early)
+      preserved fully opaque/verbatim; `<![CDATA[ ]]>` preserved opaque/
+      verbatim as an element's sole inline content; attribute order
+      preserved exactly as parsed (including `xmlns`/`xmlns:foo`), rendered
+      with normalized single-space separation but original quote
+      characters; an element whose only child is text or CDATA renders
+      inline on one line (`<tag>text</tag>`); an empty open/close pair
+      renders unexpanded (`<tag></tag>`, never collapsed to self-closing);
+      an element with child elements renders multi-line, recursing one
+      indent level deeper per nesting level; an overflowing tag (open line
+      beyond `line-length`) wraps each attribute onto its own line one
+      indent deeper than the tag, with the closing `>` attached directly to
+      the last attribute line (not on its own line) -- resolved by judgment
+      call, since §2.2 doesn't spell out the exact wrap shape, following
+      common real-world XML formatter convention (IntelliJ/Prettier-XML);
+      this applies even to an empty (childless) overflowing tag, which still
+      needs its own line-length check before falling into the "nothing
+      between the tags" render path. `#%`-equivalent `<!--% JXM_CFMT_DIS -->`/
+      `ENA` frozen spans are detected by checking whether the *current
+      source line* (not the whole file) trims to exactly that marker, then
+      capturing raw lines verbatim until the matching `ENA` line -- same
+      independent-per-format-family approach as YAML/TOML (RDD_KEY_192), not
+      a reuse of `TokenizerCore.markFrozenSpans`. A same-line trailing
+      `<!-- ... -->` comment (checked via "does `-->` appear before the next
+      newline") is captured separately from a comment that is its own
+      sibling node, and both get comment-start-case normalization
+      (`normComment` -- simpler than YAML/TOML's, since XML's comment inner
+      text has no leading delimiter character like `#`/`//` to skip past).
+      Also extended `InFileConfig`'s `JXM_CFMT_CFG` directive regex/preamble
+      pattern to recognize the `<!--% JXM_CFMT_CFG ... -->` form (matching
+      §2's stated single-directive-syntax convention), mirroring the earlier
+      YAML/TOML/`#`-comment extension. `FormatterXml.java` created as the
+      `FormatterCore` dispatch sibling (unlike YAML/TOML, XML's rule
+      constructor *does* take `indentStyle` -- §2.1 explicitly says XML uses
+      the existing global `indent-size`/`indent-style` config with no
+      XML-specific override or ignored setting, unlike YAML's spaces-always
+      rule). `Lang.SUPPORTED_LANGUAGES`/`isSupported` gained `xml`;
+      `Lang.SCAFFOLD_ONLY_LANGUAGES`/`isScaffoldOnly` dropped it (HTML5
+      stays scaffold-only -- it will share `XmlSpecificRule` internally per
+      RDD_KEY_188, but its own void-element/`<script>`-`<style>`-dispatch
+      additions aren't written yet). Fixtures: `test/xml_core_{inp,out}.xml`
+      and `test/xml_comments_{inp,out}.xml` (described above/in
+      `test/README.txt`), uncommented in the Makefile's `INP_FILES`. `make
+      test`: 202/202 forward + idempotency, zero regressions. One
+      implementation bug found and fixed against the fixtures: the initial
+      wrap logic only handled overflow for elements with a non-empty
+      `children` list, so `<longtag>`'s overflow (an empty, childless tag
+      whose open-tag line alone exceeds `line-length`) fell through to the
+      untouched "empty pair" render path and never wrapped at all -- fixed
+      by moving the fits/overflow check above the empty-vs-non-empty
+      children branch and adding a childless overflow-wrap path that skips
+      straight to the closing tag with no child-rendering step in between.
+      **Known simplifications, not exercised by current fixtures:** no
+      content/text reflow or wrapping (only attributes wrap on overflow);
+      mixed content (text interleaved with child elements) renders each
+      contiguous text run as its own line rather than staying inline next to
+      sibling elements; `indent-style = auto` is not detected from the
+      file's existing indentation (falls back to configured spaces/tabs);
+      the CDATA-inside-`<script>`/`<style>`-unwraps-and-dispatches exception
+      (§2.4) is not implemented (would require JS/TS or CSS dispatch from
+      inside the XML pipeline, and JS/TS is still scaffold-only).
 - [x] **Implement CSS support (§3).** DONE. `CssTokenizer` (extends
       `TokenizerSimpleBraced`) is deliberately coarse-grained -- emits
       WHITESPACE/NEWLINE/`/* */` COMMENT_BLOCK/STRING/PUNCT (`{}();:,&`) and

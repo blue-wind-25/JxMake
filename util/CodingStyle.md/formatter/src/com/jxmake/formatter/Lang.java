@@ -80,7 +80,7 @@ public final class Lang {
      *    the `--lang` validation in `Main.run()`
      *    `ServerMode.FormatHandler.handle()`
      */
-    public static final String SUPPORTED_LANGUAGES = "c, cpp, java, kotlin, json, json5, css, yaml, toml";
+    public static final String SUPPORTED_LANGUAGES = "c, cpp, java, kotlin, json, json5, css, yaml, toml, xml";
 
     /**
      * Scaffold-only languages: recognized by {@link #infer} and accepted by `--lang`/`lang=`, but
@@ -92,21 +92,24 @@ public final class Lang {
      * which supersedes RDD_KEY_179's now-reverted separate-language approach.) JSON/JSON5/CSS moved
      * out of this list once `FormatterJson`/`JsonSpecificRule` and `FormatterCss`/`CssSpecificRule`
      * landed real logic -- see RDD_KEY_190. YAML/TOML moved out once `FormatterYaml`/
-     * `YamlSpecificRule` and `FormatterToml`/`TomlSpecificRule` landed real logic.
+     * `YamlSpecificRule` and `FormatterToml`/`TomlSpecificRule` landed real logic. XML moved out
+     * once `FormatterXml`/`XmlSpecificRule` landed real logic (HTML5 stays scaffold-only -- it
+     * shares `XmlSpecificRule` internally but needs its own void-element/script-style-dispatch
+     * additions still to be written).
      */
     public static final String SCAFFOLD_ONLY_LANGUAGES =
-            "xml, html5, js, ts, python3";
+            "html5, js, ts, python3";
 
     public static boolean isSupported(final String language) {
         return "c".equals(language) || "cpp".equals(language)
                 || "java".equals(language) || "kotlin".equals(language)
                 || "json".equals(language) || "json5".equals(language)
-                || "css".equals(language) || "yaml".equals(language) || "toml".equals(language);
+                || "css".equals(language) || "yaml".equals(language) || "toml".equals(language)
+                || "xml".equals(language);
     }
 
     public static boolean isScaffoldOnly(final String language) {
-        return "xml".equals(language)
-                || "html5".equals(language) || "js".equals(language)
+        return "html5".equals(language) || "js".equals(language)
                 || "ts".equals(language) || "python3".equals(language);
     }
 

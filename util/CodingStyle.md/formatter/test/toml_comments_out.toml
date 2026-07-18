@@ -1,0 +1,10 @@
+name = "widget"
+# Comment breaks the group
+version = "1.0.0"
+
+[package]
+authors = ["Alice"]
+#% JXM_CFMT_DIS
+weird    =value
+#% JXM_CFMT_ENA
+edition = "2021" # Trailing comment

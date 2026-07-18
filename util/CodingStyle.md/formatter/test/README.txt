@@ -213,6 +213,57 @@ CSS (STYLE_DATA_FORMATS.md §3, RDD_KEY_190):
                                             content before declarations inside a native-nesting
                                             `&:hover` block.
 
+YAML / TOML (STYLE_DATA_FORMATS.md §5/§6, RDD_KEY_191) -- scaffold-only,
+formatting not yet implemented (YamlSpecificRule.java/TomlSpecificRule.java
+are boilerplate stubs). These pairs are hand-drafted against the style rules,
+not generated or verified by a JAR, and are commented out of the Makefile's
+INP_FILES so `make test` stays green; uncomment once real logic lands:
+  yaml_core_inp/out.yaml                 -- Mapping colon-alignment group, a
+                                            flow mapping short enough to stay
+                                            flow, a flow mapping converted to
+                                            block on `line-length` overflow
+                                            (including its own nested array
+                                            converted the same way), sequence
+                                            items one level deeper than their
+                                            parent key, a sequence of
+                                            mappings, a block scalar (`|`),
+                                            an anchor/alias pair, an explicit
+                                            tag, and a multi-document stream
+                                            (`---`/`...`). Sets
+                                            `indent-size=2` via an in-file
+                                            `#% JXM_CFMT_CFG` directive to
+                                            exercise YAML's own community
+                                            indent convention.
+
+  yaml_comments_inp/out.yaml             -- A `#` comment breaking a
+                                            colon-alignment group, a comment
+                                            sitting between two sequence
+                                            items, a `#% JXM_CFMT_DIS`/`ENA`
+                                            marker pair freezing a
+                                            malformed-spacing line verbatim,
+                                            a trailing comment, and
+                                            comment-start-case
+                                            normalization.
+
+  toml_core_inp/out.toml                 -- `=`-alignment group at the
+                                            top level and within `[package]`/
+                                            `[[bin]]` tables, no added
+                                            indentation for keys under a
+                                            table header, a tight array of
+                                            atoms vs. a loose array
+                                            containing nested arrays, an
+                                            always-single-line inline table,
+                                            and a preserved-as-written dotted
+                                            key.
+
+  toml_comments_inp/out.toml             -- A `#` comment breaking an
+                                            `=`-alignment group, a
+                                            `#% JXM_CFMT_DIS`/`ENA` marker
+                                            pair freezing a malformed-spacing
+                                            line verbatim, a trailing
+                                            comment, and comment-start-case
+                                            normalization.
+
 Real-code regressions:
   real_code_regressions_1_inp/out.cpp    -- Distilled from tinyexpr-plusplus: same-line-sibling
                                             call-argument mis-split, an undercounted call "does it

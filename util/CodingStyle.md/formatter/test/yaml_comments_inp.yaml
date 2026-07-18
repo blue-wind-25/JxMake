@@ -1,0 +1,11 @@
+name: widget
+# comment breaks the group
+version: 1.0
+tags:
+- alpha
+# comment before a sequence item
+- beta
+#% JXM_CFMT_DIS
+weird:    value
+#% JXM_CFMT_ENA
+enabled: true # trailing comment

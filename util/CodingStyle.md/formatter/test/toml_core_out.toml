@@ -1,0 +1,26 @@
+name        = "widget"
+version     = "1.0.0"
+description = 'A sample package'
+
+[package]
+authors = ["Alice <alice@example.com>"]
+edition = "2021"
+
+[package.metadata]
+color = "blue"
+
+[[bin]]
+name = "widget-cli"
+path = "src/main.rs"
+
+[[bin]]
+name = "widget-gui"
+path = "src/gui.rs"
+
+deps   = [1, 2, 3]
+matrix = [
+    [1, 2],
+    [3, 4]
+]
+point  = { x = 1, y = 2 }
+a.b.c  = 1

@@ -67,7 +67,7 @@ language rules do not apply. Six sub-formats, each stating explicitly which
    block style; anchors/aliases/tags and block scalars (`|`/`>`) preserved
    verbatim/opaque. Uses the existing global `indent-size`, but
    **`indent-style` is ignored for YAML** (YAML forbids tab indentation —
-   always space-indented). Directives use the single `# ...` line form (YAML
+   always space-indented). Directives use the single `#% ...` line form (YAML
    has no block comment).
 6. **TOML** (§6) — TOML v1.0. Key/value `=` column alignment reuses STYLE.md
    §5/§6's assignment-alignment shape directly (no forced space-before-`=`
@@ -77,7 +77,7 @@ language rules do not apply. Six sub-formats, each stating explicitly which
    not indentation); arrays reuse the tight/loose bracket rule; inline
    tables are always single-line (a TOML grammar constraint, not a style
    choice); dotted keys and string quote styles preserved as written.
-   Directives use the single `# ...` line form (TOML has no block comment).
+   Directives use the single `#% ...` line form (TOML has no block comment).
 
 Scaffold dispatch lives in the shared `Lang.java`/`Main.java`/
 `ServerMode.java`/`Config.java`, described in the routing `CLAUDE.md`
@@ -103,7 +103,7 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 | RDD_KEY_188 | Class Scoping — no separate HtmlTokenizer/HtmlFormatter; shared `*Tags` classes gated internally on `isHtml5`, concrete rules in `XmlSpecificRule.java` |
 | RDD_KEY_189 | Class Scoping — JSON/JSON5/CSS/YAML/TOML extend `TokenizerCore` directly (no `TokenizerFlat`); concrete rules in `JsonSpecificRule.java`/`YamlSpecificRule.java`/`TomlSpecificRule.java`/`CssSpecificRule.java` |
 | RDD_KEY_190 | `FormatterCore.forLanguage` dispatch for JSON/JSON5/CSS — new "SimpleBraced" family (`TokenizerSimpleBraced`/`FormatterSimpleBraced`), distinct from `*Curly` and the still-hypothetical YAML/TOML-only "Flat" family; `Lang.isSupported`/`SUPPORTED_LANGUAGES` gained json/json5, `isScaffoldOnly`/`SCAFFOLD_ONLY_LANGUAGES` dropped them |
-| RDD_KEY_191 | `STYLE_DATA_FORMATS.md` §5/§6 (YAML/TOML formatting rules, drafted by user request): YAML mapping colons column-align matching JSON/CSS (§1.1/§3.1); sequence items indent one level deeper than their parent mapping key; flow-style collections preserved as written unless they'd overflow `line-length`, in which case converted to block style (one-directional, never block→flow); `indent-size` reuses the global default (4), no YAML-specific override, but local fixtures should exercise `indent-size=2` via an in-file `# JXM_CFMT_CFG` directive; `indent-style` is explicitly ignored/inapplicable for YAML since the spec forbids tab indentation. TOML drafted with standard high-confidence conventions (no user question needed): `=` alignment reuses STYLE.md §5/§6's assignment shape directly; table/array-of-table headers get no added indentation for their keys (nesting is via dotted header names, matching real-world tooling like `taplo`/`cargo fmt`); inline tables are always single-line per the TOML v1.0 grammar itself, not a style choice. |
+| RDD_KEY_191 | `STYLE_DATA_FORMATS.md` §5/§6 (YAML/TOML formatting rules, drafted by user request): YAML mapping colons column-align matching JSON/CSS (§1.1/§3.1); sequence items indent one level deeper than their parent mapping key; flow-style collections preserved as written unless they'd overflow `line-length`, in which case converted to block style (one-directional, never block→flow); `indent-size` reuses the global default (4), no YAML-specific override, but local fixtures should exercise `indent-size=2` via an in-file `#% JXM_CFMT_CFG` directive; `indent-style` is explicitly ignored/inapplicable for YAML since the spec forbids tab indentation. TOML drafted with standard high-confidence conventions (no user question needed): `=` alignment reuses STYLE.md §5/§6's assignment shape directly; table/array-of-table headers get no added indentation for their keys (nesting is via dotted header names, matching real-world tooling like `taplo`/`cargo fmt`); inline tables are always single-line per the TOML v1.0 grammar itself, not a style choice. |
 
 ---
 
@@ -122,7 +122,7 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
   ignored/inapplicable for YAML** — YAML forbids tab indentation, so output
   is always space-indented regardless of the configured value (RDD_KEY_191).
   Local test fixtures for YAML should set `indent-size=2` via an in-file
-  `# JXM_CFMT_CFG indent-size=2` directive to exercise YAML's own
+  `#% JXM_CFMT_CFG indent-size=2` directive to exercise YAML's own
   community-standard indent width, rather than changing the tool-wide
   default (RDD_KEY_191).
 - **TOML:** no new config beyond the existing global `indent-size` (unused,
@@ -163,6 +163,17 @@ which is for corpus-scale validation) are staged in
 what each covers. Once authored, register pairs in the Makefile's
 `INP_FILES` / `test/README.txt`, and empty out FUTURE_TEST_FIXTURES.md's
 relevant sections accordingly.
+
+**YAML/TOML are already authored** (`yaml_core_inp/out.yaml`,
+`yaml_comments_inp/out.yaml`, `toml_core_inp/out.toml`,
+`toml_comments_inp/out.toml`, all in `formatter/test/`, described in
+`test/README.txt`), skipping the FUTURE_TEST_FIXTURES.md staging step since
+there was no pre-existing draft for either format. They are hand-drafted
+against `STYLE_DATA_FORMATS.md` §5/§6, not verified by a real JAR (scaffold-
+only), and are **commented out** of the Makefile's `INP_FILES` so `make
+test` stays green — uncomment once `YamlSpecificRule.java`/
+`TomlSpecificRule.java` have real logic and the drafts have been reviewed
+against it.
 
 ---
 
@@ -353,12 +364,31 @@ None recorded yet in this file.
       `=`-alignment groups, no-indentation-under-table-headers, tight/loose
       arrays, always-single-line inline tables, dotted-key and string
       quote-style preservation.
-- [ ] Author local test fixture pairs for XML/CSS/HTML5/YAML/TOML
-      (JSON/JSON5's are done above) and register in the Makefile's
-      `INP_FILES` / `test/README.txt`. No pre-drafted content exists in
-      `FUTURE_TEST_FIXTURES.md` for YAML/TOML (unlike the other formats) —
-      these will need to be hand-authored fresh, or a new section added to
-      that doc first.
+- [ ] Author local test fixture pairs for XML/CSS/HTML5 (JSON/JSON5's are
+      done above; YAML/TOML's are also already authored, see below, but
+      commented out of the Makefile pending real implementation) and
+      register in the Makefile's `INP_FILES` / `test/README.txt`.
+- [x] **YAML/TOML fixtures authored ahead of implementation.**
+      `test/yaml_core_{inp,out}.yaml` (mapping colon-alignment, a short flow
+      mapping preserved as flow, a longer flow mapping/array converted to
+      block on `line-length` overflow, one-level sequence indent, a sequence
+      of mappings, a block scalar, an anchor/alias pair, an explicit tag, a
+      multi-document stream, and an in-file `#% JXM_CFMT_CFG indent-size=2`
+      directive exercising YAML's own 2-space convention),
+      `test/yaml_comments_{inp,out}.yaml` (comment breaking a colon group, a
+      comment between sequence items, a `#% JXM_CFMT_DIS`/`ENA` frozen span,
+      a trailing comment, comment-start-case normalization),
+      `test/toml_core_{inp,out}.toml` (`=`-alignment groups at top level and
+      within `[package]`/`[[bin]]` tables, no indentation under table
+      headers, tight vs. loose arrays, an always-single-line inline table, a
+      preserved dotted key), and `test/toml_comments_{inp,out}.toml` (comment
+      breaking an `=`-alignment group, a `#% JXM_CFMT_DIS`/`ENA` frozen span,
+      a trailing comment, comment-start-case normalization) are all written
+      and described in `test/README.txt`, but **commented out** of the
+      Makefile's `INP_FILES` — hand-drafted against §5/§6, not verified by a
+      real JAR, since `YamlSpecificRule.java`/`TomlSpecificRule.java` are
+      still boilerplate stubs. Uncomment and re-review against the drafts
+      once real logic lands.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format
       (`json5/json5`/`microsoft/vscode`/etc. for JSON — still open, not yet

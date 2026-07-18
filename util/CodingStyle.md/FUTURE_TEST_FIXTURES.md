@@ -900,6 +900,31 @@ Referenced from: `STYLE_DATA_FORMATS.md`.
 
 ---
 
+## YAML
+
+Both entries (`yaml_core_inp/out.yaml`, `yaml_comments_inp/out.yaml`) were authored
+directly in `formatter/test/` rather than staged here first, since there was no
+pre-existing draft to extract — see `formatter/test/README.txt` and
+`formatter/STATE_DATA_FORMATS.md`. They are commented out of the Makefile's
+`INP_FILES` (YAML support is scaffold-only, RDD_KEY_191) until real formatting logic
+lands.
+
+Referenced from: `STYLE_DATA_FORMATS.md`.
+
+---
+
+## TOML
+
+Both entries (`toml_core_inp/out.toml`, `toml_comments_inp/out.toml`) were authored
+directly in `formatter/test/` rather than staged here first, same as YAML above —
+see `formatter/test/README.txt` and `formatter/STATE_DATA_FORMATS.md`. They are
+commented out of the Makefile's `INP_FILES` (TOML support is scaffold-only,
+RDD_KEY_191) until real formatting logic lands.
+
+Referenced from: `STYLE_DATA_FORMATS.md`.
+
+---
+
 ## JavaScript
 
 Plain `.js` only — no TypeScript-only constructs (those belong in the TypeScript

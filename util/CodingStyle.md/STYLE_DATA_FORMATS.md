@@ -318,7 +318,7 @@ Covers YAML 1.1/1.2, including multi-document streams.
 
 YAML has only `#` line comments — no block-comment form — so `JXM_CFMT_DIS`/`ENA`/`CFG`
 directives use a single line-comment syntax, not the two-form (line/block) pattern
-C-family files use: `# JXM_CFMT_DIS`, `# JXM_CFMT_ENA`, `# JXM_CFMT_CFG ...`. This is
+C-family files use: `#% JXM_CFMT_DIS`, `#% JXM_CFMT_ENA`, `#% JXM_CFMT_CFG ...`. This is
 the same "only one comment form exists, so only one directive syntax exists" posture
 as XML/CSS (§2/§3), just with a line form instead of a block form.
 
@@ -446,7 +446,7 @@ alignment — no config toggle.
 Covers TOML v1.0.
 
 TOML has only `#` line comments — same single-form directive posture as YAML (§5):
-`# JXM_CFMT_DIS`, `# JXM_CFMT_ENA`, `# JXM_CFMT_CFG ...`.
+`#% JXM_CFMT_DIS`, `#% JXM_CFMT_ENA`, `#% JXM_CFMT_CFG ...`.
 
 ### 6.1 Key/Value Alignment
 

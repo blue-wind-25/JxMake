@@ -98,6 +98,15 @@ INP_FILES += json5_comments_inp.json5
 INP_FILES += css_combined_inp.css
 INP_FILES += css_comments_inp.css
 
+# YAML/TOML are scaffold-only (STATE_DATA_FORMATS.md) -- these fixtures are
+# hand-drafted against STYLE_DATA_FORMATS.md §5/§6 but not yet verified by a
+# real JAR formatter. Kept commented out so `make test` stays green; uncomment
+# once YamlSpecificRule.java/TomlSpecificRule.java have real logic.
+# INP_FILES += yaml_core_inp.yaml
+# INP_FILES += yaml_comments_inp.yaml
+# INP_FILES += toml_core_inp.toml
+# INP_FILES += toml_comments_inp.toml
+
 INP_FILES += real_code_regressions_1_inp.cpp
 INP_FILES += real_code_regressions_2_inp.java
 INP_FILES += real_code_regressions_3_inp.java

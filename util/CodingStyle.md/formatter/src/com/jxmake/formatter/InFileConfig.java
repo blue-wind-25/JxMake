@@ -24,12 +24,15 @@ import java.util.regex.Pattern;
 public final class InFileConfig {
 
     private static final Pattern DIRECTIVE = Pattern.compile(
-            "//%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|/\\*%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*\\*/", Pattern.DOTALL);
+            "//%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|/\\*%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*\\*/"
+                    + "|#%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)", Pattern.DOTALL);
 
-    // Consumes a run of leading blank lines and whole comments (// or /* */) from the start of
-    // a file -- the "top-of-file preamble" a JXM_CFMT_CFG directive is allowed to live in.
+    // Consumes a run of leading blank lines and whole comments (//, /* */, or YAML/TOML's #) from
+    // the start of a file -- the "top-of-file preamble" a JXM_CFMT_CFG directive is allowed to
+    // live in.
     private static final Pattern PREAMBLE_PIECE = Pattern.compile(
-            "\\G(?:[ \\t]*\\r?\\n|[ \\t]*//[^\\r\\n]*(?:\\r?\\n|$)|[ \\t]*/\\*.*?\\*/[ \\t]*)", Pattern.DOTALL);
+            "\\G(?:[ \\t]*\\r?\\n|[ \\t]*//[^\\r\\n]*(?:\\r?\\n|$)|[ \\t]*/\\*.*?\\*/[ \\t]*"
+                    + "|[ \\t]*#[^\\r\\n]*(?:\\r?\\n|$))", Pattern.DOTALL);
 
     private InFileConfig() {
     }
@@ -50,7 +53,7 @@ public final class InFileConfig {
             count++;
             if (count == 1) {
                 matchStart = m.start();
-                body = m.group(1) != null ? m.group(1) : m.group(2);
+                body = m.group(1) != null ? m.group(1) : (m.group(2) != null ? m.group(2) : m.group(3));
             }
         }
         if (count == 0) {

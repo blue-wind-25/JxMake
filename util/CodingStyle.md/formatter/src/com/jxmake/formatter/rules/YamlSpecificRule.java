@@ -7,18 +7,35 @@
 
 package com.jxmake.formatter.rules;
 
+import com.jxmake.formatter.FormatterSimpleBraced;
 import com.jxmake.formatter.Lang;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 /**
- * Landing spot for YAML STYLE_DATA_FORMATS.md rule logic. Neither curly, indent-based, nor
- * tag-based per `Lang.java`'s family predicates, so this rule (and its eventual tokenizer/
- * formatter) is not a `*Curly`/`*Indent`/`*Tags` sibling -- see RDD_KEY_189. Not yet
- * implemented -- see STATE_DATA_FORMATS.md.
+ * STYLE_DATA_FORMATS.md §5 (YAML) rule logic. Neither curly, indent-based, tag-based, nor
+ * SimpleBraced per RDD_KEY_189/191 -- YAML's grammar is indentation-significant rather than
+ * brace-delimited, so this class uses its own line-based recursive block parser instead of
+ * {@code TokenizerCore}'s char-token-stream machinery.
+ *
+ * <p>Implements §5.1 (space-only indentation -- {@code indent-style} is ignored, only
+ * {@code indent-size} applies), §5.2 (colon-alignment groups, broken by blank lines/comments),
+ * §5.3 (sequence items indent one level deeper, or align under a mapping-item's first inline key),
+ * §5.4 (flow collections preserved unless they overflow {@code line-length}, then block-converted),
+ * §5.5 (anchors/aliases/tags preserved verbatim), §5.6 (block scalar bodies are opaque), and §5.7
+ * (multi-document `---`/`...` streams, each an independent structural-depth reset). Also implements
+ * its own {@code #%}-based {@code JXM_CFMT_DIS}/{@code ENA} frozen-span detection (YAML has no
+ * block-comment form for {@code TokenizerCore.markFrozenSpans} to reuse).
  */
 public final class YamlSpecificRule {
 
     private final Lang lang;
     private final int lineLengthLimit;
+    private final int indentWidth;
+    private final String indentUnit;
+    private final boolean normalizeCommentStartCase;
 
     public YamlSpecificRule(final Lang lang) {
         this(lang, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
@@ -29,9 +46,772 @@ public final class YamlSpecificRule {
     }
 
     public YamlSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth) {
+        this(lang, lineLengthLimit, indentWidth, true);
+    }
+
+    public YamlSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth,
+            final boolean normalizeCommentStartCase) {
         this.lang = lang;
         this.lineLengthLimit = lineLengthLimit;
-        throw new UnsupportedOperationException(
-                "YamlSpecificRule is not yet implemented -- see STATE_DATA_FORMATS.md");
+        this.indentWidth = Math.max(1, indentWidth);
+        this.indentUnit = repeatChar(' ', this.indentWidth);
+        this.normalizeCommentStartCase = normalizeCommentStartCase;
+    }
+
+    /** Malformed YAML input that the parser cannot make sense of -- caught generically by
+     *  {@code Main}'s per-file error handling, same as any other rule class's runtime failure. */
+    public static final class YamlParseException extends RuntimeException {
+        public YamlParseException(final String message) {
+            super(message);
+        }
+    }
+
+    private static String repeatChar(final char c, final int count) {
+        final StringBuilder sb = new StringBuilder(count);
+        for (int i = 0; i < count; i++) {
+            sb.append(c);
+        }
+        return sb.toString();
+    }
+
+    private String indent(final int depth) {
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < depth; i++) {
+            sb.append(indentUnit);
+        }
+        return sb.toString();
+    }
+
+    private String normComment(final String commentText) {
+        if (!normalizeCommentStartCase) {
+            return commentText;
+        }
+        int i = 1;
+        while (i < commentText.length() && commentText.charAt(i) == ' ') {
+            i++;
+        }
+        if (i < commentText.length()) {
+            final char ch = commentText.charAt(i);
+            if (Character.isLetter(ch) && Character.isLowerCase(ch)) {
+                return commentText.substring(0, i) + Character.toUpperCase(ch) + commentText.substring(i + 1);
+            }
+        }
+        return commentText;
+    }
+
+    /** Finds the first unquoted, unbracketed ':' that acts as a mapping-key separator (must be
+     *  followed by a space or end-of-string) -- distinguishes "name: Widget" from a bare scalar
+     *  like "https://example.com" or an inline flow collection. Returns -1 if none. */
+    private static int findMappingColon(final String s) {
+        boolean inSingle = false;
+        boolean inDouble = false;
+        int depth = 0;
+        for (int i = 0; i < s.length(); i++) {
+            final char ch = s.charAt(i);
+            if (inSingle) {
+                if (ch == '\'') {
+                    inSingle = false;
+                }
+                continue;
+            }
+            if (inDouble) {
+                if (ch == '\\') {
+                    i++;
+                } else if (ch == '"') {
+                    inDouble = false;
+                }
+                continue;
+            }
+            if (ch == '\'') {
+                inSingle = true;
+            } else if (ch == '"') {
+                inDouble = true;
+            } else if (ch == '{' || ch == '[') {
+                depth++;
+            } else if (ch == '}' || ch == ']') {
+                depth--;
+            } else if (ch == ':' && depth == 0 && (i + 1 == s.length() || s.charAt(i + 1) == ' ')) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Splits off a same-line trailing `#` comment from {@code s}, respecting quotes -- a `#` only
+     *  starts a comment when it is at the start of the string or preceded by whitespace. Returns a
+     *  two-element array: [codePart (right-trimmed), commentPartOrNull]. */
+    private static String[] splitTrailingComment(final String s) {
+        boolean inSingle = false;
+        boolean inDouble = false;
+        for (int i = 0; i < s.length(); i++) {
+            final char ch = s.charAt(i);
+            if (inSingle) {
+                if (ch == '\'') {
+                    inSingle = false;
+                }
+                continue;
+            }
+            if (inDouble) {
+                if (ch == '\\') {
+                    i++;
+                } else if (ch == '"') {
+                    inDouble = false;
+                }
+                continue;
+            }
+            if (ch == '\'') {
+                inSingle = true;
+            } else if (ch == '"') {
+                inDouble = true;
+            } else if (ch == '#' && (i == 0 || s.charAt(i - 1) == ' ' || s.charAt(i - 1) == '\t')) {
+                return new String[] {rtrim(s.substring(0, i)), s.substring(i)};
+            }
+        }
+        return new String[] {rtrim(s), null};
+    }
+
+    private static String rtrim(final String s) {
+        int end = s.length();
+        while (end > 0 && Character.isWhitespace(s.charAt(end - 1))) {
+            end--;
+        }
+        return s.substring(0, end);
+    }
+
+    // ---- Line model ----------------------------------------------------------------------------
+
+    private static final class Line {
+        final String raw;
+        final int indent;
+        final String content;
+
+        Line(final String raw) {
+            this.raw = raw;
+            int i = 0;
+            while (i < raw.length() && raw.charAt(i) == ' ') {
+                i++;
+            }
+            this.indent = i;
+            this.content = raw.substring(i);
+        }
+
+        boolean isBlank() {
+            return content.isEmpty();
+        }
+    }
+
+    // ---- AST -------------------------------------------------------------------------------------
+
+    private static final class Item {
+        List<String> leadingComments = new ArrayList<>();
+        boolean blankBefore;
+        boolean isSeq;
+        boolean isFrozen;
+        List<String> frozenLines;
+        boolean dangling; // trailing comment(s)/blank with no following item at this block level
+        String key; // non-null for mapping items
+        String inlineValue; // raw scalar/flow/anchor text after ':' or '- ' on the same line
+        String trailingComment;
+        List<Item> children; // nested block belonging to this item (mapping or sequence)
+        boolean seqOfMapping; // sequence item whose value is an inline-first-key mapping
+        String blockScalarBody; // raw verbatim body (joined by \n) for | / > scalars
+
+        boolean isKeyed() {
+            return key != null;
+        }
+    }
+
+    // ---- Flow ({}/[]) parsing ----------------------------------------------------------------------
+
+    private abstract static class FlowNode {
+    }
+
+    private static final class FlowScalar extends FlowNode {
+        final String raw;
+
+        FlowScalar(final String raw) {
+            this.raw = raw;
+        }
+    }
+
+    private static final class FlowEntry {
+        final String key;
+        final FlowNode value;
+
+        FlowEntry(final String key, final FlowNode value) {
+            this.key = key;
+            this.value = value;
+        }
+    }
+
+    private static final class FlowMap extends FlowNode {
+        final List<FlowEntry> entries = new ArrayList<>();
+    }
+
+    private static final class FlowSeq extends FlowNode {
+        final List<FlowNode> elements = new ArrayList<>();
+    }
+
+    private static final class FlowCursor {
+        final String s;
+        int i;
+
+        FlowCursor(final String s) {
+            this.s = s;
+        }
+
+        void skipWs() {
+            while (i < s.length() && s.charAt(i) == ' ') {
+                i++;
+            }
+        }
+
+        char cur() {
+            return i < s.length() ? s.charAt(i) : '\0';
+        }
+    }
+
+    private static boolean looksLikeFlow(final String s) {
+        return s.startsWith("{") || s.startsWith("[");
+    }
+
+    private FlowNode parseFlow(final FlowCursor c) {
+        c.skipWs();
+        final char ch = c.cur();
+        if (ch == '{') {
+            c.i++;
+            final FlowMap map = new FlowMap();
+            c.skipWs();
+            if (c.cur() == '}') {
+                c.i++;
+                return map;
+            }
+            while (true) {
+                c.skipWs();
+                final String key = readFlowScalarText(c, true);
+                c.skipWs();
+                if (c.cur() != ':') {
+                    throw new YamlParseException("expected ':' in flow mapping near: " + c.s.substring(c.i));
+                }
+                c.i++;
+                c.skipWs();
+                final FlowNode value = parseFlow(c);
+                map.entries.add(new FlowEntry(key.trim(), value));
+                c.skipWs();
+                if (c.cur() == ',') {
+                    c.i++;
+                    continue;
+                }
+                if (c.cur() == '}') {
+                    c.i++;
+                    break;
+                }
+                throw new YamlParseException("unterminated flow mapping near: " + c.s.substring(c.i));
+            }
+            return map;
+        }
+        if (ch == '[') {
+            c.i++;
+            final FlowSeq seq = new FlowSeq();
+            c.skipWs();
+            if (c.cur() == ']') {
+                c.i++;
+                return seq;
+            }
+            while (true) {
+                c.skipWs();
+                seq.elements.add(parseFlow(c));
+                c.skipWs();
+                if (c.cur() == ',') {
+                    c.i++;
+                    continue;
+                }
+                if (c.cur() == ']') {
+                    c.i++;
+                    break;
+                }
+                throw new YamlParseException("unterminated flow sequence near: " + c.s.substring(c.i));
+            }
+            return seq;
+        }
+        return new FlowScalar(readFlowScalarText(c, false).trim());
+    }
+
+    /** Reads a flow scalar (unquoted, or a quoted string) up to the next structural character
+     *  ({@code , ] }}, or -- for a mapping key -- {@code :}). */
+    private String readFlowScalarText(final FlowCursor c, final boolean stopAtColon) {
+        final int start = c.i;
+        if (c.cur() == '"' || c.cur() == '\'') {
+            final char quote = c.cur();
+            c.i++;
+            while (c.i < c.s.length() && c.s.charAt(c.i) != quote) {
+                if (quote == '"' && c.s.charAt(c.i) == '\\') {
+                    c.i++;
+                }
+                c.i++;
+            }
+            if (c.i < c.s.length()) {
+                c.i++;
+            }
+            return c.s.substring(start, c.i);
+        }
+        while (c.i < c.s.length()) {
+            final char ch = c.s.charAt(c.i);
+            if (ch == ',' || ch == ']' || ch == '}' || (stopAtColon && ch == ':')) {
+                break;
+            }
+            c.i++;
+        }
+        return c.s.substring(start, c.i);
+    }
+
+    private String renderFlowTight(final FlowNode node) {
+        if (node instanceof FlowScalar) {
+            return ((FlowScalar) node).raw;
+        }
+        if (node instanceof FlowMap) {
+            final FlowMap map = (FlowMap) node;
+            final StringBuilder sb = new StringBuilder("{");
+            for (int i = 0; i < map.entries.size(); i++) {
+                if (i > 0) {
+                    sb.append(", ");
+                }
+                final FlowEntry e = map.entries.get(i);
+                sb.append(e.key).append(": ").append(renderFlowTight(e.value));
+            }
+            return sb.append('}').toString();
+        }
+        final FlowSeq seq = (FlowSeq) node;
+        final StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < seq.elements.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append(renderFlowTight(seq.elements.get(i)));
+        }
+        return sb.append(']').toString();
+    }
+
+    private boolean fits(final String alreadyWritten, final int extraLen) {
+        return alreadyWritten.length() + extraLen <= lineLengthLimit;
+    }
+
+    /** Renders a keyed item's flow value: inline if the whole line fits within line-length, else
+     *  block-converted per §5.4, recursing so nested flow collections get the same overflow test at
+     *  their own depth. {@code keyPrefix} is the fully-rendered {@code key<pad>:} text (already
+     *  appended to {@code out} at the correct indent, no trailing space/value yet). */
+    private void renderFlowValue(final FlowNode node, final int depth, final String keyPrefix,
+            final StringBuilder out) {
+        final String tight = renderFlowTight(node);
+        if (fits(keyPrefix, 1 + tight.length())) {
+            out.append(' ').append(tight).append('\n');
+            return;
+        }
+        out.append('\n');
+        renderFlowBlock(node, depth + 1, out);
+    }
+
+    private void renderFlowValueOrScalar(final FlowNode value, final int depth, final String keyPrefix,
+            final StringBuilder out) {
+        if (value instanceof FlowScalar) {
+            out.append(' ').append(((FlowScalar) value).raw).append('\n');
+            return;
+        }
+        renderFlowValue(value, depth, keyPrefix, out);
+    }
+
+    private void renderFlowBlock(final FlowNode node, final int depth, final StringBuilder out) {
+        if (node instanceof FlowMap) {
+            final FlowMap map = (FlowMap) node;
+            final List<String> keys = new ArrayList<>();
+            for (final FlowEntry e : map.entries) {
+                keys.add(e.key);
+            }
+            final String[] pad = FormatterSimpleBraced.padKeysForColonAlignment(keys);
+            for (int i = 0; i < map.entries.size(); i++) {
+                final FlowEntry e = map.entries.get(i);
+                final String keyPrefix = indent(depth) + e.key + pad[i] + ":";
+                out.append(keyPrefix);
+                renderFlowValueOrScalar(e.value, depth, keyPrefix, out);
+            }
+            return;
+        }
+        final FlowSeq seq = (FlowSeq) node;
+        for (final FlowNode elem : seq.elements) {
+            if (elem instanceof FlowScalar) {
+                out.append(indent(depth)).append("- ").append(((FlowScalar) elem).raw).append('\n');
+                continue;
+            }
+            final String tight = renderFlowTight(elem);
+            final String prefix = indent(depth) + "- ";
+            if (fits(prefix, tight.length())) {
+                out.append(prefix).append(tight).append('\n');
+            } else {
+                out.append(indent(depth)).append("-\n");
+                renderFlowBlock(elem, depth + 1, out);
+            }
+        }
+    }
+
+    // ---- Line-based block parsing --------------------------------------------------------------
+
+    private List<Line> lines;
+    private int pos;
+
+    private Line peek() {
+        return pos < lines.size() ? lines.get(pos) : null;
+    }
+
+    /** Parses a single homogeneous block (all mapping keys, or all sequence dashes) whose items sit
+     *  at exactly {@code blockIndent}. Stops (without consuming) at dedent, at end of input, or at a
+     *  line whose shape (dash vs. key) doesn't match the block's own kind -- a block is always
+     *  homogeneous per YAML's grammar, so a shape mismatch at the same column means control belongs
+     *  back to the caller's own block instead. */
+    private List<Item> parseBlock(final int blockIndent) {
+        final List<Item> items = new ArrayList<>();
+        List<String> pendingComments = new ArrayList<>();
+        boolean pendingBlank = false;
+        Boolean isSeqBlock = null;
+        while (pos < lines.size()) {
+            final Line ln = peek();
+            if (ln.isBlank()) {
+                pendingBlank = true;
+                pos++;
+                continue;
+            }
+            if (ln.indent != blockIndent) {
+                break;
+            }
+            if (ln.content.startsWith("#")) {
+                if ("#% JXM_CFMT_DIS".equals(ln.content)) {
+                    final Item item = new Item();
+                    item.leadingComments = pendingComments;
+                    item.blankBefore = pendingBlank;
+                    pendingComments = new ArrayList<>();
+                    pendingBlank = false;
+                    item.isFrozen = true;
+                    item.frozenLines = new ArrayList<>();
+                    item.frozenLines.add(ln.raw);
+                    pos++;
+                    while (pos < lines.size() && !"#% JXM_CFMT_ENA".equals(peek().content)) {
+                        item.frozenLines.add(peek().raw);
+                        pos++;
+                    }
+                    if (pos < lines.size()) {
+                        item.frozenLines.add(peek().raw);
+                        pos++;
+                    }
+                    items.add(item);
+                    continue;
+                }
+                pendingComments.add(normComment(ln.content));
+                pos++;
+                continue;
+            }
+            final boolean lineIsSeq = ln.content.equals("-") || ln.content.startsWith("- ");
+            if (isSeqBlock != null && isSeqBlock.booleanValue() != lineIsSeq) {
+                break;
+            }
+            isSeqBlock = lineIsSeq;
+
+            final Item item = new Item();
+            item.leadingComments = pendingComments;
+            item.blankBefore = pendingBlank;
+            pendingComments = new ArrayList<>();
+            pendingBlank = false;
+
+            if (lineIsSeq) {
+                parseSeqItem(item, ln);
+            } else {
+                parseKeyItem(item, ln);
+            }
+            items.add(item);
+        }
+        if (!pendingComments.isEmpty() || pendingBlank) {
+            final Item d = new Item();
+            d.leadingComments = pendingComments;
+            d.blankBefore = pendingBlank;
+            d.dangling = true;
+            items.add(d);
+        }
+        return items;
+    }
+
+    private void parseKeyItem(final Item item, final Line ln) {
+        pos++;
+        final String[] parts = splitTrailingComment(ln.content);
+        final String code = parts[0];
+        final int colon = findMappingColon(code);
+        if (colon < 0) {
+            throw new YamlParseException("expected 'key:' mapping line, got: " + ln.content);
+        }
+        item.key = code.substring(0, colon).trim();
+        final String after = code.substring(colon + 1).trim();
+        if (after.startsWith("|") || after.startsWith(">")) {
+            item.inlineValue = after;
+            item.blockScalarBody = captureBlockScalarBody(ln.indent);
+            return;
+        }
+        item.trailingComment = parts[1] != null ? normComment(parts[1]) : null;
+        if (after.isEmpty()) {
+            final Line next = peek();
+            if (next != null && !next.isBlank()) {
+                final boolean nextIsSeq = next.content.equals("-") || next.content.startsWith("- ");
+                // A sequence child is allowed at the same indent as its parent key (a common,
+                // valid YAML style); a mapping child must be strictly deeper to avoid ambiguity
+                // with the next sibling key at the parent's own indent.
+                if (nextIsSeq ? next.indent >= ln.indent : next.indent > ln.indent) {
+                    item.children = parseBlock(next.indent);
+                }
+            }
+            return;
+        }
+        item.inlineValue = after;
+        if (looksLikeFlow(after)) {
+            return; // rendered via flow parsing/overflow-check at render time
+        }
+        // A scalar value can still carry a nested block underneath it (an anchor followed by a
+        // nested mapping, e.g. "anchor_example: &default" then an indented "color: blue").
+        if (peek() != null && !peek().isBlank() && peek().indent > ln.indent) {
+            item.children = parseBlock(peek().indent);
+        }
+    }
+
+    private void parseSeqItem(final Item item, final Line ln) {
+        pos++;
+        item.isSeq = true;
+        final String rest = ln.content.equals("-") ? "" : ln.content.substring(2);
+        final int innerCol = ln.indent + 2;
+        if (rest.trim().isEmpty()) {
+            if (peek() != null && !peek().isBlank() && peek().indent >= innerCol) {
+                item.children = parseBlock(peek().indent);
+            }
+            return;
+        }
+        final String[] parts = splitTrailingComment(rest);
+        final String code = parts[0];
+        final int colon = findMappingColon(code);
+        if (colon >= 0) {
+            item.seqOfMapping = true;
+            final Item firstKey = new Item();
+            firstKey.key = code.substring(0, colon).trim();
+            final String after = code.substring(colon + 1).trim();
+            if (after.startsWith("|") || after.startsWith(">")) {
+                firstKey.inlineValue = after;
+                firstKey.blockScalarBody = captureBlockScalarBody(innerCol - 2);
+            } else {
+                firstKey.trailingComment = parts[1] != null ? normComment(parts[1]) : null;
+                if (!after.isEmpty()) {
+                    firstKey.inlineValue = after;
+                }
+                if ((after.isEmpty() || !looksLikeFlow(after)) && peek() != null && !peek().isBlank()
+                        && peek().indent > innerCol - 2 && peek().indent != innerCol) {
+                    firstKey.children = parseBlock(peek().indent);
+                }
+            }
+            final List<Item> siblingKeys = parseBlock(innerCol);
+            item.children = new ArrayList<>();
+            item.children.add(firstKey);
+            item.children.addAll(siblingKeys);
+            return;
+        }
+        item.inlineValue = code;
+        item.trailingComment = parts[1] != null ? normComment(parts[1]) : null;
+    }
+
+    private String captureBlockScalarBody(final int headerIndent) {
+        final List<String> body = new ArrayList<>();
+        while (pos < lines.size() && (peek().isBlank() || peek().indent > headerIndent)) {
+            body.add(peek().raw);
+            pos++;
+        }
+        return String.join("\n", body);
+    }
+
+    // ---- Rendering ------------------------------------------------------------------------------
+
+    private void renderItems(final List<Item> items, final int depth, final StringBuilder out) {
+        // Colon-alignment groups: a run of adjacent keyed items with no leading comment/blank/
+        // frozen-span break between them, same shape as JSON's §1.1 grouping.
+        final String[] padding = new String[items.size()];
+        int groupStart = -1;
+        for (int i = 0; i <= items.size(); i++) {
+            final boolean atEnd = i == items.size();
+            final boolean breaksBefore = atEnd || !items.get(i).isKeyed()
+                    || !items.get(i).leadingComments.isEmpty() || items.get(i).blankBefore;
+            if (breaksBefore) {
+                if (groupStart >= 0 && i > groupStart) {
+                    final List<String> keys = new ArrayList<>();
+                    for (int g = groupStart; g < i; g++) {
+                        keys.add(items.get(g).key);
+                    }
+                    final String[] groupPad = FormatterSimpleBraced.padKeysForColonAlignment(keys);
+                    for (int g = groupStart; g < i; g++) {
+                        padding[g] = groupPad[g - groupStart];
+                    }
+                }
+                groupStart = (!atEnd && items.get(i).isKeyed()) ? i : -1;
+            } else if (groupStart < 0) {
+                groupStart = i;
+            }
+        }
+
+        for (int i = 0; i < items.size(); i++) {
+            final Item item = items.get(i);
+            if (i > 0 && item.blankBefore) {
+                out.append('\n');
+            }
+            for (final String comment : item.leadingComments) {
+                out.append(indent(depth)).append(comment).append('\n');
+            }
+            if (item.dangling) {
+                continue;
+            }
+            if (item.isFrozen) {
+                for (final String raw : item.frozenLines) {
+                    out.append(raw).append('\n');
+                }
+                continue;
+            }
+            if (item.isSeq) {
+                renderSeqItem(item, depth, out);
+            } else {
+                renderKeyItem(item, depth, padding[i], out);
+            }
+        }
+    }
+
+    private void renderKeyItem(final Item item, final int depth, final String pad, final StringBuilder out) {
+        final String keyPrefix = indent(depth) + item.key + pad + ":";
+        if (item.blockScalarBody != null) {
+            out.append(keyPrefix).append(' ').append(item.inlineValue).append('\n');
+            if (!item.blockScalarBody.isEmpty()) {
+                out.append(item.blockScalarBody).append('\n');
+            }
+            return;
+        }
+        if (item.inlineValue != null && looksLikeFlow(item.inlineValue)) {
+            out.append(keyPrefix);
+            renderFlowValue(parseFlow(new FlowCursor(item.inlineValue)), depth, keyPrefix, out);
+            return;
+        }
+        out.append(keyPrefix);
+        if (item.inlineValue != null) {
+            out.append(' ').append(item.inlineValue);
+        }
+        if (item.trailingComment != null) {
+            out.append(' ').append(item.trailingComment);
+        }
+        out.append('\n');
+        if (item.children != null) {
+            renderItems(item.children, depth + 1, out);
+        }
+    }
+
+    private void renderSeqItem(final Item item, final int depth, final StringBuilder out) {
+        if (item.seqOfMapping) {
+            renderSeqOfMapping(item, depth, out);
+            return;
+        }
+        final String dashPrefix = indent(depth) + "- ";
+        if (item.children != null) {
+            out.append(indent(depth)).append('-').append('\n');
+            renderItems(item.children, depth + 1, out);
+            return;
+        }
+        if (item.inlineValue != null && looksLikeFlow(item.inlineValue)) {
+            out.append(dashPrefix);
+            renderFlowValue(parseFlow(new FlowCursor(item.inlineValue)), depth + 1, dashPrefix, out);
+            return;
+        }
+        out.append(dashPrefix).append(item.inlineValue);
+        if (item.trailingComment != null) {
+            out.append(' ').append(item.trailingComment);
+        }
+        out.append('\n');
+    }
+
+    /** A sequence item that's itself a mapping (`- name: Widget`): the first key stays inline after
+     *  the `-`, subsequent keys in the same item-mapping align one column past the `-` and space
+     *  (under the first key), per §5.3. */
+    private void renderSeqOfMapping(final Item item, final int depth, final StringBuilder out) {
+        final List<Item> children = item.children;
+        final List<String> keys = new ArrayList<>();
+        for (final Item c : children) {
+            keys.add(c.key);
+        }
+        final String[] pad = FormatterSimpleBraced.padKeysForColonAlignment(keys);
+        final String dashPrefix = indent(depth) + "- ";
+        final String alignPrefix = indent(depth) + "  ";
+        for (int i = 0; i < children.size(); i++) {
+            final Item c = children.get(i);
+            final String prefix = (i == 0 ? dashPrefix : alignPrefix) + c.key + pad[i] + ":";
+            out.append(prefix);
+            if (c.blockScalarBody != null) {
+                out.append(' ').append(c.inlineValue).append('\n');
+                if (!c.blockScalarBody.isEmpty()) {
+                    out.append(c.blockScalarBody).append('\n');
+                }
+                continue;
+            }
+            if (c.inlineValue != null && looksLikeFlow(c.inlineValue)) {
+                renderFlowValue(parseFlow(new FlowCursor(c.inlineValue)), depth + 1, prefix, out);
+                continue;
+            }
+            if (c.inlineValue != null) {
+                out.append(' ').append(c.inlineValue);
+            }
+            if (c.trailingComment != null) {
+                out.append(' ').append(c.trailingComment);
+            }
+            out.append('\n');
+            if (c.children != null) {
+                renderItems(c.children, depth + 2, out);
+            }
+        }
+    }
+
+    private void renderDocument(final List<String> docRawLines, final StringBuilder out) {
+        lines = new ArrayList<>();
+        for (final String raw : docRawLines) {
+            lines.add(new Line(raw));
+        }
+        pos = 0;
+        if (lines.isEmpty()) {
+            return;
+        }
+        final int blockIndent = lines.get(0).indent;
+        final List<Item> items = parseBlock(blockIndent);
+        renderItems(items, 0, out);
+    }
+
+    /** Line-splits, parses, and re-renders {@code content} per STYLE_DATA_FORMATS.md §5. `---`
+     *  document separators and `...` end markers are preserved as written and reset structural
+     *  depth for whatever follows, per §5.7. */
+    public String format(final String content) {
+        final boolean endsWithNewline = content.endsWith("\n");
+        final String[] rawLines = content.split("\n", -1);
+        final List<String> allLines = new ArrayList<>(Arrays.asList(rawLines));
+        if (endsWithNewline && !allLines.isEmpty()) {
+            allLines.remove(allLines.size() - 1);
+        }
+        final StringBuilder out = new StringBuilder();
+        final List<String> docLines = new ArrayList<>();
+        for (final String raw : allLines) {
+            final String trimmed = raw.trim();
+            if (trimmed.equals("---") || trimmed.equals("...")) {
+                if (!docLines.isEmpty()) {
+                    renderDocument(docLines, out);
+                    docLines.clear();
+                }
+                out.append(raw).append('\n');
+                continue;
+            }
+            docLines.add(raw);
+        }
+        if (!docLines.isEmpty()) {
+            renderDocument(docLines, out);
+        }
+        return out.toString();
     }
 }

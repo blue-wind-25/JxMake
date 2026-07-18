@@ -104,6 +104,7 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 | RDD_KEY_189 | Class Scoping — JSON/JSON5/CSS/YAML/TOML extend `TokenizerCore` directly (no `TokenizerFlat`); concrete rules in `JsonSpecificRule.java`/`YamlSpecificRule.java`/`TomlSpecificRule.java`/`CssSpecificRule.java` |
 | RDD_KEY_190 | `FormatterCore.forLanguage` dispatch for JSON/JSON5/CSS — new "SimpleBraced" family (`TokenizerSimpleBraced`/`FormatterSimpleBraced`), distinct from `*Curly` and the still-hypothetical YAML/TOML-only "Flat" family; `Lang.isSupported`/`SUPPORTED_LANGUAGES` gained json/json5, `isScaffoldOnly`/`SCAFFOLD_ONLY_LANGUAGES` dropped them |
 | RDD_KEY_191 | `STYLE_DATA_FORMATS.md` §5/§6 (YAML/TOML formatting rules, drafted by user request): YAML mapping colons column-align matching JSON/CSS (§1.1/§3.1); sequence items indent one level deeper than their parent mapping key; flow-style collections preserved as written unless they'd overflow `line-length`, in which case converted to block style (one-directional, never block→flow); `indent-size` reuses the global default (4), no YAML-specific override, but local fixtures should exercise `indent-size=2` via an in-file `#% JXM_CFMT_CFG` directive; `indent-style` is explicitly ignored/inapplicable for YAML since the spec forbids tab indentation. TOML drafted with standard high-confidence conventions (no user question needed): `=` alignment reuses STYLE.md §5/§6's assignment shape directly; table/array-of-table headers get no added indentation for their keys (nesting is via dotted header names, matching real-world tooling like `taplo`/`cargo fmt`); inline tables are always single-line per the TOML v1.0 grammar itself, not a style choice. |
+| RDD_KEY_192 | YAML/TOML real-logic implementation: line-based recursive-descent parser for YAML, flat single-pass line-scanner for TOML, independent `#%` frozen-span/comment-normalization logic (no `TokenizerCore.markFrozenSpans`/`FormatterSimpleBraced.capitalizeCommentStart` reuse); migrated out of `Lang.SCAFFOLD_ONLY_LANGUAGES` into `Lang.SUPPORTED_LANGUAGES`; all 8 fixtures pass `make test`; two YAML bugs (same-indent sequence-child silent truncation, untrimmed key breaking idempotency) and one TOML bug (multi-line array continuation breaking idempotency) found and fixed; one fixture-authoring error found and corrected. |
 
 ---
 
@@ -354,41 +355,96 @@ None recorded yet in this file.
       and JS/TS support (tracked in `STATE_JS_TS.md`, a separate job) being
       available before the `<script>` dispatch path can be exercised
       end-to-end.
-- [ ] Implement YAML support (§5): tokenizer/parser for block mappings/
-      sequences and flow collections, colon-alignment groups, sequence-item
-      one-level indent, flow→block conversion on `line-length` overflow,
-      block-scalar/anchor/alias/tag opacity, multi-document `---` handling,
-      and the `indent-style`-ignored/`indent-size`-only config posture
-      (RDD_KEY_191).
-- [ ] Implement TOML support (§6): tokenizer/parser for table headers,
-      `=`-alignment groups, no-indentation-under-table-headers, tight/loose
-      arrays, always-single-line inline tables, dotted-key and string
-      quote-style preservation.
-- [ ] Author local test fixture pairs for XML/CSS/HTML5 (JSON/JSON5's are
-      done above; YAML/TOML's are also already authored, see below, but
-      commented out of the Makefile pending real implementation) and
-      register in the Makefile's `INP_FILES` / `test/README.txt`.
-- [x] **YAML/TOML fixtures authored ahead of implementation.**
-      `test/yaml_core_{inp,out}.yaml` (mapping colon-alignment, a short flow
-      mapping preserved as flow, a longer flow mapping/array converted to
-      block on `line-length` overflow, one-level sequence indent, a sequence
-      of mappings, a block scalar, an anchor/alias pair, an explicit tag, a
-      multi-document stream, and an in-file `#% JXM_CFMT_CFG indent-size=2`
-      directive exercising YAML's own 2-space convention),
-      `test/yaml_comments_{inp,out}.yaml` (comment breaking a colon group, a
-      comment between sequence items, a `#% JXM_CFMT_DIS`/`ENA` frozen span,
-      a trailing comment, comment-start-case normalization),
-      `test/toml_core_{inp,out}.toml` (`=`-alignment groups at top level and
-      within `[package]`/`[[bin]]` tables, no indentation under table
-      headers, tight vs. loose arrays, an always-single-line inline table, a
-      preserved dotted key), and `test/toml_comments_{inp,out}.toml` (comment
-      breaking an `=`-alignment group, a `#% JXM_CFMT_DIS`/`ENA` frozen span,
-      a trailing comment, comment-start-case normalization) are all written
-      and described in `test/README.txt`, but **commented out** of the
-      Makefile's `INP_FILES` — hand-drafted against §5/§6, not verified by a
-      real JAR, since `YamlSpecificRule.java`/`TomlSpecificRule.java` are
-      still boilerplate stubs. Uncomment and re-review against the drafts
-      once real logic lands.
+- [x] **Implement YAML support (§5).** `YamlSpecificRule.java` implements a
+      from-scratch line-based recursive-descent parser (NOT a reuse of
+      `TokenizerCore`/`Token` — YAML's grammar is indentation-significant,
+      not brace-delimited, per RDD_KEY_189/191): `parseBlock` recursively
+      parses one homogeneous block (all-`-`-sequence or all-`key:`-mapping)
+      per indentation level; `parseKeyItem`/`parseSeqItem` handle per-line
+      shape (block scalars `|`/`>`, flow values, anchors + nested mappings,
+      sequence-of-mappings); a custom `FlowNode`/`FlowScalar`/`FlowMap`/
+      `FlowSeq`/`FlowCursor` AST+parser handles `{...}`/`[...]` flow
+      collections (bare unquoted scalars like URLs containing `:`/`/` rule
+      out reusing JSON's tokenizer). Colon-alignment groups reuse JSON's
+      `FormatterSimpleBraced.padKeysForColonAlignment` algorithm; §5.4's
+      flow-preserved-unless-overflow rule is recursive per nesting level
+      (each nested flow collection gets its own independent line-length
+      check at its own resulting depth); §5.3's sequence-of-mapping
+      alignment uses a fixed 2-column offset past the dash (`"- "`.length()),
+      independent of configured `indent-size`. `#%`-based `JXM_CFMT_DIS`/
+      `ENA` frozen spans and comment-start-case normalization (`normComment`,
+      starting the scan at index 1 to skip the `#`) are both implemented
+      from scratch rather than reusing the `//`/`/*`-oriented
+      `TokenizerCore.markFrozenSpans`/`FormatterSimpleBraced.capitalizeCommentStart`.
+      `FormatterYaml.java` created as the `FormatterCore` dispatch sibling
+      (deliberately omits `indentStyle` from the rule constructor — §5.1
+      mandates YAML always uses spaces regardless of configured
+      `indent-style`).
+- [x] **Implement TOML support (§6).** `TomlSpecificRule.java` implements a
+      much simpler flat, non-recursive, non-indented single-pass line
+      scanner (TOML expresses nesting purely via dotted table-header names,
+      e.g. `[a.b]`, never via indentation, per §6.2) — no recursive block
+      parser needed, unlike YAML. A `ValueNode`/`Scalar`/`Entry`/`Arr`/`Tbl`/
+      `ValueCursor` AST+parser handles array/inline-table values. §6.3's
+      tight/loose array rule is purely structural (no line-length
+      consideration, unlike YAML's flow-collection rule): an array is tight
+      iff every element is a `Scalar` (no nested `Arr`/`Tbl`), regardless of
+      length. §6.4 inline tables are always single-line (a TOML v1.0 grammar
+      constraint, not a style choice — no tight/loose decision needed). `=`-
+      alignment groups and `#%` frozen-span/comment-normalization logic are
+      structurally identical to YAML's (duplicated rather than factored into
+      a shared helper — accepted for now given time constraints, flagged as
+      a possible future DRY improvement). `FormatterToml.java` created
+      mirroring `FormatterYaml.java`.
+      Both `YamlSpecificRule`/`TomlSpecificRule` moved out of
+      `Lang.SCAFFOLD_ONLY_LANGUAGES` into `Lang.SUPPORTED_LANGUAGES` in this
+      pass (`FormatterCore.forLanguage` gained `isYaml`/`isToml` dispatch
+      branches), once both had real logic — same precedent as JSON/CSS's
+      migration (RDD_KEY_190).
+- [x] **YAML/TOML fixtures authored ahead of implementation, then verified
+      against real logic and uncommented in the Makefile.**
+      `test/yaml_core_{inp,out}.yaml`, `test/yaml_comments_{inp,out}.yaml`,
+      `test/toml_core_{inp,out}.toml`, `test/toml_comments_{inp,out}.toml`
+      (contents described in `test/README.txt`) are registered in the
+      Makefile's `INP_FILES` and pass `make test` (idempotency + fixture
+      diff) cleanly. Two implementation bugs were found and fixed against
+      these fixtures:
+      (1) **YAML silent-data-loss bug**: `parseKeyItem`'s child-block
+      trigger used a strict `peek().indent > ln.indent` check, but YAML
+      allows a sequence's `-` items at the *same* indent as their parent
+      mapping key (e.g. `fruits:` / `- apple`, both indent 0 — a valid,
+      common style). The strict check failed to trigger, leaving `- apple`/
+      `- banana` unconsumed; the outer `parseBlock`'s shape-mismatch check
+      then saw an unexpected sequence line and broke early, silently
+      dropping the rest of the document (no exception). Fixed by allowing
+      `next.indent >= ln.indent` specifically when the next line is a
+      sequence item (a mapping child must still be strictly deeper, to
+      avoid ambiguity with a sibling key at the parent's own indent).
+      (2) **YAML idempotency bug**: `item.key = code.substring(0, colon)`
+      (in both `parseKeyItem` and the sequence-of-mapping's `firstKey`) did
+      not `.trim()` the key, so re-parsing the formatter's own aligned
+      output (e.g. `name : widget`) captured `"name "` (trailing space
+      before the colon) as the key instead of `"name"`, silently widening
+      colon-alignment-group width computations on the second pass. Fixed by
+      adding `.trim()` at both call sites.
+      (3) **TOML idempotency bug**: the flat line scanner assumed every
+      `key = value` line's value was fully contained on one physical line,
+      but the formatter's own §6.3 loose-array output (e.g. `matrix = [` /
+      `    [1, 2],` / `    [3, 4]` / `]`) is intentionally multi-line,
+      causing `TomlParseException: unterminated array` when re-parsing it.
+      Fixed by adding a quote-aware `bracketBalance` helper and consuming/
+      concatenating additional physical lines (joined with a single space)
+      whenever a `key = value` line's value portion has unbalanced
+      brackets/braces, before calling `parseValue`.
+      Also caught and fixed one fixture-authoring error during this pass:
+      `test/yaml_core_out.yaml`'s nested `endpoints` flow array was
+      hand-drafted expecting block conversion, but per §5.4's own
+      recursive-per-depth rule its post-conversion rendering
+      (`"  endpoints : [...]"`, 83 chars) fits under the default
+      `line-length` of 100 and should correctly stay flow — only the outer
+      `config` mapping (121 chars as one line) needed to convert. Fixture
+      corrected to match the (correct) implementation rather than the other
+      way around.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format
       (`json5/json5`/`microsoft/vscode`/etc. for JSON — still open, not yet

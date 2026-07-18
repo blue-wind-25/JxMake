@@ -31,6 +31,12 @@ public abstract class FormatterCore {
         if (lang.isCss) {
             return new FormatterCss(lang);
         }
+        if (lang.isYaml) {
+            return new FormatterYaml(lang);
+        }
+        if (lang.isToml) {
+            return new FormatterToml(lang);
+        }
         if (lang.isCurly) {
             return new FormatterCurly(lang);
         }

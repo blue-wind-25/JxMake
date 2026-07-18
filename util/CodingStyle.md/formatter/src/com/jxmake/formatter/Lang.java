@@ -80,7 +80,7 @@ public final class Lang {
      *    the `--lang` validation in `Main.run()`
      *    `ServerMode.FormatHandler.handle()`
      */
-    public static final String SUPPORTED_LANGUAGES = "c, cpp, java, kotlin, json, json5, css";
+    public static final String SUPPORTED_LANGUAGES = "c, cpp, java, kotlin, json, json5, css, yaml, toml";
 
     /**
      * Scaffold-only languages: recognized by {@link #infer} and accepted by `--lang`/`lang=`, but
@@ -91,20 +91,21 @@ public final class Lang {
      * folded in with no separate {@code isCpp20}/{@code --lang cpp20} selector. See RDD_KEY_180,
      * which supersedes RDD_KEY_179's now-reverted separate-language approach.) JSON/JSON5/CSS moved
      * out of this list once `FormatterJson`/`JsonSpecificRule` and `FormatterCss`/`CssSpecificRule`
-     * landed real logic -- see RDD_KEY_190.
+     * landed real logic -- see RDD_KEY_190. YAML/TOML moved out once `FormatterYaml`/
+     * `YamlSpecificRule` and `FormatterToml`/`TomlSpecificRule` landed real logic.
      */
     public static final String SCAFFOLD_ONLY_LANGUAGES =
-            "yaml, toml, xml, html5, js, ts, python3";
+            "xml, html5, js, ts, python3";
 
     public static boolean isSupported(final String language) {
         return "c".equals(language) || "cpp".equals(language)
                 || "java".equals(language) || "kotlin".equals(language)
                 || "json".equals(language) || "json5".equals(language)
-                || "css".equals(language);
+                || "css".equals(language) || "yaml".equals(language) || "toml".equals(language);
     }
 
     public static boolean isScaffoldOnly(final String language) {
-        return "yaml".equals(language) || "toml".equals(language) || "xml".equals(language)
+        return "xml".equals(language)
                 || "html5".equals(language) || "js".equals(language)
                 || "ts".equals(language) || "python3".equals(language);
     }

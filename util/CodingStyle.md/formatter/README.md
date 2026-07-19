@@ -402,26 +402,35 @@ third-party client only needs to speak this HTTP protocol, not link against the 
 
 ## Known Limitations
 
-- **General scope‑depth reindentation is not supported.** As a result, jxmake‑code‑formatter
-  cannot properly format badly indented machine‑generated code, obfuscated code, or code
-  copy‑pasted from emails and forums that lost their indentation.
+- **General scope‑depth reindentation is not supported for C/C++/Java/Kotlin.** These
+  languages preserve original whitespace by default (only narrow, targeted passes reindent
+  anything — see below), so jxmake‑code‑formatter cannot properly format badly indented
+  machine‑generated code, obfuscated code, or code copy‑pasted from emails and forums that
+  lost their indentation. This does **not** apply to JSON/JSON5/CSS/XML/HTML5/YAML/TOML,
+  which parse into a real tree and print indentation fresh from structural nesting depth
+  regardless of source formatting.
 
-- **Non-idempotent switch-case re-indent on internally-inconsistent generated source.**
-  `SwitchRule.applyNonInlineCaseIndent` shifts every line of a `case` body by one delta
-  computed from the body's first line, preserving relative offsets — this assumes the body's
-  original indentation was internally consistent. On JavaCC/ANTLR-style generated sources
-  whose *own* output has inconsistent per-line indentation within a single `case` body (a
-  generator quirk, not something realistic hand-written code exhibits), one reformat pass can
-  land a line one indent level off from its true target, and a second pass then converges it to
-  a different value than either round1 or its original source — i.e. two formatting passes are
-  not guaranteed to produce byte-identical output on such input. Observed on exactly one file in
-  the `javaparser/javaparser` real-code-testing candidate (`ASTParser.java`, its JavaCC-generated
-  parser) out of thousands of real-world files tested across all candidates; no other file in
-  that tree or any other tested candidate exhibits it. A real fix would need
-  `applyNonInlineCaseIndent` to derive each line's target from its own brace-nesting depth
-  rather than one relative delta from the first line — a nontrivial rework with regression risk
-  to existing switch-formatting behavior, not planned unless a broader pattern of real-world
-  impact emerges.
+- **Non-idempotent reindent on internally-inconsistent generated source, for any pass using
+  a relative-delta technique.** Two known call sites share this root cause:
+  `SwitchRule.applyNonInlineCaseIndent` (`case` bodies) and
+  `ScopePipeline.applyDeclarationsPass` (declarations) — each shifts a block's lines by one
+  delta computed from a single reference line rather than deriving each line's target from
+  its own brace-nesting depth, which assumes the block's original indentation was internally
+  consistent. On JavaCC/ANTLR-style generated sources whose *own* output has inconsistent
+  per-line indentation within a single block (a generator quirk, not something realistic
+  hand-written code exhibits), one reformat pass can land a line one indent level off from
+  its true target, and reformatting that output a second time (an idempotency check: format
+  once, then format the result again and compare) converges it to a different value than
+  either the first pass or the original source — i.e. two formatting passes are not
+  guaranteed to produce byte-identical output on such input. Observed once each in the
+  `javaparser/javaparser`
+  real-code-testing candidate (`ASTParser.java`, its JavaCC-generated parser) and the local
+  dogfood tree (`tool/JSONEncoderLite.java`), out of thousands of real-world files tested
+  across all candidates; no other file in either tree or any other tested candidate exhibits
+  it. A real fix would need both passes to derive each line's target from structural depth
+  rather than a relative delta from one reference line — a nontrivial rework with regression
+  risk to existing behavior, not planned unless a broader pattern of real-world impact
+  emerges.
 
 ---
 

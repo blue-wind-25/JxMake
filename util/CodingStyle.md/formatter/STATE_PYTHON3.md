@@ -164,10 +164,27 @@ testing.
 
 ## Open Questions
 
-None currently — `STYLE_PYTHON3.md`'s own "Known Open Items" (§10) states
-its prior open items (decorators, f-strings, type-hint signature wrapping)
-were already resolved via Q&A and folded into §4–§6; nothing is left
-unresolved in the style doc itself as of this session.
+`STYLE_PYTHON3.md`'s own "Known Open Items" (§10) states its prior open
+items (decorators, f-strings, type-hint signature wrapping) were already
+resolved via Q&A and folded into §4–§6; nothing is left unresolved in the
+style doc itself as of this session. One open item remains at the
+implementation-architecture level, below.
+
+**Indent-size/style conversion is per-block, not whole-file.** Unlike
+Curly-family languages, Python's indentation is the only signal of block
+depth (no braces to re-derive it from), so general scope-depth
+reindentation is architecturally unavailable here, not merely hard —
+there's nothing independent to recompute *from*. Indent-size/style
+conversion (the Python analog of `MiscRuleCore.convertIndentation`) must
+therefore operate per-block: rescale a block's indentation if its width is
+a clean multiple of the presumed original unit, leave that block's lines
+untouched otherwise — never reject the whole file for one inconsistent
+block, since CPython itself only requires per-block internal consistency,
+not file-wide uniformity. **Open:** exact block-boundary granularity (each
+`def`/`class`/control-structure body independently vs. the whole
+contiguous indent-run at a given depth) is undecided — resolve against
+real-world drift patterns in the `psf/black`/`django` fixture repos once
+`FormatterIndent`/`MiscRuleIndent` are actually implemented.
 
 ---
 
@@ -177,13 +194,17 @@ unresolved in the style doc itself as of this session.
       construct not already lexed correctly (f-string interpolation
       boundaries, `:=` walrus if present, significant-whitespace/indent
       tracking as a first-class tokenizer concern rather than braces,
-      `match`/`case` soft keywords) — additive only, re-run the full
-      existing C/C++/Java/Kotlin regression suite for zero regressions
-      before moving on (same discipline `STATE_KOTLIN.md` Step 0 used).
-      Indentation being semantically load-bearing (not just cosmetic) is
-      the single biggest structural difference from every existing
-      language and should be resolved architecturally in this step, before
-      any statement-level rule work begins.
+      `match`/`case` soft keywords). This work lands in the new
+      `TokenizerIndent` skeleton class, not the shared `TokenizerCore` that
+      C/C++/Java/Kotlin/JS/TS extend — so the risk here isn't corrupting an
+      existing language's token lexing directly, it's getting the shared
+      dispatch plumbing wrong (`Lang.java`'s family predicates,
+      `FormatterCore.forLanguage` routing). Re-run the full existing
+      regression suite and confirm zero regressions before any rule-level
+      work begins. Indentation being semantically load-bearing (not just
+      cosmetic) is the single biggest structural difference from every
+      existing language and should be resolved architecturally in this
+      step, before any statement-level rule work begins.
 - [ ] Implement basic statement/indentation formatting first (the Python
       analog of a "get the skeleton right" starting point, since there are
       no braces to reuse the existing block-structure rule against) —

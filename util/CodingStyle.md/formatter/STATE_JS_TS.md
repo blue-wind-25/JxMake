@@ -179,12 +179,24 @@ attempted this session, future work:
       the Kotlin job's Step 1 scoping-table approach).
 - [ ] Tokenizer support pass: survey `STYLE_JS_TS.md` for every token not
       already lexed (template literals, `?.`/`??`, `=>`, decorators `@`,
-      spread/rest `...`, TS type-annotation `:`/`|`/`&`/generics `<>`) —
-      additive only, re-run full existing C/C++/Java/Kotlin regression
-      suite for zero regressions before moving on (same discipline
-      `STATE_KOTLIN.md` Step 0 used).
+      spread/rest `...`, TS type-annotation `:`/`|`/`&`/generics `<>`), done
+      once for both languages rather than revisited later for TS's
+      additions. `TokenizerCore.java` is shared with C/C++/Java/Kotlin —
+      every addition here must be purely additive and must not change how
+      any existing token in those languages is lexed. Re-run the full
+      existing regression suite and confirm zero regressions before any
+      rule-level work begins.
 - [ ] Implement §2–15 rule-by-rule, each its own checkpoint commit, per
-      `STATE_COMMON.md`'s workflow.
+      `STATE_COMMON.md`'s workflow. This is ordered by section, not by
+      language: §2–10 apply to both JS and TS (verified entirely against
+      `.js` fixtures as each lands), §11–14 are TS-only (verified against
+      `.ts` fixtures once reached), §15 closes out both. JS support is
+      therefore functionally complete once §2–10 land, without JS ever
+      being a separate finished phase — TS support accretes the same way
+      through §11–14, reusing every §2–10 commit rather than repeating
+      them. Don't split this into a "JS pass" followed by a "TS pass"; the
+      shared `JsTsSpecificRule.java` has no seam that would make that split
+      meaningful.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "JavaScript"/"TypeScript" sections (split by extension since TS-only
       constructs can't live in `.js`). Done: `js_combined_inp/out.js`,

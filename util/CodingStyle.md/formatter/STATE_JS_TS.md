@@ -764,7 +764,80 @@ attempted this session, future work:
       Setter Accessors), which explicitly plans to reuse
       `GetterSetterRuleCurly`'s existing one-liner-group alignment machinery
       for JS/TS and will need to fix this as part of that wiring.
-      **Next up:** §6 (arrow function spacing/brace-style/parameter-parens).
+      **Checkpoint 12 done -- §6 (arrow function spacing/brace-style/
+      parameter-parens) implemented via two new `JsTsSpecificRule.java`
+      methods, `enforceArrowSpacing` and
+      `enforceArrowFunctionParameterParens`.** Confirmed empirically (not
+      assumed, per this checkpoint's own brief) via a standalone harness
+      that `=>` spacing was NOT already free from any existing generic
+      pass -- this codebase has no general from-scratch binary-operator
+      respacing pass for any language, so `enforceArrowSpacing` (a flat
+      gap-normalizing scan, structurally identical to
+      `enforceOptionalChainingSpacing`/`enforceUnionIntersectionSpacing`,
+      enforcing exactly one space on both sides of `=>` and bailing out on
+      comments/NEWLINE/frozen tokens) was needed. `enforceArrowFunctionParameterParens`
+      wraps a bare single-parameter arrow's parameter in parens
+      (`n => ...` -> `(n) => ...`); STYLE_JS_TS.md §6's exact text was
+      re-read to resolve what the task brief flagged as a plausible
+      ambiguity ("preserve as written" vs. "always parenthesize") --
+      it is unambiguous once read carefully: "Parameter parens: keep even
+      for a single untyped parameter (`(n) => ...`, not `n => ...`) for
+      alignment consistency with multi-parameter arrows in the same
+      group." So the rule is always-parenthesize, not preserve; this was
+      not a genuine blocking ambiguity and the STOP-CODING protocol was
+      not invoked. The remaining two §6 items -- K&R (not Allman) braces
+      for arrow block bodies, and same-line no-braces for single-
+      expression bodies -- needed no new code: arrow bodies are excluded
+      from §5's Allman candidate signal by construction (an arrow body's
+      `{` is preceded by `=>`, never by `)` or a `)`-terminated TS return
+      type, which is the only signal §5's Allman pass matches), and this
+      codebase never auto-adds or strips braces around an expression body
+      for any language, so a single-expression arrow body's existing
+      brace-free form simply round-trips untouched.
+      **Idempotency bug found and fixed before this checkpoint could be
+      committed:** an initial implementation wired
+      `enforceArrowFunctionParameterParens` into `FormatterCurly.java`'s
+      Phase 4 (alongside the other JS/TS cosmetic spacing passes, right
+      after §4's template-literal call). A 12-case smoke harness
+      (formatting each case twice and diffing) caught one non-idempotent
+      case: `arr.map(x => x * 2);` formatted (pass 1) to
+      `arr.map((x) => x * 2);` -- staying *tight* around the outer
+      `.map(...)` call's own parens -- but reformatting that same output
+      (pass 2) produced `arr.map( (x) => x * 2 );`, now *loose*. Root
+      cause: `enforceComplexityPadding` (the shared STYLE.md §3.1 tight-
+      vs-loose call-padding pass) had already run and decided "tight"
+      for the outer call *before* Phase 4's arrow-parens pass introduced
+      the new nested `(x)` shape inside its argument list -- so a fresh
+      format never saw the post-insertion shape in time to pad loosely,
+      while a reformat of already-`(x)`-containing output did. This is
+      the exact bug class `FormatterCurly.java`'s own comments already
+      document and fix elsewhere in this file (re-running
+      `enforceComplexityPadding` after any pass that can introduce a new
+      nested-paren/bracket shape, so the padding decision always sees the
+      final shape on the very first pass). Fix: moved
+      `enforceArrowFunctionParameterParens`'s call site out of Phase 4
+      and into Phase 1, immediately after the existing §5 Allman call and
+      immediately before Phase 1's own `enforceComplexityPadding` re-run
+      (line ~144) -- so that re-run's tight-vs-loose decision now always
+      sees the post-parenthesization shape, on both a fresh format and a
+      reformat. `enforceArrowSpacing` stayed in Phase 4 (it only adjusts
+      spacing around an existing `=>` token, never adds/removes a
+      paren/bracket, so it cannot affect any complexity-padding decision
+      either way). Re-verified after the fix: all 12 smoke-harness cases
+      -- including bare/parenthesized/typed single params, multi-param,
+      no-param, async arrows, arrow-as-class-method-body, and a
+      multi-line arrow body -- round-trip idempotently (round1 == round2
+      in every case), and the previously-failing
+      `arr.map(x => x * 2);` case now produces `arr.map( (x) => x * 2 );`
+      identically on both the first format and every reformat after.
+      `make` compiles clean; `make test`: 106/106 forward + 106/106
+      idempotency, zero regressions.
+      **Next up:** §8/§9 (getter/setter accessors, decorators) -- §8 in
+      particular should also pick up the pre-existing `GetterSetterRuleCurly`
+      paren-spacing bug documented in the Checkpoint 11 notes above, since
+      it plans to reuse that same one-liner-group alignment machinery for
+      JS/TS. §12-15 (enums, generics, interface/type-alias, imports) remain
+      otherwise unstarted.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "JavaScript"/"TypeScript" sections (split by extension since TS-only
       constructs can't live in `.js`). Done: `js_combined_inp/out.js`,

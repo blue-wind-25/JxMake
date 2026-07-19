@@ -832,6 +832,105 @@ public final class JsTsSpecificRule {
         return "";
     }
 
+    // ── §6 Arrow functions -- spacing and always-kept parameter parens ───────────────
+    /**
+     * STYLE_JS_TS.md §6: `=>` is always spaced (one space on both sides), same as Kotlin's `->`
+     * ({@link KotlinSpecificRule#enforceArrowSpacing}, reused here structurally). Confirmed via a
+     * standalone harness before writing this method that `=>` spacing is <b>not</b> already free
+     * from any existing generic pass -- this codebase has no general from-scratch binary-operator
+     * respacing pass for any language (e.g. `const x=1;`/`const y = 1+2;` both round-trip with
+     * their original spacing completely untouched), so `=>` needs its own dedicated flat pass,
+     * same conservative bailout (a gap containing a comment, a NEWLINE, or a frozen token is left
+     * untouched) as every other pass in this file.
+     *
+     * <p>The other two §6 items need no code here: (1) K&R brace style for an arrow block body is
+     * already satisfied by construction -- {@link #enforceMethodDefinitionAllmanBraceStyle}'s own
+     * candidate signal never matches a `{` directly preceded by `=>`, so an arrow body's brace is
+     * simply never touched by any Allman-conversion pass, staying wherever it was written (K&R);
+     * (2) same-line no-brace for a single-expression body is likewise never rewritten either way
+     * (this codebase never auto-adds or auto-strips braces around a body -- see
+     * `collapseSingleExpressionBlocks`'s narrower control-flow-only scope -- so a single-expression
+     * arrow body written braceless stays braceless, matching §6's own worked examples, without any
+     * dedicated pass).
+     */
+    public String enforceArrowSpacing(final List<Token> tokens) {
+        if (!lang.isJs && !lang.isTs) {
+            return render(tokens, new HashMap<>());
+        }
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        Token lastSignificant = null;
+        final int n = tokens.size();
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
+                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean adjacentToArrow = isOp(lastSignificant, "=>") || isOp(t, "=>");
+
+            if (gapBlocked || !adjacentToArrow) {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            } else {
+                out.append(' ');
+            }
+
+            gap.clear();
+            out.append(t.text);
+            lastSignificant = t;
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    /**
+     * STYLE_JS_TS.md §6: an arrow function's parameter list keeps its parens even for a single
+     * untyped parameter -- `(n) => ...`, never bare `n => ...` -- "for alignment consistency with
+     * multi-parameter arrows in the same group" (the style doc's own stated reasoning). Read as an
+     * always-normalize rule (not a preserve-as-written one): every `=>` whose immediately
+     * preceding significant token is a bare IDENTIFIER (never already parenthesized -- a
+     * multi/typed/zero-parameter arrow's `=>` is always preceded by `)` instead, untouched by this
+     * check) gets that identifier wrapped in parens. Conservative bailout matching this file's
+     * other passes: a gap containing a NEWLINE or comment between the identifier and `=>`, or
+     * either token being frozen, leaves the pair untouched.
+     */
+    public String enforceArrowFunctionParameterParens(final List<Token> tokens) {
+        if (!lang.isJs && !lang.isTs) {
+            return render(tokens, new HashMap<>());
+        }
+        final Map<Integer, String> overrides = new HashMap<>();
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (!isOp(t, "=>") || t.frozen) {
+                continue;
+            }
+            final int prevIdx = prevSignificantIndex(tokens, i - 1);
+            if (prevIdx < 0) {
+                continue;
+            }
+            final Token prev = tokens.get(prevIdx);
+            if (prev.type != TokenType.IDENTIFIER || prev.frozen) {
+                continue;
+            }
+            if (hasNewlineOrCommentBetween(tokens, prevIdx, i)) {
+                continue;
+            }
+            overrides.put(prevIdx, "(" + prev.text + ")");
+        }
+        return render(tokens, overrides);
+    }
+
     // ── §11.2 Class field modifier-priority table ────────────────────────────────────
     /** STYLE_JS_TS.md §11.2's fixed six-slot modifier order -- `declare` first (ambient marker),
      *  then visibility (`public`/`private`/`protected`, mutually exclusive so all three share one

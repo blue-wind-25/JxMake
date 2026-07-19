@@ -128,6 +128,20 @@ public final class FormatterCurly extends FormatterCore {
             // (getter/setter-style) bodies stay K&R, excluded internally by the method itself.
             text = jsTsRule.enforceMethodDefinitionAllmanBraceStyle(tokenizer.apply(text));
         }
+        if (lang.isJs || lang.isTs) {
+            // STYLE_JS_TS.md §6: a bare single-parameter arrow (`n => ...`) always gets its
+            // parameter wrapped in parens (`(n) => ...`). This must run before the
+            // enforceComplexityPadding call right below (not down in Phase 4 with the rest of
+            // this file's JS/TS cosmetic passes) for the same reason enforceComplexityPadding
+            // itself was pulled forward in the comment below: inserting `(x)` introduces a new
+            // nested-paren shape inside any enclosing call's argument list, and
+            // enforceComplexityPadding's tight-vs-loose decision for that enclosing call has to
+            // see the post-insertion shape on the very first format pass, or a fresh format
+            // (pre-insertion, stays tight) and a reformat of already-formatted output
+            // (post-insertion, goes loose) disagree -- not idempotent. Found via real-world
+            // testing (`arr.map(x => x * 2)` staying tight on format #1 but going loose on #2).
+            text = jsTsRule.enforceArrowFunctionParameterParens(tokenizer.apply(text));
+        }
         // enforceCallLineBreaking's "does it fit in LINE_LENGTH_LIMIT" measurement must see
         // enforceComplexityPadding's loose `( x )` spacing already applied -- otherwise a line
         // right at the boundary can measure as "fits" here, then grow past the limit once padding
@@ -238,6 +252,11 @@ public final class FormatterCurly extends FormatterCore {
             // STYLE_JS_TS.md §4: template literal `${...}` interpolation gets normal expression
             // spacing -- the literal's own raw text otherwise stays byte-for-byte preserved.
             text = jsTsRule.enforceTemplateLiteralInterpolationSpacing(tokenizer.apply(text));
+            // STYLE_JS_TS.md §6: `=>` is always spaced -- confirmed not already free from any
+            // generic pass (this codebase has no general from-scratch binary-operator respacing).
+            // (The other §6 item, always-parenthesized single-parameter arrows, is applied earlier
+            // in Phase 1 -- see the comment on that call for why it can't sit here.)
+            text = jsTsRule.enforceArrowSpacing(tokenizer.apply(text));
         }
         if (lang.isTs) {
             // STYLE_JS_TS.md §11: `: type` colon spacing (declarator/parameter/return-type),

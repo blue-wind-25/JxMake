@@ -268,11 +268,7 @@ XML:
                                             right before the closing tag.
 
 C++26:
-Fixtures authored ahead of implementation -- registered commented-out in the
-Makefile's INP_FILES until real rule coverage lands on the cpp pipeline; see
-STATE_CPP26.md).
-
-  cpp_26ext_inp/out.cpp                  -- Pack indexing (`T...[N]` tight vs. going loose
+  cpp26_core_inp/out.cpp                  -- Pack indexing (`T...[N]` tight vs. going loose
                                             when the index contains a call or a nested
                                             bracket), `= delete("reason")` vs. bare
                                             `= delete;`, placeholder `_` in structured
@@ -281,7 +277,7 @@ STATE_CPP26.md).
                                             when the signature fits vs. one-per-line when it
                                             doesn't.
 
-  cpp_26_comments_inp/out.cpp            -- Uncommon comment placement around the above:
+  cpp26_comments_inp/out.cpp            -- Uncommon comment placement around the above:
                                             leading comment before pack indexing, comment
                                             between `template<>` and its `using`, comments
                                             forcing an `if`-init to stay a braced block
@@ -289,7 +285,7 @@ STATE_CPP26.md).
                                             leading/trailing contract comments, and `/* */`
                                             block comments between contract clauses.
 
-  cpp_26_reflection_inp/out.cpp          -- Reflection (`^^`, `[:`/`:]` splicing):
+  cpp26_reflection_inp/out.cpp          -- Reflection (`^^`, `[:`/`:]` splicing):
                                             `^^` binding tight to an initializer, a
                                             `return` expression, and a parenthesized
                                             sub-expression; a four-member `constexpr
@@ -307,9 +303,6 @@ STATE_CPP26.md).
                                             STATE_CPP26.md.
 
 JS/TS:
-Fixtures authored ahead of implementation -- registered commented-out in the
-Makefile's INP_FILES until real formatting logic lands; see STATE_JS_TS.md).
-
   js_combined_inp/out.js                 -- Import grouping/sorting, inline vs. own-line
                                             decorator placement, a private class field,
                                             static vs. instance getter/setter one-liner
@@ -341,10 +334,6 @@ Makefile's INP_FILES until real formatting logic lands; see STATE_JS_TS.md).
                                             staying attached to its closing `)`.
 
 HTML5:
-Fixtures authored ahead of implementation -- registered commented-out in the
-Makefile's INP_FILES until real dispatch/formatting logic lands; see
-STATE_DATA_FORMATS.md.
-
   html_combined_inp/out.html             -- Void element normalization (`<img>`/`<input>`/
                                             `<br>` lose self-closing `/`, contrasted with
                                             `<link>`), bare boolean attributes, a tag whose
@@ -365,9 +354,6 @@ STATE_DATA_FORMATS.md.
                                             fully opaque.
 
 Python3:
-Fixtures authored ahead of implementation -- registered commented-out in the
-Makefile's INP_FILES until real formatting logic lands; see STATE_PYTHON3.md).
-
   py_combined_inp/out.py                 -- Bracket-complexity categories, assignment
                                             alignment (augmented assignment, both
                                             continuation-break styles), import

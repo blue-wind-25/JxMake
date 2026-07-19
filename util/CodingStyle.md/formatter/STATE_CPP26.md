@@ -100,7 +100,7 @@ Local dogfood pairs (distinct from the external-repo list above, which is for
 corpus-scale reflection validation — see Scope §5 above) have been authored
 and registered in `formatter/test/` — see `test/README.txt` for the pair
 list and what each covers. The reflection pair
-(`cpp_26_reflection_inp/out.cpp`) was extracted ahead of its original
+(`cpp26_reflection_inp/out.cpp`) was extracted ahead of its original
 promotion gate (§5's external-repo tokenizer validation still pending), per
 explicit instruction — see the "Done:" note on this file's checklist below
 for that history.
@@ -116,7 +116,7 @@ needed):
   assumed 4-space indentation — this formatter does not reindent
   (preserves source indentation verbatim, see `STATE_COMMON.md`'s
   Architectural TODOs), so the input needed to already be authored with
-  correct indentation, same convention as `cpp_26ext_inp.cpp`. Fixed by
+  correct indentation, same convention as `cpp26_core_inp.cpp`. Fixed by
   indenting the input's body statements.
 - `auto v = [:r:];` gets column-aligned under `constexpr auto r = ^^int;`'s
   `=` by the pre-existing (unrelated, C/C++/Java job's) declaration-
@@ -265,7 +265,7 @@ formal blocked Open Question here since real implementation hasn't started.
       regressions. §2 (`= delete("reason")`) and §3 (placeholder `_`)
       confirmed to need no new code — both already format correctly via
       existing ordinary call-argument/identifier handling (verified against
-      `cpp_26ext_inp/out.cpp`).
+      `cpp26_core_inp/out.cpp`).
 - [x] §4 Contracts implemented: `CppSpecificRule.enforceContractClausePlacement`
       (placement: `pre`/`post` are plain identifiers, not tokenizer keywords,
       so detection is positional — an identifier `pre`/`post` whose previous
@@ -288,9 +288,9 @@ formal blocked Open Question here since real implementation hasn't started.
       `lang.isCpp` block right after `enforceRequiresClausePlacement`;
       contract_assert spacing in the Phase 4 cosmetic-spacing `lang.isCpp`
       block alongside `enforcePackIndexingSpacing`). `make test`: 101/101
-      forward + idempotency, zero regressions, `cpp_26ext_inp/out.cpp`
+      forward + idempotency, zero regressions, `cpp26_core_inp/out.cpp`
       promoted to active in the Makefile (uncommented from `INP_FILES`).
-      `cpp_26_comments_inp.cpp` deliberately NOT yet promoted — it exercises
+      `cpp26_comments_inp.cpp` deliberately NOT yet promoted — it exercises
       a comment sitting between the signature's `)` and the first `pre`
       clause, which `enforceContractClausePlacement`'s replaced span would
       currently silently drop (not yet handled); left as a known gap in the
@@ -298,11 +298,11 @@ formal blocked Open Question here since real implementation hasn't started.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "CPP26" section (reflection pair sequenced after the §5 tokenizer
       validation pass, per that section's own note) and register in the
-      Makefile's `INP_FILES` / `test/README.txt`. Done: `cpp_26ext_inp/out.cpp`,
-      `cpp_26_comments_inp/out.cpp`, and `cpp_26_reflection_inp/out.cpp` all
+      Makefile's `INP_FILES` / `test/README.txt`. Done: `cpp26_core_inp/out.cpp`,
+      `cpp26_comments_inp/out.cpp`, and `cpp26_reflection_inp/out.cpp` all
       extracted to `test/`, registered commented-out in the Makefile (real
       §1–4/§5 rule coverage not yet implemented), documented in
-      `test/README.txt`. `cpp_26_reflection`'s promotion gate (external-corpus
+      `test/README.txt`. `cpp26_reflection`'s promotion gate (external-corpus
       cross-check for §5) was explicitly overridden per user instruction, since
       the pair is needed to seed the initial tokenizer test for `^^`/`[:`/`:]` --
       its expected output still isn't validated against that cross-check.

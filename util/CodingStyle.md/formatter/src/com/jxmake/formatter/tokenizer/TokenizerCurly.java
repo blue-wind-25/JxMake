@@ -73,6 +73,28 @@ public class TokenizerCurly extends TokenizerCore {
             "public", "receiver", "reified", "sealed", "set", "setparam", "suspend", "tailrec",
             "vararg", "where");
 
+    // JS keywords (ES2024+, STYLE_JS_TS.md). `class`/`function`/`interface` etc. share the
+    // curly-family named-construct machinery below the same way Java/Kotlin's do.
+    private static final Set<String> KEYWORDS_JS = setOf(
+            "async", "await", "break", "case", "catch", "class", "const", "continue", "debugger",
+            "default", "delete", "do", "else", "export", "extends", "false", "finally", "for",
+            "function", "get", "if", "import", "in", "instanceof", "let", "new", "null", "of",
+            "return", "set", "static", "super", "switch", "this", "throw", "true", "try",
+            "typeof", "var", "void", "while", "with", "yield");
+
+    // TS adds its own keyword vocabulary on top of every JS keyword (RDD_KEY_187 -- shared
+    // curly classes gated on lang.isJs/isTs, no separate JsTokenizer/TsTokenizer). STYLE_JS_TS.md
+    // §11's own modifier-priority table (declare/visibility/static/abstract/override/readonly)
+    // and §12/§14 (enum/interface/type) all need their keywords recognized here.
+    private static final Set<String> KEYWORDS_TS = new HashSet<>(KEYWORDS_JS);
+    static {
+        KEYWORDS_TS.addAll(Arrays.asList(
+                "abstract", "any", "as", "asserts", "bigint", "boolean", "declare", "enum",
+                "implements", "infer", "interface", "is", "keyof", "namespace", "never", "number",
+                "object", "override", "private", "protected", "public", "readonly", "satisfies",
+                "string", "symbol", "type", "undefined", "unique", "unknown"));
+    }
+
     private static final Set<String> NAMED_CONSTRUCT_C = setOf("struct", "enum");
     private static final Set<String> NAMED_CONSTRUCT_CPP =
             setOf("class", "struct", "enum", "namespace", "concept");
@@ -80,6 +102,9 @@ public class TokenizerCurly extends TokenizerCore {
             setOf("class", "interface", "enum", "record");
     private static final Set<String> NAMED_CONSTRUCT_KOTLIN =
             setOf("class", "object", "interface", "enum", "init");
+    private static final Set<String> NAMED_CONSTRUCT_JS = setOf("class");
+    private static final Set<String> NAMED_CONSTRUCT_TS =
+            setOf("class", "interface", "enum", "namespace");
 
     // Keywords that may legally appear inside a generic/template argument list without
     // invalidating the candidate `<>` pair -- e.g. `vector<int>`, `array<unsigned char, 4>`,
@@ -119,12 +144,17 @@ public class TokenizerCurly extends TokenizerCore {
     // readToken's `c == '[' && peek(1) == ':'` case) since a leading `[` is otherwise intercepted
     // by the open-bracket branch before ever reaching emitOperator() -- unlike ":]", which starts
     // with `:` and already falls through to emitOperator() via the loop's default case.
+    // JS/TS entries (STYLE_JS_TS.md §6/§7): "=>" (arrow), "??=" (nullish-coalescing assignment,
+    // must precede its own "??" prefix and the plain "=" fallback), "??" (nullish coalescing --
+    // "?." is already present above, shared with Kotlin's safe-call operator). None of these are a
+    // prefix of any pre-existing C/C++/Java/Kotlin entry (or vice versa), so purely additive.
     private static final String[] MULTI_CHAR_OPS = {
             "<<=", ">>>=", ">>=", "...", "->*", "..<",
             "<=>", "::", "<<", ">>>", ">>", "<=", ">=", "===", "!==", "==", "!=", "&&", "||",
             "++", "--", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "->", ".*",
             "?.", "?:", "!!", "..",
-            "[[", "]]", "^^", "[:", ":]"
+            "[[", "]]", "^^", "[:", ":]",
+            "=>", "??=", "??"
     };
 
     private final Lang lang;
@@ -191,6 +221,14 @@ public class TokenizerCurly extends TokenizerCore {
                 this.keywords = KEYWORDS_KOTLIN;
                 this.namedConstructKeywords = NAMED_CONSTRUCT_KOTLIN;
                 break;
+            case "js":
+                this.keywords = KEYWORDS_JS;
+                this.namedConstructKeywords = NAMED_CONSTRUCT_JS;
+                break;
+            case "ts":
+                this.keywords = KEYWORDS_TS;
+                this.namedConstructKeywords = NAMED_CONSTRUCT_TS;
+                break;
             default:
                 throw new IllegalArgumentException("Unknown language: " + language);
         }
@@ -242,6 +280,8 @@ public class TokenizerCurly extends TokenizerCore {
                 t = emitRawString(rawStringPrefixLength());
             } else if (c == '"') {
                 t = emitString();
+            } else if (c == '`' && (lang.isJs || lang.isTs)) {
+                t = emitTemplateLiteral();
             } else if (c == '\'') {
                 t = emitChar();
             } else if (Character.isDigit(c) || (c == '.' && Character.isDigit(peek(1)))) {
@@ -876,6 +916,106 @@ public class TokenizerCurly extends TokenizerCore {
         }
         return new Token(TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
                 null);
+    }
+
+    /**
+     * JS/TS template literal (STYLE_JS_TS.md §4, backtick-delimited, gated on lang.isJs/isTs in
+     * the dispatch loop -- no other family uses `` ` `` at all, so this is purely additive).
+     * Tokenizer-pass scope only: the whole literal (including any {@code ${...}} interpolations)
+     * is emitted as a single opaque STRING token, content preserved byte-for-byte. §4's own
+     * "content preserved exactly as written" half of the rule is therefore already satisfied by
+     * this token shape; the other half ("${...}` interpolation gets normal expression spacing")
+     * is deferred to §4's future rule-implementation checkpoint, which will need to re-tokenize
+     * each interpolation's interior rather than treating it as opaque -- not attempted here.
+     */
+    private Token emitTemplateLiteral() {
+        final int start = pos;
+        pos++; // consume opening `
+        while (pos < length) {
+            final char c = source.charAt(pos);
+            if (c == '\\') {
+                pos += 2;
+                continue;
+            }
+            if (c == '`') {
+                pos++;
+                return new Token(TokenType.STRING, source.substring(start, pos), braceDepth,
+                        parenDepth, null);
+            }
+            if (c == '$' && peek(1) == '{') {
+                pos += 2;
+                skipTemplateInterpolation();
+                continue;
+            }
+            pos++;
+        }
+        syntaxError = true;
+        return new Token(TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
+                null);
+    }
+
+    /** Skips a `${...}` interpolation body (opening `${` already consumed), respecting nested
+     *  `{}` depth, nested quoted strings, and nested template literals so an interior `}`/`` ` ``/
+     *  quote char doesn't prematurely end the interpolation or the outer template literal. */
+    private void skipTemplateInterpolation() {
+        int depth = 1;
+        while (pos < length && depth > 0) {
+            final char c = source.charAt(pos);
+            if (c == '\\') {
+                pos += 2;
+                continue;
+            }
+            if (c == '{') {
+                depth++;
+                pos++;
+            } else if (c == '}') {
+                depth--;
+                pos++;
+            } else if (c == '"' || c == '\'') {
+                skipQuotedForTemplate(c);
+            } else if (c == '`') {
+                pos++;
+                skipNestedTemplateLiteral();
+            } else {
+                pos++;
+            }
+        }
+    }
+
+    private void skipQuotedForTemplate(final char quote) {
+        pos++; // opening quote
+        while (pos < length) {
+            final char c = source.charAt(pos);
+            if (c == '\\') {
+                pos += 2;
+                continue;
+            }
+            if (c == quote) {
+                pos++;
+                return;
+            }
+            pos++;
+        }
+    }
+
+    private void skipNestedTemplateLiteral() {
+        while (pos < length) {
+            final char c = source.charAt(pos);
+            if (c == '\\') {
+                pos += 2;
+                continue;
+            }
+            if (c == '`') {
+                pos++;
+                return;
+            }
+            if (c == '$' && peek(1) == '{') {
+                pos += 2;
+                skipTemplateInterpolation();
+                continue;
+            }
+            pos++;
+        }
     }
 
     /**

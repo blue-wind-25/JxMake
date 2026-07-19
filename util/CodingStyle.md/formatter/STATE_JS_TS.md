@@ -201,7 +201,7 @@ attempted this session, future work:
       bracket-complexity, §14 reuses Kotlin/Java K&R container brace style +
       member `:` alignment; §2/§3/§4/§9/§10/§12/§15's group-contents need
       new JS/TS-specific logic as already scoped).
-- [ ] Tokenizer support pass: survey `STYLE_JS_TS.md` for every token not
+- [x] Tokenizer support pass: survey `STYLE_JS_TS.md` for every token not
       already lexed (template literals, `?.`/`??`, `=>`, decorators `@`,
       spread/rest `...`, TS type-annotation `:`/`|`/`&`/generics `<>`), done
       once for both languages rather than revisited later for TS's
@@ -210,6 +210,31 @@ attempted this session, future work:
       any existing token in those languages is lexed. Re-run the full
       existing regression suite and confirm zero regressions before any
       rule-level work begins.
+      **Done, in `TokenizerCurly.java` only** (`TokenizerCore.java` itself
+      untouched): added `KEYWORDS_JS`/`KEYWORDS_TS` (TS = JS ∪ its own
+      vocabulary) and `NAMED_CONSTRUCT_JS`/`NAMED_CONSTRUCT_TS` keyword sets,
+      wired via new `case "js"`/`case "ts"` arms in the constructor switch;
+      added `"=>"`, `"??="`, `"??"` to `MULTI_CHAR_OPS` (`?.`/`...`/`!` were
+      already present, shared with Kotlin/C-family — no new entry needed for
+      those); added a new `emitTemplateLiteral()` for backtick literals,
+      dispatch-gated on `c == '\`' && (lang.isJs || lang.isTs)` so it's a
+      no-op for every other language. Decorators (`@`) and TS `:`/`|`/`&`/
+      generics `<>` needed **no new lexing** — they already fall through to
+      the existing single-char `emitOperator()` fallback / existing
+      `<`/`>` angle-bracket reclassification, which is language-agnostic.
+      Template-literal scope note: the whole literal (incl. any `${...}`
+      interpolations) is emitted as **one opaque STRING token**, content
+      preserved byte-for-byte — satisfies §4's "preserved exactly as
+      written" half now; §4's other half ("`${...}` gets normal expression
+      spacing") needs interpolation-interior re-tokenizing and is deferred
+      to §4's own future rule-implementation checkpoint, not attempted here.
+      `make` compiles clean; `make test`: 106/106 forward + 106/106
+      idempotency, zero regressions (existing C/C++/Java/Kotlin fixture
+      corpus unaffected — confirms the additions are purely additive).
+      `JsTsSpecificRule` still throws `UnsupportedOperationException`
+      unconditionally (rule layer untouched this checkpoint), so no JS/TS
+      fixture could yet be un-commented in the Makefile even though the
+      tokenizer can now lex the input without erroring.
 - [ ] When implementing §11 below (declaration/parameter alignment), start
       from `KotlinDeclarationAlignmentRule.java`/`KotlinSignatureRule.java`
       as a structural template, not from scratch. TS's `let x: Type =

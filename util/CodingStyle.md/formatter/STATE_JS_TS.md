@@ -873,10 +873,69 @@ attempted this session, future work:
       106/106 forward + 106/106 idempotency, zero regressions (Java/Kotlin/
       C/C++ getter-setter fixtures byte-for-byte unchanged after the revert
       of the empty-parens part).
-      **Next up:** §8 (getter/setter accessors -- wire JS/TS into the
-      existing one-liner group alignment machinery this checkpoint just
-      fixed) and §9 (decorators). §12-15 (enums, generics, interface/type-
-      alias, imports) remain otherwise unstarted.
+      **Checkpoint 14 done -- §8 (getter/setter accessors) verified as
+      already functional, no additional wiring code needed beyond
+      Checkpoint 13's bug fix.** `ScopePipelineCurly`'s constructor already
+      instantiates plain `GetterSetterRuleCurly` for any non-Kotlin language
+      (`lang.isKotlin ? KotlinGetterSetterRule : GetterSetterRuleCurly`), so
+      JS/TS already fall into that shared machinery with no per-language
+      branch needed there. `get`/`set` are lexed as `KEYWORD` (already in
+      `KEYWORDS_JS`/`_TS` from the tokenizer checkpoint), so
+      `parseOneLinerMember` naturally parses the `get`/`set` keyword as a
+      stand-in "return type" (the same generic mechanism that gives C++/Java
+      their real return-type column) -- no JS/TS-specific parsing branch was
+      needed for the accessor shape itself. Verified via a standalone
+      harness (`FormatterCore.forLanguage("js")`/`"ts"`): a `get x()`/
+      `set x(value)`/`get y()` group renders correctly column-aligned
+      (`get x(     ) { return this._x;  }` / `set x(value) { this._x =
+      value; }` / `get y(     ) { return this._y;  }`), matching STYLE.md
+      §14's empty-parens-padded-to-widest-sibling convention now that
+      Checkpoint 13's separator-space bug no longer corrupts the typed-
+      params column; a mixed-name-width group (`x` / `horizontalPosition`)
+      aligns correctly; the outlier/overflow-exclusion path works
+      unmodified (a member whose body alone would overflow the line length
+      is correctly excluded from the group, left as an ordinary standalone
+      member); a TS getter/setter pair with explicit return-type/param-type
+      annotations (`get x(): number { ... }` / `set x(value: number) { ...
+      }`) round-trips correctly too, though **not through the grouped
+      column-alignment path** -- see Known Gap below. Round-trip (harness
+      round1 -> round2) confirmed idempotent on every case above. `make`
+      compiles clean; `make test`: 106/106 forward + 106/106 idempotency,
+      zero regressions.
+      **Known gap, deliberately not attempted this checkpoint (scope
+      discipline, not an oversight):** STYLE_JS_TS.md §8's own worked
+      example groups a plain no-return-type-token method (`isValid() { ...
+      }`) alongside `get`/`set` accessors in the same aligned group. An
+      initial attempt to support this (relaxing `parseOneLinerMember`'s
+      existing `noReturnType && pureSpecifier == null -> reject` guard for
+      JS/TS, scoped narrowly to only accept when the member turns out to be
+      `{`-terminated, so a bare call-expression statement like `foo(x);`
+      stays correctly rejected) parsed successfully but produced a genuine
+      column-misalignment bug: `render()`'s pre-existing
+      `mergeReturnTypeIntoCall` special case (documented for C++ constructor
+      groups, where every merged member independently owns its whole
+      `name(params)` phrase) fires whenever ANY member in the group has an
+      empty return type -- which then merges `isValid`'s name into the same
+      cell axis as `get`/`set`'s prefix+name, but the *nested* callGrid that
+      pads the name column had already run independently beforehand with no
+      awareness of the merge, so the two paddings fight and produce
+      misaligned parens (`isValid           (     )     {` next to `get x
+      (     ) {`, columns off by the accessor-keyword's own width). Fixing
+      this properly needs `mergeReturnTypeIntoCall`'s design reconsidered
+      for a "some members have a real prefix, others don't, but all still
+      need independently-aligned name/params" shape that never occurs in
+      the pre-existing C/C++/Java corpus (a constructor's whole point is
+      that its uniquely-named siblings don't share a name column to begin
+      with) -- judged out of scope for a "reuse the existing machinery"
+      task, reverted rather than pushed through. **Current behavior:** a
+      plain method like `isValid()` next to `get`/`set` accessors is left
+      ungrouped (rendered as an ordinary standalone member, not corrupted,
+      just not column-aligned with its `get`/`set` siblings) -- correct and
+      safe, just short of the style doc's full worked example. Flagged here
+      for a future checkpoint that wants to extend `mergeReturnTypeIntoCall`
+      properly, not attempted further this session.
+      **Next up:** §9 (decorators). §12-15 (enums, generics, interface/
+      type-alias, imports) remain otherwise unstarted.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "JavaScript"/"TypeScript" sections (split by extension since TS-only
       constructs can't live in `.js`). Done: `js_combined_inp/out.js`,

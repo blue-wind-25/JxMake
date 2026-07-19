@@ -11,6 +11,7 @@ import com.jxmake.formatter.rules.DeclarationAlignmentRuleCurly;
 import com.jxmake.formatter.rules.DeclarationAlignmentRuleCurly.Declaration;
 import com.jxmake.formatter.rules.GetterSetterRuleCurly;
 import com.jxmake.formatter.rules.GetterSetterRuleCore.Member;
+import com.jxmake.formatter.rules.JsTsDeclarationAlignmentRule;
 import com.jxmake.formatter.rules.KotlinDeclarationAlignmentRule;
 import com.jxmake.formatter.rules.KotlinDeclarationAlignmentRule.Row;
 import com.jxmake.formatter.rules.KotlinSignatureRule;
@@ -64,6 +65,9 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     // own kotlinRule.
     private final KotlinDeclarationAlignmentRule kotlinDeclarationRule;
     private final KotlinSignatureRule kotlinSignatureRule;
+    // STATE_JS_TS.md §11: JS/TS's `let x: Type = value` is likewise reversed relative to C/Java's
+    // `Type name = value` -- mirrors the Kotlin field above, null for every other language.
+    private final JsTsDeclarationAlignmentRule jsTsDeclarationRule;
     private final boolean formatOff;
 
     public ScopePipelineCurly(final Lang lang, final String indentStyle,
@@ -103,6 +107,8 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 ? new KotlinDeclarationAlignmentRule(lang, indentWidth, lineLengthLimit) : null;
         this.kotlinSignatureRule = lang.isKotlin
                 ? new KotlinSignatureRule(lang, indentWidth, lineLengthLimit) : null;
+        this.jsTsDeclarationRule = (lang.isJs || lang.isTs)
+                ? new JsTsDeclarationAlignmentRule(lang, lineLengthLimit) : null;
         this.formatOff = formatOff;
     }
 
@@ -645,6 +651,9 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         if (lang.isKotlin) {
             return applyKotlinDeclarationsPass(tokens, depth);
         }
+        if (lang.isJs || lang.isTs) {
+            return applyJsTsDeclarationsPass(tokens);
+        }
         final List<List<Declaration>> groups = declarationRule.groupDeclarations(tokens);
         final List<Span> spans = splitTopLevelSpans(tokens);
         final Map<Token, Integer> indexOf = buildIndexMap(tokens);
@@ -729,6 +738,25 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             final Row last = group.get(group.size() - 1);
             addKotlinDeclReplacement(tokens, indexOf, replacements, first.firstAnchor, last.lastAnchor,
                     kotlinDeclarationRule.renderAlignedGroup(group, estimatedIndent));
+        }
+        return splice(tokens, replacements);
+    }
+
+    /** STYLE_JS_TS.md §11 -- mirrors {@link #applyKotlinDeclarationsPass} (JS/TS's `let x: Type =
+     *  value` is likewise name-before-type, reversed relative to C/Java), but JS/TS statements are
+     *  always `;`-terminated (STYLE_JS_TS.md §2), unlike Kotlin's newline-terminated properties --
+     *  {@link JsTsDeclarationAlignmentRule} still exposes {@code lastAnchor} the same way, so the
+     *  same identity-based {@link #addKotlinDeclReplacement} splice-back helper is reused as-is. */
+    private String applyJsTsDeclarationsPass(final List<Token> tokens) {
+        final Map<Token, Integer> indexOf = buildIndexMap(tokens);
+        final List<Replacement> replacements = new ArrayList<>();
+
+        for (final List<JsTsDeclarationAlignmentRule.Row> group
+                : jsTsDeclarationRule.groupAlignableDeclarations(tokens)) {
+            final JsTsDeclarationAlignmentRule.Row first = group.get(0);
+            final JsTsDeclarationAlignmentRule.Row last = group.get(group.size() - 1);
+            addKotlinDeclReplacement(tokens, indexOf, replacements, first.keyword, last.lastAnchor,
+                    jsTsDeclarationRule.renderAlignedGroup(group));
         }
         return splice(tokens, replacements);
     }

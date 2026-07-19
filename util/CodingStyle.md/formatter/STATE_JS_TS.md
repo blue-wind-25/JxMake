@@ -307,27 +307,144 @@ attempted this session, future work:
       unconditionally (rule layer untouched this checkpoint), so no JS/TS
       fixture could yet be un-commented in the Makefile even though the
       tokenizer can now lex the input without erroring.
-- [~] **BLOCKED — see "Blocking issue found while attempting to flip the JS
-      scaffold gate" under Open Questions above.** A plain unspaced
-      `let x=1;`/`const x=5;`/`var z=7;` declaration renders completely
-      untouched (no `=` spacing) through the real JAR because this item was
-      never done — confirmed the direct cause when the JS scaffold-gate flip
-      was attempted and reverted this session. When implementing §11 below
-      from `KotlinDeclarationAlignmentRule.java`/`KotlinSignatureRule.java`
-      as a structural template, not from scratch. TS's `let x: Type =
-      value` is the same name-before-type reversed grammar Kotlin's `val x:
-      Type = value` already solved (RDD_KEY_103/104) — the shared
-      `DeclarationAlignmentRuleCurly`'s `[modifiers] Type name` assumption
-      doesn't fit either language, and Kotlin's `Declaration`-record/grid-
-      rendering/group-break shape carries over directly. Copying the
-      skeleton saves the design work, not the content: TS's actual type
-      grammar (union/intersection `|`/`&`, generic constraints,
-      function-type annotations, its own `declare`/`readonly`/`abstract`/
-      `override` modifier-priority table, per §11's own note that it
-      "cannot reuse Java's table wholesale") still has to be written and
-      verified against TS-specific fixtures — the template only shortcuts
-      the "how do you even structure this" question, not the TS-specific
-      grammar or its own dogfooding surprises.
+- [x] **RESOLVED — declaration-alignment-grid support for `let`/`const`/
+      `var` implemented, mirroring `KotlinDeclarationAlignmentRule.java` as
+      a structural template.** New `JsTsDeclarationAlignmentRule.java`
+      (`extends DeclarationAlignmentRuleCurly`, mirrors
+      `KotlinDeclarationAlignmentRule`'s shape: its own `Row`
+      record/`parseDeclaration`/`groupAlignableDeclarations`/
+      `renderAlignedGroup`, not the base class's C/Java-grammar `Declaration`
+      parser -- same "no seam to inject a reversed-grammar branch, base
+      `parseDeclaration` is `private`" finding a research pass confirmed
+      before writing any code). Unlike Kotlin, JS/TS statements are always
+      `;`-terminated (§2), so this class reuses the base class's own
+      `splitStatements` directly instead of Kotlin's newline-based
+      `splitKotlinStatements`; JS/TS also has no modifier table for local
+      declarations, so the grid has no modifier columns, just `keyword name
+      [: type] [= init] ;` with the trailing `;` appended directly onto
+      each row's own last non-empty cell (not its own separately-joined
+      `ColumnGrid` cell, which would otherwise leave a stray space before it
+      once cells are joined with `" "`). Wired into `ScopePipelineCurly` as
+      a new `jsTsDeclarationRule` field (`(lang.isJs || lang.isTs) ? new
+      JsTsDeclarationAlignmentRule(...) : null`, mirroring
+      `kotlinDeclarationRule`'s construction) and a new
+      `applyJsTsDeclarationsPass` method, dispatched from
+      `applyDeclarationsPass` alongside the existing Kotlin branch; reuses
+      `addKotlinDeclReplacement`'s identity-based splice-back helper as-is
+      (works unchanged for any `firstAnchor`/`lastAnchor` token pair,
+      Kotlin- or JS/TS-specific).
+      **Deliberately out of scope this checkpoint, left completely
+      untouched by this class (documented in the class's own doc comment,
+      not a regression -- these statements render exactly as they did
+      before this checkpoint, i.e. still unspaced for `=`, no worse):**
+      destructuring-pattern LHS (`const { a, b } = obj;`, `const [x, y] =
+      arr;`, RDD_KEY_182) and multi-declarator statements (`let a = 1, b =
+      2;`, `let a: number, b: string;`) both make `parseDeclaration` return
+      null, so the whole statement is left out of any group and rendered
+      verbatim -- same "never guess past an unrecognized shape" posture as
+      Kotlin's own class. `type X = ...` alias groups (RDD_KEY_183) are a
+      separate future extension too -- `type` is not recognized as a
+      declaration keyword anywhere in this class.
+      **Two real bugs found and fixed as prerequisites during verification,
+      not scoped to this checkpoint originally:**
+      (1) Checkpoint 7's `JsTsSpecificRule.enforceTypeColonSpacing` flat
+      pass runs in `FormatterCurly` Phase 4, strictly after
+      `ScopePipelineCurly`'s Phase 0 (which houses this new grid pass) --
+      without any fix, the flat pass's "tight before / one space after"
+      normalization always ran on top of the grid's own column-padded `:`,
+      collapsing the alignment back down to a single space on every format
+      (confirmed via harness: `let a: number = 5;` grid-aligned correctly
+      alongside siblings by `JsTsDeclarationAlignmentRule.renderAlignedGroup`
+      directly, but the same statement through the *full* `FormatterCore
+      .forLanguage("ts")` pipeline lost its padding). Fixed with a narrow
+      change to `JsTsSpecificRule.classifyTypeColons`/`isTypeColonAt`: the
+      `declaratorCtx` disjunct for a colon immediately following the
+      `let`/`const`/`var` keyword itself (a statement's *first* declarator)
+      is now additionally gated on a new depth-aware forward scan,
+      `hasTopLevelCommaBeforeSemicolon`, so it only still counts as a "type
+      colon to flat-normalize" when the statement is a genuine
+      multi-declarator one (which the grid above explicitly does not
+      handle, so still needs this flat pass) -- a single-declarator
+      statement's colon is now correctly left alone by the flat pass,
+      since the grid already owns its spacing/alignment entirely. A
+      subsequent declarator's own colon (`ctx` is `,`, not the keyword) is
+      unaffected by this change -- always was, and remains, flat-normalized,
+      since every multi-declarator declarator past the first is never
+      handled by the grid either way.
+      (2) `DeclarationAlignmentRuleCore.isTightToken`'s `Token.isRepOp(t,
+      '*')`/`'&'` tight-punctuation exception (written for C/C++'s repeated
+      pointer/reference operators, `**`/`&&`-as-rvalue-reference-declarator)
+      was already gated `!lang.isKotlin` but not `!lang.isJs`/`!lang.isTs`
+      -- found via harness testing an arrow-function initializer
+      (`const list = items.map(x => x * 2);`) rendered through this new
+      class's `renderTokens(initTokens)` call: `*` was wrongly treated as
+      tight-against-preceding-operand, corrupting `x * 2` to `x* 2` (JS has
+      no pointer/reference `*`/`&`/`**`/`&&`-declarator construct either --
+      `*` is always multiplication, `&`/`&&` always bitwise-/logical-AND).
+      Fixed by adding `&& !lang.isJs && !lang.isTs` to the same exclusion
+      already carved out for Kotlin -- a shared base-class method used by
+      every curly-family declaration/initializer renderer, so re-verified
+      the full `make test` suite (Kotlin/Java/C/C++ fixtures) is
+      byte-for-byte unaffected by this addition.
+      Verified via a standalone harness (`FormatterCore.forLanguage("ts")`/
+      `"js")`): the original blocking-bug repro (`let x=1;`, `const x=5;`,
+      `var z=7;`) now all correctly render with `=` spacing (`let x = 1;`
+      etc.), individually and as a column-aligned group (keyword-column and
+      `=`-column both aligned across `let x = 1; / const y = 2; / var z =
+      7;`); a TS-typed declaration mixed into the same group (`let a:
+      number = 5;`) correctly gets both its own `:`/`=` columns aligned
+      against its untyped siblings (blank `:` column shown for the
+      untyped rows); a group of all-typed declarations (`let name: string
+      = "hi"; / let count: number = 1; / const w = 1; / const wideName =
+      2;`) aligns correctly too; a multi-declarator statement (`let a:
+      number=1, b: string="x";`) is left completely untouched (documented
+      gap, not a regression -- confirmed identical to this same input's
+      pre-checkpoint behavior via `git stash`); destructuring declarations
+      (`const { p, q } = obj;`, `const [m, n] = arr;`) are unaffected,
+      confirming no regression on Checkpoints 5/6's fixes; arrow-function
+      initializers (`const add = (a, b) => a + b;`), template-literal
+      initializers (`` let greeting = `Hello, ${name}!`; ``), a call-
+      expression initializer with an arrow-function argument (`const list
+      = items.map(x => x * 2);`, exercising both bug fixes above together),
+      a TS function-type-annotated declaration (`let arrow: () => void =
+      () => {};`), a class field (`private static readonly count: number =
+      0;`, confirming §11.2's class-field modifier-reordering pass and this
+      new declaration-local-variable class don't interfere -- class fields
+      are a different statement shape entirely, never matched by this
+      class's `parseDeclaration`), a trailing end-of-line comment (`let x =
+      1; // trailing comment`, correctly preserved and aligned in its own
+      column), and a multi-line call-argument initializer (`let y =
+      foo(\n  1,\n  2\n);`, correctly collapsed to one line, matching the
+      pre-existing `enforceCallLineBreaking`/complexity-padding precedent)
+      all render correctly. Round-trip (harness round1 → round2) confirmed
+      idempotent on every case above. `make` compiles clean; `make test`:
+      106/106 forward + 106/106 idempotency, zero regressions in the
+      existing C/C++/Java/Kotlin fixture corpus (both shared-class changes
+      above re-verified against the full suite, not just spot-checked).
+      **Not done this checkpoint, left for a future one (context-budget
+      stop, per this task's own explicit guidance -- this class is judged
+      solid and well-tested as far as it goes, but the remaining scope is
+      substantial enough to deserve its own dedicated session rather than a
+      rushed extension here):** destructuring-pattern LHS joining the grid
+      (RDD_KEY_182's full integration -- currently these statements are
+      simply excluded from the grid entirely, never corrupted, just not
+      aligned), multi-declarator statement support (`let a = 1, b = 2;`
+      getting real `=`/`: ` spacing and grid alignment, not just being left
+      verbatim), and `type X = ...` alias-group alignment (RDD_KEY_183).
+      No local `.js`/`.ts` fixture pair was registered/verified via `make
+      test` this checkpoint either (still blocked on the broader §2-15
+      real-code-testing-pass checklist item below, unchanged from before
+      this checkpoint). The original blocking bug from the "Blocking issue
+      found while attempting to flip the JS scaffold gate" Open Question
+      above is now fixed and verified (see that section's own text for the
+      repro) -- that Open Question entry is left in place as a historical
+      record of what blocked the scaffold-gate-flip attempt, but its root
+      cause is resolved; a future session re-attempting the scaffold-gate
+      flip should re-run that session's own smoke-test procedure (including
+      a deliberately unspaced plain declaration) to confirm before
+      proceeding, and should also decide whether the remaining declared-out-
+      of-scope gaps above (destructuring/multi-declarator/type-alias grid
+      integration) need to land first or can follow separately.
 - [x] Implement §2–15 rule-by-rule, each its own checkpoint commit, per
       `STATE_COMMON.md`'s workflow. This is ordered by section, not by
       language: §2–10 apply to both JS and TS (verified entirely against

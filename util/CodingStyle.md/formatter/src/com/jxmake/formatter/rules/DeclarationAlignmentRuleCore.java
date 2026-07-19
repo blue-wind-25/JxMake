@@ -229,7 +229,15 @@ public abstract class DeclarationAlignmentRuleCore {
         // Kotlin. Without this gate, `val x = a && b` loses its space before `&&` (rendered
         // as `a&& b`) because isTightToken wrongly treats `&&` as tight. Kotlin has no
         // unary/repeated `*`/`&` construct at all, so both checks are gated to non-Kotlin.
-        return (!lang.isKotlin && (Token.isRepOp(t, '*') || Token.isRepOp(t, '&')))
+        // Same reasoning applies to JS/TS (STATE_JS_TS.md §11 declaration-alignment-grid
+        // checkpoint, found via harness testing `JsTsDeclarationAlignmentRule`): JS/TS has no
+        // pointer/reference `*`/`&`/`**`/`&&`-as-declarator construct either -- `*` is always
+        // multiplication (or generator-function `*`, itself never adjacent to an operand this
+        // way) and `&`/`&&` are always bitwise-AND/logical-AND, so without this same exclusion
+        // `x => x * 2` loses its space before `*` (`x* 2`) when rendered through this shared
+        // method (e.g. a declaration initializer's grid cell).
+        return (!lang.isKotlin && !lang.isJs && !lang.isTs
+                && (Token.isRepOp(t, '*') || Token.isRepOp(t, '&')))
                 || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
     }
 

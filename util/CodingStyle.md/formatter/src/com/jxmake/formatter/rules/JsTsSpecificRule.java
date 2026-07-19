@@ -1263,11 +1263,48 @@ public final class JsTsSpecificRule {
         final Token ctx = ctxIdx >= 0 ? tokens.get(ctxIdx) : null;
         final boolean paramCtx = "PAREN".equals(stack.peek())
                 && ctx != null && (isPunct(ctx, "(") || isPunct(ctx, ","));
+        // A single-declarator `let`/`const`/`var` statement's own type colon (`let x: T = v;`) is
+        // now grid-aligned by `JsTsDeclarationAlignmentRule` (STATE_JS_TS.md §11 declaration-
+        // alignment-grid checkpoint) -- suppressing it here avoids this flat pass collapsing that
+        // grid's own column padding back down to a single tight space right after it runs (Phase 4
+        // runs after ScopePipelineCurly's grid pass, so without this exclusion the flat pass would
+        // always win and silently destroy the alignment on every format). A multi-declarator
+        // statement (`let a: number, b: string;`) is untouched by the grid (out of its scope, see
+        // JsTsDeclarationAlignmentRule's class doc) and still needs this flat pass for both its
+        // first declarator's colon (`ctx` is the `let`/`const`/`var` keyword itself, same as a
+        // single-declarator statement) and every subsequent declarator's colon (`ctx` is `,`) --
+        // distinguished from the single-declarator case via a forward scan for a depth-0 comma
+        // before the statement's terminating `;`.
         final boolean declaratorCtx = inDeclarator
                 && (stack.isEmpty() || "BLOCK".equals(stack.peek()))
                 && ctx != null && (isPunct(ctx, ",") || (ctx.type == TokenType.KEYWORD
-                        && ("let".equals(ctx.text) || "const".equals(ctx.text) || "var".equals(ctx.text))));
+                        && ("let".equals(ctx.text) || "const".equals(ctx.text) || "var".equals(ctx.text))
+                        && hasTopLevelCommaBeforeSemicolon(tokens, colonIdx)));
         return paramCtx || declaratorCtx;
+    }
+
+    /** Depth-aware forward scan (over `(`/`[`/`{` nesting) from {@code fromIdx} for a depth-0
+     *  `,` reached before the statement's own depth-0 terminating `;` -- true iff the enclosing
+     *  `let`/`const`/`var` statement is a multi-declarator statement, per {@link
+     *  #isTypeColonAt}'s declarator-colon suppression note above. */
+    private boolean hasTopLevelCommaBeforeSemicolon(final List<Token> tokens, final int fromIdx) {
+        int depth = 0;
+        for (int i = fromIdx + 1; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                continue;
+            }
+            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")) {
+                depth--;
+            } else if (depth == 0 && isPunct(t, ",")) {
+                return true;
+            } else if (depth == 0 && isPunct(t, ";")) {
+                return false;
+            }
+        }
+        return false;
     }
 
     /** True if {@code closeParenIdx} closes a `case (...)：`-style parenthesized case-label

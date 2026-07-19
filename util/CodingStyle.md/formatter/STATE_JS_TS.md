@@ -167,18 +167,6 @@ attempted this session, future work:
   resolution logic for classifying an import path into one of the three
   default groups is not yet designed, per the style doc's own "Known Open
   Items" section.
-- **Object-destructuring-declaration bogus semicolon (found Checkpoint 5,
-  not fixed):** `const { a, b } = obj;` renders as `const { a, b; } = obj;`
-  — a bogus `;` inserted before the closing `}`. Likely a §2
-  (`JsTsSpecificRule.enforceSemicolonInsertion`) brace-classification gap:
-  the object-pattern's `{` is probably being treated as a statement-body
-  brace rather than a value/pattern brace. Not investigated in depth (out
-  of scope for the checkpoint that found it, which was fixing the analogous
-  array-destructuring `[...]` space bug). Not a "stop and ask" ambiguity —
-  it's a plain bug with an as-yet-unconfirmed root cause, not a design
-  question — but flagged here so it isn't lost before whichever future
-  checkpoint (§2's `classifyBraces` refinement, or §3/§11's destructuring
-  coverage) picks it up.
 
 ---
 
@@ -468,6 +456,36 @@ attempted this session, future work:
       flagged in Open Questions below for whichever future checkpoint picks
       up either §2's `classifyBraces` refinement or §3/§11's destructuring
       coverage next.
+      **Checkpoint 6 done -- object-destructuring bogus-semicolon bug fixed
+      (§2 `classifyBraces`, confirmed root cause as suspected).** For
+      `const { a, b } = obj;`, `classifyBraces`'s `isValue` check on the
+      object-pattern's `{` only recognized `=`/`(`/`[`/`,`/`:`/`??`/`||`/
+      `&&`/`?`/`...`/`=>`/`return`/`yield`/`throw`/`typeof` as
+      value-indicating predecessors -- a bare `const`/`let`/`var` KEYWORD
+      immediately preceding `{` (destructuring-pattern-as-declaration-LHS)
+      fell through to the default "not a value" branch, so `resetDepth` was
+      wrongly `true`: the pattern's interior was treated as a statement list
+      needing its own semicolon, and the depth-0-`}`-about-to-close boundary
+      check inserted a bogus `;` after the last property name (`b`). Fixed
+      by adding `const`/`let`/`var` to the same KEYWORD-predecessor
+      disjunct already used for `return`/`yield`/`throw`/`typeof` in
+      `classifyBraces` (`JsTsSpecificRule.java`) -- mirrors Checkpoint 5's
+      analogous fix for the array-bracket form, but in the brace-
+      classification axis instead of `MiscRuleCore.needsSpaceBetween`'s
+      token-spacing axis. Nested patterns (`const { a: { b, c } } = obj;`)
+      needed no additional change -- the inner `{` already follows `:`,
+      already in the pre-existing `isValue` disjunct list. Verified via a
+      standalone harness (`FormatterCore.forLanguage("ts")`):
+      `const { a, b } = obj;`, `const { a: { b, c } } = obj;`,
+      `const { a = 1 } = obj;` (default value inside pattern) all now render
+      correctly with no bogus semicolon, and round-trip idempotent.
+      Regression-checked in the same harness run: plain statement
+      termination (`if (x) { doThing() }` -> braceless one-liner, still
+      correct), arrow-function assignment, object-literal assignment,
+      class/method Allman bodies with closing comments, and array-
+      destructuring (`var [p, q] = list;`, Checkpoint 5's fix) all
+      unaffected. `make` compiles clean; `make test`: 106/106 forward +
+      106/106 idempotency, zero regressions.
       **§11 remaining, not started this checkpoint:** `: type` colon
       spacing on `let`/`const`/function params/return types (STYLE_JS_TS.md
       §11's main paragraph), union/intersection (`|`/`&`) spacing (§11.1),

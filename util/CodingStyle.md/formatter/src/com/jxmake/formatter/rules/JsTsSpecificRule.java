@@ -265,7 +265,14 @@ public final class JsTsSpecificRule {
                             || isOp(prev, "&&") || isOp(prev, "?") || isOp(prev, "...")
                             || (prev.type == TokenType.KEYWORD
                                     && ("return".equals(prev.text) || "yield".equals(prev.text)
-                                            || "throw".equals(prev.text) || "typeof".equals(prev.text))));
+                                            || "throw".equals(prev.text) || "typeof".equals(prev.text)
+                                            // `const`/`let`/`var { ... } = ...` -- an object-destructuring
+                                            // pattern on a declaration LHS, a value/pattern brace (never
+                                            // individually semicolon-terminated inside), not a statement
+                                            // body -- same distinction Checkpoint 5 already made for the
+                                            // array-bracket form via MiscRuleCore.needsSpaceBetween.
+                                            || "const".equals(prev.text) || "let".equals(prev.text)
+                                            || "var".equals(prev.text))));
             outResetDepth.put(openIdx, !isValue || isArrowBody);
             outNeedsSemicolon.put(openIdx, isValue);
         }

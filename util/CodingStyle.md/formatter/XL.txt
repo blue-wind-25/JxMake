@@ -9,7 +9,10 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 ####################################################################################################
 
 Synchronize `README.md` and `../README.txt` to update the state of the newly implemented languages.
-[DONE - FOR NOW]
+
+Compact (use one sub-agent) all newly touched `STATE_*.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
 
 Compact (use one sub-agent) `STATE_COMMON.md`, `STATE_C_CPP_JAVA.md` and `STATE_KOTLIN.md`.
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
@@ -20,19 +23,21 @@ Compact (use one sub-agent) the narration in `test/README.txt`:
     to   `real_code_regressions_67_inp/out.hpp`
 [DONE]
 
+Make the languange order in the doc, help string, etc. to:
+    c|cpp|java|kotlin|json|json5|css|yaml|toml|xml|html5|js|ts|python3
+    c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3
+Adjust active vs scaffold-only as needed. Also ensure jsx|tsx is after js|ts
 
-Now, implement the HTML formatter. The test fixtures will need temporary `JXM_CFMT_DIS` on the JS block.
-The directives must be removed later when the JS formatter is later implemented. Then the HTML test
-fixtures must also be re-run again. Put a note about this in `STATE_DATA_FORMATS.md` or `STATE_JS_TS.md`.
-Don't implement all at once, make check points to ensure the formatter source code is clean and compiles well.
-Use one sub-agent if needed, the sub-agent can launch up to two more research sub-sub-agents.
+
 
 Implement the JS/TS formatter.
-fixtures must also be re-run again. Put a note about it in `STATE_DATA_FORMATS.md` or `STATE_JS_TS.md`.
+Don't implement it all at once, make check points to ensure the formatter source code is clean and compiles well.
 Use one sub-agent if needed, the sub-agent can launch up to two more research sub-sub-agents.
 
+Remove the temporary `JXM_CFMT_DIS` directives from the HTML test fixtures and re-run them all again.
+
 Implement the Python3 formatter.
-fixtures must also be re-run again. Put a note about it in `STATE_DATA_FORMATS.md` or `STATE_JS_TS.md`.
+Don't implement it all at once, make check points to ensure the formatter source code is clean and compiles well.
 Use one sub-agent if needed, the sub-agent can launch up to two more research sub-sub-agents.
 
 
@@ -129,6 +134,22 @@ needs its own corpus, once its tokenizer support pass lands:
     `ryanjk5.github.io/posts/rjk-duck` (blog post, not a repo)
 
 ----------------------------------------------------------------------------------------------------
+
+Continue with HTML work (search in /tmp first, clone the repo if not found; use one sub-agent,
+the sub-agent can launch up to two more research sub-sub-agents):
+...
+When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
+already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
+recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
+    `github.com/h5bp/html5-boilerplate`
+    `github.com/twbs/bootstrap` (docs site)
+    `github.com/mdn/content`
+    `github.com/whatwg/html`
+
+NOTE: depends on CSS support above and JS/TS support (separate job) both being available
+before the `<script>`/`<style>` embedded-content dispatcher can be exercised end-to-end.
+
+----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 
 Continue with JS/TS work (search in /tmp first, clone the repo if not found; use one sub-agent,
@@ -144,22 +165,6 @@ recompile test allowed. Try reformat with `indent-size = 2` if the idempotency t
     `github.com/angular/angular`      [large, idiomatic, decorator-heavy real TS]
     `github.com/nestjs/nest`          [decorator/generic-heavy backend TS, type-annotation alignment]
     `github.com/vuejs/core`           [modern TS, heavy generics and type-level code]
-
-----------------------------------------------------------------------------------------------------
-
-Continue with HTML work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
-...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-    `github.com/h5bp/html5-boilerplate`
-    `github.com/twbs/bootstrap` (docs site)
-    `github.com/mdn/content`
-    `github.com/whatwg/html`
-
-NOTE: depends on CSS support above and JS/TS support (separate job) both being available
-before the `<script>`/`<style>` embedded-content dispatcher can be exercised end-to-end.
 
 ----------------------------------------------------------------------------------------------------
 

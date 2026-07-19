@@ -447,6 +447,97 @@ public final class JsTsSpecificRule {
         return t != null && (isOp(t, "??") || isOp(t, "??="));
     }
 
+    // ── §11.2 Class field modifier-priority table ────────────────────────────────────
+    /** STYLE_JS_TS.md §11.2's fixed six-slot modifier order -- `declare` first (ambient marker),
+     *  then visibility (`public`/`private`/`protected`, mutually exclusive so all three share one
+     *  slot), then `static`, `abstract`, `override`, `readonly` last (parallels Java's `final`
+     *  taking the position right before the name). */
+    private static final List<String> MODIFIER_ORDER = Arrays.asList(
+            "declare", "public", "private", "protected", "static", "abstract", "override", "readonly");
+    private static final Map<String, Integer> MODIFIER_PRIORITY = new HashMap<>();
+    static {
+        for (int i = 0; i < MODIFIER_ORDER.size(); i++) {
+            MODIFIER_PRIORITY.put(MODIFIER_ORDER.get(i), i);
+        }
+    }
+
+    /**
+     * STYLE_JS_TS.md §11.2: normalizes a scrambled run of two-or-more consecutive class-member
+     * modifier keywords into the canonical order above, e.g. `readonly static private x: number;`
+     * → `private static readonly x: number;`. TS-only (`lang.isTs`) -- JS has none of these
+     * modifier keywords at all (JS class fields have no `public`/`private`/`static`-as-a-modifier
+     * grammar in this codebase's scope). A run of a single modifier keyword is left completely
+     * untouched (nothing to reorder). Applied wherever a maximal run of 2+ consecutive modifier
+     * keywords appears (not narrowly gated to "inside a class body" specifically) -- in valid
+     * TS/JS syntax these keywords never co-occur consecutively outside a class-member modifier
+     * list, so this is a safe, conservative scope choice that also naturally covers method
+     * modifiers (`private static foo()`) the same way, consistent with the table's own Java-
+     * derived precedent of one shared modifier order for both fields and methods. Only a
+     * same-line, comment-free, non-frozen run is reordered -- a run containing a NEWLINE, a
+     * comment, or a frozen token in any of its internal gaps is left untouched, matching this
+     * file's usual conservative bailout posture.
+     */
+    public String reorderClassFieldModifiers(final List<Token> tokens) {
+        if (!lang.isTs) {
+            return render(tokens, new HashMap<>());
+        }
+        final StringBuilder out = new StringBuilder();
+        final int n = tokens.size();
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isModifierKeyword(t) && !t.frozen) {
+                final List<Token> runKeywords = new ArrayList<>();
+                final List<List<Token>> gapsAfter = new ArrayList<>();
+                int j = i;
+                boolean brokenRun = false;
+                while (j < n && isModifierKeyword(tokens.get(j)) && !tokens.get(j).frozen) {
+                    runKeywords.add(tokens.get(j));
+                    int k = j + 1;
+                    final List<Token> gap = new ArrayList<>();
+                    while (k < n && isGapToken(tokens.get(k))) {
+                        final Token g = tokens.get(k);
+                        if (isComment(g) || g.type == TokenType.NEWLINE || g.frozen) {
+                            brokenRun = true;
+                        }
+                        gap.add(g);
+                        k++;
+                    }
+                    gapsAfter.add(gap);
+                    if (brokenRun) {
+                        j = k;
+                        break;
+                    }
+                    j = k;
+                }
+                if (!brokenRun && runKeywords.size() >= 2) {
+                    final List<Token> sorted = new ArrayList<>(runKeywords);
+                    sorted.sort((a, b) -> MODIFIER_PRIORITY.get(a.text) - MODIFIER_PRIORITY.get(b.text));
+                    for (int idx = 0; idx < sorted.size(); idx++) {
+                        out.append(sorted.get(idx).text);
+                        for (final Token g : gapsAfter.get(idx)) {
+                            out.append(g.text);
+                        }
+                    }
+                } else {
+                    for (int idx = i; idx < j; idx++) {
+                        out.append(tokens.get(idx).text);
+                    }
+                }
+                i = j;
+                continue;
+            }
+            out.append(t.text);
+            i++;
+        }
+        return out.toString();
+    }
+
+    private boolean isModifierKeyword(final Token t) {
+        return t != null && t.type == TokenType.KEYWORD && MODIFIER_PRIORITY.containsKey(t.text);
+    }
+
     // ── §11.1 Union / intersection type spacing (`|`, `&`) ───────────────────────────
     /**
      * STYLE_JS_TS.md §11.1: `|`/`&` used as TS union/intersection type operators get ordinary

@@ -237,6 +237,8 @@ public final class FormatterCurly extends FormatterCore {
             text = jsTsRule.enforceTypeColonSpacing(tokenizer.apply(text));
             // STYLE_JS_TS.md §11.1: union/intersection `|`/`&` ordinary binary-operator spacing.
             text = jsTsRule.enforceUnionIntersectionSpacing(tokenizer.apply(text));
+            // STYLE_JS_TS.md §11.2: class-field/method modifier-keyword canonical ordering.
+            text = jsTsRule.reorderClassFieldModifiers(tokenizer.apply(text));
         }
         // Must run after every earlier paren-tightening/spacing pass has settled a braceless
         // collapsed `if(...) body` line's final rendered width -- see the method's own javadoc

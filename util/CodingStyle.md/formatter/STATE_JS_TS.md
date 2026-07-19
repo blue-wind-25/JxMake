@@ -606,14 +606,53 @@ attempted this session, future work:
       → round2) confirmed idempotent on every case above. `make` compiles
       clean; `make test`: 106/106 forward + 106/106 idempotency, zero
       regressions.
-      **§11 still remaining:** the class-field modifier-priority table
-      (§11.2 -- fully specified in the style doc, six-slot ordering
-      `declare` → visibility → `static` → `abstract` → `override` →
-      `readonly`, **not ambiguous**). Still lands in `JsTsSpecificRule.java`
-      per RDD_KEY_187, not a separate file. Grid/column alignment (the
-      declaration-alignment-grid integration §11's main paragraph and
-      §11.2's own worked example both call for) remains unimplemented
-      across all of §11 -- see Checkpoint 7's note.
+      **Checkpoint 9 done -- §11.2 class-field/method modifier-priority
+      table reordering only.** New `JsTsSpecificRule.reorderClassFieldModifiers`
+      (TS-only, `lang.isTs`-gated): scans for a maximal same-line run of
+      2+ consecutive modifier keywords (`declare`, `public`/`private`/
+      `protected`, `static`, `abstract`, `override`, `readonly` -- all
+      already lexed as `TokenType.KEYWORD` via `KEYWORDS_TS`) and re-emits
+      them in the fixed canonical order from §11.2's worked example
+      (`declare` → visibility → `static` → `abstract` → `override` →
+      `readonly`, confirmed by re-reading STYLE_JS_TS.md §11.2 directly
+      this checkpoint, matching what Checkpoint 6 had already recorded).
+      A run of exactly one modifier keyword is left completely untouched
+      (nothing to reorder -- avoids needlessly re-deriving unchanged
+      text). Deliberately scoped broader than "class field" literally --
+      applies to any 2+-modifier run wherever found (also covers method
+      modifiers, e.g. `private static foo()`), since these keywords never
+      co-occur consecutively in valid TS/JS outside a class-member
+      modifier list, so no narrower "must be directly inside a class body"
+      gate was needed. Conservative bailout matching this file's other
+      passes: a run whose internal gaps contain a NEWLINE, a comment, or a
+      frozen token is left untouched rather than reordered. Wired into
+      `FormatterCurly` Phase 4, directly after §11.1's union/intersection
+      call, inside the same `if (lang.isTs)` block. Verified via a
+      standalone harness (`FormatterCore.forLanguage("ts")`): the style
+      doc's own worked examples (`declare public static readonly
+      MAX_COUNT`, `protected override readonly cache`, `private static
+      instance`) all round-trip unchanged (already-canonical order);
+      scrambled orderings (`readonly static private x` →
+      `private static readonly x`; a maximal 6-of-6-modifier scramble
+      `override abstract static private declare readonly x` →
+      `declare private static abstract override readonly x`) both
+      normalize correctly; single-modifier (`private x: number;`) and
+      zero-modifier (`x: number;`) fields both stay byte-for-byte
+      untouched. Round-trip (harness round1 → round2) confirmed idempotent
+      on every case above. `make` compiles clean; `make test`: 106/106
+      forward + 106/106 idempotency, zero regressions.
+      **§11 fully done as scoped by this multi-checkpoint task** (colon
+      spacing, union/intersection spacing, modifier-table reordering --
+      Checkpoints 7/8/9). **Explicitly NOT done, out of this task's scope,
+      left for a future checkpoint:** the declaration-alignment-grid
+      column integration §11's main paragraph and §11.2's own worked
+      example both call for (RDD_KEY_183's `=`-aligned/`:`-aligned group
+      behavior across consecutive declarations, and the padded-modifier-
+      phrase grid alignment §11.2's own worked example shows) -- every
+      checkpoint in this task was a flat spacing/reordering pass only, no
+      `Declaration`/`ColumnGrid` parser modeled on
+      `KotlinDeclarationAlignmentRule`/`KotlinSignatureRule` was written at
+      any point this session.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "JavaScript"/"TypeScript" sections (split by extension since TS-only
       constructs can't live in `.js`). Done: `js_combined_inp/out.js`,

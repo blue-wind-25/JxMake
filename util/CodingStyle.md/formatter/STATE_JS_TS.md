@@ -167,6 +167,18 @@ attempted this session, future work:
   resolution logic for classifying an import path into one of the three
   default groups is not yet designed, per the style doc's own "Known Open
   Items" section.
+- **Object-destructuring-declaration bogus semicolon (found Checkpoint 5,
+  not fixed):** `const { a, b } = obj;` renders as `const { a, b; } = obj;`
+  — a bogus `;` inserted before the closing `}`. Likely a §2
+  (`JsTsSpecificRule.enforceSemicolonInsertion`) brace-classification gap:
+  the object-pattern's `{` is probably being treated as a statement-body
+  brace rather than a value/pattern brace. Not investigated in depth (out
+  of scope for the checkpoint that found it, which was fixing the analogous
+  array-destructuring `[...]` space bug). Not a "stop and ask" ambiguity —
+  it's a plain bug with an as-yet-unconfirmed root cause, not a design
+  question — but flagged here so it isn't lost before whichever future
+  checkpoint (§2's `classifyBraces` refinement, or §3/§11's destructuring
+  coverage) picks it up.
 
 ---
 
@@ -394,6 +406,83 @@ attempted this session, future work:
       §6 (arrow function brace style) per the suggested grouping, or §11
       (declaration alignment) sooner than originally planned if it starts
       blocking further fixture verification.
+      **Checkpoint 5 done — §11 destructuring-declaration space bug fix
+      only (root cause was NOT where Checkpoint 4 guessed).** Investigated
+      via a standalone harness before touching any code: the Checkpoint 4
+      note theorized the bug lived in `DeclarationAlignmentRuleCurly`'s
+      constructor (no `isJs`/`isTs` branch, falls into the C/C++
+      `CppModifierPriority` arm) plus its `isCpp`-gated structured-binding
+      space fixup. Actual root cause, confirmed by tracing
+      `parseDeclaration`: for `const [first, second] = items;`, `const` is
+      consumed as a modifier, then the generic declarator path strips the
+      entire `[first, second]` bracket run into `sizeTokens` (its
+      trailing-`]`-stripping loop has no notion of "this bracket IS the
+      whole declarator, not a suffix"), leaving `sizeEnd <= i` --
+      `parseDeclaration` returns null, so `DeclarationAlignmentRuleCurly`
+      never touches this statement at all (confirmed by inspection, not
+      guessed: `isStructuredBinding`'s `isCpp`-only gate is real but dead
+      code for this bug specifically, since `parseStructuredBinding` itself
+      is also `isCpp`-gated at its call site and never reached for JS/TS
+      either way). The actual space loss happens in the *shared, generic*
+      `MiscRuleCore.isTightToken`/`needsSpaceBetween` token-joining pair
+      (used by many rendering paths across every curly language, not
+      declaration-specific): `isTightToken` unconditionally treats `[` as
+      tight against whatever precedes it, correct for C/C++/Java array-
+      declarator/subscript shapes (`int arr[5]`, `a[i]`, always preceded by
+      an identifier/closing-bracket) but wrong for JS/TS's destructuring-
+      declaration LHS, where `[`/`{` directly follows a `const`/`let`/`var`
+      KEYWORD token. Fixed with a narrow, identity-scoped early-return in
+      `MiscRuleCore.needsSpaceBetween` (mirrors the existing Kotlin
+      `fun <T>` exception immediately above it in the same method): `if
+      ((lang.isJs || lang.isTs) && isPunct(cur, "[") && prev.type ==
+      TokenType.KEYWORD) return true;` -- forces a space only when `[`
+      immediately follows a keyword, in JS/TS only, leaving every other
+      language and every other `[` context (array literals, subscripts,
+      generic-array-type contexts) completely untouched. **Not touched at
+      all, contrary to the original plan:** `DeclarationAlignmentRuleCurly`'s
+      constructor/`isStructuredBinding` gate -- Checkpoint 4's theory about
+      where the bug lived was wrong; no `lang.isJs`/`isTs` branch was added
+      there this checkpoint, since the actual fix required none. Verified
+      via a standalone harness (`FormatterCore.forLanguage("ts")`):
+      `const [first, second] = items;`, `let [a, b, c] = arr;`,
+      `var [x] = single;` all now preserve the space and round-trip
+      idempotent; unaffected/regression-checked in the same harness run:
+      plain declarations (`const x = 5;`), arrow-function assignment,
+      array-subscript reads (`items[0]`) staying tight, and a function-
+      parameter array-subscript inside a body. `make` compiles clean;
+      `make test`: 106/106 forward + 106/106 idempotency, zero regressions.
+      **New bug found while smoke-testing (NOT fixed this checkpoint, out
+      of this checkpoint's narrow scope -- documented here, not chased):**
+      `const { a, b } = obj;` (object-destructuring, curly-brace form, as
+      opposed to the array-bracket form this checkpoint fixed) renders as
+      `const { a, b; } = obj;` -- a bogus `;` inserted before the closing
+      `}`. This looks like a §2 (semicolon-insertion, `JsTsSpecificRule
+      .enforceSemicolonInsertion`) interaction, not a §11/declaration-
+      alignment issue: the object-pattern's `{` is presumably being
+      misclassified as a statement-body brace (triggering the depth-reset-
+      to-0 semicolon-insertion logic) rather than a value/pattern brace,
+      the same classification distinction Checkpoint 3's `classifyBraces`
+      heuristic already has to make for object-literal-as-value vs.
+      function-body braces. Root cause not investigated further this
+      checkpoint (scope was the documented array-destructuring bug only);
+      flagged in Open Questions below for whichever future checkpoint picks
+      up either §2's `classifyBraces` refinement or §3/§11's destructuring
+      coverage next.
+      **§11 remaining, not started this checkpoint:** `: type` colon
+      spacing on `let`/`const`/function params/return types (STYLE_JS_TS.md
+      §11's main paragraph), union/intersection (`|`/`&`) spacing (§11.1),
+      and the class-field modifier-priority table (§11.2 -- fully specified
+      in the style doc, six-slot ordering `declare` → visibility → `static`
+      → `abstract` → `override` → `readonly`, **not ambiguous**, so no
+      Open Question needed for it when that work is picked up). Per this
+      job's Class Scoping section (RDD_KEY_187), that new logic belongs in
+      `JsTsSpecificRule.java` (still a boilerplate-only stub as of this
+      checkpoint aside from the §2/§3/§7 passes already landed there), not
+      a new `JsTsDeclarationAlignmentRule` file mirroring Kotlin's -- the
+      `KotlinDeclarationAlignmentRule`/`KotlinSignatureRule` reading was
+      useful as a structural reference for how a reversed name-before-type
+      grammar's parser/grid-render shape can look, but the concrete
+      TS-specific parsing/rendering code itself is not yet written.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "JavaScript"/"TypeScript" sections (split by extension since TS-only
       constructs can't live in `.js`). Done: `js_combined_inp/out.js`,

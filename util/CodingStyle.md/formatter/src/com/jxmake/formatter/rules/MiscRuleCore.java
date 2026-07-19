@@ -957,6 +957,16 @@ protected boolean needsSpaceBetween(final Token prev, final Token cur, final Set
                 && prev.type == TokenType.KEYWORD && "fun".equals(prev.text)) {
             return true;
         }
+        // JS/TS destructuring-declaration LHS (`const [first, second] = items`, `let { a, b } =
+        // obj`): the opening `[`/`{` of the destructuring pattern directly follows a `const`/
+        // `let`/`var` keyword. `isTightToken`'s `[`-is-always-tight rule below exists for
+        // C/C++/Java array-declarator/subscript shapes (`int arr[5]`, `a[i]`), where `[` always
+        // follows an identifier/closing-bracket, never a keyword -- so it wrongly collapses this
+        // JS/TS shape's required keyword-then-pattern space too (`const[first, second]`). Scoped
+        // narrowly to "keyword immediately before `[`" so it can't affect any other `[` use.
+        if ((lang.isJs || lang.isTs) && isPunct(cur, "[") && prev.type == TokenType.KEYWORD) {
+            return true;
+        }
         if (isTightToken(cur) || templateCloses.contains(cur) || templateOpens.contains(cur)) {
             return false;
         }

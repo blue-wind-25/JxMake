@@ -69,8 +69,11 @@ Two AI Passes
   Applies all style rules to a file that has NOT yet been processed by the JAR.
   Useful for one-off migration of legacy files. More expensive in time and quota
   since the entire file is reformatted, including rules the JAR handles better
-  and more reliably. Review every diff carefully — capable models make mistakes
-  on column alignment and bracket-padding, especially in large declaration groups.
+  and more reliably. AI_PREAMBLE_FULL.md's "Don't Eyeball Whitespace" section
+  instructs the model to compute column alignment and padding with a script
+  rather than by visual judgment, which reduces (but does not eliminate) the
+  mistakes this used to cause — still review every diff carefully, especially
+  in large declaration groups.
 
   For JSON/JSON5/YAML/TOML/XML/CSS/HTML5, prefer running the JAR directly
   instead (it now has real support for these — see the NOTE above); this pass
@@ -110,12 +113,28 @@ These rules include tasks that small models fail at inconsistently:
   - Distinguishing meaningful argument grouping from arbitrary line breaks
     (layout judgment pass)
 
-Recommended models (minimum):
-  Claude Sonnet 4.6  (claude-sonnet-4-6)  — good balance of quality and speed
-  Claude Opus 4.8    (claude-opus-4-8)    — best for large or complex files
+Recommended models (minimum), as of mid-2026:
+  Claude Sonnet 5     (claude-sonnet-5)   — good balance of quality and speed
+  Claude Opus 4.8     (claude-opus-4-8)   — best for large or complex files
+  Claude Fable 5                          — Anthropic's top-end coding model
 
 Non-Anthropic equivalents at the same tier:
-  Gemini 1.5 Pro / 2.0 Pro, GPT-4o (not 4o-mini)
+  GPT-5.5 / GPT-5.6, Gemini 3.1 Pro / 3.5 Pro, Grok 4.3 / 4.5
+
+This list will go stale — labs are shipping flagship updates every 4-8 weeks
+at this point. The bar that matters is the one above (Do NOT use small/fast
+models), not any specific model name: don't use a small/fast tier (Haiku,
+Flash, GPT-mini, etc.) for these tasks regardless of how the flagship-tier
+name has changed since this file was last updated.
+
+Effort level: the Anthropic API's `effort` parameter (`output_config.effort`
+in the Messages API, `--effort` as a `claude -p` flag) defaults to `high` if
+you don't set it — but for these reformatting passes, explicitly set
+`medium` instead. The task is a single, well-specified, deterministic
+transform, not open-ended reasoning, so `high`'s extra token spend buys
+little here. Step up to `high` or `xhigh` for an unusually large or complex
+file, or down to `low` for a small/simple one where you're optimizing for
+speed. See `reformat_file.py`'s Usage examples below for the CLI shape.
 
 Context note: each `claude -p` call in a shell loop is a completely independent
 process — context does NOT accumulate between iterations. Each invocation sees
@@ -183,7 +202,7 @@ file for review; apply it in-place only after diffing.
   RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_C_CPP.md)
   SOURCE=$(cat /path/to/file.c)
 
-  claude -p --model claude-sonnet-4-6 "$RULES
+  claude -p --model sonnet --effort medium "$RULES
 
 === SOURCE FILE ===
 $SOURCE
@@ -249,7 +268,7 @@ Batch reformatting a directory (shell script):
         base=$(basename "$f")
         echo "Reformatting $base..."
         source_text=$(cat "$f")
-        claude -p --model claude-sonnet-4-6 "$RULES
+        claude -p --model sonnet --effort medium "$RULES
 
 === SOURCE FILE: $base ===
 $source_text
@@ -279,12 +298,17 @@ Script (reformat_file.py):
   def load_rules(*paths):
       return "\n\n".join(pathlib.Path(p).read_text() for p in paths)
 
-  def reformat(source_path, rules_text, model="claude-sonnet-4-6"):
+  def reformat(source_path, rules_text, model="claude-sonnet-5", effort="medium"):
+      # NOTE: unlike the CLI's `sonnet`/`opus` aliases, the Messages API has no
+      # evergreen model alias -- pin an explicit, versioned model ID here and
+      # update it periodically. Check https://docs.claude.com/en/about-claude/models
+      # for the current recommended string before relying on this in production.
       source = pathlib.Path(source_path).read_text()
       client = anthropic.Anthropic()   # reads ANTHROPIC_API_KEY from env
       msg = client.messages.create(
           model=model,
           max_tokens=8192,
+          output_config={"effort": effort},  # low|medium|high(default)|xhigh|max
           messages=[{
               "role": "user",
               "content": (
@@ -299,11 +323,12 @@ Script (reformat_file.py):
       if len(sys.argv) < 3:
           print(f"Usage: {sys.argv[0]} <source_file> "
                 f"<lang: c|cpp|cpp26|java|kotlin|json|json5|css|yaml|toml|xml|html|js|ts|python3> "
-                f"[pass: full|aesthetic]")
+                f"[pass: full|aesthetic] [effort: low|medium|high|xhigh|max]")
           sys.exit(1)
 
       src, lang = sys.argv[1], sys.argv[2]
       mode = sys.argv[3] if len(sys.argv) > 3 else "full"
+      effort = sys.argv[4] if len(sys.argv) > 4 else "medium"
       style_dir = pathlib.Path(__file__).parent
 
       if mode == "aesthetic":
@@ -340,7 +365,7 @@ Script (reformat_file.py):
       else:
           print(f"Unknown language: {lang}"); sys.exit(1)
 
-      result = reformat(src, rules)
+      result = reformat(src, rules, effort=effort)
       # API mode: write to staging file; the caller diffs and applies
       out = pathlib.Path(src).with_suffix(pathlib.Path(src).suffix + ".reformatted")
       out.write_text(result)
@@ -376,10 +401,20 @@ Usage:
   # Python3 full-file pass (no JAR exists yet — this is the only path):
   python3 reformat_file.py src/utils.py python3
 
+  # Same, at explicit low effort (cheaper, for a simple/small file) or xhigh
+  # (for a large or unusually complex one -- effort defaults to "medium" if
+  # omitted, see Model Selection above):
+  python3 reformat_file.py src/utils.py python3 full low
+  python3 reformat_file.py src/BigLegacyFile.cpp cpp26 full xhigh
+
 
 Tips and Limitations
 ---------------------
-1. Review every diff manually. The model makes mistakes, especially on:
+1. Review every diff manually. Both AI_PREAMBLE_FULL.md and
+   AI_PREAMBLE_AESTHETIC.md now instruct the model to compute column alignment,
+   padding, and indent width with a script rather than by eye (see each
+   preamble's "Don't Eyeball" section) — this cuts down on, but does not
+   eliminate, mistakes in:
    - Large declaration groups requiring precise column alignment (full-file pass)
    - Getter/setter aligned groups (STYLE.md §14)
    - Complex bracket-padding decisions near the rule boundary (§3.1)

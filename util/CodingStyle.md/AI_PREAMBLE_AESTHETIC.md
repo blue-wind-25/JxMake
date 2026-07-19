@@ -38,6 +38,82 @@ exists; this file's rules below are C/C++/Java/Kotlin-only.
 
 ---
 
+## Don't Eyeball Columns or Counts
+
+Rule 2's alignment and Rule 1's line-length/indent-level checks are exact
+arithmetic, not visual judgment — manually counting columns or characters while
+reading source text is unreliable even for a capable model, and the padding it
+produces often *looks* plausible while being wrong by one or two columns. Use a
+script instead: Python if available, otherwise any other scripting tool in reach
+(node, a shell one-liner) — anything that counts characters exactly is acceptable,
+manual counting is not.
+
+**Detect the file's existing indent unit** before computing Rule 1's "one indent
+level below `(`" placement — don't assume 4 spaces:
+
+```python
+from collections import Counter
+
+def detect_indent(lines):
+    """Returns ('spaces'|'tabs', width) guessed from the file's own body."""
+    widths = Counter()
+    style = Counter()
+    for line in lines:
+        stripped = line.lstrip(' \t')
+        indent = line[:len(line) - len(stripped)]
+        if not indent or not stripped.strip():
+            continue
+        style['tabs' if '\t' in indent else 'spaces'] += 1
+        if '\t' not in indent:
+            widths[len(indent)] += 1
+    dominant_style = style.most_common(1)[0][0] if style else 'spaces'
+    dominant_width = min(widths, default=4)
+    return dominant_style, dominant_width
+```
+
+**Compute and apply Rule 2's column alignment** — never hand-count the target
+column for a non-standard accessor group:
+
+```python
+def compute_alignment_padding(entries):
+    """entries: list of (prefix_text, ...) where prefix_text is everything
+    before the alignment marker on that line."""
+    target_col = max(len(prefix) for prefix, *_ in entries) + 1  # +1 = min 1 space
+    return [target_col - len(prefix) for prefix, *_ in entries]
+
+def apply_padding(prefix, pad_count, marker, rest):
+    return f"{prefix}{' ' * pad_count}{marker}{rest}"
+```
+
+**Verify before returning** — re-scan your own output rather than trusting the
+computation was applied correctly. This pass only needs to check what it actually
+touches: alignment columns from Rule 2, and that Rule 1's reflow didn't drift the
+continuation-line indent off the detected unit. Everything else was already
+JAR-correct on input and this pass must not have touched it (see Hard Constraints
+below) — don't re-check the whole file's indentation/whitespace, only the lines
+this pass edited:
+
+```python
+def verify_edited_lines(edited_line_nos, lines, indent_width, aligned_groups=()):
+    problems = []
+    for i in edited_line_nos:
+        line = lines[i - 1]
+        indent = line[:len(line) - len(line.lstrip(' \t'))]
+        if len(indent) % indent_width != 0 and line.strip():
+            problems.append(f"line {i}: indent width not a multiple of {indent_width}")
+    for group in aligned_groups:
+        # group: list of (line_no, column_of_marker)
+        cols = {c for _, c in group}
+        if len(cols) > 1:
+            problems.append(f"lines {[n for n, _ in group]}: alignment column mismatch {cols}")
+    return problems
+```
+
+If `verify_edited_lines` flags anything, fix the underlying computation and
+re-verify — don't hand-patch the flagged line by eye.
+
+---
+
 ## Hard Constraints — What You Must Never Change
 
 The following have been formatted by the JAR and must be treated as **opaque** —

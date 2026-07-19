@@ -54,6 +54,109 @@ text is authoritative; nothing below should be assumed to override it.
 
 ---
 
+## Don't Eyeball Whitespace — Use a Script
+
+Column alignment and indentation are **arithmetic**, not visual judgment. Manually
+counting spaces/columns while reading source text is unreliable even for a capable
+model — the padding it produces often *looks* plausible and is wrong by one or two
+columns. Never compute or apply padding by eye. Use a script instead: Python if it's
+available in your environment; if not, any other scripting tool in reach (node, a
+shell one-liner) — anything that counts characters exactly is acceptable, manual
+counting is not.
+
+The five snippets below are illustrative, not a library to import verbatim — adapt
+the logic to whatever you're actually aligning (declarations, assignments, colon
+groups, etc. per the relevant `STYLE*.md` section).
+
+**1. Detect indent size and style** — measure what a file is already using before
+converting anything:
+
+```python
+from collections import Counter
+
+def detect_indent(lines):
+    """Returns ('spaces'|'tabs', width) guessed from the file's own body."""
+    widths = Counter()
+    style = Counter()
+    for line in lines:
+        stripped = line.lstrip(' \t')
+        indent = line[:len(line) - len(stripped)]
+        if not indent or not stripped.strip():
+            continue
+        style['tabs' if '\t' in indent else 'spaces'] += 1
+        if '\t' not in indent:
+            widths[len(indent)] += 1
+    dominant_style = style.most_common(1)[0][0] if style else 'spaces'
+    # Smallest common non-zero width is usually one indent level.
+    dominant_width = min(widths, default=4)
+    return dominant_style, dominant_width
+```
+
+**2. Convert/modify indentation** — rescale to a target width/style without
+touching content past the leading whitespace run:
+
+```python
+def convert_indent_line(line, old_width, new_width, new_style):
+    stripped = line.lstrip(' \t')
+    indent = line[:len(line) - len(stripped)]
+    col = 0
+    for ch in indent:
+        col += (old_width - (col % old_width)) if ch == '\t' else 1
+    if col % old_width != 0:
+        return line  # irregular indent — leave untouched, don't guess
+    level = col // old_width
+    unit = '\t' if new_style == 'tabs' else ' ' * new_width
+    return unit * level + stripped
+```
+
+**3. Compute padding for column alignment** — given a group of lines that should
+align on some marker (`=`, `:`, a name column, etc.), compute the target column and
+each line's needed pad count:
+
+```python
+def compute_alignment_padding(entries):
+    """entries: list of (prefix_text, ...) where prefix_text is everything
+    before the marker on that line. Returns per-entry pad-to-column counts."""
+    target_col = max(len(prefix) for prefix, *_ in entries) + 1  # +1 = min 1 space
+    return [target_col - len(prefix) for prefix, *_ in entries]
+```
+
+**4. Apply the computed padding** — insert exact spaces, never re-derive by eye
+after step 3 has already given you the count:
+
+```python
+def apply_padding(prefix, pad_count, marker, rest):
+    return f"{prefix}{' ' * pad_count}{marker}{rest}"
+```
+
+**5. Verify the output** — re-scan what you actually produced; don't trust that
+steps 1–4 were applied correctly just because the logic was correct:
+
+```python
+def verify_output(lines, indent_width, indent_style, aligned_groups=()):
+    problems = []
+    for i, line in enumerate(lines, 1):
+        if line != line.rstrip():
+            problems.append(f"line {i}: trailing whitespace")
+        indent = line[:len(line) - len(line.lstrip(' \t'))]
+        if ' ' in indent and '\t' in indent:
+            problems.append(f"line {i}: mixed tabs/spaces in indent")
+        if indent_style == 'spaces' and len(indent) % indent_width != 0 and line.strip():
+            problems.append(f"line {i}: indent width not a multiple of {indent_width}")
+    for group in aligned_groups:
+        # group: list of (line_no, column_of_marker)
+        cols = {c for _, c in group}
+        if len(cols) > 1:
+            problems.append(f"lines {[n for n, _ in group]}: alignment column mismatch {cols}")
+    return problems
+```
+
+If `verify_output` flags anything, fix the underlying computation and re-run
+verification — don't hand-patch the flagged line by eye, since that reintroduces
+the exact failure mode this section exists to prevent.
+
+---
+
 ## Defaults for Judgment-Call Rules
 
 The style guide uses "optional", "context-driven", and "judgment call" in a few places.

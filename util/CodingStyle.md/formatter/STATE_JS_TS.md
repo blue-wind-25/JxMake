@@ -251,7 +251,7 @@ attempted this session, future work:
       verified against TS-specific fixtures — the template only shortcuts
       the "how do you even structure this" question, not the TS-specific
       grammar or its own dogfooding surprises.
-- [ ] Implement §2–15 rule-by-rule, each its own checkpoint commit, per
+- [~] Implement §2–15 rule-by-rule, each its own checkpoint commit, per
       `STATE_COMMON.md`'s workflow. This is ordered by section, not by
       language: §2–10 apply to both JS and TS (verified entirely against
       `.js` fixtures as each lands), §11–14 are TS-only (verified against
@@ -262,6 +262,64 @@ attempted this session, future work:
       them. Don't split this into a "JS pass" followed by a "TS pass"; the
       shared `JsTsSpecificRule.java` has no seam that would make that split
       meaningful.
+      **Checkpoint 3 done — §2 (statement-termination semicolon insertion)
+      only.** `JsTsSpecificRule.enforceSemicolonInsertion` is no longer a
+      boilerplate stub (constructor no longer throws): a depth-stack-based
+      statement-boundary scan, wired into `FormatterCurly.formatOne` gated
+      on `lang.isJs || lang.isTs`. Depth increments across `(`/`[` and any
+      `{` classified as a *value* brace (object literal/array pattern/
+      arrow-function-assigned-value etc., via `classifyBraces`'s
+      preceding-token heuristic) but resets to a fresh 0 inside a
+      *statement-body* brace (function/method/class/interface/control-flow
+      body, and — as its own special case — an arrow-function block body,
+      which is a value on its own closing `}` but a statement list inside),
+      so each statement is evaluated for its own semicolon at depth 0
+      relative to its immediately enclosing block, not the file's absolute
+      nesting. A statement boundary is a depth-0 NEWLINE or a depth-0
+      statement-body brace about to close (covers one-liner bodies with no
+      newline, e.g. `{ return x }`). Decorator applications (`@Name(...)`/
+      `@Name` alone on their own line) are detected and excluded from
+      semicolon insertion via `endsWithDecoratorApplication`. Control-flow/
+      function/class headers are excluded via a "next significant token
+      after the newline is `{`" lookahead. **Ordering finding:** the call
+      had to be placed *before* `BlockStructureRule.collapseSingleExpression
+      Blocks` in `FormatterCurly`'s Phase 1 (not after, alongside Kotlin's
+      analogous semicolon-related calls, as originally placed) — placing it
+      after caused a genuine idempotency bug (`if (x) { doThing() }` stayed
+      braced on a fresh format but collapsed to `if(x) doThing();` on a
+      second pass, because `collapseSingleExpressionBlocks`'s braceless-
+      eligibility check saw a different token shape — no `;` yet vs. `;`
+      already present from round1's own output — for the same logical
+      statement across the two rounds). Found and fixed via a standalone
+      harness (`FormatterCore.forLanguage("js")` invoked directly, bypassing
+      `Main.java`'s `Lang.isScaffoldOnly` CLI gate, which still throws for
+      `js`/`ts` and is intentionally NOT flipped yet — per the established
+      JSON/CSS/YAML/TOML/XML/HTML5 precedent (RDD_KEY_190 and its
+      successors), a language only leaves `SCAFFOLD_ONLY_LANGUAGES` once its
+      job is functionally complete for real files, not after each
+      individual section; for JS that milestone is "§2–10 all land," not
+      "§2 alone"). Verified manually via the harness (not yet via
+      `make test`, since no local `.js`/`.ts` fixture can be un-commented in
+      the Makefile until enough sections land for `js_combined`/
+      `js_comments` to pass whole — those fixtures exercise §2 together
+      with §3–10/§15 in the same file): semicolons correctly inserted after
+      plain statements, declarations, `return`/`yield` expressions,
+      decorator-modified class fields, object-literal-assigned/arrow-
+      function-assigned closing `}`, template-literal-assigned statements,
+      optional-chaining/nullish-coalescing expressions, import/export
+      statements; correctly withheld after function/class/control-flow
+      Allman headers, own-line decorator applications, object-literal
+      interior lines ending in a bare value (no trailing comma), and
+      one-liner method/accessor bodies' own closing `}`. Round-trip
+      (harness round1 → round2) confirmed idempotent on every manual
+      fixture tried. `make` compiles clean; `make test`: 106/106 forward +
+      106/106 idempotency, zero regressions in the existing C/C++/Java/
+      Kotlin corpus. **Not yet done:** §3–15 (all remaining rows below),
+      and no local `.js`/`.ts` fixture is registered/verified via
+      `make test` yet (blocked on more sections landing, per above) — next
+      session should continue with §3 (destructuring/spread spacing) next,
+      per the suggested grouping in the original task brief (§3 pairs
+      naturally with §2's mechanical-rule size).
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "JavaScript"/"TypeScript" sections (split by extension since TS-only
       constructs can't live in `.js`). Done: `js_combined_inp/out.js`,

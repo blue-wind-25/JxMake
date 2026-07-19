@@ -10,6 +10,7 @@ package com.jxmake.formatter;
 import com.jxmake.formatter.rules.BlockStructureRule;
 import com.jxmake.formatter.rules.CppSpecificRule;
 import com.jxmake.formatter.rules.JavaSpecificRule;
+import com.jxmake.formatter.rules.JsTsSpecificRule;
 import com.jxmake.formatter.rules.KotlinSpecificRule;
 import com.jxmake.formatter.rules.MiscRuleCurly;
 import com.jxmake.formatter.rules.SwitchRule;
@@ -55,6 +56,8 @@ public final class FormatterCurly extends FormatterCore {
                 ? new JavaSpecificRule(lang, lineLengthLimit, indentWidth) : null;
         final KotlinSpecificRule kotlinRule = lang.isKotlin
                 ? new KotlinSpecificRule(lang, lineLengthLimit, indentWidth) : null;
+        final JsTsSpecificRule jsTsRule = (lang.isJs || lang.isTs)
+                ? new JsTsSpecificRule(lang, lineLengthLimit, indentWidth) : null;
 
         // Phase 0: §5/§6/§8/§14 grouping rules, recursive.
         // Pre-pad complexity spacing (§3.1) before grouping/column-width computation -- otherwise
@@ -83,6 +86,17 @@ public final class FormatterCurly extends FormatterCore {
                 formatOff, indentWidth, lineLengthLimit).process(text);
 
         // Phase 1: structural/brace passes.
+        if (lang.isJs || lang.isTs) {
+            // STYLE_JS_TS.md §2: always insert explicit semicolons. Must run before
+            // collapseSingleExpressionBlocks below -- that pass's braceless-collapse eligibility
+            // check reads the block body's own trailing token, so if semicolon insertion ran
+            // later, round1 (no semicolon yet) and round2 (semicolon already present from round1's
+            // own output) would feed collapseSingleExpressionBlocks two different token shapes for
+            // the same logical statement, breaking idempotency (confirmed via a standalone
+            // harness: `if (x) { doThing() }` stayed braced on round1 but collapsed to
+            // `if(x) doThing();` on round2 when this ran after the collapse pass instead).
+            text = jsTsRule.enforceSemicolonInsertion(tokenizer.apply(text));
+        }
         text = blockRule.collapseSingleExpressionBlocks(tokenizer.apply(text));
         text = blockRule.enforceKAndRBraceStyle(tokenizer.apply(text));
         text = blockRule.enforceNamedConstructHeaderSpacing(tokenizer.apply(text));

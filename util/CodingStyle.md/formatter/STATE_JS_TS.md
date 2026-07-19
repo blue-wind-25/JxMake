@@ -698,9 +698,73 @@ attempted this session, future work:
       Round-trip (harness round1 → round2) confirmed idempotent on every
       case above. `make` compiles clean; `make test`: 106/106 forward +
       106/106 idempotency, zero regressions.
-      **Next up:** §5 (Allman brace style for named functions/class methods,
-      with arrow/getter-setter/empty-body K&R exceptions) and §6 (arrow
-      function spacing/brace-style/parameter-parens).
+      **Checkpoint 11 done -- §5 (named function/class-method Allman brace
+      style) only.** New `JsTsSpecificRule.enforceMethodDefinitionAllmanBraceStyle`
+      (`isJs || isTs`-gated), structurally modeled on
+      `JavaSpecificRule.enforceMethodDefinitionAllmanBraceStyle` (§5's own
+      text says it "mirrors" Java) but substantially simplified -- JS/TS has
+      no `throws` clause, no compact-constructor shape, and no
+      enum-constant-body false positive to guard against. Candidate signal:
+      the `{`'s header, walked backward via `findHeaderCloseParen`, must
+      resolve to a `)` whose matching `(` is immediately preceded by an
+      IDENTIFIER -- excludes every control-flow brace (keyword before `(`,
+      never an identifier) and every anonymous function expression (`(`
+      preceded directly by the `function` keyword, not a name) by
+      construction. Two header shapes handled: direct `)` `{` adjacency
+      (plain JS, or TS with no return type), or a TS return-type-annotation
+      tail (`): Promise<Result> {` -- found via a backward walk for a `:`
+      immediately preceded by `)`, the return type's own interior content is
+      never inspected, only relocated along with the brace). An arrow
+      function's block body (`=> {`) is excluded by construction too -- its
+      `{` is directly preceded by `=>`, never matching either header shape,
+      so §6's K&R-for-arrow-bodies needs no explicit check here. Two
+      "stays K&R" exceptions per §5's own text: an empty body (`isEmptyBody`)
+      and any one-liner whose whole `{ ... }` body sits on one physical line
+      (`isSingleLineBraceBody` -- covers getter/setter one-liner groups and
+      any other STYLE.md §14 squeeze-onto-one-line body without a
+      getter/setter-specific check, since any one-liner method stays K&R the
+      same way). Wired into `FormatterCurly` Phase 1, as its own `else if
+      (lang.isJs || lang.isTs)` branch alongside the existing
+      C/C++/Java/Kotlin Allman-conversion branches, right after the shared
+      Phase-1 structural passes (mirrors where Java's own call sits).
+      Verified via a standalone harness (`FormatterCore.forLanguage("js")`/
+      `"ts"`): a plain named function (`function process(data, count) {...}`)
+      converts to Allman; the same with a TS return-type annotation
+      (`function process(data: string, count: number): Promise<Result> {`)
+      converts to Allman with the return type preserved intact after the
+      relocated `)`; a class method (`render() {...}`) converts; a
+      constructor converts; `async`/`static` methods both convert
+      (`async doThing(x) {...}`, `static make() {...}`); an empty body
+      (`function empty() {}`) stays K&R untouched; getter/setter one-liners
+      (`get x() { return this._x; }`) stay K&R untouched (one-liner
+      exception); an arrow-function block body (`const add = (a, b) => {
+      return a + b; };`) stays K&R untouched (never matched the candidate
+      signal); a `{` already on its own line round-trips unchanged
+      (idempotent by construction, confirmed). Round-trip (harness round1 →
+      round2) confirmed idempotent on every case above. `make` compiles
+      clean; `make test`: 106/106 forward + 106/106 idempotency, zero
+      regressions.
+      **Pre-existing bug found while smoke-testing (NOT caused by this
+      checkpoint's own change -- confirmed by rebuilding Checkpoint 10's own
+      commit, e73da4d, in isolation and reproducing the identical output
+      there too; documented, not fixed, out of §4/§5/§6's scope):**
+      `get x() { return this._x; }` / `set x(v) { this._x = v; }` inside a
+      class body render with corrupted parameter-list spacing --
+      `get x(  ) { return this._x; }` (double space inside an empty-looking
+      paren pair -- actually the getter has no params, so `()` should stay
+      tight) and `set x( v) { this._x = v;    }` (missing space after `(`
+      before `v`, and stray trailing spaces before the closing `}`). This
+      looks like a pre-existing STYLE.md §14 one-liner-group/getter-setter
+      squeeze-and-align pass (`GetterSetterRuleCurly`, shared with
+      C/C++/Java/Kotlin) mishandling JS/TS's getter/setter shape -- not
+      investigated further this checkpoint (out of §4/§5/§6's scope; this
+      task's own brief only covers §5's Allman/K&R brace-placement
+      decision, not `GetterSetterRuleCurly`'s column/spacing rendering).
+      Flagged here for whichever future checkpoint picks up §8 (Getter/
+      Setter Accessors), which explicitly plans to reuse
+      `GetterSetterRuleCurly`'s existing one-liner-group alignment machinery
+      for JS/TS and will need to fix this as part of that wiring.
+      **Next up:** §6 (arrow function spacing/brace-style/parameter-parens).
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "JavaScript"/"TypeScript" sections (split by extension since TS-only
       constructs can't live in `.js`). Done: `js_combined_inp/out.js`,

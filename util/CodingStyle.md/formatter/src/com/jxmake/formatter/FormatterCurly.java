@@ -122,6 +122,11 @@ public final class FormatterCurly extends FormatterCore {
             // shape is final" reasoning as those two calls above.
             text = kotlinRule.stripOptionalSemicolons(tokenizer.apply(text));
             text = kotlinRule.stripLeadingBlankBeforeNonDeclarationStatement(tokenizer.apply(text));
+        } else if (lang.isJs || lang.isTs) {
+            // STYLE_JS_TS.md §5: named function declarations/class methods move their `{` to its
+            // own line (Allman) -- arrow-function block bodies, empty bodies, and one-liner
+            // (getter/setter-style) bodies stay K&R, excluded internally by the method itself.
+            text = jsTsRule.enforceMethodDefinitionAllmanBraceStyle(tokenizer.apply(text));
         }
         // enforceCallLineBreaking's "does it fit in LINE_LENGTH_LIMIT" measurement must see
         // enforceComplexityPadding's loose `( x )` spacing already applied -- otherwise a line

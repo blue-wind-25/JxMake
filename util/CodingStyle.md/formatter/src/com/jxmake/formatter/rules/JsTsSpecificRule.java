@@ -621,6 +621,217 @@ public final class JsTsSpecificRule {
         return misc.renderTokens(significant);
     }
 
+    // ── §5 Named function / class-method Allman brace style ──────────────────────────
+    /**
+     * STYLE_JS_TS.md §5: a named function declaration (`function foo() {}`) or class method
+     * (`render() {}`, including getters/setters, `async`/`static`/generator `*` variants, and
+     * constructors) moves its own `{` to its own line (Allman) -- mirrors
+     * {@code JavaSpecificRule.enforceMethodDefinitionAllmanBraceStyle}'s role for Java, but
+     * substantially simplified: JS/TS has no `throws` clause, no compact-constructor shape, and no
+     * enum-constant-body false positive to guard against (JS/TS enums, §12, have no per-constant
+     * body syntax at all).
+     *
+     * <p>Candidate signal: the `{`'s own header, walked backward from the `{`, must resolve to a
+     * `)` whose matching `(` is itself immediately preceded by an IDENTIFIER (the function/method
+     * name) -- this alone excludes every control-flow brace (`if`/`while`/`for`/`switch`/`catch`
+     * precede their `(` with a KEYWORD, never an IDENTIFIER) and every anonymous function
+     * expression (`function(...) {}`, whose `(` is preceded directly by the `function` keyword,
+     * not a name). Between that `)` and the `{` there are two possible shapes: (a) directly
+     * adjacent (plain JS, or a TS method/function with no return-type annotation), or (b) a TS
+     * return-type annotation (`): Promise<Result> {`) -- {@link #findHeaderCloseParen} walks
+     * backward from the `{` looking for a `:` immediately preceded by a `)`, so the return type's
+     * own content (however complex -- generics, unions, etc.) is never inspected, only relocated
+     * along with the brace.
+     *
+     * <p>An arrow function's block body (`=> {`) is excluded by construction -- its `{` is
+     * directly preceded by `=>`, never by `)` or a `:`-return-type tail, so it never matches the
+     * header-walk above at all; STYLE_JS_TS.md §6's K&R-for-arrow-block-bodies rule needs no
+     * explicit exclusion check here.
+     *
+     * <p>Exceptions, all "stays K&R, not Allman", per §5's own worked-example text: (1) an
+     * empty body (`{}`, nothing between the braces) -- {@link #isEmptyBody}; (2) a one-liner
+     * whose entire `{ ... }` body sits on one physical line (covers getter/setter one-liner
+     * groups and any other short one-liner method per STYLE.md §14's squeeze-onto-one-line shape,
+     * without needing a getter/setter-specific check -- any one-liner method stays K&R the same
+     * way) -- {@link #isSingleLineBraceBody}.
+     *
+     * <p>A `{` already on its own line (a NEWLINE already present in the gap between the header's
+     * last token and the `{`) is left untouched -- idempotent. Any frozen token across the header
+     * span is a conservative bailout, matching every other pass in this file.
+     */
+    public String enforceMethodDefinitionAllmanBraceStyle(final List<Token> tokens) {
+        if (!lang.isJs && !lang.isTs) {
+            return render(tokens, new HashMap<>());
+        }
+        final Map<Integer, Integer> braceOpenToClose = matchBraces(tokens);
+        final Map<Integer, Integer> parenOpenToClose = matchParens(tokens);
+        final Map<Integer, Integer> overrides = new HashMap<>();
+
+        for (int i = 0; i < tokens.size(); i++) {
+            if (!isPunct(tokens.get(i), "{")) {
+                continue;
+            }
+            final int lastHeaderTokenIdx = prevSignificantIndex(tokens, i - 1);
+            if (lastHeaderTokenIdx < 0) {
+                continue;
+            }
+            final int closeParenIdx = findHeaderCloseParen(tokens, lastHeaderTokenIdx);
+            if (closeParenIdx < 0) {
+                continue;
+            }
+            final Integer openParenIdx = findMatchingOpenParen(tokens, closeParenIdx);
+            if (openParenIdx == null) {
+                continue;
+            }
+            final int nameIdx = prevSignificantIndex(tokens, openParenIdx - 1);
+            if (nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER) {
+                continue;
+            }
+            if (hasNewlineOrCommentBetween(tokens, lastHeaderTokenIdx, i)) {
+                continue;
+            }
+            if (anyFrozen(tokens, nameIdx, i + 1)) {
+                continue;
+            }
+            final Integer closeBraceIdx = braceOpenToClose.get(i);
+            if (closeBraceIdx == null) {
+                continue;
+            }
+            if (isEmptyBody(tokens, i, closeBraceIdx) || isSingleLineBraceBody(tokens, i, closeBraceIdx)) {
+                continue;
+            }
+            overrides.put(lastHeaderTokenIdx, i); // marker: this token's gap-to-brace gets rewritten below
+        }
+        if (overrides.isEmpty()) {
+            return render(tokens, new HashMap<>());
+        }
+        return renderAllmanBraceMoves(tokens, overrides, parenOpenToClose);
+    }
+
+    /** Walks backward from {@code fromIdx} (the last significant token seen before a candidate
+     *  `{`) to find the header's own closing `)`. If {@code fromIdx} itself is `)`, that's the
+     *  direct-adjacency (plain JS, or TS with no return type) case. Otherwise looks for a `:`
+     *  return-type-annotation tail whose own immediately-preceding significant token is `)` --
+     *  the return type's own interior content between that `:` and {@code fromIdx} is never
+     *  otherwise inspected. Returns -1 if neither shape is found before a statement-breaking
+     *  token (`;`, `{`, `}`) is hit. */
+    private int findHeaderCloseParen(final List<Token> tokens, final int fromIdx) {
+        if (isPunct(tokens.get(fromIdx), ")")) {
+            return fromIdx;
+        }
+        int j = fromIdx;
+        int steps = 0;
+        while (j >= 0 && steps < 500) {
+            final Token t = tokens.get(j);
+            if (isPunct(t, ";") || isPunct(t, "{") || isPunct(t, "}")) {
+                return -1;
+            }
+            if (isOp(t, ":")) {
+                final int before = prevSignificantIndex(tokens, j - 1);
+                if (before >= 0 && isPunct(tokens.get(before), ")")) {
+                    return before;
+                }
+                return -1;
+            }
+            j = prevSignificantIndex(tokens, j - 1);
+            steps++;
+        }
+        return -1;
+    }
+
+    private Integer findMatchingOpenParen(final List<Token> tokens, final int closeParenIdx) {
+        int depth = 0;
+        for (int i = closeParenIdx; i >= 0; i--) {
+            if (isPunct(tokens.get(i), ")")) {
+                depth++;
+            } else if (isPunct(tokens.get(i), "(")) {
+                depth--;
+                if (depth == 0) {
+                    return i;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** True if {@code braceIdx}/{@code closeBraceIdx} delimit an empty body -- nothing (not even
+     *  a comment) between the two braces. */
+    private boolean isEmptyBody(final List<Token> tokens, final int braceIdx, final int closeBraceIdx) {
+        return nextSignificantIndex(tokens, braceIdx + 1) == closeBraceIdx
+                && !hasNewlineOrCommentBetween(tokens, braceIdx, closeBraceIdx);
+    }
+
+    /** True if no NEWLINE token appears anywhere between {@code braceIdx} and
+     *  {@code closeBraceIdx} inclusive -- the whole body sits on one physical line. */
+    private boolean isSingleLineBraceBody(final List<Token> tokens, final int braceIdx, final int closeBraceIdx) {
+        for (int i = braceIdx; i <= closeBraceIdx; i++) {
+            if (tokens.get(i).type == TokenType.NEWLINE) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean hasNewlineOrCommentBetween(final List<Token> tokens, final int fromExclusive, final int toExclusive) {
+        for (int i = fromExclusive + 1; i < toExclusive; i++) {
+            final TokenType type = tokens.get(i).type;
+            if (type == TokenType.NEWLINE || type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean anyFrozen(final List<Token> tokens, final int fromInclusive, final int toExclusive) {
+        for (int i = fromInclusive; i < toExclusive; i++) {
+            if (tokens.get(i).frozen) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Second pass: given the set of `{` indices approved for Allman conversion (keyed by the
+     *  last header token that immediately precedes each, in {@code headerTokenToBrace}), rebuilds
+     *  the token stream, replacing the gap right after each such header token with a NEWLINE plus
+     *  the header line's own leading indentation, followed by the brace. */
+    private String renderAllmanBraceMoves(final List<Token> tokens, final Map<Integer, Integer> headerTokenToBrace,
+            final Map<Integer, Integer> parenOpenToClose) {
+        final StringBuilder out = new StringBuilder();
+        int i = 0;
+        final int n = tokens.size();
+        while (i < n) {
+            out.append(tokens.get(i).text);
+            final Integer braceIdx = headerTokenToBrace.get(i);
+            if (braceIdx != null) {
+                out.append('\n').append(lineIndent(tokens, i));
+                out.append(tokens.get(braceIdx).text);
+                // Skip the original gap + `{` we just relocated.
+                i = braceIdx + 1;
+                continue;
+            }
+            i++;
+        }
+        return out.toString();
+    }
+
+    /** Line-leading whitespace of the physical line containing token {@code idx} -- {@code ""} if
+     *  that line has no leading whitespace (column-0 start). */
+    private String lineIndent(final List<Token> tokens, final int idx) {
+        int newlineIdx = -1;
+        for (int i = idx; i >= 0; i--) {
+            if (tokens.get(i).type == TokenType.NEWLINE) {
+                newlineIdx = i;
+                break;
+            }
+        }
+        final int afterNewline = newlineIdx + 1;
+        if (afterNewline < tokens.size() && tokens.get(afterNewline).type == TokenType.WHITESPACE) {
+            return tokens.get(afterNewline).text;
+        }
+        return "";
+    }
+
     // ── §11.2 Class field modifier-priority table ────────────────────────────────────
     /** STYLE_JS_TS.md §11.2's fixed six-slot modifier order -- `declare` first (ambient marker),
      *  then visibility (`public`/`private`/`protected`, mutually exclusive so all three share one

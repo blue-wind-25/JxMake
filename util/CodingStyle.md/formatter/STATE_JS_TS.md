@@ -156,6 +156,71 @@ below are unaffected by the refactor.
 
 ## Open Questions
 
+### Blocking issue found while attempting to flip the JS scaffold gate (this session)
+
+**Session task was: (1) flip `Lang.isScaffoldOnly` for `js` (not `ts`), smoke-test via the real
+`Main.java` CLI path for the first time, then (2) wire `XmlSpecificRule.renderScriptOrStyle`'s
+`isJsType && !frozen` branch to dispatch to the real JS formatter, then (3)/(4) update the two
+blocked HTML fixtures and re-run `make test`.** Step 1's own mandated pre-flip sanity check
+(`make test` baseline, then a CLI smoke-test after flipping) surfaced a real, non-trivial,
+pre-existing bug that blocks safely flipping the gate — documented here per `STATE_COMMON.md`'s
+ambiguity protocol; the `Lang.java` edit that flipped the gate has been **reverted** (working tree
+is back to `js`/`ts` both scaffold-only, matching commit `4fff96f`), no code change from this
+session is retained.
+
+**The bug:** a plain, unspaced declaration statement — `let x=1;`, `const x=5;`, `var z=7;` — is
+left **completely untouched** end-to-end through the real JAR (`code-formatter.sh`), no `=`
+spacing inserted, unlike every other curly-family language (verified `int x=1;` → `int x = 1;` in
+Java through the same JAR run for comparison). Root cause, confirmed by reading
+`DeclarationAlignmentRuleCurly`'s constructor (`rules/DeclarationAlignmentRuleCurly.java`, ~line
+48): its type-keyword/modifier-priority selection is only `lang.isJava ? JavaModifierPriority :
+CppModifierPriority` — no `isJs`/`isTs` branch exists — so for JS, `TYPE_KEYWORDS_C` (C's tiny
+built-in-type set) and `CppModifierPriority` are used to try to parse the statement as a
+declaration. `let`/`var` are neither a recognized C type keyword nor a recognized C/C++ modifier
+(only `const` happens to be, per Checkpoint 4's note), so `parseDeclaration` returns `null` for any
+`let`/`var` declaration (and even for many `const` ones, confirmed: `const x=5;` also stayed
+untouched) — the statement never enters the declaration-rendering path at all, so no `=`-spacing
+(or any other declaration-grid normalization) is ever applied. This reproduces even for the
+simplest single, non-destructured declarator, not just destructuring patterns.
+
+**Why this blocks the flip, not just a "small/obvious fix":** this is not a narrow edge case — a
+`let`/`const`/`var` declaration with tight `=` spacing is one of the single most common statement
+shapes in real-world JS, so flipping the scaffold gate today would mark JS "done" for real files
+while silently leaving a large fraction of ordinary declaration statements completely unformatted.
+It is, however, **not a new/surprise bug** in the sense of being undocumented: it is the direct,
+predictable consequence of an already-known, already-deferred gap — the checklist item below ("When
+implementing §11 below (declaration/parameter alignment), start from
+`KotlinDeclarationAlignmentRule.java`/`KotlinSignatureRule.java`...") was never actually done.
+Checkpoints 7 and 9 (§11's colon-spacing / union-intersection-spacing / modifier-reordering flat
+passes) each explicitly recorded that the declaration-alignment-**grid** integration itself
+(`Declaration`/`ColumnGrid` parser modeled on Kotlin's, which is what would give JS/TS declarations
+a real parse path with `=`-spacing) was deliberately left undone, out of scope for those
+checkpoints. This session is the first time that gap's real-world consequence was actually
+observed end-to-end (all prior verification was via hand-picked already-correctly-spaced harness
+examples, e.g. `const x = 5;`, per Checkpoint 4's own text — never a deliberately-unspaced input).
+
+**Per `STATE_COMMON.md`'s hard-rule guidance in this session's own task brief** ("if flipping the
+JS scaffold gate surfaces real, unexpected bugs... that aren't small/obvious fixes — don't attempt
+a large unplanned redesign, document and stop"): stopping here rather than attempting the
+`DeclarationAlignmentRuleCurly` JS/TS integration as an improvised addition to this session's scope.
+That integration is exactly the still-unchecked checklist item below and deserves its own dedicated
+checkpoint(s) (parser + rendering + fixture verification), not a rushed fix bolted onto the
+scaffold-gate/HTML5-dispatcher task.
+
+**Not done this session as a result:** the JS scaffold-gate flip (reverted), the
+`XmlSpecificRule.renderScriptOrStyle` HTML5 `<script>` dispatch wiring, and the two HTML fixture
+updates (`test/html_combined_inp/out.html`, `test/html_comments_inp/out.html`) — all three are
+downstream of the gate flip and were not attempted once the blocker was found, per the "don't push
+through degraded" guidance. `make test` is unchanged from this session's own confirmed baseline:
+106/106 forward + 106/106 idempotency (no code changes were kept).
+
+**Suggested next step for a future session:** implement real JS/TS awareness in
+`DeclarationAlignmentRuleCurly` (its own checklist item below), verify a plain unspaced
+`let`/`const`/`var` declaration gets correctly `=`-spaced (and grid-aligned where applicable) via a
+standalone harness first, *then* re-attempt this session's scaffold-gate-flip task from scratch —
+the smoke-test step should include at least one deliberately unspaced plain declaration statement
+(not just destructuring or already-correctly-spaced examples) before considering the flip safe.
+
 ### Open Design Questions
 
 Documented explicitly here per the style doc's own flagged gaps — not
@@ -242,7 +307,12 @@ attempted this session, future work:
       unconditionally (rule layer untouched this checkpoint), so no JS/TS
       fixture could yet be un-commented in the Makefile even though the
       tokenizer can now lex the input without erroring.
-- [ ] When implementing §11 below (declaration/parameter alignment), start
+- [~] **BLOCKED — see "Blocking issue found while attempting to flip the JS
+      scaffold gate" under Open Questions above.** A plain unspaced
+      `let x=1;`/`const x=5;`/`var z=7;` declaration renders completely
+      untouched (no `=` spacing) through the real JAR because this item was
+      never done — confirmed the direct cause when the JS scaffold-gate flip
+      was attempted and reverted this session. When implementing §11 below
       from `KotlinDeclarationAlignmentRule.java`/`KotlinSignatureRule.java`
       as a structural template, not from scratch. TS's `let x: Type =
       value` is the same name-before-type reversed grammar Kotlin's `val x:
@@ -1116,7 +1186,14 @@ attempted this session, future work:
       `STYLE_JS_TS.md`'s listed test-fixture repos (`nodejs/node`,
       `expressjs/express`, `lodash/lodash`, `microsoft/TypeScript`,
       `angular/angular`, `nestjs/nest`, `vuejs/core`).
-- [ ] **Follow-up once real JS/TS logic lands (cross-job note from
+- [~] **BLOCKED — see "Blocking issue found while attempting to flip the JS
+      scaffold gate" under Open Questions above.** An attempt this session to
+      flip `Lang.isScaffoldOnly` for `js` and wire this follow-up's dispatch
+      call was stopped before any of items (1)-(3) below were done, because
+      the mandated pre-flip CLI smoke-test surfaced the declaration-alignment
+      gap documented above; the `Lang.java` gate-flip edit was reverted, no
+      code change was kept. **Follow-up once real JS/TS logic lands
+      (cross-job note from
       `STATE_DATA_FORMATS.md`'s HTML5 §4 work):** `XmlSpecificRule
       .renderScriptOrStyle` dispatches HTML5 `<script>` content to a real
       JS formatter, but since JS/TS is still scaffold-only, any real

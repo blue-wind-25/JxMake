@@ -235,6 +235,8 @@ public final class FormatterCurly extends FormatterCore {
             // STYLE_JS_TS.md §11: `: type` colon spacing (declarator/parameter/return-type),
             // TS-only -- JS has no type annotations.
             text = jsTsRule.enforceTypeColonSpacing(tokenizer.apply(text));
+            // STYLE_JS_TS.md §11.1: union/intersection `|`/`&` ordinary binary-operator spacing.
+            text = jsTsRule.enforceUnionIntersectionSpacing(tokenizer.apply(text));
         }
         // Must run after every earlier paren-tightening/spacing pass has settled a braceless
         // collapsed `if(...) body` line's final rendered width -- see the method's own javadoc

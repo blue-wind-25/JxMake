@@ -559,13 +559,61 @@ attempted this session, future work:
       larger parser; this checkpoint's `classifyTypeColons` bracket-stack
       scan could plausibly seed its colon-position detection but was not
       designed with reuse in mind.
-      **§11 still remaining:** union/intersection (`|`/`&`) spacing
-      (§11.1, confirmed via harness NOT currently free -- `type X = A|B;`
-      passes through untouched) and the class-field modifier-priority
-      table (§11.2 -- fully specified in the style doc, six-slot ordering
+      **Checkpoint 8 done -- §11.1 union/intersection (`|`/`&`) spacing
+      only.** New `JsTsSpecificRule.enforceUnionIntersectionSpacing`
+      (TS-only, `lang.isTs`-gated), same flat gap-normalizing shape as
+      §7/§11's other passes: any single-char `|`/`&` token forces one
+      space on both sides. Compound tokens (`||`, `&&`, `|=`, `&=`, etc.)
+      are already lexed as their own distinct multi-char ops, never match
+      the single-char check, so they're untouched by construction.
+      Deliberately scoped to TS-only rather than "type position only" --
+      confirmed via harness that no existing pass spaces bitwise `|`/`&`
+      in JS expression position either (`let x = a|b;` stays untouched in
+      `.js`), so TS's own bitwise usages picking up the same spacing as
+      its union/intersection ones is an accepted, documented side effect
+      of the simpler scope choice, not a design gap. Wired into
+      `FormatterCurly` Phase 4 directly after §11's colon-spacing call,
+      inside the same `if (lang.isTs)` block. **Real bug found and fixed
+      as part of this checkpoint's own verification (not pre-existing,
+      not touched by Checkpoint 7):** break-before-operator union wrapping
+      (`type Y = A\n | B\n | C;`, STYLE_JS_TS.md §11.1's own second worked
+      example) was getting a bogus `;` inserted after `A` by §2's
+      `JsTsSpecificRule.enforceSemicolonInsertion` -- that pass's NEWLINE-
+      boundary check only ever looked at the *trailing* token before the
+      newline (already handled via `CONTINUATION_OPS`, which is why the
+      break-*after*-operator worked example `type X = A |\n B |\n C;`
+      already rendered correctly) with no lookahead past the newline for
+      a *leading* continuation operator on the next line. Fixed with a
+      narrow, `|`/`&`-scoped addition to `maybeInsertSemicolon`'s existing
+      NEWLINE-boundary lookahead (right next to the pre-existing "next
+      token is `{`" Allman-header check): if the next significant token
+      across a NEWLINE boundary is `|` or `&`, treat it as the same
+      statement continuing and skip semicolon insertion. Scoped narrowly
+      to just `|`/`&` (not every `CONTINUATION_OPS` entry) to minimize
+      risk -- this task's own scope is union/intersection wrapping, not a
+      general break-before-any-operator fix for arbitrary JS/TS
+      expressions, which would need its own broader verification pass.
+      Verified via a standalone harness (`FormatterCore.forLanguage("ts")`):
+      `type Status = "active"|"inactive"|"pending";` →
+      `"active" | "inactive" | "pending"`; `type Combined = Base&Extra;` →
+      `Base & Extra`; mixed `type Z = A | B&C;` → `A | B & C` (confirmed
+      not attempting precedence-aware reflow, just spacing, per the task's
+      own explicit check); both break-before and break-after wrapped forms
+      preserved exactly as written (including the semicolon-insertion fix
+      above) with correct spacing and no reflow. Explicitly re-verified
+      unaffected: JS bitwise `|`/`&` (`let x = a|b;` in a `.js` file stays
+      untouched, confirming the TS-only gate). Round-trip (harness round1
+      → round2) confirmed idempotent on every case above. `make` compiles
+      clean; `make test`: 106/106 forward + 106/106 idempotency, zero
+      regressions.
+      **§11 still remaining:** the class-field modifier-priority table
+      (§11.2 -- fully specified in the style doc, six-slot ordering
       `declare` → visibility → `static` → `abstract` → `override` →
-      `readonly`, **not ambiguous**). Both still land in
-      `JsTsSpecificRule.java` per RDD_KEY_187, not a separate file.
+      `readonly`, **not ambiguous**). Still lands in `JsTsSpecificRule.java`
+      per RDD_KEY_187, not a separate file. Grid/column alignment (the
+      declaration-alignment-grid integration §11's main paragraph and
+      §11.2's own worked example both call for) remains unimplemented
+      across all of §11 -- see Checkpoint 7's note.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "JavaScript"/"TypeScript" sections (split by extension since TS-only
       constructs can't live in `.js`). Done: `js_combined_inp/out.js`,

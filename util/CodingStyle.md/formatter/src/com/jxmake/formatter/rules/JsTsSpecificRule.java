@@ -170,6 +170,13 @@ public final class JsTsSpecificRule {
             if (nextSig >= 0 && isPunct(tokens.get(nextSig), "{")) {
                 return;
             }
+            // STYLE_JS_TS.md §11.1: a union/intersection type may wrap break-before-operator
+            // (`type Y = A\n | B\n | C;`), leading `|`/`&` on the next line -- that's still the
+            // same statement continuing, not a new one, even though the current line's own last
+            // token (`A`) isn't itself a trailing continuation operator.
+            if (nextSig >= 0 && (isOp(tokens.get(nextSig), "|") || isOp(tokens.get(nextSig), "&"))) {
+                return;
+            }
         }
         if (needsSemicolonAfter(tokens, lastSigIdx, braceNeedsSemicolon, braceCloseToOpen, parenCloseToOpen)) {
             overrides.put(lastSigIdx, lastSig.text + ";");
@@ -438,6 +445,70 @@ public final class JsTsSpecificRule {
 
     private boolean isNullishCoalesce(final Token t) {
         return t != null && (isOp(t, "??") || isOp(t, "??="));
+    }
+
+    // ── §11.1 Union / intersection type spacing (`|`, `&`) ───────────────────────────
+    /**
+     * STYLE_JS_TS.md §11.1: `|`/`&` used as TS union/intersection type operators get ordinary
+     * binary-operator spacing -- one space on both sides. TS-only (`lang.isTs`); a bare bitwise
+     * `|`/`&` in JS expression position is out of this section's scope and deliberately left
+     * untouched (no existing pass in this codebase spaces bitwise `|`/`&` either, confirmed via a
+     * standalone harness before writing this method -- so applying this pass to TS-only, rather
+     * than gating on "type position" specifically, is a conservative scope choice: TS's own
+     * bitwise `|`/`&` usages get the same spacing as its union/intersection ones, both being
+     * ordinary ASCII binary operators the style doc treats identically once JS's silence on
+     * bitwise-operator spacing is accepted as a pre-existing, unrelated gap rather than something
+     * this pass needs to work around). Compound tokens (`||`, `&&`, `|=`, `&=`, `||=`, `&&=`) are
+     * already lexed as their own distinct multi-char ops and never match the single-char `|`/`&`
+     * check here, so they're untouched by construction. Break-style on overflow (STYLE_JS_TS.md
+     * §11.1's break-before-operator vs. break-after-operator worked examples) is preserved as
+     * written -- this pass only touches the gap immediately around a same-line `|`/`&`, a gap
+     * already blocked by an embedded NEWLINE is left alone by the same conservative bailout every
+     * other pass in this file uses.
+     */
+    public String enforceUnionIntersectionSpacing(final List<Token> tokens) {
+        if (!lang.isTs) {
+            return render(tokens, new HashMap<>());
+        }
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        Token lastSignificant = null;
+        final int n = tokens.size();
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
+                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean adjacentToUnionOrIntersection = isUnionOrIntersection(lastSignificant) || isUnionOrIntersection(t);
+
+            if (gapBlocked || !adjacentToUnionOrIntersection) {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            } else {
+                out.append(' ');
+            }
+
+            gap.clear();
+            out.append(t.text);
+            lastSignificant = t;
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    private boolean isUnionOrIntersection(final Token t) {
+        return t != null && (isOp(t, "|") || isOp(t, "&"));
     }
 
     // ── §11 TypeScript type-annotation colon spacing ─────────────────────────────────

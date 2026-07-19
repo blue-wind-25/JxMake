@@ -934,8 +934,65 @@ attempted this session, future work:
       safe, just short of the style doc's full worked example. Flagged here
       for a future checkpoint that wants to extend `mergeReturnTypeIntoCall`
       properly, not attempted further this session.
-      **Next up:** §9 (decorators). §12-15 (enums, generics, interface/
-      type-alias, imports) remain otherwise unstarted.
+      **Checkpoint 15 done -- §9 (decorators) implemented via three new
+      `JsTsSpecificRule.java` methods.** `enforceDecoratorTightAtSpacing`
+      (flat gap-normalizing pass, `isJs || isTs`-gated, wired into
+      `FormatterCurly` Phase 4 right after §6's `enforceArrowSpacing`):
+      confirmed empirically (harness) that `@` tight-binding is NOT already
+      free -- a deliberately mis-spaced `@ Inject(TOKEN)` round-tripped
+      untouched before this pass, since the codebase's generic token-join
+      rules have no existing tight-unary-prefix exception for `@` (unlike
+      `!`/`~`). `enforceDecoratorOverflowCascade` (structural, `isJs ||
+      isTs`-gated, wired into `FormatterCurly` Phase 1 right before §6's
+      `enforceArrowFunctionParameterParens`, same ordering reasoning: a
+      pass that inserts a line break has to run before any later
+      width-driven pass's "does it fit" check, or a fresh format and a
+      reformat of already-split output disagree) implements only the
+      cascade's first step -- dropping an inline decorator (one whose own
+      line still holds more content after it) to its own line, at the same
+      indentation, when the decorator + rest-of-line combined exceeds
+      `lineLengthLimit`. The second cascade step (wrapping the decorator's
+      own overlong argument list, once alone on its own line) needed **no
+      new code** -- a decorator's `@Name(args)` call already matches
+      `MiscRuleCurly.enforceCallLineBreaking`'s generic "IDENTIFIER (" scan,
+      so it's wrapped by that existing pass the same as any other overlong
+      call, confirmed via the harness (an already-own-line decorator with
+      an overlong argument list wraps its args via the pre-existing
+      dropped/one-per-line machinery, no decorator-specific code involved).
+      A helper `findDecoratorEnd` locates the decorator application's own
+      end (the name identifier for a bare `@Name`, the matching `)` for
+      `@Name(args)`, walking forward over `.` for a qualified name like
+      `@ns.Name` too). **Placement preservation** (§9's "never move a
+      decorator from one placement to the other") needed no code at all --
+      it's the default do-nothing behavior; `enforceDecoratorOverflowCascade`
+      only ever acts on an inline decorator that doesn't fit (dropping it),
+      never touches an already-own-line decorator, and never merges one back
+      inline either way, confirmed via harness (an own-line `@Input()` /
+      `name: string;` pair round-trips unchanged regardless of length).
+      Verified via a standalone harness (`FormatterCore.forLanguage("ts")`):
+      `@Component({...})` class decorator and `@Input()`/`@Output()`
+      property decorators and `constructor(@Inject(TOKEN) private service:
+      Service) {}` parameter decorator (the style doc's own worked example)
+      all round-trip with correct tight `@` spacing; a deliberately
+      mis-spaced `@ Component(...)` / `@   Input()` both get corrected to
+      tight; an inline decorated field under the line-length limit stays
+      inline (no cascade); an inline decorated field over the limit drops
+      to its own line at the same indent, with the target now beginning the
+      next line; a bare (no-args) decorator + long target combination also
+      cascades correctly; an already-own-line decorator (with or without
+      overflow) is left completely untouched either way. A combined
+      decorated-class-with-getter/setter-accessors case (`@Component({...})
+      export class Widget { @Input() name: string; get x() {...} set x(v)
+      {...} }`) renders correctly end-to-end, confirming §8 and §9 compose
+      without interference. Round-trip (harness round1 -> round2) confirmed
+      idempotent on every case above. `make` compiles clean; `make test`:
+      106/106 forward + 106/106 idempotency, zero regressions.
+      **§8 and §9 both done as scoped this multi-checkpoint task**
+      (Checkpoints 13/14/15). **Next up (per the agreed ordering):** §15
+      (import ordering) -- unblocking the HTML5 `<script>` dispatcher (the
+      cross-job follow-up note near the bottom of this file) is a separate,
+      later task, not next. §12-14 (enums, generics, interface/type-alias)
+      remain otherwise unstarted.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "JavaScript"/"TypeScript" sections (split by extension since TS-only
       constructs can't live in `.js`). Done: `js_combined_inp/out.js`,

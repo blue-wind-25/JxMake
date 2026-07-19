@@ -1275,4 +1275,178 @@ public final class JsTsSpecificRule {
                         || "throw".equals(prev.text) || "typeof".equals(prev.text)
                         || "const".equals(prev.text) || "let".equals(prev.text) || "var".equals(prev.text)));
     }
+
+    // ── §9 Decorators ────────────────────────────────────────────────────────────
+
+    /**
+     * STYLE_JS_TS.md §9: {@code @} binds tight to the decorator name, no space, "same as any
+     * other unary prefix". Confirmed via a standalone harness before writing this method that
+     * this is <b>not</b> already free from any existing generic pass -- a deliberately mis-spaced
+     * {@code @ Inject(TOKEN)} round-tripped completely untouched, and the generic
+     * `needsSpaceBetween` join used elsewhere in this codebase defaults to inserting a space
+     * between an `@` OP token and a following IDENTIFIER (no existing "tight unary prefix"
+     * exception for `@`, unlike e.g. `!`/`~`). Flat gap-normalizing scan, same conservative
+     * bailout shape as every other spacing pass in this file: a gap containing a comment, a
+     * NEWLINE, or a frozen token is left untouched. `@` only ever appears in valid JS/TS source
+     * as a decorator marker (no bitwise/other operator use, unlike Kotlin's overloaded operators),
+     * so no additional context check is needed before tightening every occurrence.
+     */
+    public String enforceDecoratorTightAtSpacing(final List<Token> tokens) {
+        final StringBuilder out = new StringBuilder();
+        int i = 0;
+        final int n = tokens.size();
+        while (i < n) {
+            final Token t = tokens.get(i);
+            out.append(t.text);
+            if (isOp(t, "@") && !t.frozen) {
+                final int nextSig = nextSignificantIndex(tokens, i + 1);
+                if (nextSig > i + 1) {
+                    final List<Token> gap = tokens.subList(i + 1, nextSig);
+                    final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g)
+                            || g.type == TokenType.NEWLINE || g.frozen);
+                    if (!gapBlocked) {
+                        i = nextSig;
+                        continue;
+                    }
+                }
+            }
+            i++;
+        }
+        return out.toString();
+    }
+
+    /**
+     * STYLE_JS_TS.md §9's overflow cascade: when a decorator plus the target it precedes would
+     * exceed {@link #lineLengthLimit} on one line, drop the decorator to its own line first --
+     * keeping the target on the next line at the same indentation -- before falling back to
+     * wrapping the decorator's own argument list (that second step needs no new code here: a
+     * decorator's {@code @Name(args)} call already matches the generic
+     * {@code MiscRuleCurly.enforceCallLineBreaking} scan's "IDENTIFIER (" candidate shape, so an
+     * overlong decorator-with-args, once alone on its own line, is already wrapped by that
+     * existing pass same as any other overlong call). This method only ever does the first step
+     * (own-line drop) -- it never touches the decorator's own argument list.
+     *
+     * <p>Only an <b>inline</b> decorator (its own line still holds more content after it -- no
+     * NEWLINE between the decorator's own closing token and what follows) is a candidate; a
+     * decorator already on its own line is left completely alone, matching §9's own "the
+     * formatter never moves a decorator from one placement to the other" placement-preservation
+     * rule -- this pass only ever inserts a break for an inline decorator that doesn't fit, never
+     * removes one that's already own-line, and never merges an own-line decorator back inline
+     * either way.
+     *
+     * <p>Must run in Phase 1, before {@code enforceComplexityPadding}/{@code
+     * enforceCallLineBreaking} (same ordering constraint as this file's other Phase 1 structural
+     * passes, e.g. {@code enforceArrowFunctionParameterParens}) -- inserting a line break here
+     * changes what "the rest of this line" even is for those later width-driven passes, and they
+     * need to see the post-split shape on the very first format pass for the "does it fit"
+     * decision to stay stable across reformats.
+     */
+    public String enforceDecoratorOverflowCascade(final List<Token> tokens) {
+        final Map<Integer, Integer> parenOpenToClose = matchParens(tokens);
+        final StringBuilder out = new StringBuilder();
+        int i = 0;
+        final int n = tokens.size();
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isOp(t, "@") && !t.frozen) {
+                final int decoratorEnd = findDecoratorEnd(tokens, i, parenOpenToClose);
+                final int nextSig = decoratorEnd >= 0 ? nextSignificantIndex(tokens, decoratorEnd + 1) : -1;
+                final boolean alreadyOwnLine = nextSig >= 0 && hasNewlineBetween(tokens, decoratorEnd + 1, nextSig);
+                if (decoratorEnd >= 0 && nextSig >= 0 && !alreadyOwnLine && !anyFrozen(tokens, i, decoratorEnd + 1)) {
+                    final String indent = lineIndent(tokens, i);
+                    final int lineEnd = lineEndIndex(tokens, nextSig);
+                    final String wholeLine = indent
+                            + collapseTokensToOneLine(tokens.subList(lineStartTokenIndex(tokens, i), lineEnd));
+                    if (wholeLine.length() > lineLengthLimit) {
+                        // Drop: emit the decorator itself, then a NEWLINE + the same
+                        // indentation, then let the loop continue from the target.
+                        out.append(collapseTokensToOneLine(tokens.subList(i, decoratorEnd + 1)));
+                        out.append('\n').append(indent);
+                        i = nextSig;
+                        continue;
+                    }
+                }
+            }
+            out.append(t.text);
+            i++;
+        }
+        return out.toString();
+    }
+
+    /** Index of the last token of a decorator application starting at {@code atIdx} (the
+     *  {@code @} token itself): the decorator name identifier for a bare {@code @Name}, or the
+     *  matching {@code )} for {@code @Name(args)}. Returns -1 if the shape isn't recognized (no
+     *  identifier immediately follows {@code @}). */
+    private int findDecoratorEnd(final List<Token> tokens, final int atIdx,
+            final Map<Integer, Integer> parenOpenToClose) {
+        final int nameIdx = nextSignificantIndex(tokens, atIdx + 1);
+        if (nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER) {
+            return -1;
+        }
+        // A qualified decorator name (`@ns.Name`) walks forward over `.identifier` pairs too.
+        int end = nameIdx;
+        while (true) {
+            final int dotIdx = nextSignificantIndex(tokens, end + 1);
+            if (dotIdx < 0 || !isOp(tokens.get(dotIdx), ".")) {
+                break;
+            }
+            final int idIdx = nextSignificantIndex(tokens, dotIdx + 1);
+            if (idIdx < 0 || tokens.get(idIdx).type != TokenType.IDENTIFIER) {
+                break;
+            }
+            end = idIdx;
+        }
+        final int afterName = nextSignificantIndex(tokens, end + 1);
+        if (afterName >= 0 && isPunct(tokens.get(afterName), "(")) {
+            final Integer closeIdx = parenOpenToClose.get(afterName);
+            if (closeIdx != null) {
+                return closeIdx;
+            }
+        }
+        return end;
+    }
+
+    /** True if any {@code NEWLINE} token appears in {@code [from, to)}. */
+    private boolean hasNewlineBetween(final List<Token> tokens, final int from, final int to) {
+        for (int i = from; i < to && i < tokens.size(); i++) {
+            if (tokens.get(i).type == TokenType.NEWLINE) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** First token index of the physical line containing token {@code idx}. */
+    private int lineStartTokenIndex(final List<Token> tokens, final int idx) {
+        for (int i = idx; i >= 0; i--) {
+            if (tokens.get(i).type == TokenType.NEWLINE) {
+                return i + 1;
+            }
+        }
+        return 0;
+    }
+
+    /** Index one past the last token of the physical line containing token {@code idx} (i.e. the
+     *  index of the line's own trailing {@code NEWLINE}, or the token count if the file ends
+     *  without one). */
+    private int lineEndIndex(final List<Token> tokens, final int idx) {
+        for (int i = idx; i < tokens.size(); i++) {
+            if (tokens.get(i).type == TokenType.NEWLINE) {
+                return i;
+            }
+        }
+        return tokens.size();
+    }
+
+    /** Plain concatenation of each token's own raw text across {@code [from, to)} of a token
+     *  sublist -- used only for this method's own line-length estimate and for re-emitting the
+     *  decorator's own span verbatim when dropping it to its own line; not a general-purpose
+     *  renderer (does not touch spacing, unlike {@code MiscRuleCurly.collapseTokensToOneLine}). */
+    private String collapseTokensToOneLine(final List<Token> slice) {
+        final StringBuilder sb = new StringBuilder();
+        for (final Token t : slice) {
+            sb.append(t.text);
+        }
+        return sb.toString();
+    }
 }

@@ -129,6 +129,15 @@ public final class FormatterCurly extends FormatterCore {
             text = jsTsRule.enforceMethodDefinitionAllmanBraceStyle(tokenizer.apply(text));
         }
         if (lang.isJs || lang.isTs) {
+            // STYLE_JS_TS.md §9's overflow cascade: drop an overlong inline decorator to its own
+            // line before any width-driven pass below runs, so their "does it fit" checks see the
+            // post-split shape on the very first format pass (same ordering reasoning as
+            // enforceArrowFunctionParameterParens right below). The second cascade step (wrapping
+            // the decorator's own overlong argument list) needs no call here -- it's already free
+            // via enforceCallLineBreaking's generic "IDENTIFIER (" scan further down.
+            text = jsTsRule.enforceDecoratorOverflowCascade(tokenizer.apply(text));
+        }
+        if (lang.isJs || lang.isTs) {
             // STYLE_JS_TS.md §6: a bare single-parameter arrow (`n => ...`) always gets its
             // parameter wrapped in parens (`(n) => ...`). This must run before the
             // enforceComplexityPadding call right below (not down in Phase 4 with the rest of
@@ -257,6 +266,10 @@ public final class FormatterCurly extends FormatterCore {
             // (The other §6 item, always-parenthesized single-parameter arrows, is applied earlier
             // in Phase 1 -- see the comment on that call for why it can't sit here.)
             text = jsTsRule.enforceArrowSpacing(tokenizer.apply(text));
+            // STYLE_JS_TS.md §9: `@` binds tight to the decorator name, no space -- confirmed not
+            // already free from any generic pass (no existing tight-unary-prefix exception for
+            // `@`, unlike `!`/`~`).
+            text = jsTsRule.enforceDecoratorTightAtSpacing(tokenizer.apply(text));
         }
         if (lang.isTs) {
             // STYLE_JS_TS.md §11: `: type` colon spacing (declarator/parameter/return-type),

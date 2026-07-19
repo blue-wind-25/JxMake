@@ -111,18 +111,20 @@ INP_FILES += xml_comments_inp.xml
 # CppSpecificRule.java, verified against the actual JAR -- promoted to active.
 INP_FILES += cpp_26ext_inp.cpp
 
-# cpp_26_comments/cpp_26_reflection: fixtures authored ahead of implementation,
-# hand-drafted against STYLE_CPP26.md -- not yet verified by a real JAR.
-# cpp_26_comments still needs verification of comment placement around
-# pre/post clauses (a comment between the signature and a clause sits inside
+# cpp_26_comments: fixture authored ahead of implementation, hand-drafted
+# against STYLE_CPP26.md -- not yet verified by a real JAR. Still needs
+# verification of comment placement around pre/post clauses (a comment
+# between the signature and a clause sits inside
 # enforceContractClausePlacement's replaced span and would currently be
-# dropped -- not yet fixed). cpp_26_reflection's expected output additionally
-# stays unverified against the external-corpus cross-check STYLE_CPP26.md §5
-# calls for -- promoted early anyway to seed the initial tokenizer test, per
-# explicit instruction overriding its promotion gate. Uncomment once real
-# logic lands.
+# dropped -- not yet fixed). Uncomment once that gap is fixed.
 # INP_FILES += cpp_26_comments_inp.cpp
-# INP_FILES += cpp_26_reflection_inp.cpp
+
+# cpp_26_reflection: §5 (^^ tight-binding, [[ ]]/[: :] tight/loose padding)
+# now has real logic in CppSpecificRule.java, verified against the actual
+# JAR -- promoted to active. (Its expected output still isn't cross-checked
+# against the STYLE_CPP26.md §5 external-corpus fixture repos, only against
+# this formatter's own real output -- see STATE_CPP26.md.)
+INP_FILES += cpp_26_reflection_inp.cpp
 
 # js_combined/js_comments/ts_combined/ts_comments: fixtures authored ahead of
 # implementation, hand-drafted against STYLE_JS_TS.md -- not yet verified by a real

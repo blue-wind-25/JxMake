@@ -12,7 +12,7 @@ constexpr auto reflectMember(T&& obj)
 void useSplice()
 {
     constexpr auto r = ^^int;
-    auto v = [:r:];
+              auto v = [:r:];
     total += [:r:];
 }
 

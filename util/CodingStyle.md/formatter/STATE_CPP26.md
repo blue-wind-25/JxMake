@@ -105,6 +105,30 @@ promotion gate (§5's external-repo tokenizer validation still pending), per
 explicit instruction — see the "Done:" note on this file's checklist below
 for that history.
 
+**Promoted to active `make test` this session** (Makefile `INP_FILES`),
+after the §5 padding rules landed and the fixture was run against the real
+JAR to verify it. Two fixture-authoring issues surfaced and were fixed with
+explicit user confirmation, both unrelated to the new §5 rules themselves
+(every `^^`/`[[ ]]`/`[: :]` diff matched expected output with zero changes
+needed):
+- The input's body statements (`reflectMember`, `useSplice`,
+  `checkReflected`) had zero leading indentation while the expected output
+  assumed 4-space indentation — this formatter does not reindent
+  (preserves source indentation verbatim, see `STATE_COMMON.md`'s
+  Architectural TODOs), so the input needed to already be authored with
+  correct indentation, same convention as `cpp_26ext_inp.cpp`. Fixed by
+  indenting the input's body statements.
+- `auto v = [:r:];` gets column-aligned under `constexpr auto r = ^^int;`'s
+  `=` by the pre-existing (unrelated, C/C++/Java job's) declaration-
+  alignment rule — reproduced with plain non-reflection code
+  (`constexpr auto r = 1; auto v = 2;`) to confirm it's not a §5-rule
+  artifact. Fixed by updating the expected output to the real aligned
+  column, since the alignment itself is correct, pre-existing behavior.
+Still NOT cross-checked against the STYLE_CPP26.md §5 external-corpus
+fixture repos (`bloomberg/clang-p2996` etc.) — only against this
+formatter's own actual JAR output. That corpus-scale validation pass
+remains open (see Scope §5 / Test Fixtures (External, corpus-scale) above).
+
 ---
 
 ## Class Scoping (post Core/Curly/Indent/Tags refactor)

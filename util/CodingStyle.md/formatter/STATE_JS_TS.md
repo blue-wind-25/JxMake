@@ -112,6 +112,17 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 
 ---
 
+## Tools/compiler used
+
+Compiler for dogfood test `node` and `tsc` needs:
+
+```bash
+export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules
+export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
+```
+
+---
+
 ## Test Fixtures (Local)
 
 Local dogfood pairs (distinct from the external-repo list above, which is

@@ -153,8 +153,34 @@ formal blocked Open Question here since real implementation hasn't started.
       `MULTI_CHAR_OPS` entries, longest-prefix-first ordering, full
       existing C/C++/Java/Kotlin regression suite re-run for zero
       regressions, before trusting any §5 rule.
-- [ ] Implement §1–4 rule-by-rule, each its own checkpoint commit, per
-      `STATE_COMMON.md`'s workflow.
+- [x] §1 Pack indexing implemented: `CppSpecificRule.enforcePackIndexingSpacing`
+      (new method, called from `FormatterCurly`'s Phase 4 cosmetic-spacing
+      block, `lang.isCpp`-gated), collapses the gaps on both sides of an
+      `...` token whenever it is immediately followed by `[` (scoped to that
+      exact adjacency only, so ordinary variadic `Args...)`/`Args...,` uses
+      are untouched). `make test`: 101/101 forward + idempotency, zero
+      regressions. §2 (`= delete("reason")`) and §3 (placeholder `_`)
+      confirmed to need no new code — both already format correctly via
+      existing ordinary call-argument/identifier handling (verified against
+      `cpp_26ext_inp/out.cpp`).
+- [ ] §4 Contracts (`pre`/`post`/`contract_assert`) — genuinely unimplemented,
+      confirmed by fixture testing this session. Needs: (a) clause placement
+      (recognize `pre`/`post`/`contract_assert` as keywords the way
+      `enforceRequiresClausePlacement` recognizes `requires`, give each
+      clause its own line at `baseIndent + indentUnit`, overflow-triggered
+      single-line collapse); (b) internal expression-operator spacing inside
+      `pre(...)`/`post(...)` (e.g. `b!=0` → `b != 0`, `r:r*b==a` →
+      `r: r * b == a`) — this does NOT come for free from any existing rule;
+      plain call-argument contents are currently left verbatim
+      (`bar(x>=0);` stays unspaced, confirmed by direct test), so `pre`/
+      `post` need their own dedicated internal-spacing pass, distinct from
+      `contract_assert`. **Correction found:** `contract_assert`'s spec text
+      ("formatted like any other function-call-shaped statement") means its
+      argument should stay verbatim like any other bare call statement, NOT
+      get `>=`-style spacing — `test/cpp_26ext_out.cpp` line 38
+      (`contract_assert(x >= 0);`) contradicts this and needs correcting to
+      `contract_assert(x>=0);` to match input/spec (ask before editing the
+      `_out.` fixture, per `STATE_COMMON.md`).
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "CPP26" section (reflection pair sequenced after the §5 tokenizer
       validation pass, per that section's own note) and register in the

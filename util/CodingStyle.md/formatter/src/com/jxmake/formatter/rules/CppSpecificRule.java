@@ -620,6 +620,72 @@ public class CppSpecificRule {
     }
 
     /**
+     * STYLE_CPP26.md §1: pack indexing (`T...[i]`). No space between the pack name, `...`, and
+     * the opening `[` -- both surrounding gaps are collapsed to zero width whenever an `...`
+     * operator token is immediately (module gap tokens) followed by `[`, using the same
+     * gap-buffering rewrite technique as {@link #enforceTemplateAngleBracketSpacing}. Scoped
+     * narrowly to this exact `... [` adjacency so ordinary variadic-pack uses of `...` elsewhere
+     * (e.g. `Args...)`, `Args...,`) are left untouched -- this method only ever removes space
+     * immediately around an `...` that is itself followed by `[`, never any other occurrence.
+     * The interior of the `[...]` itself is left to the existing tight/loose bracket-complexity
+     * rule (STYLE.md §3.1), which already runs elsewhere and needs no pack-specific change.
+     */
+    public String enforcePackIndexingSpacing(final List<Token> tokens) {
+        final int n = tokens.size();
+        final Set<Integer> ellipsisBeforeBracket = new HashSet<>();
+        for (int i = 0; i < n; i++) {
+            if (!isOp(tokens.get(i), "...")) {
+                continue;
+            }
+            final int nextIdx = nextSignificantIndex(tokens, i);
+            if (nextIdx >= 0 && isPunct(tokens.get(nextIdx), "[")) {
+                ellipsisBeforeBracket.add(i);
+            }
+        }
+        if (ellipsisBeforeBracket.isEmpty()) {
+            return joinVerbatim(tokens);
+        }
+
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        Token lastSignificant = null;
+        boolean lastWasEllipsisTarget = false;
+        int i = 0;
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            final boolean beforeBracketAfterEllipsis = lastWasEllipsisTarget
+                    && isPunct(t, "[");
+            final boolean afterIdentifierBeforeEllipsis = ellipsisBeforeBracket.contains(i);
+            final boolean gapHasBlocker = hasCommentOrNewline(gap) || t.frozen
+                    || (lastSignificant != null && lastSignificant.frozen);
+
+            if ((beforeBracketAfterEllipsis || afterIdentifierBeforeEllipsis) && !gapHasBlocker) {
+                gap.clear();
+            } else {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+                gap.clear();
+            }
+
+            out.append(t.text);
+            lastSignificant = t;
+            lastWasEllipsisTarget = ellipsisBeforeBracket.contains(i);
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    /**
      * STYLE_CPP20.md §2.2/§2.3: a trailing `requires` clause on a function/template signature
      * always trails the closing `)` of the parameter list -- on the same line if the combined
      * line (the physical line the `)` already sits on, plus ` requires <clause>`) fits within

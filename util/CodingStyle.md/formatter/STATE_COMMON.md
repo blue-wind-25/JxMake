@@ -260,6 +260,11 @@ kotlin-import-order              = kotlin, java, android, com, org, other, local
 kotlin-import-sort               = on
 kotlin-import-depth              = 2
 kotlin-import-blank-lines        = 1
+
+# ── JS/TS ─────────────────────────────────────────────────────────────────────
+js-import-order                  = builtin, third-party, local
+js-import-sort                   = on
+js-import-blank-lines            = 1
 ```
 
 For every added, deleted, or modified configuration item,

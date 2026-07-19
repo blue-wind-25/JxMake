@@ -251,6 +251,11 @@ kotlin-import-order              = kotlin, java, android, com, org, other, local
 kotlin-import-sort               = on
 kotlin-import-depth              = 2
 kotlin-import-blank-lines        = 1
+
+# ── JS/TS ─────────────────────────────────────────────────────────────────────
+js-import-order                  = builtin, third-party, local
+js-import-sort                   = on
+js-import-blank-lines            = 1
 ```
 
 ### `.jxmake-code-formatter` inheritance
@@ -277,6 +282,14 @@ import" isn't lexically detectable the way Java's `import static` is. A leading 
 group (for `kotlin.*` stdlib imports) takes its place in the default order. Aliased
 imports (`import foo.Bar as Baz`) and wildcard imports sort/group by their original
 qualified name, not the alias.
+
+### JS/TS import groups and local-import classification
+
+There is no `js-import-depth` key — unlike Java/Kotlin's `package`-declaration-derived
+local prefix, JS/TS has no equivalent package concept to read a prefix from. Local-import
+detection is purely syntactic: an import specifier is classified `local` iff it starts
+with `./` or `../`. See "Known Limitations" below for what this means for
+bundler/tsconfig path-mapped absolute imports.
 
 ### C-preprocessor directives in Java source
 
@@ -431,6 +444,15 @@ third-party client only needs to speak this HTTP protocol, not link against the 
   rather than a relative delta from one reference line — a nontrivial rework with regression
   risk to existing behavior, not planned unless a broader pattern of real-world impact
   emerges.
+
+- **JS/TS import ordering (§15) misclassifies bundler/tsconfig path-mapped absolute
+  imports as third-party.** Local-import detection is syntactic only: an import specifier
+  is `local` iff it starts with `./` or `../`. A genuinely first-party import resolved via
+  a bundler or tsconfig `baseUrl`/`paths` mechanism (e.g. `import { Widget } from
+  "components/Widget"` pointing at the project's own source tree, not a `node_modules`
+  package) is classified `third-party` instead, since this formatter has no config concept
+  for a project's source root and no `tsconfig.json`/bundler-config resolution logic. This
+  is a known, accepted simplification (RDD_KEY_195) — no source-root config key is planned.
 
 ---
 

@@ -295,6 +295,9 @@ public final class FormatterCurly extends FormatterCore {
         } else if (lang.isKotlin) {
             text = kotlinRule.enforceKotlinImportOrdering(tokenizer.apply(text), config.kotlinImportOrder(),
                     config.isKotlinImportSort(), config.kotlinImportDepth(), config.kotlinImportBlankLines());
+        } else if (lang.isJs || lang.isTs) {
+            text = jsTsRule.enforceImportOrdering(tokenizer.apply(text), config.jsImportOrder(),
+                    config.isJsImportSort(), config.jsImportBlankLines());
         }
 
         // Phase 6: final whitespace normalization, last.

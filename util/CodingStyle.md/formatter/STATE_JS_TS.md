@@ -258,7 +258,7 @@ attempted this session, future work:
       verified against TS-specific fixtures — the template only shortcuts
       the "how do you even structure this" question, not the TS-specific
       grammar or its own dogfooding surprises.
-- [~] Implement §2–15 rule-by-rule, each its own checkpoint commit, per
+- [x] Implement §2–15 rule-by-rule, each its own checkpoint commit, per
       `STATE_COMMON.md`'s workflow. This is ordered by section, not by
       language: §2–10 apply to both JS and TS (verified entirely against
       `.js` fixtures as each lands), §11–14 are TS-only (verified against
@@ -1009,6 +1009,102 @@ attempted this session, future work:
       `baseUrl`/`paths` absolute first-party imports, an accepted
       misclassification). §15 implementation (config keys, classification,
       grouping/sort/blank-line rendering) unblocked, continues next.
+      **Checkpoint 16 done -- §15 (import ordering) fully implemented, all
+      §2-15 sections now complete.** New `Config.java` keys `js-import-order`
+      (default `builtin, third-party, local`), `js-import-sort` (default
+      `on`), `js-import-blank-lines` (default `1`) -- no `js-import-depth`
+      (JS/TS has no `package`-declaration-derived local prefix concept to
+      read a depth from, unlike Java/Kotlin). New
+      `JsTsSpecificRule.enforceImportOrdering` (`isJs || isTs`-gated),
+      structurally modeled on `JavaSpecificRule.enforceImportOrdering`
+      (fixed 3-key bucket set `{builtin, third-party, local}`, `groupOrder`
+      permutation validation, alphabetical-within-group sort, `blankLines +
+      1` newline separation between non-empty groups) but re-emits each
+      import declaration's **original token span verbatim** rather than
+      canonically regenerating its text -- JS/TS import clauses (named-list
+      braces, `type` modifier, default+namespace combinations) have enough
+      internal shape variety that preserving original spacing was judged
+      safer than reconstructing it, unlike Java's simpler dotted-path
+      canonical-regen. Classification (RDD_KEY_195's resolved priority
+      order): `node:`-prefixed or leading path segment matches a
+      41-entry `NODE_BUILTIN_MODULES` list -> `builtin`; `./`/`../`-prefixed
+      -> `local`; everything else -> `third-party` (including
+      bundler/tsconfig-`baseUrl`/`paths`-style absolute first-party imports
+      such as `"components/Widget"`, the accepted misclassification
+      RDD_KEY_195 documents). Only real top-level `import` declarations are
+      recognized -- a dynamic `import(...)` call or `import.meta` is
+      detected via a same-line lookahead (`(` or `.` immediately after
+      `import`) and left completely untouched, never even inspected for
+      reordering. `export ... from "...";` re-export statements are out of
+      this pass's scope entirely (STYLE_JS_TS.md §15's own worked example
+      only shows `import`). Wired into `FormatterCurly` Phase 5 (file-header
+      -level structure), as a new `else if (lang.isJs || lang.isTs)` branch
+      alongside Java's/Kotlin's own import-ordering calls.
+      **Real bug found and fixed as a prerequisite, not scoped to §15
+      originally:** `JsTsSpecificRule.classifyBraces` (§2's semicolon-
+      insertion brace classifier) had no case for a named-import list's `{
+      ... }` (e.g. `import { Widget } from "...";`) -- its `{` follows the
+      `import` KEYWORD, which wasn't in the existing value/pattern-brace
+      KEYWORD disjunct (`return`/`yield`/`throw`/`typeof`/`const`/`let`/
+      `var`), so it fell through to the "statement body" default: depth
+      reset to 0 inside the braces, and the last specifier before `}`
+      wrongly got a bogus `;` inserted (`import { Widget; } from "...";`),
+      which then corrupted `parseJsImportStatement`'s scan (the injected `;`
+      terminated the statement early, before the `from "path"` clause was
+      ever reached, so no path `STRING` token was found and the entire
+      ordering pass silently bailed on any file containing a named-import
+      list). Fixed with a new `isImportBraceHeader` special case in
+      `classifyBraces`, checked before the generic `isValue` logic: `{`
+      immediately preceded by the `import` keyword (or by `type` where the
+      token before `type` is `import`, covering TS's `import type { Foo }
+      from "...";`) gets `resetDepth = false` (its comma-separated specifier
+      interior is never a statement list) and `needsSemicolon = false` (its
+      own closing `}` is never a statement's semicolon-needing tail -- the
+      real terminator is after the following `from "path"` clause). New
+      helper `isKeywordAt` (bounds-checked KEYWORD-at-index test) supports
+      the `import type {` two-token lookback. Verified this fix doesn't
+      regress §2's own destructuring-pattern coverage (Checkpoints 5/6) --
+      `const { a, b } = obj;` still renders correctly, since its `{` is
+      preceded by `const`/`let`/`var`, a completely different branch than
+      the new `import`/`import type` case.
+      Verified via a standalone harness (`FormatterCore.forLanguage("js")`/
+      `"ts"`): a scrambled mix of built-in (`fs`, `node:path`), third-party
+      (`express`, `lodash`), and local (`../components`, `./helper`)
+      imports correctly groups into the default `builtin, third-party,
+      local` order with one blank line between each non-empty group and
+      alphabetical sort within each group; every statement-shape variant
+      (default import, namespace `import * as ns`, named-list, combined
+      default+named, side-effect-only `import "./polyfill";`, TS `import
+      type { Foo } from "./types";`) round-trips correctly and participates
+      in grouping/sorting; `fs/promises` (built-in submodule, no `node:`
+      prefix) correctly classifies `builtin` via its leading `fs` segment;
+      a bare absolute-style specifier `"components/Widget"` correctly
+      classifies `third-party`, confirming the accepted RDD_KEY_195
+      limitation; a dynamic `import("./dynamic")` call and `import.meta.url`
+      inside a function body are both left completely untouched and don't
+      interfere with the two real static imports above them being grouped
+      correctly; a trailing line comment immediately after one import
+      statement (`import fs from "fs"; // comment`) correctly blocks the
+      entire pass (order left unchanged, comment never dropped), matching
+      the "never guess past an unrecognized shape" posture used throughout
+      this codebase. Round-trip (harness round1 -> round2) confirmed
+      idempotent on every case above. `make` compiles clean; `make test`:
+      106/106 forward + 106/106 idempotency, zero regressions.
+      `STATE_COMMON.md`'s Config Keys and Defaults table and `README.md`'s
+      config table both updated with the new JS/TS section; `README.md`
+      also gained a new "JS/TS import groups and local-import
+      classification" subsection (no `js-import-depth` key, unlike
+      Java/Kotlin) and a new Known Limitations entry documenting the
+      RDD_KEY_195 bundler/tsconfig-path-mapping misclassification.
+      **§2-15 rule-by-rule checklist item is now fully complete** -- every
+      section from §2 through §15 has landed across Checkpoints 3-16. No
+      local `.js`/`.ts` fixture pair was registered live in the Makefile
+      this checkpoint (out of scope -- verification was via the standalone
+      harness only, per the task's own instructions); the next checklist
+      item below (real-code testing pass) and un-commenting/verifying the
+      existing local fixture pairs remain open follow-up work, along with
+      the separate later task of flipping `Lang.isScaffoldOnly` for `js`/
+      `ts` once that follow-up lands.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "JavaScript"/"TypeScript" sections (split by extension since TS-only
       constructs can't live in `.js`). Done: `js_combined_inp/out.js`,

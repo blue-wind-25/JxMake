@@ -266,6 +266,23 @@ public final class JsTsSpecificRule {
         for (final Integer openIdx : openToClose.keySet()) {
             final int prevIdx = prevSignificantIndex(tokens, openIdx - 1);
             final Token prev = prevIdx >= 0 ? tokens.get(prevIdx) : null;
+            final boolean isImportBraceHeader = prev != null
+                    && ((prev.type == TokenType.KEYWORD && "import".equals(prev.text))
+                            // TS `import type { Foo } from "...";` -- the `{` follows the `type`
+                            // modifier, not `import` directly; walk back one more significant
+                            // token to find the real `import` keyword.
+                            || ("type".equals(prev.text) && isKeywordAt(tokens, prevSignificantIndex(tokens, prevIdx - 1), "import")));
+            if (isImportBraceHeader) {
+                // §15: a named-import list's `{ ... }` (e.g. `import { Widget } from "...";`) is
+                // neither a statement-body brace (its interior is a comma-separated specifier
+                // list, not statements -- must not reset depth to 0, or an interior comma-less
+                // last specifier gets a bogus `;` inserted before `}`) nor is its own closing `}`
+                // ever the tail of a semicolon-needing statement (the real statement terminator
+                // comes after the following `from "path"` clause, not right after `}`).
+                outResetDepth.put(openIdx, false);
+                outNeedsSemicolon.put(openIdx, false);
+                continue;
+            }
             final boolean isArrowBody = isOp(prev, "=>");
             final boolean isValue = prev != null && (
                     isArrowBody || isOp(prev, "=") || isPunct(prev, "(") || isPunct(prev, "[")
@@ -284,6 +301,14 @@ public final class JsTsSpecificRule {
             outResetDepth.put(openIdx, !isValue || isArrowBody);
             outNeedsSemicolon.put(openIdx, isValue);
         }
+    }
+
+    /** True iff {@code idx} is a valid index into {@code tokens} and that token is the KEYWORD
+     *  {@code text} -- small guard used by {@link #classifyBraces}'s `import type {` lookback so
+     *  a negative "not found" index from {@link #prevSignificantIndex} doesn't need its own
+     *  bounds check at every call site. */
+    private boolean isKeywordAt(final List<Token> tokens, final int idx, final String text) {
+        return idx >= 0 && tokens.get(idx).type == TokenType.KEYWORD && text.equals(tokens.get(idx).text);
     }
 
     private Map<Integer, Integer> matchBraces(final List<Token> tokens) {
@@ -1448,5 +1473,255 @@ public final class JsTsSpecificRule {
             sb.append(t.text);
         }
         return sb.toString();
+    }
+
+    // ── §15 Import ordering ──────────────────────────────────────────────────────────
+    /** The three fixed §15 bucket names -- {@code groupOrder} must be an exact permutation of
+     *  this set, mirroring {@code JavaSpecificRule.IMPORT_GROUP_KEYS}'s validation posture. */
+    private static final Set<String> IMPORT_GROUP_KEYS =
+            new HashSet<>(Arrays.asList("builtin", "third-party", "local"));
+
+    /** Reasonably complete (not exhaustive-to-the-letter) list of Node built-in module names,
+     *  matched against a bare specifier's own leading path segment (e.g. {@code "fs/promises"}
+     *  still classifies as {@code builtin} via its {@code "fs"} segment). A {@code node:}-prefixed
+     *  specifier is always {@code builtin} regardless of list membership (RDD_KEY_195's
+     *  classification order, leg 1) -- unambiguous by ecosystem convention, doesn't rely on this
+     *  list being complete. */
+    private static final Set<String> NODE_BUILTIN_MODULES = new HashSet<>(Arrays.asList(
+            "assert", "async_hooks", "buffer", "child_process", "cluster", "console", "constants",
+            "crypto", "dgram", "diagnostics_channel", "dns", "domain", "events", "fs", "http",
+            "http2", "https", "inspector", "module", "net", "os", "path", "perf_hooks", "process",
+            "punycode", "querystring", "readline", "repl", "stream", "string_decoder", "sys",
+            "test", "timers", "tls", "trace_events", "tty", "url", "util", "v8", "vm", "wasi",
+            "worker_threads", "zlib"));
+
+    /** One successfully-parsed {@code import ...;} declaration -- {@code startIdx}/{@code
+     *  semicolonIdx} bound its own original token span, re-emitted verbatim (not canonically
+     *  regenerated, unlike Java's import-ordering pass) when reordering, since JS/TS import
+     *  clauses (named-import lists, {@code type} modifier, default+namespace combinations) have
+     *  enough internal shape variety that preserving the original text is safer than trying to
+     *  reconstruct it. */
+    private static final class ParsedJsImport {
+        final int startIdx;
+        final int semicolonIdx;
+        final String path;
+
+        ParsedJsImport(final int startIdx, final int semicolonIdx, final String path) {
+            this.startIdx = startIdx;
+            this.semicolonIdx = semicolonIdx;
+            this.path = path;
+        }
+    }
+
+    /**
+     * STYLE_JS_TS.md §15: groups and sorts top-level {@code import} declarations into {@code
+     * groupOrder}'s buckets (a permutation of {@link #IMPORT_GROUP_KEYS}), alphabetically within
+     * each bucket if {@code sortAlphabetically}, with {@code blankLines + 1} newlines between
+     * non-empty groups -- same group/blank-line shape as {@code JavaSpecificRule
+     * .enforceImportOrdering}. Only real, top-level (brace-depth 0) {@code import} declarations
+     * are recognized -- a dynamic {@code import(...)} call expression or {@code import.meta} is
+     * left completely alone (not even inspected for reordering purposes), and {@code export ...
+     * from "...";} re-export statements are out of this pass's scope entirely (not covered by
+     * STYLE_JS_TS.md §15's own worked example, which only shows {@code import}).
+     *
+     * <p>Classification (RDD_KEY_195, applied in this priority order): (1) {@code node:}-prefixed
+     * or the specifier's leading path segment matches {@link #NODE_BUILTIN_MODULES} -- {@code
+     * builtin}; (2) starts with {@code ./} or {@code ../} -- {@code local}; (3) everything else --
+     * {@code third-party}. Per RDD_KEY_195, this is a known, accepted simplification: a bare
+     * specifier resolved to the project's own source tree via a bundler/tsconfig {@code
+     * baseUrl}/{@code paths} mechanism (e.g. {@code "components/Widget"}) is classified {@code
+     * third-party}, not {@code local} -- there is no source-root config concept in this formatter
+     * to tell the two apart.
+     *
+     * <p>Bails the entire pass (returns {@code tokens} byte-for-byte unchanged) on: a comment
+     * found anywhere inside an import declaration or floating between two otherwise-clean import
+     * declarations (never silently drop a comment via reordering, same posture as Java's own
+     * pass); any frozen span inside an import declaration; a declaration with no discoverable
+     * module-path {@code STRING} token or no terminating {@code ;} before EOF. A file with zero
+     * recognized import declarations is also a no-op.
+     *
+     * @param groupOrder must be a permutation of exactly {@link #IMPORT_GROUP_KEYS} -- a
+     *        config-validation precondition, so an invalid value throws rather than silently
+     *        dropping a bucket's imports
+     */
+    public String enforceImportOrdering(final List<Token> tokens, final List<String> groupOrder,
+            final boolean sortAlphabetically, final int blankLines) {
+        if (!new HashSet<>(groupOrder).equals(IMPORT_GROUP_KEYS) || groupOrder.size() != IMPORT_GROUP_KEYS.size()) {
+            throw new IllegalArgumentException(
+                    "groupOrder must be a permutation of " + IMPORT_GROUP_KEYS + ", got: " + groupOrder);
+        }
+
+        int depth = 0;
+        int firstImportIdx = -1;
+        int prevSemicolonIdx = -1;
+        int lastSemicolonIdx = -1;
+        boolean blocked = false;
+        final List<ParsedJsImport> imports = new ArrayList<>();
+        final int n = tokens.size();
+        int i = 0;
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "{")) {
+                depth++;
+                i++;
+                continue;
+            }
+            if (isPunct(t, "}")) {
+                depth--;
+                i++;
+                continue;
+            }
+            if (depth == 0 && t.type == TokenType.KEYWORD && "import".equals(t.text)) {
+                final int nextSig = nextSignificantIndex(tokens, i + 1);
+                if (nextSig >= 0 && (isPunct(tokens.get(nextSig), "(") || isPunct(tokens.get(nextSig), "."))) {
+                    // Dynamic `import(...)` call or `import.meta` -- not a declaration, leave
+                    // completely alone.
+                    i++;
+                    continue;
+                }
+                if (firstImportIdx < 0) {
+                    firstImportIdx = i;
+                } else if (hasCommentBetween(tokens, prevSemicolonIdx + 1, i)) {
+                    blocked = true;
+                    break;
+                }
+                final ParsedJsImport parsed = parseJsImportStatement(tokens, i);
+                if (parsed == null) {
+                    blocked = true;
+                    break;
+                }
+                if (anyFrozen(tokens, i, parsed.semicolonIdx + 1)) {
+                    blocked = true;
+                    break;
+                }
+                imports.add(parsed);
+                prevSemicolonIdx = parsed.semicolonIdx;
+                lastSemicolonIdx = parsed.semicolonIdx;
+                i = parsed.semicolonIdx + 1;
+                continue;
+            }
+            i++;
+        }
+
+        if (blocked || imports.isEmpty()) {
+            return render(tokens, java.util.Collections.emptyMap());
+        }
+
+        final Map<String, List<ParsedJsImport>> buckets = new HashMap<>();
+        for (final String key : IMPORT_GROUP_KEYS) {
+            buckets.put(key, new ArrayList<>());
+        }
+        for (final ParsedJsImport imp : imports) {
+            buckets.get(classifyJsImportGroup(imp.path)).add(imp);
+        }
+        if (sortAlphabetically) {
+            for (final List<ParsedJsImport> group : buckets.values()) {
+                group.sort((a, b) -> a.path.compareTo(b.path));
+            }
+        }
+
+        final StringBuilder body = new StringBuilder();
+        boolean emittedAnyGroup = false;
+        for (final String groupKey : groupOrder) {
+            final List<ParsedJsImport> members = buckets.get(groupKey);
+            if (members.isEmpty()) {
+                continue;
+            }
+            if (emittedAnyGroup) {
+                for (int b = 0; b < blankLines + 1; b++) {
+                    body.append('\n');
+                }
+            }
+            for (int m = 0; m < members.size(); m++) {
+                if (m > 0) {
+                    body.append('\n');
+                }
+                final ParsedJsImport imp = members.get(m);
+                body.append(collapseTokensToOneLine(tokens.subList(imp.startIdx, imp.semicolonIdx + 1)));
+            }
+            emittedAnyGroup = true;
+        }
+
+        final StringBuilder out = new StringBuilder();
+        out.append(collapseTokensToOneLine(tokens.subList(0, firstImportIdx)));
+        out.append(body);
+        out.append(collapseTokensToOneLine(tokens.subList(lastSemicolonIdx + 1, n)));
+        return out.toString();
+    }
+
+    /** Parses one {@code import ...;} declaration starting at the {@code import} keyword token at
+     *  {@code importIdx}. Permissive about the shape of the clause between {@code import} and the
+     *  module-path {@code STRING} token (default import, namespace {@code * as x}, named-import
+     *  list, {@code type} modifier, side-effect-only form with no {@code from} clause at all) --
+     *  it only needs to locate the path string and the terminating {@code ;}, not fully validate
+     *  the clause grammar, since the original token span is re-emitted verbatim rather than
+     *  reconstructed. Returns {@code null} -- signaling "bail the entire pass" to the caller --
+     *  if a comment is found anywhere inside the declaration, or if no module-path {@code STRING}
+     *  token or no terminating {@code ;} is found before EOF. */
+    private ParsedJsImport parseJsImportStatement(final List<Token> tokens, final int importIdx) {
+        final int n = tokens.size();
+        int stringIdx = -1;
+        int semicolonIdx = -1;
+        int p = importIdx + 1;
+        while (p < n) {
+            final Token t = tokens.get(p);
+            if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
+                return null;
+            }
+            if (t.type == TokenType.STRING && stringIdx < 0) {
+                stringIdx = p;
+            }
+            if (isPunct(t, ";")) {
+                semicolonIdx = p;
+                break;
+            }
+            p++;
+        }
+        if (stringIdx < 0 || semicolonIdx < 0) {
+            return null;
+        }
+        return new ParsedJsImport(importIdx, semicolonIdx, stringLiteralContent(tokens.get(stringIdx).text));
+    }
+
+    /** Strips the surrounding quote characters (`'`/`"`/`` ` ``) from a {@code STRING} token's raw
+     *  text -- module-path specifiers never contain the quote character they're delimited by
+     *  unescaped, so a plain substring is sufficient (no escape-processing needed). */
+    private String stringLiteralContent(final String raw) {
+        if (raw.length() >= 2) {
+            return raw.substring(1, raw.length() - 1);
+        }
+        return raw;
+    }
+
+    /** True iff a {@code COMMENT_LINE}/{@code COMMENT_BLOCK} token exists anywhere in {@code
+     *  tokens[fromInclusive, toExclusive)} -- used to detect a floating comment between two
+     *  otherwise-clean import declarations, which would otherwise be silently dropped by
+     *  reordering. */
+    private boolean hasCommentBetween(final List<Token> tokens, final int fromInclusive, final int toExclusive) {
+        for (int idx = Math.max(fromInclusive, 0); idx < toExclusive; idx++) {
+            final TokenType type = tokens.get(idx).type;
+            if (type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Classification priority (RDD_KEY_195): {@code node:}-prefixed or a known Node built-in
+     *  name &gt; relative-path-prefixed ({@code local}) &gt; everything else ({@code
+     *  third-party}). */
+    private String classifyJsImportGroup(final String path) {
+        if (path.startsWith("node:")) {
+            return "builtin";
+        }
+        final int slash = path.indexOf('/');
+        final String leadingSegment = slash < 0 ? path : path.substring(0, slash);
+        if (NODE_BUILTIN_MODULES.contains(leadingSegment)) {
+            return "builtin";
+        }
+        if (path.startsWith("./") || path.startsWith("../")) {
+            return "local";
+        }
+        return "third-party";
     }
 }

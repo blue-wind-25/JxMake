@@ -34,7 +34,8 @@ public final class Config {
         "java-import-order", "java-import-sort", "java-import-depth",
         "java-import-blank-lines",
         "kotlin-import-order", "kotlin-import-sort", "kotlin-import-depth",
-        "kotlin-import-blank-lines"
+        "kotlin-import-blank-lines",
+        "js-import-order", "js-import-sort", "js-import-blank-lines"
     };
 
     private static final java.util.Set<String> ALL_KEYS_SET =
@@ -66,6 +67,10 @@ public final class Config {
     private boolean kotlinImportSort = true;
     private int kotlinImportDepth = 2;
     private int kotlinImportBlankLines = 1;
+
+    private List<String> jsImportOrder = Arrays.asList("builtin", "third-party", "local");
+    private boolean jsImportSort = true;
+    private int jsImportBlankLines = 1;
 
     private Config() {
     }
@@ -144,6 +149,18 @@ public final class Config {
 
     public int kotlinImportBlankLines() {
         return kotlinImportBlankLines;
+    }
+
+    public List<String> jsImportOrder() {
+        return jsImportOrder;
+    }
+
+    public boolean isJsImportSort() {
+        return jsImportSort;
+    }
+
+    public int jsImportBlankLines() {
+        return jsImportBlankLines;
     }
 
     /**
@@ -271,6 +288,9 @@ public final class Config {
         config.kotlinImportSort = parseBoolean(raw, "kotlin-import-sort", config.kotlinImportSort);
         config.kotlinImportDepth = parseInt(raw, "kotlin-import-depth", config.kotlinImportDepth);
         config.kotlinImportBlankLines = parseInt(raw, "kotlin-import-blank-lines", config.kotlinImportBlankLines);
+        config.jsImportOrder = parseStringList(raw, "js-import-order", config.jsImportOrder);
+        config.jsImportSort = parseBoolean(raw, "js-import-sort", config.jsImportSort);
+        config.jsImportBlankLines = parseInt(raw, "js-import-blank-lines", config.jsImportBlankLines);
         return config;
     }
 

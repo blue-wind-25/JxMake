@@ -33,7 +33,19 @@ public final class XmlSpecificRule {
         }
     }
 
-    private enum NodeType { PI, DOCTYPE, COMMENT, ELEMENT, TEXT, CDATA, FROZEN }
+    private enum NodeType { PI, DOCTYPE, COMMENT, ELEMENT, TEXT, CDATA, FROZEN, RAW }
+
+    /** HTML5 void elements (never a closing tag; any self-closing `/` is normalized away),
+     *  per STYLE_DATA_FORMATS.md §4.1. */
+    private static final java.util.Set<String> VOID_ELEMENTS = new java.util.HashSet<>(java.util.Arrays.asList(
+            "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param",
+            "source", "track", "wbr"));
+
+    /** `<script>` MIME types that mean "this is JavaScript" per HTML5 semantics -- anything else
+     *  (or a recognized non-executable type such as `application/json`) is left fully opaque. */
+    private static final java.util.Set<String> JS_SCRIPT_TYPES = new java.util.HashSet<>(java.util.Arrays.asList(
+            "text/javascript", "application/javascript", "application/ecmascript",
+            "text/ecmascript", "module"));
 
     private static final class Node {
         NodeType type;
@@ -294,6 +306,8 @@ public final class XmlSpecificRule {
         final Node n = new Node();
         n.type = NodeType.ELEMENT;
         n.tagName = s.substring(nameStart, pos);
+        final String lowerTag = n.tagName.toLowerCase(java.util.Locale.ROOT);
+        final boolean isVoid = lang.isHtml5 && VOID_ELEMENTS.contains(lowerTag);
         while (true) {
             skipWs();
             if (eof()) {
@@ -310,8 +324,18 @@ public final class XmlSpecificRule {
             }
             n.attrs.add(parseAttr());
         }
+        if (isVoid) {
+            n.selfClosing = true;
+            return n;
+        }
         if (n.selfClosing) {
             return n;
+        }
+        if (lang.isHtml5 && ("script".equals(lowerTag) || "style".equals(lowerTag))) {
+            return finishRawTextElement(n, lowerTag);
+        }
+        if (lang.isHtml5 && "pre".equals(lowerTag)) {
+            return finishRawElement(n, "</pre>");
         }
         n.children = parseNodes(true);
         final String closeTok = "</" + n.tagName + ">";
@@ -325,6 +349,39 @@ public final class XmlSpecificRule {
         return n;
     }
 
+    /** `<pre>` content is opaque like CDATA (RDD_KEY_185) -- capture verbatim through the literal
+     *  closing tag, no reindentation, byte-for-byte. */
+    private Node finishRawElement(final Node n, final String closeTagLower) {
+        final int close = indexOfIgnoreCase(s, closeTagLower, pos);
+        if (close < 0) {
+            throw new XmlParseException("expected closing tag " + closeTagLower);
+        }
+        n.raw = s.substring(pos, close);
+        pos = close + closeTagLower.length();
+        n.children = null;
+        n.type = NodeType.RAW;
+        return n;
+    }
+
+    /** `<script>`/`<style>` are HTML5 raw-text elements: content runs verbatim up to the literal
+     *  closing tag, never tag-parsed (a `<`/`&` inside JS/CSS source must not confuse the parser). */
+    private Node finishRawTextElement(final Node n, final String lowerTag) {
+        final String closeTagLower = "</" + lowerTag + ">";
+        final int close = indexOfIgnoreCase(s, closeTagLower, pos);
+        if (close < 0) {
+            throw new XmlParseException("expected closing tag " + closeTagLower);
+        }
+        n.raw = s.substring(pos, close);
+        pos = close + closeTagLower.length();
+        n.children = null;
+        return n;
+    }
+
+    private static int indexOfIgnoreCase(final String haystack, final String needleLower, final int from) {
+        final String lower = haystack.toLowerCase(java.util.Locale.ROOT);
+        return lower.indexOf(needleLower, from);
+    }
+
     private String parseAttr() {
         final int nameStart = pos;
         while (!eof() && s.charAt(pos) != '=' && !Character.isWhitespace(s.charAt(pos))
@@ -334,6 +391,10 @@ public final class XmlSpecificRule {
         final String name = s.substring(nameStart, pos);
         skipWs();
         if (eof() || s.charAt(pos) != '=') {
+            if (lang.isHtml5) {
+                // HTML5 bare boolean attribute (e.g. `checked`, `disabled`) -- no `=value` at all.
+                return name;
+            }
             throw new XmlParseException("expected '=' after attribute '" + name + "'");
         }
         pos++;
@@ -400,6 +461,10 @@ public final class XmlSpecificRule {
                     out.append(line).append('\n');
                 }
                 return;
+            case RAW:
+                out.append(indent(depth)).append('<').append(n.tagName).append(attrsInline(n.attrs))
+                        .append('>').append(n.raw).append("</").append(n.tagName).append(">\n");
+                return;
             case ELEMENT:
                 renderElement(n, depth, out);
                 return;
@@ -409,9 +474,30 @@ public final class XmlSpecificRule {
     }
 
     private void renderElement(final Node n, final int depth, final StringBuilder out) {
+        if (lang.isHtml5 && n.raw != null
+                && ("script".equalsIgnoreCase(n.tagName) || "style".equalsIgnoreCase(n.tagName))) {
+            renderScriptOrStyle(n, depth, out);
+            return;
+        }
         final String openTightNoAngle = "<" + n.tagName + attrsInline(n.attrs);
         if (n.selfClosing) {
-            appendWithTrailing(out, indent(depth) + openTightNoAngle + "/>", n.trailingComment);
+            final boolean isVoid = lang.isHtml5
+                    && VOID_ELEMENTS.contains(n.tagName.toLowerCase(java.util.Locale.ROOT));
+            final String close = isVoid ? ">" : "/>";
+            final String tightLine = indent(depth) + openTightNoAngle + close;
+            if (tightLine.length() <= lineLengthLimit || n.attrs.isEmpty()) {
+                appendWithTrailing(out, tightLine, n.trailingComment);
+            } else {
+                out.append(indent(depth)).append('<').append(n.tagName).append('\n');
+                for (int i = 0; i < n.attrs.size(); i++) {
+                    out.append(indent(depth + 1)).append(n.attrs.get(i));
+                    out.append(i == n.attrs.size() - 1 ? close + "\n" : "\n");
+                }
+                if (n.trailingComment != null) {
+                    out.setLength(out.length() - 1);
+                    out.append(" <!-- ").append(n.trailingComment).append(" -->\n");
+                }
+            }
             return;
         }
         final Node onlyChild = soleContentChild(n.children);
@@ -438,6 +524,90 @@ public final class XmlSpecificRule {
         }
         renderNodes(n.children, depth + 1, out);
         out.append(indent(depth)).append("</").append(n.tagName).append('>').append('\n');
+    }
+
+    /** HTML5 §4.2: `<style>` content splices out to the CSS formatter and back, reindented one
+     *  level deeper; `<script>` content splices out to the JS/TS formatter, except a non-JS/TS
+     *  `type` (e.g. `application/json`) stays fully opaque. Since JS/TS support is still
+     *  scaffold-only (STATE_JS_TS.md), real (non-frozen) JS content currently throws -- callers
+     *  must wrap it in a `//% JXM_CFMT_DIS`/`ENA` pair to keep it opaque until JS/TS lands, at
+     *  which point this method's scaffold-only guard should be replaced with a real dispatch call
+     *  and every fixture's directive pair removed/re-verified (see STATE_JS_TS.md/
+     *  STATE_DATA_FORMATS.md). */
+    private void renderScriptOrStyle(final Node n, final int depth, final StringBuilder out) {
+        final String openTag = indent(depth) + "<" + n.tagName + attrsInline(n.attrs) + ">";
+        if ("style".equalsIgnoreCase(n.tagName)) {
+            final CssSpecificRule css = new CssSpecificRule(lang, lineLengthLimit, indentWidth,
+                    useTabs ? "tabs" : "spaces", normalizeCommentStartCase);
+            out.append(openTag).append('\n');
+            out.append(reindent(css.format(n.raw.trim()), depth + 1));
+            out.append(indent(depth)).append("</").append(n.tagName).append(">\n");
+            return;
+        }
+        final String type = findAttrValue(n.attrs, "type");
+        final boolean isJsType = type == null || JS_SCRIPT_TYPES.contains(type.toLowerCase(java.util.Locale.ROOT));
+        if (!isJsType || isFrozenScriptContent(n.raw)) {
+            out.append(openTag).append(n.raw).append("</").append(n.tagName).append(">\n");
+            return;
+        }
+        throw new XmlParseException("<" + n.tagName + "> content requires JS/TS formatting, which is "
+                + "not yet implemented (STATE_JS_TS.md) -- wrap it in a `//% JXM_CFMT_DIS`/`//% "
+                + "JXM_CFMT_ENA` pair to keep it opaque until JS/TS support lands");
+    }
+
+    /** Whether `raw` (a `<script>` element's inner content, possibly `<![CDATA[ ]]>`-wrapped)
+     *  contains a `//% JXM_CFMT_DIS` / `//% JXM_CFMT_ENA` line pair -- the temporary scaffold-only
+     *  escape hatch for real JS content until JS/TS formatting lands. */
+    private boolean isFrozenScriptContent(final String raw) {
+        boolean sawDis = false;
+        for (final String line : raw.split("\n", -1)) {
+            final String t = line.trim();
+            if ("//% JXM_CFMT_DIS".equals(t)) {
+                sawDis = true;
+            } else if (sawDis && "//% JXM_CFMT_ENA".equals(t)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String findAttrValue(final List<String> attrs, final String name) {
+        for (final String a : attrs) {
+            final int eq = a.indexOf('=');
+            if (eq < 0) {
+                continue;
+            }
+            if (!a.substring(0, eq).equalsIgnoreCase(name)) {
+                continue;
+            }
+            String v = a.substring(eq + 1);
+            if (v.length() >= 2 && (v.charAt(0) == '"' || v.charAt(0) == '\'')) {
+                v = v.substring(1, v.length() - 1);
+            }
+            return v;
+        }
+        return null;
+    }
+
+    /** Prefixes every non-empty line of already-formatted `text` with `depth` levels of
+     *  indentation, for splicing an embedded sub-formatter's (CSS's) output back into HTML at its
+     *  correct nesting depth. */
+    private String reindent(final String text, final int depth) {
+        final String prefix = indent(depth);
+        final String[] lines = text.split("\n", -1);
+        int count = lines.length;
+        if (count > 0 && lines[count - 1].isEmpty()) {
+            count--; // drop the single trailing empty element from text's final newline
+        }
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            final String line = lines[i];
+            if (!line.isEmpty()) {
+                sb.append(prefix).append(line);
+            }
+            sb.append('\n');
+        }
+        return sb.toString();
     }
 
     private void appendWrappedOpenTag(final Node n, final int depth, final StringBuilder out) {

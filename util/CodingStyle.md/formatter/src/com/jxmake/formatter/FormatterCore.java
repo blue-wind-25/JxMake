@@ -37,7 +37,7 @@ public abstract class FormatterCore {
         if (lang.isToml) {
             return new FormatterToml(lang);
         }
-        if (lang.isXml) {
+        if (lang.isXml || lang.isHtml5) {
             return new FormatterXml(lang);
         }
         if (lang.isCurly) {

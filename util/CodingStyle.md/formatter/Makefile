@@ -122,8 +122,8 @@ INP_FILES += cpp26_reflection_inp.cpp
 # html_combined/html_comments: fixtures authored ahead of implementation, hand-drafted
 # against STYLE_DATA_FORMATS.md -- not yet verified by a real JAR (HTML5 is still
 # scaffold-only). Uncomment once real logic lands.
-#INP_FILES += html_combined_inp.html
-#INP_FILES += html_comments_inp.html
+INP_FILES += html_combined_inp.html
+INP_FILES += html_comments_inp.html
 
 # py_combined/py_comments: fixtures authored ahead of implementation, hand-drafted
 # against STYLE_PYTHON3.md -- not yet verified by a real JAR (Python3 is still

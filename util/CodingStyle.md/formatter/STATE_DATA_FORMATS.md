@@ -423,17 +423,64 @@ None recorded yet in this file.
       note) — CSS/JSON have no language keywords a comment could start with
       that would need protecting from titlecasing, so the lightweight
       version is sufficient and intentionally scoped smaller.
-- [ ] Implement HTML5 support (§4), including the `<script>`/`<style>`
-      embedded-content dispatcher (splice out, format via CSS/JS-TS, splice
-      back with correct re-indentation) — depends on both CSS support above
-      and JS/TS support (tracked in `STATE_JS_TS.md`, a separate job) being
-      available before the `<script>` dispatch path can be exercised
-      end-to-end.
+- [x] **Implement HTML5 support (§4)** (RDD_KEY_194). `XmlSpecificRule.java`
+      extended (not a new class — HTML5 shares XML's parser internally per
+      RDD_KEY_188, gated on `lang.isHtml5`): §4.1 void elements (`area`,
+      `base`, `br`, `col`, `embed`, `hr`, `img`, `input`, `link`, `meta`,
+      `param`, `source`, `track`, `wbr`) parsed as self-closing leaves
+      regardless of a trailing `/`, rendered with a bare `>` (no `/>`); bare
+      boolean attributes (`checked`, `disabled`, no `=value`) accepted in
+      `parseAttr`; §4.3 `<pre>` content captured as a new `RAW` node type,
+      preserved byte-for-byte with no reindentation; `<script>`/`<style>`
+      content captured as raw text (never tag-parsed, since embedded JS/CSS
+      isn't XML grammar) via a new `finishRawTextElement` helper. §4.2
+      dispatch: `<style>` splices its raw content out to
+      `CssSpecificRule.format`, reindents one level deeper via a new
+      `reindent` helper, splices back before `</style>` — including the
+      already-implemented CSS formatter, so this path is fully real.
+      `<script>`: a `type="..."` outside the recognized JS MIME set (e.g.
+      `application/json`) stays fully opaque; a recognized JS-type block
+      that is CDATA-wrapped or otherwise real content has no JS/TS formatter
+      to dispatch to yet (`STATE_JS_TS.md`'s job is still scaffold-only), so
+      `renderScriptOrStyle` throws a clear `XmlParseException` directing the
+      caller to freeze the block instead of silently passing it through —
+      a deliberate refinement of this file's earlier "HTML-before-JS/TS
+      contingency" note (which had proposed silent opaque passthrough); the
+      explicit throw was chosen so real JS content is never silently
+      mis-formatted-as-untouched. The escape hatch is a new,
+      script-content-specific frozen-span detector,
+      `isFrozenScriptContent`, recognizing a `//% JXM_CFMT_DIS`/`//%
+      JXM_CFMT_ENA` line pair anywhere in the raw content (not just the
+      first line, to accommodate the CDATA-wrapped idiom's literal
+      `<![CDATA[` first line) — see the cross-job follow-up note added to
+      `STATE_JS_TS.md`'s checklist for what must happen when JS/TS support
+      lands (remove the two local fixtures' directive-wrapping, wire a real
+      dispatch call, re-verify). One general (not HTML5-specific) bug found
+      and fixed along the way: self-closing/void elements never checked
+      line length or wrapped attributes on overflow (a previously-documented
+      gap, RDD_KEY_193) — fixed by adding the same fits-check +
+      one-attribute-per-line wrap branch already used for non-self-closing
+      tags. `Lang.SUPPORTED_LANGUAGES`/`isSupported` gained `html5`;
+      `SCAFFOLD_ONLY_LANGUAGES`/`isScaffoldOnly` dropped it;
+      `FormatterCore.forLanguage` routes `isHtml5` to `FormatterXml`
+      alongside `isXml`. Two fixture-authoring mismatches (not code bugs)
+      corrected to match verified-real, precedent-backed behavior: mixed
+      text+element content splits onto separate lines rather than staying
+      inline (matches RDD_KEY_193's documented XML simplification), and a
+      trailing same-line comment gets a preceding space (matches
+      `xml_comments_out.xml`'s existing precedent). `make test`: 212/212
+      PASS, 0 FAIL (up from 202, +2 HTML5 fixture pairs registered live in
+      the Makefile, zero regressions).
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s "HTML5"
       section and register in the Makefile's `INP_FILES` / `test/README.txt`.
       Done: `html_combined_inp/out.html` and `html_comments_inp/out.html`
-      extracted to `test/`, registered commented-out in the Makefile (real
-      logic not yet implemented), documented in `test/README.txt`.
+      extracted to `test/`, registered live in the Makefile (real logic now
+      implemented, see the HTML5 entry above), documented in
+      `test/README.txt`. Both fixtures' `<script>` blocks are temporarily
+      wrapped in `//% JXM_CFMT_DIS`/`//% JXM_CFMT_ENA` since real JS/TS
+      formatting doesn't exist yet — see `STATE_JS_TS.md`'s checklist for
+      the required follow-up (remove the wrapping and re-verify) once that
+      job lands.
 - [x] **Implement YAML support (§5).** `YamlSpecificRule.java` implements a
       from-scratch line-based recursive-descent parser (NOT a reuse of
       `TokenizerCore`/`Token` — YAML's grammar is indentation-significant,

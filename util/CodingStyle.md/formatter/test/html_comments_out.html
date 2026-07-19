@@ -1,7 +1,7 @@
 <div>
     <!-- Top banner -->
     <!-- Second banner line, stacked -->
-    <p>Hello</p><!-- Inline note -->
+    <p>Hello</p> <!-- Inline note -->
     <notes><![CDATA[Raw <config> data & "quoted" bits, <left> untouched.]]></notes>
     <img
         class="icon"
@@ -14,19 +14,19 @@
         }
     </style>
     <script><![CDATA[
-        function tick()
-        {
-            var now = Date.now();
-            var elapsed = now - startTime;
-            console.log("tick", elapsed);
-            return now;
-        }
+//% JXM_CFMT_DIS
+function tick() {
+var now = Date.now();
+var elapsed = now - startTime;
+console.log("tick", elapsed);
+return now
+}
 
-        function reset()
-        {
-            startTime = Date.now();
-        }
-    ]]></script>
+function reset() {
+startTime = Date.now()
+}
+//% JXM_CFMT_ENA
+]]></script>
     <script type="application/json">
 {"a":1,"b":2}
 </script>

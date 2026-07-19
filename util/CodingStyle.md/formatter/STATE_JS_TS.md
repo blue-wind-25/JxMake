@@ -197,3 +197,24 @@ attempted this session, future work:
       `STYLE_JS_TS.md`'s listed test-fixture repos (`nodejs/node`,
       `expressjs/express`, `lodash/lodash`, `microsoft/TypeScript`,
       `angular/angular`, `nestjs/nest`, `vuejs/core`).
+- [ ] **Follow-up once real JS/TS logic lands (cross-job note from
+      `STATE_DATA_FORMATS.md`'s HTML5 §4 work):** `XmlSpecificRule
+      .renderScriptOrStyle` dispatches HTML5 `<script>` content to a real
+      JS formatter, but since JS/TS is still scaffold-only, any real
+      (non-frozen) `<script>` content currently throws
+      (`Lang.isScaffoldOnly("js")` is checked implicitly -- the throw is
+      unconditional today since there is no dispatch call to make yet).
+      Two local fixtures (`test/html_combined_inp/out.html`,
+      `test/html_comments_inp/out.html`) work around this by wrapping their
+      real JS `<script>` bodies in a temporary `//% JXM_CFMT_DIS`/`//%
+      JXM_CFMT_ENA` pair, which forces `renderScriptOrStyle` to treat the
+      block as opaque/verbatim instead of attempting dispatch. Once this
+      job lands a real JS formatter: (1) wire an actual dispatch call into
+      `renderScriptOrStyle`'s `isJsType && !frozen` branch (currently just
+      throws), reformatting the spliced-out content and reindenting it back
+      in, matching `<style>`'s existing CSS-splice shape; (2) remove the
+      `//% JXM_CFMT_DIS`/`ENA` pair from both HTML fixtures' `_inp.html` and
+      `_out.html`; (3) regenerate both `_out.html` files from the real JAR
+      and re-run `make test` to confirm the newly-real `<script>` output
+      (e.g. `html_combined`'s `function greet(name) {...}` reformatted to
+      Allman-brace with a trailing `;`) is correct before committing.

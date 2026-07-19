@@ -254,6 +254,12 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
                 maxTypeWidth = Math.max(maxTypeWidth, typeTexts[i].length());
                 maxNameWidth = Math.max(maxNameWidth, nameTexts[i].length());
             }
+            // True when no member in this group has an actual type token before its single
+            // param's name (JS/TS untyped params, e.g. "set x(value)") -- in that case the
+            // type/name separator space below must be omitted entirely, not just padded to a
+            // zero-width type column, or a leading space leaks in before the param name (e.g.
+            // "x( value)").
+            final boolean noTypeColumn = maxTypeWidth == 0;
 
             final ColumnGrid callGrid = new ColumnGrid();
             for (int i = 0; i < group.size(); i++) {
@@ -262,6 +268,10 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
                 if (!canSplitParams || typeTexts[i] == null) {
                     // Empty params or unsplittable: use verbatim (ColumnGrid pads)
                     paramsCell = cellText(tokens, m.paramsFrom, m.paramsTo);
+                } else if (noTypeColumn) {
+                    // No member in the group has a real type -- just the (padded) name, no
+                    // separator space that would otherwise leak in front of it.
+                    paramsCell = padRight(nameTexts[i], maxNameWidth);
                 } else {
                     // Pre-padded: type and name in separate columns of fixed width
                     paramsCell = padRight(typeTexts[i], maxTypeWidth) + " " + padRight(nameTexts[i], maxNameWidth);

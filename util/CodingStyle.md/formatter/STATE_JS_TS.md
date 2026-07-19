@@ -832,12 +832,51 @@ attempted this session, future work:
       identically on both the first format and every reformat after.
       `make` compiles clean; `make test`: 106/106 forward + 106/106
       idempotency, zero regressions.
-      **Next up:** §8/§9 (getter/setter accessors, decorators) -- §8 in
-      particular should also pick up the pre-existing `GetterSetterRuleCurly`
-      paren-spacing bug documented in the Checkpoint 11 notes above, since
-      it plans to reuse that same one-liner-group alignment machinery for
-      JS/TS. §12-15 (enums, generics, interface/type-alias, imports) remain
-      otherwise unstarted.
+      **Checkpoint 13 done -- pre-existing `GetterSetterRuleCurly` paren-
+      spacing bug (Checkpoint 11 notes) fixed, as its own small commit ahead
+      of §8's wiring.** Root cause, confirmed via a standalone harness
+      (`FormatterCore.forLanguage("js")`) and a `git stash`-style before/
+      after comparison against `make test`'s existing Java fixtures: the
+      nested `callGrid`'s params-column split (`GetterSetterRuleCurly
+      .render`, the type/name pre-padding block used when every member's
+      params can be split into a type cell and a name cell) unconditionally
+      inserted a `" "` separator between the (possibly empty) type cell and
+      the name cell -- correct for Java/C++, where a real param always has a
+      type token, but wrong for JS/TS's untyped single-param setters
+      (`set x(value)`), where `typeTexts[i]` is always `""` for every member
+      in the group (no type token exists at all), so the hardcoded separator
+      leaked in as a literal leading space before the param name
+      (`set x( value)`). Fixed with a new `noTypeColumn` flag (`maxTypeWidth
+      == 0` across the whole group -- true only when no member in the group
+      has any real type text): when set, the params cell is just the
+      (width-padded) name text with no separator, skipping the type column
+      entirely instead of padding it to zero width plus a stray space.
+      **Explicitly confirmed NOT a bug, left untouched:** the empty-
+      parameter-list padding-to-match-a-wider-sibling's-width behavior
+      itself (e.g. `get x(     )` next to `set x(value)`) -- an initial fix
+      attempt that forced empty parens to always render tight regardless of
+      group padding broke 7 existing Java/C++ fixtures
+      (`java_core`/`java_combined`/`cpp_core`/`cpp_modern`/`cpp_combined`/
+      `cpp_comments`/`hpp_core`, confirmed via `make test`'s own reference
+      `_out` files, e.g. `public int getCount(              ) { return
+      count; }`), which prove this padding is Java's own long-established,
+      intentional STYLE.md §14 behavior, not a bug -- reverted that part of
+      the attempt; only the type/name separator-space fix (which has no
+      Java/C++ analog, since their params are never typeless) was kept.
+      Verified via a standalone harness (`FormatterCore.forLanguage("js")`):
+      a `get x() {...}` / `set x(value) {...}` / `get y() {...}` group now
+      renders as `get x(     ) { return this._x;  }` / `set x(value) { this
+      ._x = value; }` / `get y(     ) { return this._y;  }` -- consistent
+      empty-parens padding (matching Java's own precedent, not a bug) and no
+      more leading space before `value`. Round-trip (harness round1 ->
+      round2) confirmed idempotent. `make` compiles clean; `make test`:
+      106/106 forward + 106/106 idempotency, zero regressions (Java/Kotlin/
+      C/C++ getter-setter fixtures byte-for-byte unchanged after the revert
+      of the empty-parens part).
+      **Next up:** §8 (getter/setter accessors -- wire JS/TS into the
+      existing one-liner group alignment machinery this checkpoint just
+      fixed) and §9 (decorators). §12-15 (enums, generics, interface/type-
+      alias, imports) remain otherwise unstarted.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "JavaScript"/"TypeScript" sections (split by extension since TS-only
       constructs can't live in `.js`). Done: `js_combined_inp/out.js`,

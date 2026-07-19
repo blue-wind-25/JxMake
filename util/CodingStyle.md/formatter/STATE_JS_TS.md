@@ -94,6 +94,7 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 | RDD_KEY_182 | §3/§6 destructuring-pattern LHS joins the const/let alignment grid like any ordinary declaration |
 | RDD_KEY_183 | §11.1 consecutive `type X = ...` aliases form their own `=`-aligned group, same as const/let |
 | RDD_KEY_187 | Class Scoping — no separate JsTokenizer/TsTokenizer etc.; shared curly classes gated internally on `isJs`/`isTs`, concrete rules in one `JsTsSpecificRule.java` |
+| RDD_KEY_195 | §15 local-import classification — drop the source-root disjunct entirely; only `./`/`../`-prefixed specifiers are "local", everything else non-built-in is "third-party" (accepted misclassification of bundler/tsconfig `baseUrl`/`paths` absolute imports) |
 
 ---
 
@@ -174,47 +175,6 @@ attempted this session, future work:
   JS/TS extension. `STYLE_JS_TS.md` explicitly puts JSX/TSX **out of
   scope entirely** (not merely deferred). Unsolved this session, not
   attempted.
-- **Import-path built-in/third-party/local classification (§15)** — the
-  resolution logic for classifying an import path into one of the three
-  default groups is not yet designed, per the style doc's own "Known Open
-  Items" section. **Re-confirmed blocking, checked in detail this session
-  (not force-implemented):** before starting real §15 work, checked whether
-  a purely mechanical three-way split (relative/absolute path prefix =
-  local; `node:`-prefixed or a known Node built-in name = built-in;
-  everything else = third-party) could sidestep the "not yet designed" flag,
-  since two of those three legs (built-in list/`node:` prefix, and
-  `./`/`../` relative-path local) are unambiguous ecosystem conventions with
-  no judgment call involved. **Re-reading `STYLE_JS_TS.md` §15's actual text
-  directly (not from memory) shows this is not just silence — the doc
-  itself states the open status explicitly, and folds a second, undefined
-  criterion into "local":**
-  > "**Local import detection:** an import path is "local" if it's relative
-  > (starts with `./` or `../`) or resolves within the project's configured
-  > source root; everything else resolvable from `node_modules` is
-  > third-party; anything matching Node's built-in module list (or prefixed
-  > `node:`) is built-in. **Not yet in the real config schema — the
-  > resolution logic for this classification is still an open item (§15).**"
-  >
-  > (Known Open Items, restated:) "Import-path built-in/third-party/local
-  > classification's resolution logic (§15) — not yet designed."
-  Two blockers, not one: (1) the doc's own text says outright, twice, that
-  the resolution logic is still open — this isn't an inference gap the
-  mechanical split can quietly fill, it's the doc declaring itself
-  unresolved; (2) "local" is defined as relative-path **or** "resolves
-  within the project's configured source root" — that second disjunct
-  requires a project-source-root concept (e.g. a `tsconfig.json`
-  `baseUrl`/`paths`-style resolution, or a new config key naming the root)
-  that doesn't exist anywhere in this formatter's config schema today, so
-  even the "local" leg alone isn't fully mechanical — a bare specifier like
-  `import { Widget } from "components/Widget"` (no `./` prefix) could be
-  either a first-party absolute-from-source-root import or a genuine
-  third-party package, and nothing in the doc or the current config schema
-  says how to tell them apart without inventing a new, undesigned config
-  key. Per `STATE_COMMON.md`'s ambiguity protocol, this is exactly the kind
-  of open question to stop for rather than force through with an invented
-  default. **Not implemented this session; no code changes made to
-  `JsTsSpecificRule.java`, `Config.java`, or `README.md` for §15.**
-
 ---
 
 ## Checklist
@@ -1042,13 +1002,13 @@ attempted this session, future work:
       logic is unresolved, twice, and "local" detection's second disjunct
       needs an undesigned project-source-root config concept). No §15 code
       written this session (checklist item stays `[~]`, not advanced).
-      **Next up:** either resolve the §15 ambiguity (ask the user how to
-      define local-import detection and whether a source-root config key
-      should be added) and then implement §15, or skip ahead to §12-14
-      (enums, generics, interface/type-alias), which remain otherwise
-      unstarted and have no known blocking ambiguity. Unblocking the HTML5
-      `<script>` dispatcher (the cross-job follow-up note near the bottom of
-      this file) remains a separate, later task either way.
+      **§15 ambiguity resolved (RDD_KEY_195) — user asked and answered.**
+      Decision: drop the source-root disjunct entirely; local-import
+      detection is `./`/`../`-prefix only, everything non-built-in and
+      non-relative is third-party (including bundler/tsconfig
+      `baseUrl`/`paths` absolute first-party imports, an accepted
+      misclassification). §15 implementation (config keys, classification,
+      grouping/sort/blank-line rendering) unblocked, continues next.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "JavaScript"/"TypeScript" sections (split by extension since TS-only
       constructs can't live in `.js`). Done: `js_combined_inp/out.js`,

@@ -186,13 +186,12 @@ attempted this session, future work:
 - [ ] Implement §2–15 rule-by-rule, each its own checkpoint commit, per
       `STATE_COMMON.md`'s workflow.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
-      "JavaScript" and "TypeScript" sections (split by extension, `.js` vs.
-      `.ts`, since TS-only constructs can't live in a valid `.js` file) and
-      register in the Makefile's `INP_FILES` / `test/README.txt`. Done:
-      `js_combined_inp/out.js`, `js_comments_inp/out.js`,
-      `ts_combined_inp/out.ts`, `ts_comments_inp/out.ts` extracted to `test/`,
-      registered commented-out in the Makefile (real logic not yet
-      implemented), documented in `test/README.txt`.
+      "JavaScript"/"TypeScript" sections (split by extension since TS-only
+      constructs can't live in `.js`). Done: `js_combined_inp/out.js`,
+      `js_comments_inp/out.js`, `ts_combined_inp/out.ts`,
+      `ts_comments_inp/out.ts` extracted to `test/`, registered
+      commented-out in the Makefile (real logic not yet implemented),
+      documented in `test/README.txt`.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_JS_TS.md`'s listed test-fixture repos (`nodejs/node`,
       `expressjs/express`, `lodash/lodash`, `microsoft/TypeScript`,
@@ -201,10 +200,8 @@ attempted this session, future work:
       `STATE_DATA_FORMATS.md`'s HTML5 §4 work):** `XmlSpecificRule
       .renderScriptOrStyle` dispatches HTML5 `<script>` content to a real
       JS formatter, but since JS/TS is still scaffold-only, any real
-      (non-frozen) `<script>` content currently throws
-      (`Lang.isScaffoldOnly("js")` is checked implicitly -- the throw is
-      unconditional today since there is no dispatch call to make yet).
-      Two local fixtures (`test/html_combined_inp/out.html`,
+      (non-frozen) `<script>` content currently throws (no dispatch call
+      exists yet). Two local fixtures (`test/html_combined_inp/out.html`,
       `test/html_comments_inp/out.html`) work around this by wrapping their
       real JS `<script>` bodies in a temporary `//% JXM_CFMT_DIS`/`//%
       JXM_CFMT_ENA` pair, which forces `renderScriptOrStyle` to treat the
@@ -215,6 +212,5 @@ attempted this session, future work:
       in, matching `<style>`'s existing CSS-splice shape; (2) remove the
       `//% JXM_CFMT_DIS`/`ENA` pair from both HTML fixtures' `_inp.html` and
       `_out.html`; (3) regenerate both `_out.html` files from the real JAR
-      and re-run `make test` to confirm the newly-real `<script>` output
-      (e.g. `html_combined`'s `function greet(name) {...}` reformatted to
-      Allman-brace with a trailing `;`) is correct before committing.
+      and re-run `make test` to confirm the newly-real `<script>` output is
+      correct before committing.

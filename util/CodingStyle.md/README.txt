@@ -5,32 +5,40 @@ Files in this directory
 -----------------------
   STYLE.md                  Common rules for all languages (read this first)
   STYLE_C_CPP.md            C and C++ extensions/overrides (baseline)
-  STYLE_CPP20.md            C++ extensions/overrides (newer constructs, read after STYLE_C_CPP.md)
+  STYLE_CPP20.md            C++17/20/23 extensions/overrides (read after STYLE_C_CPP.md)
   STYLE_CPP26.md            C++26 extensions/overrides (read after STYLE_CPP20.md)
   STYLE_JAVA.md             Java extensions/overrides (baseline)
   STYLE_JAVA17.md           Java extensions/overrides (newer constructs, read after STYLE_JAVA.md)
   STYLE_KOTLIN.md           Kotlin extensions/overrides (baseline)
   STYLE_KOTLIN2.md          Kotlin extensions/overrides (newer constructs, read after STYLE_KOTLIN.md)
+  STYLE_DATA_FORMATS.md     JSON/JSON5, CSS, YAML, TOML, XML, HTML5 rules (borrows from STYLE.md)
   STYLE_JS_TS.md            JavaScript/TypeScript rules (derives from STYLE_JAVA.md/STYLE_KOTLIN.md)
-  STYLE_DATA_FORMATS.md     JSON/JSON5, XML, CSS, HTML5 rules (borrows from STYLE.md)
   STYLE_PYTHON3.md          Python 3 rules
   AI_PREAMBLE_FULL.md       Preamble for full-file pass (un-JAR-processed files)
   AI_PREAMBLE_AESTHETIC.md  Preamble for layout judgment pass (post-JAR files)
   README.txt                This file
 
-  NOTE — STYLE_CPP26.md, STYLE_JS_TS.md, STYLE_DATA_FORMATS.md, and
-  STYLE_PYTHON3.md are drafted but not yet implemented in the deterministic
-  JAR — the JAR still only handles C, C++, Java, and Kotlin (per
-  STYLE_C_CPP.md/STYLE_CPP20.md, STYLE_JAVA.md/STYLE_JAVA17.md, and
-  STYLE_KOTLIN.md/STYLE_KOTLIN2.md). The four newer files are usable today
-  only via the full-file AI pass below, which is LLM-driven and doesn't
-  depend on JAR support.
+  NOTE — STYLE_DATA_FORMATS.md (JSON/JSON5, YAML, TOML, XML, CSS, HTML5) is
+  now implemented in the deterministic JAR, on the same footing as C/C++/
+  Java/Kotlin (see formatter/STATE_DATA_FORMATS.md for per-language notes
+  and RDD_LOG.md for implementation history). The one exception: HTML5's
+  `<script>` embedded-content dispatch to JS/TS still throws, since
+  STYLE_JS_TS.md itself has no JAR support yet (wrap real `<script>` JS
+  content in a `//% JXM_CFMT_DIS`/`//% JXM_CFMT_ENA` pair to work around
+  this, or use the full-file AI pass below for such files in the meantime).
+  STYLE_CPP26.md is rule coverage on the existing C/C++ JAR pipeline, not a
+  separate language (see formatter/STATE_CPP26.md). STYLE_JS_TS.md and
+  STYLE_PYTHON3.md remain drafted but not yet implemented in the JAR — those
+  two files are usable today only via the full-file AI pass below, which is
+  LLM-driven and doesn't depend on JAR support.
 
   The deterministic JAR formatter (formatter/code-formatter-1.00.jar, replace
   1.00 with your built version) handles all Tier-1 and Tier-2 rules mechanically
-  for C, C++, Java, and Kotlin. Run it first for those languages. The AI workflows
-  described here cover the remaining Tier-3 aesthetic decisions the JAR
-  intentionally leaves untouched:
+  for C, C++, Java, Kotlin, and the JSON/JSON5/YAML/TOML/XML/CSS/HTML5 data
+  formats. Run it first for those languages. The AI workflows described here
+  cover the remaining Tier-3 aesthetic decisions the JAR intentionally leaves
+  untouched (C/C++/Java/Kotlin only — data formats have no equivalent
+  layout-judgment gap, see the Layout Judgment Pass note below):
     - Function argument list layout (when the source is already multi-line and
       the author's grouping intent should be preserved or improved)
     - Getter/setter groups with non-standard naming conventions
@@ -63,6 +71,13 @@ Two AI Passes
   since the entire file is reformatted, including rules the JAR handles better
   and more reliably. Review every diff carefully — capable models make mistakes
   on column alignment and bracket-padding, especially in large declaration groups.
+
+  For JSON/JSON5/YAML/TOML/XML/CSS/HTML5, prefer running the JAR directly
+  instead (it now has real support for these — see the NOTE above); this pass
+  is still the only option for JavaScript/TypeScript and Python3 (no JAR
+  support yet), or for a data-format file's HTML5 `<script>` content that
+  needs real JS/TS reformatting (the JAR's HTML5 dispatch to JS/TS throws
+  until STYLE_JS_TS.md itself lands in the JAR).
 
   Recommended only when:
     - The file has never been touched by the JAR, and
@@ -127,28 +142,34 @@ Combine the relevant preamble with the style files for the target language:
   FULL-FILE PASS — Kotlin files:
     cat AI_PREAMBLE_FULL.md STYLE.md STYLE_KOTLIN.md STYLE_KOTLIN2.md > /tmp/style_kotlin_full.txt
 
-  FULL-FILE PASS — Python3 files:
-    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_PYTHON3.md > /tmp/style_python3_full.txt
+  FULL-FILE PASS — JSON/JSON5, CSS, YAML, TOML, XML, or HTML5 files:
+    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_DATA_FORMATS.md > /tmp/style_data_formats_full.txt
+    (only needed now for a one-off migration or for HTML5 files whose <script>
+    content needs real JS/TS reformatting — the JAR itself now handles these
+    languages directly, see the NOTE near the top of this file. HTML5 files
+    that embed real <script> JS content still need STYLE_JS_TS.md's own
+    combination above added to the same cat, since HTML5's formatter
+    dispatches embedded <script> content to it)
 
   FULL-FILE PASS — JavaScript/TypeScript files:
     cat AI_PREAMBLE_FULL.md STYLE.md STYLE_JAVA.md STYLE_KOTLIN.md STYLE_JS_TS.md > /tmp/style_js_ts_full.txt
     (STYLE_JAVA.md/STYLE_KOTLIN.md included because STYLE_JS_TS.md derives most of
     its rules from them by section-number citation rather than restating content)
 
-  FULL-FILE PASS — JSON/JSON5, XML, CSS, or HTML5 files:
-    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_DATA_FORMATS.md > /tmp/style_data_formats_full.txt
-    (HTML5 files that embed <script> also need STYLE_JS_TS.md's own combination
-    above added to the same cat, since HTML5's formatter dispatches embedded
-    <script> content to it)
+  FULL-FILE PASS — Python3 files:
+    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_PYTHON3.md > /tmp/style_python3_full.txt
 
   LAYOUT JUDGMENT PASS — C, C++, Java, or Kotlin only:
     cat AI_PREAMBLE_AESTHETIC.md > /tmp/style_aesthetic.txt
     (no style files needed — the preamble is self-contained for this pass)
-    Does NOT apply to C++26 additions, JSON/JSON5/XML/CSS/HTML5, JavaScript/
-    TypeScript, or Python3 — none of these have JAR support yet, so there is no
-    JAR-processed baseline for a layout judgment pass to sit on top of. Use the
-    full-file pass above for these instead; see AI_PREAMBLE_AESTHETIC.md's Scope
-    section for why.
+    Does NOT apply to C++26 additions, JSON/JSON5/YAML/TOML/XML/CSS/HTML5,
+    JavaScript/TypeScript, or Python3. The data formats have no equivalent
+    layout-judgment gap to begin with (no function-argument-list or
+    getter/setter-group concept), so there is nothing for this pass to add on
+    top of their JAR output. JavaScript/TypeScript and Python3 have no JAR
+    support yet, so there is no JAR-processed baseline for this pass to sit
+    on top of — use the full-file pass above for those instead; see
+    AI_PREAMBLE_AESTHETIC.md's Scope section for why.
 
 Store the combined file once and reuse it across multiple calls.
 
@@ -206,18 +227,18 @@ Batch reformatting a directory (shell script):
     kotlin)
       RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_KOTLIN.md "$STYLE_DIR"/STYLE_KOTLIN2.md)
       GLOBS=("*.kt" "*.kts") ;;
-    python3)
-      RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_PYTHON3.md)
-      GLOBS=("*.py") ;;
+    json|json5|css|yaml|toml|xml|html)
+      RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_DATA_FORMATS.md)
+      GLOBS=("*.$LANG") ;;
     js)
       RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_JAVA.md "$STYLE_DIR"/STYLE_KOTLIN.md "$STYLE_DIR"/STYLE_JS_TS.md)
       GLOBS=("*.js") ;;
     ts)
       RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_JAVA.md "$STYLE_DIR"/STYLE_KOTLIN.md "$STYLE_DIR"/STYLE_JS_TS.md)
       GLOBS=("*.ts") ;;
-    json|json5|xml|css|html)
-      RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_DATA_FORMATS.md)
-      GLOBS=("*.$LANG") ;;
+    python3)
+      RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_PYTHON3.md)
+      GLOBS=("*.py") ;;
     *)
       echo "Unknown language: $LANG"; exit 1 ;;
   esac
@@ -277,7 +298,7 @@ Script (reformat_file.py):
   if __name__ == "__main__":
       if len(sys.argv) < 3:
           print(f"Usage: {sys.argv[0]} <source_file> "
-                f"<lang: c|cpp|cpp26|java|kotlin|python3|js|ts|json|json5|xml|css|html> "
+                f"<lang: c|cpp|cpp26|java|kotlin|json|json5|css|yaml|toml|xml|html|js|ts|python3> "
                 f"[pass: full|aesthetic]")
           sys.exit(1)
 
@@ -304,18 +325,18 @@ Script (reformat_file.py):
       elif lang == "kotlin":
           rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
                              style_dir / "STYLE_KOTLIN.md", style_dir / "STYLE_KOTLIN2.md")
-      elif lang == "python3":
-          rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
-                             style_dir / "STYLE_PYTHON3.md")
-      elif lang in ("js", "ts"):
-          rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
-                             style_dir / "STYLE_JAVA.md", style_dir / "STYLE_KOTLIN.md",
-                             style_dir / "STYLE_JS_TS.md")
-      elif lang in ("json", "json5", "xml", "css", "html"):
+      elif lang in ("json", "json5", "css", "yaml", "toml", "xml", "html"):
           rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
                              style_dir / "STYLE_DATA_FORMATS.md")
           # HTML files embedding <script> also need the js/ts combination above
           # added to this same rules set — not handled automatically here.
+      elif lang in ("js", "ts"):
+          rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
+                             style_dir / "STYLE_JAVA.md", style_dir / "STYLE_KOTLIN.md",
+                             style_dir / "STYLE_JS_TS.md")
+      elif lang == "python3":
+          rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
+                             style_dir / "STYLE_PYTHON3.md")
       else:
           print(f"Unknown language: {lang}"); sys.exit(1)
 
@@ -344,14 +365,16 @@ Usage:
   # Kotlin full-file pass (fallback if the JAR doesn't handle a construct yet):
   python3 reformat_file.py src/Utils.kt kotlin
 
-  # Python3 full-file pass (no JAR exists yet — this is the only path):
-  python3 reformat_file.py src/utils.py python3
+  # Data-format full-file pass (JAR now handles this directly for JSON/JSON5/
+  # CSS/YAML/TOML/XML/HTML5 -- only needed for one-off migration or HTML5
+  # <script> content, see the NOTE near the top of this file):
+  python3 reformat_file.py config.json json
 
   # JavaScript/TypeScript full-file pass (no JAR exists yet — this is the only path):
   python3 reformat_file.py src/utils.ts ts
 
-  # Data-format full-file pass (no JAR exists yet — this is the only path):
-  python3 reformat_file.py config.json json
+  # Python3 full-file pass (no JAR exists yet — this is the only path):
+  python3 reformat_file.py src/utils.py python3
 
 
 Tips and Limitations
@@ -371,7 +394,8 @@ Tips and Limitations
    §15 (removes trailing periods from // comments; converts multi-sentence comments
    to /* */ form). Watch for unintentional changes — dropped comments or altered
    wording — which are bugs, not style fixes. §15's mechanism varies by language for
-   the four newer ones — Python's `#`-only syntax keeps multi-sentence comments as
-   consecutive `#` lines rather than switching to a block form; CSS/XML/HTML5 are
-   already block-only, so there's no line-to-block switch to look for at all. See
+   the newer language families — Python's `#`-only syntax keeps multi-sentence
+   comments as consecutive `#` lines rather than switching to a block form;
+   YAML/TOML are `#`-only the same way; CSS/XML/HTML5/JSON5 are already
+   block-only, so there's no line-to-block switch to look for at all. See
    AI_PREAMBLE_FULL.md §15 for the per-language specifics.

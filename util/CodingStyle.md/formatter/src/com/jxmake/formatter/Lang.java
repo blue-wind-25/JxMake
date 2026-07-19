@@ -158,11 +158,11 @@ public final class Lang {
         // .jsx folds into "js" and .tsx into "ts" for detection/dispatch purposes this session --
         // JSX/TSX need their own future embedding-aware dispatcher (STATE_JS_TS.md Open Design
         // Questions), not a distinct Lang flag yet; both are scaffold-only either way.
-        if (lower.endsWith(".jsx") || lower.endsWith(".mjs") || lower.endsWith(".cjs")
-                || lower.endsWith(".js")) {
+        if (lower.endsWith(".js") || lower.endsWith(".jsx") || lower.endsWith(".mjs")
+                || lower.endsWith(".cjs")) {
             return "js";
         }
-        if (lower.endsWith(".tsx") || lower.endsWith(".ts")) {
+        if (lower.endsWith(".ts") || lower.endsWith(".tsx")) {
             return "ts";
         }
         if (lower.endsWith(".py")) {

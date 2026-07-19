@@ -11,12 +11,13 @@ other jobs' files) are NOT required reading for this one — only
 
 Tracks implementation of data/markup format support in the deterministic JAR
 formatter (`util/CodingStyle.md/formatter/`), per `STYLE_DATA_FORMATS.md`
-(JSON/JSON5, XML, CSS, HTML5, YAML, TOML). **JSON/JSON5 (§1) and CSS (§3) are
-DONE -- real tokenizer, recursive-descent parser, and printer landed for
-both, `make test` green (see Checklist; CSS still has a few deferred edge
-cases, see its checklist entry). XML, HTML5, YAML, and TOML remain
-scaffold-only: dispatch exists only as a "not yet implemented" error thrown
-for these formats, no real formatting logic exists yet.**
+(JSON/JSON5, XML, CSS, HTML5, YAML, TOML). **All six are now DONE** -- real
+tokenizer/parser/printer logic landed for each, `make test` green (see
+Checklist for per-format notes and deferred edge cases; RDD_KEY_190/191/192/
+193/194 for implementation history). The one remaining gap is HTML5's
+`<script>` dispatch to JS/TS: real JS content must be wrapped in
+`//% JXM_CFMT_DIS`/`ENA` until `STATE_JS_TS.md`'s job lands a real JS/TS
+formatter (see that file's checklist and this file's HTML5 entry below).
 
 ---
 
@@ -79,14 +80,13 @@ language rules do not apply. Six sub-formats, each stating explicitly which
    choice); dotted keys and string quote styles preserved as written.
    Directives use the single `#% ...` line form (TOML has no block comment).
 
-Scaffold dispatch lives in the shared `Lang.java`/`Main.java`/
-`ServerMode.java`/`Config.java`, described in the routing `CLAUDE.md`
-table. This job's own per-sub-format rule classes —
-`rules/JsonSpecificRule.java` (JSON/JSON5) and `rules/CssSpecificRule.java`
-(CSS) have real logic; `rules/YamlSpecificRule.java`,
-`rules/TomlSpecificRule.java`, and `rules/XmlSpecificRule.java` (XML/HTML5)
-still exist only as boilerplate stubs (each constructor throws
-`UnsupportedOperationException`) — no real logic yet.
+Dispatch lives in the shared `Lang.java`/`Main.java`/`ServerMode.java`/
+`Config.java`, described in the routing `CLAUDE.md` table. This job's
+per-sub-format rule classes all have real logic now:
+`rules/JsonSpecificRule.java` (JSON/JSON5), `rules/CssSpecificRule.java`
+(CSS), `rules/YamlSpecificRule.java`, `rules/TomlSpecificRule.java`, and
+`rules/XmlSpecificRule.java` (XML and HTML5, sharing one class per
+RDD_KEY_188).
 
 ---
 
@@ -179,16 +179,14 @@ against it.
 
 ## Class Scoping (post Core/Curly/Indent/Tags refactor)
 
-- **XML/HTML5** are tag-based (`Lang.isTagBased()`). Their eventual
-  `Tokenizer`/`Formatter` extend `TokenizerTags`/`FormatterTags`. **Resolved
+- **XML/HTML5** are tag-based (`Lang.isTagBased()`). **Resolved
   (RDD_KEY_188):** no separate `HtmlTokenizer`/`HtmlFormatter` — XML and
-  HTML5 share the same `*Tags` classes gated internally on `lang.isHtml5`,
+  HTML5 share the same parser/renderer, gated internally on `lang.isHtml5`,
   mirroring how curly classes branch on `isKotlin` today. Concrete XML/
-  HTML5-only rule logic (§2/§4) lands in a single `XmlSpecificRule.java`
-  (boilerplate stub created, throws `UnsupportedOperationException` until
-  real logic lands), gating HTML5-only additions (void elements, the
-  `<script>`/`<style>` embedded-content dispatcher) internally on
-  `lang.isHtml5`.
+  HTML5-only rule logic (§2/§4) lands in a single `XmlSpecificRule.java`,
+  now fully real (RDD_KEY_193/194), gating HTML5-only additions (void
+  elements, the `<script>`/`<style>` embedded-content dispatcher) internally
+  on `lang.isHtml5`.
 - **JSON/JSON5/CSS** are neither tag-based, curly, nor indent-based per the
   `Lang.java` family predicates added in the refactor (flat/braced, no
   block-scoping semantics). **Resolved (RDD_KEY_189):** no new
@@ -207,25 +205,25 @@ against it.
   extends `TokenizerSimpleBraced`; `FormatterJson` extends
   `FormatterSimpleBraced` and is `FormatterCore.forLanguage`'s new
   `isJson || isJson5` branch. This is distinct from the still-hypothetical
-  YAML/TOML-only "Flat" family (no braces at all) — do not conflate the two
-  when YAML/TOML land. CSS remains a scaffold stub (`CssSpecificRule.java`)
-  until its own session. Now that concrete YAML/TOML style rules exist
-  (§5/§6, RDD_KEY_191), the "Flat" family placeholder name still stands as
-  the working name for their eventual `Lang.isSimpleBraced`-sibling
-  predicate — YAML's colon-alignment (§5.2) and TOML's `=`-alignment (§6.1)
-  are structurally different enough from JSON/CSS's brace-delimited grouping
-  (no enclosing `{}`/`[]` at the top level, indentation- and header-driven
-  instead) that they should NOT simply join `SimpleBraced` when implemented;
-  this is not yet a class-scoping decision that needs resolving before
-  implementation starts, only a naming note for whoever picks up YAML/TOML's
-  checklist items.
-- Implementation order is unchanged by the refactor: JSON/JSON5 → CSS → XML
-  → HTML5 (HTML5 last, depends on both CSS and JS/TS support).
-- **HTML-before-JS/TS contingency:** if HTML5 implementation is reached
-  before `STATE_JS_TS.md`'s job has landed a real JS/TS formatter, the
-  `<script>` splice-out step must pass embedded script content through
-  opaque (preserved verbatim, re-indented only) rather than attempting to
-  dispatch to a not-yet-existing JS/TS formatter class.
+  YAML/TOML-only "Flat" family (no braces at all) — CSS later joined
+  `SimpleBraced` for real (`CssSpecificRule.java` is fully implemented);
+  YAML/TOML did NOT join `SimpleBraced` when they landed (RDD_KEY_192) —
+  each implements its own from-scratch parser instead (line-based for YAML,
+  flat single-pass line-scanner for TOML), confirming the "structurally
+  different, don't conflate" naming note below was correct.
+- Implementation order (all now complete): JSON/JSON5 → CSS → YAML/TOML →
+  XML → HTML5 (HTML5 last, depended on both CSS and — for one exception,
+  see below — JS/TS support).
+- **HTML-before-JS/TS contingency — resolved differently than originally
+  planned:** HTML5 landed (RDD_KEY_194) before `STATE_JS_TS.md`'s job has a
+  real JS/TS formatter. Rather than the originally-planned silent opaque
+  passthrough for embedded `<script>` content, `renderScriptOrStyle`
+  explicitly throws `XmlParseException` for real (non-frozen) JS-type
+  `<script>` content, directing the caller to wrap it in a
+  `//% JXM_CFMT_DIS`/`//% JXM_CFMT_ENA` pair instead — chosen so real JS
+  content is never silently mis-formatted-as-untouched. See the HTML5
+  checklist entry and `STATE_JS_TS.md`'s cross-job follow-up note for what
+  must happen once JS/TS support lands for real.
 
 ## Open Questions
 
@@ -235,242 +233,120 @@ None recorded yet in this file.
 
 ## Checklist
 
-- [x] **Implement JSON/JSON5 first (simplest grammar).** DONE. `JsonTokenizer`
-      (extends new `TokenizerSimpleBraced`, RDD_KEY_190) tokenizes strings
-      (incl. JSON5 single-quote and backslash-newline continuations, kept as
-      one opaque token per §1.3), numbers (incl. JSON5 hex/leading sign),
-      unquoted identifiers, `//`/`/* */` comments. `JsonSpecificRule` is a
-      recursive-descent parser building a small object/array/scalar AST with
-      per-item leading-comment/blank-line trivia, then a printer implementing
-      §1.1 (colon alignment per contiguous group, broken by blank
-      line/comment/dangling-trailing-comment) via the new
-      `FormatterSimpleBraced.padKeysForColonAlignment` shared helper, and
-      §1.2 (tight atoms-only arrays that fit `line-length`, loose otherwise
-      or when containing an object/array). `FormatterJson` (new
-      `FormatterCore.forLanguage` branch, `isJson || isJson5`) wires
-      `line-length`/`indent-size`/`indent-style` from `Config`; whole-file
-      `--format-off` returns content unchanged (JSON/JSON5 have no per-region
-      frozen-span mechanism the way curly-family `//%`/`/*%` markers do).
-      Malformed input throws `JsonSpecificRule.JsonParseException`, caught
-      generically by `Main`'s existing per-file error handling (same as any
-      other rule class's runtime failure) — exercised manually with an
-      unterminated `{bad`, produced a clean non-zero-exit error, no crash.
-      `Lang.isSupported`/`SUPPORTED_LANGUAGES` gained `json`/`json5`;
-      `isScaffoldOnly`/`SCAFFOLD_ONLY_LANGUAGES` dropped them — no `Main.java`/
-      `ServerMode.java` changes needed since both already gate generically
-      off those two lists. Fixtures: `test/json_core_{inp,out}.json` (plain
-      RFC 8259: colon groups, tight/loose arrays, empty object/array) and
-      `test/json5_core_{inp,out}.json5` (unquoted keys, single-quoted
-      strings, hex/negative numbers, comment- and blank-line-broken groups,
-      opaque multi-line string, trailing comment before close), both
-      registered in the Makefile's `INP_FILES` and `test/README.txt` ahead of
-      `real_code_regressions_*`. `FUTURE_TEST_FIXTURES.md` (at
-      `util/CodingStyle.md/FUTURE_TEST_FIXTURES.md`, one directory above
-      `formatter/`) *does* exist and holds hand-drafted, explicitly
-      "unverified" fixture content for not-yet-authored pairs across every
-      job — check it (and strip its markdown bullet-list 2-space indent
-      before transcribing) before hand-writing new fixtures from scratch.
-      Follow-up session found and fixed two real bugs the doc-sourced
-      fixtures exposed that the original thinner ad-hoc ones hadn't: an
-      object can only render tight when it has exactly ONE member (2+-member
-      objects always render loose regardless of fit/nesting, unlike arrays);
-      trailing commas were being silently dropped by both tight-array and
-      tight-object rendering paths. Also added: `normalize-comment-start-case`
-      (`FormatterSimpleBraced.capitalizeCommentStart`) and block-comment
+- [x] **Implement JSON/JSON5 (§1).** DONE. `JsonTokenizer` (extends
+      `TokenizerSimpleBraced`, RDD_KEY_190) handles strings (incl. JSON5
+      single-quote/backslash-newline continuations), numbers, unquoted
+      identifiers, `//`/`/* */` comments. `JsonSpecificRule` is a
+      recursive-descent parser + printer implementing §1.1 colon-alignment
+      groups (via `FormatterSimpleBraced.padKeysForColonAlignment`) and §1.2
+      tight/loose array padding. `FormatterJson` wires `line-length`/
+      `indent-size`/`indent-style`; no frozen-span mechanism (whole-file
+      `--format-off` only). Malformed input throws
+      `JsonSpecificRule.JsonParseException`, handled generically by `Main`.
+      `Lang.isSupported`/`SUPPORTED_LANGUAGES` gained `json`/`json5`.
+      Fixtures: `test/json_core_{inp,out}.json`,
+      `test/json5_core_{inp,out}.json5` (see `test/README.txt`).
+      `FUTURE_TEST_FIXTURES.md` (one directory above `formatter/`) holds
+      hand-drafted unverified fixture content for not-yet-authored pairs
+      across every job — check it before hand-writing new fixtures.
+      Bugs found+fixed: objects only render tight with exactly ONE member
+      (2+ always loose, unlike arrays); trailing commas were silently
+      dropped in tight-array/tight-object rendering. Also added:
+      `normalize-comment-start-case`
+      (`FormatterSimpleBraced.capitalizeCommentStart`), block-comment
       reindentation (`FormatterSimpleBraced.reindentBlockComment`, shared
-      with CSS), plus JSON5's `key /* comment */ : value` mid-comment
-      handling (`Item.midComment`, excluded from alignment groups). Fixture:
-      `test/json5_comments_{inp,out}.json5` (group broken then re-merged by
-      a comment, multi-line comment reindented, comment inside an array,
-      mid-comment before colon, comment-case normalization), registered the
-      same way. `make test`: 95/95 forward + 95/95 idempotency, zero
-      regressions.
+      with CSS), JSON5 `key /* comment */ : value` mid-comment handling.
+      Fixture: `test/json5_comments_{inp,out}.json5`. `make test`: 95/95
+      forward + idempotency, zero regressions.
 - [x] **Implement XML support (§2).** DONE. `XmlSpecificRule.java` is a
-      from-scratch character-cursor recursive-descent parser (NOT line-based
-      like YAML, and NOT a `TokenizerCore` reuse -- XML's tag/attribute
-      grammar has no natural line boundary and is unrelated to brace-
-      delimited imperative grammars). A `Node` AST (`PI`/`DOCTYPE`/`COMMENT`/
-      `ELEMENT`/`TEXT`/`CDATA`/`FROZEN`) covers: `<?...?>` PIs and
-      `<!DOCTYPE ...>` (bracket-depth-aware scan so a DOCTYPE's internal
-      subset, e.g. nested `<!ENTITY ...>`, doesn't terminate the scan early)
-      preserved fully opaque/verbatim; `<![CDATA[ ]]>` preserved opaque/
-      verbatim as an element's sole inline content; attribute order
-      preserved exactly as parsed (including `xmlns`/`xmlns:foo`), rendered
-      with normalized single-space separation but original quote
-      characters; an element whose only child is text or CDATA renders
-      inline on one line (`<tag>text</tag>`); an empty open/close pair
-      renders unexpanded (`<tag></tag>`, never collapsed to self-closing);
-      an element with child elements renders multi-line, recursing one
-      indent level deeper per nesting level; an overflowing tag (open line
-      beyond `line-length`) wraps each attribute onto its own line one
-      indent deeper than the tag, with the closing `>` attached directly to
-      the last attribute line (not on its own line) -- resolved by judgment
-      call, since §2.2 doesn't spell out the exact wrap shape, following
-      common real-world XML formatter convention (IntelliJ/Prettier-XML);
-      this applies even to an empty (childless) overflowing tag, which still
-      needs its own line-length check before falling into the "nothing
-      between the tags" render path. `#%`-equivalent `<!--% JXM_CFMT_DIS -->`/
-      `ENA` frozen spans are detected by checking whether the *current
-      source line* (not the whole file) trims to exactly that marker, then
-      capturing raw lines verbatim until the matching `ENA` line -- same
-      independent-per-format-family approach as YAML/TOML (RDD_KEY_192), not
-      a reuse of `TokenizerCore.markFrozenSpans`. A same-line trailing
-      `<!-- ... -->` comment (checked via "does `-->` appear before the next
-      newline") is captured separately from a comment that is its own
-      sibling node, and both get comment-start-case normalization
-      (`normComment` -- simpler than YAML/TOML's, since XML's comment inner
-      text has no leading delimiter character like `#`/`//` to skip past).
-      Also extended `InFileConfig`'s `JXM_CFMT_CFG` directive regex/preamble
-      pattern to recognize the `<!--% JXM_CFMT_CFG ... -->` form (matching
-      §2's stated single-directive-syntax convention), mirroring the earlier
-      YAML/TOML/`#`-comment extension. `FormatterXml.java` created as the
-      `FormatterCore` dispatch sibling (unlike YAML/TOML, XML's rule
-      constructor *does* take `indentStyle` -- §2.1 explicitly says XML uses
-      the existing global `indent-size`/`indent-style` config with no
-      XML-specific override or ignored setting, unlike YAML's spaces-always
-      rule). `Lang.SUPPORTED_LANGUAGES`/`isSupported` gained `xml`;
-      `Lang.SCAFFOLD_ONLY_LANGUAGES`/`isScaffoldOnly` dropped it (HTML5
-      stays scaffold-only -- it will share `XmlSpecificRule` internally per
-      RDD_KEY_188, but its own void-element/`<script>`-`<style>`-dispatch
-      additions aren't written yet). Fixtures: `test/xml_combined_{inp,out}.xml`
-      and `test/xml_comments_{inp,out}.xml` (described above/in
-      `test/README.txt`), uncommented in the Makefile's `INP_FILES`. (The
-      original `xml_core` pair, drafted independently of
-      `FUTURE_TEST_FIXTURES.md`'s intended `xml_combined` fixture, was
-      replaced with the correctly-named/-drafted content once the mismatch
-      was found -- both `xml_combined`/`xml_comments` re-verified against the
-      real JAR: `<book>`'s five-attribute overflow-wrap re-checked at exactly
-      >100 chars, self-closing tags confirmed to never wrap regardless of
-      length (a known gap, not yet implemented), and `<script>`/`<style>`
-      CDATA confirmed to stay fully opaque for plain XML since splicing to
-      JS/CSS is HTML5-only per §4.2, not yet implemented here.) `make test`:
-      202/202 forward + idempotency, zero regressions. One
-      implementation bug found and fixed against the fixtures: the initial
-      wrap logic only handled overflow for elements with a non-empty
-      `children` list, so `<longtag>`'s overflow (an empty, childless tag
-      whose open-tag line alone exceeds `line-length`) fell through to the
-      untouched "empty pair" render path and never wrapped at all -- fixed
-      by moving the fits/overflow check above the empty-vs-non-empty
-      children branch and adding a childless overflow-wrap path that skips
-      straight to the closing tag with no child-rendering step in between.
+      from-scratch character-cursor recursive-descent parser (not line-based
+      like YAML, no `TokenizerCore` reuse — XML's tag/attribute grammar has
+      no natural line boundary). A `Node` AST (`PI`/`DOCTYPE`/`COMMENT`/
+      `ELEMENT`/`TEXT`/`CDATA`/`FROZEN`) covers: PIs/`<!DOCTYPE>`/CDATA
+      preserved opaque/verbatim; attribute order preserved as parsed;
+      text/CDATA-only elements render inline; empty pairs unexpanded
+      (`<tag></tag>`); overflowing tags wrap one attribute per line with `>`
+      attached to the last attribute line (judgment call, §2.2 doesn't
+      specify exact shape — follows IntelliJ/Prettier-XML convention),
+      including childless overflow. `<!--% JXM_CFMT_DIS/ENA -->` frozen
+      spans and comment-case normalization implemented independently (not a
+      `TokenizerCore.markFrozenSpans` reuse), same per-format-family
+      approach as YAML/TOML (RDD_KEY_192). `InFileConfig` extended for
+      `<!--% JXM_CFMT_CFG ... -->`. `FormatterXml.java` — unlike YAML/TOML,
+      XML's rule constructor takes `indentStyle` (§2.1 has no ignored-
+      setting exception). `Lang.SUPPORTED_LANGUAGES`/`isSupported` gained
+      `xml` (HTML5 stays scaffold-only). Fixtures: `test/xml_combined_*`,
+      `test/xml_comments_*` (originally shipped as a mismatched `xml_core`
+      pair, later corrected — see `test/README.txt`). `make test`: 202/202
+      forward + idempotency, zero regressions. Bug found+fixed: childless
+      overflowing tags never checked line length (fits/overflow check now
+      runs before the empty-vs-non-empty children branch).
       **Known simplifications, not exercised by current fixtures:** no
-      content/text reflow or wrapping (only attributes wrap on overflow);
-      mixed content (text interleaved with child elements) renders each
-      contiguous text run as its own line rather than staying inline next to
-      sibling elements; `indent-style = auto` is not detected from the
-      file's existing indentation (falls back to configured spaces/tabs);
-      the CDATA-inside-`<script>`/`<style>`-unwraps-and-dispatches exception
-      (§2.4) is not implemented (would require JS/TS or CSS dispatch from
-      inside the XML pipeline, and JS/TS is still scaffold-only).
+      text reflow (only attributes wrap); mixed text+element content splits
+      onto separate lines rather than staying inline; `indent-style = auto`
+      not detected from existing indentation; §2.4's CDATA-inside-
+      `<script>`/`<style>` dispatch exception not implemented (needs JS/TS
+      or CSS dispatch from inside the XML pipeline).
 - [x] **Implement CSS support (§3).** DONE. `CssTokenizer` (extends
-      `TokenizerSimpleBraced`) is deliberately coarse-grained -- emits
-      WHITESPACE/NEWLINE/`/* */` COMMENT_BLOCK/STRING/PUNCT (`{}();:,&`) and
-      one contiguous OP run for everything else (selector/value text,
-      property names, at-rule keywords); `CssSpecificRule`'s parser
-      reconstructs header/value text by concatenating token text and
-      tracking paren-depth, rather than modeling CSS's selector/value
-      grammar token-by-token. A single recursive `parseBlockBody`/`Rule`/
-      `Decl` AST covers plain rules, at-rules (`@media`/`@supports`/
-      `@keyframes`/`@font-face`), and native-nesting `&` blocks uniformly --
-      any header text terminated by `{` recurses into the same body parser,
-      giving at-rules and `&` blocks their own independent colon-alignment
-      group one level deeper for free, no special-casing needed per
-      at-rule kind. Colon-alignment groups reuse
-      `FormatterSimpleBraced.padKeysForColonAlignment`, broken by blank
-      lines/comments/a Rule-vs-Decl boundary, with the item breaking a group
-      itself becoming the start of the next group (same fix shape as
-      JSON's group-boundary bug, applied proactively here after finding the
-      identical bug live during fixture testing — see below).
-      `FormatterCss` (new `FormatterCore.forLanguage` branch, `isCss`) wires
-      `line-length`/`indent-size`/`indent-style` from `Config`; whole-file
-      `--format-off` returns content unchanged (CSS has no per-region
-      frozen-span mechanism, same posture as JSON/JSON5).
-      `Lang.isSupported`/`SUPPORTED_LANGUAGES` gained `css`;
-      `isScaffoldOnly`/`SCAFFOLD_ONLY_LANGUAGES` dropped it.
-      Fixture: `test/css_combined_{inp,out}.css` (three-member group broken
-      by a comment then re-merging into a four-member group, `--gap` custom
-      property joining an ordinary group, `@media`/`@supports`/`@font-face`/
-      `@keyframes` at-rules each starting an independent nested group,
-      `&:hover`/`& .icon` native nesting recursing the same way), registered
-      in the Makefile's `INP_FILES` and `test/README.txt` ahead of
-      `real_code_regressions_*`.
-      Comment-handling follow-up (same session): `normalize-comment-start-case`
-      (lightweight `FormatterSimpleBraced.capitalizeCommentStart`, same as
-      JSON5) applied to leading/trailing comments and header-embedded
-      comments; multi-line block comments reindented to their new structural
-      depth via `FormatterSimpleBraced.reindentBlockComment`; a
-      `prop /* comment */ : value` mid-comment (comment wedged before the
-      colon) extracted onto `Decl.midComment`, excluded from colon-alignment
-      groups, rendered `prop + " " + midComment + " : " + value`; comments
-      between a selector and its `{` left embedded in the header text
-      as-is; `/*% JXM_CFMT_DIS */`/`ENA` per-region frozen spans implemented
-      by reusing `TokenizerCore.markFrozenSpans` directly on the CSS token
-      list before parsing, then capturing the frozen token run (plus the
-      single line-separator newline before it, so the marker's own original
-      indentation is preserved byte-for-byte) as opaque `Item.rawFrozen`
-      text emitted verbatim. Fixture: `test/css_comments_{inp,out}.css`
-      (multi-line comment breaking a group, only its first sentence
-      capitalized; a `JXM_CFMT_DIS`/`ENA` pair freezing a declaration's
-      original spacing/indentation; a trailing comment before a block's
-      closing `}`; a comment between a selector and its `{`; a
-      `prop /* comment */ : value` mid-comment; a comment as the sole
-      content before declarations inside a native-nesting `&:hover` block),
-      registered the same way. `make test`: 95/95 forward + 95/95
-      idempotency, zero regressions.
-      **Deferred, not yet implemented:** the curly family's heavier
-      classifier-backed keyword-exclusion comment normalization
-      (`MiscRuleCore`) is deliberately NOT reused here (see JSON5's own
-      note) — CSS/JSON have no language keywords a comment could start with
-      that would need protecting from titlecasing, so the lightweight
-      version is sufficient and intentionally scoped smaller.
+      `TokenizerSimpleBraced`) is deliberately coarse-grained — emits
+      WHITESPACE/NEWLINE/COMMENT_BLOCK/STRING/PUNCT and one OP run for
+      everything else; `CssSpecificRule`'s parser reconstructs header/value
+      text from token concatenation + paren-depth tracking rather than
+      modeling CSS grammar token-by-token. A single recursive
+      `parseBlockBody`/`Rule`/`Decl` AST covers plain rules, at-rules
+      (`@media`/`@supports`/`@keyframes`/`@font-face`), and native-nesting
+      `&` blocks uniformly (any `{`-terminated header recurses, giving
+      at-rules/`&` blocks their own alignment group for free). Colon-
+      alignment reuses `FormatterSimpleBraced.padKeysForColonAlignment`.
+      `FormatterCss` wires `line-length`/`indent-size`/`indent-style`; no
+      frozen-span mechanism initially (same posture as JSON/JSON5).
+      `Lang.isSupported`/`SUPPORTED_LANGUAGES` gained `css`. Fixture:
+      `test/css_combined_{inp,out}.css` (group-break/re-merge, at-rule
+      nesting, `&` nesting — see `test/README.txt`).
+      Comment-handling follow-up (same session): `normalize-comment-start-
+      case` (`FormatterSimpleBraced.capitalizeCommentStart`), block-comment
+      reindentation, `prop /* comment */ : value` mid-comment handling
+      (`Decl.midComment`, excluded from alignment groups); `/*% JXM_CFMT_DIS
+      */`/`ENA` per-region frozen spans implemented by reusing
+      `TokenizerCore.markFrozenSpans` on the CSS token list before parsing.
+      Fixture: `test/css_comments_{inp,out}.css`. `make test`: 95/95 forward
+      + idempotency, zero regressions.
+      **Deferred:** the curly family's classifier-backed keyword-exclusion
+      comment normalization (`MiscRuleCore`) is deliberately NOT reused —
+      CSS/JSON have no keywords needing titlecasing protection, so the
+      lightweight version suffices.
 - [x] **Implement HTML5 support (§4)** (RDD_KEY_194). `XmlSpecificRule.java`
       extended (not a new class — HTML5 shares XML's parser internally per
-      RDD_KEY_188, gated on `lang.isHtml5`): §4.1 void elements (`area`,
-      `base`, `br`, `col`, `embed`, `hr`, `img`, `input`, `link`, `meta`,
-      `param`, `source`, `track`, `wbr`) parsed as self-closing leaves
-      regardless of a trailing `/`, rendered with a bare `>` (no `/>`); bare
-      boolean attributes (`checked`, `disabled`, no `=value`) accepted in
-      `parseAttr`; §4.3 `<pre>` content captured as a new `RAW` node type,
-      preserved byte-for-byte with no reindentation; `<script>`/`<style>`
-      content captured as raw text (never tag-parsed, since embedded JS/CSS
-      isn't XML grammar) via a new `finishRawTextElement` helper. §4.2
-      dispatch: `<style>` splices its raw content out to
-      `CssSpecificRule.format`, reindents one level deeper via a new
-      `reindent` helper, splices back before `</style>` — including the
-      already-implemented CSS formatter, so this path is fully real.
-      `<script>`: a `type="..."` outside the recognized JS MIME set (e.g.
-      `application/json`) stays fully opaque; a recognized JS-type block
-      that is CDATA-wrapped or otherwise real content has no JS/TS formatter
-      to dispatch to yet (`STATE_JS_TS.md`'s job is still scaffold-only), so
-      `renderScriptOrStyle` throws a clear `XmlParseException` directing the
-      caller to freeze the block instead of silently passing it through —
-      a deliberate refinement of this file's earlier "HTML-before-JS/TS
-      contingency" note (which had proposed silent opaque passthrough); the
-      explicit throw was chosen so real JS content is never silently
-      mis-formatted-as-untouched. The escape hatch is a new,
-      script-content-specific frozen-span detector,
-      `isFrozenScriptContent`, recognizing a `//% JXM_CFMT_DIS`/`//%
-      JXM_CFMT_ENA` line pair anywhere in the raw content (not just the
-      first line, to accommodate the CDATA-wrapped idiom's literal
-      `<![CDATA[` first line) — see the cross-job follow-up note added to
+      RDD_KEY_188, gated on `lang.isHtml5`): §4.1 void elements parsed as
+      self-closing leaves rendered with a bare `>`; bare boolean attributes
+      accepted; §4.3 `<pre>` content captured as a new `RAW` node type,
+      preserved byte-for-byte; `<script>`/`<style>` content captured as raw
+      text via a new `finishRawTextElement` helper. §4.2 dispatch: `<style>`
+      splices out to `CssSpecificRule.format` and back (fully real, CSS
+      already implemented). `<script>`: a non-JS-MIME `type="..."` stays
+      opaque; a recognized JS-type block has no JS/TS formatter to dispatch
+      to yet (`STATE_JS_TS.md` still scaffold-only), so `renderScriptOrStyle`
+      throws `XmlParseException` directing the caller to freeze the block
+      instead of silently passing it through (deliberate refinement of the
+      earlier "HTML-before-JS/TS contingency" note, which had proposed
+      silent passthrough). Escape hatch: a script-content-specific frozen-
+      span detector, `isFrozenScriptContent`, recognizing a `//%
+      JXM_CFMT_DIS`/`//% JXM_CFMT_ENA` line pair anywhere in the raw content
+      (not just the first line, to accommodate the CDATA-wrapped idiom's
+      literal `<![CDATA[` first line) — see the cross-job follow-up note in
       `STATE_JS_TS.md`'s checklist for what must happen when JS/TS support
       lands (remove the two local fixtures' directive-wrapping, wire a real
-      dispatch call, re-verify). One general (not HTML5-specific) bug found
-      and fixed along the way: self-closing/void elements never checked
-      line length or wrapped attributes on overflow (a previously-documented
-      gap, RDD_KEY_193) — fixed by adding the same fits-check +
-      one-attribute-per-line wrap branch already used for non-self-closing
-      tags. `Lang.SUPPORTED_LANGUAGES`/`isSupported` gained `html5`;
-      `SCAFFOLD_ONLY_LANGUAGES`/`isScaffoldOnly` dropped it;
+      dispatch call, re-verify). Bug found+fixed (general, not HTML5-
+      specific): self-closing/void elements never checked line length or
+      wrapped attributes on overflow (RDD_KEY_193 gap) — fixed with the same
+      fits-check + wrap branch used for non-self-closing tags.
+      `Lang.SUPPORTED_LANGUAGES`/`isSupported` gained `html5`;
       `FormatterCore.forLanguage` routes `isHtml5` to `FormatterXml`
-      alongside `isXml`. Two fixture-authoring mismatches (not code bugs)
-      corrected to match verified-real, precedent-backed behavior: mixed
-      text+element content splits onto separate lines rather than staying
-      inline (matches RDD_KEY_193's documented XML simplification), and a
-      trailing same-line comment gets a preceding space (matches
-      `xml_comments_out.xml`'s existing precedent). `make test`: 212/212
-      PASS, 0 FAIL (up from 202, +2 HTML5 fixture pairs registered live in
-      the Makefile, zero regressions).
+      alongside `isXml`. Two fixture-authoring mismatches corrected to match
+      verified-real behavior (mixed content line-splitting per RDD_KEY_193;
+      trailing comment spacing per `xml_comments_out.xml` precedent).
+      `make test`: 212/212 PASS (up from 202, +2 HTML5 fixture pairs, zero
+      regressions).
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s "HTML5"
       section and register in the Makefile's `INP_FILES` / `test/README.txt`.
       Done: `html_combined_inp/out.html` and `html_comments_inp/out.html`
@@ -481,96 +357,60 @@ None recorded yet in this file.
       formatting doesn't exist yet — see `STATE_JS_TS.md`'s checklist for
       the required follow-up (remove the wrapping and re-verify) once that
       job lands.
-- [x] **Implement YAML support (§5).** `YamlSpecificRule.java` implements a
-      from-scratch line-based recursive-descent parser (NOT a reuse of
-      `TokenizerCore`/`Token` — YAML's grammar is indentation-significant,
-      not brace-delimited, per RDD_KEY_189/191): `parseBlock` recursively
-      parses one homogeneous block (all-`-`-sequence or all-`key:`-mapping)
-      per indentation level; `parseKeyItem`/`parseSeqItem` handle per-line
-      shape (block scalars `|`/`>`, flow values, anchors + nested mappings,
-      sequence-of-mappings); a custom `FlowNode`/`FlowScalar`/`FlowMap`/
-      `FlowSeq`/`FlowCursor` AST+parser handles `{...}`/`[...]` flow
-      collections (bare unquoted scalars like URLs containing `:`/`/` rule
-      out reusing JSON's tokenizer). Colon-alignment groups reuse JSON's
-      `FormatterSimpleBraced.padKeysForColonAlignment` algorithm; §5.4's
-      flow-preserved-unless-overflow rule is recursive per nesting level
-      (each nested flow collection gets its own independent line-length
-      check at its own resulting depth); §5.3's sequence-of-mapping
-      alignment uses a fixed 2-column offset past the dash (`"- "`.length()),
-      independent of configured `indent-size`. `#%`-based `JXM_CFMT_DIS`/
-      `ENA` frozen spans and comment-start-case normalization (`normComment`,
-      starting the scan at index 1 to skip the `#`) are both implemented
-      from scratch rather than reusing the `//`/`/*`-oriented
-      `TokenizerCore.markFrozenSpans`/`FormatterSimpleBraced.capitalizeCommentStart`.
-      `FormatterYaml.java` created as the `FormatterCore` dispatch sibling
-      (deliberately omits `indentStyle` from the rule constructor — §5.1
-      mandates YAML always uses spaces regardless of configured
-      `indent-style`).
-- [x] **Implement TOML support (§6).** `TomlSpecificRule.java` implements a
-      much simpler flat, non-recursive, non-indented single-pass line
-      scanner (TOML expresses nesting purely via dotted table-header names,
-      e.g. `[a.b]`, never via indentation, per §6.2) — no recursive block
-      parser needed, unlike YAML. A `ValueNode`/`Scalar`/`Entry`/`Arr`/`Tbl`/
-      `ValueCursor` AST+parser handles array/inline-table values. §6.3's
-      tight/loose array rule is purely structural (no line-length
-      consideration, unlike YAML's flow-collection rule): an array is tight
-      iff every element is a `Scalar` (no nested `Arr`/`Tbl`), regardless of
-      length. §6.4 inline tables are always single-line (a TOML v1.0 grammar
-      constraint, not a style choice — no tight/loose decision needed). `=`-
-      alignment groups and `#%` frozen-span/comment-normalization logic are
-      structurally identical to YAML's (duplicated rather than factored into
-      a shared helper — accepted for now given time constraints, flagged as
-      a possible future DRY improvement). `FormatterToml.java` created
-      mirroring `FormatterYaml.java`.
-      Both `YamlSpecificRule`/`TomlSpecificRule` moved out of
-      `Lang.SCAFFOLD_ONLY_LANGUAGES` into `Lang.SUPPORTED_LANGUAGES` in this
-      pass (`FormatterCore.forLanguage` gained `isYaml`/`isToml` dispatch
-      branches), once both had real logic — same precedent as JSON/CSS's
-      migration (RDD_KEY_190).
+- [x] **Implement YAML support (§5).** `YamlSpecificRule.java` is a
+      from-scratch line-based recursive-descent parser (not `TokenizerCore`
+      reuse — indentation-significant grammar, RDD_KEY_189/191):
+      `parseBlock` recurses per indentation level; `parseKeyItem`/
+      `parseSeqItem` handle block scalars, flow values, anchors, sequence-
+      of-mappings; a custom `FlowNode`/`FlowScalar`/`FlowMap`/`FlowSeq`/
+      `FlowCursor` AST+parser handles `{...}`/`[...]` flow collections.
+      Colon-alignment reuses `FormatterSimpleBraced.padKeysForColonAlignment`;
+      §5.4 flow-preserved-unless-overflow is recursive per nesting level;
+      §5.3 sequence-of-mapping alignment uses a fixed 2-column dash offset.
+      `#%`-based frozen spans and comment normalization implemented from
+      scratch (not `TokenizerCore.markFrozenSpans` reuse). `FormatterYaml
+      .java` omits `indentStyle` from its rule constructor (§5.1 mandates
+      spaces always).
+- [x] **Implement TOML support (§6).** `TomlSpecificRule.java` is a simpler
+      flat, non-recursive, non-indented single-pass line scanner (nesting is
+      via dotted table-header names, e.g. `[a.b]`, per §6.2 — no recursive
+      block parser needed). A `ValueNode`/`Scalar`/`Entry`/`Arr`/`Tbl`/
+      `ValueCursor` AST+parser handles array/inline-table values. §6.3
+      tight/loose is purely structural (tight iff every element is a
+      `Scalar`, no line-length check unlike YAML). §6.4 inline tables are
+      always single-line (grammar constraint). `=`-alignment and `#%`
+      frozen-span/comment logic are structurally identical to YAML's
+      (duplicated, not factored into a shared helper — flagged as a possible
+      future DRY improvement). `FormatterToml.java` mirrors `FormatterYaml
+      .java`. Both moved from `Lang.SCAFFOLD_ONLY_LANGUAGES` into
+      `SUPPORTED_LANGUAGES` (`FormatterCore.forLanguage` gained `isYaml`/
+      `isToml` branches), same precedent as JSON/CSS's migration
+      (RDD_KEY_190).
 - [x] **YAML/TOML fixtures authored ahead of implementation, then verified
       against real logic and uncommented in the Makefile.**
       `test/yaml_core_{inp,out}.yaml`, `test/yaml_comments_{inp,out}.yaml`,
       `test/toml_core_{inp,out}.toml`, `test/toml_comments_{inp,out}.toml`
-      (contents described in `test/README.txt`) are registered in the
-      Makefile's `INP_FILES` and pass `make test` (idempotency + fixture
-      diff) cleanly. Two implementation bugs were found and fixed against
-      these fixtures:
-      (1) **YAML silent-data-loss bug**: `parseKeyItem`'s child-block
-      trigger used a strict `peek().indent > ln.indent` check, but YAML
-      allows a sequence's `-` items at the *same* indent as their parent
-      mapping key (e.g. `fruits:` / `- apple`, both indent 0 — a valid,
-      common style). The strict check failed to trigger, leaving `- apple`/
-      `- banana` unconsumed; the outer `parseBlock`'s shape-mismatch check
-      then saw an unexpected sequence line and broke early, silently
-      dropping the rest of the document (no exception). Fixed by allowing
-      `next.indent >= ln.indent` specifically when the next line is a
-      sequence item (a mapping child must still be strictly deeper, to
-      avoid ambiguity with a sibling key at the parent's own indent).
-      (2) **YAML idempotency bug**: `item.key = code.substring(0, colon)`
-      (in both `parseKeyItem` and the sequence-of-mapping's `firstKey`) did
-      not `.trim()` the key, so re-parsing the formatter's own aligned
-      output (e.g. `name : widget`) captured `"name "` (trailing space
-      before the colon) as the key instead of `"name"`, silently widening
-      colon-alignment-group width computations on the second pass. Fixed by
-      adding `.trim()` at both call sites.
-      (3) **TOML idempotency bug**: the flat line scanner assumed every
-      `key = value` line's value was fully contained on one physical line,
-      but the formatter's own §6.3 loose-array output (e.g. `matrix = [` /
-      `    [1, 2],` / `    [3, 4]` / `]`) is intentionally multi-line,
-      causing `TomlParseException: unterminated array` when re-parsing it.
-      Fixed by adding a quote-aware `bracketBalance` helper and consuming/
-      concatenating additional physical lines (joined with a single space)
-      whenever a `key = value` line's value portion has unbalanced
-      brackets/braces, before calling `parseValue`.
-      Also caught and fixed one fixture-authoring error during this pass:
-      `test/yaml_core_out.yaml`'s nested `endpoints` flow array was
-      hand-drafted expecting block conversion, but per §5.4's own
-      recursive-per-depth rule its post-conversion rendering
-      (`"  endpoints : [...]"`, 83 chars) fits under the default
-      `line-length` of 100 and should correctly stay flow — only the outer
-      `config` mapping (121 chars as one line) needed to convert. Fixture
-      corrected to match the (correct) implementation rather than the other
-      way around.
+      (see `test/README.txt`) registered in the Makefile's `INP_FILES`,
+      pass `make test` cleanly. Bugs found+fixed against these fixtures:
+      (1) **YAML silent-data-loss**: `parseKeyItem`'s child-block trigger
+      required strictly-deeper indent, but YAML allows a sequence's `-`
+      items at the *same* indent as their parent mapping key — the miss
+      silently dropped the rest of the document. Fixed by allowing
+      `next.indent >= ln.indent` specifically for sequence-item children.
+      (2) **YAML idempotency**: key extraction didn't `.trim()`, so
+      re-parsing the formatter's own aligned output (`name : widget`)
+      captured `"name "` as the key, widening alignment on the second pass.
+      Fixed with `.trim()`.
+      (3) **TOML idempotency**: the flat line scanner assumed each
+      `key = value` was one physical line, but §6.3's loose-array output is
+      intentionally multi-line, causing `unterminated array` on re-parse.
+      Fixed with a quote-aware `bracketBalance` helper that consumes
+      additional physical lines when brackets are unbalanced.
+      Also corrected one fixture-authoring error: `yaml_core_out.yaml`'s
+      nested `endpoints` flow array was hand-drafted expecting block
+      conversion, but per §5.4's recursive-per-depth rule it fits under
+      `line-length` and should stay flow — fixture corrected to match the
+      (correct) implementation.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format
       (`json5/json5`/`microsoft/vscode`/etc. for JSON — still open, not yet

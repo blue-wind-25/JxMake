@@ -11,19 +11,19 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 Synchronize `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`
 to update the state of the implemented languages.
 
-Ensure the languange order in the doc, help string, etc. is:
+Ensure the languange order in the documentations, help strings, etc. is:
     c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3
-Adjust active vs scaffold-only as needed. Also ensure jsx and tsx is after js and ts.
-
-Compact (use one sub-agent) all newly touched `STATE_*.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
+Adjust active vs scaffold-only as needed. Also ensure jsx and tsx are after js and ts.
 
 Compact (use one sub-agent) `STATE_JS_TS.md`.
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.
 
 Compact (use one sub-agent) `STATE_COMMON.md`, `STATE_C_CPP_JAVA.md` and `STATE_KOTLIN.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
+
+Compact (use one sub-agent) all newly touched `STATE_*.md`.
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.
 

@@ -320,6 +320,80 @@ attempted this session, future work:
       session should continue with §3 (destructuring/spread spacing) next,
       per the suggested grouping in the original task brief (§3 pairs
       naturally with §2's mechanical-rule size).
+      **Checkpoint 4 done — §3 (spread/rest tight spacing) + §7 (optional
+      chaining/nullish coalescing spacing) only.** Two new flat single-pass
+      scans in `JsTsSpecificRule.java`, `enforceSpreadRestSpacing`
+      (one-sided: no space after `...`) and `enforceOptionalChainingSpacing`
+      (`?.` tight both sides, `??`/`??=` spaced both sides), both directly
+      modeled on `KotlinSpecificRule.enforceNullSafetyOperatorSpacing`'s
+      flat-pass shape (same conservative gap-blocked-by-comment/NEWLINE/
+      frozen bailout). Wired into `FormatterCurly` Phase 4, gated on
+      `lang.isJs || lang.isTs`, right after Kotlin's analogous operator-
+      spacing block. §3's other two named items need no new code: bracket
+      padding on a destructuring pattern is already free via STYLE.md
+      §3.1's existing complexity-padding pass (language-agnostic), and
+      RDD_KEY_182 (declaration-alignment-grid membership) was a design
+      decision already recorded, not new code owed this checkpoint. §10
+      (`await`/`async` spacing) was surveyed and found already free: valid
+      JS/TS source can never omit the space after these keywords (it's
+      required syntax, not optional whitespace), and this codebase has no
+      precedent anywhere of a pass that collapses/normalizes multiple
+      spaces after an arbitrary keyword to exactly one (confirmed by
+      grepping `MiscRuleCore`/`enforceKeywordSpacing`, which only
+      tight-collapses specific `TIGHT_PAREN_KEYWORDS`-before-`(` cases) --
+      so §10 needs no dedicated rule and was folded into this checkpoint's
+      "already free" findings rather than getting its own commit.
+      **Real bug found while smoke-testing §3 against destructuring
+      declarations (`const [first, second] = items`), NOT caused by this
+      checkpoint's own changes (confirmed via `git stash` against the prior
+      commit -- same corruption reproduces there) -- documented, not fixed,
+      here, because the actual fix is §11's scope, not §3's:**
+      `DeclarationAlignmentRuleCurly`'s constructor
+      (`rules/DeclarationAlignmentRuleCurly.java`, ~line 48) has no
+      `lang.isJs`/`isTs` branch at all -- it falls into the same `else`
+      arm as C/C++ (`CppModifierPriority` + `TYPE_KEYWORDS_C`/`_CPP`),
+      because that constructor's condition is only `lang.isJava ? Java : Cpp`.
+      `CppModifierPriority` happens to recognize `const` as a modifier
+      (priority 4), so `const [first, second] = items;` gets parsed as a
+      modifier-prefixed declaration whose "name" token is the structured-
+      binding-style `[` -- but the actual C++ structured-binding render
+      path (`isStructuredBinding`, ~line 291-303, including the extra-space
+      insertion before the name column) is gated `if (lang.isCpp)`, false
+      for JS, so the space-insertion never fires and the bracket renders
+      tight against `const` (`const[first, second] = items;`, confirmed via
+      the standalone harness, idempotent but wrong). Plain-identifier
+      declarations (`const x = 5;`, `const add = (a, b) => a + b;`) and
+      every spread/rest use *outside* declaration-LHS position (object/
+      array literal spread, rest parameters, call-site spread) render
+      correctly -- the corruption is narrowly scoped to destructuring-
+      pattern-as-declaration-LHS specifically, confirmed via the same
+      harness. Root cause and fix both belong to §11's already-planned
+      dedicated checkpoint (wiring real JS/TS awareness into the shared
+      declaration-alignment machinery, using `KotlinDeclarationAlignmentRule`/
+      `KotlinSignatureRule` as a structural template per this file's own
+      existing checklist note) -- not attempted here, since fixing it
+      properly requires exactly the "how does JS/TS's untyped, no-modifier-
+      table declaration grammar plug into this class" design work §11 is
+      already scoped to do, not a narrow §3-sized patch. **This blocks**:
+      registering any local `.js`/`.ts` fixture whose exercised surface
+      includes a destructuring declaration until §11 lands (`js_combined`/
+      `ts_combined` likely both need this per their real-code-derived
+      content -- not yet checked line-by-line, next session verifying §3
+      fixture-readiness should check first). Plain `const`/`let`/`var`
+      declarations without destructuring are unaffected and safe to use in
+      fixtures today.
+      Verified via a standalone harness (`FormatterCore.forLanguage("js")`,
+      same approach as Checkpoint 3, `Main.java`'s CLI gate still
+      untouched): `...` correctly tightened after deliberately-wrong
+      spacing in spread/rest/call-site positions; `?.`/`??`/`??=` correctly
+      normalized from deliberately-wrong spacing (extra/missing spaces
+      around all three). Round-trip (harness round1 -> round2) confirmed
+      idempotent on every manual fixture tried. `make` compiles clean;
+      `make test`: 106/106 forward + 106/106 idempotency, zero regressions.
+      **Next up:** §4 (template literal `${...}` interior spacing) and/or
+      §6 (arrow function brace style) per the suggested grouping, or §11
+      (declaration alignment) sooner than originally planned if it starts
+      blocking further fixture verification.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "JavaScript"/"TypeScript" sections (split by extension since TS-only
       constructs can't live in `.js`). Done: `js_combined_inp/out.js`,

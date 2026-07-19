@@ -325,4 +325,111 @@ public final class JsTsSpecificRule {
         }
         return out.toString();
     }
+
+    // ── §3 Spread / rest (`...`) tight spacing ───────────────────────────────────────
+    /**
+     * STYLE_JS_TS.md §3: spread/rest `...` never has a space after it -- tight against the
+     * identifier/expression it precedes (`...rest`, `...items`, `{...defaults, ...overrides}`).
+     * One-sided (unlike §7's `?.`/`??`, which are tight/spaced on both sides): JS/TS's `...` is
+     * always a prefix operator, so only the gap immediately following it is ever touched -- the
+     * gap immediately before it (after `(`/`,`/`{`/`[`) is ordinary call/literal spacing, already
+     * governed by whatever already renders those contexts, and is left alone here. No general
+     * expression-level operator-respacing pass already covers this (same reasoning as Kotlin's
+     * `enforceNullSafetyOperatorSpacing` javadoc), so this is its own flat single-pass scan.
+     * Conservative bailout matching every other pass in this file: a gap containing a comment, a
+     * NEWLINE, or a frozen token is left completely untouched.
+     */
+    public String enforceSpreadRestSpacing(final List<Token> tokens) {
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        Token lastSignificant = null;
+        final int n = tokens.size();
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
+                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean afterSpread = lastSignificant != null && isOp(lastSignificant, "...");
+
+            if (gapBlocked || !afterSpread) {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            }
+            // afterSpread && !gapBlocked: gap dropped entirely, nothing appended.
+
+            gap.clear();
+            out.append(t.text);
+            lastSignificant = t;
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    // ── §7 Optional chaining / nullish coalescing ────────────────────────────────────
+    /**
+     * STYLE_JS_TS.md §7: `?.` is tight (no surrounding space), `??` is spaced like a normal binary
+     * operator -- direct analog of Kotlin's `?.`/`?:` treatment
+     * ({@link KotlinSpecificRule#enforceNullSafetyOperatorSpacing}), reused here structurally with
+     * JS/TS's own operator names. No general expression-level operator-respacing pass already
+     * covers this, so it's its own flat pass, same conservative bailout (a gap containing a
+     * comment, a NEWLINE, or a frozen token is left untouched).
+     */
+    public String enforceOptionalChainingSpacing(final List<Token> tokens) {
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        Token lastSignificant = null;
+        final int n = tokens.size();
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
+                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean adjacentToTightOp = isOptionalChain(lastSignificant) || isOptionalChain(t);
+            final boolean adjacentToNullish = !adjacentToTightOp && (isNullishCoalesce(lastSignificant) || isNullishCoalesce(t));
+
+            if (gapBlocked || (!adjacentToTightOp && !adjacentToNullish)) {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            } else if (adjacentToNullish) {
+                out.append(' ');
+            }
+            // adjacentToTightOp && !gapBlocked: gap dropped entirely, nothing appended.
+
+            gap.clear();
+            out.append(t.text);
+            lastSignificant = t;
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    private boolean isOptionalChain(final Token t) {
+        return t != null && isOp(t, "?.");
+    }
+
+    private boolean isNullishCoalesce(final Token t) {
+        return t != null && (isOp(t, "??") || isOp(t, "??="));
+    }
 }

@@ -225,6 +225,12 @@ public final class FormatterCurly extends FormatterCore {
             text = kotlinRule.enforceAnnotationUseSiteTargetSpacing(tokenizer.apply(text));
             text = kotlinRule.enforceWhereClausePlacement(tokenizer.apply(text));
         }
+        if (lang.isJs || lang.isTs) {
+            // STYLE_JS_TS.md §3/§7: spread/rest `...` tight, `?.` tight, `??`/`??=` spaced --
+            // same flat cosmetic-spacing treatment as Kotlin's analogous operators above.
+            text = jsTsRule.enforceSpreadRestSpacing(tokenizer.apply(text));
+            text = jsTsRule.enforceOptionalChainingSpacing(tokenizer.apply(text));
+        }
         // Must run after every earlier paren-tightening/spacing pass has settled a braceless
         // collapsed `if(...) body` line's final rendered width -- see the method's own javadoc
         // for why an earlier collapse-time attempt was stale. Shared across all languages: C/C++/

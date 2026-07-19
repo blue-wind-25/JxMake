@@ -144,12 +144,7 @@ constexpr auto computed = [: computeRefl(x) :];   // splice brackets — loose, 
   (STYLE_CPP20.md §4.4), applied to splice brackets the same way: simple content
   (a bare reflection value, e.g. `[:refl:]`) stays tight, content containing a call or
   nested bracket goes loose (`[: computeRefl(x) :]`). A call inside a double-bracket
-  construct triggers looseness the same way it does anywhere else. (This section
-  previously claimed this "mirrors the existing JAR-verified `[[ assume(a >= 0) ]]`
-  case" — that was aspirational, not actual prior behavior: `[[ ]]` attributes were
-  found to be left completely verbatim/unformatted before this rule was implemented.
-  Both `[[ ]]` and `[: :]` padding were implemented together in the same pass — see
-  `formatter/STATE_CPP26.md`'s checklist.)
+  construct triggers looseness the same way it does anywhere else.
 - No alignment rule is defined yet for reflection-heavy declarations (e.g. a run of
   `constexpr auto x = ^^...;` statements) — revisit once the tokenizer pass confirms
   the tokens are handled correctly at all.

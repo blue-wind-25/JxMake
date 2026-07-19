@@ -172,11 +172,35 @@ attempted this session, future work:
 
 ## Checklist
 
-- [ ] Diff `STYLE_JS_TS.md` against `STYLE_JAVA.md`/`STYLE_KOTLIN.md`
+- [x] Diff `STYLE_JS_TS.md` against `STYLE_JAVA.md`/`STYLE_KOTLIN.md`
       section-by-section to confirm which "Baseline — Directly Inherited"
       (§1) items are already free once shared-class wiring recognizes a JS/
       TS language tag, vs. which need a small additive extension (mirrors
-      the Kotlin job's Step 1 scoping-table approach).
+      the Kotlin job's Step 1 scoping-table approach). **Findings:** all 7
+      §1 items (bracket/paren complexity padding, keyword spacing, `{}`
+      spacing, closing comments on blocks, blank line before `return`,
+      `else`/`else if` placement, `switch` formatting) cite plain
+      `STYLE.md` base sections, not a Java- or Kotlin-specific override —
+      they come free once `lang.isJs`/`isTs` is recognized alongside
+      `lang.isKotlin` in the curly-family classes, **provided** existing
+      Java/Kotlin-only override branches stay narrowly gated and don't leak
+      onto JS/TS: (1) Java's array-decl (`int[] x`)/double-brace-init
+      tight-exception (§4) has no JS/TS analog, must stay Java-only; (2)
+      Kotlin's unconditional-blank-line-always closing-comment override
+      (§3.1/§3.4) must NOT apply to JS/TS — JS/TS uses the plain
+      threshold-gated `STYLE.md` §7 behavior instead; (3) Java's
+      never-add-closing-comment-to-`else` suppression (§8) should be
+      verified to key off the general §7/§12 interaction (language-agnostic)
+      rather than a Java-only flag, so it also covers JS/TS's `else`. §2-15
+      classification (JS+TS vs TS-only, reuse-vs-new-logic) verified during
+      this pass; folded directly into the per-section notes already present
+      above in this file's Scope section — no separate table needed, they
+      matched what's already documented there (§7 reuses Kotlin `?.`/`?:`,
+      §8 reuses STYLE.md §14 group-alignment, §11 reuses Kotlin `: type`
+      tail spacing + declaration-alignment grid, §13 reuses Java/C++ generic
+      bracket-complexity, §14 reuses Kotlin/Java K&R container brace style +
+      member `:` alignment; §2/§3/§4/§9/§10/§12/§15's group-contents need
+      new JS/TS-specific logic as already scoped).
 - [ ] Tokenizer support pass: survey `STYLE_JS_TS.md` for every token not
       already lexed (template literals, `?.`/`??`, `=>`, decorators `@`,
       spread/rest `...`, TS type-annotation `:`/`|`/`&`/generics `<>`), done

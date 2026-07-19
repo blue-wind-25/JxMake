@@ -538,9 +538,3 @@ Structural pattern matching (`match`/`case`, §7), single-statement compound-bod
 compactness (§8), and control-flow blank-line placement (§9) were separate gaps
 found during the AI_PREAMBLE_FULL.md review pass — not originally listed here — and
 resolved the same way. Section kept for future use if new gaps surface.
-
----
-
-Implementation-tracker content (config keys, test-fixture repos, local test
-fixtures) for this file lives in `formatter/STATE_PYTHON3.md`, not here —
-see that file.

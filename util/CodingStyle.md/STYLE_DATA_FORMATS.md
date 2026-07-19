@@ -522,7 +522,3 @@ strings (§1.3).
 
 §6.1's key/value alignment is unconditional, same reasoning as §1.1's JSON colon
 alignment — no config toggle.
-
-Implementation-tracker content (config keys, test-fixture repos, local test
-fixtures) for this file lives in `formatter/STATE_DATA_FORMATS.md`, not
-here — see that file.

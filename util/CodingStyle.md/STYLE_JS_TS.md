@@ -449,7 +449,3 @@ Not yet designed, deliberately deferred:
   this file's "Out of scope" note in the intro.
 - Import-path built-in/third-party/local classification's resolution logic (§15) —
   not yet designed.
-
-Implementation-tracker content (test-fixture repos, local test fixtures,
-open design questions) for this file lives in `formatter/STATE_JS_TS.md`,
-not here — see that file.

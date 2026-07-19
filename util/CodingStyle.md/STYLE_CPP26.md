@@ -143,7 +143,3 @@ constexpr auto computed = [: computeRefl(x) :];   // splice brackets — loose, 
 - No alignment rule is defined yet for reflection-heavy declarations (e.g. a run of
   `constexpr auto x = ^^...;` statements) — revisit once the tokenizer pass confirms
   the tokens are handled correctly at all.
-
-Implementation-tracker content (config keys, test-fixture tracking, including
-the external test-fixture-repo list for §5 validation) for this file lives in
-`formatter/STATE_CPP26.md`, not here — see that file.

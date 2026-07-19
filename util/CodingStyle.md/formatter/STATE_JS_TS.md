@@ -486,21 +486,86 @@ attempted this session, future work:
       destructuring (`var [p, q] = list;`, Checkpoint 5's fix) all
       unaffected. `make` compiles clean; `make test`: 106/106 forward +
       106/106 idempotency, zero regressions.
-      **§11 remaining, not started this checkpoint:** `: type` colon
-      spacing on `let`/`const`/function params/return types (STYLE_JS_TS.md
-      §11's main paragraph), union/intersection (`|`/`&`) spacing (§11.1),
-      and the class-field modifier-priority table (§11.2 -- fully specified
-      in the style doc, six-slot ordering `declare` → visibility → `static`
-      → `abstract` → `override` → `readonly`, **not ambiguous**, so no
-      Open Question needed for it when that work is picked up). Per this
-      job's Class Scoping section (RDD_KEY_187), that new logic belongs in
-      `JsTsSpecificRule.java` (still a boilerplate-only stub as of this
-      checkpoint aside from the §2/§3/§7 passes already landed there), not
-      a new `JsTsDeclarationAlignmentRule` file mirroring Kotlin's -- the
-      `KotlinDeclarationAlignmentRule`/`KotlinSignatureRule` reading was
-      useful as a structural reference for how a reversed name-before-type
-      grammar's parser/grid-render shape can look, but the concrete
-      TS-specific parsing/rendering code itself is not yet written.
+      **Checkpoint 7 done -- §11 main-paragraph `: type` colon spacing only
+      (declarator/parameter/return-type), flat spacing pass, NOT the
+      declaration-alignment grid.** New `JsTsSpecificRule.enforceTypeColonSpacing`
+      (TS-only, `lang.isTs`-gated, no-op passthrough for JS), wired into
+      `FormatterCurly` Phase 4 right after the §3/§7 block, its own
+      `if (lang.isTs)` guard (not folded into the shared `isJs || isTs`
+      block above it, since this section is TS-only). Two-pass design: (1)
+      `classifyTypeColons` -- a bracket-stack scan (`PAREN`/`BRACKET`/
+      `OBJ`/`BLOCK` frames, `OBJ` vs `BLOCK` for `{` decided by the same
+      "is the preceding token value-indicating" heuristic as §2's
+      `classifyBraces`, duplicated locally as `isValuePrecededBrace` rather
+      than shared/extracted -- lower risk than touching the existing method)
+      producing the index set of every `:` classified as a type-annotation
+      colon: preceding significant token is `)` (return type, unless that
+      `)` closes a `case (...):` parenthesized label -- guarded via
+      `isCaseLabelParen`), or preceding significant token is an IDENTIFIER
+      (or `?` tight after one, TS's `name?: type` optional-marker shape)
+      whose own preceding context is either `(`/`,` while the enclosing
+      bracket frame is `PAREN` (parameter colon), or `,`/a `let`/`const`/
+      `var` keyword while at statement level (`BLOCK` or no enclosing
+      bracket) and an `inDeclarator` flag is set (declaration colon,
+      supports multi-declarator `let a: number, b: string;`).
+      (2) `enforceTypeColonSpacing` itself -- a flat gap-normalizing scan
+      structurally identical to §3/§7's passes, tight before / one space
+      after any index in the classified set, everything else left
+      untouched. **Real tokenizer bug found and fixed as a prerequisite,
+      NOT scoped to JS/TS originally:** `TokenizerCurly`'s `MULTI_CHAR_OPS`
+      table has a `"?:"` entry for Kotlin's Elvis operator, matched
+      unconditionally in the multi-char-op scan loop regardless of
+      language -- so TS's `name?: type` (no space between `?` and `:`,
+      the common/idiomatic form) was being lexed as one opaque `?:` token
+      instead of two, silently defeating this checkpoint's own
+      classification logic (confirmed via harness: `function f(a?:number)`
+      round-tripped completely untouched before the fix). Fixed narrowly
+      by skipping the `"?:"` entry in the multi-char-op loop when
+      `!lang.isKotlin`, leaving Kotlin's Elvis-operator lexing byte-for-byte
+      unchanged (confirmed: `make test` 106/106 both before and after,
+      Kotlin corpus included) while JS/TS now lexes `?` and `:` as two
+      separate tokens as intended. Verified via a standalone harness
+      (`FormatterCore.forLanguage("ts")`): `let x:string;`/`let y :
+      number;` → `let x: string;`/`let y: number;`; multi-declarator
+      `let a:number, b:string;` → both colons fixed; function params +
+      return type `function f(a: number, b:string):boolean {}` → all three
+      colons fixed in one pass; optional parameter `function f(a?:number)`
+      → fixed post-tokenizer-bugfix; arrow-typed declarator
+      `const handler: (event: Event) => void = (event) => {...};` → both
+      colons (outer declarator, inner arrow-param) correctly handled,
+      inner one via the `PAREN`-frame path. Explicitly re-verified
+      unaffected (byte-for-byte, per the task's own hard requirement):
+      object-literal keys (`{ a: 1, b: 2 }`), destructuring rename
+      (`const { a, b: renamed } = obj;`), ternary (`let x = a ? b : c;`),
+      unparenthesized `case 1:`/`default:` labels (pre-existing quirky
+      spacing -- `case 1 :` -- confirmed unchanged, not this checkpoint's
+      concern), and the rare parenthesized `case (a + b):` label (excluded
+      via `isCaseLabelParen`). Class-field colons (`private x:number;`)
+      deliberately NOT touched -- out of this checkpoint's scope per the
+      task brief (item 1 covers `let`/`const`/`var`/params/return types
+      only, not class fields; §11.2's class-field modifier work is
+      separate and still not started). Round-trip (harness round1 →
+      round2) confirmed idempotent on every case above, including the
+      pre-existing quirky `case 1 :` spacing (stable, not touched either
+      way). `make` compiles clean; `make test`: 106/106 forward + 106/106
+      idempotency, zero regressions.
+      **Explicitly NOT done, deferred:** the declaration-alignment-grid
+      column integration STYLE_JS_TS.md §11's own text calls for (`=`-
+      column and `:`-column alignment across a group of consecutive
+      declarations, RDD_KEY_183) -- this checkpoint is spacing-only, no
+      `Declaration`/`ColumnGrid` parser modeled on
+      `KotlinDeclarationAlignmentRule`/`KotlinSignatureRule` was written.
+      A future checkpoint that wants true grid alignment will need that
+      larger parser; this checkpoint's `classifyTypeColons` bracket-stack
+      scan could plausibly seed its colon-position detection but was not
+      designed with reuse in mind.
+      **§11 still remaining:** union/intersection (`|`/`&`) spacing
+      (§11.1, confirmed via harness NOT currently free -- `type X = A|B;`
+      passes through untouched) and the class-field modifier-priority
+      table (§11.2 -- fully specified in the style doc, six-slot ordering
+      `declare` → visibility → `static` → `abstract` → `override` →
+      `readonly`, **not ambiguous**). Both still land in
+      `JsTsSpecificRule.java` per RDD_KEY_187, not a separate file.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "JavaScript"/"TypeScript" sections (split by extension since TS-only
       constructs can't live in `.js`). Done: `js_combined_inp/out.js`,

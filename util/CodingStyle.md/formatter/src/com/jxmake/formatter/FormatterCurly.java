@@ -231,6 +231,11 @@ public final class FormatterCurly extends FormatterCore {
             text = jsTsRule.enforceSpreadRestSpacing(tokenizer.apply(text));
             text = jsTsRule.enforceOptionalChainingSpacing(tokenizer.apply(text));
         }
+        if (lang.isTs) {
+            // STYLE_JS_TS.md §11: `: type` colon spacing (declarator/parameter/return-type),
+            // TS-only -- JS has no type annotations.
+            text = jsTsRule.enforceTypeColonSpacing(tokenizer.apply(text));
+        }
         // Must run after every earlier paren-tightening/spacing pass has settled a braceless
         // collapsed `if(...) body` line's final rendered width -- see the method's own javadoc
         // for why an earlier collapse-time attempt was stale. Shared across all languages: C/C++/

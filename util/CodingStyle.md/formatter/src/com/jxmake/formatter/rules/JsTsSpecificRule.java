@@ -439,4 +439,194 @@ public final class JsTsSpecificRule {
     private boolean isNullishCoalesce(final Token t) {
         return t != null && (isOp(t, "??") || isOp(t, "??="));
     }
+
+    // ── §11 TypeScript type-annotation colon spacing ─────────────────────────────────
+    /**
+     * STYLE_JS_TS.md §11: a type-annotation colon (declarator, function/arrow parameter,
+     * function return type) has no space before it and exactly one space after -- disambiguated
+     * from an object-literal/destructuring-pattern key colon, a ternary-expression colon, and a
+     * switch `case`/`default` label colon purely via local bracket-stack context, since the raw
+     * token shape (`IDENTIFIER :`) is otherwise identical across all four. TS-only (JS has no
+     * type annotations at all, so this is a no-op passthrough for {@code lang.isJs}). This is a
+     * flat spacing pass only -- it does NOT implement STYLE_JS_TS.md §11's declaration-alignment-
+     * grid column integration (RDD_KEY_183's `=`-aligned group behavior for consecutive
+     * declarations); that remains unimplemented, see STATE_JS_TS.md. Conservative bailout
+     * matching every other pass in this file: a gap touching a comment, NEWLINE, or frozen token
+     * is left untouched, and a colon adjacent to any frozen token is never reclassified.
+     *
+     * <p>Classification (see {@link #classifyTypeColons}): a colon is a type colon when either
+     * (a) its immediately preceding significant token is `)`, unless that `)` closes a
+     * parenthesized `case (...):` label's own condition (return-type colon), or (b) its
+     * immediately preceding significant token is an IDENTIFIER (or `?` tight after an
+     * IDENTIFIER, for TS's `name?: type` optional-marker shape) whose own preceding context is
+     * either inside a `(...)` parameter list directly after `(`/`,` (parameter colon), or at
+     * statement level directly after `let`/`const`/`var`/`,` while still inside an open
+     * declarator list (declaration colon). Every other shape -- object-literal/destructuring key
+     * colons (enclosing bracket is a value `{`), ternary colons (preceding context is `?`, not
+     * `(`/`,`/a declarator keyword), and case/default labels (preceding token is a literal or the
+     * `default` keyword, never an IDENTIFIER or `)` from a plain unparenthesized label) -- falls
+     * through unclassified and is left byte-for-byte as this pass found it.
+     */
+    public String enforceTypeColonSpacing(final List<Token> tokens) {
+        if (!lang.isTs) {
+            return render(tokens, new HashMap<>());
+        }
+        final Set<Integer> typeColons = classifyTypeColons(tokens);
+
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        Token lastSignificant = null;
+        int lastSigIdx = -1;
+        final int n = tokens.size();
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
+                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean beforeTypeColon = typeColons.contains(i);
+            final boolean afterTypeColon = lastSigIdx >= 0 && typeColons.contains(lastSigIdx);
+
+            if (gapBlocked || (!beforeTypeColon && !afterTypeColon)) {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            } else if (afterTypeColon) {
+                out.append(' ');
+            }
+            // beforeTypeColon && !gapBlocked && !afterTypeColon: gap dropped (tight before ':').
+
+            gap.clear();
+            out.append(t.text);
+            lastSignificant = t;
+            lastSigIdx = i;
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    /** Bracket-stack scan producing the index set of every `:` token classified as a
+     *  type-annotation colon. See {@link #enforceTypeColonSpacing}'s javadoc for the exact rules. */
+    private Set<Integer> classifyTypeColons(final List<Token> tokens) {
+        final Set<Integer> result = new HashSet<>();
+        final Map<Integer, Integer> braceOpenToClose = matchBraces(tokens);
+        final Set<Integer> valueBraces = new HashSet<>();
+        for (final Integer openIdx : braceOpenToClose.keySet()) {
+            if (isValuePrecededBrace(tokens, openIdx)) {
+                valueBraces.add(openIdx);
+            }
+        }
+        final Map<Integer, Integer> parenOpenToClose = matchParens(tokens);
+        final Map<Integer, Integer> parenCloseToOpen = new HashMap<>();
+        for (final Map.Entry<Integer, Integer> e : parenOpenToClose.entrySet()) {
+            parenCloseToOpen.put(e.getValue(), e.getKey());
+        }
+
+        final Deque<String> stack = new ArrayDeque<>();
+        boolean inDeclarator = false;
+
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                continue;
+            }
+
+            if (isPunct(t, ";")) {
+                inDeclarator = false;
+            } else if (t.type == TokenType.KEYWORD
+                    && ("let".equals(t.text) || "const".equals(t.text) || "var".equals(t.text))
+                    && (stack.isEmpty() || "BLOCK".equals(stack.peek()))) {
+                inDeclarator = true;
+            } else if (isOp(t, ":") && !t.frozen) {
+                final int prevIdx = prevSignificantIndex(tokens, i - 1);
+                if (prevIdx >= 0 && !tokens.get(prevIdx).frozen) {
+                    if (isTypeColonAt(tokens, i, prevIdx, stack, inDeclarator, parenCloseToOpen)) {
+                        result.add(i);
+                    }
+                }
+            }
+
+            if (isPunct(t, "(")) {
+                stack.push("PAREN");
+            } else if (isPunct(t, "[")) {
+                stack.push("BRACKET");
+            } else if (isPunct(t, "{")) {
+                stack.push(valueBraces.contains(i) ? "OBJ" : "BLOCK");
+            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")) {
+                if (!stack.isEmpty()) {
+                    stack.pop();
+                }
+            }
+        }
+        return result;
+    }
+
+    private boolean isTypeColonAt(final List<Token> tokens, final int colonIdx, final int prevIdx,
+            final Deque<String> stack, final boolean inDeclarator, final Map<Integer, Integer> parenCloseToOpen) {
+        final Token prev = tokens.get(prevIdx);
+        if (isPunct(prev, ")")) {
+            return !isCaseLabelParen(tokens, prevIdx, parenCloseToOpen);
+        }
+        int idIdx = -1;
+        if (prev.type == TokenType.IDENTIFIER) {
+            idIdx = prevIdx;
+        } else if (isOp(prev, "?")) {
+            final int maybeId = prevSignificantIndex(tokens, prevIdx - 1);
+            if (maybeId >= 0 && tokens.get(maybeId).type == TokenType.IDENTIFIER) {
+                idIdx = maybeId;
+            }
+        }
+        if (idIdx < 0) {
+            return false;
+        }
+        final int ctxIdx = prevSignificantIndex(tokens, idIdx - 1);
+        final Token ctx = ctxIdx >= 0 ? tokens.get(ctxIdx) : null;
+        final boolean paramCtx = "PAREN".equals(stack.peek())
+                && ctx != null && (isPunct(ctx, "(") || isPunct(ctx, ","));
+        final boolean declaratorCtx = inDeclarator
+                && (stack.isEmpty() || "BLOCK".equals(stack.peek()))
+                && ctx != null && (isPunct(ctx, ",") || (ctx.type == TokenType.KEYWORD
+                        && ("let".equals(ctx.text) || "const".equals(ctx.text) || "var".equals(ctx.text))));
+        return paramCtx || declaratorCtx;
+    }
+
+    /** True if {@code closeParenIdx} closes a `case (...)：`-style parenthesized case-label
+     *  condition -- i.e. the token immediately before the matching `(` is the `case` keyword --
+     *  the one shape where a bare `)` immediately followed by `:` is NOT a return-type colon. */
+    private boolean isCaseLabelParen(final List<Token> tokens, final int closeParenIdx,
+            final Map<Integer, Integer> parenCloseToOpen) {
+        final Integer openIdx = parenCloseToOpen.get(closeParenIdx);
+        if (openIdx == null) {
+            return false;
+        }
+        final int beforeOpen = prevSignificantIndex(tokens, openIdx - 1);
+        return beforeOpen >= 0 && tokens.get(beforeOpen).type == TokenType.KEYWORD
+                && "case".equals(tokens.get(beforeOpen).text);
+    }
+
+    /** Same "is this `{` a value/pattern brace" heuristic as {@link #classifyBraces}'s
+     *  {@code isValue} local, duplicated (not shared) since it's used from a different pass with
+     *  different bookkeeping needs (a bracket-kind stack, not resetDepth/needsSemicolon maps). */
+    private boolean isValuePrecededBrace(final List<Token> tokens, final int openIdx) {
+        final int prevIdx = prevSignificantIndex(tokens, openIdx - 1);
+        final Token prev = prevIdx >= 0 ? tokens.get(prevIdx) : null;
+        if (prev == null) {
+            return false;
+        }
+        return isOp(prev, "=>") || isOp(prev, "=") || isPunct(prev, "(") || isPunct(prev, "[")
+                || isPunct(prev, ",") || isOp(prev, ":") || isOp(prev, "??") || isOp(prev, "||")
+                || isOp(prev, "&&") || isOp(prev, "?") || isOp(prev, "...")
+                || (prev.type == TokenType.KEYWORD && ("return".equals(prev.text) || "yield".equals(prev.text)
+                        || "throw".equals(prev.text) || "typeof".equals(prev.text)
+                        || "const".equals(prev.text) || "let".equals(prev.text) || "var".equals(prev.text)));
+    }
 }

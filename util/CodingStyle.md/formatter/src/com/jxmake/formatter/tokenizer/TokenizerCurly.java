@@ -1185,6 +1185,13 @@ public class TokenizerCurly extends TokenizerCore {
         }
 
         for (final String op : MULTI_CHAR_OPS) {
+            // "?:" is Kotlin's Elvis operator (STYLE_KOTLIN.md §5) -- in JS/TS the same two
+            // adjacent characters are an unrelated pair (TS's `name?: type` optional-marker `?`
+            // immediately followed by an ordinary type-annotation `:`, no space between), so
+            // this single MULTI_CHAR_OPS entry must not swallow them together outside Kotlin.
+            if ("?:".equals(op) && !lang.isKotlin) {
+                continue;
+            }
             if (source.startsWith(op, pos)) {
                 pos += op.length();
                 return new Token(TokenType.OP, op, braceDepth, parenDepth, null);

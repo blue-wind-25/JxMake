@@ -107,14 +107,20 @@ INP_FILES += toml_comments_inp.toml
 INP_FILES += xml_combined_inp.xml
 INP_FILES += xml_comments_inp.xml
 
-# cpp_26ext/cpp_26_comments/cpp_26_reflection: fixtures authored ahead of
-# implementation, hand-drafted against STYLE_CPP26.md -- not yet verified by a real
-# JAR (new C++26 rule coverage is not yet implemented in the existing cpp pipeline).
-# cpp_26_reflection's expected output additionally stays unverified against the
-# external-corpus cross-check STYLE_CPP26.md §5 calls for -- promoted early anyway
-# to seed the initial tokenizer test, per explicit instruction overriding its
-# promotion gate. Uncomment once real logic lands.
-# INP_FILES += cpp_26ext_inp.cpp
+# cpp_26ext: §1 (pack indexing) and §4 (contracts) now have real logic in
+# CppSpecificRule.java, verified against the actual JAR -- promoted to active.
+INP_FILES += cpp_26ext_inp.cpp
+
+# cpp_26_comments/cpp_26_reflection: fixtures authored ahead of implementation,
+# hand-drafted against STYLE_CPP26.md -- not yet verified by a real JAR.
+# cpp_26_comments still needs verification of comment placement around
+# pre/post clauses (a comment between the signature and a clause sits inside
+# enforceContractClausePlacement's replaced span and would currently be
+# dropped -- not yet fixed). cpp_26_reflection's expected output additionally
+# stays unverified against the external-corpus cross-check STYLE_CPP26.md §5
+# calls for -- promoted early anyway to seed the initial tokenizer test, per
+# explicit instruction overriding its promotion gate. Uncomment once real
+# logic lands.
 # INP_FILES += cpp_26_comments_inp.cpp
 # INP_FILES += cpp_26_reflection_inp.cpp
 

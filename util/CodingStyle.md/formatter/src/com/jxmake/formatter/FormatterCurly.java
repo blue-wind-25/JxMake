@@ -94,6 +94,7 @@ public final class FormatterCurly extends FormatterCore {
             text = cppRule.enforceEmptyParameterList(tokenizer.apply(text));
             if (lang.isCpp) {
                 text = cppRule.enforceRequiresClausePlacement(tokenizer.apply(text));
+                text = cppRule.enforceContractClausePlacement(tokenizer.apply(text));
             }
         } else if (lang.isJava) {
             text = javaRule.enforceMethodDefinitionAllmanBraceStyle(tokenizer.apply(text));
@@ -195,6 +196,7 @@ public final class FormatterCurly extends FormatterCore {
         if (lang.isCpp) {
             text = cppRule.enforceTemplateAngleBracketSpacing(tokenizer.apply(text));
             text = cppRule.enforcePackIndexingSpacing(tokenizer.apply(text));
+            text = cppRule.enforceContractAssertSpacing(tokenizer.apply(text));
         }
         if (isCOrCpp && config.isFormatMacros()) {
             text = cppRule.alignMacroDefinitions(tokenizer.apply(text));

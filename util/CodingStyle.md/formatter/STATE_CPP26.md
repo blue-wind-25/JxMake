@@ -163,24 +163,35 @@ formal blocked Open Question here since real implementation hasn't started.
       confirmed to need no new code — both already format correctly via
       existing ordinary call-argument/identifier handling (verified against
       `cpp_26ext_inp/out.cpp`).
-- [ ] §4 Contracts (`pre`/`post`/`contract_assert`) — genuinely unimplemented,
-      confirmed by fixture testing this session. Needs: (a) clause placement
-      (recognize `pre`/`post`/`contract_assert` as keywords the way
-      `enforceRequiresClausePlacement` recognizes `requires`, give each
-      clause its own line at `baseIndent + indentUnit`, overflow-triggered
-      single-line collapse); (b) internal expression-operator spacing inside
-      `pre(...)`/`post(...)` (e.g. `b!=0` → `b != 0`, `r:r*b==a` →
-      `r: r * b == a`) — this does NOT come for free from any existing rule;
-      plain call-argument contents are currently left verbatim
-      (`bar(x>=0);` stays unspaced, confirmed by direct test), so `pre`/
-      `post` need their own dedicated internal-spacing pass, distinct from
-      `contract_assert`. **Correction found:** `contract_assert`'s spec text
-      ("formatted like any other function-call-shaped statement") means its
-      argument should stay verbatim like any other bare call statement, NOT
-      get `>=`-style spacing — `test/cpp_26ext_out.cpp` line 38
-      (`contract_assert(x >= 0);`) contradicts this and needs correcting to
-      `contract_assert(x>=0);` to match input/spec (ask before editing the
-      `_out.` fixture, per `STATE_COMMON.md`).
+- [x] §4 Contracts implemented: `CppSpecificRule.enforceContractClausePlacement`
+      (placement: `pre`/`post` are plain identifiers, not tokenizer keywords,
+      so detection is positional — an identifier `pre`/`post` whose previous
+      significant token is `)` (own or a preceding clause's) begins/continues
+      a group; each clause's own `(...)` content is re-spaced as a plain
+      expression via the new `spaceExpressionTokens` helper, with `post`'s
+      top-level `:` split out for tight-before/space-after rendering) and
+      `CppSpecificRule.enforceContractAssertSpacing` (reuses
+      `spaceExpressionTokens` for `contract_assert(cond)`'s argument — decided
+      this session to treat it as always-normalized despite the spec text's
+      "like any other function-call-shaped statement" wording, since ordinary
+      call-statement arguments are otherwise left verbatim elsewhere in this
+      codebase; `STYLE_CPP26.md` updated to describe this explicitly).
+      **Design decision (this session, user-confirmed):** a lone single
+      clause follows overflow-based inline/wrap like `requires`; a group of
+      **2+** clauses always wraps one-per-line regardless of fit — multiple
+      contract clauses are always easier to read one per line.
+      `STYLE_CPP26.md` §4 updated accordingly. Both new methods wired into
+      `FormatterCurly` (contract clause placement in the Phase 1 `isCOrCpp`+
+      `lang.isCpp` block right after `enforceRequiresClausePlacement`;
+      contract_assert spacing in the Phase 4 cosmetic-spacing `lang.isCpp`
+      block alongside `enforcePackIndexingSpacing`). `make test`: 101/101
+      forward + idempotency, zero regressions, `cpp_26ext_inp/out.cpp`
+      promoted to active in the Makefile (uncommented from `INP_FILES`).
+      `cpp_26_comments_inp.cpp` deliberately NOT yet promoted — it exercises
+      a comment sitting between the signature's `)` and the first `pre`
+      clause, which `enforceContractClausePlacement`'s replaced span would
+      currently silently drop (not yet handled); left as a known gap in the
+      Makefile's comment for a future session.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "CPP26" section (reflection pair sequenced after the §5 tokenizer
       validation pass, per that section's own note) and register in the

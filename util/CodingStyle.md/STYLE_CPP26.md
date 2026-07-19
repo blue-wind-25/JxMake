@@ -80,9 +80,11 @@ int divide(int a, int b)
   function signature, same as a wrapped `requires` clause.
 - `post(r: ...)` — the result-binding identifier (`r` here) and `:` follow normal
   identifier/colon spacing, no special padding.
-- `contract_assert(cond)` inside a function body is formatted like any other
-  function-call-shaped statement — STYLE.md §3.1's complexity rule decides
-  tight/loose for its argument.
+- `contract_assert(cond)` inside a function body gets the same
+  expression-operator spacing as a `pre`/`post` clause's argument (`x>=0` →
+  `x >= 0`) — unlike an ordinary call-statement argument (which this
+  project's formatter otherwise leaves verbatim), a contract condition is
+  always treated as a plain expression worth normalizing.
 
 ```cpp
 void process(int x) {
@@ -91,9 +93,13 @@ void process(int x) {
 }
 ```
 
-- If all contract clauses plus the signature fit within the line-length limit on one
-  line, they may stay inline, same overflow-triggered-wrap logic as
-  STYLE_CPP20.md's `requires` handling.
+- A lone single clause may stay inline if it fits within the line-length limit
+  together with the signature, same overflow-triggered-wrap logic as
+  STYLE_CPP20.md's `requires` handling. A group of **two or more** clauses
+  always wraps, one clause per line, regardless of whether the combined line
+  would fit — multiple contract clauses are always easier to read one per
+  line than packed onto a single line, unlike a single clause or a single
+  `requires` clause.
 
 ---
 

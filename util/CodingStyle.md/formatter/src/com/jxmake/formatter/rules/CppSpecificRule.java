@@ -825,6 +825,260 @@ public class CppSpecificRule {
         return out.toString();
     }
 
+    /**
+     * STYLE_CPP26.md §4: a trailing group of one or more `pre`/`post` contract clauses on a
+     * function signature -- comparable in shape to {@link #enforceRequiresClausePlacement}: each
+     * clause gets its own line at {@code baseIndent + indentUnit}, unless the whole group plus
+     * the signature fits on one physical line within {@link #lineLengthLimit}, in which case it
+     * stays inline. Unlike `requires`, `pre`/`post` are plain identifiers (not tokenizer
+     * keywords), so detection is purely positional: an identifier `pre` or `post` whose previous
+     * significant token is `)` (or the `)` of a preceding clause in the same group) begins/
+     * continues a group. `contract_assert` is handled separately, by
+     * {@link #enforceContractAssertSpacing} -- it is a plain call-statement, not a trailing
+     * signature clause, so it needs no placement logic, only the same expression-spacing
+     * treatment as a `pre`/`post` clause's argument.
+     *
+     * <p>Each clause's own parenthesized content is re-spaced as a plain expression (single space
+     * around every binary operator) since -- unlike ordinary call-statement arguments, which this
+     * codebase leaves verbatim -- STYLE_CPP26.md's own worked examples show `pre`/`post` contents
+     * always reformatted (`b!=0` to `b != 0`). For `post`, a top-level `:` (the result-binding
+     * identifier) is rendered tight-before/space-after (`r: r * b == a`), matching STYLE.md's
+     * ordinary identifier/colon spacing.
+     */
+    public String enforceContractClausePlacement(final List<Token> tokens) {
+        final List<int[]> spans = new ArrayList<>();
+        final List<String> renders = new ArrayList<>();
+        final Set<Integer> consumedCloseParens = new HashSet<>();
+
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (t.type != TokenType.IDENTIFIER || !("pre".equals(t.text) || "post".equals(t.text))) {
+                continue;
+            }
+            final int anchorCloseParenIdx = prevSignificantIndex(tokens, i);
+            if (anchorCloseParenIdx < 0 || !isPunct(tokens.get(anchorCloseParenIdx), ")")
+                    || consumedCloseParens.contains(anchorCloseParenIdx)) {
+                continue;
+            }
+
+            final List<String> clauseKinds = new ArrayList<>();
+            final List<int[]> clauseParenSpans = new ArrayList<>();
+            int cursor = i;
+            boolean bad = false;
+            while (true) {
+                final int openParenIdx = nextSignificantIndex(tokens, cursor);
+                if (openParenIdx < 0 || !isPunct(tokens.get(openParenIdx), "(")) {
+                    bad = true;
+                    break;
+                }
+                final int closeParenIdx = matchParenForward(tokens, openParenIdx);
+                if (closeParenIdx < 0) {
+                    bad = true;
+                    break;
+                }
+                if (hasCommentBetween(tokens, cursor, closeParenIdx) || anyFrozen(tokens, cursor, closeParenIdx)) {
+                    bad = true;
+                    break;
+                }
+                clauseKinds.add(tokens.get(cursor).text);
+                clauseParenSpans.add(new int[] { openParenIdx, closeParenIdx });
+                consumedCloseParens.add(closeParenIdx);
+
+                final int afterClose = nextSignificantIndex(tokens, closeParenIdx);
+                if (afterClose >= 0 && tokens.get(afterClose).type == TokenType.IDENTIFIER
+                        && ("pre".equals(tokens.get(afterClose).text) || "post".equals(tokens.get(afterClose).text))) {
+                    cursor = afterClose;
+                    continue;
+                }
+                break;
+            }
+            if (bad || clauseKinds.isEmpty()) {
+                continue;
+            }
+
+            // Unwind through any chained specifier (e.g. `noexcept(...)`) between the parameter
+            // list and the contract-clause group, same technique as
+            // enforceRequiresClausePlacement, to reach the declarator's own opening paren for a
+            // stable baseIndent.
+            int openParenForIndent = matchParenBackward(tokens, anchorCloseParenIdx);
+            while (openParenForIndent >= 0) {
+                final int beforeOpen = prevSignificantIndex(tokens, openParenForIndent);
+                if (beforeOpen >= 0 && isPunct(tokens.get(beforeOpen), ")")) {
+                    openParenForIndent = matchParenBackward(tokens, beforeOpen);
+                    continue;
+                }
+                if (beforeOpen >= 0 && tokens.get(beforeOpen).type == TokenType.KEYWORD
+                        && "noexcept".equals(tokens.get(beforeOpen).text)) {
+                    final int beforeSpecifier = prevSignificantIndex(tokens, beforeOpen);
+                    if (beforeSpecifier >= 0 && isPunct(tokens.get(beforeSpecifier), ")")) {
+                        openParenForIndent = matchParenBackward(tokens, beforeSpecifier);
+                        continue;
+                    }
+                }
+                break;
+            }
+            final int declLineStartIdx = openParenForIndent >= 0
+                    ? lineStartIndex(tokens, openParenForIndent)
+                    : lineStartIndex(tokens, anchorCloseParenIdx);
+            final String baseIndent = lineIndent(tokens, declLineStartIdx);
+
+            final List<String> clauseRenders = new ArrayList<>();
+            for (int c = 0; c < clauseKinds.size(); c++) {
+                final int[] pspan = clauseParenSpans.get(c);
+                final boolean isPost = "post".equals(clauseKinds.get(c));
+                final String inner = renderContractExpression(tokens, pspan[0] + 1, pspan[1] - 1, isPost);
+                clauseRenders.add(clauseKinds.get(c) + "(" + inner + ")");
+            }
+
+            final StringBuilder inlineJoined = new StringBuilder();
+            for (final String r : clauseRenders) {
+                inlineJoined.append(' ').append(r);
+            }
+            final String combined = baseIndent
+                    + collapseToOneLine(tokens, declLineStartIdx, anchorCloseParenIdx)
+                    + inlineJoined;
+
+            final String rendered;
+            if (clauseKinds.size() == 1 && combined.length() <= lineLengthLimit) {
+                rendered = inlineJoined.toString();
+            } else {
+                final StringBuilder wrapped = new StringBuilder();
+                for (final String r : clauseRenders) {
+                    wrapped.append('\n').append(baseIndent).append(indentUnit).append(r);
+                }
+                rendered = wrapped.toString();
+            }
+
+            final int lastCloseParenIdx = clauseParenSpans.get(clauseParenSpans.size() - 1)[1];
+            spans.add(new int[] { anchorCloseParenIdx + 1, lastCloseParenIdx + 1 });
+            renders.add(rendered);
+            i = lastCloseParenIdx;
+        }
+
+        if (spans.isEmpty()) {
+            return joinVerbatim(tokens);
+        }
+
+        final StringBuilder out = new StringBuilder();
+        int cursor = 0;
+        for (int s = 0; s < spans.size(); s++) {
+            final int[] span = spans.get(s);
+            appendRange(out, tokens, cursor, span[0]);
+            out.append(renders.get(s));
+            cursor = span[1];
+        }
+        appendRange(out, tokens, cursor, tokens.size());
+        return out.toString();
+    }
+
+    /**
+     * STYLE_CPP26.md §4: `contract_assert(cond)` gets the same expression-operator spacing as a
+     * `pre`/`post` clause's argument (single space around every binary operator, e.g.
+     * `x>=0` &rarr; `x >= 0`), reusing {@link #spaceExpressionTokens}. Detection is purely
+     * positional/textual: an identifier `contract_assert` immediately followed by `(`.
+     */
+    public String enforceContractAssertSpacing(final List<Token> tokens) {
+        final List<int[]> spans = new ArrayList<>();
+        final List<String> renders = new ArrayList<>();
+
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (t.type != TokenType.IDENTIFIER || !"contract_assert".equals(t.text)) {
+                continue;
+            }
+            final int openParenIdx = nextSignificantIndex(tokens, i);
+            if (openParenIdx < 0 || !isPunct(tokens.get(openParenIdx), "(")) {
+                continue;
+            }
+            final int closeParenIdx = matchParenForward(tokens, openParenIdx);
+            if (closeParenIdx < 0) {
+                continue;
+            }
+            if (hasCommentBetween(tokens, openParenIdx, closeParenIdx)
+                    || anyFrozen(tokens, openParenIdx, closeParenIdx)) {
+                continue;
+            }
+            if (closeParenIdx == openParenIdx + 1) {
+                continue;
+            }
+            final String inner = spaceExpressionTokens(tokens, openParenIdx + 1, closeParenIdx - 1);
+            spans.add(new int[] { openParenIdx + 1, closeParenIdx });
+            renders.add(inner);
+        }
+
+        if (spans.isEmpty()) {
+            return joinVerbatim(tokens);
+        }
+
+        final StringBuilder out = new StringBuilder();
+        int cursor = 0;
+        for (int s = 0; s < spans.size(); s++) {
+            final int[] span = spans.get(s);
+            appendRange(out, tokens, cursor, span[0]);
+            out.append(renders.get(s));
+            cursor = span[1];
+        }
+        appendRange(out, tokens, cursor, tokens.size());
+        return out.toString();
+    }
+
+    /** Re-spaces a contract clause's parenthesized content as a plain expression -- single space
+     *  around every significant token pair except tight-binding to `(`/`)`/`,` -- per
+     *  {@link #enforceContractClausePlacement}'s doc comment. For {@code isPost}, a top-level `:`
+     *  (paren-depth 0 within the range) splits the result-binding identifier from the expression,
+     *  rendered tight-before/space-after (`r: expr`); absent a top-level `:`, falls back to
+     *  spacing the whole range as one expression. */
+    private String renderContractExpression(final List<Token> tokens, final int fromInclusive,
+            final int toInclusive, final boolean isPost) {
+        int colonIdx = -1;
+        if (isPost) {
+            int depth = 0;
+            for (int i = fromInclusive; i <= toInclusive; i++) {
+                final Token t = tokens.get(i);
+                if (isPunct(t, "(") || isPunct(t, "[")) {
+                    depth++;
+                } else if (isPunct(t, ")") || isPunct(t, "]")) {
+                    depth--;
+                } else if (depth == 0 && isOp(t, ":")) {
+                    colonIdx = i;
+                    break;
+                }
+            }
+        }
+        if (colonIdx >= 0) {
+            final String name = spaceExpressionTokens(tokens, fromInclusive, colonIdx - 1);
+            final String expr = spaceExpressionTokens(tokens, colonIdx + 1, toInclusive);
+            return name + ": " + expr;
+        }
+        return spaceExpressionTokens(tokens, fromInclusive, toInclusive);
+    }
+
+    /** Single space between every pair of significant tokens in {@code [fromInclusive,
+     *  toInclusive]}, except no space after `(` and no space before `)`/`,`/`;` -- a minimal
+     *  expression pretty-printer for {@link #renderContractExpression}. */
+    private String spaceExpressionTokens(final List<Token> tokens, final int fromInclusive, final int toInclusive) {
+        final List<Token> sig = new ArrayList<>();
+        for (int i = fromInclusive; i <= toInclusive; i++) {
+            if (!isGapToken(tokens.get(i))) {
+                sig.add(tokens.get(i));
+            }
+        }
+        final StringBuilder sb = new StringBuilder();
+        for (int j = 0; j < sig.size(); j++) {
+            final Token cur = sig.get(j);
+            if (j > 0) {
+                final Token prev = sig.get(j - 1);
+                final boolean noSpace = isPunct(prev, "(") || isPunct(cur, ")")
+                        || isPunct(cur, ",") || isPunct(cur, ";");
+                if (!noSpace) {
+                    sb.append(' ');
+                }
+            }
+            sb.append(cur.text);
+        }
+        return sb.toString();
+    }
+
     /** The first `{`/`;` reached scanning forward from {@code requiresIdx}, or -1 if neither is
      *  found -- the trailing clause's own end (exclusive), per
      *  {@link #enforceRequiresClausePlacement}'s doc comment. */

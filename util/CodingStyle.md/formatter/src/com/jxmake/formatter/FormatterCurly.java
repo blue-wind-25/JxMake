@@ -197,6 +197,8 @@ public final class FormatterCurly extends FormatterCore {
             text = cppRule.enforceTemplateAngleBracketSpacing(tokenizer.apply(text));
             text = cppRule.enforcePackIndexingSpacing(tokenizer.apply(text));
             text = cppRule.enforceContractAssertSpacing(tokenizer.apply(text));
+            text = cppRule.enforceAttributeAndSpliceBracketPadding(tokenizer.apply(text));
+            text = cppRule.enforceReflectionOperatorSpacing(tokenizer.apply(text));
         }
         if (isCOrCpp && config.isFormatMacros()) {
             text = cppRule.alignMacroDefinitions(tokenizer.apply(text));

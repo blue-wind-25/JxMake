@@ -8,6 +8,7 @@
 package com.jxmake.formatter.rules;
 
 import com.jxmake.formatter.Lang;
+import com.jxmake.formatter.evaluator.ComplexityPaddingEvaluator;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
@@ -46,6 +47,11 @@ public class CppSpecificRule {
      *  (see the constructor), not a hardcoded literal, same bug class as
      *  `SwitchRule.deriveUnit`'s own former fallback. */
     private final String indentUnit;
+
+    /** Shared evaluator for {@link #enforceAttributeAndSpliceBracketPadding}'s tight/loose
+     *  decision -- {@code isLoose} already works unmodified on `[[ ]]`/`[: :]` interior content
+     *  since it only looks for nested PUNCT `(`/`[` tokens, and a call's own `(` is exactly that. */
+    private static final ComplexityPaddingEvaluator ATTRIBUTE_COMPLEXITY_EVALUATOR = new ComplexityPaddingEvaluator();
 
     public CppSpecificRule(final Lang lang) {
         this(lang, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
@@ -1020,6 +1026,172 @@ public class CppSpecificRule {
         }
         appendRange(out, tokens, cursor, tokens.size());
         return out.toString();
+    }
+
+    /**
+     * `[[ ... ]]` C++ attributes (STYLE_CPP20.md §4.4) and, mirroring the same rule, C++26 §5's
+     * `[: ... :]` splice brackets: tight/loose padding of the bracket's own interior depends on
+     * whether the content is "simple" (a bare name/value -- stays tight, e.g. `[[nodiscard]]`,
+     * `[:refl:]`) or contains a nested call or bracket (goes loose, e.g. `[[ assume(a >= 0) ]]`,
+     * `[: computeRefl(x) :]`), reusing {@link ComplexityPaddingEvaluator#isLoose} unmodified --
+     * it already only looks for nested PUNCT `(`/`[` tokens among the interior's significant
+     * tokens, and a call's own `(` (or a nested nested-bracket access) is exactly that, with no
+     * OP-vs-PUNCT distinction needed since `[[`/`]]`/`[:`/`:]` themselves are never *inside* the
+     * content being examined, only the two ends of it.
+     *
+     * <p>Prior to this method, empirical testing found `[[ ]]` attributes were left completely
+     * verbatim/unformatted by this formatter -- STYLE_CPP26.md §5's claim that splice brackets
+     * "mirror the existing JAR-verified `[[ assume(a >= 0) ]]` case" was aspirational, not actual
+     * prior behavior; this method is what makes that claim true for both bracket kinds at once,
+     * per explicit user decision when the discrepancy was found.
+     *
+     * <p>Only the immediate boundary gap (right after the open bracket, right before the close
+     * bracket) is rewritten to exactly one space (loose) or zero (tight); everything strictly
+     * between the first and last significant interior tokens is copied verbatim, so nested
+     * spacing (e.g. inside the call's own parens) is left to whatever other rule already governs
+     * it. A pair spanning multiple physical lines, containing a comment, or touching a frozen
+     * token is skipped entirely and left untouched, same posture as this file's other rewrites.
+     */
+    public String enforceAttributeAndSpliceBracketPadding(final List<Token> tokens) {
+        final int n = tokens.size();
+        final List<int[]> pairs = new ArrayList<>();
+        final Deque<Integer> stack = new ArrayDeque<>();
+        for (int i = 0; i < n; i++) {
+            final Token t = tokens.get(i);
+            if (isOp(t, "[[") || isOp(t, "[:")) {
+                stack.push(i);
+            } else if (isOp(t, "]]") || isOp(t, ":]")) {
+                if (!stack.isEmpty()) {
+                    final int openIdx = stack.pop();
+                    final String openText = tokens.get(openIdx).text;
+                    final boolean matches = ("[[".equals(openText) && "]]".equals(t.text))
+                            || ("[:".equals(openText) && ":]".equals(t.text));
+                    if (matches) {
+                        pairs.add(new int[] { openIdx, i });
+                    }
+                }
+            }
+        }
+        if (pairs.isEmpty()) {
+            return joinVerbatim(tokens);
+        }
+
+        final List<int[]> spans = new ArrayList<>();
+        final List<String> renders = new ArrayList<>();
+        for (final int[] pair : pairs) {
+            final int openIdx = pair[0];
+            final int closeIdx = pair[1];
+            if (closeIdx <= openIdx + 1) {
+                continue;
+            }
+            if (hasCommentBetween(tokens, openIdx, closeIdx) || anyFrozen(tokens, openIdx, closeIdx + 1)
+                    || hasNewlineBetween(tokens, openIdx, closeIdx)) {
+                continue;
+            }
+            final List<Token> content = new ArrayList<>();
+            for (int i = openIdx + 1; i < closeIdx; i++) {
+                if (!isGapToken(tokens.get(i))) {
+                    content.add(tokens.get(i));
+                }
+            }
+            if (content.isEmpty()) {
+                continue;
+            }
+            final boolean loose = ATTRIBUTE_COMPLEXITY_EVALUATOR.isLoose(content);
+            final String desiredPad = loose ? " " : "";
+
+            final int firstSigIdx = nextSignificantIndex(tokens, openIdx);
+            final int lastSigIdx = prevSignificantIndex(tokens, closeIdx);
+            final StringBuilder render = new StringBuilder();
+            render.append(tokens.get(openIdx).text);
+            render.append(desiredPad);
+            appendRange(render, tokens, firstSigIdx, lastSigIdx + 1);
+            render.append(desiredPad);
+            render.append(tokens.get(closeIdx).text);
+            spans.add(new int[] { openIdx, closeIdx + 1 });
+            renders.add(render.toString());
+        }
+
+        if (spans.isEmpty()) {
+            return joinVerbatim(tokens);
+        }
+
+        final StringBuilder out = new StringBuilder();
+        int cursor = 0;
+        for (int s = 0; s < spans.size(); s++) {
+            final int[] span = spans.get(s);
+            appendRange(out, tokens, cursor, span[0]);
+            out.append(renders.get(s));
+            cursor = span[1];
+        }
+        appendRange(out, tokens, cursor, tokens.size());
+        return out.toString();
+    }
+
+    /**
+     * STYLE_CPP26.md §5: `^^` binds tight to its operand, no space, same as C++'s existing unary
+     * `*`/`&` prefix-operator spacing (STYLE_C_CPP.md). Detection is purely positional: an OP
+     * token `^^` immediately followed (modulo gap tokens) by any significant token collapses the
+     * gap between them to zero width, provided the gap has no comment/newline and neither side is
+     * frozen -- same guard posture as every other rewrite in this file. `^^` has no meaningful
+     * "before" side to also tighten (it is always the reflection operator's own leading token, not
+     * something that follows an operand), so only the trailing gap is touched.
+     */
+    public String enforceReflectionOperatorSpacing(final List<Token> tokens) {
+        final int n = tokens.size();
+        final Set<Integer> reflectionOps = new HashSet<>();
+        for (int i = 0; i < n; i++) {
+            if (isOp(tokens.get(i), "^^")) {
+                reflectionOps.add(i);
+            }
+        }
+        if (reflectionOps.isEmpty()) {
+            return joinVerbatim(tokens);
+        }
+
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        Token lastSignificant = null;
+        boolean lastWasReflectionOp = false;
+        int i = 0;
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            final boolean gapHasBlocker = hasCommentOrNewline(gap) || t.frozen
+                    || (lastSignificant != null && lastSignificant.frozen);
+
+            if (lastWasReflectionOp && !gapHasBlocker) {
+                gap.clear();
+            } else {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+                gap.clear();
+            }
+
+            out.append(t.text);
+            lastSignificant = t;
+            lastWasReflectionOp = reflectionOps.contains(i);
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    private boolean hasNewlineBetween(final List<Token> tokens, final int fromExclusive, final int toExclusive) {
+        for (int i = fromExclusive + 1; i < toExclusive; i++) {
+            if (tokens.get(i).type == TokenType.NEWLINE) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Re-spaces a contract clause's parenthesized content as a plain expression -- single space

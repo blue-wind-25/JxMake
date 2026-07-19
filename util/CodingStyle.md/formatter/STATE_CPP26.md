@@ -189,7 +189,50 @@ formal blocked Open Question here since real implementation hasn't started.
       complexity) — that rule-implementation step remains a separate,
       not-yet-started piece of work, gated on this tokenizer pass being
       done, which it now is.
-- [x] §1 Pack indexing implemented: `CppSpecificRule.enforcePackIndexingSpacing`
+- [x] §5 tight/loose padding rules implemented this session, in
+      `CppSpecificRule.java` + `FormatterCurly.java`'s Phase 4 block
+      (`lang.isCpp`-gated), with one correction to STYLE_CPP26.md itself
+      along the way. Before writing any code, empirically tested current
+      JAR behavior on `[[assume(a>=0)]]`/`[[nodiscard]]` and found
+      STYLE_CPP26.md §5's claim that splice-bracket padding "mirrors the
+      existing JAR-verified `[[ assume(a >= 0) ]]` case" was **false** —
+      `[[ ]]` attributes were left completely verbatim/unformatted, no
+      tight/loose rule existed for them at all (confirmed with the user via
+      `AskUserQuestion`: the coincidental appearance of interior padding in
+      an earlier smoke test came from the unrelated generic paren-complexity
+      rule firing on `assume(...)`'s own `(...)`, not from any
+      attribute-aware logic). Per the user's explicit decision (implement
+      both together if the precedent was coincidental, i.e. not truly
+      pre-existing), added:
+      - `CppSpecificRule.enforceAttributeAndSpliceBracketPadding` — new
+        method handling both `[[ ]]` and `[: :]` with one shared
+        implementation: forward-scans for matched OP-token pairs (a small
+        stack keyed on exact open/close text so `[[`/`]]` and `[:`/`:]`
+        pairs are never cross-matched), then for each pair reuses
+        `ComplexityPaddingEvaluator.isLoose` unmodified on the interior's
+        significant tokens to decide tight (no space) vs. loose (single
+        space) — `isLoose` already only checks for nested PUNCT `(`/`[`
+        tokens, and a call's own `(` is exactly that, so no OP-vs-PUNCT
+        change to the evaluator was needed. Only the immediate boundary gap
+        on each side is rewritten; everything else inside (e.g. the call's
+        own interior spacing) is left verbatim to whatever other rule
+        already governs it. Pairs spanning multiple physical lines,
+        containing a comment, or touching a frozen token are skipped
+        entirely (untouched), same guard posture as every other rewrite in
+        this file.
+      - `CppSpecificRule.enforceReflectionOperatorSpacing` — new method,
+        same gap-buffering technique as `enforcePackIndexingSpacing`:
+        collapses the gap after every `^^` OP token to zero width (subject
+        to the same comment/newline/frozen guards), giving `^^SomeType` no
+        space between the operator and its operand.
+      Verified against hand-written snippets:
+      `[[assume(a>=0)]]`/`[[ assume(a>=0) ]]` → `[[ assume(a>=0) ]]` (loose,
+      call inside); `[[nodiscard]]`/`[[ nodiscard ]]` → `[[nodiscard]]`
+      (tight, bare); `[:refl:]` stays tight; `[:computeRefl(x):]`/
+      `[: computeRefl(x) :]` → `[: computeRefl(x) :]` (loose, call inside);
+      `[:arr[0]:]` → `[: arr[0] :]` (loose, nested bracket); `^^SomeType`
+      stays tight (no space introduced or removed). `make test`: 102/102
+      forward + idempotency, zero regressions. `CppSpecificRule.enforcePackIndexingSpacing`
       (new method, called from `FormatterCurly`'s Phase 4 cosmetic-spacing
       block, `lang.isCpp`-gated), collapses the gaps on both sides of an
       `...` token whenever it is immediately followed by `[` (scoped to that

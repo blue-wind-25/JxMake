@@ -653,6 +653,54 @@ attempted this session, future work:
       `Declaration`/`ColumnGrid` parser modeled on
       `KotlinDeclarationAlignmentRule`/`KotlinSignatureRule` was written at
       any point this session.
+      **Checkpoint 10 done -- §4 (template literal `${...}` interpolation
+      spacing) only.** New `JsTsSpecificRule.enforceTemplateLiteralInterpolationSpacing`
+      (`isJs || isTs`-gated): for every non-frozen backtick STRING token, a
+      hand-rolled scanner (`findInterpolationSpans`, mirroring
+      `TokenizerCurly.skipTemplateInterpolation`'s own nesting rules -- brace
+      depth counting with `"`/`'`/`` ` ``-quoted spans skipped as opaque units
+      via `skipQuotedSpan`, so a `}` inside a nested string/template doesn't
+      corrupt depth counting) finds every top-level `${...}` span in the
+      literal's raw text; each interior substring is re-tokenized in
+      isolation via a fresh `TokenizerCurly` for the same language and
+      re-joined via `MiscRuleCurly.renderTokens` (accessible directly --
+      `protected` + same package, `com.jxmake.formatter.rules` -- no new
+      spacing logic invented, reuses the same generic tight/loose
+      token-adjacency rules every other rendering path already uses).
+      Conservative bailout matching this file's other passes: a span
+      containing a NEWLINE, a comment, or a frozen token is left
+      byte-for-byte untouched (`reformatInterpolationInterior` returns
+      `null`), as is an empty/blank interior. **Documented, deliberate scope
+      limit:** a nested template literal inside an interpolation (`` `${`inner
+      ${x}`}` ``) is treated as one opaque quoted span by `skipQuotedSpan`
+      for span-finding purposes -- its own interior `${...}` is not
+      recursively reformatted this pass (doubly-nested interpolation is rare
+      enough in practice that recursion wasn't judged worth the added risk
+      this session; a future checkpoint could recurse `rewriteTemplateLiteral`
+      into any nested-backtick span found by `findInterpolationSpans` if this
+      ever surfaces as a real gap). Wired into `FormatterCurly` Phase 4,
+      directly after the §3/§7 spread/optional-chaining block, inside the
+      same `if (lang.isJs || lang.isTs)` guard. Verified via a standalone
+      harness (`FormatterCore.forLanguage("js")`/`"ts"`): `` `Hello,
+      ${user.name}!` `` stays untouched (already-correct spacing);
+      `` `Sum: ${a+b}` `` → `` `Sum: ${a + b}` ``; deliberately over-spaced
+      `` `Val: ${  a  +  b  }` `` → `` `Val: ${a + b}` ``; a method-call
+      interpolation (`` `Nested ${obj.get('x')}` ``) stays untouched (already
+      correct, confirms call/dot-access tight-joining rules carry over
+      correctly through `renderTokens`); a literal with no interpolation at
+      all stays untouched; two adjacent interpolations in one literal
+      (`` `${a}${b+c}` ``) both correctly spaced independently; a quoted `}`
+      inside an interpolation's own string literal (`` `str with
+      ${a==="}"?1:2}` ``) does not prematurely end the span -- correctly
+      renders to `` `str with ${a === "}" ? 1 : 2}` ``; a multi-line
+      interpolation (`` `multi ${\n  a + b\n}` ``) is correctly left
+      byte-for-byte untouched (NEWLINE-inside-interpolation bailout).
+      Round-trip (harness round1 → round2) confirmed idempotent on every
+      case above. `make` compiles clean; `make test`: 106/106 forward +
+      106/106 idempotency, zero regressions.
+      **Next up:** §5 (Allman brace style for named functions/class methods,
+      with arrow/getter-setter/empty-body K&R exceptions) and §6 (arrow
+      function spacing/brace-style/parameter-parens).
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "JavaScript"/"TypeScript" sections (split by extension since TS-only
       constructs can't live in `.js`). Done: `js_combined_inp/out.js`,

@@ -230,6 +230,9 @@ public final class FormatterCurly extends FormatterCore {
             // same flat cosmetic-spacing treatment as Kotlin's analogous operators above.
             text = jsTsRule.enforceSpreadRestSpacing(tokenizer.apply(text));
             text = jsTsRule.enforceOptionalChainingSpacing(tokenizer.apply(text));
+            // STYLE_JS_TS.md §4: template literal `${...}` interpolation gets normal expression
+            // spacing -- the literal's own raw text otherwise stays byte-for-byte preserved.
+            text = jsTsRule.enforceTemplateLiteralInterpolationSpacing(tokenizer.apply(text));
         }
         if (lang.isTs) {
             // STYLE_JS_TS.md §11: `: type` colon spacing (declarator/parameter/return-type),

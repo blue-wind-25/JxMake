@@ -8,6 +8,7 @@
 package com.jxmake.formatter.rules;
 
 import com.jxmake.formatter.Lang;
+import com.jxmake.formatter.tokenizer.TokenizerCurly;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
@@ -445,6 +446,179 @@ public final class JsTsSpecificRule {
 
     private boolean isNullishCoalesce(final Token t) {
         return t != null && (isOp(t, "??") || isOp(t, "??="));
+    }
+
+    // ── §4 Template literal `${...}` interpolation spacing ───────────────────────────
+    /**
+     * STYLE_JS_TS.md §4: a template literal's raw text is preserved exactly as written (already
+     * satisfied by the tokenizer emitting the whole backtick literal, including every {@code
+     * ${...}} interpolation, as one opaque STRING token -- see {@code
+     * TokenizerCurly.emitTemplateLiteral}'s own javadoc), but each {@code ${...}} interpolation's
+     * *interior expression* gets normal expression spacing (STYLE.md §3.1), same as Kotlin's own
+     * {@code ${...}} string-template interpolation is described as an analog for (though Kotlin's
+     * own interpolation is, in this codebase, *also* left opaque -- there is no existing precedent
+     * to reuse here, this is new territory). Approach: find every top-level {@code ${...}} span in
+     * the literal's raw text (a hand-rolled scanner mirroring the tokenizer's own {@code
+     * skipTemplateInterpolation} nesting rules -- brace depth, nested quoted strings, and a nested
+     * backtick template treated as one opaque quoted span, not reformatted itself this pass), then
+     * for each span: re-tokenize just the interior substring in isolation via a fresh {@code
+     * TokenizerCurly} for the same language, and re-join its significant tokens via {@code
+     * MiscRuleCurly.renderTokens} (accessible here since {@code protected} + same package,
+     * {@code com.jxmake.formatter.rules}) -- the same generic tight/loose token-adjacency spacing
+     * every other rendering path in this codebase already uses (operators, calls, generics, etc.),
+     * with no new spacing logic invented for this pass. Conservative bailout, matching every other
+     * pass in this file: a span containing a NEWLINE or comment token (multi-line or commented
+     * interpolation), a frozen token, or a tokenizer-rejected fragment is left byte-for-byte
+     * untouched rather than guessed at. A nested template literal inside an interpolation
+     * (`` `${`inner ${x}`}` ``) is treated as opaque quoted text for span-finding purposes and its
+     * own interior is not recursively reformatted this pass -- a documented, narrow scope limit,
+     * not attempted given how rare doubly-nested interpolation is in practice.
+     */
+    public String enforceTemplateLiteralInterpolationSpacing(final List<Token> tokens) {
+        if (!lang.isJs && !lang.isTs) {
+            return render(tokens, new HashMap<>());
+        }
+        final Map<Integer, String> overrides = new HashMap<>();
+        final TokenizerCurly innerTokenizer = new TokenizerCurly(lang);
+        final MiscRuleCurly misc = new MiscRuleCurly(lang, false, false);
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.STRING && !t.frozen && t.text.length() >= 2
+                    && t.text.charAt(0) == '`') {
+                final String rewritten = rewriteTemplateLiteral(t.text, innerTokenizer, misc);
+                if (rewritten != null && !rewritten.equals(t.text)) {
+                    overrides.put(i, rewritten);
+                }
+            }
+        }
+        return render(tokens, overrides);
+    }
+
+    /** Finds every top-level `${...}` span in {@code text} (a whole backtick-delimited template
+     *  literal, opening/closing backtick included) and re-renders each interior expression via
+     *  {@code renderTokens}, splicing the results back into the literal's raw text. Returns
+     *  {@code text} unchanged if there are no interpolations, or if any span's own interior fails
+     *  its conservative reformat check (see {@link #reformatInterpolationInterior}). */
+    private String rewriteTemplateLiteral(final String text, final TokenizerCurly innerTokenizer,
+            final MiscRuleCurly misc) {
+        final List<int[]> spans = findInterpolationSpans(text);
+        if (spans.isEmpty()) {
+            return text;
+        }
+        final StringBuilder out = new StringBuilder();
+        int last = 0;
+        for (final int[] span : spans) {
+            final int start = span[0];
+            final int end = span[1];
+            out.append(text, last, start);
+            final String interior = text.substring(start, end);
+            final String rewritten = reformatInterpolationInterior(interior, innerTokenizer, misc);
+            out.append(rewritten != null ? rewritten : interior);
+            last = end;
+        }
+        out.append(text.substring(last));
+        return out.toString();
+    }
+
+    /** Scans a template literal's raw text (opening/closing backtick included) for every
+     *  top-level `${...}` interpolation, returning each as a {@code [interiorStart, interiorEnd)}
+     *  index pair (excluding the `${`/`}` delimiters themselves). Mirrors {@code
+     *  TokenizerCurly.skipTemplateInterpolation}'s nesting rules: `{`/`}` depth counting, with
+     *  nested `"`/`'`/`` ` `` quoted spans skipped as opaque units so an interior brace inside a
+     *  string literal (or a nested template) doesn't corrupt depth counting. */
+    private List<int[]> findInterpolationSpans(final String text) {
+        final List<int[]> spans = new ArrayList<>();
+        final int end = text.length() - 1; // exclude the closing backtick
+        int pos = 1; // skip the opening backtick
+        while (pos < end) {
+            final char c = text.charAt(pos);
+            if (c == '\\') {
+                pos += 2;
+                continue;
+            }
+            if (c == '$' && pos + 1 < end && text.charAt(pos + 1) == '{') {
+                final int interiorStart = pos + 2;
+                int depth = 1;
+                int p = interiorStart;
+                while (p < end && depth > 0) {
+                    final char cc = text.charAt(p);
+                    if (cc == '\\') {
+                        p += 2;
+                        continue;
+                    } else if (cc == '{') {
+                        depth++;
+                        p++;
+                    } else if (cc == '}') {
+                        depth--;
+                        p++;
+                    } else if (cc == '"' || cc == '\'' || cc == '`') {
+                        p = skipQuotedSpan(text, p, end, cc);
+                    } else {
+                        p++;
+                    }
+                }
+                if (depth == 0) {
+                    spans.add(new int[] { interiorStart, p - 1 });
+                }
+                pos = p;
+                continue;
+            }
+            pos++;
+        }
+        return spans;
+    }
+
+    /** Skips a quoted span (`"`/`'`/`` ` ``-delimited, {@code quote} is the delimiter char)
+     *  starting at {@code p} (the opening delimiter itself), returning the index right after its
+     *  closing delimiter -- or {@code boundIdx} if unterminated within that bound. A nested
+     *  backtick template's own interior (including any of its own `${...}`) is treated as opaque
+     *  by this same skip -- not reformatted, see this section's own javadoc scope note. */
+    private int skipQuotedSpan(final String text, final int p, final int boundIdx, final char quote) {
+        int i = p + 1;
+        while (i < boundIdx) {
+            final char c = text.charAt(i);
+            if (c == '\\') {
+                i += 2;
+                continue;
+            }
+            if (c == quote) {
+                return i + 1;
+            }
+            i++;
+        }
+        return boundIdx;
+    }
+
+    /** Re-tokenizes {@code interior} (a `${...}` interpolation's raw interior substring) in
+     *  isolation and re-joins its significant tokens via {@code renderTokens}'s ordinary
+     *  tight/loose adjacency rules. Returns {@code null} (caller leaves the original interior
+     *  untouched) if the interior is empty/blank, contains a NEWLINE or comment token (multi-line
+     *  or commented interpolation -- out of this flat pass's scope), or contains a frozen token. */
+    private String reformatInterpolationInterior(final String interior, final TokenizerCurly innerTokenizer,
+            final MiscRuleCurly misc) {
+        if (interior.trim().isEmpty()) {
+            return null;
+        }
+        final List<Token> innerTokens;
+        try {
+            innerTokens = innerTokenizer.tokenize(interior);
+        } catch (final RuntimeException e) {
+            return null;
+        }
+        final List<Token> significant = new ArrayList<>();
+        for (final Token t : innerTokens) {
+            if (t.type == TokenType.NEWLINE || isComment(t) || t.frozen) {
+                return null;
+            }
+            if (t.type == TokenType.WHITESPACE) {
+                continue;
+            }
+            significant.add(t);
+        }
+        if (significant.isEmpty()) {
+            return null;
+        }
+        return misc.renderTokens(significant);
     }
 
     // ── §11.2 Class field modifier-priority table ────────────────────────────────────

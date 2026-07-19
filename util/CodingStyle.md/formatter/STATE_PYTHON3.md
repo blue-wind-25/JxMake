@@ -139,6 +139,15 @@ covers.
 
 ---
 
+## Tools/compiler used
+
+Use:
+    `PYTHONDONTWRITEBYTECODE=1 python3.12 -m py_compile <file.py> [file2.py ...]`
+or:
+    `PYTHONDONTWRITEBYTECODE=1 python3.6 -m py_compile <file.py> [file2.py ...]`
+
+---
+
 ## Class Scoping (post Core/Curly/Indent/Tags refactor)
 
 Python3 is the first real implementation to land in the `*Indent` skeleton

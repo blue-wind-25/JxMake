@@ -9,9 +9,17 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 ####################################################################################################
 
 Synchronize `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`
-to update the state of the newly implemented languages.
+to update the state of the implemented languages.
+
+Ensure the languange order in the doc, help string, etc. is:
+    c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3
+Adjust active vs scaffold-only as needed. Also ensure jsx and tsx is after js and ts.
 
 Compact (use one sub-agent) all newly touched `STATE_*.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
+
+Compact (use one sub-agent) `STATE_JS_TS.md`.
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.
 
@@ -24,24 +32,17 @@ Compact (use one sub-agent) the narration in `test/README.txt`:
     to   `real_code_regressions_67_inp/out.hpp`
 [DONE]
 
-Make the languange order in the doc, help string, etc. to:
-    c|cpp|java|kotlin|json|json5|css|yaml|toml|xml|html5|js|ts|python3
-    c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3
-Adjust active vs scaffold-only as needed. Also ensure jsx|tsx is after js|ts
-
 
 
 Continue with the implementation of the JS/TS formatter.
 Don't implement it all at once, make check points to ensure the formatter source code is clean and compiles well.
 Use one sub-agent if needed, the sub-agent can launch up to two more research sub-sub-agents.
 
-Remove the temporary `JXM_CFMT_DIS` directives from the HTML test fixtures and re-run them all again.
-
+Continue with the implementation of the Python3 formatter.
 Implement the Python3 formatter.
 Don't implement it all at once, make check points to ensure the formatter source code is clean and compiles well.
 Use one sub-agent if needed, the sub-agent can launch up to two more research sub-sub-agents.
 
-Continue with the implementation of the Python3 formatter.
 
 
 I have run `make test` and all test passed.
@@ -134,6 +135,21 @@ needs its own corpus, once its tokenizer support pass lands:
     `github.com/simdjson/experimental_json_builder`
     `github.com/stephenberry/glaze`
     `ryanjk5.github.io/posts/rjk-duck` (blog post, not a repo)
+----------------------------------------------------------------------------------------------------
+
+Continue with JS/TS work (search in /tmp first, clone the repo if not found; use one sub-agent,
+the sub-agent can launch up to two more research sub-sub-agents):
+...
+When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
+already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
+recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
+    `github.com/nodejs/node`          [large, mixed-style JS core + tooling]
+    `github.com/expressjs/express`    [smaller, idiomatic, widely-read real-world JS]
+    `github.com/lodash/lodash`        [dense functional-style JS, bracket-padding stress test]
+    `github.com/microsoft/TypeScript` [the compiler itself; canonical, heavily-typed real TS at scale]
+    `github.com/angular/angular`      [large, idiomatic, decorator-heavy real TS]
+    `github.com/nestjs/nest`          [decorator/generic-heavy backend TS, type-annotation alignment]
+    `github.com/vuejs/core`           [modern TS, heavy generics and type-level code]
 
 ----------------------------------------------------------------------------------------------------
 
@@ -152,22 +168,6 @@ NOTE: depends on CSS support above and JS/TS support (separate job) both being a
 before the `<script>`/`<style>` embedded-content dispatcher can be exercised end-to-end.
 
 ----------------------------------------------------------------------------------------------------
-----------------------------------------------------------------------------------------------------
-
-Continue with JS/TS work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
-...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-    `github.com/nodejs/node`          [large, mixed-style JS core + tooling]
-    `github.com/expressjs/express`    [smaller, idiomatic, widely-read real-world JS]
-    `github.com/lodash/lodash`        [dense functional-style JS, bracket-padding stress test]
-    `github.com/microsoft/TypeScript` [the compiler itself; canonical, heavily-typed real TS at scale]
-    `github.com/angular/angular`      [large, idiomatic, decorator-heavy real TS]
-    `github.com/nestjs/nest`          [decorator/generic-heavy backend TS, type-annotation alignment]
-    `github.com/vuejs/core`           [modern TS, heavy generics and type-level code]
-
 ----------------------------------------------------------------------------------------------------
 
 Continue with Python3 work (search in /tmp first, clone the repo if not found; use one sub-agent,

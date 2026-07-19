@@ -9,6 +9,7 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 ####################################################################################################
 
 Synchronize `README.md` and `../README.txt` to update the state of the newly implemented languages.
+[DONE - FOR NOW]
 
 Compact (use one sub-agent) `STATE_COMMON.md`, `STATE_C_CPP_JAVA.md` and `STATE_KOTLIN.md`.
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
@@ -17,12 +18,22 @@ Be careful not to lose important information, especially the `**Tools/compiler u
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_62_inp/out.kt`
     to   `real_code_regressions_67_inp/out.hpp`
+[DONE]
 
 
+Now, implement the HTML formatter. The test fixtures will need temporary `JXM_CFMT_DIS` on the JS block.
+The directives must be removed later when the JS formatter is later implemented. Then the HTML test
+fixtures must also be re-run again. Put a note about this in `STATE_DATA_FORMATS.md` or `STATE_JS_TS.md`.
+Don't implement all at once, make check points to ensure the formatter source code is clean and compiles well.
+Use one sub-agent if needed, the sub-agent can launch up to two more research sub-sub-agents.
 
-Implement the C++26 formatter.
 Implement the JS/TS formatter.
-Implement the HTML formatter.
+fixtures must also be re-run again. Put a note about it in `STATE_DATA_FORMATS.md` or `STATE_JS_TS.md`.
+Use one sub-agent if needed, the sub-agent can launch up to two more research sub-sub-agents.
+
+Implement the Python3 formatter.
+fixtures must also be re-run again. Put a note about it in `STATE_DATA_FORMATS.md` or `STATE_JS_TS.md`.
+Use one sub-agent if needed, the sub-agent can launch up to two more research sub-sub-agents.
 
 
 
@@ -100,7 +111,6 @@ recompile test allowed. Try reformat with `indent-size = 2` if the idempotency t
     `github.com/w3c/svgwg`
 
 ----------------------------------------------------------------------------------------------------
-----------------------------------------------------------------------------------------------------
 
 Continue with C++26 work (search in /tmp first, clone the repo if not found; use one sub-agent,
 the sub-agent can launch up to two more research sub-sub-agents):
@@ -118,6 +128,7 @@ needs its own corpus, once its tokenizer support pass lands:
     `github.com/stephenberry/glaze`
     `ryanjk5.github.io/posts/rjk-duck` (blog post, not a repo)
 
+----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 
 Continue with JS/TS work (search in /tmp first, clone the repo if not found; use one sub-agent,

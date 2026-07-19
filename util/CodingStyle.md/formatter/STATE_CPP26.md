@@ -326,18 +326,21 @@ formal blocked Open Question here since real implementation hasn't started.
         doesn't reindent (see `STATE_COMMON.md`'s Architectural TODOs), so
         fixed the input to already carry the indentation, same convention
         as `cpp26_core_inp.cpp`/`cpp26_reflection_inp.cpp`.
-      - **Found, but explicitly left unfixed (belongs to the C/C++/Java
-        job, not this one):** `DeclarationAlignmentRuleCurly.java:426`
-        (`line += " " + d.trailingComment.text;`) always renders a trailing
-        same-line comment with exactly one space, discarding the original
-        gap width — reproduced with a plain structured binding,
-        `auto [_, count] = getResult();  // comment` (two spaces in,
-        collapsed to one out), no C++26 syntax involved at all. Everywhere
-        else in the codebase preserves original trailing-comment spacing
-        verbatim. Per user decision, the fixture's expected output was
-        adjusted to match this real (buggy) collapsed-to-one-space
-        behavior rather than fixing the bug under this job — flagging here
-        for `STATE_C_CPP_JAVA.md` to pick up separately.
+      - **Investigated, not a bug:** structured bindings collapsing a
+        trailing same-line comment's original gap to a single space
+        (`auto [_, count] = getResult();  // comment` -> one space out),
+        via `DeclarationAlignmentRuleCurly.java`'s Declaration-alignment
+        grid rendering path. Initially looked like a one-line bug since
+        plain statements (e.g. `using X = ...;  // comment`) preserve
+        original spacing verbatim outside that path. Attempted a fix
+        (widen to two spaces / preserve original gap) and reverted it: it
+        broke five already-passing fixtures (`c_comments`, `cpp_comments`,
+        `java_comments`, `cpp_combined`, plus this one) that all expect
+        exactly one space before a trailing comment in this grid path
+        regardless of source gap width — confirming single-space
+        normalization here is established, intentional behavior, not a
+        defect. No code change; fixture's expected output stays
+        single-spaced to match correct real behavior.
       Promoted to active in the Makefile. `make test`: 104/104 forward +
       idempotency, zero regressions.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s

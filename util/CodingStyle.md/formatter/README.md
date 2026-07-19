@@ -274,8 +274,7 @@ qualified name, not the alias.
 Some projects run `.java` files through a C-macro preprocessor (e.g. PCPP-style)
 before compilation, as a poor man's template mechanism. `#define`/`#ifdef`/`#endif`/etc.
 lines are recognized and passed through untouched, same as in `.c`/`.cpp`/`.h` files,
-including a directive placed immediately before a method definition (previously a
-known gap; see `test/java_preprocessor_method_inp/out.java`).
+including a directive placed immediately before a method definition.
 
 ---
 
@@ -390,6 +389,10 @@ third-party client only needs to speak this HTTP protocol, not link against the 
 ---
 
 ## Known Limitations
+
+- **General scope‑depth reindentation is not supported.** As a result, jxmake‑code‑formatter
+  cannot properly format badly indented machine‑generated code, obfuscated code, or code
+  copy‑pasted from emails and forums that lost their indentation.
 
 - **Non-idempotent switch-case re-indent on internally-inconsistent generated source.**
   `SwitchRule.applyNonInlineCaseIndent` shifts every line of a `case` body by one delta

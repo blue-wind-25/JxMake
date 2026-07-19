@@ -162,10 +162,33 @@ formal blocked Open Question here since real implementation hasn't started.
       smoke check exists to catch — safe to proceed to the real tokenizer
       pass below whenever it's picked up; nothing here needs escalating
       beyond what that pass already targets.
-- [ ] Tokenizer support pass for §5 Reflection (`^^`, `[:`, `:]`) — new
-      `MULTI_CHAR_OPS` entries, longest-prefix-first ordering, full
-      existing C/C++/Java/Kotlin regression suite re-run for zero
-      regressions, before trusting any §5 rule.
+- [x] Tokenizer support pass for §5 Reflection done: `TokenizerCurly.java`'s
+      `MULTI_CHAR_OPS` array gained `"^^"`, `"[:"`, `":]"` entries (none is a
+      strict prefix of any other existing entry, so no new ordering
+      constraint among them). `":]"` reaches `emitOperator()` via the
+      dispatch loop's existing default case (any unhandled leading char
+      falls there) with no dispatch change needed; `"[:"` needed a new
+      dispatch branch (`c == '[' && peek(1) == ':' && lang.isCpp`) placed
+      before the generic open-bracket branch, since a leading `[` is
+      otherwise always intercepted into `emitOpenBracket` before ever
+      reaching `emitOperator()` — gated on `lang.isCpp` only (not shared
+      with C/Java/Kotlin) since this dispatch branch changes tokenization
+      behavior for every leading `[`, unlike the two `MULTI_CHAR_OPS`-only
+      additions which are inert no-ops in practice for other languages
+      (`^^`/`:]` as adjacent characters essentially never occur in real
+      C/Java/Kotlin source). Verified fixed against the same `/tmp`
+      smoke snippet from the prior smoke-check entry above: `^^SomeType` no
+      longer splits into `^ ^ SomeType`; `[:r:]` and `[: computeRefl(x) :]`
+      now render with the *same* consistent interior-padding pattern instead
+      of diverging. `make test`: 102/102 forward + idempotency, zero
+      regressions. Note: this is tokenizer support only — no tight/loose
+      padding rule or `^^`-binds-tight-to-operand rule has been implemented
+      for §5 yet (still deliberately provisional/draft per Scope §5; the
+      snippet above still renders `^^ SomeType` with a space, and splice
+      brackets still get generic loose padding regardless of content
+      complexity) — that rule-implementation step remains a separate,
+      not-yet-started piece of work, gated on this tokenizer pass being
+      done, which it now is.
 - [x] §1 Pack indexing implemented: `CppSpecificRule.enforcePackIndexingSpacing`
       (new method, called from `FormatterCurly`'s Phase 4 cosmetic-spacing
       block, `lang.isCpp`-gated), collapses the gaps on both sides of an

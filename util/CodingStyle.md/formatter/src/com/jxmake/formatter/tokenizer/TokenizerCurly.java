@@ -111,12 +111,20 @@ public class TokenizerCurly extends TokenizerCore {
     // against `square/okio`: `if (next !== this)` was lexed as the two tokens "!=" and "="
     // instead of one "!==" token, which a later paren-tightening pass then re-spaced into the
     // invalid `!= =` (RDD_KEY_150) -- a pure tokenizer gap, not a rendering-pass bug.
+    // "^^" (C++26 reflection operator, STYLE_CPP26.md §5) and "[:"/":]" (C++26 splice brackets,
+    // same section) are new entries for the §5 tokenizer-support pass -- none of the three is a
+    // strict prefix of any other existing entry (or vice versa), so no ordering constraint among
+    // them, but "^^" must still be reachable before emitOperator()'s single-char fallback would
+    // otherwise split it into two "^" tokens. "[:" additionally needs a dispatch-loop branch (see
+    // readToken's `c == '[' && peek(1) == ':'` case) since a leading `[` is otherwise intercepted
+    // by the open-bracket branch before ever reaching emitOperator() -- unlike ":]", which starts
+    // with `:` and already falls through to emitOperator() via the loop's default case.
     private static final String[] MULTI_CHAR_OPS = {
             "<<=", ">>>=", ">>=", "...", "->*", "..<",
             "<=>", "::", "<<", ">>>", ">>", "<=", ">=", "===", "!==", "==", "!=", "&&", "||",
             "++", "--", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "->", ".*",
             "?.", "?:", "!!", "..",
-            "[[", "]]"
+            "[[", "]]", "^^", "[:", ":]"
     };
 
     private final Lang lang;
@@ -243,6 +251,8 @@ public class TokenizerCurly extends TokenizerCore {
             } else if (c == '[' && peek(1) == '[' && looksLikeAttributeOpen()) {
                 t = emitOperator();
             } else if (c == ']' && peek(1) == ']') {
+                t = emitOperator();
+            } else if (c == '[' && peek(1) == ':' && lang.isCpp) {
                 t = emitOperator();
             } else if (c == '{') {
                 t = emitOpenBrace();

@@ -143,12 +143,25 @@ formal blocked Open Question here since real implementation hasn't started.
       introduced `--lang cpp26` as an explicit-only selector under
       RDD_KEY_179 — reverted this session as an unnecessary departure from
       that precedent.)
-- [ ] Before the tokenizer support pass below: run the tokenizer against a
-      small hand-written local `^^`/`[:`/`:]` snippet (not a real fixture,
-      no expected-output pair — just enough source to see whether it
-      crashes, mis-splits the tokens, or silently swallows them). This is a
-      cheap smoke check to catch gross tokenizer breakage before spending
-      time on the full external-repo pass below, not a substitute for it.
+- [x] Tokenizer smoke check done (this session, via sub-agent, read-only —
+      no source/state files touched). Confirmed via `TokenizerCurly.java`'s
+      `MULTI_CHAR_OPS` array (lines 114-120): `^^`, `[:`, `:]` are absent, so
+      they currently mis-split into single-char constituents (`^^` → `^`+`^`,
+      `[:` → `[`+`:`, `:]` → `:`+`]`) — no crash, no swallowing. CLI run
+      against a hand-written `/tmp` snippet confirmed this mis-split is
+      actively **corrupting**, not just inert passthrough: `^^SomeType`
+      (no-space input) rendered as `^ ^ SomeType` (space inserted between the
+      two `^` tokens), and `[:r:]` vs. `[: computeRefl(x) :]` — the same
+      splice-bracket construct — got inconsistent spacing (`[: r :]` vs.
+      `[ : computeRefl(x) : ]`) depending on interior content, since `[`/`:`
+      are each independently re-spaced by ordinary bracket/colon rules
+      rather than treated as one splice-bracket unit. No secondary/cascading
+      corruption found beyond this spacing inconsistency (no evidence of
+      bracket-depth tracking itself going wrong and corrupting unrelated
+      braces). Assessment: exactly the expected, contained finding this
+      smoke check exists to catch — safe to proceed to the real tokenizer
+      pass below whenever it's picked up; nothing here needs escalating
+      beyond what that pass already targets.
 - [ ] Tokenizer support pass for §5 Reflection (`^^`, `[:`, `:]`) — new
       `MULTI_CHAR_OPS` entries, longest-prefix-first ordering, full
       existing C/C++/Java/Kotlin regression suite re-run for zero

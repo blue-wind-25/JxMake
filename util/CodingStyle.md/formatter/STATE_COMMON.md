@@ -375,3 +375,98 @@ file/class references were updated to the new `*Curly` names (commit
 `9cce1a5`). Full regression re-run confirmed zero behavior change. All
 stale pre-refactor class-name mentions in comments/javadoc were later swept
 and fixed (commit `949b7a9`).
+
+---
+
+## Architectural TODOs
+
+### General scope-depth reindentation (not started — high risk, read before attempting)
+
+**Current state, confirmed by direct testing (C++26 session):** this formatter
+does not reindent ordinary body statements from scratch. A flush-left/
+unindented function body passes through completely untouched except for
+specific recognized rewrites (brace placement, spacing, alignment) —
+original whitespace is preserved by default; only a few narrow passes
+(`SwitchRule.applyNonInlineCaseIndent`, `ScopePipeline.applyDeclarationsPass`)
+actively reindent anything, and even those apply one **relative delta**
+computed from a single reference line to a whole block, not an absolute
+target derived from actual brace-nesting depth. `STATE_C_CPP_JAVA.md`'s
+"Known Gaps — Open" section already documents two real bugs from exactly
+this shape (`ASTParser.java` in `javaparser/javaparser`; local
+`tool/JSONEncoderLite.java`) — both non-idempotent re-indentation on
+internally-inconsistent source, both explicitly ACCEPTED-not-fixed because
+the real fix ("derive each line's absolute target from structural depth
+rather than a raw-source delta") was judged nontrivial with real regression
+risk, for a narrow real-world shape.
+
+**Why a *general* version (reindenting every line, not just switch-case/
+declarations) is substantially harder and more dangerous than those two
+narrow passes:**
+- **Blast radius inversion.** The current model's invariant is "don't touch
+  indentation unless a specific, well-understood construct requires it" —
+  that's *why* every real-code-testing bug found so far (see this file's
+  "Finished dogfood" list of ~20+ external repos) has been narrow and
+  isolated to one construct in one file. A general reindent pass makes
+  every line in every file a candidate for a wrong result, not just lines
+  matching a specific recognized shape — the same bug class that's
+  currently rare (1 file out of ~2000 in the `javaparser` candidate) would
+  become the default risk surface for the entire test corpus.
+- **Continuation vs. block depth is a second axis, not a free extension.**
+  Brace/paren/bracket nesting depth alone is not enough — a wrapped
+  multi-line expression, a chained method call, a multi-line initializer,
+  or a continuation line inside an unfinished statement each have their own
+  established continuation-indent conventions (see STYLE.md §2's line-break
+  alignment rules) that don't reduce to "one level per enclosing `{`". Any
+  real implementation has to merge two different indent models (structural
+  block depth + statement-continuation alignment) without them fighting —
+  this is exactly the mechanism the two existing narrow passes get subtly
+  wrong today.
+- **Content that must never be touched.** Raw string literals/multi-line
+  string content, block-comment interior lines (which have their own
+  alignment convention, not block-depth), preprocessor directives
+  (traditionally column-0 regardless of brace depth, with their own
+  continuation rules), and anything `frozen` all need to be excluded from
+  whatever general mechanism is built — each of these has already been a
+  real bug source in this codebase's history (see e.g. the backslash-
+  continued preprocessor corruption bug and raw-string-literal tokenizer gap
+  in the "Finished dogfood" list) under the *current*, much narrower set of
+  passes; a general pass multiplies the number of places these exclusions
+  must be re-applied correctly.
+- **Ordering interacts with every other pass.** Brace-placement (Allman
+  conversion), line-wrapping (`enforceCallLineBreaking`), and switch-case
+  handling all run at specific points in `FormatterCurly`'s phase ordering
+  specifically because their outputs affect what "correct" indentation even
+  is afterward (see the `formatNonInlineSwitches`/`enforceCallLineBreaking`
+  ordering bug in the "Finished dogfood" list, fixture `_56`). A general
+  reindent pass would need to run late enough that every line-count/brace-
+  placement decision is already final, but a bug in that ordering assumption
+  silently produces plausible-looking-but-wrong output rather than an
+  obvious crash — this class of bug is hard to catch by inspection.
+
+**If this is ever attempted:**
+- Treat it as its own dedicated multi-session job with its own `STATE_*.md`
+  (do not fold it into an existing job's file), given the size and risk.
+  Likely touches `ScopePipelineCurly.java` primarily, potentially subsuming/
+  replacing `SwitchRule.applyNonInlineCaseIndent`'s relative-delta logic
+  (which would actually retire the two open "Known Gaps" above as a side
+  effect, since an absolute-depth-derived target doesn't have the
+  reference-line-dependence that causes those bugs).
+- `make test`'s 101/101 fixture corpus is a floor, not a substitute, for
+  validation here. Those fixtures were authored/tuned under the current
+  indentation-preserving model, so passing them only proves "didn't break
+  the specific lines those fixtures already exercise" — it does not
+  exercise the vastly larger space of "ordinary body statement lines that
+  were never reindented before and now are." Re-running real-code testing
+  per this file's "Real-code testing methodology" against at least the
+  historical candidates that already surfaced switch-case/declarations
+  indent bugs (`javaparser/javaparser`, local `tool/JSONEncoderLite.java`
+  dogfood, `serge-sans-paille/frozen`) is necessary, and re-running against
+  a fresh, previously-untested large real-world corpus (idempotency-checked
+  full-tree, not just `--out DIR`) is strongly advisable given the blast-
+  radius argument above — a clean `make test` run alone would not have
+  caught either of the two currently-open gaps, since neither was found via
+  the permanent fixture suite (both came from one-off real-code-testing
+  sessions).
+- Expect this to be the single riskiest change ever made to this formatter's
+  core; budget for it accordingly rather than treating it as an incremental
+  fix.

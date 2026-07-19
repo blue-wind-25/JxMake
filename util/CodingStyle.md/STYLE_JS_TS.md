@@ -15,8 +15,12 @@ Supports: latest ECMAScript (currently ES2024+) and latest TypeScript (currently
 **Out of scope: JSX/TSX.** JSX embeds XML/HTML-like tag syntax directly inside
 expression position — a compound-language situation like HTML5's `<script>`/`<style>`
 dispatch, not a same-file JS/TS extension — so it does not belong in this file even
-once scoped. See FUTURE_FEATURE_DISCUSSION.md's JSX/TSX entry for the reasoning;
-currently not spec'd, not started.
+once scoped; it would need its own file plan (likely a `STYLE_JSX.md` dispatching to
+this file for expression content and something XML/tag-shaped for the markup itself).
+The new tag-syntax tokens are also a tokenizer-support risk comparable to C++26's
+reflection tokens (`STYLE_CPP26.md` §5) — new tokens the tokenizer doesn't recognize
+at all, not new keywords slotted into an existing grammar shape. Currently not
+spec'd, not started.
 
 ---
 
@@ -429,9 +433,8 @@ js-import-blank-lines = 1                             # blank lines between grou
 **Local import detection:** an import path is "local" if it's relative (starts with
 `./` or `../`) or resolves within the project's configured source root; everything
 else resolvable from `node_modules` is third-party; anything matching Node's built-in
-module list (or prefixed `node:`) is built-in. Same "not yet in the real config
-schema" caveat as the config-properties notes in FUTURE_FEATURE_DISCUSSION.md — the
-resolution logic for this classification is still an open item.
+module list (or prefixed `node:`) is built-in. Not yet in the real config schema —
+the resolution logic for this classification is still an open item (§15).
 
 **Unused imports** — not removed by the formatter, same as STYLE_JAVA.md §7 — that's
 the responsibility of the IDE or a separate lint tool (e.g. ESLint).
@@ -443,8 +446,7 @@ the responsibility of the IDE or a separate lint tool (e.g. ESLint).
 Not yet designed, deliberately deferred:
 
 - **JSX/TSX** — out of scope entirely, not just deferred within this file; see
-  FUTURE_FEATURE_DISCUSSION.md's JSX/TSX entry and this file's "Out of scope" note
-  in the intro.
+  this file's "Out of scope" note in the intro.
 - Import-path built-in/third-party/local classification's resolution logic (§15) —
   not yet designed.
 

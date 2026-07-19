@@ -530,8 +530,7 @@ statement (RDD_KEY_186).
 
 ## 11. Known Open Items
 
-Not yet designed, deliberately deferred (see FUTURE_FEATURE_DISCUSSION.md if this
-ever needs revisiting):
+Not yet designed, deliberately deferred:
 
 None currently — decorators, f-strings, and type-hint-heavy signature wrapping
 (previously listed here) were resolved via Q&A and moved into §4–§6 above.

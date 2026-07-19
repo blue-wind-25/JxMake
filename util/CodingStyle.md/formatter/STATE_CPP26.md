@@ -39,8 +39,8 @@ baseline in `STYLE_CPP20.md`) with:
    yet — style doc treats this section as draft.
 6. Config — no new config keys for §1–4; §5 deliberately has none yet since
    its rules aren't trusted. See "Config" below.
-7. Test fixtures — planned pairs live in `FUTURE_TEST_FIXTURES.md`'s "CPP26"
-   section (not yet moved here). See "Test Fixtures (Local)" below.
+7. Test fixtures — authored and registered in `formatter/test/`. See "Test
+   Fixtures (Local)" below.
 
 **C++26 is NOT a separately selectable language.** It has no `Lang.isCpp26`
 flag, no `--lang cpp26` / `lang=cpp26` selector, and no `SCAFFOLD_ONLY_LANGUAGES`
@@ -96,15 +96,14 @@ below), real-code testing against:
 
 ## Test Fixtures (Local)
 
-Planned local dogfood pairs (distinct from the external-repo list above, which
-is for corpus-scale reflection validation — see Scope §5 above) are staged
-in **FUTURE_TEST_FIXTURES.md**, under its "CPP26" section — not duplicated
-here. See that file for the pair list and what each covers. Its reflection
-pair (`cpp_26_reflection_inp/out.cpp`) is sequenced *after* §5's
-external-repo tokenizer validation, not alongside the other two pairs — see
-that file for why. Once authored, register pairs in the Makefile's
-`INP_FILES` / `test/README.txt`, and empty out FUTURE_TEST_FIXTURES.md's
-"CPP26" section accordingly.
+Local dogfood pairs (distinct from the external-repo list above, which is for
+corpus-scale reflection validation — see Scope §5 above) have been authored
+and registered in `formatter/test/` — see `test/README.txt` for the pair
+list and what each covers. The reflection pair
+(`cpp_26_reflection_inp/out.cpp`) was extracted ahead of its original
+promotion gate (§5's external-repo tokenizer validation still pending), per
+explicit instruction — see the "Done:" note on this file's checklist below
+for that history.
 
 ---
 

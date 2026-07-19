@@ -114,17 +114,13 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 
 ## Test Fixtures (Local)
 
-Planned local dogfood pairs (distinct from the external-repo list above,
-which is for corpus-scale validation) are staged in
-**FUTURE_TEST_FIXTURES.md**, under its "JavaScript" and "TypeScript"
-sections — not duplicated here. Note the pairs are split by extension
-(`.js` vs. `.ts`), not shared — same separation C/C++ already have across
-their own fixture families, since TS-only constructs (decorators, enums,
-generics, interfaces) can't live in a valid `.js` file. See that file for
-the pair list and what each covers. Once authored, register pairs in the
-Makefile's `INP_FILES` / `test/README.txt`, and empty out
-FUTURE_TEST_FIXTURES.md's "JavaScript" and "TypeScript" sections
-accordingly.
+Local dogfood pairs (distinct from the external-repo list above, which is
+for corpus-scale validation) have been authored and registered in
+`formatter/test/` — see `test/README.txt` for the pair list and what each
+covers. The pairs are split by extension (`.js` vs. `.ts`), not shared —
+same separation C/C++ already have across their own fixture families,
+since TS-only constructs (decorators, enums, generics, interfaces) can't
+live in a valid `.js` file.
 
 ---
 

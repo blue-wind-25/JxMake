@@ -9,9 +9,9 @@ STATE_KOTLIN.md gives for staying self-contained rather than folded into STATE.m
 so the riskier/newer C++26 work here doesn't mix into a file that's otherwise done.
 
 C++26 shipped/finalized 28 March 2026. Covers only finalized C++26 constructs — no
-C++29 content (see FUTURE_FEATURE_DISCUSSION.md for why: C++29 only began its first
-WG21 meeting in June 2026, and "adopted into draft" this early isn't the same as
-frozen — C++26 itself lost trivial relocatability during its own finalization).
+C++29 content: C++29 only began its first WG21 meeting in June 2026, and "adopted
+into draft" this early isn't the same as frozen — C++26 itself lost trivial
+relocatability during its own finalization. Revisit only once C++29 itself ships.
 
 ---
 
@@ -107,9 +107,23 @@ grammar shape), comparable in kind to the Kotlin Step 0 tokenizer work: new
 latent tokenizer bugs the way that session found one in number-literal lexing.
 
 The rules below are a **provisional starting point**, evidence-tested only against
-the test-fixture repos listed in FUTURE_FEATURE_DISCUSSION.md, not yet validated the
-way STYLE_CPP20.md's constructs were (JAR cross-check). Treat as draft until that
-validation pass happens.
+the test-fixture repos below, not yet validated the way STYLE_CPP20.md's constructs
+were (JAR cross-check). Treat as draft until that validation pass happens.
+
+**Test-fixture repos** (real reflection code to validate the tokenizer pass
+against, since this is the one piece that can't be trusted from the standard's
+grammar alone):
+- `bloomberg/clang-p2996` — Bloomberg's experimental Clang fork implementing
+  P2996 reflection; the most complete open-source implementation, includes
+  its own test suite under the compiler's test tree.
+- `wrocpp/cpp26-reflection-examples` — blog-series source, small runnable
+  `.cpp` files per post, each independently verified to compile against a
+  pinned `clang-p2996` build; good bite-sized fixtures.
+- `simdjson/experimental_json_builder` — a real library experimenting with
+  P2996-based reflection for JSON (de)serialization, non-trivial real usage
+  rather than toy examples.
+- `stephenberry/glaze` — production JSON/BEVE serialization library with an
+  opt-in P2996 reflection backend; larger, more idiomatic real-world usage.
 
 ```cpp
 constexpr auto refl     = ^^SomeType;             // reflection operator

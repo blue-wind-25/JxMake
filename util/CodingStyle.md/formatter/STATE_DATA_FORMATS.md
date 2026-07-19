@@ -137,7 +137,8 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 ## Test-Fixture Repos
 
 Recorded here for regression testing once any of this is implemented (not a
-commitment to implement it — see FUTURE_FEATURE_DISCUSSION.md for status):
+commitment to implement it — see this file's own checklist above for current
+per-language implementation status):
 
 - **JSON/JSON5:** `json5/json5`, `microsoft/vscode`, `babel/babel`, `eslint/eslint`
 - **XML:** `apache/maven`, `apache/ant`, `jenkinsci/jenkins`, `w3c/svgwg`
@@ -158,19 +159,16 @@ commitment to implement it — see FUTURE_FEATURE_DISCUSSION.md for status):
 
 ## Test Fixtures (Local)
 
-Planned local dogfood pairs (distinct from the external-repo list above,
-which is for corpus-scale validation) are staged in
-**FUTURE_TEST_FIXTURES.md**, under its "JSON", "JSON5", "XML", "CSS", and
-"HTML5" sections — not duplicated here. See that file for the pair list and
-what each covers. Once authored, register pairs in the Makefile's
-`INP_FILES` / `test/README.txt`, and empty out FUTURE_TEST_FIXTURES.md's
-relevant sections accordingly.
+Local dogfood pairs (distinct from the external-repo list above, which is
+for corpus-scale validation) covering JSON, JSON5, XML, CSS, and HTML5 have
+been authored and registered in `formatter/test/` — see `test/README.txt`
+for the pair list and what each covers.
 
-**YAML/TOML are already authored** (`yaml_core_inp/out.yaml`,
+**YAML/TOML are also already authored** (`yaml_core_inp/out.yaml`,
 `yaml_comments_inp/out.yaml`, `toml_core_inp/out.toml`,
 `toml_comments_inp/out.toml`, all in `formatter/test/`, described in
-`test/README.txt`), skipping the FUTURE_TEST_FIXTURES.md staging step since
-there was no pre-existing draft for either format. They are hand-drafted
+`test/README.txt`), authored directly with no pre-existing draft for either
+format. They are hand-drafted
 against `STYLE_DATA_FORMATS.md` §5/§6, not verified by a real JAR (scaffold-
 only), and are **commented out** of the Makefile's `INP_FILES` so `make
 test` stays green — uncomment once `YamlSpecificRule.java`/

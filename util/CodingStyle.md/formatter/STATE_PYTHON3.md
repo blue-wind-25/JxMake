@@ -132,12 +132,10 @@ configure.
 
 ## Test Fixtures (Local)
 
-Planned local dogfood pairs (distinct from the external-repo list above,
-which is for corpus-scale validation) are staged in
-**FUTURE_TEST_FIXTURES.md**, under its "Python3" section — not duplicated
-here. See that file for the pair list and what each covers. Once authored,
-register pairs in the Makefile's `INP_FILES` / `test/README.txt`, and empty
-out FUTURE_TEST_FIXTURES.md's "Python3" section accordingly.
+Local dogfood pairs (distinct from the external-repo list above, which is
+for corpus-scale validation) have been authored and registered in
+`formatter/test/` — see `test/README.txt` for the pair list and what each
+covers.
 
 ---
 

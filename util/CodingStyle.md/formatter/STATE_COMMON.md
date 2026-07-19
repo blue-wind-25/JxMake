@@ -59,30 +59,21 @@ are very long, and `-A` context will flood output unnecessarily.
   expected results).
 - Ignore `XL.txt` — that is the user tracker file.
 - When registering a new local test fixture pair that did **not** come from
-  real-code testing (e.g. a hand-authored dogfood pair moved out of
-  `FUTURE_TEST_FIXTURES.md`), add its entry in both `test/README.txt` and the
-  `Makefile`'s `INP_FILES` **before** the `Real-code regressions:` section/
-  entries — the same "ahead of `real_code_regressions_*`" ordering the
-  Real-code testing methodology section below already uses for bug-fix
-  fixtures.
-- **For new languages' local test fixtures, use the ones embedded in
-  `../FUTURE_TEST_FIXTURES.md`** (one directory above `formatter/`, i.e. at
-  `util/CodingStyle.md/FUTURE_TEST_FIXTURES.md`) rather than hand-inventing
-  fixture content — most new languages have more than one embedded fixture
-  (`grep -n "^## "` to find each job's section). The `inp`/`out` pairs in
-  that file are hand-crafted drafts and **may contain errors** — check as
-  needed before using; if a draft's expected output disagrees with
-  already-established, already-tested behavior elsewhere, trust the
-  established behavior and correct the draft, don't blindly copy it. Each
-  fixture's file names are stated in the doc text right before the actual
-  test code (a bold bullet header) — use those names exactly, don't
-  improvise your own. Every fenced code block in the doc sits inside a
-  markdown bullet-list item and so carries a uniform 2-space indent purely
-  for the MD formatting — strip that common 2-space prefix from every line
-  before writing the real fixture file. Once a fixture pair has been
-  extracted and registered as a real `test/*_inp.*`/`*_out.*` pair, remove
-  its now-redundant embedded copy from `../FUTURE_TEST_FIXTURES.md` so the
-  doc doesn't drift out of sync with what's already been extracted.
+  real-code testing (e.g. a hand-authored dogfood pair), add its entry in
+  both `test/README.txt` and the `Makefile`'s `INP_FILES` **before** the
+  `Real-code regressions:` section/entries — the same "ahead of
+  `real_code_regressions_*`" ordering the Real-code testing methodology
+  section below already uses for bug-fix fixtures.
+- **New local test fixtures are authored directly in `formatter/test/`** —
+  there is no staging step. (Historically, `../FUTURE_TEST_FIXTURES.md` held
+  hand-drafted pairs for languages ahead of their real implementation; every
+  pair it ever held has since been extracted and registered, and that file
+  is now historical/empty of live drafts — don't add new ones there.) When
+  authoring a fixture pair for a language with no real formatter logic yet,
+  register it commented-out in the Makefile's `INP_FILES` (same pattern
+  CPP26/JS/TS/HTML5/Python3 used) until real logic lands; for a language
+  with real logic, verify the pair against the actual JAR before registering
+  it active.
 - Use `/tmp` for temporary smoke-test and mini-test files.
 - NEVER perform a filesystem-wide find; search first in `/tmp/claude-1000`
   or the project root. If still not found, ask the user.
@@ -389,21 +380,29 @@ and fixed (commit `949b7a9`).
 
 ## Future Cleanup TODOs
 
-- `../FUTURE_FEATURE_DISCUSSION.md` and `../FUTURE_TEST_FIXTURES.md` (both one
-  directory above `formatter/`) were considered for deletion but are not yet
-  safe to remove. `FUTURE_TEST_FIXTURES.md`'s draft content is fully spent
-  (every section now just points to `formatter/test/README.txt`), but this
-  file and several job `STATE_*.md` files still name it as the canonical
-  staging area to check before hand-inventing new fixtures (see this file's
-  own reference to it above). `FUTURE_FEATURE_DISCUSSION.md` still holds live,
-  unresolved rationale that several `STYLE_*.md` files depend on (e.g.
-  `STYLE_CPP26.md`'s C++29-exclusion reasoning, `STYLE_JS_TS.md`'s JSX/TSX
-  scoping rationale, `STYLE_PYTHON3.md`'s deferred-design note) — not settled
-  history that's been folded elsewhere. Deleting either file now would leave
-  those references dangling. To make deletion safe: fold each still-live
-  rationale from `FUTURE_FEATURE_DISCUSSION.md` into its owning `STYLE_*.md`
-  section, and drop this file's (and each job `STATE_*.md`'s) dependency on
-  `FUTURE_TEST_FIXTURES.md` as a staging area before removing it.
+- `../FUTURE_FEATURE_DISCUSSION.md` is now safe to `git rm` — all of its
+  load-bearing content has been folded inline into the `STYLE_*.md`/
+  `STATE_*.md` files that referenced it (C++29-exclusion reasoning in
+  `STYLE_CPP26.md`, JSX/TSX scoping rationale in `STYLE_JS_TS.md`, the
+  C++26-reflection test-fixture repo list in `STYLE_CPP26.md` §5, the
+  data-formats implementation-status pointer in
+  `formatter/STATE_DATA_FORMATS.md`), and `grep -rn
+  FUTURE_FEATURE_DISCUSSION.md STYLE_*.md formatter/STATE_*.md
+  formatter/RDD_LOG.md` from `util/CodingStyle.md/` now returns zero hits
+  outside this note itself. Not yet deleted — do it next time this file is
+  touched, or on explicit request.
+
+- `../FUTURE_TEST_FIXTURES.md` is now also safe to `git rm` — its draft
+  content was already fully spent, and the live "staging area" dependency on
+  it (this file and each job `STATE_*.md`'s "Test Fixtures (Local)" section)
+  has since been rewritten to describe fixtures as authored directly in
+  `formatter/test/`, no staging step. Only historical/past-tense mentions
+  remain (completed `- [x]` checklist notes in `STATE_CPP26.md`,
+  `STATE_JS_TS.md`, `STATE_PYTHON3.md`, `STATE_DATA_FORMATS.md`, and
+  `RDD_LOG.md`'s RDD_KEY_181–186/193 entries) — these are accurate records
+  of past process and should stay as-is; they don't depend on the file
+  still existing. Not yet deleted — do it next time this file is touched,
+  or on explicit request.
 
 - Some `STYLE_*.md` files carry a closing pointer sentence along the lines of
   "Implementation-tracker content (config keys, test-fixture repos, local

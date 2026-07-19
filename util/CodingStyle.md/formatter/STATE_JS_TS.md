@@ -186,6 +186,22 @@ attempted this session, future work:
       any existing token in those languages is lexed. Re-run the full
       existing regression suite and confirm zero regressions before any
       rule-level work begins.
+- [ ] When implementing §11 below (declaration/parameter alignment), start
+      from `KotlinDeclarationAlignmentRule.java`/`KotlinSignatureRule.java`
+      as a structural template, not from scratch. TS's `let x: Type =
+      value` is the same name-before-type reversed grammar Kotlin's `val x:
+      Type = value` already solved (RDD_KEY_103/104) — the shared
+      `DeclarationAlignmentRuleCurly`'s `[modifiers] Type name` assumption
+      doesn't fit either language, and Kotlin's `Declaration`-record/grid-
+      rendering/group-break shape carries over directly. Copying the
+      skeleton saves the design work, not the content: TS's actual type
+      grammar (union/intersection `|`/`&`, generic constraints,
+      function-type annotations, its own `declare`/`readonly`/`abstract`/
+      `override` modifier-priority table, per §11's own note that it
+      "cannot reuse Java's table wholesale") still has to be written and
+      verified against TS-specific fixtures — the template only shortcuts
+      the "how do you even structure this" question, not the TS-specific
+      grammar or its own dogfooding surprises.
 - [ ] Implement §2–15 rule-by-rule, each its own checkpoint commit, per
       `STATE_COMMON.md`'s workflow. This is ordered by section, not by
       language: §2–10 apply to both JS and TS (verified entirely against

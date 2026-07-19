@@ -25,7 +25,7 @@ int divide(int a, int b)
 pre(b != 0)
 post(r: r * b == a)  // post-condition: result matches, moved inline
 {
-return a / b;
+    return a / b;
 }
 
 int clamp(int x, int lo, int hi)
@@ -36,12 +36,12 @@ pre(lo <= hi)
  */
 pre(x >= lo && x <= hi)
 {
-return x;
+    return x;
 }
 
 void process(int x) {
-// runtime assertion
-contract_assert(x >= 0);
+    // runtime assertion
+    contract_assert(x >= 0);
 
-// trailing note with a blank line above it, still inside the block
+    // trailing note with a blank line above it, still inside the block
 }

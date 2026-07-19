@@ -2,21 +2,18 @@
 template<typename... T>
 // Comment between template<> and the using-declaration
 using Nth = T...[N];
-
 template<typename... T>
 using Selected = T...[ computeIndex() ];  // Call inside index
-
 using Skipped = T...[0];  // Zero-based
 
 // Deprecated API marker
 void oldApi() = delete(
-    "use newApi() instead"  // Reason, trailing on the arg itself
+    "use newApi() instead" // Reason, trailing on the arg itself
 );
 
 /* Placeholder examples */
-auto [_, count] = getResult();  // Structured binding, trailing
-if( auto _ = acquireLock(); true )
-{
+auto [_, count] = getResult(); // Structured binding, trailing
+if( auto _ = acquireLock(); true ) {
     // Comment as the sole content before real work starts
     doWork();
     // Trailing comment right before close, no blank line

@@ -295,6 +295,51 @@ formal blocked Open Question here since real implementation hasn't started.
       clause, which `enforceContractClausePlacement`'s replaced span would
       currently silently drop (not yet handled); left as a known gap in the
       Makefile's comment for a future session.
+- [x] `cpp26_comments` comment-drop gap fixed, this session.
+      `enforceContractClausePlacement` now tracks each clause's own keyword
+      token index (`clauseKeywordIdx`) and, for each clause, pulls any
+      `COMMENT_LINE`/`COMMENT_BLOCK` tokens sitting in the gap before it
+      (via new helper `collectComments`) out of the span about to be
+      overwritten, re-inserting them on their own line at the clause's
+      indent instead of silently dropping them. A multi-line block comment
+      is reindented via the existing, previously-CSS/JSON-only
+      `FormatterSimpleBraced.reindentBlockComment` (now also called from
+      `CppSpecificRule.java`) so its continuation lines shift by the same
+      amount as its first line. A leading comment now also forces the
+      wrapped (one-clause-per-line) rendering even for an otherwise-inlinable
+      lone clause, since there's nowhere sensible to put a comment on an
+      inlined line.
+
+      Verifying the fixture against the real JAR surfaced several *other*,
+      unrelated mismatches between the fixture's expected output and actual
+      behavior — none of them bugs in this fix, confirmed by reproducing
+      each with plain non-C++26 snippets:
+      - Blank lines the fixture inserted between consecutive `using`
+        declarations — no such rule exists; fixed the expected output to
+        match (no blank lines).
+      - `if(init; cond) { ... }` staying K&R-brace (`) {` same line) is
+        correct, established behavior (`cpp_core_out.cpp` already shows
+        plain `if(...) {` the same way) — fixed the expected output, which
+        had wrongly assumed Allman conversion for this case.
+      - The input's `divide`/`clamp`/`process` function bodies lacked the
+        4-space indentation the expected output assumed — this formatter
+        doesn't reindent (see `STATE_COMMON.md`'s Architectural TODOs), so
+        fixed the input to already carry the indentation, same convention
+        as `cpp26_core_inp.cpp`/`cpp26_reflection_inp.cpp`.
+      - **Found, but explicitly left unfixed (belongs to the C/C++/Java
+        job, not this one):** `DeclarationAlignmentRuleCurly.java:426`
+        (`line += " " + d.trailingComment.text;`) always renders a trailing
+        same-line comment with exactly one space, discarding the original
+        gap width — reproduced with a plain structured binding,
+        `auto [_, count] = getResult();  // comment` (two spaces in,
+        collapsed to one out), no C++26 syntax involved at all. Everywhere
+        else in the codebase preserves original trailing-comment spacing
+        verbatim. Per user decision, the fixture's expected output was
+        adjusted to match this real (buggy) collapsed-to-one-space
+        behavior rather than fixing the bug under this job — flagging here
+        for `STATE_C_CPP_JAVA.md` to pick up separately.
+      Promoted to active in the Makefile. `make test`: 104/104 forward +
+      idempotency, zero regressions.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "CPP26" section (reflection pair sequenced after the §5 tokenizer
       validation pass, per that section's own note) and register in the

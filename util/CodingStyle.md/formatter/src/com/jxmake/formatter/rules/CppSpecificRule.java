@@ -7,6 +7,7 @@
 
 package com.jxmake.formatter.rules;
 
+import com.jxmake.formatter.FormatterSimpleBraced;
 import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.evaluator.ComplexityPaddingEvaluator;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
@@ -869,9 +870,11 @@ public class CppSpecificRule {
 
             final List<String> clauseKinds = new ArrayList<>();
             final List<int[]> clauseParenSpans = new ArrayList<>();
+            final List<Integer> clauseKeywordIdx = new ArrayList<>();
             int cursor = i;
             boolean bad = false;
             while (true) {
+                clauseKeywordIdx.add(cursor);
                 final int openParenIdx = nextSignificantIndex(tokens, cursor);
                 if (openParenIdx < 0 || !isPunct(tokens.get(openParenIdx), "(")) {
                     bad = true;
@@ -929,11 +932,20 @@ public class CppSpecificRule {
             final String baseIndent = lineIndent(tokens, declLineStartIdx);
 
             final List<String> clauseRenders = new ArrayList<>();
+            final List<List<Token>> clauseLeadingComments = new ArrayList<>();
+            boolean anyLeadingComment = false;
             for (int c = 0; c < clauseKinds.size(); c++) {
                 final int[] pspan = clauseParenSpans.get(c);
                 final boolean isPost = "post".equals(clauseKinds.get(c));
                 final String inner = renderContractExpression(tokens, pspan[0] + 1, pspan[1] - 1, isPost);
                 clauseRenders.add(clauseKinds.get(c) + "(" + inner + ")");
+
+                final int boundaryStart = c == 0 ? anchorCloseParenIdx : clauseParenSpans.get(c - 1)[1];
+                final List<Token> leading = collectComments(tokens, boundaryStart, clauseKeywordIdx.get(c));
+                clauseLeadingComments.add(leading);
+                if (!leading.isEmpty()) {
+                    anyLeadingComment = true;
+                }
             }
 
             final StringBuilder inlineJoined = new StringBuilder();
@@ -944,13 +956,25 @@ public class CppSpecificRule {
                     + collapseToOneLine(tokens, declLineStartIdx, anchorCloseParenIdx)
                     + inlineJoined;
 
+            // A comment sitting between the signature (or a preceding clause) and this clause has
+            // nowhere sensible to go on an inlined single-clause line, so its presence forces the
+            // wrapped (one-clause-per-line) rendering regardless of whether the inline form would
+            // otherwise fit -- same "can't silently drop it" posture as everywhere else a comment
+            // interacts with a rewritten span in this file, except here the comment is preserved
+            // instead of blocking the rewrite entirely.
             final String rendered;
-            if (clauseKinds.size() == 1 && combined.length() <= lineLengthLimit) {
+            if (clauseKinds.size() == 1 && combined.length() <= lineLengthLimit && !anyLeadingComment) {
                 rendered = inlineJoined.toString();
             } else {
                 final StringBuilder wrapped = new StringBuilder();
-                for (final String r : clauseRenders) {
-                    wrapped.append('\n').append(baseIndent).append(indentUnit).append(r);
+                for (int c = 0; c < clauseRenders.size(); c++) {
+                    for (final Token commentToken : clauseLeadingComments.get(c)) {
+                        final String text = commentToken.type == TokenType.COMMENT_BLOCK
+                                ? FormatterSimpleBraced.reindentBlockComment(commentToken.text, baseIndent + indentUnit)
+                                : commentToken.text;
+                        wrapped.append('\n').append(baseIndent).append(indentUnit).append(text);
+                    }
+                    wrapped.append('\n').append(baseIndent).append(indentUnit).append(clauseRenders.get(c));
                 }
                 rendered = wrapped.toString();
             }
@@ -1183,6 +1207,21 @@ public class CppSpecificRule {
             out.append(g.text);
         }
         return out.toString();
+    }
+
+    /** Every {@code COMMENT_LINE}/{@code COMMENT_BLOCK} token in {@code (fromExclusive,
+     *  toExclusive)}, in source order -- used by {@link #enforceContractClausePlacement} to pull
+     *  comments sitting between a signature/clause and the next clause out of the span it's about
+     *  to overwrite, so they can be re-inserted rather than silently dropped. */
+    private List<Token> collectComments(final List<Token> tokens, final int fromExclusive, final int toExclusive) {
+        final List<Token> comments = new ArrayList<>();
+        for (int i = fromExclusive + 1; i < toExclusive; i++) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
+                comments.add(t);
+            }
+        }
+        return comments;
     }
 
     private boolean hasNewlineBetween(final List<Token> tokens, final int fromExclusive, final int toExclusive) {

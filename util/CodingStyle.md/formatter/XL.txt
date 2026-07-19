@@ -8,7 +8,8 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 ####################################################################################################
 ####################################################################################################
 
-Synchronize `README.md` and `../README.txt` to update the state of the newly implemented languages.
+Synchronize `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`
+to update the state of the newly implemented languages.
 
 Compact (use one sub-agent) all newly touched `STATE_*.md`.
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
@@ -30,7 +31,7 @@ Adjust active vs scaffold-only as needed. Also ensure jsx|tsx is after js|ts
 
 
 
-Implement the JS/TS formatter.
+Continue with the implementation of the JS/TS formatter.
 Don't implement it all at once, make check points to ensure the formatter source code is clean and compiles well.
 Use one sub-agent if needed, the sub-agent can launch up to two more research sub-sub-agents.
 
@@ -40,6 +41,7 @@ Implement the Python3 formatter.
 Don't implement it all at once, make check points to ensure the formatter source code is clean and compiles well.
 Use one sub-agent if needed, the sub-agent can launch up to two more research sub-sub-agents.
 
+Continue with the implementation of the Python3 formatter.
 
 
 I have run `make test` and all test passed.

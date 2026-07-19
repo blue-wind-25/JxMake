@@ -26,7 +26,12 @@ SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
 .PHONY: all build jar clean test bench test-server
 
-all build jar: $(JAR_FILE)
+all build jar:
+	@if $(MAKE) --no-print-directory -q $(JAR_FILE); then \
+		echo "JAR is already built and up-to-date.";  \
+	else                                                  \
+		$(MAKE) --no-print-directory $(JAR_FILE);     \
+	fi
 
 $(CLASS_DIR):
 	@mkdir -p $(CLASS_DIR)
@@ -35,6 +40,7 @@ $(JAR_FILE): $(SOURCES) | $(CLASS_DIR)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -d $(CLASS_DIR) $(SOURCES)
 	@printf 'Main-Class: %s\n' '$(MAIN_CLASS)' > $(MANIFEST)
 	@$(JAR) cfm $(JAR_FILE) $(MANIFEST) -C $(CLASS_DIR) .
+	@echo "Built $(JAR_FILE)"
 #	@cp $(JAR_FILE) .
 
 clean:
@@ -207,6 +213,7 @@ REF_FILES := $(subst _inp,_out,$(INP_FILES))
 # svn commit -m 'Follow GIT changes' && git push && echo && git status && echo && svn stat && echo
 
 # clear && uptime && echo && sensors && free -h && echo
+# svn update && svn cleanups
 
 # make test
 # make test 2>/dev/null

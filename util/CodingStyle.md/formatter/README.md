@@ -1,14 +1,9 @@
 # jxmake-code-formatter — Code Formatter
 
-A deterministic code formatter for C, C++, and Java implementing the
-[CodingStyle.md](../STYLE.md) style guide. No AI, no AST — tokenizer plus
-recursive descent on bounded token slices.
-
-**Scaffold-only languages (not yet implemented):**
-Python3 is recognized by file extension (and accepted by `--lang`/the server's
-`lang` param), but every real formatting attempt currently throws
-`UnsupportedLanguageException` — no rule classes exist for it yet. See
-`STATE_PYTHON3.md` for implementation status.
+A deterministic code formatter for C, C++, Java, Kotlin, JSON/JSON5, CSS,
+YAML, TOML, XML, HTML5, JavaScript, TypeScript, and Python 3, implementing
+the [CodingStyle.md](../STYLE.md) style guide. No AI, no AST — tokenizer
+plus recursive descent on bounded token slices.
 
 ---
 
@@ -45,9 +40,10 @@ java -jar code-formatter-1.00.jar include/Module.h
 Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.cc`/`.cxx` → C++,
 `.java` → Java, `.kt`/`.kts` → Kotlin, `.json`/`.json5` → JSON/JSON5, `.css` → CSS,
 `.yaml`/`.yml` → YAML, `.toml` → TOML, `.xml` → XML, `.html`/`.htm` → HTML5,
-`.js`/`.jsx`/`.mjs`/`.cjs` → JavaScript, `.ts`/`.tsx` → TypeScript). The scaffold-only language
-is also detected by extension (`.py`) but every real formatting attempt on it currently throws
-`UnsupportedLanguageException` — see the scaffold-only note above.
+`.js`/`.jsx`/`.mjs`/`.cjs` → JavaScript, `.ts`/`.tsx` → TypeScript, `.py` → Python 3). `.jsx`/
+`.tsx` are dispatched to the same JS/TS pipeline as `.js`/`.ts` — no JSX/TSX-syntax-aware
+formatting exists (out of scope per `STYLE_JS_TS.md`), so a `.jsx`/`.tsx` file is only safe to
+run through the formatter if it contains no actual JSX tag syntax.
 
 For a file with a non-standard extension (e.g. `.java.in`, `.txt`, no extension at all),
 override detection with `--lang`:
@@ -58,10 +54,9 @@ java -jar code-formatter-1.00.jar --lang cpp Module.inc
 ```
 
 `--lang` accepts exactly one of `c`, `cpp`, `java`, `kotlin`, `json`, `json5`, `css`, `yaml`,
-`toml`, `xml`, `html5`, `js`, `ts` (the implemented languages), or `python3` (scaffold-only
-— accepted for dispatch/testing purposes but every real format attempt throws),
-and applies to every file given on that command line (mixing file types with a single forced
-`--lang` in one invocation isn't supported — run the formatter once per language instead).
+`toml`, `xml`, `html5`, `js`, `ts`, `python3`, and applies to every file given on that command
+line (mixing file types with a single forced `--lang` in one invocation isn't supported — run
+the formatter once per language instead).
 Without `--lang`, a file whose extension can't be recognized is an error. `--lang` also works
 with server mode (below) — the client sends the chosen language to the server, which uses it
 in place of its own extension-based guess for that request.
@@ -236,6 +231,10 @@ kotlin-import-blank-lines        = 1
 js-import-order                  = builtin, third-party, local
 js-import-sort                   = on
 js-import-blank-lines            = 1
+
+# ── Python 3 ──────────────────────────────────────────────────────────────────
+python-import-sort               = on
+python-import-blank-lines        = 1
 ```
 
 ### `.jxmake-code-formatter` inheritance
@@ -339,10 +338,11 @@ Newer-language-construct support:
 - [`../STYLE_CPP26.md`](../STYLE_CPP26.md) — C++26 rule coverage (lands
   directly in the existing C/C++ pipeline, no separate language identity)
 - [`../STYLE_DATA_FORMATS.md`](../STYLE_DATA_FORMATS.md) — JSON/JSON5/CSS/YAML/
-  TOML/XML/HTML5 (all implemented; HTML5's `<script>` dispatch to JS/TS is
-  the one exception, pending JS/TS itself)
-- [`../STYLE_JS_TS.md`](../STYLE_JS_TS.md) — JavaScript/TypeScript
-- [`../STYLE_PYTHON3.md`](../STYLE_PYTHON3.md) — Python 3 (scaffold-only)
+  TOML/XML/HTML5 (all implemented, including HTML5's `<script>` dispatch to
+  JS/TS)
+- [`../STYLE_JS_TS.md`](../STYLE_JS_TS.md) — JavaScript/TypeScript (implemented;
+  JSX/TSX are out of scope, see Usage above)
+- [`../STYLE_PYTHON3.md`](../STYLE_PYTHON3.md) — Python 3
 
 ---
 
@@ -357,10 +357,7 @@ The server (`--server`) exposes two plain-HTTP endpoints on `localhost:<port>` (
   over any extension-based guess the server could make from `path` — this is how `--lang`
   (above) reaches the server, and is also why the server itself never needs its own
   `--lang`-style flag. An unrecognized `lang` value gets HTTP 400 with a plain text error body.
-  The scaffold-only `lang` value (`python3`) is recognized but throw
-  `UnsupportedLanguageException` (surfaced as HTTP 500) since no rule classes exist for
-  it yet — see the scaffold-only note near the top of this file. Any other failure (e.g.
-  a malformed file) gets HTTP 500.
+  Any other failure (e.g. a malformed file) gets HTTP 500.
   - **Inline config.** Any config key from the formatter's config-file property set (e.g.
     `indent-size`, `line-length`, `java-import-order`) may be passed as its own query
     parameter, letting a client (e.g. a browser formatting a pasted/in-memory snippet with no

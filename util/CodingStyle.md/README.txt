@@ -18,30 +18,36 @@ Files in this directory
   AI_PREAMBLE_AESTHETIC.md  Preamble for layout judgment pass (post-JAR files)
   README.txt                This file
 
-  NOTE — STYLE_DATA_FORMATS.md (JSON/JSON5, YAML, TOML, XML, CSS, HTML5) is
+  NOTE — STYLE_DATA_FORMATS.md (JSON/JSON5, CSS, YAML, TOML, XML, HTML5) is
   now implemented in the deterministic JAR, on the same footing as C/C++/
   Java/Kotlin (see formatter/STATE_DATA_FORMATS.md for per-language notes
-  and RDD_LOG.md for implementation history). The one exception: HTML5's
-  `<script>` embedded-content dispatch to JS/TS still throws, since
-  STYLE_JS_TS.md itself has no JAR support yet (wrap real `<script>` JS
-  content in a `//% JXM_CFMT_DIS`/`//% JXM_CFMT_ENA` pair to work around
-  this, or use the full-file AI pass below for such files in the meantime).
-  STYLE_CPP26.md is rule coverage on the existing C/C++ JAR pipeline, not a
-  separate language (see formatter/STATE_CPP26.md). STYLE_JS_TS.md and
-  STYLE_PYTHON3.md remain drafted but not yet implemented in the JAR — those
-  two files are usable today only via the full-file AI pass below, which is
-  LLM-driven and doesn't depend on JAR support.
+  and RDD_LOG.md for implementation history), including HTML5's `<script>`
+  embedded-content dispatch to JS/TS (STYLE_JS_TS.md itself is now
+  JAR-implemented too — see below). STYLE_CPP26.md is rule coverage on the
+  existing C/C++ JAR pipeline, not a separate language (see
+  formatter/STATE_CPP26.md). STYLE_JS_TS.md and STYLE_PYTHON3.md are now
+  both JAR-implemented as well (JSX/TSX syntax itself remains out of scope
+  — see formatter/STATE_JS_TS.md's Open Questions; a `.jsx`/`.tsx` file
+  with no actual JSX tag syntax formats fine through the `js`/`ts`
+  dispatch). The full-file AI pass below is now a fallback for these
+  languages (a one-off migration, or a construct the JAR doesn't yet
+  handle), not the only option.
 
   The deterministic JAR formatter (formatter/code-formatter-1.00.jar, replace
-  1.00 with your built version) handles all Tier-1 and Tier-2 rules mechanically
-  for C, C++, Java, Kotlin, and the JSON/JSON5/YAML/TOML/XML/CSS/HTML5 data
-  formats. Run it first for those languages. The AI workflows described here
-  cover the remaining Tier-3 aesthetic decisions the JAR intentionally leaves
-  untouched (C/C++/Java/Kotlin only — data formats have no equivalent
-  layout-judgment gap, see the Layout Judgment Pass note below):
+  1.00 with your built version) handles all Tier-1 and Tier-2 rules
+  mechanically for C, C++, Java, Kotlin, JSON/JSON5, CSS, YAML, TOML, XML,
+  HTML5, JavaScript, TypeScript, and Python 3. Run it first for those
+  languages. The AI workflows described here cover the remaining Tier-3
+  aesthetic decisions the JAR intentionally leaves untouched (data formats
+  have no equivalent layout-judgment gap, see the Layout Judgment Pass note
+  below; applies to every other language — C, C++, Java, Kotlin,
+  JavaScript, TypeScript, Python 3):
     - Function argument list layout (when the source is already multi-line and
       the author's grouping intent should be preserved or improved)
-    - Getter/setter groups with non-standard naming conventions
+    - Getter/setter groups with non-standard naming conventions (Python's
+      `@property`/`@x.setter` accessors never compact per STYLE_PYTHON3.md
+      §4, so this decision doesn't arise there — see AI_PREAMBLE_AESTHETIC.md's
+      Scope section)
 
   NOTE — Kotlin: the deterministic JAR's Kotlin support (STYLE_KOTLIN.md /
   STYLE_KOTLIN2.md, `.kt`/`.kts` auto-detected) is on the same footing as
@@ -75,12 +81,11 @@ Two AI Passes
   mistakes this used to cause — still review every diff carefully, especially
   in large declaration groups.
 
-  For JSON/JSON5/YAML/TOML/XML/CSS/HTML5, prefer running the JAR directly
-  instead (it now has real support for these — see the NOTE above); this pass
-  is still the only option for JavaScript/TypeScript and Python3 (no JAR
-  support yet), or for a data-format file's HTML5 `<script>` content that
-  needs real JS/TS reformatting (the JAR's HTML5 dispatch to JS/TS throws
-  until STYLE_JS_TS.md itself lands in the JAR).
+  For every language the JAR now implements (C, C++, Java, Kotlin, JSON/JSON5,
+  CSS, YAML, TOML, XML, HTML5, JavaScript, TypeScript, Python 3 — see the NOTE
+  above), prefer running the JAR directly instead; this pass is now only
+  needed for a one-off migration of a legacy file, or a construct the JAR
+  doesn't yet handle for a given language.
 
   Recommended only when:
     - The file has never been touched by the JAR, and
@@ -163,12 +168,11 @@ Combine the relevant preamble with the style files for the target language:
 
   FULL-FILE PASS — JSON/JSON5, CSS, YAML, TOML, XML, or HTML5 files:
     cat AI_PREAMBLE_FULL.md STYLE.md STYLE_DATA_FORMATS.md > /tmp/style_data_formats_full.txt
-    (only needed now for a one-off migration or for HTML5 files whose <script>
-    content needs real JS/TS reformatting — the JAR itself now handles these
-    languages directly, see the NOTE near the top of this file. HTML5 files
-    that embed real <script> JS content still need STYLE_JS_TS.md's own
-    combination above added to the same cat, since HTML5's formatter
-    dispatches embedded <script> content to it)
+    (only needed now for a one-off migration — the JAR itself now handles
+    these languages directly, including HTML5's <script> dispatch to JS/TS,
+    see the NOTE near the top of this file. For an HTML5 file whose <script>
+    content needs its own full-file pass, add STYLE_JS_TS.md's own
+    combination below to the same cat)
 
   FULL-FILE PASS — JavaScript/TypeScript files:
     cat AI_PREAMBLE_FULL.md STYLE.md STYLE_JAVA.md STYLE_KOTLIN.md STYLE_JS_TS.md > /tmp/style_js_ts_full.txt
@@ -178,17 +182,17 @@ Combine the relevant preamble with the style files for the target language:
   FULL-FILE PASS — Python3 files:
     cat AI_PREAMBLE_FULL.md STYLE.md STYLE_PYTHON3.md > /tmp/style_python3_full.txt
 
-  LAYOUT JUDGMENT PASS — C, C++, Java, or Kotlin only:
+  LAYOUT JUDGMENT PASS — C, C++, Java, Kotlin, JavaScript, TypeScript, or
+  Python 3 (language-agnostic preamble, see AI_PREAMBLE_AESTHETIC.md's Scope
+  section):
     cat AI_PREAMBLE_AESTHETIC.md > /tmp/style_aesthetic.txt
     (no style files needed — the preamble is self-contained for this pass)
-    Does NOT apply to C++26 additions, JSON/JSON5/YAML/TOML/XML/CSS/HTML5,
-    JavaScript/TypeScript, or Python3. The data formats have no equivalent
+    Does NOT apply to JSON/JSON5/CSS/YAML/TOML/XML/HTML5 (C++26 is rule
+    coverage on the existing C/C++ pipeline, not a separate language, so it's
+    covered by the C/C++ case above). The data formats have no equivalent
     layout-judgment gap to begin with (no function-argument-list or
     getter/setter-group concept), so there is nothing for this pass to add on
-    top of their JAR output. JavaScript/TypeScript and Python3 have no JAR
-    support yet, so there is no JAR-processed baseline for this pass to sit
-    on top of — use the full-file pass above for those instead; see
-    AI_PREAMBLE_AESTHETIC.md's Scope section for why.
+    top of their JAR output.
 
 Store the combined file once and reuse it across multiple calls.
 
@@ -332,7 +336,8 @@ Script (reformat_file.py):
       style_dir = pathlib.Path(__file__).parent
 
       if mode == "aesthetic":
-          # C/C++/Java/Kotlin only — see AI_PREAMBLE_AESTHETIC.md's Scope section.
+          # Language-agnostic (not for JSON/JSON5/CSS/YAML/TOML/XML/HTML5) --
+          # see AI_PREAMBLE_AESTHETIC.md's Scope section.
           rules = load_rules(style_dir / "AI_PREAMBLE_AESTHETIC.md")
       elif lang == "cpp":
           rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
@@ -384,21 +389,24 @@ Usage:
   # C++ full-file pass, including C++26 constructs:
   python3 reformat_file.py src/Utils.cpp cpp26
 
-  # Layout judgment pass (post-JAR file, C/C++/Java/Kotlin only):
+  # Layout judgment pass (post-JAR file; language-agnostic, see
+  # AI_PREAMBLE_AESTHETIC.md's Scope section):
   python3 reformat_file.py src/Utils.c c aesthetic
+  python3 reformat_file.py src/utils.py python3 aesthetic
 
   # Kotlin full-file pass (fallback if the JAR doesn't handle a construct yet):
   python3 reformat_file.py src/Utils.kt kotlin
 
   # Data-format full-file pass (JAR now handles this directly for JSON/JSON5/
-  # CSS/YAML/TOML/XML/HTML5 -- only needed for one-off migration or HTML5
-  # <script> content, see the NOTE near the top of this file):
+  # CSS/YAML/TOML/XML/HTML5, including HTML5's <script> dispatch to JS/TS --
+  # only needed for one-off migration, see the NOTE near the top of this file):
   python3 reformat_file.py config.json json
 
-  # JavaScript/TypeScript full-file pass (no JAR exists yet — this is the only path):
+  # JavaScript/TypeScript full-file pass (fallback -- the JAR now handles
+  # this directly, see the NOTE near the top of this file):
   python3 reformat_file.py src/utils.ts ts
 
-  # Python3 full-file pass (no JAR exists yet — this is the only path):
+  # Python3 full-file pass (fallback -- the JAR now handles this directly):
   python3 reformat_file.py src/utils.py python3
 
   # Same, at explicit low effort (cheaper, for a simple/small file) or xhigh

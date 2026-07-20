@@ -358,6 +358,8 @@ protected int matchBracketForward(final List<Token> tokens, final int openIdx) {
         // (e.g. a function body) also occupies a stack slot, offsetting a naive depth count.
         final Deque<Boolean> outermostStack = new ArrayDeque<>();
         Token lastSignificant = null;
+        Token secondLastSignificant = null;
+        Token thirdLastSignificant = null;
         final int n = tokens.size();
         int i = 0;
 
@@ -396,7 +398,12 @@ protected int matchBracketForward(final List<Token> tokens, final int openIdx) {
             }
 
             if (isPunct(t, "{")) {
-                final boolean startsNewInit = isOp(lastSignificant, "=");
+                final boolean startsNewInit = isOp(lastSignificant, "=")
+                        || ((lang.isJs || lang.isTs) && isImportBraceHeaderKeyword(lastSignificant, secondLastSignificant))
+                        || ((lang.isJs || lang.isTs) && isPunct(lastSignificant, ",")
+                                && secondLastSignificant != null && secondLastSignificant.type == TokenType.IDENTIFIER
+                                && thirdLastSignificant != null && thirdLastSignificant.type == TokenType.KEYWORD
+                                && "import".equals(thirdLastSignificant.text));
                 final boolean isInit = startsNewInit
                         || ((isPunct(lastSignificant, "{") || isPunct(lastSignificant, ","))
                                 && !initStack.isEmpty() && initStack.peek());
@@ -408,6 +415,8 @@ protected int matchBracketForward(final List<Token> tokens, final int openIdx) {
             }
 
             out.append(t.text);
+            thirdLastSignificant = secondLastSignificant;
+            secondLastSignificant = lastSignificant;
             lastSignificant = t;
             i++;
         }
@@ -415,6 +424,35 @@ protected int matchBracketForward(final List<Token> tokens, final int openIdx) {
             out.append(g.text);
         }
         return out.toString();
+    }
+    /**
+     * JS/TS-only (checked by the caller): a named-import list's `{` -- immediately preceded by
+     * the {@code import} keyword itself, or by {@code type} where the token before that is
+     * {@code import} (TS's {@code import type { Foo } from "...";}) -- is treated as an
+     * initializer-shaped brace for §3.3 padding purposes the same as a `= { ... }` initializer,
+     * even though it has no preceding `=`. Mirrors {@code JsTsSpecificRule.classifyBraces}'s own
+     * `isImportBraceHeader` lookback (same two-token shape), kept as a separate, narrower copy
+     * here rather than shared/extracted -- that method also decides semicolon-insertion depth
+     * behavior, a different concern from this class's brace-content spacing, and this base class
+     * has no dependency on `JsTsSpecificRule`. No effect on C/C++/Java/Kotlin -- `import` is not
+     * even a keyword in those languages' `KEYWORDS_*` sets, so `lastSig.type == KEYWORD &&
+     * "import".equals(...)` can never match there regardless of this method's own `lang.isJs ||
+     * lang.isTs` gate at the call site. A combined default+named import (`import Widget, {a, b}
+     * from "...";`) is handled by a separate disjunct at the call site (not this helper) that
+     * additionally recognizes `{` preceded by `,` preceded by an IDENTIFIER preceded by the
+     * `import` keyword -- `classifyBraces`'s own `isImportBraceHeader` doesn't need this shape
+     * since §2's semicolon-insertion concern only cares about the *first* `{` on a line for depth
+     * purposes there, but §3.3 padding must recognize every named-list brace shape.
+     */
+    private boolean isImportBraceHeaderKeyword(final Token lastSig, final Token secondLastSig) {
+        if (lastSig == null || lastSig.type != TokenType.KEYWORD) {
+            return false;
+        }
+        if ("import".equals(lastSig.text)) {
+            return true;
+        }
+        return "type".equals(lastSig.text) && secondLastSig != null
+                && secondLastSig.type == TokenType.KEYWORD && "import".equals(secondLastSig.text);
     }
 int matchParenForward(final List<Token> tokens, final int openIdx) {
         int depth = 0;

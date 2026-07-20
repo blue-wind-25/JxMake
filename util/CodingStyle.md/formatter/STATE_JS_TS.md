@@ -1372,6 +1372,90 @@ attempted this session, future work:
       file's usual pattern) or accept/document current behavior and
       regenerate `_out` files to match instead, then (b) redo this
       fixture-verification pass once behavior is settled.
+      **Bug 1 fixed this session — see Checkpoint 17 below.** Bugs 2
+      (generics suppressing Allman conversion) and 3 (decorator-argument
+      object-literal padding) remain open, each still needing its own
+      dedicated checkpoint. The colon-padding oddity (`{ a : 1 }` — space
+      before `:` too) also remains unclassified/unfixed, out of scope for
+      Checkpoint 17.
+- [x] **Checkpoint 17 done — bug 1 fixed: import named-list braces now get
+      `{ }` padding, matching plain object-literal initializers.** Root
+      cause was NOT in `JsTsSpecificRule.classifyBraces` (that method only
+      feeds §2's semicolon-insertion depth logic, a separate concern) and
+      NOT in the shared `ComplexityPaddingEvaluator`/`enforceComplexityPadding`
+      pass (`MiscRuleCore.java`, STYLE.md §3.1) either — that pass only ever
+      handles `(...)`/`[...]`, never `{...}`, confirmed by reading it in
+      full. The actual mechanism that pads `const obj = {a: 1};` into
+      `const obj = { a : 1 };` is a **different, STYLE.md §3.3** pass,
+      `MiscRuleCore.enforceInitializerBraceSpacing` (wired into
+      `FormatterCurly` Phase 4, called unconditionally for every curly
+      language, confirmed via a standalone harness that a plain `.js` file
+      exhibits the identical padding — this is not new JS/TS-specific logic
+      today, it's the pre-existing brace-initializer-list padding pass
+      C/C++/Java/Kotlin already had). Its `startsNewInit` signal is
+      `isOp(lastSignificant, "=")` only — a brace-initializer must be
+      directly preceded by `=`. An import's named-list `{` is preceded by
+      the `import` keyword (or `import`/`,`-separated default-import name
+      for the combined default+named shape), never `=`, so it never
+      qualified as an initializer and was left completely untouched (the
+      §15 checkpoint's own text already independently confirms imports are
+      re-emitted "verbatim", consistent with this finding). Fixed with two
+      additive `startsNewInit` disjuncts, both gated `lang.isJs ||
+      lang.isTs` (zero effect on C/C++/Java/Kotlin — `import`/`type` aren't
+      even lexed as JS/TS-flavored `KEYWORD` tokens for those languages,
+      the tokenizer's per-language `KEYWORDS_*` sets are disjoint): (1) new
+      helper `isImportBraceHeaderKeyword(lastSig, secondLastSig)` — true
+      when `lastSig` is the `import` keyword itself, or `lastSig` is `type`
+      whose own preceding token is `import` (TS's `import type { Foo } from
+      "...";`); (2) a second disjunct at the call site (not folded into the
+      helper, since it needs a third token of lookback) for the combined
+      default+named shape (`import Widget, { a, b } from "...";`) — `{`
+      preceded by `,` preceded by an IDENTIFIER preceded by the `import`
+      keyword. `enforceInitializerBraceSpacing` previously only tracked a
+      single `lastSignificant` token; added `secondLastSignificant`/
+      `thirdLastSignificant` (updated in lockstep each iteration) to support
+      both lookback depths. No change to `initStack`/`outermostStack`
+      mechanics themselves — once `startsNewInit` is true for an import
+      brace, the existing padding/comma-spacing logic applies unchanged and
+      correctly (single specifier, multiple specifiers, comma spacing all
+      "just work" once the brace is recognized as an initializer-shaped
+      brace).
+      **Verified Checkpoint 16's own fix stays intact (explicit regression
+      check, not assumed):** `import { Widget } from "...";` still gets no
+      bogus semicolon inserted before its `}` — confirmed via the
+      standalone harness, since `classifyBraces`'s `isImportBraceHeader`
+      (a completely separate method, untouched this checkpoint) still
+      independently governs that.
+      Verified via a standalone harness (`FormatterCore.forLanguage("js")`/
+      `"ts"`): `import {readFile} from "node:fs/promises";` →
+      `import { readFile } from "node:fs/promises";`; multi-specifier
+      (`import {readFile, writeFile} from "...";`) → both specifiers padded
+      with correct comma spacing; namespace import (`import * as ns from
+      "./ns";`) and plain default import (`import Widget from "./widget";`)
+      both correctly untouched (no brace at all to pad); combined
+      default+named (`import Widget, {a, b} from "./widget";`) → `import
+      Widget, { a, b } from "./widget";`; TS `import type {Foo} from
+      "./types";` → `import type { Foo } from "./types";`; an
+      already-correctly-padded import (`import { Widget } from
+      "./widget";`) round-trips byte-for-byte unchanged (idempotency);
+      side-effect-only `import "./polyfill";` (no braces) untouched. Bug 3
+      (decorator-argument object-literal padding, `@Component({selector:
+      "x"})`) explicitly re-confirmed **still broken** (out of this
+      checkpoint's scope, not touched) — the decorator call's own `(...)`
+      argument, whose interior `{...}` is preceded by `(`, not `=` or
+      `import`, doesn't match either new disjunct, so it's unaffected by
+      this fix either way, exactly as planned. Round-trip (harness round1
+      → round2) confirmed idempotent on every case above. `make` compiles
+      clean; `make test`: 106/106 forward + 106/106 idempotency, zero
+      regressions in the existing C/C++/Java/Kotlin fixture corpus.
+      **Not done this checkpoint, still open:** bug 2 (generics suppressing
+      §5 Allman conversion) and bug 3 (decorator-argument object-literal
+      padding) from the BLOCKED entry above, and the colon-padding oddity —
+      each still needs its own dedicated checkpoint. No local `.js`/`.ts`
+      fixture pair was activated/uncommented in the Makefile this
+      checkpoint (explicitly out of scope per this session's own brief —
+      that follow-up waits until all three bugs, and the colon-padding
+      oddity, are resolved).
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_JS_TS.md`'s listed test-fixture repos (`nodejs/node`,
       `expressjs/express`, `lodash/lodash`, `microsoft/TypeScript`,

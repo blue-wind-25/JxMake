@@ -1284,7 +1284,13 @@ attempted this session, future work:
       Java/Kotlin) and a new Known Limitations entry documenting the
       RDD_KEY_195 bundler/tsconfig-path-mapping misclassification.
       **§2-15 rule-by-rule checklist item is now fully complete** -- every
-      section from §2 through §15 has landed across Checkpoints 3-16. No
+      section from §2 through §15 has landed across Checkpoints 3-16.
+      **CORRECTION (Checkpoint 21/22): this claim was inaccurate for §12 and
+      §14 specifically** -- §12 (enum formatting) was actually only
+      implemented for real in Checkpoint 22, and §14 (interface/type-alias/
+      class-field member colons) remains only partially done as of
+      Checkpoint 21's bug 7 finding; treat this line's "fully complete" as
+      applying to every section except those two. No
       local `.js`/`.ts` fixture pair was registered live in the Makefile
       this checkpoint (out of scope -- verification was via the standalone
       harness only, per the task's own instructions); the next checklist
@@ -1878,6 +1884,89 @@ attempted this session, future work:
       path.toString(), config, false)`, compiled with `javac -cp
       target/classes`) is the fastest way to re-verify each fix without
       needing the Makefile/CLI gate touched.
+- [x] **Checkpoint 22 — §12 (TS enum member formatting) actually implemented
+      from scratch.** Checkpoint 21's bug 8 above is now fixed: §12 was
+      never given its own checkpoint anywhere in this file's prior history
+      (only ever assumed "free" during the original gap-survey pass, same
+      class of stale claim as bug 7's §14 finding) — this checkpoint builds
+      it for real. Two pieces landed in `JsTsSpecificRule.java`:
+      1. **Root cause of the bogus `;`:** `classifyBraces` (used by §2's
+         `enforceSemicolonInsertion`) didn't recognize a TS enum body's `{
+         ... }` as a comma-separated member list rather than a statement
+         list — the same class of "value vs. statement-list brace"
+         misclassification Checkpoints 6/16 each already found/fixed for
+         object-destructuring and import braces. Added a new
+         `isEnumBodyBrace` helper (walks back from `{` past the enum's own
+         IDENTIFIER name to confirm an `enum` KEYWORD precedes it — `const
+         enum` is covered for free since `const` sits outside this
+         two-token lookback) and a new `classifyBraces` disjunct that sets
+         `resetDepth=false`/`needsSemicolon=false` for any brace it matches,
+         exactly like the existing import-brace-header special case.
+      2. **New `enforceEnumMemberFormatting` pass** (new call site in
+         `FormatterCurly.java`, Phase 1, gated `if (lang.isTs)`, placed
+         right after `enforceSemicolonInsertion` and before
+         `collapseSingleExpressionBlocks` so the brace-style/collapse passes
+         downstream see the final reflowed member list, not the original
+         layout): finds every enum-body brace via `matchBraces` +
+         `isEnumBodyBrace`, and for each one not containing any frozen
+         token, parses its member list (`parseEnumMembers`) into name /
+         optional-`=`-value / optional-leading-comments / optional-
+         trailing-comment records via a single forward token scan, then
+         reflows it (`rewriteEnumBody`) to always one-member-per-line
+         (confirmed via a careful re-read of `STYLE_JS_TS.md` §12's own text
+         — "members are always one-per-line ... regardless of whether they
+         carry explicit values" — that this reflow is required even when
+         the original was already all on one line, not an ambiguity to
+         escalate), with every member always ending in `,` (never `;`, even
+         for the last member, matching both of §12's own worked examples).
+         **Design decision (reasoned default, not escalated):** when any
+         member in a body has an explicit value, `=` is column-aligned only
+         among the members that *also* have an explicit value (verified via
+         harness on a hand-built mixed `A` / `B = 2` / `Longname = 3` enum:
+         `A,` stays unpadded, `B` and `Longname` align their `=` against
+         each other) — a no-value member has no `=` for its name to align
+         against, and §12's own "no explicit member values" worked example
+         shows zero alignment for an all-implicit enum, so this reading has
+         direct textual support rather than being a guess. The closing `}`'s
+         closing comment (`} // enum Status`) and the blank line after `{`/
+         before `}` needed **zero new code** — the existing general-purpose,
+         enum-agnostic `BlockStructureRule.insertNamedConstructBlankLines`/
+         `addClosingComments` passes already fire correctly for any
+         `Token.name`-tagged construct brace (confirmed via harness *before*
+         writing any new code this checkpoint: an already-multi-line
+         `const enum Direction { Up, Down }` with no explicit values
+         rendered its closing comment/blank line correctly even before this
+         checkpoint's changes, isolating the real gap to reflow+`=`-align+
+         comma-not-semicolon only, exactly as bug 8 above described).
+      Verified via the same standalone harness pattern from prior
+      checkpoints (`Config.resolve` + `FormatterCore.forLanguage("ts")
+      .formatOne`, bypassing `Main.java`'s CLI gate/`Lang.isScaffoldOnly` —
+      neither touched this checkpoint) against: a same-line `enum Color {
+      Red, Green, Blue }` (reflows to one-per-line, trailing `,` not `;`);
+      an explicit-numeric-value enum with mixed-width names (`Active=1,` /
+      `Inactive=2,` / `Pending=3,`, no original spacing at all — reflows
+      with correct `=`-spacing and column-alignment); an already-correct
+      multi-line no-value enum and an already-correct multi-line
+      explicit-value enum (both round-trip byte-identical, confirming
+      idempotency on already-conforming input); a single-member enum; a
+      `const enum`; a mixed value/no-value enum (alignment-subgroup design
+      point above); and an enum with both a standalone leading comment and
+      same-line trailing comments in both the before-comma and after-comma
+      positions (all three comment placements preserved correctly, attached
+      to the right member). Every case was round-tripped twice through the
+      harness and confirmed idempotent (`out1.equals(out2)`). No regression
+      on non-enum TS/JS constructs or the C/C++/Java/Kotlin corpus: `make
+      test` after this change still reports **106/106 forward, 106/106
+      idempotency** — the same baseline as before this checkpoint, no
+      fixture was added/changed/regenerated.
+      **§12 is now judged fully done**, with no known remaining gap in the
+      style doc's own text. The stale "§2-15 rule-by-rule checklist item is
+      now fully complete" claim recorded under an earlier checkpoint (see
+      the checkpoint above containing that exact phrase) should be read as
+      corrected by this entry and by bug 7's still-open §14 finding above —
+      §12 specifically is complete as of *this* checkpoint, not the earlier
+      one. Bugs 1-7 and 9 from Checkpoint 21's list remain untouched and
+      open, out of scope for this checkpoint by explicit instruction.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_JS_TS.md`'s listed test-fixture repos (`nodejs/node`,
       `expressjs/express`, `lodash/lodash`, `microsoft/TypeScript`,

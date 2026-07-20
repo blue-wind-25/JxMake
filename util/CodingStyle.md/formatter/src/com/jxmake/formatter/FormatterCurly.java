@@ -97,6 +97,14 @@ public final class FormatterCurly extends FormatterCore {
             // `if(x) doThing();` on round2 when this ran after the collapse pass instead).
             text = jsTsRule.enforceSemicolonInsertion(tokenizer.apply(text));
         }
+        if (lang.isTs) {
+            // STYLE_JS_TS.md §12: TS enum bodies are always reflowed to one member per line
+            // (regardless of original layout) with `=` column-alignment when explicit values are
+            // present. Must run before collapseSingleExpressionBlocks/the general brace-style
+            // passes below so those passes see the final, reflowed multi-line member list rather
+            // than an original same-line member list.
+            text = jsTsRule.enforceEnumMemberFormatting(tokenizer.apply(text));
+        }
         text = blockRule.collapseSingleExpressionBlocks(tokenizer.apply(text));
         text = blockRule.enforceKAndRBraceStyle(tokenizer.apply(text));
         text = blockRule.enforceNamedConstructHeaderSpacing(tokenizer.apply(text));

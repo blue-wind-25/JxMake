@@ -41,6 +41,7 @@ public final class JsTsSpecificRule {
 
     private final Lang lang;
     private final int lineLengthLimit;
+    private final String defaultIndentUnit;
 
     public JsTsSpecificRule(final Lang lang) {
         this(lang, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
@@ -53,6 +54,11 @@ public final class JsTsSpecificRule {
     public JsTsSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth) {
         this.lang = lang;
         this.lineLengthLimit = lineLengthLimit;
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < indentWidth; i++) {
+            sb.append(' ');
+        }
+        this.defaultIndentUnit = sb.toString();
     }
 
     // ── §2 Statement termination (semicolon insertion) ──────────────────────────────
@@ -283,6 +289,17 @@ public final class JsTsSpecificRule {
                 outNeedsSemicolon.put(openIdx, false);
                 continue;
             }
+            if (isEnumBodyBrace(tokens, openIdx)) {
+                // §12: a TS enum body's `{ ... }` is a comma-separated member list, not a
+                // statement list (must not reset depth to 0, or a comma-less trailing member gets
+                // a bogus `;` inserted before `}` -- the same class of bug Checkpoint 16 already
+                // fixed for import brace headers, above), and its own closing `}` is never the
+                // tail of a semicolon-needing statement (an enum declaration takes no trailing
+                // `;` at all, per STYLE_JS_TS.md §12's own text).
+                outResetDepth.put(openIdx, false);
+                outNeedsSemicolon.put(openIdx, false);
+                continue;
+            }
             final boolean isArrowBody = isOp(prev, "=>");
             final boolean isValue = prev != null && (
                     isArrowBody || isOp(prev, "=") || isPunct(prev, "(") || isPunct(prev, "[")
@@ -309,6 +326,20 @@ public final class JsTsSpecificRule {
      *  bounds check at every call site. */
     private boolean isKeywordAt(final List<Token> tokens, final int idx, final String text) {
         return idx >= 0 && tokens.get(idx).type == TokenType.KEYWORD && text.equals(tokens.get(idx).text);
+    }
+
+    /** True iff the `{` at {@code braceIdx} opens a TS enum body -- i.e. it is directly preceded
+     *  by an IDENTIFIER (the enum's own name) whose own preceding significant token is the `enum`
+     *  KEYWORD (TS has no `extends`/generic clause on an enum name, unlike class/interface, so no
+     *  intervening-clause walk is needed the way Java's own {@code isEnumBodyBrace} needs one).
+     *  `const enum Name { ... }` is covered too -- the `const` modifier sits before `enum`, outside
+     *  this check's own two-token lookback, so it doesn't need to be inspected at all. */
+    private boolean isEnumBodyBrace(final List<Token> tokens, final int braceIdx) {
+        final int nameIdx = prevSignificantIndex(tokens, braceIdx - 1);
+        if (nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER) {
+            return false;
+        }
+        return isKeywordAt(tokens, prevSignificantIndex(tokens, nameIdx - 1), "enum");
     }
 
     private Map<Integer, Integer> matchBraces(final List<Token> tokens) {
@@ -1073,6 +1104,244 @@ public final class JsTsSpecificRule {
 
     private boolean isModifierKeyword(final Token t) {
         return t != null && t.type == TokenType.KEYWORD && MODIFIER_PRIORITY.containsKey(t.text);
+    }
+
+    // ── §12 Enum member formatting ───────────────────────────────────────────────────
+    /** One parsed enum member: an optional list of standalone (own-line) leading comments, the
+     *  member's own name, whether it carries an explicit `= value` (and that value's raw text,
+     *  trimmed, if so -- internal spacing within the value expression itself is left exactly as
+     *  originally written, out of this method's scope), and an optional same-line trailing
+     *  comment. {@code trailingComment} is mutable -- it may be discovered either immediately
+     *  after the member's own name/value (before its trailing comma) or immediately after that
+     *  comma (before the next member), so it's filled in from whichever position is found. */
+    private static final class EnumMember {
+        private final List<String> leadingComments;
+        private final String name;
+        private final boolean hasValue;
+        private final String value;
+        private String trailingComment;
+
+        EnumMember(final List<String> leadingComments, final String name, final boolean hasValue,
+                final String value) {
+            this.leadingComments = leadingComments;
+            this.name = name;
+            this.hasValue = hasValue;
+            this.value = value;
+        }
+    }
+
+    /**
+     * STYLE_JS_TS.md §12: a TS enum body (`enum Name { ... }` / `const enum Name { ... }`) is
+     * always rendered one member per line, regardless of how it was originally written -- the
+     * style doc's own text says this "derives from the C++ `enum class` handling already
+     * implemented in the JAR" and members are "always one-per-line ... either way", so an
+     * originally same-line comma-separated member list (e.g. {@code enum Color { Red, Green,
+     * Blue }}) is reflowed, not left as written; this is a deliberate, doc-confirmed exception to
+     * this codebase's usual "preserve original layout unless a specific rule requires otherwise"
+     * posture, not a guess. When any member in the body has an explicit {@code = value}, every
+     * such member's name column is `=`-column-aligned against its like siblings (a member with no
+     * explicit value renders as a plain {@code Name,}, not padded -- there's no `=` for it to
+     * align against, and the style doc's own "no explicit member values" example shows no
+     * alignment at all for an all-implicit-value enum). Every member always ends in a trailing
+     * `,` -- never a semicolon, and never omitted even for the last member (matching both of the
+     * style doc's own worked examples) -- enum bodies are comma-separated member lists, not
+     * statement lists; a bogus semicolon here would be the same class of bug already found and
+     * fixed for import brace headers ({@link #enforceSemicolonInsertion}, Checkpoint 16) and
+     * documented as still-broken for enums in STATE_JS_TS.md's Checkpoint 21 bug 8 -- see
+     * {@link #isEnumBodyBrace}'s new {@code classifyBraces} disjunct for the actual fix.
+     * A standalone (own-line) comment immediately preceding a member is preserved verbatim on its
+     * own line ahead of that member's rendered line; a same-line trailing comment (found either
+     * right after the member's own name/value or right after its trailing comma) is preserved on
+     * that member's own rendered line. The closing `}`'s own closing comment and the guaranteed
+     * blank-line-after-`{`/before-`}` are both left entirely to the existing general-purpose
+     * passes ({@link BlockStructureRule#addClosingComments}/{@code insertNamedConstructBlankLines}
+     * -- unrelated to enums specifically, already correctly fire for a named-construct brace via
+     * the tokenizer's own enum name-tagging), not duplicated here.
+     * Conservative bailout, matching every other pass in this file: an enum body containing any
+     * frozen token, a member whose name isn't a plain identifier, a floating comment with no
+     * member attached after it, or a member value expression spanning multiple physical lines is
+     * left completely untouched rather than guessed at.
+     */
+    public String enforceEnumMemberFormatting(final List<Token> tokens) {
+        final Map<Integer, Integer> braces = matchBraces(tokens);
+        final List<int[]> enumBodies = new ArrayList<>();
+        for (final Map.Entry<Integer, Integer> e : braces.entrySet()) {
+            if (isEnumBodyBrace(tokens, e.getKey())) {
+                enumBodies.add(new int[] { e.getKey(), e.getValue() });
+            }
+        }
+        if (enumBodies.isEmpty()) {
+            final StringBuilder sb = new StringBuilder();
+            for (final Token t : tokens) {
+                sb.append(t.text);
+            }
+            return sb.toString();
+        }
+        enumBodies.sort((a, b) -> Integer.compare(a[0], b[0]));
+
+        final StringBuilder out = new StringBuilder();
+        int cursor = 0;
+        for (final int[] body : enumBodies) {
+            final int openIdx = body[0];
+            final int closeIdx = body[1];
+            if (anyFrozen(tokens, openIdx, closeIdx + 1)) {
+                continue;
+            }
+            final String rewritten = rewriteEnumBody(tokens, openIdx, closeIdx);
+            if (rewritten == null) {
+                continue;
+            }
+            for (int i = cursor; i <= openIdx; i++) {
+                out.append(tokens.get(i).text);
+            }
+            out.append(rewritten);
+            cursor = closeIdx; // resume from the closing `}` token itself
+        }
+        for (int i = cursor; i < tokens.size(); i++) {
+            out.append(tokens.get(i).text);
+        }
+        return out.toString();
+    }
+
+    /** Rewrites the interior of one enum body (tokens strictly between {@code openIdx}'s `{` and
+     *  {@code closeIdx}'s `}`, not including either brace) into the one-member-per-line,
+     *  `=`-aligned-when-applicable layout described on {@link #enforceEnumMemberFormatting}, or
+     *  returns {@code null} if {@link #parseEnumMembers} can't safely parse it. */
+    private String rewriteEnumBody(final List<Token> tokens, final int openIdx, final int closeIdx) {
+        final List<EnumMember> members = parseEnumMembers(tokens, openIdx, closeIdx);
+        if (members == null) {
+            return null;
+        }
+        int maxNameWidth = 0;
+        for (final EnumMember m : members) {
+            if (m.hasValue) {
+                maxNameWidth = Math.max(maxNameWidth, m.name.length());
+            }
+        }
+        final String bodyIndent = lineIndent(tokens, openIdx);
+        final String memberIndent = bodyIndent + defaultIndentUnit;
+        final StringBuilder sb = new StringBuilder();
+        for (final EnumMember m : members) {
+            for (final String comment : m.leadingComments) {
+                sb.append('\n').append(memberIndent).append(comment);
+            }
+            sb.append('\n').append(memberIndent);
+            if (m.hasValue) {
+                sb.append(padRight(m.name, maxNameWidth)).append(" = ").append(m.value);
+            } else {
+                sb.append(m.name);
+            }
+            sb.append(',');
+            if (m.trailingComment != null) {
+                sb.append("  ").append(m.trailingComment);
+            }
+        }
+        sb.append('\n').append(bodyIndent);
+        return sb.toString();
+    }
+
+    /** Parses an enum body's interior (between {@code openIdx} and {@code closeIdx}, exclusive)
+     *  into an ordered list of {@link EnumMember}s via a single forward scan, tracking whether the
+     *  most recently seen top-level separator was a comma on the *same physical line* as what
+     *  follows it (so a same-line trailing comment right after a member's own comma is correctly
+     *  attributed back to that member, not misread as a standalone leading comment for the next
+     *  one). Returns {@code null} (bail, leave this enum body untouched) if a non-identifier
+     *  top-level token is found where a member name is expected, if a member's value expression
+     *  spans a NEWLINE, or if a floating comment is left with no member following it. */
+    private List<EnumMember> parseEnumMembers(final List<Token> tokens, final int openIdx, final int closeIdx) {
+        final List<EnumMember> members = new ArrayList<>();
+        final List<String> leadingComments = new ArrayList<>();
+        boolean sameLineAsPrevSeparator = false;
+        int i = openIdx + 1;
+        while (i < closeIdx) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.WHITESPACE) {
+                i++;
+                continue;
+            }
+            if (t.type == TokenType.NEWLINE) {
+                sameLineAsPrevSeparator = false;
+                i++;
+                continue;
+            }
+            if (isPunct(t, ",")) {
+                sameLineAsPrevSeparator = true;
+                i++;
+                continue;
+            }
+            if (isComment(t)) {
+                if (sameLineAsPrevSeparator && !members.isEmpty()) {
+                    members.get(members.size() - 1).trailingComment = t.text;
+                } else {
+                    leadingComments.add(t.text);
+                }
+                i++;
+                continue;
+            }
+            if (t.type != TokenType.IDENTIFIER) {
+                return null;
+            }
+            final String name = t.text;
+            i++;
+            while (i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE) {
+                i++;
+            }
+            boolean hasValue = false;
+            String value = null;
+            if (i < closeIdx && isOp(tokens.get(i), "=")) {
+                hasValue = true;
+                i++;
+                final StringBuilder valueBuf = new StringBuilder();
+                int depth = 0;
+                while (i < closeIdx) {
+                    final Token vt = tokens.get(i);
+                    if (depth == 0 && (isPunct(vt, ",") || isComment(vt))) {
+                        break;
+                    }
+                    if (depth == 0 && vt.type == TokenType.NEWLINE) {
+                        return null; // multi-line member-value expression -- rare, not handled
+                    }
+                    if (isPunct(vt, "(") || isPunct(vt, "[") || isPunct(vt, "{")) {
+                        depth++;
+                    } else if (isPunct(vt, ")") || isPunct(vt, "]") || isPunct(vt, "}")) {
+                        depth--;
+                    }
+                    valueBuf.append(vt.text);
+                    i++;
+                }
+                value = valueBuf.toString().trim();
+            }
+            // A same-line trailing comment can sit directly after the name/value, before the
+            // member's own trailing comma (less common than after the comma, but valid).
+            while (i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE) {
+                i++;
+            }
+            String trailingComment = null;
+            if (i < closeIdx && isComment(tokens.get(i))) {
+                trailingComment = tokens.get(i).text;
+                i++;
+            }
+            final EnumMember member = new EnumMember(new ArrayList<>(leadingComments), name, hasValue, value);
+            member.trailingComment = trailingComment;
+            leadingComments.clear();
+            members.add(member);
+            sameLineAsPrevSeparator = false;
+        }
+        if (!leadingComments.isEmpty()) {
+            return null; // a floating comment with no member attached after it -- don't drop it
+        }
+        return members.isEmpty() ? null : members;
+    }
+
+    private static String padRight(final String s, final int width) {
+        if (s.length() >= width) {
+            return s;
+        }
+        final StringBuilder sb = new StringBuilder(s);
+        while (sb.length() < width) {
+            sb.append(' ');
+        }
+        return sb.toString();
     }
 
     // ── §11.1 Union / intersection type spacing (`|`, `&`) ───────────────────────────

@@ -114,9 +114,9 @@ These rules include tasks that small models fail at inconsistently:
     (layout judgment pass)
 
 Recommended models (minimum), as of mid-2026:
-  Claude Sonnet 5     (claude-sonnet-5)   — good balance of quality and speed
-  Claude Opus 4.8     (claude-opus-4-8)   — best for large or complex files
-  Claude Fable 5                          — Anthropic's top-end coding model
+  Claude Sonnet 5   (claude-sonnet-5)   — good balance of quality and speed
+  Claude Opus 4.8   (claude-opus-4-8)   — best for large or complex files
+  Claude Fable 5                        — Anthropic's top-end coding model
 
 Non-Anthropic equivalents at the same tier:
   GPT-5.5 / GPT-5.6, Gemini 3.1 Pro / 3.5 Pro, Grok 4.3 / 4.5

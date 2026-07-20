@@ -4,31 +4,11 @@ A deterministic code formatter for C, C++, and Java implementing the
 [CodingStyle.md](../STYLE.md) style guide. No AI, no AST — tokenizer plus
 recursive descent on bounded token slices.
 
-Kotlin (`.kt`/`.kts`) support also exists end-to-end (auto-detected by
-extension; see [`../STYLE_KOTLIN.md`](../STYLE_KOTLIN.md) /
-[`../STYLE_KOTLIN2.md`](../STYLE_KOTLIN2.md)), but is newer than the C/C++/Java
-support and has not yet been through the same real-world dogfood testing —
-see `STATE_KOTLIN.md` for current status before relying on it for a large
-existing codebase.
-
-HTML5 (`.html`/`.htm`) support also exists end-to-end (shares its parser
-internally with XML; see [`../STYLE_DATA_FORMATS.md`](../STYLE_DATA_FORMATS.md)
-§4), with one caveat: real `<script>` content (JavaScript/TypeScript) can't
-be dispatched to a real formatter yet, since JS/TS support itself is
-scaffold-only (see below) — such content must be wrapped in a
-`//% JXM_CFMT_DIS`/`//% JXM_CFMT_ENA` pair or it throws. `<style>` content
-is fully real (dispatches to the CSS formatter). See `STATE_DATA_FORMATS.md`
-for current status.
-
 **Scaffold-only languages (not yet implemented):**
-JavaScript/TypeScript and Python3 are recognized by
-file extension (and accepted by `--lang`/the server's `lang` param), but
-every real formatting attempt currently throws
-`UnsupportedLanguageException` — no rule classes exist for them yet. See
-`STATE_JS_TS.md` and `STATE_PYTHON3.md` for
-implementation status. (C++26 is not a separate language — its rule
-coverage lands directly in the existing C/C++ pipeline; see
-`STATE_CPP26.md`.)
+Python3 is recognized by file extension (and accepted by `--lang`/the server's
+`lang` param), but every real formatting attempt currently throws
+`UnsupportedLanguageException` — no rule classes exist for it yet. See
+`STATE_PYTHON3.md` for implementation status.
 
 ---
 
@@ -64,10 +44,10 @@ java -jar code-formatter-1.00.jar include/Module.h
 
 Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.cc`/`.cxx` → C++,
 `.java` → Java, `.kt`/`.kts` → Kotlin, `.json`/`.json5` → JSON/JSON5, `.css` → CSS,
-`.yaml`/`.yml` → YAML, `.toml` → TOML, `.xml` → XML, `.html`/`.htm` → HTML5). The scaffold-only
-languages are also detected by extension (`.js`/`.jsx`/`.mjs`/`.cjs`/`.ts`/`.tsx`/`.py`) but
-every real formatting attempt on one of them currently throws `UnsupportedLanguageException` —
-see the scaffold-only note above.
+`.yaml`/`.yml` → YAML, `.toml` → TOML, `.xml` → XML, `.html`/`.htm` → HTML5,
+`.js`/`.jsx`/`.mjs`/`.cjs` → JavaScript, `.ts`/`.tsx` → TypeScript). The scaffold-only language
+is also detected by extension (`.py`) but every real formatting attempt on it currently throws
+`UnsupportedLanguageException` — see the scaffold-only note above.
 
 For a file with a non-standard extension (e.g. `.java.in`, `.txt`, no extension at all),
 override detection with `--lang`:
@@ -78,8 +58,8 @@ java -jar code-formatter-1.00.jar --lang cpp Module.inc
 ```
 
 `--lang` accepts exactly one of `c`, `cpp`, `java`, `kotlin`, `json`, `json5`, `css`, `yaml`,
-`toml`, `xml`, `html5` (the implemented languages), or one of `js`, `ts`, `python3`
-(scaffold-only — accepted for dispatch/testing purposes but every real format attempt throws),
+`toml`, `xml`, `html5`, `js`, `ts` (the implemented languages), or `python3` (scaffold-only
+— accepted for dispatch/testing purposes but every real format attempt throws),
 and applies to every file given on that command line (mixing file types with a single forced
 `--lang` in one invocation isn't supported — run the formatter once per language instead).
 Without `--lang`, a file whose extension can't be recognized is an error. `--lang` also works
@@ -361,16 +341,8 @@ Newer-language-construct support:
 - [`../STYLE_DATA_FORMATS.md`](../STYLE_DATA_FORMATS.md) — JSON/JSON5/CSS/YAML/
   TOML/XML/HTML5 (all implemented; HTML5's `<script>` dispatch to JS/TS is
   the one exception, pending JS/TS itself)
-- [`../STYLE_JS_TS.md`](../STYLE_JS_TS.md) — JavaScript/TypeScript (scaffold-only)
+- [`../STYLE_JS_TS.md`](../STYLE_JS_TS.md) — JavaScript/TypeScript
 - [`../STYLE_PYTHON3.md`](../STYLE_PYTHON3.md) — Python 3 (scaffold-only)
-
-See `STATE.md`'s Phase Status / End Goal sections for current progress, and
-[`STATE_KOTLIN.md`](STATE_KOTLIN.md) for the Kotlin support tracker
-specifically. The still-scaffold-only languages each have their own tracker:
-[`STATE_CPP26.md`](STATE_CPP26.md) (rule-coverage tracker, not a scaffold),
-[`STATE_JS_TS.md`](STATE_JS_TS.md), [`STATE_PYTHON3.md`](STATE_PYTHON3.md).
-[`STATE_DATA_FORMATS.md`](STATE_DATA_FORMATS.md) tracks JSON/JSON5/CSS/YAML/
-TOML/XML/HTML5, all now implemented.
 
 ---
 
@@ -385,9 +357,9 @@ The server (`--server`) exposes two plain-HTTP endpoints on `localhost:<port>` (
   over any extension-based guess the server could make from `path` — this is how `--lang`
   (above) reaches the server, and is also why the server itself never needs its own
   `--lang`-style flag. An unrecognized `lang` value gets HTTP 400 with a plain text error body.
-  The scaffold-only `lang` values (`js`/`ts`/`python3`) are recognized but throw
+  The scaffold-only `lang` value (`python3`) is recognized but throw
   `UnsupportedLanguageException` (surfaced as HTTP 500) since no rule classes exist for
-  them yet — see the scaffold-only note near the top of this file. Any other failure (e.g.
+  it yet — see the scaffold-only note near the top of this file. Any other failure (e.g.
   a malformed file) gets HTTP 500.
   - **Inline config.** Any config key from the formatter's config-file property set (e.g.
     `indent-size`, `line-length`, `java-import-order`) may be passed as its own query

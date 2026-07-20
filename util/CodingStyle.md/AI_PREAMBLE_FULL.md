@@ -16,41 +16,16 @@ GPT-4o, Gemini 1.5 Pro, and equivalents).
 Use this preamble for a **full-file pass** — applying all style rules from scratch to
 a file that has NOT yet been processed by the deterministic JAR formatter. If the file
 has already been JAR-processed, use `AI_PREAMBLE_AESTHETIC.md` instead for a targeted
-layout judgment pass — it is cheaper (less quota) and safer (won't disturb
-JAR-applied alignment).
+layout judgment pass — it is cheaper (less quota) and safer (won't disturb JAR-applied
+alignment).
 
 Do **not** use this preamble with small on-device models (Qwen2.5-Coder-3B, Llama
 3.2 3B, etc.) — they fail inconsistently on column alignment and bracket-padding rules.
 
 This preamble is language-agnostic; combine it with the style files for the target
-language (see README.txt). Kotlin support (`.kt`/`.kts`, auto-detected) is on the same
-footing as C/C++/Java — same dogfood-testing process, same regression-fix cadence
-(see `formatter/STATE_KOTLIN.md`/`formatter/RDD_LOG.md`) — so prefer running the JAR
-first for Kotlin exactly as you would for the others, and use this full-file pass only
-as a fallback for a construct the JAR doesn't handle. The layout judgment pass
-(`AI_PREAMBLE_AESTHETIC.md`) applies to Kotlin the same way it applies to C/C++/Java.
-The one real exception, both for the JAR and for the layout judgment pass: three
-property-accessor shapes — block-bodied accessors (`get() {...}`/`set(v) {...}`), a
-property pairing a getter with a setter, and a property with both an initializer and
-a custom accessor — are left preserved-as-written rather than grouped, a deliberate
-scope boundary given how much more complex correctly grouping these shapes is than
-the plain one-liner cases already handled (see `formatter/STATE_KOTLIN.md`'s Open
-Questions), not an immaturity gap. Apply STYLE.md §14's getter/setter alignment
-manually only to those three residual shapes when reformatting Kotlin.
-
-**C++26, JSON/JSON5/XML/CSS/HTML5, JavaScript/TypeScript, and Python3** have drafted
-style files (`STYLE_CPP26.md`, `STYLE_DATA_FORMATS.md`, `STYLE_JS_TS.md`,
-`STYLE_PYTHON3.md`) but **no JAR support at all** — unlike Kotlin above, there is no
-"run the JAR first, fall back to this preamble" option for these; this full-file pass
-is currently the *only* way to apply their rules. Combine this preamble with
-`STYLE.md` plus the relevant language-specific file(s) the same way as any other
-language (see README.txt for the exact file combinations per language). The
-"Defaults for Judgment-Call Rules" below are written against C/Java/Kotlin's
-constructs (`for`/`while`/`switch`/`else`, brace-delimited getter/setter groups) —
-where a newer language has its own judgment-call shape not covered by those defaults
-(e.g. Python's bare-vs-typed parameter alignment, CSS's at-rule-vs-declaration
-distinction, JS/TS's decorator overflow cascade), the relevant `STYLE_*.md` file's own
-text is authoritative; nothing below should be assumed to override it.
+language (see README.txt). Prefer running the JAR first and use this full-file pass only
+as a fallback for a construct the JAR doesn't handle. The relevant `STYLE_*.md` file's
+own text is authoritative; nothing below should be assumed to override it.
 
 ---
 
@@ -245,18 +220,3 @@ for a standard group (STYLE.md §14). Do not rename the methods — alignment on
 If the non-standard names are inconsistent within the group (e.g. `fetchX` alongside
 `getY`), flag the inconsistency in a comment at the end of the file rather than
 silently aligning a mixed group.
-
-**For the four languages with no JAR at all** (C++26 additions, Data Formats,
-JS/TS, Python3): apply this same principle directly in the full-file pass — there's
-no "JAR already handles standard names" baseline to compare against, just align a
-non-standard-named accessor cluster the same way §14 would align a standard one.
-Applicability varies by language:
-- **JSON/JSON5, XML, CSS, HTML5** — not applicable; these have no functions/methods.
-- **Python3** — not applicable; §8's exclusion of `def` means accessor methods never
-  compact onto one line, so there's nothing to align regardless of naming
-  convention (see STYLE_PYTHON3.md §4's `@property`/`@x.setter` note).
-- **JavaScript/TypeScript** — applies directly, same as Java: a cluster of plain
-  camelCase accessor-style methods (`fetchX()`, `retrieveY()`) that happen to be
-  short enough to fit on one line aligns the same way STYLE_JS_TS.md §8 aligns real
-  `get`/`set` keyword accessors — the naming convention doesn't change the
-  mechanism, just whether it's JAR-automatic (moot here) or manual.

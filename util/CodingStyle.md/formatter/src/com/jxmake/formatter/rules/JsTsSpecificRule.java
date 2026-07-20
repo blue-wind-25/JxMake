@@ -1488,9 +1488,14 @@ public final class JsTsSpecificRule {
         final Set<Integer> result = new HashSet<>();
         final Map<Integer, Integer> braceOpenToClose = matchBraces(tokens);
         final Set<Integer> valueBraces = new HashSet<>();
+        final Map<Integer, String> braceKind = new HashMap<>();
         for (final Integer openIdx : braceOpenToClose.keySet()) {
             if (isValuePrecededBrace(tokens, openIdx)) {
                 valueBraces.add(openIdx);
+            }
+            final String kind = classBraceKind(tokens, openIdx);
+            if (kind != null) {
+                braceKind.put(openIdx, kind);
             }
         }
         final Map<Integer, Integer> parenOpenToClose = matchParens(tokens);
@@ -1528,7 +1533,12 @@ public final class JsTsSpecificRule {
             } else if (isPunct(t, "[")) {
                 stack.push("BRACKET");
             } else if (isPunct(t, "{")) {
-                stack.push(valueBraces.contains(i) ? "OBJ" : "BLOCK");
+                final String kind = braceKind.get(i);
+                if ("CLASS".equals(kind)) {
+                    stack.push("BLOCK:CLASS");
+                } else {
+                    stack.push(valueBraces.contains(i) ? "OBJ" : "BLOCK");
+                }
             } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")) {
                 if (!stack.isEmpty()) {
                     stack.pop();
@@ -1577,7 +1587,304 @@ public final class JsTsSpecificRule {
                 && ctx != null && (isPunct(ctx, ",") || (ctx.type == TokenType.KEYWORD
                         && ("let".equals(ctx.text) || "const".equals(ctx.text) || "var".equals(ctx.text))
                         && hasTopLevelCommaBeforeSemicolon(tokens, colonIdx)));
-        return paramCtx || declaratorCtx;
+        // A class field's own `: type` colon (`private x: number;`) -- Checkpoint 7 deliberately
+        // left this untouched ("class-field colons... deliberately NOT touched -- out of this
+        // checkpoint's scope"); STATE_JS_TS.md's Checkpoint 21 bug 7 confirmed the gap is real
+        // (never spaced at all, not merely unaligned). Recognized only when the enclosing frame is
+        // specifically tagged `BLOCK:CLASS` (a class body brace, via `classBraceKind`) -- not any
+        // ordinary `BLOCK` frame -- so a labeled statement's colon inside an ordinary function/
+        // control-flow body (also a plain `BLOCK` frame, indistinguishable by shape alone) is never
+        // misclassified. `ctx` must be the class body's own opening `{` (first member), a prior
+        // member's terminating `;`, or one of §11.2's own modifier keywords (covers a run of
+        // multiple modifiers, since each one's own preceding token is walked back to naturally).
+        final boolean memberCtx = "BLOCK:CLASS".equals(stack.peek())
+                && ctx != null && (isPunct(ctx, "{") || isPunct(ctx, ";")
+                        || (ctx.type == TokenType.KEYWORD && MODIFIER_PRIORITY.containsKey(ctx.text)));
+        return paramCtx || declaratorCtx || memberCtx;
+    }
+
+    /** Classifies the `{` at {@code braceIdx} as the body brace of a `class` or `interface`
+     *  declaration (returns {@code "CLASS"}/{@code "IFACE"}), or {@code null} if it's neither.
+     *  Scans backward from {@code braceIdx} tracking `(`/`[`/`<...>` nesting (an `extends`/
+     *  `implements` clause's own type arguments, e.g. `class Foo extends Bar<T> implements Baz {`,
+     *  never contain a `{` themselves, so a depth-0 `{`/`}`/`;` encountered first means "no class/
+     *  interface header found -- give up", not "false positive risk") until either a depth-0
+     *  `class`/`interface` KEYWORD is found (match) or a depth-0 statement/block boundary (`{`,
+     *  `}`, `;`) is hit first (no match, e.g. an ordinary function/control-flow body or an object-
+     *  literal brace). */
+    private String classBraceKind(final List<Token> tokens, final int braceIdx) {
+        int depth = 0;
+        for (int i = braceIdx - 1; i >= 0; i--) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                continue;
+            }
+            if (isPunct(t, ")") || isPunct(t, "]") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth++;
+            } else if (isPunct(t, "(") || isPunct(t, "[") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                depth--;
+            } else if (depth == 0 && (isPunct(t, "{") || isPunct(t, "}") || isPunct(t, ";"))) {
+                return null;
+            } else if (depth == 0 && t.type == TokenType.KEYWORD && "class".equals(t.text)) {
+                return "CLASS";
+            } else if (depth == 0 && t.type == TokenType.KEYWORD && "interface".equals(t.text)) {
+                return "IFACE";
+            }
+        }
+        return null;
+    }
+
+    /** True iff the `{` at {@code braceIdx} is the object-shaped body of a `type X = { ... };`
+     *  alias declaration -- i.e. immediately preceded by `=`, whose own enclosing statement (walked
+     *  backward the same depth-aware way as {@link #classBraceKind}) starts with the `type`
+     *  KEYWORD. Excludes non-object type aliases (`type Status = "a" | "b";`, no brace at all) and
+     *  ordinary `=`-preceded object-literal initializers (`const obj = { ... };`, whose enclosing
+     *  statement starts with `const`/`let`/`var`, never `type`) by construction. */
+    private boolean isTypeAliasObjectBrace(final List<Token> tokens, final int braceIdx) {
+        final int prevIdx = prevSignificantIndex(tokens, braceIdx - 1);
+        if (prevIdx < 0 || !isOp(tokens.get(prevIdx), "=")) {
+            return false;
+        }
+        int depth = 0;
+        for (int i = prevIdx - 1; i >= 0; i--) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                continue;
+            }
+            if (isPunct(t, ")") || isPunct(t, "]") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth++;
+            } else if (isPunct(t, "(") || isPunct(t, "[") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                depth--;
+            } else if (depth == 0 && (isPunct(t, ";") || isPunct(t, "{") || isPunct(t, "}"))) {
+                return false;
+            } else if (depth == 0 && t.type == TokenType.KEYWORD && "type".equals(t.text)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ── §14 interface/type-alias member `:` alignment ────────────────────────────────
+    /** One parsed `interface`/object-shaped `type`-alias member: optional leading (own-line)
+     *  comments, the member's rendered "name phrase" (an optional {@code readonly } prefix plus the
+     *  property name plus an optional trailing {@code ?}), its type expression's raw text (trimmed,
+     *  internal spacing preserved exactly as originally written), and an optional same-line trailing
+     *  comment -- structurally the direct TS analog of {@link EnumMember}, same fields modulo the
+     *  `=`-value pair being a `:`-type pair instead. */
+    private static final class InterfaceMember {
+        private final List<String> leadingComments;
+        private final String namePhrase;
+        private final String type;
+        private String trailingComment;
+
+        InterfaceMember(final List<String> leadingComments, final String namePhrase, final String type) {
+            this.leadingComments = leadingComments;
+            this.namePhrase = namePhrase;
+            this.type = type;
+        }
+    }
+
+    /**
+     * STYLE_JS_TS.md §14: an `interface` body or an object-shaped `type X = { ... };` alias body
+     * aligns every member's `:` in a shared column, same alignment concept as §11's declaration-
+     * alignment grid -- "member/property lists inside an `interface` or object-shaped `type` alias
+     * align their `:` the same way §11 above aligns parameter/variable type annotations". Unlike
+     * §12's enum bodies, this does NOT force a same-line member list onto separate lines -- the
+     * style doc's own worked examples are already one-member-per-line as written (real-world
+     * interface/type-alias bodies overwhelmingly are too), so a same-line member list (e.g. a
+     * degenerate one-liner `interface P { a: number; b: string; }`) is judged out of this pass's
+     * scope and left completely untouched (conservative, "never guess past an unrecognized shape"
+     * posture, matching every other pass in this file) -- only re-derives column padding for a body
+     * whose members are already one-per-line. TS-only (`lang.isTs`); JS has no `interface`/type-
+     * annotated `type` alias syntax at all.
+     *
+     * <p>Member shape recognized (see {@link #parseInterfaceMembers}): an optional {@code readonly}
+     * modifier, a plain identifier name, an optional {@code ?} optional-marker, {@code :}, a type
+     * expression (bracket-depth-aware scan so nested `(`/`[`/`{`/`<>` — e.g. a function-type member
+     * like {@code onSelect : (id: string) => void;} — don't prematurely end the scan), and a
+     * terminating `;`. Any other member shape in the same body (a method-signature member with no
+     * colon directly after its name, e.g. {@code onSelect(id: string): void;}; an index signature,
+     * e.g. {@code [key: string]: number;}; a member whose type expression spans a NEWLINE) makes
+     * the WHOLE body bail out untouched rather than partially aligning it -- same conservative
+     * per-construct bailout {@link #parseEnumMembers} already uses.
+     */
+    public String enforceInterfaceTypeAliasMemberColonAlignment(final List<Token> tokens) {
+        if (!lang.isTs) {
+            return render(tokens, new HashMap<>());
+        }
+        final Map<Integer, Integer> braces = matchBraces(tokens);
+        final List<int[]> bodies = new ArrayList<>();
+        for (final Map.Entry<Integer, Integer> e : braces.entrySet()) {
+            final int openIdx = e.getKey();
+            if ("IFACE".equals(classBraceKind(tokens, openIdx)) || isTypeAliasObjectBrace(tokens, openIdx)) {
+                bodies.add(new int[] { openIdx, e.getValue() });
+            }
+        }
+        if (bodies.isEmpty()) {
+            final StringBuilder sb = new StringBuilder();
+            for (final Token t : tokens) {
+                sb.append(t.text);
+            }
+            return sb.toString();
+        }
+        bodies.sort((a, b) -> Integer.compare(a[0], b[0]));
+
+        final StringBuilder out = new StringBuilder();
+        int cursor = 0;
+        for (final int[] body : bodies) {
+            final int openIdx = body[0];
+            final int closeIdx = body[1];
+            if (anyFrozen(tokens, openIdx, closeIdx + 1)) {
+                continue;
+            }
+            final String rewritten = rewriteInterfaceBody(tokens, openIdx, closeIdx);
+            if (rewritten == null) {
+                continue;
+            }
+            for (int i = cursor; i <= openIdx; i++) {
+                out.append(tokens.get(i).text);
+            }
+            out.append(rewritten);
+            cursor = closeIdx; // resume from the closing `}` token itself
+        }
+        for (int i = cursor; i < tokens.size(); i++) {
+            out.append(tokens.get(i).text);
+        }
+        return out.toString();
+    }
+
+    /** Rewrites the interior of one `interface`/type-alias body into the always-`: `-column-aligned
+     *  layout described on {@link #enforceInterfaceTypeAliasMemberColonAlignment}, or returns
+     *  {@code null} if {@link #parseInterfaceMembers} can't safely parse it. */
+    private String rewriteInterfaceBody(final List<Token> tokens, final int openIdx, final int closeIdx) {
+        final List<InterfaceMember> members = parseInterfaceMembers(tokens, openIdx, closeIdx);
+        if (members == null) {
+            return null;
+        }
+        int maxNameWidth = 0;
+        for (final InterfaceMember m : members) {
+            maxNameWidth = Math.max(maxNameWidth, m.namePhrase.length());
+        }
+        final String bodyIndent = lineIndent(tokens, openIdx);
+        final String memberIndent = bodyIndent + defaultIndentUnit;
+        final StringBuilder sb = new StringBuilder();
+        for (final InterfaceMember m : members) {
+            for (final String comment : m.leadingComments) {
+                sb.append('\n').append(memberIndent).append(comment);
+            }
+            sb.append('\n').append(memberIndent);
+            sb.append(padRight(m.namePhrase, maxNameWidth)).append(" : ").append(m.type).append(';');
+            if (m.trailingComment != null) {
+                sb.append("  ").append(m.trailingComment);
+            }
+        }
+        sb.append('\n').append(bodyIndent);
+        return sb.toString();
+    }
+
+    /** Parses an `interface`/type-alias body's interior (between {@code openIdx} and
+     *  {@code closeIdx}, exclusive) into an ordered list of {@link InterfaceMember}s via a single
+     *  forward scan, mirroring {@link #parseEnumMembers}'s shape but with `;`-terminated `name :
+     *  type` members instead of `,`-terminated `name [= value]` ones. Returns {@code null} (bail,
+     *  leave the whole body untouched) on any unrecognized member shape, a member value spanning a
+     *  NEWLINE, or a floating comment with no member following it. */
+    private List<InterfaceMember> parseInterfaceMembers(final List<Token> tokens, final int openIdx,
+            final int closeIdx) {
+        final List<InterfaceMember> members = new ArrayList<>();
+        final List<String> leadingComments = new ArrayList<>();
+        boolean sameLineAsPrevSeparator = false;
+        int i = openIdx + 1;
+        while (i < closeIdx) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.WHITESPACE) {
+                i++;
+                continue;
+            }
+            if (t.type == TokenType.NEWLINE) {
+                sameLineAsPrevSeparator = false;
+                i++;
+                continue;
+            }
+            if (isComment(t)) {
+                if (sameLineAsPrevSeparator && !members.isEmpty()) {
+                    members.get(members.size() - 1).trailingComment = t.text;
+                } else {
+                    leadingComments.add(t.text);
+                }
+                i++;
+                continue;
+            }
+            final StringBuilder namePhrase = new StringBuilder();
+            while (i < closeIdx && tokens.get(i).type == TokenType.KEYWORD && "readonly".equals(tokens.get(i).text)) {
+                namePhrase.append(tokens.get(i).text).append(' ');
+                i++;
+                while (i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE) {
+                    i++;
+                }
+            }
+            if (i >= closeIdx || tokens.get(i).type != TokenType.IDENTIFIER) {
+                return null; // not a recognized member shape (index signature, method signature, ...)
+            }
+            namePhrase.append(tokens.get(i).text);
+            i++;
+            if (i < closeIdx && isOp(tokens.get(i), "?")) {
+                namePhrase.append('?');
+                i++;
+            }
+            while (i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE) {
+                i++;
+            }
+            if (i >= closeIdx || !isOp(tokens.get(i), ":")) {
+                return null; // e.g. a method-signature member (`onSelect(id: string): void;`)
+            }
+            i++;
+            while (i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE) {
+                i++;
+            }
+            final StringBuilder typeBuf = new StringBuilder();
+            int depth = 0;
+            while (i < closeIdx) {
+                final Token vt = tokens.get(i);
+                if (depth == 0 && isPunct(vt, ";")) {
+                    break;
+                }
+                if (vt.type == TokenType.NEWLINE) {
+                    return null; // multi-line member type expression -- rare, not handled
+                }
+                if (isPunct(vt, "(") || isPunct(vt, "[") || isPunct(vt, "{") || vt.type == TokenType.ANGLE_BRACKET_OPEN) {
+                    depth++;
+                } else if (isPunct(vt, ")") || isPunct(vt, "]") || isPunct(vt, "}") || vt.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                    depth--;
+                }
+                typeBuf.append(vt.text);
+                i++;
+            }
+            if (i >= closeIdx) {
+                return null; // no terminating ';' found -- malformed/unsupported
+            }
+            i++; // skip ';'
+            final String type = typeBuf.toString().trim();
+            if (type.isEmpty()) {
+                return null;
+            }
+            while (i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE) {
+                i++;
+            }
+            String trailingComment = null;
+            if (i < closeIdx && isComment(tokens.get(i))) {
+                trailingComment = tokens.get(i).text;
+                i++;
+            }
+            final InterfaceMember member = new InterfaceMember(new ArrayList<>(leadingComments), namePhrase.toString(), type);
+            member.trailingComment = trailingComment;
+            leadingComments.clear();
+            members.add(member);
+            sameLineAsPrevSeparator = true;
+        }
+        if (!leadingComments.isEmpty()) {
+            return null; // a floating comment with no member attached after it -- don't drop it
+        }
+        return members.isEmpty() ? null : members;
     }
 
     /** Depth-aware forward scan (over `(`/`[`/`{` nesting) from {@code fromIdx} for a depth-0

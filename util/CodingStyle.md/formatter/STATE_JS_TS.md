@@ -1967,6 +1967,175 @@ attempted this session, future work:
       §12 specifically is complete as of *this* checkpoint, not the earlier
       one. Bugs 1-7 and 9 from Checkpoint 21's list remain untouched and
       open, out of scope for this checkpoint by explicit instruction.
+- [x] **Checkpoint 23 — §14 (`interface`/object-shaped `type`-alias member `:`
+      alignment) actually implemented from scratch, and Checkpoint 21's bug 7
+      resolved for both halves it named.** Bug 7 named two things: (1)
+      interface/type-alias member colons never spaced at all, and (2)
+      class-field member colons never spaced at all. Verified **empirically,
+      not assumed** (per this session's own instruction) that these are two
+      separate gaps, not one: a standalone harness confirmed `private
+      x:number;` inside a plain `class` body was indeed still completely
+      unspaced before this checkpoint (Checkpoint 7's own text already said
+      class-field colons were "deliberately NOT touched" — confirmed still
+      true), while `id:string;` inside an `interface`/`type` alias body was
+      also still completely unspaced (also confirmed, and additionally never
+      column-aligned, matching §14's own worked-example requirement).
+      **Design decision, with direct textual basis (STYLE_JS_TS.md §14's own
+      text and worked examples):** §14 explicitly says member lists "align
+      their `:` the same way §11 above aligns parameter/variable type
+      annotations" and its own worked examples show real column alignment
+      (`id       : string;` / `label    : string;` / `onSelect : (id:
+      string) => void;`, and the `type Point` example similarly) — a space
+      *before* the colon too, not just tight-before/space-after flat spacing.
+      This is genuine column-grid alignment, not a flat pass, so it needed a
+      dedicated parser/rewriter (mirroring Checkpoint 22's §12 enum-body
+      approach: find matching body braces, parse the member list via a
+      forward token scan, reflow with padded columns), not an extension of
+      the existing flat `enforceTypeColonSpacing`/`classifyTypeColons` scan
+      (confirmed by re-reading the worked examples carefully, per this
+      session's own instruction to check for column alignment vs. flat
+      spacing before choosing an implementation shape). Class-field colons,
+      by contrast, have **no** worked example anywhere in §14 or §11.2
+      showing column alignment for the colon itself (§11.2's own worked
+      example shows the *modifier phrase* padded as one unit so the type
+      column aligns, which is a different, still-undone grid — see
+      Checkpoint 9's own "Explicitly NOT done" note, unchanged, out of this
+      checkpoint's scope) — so class-field colons only needed the flat
+      tight-before/space-after treatment, reusing the existing
+      `enforceTypeColonSpacing` machinery rather than a new pass.
+      **Two pieces landed in `JsTsSpecificRule.java`:**
+      1. **Class-field colon flat spacing**, extending the existing §11
+         `classifyTypeColons`/`isTypeColonAt` machinery (not a new pass): a
+         new `classBraceKind(tokens, braceIdx)` helper classifies a `{` as a
+         `class`/`interface` body brace by scanning backward over
+         `(`/`[`/`<...>` nesting (an `extends`/`implements` clause never
+         contains a `{` itself, so a depth-0 `{`/`}`/`;` hit first means "no
+         header found, give up" rather than a false-positive risk) until a
+         depth-0 `class`/`interface` KEYWORD is found. `classifyTypeColons`'s
+         existing bracket-stack scan now tags a `class`-body brace as
+         `BLOCK:CLASS` (instead of the generic `BLOCK`) when pushed, and a
+         new `memberCtx` disjunct in `isTypeColonAt` recognizes a colon as a
+         class-field type colon when the enclosing frame is specifically
+         `BLOCK:CLASS` (not any ordinary `BLOCK`, which would risk
+         misclassifying a labeled statement's colon inside an ordinary
+         function/control-flow body — also a plain `BLOCK` frame,
+         indistinguishable by shape alone) and the identifier's own
+         preceding context is the class body's opening `{`, a prior member's
+         `;`, or one of §11.2's own `MODIFIER_PRIORITY` modifier keywords
+         (reused directly, no new modifier list). Interface bodies are
+         intentionally NOT given the same `memberCtx` treatment here — their
+         colons are fully owned by the new §14 pass below instead, avoiding
+         any risk of the flat pass and the new grid pass fighting over the
+         same colon the way Checkpoint 7's own prerequisite fix #1 had to
+         guard against for declarator colons.
+      2. **New `enforceInterfaceTypeAliasMemberColonAlignment` pass**
+         (`lang.isTs`-gated, new call site in `FormatterCurly.java` Phase 1
+         directly after §12's `enforceEnumMemberFormatting` call, before
+         `collapseSingleExpressionBlocks`, same ordering rationale as §12's
+         own call): finds every `interface` body brace (via the same new
+         `classBraceKind` helper, `"IFACE"`) and every object-shaped
+         `type X = { ... };` alias body brace (via a new
+         `isTypeAliasObjectBrace` helper — `{` immediately preceded by `=`
+         whose own enclosing statement, walked backward the same depth-aware
+         way, starts with the `type` KEYWORD; excludes non-object aliases
+         like `type Status = "a" | "b";`, which have no brace at all, and
+         ordinary `const`/`let`/`var` object-literal initializers, whose
+         enclosing statement never starts with `type`), then for each body
+         not containing any frozen token, parses its member list
+         (`parseInterfaceMembers`, structurally the direct TS analog of
+         §12's `parseEnumMembers`: optional `readonly` modifier, IDENTIFIER
+         name, optional `?`, `:`, a bracket-depth-aware type-expression scan
+         so a nested `(`/`[`/`{`/`<>` — e.g. a function-type member,
+         `onSelect : (id: string) => void;` — doesn't prematurely end the
+         scan, then a terminating `;`) and reflows it with the name-phrase
+         column padded to the group's widest member, always `pad(name) + "
+         : " + type + ";"` (verified this exact formula against the style
+         doc's own worked example character-by-character before writing any
+         code: `onSelect` at width 8 vs. `id` at width 2 produces exactly the
+         7-space gap the worked example shows).
+      **Deliberate scope decision, not an oversight (documented in the new
+      method's own javadoc):** unlike §12's enum reflow, this pass does
+      **not** force a same-line member list onto separate lines — a
+      degenerate one-liner interface body is left completely untouched
+      (bailed, not corrupted). Basis: §14's own worked examples are already
+      one-per-line as written (unlike §12, which has explicit "always
+      one-per-line... either way" text forcing reflow even of an
+      originally-same-line enum), and real-world interface/type-alias bodies
+      are overwhelmingly already one-member-per-line, so this was judged the
+      conservative, doc-supported choice rather than a guess.
+      **Per-body bailout (whole body left byte-for-byte untouched, not
+      partially aligned) on any unrecognized member shape** — a
+      method-signature member with no colon directly after its name (e.g.
+      `doThing(x: number): void;`), an index signature (`[key: string]:
+      number;`), or a member type expression spanning a NEWLINE — matching
+      every other pass in this file's "never guess past an unrecognized
+      shape" posture; confirmed via harness that an interface mixing a
+      colon-typed property with a method-signature member is correctly left
+      completely untouched (no partial/corrupted alignment).
+      **§5 K&R-vs-Allman brace-style claim (STYLE_JS_TS.md §14's own Scope
+      text, "brace style is K&R... container construct, not
+      function/method") explicitly re-verified, not assumed:** a
+      standalone-harness case with `interface Props\n{` (deliberately
+      written Allman) correctly converts to K&R (`interface Props {`)
+      end-to-end — confirmed this is the pre-existing, general-purpose
+      STYLE.md §11 non-function-block-brace-style pass already handling it
+      correctly (no code touched here); `enforceMethodDefinitionAllmanBraceStyle`
+      (§5, function/method-only) was independently re-confirmed to never
+      match an interface/type-alias header's `{` in the first place (its own
+      candidate signal requires a `)`-terminated header, which an
+      `interface`/`type` declaration never has). No change needed, exactly
+      as the task's own item 5 anticipated.
+      Verified via a standalone harness (`FormatterCore.forLanguage("ts")`):
+      an interface with mixed simple/optional-`?`/nested-generic-type members
+      (`cache:Map<string,number>;`) aligns correctly; an interface with an
+      `extends` clause (`interface Derived extends Base { b:number; }`)
+      correctly finds its own body brace via `classBraceKind`'s backward scan
+      over the extends clause; an empty interface (`interface Empty {}`)
+      is left untouched (no members to align, no crash); a `type Point = {
+      x:number; y:number; };` object-type alias aligns correctly; a
+      mixed-shape interface (colon-typed property + a method-signature
+      member) correctly bails the whole body untouched; a class with
+      scrambled modifiers (`readonly static private x:number;`) correctly
+      both reorders (§11.2, pre-existing) AND now spaces its colon
+      (`private static readonly x: number;`) in the same pass composition; a
+      union-typed interface member (`mode:"a"|"b";`) composes correctly with
+      §11.1's existing union-spacing pass (`mode  : "a" | "b";`); leading
+      standalone comments and same-line trailing comments on interface
+      members are preserved and attached to the correct member, matching
+      §12's own comment-handling precedent. Explicitly re-verified
+      unaffected (byte-for-byte, per this session's own hard requirement):
+      §7 declaration-alignment-grid single/multi-declarator cases
+      (Checkpoint 5-7), §11.1 union/intersection wrapping (Checkpoint 8),
+      §11.2 modifier reordering alone with no colon present (Checkpoint 9),
+      and §12 enum member formatting (Checkpoint 22, including mixed
+      value/no-value alignment-subgroups) — all re-run through the same
+      harness alongside the new cases in one combined fixture. Round-trip
+      (harness round1 → round2) confirmed idempotent on every case above,
+      including the mixed-shape bailout case (verified the bailed body
+      renders byte-identically on both rounds, not just "doesn't crash").
+      `make` compiles clean; `make test`: **106/106 forward + 106/106
+      idempotency, zero regressions** — the same baseline as before this
+      checkpoint, no fixture was added/changed/regenerated (both new
+      helpers/pass are `lang.isTs`-gated with no effect on any other
+      language, and the `classBraceKind`/`BLOCK:CLASS` tagging addition to
+      the shared `classifyTypeColons` scan only changes behavior for a colon
+      whose enclosing frame is specifically tagged `CLASS` by the new
+      helper, which no pre-existing fixture's colon usage matches — reconfirmed
+      by the full suite passing unchanged, not just reasoned about).
+      **§14 is now judged fully done** for the member-`:`-alignment scope
+      STYLE_JS_TS.md's own text calls for, with no known remaining gap.
+      Combined with Checkpoint 22 (§12), **both sections Checkpoint 21's bug
+      list flagged as "never actually implemented despite being checked off"
+      are now resolved** — the stale "§2-15 rule-by-rule checklist item is
+      now fully complete" claim (recorded under Checkpoint 16) should now be
+      read as accurate again for every section §2 through §15, this
+      checkpoint being the last of the two corrections needed. Bugs 1-6 and
+      9 from Checkpoint 21's list remain untouched and open, out of scope
+      for this checkpoint by explicit instruction (each still needs its own
+      dedicated checkpoint). The four local `.js`/`.ts` fixture pairs
+      remain unactivated in the Makefile — still gated on bugs 1-6/9 being
+      resolved and the fixture-verification pass being redone, per the
+      existing plan, not attempted this checkpoint.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_JS_TS.md`'s listed test-fixture repos (`nodejs/node`,
       `expressjs/express`, `lodash/lodash`, `microsoft/TypeScript`,

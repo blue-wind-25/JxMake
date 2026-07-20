@@ -104,6 +104,10 @@ public final class FormatterCurly extends FormatterCore {
             // passes below so those passes see the final, reflowed multi-line member list rather
             // than an original same-line member list.
             text = jsTsRule.enforceEnumMemberFormatting(tokenizer.apply(text));
+            // STYLE_JS_TS.md §14: interface/object-shaped type-alias member `:` column alignment.
+            // Placed right after §12's enum-body reflow (same Phase-1 structural-rewrite rationale)
+            // so downstream brace-style/collapse passes see the final, column-aligned member list.
+            text = jsTsRule.enforceInterfaceTypeAliasMemberColonAlignment(tokenizer.apply(text));
         }
         text = blockRule.collapseSingleExpressionBlocks(tokenizer.apply(text));
         text = blockRule.enforceKAndRBraceStyle(tokenizer.apply(text));

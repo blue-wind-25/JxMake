@@ -90,12 +90,11 @@ INP_FILES += kt_comments_inp.kt
 INP_FILES += in_file_config_inp.hpp
 INP_FILES += in_file_config_inp.java
 INP_FILES += in_file_config_inp.kt
-# Deliberately error-only (duplicate JXM_CFMT_CFG directive); it will always FAIL
-# the normal `diff` loop, since the formatter exits 1 with no output for it. Kept
-# commented out so `make test` stays green; uncomment to exercise its hard-error
-# path manually. See `test/in_file_config_error_out.hpp` for the expected error
-# message.
-# INP_FILES += in_file_config_error_inp.hpp
+# - Deliberately error-only (duplicate JXM_CFMT_CFG directive).
+# - It will always FAIL the normal `diff` loop, since the formatter exits 1 with no output for it.
+# - It is kept commented out so `make test` stays green; uncomment to exercise its hard-error path manually.
+# - See `test/in_file_config_error_out.hpp` for the expected error message.
+#INP_FILES += in_file_config_error_inp.hpp
 
 INP_FILES += json_core_inp.json
 INP_FILES += json5_core_inp.json5
@@ -121,15 +120,12 @@ INP_FILES += cpp26_reflection_inp.cpp
 #INP_FILES += js_comments_inp.js
 #INP_FILES += ts_combined_inp.ts
 #INP_FILES += ts_comments_inp.ts
-
 INP_FILES += ts_decl_grid_ext_inp.ts
+INP_FILES += js_getter_setter_asi_inp.js
 
 INP_FILES += html_combined_inp.html
 INP_FILES += html_comments_inp.html
 
-# py_combined/py_comments: fixtures authored ahead of implementation, hand-drafted
-# against STYLE_PYTHON3.md -- not yet verified by a real JAR (Python3 is still
-# scaffold-only). Uncomment once real logic lands.
 #INP_FILES += py_combined_inp.py
 #INP_FILES += py_comments_inp.py
 

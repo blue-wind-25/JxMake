@@ -109,15 +109,42 @@ public abstract class GetterSetterRuleCore {
     protected List<int[]> splitMembers(final List<Token> scopeTokens) {
         final List<int[]> members = new ArrayList<>();
         final int n = scopeTokens.size();
+        final boolean isJsOrTs = lang.isJs || lang.isTs;
         int start = 0;
         int depth = 0;
+        // JS/TS-only: tracks `(`/`[` nesting separately from `depth` (which only tracks `{`/`}`,
+        // unchanged for every other language) so the ASI newline check below never fires inside
+        // a parameter list or array/computed-member expression.
+        int parenDepth = 0;
         int i = 0;
+        int lastSigIdx = -1;
 
         while (i < n) {
             final Token t = scopeTokens.get(i);
+            // JS/TS-only ASI awareness: a class field written without a trailing `;` (legal
+            // under JS's semicolon-optional grammar, and JsTsSpecificRule.enforceSemicolonInsertion
+            // -- which would normalize this -- runs in Phase 1, AFTER this Phase-0 pass) would
+            // otherwise never close its statement here, so it swallows the *next* member's tokens
+            // (e.g. the following `static get`/`static set` one-liner) into its own span, corrupting
+            // that member's name/return-type parse and desyncing `blankLineBefore` for every member
+            // after it -- silently breaking one-liner grouping/column-padding for a sibling pair
+            // that has nothing wrong with it (confirmed real bug via `#cache = new Map()` with no
+            // trailing `;` ahead of a `static get`/`static set` pair). At depth 0, a NEWLINE right
+            // after a token that cannot legally continue an expression onto the next line closes
+            // the statement here too, same effect as an inserted `;`.
+            if (isJsOrTs && depth == 0 && parenDepth == 0 && t.type == TokenType.NEWLINE
+                    && lastSigIdx >= 0 && !isAsiContinuation(scopeTokens.get(lastSigIdx))) {
+                i++;
+                final int end = consumeTrailingSameLine(scopeTokens, i);
+                members.add(new int[] {start, end});
+                start = end;
+                lastSigIdx = -1;
+                continue;
+            }
             if (isPunct(t, "{")) {
                 depth++;
                 i++;
+                lastSigIdx = i - 1;
                 continue;
             }
             if (isPunct(t, "}")) {
@@ -127,7 +154,10 @@ public abstract class GetterSetterRuleCore {
                     final int end = consumeTrailingSameLine(scopeTokens, i);
                     members.add(new int[] {start, end});
                     start = end;
+                    lastSigIdx = -1;
+                    continue;
                 }
+                lastSigIdx = i - 1;
                 continue;
             }
             if (depth == 0 && isPunct(t, ";")) {
@@ -135,7 +165,19 @@ public abstract class GetterSetterRuleCore {
                 final int end = consumeTrailingSameLine(scopeTokens, i);
                 members.add(new int[] {start, end});
                 start = end;
+                lastSigIdx = -1;
                 continue;
+            }
+            if (isJsOrTs) {
+                if (t.type == TokenType.PUNCT && (isPunct(t, "(") || isPunct(t, "["))) {
+                    parenDepth++;
+                } else if (t.type == TokenType.PUNCT && (isPunct(t, ")") || isPunct(t, "]"))) {
+                    parenDepth--;
+                }
+            }
+            if (t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE
+                    && t.type != TokenType.COMMENT_LINE && t.type != TokenType.COMMENT_BLOCK) {
+                lastSigIdx = i;
             }
             i++;
         }
@@ -143,6 +185,44 @@ public abstract class GetterSetterRuleCore {
             members.add(new int[] {start, n});
         }
         return members;
+    }
+
+    /** True when {@code lastSig} (the last significant token before a candidate depth-0
+     *  NEWLINE boundary) means the statement isn't finished yet -- a trailing binary/assignment
+     *  operator, comma, or a keyword that can never end a statement on its own. Deliberately a
+     *  small, conservative subset of {@code JsTsSpecificRule.CONTINUATION_OPS}/
+     *  {@code CONTINUATION_KEYWORDS} (open brackets are handled separately via this method's own
+     *  {@code depth} tracking, not needed here) -- this method only needs to avoid mis-splitting
+     *  the shapes {@code splitMembers} actually sees (fields/one-liner signatures), not to be a
+     *  general-purpose ASI oracle (that's {@code enforceSemicolonInsertion}'s job, in Phase 1). */
+    private boolean isAsiContinuation(final Token lastSig) {
+        if (lastSig.type == TokenType.OP) {
+            switch (lastSig.text) {
+                case "=": case "+": case "-": case "*": case "/": case "%": case "&&": case "||":
+                case "??": case "?": case ".": case "=>": case "==": case "===": case "!=":
+                case "!==": case "<": case ">": case "<=": case ">=": case "+=": case "-=":
+                case "*=": case "/=": case "%=": case "&&=": case "||=": case "??=": case "&":
+                case "|": case "^": case "<<": case ">>": case ">>>": case "...": case "**":
+                case "**=": case "&=": case "|=": case "^=": case "<<=": case ">>=": case ">>>=":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+        if (lastSig.type == TokenType.PUNCT && ",".equals(lastSig.text)) {
+            return true;
+        }
+        if (lastSig.type == TokenType.KEYWORD) {
+            switch (lastSig.text) {
+                case "typeof": case "new": case "in": case "instanceof": case "else": case "try":
+                case "finally": case "do": case "case": case "default": case "extends":
+                case "implements": case "delete": case "void": case "of": case "as": case "from":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+        return false;
     }
 
     protected int consumeTrailingSameLine(final List<Token> tokens, final int from) {

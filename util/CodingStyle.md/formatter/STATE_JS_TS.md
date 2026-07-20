@@ -91,8 +91,8 @@ work, before moving on to any other language job:
      declaration-alignment grid yet~~ — **RESOLVED**, see Checklist's
      "Declaration-alignment grid" entry below (multi-declarator statements
      stay unaligned by design, matching C++/Java's own existing behavior).
-   - **`static get`/`set` vs. plain accessor padding inconsistency** —
-     confirmed real bug (Still Open #5's second half), no fix attempted.
+   - ~~**`static get`/`set` vs. plain accessor padding inconsistency**~~ —
+     **RESOLVED**, see Still Open #5.
    - **Import-ordering comment/blank-line group-break rework**
      (RDD_KEY_197) — design decided, code change not written (segment at
      standalone comments instead of bailing the whole pass).
@@ -617,16 +617,35 @@ entry below unless noted otherwise.
    round-trips byte-for-byte stable now (was `;;` on round2 before the
    fix). `make test`: 106/106 forward + 106/106 idempotency, zero
    regressions.
-   **The static-vs-plain accessor-group padding-inconsistency half is
-   NOT resolved as a side effect** — confirmed independent: with the `;;`
-   bug fixed, `static get instanceCount()`/`static set instanceCount(value)`
-   still render without the empty-parens padding that a plain
-   `get x()`/`set x(value)` sibling group gets, on a fresh single-pass
-   format of `test/js_combined_inp.js` (unchanged from before this fix).
-   This is the pre-existing, already-documented `GetterSetterRuleCurly`
-   empty-parens-padding-to-match-sibling-width convention question — left
-   open, no further fix attempted this checkpoint (out of scope per the
-   task instructions once confirmed independent).
+   The static-vs-plain accessor-group padding-inconsistency half is now
+   **RESOLVED** too (separate checkpoint). Root cause: `GetterSetterRuleCore.
+   splitMembers` (Phase 0) only closed a member's span at a top-level `;` or
+   a depth-0 `{}` close — but JS/TS's semicolon-optional grammar means a
+   class field like `#cache = new Map()` legitimately has neither, and
+   `JsTsSpecificRule.enforceSemicolonInsertion` (which would normalize this)
+   runs later, in Phase 1. On a fresh single-pass format, the un-terminated
+   field's span silently swallowed the *next* member's tokens too (e.g. the
+   following `static get instanceCount()` one-liner), corrupting that
+   member's name/return-type parse and, critically, desyncing
+   `blankLineBefore` for every member after it — the `static get`/`static
+   set` pair ended up split into two separate 1-member non-groups (never
+   reaching the 2-member minimum `excludeOutliers`/`render` require), while
+   the plain `get x()`/`set x(value)` pair below happened to still land in
+   one correct 2-member group together, explaining the asymmetry. Fixed
+   with a JS/TS-only ASI-aware statement boundary in `splitMembers`: at
+   brace-depth 0, a NEWLINE right after a token that cannot legally
+   continue an expression onto the next line (mirroring
+   `JsTsSpecificRule`'s own `CONTINUATION_OPS`/`CONTINUATION_KEYWORDS` sets,
+   via a new small `isAsiContinuation` helper) now closes the statement
+   there too, same effect as an inserted `;`; a separate JS/TS-only
+   `parenDepth` counter (independent of the shared brace-only `depth`)
+   suppresses this inside parameter lists/array-or-computed-member
+   expressions so it can't fire mid-expression. Gated entirely behind
+   `lang.isJs || lang.isTs` — zero behavior change for C/C++/Java/Kotlin's
+   shared `splitMembers`, confirmed via full `make test`. New fixture
+   `test/js_getter_setter_asi_inp/out.js` (field, `;`-less, immediately
+   above a `static get`/`static set` pair and a plain `get`/`set` pair) —
+   `make test`: 108/108 forward + 108/108 idempotency, zero regressions.
 6. **Doubled trailing space before a one-liner getter body's closing
    `}`** — investigated this checkpoint and found to be a **false
    positive**: `GetterSetterRuleCurly`'s one-liner accessor-group

@@ -340,6 +340,20 @@ JS/TS:
                                             `type X = ...` aliases form their own `=`-aligned
                                             group.
 
+  js_getter_setter_asi_inp/out.js        -- A semicolon-less class field
+                                            (`#cache = new Map()`, legal under JS's ASI) sitting
+                                            directly above a `static get`/`static set` one-liner
+                                            pair: GetterSetterRule's member-splitting used to
+                                            require an explicit `;`/`}` boundary (JS/TS semicolon
+                                            insertion runs in a later phase), so the unterminated
+                                            field swallowed the following `static get` member into
+                                            its own span and desynced blank-line-boundary detection
+                                            for every member after it -- leaving the static
+                                            get/set pair's empty parens unpadded to match its
+                                            sibling's width while a plain get/set pair below it
+                                            padded correctly. Now fixed with an ASI-aware
+                                            depth-0-NEWLINE statement boundary (JS/TS only).
+
 HTML5:
   html_combined_inp/out.html             -- Void element normalization (`<img>`/`<input>`/
                                             `<br>` lose self-closing `/`, contrasted with

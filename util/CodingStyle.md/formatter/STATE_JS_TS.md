@@ -86,10 +86,11 @@ work, before moving on to any other language job:
    NOT yet accurate — these are real implementation gaps, not just
    untested code, and should be closed before treating the job as feature-
    complete:
-   - **RDD_KEY_182/183**: destructuring-pattern LHS, multi-declarator
+   - ~~**RDD_KEY_182/183**: destructuring-pattern LHS, multi-declarator
      statements, and `type X = ...` alias groups aren't joined to the
-     declaration-alignment grid yet — explicitly "not yet implemented",
-     not just untested.
+     declaration-alignment grid yet~~ — **RESOLVED**, see Checklist's
+     "Declaration-alignment grid" entry below (multi-declarator statements
+     stay unaligned by design, matching C++/Java's own existing behavior).
    - **`static get`/`set` vs. plain accessor padding inconsistency** —
      confirmed real bug (Still Open #5's second half), no fix attempted.
    - **Import-ordering comment/blank-line group-break rework**
@@ -502,18 +503,60 @@ entry below unless noted otherwise.
   `import type {` named-list braces were falling into §2's
   statement-body default and getting a bogus `;` inserted — fixed via
   `isImportBraceHeader` in `classifyBraces`.
-- **Declaration-alignment grid (`let`/`const`/`var`)** — DONE for plain,
-  single-declarator, non-destructured statements
-  (`JsTsDeclarationAlignmentRule`, mirrors `KotlinDeclarationAlignmentRule`'s
-  shape; reuses base `splitStatements` since JS/TS is always
-  `;`-terminated). Object-literal-initializer colon spacing
-  (tight-before-first-key-colon, distinguished from ternary `:`) also lives
-  here (`computeJsObjectPropertyColons`). **NOT done, left verbatim (not
-  corrupted, just unaligned):** destructuring-pattern LHS joining the grid
-  (RDD_KEY_182), multi-declarator statements (`let a = 1, b = 2;`), and
-  `type X = ...` alias groups (RDD_KEY_183) — each `parseDeclaration`
-  returns `null` for these shapes today, same "never guess past an
-  unrecognized shape" posture used throughout this file.
+- **Declaration-alignment grid (`let`/`const`/`var`)** — DONE, including
+  destructuring-pattern LHS (RDD_KEY_182) and `type X = ...` alias groups
+  (RDD_KEY_183) (`JsTsDeclarationAlignmentRule`, mirrors
+  `KotlinDeclarationAlignmentRule`'s shape; reuses base `splitStatements`
+  since JS/TS is always `;`-terminated). Object-literal-initializer colon
+  spacing (tight-before-first-key-colon, distinguished from ternary `:`)
+  also lives here (`computeJsObjectPropertyColons`).
+  ~~destructuring-pattern LHS joining the grid (RDD_KEY_182)~~ — **RESOLVED.**
+  `parseDeclaration` now dispatches to a new `parseDestructuringDeclaration`
+  when a `{`/`[` immediately follows the `let`/`const`/`var` keyword: the
+  whole bracketed pattern span is captured and rendered as one unit via
+  `renderTokens` (never re-split token by token) for the `Row`'s new
+  `nameText` field, which `renderAlignedGroup` now uses instead of
+  `name.text` for every row (plain identifier rows just set `nameText =
+  name.text`, unaffected). Requires an initializer (a destructuring LHS
+  with no `= ...` isn't valid JS/TS). Found and fixed a real,
+  previously-latent bug while wiring this up: `DeclarationAlignmentRuleCore
+  .splitStatements`'s `}`-close-at-depth-0 heuristic ("if the next
+  significant token isn't `;`, this must be a body close, emit the
+  statement now") mis-split `const { id, name } = obj;` into two bogus
+  statements right after the pattern's `}` (since the next token there is
+  `=`, not `;`), silently discarding the `= obj;` tail into an unparseable
+  fragment and — critically — breaking the alignment group of *any* sibling
+  declaration that followed. Fixed by also treating a next-token of `=` as
+  "not a body close" in that peek-ahead check, language-agnostically (this
+  shape — `}` directly followed by `=` at top level — isn't valid in any
+  curly-family language except JS/TS's destructuring-LHS reassignment/decl,
+  so widening the check is safe for C/C++/Java/Kotlin too, confirmed by
+  zero regressions across all 106 pre-existing fixtures).
+  ~~`type X = ...` alias groups (RDD_KEY_183)~~ — **RESOLVED.** A new
+  `isTypeAliasKeyword`/`parseTypeAlias` pair recognizes `type Name[<T>] =
+  TypeExpr;` (note: `type` tokenizes as `TokenType.KEYWORD` in this
+  codebase's TS keyword list, not `IDENTIFIER` — the recognizer checks
+  both) and produces a `Row` with `isTypeAlias = true`; `groupAlignableDeclarations`
+  now breaks the group on any `isTypeAlias` mismatch between consecutive
+  rows, so a `type` alias run only ever aligns with other `type` aliases,
+  never mixed with a plain `let`/`const`/`var` declarator, per RDD_KEY_183's
+  exact grouping semantics. A brace-bodied object-shaped alias (`type Point
+  = {...};`) is explicitly excluded (returns null) since it already has its
+  own dedicated multi-line member-alignment pass (§14) — this class only
+  ever renders one physical line per row.
+  Multi-declarator statements (`let a = 1, b = 2;`) — **judgment call, no
+  code change**: confirmed via direct testing that C++/Java's own
+  `DeclarationAlignmentRuleCurly.parseDeclaration` does not split or
+  grid-align a comma-separated multi-declarator statement either (`int a =
+  1, b = 2;` renders as one whitespace-normalized line, isolated from any
+  neighboring aligned group, via the same "unrecognized shape, don't guess"
+  bailout) — there is no existing multi-declarator alignment convention to
+  mirror. JS/TS's `parseDeclaration` already matched this (returns `null`
+  on an unconsumed top-level `,`), so no change was needed to be
+  consistent; left as-is.
+  New fixture: `test/ts_decl_grid_ext_{inp,out}.ts` (object-destructuring
+  join + a two-member `type` alias group), registered active in the
+  Makefile ahead of `real_code_regressions_*`.
 - **Local `.js`/`.ts` fixture pairs** — authored
   (`js_combined`, `js_comments`, `ts_combined`, `ts_comments`) but **still
   not activated/uncommented in the Makefile** — blocked on the Still Open

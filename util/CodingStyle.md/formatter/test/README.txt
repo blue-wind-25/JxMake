@@ -333,6 +333,13 @@ JS/TS:
                                             trailing comment on an overflow-wrapped decorator
                                             staying attached to its closing `)`.
 
+  ts_decl_grid_ext_inp/out.ts            -- Declaration-alignment-grid extensions
+                                            (RDD_KEY_182/183): an object-destructuring-pattern
+                                            LHS joins the same const/let `=`-alignment group as
+                                            a plain identifier declarator, and two consecutive
+                                            `type X = ...` aliases form their own `=`-aligned
+                                            group.
+
 HTML5:
   html_combined_inp/out.html             -- Void element normalization (`<img>`/`<input>`/
                                             `<br>` lose self-closing `/`, contrasted with

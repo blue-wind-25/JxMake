@@ -122,6 +122,8 @@ INP_FILES += cpp26_reflection_inp.cpp
 #INP_FILES += ts_combined_inp.ts
 #INP_FILES += ts_comments_inp.ts
 
+INP_FILES += ts_decl_grid_ext_inp.ts
+
 INP_FILES += html_combined_inp.html
 INP_FILES += html_comments_inp.html
 

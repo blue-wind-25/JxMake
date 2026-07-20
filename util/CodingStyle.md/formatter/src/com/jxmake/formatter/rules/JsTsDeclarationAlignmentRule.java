@@ -58,23 +58,40 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
         super(lang, lineLengthLimit);
     }
 
-    /** One parsed `let`/`const`/`var` declaration. */
+    /** One parsed `let`/`const`/`var`/`type` declaration. */
     public static final class Row {
-        public final Token keyword; // let/const/var itself
-        public final Token name;
+        public final Token keyword; // let/const/var/type itself
+        public final Token name; // nameless-pattern rows (destructuring) still carry the LHS's
+                                  // first token here, purely as a group-breaking/anchor reference
+                                  // -- rendering uses `nameText` instead, see below.
+        /** Rendered LHS text for this row's name column. For a plain identifier declarator this
+         *  is just {@code name.text}; for a destructuring-pattern LHS (RDD_KEY_182) this is the
+         *  whole `{...}`/`[...]` pattern rendered as one unit via {@code renderTokens} (never
+         *  re-split token by token -- the pattern's own internal spacing is already correct from
+         *  earlier bracket-padding/comma-spacing passes, this method only decides the `=` column
+         *  alignment). */
+        public final String nameText;
         public final List<Token> typeTokens; // TS only; always empty for plain JS
-        public final List<Token> initTokens; // empty if there's no initializer
+        public final List<Token> initTokens; // empty if there's no initializer (or, for a
+                                              // `type X = ...` row, the alias's type expression)
         public final Token trailingComment; // nullable
         public final Token lastAnchor; // splice-back end (inclusive)
+        /** True for a `type X = ...;` alias row (RDD_KEY_183) -- such rows only group with other
+         *  type-alias rows, never with a plain `let`/`const`/`var` declarator, see {@link
+         *  #groupAlignableDeclarations}. */
+        public final boolean isTypeAlias;
 
-        Row(final Token keyword, final Token name, final List<Token> typeTokens,
-                final List<Token> initTokens, final Token trailingComment, final Token lastAnchor) {
+        Row(final Token keyword, final Token name, final String nameText, final List<Token> typeTokens,
+                final List<Token> initTokens, final Token trailingComment, final Token lastAnchor,
+                final boolean isTypeAlias) {
             this.keyword = keyword;
             this.name = name;
+            this.nameText = nameText;
             this.typeTokens = typeTokens;
             this.initTokens = initTokens;
             this.trailingComment = trailingComment;
             this.lastAnchor = lastAnchor;
+            this.isTypeAlias = isTypeAlias;
         }
     }
 
@@ -83,23 +100,65 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
                 && ("let".equals(t.text) || "const".equals(t.text) || "var".equals(t.text));
     }
 
+    /** `type` is only a declaration-alignment keyword here when immediately followed by an
+     *  identifier and then `=` (a type-alias statement, RDD_KEY_183) -- `type` is not a reserved
+     *  word in JS/TS, so this must not fire on an identifier merely named `type`. */
+    private boolean isTypeAliasKeyword(final List<Token> sig) {
+        if (sig.isEmpty() || !"type".equals(sig.get(0).text)
+                || (sig.get(0).type != TokenType.IDENTIFIER && sig.get(0).type != TokenType.KEYWORD)) {
+            return false;
+        }
+        if (sig.size() < 3 || sig.get(1).type != TokenType.IDENTIFIER) {
+            return false;
+        }
+        // Skip an optional generic parameter list (`type Foo<T> = ...`) before requiring `=`.
+        int i = 2;
+        if (i < sig.size() && isOp(sig.get(i), "<")) {
+            int depth = 0;
+            while (i < sig.size()) {
+                if (isOp(sig.get(i), "<")) {
+                    depth++;
+                } else if (isOp(sig.get(i), ">")) {
+                    depth--;
+                    i++;
+                    if (depth == 0) {
+                        break;
+                    }
+                    continue;
+                }
+                i++;
+            }
+        }
+        return i < sig.size() && isOp(sig.get(i), "=");
+    }
+
     /**
-     * Parses one statement's tokens as {@code let|const|var name [: type] [= init] ;}, or
-     * returns null if it doesn't match this shape -- any other statement (destructuring LHS,
-     * multi-declarator, a function call, control-flow, a class/function declaration, etc.)
+     * Parses one statement's tokens as {@code let|const|var name [: type] [= init] ;}, a
+     * destructuring-pattern declarator (RDD_KEY_182), or a {@code type X = ...;} alias
+     * (RDD_KEY_183). Returns null if it doesn't match any of those shapes -- any other statement
+     * (multi-declarator, a function call, control-flow, a class/function declaration, etc.)
      * breaks the group, same conservative "don't guess past an unrecognized shape" posture as
      * {@code KotlinDeclarationAlignmentRule.parseKotlinDeclaration}.
      */
     private Row parseDeclaration(final List<Token> stmt) {
         final List<Token> sig = significantOnly(stmt);
-        if (sig.isEmpty() || !isDeclKeyword(sig.get(0))) {
+        if (sig.isEmpty()) {
+            return null;
+        }
+        if (isTypeAliasKeyword(sig)) {
+            return parseTypeAlias(stmt, sig);
+        }
+        if (!isDeclKeyword(sig.get(0))) {
             return null;
         }
         final Token keyword = sig.get(0);
         int i = 1;
 
-        // Only a plain single identifier declarator is handled here -- a destructuring pattern
-        // (`{`/`[` right after the keyword) is deliberately left unparsed, see class doc.
+        if (i < sig.size() && (isPunct(sig.get(i), "{") || isPunct(sig.get(i), "["))) {
+            return parseDestructuringDeclaration(stmt, sig, keyword, i);
+        }
+
+        // Only a plain single identifier declarator is handled here.
         if (i >= sig.size() || sig.get(i).type != TokenType.IDENTIFIER) {
             return null;
         }
@@ -168,7 +227,181 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
 
         final Token trailingComment = findTrailingComment(stmt);
         final Token lastAnchor = trailingComment != null ? trailingComment : semi;
-        return new Row(keyword, name, typeTokens, initTokens, trailingComment, lastAnchor);
+        return new Row(keyword, name, name.text, typeTokens, initTokens, trailingComment, lastAnchor, false);
+    }
+
+    /**
+     * Parses {@code let|const|var {pattern} [: type] = init;} / {@code let|const|var [pattern]
+     * [: type] = init;} -- a destructuring-pattern declarator (RDD_KEY_182). {@code patternStart}
+     * indexes the opening `{`/`[` in {@code sig}. The whole bracketed pattern span is captured
+     * verbatim and rendered as one unit via {@code renderTokens} for the name column -- never
+     * re-split token by token, its own internal spacing already comes from the earlier
+     * bracket-padding/comma-spacing passes (§3). A destructuring LHS always requires an
+     * initializer (`const {a}` with no `= ...` isn't valid JS), so unlike the plain-identifier
+     * path this method requires `=` rather than treating it as optional.
+     */
+    private Row parseDestructuringDeclaration(final List<Token> stmt, final List<Token> sig,
+            final Token keyword, final int patternStart) {
+        final String open = sig.get(patternStart).text;
+        final String close = "{".equals(open) ? "}" : "]";
+        int i = patternStart;
+        int depth = 0;
+        while (i < sig.size()) {
+            final Token t = sig.get(i);
+            if (isPunct(t, "{") || isPunct(t, "[")) {
+                depth++;
+            } else if (isPunct(t, "}") || isPunct(t, "]")) {
+                depth--;
+                if (depth == 0) {
+                    i++;
+                    break;
+                }
+            }
+            i++;
+        }
+        if (depth != 0) {
+            return null; // unbalanced -- never guess
+        }
+        final List<Token> patternTokens = sig.subList(patternStart, i);
+        if (patternTokens.isEmpty() || !close.equals(patternTokens.get(patternTokens.size() - 1).text)) {
+            return null;
+        }
+        final Token anchorName = patternTokens.get(0);
+
+        List<Token> typeTokens = new ArrayList<>();
+        if (lang.isTs && i < sig.size() && isOp(sig.get(i), ":")) {
+            i++;
+            final int typeStart = i;
+            int d = 0;
+            while (i < sig.size()) {
+                final Token t = sig.get(i);
+                if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")) {
+                    d++;
+                } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")) {
+                    d--;
+                } else if (d == 0 && (isOp(t, "=") || isPunct(t, ";") || isPunct(t, ","))) {
+                    break;
+                }
+                i++;
+            }
+            if (i < sig.size() && isPunct(sig.get(i), ",")) {
+                return null; // multi-declarator with a type -- not this checkpoint's scope
+            }
+            typeTokens = sig.subList(typeStart, i);
+        }
+
+        if (i >= sig.size() || !isOp(sig.get(i), "=")) {
+            return null; // a destructuring declarator with no initializer isn't valid JS/TS
+        }
+        final Token eqToken = sig.get(i);
+        i++;
+        final int initStart = i;
+        int d = 0;
+        while (i < sig.size()) {
+            final Token t = sig.get(i);
+            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")) {
+                d++;
+            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")) {
+                d--;
+            } else if (d == 0 && (isPunct(t, ";") || isPunct(t, ","))) {
+                break;
+            }
+            i++;
+        }
+        if (i < sig.size() && isPunct(sig.get(i), ",")) {
+            return null; // multi-declarator -- not this checkpoint's scope
+        }
+        final List<Token> initTokens = sig.subList(initStart, i);
+        if (initTokens.isEmpty() || spansMultipleLines(stmt, eqToken) || hasCommentAfter(stmt, eqToken)) {
+            return null;
+        }
+
+        if (i >= sig.size() || !isPunct(sig.get(i), ";")) {
+            return null;
+        }
+        final Token semi = sig.get(i);
+        i++;
+        if (i != sig.size()) {
+            return null;
+        }
+
+        final Token trailingComment = findTrailingComment(stmt);
+        final Token lastAnchor = trailingComment != null ? trailingComment : semi;
+        return new Row(keyword, anchorName, renderTokens(patternTokens), typeTokens, initTokens,
+                trailingComment, lastAnchor, false);
+    }
+
+    /**
+     * Parses {@code type Name[<T>] = TypeExpr;} (RDD_KEY_183). {@code sig.get(0)} is the `type`
+     * pseudo-keyword (an ordinary IDENTIFIER token, not a real reserved word -- see {@link
+     * #isTypeAliasKeyword}), rendered via its own token so the name column lines up with the
+     * `let`/`const`/`var` grid's own keyword column width. Reuses the same "no multi-line/comment
+     * initializer" bailouts as the plain-declarator path -- this class has no multi-line render
+     * path for any row.
+     */
+    private Row parseTypeAlias(final List<Token> stmt, final List<Token> sig) {
+        final Token keyword = sig.get(0);
+        final Token name = sig.get(1);
+        int i = 2;
+        if (i < sig.size() && isOp(sig.get(i), "<")) {
+            int depth = 0;
+            while (i < sig.size()) {
+                if (isOp(sig.get(i), "<")) {
+                    depth++;
+                } else if (isOp(sig.get(i), ">")) {
+                    depth--;
+                    i++;
+                    if (depth == 0) {
+                        break;
+                    }
+                    continue;
+                }
+                i++;
+            }
+        }
+        if (i >= sig.size() || !isOp(sig.get(i), "=")) {
+            return null;
+        }
+        final Token eqToken = sig.get(i);
+        i++;
+        final int initStart = i;
+        int depth = 0;
+        while (i < sig.size()) {
+            final Token t = sig.get(i);
+            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")) {
+                depth--;
+            } else if (depth == 0 && isPunct(t, ";")) {
+                break;
+            }
+            i++;
+        }
+        final List<Token> initTokens = sig.subList(initStart, i);
+        if (initTokens.isEmpty() || spansMultipleLines(stmt, eqToken) || hasCommentAfter(stmt, eqToken)) {
+            return null;
+        }
+        // A brace-bodied object-shaped alias (`type Point = { x: number; y: number };`) already
+        // has its own dedicated multi-line member-alignment pass (§14,
+        // `enforceInterfaceTypeAliasMemberColonAlignment`) -- never claim it here, this class only
+        // ever renders one physical line per row.
+        if (isPunct(initTokens.get(initTokens.size() - 1), "}")) {
+            return null;
+        }
+
+        if (i >= sig.size() || !isPunct(sig.get(i), ";")) {
+            return null;
+        }
+        final Token semi = sig.get(i);
+        i++;
+        if (i != sig.size()) {
+            return null;
+        }
+
+        final Token trailingComment = findTrailingComment(stmt);
+        final Token lastAnchor = trailingComment != null ? trailingComment : semi;
+        return new Row(keyword, name, name.text, new ArrayList<>(), initTokens, trailingComment,
+                lastAnchor, true);
     }
 
     /** Same "embedded comment inside the initializer would be silently dropped" bailout as
@@ -246,7 +479,10 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
                 }
                 continue;
             }
-            final boolean breakBefore = hasBlankLineBefore(stmt) || hasCommentBefore(stmt);
+            // RDD_KEY_183: a `type X = ...` alias row only ever groups with other type-alias
+            // rows, never mixed with a plain let/const/var declarator (or vice versa).
+            final boolean kindMismatch = !current.isEmpty() && current.get(0).isTypeAlias != row.isTypeAlias;
+            final boolean breakBefore = hasBlankLineBefore(stmt) || hasCommentBefore(stmt) || kindMismatch;
             if (breakBefore && !current.isEmpty()) {
                 groups.add(current);
                 current = new ArrayList<>();
@@ -280,7 +516,7 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
         for (final Row r : group) {
             final List<String> cells = new ArrayList<>();
             cells.add(r.keyword.text);
-            cells.add(r.name.text);
+            cells.add(r.nameText);
             if (anyType) {
                 cells.add(r.typeTokens.isEmpty() ? "" : ": " + renderTokens(r.typeTokens));
             }

@@ -361,7 +361,12 @@ public abstract class DeclarationAlignmentRuleCore {
                 if (depth == 0) {
                     // Peek ahead: if the next significant token is `;` this `}` closes a
                     // brace-initializer inside a declaration (e.g. `auto x = T{...};`), not
-                    // a method/class body — let the `;` emit the statement instead.
+                    // a method/class body — let the `;` emit the statement instead. A next
+                    // token of `=` is the same "not a body close" case for JS/TS's
+                    // destructuring-pattern LHS (`const { id, name } = obj;`, RDD_KEY_182) --
+                    // this shape is not otherwise valid in any curly-family language directly
+                    // after the keyword/name position, so extending the check here is safe for
+                    // every language, not just JS/TS.
                     boolean nextIsSemi = false;
                     for (int peek = idx; peek < n; peek++) {
                         final Token nx = scopeTokens.get(peek);
@@ -370,7 +375,7 @@ public abstract class DeclarationAlignmentRuleCore {
                                 || nx.type == TokenType.COMMENT_BLOCK) {
                             continue;
                         }
-                        nextIsSemi = isPunct(nx, ";");
+                        nextIsSemi = isPunct(nx, ";") || isOp(nx, "=");
                         break;
                     }
                     if (!nextIsSemi) {

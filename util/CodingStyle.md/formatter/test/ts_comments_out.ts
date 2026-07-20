@@ -16,7 +16,7 @@ interface Props {
     id : string; // Unique identifier
     // Display label
     label : string;
-    
+
 } // interface Props
 
 enum Color {
@@ -40,8 +40,8 @@ class Widget extends Base {
 
     // Ambient max count
     declare public static readonly MAX_COUNT: number;
-
     protected override readonly cache: Map<string, number>; // Lookup cache
+
 } // class Widget
 
 class MetricsHost {

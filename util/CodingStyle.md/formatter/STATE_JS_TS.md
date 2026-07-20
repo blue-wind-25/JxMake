@@ -19,7 +19,7 @@ C-family brace/paren/statement shape). Scaffold gate is flipped
 (`Lang.isScaffoldOnly` no longer includes js/ts) and all §1–15 rules are
 implemented in `JsTsSpecificRule.java` (+ `JsTsDeclarationAlignmentRule.java`
 for the declaration-alignment grid), wired into `FormatterCurly`'s phase
-pipeline. `make test`: 110/110 forward + 110/110 idempotency.
+pipeline. `make test`: 114/114 forward + 114/114 idempotency.
 
 ---
 
@@ -34,28 +34,17 @@ Design Decisions and Checklist below. Remaining work, in order:
 1. ~~Activate `test/js_combined_inp/out.js` and `test/js_comments_inp/out.js`~~
    **DONE.** Both active in the Makefile, `make test` green. Three real bugs
    found and fixed along the way — see "Resolved this session" below.
-2. Activate `test/ts_combined_inp/out.ts` and `test/ts_comments_inp/out.ts`
-   in the Makefile, run `make test`, bug-fix whatever surfaces. **IN
-   PROGRESS** — Makefile activation attempted, `make test` currently FAILS
-   with a large diff. Root cause identified but not yet fixed: TS
-   `interface`/`type`-literal member lists and class-field declarations are
-   ASI-reliant in the fixture's input (no explicit `;`), same shape as the
-   JS declaration bug just fixed, but `enforceSemicolonInsertion` only
-   inserts semicolons for ordinary statements — it does not cover
-   interface/type-literal property-signature members or bare class-field
-   declarations, so the `;`-requiring passes downstream
-   (`enforceInterfaceTypeAliasMemberColonAlignment`, class field colon
-   spacing) bail out on the whole containing body. A second, narrower bug
-   found in the same pass: `void` is listed in `CONTINUATION_KEYWORDS`
-   (correct for the expression operator `void 0`) but wrongly also blocks
-   semicolon insertion when `void` is a TS *type* keyword ending a
-   function-type return position (`(id: string) => void`) — these are two
-   different grammatical roles colliding on one token spelling. Additional
-   surfaced (not yet triaged) diffs: multi-line union-type continuation
-   indent, decorator+class-declaration same-line splitting, an oversized
-   class name's closing `}` comment. The Makefile's TS activation lines are
-   currently reverted back to commented-out pending this fix — re-activate
-   as part of resolving this item.
+2. ~~Activate `test/ts_combined_inp/out.ts` and `test/ts_comments_inp/out.ts`~~
+   **DONE.** Both active in the Makefile, `make test` green (114/114 forward
+   + idempotency). Real bugs found and fixed: `GENERIC_SAFE_KEYWORDS`
+   missing TS primitive type keywords (ASI-breaking angle-bracket
+   misdetection), `parseEnumMembers` bailing instead of ending the value on
+   a last-member depth-0 NEWLINE, no comma-spacing pass for generic type
+   arguments, no continuation-indent pass for multi-line union/intersection
+   `type` aliases (including one that unconditionally bailed on any comment
+   in the RHS span rather than just frozen tokens), and no `:`/`=`
+   alignment-grid pass for class fields at all. See "Resolved this session
+   (ts_combined/ts_comments activation)" below for full detail on each.
 3. Real-code testing pass (see Test-Fixture Repos below) — not started.
 
 Rationale (user's own words): the JS/TS basics should be solid before
@@ -134,11 +123,11 @@ for corpus-scale validation) live in `formatter/test/` — see
 extension (`.js` vs. `.ts`), not shared, since TS-only constructs
 (decorators, enums, generics, interfaces) can't live in a valid `.js` file.
 
-`js_combined`/`js_comments`/`ts_combined`/`ts_comments` are authored but
-**not yet activated** in the Makefile — see Next Steps 1–2. All other local
-JS/TS fixtures (`ts_decl_grid_ext`, `js_getter_setter_asi`,
+`js_combined`/`js_comments`/`ts_combined`/`ts_comments` are all now active
+in the Makefile and passing (see Next Steps 1–2, both DONE). All other
+local JS/TS fixtures (`ts_decl_grid_ext`, `js_getter_setter_asi`,
 `js_import_ordering_comments`, `js_nested_template_literal`, etc.) are
-active and passing.
+also active and passing.
 
 ---
 
@@ -162,8 +151,8 @@ active and passing.
 
 All items below are implemented in `JsTsSpecificRule.java` unless noted, and
 wired into `FormatterCurly`'s phase pipeline (Phase 1 structural/brace,
-Phase 4 flat spacing, Phase 5 import ordering). `make test`: 110/110 forward
-+ 110/110 idempotency, zero regressions.
+Phase 4 flat spacing, Phase 5 import ordering). `make test`: 114/114 forward
++ 114/114 idempotency, zero regressions.
 
 - **§1 Baseline-inherited rules** — DONE.
 - **Tokenizer support** — DONE (`TokenizerCurly.java`: `KEYWORDS_JS`/`_TS`,
@@ -189,11 +178,17 @@ Phase 4 flat spacing, Phase 5 import ordering). `make test`: 110/110 forward
   `enforceDecoratorOverflowCascade`).
 - **§10 `async`/`await` spacing** — DONE, free (required syntax spacing).
 - **§11 Type annotations** — DONE as flat passes (`enforceTypeColonSpacing`,
-  `enforceUnionIntersectionSpacing`, `reorderClassFieldModifiers`); grid
-  column integration folded into the declaration-alignment grid entry below.
+  `enforceUnionIntersectionSpacing`, `reorderClassFieldModifiers`,
+  `enforceClassFieldAlignmentGrid` for §11.2 class-field `:`/`=` alignment,
+  `enforceUnionTypeContinuationIndent` for §11.1 multi-line union/
+  intersection `type` alias continuation indent); grid column integration
+  folded into the declaration-alignment grid entry below.
 - **§12 Enums** — DONE (`enforceEnumMemberFormatting`).
-- **§13 Generics (`<T>`)** — assumed free via reused C++/Java
-  generic-bracket-complexity handling; not independently re-verified.
+- **§13 Generics (`<T>`)** — DONE. Bracket-complexity detection reused from
+  C++/Java (`TokenizerCurly.reclassifyAngleBrackets`/
+  `isGenericSafeToken`, extended this session with TS primitive type
+  keywords — see below). Comma-spacing inside generic argument lists is its
+  own dedicated pass, `enforceGenericArgumentCommaSpacing`.
 - **§14 Interface / object-shaped `type`-alias member `:` alignment** —
   DONE (`enforceInterfaceTypeAliasMemberColonAlignment`, RDD_KEY_196).
 - **§15 Import ordering** — DONE (`enforceImportOrdering`, RDD_KEY_195,
@@ -260,6 +255,94 @@ Phase 4 flat spacing, Phase 5 import ordering). `make test`: 110/110 forward
   multi-line block/lambda initializers from the grid (same precedent as
   Kotlin). Confirmed with the user: keep the design, regenerate the
   fixture — done.
+
+### Resolved this session (ts_combined/ts_comments activation)
+
+- **`Map<string,number>` ASI bug** — `TokenizerCurly.isGenericSafeToken`'s
+  `GENERIC_SAFE_KEYWORDS` set didn't include TS primitive type keywords
+  (`string`, `number`, `boolean`, `any`, `unknown`, `never`, `object`,
+  `undefined`, `null`), which are tokenized as `KEYWORD` not `IDENTIFIER`.
+  A second type argument in a generic argument list (e.g. `Map<string,
+  number>`) invalidated the whole `<...>` open/close tracking via
+  `invalidateAll` before the matching `>` was reached, leaving it a plain
+  `OP` token instead of `ANGLE_BRACKET_CLOSE` — this broke
+  `CONTINUATION_OPS`-based ASI logic downstream, which then thought the
+  statement wasn't complete. Fixed by extending `GENERIC_SAFE_KEYWORDS`.
+- **Enum last-member (no trailing comma) bug** — `parseEnumMembers`'s
+  value-scan loop `return null`'d (bailing the whole enum) on any depth-0
+  NEWLINE, treating it as an unsupported multi-line value expression. This
+  is overwhelmingly the common last-member case (`Pending = 3\n}`, no
+  trailing comma). Changed to `break` instead, ending the value there.
+- **Generic-argument comma spacing** — no pass existed for spacing after
+  `,` inside a generic argument list (`Map<string,number>` never got a
+  space after the comma). Added `enforceGenericArgumentCommaSpacing`: flat
+  scan tracking `angleDepth` via `ANGLE_BRACKET_OPEN`/`_CLOSE`, inserts a
+  single space after `,` when `angleDepth > 0`.
+- **Union-type continuation indent — new pass** —
+  `JsTsDeclarationAlignmentRule.parseTypeAlias` deliberately bails on any
+  multi-line initializer, so no existing pass re-indented continuation
+  lines of a multi-line `type X = A | B | C;` alias at all. Added
+  `enforceUnionTypeContinuationIndent` (+ `tryRewriteUnionTypeAlias`,
+  `lineColumnOf`) as an entirely separate pass — column-aligns continuation
+  lines under the RHS's first token, preserving break-before-operator vs.
+  break-after-operator style. Found and fixed one bug in the new pass
+  itself during `ts_comments` triage: the RHS depth-scan bailed
+  unconditionally on ANY comment token found anywhere in the span,
+  including a legitimate same-line trailing comment on an interior operand
+  line (`SecondOptionName | // middle option`). Narrowed the bailout to
+  frozen tokens only — a trailing comment on an operand line is safe to
+  carry through as part of that line's rendered content.
+- **Class-field `:`/`=` alignment grid — new feature, entirely
+  unimplemented before this session.** Confirmed via reading
+  `JsTsDeclarationAlignmentRule` (only handles `let`/`const`/`var`/`type`)
+  and `enforceInterfaceTypeAliasMemberColonAlignment` (only `IFACE`/type-
+  alias-object braces, never `CLASS`) that no pass touched class field
+  declarations at all. Added `enforceClassFieldAlignmentGrid` (+
+  `ClassField`, `rewriteClassFieldGroups`, `flushClassFieldGroup`,
+  `tryParseClassField`, `skipTopLevelMember`, `blankLineBetween`,
+  `lastFieldEnd`, `skipOneNewline`): parses runs of simple typed class
+  fields (`[modifiers]* name[?|!]? : type [= init]? ;`) between blank-line
+  or unrecognized-member boundaries into alignment groups, padding
+  modifier-phrase/name/type columns per group, matching the existing
+  interface/enum alignment convention (double-space before trailing
+  comment, name padded to the widest name in the group even across an
+  interspersed leading comment on another member). Two bugs found and
+  fixed during implementation, both in `rewriteClassFieldGroups`:
+  - Double-indentation on the first field of each group — the group-start
+    raw-copy loop was copying WHITESPACE tokens (indentation) as well as
+    NEWLINE tokens, duplicating the indent `flushClassFieldGroup` supplies
+    itself. Fixed by only copying NEWLINE tokens.
+  - Duplicate blank line before a group's first field when that field has
+    a leading comment — the same raw-copy loop counted the newline
+    *after* the leading comment as part of the "blank line before group"
+    preservation, but `flushClassFieldGroup` already renders that comment
+    with its own trailing newline. Fixed by tracking
+    `leadingCommentsStartIdx` and stopping the raw-copy loop there instead
+    of at the field's own start index.
+- **Fixture-authoring corrections (not code bugs), `ts_combined_out.ts`:**
+  confirmed via reading `BlockStructureRule.decideComment`'s `NAMED` case
+  (an empty `{}` body never gets a closing comment, by design, regardless
+  of name length) that `class Container<...> {}` was wrongly given a
+  `// class Container` fixture expectation — removed. Confirmed via
+  STYLE_JS_TS.md §9 (decorator+declaration splitting is purely
+  line-length-driven) that `@Injectable() export class
+  UserAuthenticationAndAuditLoggingServiceForEnterpriseApplications {}`
+  (95 chars, under the 100-char limit) was wrongly split onto two lines in
+  the fixture — merged back to one line. The `Widget` class's field block
+  was also inconsistently authored unaligned (copied verbatim from
+  STYLE_JS_TS.md's illustrative §11.2 example) while the sibling `Config`
+  block was aligned — both fall under the same general alignment-grid rule
+  with no stated exception, so `Widget` was updated to match.
+- **Fixture-authoring corrections (not code bugs), `ts_comments_out.ts`:**
+  confirmed via reading the pre-existing (not modified this session)
+  `rewriteEnumBody` that the double-space-before-trailing-comment
+  convention, and name-padding computed across the full group (even past
+  an interspersed leading comment on another member), are the established,
+  already-tested behavior — the fixture's single-space instances
+  (`Red, //`, `id : string; //`, `Pending  = 3, //`) and its missing
+  `Active   = 1,` padding were fixture mistakes, not gaps. Corrected to
+  match. `Widget`'s class-field block needed the same alignment-grid
+  update as `ts_combined_out.ts`'s.
 
 ### Known false positives (no source change needed, fixture-only)
 

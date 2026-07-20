@@ -71,9 +71,14 @@ public final class JsTsSpecificRule {
             "!==", "<", ">", "<=", ">=", "+=", "-=", "*=", "/=", "%=", "&&=", "||=", "??=", "&",
             "|", "^", "<<", ">>", ">>>", "...", "**", "**=", "&=", "|=", "^=", "<<=", ">>=", ">>>="));
 
+    // "void" is deliberately excluded here even though it's a prefix operator (`void 0`) in
+    // expression position -- as such it's never the LAST token of a statement (its operand
+    // always follows), so it would only ever matter here as TS's *type*-position `void` (a
+    // function/arrow return-type annotation, `(): void` / `=> void`), which genuinely IS the
+    // last token before a statement boundary and must not block semicolon insertion there.
     private static final Set<String> CONTINUATION_KEYWORDS = new HashSet<>(Arrays.asList(
             "typeof", "new", "in", "instanceof", "else", "try", "finally", "do", "case",
-            "default", "extends", "implements", "delete", "void", "of", "as", "from"));
+            "default", "extends", "implements", "delete", "of", "as", "from"));
 
     /**
      * STYLE_JS_TS.md §2: always insert an explicit semicolon at the end of a statement, never
@@ -287,6 +292,20 @@ public final class JsTsSpecificRule {
                 // comes after the following `from "path"` clause, not right after `}`).
                 outResetDepth.put(openIdx, false);
                 outNeedsSemicolon.put(openIdx, false);
+                continue;
+            }
+            if (lang.isTs && isTypeAliasObjectBrace(tokens, openIdx)) {
+                // §14: `type X = { ... };`'s object-shaped body is a `;`-separated property-
+                // signature list (interface-shaped), not a comma-separated object-literal value
+                // list -- must reset depth to 0 like any statement-body brace so each member's own
+                // trailing NEWLINE is checked for a missing `;` (this brace is preceded by `=`,
+                // which the generic isValue check below would otherwise classify as an ordinary
+                // object-literal value brace, same misclassification `enforceInterfaceTypeAliasMemberColonAlignment`
+                // guards against via this same helper). Unlike an `interface`/enum body, the whole
+                // `type X = { ... }` declaration is itself a statement needing its own trailing
+                // `;` after `}` -- so needsSemicolon is true here, opposite of the IFACE case below.
+                outResetDepth.put(openIdx, true);
+                outNeedsSemicolon.put(openIdx, true);
                 continue;
             }
             if (isEnumBodyBrace(tokens, openIdx)) {
@@ -925,6 +944,160 @@ public final class JsTsSpecificRule {
         return "";
     }
 
+    /** Rendered column (0-based, in characters) of the physical line up to but not including
+     *  token {@code idx} -- i.e. how many characters of that line's own text precede it. Used to
+     *  compute the alignment target column for continuation-line indentation. */
+    private int lineColumnOf(final List<Token> tokens, final int idx) {
+        int col = 0;
+        for (int i = idx - 1; i >= 0 && tokens.get(i).type != TokenType.NEWLINE; i--) {
+            col += tokens.get(i).text.length();
+        }
+        return col;
+    }
+
+    // ── §11.1 Union/intersection type continuation-line alignment ────────────────────
+    /**
+     * STYLE_JS_TS.md §11.1: a `type X = A | B | C;` alias whose union/intersection RHS overflows
+     * and wraps onto multiple physical lines preserves the author's own break-before-operator vs.
+     * break-after-operator choice untouched ({@link #enforceUnionIntersectionSpacing} already
+     * handles same-line `|`/`&` spacing) -- this pass only re-indents each continuation line so
+     * its operand column-aligns under the RHS's first token on the declaration's own line, same
+     * as any other continuation-alignment shape in this codebase. {@link
+     * JsTsDeclarationAlignmentRule#parseTypeAlias} deliberately bails (returns {@code null},
+     * leaving the statement's original text untouched) on any multi-line initializer, so a
+     * dedicated pass is needed here rather than folding this into that grid renderer.
+     *
+     * <p>Only `type NAME = ...;` top-level alias declarations are handled (matches this file's
+     * other §11.1 alignment support) -- an inline union type elsewhere (a parameter/return-type
+     * annotation) is out of scope, same bailout posture as everywhere else in this file: any gap
+     * touching a frozen token, or a shape this method doesn't recognize, is left completely
+     * untouched.
+     */
+    public String enforceUnionTypeContinuationIndent(final List<Token> tokens) {
+        if (!lang.isTs) {
+            return render(tokens, new HashMap<>());
+        }
+        final StringBuilder out = new StringBuilder();
+        int i = 0;
+        final int n = tokens.size();
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.KEYWORD && "type".equals(t.text) && !t.frozen
+                    && (i == 0 || isStatementBoundary(tokens, i))) {
+                final int rewritten = tryRewriteUnionTypeAlias(tokens, i, out);
+                if (rewritten > i) {
+                    i = rewritten;
+                    continue;
+                }
+            }
+            out.append(t.text);
+            i++;
+        }
+        return out.toString();
+    }
+
+    /** True when the nearest preceding significant token to {@code idx} is a statement boundary
+     *  (`;`, `{`, `}`) or there isn't one (start of file/scope) -- i.e. {@code idx} can validly
+     *  start a new top-level statement. */
+    private boolean isStatementBoundary(final List<Token> tokens, final int idx) {
+        final int prevIdx = prevSignificantIndex(tokens, idx - 1);
+        if (prevIdx < 0) {
+            return true;
+        }
+        final Token prev = tokens.get(prevIdx);
+        return isPunct(prev, ";") || isPunct(prev, "{") || isPunct(prev, "}");
+    }
+
+    /** Attempts to rewrite one {@code type NAME = ...;} alias starting at the `type` keyword
+     *  (index {@code typeIdx}) whose RHS is a multi-line union/intersection expression, appending
+     *  the rewritten text (with continuation lines re-indented) directly to {@code out} and
+     *  returning the index just past the statement's `;` on success, or returning {@code typeIdx}
+     *  unchanged (having appended nothing) if this shape isn't recognized. */
+    private int tryRewriteUnionTypeAlias(final List<Token> tokens, final int typeIdx, final StringBuilder out) {
+        final int nameIdx = nextSignificantIndex(tokens, typeIdx + 1);
+        if (nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER) {
+            return typeIdx;
+        }
+        int eqIdx = nextSignificantIndex(tokens, nameIdx + 1);
+        if (eqIdx < 0) {
+            return typeIdx;
+        }
+        if (isOp(tokens.get(eqIdx), "<")) {
+            int depth = 0;
+            int j = eqIdx;
+            while (j < tokens.size()) {
+                if (isOp(tokens.get(j), "<")) {
+                    depth++;
+                } else if (isOp(tokens.get(j), ">")) {
+                    depth--;
+                    if (depth == 0) {
+                        j = nextSignificantIndex(tokens, j + 1);
+                        break;
+                    }
+                }
+                j = nextSignificantIndex(tokens, j + 1);
+            }
+            eqIdx = j;
+        }
+        if (eqIdx < 0 || !isOp(tokens.get(eqIdx), "=")) {
+            return typeIdx;
+        }
+        final int rhsStart = nextSignificantIndex(tokens, eqIdx + 1);
+        if (rhsStart < 0) {
+            return typeIdx;
+        }
+        int semiIdx = rhsStart;
+        int depth = 0;
+        boolean hasUnion = false;
+        boolean spansLines = false;
+        while (semiIdx < tokens.size()) {
+            final Token t = tokens.get(semiIdx);
+            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth--;
+            } else if (depth == 0 && isPunct(t, ";")) {
+                break;
+            } else if (depth == 0 && (isOp(t, "|") || isOp(t, "&"))) {
+                hasUnion = true;
+            } else if (t.type == TokenType.NEWLINE) {
+                spansLines = true;
+            } else if (t.frozen) {
+                return typeIdx;
+            }
+            semiIdx++;
+        }
+        if (semiIdx >= tokens.size() || !hasUnion || !spansLines) {
+            return typeIdx;
+        }
+
+        final int rhsCol = lineColumnOf(tokens, rhsStart);
+        for (int k = typeIdx; k < rhsStart; k++) {
+            out.append(tokens.get(k).text);
+        }
+        int k = rhsStart;
+        while (k < semiIdx) {
+            final Token t = tokens.get(k);
+            if (t.type == TokenType.NEWLINE) {
+                out.append('\n');
+                k++;
+                while (k < semiIdx && tokens.get(k).type == TokenType.WHITESPACE) {
+                    k++;
+                }
+                final boolean breaksBeforeOperator = k < semiIdx && (isOp(tokens.get(k), "|") || isOp(tokens.get(k), "&"));
+                final int indent = breaksBeforeOperator ? Math.max(0, rhsCol - 2) : rhsCol;
+                for (int s = 0; s < indent; s++) {
+                    out.append(' ');
+                }
+                continue;
+            }
+            out.append(t.text);
+            k++;
+        }
+        out.append(tokens.get(semiIdx).text); // `;`
+        return semiIdx + 1;
+    }
+
     // ── §6 Arrow functions -- spacing and always-kept parameter parens ───────────────
     /**
      * STYLE_JS_TS.md §6: `=>` is always spaced (one space on both sides), same as Kotlin's `->`
@@ -1308,7 +1481,10 @@ public final class JsTsSpecificRule {
                         break;
                     }
                     if (depth == 0 && vt.type == TokenType.NEWLINE) {
-                        return null; // multi-line member-value expression -- rare, not handled
+                        // Ends the value here rather than bailing the whole enum: this is
+                        // overwhelmingly the last member with no trailing comma before `}`
+                        // (`Pending=3\n}`), not an actual multi-line value expression.
+                        break;
                     }
                     if (isPunct(vt, "(") || isPunct(vt, "[") || isPunct(vt, "{")) {
                         depth++;
@@ -1340,6 +1516,394 @@ public final class JsTsSpecificRule {
             return null; // a floating comment with no member attached after it -- don't drop it
         }
         return members.isEmpty() ? null : members;
+    }
+
+    // ── §11.2 Class field declaration-alignment grid ──────────────────────────────────
+    private static final Set<String> CLASS_FIELD_MODIFIERS = new HashSet<>(Arrays.asList(
+            "declare", "public", "private", "protected", "static", "abstract", "override", "readonly"));
+
+    /** One parsed simple class-field declaration (`[modifiers] name[?][: type][ = init];`) inside
+     *  a class body -- the class-body analog of {@link InterfaceMember}, plus the modifier phrase
+     *  and optional initializer §11.2 field declarations carry that interface members never do. */
+    private static final class ClassField {
+        private final List<String> leadingComments;
+        private final String modifierPhrase; // "" if no modifiers
+        private final String name;
+        private final String type;
+        private final boolean hasValue;
+        private final String value; // null unless hasValue
+        private String trailingComment;
+        private final int startIdx;
+        private final int endIdx; // exclusive: index of the first token of whatever follows
+
+        ClassField(final List<String> leadingComments, final String modifierPhrase, final String name,
+                final String type, final boolean hasValue, final String value, final int startIdx,
+                final int endIdx) {
+            this.leadingComments = leadingComments;
+            this.modifierPhrase = modifierPhrase;
+            this.name = name;
+            this.type = type;
+            this.hasValue = hasValue;
+            this.value = value;
+            this.startIdx = startIdx;
+            this.endIdx = endIdx;
+        }
+    }
+
+    /**
+     * STYLE_JS_TS.md §11.2: consecutive simple class-field declarations (no blank line separating
+     * them) form a declaration-alignment grid, same shape as Java's modifier/type/name grid
+     * (STYLE.md §5) -- the modifier phrase is padded as one unit so the name column aligns, the
+     * name is padded so the `:` column aligns, and when any member in the group carries an
+     * initializer, the type is additionally padded so the `=` column aligns too. A method, an
+     * untyped field (no `:`), or any field shape {@link #tryParseClassField} doesn't recognize
+     * ends the current group (rendered as-is up to that point) without touching the unrecognized
+     * member itself -- same conservative "only rewrite what's fully understood" posture as
+     * {@link #enforceInterfaceTypeAliasMemberColonAlignment}, but per-group rather than per-whole-
+     * body, since a class body (unlike an interface) routinely mixes fields with methods.
+     */
+    public String enforceClassFieldAlignmentGrid(final List<Token> tokens) {
+        if (!lang.isTs) {
+            return render(tokens, new HashMap<>());
+        }
+        final Map<Integer, Integer> braces = matchBraces(tokens);
+        final List<Integer> classOpens = new ArrayList<>();
+        for (final Map.Entry<Integer, Integer> e : braces.entrySet()) {
+            if ("CLASS".equals(classBraceKind(tokens, e.getKey()))) {
+                classOpens.add(e.getKey());
+            }
+        }
+        classOpens.sort(Integer::compare);
+
+        final StringBuilder out = new StringBuilder();
+        int cursor = 0;
+        for (final int openIdx : classOpens) {
+            final int closeIdx = braces.get(openIdx);
+            if (anyFrozen(tokens, openIdx, closeIdx + 1)) {
+                continue;
+            }
+            final String rewritten = rewriteClassFieldGroups(tokens, openIdx, closeIdx);
+            if (rewritten == null) {
+                continue;
+            }
+            for (int i = cursor; i <= openIdx; i++) {
+                out.append(tokens.get(i).text);
+            }
+            out.append(rewritten);
+            cursor = closeIdx;
+        }
+        for (int i = cursor; i < tokens.size(); i++) {
+            out.append(tokens.get(i).text);
+        }
+        return out.toString();
+    }
+
+    /** Rewrites the interior of one class body (strictly between {@code openIdx}'s `{` and
+     *  {@code closeIdx}'s `}`), aligning each maximal run of consecutive simple field declarations
+     *  and copying everything else (methods, blank lines, comments that aren't a field's own
+     *  leading comment) through byte-for-byte. */
+    private String rewriteClassFieldGroups(final List<Token> tokens, final int openIdx, final int closeIdx) {
+        final StringBuilder out = new StringBuilder();
+        final List<ClassField> group = new ArrayList<>();
+        final List<String> leadingComments = new ArrayList<>();
+        int copyFrom = openIdx + 1;
+        int i = openIdx + 1;
+        // Tracks where leadingComments' first comment token started, so the blank-line
+        // preservation below can stop before it -- flushClassFieldGroup renders each leading
+        // comment with its own trailing newline, so counting the newline after it here too
+        // would double it up.
+        int leadingCommentsStartIdx = -1;
+        while (i < closeIdx) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE) {
+                i++;
+                continue;
+            }
+            if (isComment(t)) {
+                if (leadingComments.isEmpty()) {
+                    leadingCommentsStartIdx = i;
+                }
+                leadingComments.add(t.text);
+                i++;
+                continue;
+            }
+            final ClassField field = tryParseClassField(tokens, i, closeIdx, new ArrayList<>(leadingComments));
+            if (field == null) {
+                if (flushClassFieldGroup(tokens, group, openIdx, out)) {
+                    copyFrom = skipOneNewline(tokens, copyFrom);
+                }
+                leadingComments.clear();
+                leadingCommentsStartIdx = -1;
+                // Not a recognized simple field -- copy raw source through untouched from
+                // copyFrom up to this member's own end, then resume grouping after it.
+                final int memberEnd = skipTopLevelMember(tokens, i, closeIdx);
+                for (int k = copyFrom; k < memberEnd; k++) {
+                    out.append(tokens.get(k).text);
+                }
+                copyFrom = memberEnd;
+                i = memberEnd;
+                continue;
+            }
+            if (blankLineBetween(tokens, group.isEmpty() ? -1 : lastFieldEnd(group), field.startIdx)) {
+                if (flushClassFieldGroup(tokens, group, openIdx, out)) {
+                    copyFrom = skipOneNewline(tokens, copyFrom);
+                }
+            }
+            if (group.isEmpty()) {
+                // Preserve any blank line(s) between the previous content and this group's first
+                // field, but drop the trailing indentation whitespace -- flushClassFieldGroup
+                // supplies its own indent for the first rendered field, so copying raw
+                // indentation here too would double it up. Stop before any leading comment --
+                // flushClassFieldGroup renders that comment (and its own trailing newline)
+                // separately below.
+                final int rawCopyEnd = leadingCommentsStartIdx >= 0 ? leadingCommentsStartIdx : i;
+                for (int k = copyFrom; k < rawCopyEnd; k++) {
+                    if (tokens.get(k).type == TokenType.NEWLINE) {
+                        out.append('\n');
+                    }
+                }
+            }
+            group.add(field);
+            leadingComments.clear();
+            leadingCommentsStartIdx = -1;
+            copyFrom = field.endIdx;
+            i = field.endIdx;
+        }
+        if (flushClassFieldGroup(tokens, group, openIdx, out)) {
+            copyFrom = skipOneNewline(tokens, copyFrom);
+        }
+        if (!leadingComments.isEmpty()) {
+            // A floating comment with nothing after it -- copy it through untouched.
+            for (int k = copyFrom; k < closeIdx; k++) {
+                out.append(tokens.get(k).text);
+            }
+            copyFrom = closeIdx;
+        }
+        for (int k = copyFrom; k < closeIdx; k++) {
+            out.append(tokens.get(k).text);
+        }
+        return out.toString();
+    }
+
+    private int lastFieldEnd(final List<ClassField> group) {
+        return group.get(group.size() - 1).endIdx;
+    }
+
+    /** If the token at {@code idx} is a NEWLINE, returns {@code idx + 1}; otherwise returns
+     *  {@code idx} unchanged. Used right after {@link #flushClassFieldGroup} to avoid
+     *  double-counting the line-ending newline its own rendering already emitted for the last
+     *  member, before any subsequent raw-copy span starting at that same position. */
+    private int skipOneNewline(final List<Token> tokens, final int idx) {
+        return idx < tokens.size() && tokens.get(idx).type == TokenType.NEWLINE ? idx + 1 : idx;
+    }
+
+    /** True when two or more NEWLINE tokens (a genuine blank line) appear in {@code tokens}
+     *  between {@code fromIdx} (exclusive; -1 means "no prior field, never a blank-line break")
+     *  and {@code toIdx} (exclusive). */
+    private boolean blankLineBetween(final List<Token> tokens, final int fromIdx, final int toIdx) {
+        if (fromIdx < 0) {
+            return false;
+        }
+        int newlineCount = 0;
+        for (int i = fromIdx; i < toIdx; i++) {
+            if (tokens.get(i).type == TokenType.NEWLINE) {
+                newlineCount++;
+            }
+        }
+        return newlineCount >= 2;
+    }
+
+    /** Renders {@code group} (if non-empty) as an aligned grid into {@code out}, then clears it.
+     *  Returns {@code true} iff anything was flushed (group was non-empty). */
+    private boolean flushClassFieldGroup(final List<Token> tokens, final List<ClassField> group,
+            final int classOpenIdx, final StringBuilder out) {
+        if (group.isEmpty()) {
+            return false;
+        }
+        int maxModifierWidth = 0;
+        int maxNameWidth = 0;
+        int maxTypeWidthAmongValued = 0;
+        boolean anyValued = false;
+        for (final ClassField f : group) {
+            maxModifierWidth = Math.max(maxModifierWidth, f.modifierPhrase.length());
+            maxNameWidth = Math.max(maxNameWidth, f.name.length());
+            if (f.hasValue) {
+                anyValued = true;
+                maxTypeWidthAmongValued = Math.max(maxTypeWidthAmongValued, f.type.length());
+            }
+        }
+        final String memberIndent = lineIndent(tokens, classOpenIdx) + defaultIndentUnit;
+        for (final ClassField f : group) {
+            for (final String comment : f.leadingComments) {
+                out.append(memberIndent).append(comment).append('\n');
+            }
+            out.append(memberIndent);
+            if (maxModifierWidth > 0) {
+                out.append(padRight(f.modifierPhrase, maxModifierWidth)).append(' ');
+            }
+            out.append(padRight(f.name, maxNameWidth)).append(" : ");
+            if (f.hasValue) {
+                out.append(padRight(f.type, maxTypeWidthAmongValued)).append(" = ").append(f.value);
+            } else {
+                out.append(anyValued ? padRight(f.type, maxTypeWidthAmongValued) : f.type);
+            }
+            out.append(';');
+            if (f.trailingComment != null) {
+                out.append("  ").append(f.trailingComment);
+            }
+            out.append('\n');
+        }
+        group.clear();
+        return true;
+    }
+
+    /** Attempts to parse a simple class-field declaration starting at {@code start} (already
+     *  known to be a non-comment, non-gap token). Returns {@code null} if this isn't a recognized
+     *  field shape (a method, an untyped/computed member, a multi-line type/initializer, ...). */
+    private ClassField tryParseClassField(final List<Token> tokens, final int start, final int closeIdx,
+            final List<String> leadingComments) {
+        int i = start;
+        final StringBuilder modPhrase = new StringBuilder();
+        while (i < closeIdx && tokens.get(i).type == TokenType.KEYWORD && CLASS_FIELD_MODIFIERS.contains(tokens.get(i).text)) {
+            if (modPhrase.length() > 0) {
+                modPhrase.append(' ');
+            }
+            modPhrase.append(tokens.get(i).text);
+            i = nextSignificantIndex(tokens, i + 1);
+            if (i < 0 || i >= closeIdx) {
+                return null;
+            }
+        }
+        if (tokens.get(i).type != TokenType.IDENTIFIER) {
+            return null;
+        }
+        String name = tokens.get(i).text;
+        i = nextSignificantIndex(tokens, i + 1);
+        if (i < 0 || i >= closeIdx) {
+            return null;
+        }
+        if (isOp(tokens.get(i), "?") || isOp(tokens.get(i), "!")) {
+            name = name + tokens.get(i).text;
+            i = nextSignificantIndex(tokens, i + 1);
+            if (i < 0 || i >= closeIdx) {
+                return null;
+            }
+        }
+        if (isPunct(tokens.get(i), "(") || tokens.get(i).type == TokenType.ANGLE_BRACKET_OPEN) {
+            return null; // method, not a field
+        }
+        if (!isOp(tokens.get(i), ":")) {
+            return null; // untyped field -- out of this grid's scope
+        }
+        i = nextSignificantIndex(tokens, i + 1);
+        if (i < 0 || i >= closeIdx) {
+            return null;
+        }
+        final StringBuilder typeBuf = new StringBuilder();
+        int depth = 0;
+        while (i < closeIdx) {
+            final Token vt = tokens.get(i);
+            if (depth == 0 && (isPunct(vt, ";") || isOp(vt, "="))) {
+                break;
+            }
+            if (vt.type == TokenType.NEWLINE) {
+                return null; // multi-line type expression -- rare, not handled
+            }
+            if (isPunct(vt, "(") || isPunct(vt, "[") || isPunct(vt, "{") || vt.type == TokenType.ANGLE_BRACKET_OPEN) {
+                depth++;
+            } else if (isPunct(vt, ")") || isPunct(vt, "]") || isPunct(vt, "}") || vt.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth--;
+            }
+            typeBuf.append(vt.text);
+            i++;
+        }
+        final String type = typeBuf.toString().trim();
+        if (type.isEmpty() || i >= closeIdx) {
+            return null;
+        }
+        i = nextSignificantIndex(tokens, i);
+        if (i < 0 || i >= closeIdx) {
+            return null;
+        }
+        boolean hasValue = false;
+        String value = null;
+        if (isOp(tokens.get(i), "=")) {
+            hasValue = true;
+            i = nextSignificantIndex(tokens, i + 1);
+            if (i < 0 || i >= closeIdx) {
+                return null;
+            }
+            final StringBuilder valueBuf = new StringBuilder();
+            depth = 0;
+            while (i < closeIdx) {
+                final Token vt = tokens.get(i);
+                if (depth == 0 && isPunct(vt, ";")) {
+                    break;
+                }
+                if (vt.type == TokenType.NEWLINE) {
+                    return null; // multi-line initializer -- rare, not handled
+                }
+                if (isPunct(vt, "(") || isPunct(vt, "[") || isPunct(vt, "{")) {
+                    depth++;
+                } else if (isPunct(vt, ")") || isPunct(vt, "]") || isPunct(vt, "}")) {
+                    depth--;
+                }
+                valueBuf.append(vt.text);
+                i++;
+            }
+            value = valueBuf.toString().trim();
+            if (value.isEmpty() || i >= closeIdx) {
+                return null;
+            }
+            i = nextSignificantIndex(tokens, i);
+            if (i < 0 || i >= closeIdx) {
+                return null;
+            }
+        }
+        if (!isPunct(tokens.get(i), ";")) {
+            return null;
+        }
+        int endIdx = i + 1;
+        // A same-line trailing comment travels with the field.
+        String trailingComment = null;
+        int afterSemi = endIdx;
+        while (afterSemi < closeIdx && tokens.get(afterSemi).type == TokenType.WHITESPACE) {
+            afterSemi++;
+        }
+        if (afterSemi < closeIdx && isComment(tokens.get(afterSemi))) {
+            trailingComment = tokens.get(afterSemi).text;
+            endIdx = afterSemi + 1;
+        }
+        final ClassField field = new ClassField(leadingComments, modPhrase.toString(), name, type, hasValue,
+                value, start, endIdx);
+        field.trailingComment = trailingComment;
+        return field;
+    }
+
+    /** Skips forward from {@code start} (a member this pass doesn't recognize -- a method, an
+     *  untyped field, etc.) past that member's own end: either a depth-0 `;` or, for a member
+     *  with its own brace body (a method), the matching `}` of that body. Bracket-depth-aware over
+     *  `(`/`[`/`{`/`<>` so nested structure never trips an early depth-0 match. */
+    private int skipTopLevelMember(final List<Token> tokens, final int start, final int closeIdx) {
+        int depth = 0;
+        int i = start;
+        while (i < closeIdx) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth--;
+            } else if (isPunct(t, "}")) {
+                depth--;
+                if (depth == 0) {
+                    return i + 1;
+                }
+            } else if (depth == 0 && isPunct(t, ";")) {
+                return i + 1;
+            }
+            i++;
+        }
+        return closeIdx;
     }
 
     private static String padRight(final String s, final int width) {
@@ -1483,6 +2047,65 @@ public final class JsTsSpecificRule {
             out.append(t.text);
             lastSignificant = t;
             lastSigIdx = i;
+            i++;
+        }
+        for (final Token g : gap) {
+            out.append(g.text);
+        }
+        return out.toString();
+    }
+
+    /**
+     * STYLE_JS_TS.md §13: a generic type-argument list's `,` separator follows the same
+     * no-space-before/one-space-after rule as any other comma (STYLE.md §3.1), but a plain
+     * `Map<string,number>` never gets routed through any declaration/interface/enum rewrite
+     * pass -- those only rebuild tokens inside their own specific rows/members, not an arbitrary
+     * type annotation sitting elsewhere (e.g. a class-field type with no accompanying `=`). This
+     * is a narrow, dedicated flat scan restricted to commas directly between an
+     * ANGLE_BRACKET_OPEN and its matching ANGLE_BRACKET_CLOSE (tracked via a simple depth
+     * counter, since {@code reclassifyAngleBrackets} has already retyped the brackets
+     * themselves by this point in the pipeline), same conservative gap-bailout shape as this
+     * file's other spacing passes.
+     */
+    public String enforceGenericArgumentCommaSpacing(final List<Token> tokens) {
+        if (!lang.isTs) {
+            return render(tokens, new HashMap<>());
+        }
+        final StringBuilder out = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
+        Token lastSignificant = null;
+        int angleDepth = 0;
+        final int n = tokens.size();
+        int i = 0;
+
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (isGapToken(t)) {
+                gap.add(t);
+                i++;
+                continue;
+            }
+
+            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
+                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean afterComma = lastSignificant != null && isPunct(lastSignificant, ",") && angleDepth > 0;
+
+            if (gapBlocked || !afterComma) {
+                for (final Token g : gap) {
+                    out.append(g.text);
+                }
+            } else {
+                out.append(' ');
+            }
+
+            gap.clear();
+            out.append(t.text);
+            if (t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                angleDepth++;
+            } else if (t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                angleDepth = Math.max(0, angleDepth - 1);
+            }
+            lastSignificant = t;
             i++;
         }
         for (final Token g : gap) {

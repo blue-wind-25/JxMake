@@ -19,7 +19,7 @@ function identity<T>(value: T): T
     return value;
 }
 
-class Container<T extends Comparable<T> = DefaultItem> {} // class Container
+class Container<T extends Comparable<T> = DefaultItem> {}
 
 interface BaseProps {
 
@@ -60,9 +60,9 @@ enum Status2 {
 
 class Widget extends Base {
 
-    declare public static readonly MAX_COUNT: number;
-    protected override readonly cache: Map<string, number>;
-    private static instance: Widget;
+    declare public static readonly MAX_COUNT : number;
+    protected override readonly    cache     : Map<string, number>;
+    private static                 instance  : Widget;
 
 } // class Widget
 
@@ -74,8 +74,7 @@ class Config {
 
 } // class Config
 
-@Injectable()
-export class UserAuthenticationAndAuditLoggingServiceForEnterpriseApplications {} // class UserAuthenticationAndAuditLoggingServiceForEnterpriseApplications
+@Injectable() export class UserAuthenticationAndAuditLoggingServiceForEnterpriseApplications {}
 
 class MetricsHost {
 

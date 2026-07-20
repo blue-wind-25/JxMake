@@ -116,7 +116,12 @@ public class TokenizerCurly extends TokenizerCore {
     private static final Set<String> GENERIC_SAFE_KEYWORDS = setOf(
             "extends", "super", "const", "typename", "class",
             "bool", "char", "char16_t", "char32_t", "double", "float", "int", "long",
-            "short", "signed", "unsigned", "void", "wchar_t", "in", "out");
+            "short", "signed", "unsigned", "void", "wchar_t", "in", "out",
+            // TS/JS primitive type keywords: `Map<string,number>`'s `number`/`string` etc.
+            // are tokenized as KEYWORD, not IDENTIFIER, and appear directly inside a generic
+            // argument list -- without these, the second type argument invalidated the whole
+            // `<...>` tracking before the matching `>` was reached, leaving it a plain OP token.
+            "string", "number", "boolean", "any", "unknown", "never", "object", "undefined", "null");
 
     // C++ cast keywords: `static_cast<T>(...)` etc. are tokenized as KEYWORD (not IDENTIFIER),
     // so the generic `<` after an IDENTIFIER check in reclassifyAngleBrackets() misses them

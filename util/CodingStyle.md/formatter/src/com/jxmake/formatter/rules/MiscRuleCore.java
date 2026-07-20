@@ -404,7 +404,22 @@ protected int matchBracketForward(final List<Token> tokens, final int openIdx) {
                                 && secondLastSignificant != null && secondLastSignificant.type == TokenType.IDENTIFIER
                                 && thirdLastSignificant != null && thirdLastSignificant.type == TokenType.KEYWORD
                                 && "import".equals(thirdLastSignificant.text))
-                        || ((lang.isJs || lang.isTs) && isPunct(lastSignificant, "("));
+                        || ((lang.isJs || lang.isTs) && isPunct(lastSignificant, "("))
+                        // JS/TS object-destructuring declaration LHS (`const {id, name} = ...`):
+                        // this `{` directly follows a `const`/`let`/`var` keyword, not `=`/`(`/
+                        // import-brace like every other case above. STYLE_JS_TS.md §3 requires the
+                        // same `{ ... }` padding and comma spacing as any other brace-initializer,
+                        // but `JsTsDeclarationAlignmentRule.parseDeclaration` deliberately leaves a
+                        // destructuring-pattern LHS unparsed (RDD_KEY_182), so it never gets comma
+                        // spacing from that rule's own renderer either -- without this case, a
+                        // destructuring `{id,name,...rest}` pattern stayed comma-tight (found via
+                        // Checkpoint 21's local-fixture harness testing). Scoped to the keyword
+                        // immediately before `{` so it can't affect an ordinary block/control-flow
+                        // brace, which is never itself directly preceded by `const`/`let`/`var`.
+                        || ((lang.isJs || lang.isTs) && lastSignificant != null
+                                && lastSignificant.type == TokenType.KEYWORD
+                                && ("const".equals(lastSignificant.text) || "let".equals(lastSignificant.text)
+                                        || "var".equals(lastSignificant.text)));
                 final boolean isInit = startsNewInit
                         || ((isPunct(lastSignificant, "{") || isPunct(lastSignificant, ","))
                                 && !initStack.isEmpty() && initStack.peek());

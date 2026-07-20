@@ -226,7 +226,23 @@ entry below unless noted otherwise.
   Kotlin's unconditional-blank-line closing-comment override does not leak
   onto JS/TS (JS/TS uses the plain threshold-gated behavior); Java's
   no-closing-comment-on-`else` suppression keys off general, language-
-  agnostic behavior so it also covers JS/TS.
+  agnostic behavior so it also covers JS/TS. Fixed (Still-Open bug 2):
+  `BlockStructureRule.classifyBrace` only ever recognized if/for/while/
+  switch control-flow bodies and tokenizer-tagged named constructs — a
+  plain function/method body brace fell through to `Frame.other` (no
+  closing comment, ever, regardless of length), even though §1's own
+  `} // function foo` worked example requires one past the threshold.
+  Added a new `Kind.FUNCTION` case, scoped to `lang.isJs`/`isTs` only (no
+  effect on C/C++/Java/Kotlin): a `)`-then-`{` body whose matching `(` is
+  preceded by an IDENTIFIER (not a control keyword) is labeled with that
+  bare identifier — already excludes modifiers for free, since `async`/
+  `static`/a generator's `*` all sit further back, never directly before
+  `(`. Threshold-gated exactly like FOR/WHILE/SWITCH, not unconditional
+  like NAMED. RDD_KEY_196 confirms this bare-name-only labeling (no
+  modifiers) is the intended, final design for every modifier-prefixed
+  method shape (`async`/`static`/`get`/`set`/etc.), verified directly
+  against `static get instance()` → `} // instance` in addition to the
+  originally-named `async load(...)` → `} // load` case.
 - **Tokenizer support** — DONE, additive only, in `TokenizerCurly.java`
   (`TokenizerCore.java` untouched): `KEYWORDS_JS`/`_TS`,
   `NAMED_CONSTRUCT_JS`/`_TS`, `=>`/`??=`/`??` multi-char ops, a dedicated
@@ -246,7 +262,15 @@ entry below unless noted otherwise.
   after `...`); bracket padding on destructuring patterns already free via
   the existing complexity-padding pass; destructuring-pattern LHS join to
   the declaration-alignment grid is RDD_KEY_182 (design decided, **not yet
-  implemented** — see grid status below).
+  implemented** — see grid status below). Fixed (Still-Open bug 4):
+  `{ id, name, ...rest }` object-destructuring patterns stayed comma-tight
+  since `MiscRuleCore.enforceInitializerBraceSpacing`'s brace-initializer
+  detection only recognized a `{` preceded by `=`/import/call-paren, never
+  a `{` preceded directly by `const`/`let`/`var` (the destructuring LHS
+  shape) — added that case. Array-destructuring commas (`[first, second]`)
+  and arrow-parameter commas (`(a, b)`) were already fixed for free by the
+  existing bracket-generic/declaration-grid passes; only the object-pattern
+  `{}` case needed this fix.
 - **§4 Template literals** — DONE (`enforceTemplateLiteralInterpolationSpacing`):
   finds top-level `${...}` spans (nesting-aware, quote-span-skipping),
   re-tokenizes/re-renders each interior in isolation. Bails out (leaves
@@ -261,7 +285,13 @@ entry below unless noted otherwise.
   type-parameter list (`identity<T>(...)`) was suppressing the candidate
   signal because the token before `(` was `>` not an IDENTIFIER — fixed via
   `matchAngleOpenBackward` walking back over the `<...>` pair before
-  re-checking for the name identifier.
+  re-checking for the name identifier. Fixed (Still-Open bug 1): a
+  generator method's `*` marker got a wrongly-inserted space
+  (`*iterate()` → `* iterate()`) — `MiscRuleCurly.render`'s lead-token
+  join used `MiscRuleCore.needsSpaceBetween`'s C/C++-pointer-declarator
+  default (space before the name); JS/TS `*` here is never a pointer
+  sigil, only ever the generator marker, so it's now forced tight
+  whenever it's the signature's last lead token and `lang.isJs`/`isTs`.
 - **§6 Arrow functions** — DONE (`enforceArrowSpacing`,
   `enforceArrowFunctionParameterParens` — always parenthesizes a bare
   single param, confirmed unambiguous from the style doc's own text). K&R
@@ -341,6 +371,19 @@ entry below unless noted otherwise.
   `type` headers confirmed already handled by the pre-existing
   general-purpose non-function-brace-style pass — no new code needed;
   §5's Allman pass independently confirmed to never match these headers.
+  RDD_KEY_196: an object-shaped `type X = { ... };` alias is a named
+  construct like `interface`/`class`/`enum` per STYLE.md §7's universal
+  rule — always gets a closing comment regardless of body length, placed
+  after the trailing `;` (`}; // type Point`); non-object aliases with no
+  brace body are unaffected. `BlockStructureRule.classifyBrace` gained a
+  `lang.isTs && isOp(prev, "=")` branch (`typeAliasNameBeforeEquals`) that
+  classifies the brace as `Frame.named(braceIdx, "type " + name)`, reusing
+  the existing generic NAMED-construct closing-comment/semicolon-skipping
+  machinery (`commentInsertionIndex` already walked past a trailing `;`).
+  Verified: `type Point = {...}` (multi-line, >0 lines) now closes
+  `}; // type Point`; a plain `const obj = {...}` initializer is
+  unaffected (the depth-aware backward walk requires the enclosing
+  statement to start with the `type` keyword).
   This section (along with §12) was previously and incorrectly marked
   "fully complete" under an earlier checkpoint before actually being
   built — now genuinely complete, no known remaining gap.
@@ -378,51 +421,91 @@ entry below unless noted otherwise.
   `lodash/lodash`, `microsoft/TypeScript`, `angular/angular`, `nestjs/nest`,
   `vuejs/core`).
 
-### Still Open (found during Checkpoint 21's fixture-verification pass; not yet fixed)
+### Still Open (found during Checkpoint 21's fixture-verification pass)
 
-Each is real, previously-unverified, and independent — a future session can
-tackle them in any order:
-
-1. **Generator method `*` gets a wrongly-inserted space**: `*iterate() {`
-   renders `* iterate() {`. No generator-spacing rule exists; likely a
-   generic binary-operator default-spacing rule misfiring on a leading `*`
-   with no left operand.
-2. **Closing comments missing** on JS/TS method/class bodies that clearly
-   exceed `closing-comment-min-lines` (e.g. an ~11-line `async load(...)`
-   method, and in one fixture the surrounding `class Widget { ... }`
-   itself). Root cause not investigated — plausibly an ordering
-   interaction with one of the newer JS/TS passes, or a brace-kind
-   misclassification.
-3. **Spurious blank line inserted** immediately after a class's opening
-   `{` (and in one fixture, immediately before its closing `}`) — not a
-   general blank-line-preservation bug, since user-authored interior blank
-   lines elsewhere in the same files are preserved correctly.
-4. **Comma spacing missing inside destructuring patterns and arrow
-   parameter lists**: `const {id,name,...rest} = ...` and `(a,b) => a + b`
-   both stay comma-tight. Not yet confirmed whether this is a general gap
-   or narrowly scoped to shapes that bypass the ordinary declaration grid.
-5. **`GetterSetterRuleCurly` empty-parens padding inconsistent for
-   `static get`/`static set`**: a `static get instanceCount()` pair renders
-   tight `()` while a plain (non-static) `get x()`/`set x(value)` pair in
-   the same file correctly pads to match sibling width. The `static`
-   prefix appears to break the grouping/width-matching logic.
-6. **Doubled trailing space before a one-liner getter body's closing `}`**:
-   `get x(     ) { return this._x;  }` (two spaces) vs. single space
-   elsewhere — possibly related to bug 5, possibly independent.
+1. ~~Generator method `*` gets a wrongly-inserted space~~ — **RESOLVED**
+   (this checkpoint). See §5 above.
+2. ~~Closing comments missing on JS/TS method bodies exceeding the
+   threshold~~ — **RESOLVED** (this checkpoint) for function/method
+   bodies, see §1 above. The "surrounding `class Widget {...}` itself"
+   half of the original report was a **false positive**: named
+   constructs always get a closing comment/blank-line pair regardless of
+   length (STYLE.md §7) — confirmed already correct and covered by every
+   passing C/C++/Java/Kotlin fixture; the local `.js` fixtures' `_out`
+   files were simply hand-authored without that blank line and are now
+   being corrected by a separate concurrent session.
+3. **Spurious blank line after a class's opening `{`** — investigated
+   this checkpoint and found to be a **false positive**, not a bug:
+   STYLE.md §7 mandates a guaranteed blank line after `{`/before `}` for
+   every named construct regardless of content length, and this is
+   already exactly what every passing C++ fixture does (e.g.
+   `test/real_code_regressions_1_out.cpp`'s `class Rotator {`). The local
+   `.js` fixtures' `_out` files simply never had this blank line
+   hand-authored in; no source fix needed, only fixture regeneration
+   (stretch-goal territory, not a "still open" bug).
+4. ~~Comma spacing missing inside destructuring patterns and arrow
+   parameter lists~~ — **RESOLVED** (this checkpoint) for object-pattern
+   `{ id, name }`. Arrow-parameter commas and array-pattern commas
+   (`[first, second]`) were already correct for free (declaration-grid/
+   bracket-generic passes) — only the object-destructuring `{}` case
+   needed the fix. See §3 above.
+5. **`GetterSetterRuleCurly` static accessor group not padding while a
+   sibling plain accessor group in the same class does** — root-caused
+   this checkpoint, but the fix is **out of scope for this checkpoint**:
+   it is not actually a `static`-vs-plain grouping bug in
+   `GetterSetterRuleCurly` itself. Isolated repro: a `static get`/
+   `static set` pair pads correctly *on its own* or right after a plain
+   (non-`#`) field; it only fails to pad, together with a **new,
+   previously-undocumented bug** — a doubled trailing `;` on any
+   private class field (`#cache = new Map();` renders as
+   `#cache = new Map();;`) — when a `#`-prefixed private class field
+   declaration appears earlier in the same class body. The `#` private-
+   field token sequence is corrupting `enforceSemicolonInsertion`'s
+   statement-boundary bookkeeping (extra `;`), and that corruption's
+   fallout is what desyncs the getter/setter grouping pass downstream.
+   This is a tokenizer/semicolon-insertion-level bug around `#` private
+   fields, not a small getter/setter fix — flagging per the ambiguity
+   protocol rather than forcing an unplanned fix into a different
+   subsystem. Needs its own checkpoint.
+6. **Doubled trailing space before a one-liner getter body's closing
+   `}`** — investigated this checkpoint and found to be a **false
+   positive**: `GetterSetterRuleCurly`'s one-liner accessor-group
+   rendering pads each member's body to the group's widest body so every
+   `}` aligns at the same column — confirmed by example against
+   `test/cpp_comments_out.cpp`'s passing `getValue`/`setValue`/`isValid`
+   group (`{ return v_;     }` etc., same mechanism, byte-for-byte). A
+   `get`/`set` pair whose bodies differ in length by one character
+   legitimately renders with 2 trailing spaces before the shorter body's
+   `}` (1 alignment-padding space + 1 join space) — not a bug.
 7. ~~TS interface/type-alias/class-field member `:` colons never spaced~~ —
    **RESOLVED** by Checkpoint 23 (§14 above and the class-field colon fix
    folded into §11).
 8. ~~Enum member formatting substantially broken~~ — **RESOLVED** by
    Checkpoint 22 (§12 above).
 9. **Import ordering/blank-line placement diverges from `_out` in
-   `js_comments_inp.js`** with a mix of `fs` (builtin), a
-   trailing-commented `lodash` import (third-party), and `express`
-   (third-party) — not yet root-caused; may be a genuine ordering bug, or
-   the existing documented "a trailing comment on an import blocks the
-   whole pass" behavior colliding with a stale `_out` expectation.
+   `js_comments_inp.js`** — root-caused this checkpoint: `js_comments_inp.js`
+   has a trailing end-of-line comment on its `lodash` import
+   (`// utility for rate limiting`), and `enforceImportOrdering`
+   deliberately bails its *entire* pass (no reordering, no blank-line
+   normalization between groups) whenever a comment sits on or between
+   two import declarations — a documented, deliberate "never risk
+   silently dropping/misplacing a comment" design posture, not an
+   oversight. The `_out` fixture's expectation (a blank line inserted
+   between the `fs`/`lodash` groups despite that comment) contradicts
+   this deliberate design decision. This is a genuine open design
+   question, not a small bug: either the fixture's expectation is stale
+   and should be regenerated to match the conservative bail-all
+   behavior, or the bail-all posture should be relaxed to still allow
+   blank-line normalization (but not reordering) around a commented
+   import. Flagging per the ambiguity protocol rather than guessing which
+   the user wants.
 
-Bugs 1, 2, 3, 4, 5, 6, and 9 above remain open as of the latest checkpoint.
-Bugs 7 and 8 are resolved (Checkpoints 23 and 22 respectively). The four
-local fixture pairs stay unactivated until these are resolved (or their
-`_out` files are deliberately regenerated to match currently-accepted
-behavior) and the fixture-verification pass is redone.
+Bugs 1, 2, and 4 are resolved this checkpoint (source fixes). Bugs 3 and 6
+are false positives (no source change needed — the fixtures are stale).
+Bug 5 surfaced a new, distinct, undocumented `#`-private-field bug outside
+this checkpoint's scope. Bug 9 is root-caused but is a genuine open design
+question, not a bug fix. Bugs 7 and 8 were resolved in earlier checkpoints
+(23 and 22). The four local fixture pairs stay unactivated until bug 5's
+new `#`-field bug and bug 9's design question are resolved, and the
+`_out` fixtures are regenerated for bugs 2/3's false-positive findings —
+then the fixture-verification pass should be redone.

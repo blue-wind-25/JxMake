@@ -471,7 +471,19 @@ protected List<List<Token>> splitTopLevelCommas(final List<Token> tokens) {
     public List<String> render(final Signature sig, final int indentLevel, final String indentStyle,
             final int trailingLen) {
         final String lead = renderTokens(sig.leadTokens);
-        final boolean leadNeedsSpace = !sig.leadTokens.isEmpty()
+        // JS/TS generator-method marker (`*iterate() {...}`): the bare `*` that can appear as
+        // this signature's last lead token is never a pointer/reference declarator sigil in
+        // JS/TS (unlike C/C++, where `isTightToken`'s default "tight against the type it
+        // modifies, space before the name" behavior below is correct for `int* p`) -- it's
+        // always the generator-function marker, which STYLE_JS_TS.md §6/§8 render tight against
+        // the method name (`*iterate`, not `* iterate`). `needsSpaceBetween`'s generic default
+        // (used for the C/C++ pointer case) would otherwise insert that space here since the
+        // shared `isTightToken` only special-cases the token being joined *to* (`cur`), never a
+        // bare `*` as `prev`. Scoped narrowly to lead-token-is-bare-`*` so it can't affect any
+        // other lead-token join.
+        final boolean leadEndsWithGeneratorStar = (lang.isJs || lang.isTs) && !sig.leadTokens.isEmpty()
+                && isOp(sig.leadTokens.get(sig.leadTokens.size() - 1), "*");
+        final boolean leadNeedsSpace = !sig.leadTokens.isEmpty() && !leadEndsWithGeneratorStar
                 && needsSpaceBetween(sig.leadTokens.get(sig.leadTokens.size() - 1), sig.name,
                         Collections.<Token>emptySet(), Collections.<Token>emptySet());
         final String head = (lead.isEmpty() ? "" : lead + (leadNeedsSpace ? " " : "")) + sig.name.text + "(";

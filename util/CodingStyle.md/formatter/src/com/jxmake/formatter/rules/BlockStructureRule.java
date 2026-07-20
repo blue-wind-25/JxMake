@@ -1735,7 +1735,7 @@ public class BlockStructureRule {
 
     // ── Closing comments on blocks (STYLE.md §7) ────────────────────────────────
     /** What kind of construct a `{` opens, for closing-comment purposes. */
-    private enum Kind { NAMED, FOR, WHILE, IF, SWITCH, EXCLUDED, OTHER }
+    private enum Kind { NAMED, FOR, WHILE, IF, SWITCH, FUNCTION, EXCLUDED, OTHER }
 
     /** A currently-open brace's classification, tracked on a stack while scanning forward. */
     private static final class Frame {
@@ -1942,6 +1942,18 @@ public class BlockStructureRule {
         }
 
         final Token prev = tokens.get(prevIdx);
+        if (lang.isTs && isOp(prev, "=")) {
+            // RDD_KEY_196: an object-shaped `type X = { ... };` alias is a named construct in the
+            // same sense as `interface`/`class`/`enum` per STYLE.md §7's universal rule -- always
+            // gets a closing comment regardless of body length. Walk backward (depth-aware, past
+            // any generic-parameter clause on the alias name) from the `=` to confirm the enclosing
+            // statement actually starts with the `type` keyword, so this doesn't misfire on an
+            // ordinary `const obj = { ... };` object-literal initializer.
+            final String typeAliasName = typeAliasNameBeforeEquals(tokens, prevIdx);
+            if (typeAliasName != null) {
+                return Frame.named(braceIdx, "type " + typeAliasName);
+            }
+        }
         if (isPunct(prev, ")")) {
             final int openParen = matchOpenBackward(tokens, prevIdx);
             final int kwIdx = openParen >= 0 ? prevSignificantIndex(tokens, openParen - 1) : -1;
@@ -1964,6 +1976,22 @@ public class BlockStructureRule {
                 if ("switch".equals(kw)) {
                     return Frame.control(braceIdx, Kind.SWITCH, "switch", openParen, prevIdx);
                 }
+            } else if ((lang.isJs || lang.isTs) && kwIdx >= 0
+                    && tokens.get(kwIdx).type == TokenType.IDENTIFIER) {
+                // STYLE_JS_TS.md §1's baseline-inherited closing-comment section explicitly
+                // extends STYLE.md §7 to named function declarations and class methods (its own
+                // worked example: `} // function foo`) -- this codebase's shared `classifyBrace`
+                // otherwise only recognizes if/for/while/switch control-flow bodies and
+                // tokenizer-tagged named constructs (class/enum/etc.) here, silently leaving
+                // every function/method body brace as `Frame.other` (no closing comment ever,
+                // regardless of length). The identifier directly before the parameter list's `(`
+                // is always the bare method/function name with no modifier prefix (`async`/
+                // `static`/a generator's `*` are all separate, non-adjacent tokens further back),
+                // so no extra modifier-stripping is needed here. Threshold-gated exactly like
+                // FOR/WHILE/SWITCH above (not an unconditional NAMED-style comment) -- an ordinary
+                // function isn't a "named construct" per STYLE.md §7's own distinct always-labeled
+                // list (class/struct/enum/namespace/interface).
+                return Frame.control(braceIdx, Kind.FUNCTION, tokens.get(kwIdx).text, -1, -1);
             }
         } else if (prev.type == TokenType.KEYWORD && "else".equals(prev.text)) {
             return Frame.excluded(braceIdx);
@@ -2215,6 +2243,7 @@ public class BlockStructureRule {
             case FOR:
             case WHILE:
             case SWITCH:
+            case FUNCTION:
                 if (countContentLines(tokens, f.openIdx, closeIdx) <= closingCommentMinLines) {
                     return null;
                 }
@@ -2226,6 +2255,45 @@ public class BlockStructureRule {
             default:
                 return null;
         }
+    }
+
+    /** If the `=` at {@code eqIdx} is immediately preceded (walking back past an optional generic
+     *  parameter clause) by `type IDENTIFIER`, returns that identifier; otherwise null. Depth-aware
+     *  the same way {@link #classifyBrace}'s sibling helpers are, so it doesn't misfire crossing a
+     *  `;`/`{`/`}` statement boundary. */
+    private String typeAliasNameBeforeEquals(final List<Token> tokens, final int eqIdx) {
+        int i = prevSignificantIndex(tokens, eqIdx - 1);
+        if (i < 0) {
+            return null;
+        }
+        if (tokens.get(i).type == TokenType.ANGLE_BRACKET_CLOSE) {
+            int depth = 1;
+            i--;
+            while (i >= 0 && depth > 0) {
+                final Token t = tokens.get(i);
+                if (isGap(t)) {
+                    i--;
+                    continue;
+                }
+                if (t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                    depth++;
+                } else if (t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                    depth--;
+                }
+                i--;
+            }
+            i = prevSignificantIndex(tokens, i);
+        }
+        if (i < 0 || tokens.get(i).type != TokenType.IDENTIFIER) {
+            return null;
+        }
+        final String name = tokens.get(i).text;
+        final int kwIdx = prevSignificantIndex(tokens, i - 1);
+        if (kwIdx >= 0 && tokens.get(kwIdx).type == TokenType.KEYWORD
+                && "type".equals(tokens.get(kwIdx).text)) {
+            return name;
+        }
+        return null;
     }
 
     private int countContentLines(final List<Token> tokens, final int openIdx, final int closeIdx) {

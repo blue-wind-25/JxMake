@@ -1299,8 +1299,9 @@ attempted this session, future work:
       `ts_comments_inp/out.ts` extracted to `test/`, registered
       commented-out in the Makefile (real logic not yet implemented),
       documented in `test/README.txt`.
-- [~] **BLOCKED — attempted to verify/activate the four existing local
-      `.js`/`.ts` fixture pairs against the real JAR this session (via the
+- [~] **BLOCKED (superseded — see Checkpoint 21 below) — attempted to
+      verify/activate the four existing local `.js`/`.ts` fixture pairs
+      against the real JAR this session (via the
       same standalone-harness technique used throughout this file's
       checkpoints), found real formatter bugs, not just stale hand-authored
       `_out` expectations.** All four pairs (`js_combined`, `js_comments`,
@@ -1713,6 +1714,170 @@ attempted this session, future work:
       **explicitly not attempted this session** per this session's own
       scope (item 6 in the task brief) and remains the next session's first
       task.
+- [~] **BLOCKED (Checkpoint 21) — re-attempted the four-fixture
+      verification/activation pass, found the fixtures are still not ready
+      to activate: a large set of additional real, previously-unverified
+      bugs, well beyond Checkpoints 17-20's scope.** Built the standalone
+      harness this task specified (`Harness.java`, default package,
+      compiled against `target/classes`, calling `Config.resolve(path,
+      emptyMap, InFileConfig.parse(original))` then
+      `FormatterCore.forLanguage(lang).formatOne(...)` — same pattern
+      `Main.formatStandalone` uses internally, `Lang.isScaffoldOnly` never
+      touched) and ran all four fixture `_inp` files through it, diffing
+      against their `_out` files. (Note: partway into this session the user
+      manually corrected indentation mistakes in `test/js_combined_inp.js`,
+      `test/js_comments_inp.js`, `test/ts_combined_inp.ts`,
+      `test/ts_combined_out.ts`, `test/ts_comments_inp.ts`,
+      `test/ts_comments_out.ts` that predated this checkpoint — the harness
+      was re-run against the corrected files before any analysis below.)
+      Every one of the four pairs still diverges from its `_out` file.
+      **Confirmed as genuine stale-expectation cases (category (a), safe to
+      regenerate once the real bugs below are fixed):** the
+      `LongUnion`/`AnotherLongUnion` break-style continuation lines and
+      `js_comments_inp.js`'s deliberately-over-indented `return merged;`
+      line are correctly left byte-for-byte as originally written by the
+      real JAR (this formatter's documented no-reindent-from-scratch
+      behavior) — the `_out` files wrongly assume reindentation. **Not
+      attempted as a fix or regeneration this checkpoint, because the
+      divergences are dominated by genuine new bugs interleaved with these
+      stale-expectation lines in the same files**, making a clean
+      "just regenerate" pass unsafe without fixing the bugs first (doing so
+      would bake incorrect behavior into the reference `_out` files).
+      **New bugs found, cataloged, NOT fixed (each plausibly its own future
+      checkpoint):**
+      1. **Generator method `*` gets a wrongly-inserted space:**
+         `*iterate() {` renders as `* iterate() {` end-to-end (both `.js`
+         and `.ts`). No generator-method spacing rule exists in
+         `JsTsSpecificRule.java` at all — likely a plain `*` (multiplication)
+         binary-operator-style default-spacing rule from a shared
+         token-joining pass firing on the leading `*` of a generator method
+         header, which has no left operand. Reproduces in both fixture
+         files.
+      2. **Closing comments (`STYLE.md` §7/§12, `closing-comment-min-lines`)
+         are missing from JS/TS method/class bodies that clearly exceed the
+         default 5-line threshold.** `async load(...) { ... }` (an
+         ~11-line body in `js_combined_inp.js`) gets no `// async load`
+         trailing comment though `_out` expects one, and even the
+         already-short `iterate()`/generator body's surrounding `class
+         Widget { ... }` itself loses its own `// class Widget` closing
+         comment in one of the two `.js` fixtures. Root cause not
+         investigated — plausibly an ordering interaction between one of
+         the many new Phase-1/Phase-4 JS/TS passes and the closing-comment
+         pass, or a `classifyBraces`-style brace-kind misclassification for
+         a class/method body that also participates in one of §2's newer
+         special cases.
+      3. **A spurious blank line is inserted immediately after a class's
+         opening `{` (and, in one fixture, immediately before its closing
+         `}`), not present in the input.** Reproduces in both `.js`
+         fixtures. Not investigated — not a general blank-line-preservation
+         bug, since interior blank lines the user actually wrote are
+         preserved correctly elsewhere in the same files.
+      4. **Comma spacing is not applied inside destructuring patterns or
+         arrow-function parameter lists.** `const {id,name,...rest} = ...`
+         stays comma-tight (expected `{ id, name, ...rest }`); `(a,b) =>
+         a + b` and `(a,b=10) => a + b` both stay comma-tight too (expected
+         `(a, b)`/`(a, b = 10)`). Plain call-argument commas elsewhere in
+         the same corpus are not exhaustively re-checked this checkpoint, so
+         it's not yet confirmed whether this is comma-spacing-in-general
+         missing for JS/TS, or narrowly scoped to destructuring-LHS/arrow-
+         parameter-list token runs (both of which bypass the ordinary
+         declaration-alignment grid per Checkpoint 5's own documented
+         gap, per RDD_KEY_182) — not investigated further.
+      5. **`GetterSetterRuleCurly`'s empty-parens padding is inconsistent
+         between a `static get`/`static set` pair and a plain (non-static)
+         `get`/`set` pair in the same file.** `static get instanceCount()`
+         renders with tight `()` (no padding at all), while the very next
+         `get x()`/`set x(value)` pair in the same class correctly pads the
+         empty-parens getter to match its sibling's width
+         (`get x(     )`), matching Checkpoint 13/14's own documented,
+         accepted padding convention. The `static` modifier prefix appears
+         to be breaking the grouping/width-matching logic for that pair
+         specifically. Not investigated further.
+      6. **A one-liner getter body can render with a doubled trailing space
+         before its closing `}`:** `get x(     ) { return this._x;  }`
+         (two spaces before `}`) vs. the correct single space seen
+         elsewhere in the same file. Not investigated — possibly related to
+         bug 5 above (same accessor group), possibly independent.
+      7. **TypeScript `interface`/`type`-alias/class-field member `:`
+         colons are never spaced at all** (`id:string;`, `label:string;`,
+         `private locale:string;`, `protected count:number;`,
+         `cache:Map<string,number>`) — this is not merely "no grid alignment
+         column" (already a documented, accepted gap per Checkpoint 7's own
+         scope note), it is the complete absence of even flat tight-before/
+         space-after normalization for these colon positions. Re-reading
+         this file's own Scope section (line ~271-274) shows §14's "member
+         `:` alignment" and the interface/class-field-colon cases were
+         *assumed* free by analogy during the original §1 gap-survey pass,
+         but no checkpoint from 3 through 20 ever actually implemented or
+         verified them — `enforceTypeColonSpacing` (Checkpoint 7) is
+         explicitly scoped to declarator/parameter/return-type colons only,
+         and Checkpoint 7's own text explicitly says class-field colons were
+         "deliberately NOT touched." Interface member colons and the class
+         field colons in `ts_combined_inp.ts`/`ts_comments_inp.ts` are the
+         same untouched shape. **This means §11.2 (class-field modifiers)
+         and §14 (interface/type-alias member colon alignment) are each
+         only partially implemented, not fully complete as the "§2-15
+         checklist item is now fully complete" note under Checkpoint 16
+         claimed** — that claim should be treated as inaccurate for these
+         two sections specifically until a future checkpoint actually adds
+         member-colon spacing/alignment for interface bodies, type-alias
+         object shapes, and class fields.
+      8. **Enum member formatting (§12) is substantially broken, not just
+         unaligned:** `Pending  = 3,` renders as `Pending=3;` (no `=`
+         spacing at all, AND the trailing separator is wrongly a semicolon
+         instead of a comma — §12's own text is explicit: "no trailing
+         `;`"), `Blue,` (last member before `}`) renders as `Blue;` (comma
+         wrongly replaced by a semicolon), and there is no `=`-column
+         alignment across `Active`/`Inactive`/`Pending` at all (each stays
+         at its own original, unaligned spacing once the `=` bug above is
+         also fixed). This strongly suggests §2's generic JS/TS
+         semicolon-insertion pass (`enforceSemicolonInsertion`) is
+         mis-firing inside an enum body (probably not recognizing an enum
+         body as a comma-separated member list, the same class of
+         "value vs. statement-list brace" classification bug Checkpoints
+         5/6/16 each found and fixed for a different brace shape) and no
+         `=`-alignment-grid pass for enum members was ever written (§12 was
+         never given its own checkpoint anywhere in this file's history —
+         confirmed by the checkpoint-by-checkpoint list above never
+         mentioning "enum" as its own topic; it was only ever assumed
+         "free" during the original gap-survey pass, same as bug 7's §14
+         finding).
+      9. **Import ordering/blank-line placement diverges from `_out` in
+         `js_comments_inp.js`** in a way not yet root-caused: with `fs`
+         (builtin), `debounce`-from-`lodash` (third-party, has a trailing
+         comment), and `express` (third-party) as the three imports, the
+         real JAR's output re-orders/re-blank-lines them differently than
+         `_out` expects. Not investigated to determine whether this is a
+         genuine ordering-pass bug or (per Checkpoint 16's own documented
+         "a trailing line comment on an import blocks the entire pass"
+         behavior) a correct, intentional bail-out whose `_out` file simply
+         encodes a stale assumption — not disentangled this checkpoint.
+      **Per `STATE_COMMON.md`'s ambiguity protocol, stopping here rather
+      than attempting fixes for any of the nine items above.** This is
+      substantially more than "small/obvious fixes" — items 7 and 8 in
+      particular indicate two entire style-doc sections (§12, §14) were
+      never actually implemented despite being checked off as complete, and
+      items 1-6 and 9 are six more independent, previously-unverified bugs
+      spread across brace-classification, comma-spacing, blank-line
+      handling, closing comments, and getter/setter grouping. **No fixture
+      was activated/uncommented in the Makefile this checkpoint, no `_out`
+      file was regenerated, no source file was modified.** A future session
+      should: (a) decide whether §12/§14 need to be implemented as their own
+      dedicated checkpoints first (they are more "not yet done" than "buggy"
+      given they were never actually built), (b) triage bugs 1-6 and 9 as
+      their own small, isolated fix checkpoints in whatever order is
+      convenient, then (c) redo this fixture-verification/activation pass
+      once all of the above (plus the already-known stale reindentation
+      expectations) are settled — at that point the `_out` files can likely
+      be regenerated wholesale from the real JAR's now-correct output rather
+      than hand-patched. The standalone harness written this session
+      (`Harness.java`, not committed — lives only in the session's scratch
+      directory — trivial to recreate: default-package class, `Config
+      .resolve(path, Collections.emptyMap(), InFileConfig.parse(original))`
+      then `FormatterCore.forLanguage(lang).formatOne(original,
+      path.toString(), config, false)`, compiled with `javac -cp
+      target/classes`) is the fastest way to re-verify each fix without
+      needing the Makefile/CLI gate touched.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_JS_TS.md`'s listed test-fixture repos (`nodejs/node`,
       `expressjs/express`, `lodash/lodash`, `microsoft/TypeScript`,

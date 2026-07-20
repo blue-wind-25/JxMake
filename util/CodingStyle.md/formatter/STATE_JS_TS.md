@@ -449,24 +449,39 @@ entry below unless noted otherwise.
    (`[first, second]`) were already correct for free (declaration-grid/
    bracket-generic passes) — only the object-destructuring `{}` case
    needed the fix. See §3 above.
-5. **`GetterSetterRuleCurly` static accessor group not padding while a
-   sibling plain accessor group in the same class does** — root-caused
-   this checkpoint, but the fix is **out of scope for this checkpoint**:
-   it is not actually a `static`-vs-plain grouping bug in
-   `GetterSetterRuleCurly` itself. Isolated repro: a `static get`/
-   `static set` pair pads correctly *on its own* or right after a plain
-   (non-`#`) field; it only fails to pad, together with a **new,
-   previously-undocumented bug** — a doubled trailing `;` on any
-   private class field (`#cache = new Map();` renders as
-   `#cache = new Map();;`) — when a `#`-prefixed private class field
-   declaration appears earlier in the same class body. The `#` private-
-   field token sequence is corrupting `enforceSemicolonInsertion`'s
-   statement-boundary bookkeeping (extra `;`), and that corruption's
-   fallout is what desyncs the getter/setter grouping pass downstream.
-   This is a tokenizer/semicolon-insertion-level bug around `#` private
-   fields, not a small getter/setter fix — flagging per the ambiguity
-   protocol rather than forcing an unplanned fix into a different
-   subsystem. Needs its own checkpoint.
+5. ~~`GetterSetterRuleCurly` static accessor group not padding while a
+   sibling plain accessor group in the same class does~~ — the doubled-`;`
+   half **RESOLVED** this checkpoint. Root cause: `TokenizerCurly.
+   isPreprocessorLanguage()` unconditionally returned `true` for every
+   curly-family language, including JS/TS — so a line-leading `#` (JS/TS's
+   real private-field/method sigil, e.g. `#cache = new Map()`) was lexed as
+   a C-preprocessor directive, swallowing the *entire* statement (up to
+   the next newline) into one opaque PREPROCESSOR token instead of real
+   `#`/IDENTIFIER/... tokens. `JsTsSpecificRule.enforceSemicolonInsertion`
+   then unconditionally appended `;` to that opaque token's text: harmless
+   on a fresh format (no existing `;` to double up), but on a *second*
+   format pass the opaque token's swallowed text already included the `;`
+   from round1's own output, so a second `;` got appended on top —
+   `#cache = new Map();` -> `#cache = new Map();;`, an idempotency bug, not
+   visible on a single forward pass (which is why it wasn't caught by
+   `make test`'s forward-only diffing until the idempotency check was run
+   by hand). Fix: `isPreprocessorLanguage()` now returns
+   `!(lang.isJs || lang.isTs)` — JS/TS never treats a line-leading `#` as a
+   preprocessor sigil; C/C++/Java's PCPP-directive-passthrough behavior is
+   unchanged. Verified via the standalone harness: `#cache = new Map();`
+   round-trips byte-for-byte stable now (was `;;` on round2 before the
+   fix). `make test`: 106/106 forward + 106/106 idempotency, zero
+   regressions.
+   **The static-vs-plain accessor-group padding-inconsistency half is
+   NOT resolved as a side effect** — confirmed independent: with the `;;`
+   bug fixed, `static get instanceCount()`/`static set instanceCount(value)`
+   still render without the empty-parens padding that a plain
+   `get x()`/`set x(value)` sibling group gets, on a fresh single-pass
+   format of `test/js_combined_inp.js` (unchanged from before this fix).
+   This is the pre-existing, already-documented `GetterSetterRuleCurly`
+   empty-parens-padding-to-match-sibling-width convention question — left
+   open, no further fix attempted this checkpoint (out of scope per the
+   task instructions once confirmed independent).
 6. **Doubled trailing space before a one-liner getter body's closing
    `}`** — investigated this checkpoint and found to be a **false
    positive**: `GetterSetterRuleCurly`'s one-liner accessor-group
@@ -500,12 +515,14 @@ entry below unless noted otherwise.
    import. Flagging per the ambiguity protocol rather than guessing which
    the user wants.
 
-Bugs 1, 2, and 4 are resolved this checkpoint (source fixes). Bugs 3 and 6
-are false positives (no source change needed — the fixtures are stale).
-Bug 5 surfaced a new, distinct, undocumented `#`-private-field bug outside
-this checkpoint's scope. Bug 9 is root-caused but is a genuine open design
-question, not a bug fix. Bugs 7 and 8 were resolved in earlier checkpoints
-(23 and 22). The four local fixture pairs stay unactivated until bug 5's
-new `#`-field bug and bug 9's design question are resolved, and the
-`_out` fixtures are regenerated for bugs 2/3's false-positive findings —
-then the fixture-verification pass should be redone.
+Bugs 1, 2, and 4 are resolved (source fixes, earlier checkpoint). Bug 5's
+`#`-private-field doubled-`;` half is now also resolved (this checkpoint,
+`TokenizerCurly.isPreprocessorLanguage`); its static-vs-plain accessor-
+padding half is confirmed independent and stays open (no fix attempted).
+Bugs 3 and 6 are false positives (no source change needed — the fixtures
+are stale). Bug 9 is root-caused but is a genuine open design question,
+not a bug fix. Bugs 7 and 8 were resolved in earlier checkpoints (23 and
+22). The four local fixture pairs stay unactivated until bug 9's design
+question is resolved, and the `_out` fixtures are regenerated for bugs
+2/3's false-positive findings and bug 5's fix — then the fixture-
+verification pass should be redone.

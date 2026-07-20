@@ -1415,6 +1415,15 @@ public class TokenizerCurly extends TokenizerCore {
         // preprocessing step. Lexing them as opaque PREPROCESSOR/MACRO_DEF tokens (same as
         // C/C++) means every rule already passes them through untouched -- no per-rule
         // Java-specific handling needed.
-        return true;
+        //
+        // JS/TS is excluded: `#` there is real syntax (a private class field/method name, e.g.
+        // `#cache = new Map()`), not a preprocessor sigil. Treating a line-leading `#` as a
+        // preprocessor directive swallowed the entire private-field statement (including any
+        // already-present trailing `;` on a reformat) into one opaque token, which
+        // JsTsSpecificRule.enforceSemicolonInsertion then unconditionally appended a `;` to --
+        // harmless-looking on a fresh format (no existing `;` to double up), but producing a
+        // doubled `;;` the moment the same statement round-tripped through the formatter again
+        // (found via the standalone harness's round1/round2 idempotency check).
+        return !(lang.isJs || lang.isTs);
     }
 }

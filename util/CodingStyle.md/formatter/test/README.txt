@@ -318,28 +318,6 @@ JS/TS:
                                             multi-line (and out of any `=`-alignment group),
                                             and comments around a generator method's `yield`s.
 
-  ts_combined_inp/out.ts                 -- Tight union/intersection `=`-alignment, both
-                                            break-before/break-after long-union continuation
-                                            styles, generics with a default type parameter,
-                                            `interface`/`type`-alias `:` alignment, both enum
-                                            forms, the full six-slot class-field modifier
-                                            order, a mixed-modifier-length alignment group,
-                                            and the two-step decorator-overflow cascade.
-
-  ts_comments_inp/out.ts                 -- A trailing comment surviving union-continuation
-                                            realignment, a comment inside a generic
-                                            type-parameter list staying tight, comments
-                                            breaking `interface`/enum alignment groups, and a
-                                            trailing comment on an overflow-wrapped decorator
-                                            staying attached to its closing `)`.
-
-  ts_decl_grid_ext_inp/out.ts            -- Declaration-alignment-grid extensions
-                                            (RDD_KEY_182/183): an object-destructuring-pattern
-                                            LHS joins the same const/let `=`-alignment group as
-                                            a plain identifier declarator, and two consecutive
-                                            `type X = ...` aliases form their own `=`-aligned
-                                            group.
-
   js_getter_setter_asi_inp/out.js        -- A semicolon-less class field
                                             (`#cache = new Map()`, legal under JS's ASI) sitting
                                             directly above a `static get`/`static set` one-liner
@@ -372,6 +350,28 @@ JS/TS:
                                             the outermost `${...}` span -- recursive reformatting
                                             of any nesting depth via
                                             enforceTemplateLiteralInterpolationSpacing.
+
+  ts_combined_inp/out.ts                 -- Tight union/intersection `=`-alignment, both
+                                            break-before/break-after long-union continuation
+                                            styles, generics with a default type parameter,
+                                            `interface`/`type`-alias `:` alignment, both enum
+                                            forms, the full six-slot class-field modifier
+                                            order, a mixed-modifier-length alignment group,
+                                            and the two-step decorator-overflow cascade.
+
+  ts_comments_inp/out.ts                 -- A trailing comment surviving union-continuation
+                                            realignment, a comment inside a generic
+                                            type-parameter list staying tight, comments
+                                            breaking `interface`/enum alignment groups, and a
+                                            trailing comment on an overflow-wrapped decorator
+                                            staying attached to its closing `)`.
+
+  ts_decl_grid_ext_inp/out.ts            -- Declaration-alignment-grid extensions
+                                            (RDD_KEY_182/183): an object-destructuring-pattern
+                                            LHS joins the same const/let `=`-alignment group as
+                                            a plain identifier declarator, and two consecutive
+                                            `type X = ...` aliases form their own `=`-aligned
+                                            group.
 
 HTML5:
   html_combined_inp/out.html             -- Void element normalization (`<img>`/`<input>`/

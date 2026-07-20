@@ -14,10 +14,10 @@ export class Widget {
     @Output() changed = new EventEmitter();
     #cache = new Map();
 
-    static get instanceCount(     ) { return Widget._count; }
+    static get instanceCount(     ) { return Widget._count;  }
     static set instanceCount(value) { Widget._count = value; }
 
-    get x(     ) { return this._x; }
+    get x(     ) { return this._x;  }
     set x(value) { this._x = value; }
 
     async load(id, options = {})

@@ -22,7 +22,7 @@ export class Widget {
         const label = `User: ${name}` // greeting label
         // nullish fallback to zero
         const len = this.profile?.bio?.length ?? 0
-            return merged
+        return merged
     }
 
     // generator for iteration

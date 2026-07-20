@@ -1,8 +1,12 @@
+#
+# Copyright (C) 2024 Example Corp.
+# SPDX-License-Identifier: MIT
+#
+
 # Module setup
 import os
 import sys
-
-# local helper
+# Local helper
 from . import sibling
 
 flags  = 0x01

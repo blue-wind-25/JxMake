@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+
 import fs from "fs";
 import { readFile } from "node:fs/promises";
 

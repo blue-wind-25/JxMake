@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+
 // Status values
 type Status = "active"|"inactive"|"pending";
 

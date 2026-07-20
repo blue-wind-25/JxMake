@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+
 type Status   = "active" | "inactive" | "pending";
 type Combined = Base & Extra;
 

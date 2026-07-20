@@ -1,3 +1,7 @@
+/*
+ * Copyright (C) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
 constexpr auto refl=^^SomeType;
 constexpr auto splice=[:refl:];
 constexpr auto computed=[:  computeRefl(x)  :];

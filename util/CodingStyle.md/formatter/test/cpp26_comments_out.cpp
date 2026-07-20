@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+
 // Pack indexing examples
 template<typename... T>
 // Comment between template<> and the using-declaration

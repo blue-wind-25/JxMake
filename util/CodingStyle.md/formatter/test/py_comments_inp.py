@@ -1,3 +1,8 @@
+#
+# Copyright (C) 2024 Example Corp.
+# SPDX-License-Identifier: MIT
+#
+
 # Module setup
 import sys
 import os

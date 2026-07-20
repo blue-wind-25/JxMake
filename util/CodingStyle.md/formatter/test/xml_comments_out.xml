@@ -1,3 +1,5 @@
+<!-- Copyright (C) 2024 Example Corp.
+SPDX-License-Identifier: MIT -->
 <config>
     <!-- Top-level settings -->
     <timeout>30</timeout>

@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+
 // core imports
 import fs from "fs";
 import {debounce} from "lodash"; // utility for rate limiting

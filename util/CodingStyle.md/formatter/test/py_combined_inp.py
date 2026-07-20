@@ -1,3 +1,8 @@
+#
+# Copyright (C) 2024 Example Corp.
+# SPDX-License-Identifier: MIT
+#
+
 from __future__ import annotations
 import sys
 import os

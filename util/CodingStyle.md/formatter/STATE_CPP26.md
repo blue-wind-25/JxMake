@@ -11,9 +11,7 @@ other jobs' files) are NOT required reading for this one — only
 
 Tracks implementation of C++26 support in the deterministic JAR formatter
 (`util/CodingStyle.md/formatter/`), per `STYLE_CPP26.md` (which itself builds
-on `STYLE.md`, `STYLE_C_CPP.md`, and `STYLE_CPP20.md`). **Current status is
-scaffold-only: dispatch exists only as a "not yet implemented" error thrown
-for C++26 constructs, no real formatting logic exists yet.**
+on `STYLE.md`, `STYLE_C_CPP.md`, and `STYLE_CPP20.md`). 
 
 ---
 

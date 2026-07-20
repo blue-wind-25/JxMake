@@ -10,9 +10,6 @@ is NOT required reading for this one — only `STATE_COMMON.md` is.
 
 Tracks implementation of Kotlin support in the deterministic JAR formatter
 (`util/CodingStyle.md/formatter/`), per `STYLE_KOTLIN.md` / `STYLE_KOTLIN2.md`.
-Kotlin currently has **no** JAR support — `AI_PREAMBLE_FULL.md`'s full-file AI
-pass is the only existing workflow for Kotlin files (see `README.txt`). This
-file tracks the work to close that gap.
 
 ---
 

@@ -1299,6 +1299,79 @@ attempted this session, future work:
       `ts_comments_inp/out.ts` extracted to `test/`, registered
       commented-out in the Makefile (real logic not yet implemented),
       documented in `test/README.txt`.
+- [~] **BLOCKED — attempted to verify/activate the four existing local
+      `.js`/`.ts` fixture pairs against the real JAR this session (via the
+      same standalone-harness technique used throughout this file's
+      checkpoints), found real formatter bugs, not just stale hand-authored
+      `_out` expectations.** All four pairs (`js_combined`, `js_comments`,
+      `ts_combined`, `ts_comments`) produce output that diverges from their
+      recorded `_out` files. Some divergences are indeed just stale
+      expectations (e.g. `_out` files assume this formatter reindents
+      continuation lines/unindented bodies from scratch — it deliberately
+      does not, per this file's own "General scope-depth reindentation"
+      architectural note in `STATE_COMMON.md`; the flush-left input in
+      `ts_combined_inp.ts`'s `LongUnion`/`AnotherLongUnion` cases is
+      correctly left untouched by the real JAR, but the `_out` file wrongly
+      expects it reindented). But at least three genuine, previously
+      unverified bugs were found via isolated minimal repros (not yet fixed,
+      not scoped to this checkpoint):
+      1. **Import named-list braces never get `{ }` padding.**
+         `import {readFile} from "node:fs/promises";` stays tight, while an
+         ordinary object literal (`const obj = {a: 1};` → `{ a : 1 }`) does
+         get padded. Likely because Checkpoint 16's `isImportBraceHeader`
+         special-case in `JsTsSpecificRule.classifyBraces` (added for §2's
+         semicolon-insertion depth logic) has an unintended side effect on
+         the shared complexity-padding pass, or the padding pass never
+         visits an import-list brace at all — root cause not investigated.
+      2. **Allman/K&R conversion is inconsistent depending on generics.**
+         Minimal repro:
+         ```
+         function identity<T>(value: T): T {
+             return value;
+         }
+
+         function plain(value) {
+             return value;
+         }
+         ```
+         formats to `identity` correctly staying K&R... no — actually
+         **`identity<T>` stays K&R (wrong, should convert to Allman per §5,
+         since it's a plain named function) while `plain(value)` DOES
+         convert to Allman.** I.e. the presence of a generic type parameter
+         list before the params `(` appears to suppress §5's Allman
+         candidate-signal detection (`findHeaderCloseParen`'s backward walk
+         likely doesn't expect a `<T>` between the function name and `(`).
+         This is a real, previously-unverified gap in
+         `JsTsSpecificRule.enforceMethodDefinitionAllmanBraceStyle` — every
+         prior Checkpoint-11 verification case was non-generic.
+      3. **Decorator-argument object literals don't get the same `{ }`
+         padding as plain object literals.** `@Component({ selector: "..."
+         })` stays tight (`@Component({selector: "..."})`) in the real JAR
+         output, unlike a bare `const obj = {a: 1};`.
+      A fourth oddity, not yet classified as bug-or-intentional: plain
+      object-literal padding renders `{ a : 1, b : 2 }` (space *before* the
+      colon too, `a :` not `a:`) — unclear if this is existing
+      language-agnostic complexity-padding behavior shared with other
+      curly languages (not JS/TS-specific, out of this job's scope to
+      "fix" unilaterally) or itself a bug; not investigated this
+      checkpoint.
+      **Per `STATE_COMMON.md`'s ambiguity protocol, stopping here rather
+      than attempting fixes for all of the above as an unplanned addition
+      to a "verify existing fixtures" checkpoint** — each of the three
+      numbered bugs above plausibly needs its own dedicated
+      investigation+fix+regression-verification checkpoint (mirroring the
+      granularity every other bug fix in this file's history got), and the
+      `_out` files likely need a mix of "regenerate to match now-correct
+      behavior" (for the reindentation-assumption cases) and "leave
+      unregistered until the underlying bug is fixed" (for the three bugs
+      above) — that classification work itself was not completed this
+      checkpoint. No fixture was activated in the Makefile, no `_out` file
+      was regenerated, no source file was modified this checkpoint. Next
+      session should: (a) decide whether to fix bugs 1-3 above first (each
+      probably small, isolated, single-checkpoint-sized fixes per this
+      file's usual pattern) or accept/document current behavior and
+      regenerate `_out` files to match instead, then (b) redo this
+      fixture-verification pass once behavior is settled.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_JS_TS.md`'s listed test-fixture repos (`nodejs/node`,
       `expressjs/express`, `lodash/lodash`, `microsoft/TypeScript`,

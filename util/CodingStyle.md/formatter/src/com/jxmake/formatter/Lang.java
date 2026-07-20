@@ -107,11 +107,12 @@ public final class Lang {
                 || "java".equals(language) || "kotlin".equals(language)
                 || "json".equals(language) || "json5".equals(language)
                 || "css".equals(language) || "yaml".equals(language) || "toml".equals(language)
-                || "xml".equals(language) || "html5".equals(language);
+                || "xml".equals(language) || "html5".equals(language)
+                || "js".equals(language) || "ts".equals(language);
     }
 
     public static boolean isScaffoldOnly(final String language) {
-        return "js".equals(language) || "ts".equals(language) || "python3".equals(language);
+        return "python3".equals(language);
     }
 
     /** {@code isSupported || isScaffoldOnly} -- every language recognized by this codebase at all. */

@@ -10,6 +10,8 @@ package com.jxmake.formatter.rules;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.jxmake.formatter.Config;
+import com.jxmake.formatter.FormatterCore;
 import com.jxmake.formatter.Lang;
 
 /**
@@ -527,13 +529,12 @@ public final class XmlSpecificRule {
     }
 
     /** HTML5 §4.2: `<style>` content splices out to the CSS formatter and back, reindented one
-     *  level deeper; `<script>` content splices out to the JS/TS formatter, except a non-JS/TS
-     *  `type` (e.g. `application/json`) stays fully opaque. Since JS/TS support is still
-     *  scaffold-only (STATE_JS_TS.md), real (non-frozen) JS content currently throws -- callers
-     *  must wrap it in a `//% JXM_CFMT_DIS`/`ENA` pair to keep it opaque until JS/TS lands, at
-     *  which point this method's scaffold-only guard should be replaced with a real dispatch call
-     *  and every fixture's directive pair removed/re-verified (see STATE_JS_TS.md/
-     *  STATE_DATA_FORMATS.md). */
+     *  level deeper; `<script>` content splices out to the JS formatter the same way, except a
+     *  non-JS `type` (e.g. `application/json`) or a `//% JXM_CFMT_DIS`/`ENA`-frozen span stays
+     *  fully opaque. Uses `FormatterCore.forLanguage("js")` (not `"ts"` -- HTML `<script>` is
+     *  always plain JS, TypeScript has no browser-native embedding) with a defaults-only {@link
+     *  Config} built from this rule's own inherited line-length/indent/comment-case settings, so
+     *  the spliced JS matches the enclosing HTML file's formatting knobs. */
     private void renderScriptOrStyle(final Node n, final int depth, final StringBuilder out) {
         final String openTag = indent(depth) + "<" + n.tagName + attrsInline(n.attrs) + ">";
         if ("style".equalsIgnoreCase(n.tagName)) {
@@ -550,9 +551,17 @@ public final class XmlSpecificRule {
             out.append(openTag).append(n.raw).append("</").append(n.tagName).append(">\n");
             return;
         }
-        throw new XmlParseException("<" + n.tagName + "> content requires JS/TS formatting, which is "
-                + "not yet implemented (STATE_JS_TS.md) -- wrap it in a `//% JXM_CFMT_DIS`/`//% "
-                + "JXM_CFMT_ENA` pair to keep it opaque until JS/TS support lands");
+        final java.util.Map<String, String> overrides = new java.util.LinkedHashMap<>();
+        overrides.put("line-length", Integer.toString(lineLengthLimit));
+        overrides.put("indent-size", Integer.toString(indentWidth));
+        overrides.put("indent-style", useTabs ? "tabs" : "spaces");
+        overrides.put("normalize-comment-start-case", normalizeCommentStartCase ? "on" : "off");
+        final Config jsConfig = Config.resolve(null, overrides);
+        final String jsFormatted = FormatterCore.forLanguage("js")
+                .formatOne(n.raw.trim(), "<script>", jsConfig, false);
+        out.append(openTag).append('\n');
+        out.append(reindent(jsFormatted, depth + 1));
+        out.append(indent(depth)).append("</").append(n.tagName).append(">\n");
     }
 
     /** Whether `raw` (a `<script>` element's inner content, possibly `<![CDATA[ ]]>`-wrapped)

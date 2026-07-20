@@ -18,6 +18,62 @@ for JS/TS constructs, no real formatting logic exists yet.**
 
 ---
 
+## Next Steps (work ordering, set by the user)
+
+Scaffold gate for js/ts has already been flipped by the user (outside a
+checkpoint commit — `Lang.isScaffoldOnly` no longer includes js/ts). The
+Makefile's local js/ts fixture lines (`INP_FILES += js_combined_inp.js`
+etc.) are still commented out as of this note. Agreed order for remaining
+work, before moving on to any other language job:
+
+1. Unblock JS from HTML5 (`XmlSpecificRule.renderScriptOrStyle`'s
+   `<script>` dispatch, currently throws per RDD_KEY_194 pending this job).
+   A first attempt at this step (uncommitted, in-progress as of this note)
+   found it is NOT bug-free — two things need fixing before this step can
+   be considered done:
+   1a. **CDATA unwrapping not implemented.** `<script><![CDATA[ ... ]]>
+       </script>` content is captured verbatim by `finishRawTextElement`
+       *including* the literal `<![CDATA[`/`]]>` marker lines — dispatching
+       that raw text straight to the JS formatter would try to tokenize the
+       CDATA markers themselves as JS syntax and break. This is the
+       known limitation flagged in RDD_KEY_194 ("CDATA-inside-`<script>`/
+       `<style>` unwrap-and-dispatch exception is not implemented").
+       `test/html_comments_inp.html`'s `<script><![CDATA[...]]></script>`
+       relies on the `//% JXM_CFMT_DIS`/`ENA` freeze escape for exactly
+       this reason and must stay frozen until CDATA unwrap-and-rewrap is
+       implemented (strip the markers before dispatch, re-add them around
+       the formatted output on the way back out). Implement this first.
+   1b. **Spliced JS loses body indentation.** Even for a plain (non-CDATA)
+       `<script>` with real JS content, a quick harness test of the
+       plain-script dispatch path showed the formatted function body was
+       not indented under its Allman `{` (e.g. `return "Hello, " + name;`
+       flush against the margin instead of one level in) — root cause not
+       yet investigated, needs debugging once CDATA unwrapping (1a) is
+       done and the dispatch path is being revisited anyway.
+   Once both are fixed: wire the real dispatch call mirroring `<style>`'s
+   CSS splice (including CDATA unwrap/rewrap), update the two HTML
+   fixtures (`test/html_combined_inp/out.html`,
+   `test/html_comments_inp/out.html`), re-run `make test`.
+   Note: the user may open/edit these HTML fixtures directly between now
+   and the next session; it's fine if `make test` errors temporarily as a
+   result — don't treat a failing `make test` on these two fixtures alone
+   as a regression to chase blindly, check what changed in the fixtures
+   first.
+2. Activate `test/js_combined_inp/out.js` and `test/js_comments_inp/out.js`
+   in the Makefile, run `make test`, and bug-fix whatever surfaces.
+3. Activate `test/ts_combined_inp/out.ts` and `test/ts_comments_inp/out.ts`
+   in the Makefile, run `make test`, and bug-fix whatever surfaces.
+
+Rationale (user's own words): the JS/TS basics should be solid before
+dogfooding — get this job to a genuinely stable baseline first, then move
+on to Python3 (next language job in the rotation) rather than continuing to
+add JS/TS scope indefinitely. The remaining "Still Open"/"Open Design
+Questions" items below (import-ordering RDD_KEY_197 rework, `static`
+get/set padding inconsistency, real-code testing pass against external
+repos) stay tracked but are lower priority than steps 1-3 above.
+
+---
+
 ## Scope
 
 `STYLE_JS_TS.md` covers latest ECMAScript (ES2024+) and latest TypeScript

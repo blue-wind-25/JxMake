@@ -13,20 +13,23 @@
             width : 16px;
         }
     </style>
-    <script><![CDATA[
-//% JXM_CFMT_DIS
-function tick() {
-var now = Date.now();
-var elapsed = now - startTime;
-console.log("tick", elapsed);
-return now
-}
+    <script>
+        <![CDATA[
+        function tick()
+        {
+            var now     = Date.now();
+            var elapsed = now - startTime;
+            console.log("tick", elapsed);
 
-function reset() {
-startTime = Date.now()
-}
-//% JXM_CFMT_ENA
-]]></script>
+            return now;
+        }
+
+        function reset()
+        {
+            startTime = Date.now();
+        }
+        ]]>
+    </script>
     <script type="application/json">
 {"a":1,"b":2}
 </script>

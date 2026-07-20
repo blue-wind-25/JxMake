@@ -117,17 +117,11 @@ INP_FILES += cpp26_core_inp.cpp
 INP_FILES += cpp26_comments_inp.cpp
 INP_FILES += cpp26_reflection_inp.cpp
 
-# js_combined/js_comments/ts_combined/ts_comments: fixtures authored ahead of
-# implementation, hand-drafted against STYLE_JS_TS.md -- not yet verified by a real
-# JAR (JS/TS are still scaffold-only). Uncomment once real logic lands.
 #INP_FILES += js_combined_inp.js
 #INP_FILES += js_comments_inp.js
 #INP_FILES += ts_combined_inp.ts
 #INP_FILES += ts_comments_inp.ts
 
-# html_combined/html_comments: fixtures authored ahead of implementation, hand-drafted
-# against STYLE_DATA_FORMATS.md -- not yet verified by a real JAR (HTML5 is still
-# scaffold-only). Uncomment once real logic lands.
 INP_FILES += html_combined_inp.html
 INP_FILES += html_comments_inp.html
 

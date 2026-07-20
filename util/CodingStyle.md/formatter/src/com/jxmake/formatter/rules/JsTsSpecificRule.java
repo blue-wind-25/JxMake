@@ -708,7 +708,14 @@ public final class JsTsSpecificRule {
             if (openParenIdx == null) {
                 continue;
             }
-            final int nameIdx = prevSignificantIndex(tokens, openParenIdx - 1);
+            int beforeParenIdx = prevSignificantIndex(tokens, openParenIdx - 1);
+            if (beforeParenIdx >= 0 && tokens.get(beforeParenIdx).type == TokenType.ANGLE_BRACKET_CLOSE) {
+                beforeParenIdx = matchAngleOpenBackward(tokens, beforeParenIdx);
+                if (beforeParenIdx >= 0) {
+                    beforeParenIdx = prevSignificantIndex(tokens, beforeParenIdx - 1);
+                }
+            }
+            final int nameIdx = beforeParenIdx;
             if (nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER) {
                 continue;
             }
@@ -762,6 +769,27 @@ public final class JsTsSpecificRule {
             steps++;
         }
         return -1;
+    }
+
+    /** Index of the `<` matching the `>` at {@code closeIdx} (a generic type-parameter list's
+     *  closing bracket), via local backward depth counting over the tokenizer's own
+     *  {@code ANGLE_BRACKET_OPEN}/{@code ANGLE_BRACKET_CLOSE} reclassification (not raw `<`/`>`
+     *  operator tokens, which would also match unrelated comparisons) -- structurally identical to
+     *  {@code BlockStructureRule.matchAngleOpenBackward}, duplicated locally rather than shared
+     *  since that method is private to its own class. Returns -1 if unmatched. */
+    private int matchAngleOpenBackward(final List<Token> tokens, final int closeIdx) {
+        int depth = 1;
+        int i = closeIdx - 1;
+        while (i >= 0 && depth > 0) {
+            final TokenType ty = tokens.get(i).type;
+            if (ty == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth++;
+            } else if (ty == TokenType.ANGLE_BRACKET_OPEN) {
+                depth--;
+            }
+            i--;
+        }
+        return depth == 0 ? i + 1 : -1;
     }
 
     private Integer findMatchingOpenParen(final List<Token> tokens, final int closeParenIdx) {

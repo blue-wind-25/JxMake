@@ -1372,12 +1372,11 @@ attempted this session, future work:
       file's usual pattern) or accept/document current behavior and
       regenerate `_out` files to match instead, then (b) redo this
       fixture-verification pass once behavior is settled.
-      **Bug 1 fixed this session — see Checkpoint 17 below.** Bugs 2
-      (generics suppressing Allman conversion) and 3 (decorator-argument
-      object-literal padding) remain open, each still needing its own
+      **Bug 1 fixed — see Checkpoint 17. Bug 2 (generics suppressing Allman
+      conversion) fixed — see Checkpoint 18.** Bug 3 (decorator-argument
+      object-literal padding) remains open, still needing its own
       dedicated checkpoint. The colon-padding oddity (`{ a : 1 }` — space
-      before `:` too) also remains unclassified/unfixed, out of scope for
-      Checkpoint 17.
+      before `:` too) also remains unclassified/unfixed.
 - [x] **Checkpoint 17 done — bug 1 fixed: import named-list braces now get
       `{ }` padding, matching plain object-literal initializers.** Root
       cause was NOT in `JsTsSpecificRule.classifyBraces` (that method only
@@ -1456,6 +1455,65 @@ attempted this session, future work:
       checkpoint (explicitly out of scope per this session's own brief —
       that follow-up waits until all three bugs, and the colon-padding
       oddity, are resolved).
+- [x] **Checkpoint 18 done -- bug 2 fixed: a generic type-parameter list
+      (`<T>`) between a function/method name and its params `(` no longer
+      suppresses §5's Allman candidate-signal detection.** Root cause,
+      confirmed via a standalone harness before any code change: in
+      `enforceMethodDefinitionAllmanBraceStyle`, the candidate check
+      required the token immediately before the header's opening `(` to be
+      an IDENTIFIER (the function/method name). For `identity<T>(value: T):
+      T {`, the token immediately before `(` is `>` (the generic list's own
+      closing bracket, tokenized as `TokenType.ANGLE_BRACKET_CLOSE` per the
+      tokenizer's existing language-agnostic angle-bracket reclassification
+      -- confirmed this is not a raw comparison-operator `>`), not an
+      IDENTIFIER, so the whole candidate check failed and the header's `{`
+      was left K&R untouched. Fixed narrowly in
+      `enforceMethodDefinitionAllmanBraceStyle`: when the token immediately
+      before `(` is `ANGLE_BRACKET_CLOSE`, a new local helper
+      `matchAngleOpenBackward` (a direct duplicate of
+      `BlockStructureRule.matchAngleOpenBackward`'s own local
+      depth-counting scan over `ANGLE_BRACKET_OPEN`/`_CLOSE` tokens only --
+      not shared/extracted, since that method is private to its own class,
+      same "duplicate rather than risk touching a shared method" posture
+      Checkpoint 7 used for `isValuePrecededBrace`) finds the matching `<`,
+      then the name-identifier check is re-applied to whatever
+      significant token precedes that `<` instead of the `>` itself. No
+      change to how `<`/`>` are tokenized or reclassified anywhere --
+      purely consumes the existing `ANGLE_BRACKET_OPEN`/`_CLOSE` token
+      types, zero new lexing. Scoped entirely to
+      `JsTsSpecificRule.enforceMethodDefinitionAllmanBraceStyle`'s own
+      candidate-signal check; no other language's Allman/brace-style logic
+      touched.
+      Verified via a standalone harness (`FormatterCore.forLanguage("ts")`):
+      the exact BLOCKED-entry repro (`identity<T>` + `plain`) -- both now
+      correctly convert to Allman (previously `identity<T>` wrongly stayed
+      K&R while `plain` correctly converted -- confirmed reproduced first,
+      before the fix, via the same harness); a generic method inside a
+      class (`render<T>(data: T): void {`) converts to Allman correctly
+      inside a `class Box { ... } // class Box` wrapper; multiple generic
+      type params (`function pair<A, B>(a: A, b: B): void {`) converts
+      correctly (multi-param generic list, not just single-param); a plain
+      non-generic function (`function plain2(value) {`) still converts
+      correctly (regression check, unaffected by the new
+      `ANGLE_BRACKET_CLOSE` branch since it never matches for a
+      non-generic header); an already-Allman-formatted generic function
+      (`function already<T>(value: T): T\n{ ... }`) round-trips unchanged
+      (idempotent, no double-move). Bug 1's fix (Checkpoint 17, import
+      named-list brace padding) reconfirmed untouched in the same harness
+      run (`import {readFile} from "node:fs/promises";` still correctly
+      pads to `import { readFile } from "node:fs/promises";` alongside the
+      generic-function cases above, in one combined fixture). Round-trip
+      (harness round1 -> round2) confirmed idempotent across the whole
+      combined fixture, not just the single-case repros. `make` compiles
+      clean; `make test`: 106/106 forward + 106/106 idempotency, zero
+      regressions in the existing C/C++/Java/Kotlin/JS/TS-tokenizer-shared
+      corpus.
+      **Not done this checkpoint, still open:** bug 3 (decorator-argument
+      object-literal padding) and the colon-padding oddity from the
+      BLOCKED entry above -- each still needs its own dedicated checkpoint.
+      No local `.js`/`.ts` fixture pair was activated/uncommented in the
+      Makefile this checkpoint (still waiting on bug 3 and the
+      colon-padding oddity, per the existing plan).
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_JS_TS.md`'s listed test-fixture repos (`nodejs/node`,
       `expressjs/express`, `lodash/lodash`, `microsoft/TypeScript`,

@@ -1373,10 +1373,13 @@ attempted this session, future work:
       regenerate `_out` files to match instead, then (b) redo this
       fixture-verification pass once behavior is settled.
       **Bug 1 fixed — see Checkpoint 17. Bug 2 (generics suppressing Allman
-      conversion) fixed — see Checkpoint 18.** Bug 3 (decorator-argument
-      object-literal padding) remains open, still needing its own
-      dedicated checkpoint. The colon-padding oddity (`{ a : 1 }` — space
-      before `:` too) also remains unclassified/unfixed.
+      conversion) fixed — see Checkpoint 18. Bug 3 (decorator-argument,
+      and more generally any call-argument, object-literal padding) fixed
+      — see Checkpoint 19.** Only the colon-padding oddity (`{ a : 1 }` —
+      space before `:` too) remains unclassified/unfixed; once it is
+      resolved or accepted, the four local `.js`/`.ts` fixture pairs
+      (`js_combined`, `js_comments`, `ts_combined`, `ts_comments`) can be
+      revisited for activation/uncommenting in the Makefile.
 - [x] **Checkpoint 17 done — bug 1 fixed: import named-list braces now get
       `{ }` padding, matching plain object-literal initializers.** Root
       cause was NOT in `JsTsSpecificRule.classifyBraces` (that method only
@@ -1514,6 +1517,86 @@ attempted this session, future work:
       No local `.js`/`.ts` fixture pair was activated/uncommented in the
       Makefile this checkpoint (still waiting on bug 3 and the
       colon-padding oddity, per the existing plan).
+- [x] **Checkpoint 19 done -- bug 3 fixed: decorator-argument (and, more
+      generally, any call-argument) object-literal padding now matches
+      plain object-literal initializers.** Confirmed via a standalone
+      harness before any code change that the gap is **not**
+      decorator-specific: a plain call-argument object literal in ordinary
+      JS, `foo({a: 1});`, also stayed tight (`foo({a: 1});`, no padding),
+      identical to the decorator repro (`@Component({selector:
+      "app-widget"})` stayed tight too) -- both fail for the same reason.
+      Root cause, in `MiscRuleCore.enforceInitializerBraceSpacing` (the
+      same §3.3 pass Checkpoint 17 fixed for import braces): its
+      `startsNewInit` signal only recognized `{` preceded by `=`, by an
+      import-header keyword, or by the combined-default-import `,` shape
+      (both added in Checkpoint 17) -- `(` was never in the disjunct list
+      at all, for any curly language, so **no** call-argument object
+      literal (decorator argument or otherwise) was ever recognized as an
+      initializer-shaped brace; the decorator case is just the single most
+      common real-world instance of this generic gap, not a distinct
+      mechanism.
+      **Fix, scoped JS/TS-only (mirrors Checkpoint 17's own scoping
+      choice, not language-agnostic):** added one more `startsNewInit`
+      disjunct, `(lang.isJs || lang.isTs) && isPunct(lastSignificant,
+      "(")` -- a `{` directly following `(` (no other significant token
+      between them) now starts a fresh top-level initializer frame for
+      JS/TS only. Chose the narrower, language-gated form over a
+      language-agnostic one specifically because `enforceInitializerBraceSpacing`
+      is a **shared base-class method** used unconditionally by every
+      curly language: in Kotlin, a lambda passed as an explicit
+      parenthesized call argument (`foo({ x -> x + 1 })`, valid though
+      not the idiomatic trailing-lambda form) would have the exact same
+      `(` immediately before `{` shape, and there is no existing
+      precedent in this codebase for treating a Kotlin lambda body as an
+      "initializer" for §3.3 padding purposes -- a language-agnostic
+      fix risked silently changing Kotlin lambda-argument spacing with no
+      test coverage backing that decision. C/C++/Java have no valid
+      construct where `(` is directly followed by `{` as a call argument
+      (an anonymous-class/lambda argument is always preceded by `new
+      Type(...)`'s closing `)`, never bare `(`), so they were never at
+      risk either way, but the Kotlin case alone was enough to prefer the
+      narrower gate.
+      Verified via a standalone harness (`FormatterCore.forLanguage("ts")`/
+      `"js"`): the exact BLOCKED-entry repro, `@Component({selector:
+      "app-widget"})` -> `@Component({ selector: "app-widget" })`; a
+      multi-property decorator argument, `@Component({selector: "app-x",
+      template: "y"})` -> both properties padded and comma-spaced
+      correctly; a plain call-argument object literal in `.js`, `foo({a:
+      1});` -> `foo({ a: 1 });`, confirming the fix is not
+      decorator-specific; an already-correctly-padded decorator argument,
+      `@Component({ selector: "already-ok" })`, round-trips byte-for-byte
+      unchanged (idempotency). Also re-verified in the same harness run,
+      combined into one fixture: Checkpoint 17's import-brace padding
+      (`import {readFile} from "node:fs/promises";`, combined
+      default+named `import Widget, {a, b} from "./widget";`) and
+      Checkpoint 18's generics-suppressed-Allman fix (`identity<T>(value:
+      T): T {` and a plain non-generic function) both still correct and
+      unaffected by this checkpoint's change. A destructured function
+      parameter, `function f({a, b}) {`, was also found to now pick up
+      `{ }` padding (`function f({ a, b })`) as a side effect of the same
+      new disjunct -- since `{` there is also directly preceded by `(` --
+      judged a consistent, desirable side effect (not a regression) rather
+      than a narrower shape to special-case out, since destructuring
+      brace/bracket padding was already noted elsewhere in this file as
+      "already free via STYLE.md §3.1's existing complexity-padding pass"
+      for other destructuring positions, so a destructured *parameter*
+      picking up the same padding-family treatment is consistent, not a
+      new inconsistency. Round-trip (harness round1 -> round2) confirmed
+      idempotent across the whole combined fixture. `make` compiles
+      clean; `make test`: 106/106 forward + 106/106 idempotency, zero
+      regressions in the existing C/C++/Java/Kotlin fixture corpus (the
+      new disjunct is `lang.isJs || lang.isTs`-gated, so it cannot affect
+      any other language's behavior -- re-verified by the full suite
+      passing unchanged, not just reasoned about).
+      **Still open after this checkpoint:** only the colon-padding oddity
+      (`{ a : 1 }` -- space before `:` too) from the original BLOCKED
+      entry remains unresolved; all three numbered bugs found while
+      verifying the four local `.js`/`.ts` fixture pairs are now fixed.
+      Per the existing plan, the four fixture pairs (`js_combined`,
+      `js_comments`, `ts_combined`, `ts_comments`) remain **not**
+      activated/uncommented in the Makefile this checkpoint -- that
+      follow-up is still explicitly gated on the colon-padding oddity
+      being resolved or accepted first, not attempted here.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_JS_TS.md`'s listed test-fixture repos (`nodejs/node`,
       `expressjs/express`, `lodash/lodash`, `microsoft/TypeScript`,

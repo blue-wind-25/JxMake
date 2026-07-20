@@ -403,7 +403,8 @@ protected int matchBracketForward(final List<Token> tokens, final int openIdx) {
                         || ((lang.isJs || lang.isTs) && isPunct(lastSignificant, ",")
                                 && secondLastSignificant != null && secondLastSignificant.type == TokenType.IDENTIFIER
                                 && thirdLastSignificant != null && thirdLastSignificant.type == TokenType.KEYWORD
-                                && "import".equals(thirdLastSignificant.text));
+                                && "import".equals(thirdLastSignificant.text))
+                        || ((lang.isJs || lang.isTs) && isPunct(lastSignificant, "("));
                 final boolean isInit = startsNewInit
                         || ((isPunct(lastSignificant, "{") || isPunct(lastSignificant, ","))
                                 && !initStack.isEmpty() && initStack.peek());

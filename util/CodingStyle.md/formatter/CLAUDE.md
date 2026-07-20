@@ -11,7 +11,7 @@ job's file.
 | C/C++/Java formatter (existing, most work happens here) | `STATE_COMMON.md` | `STATE_C_CPP_JAVA.md` |
 | Kotlin JAR support | `STATE_COMMON.md` | `STATE_KOTLIN.md` |
 | C++26 rule coverage (not a separate language — lands directly in the existing "cpp" pipeline) | `STATE_COMMON.md` | `STATE_CPP26.md` |
-| Data-format support: JSON/JSON5/YAML/TOML/etc. (scaffold only — JSON/JSON5 first real impl) | `STATE_COMMON.md` | `STATE_DATA_FORMATS.md` |
+| Data-format support: JSON/JSON5/YAML/TOML/etc. (JSON/JSON5/CSS/YAML/TOML/XML implemented; only HTML5's `<script>` dispatch remains scaffold-only) | `STATE_COMMON.md` | `STATE_DATA_FORMATS.md` |
 | JS/TS support (scaffold only — HTML5/JSX/TSX need their own future dispatcher) | `STATE_COMMON.md` | `STATE_JS_TS.md` |
 | Python3 support (scaffold only) | `STATE_COMMON.md` | `STATE_PYTHON3.md` |
 
@@ -25,17 +25,23 @@ Decisions" table — it supersedes general guesswork for that job.
 not cross-reference between any two job state files unless a state file's
 own text says otherwise.
 
-Three of the four newer jobs (data formats, JS/TS, Python3) are scaffold-only
-as of their kickoff: wired into `Lang.java`/`Config.java`/`Main.java`/
-`ServerMode.java` for detection/dispatch, but every unimplemented language
-throws a clear "not yet implemented" error rather than silently passing
-text through or attempting real formatting. C++26 is different: it has no
-separate language identity or scaffold entry at all — it's future
-incremental rule coverage on the existing, already-implemented `"cpp"`
-pipeline, same as C++20 was folded in with no separate selector (see
-`STATE_CPP26.md`'s Resolved Design Decisions). `README.md`/`../README.txt`
-are intentionally NOT updated for these — track their status via TODOs in
-each job's own `STATE_*.md` file instead.
+Three of the four newer jobs (data formats, JS/TS, Python3) started
+scaffold-only at kickoff: wired into `Lang.java`/`Config.java`/`Main.java`/
+`ServerMode.java` for detection/dispatch, with every unimplemented language
+throwing a clear "not yet implemented" error rather than silently passing
+text through or attempting real formatting. Data formats has since landed
+real logic for JSON/JSON5/CSS/YAML/TOML/XML (only HTML5's `<script>`
+dispatch remains scaffold-only within that job); JS/TS and Python3 are
+still fully scaffold-only per `Lang.SCAFFOLD_ONLY_LANGUAGES`. C++26 is
+different: it has no separate language identity or scaffold entry at all —
+it's future incremental rule coverage on the existing, already-implemented
+`"cpp"` pipeline, same as C++20 was folded in with no separate selector
+(see `STATE_CPP26.md`'s Resolved Design Decisions). `README.md`/
+`../README.txt` describe JS/TS and Python3 as implemented ahead of the
+actual code per explicit user instruction (2026-07-21) — those two docs
+are user-facing and intentionally lead the implementation; this file and
+the `STATE_*.md` files track true current code state and must NOT be
+updated to match that aspirational doc status.
 
 (The comment-grammar classifier accuracy upgrade, formerly tracked in its
 own `STATE_COMMENT_GRAMMAR.md`, shipped and was folded into

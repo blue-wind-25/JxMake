@@ -12,7 +12,7 @@ job's file.
 | Kotlin JAR support | `STATE_COMMON.md` | `STATE_KOTLIN.md` |
 | C++26 rule coverage (not a separate language — lands directly in the existing "cpp" pipeline) | `STATE_COMMON.md` | `STATE_CPP26.md` |
 | Data-format support: JSON/JSON5/YAML/TOML/etc. (JSON/JSON5/CSS/YAML/TOML/XML implemented; only HTML5's `<script>` dispatch remains scaffold-only) | `STATE_COMMON.md` | `STATE_DATA_FORMATS.md` |
-| JS/TS support (scaffold only — HTML5/JSX/TSX need their own future dispatcher) | `STATE_COMMON.md` | `STATE_JS_TS.md` |
+| JS/TS support (implemented; JSX/TSX still need their own future embedding-aware dispatcher) | `STATE_COMMON.md` | `STATE_JS_TS.md` |
 | Python3 support (scaffold only) | `STATE_COMMON.md` | `STATE_PYTHON3.md` |
 
 `STATE_COMMON.md` holds the shared commit workflow, ambiguity-handling
@@ -29,19 +29,23 @@ Three of the four newer jobs (data formats, JS/TS, Python3) started
 scaffold-only at kickoff: wired into `Lang.java`/`Config.java`/`Main.java`/
 `ServerMode.java` for detection/dispatch, with every unimplemented language
 throwing a clear "not yet implemented" error rather than silently passing
-text through or attempting real formatting. Data formats has since landed
-real logic for JSON/JSON5/CSS/YAML/TOML/XML (only HTML5's `<script>`
-dispatch remains scaffold-only within that job); JS/TS and Python3 are
-still fully scaffold-only per `Lang.SCAFFOLD_ONLY_LANGUAGES`. C++26 is
+text through or attempting real formatting. Data formats and JS/TS have
+since landed real logic (data formats: JSON/JSON5/CSS/YAML/TOML/XML, only
+HTML5's `<script>` dispatch remained scaffold-only within that job before
+also landing real logic — see `XmlSpecificRule.renderScriptOrStyle`; JS/TS:
+`JsTsSpecificRule`/`JsTsDeclarationAlignmentRule`, JSX/TSX still excluded
+pending their own future embedding-aware dispatcher). Python3 is the only
+job still fully scaffold-only per `Lang.SCAFFOLD_ONLY_LANGUAGES`. C++26 is
 different: it has no separate language identity or scaffold entry at all —
 it's future incremental rule coverage on the existing, already-implemented
 `"cpp"` pipeline, same as C++20 was folded in with no separate selector
 (see `STATE_CPP26.md`'s Resolved Design Decisions). `README.md`/
-`../README.txt` describe JS/TS and Python3 as implemented ahead of the
-actual code per explicit user instruction (2026-07-21) — those two docs
-are user-facing and intentionally lead the implementation; this file and
-the `STATE_*.md` files track true current code state and must NOT be
-updated to match that aspirational doc status.
+`../README.txt` describe Python3 as implemented ahead of the actual code
+per explicit user instruction (2026-07-21) — those two docs are
+user-facing and intentionally lead the implementation for Python3 only
+(JS/TS is now genuinely implemented, not just documented as such); this
+file and the `STATE_*.md` files track true current code state and must
+NOT be updated to match aspirational doc status.
 
 (The comment-grammar classifier accuracy upgrade, formerly tracked in its
 own `STATE_COMMENT_GRAMMAR.md`, shipped and was folded into

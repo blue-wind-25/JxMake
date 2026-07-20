@@ -16,17 +16,17 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Indentation-block-family tokenizer (Python3 -- see STATE_PYTHON3.md). First real slice: plain
- * lexing of whitespace/newlines/comments/numbers/identifiers-or-keywords/simple strings/operators/
- * punctuation, mirroring {@link TokenizerCurly}'s generic-emitter usage. Deliberately NOT yet
- * covered by this slice (still throws or is otherwise out of scope until a later checklist item):
- * triple-quoted string/docstring bodies, f-string interpolation-boundary sub-tokenization, the
- * `:=` walrus operator's own OP text (currently falls out of {@link #emitOperator} as plain `:`
- * then `=` -- fine for opaque pass-through, wrong once assignment-alignment rules need to
- * recognize walrus as one unit), and INDENT/DEDENT synthesis (Python's indentation is
- * significant/load-bearing -- see STATE_PYTHON3.md's Open Questions -- this slice only emits
- * {@code WHITESPACE}/{@code NEWLINE} tokens verbatim, same as every other family, with no
- * structural depth tracking yet).
+ * Indentation-block-family tokenizer (Python3 -- see STATE_PYTHON3.md). Real lexing of
+ * whitespace/newlines/comments/numbers/identifiers-or-keywords/single-line and triple-quoted
+ * strings/operators/punctuation, mirroring {@link TokenizerCurly}'s generic-emitter usage.
+ * Deliberately NOT yet covered (still out of scope until a later checklist item): f-string
+ * interpolation-boundary sub-tokenization (a prefixed string is lexed as identifier-then-opaque-
+ * string, `{...}` interior not split out), the `:=` walrus operator's own OP text (currently
+ * falls out of {@link #emitOperator} as plain `:` then `=` -- fine for opaque pass-through, wrong
+ * once assignment-alignment rules need to recognize walrus as one unit), and INDENT/DEDENT
+ * synthesis (Python's indentation is significant/load-bearing -- see STATE_PYTHON3.md's Open
+ * Questions -- this slice only emits {@code WHITESPACE}/{@code NEWLINE} tokens verbatim, same as
+ * every other family, with no structural depth tracking yet).
  */
 public class TokenizerIndent extends TokenizerCore {
 
@@ -75,6 +75,8 @@ public class TokenizerIndent extends TokenizerCore {
             final Token t;
             if (c == '#') {
                 t = emitLineComment();
+            } else if ((c == '"' || c == '\'') && peek(1) == c && peek(2) == c) {
+                t = emitTripleQuotedString(c);
             } else if (c == '"' || c == '\'') {
                 t = emitSimpleString(c);
             } else if (Character.isDigit(c) || (c == '.' && Character.isDigit(peek(1)))) {
@@ -128,11 +130,12 @@ public class TokenizerIndent extends TokenizerCore {
                 parenDepth, null);
     }
 
-    /** Single-line, single/double-quoted string literal only (no triple-quote/f-string
-     *  interpolation yet -- see class javadoc). Any string-prefix letters (`r`/`b`/`f`/`u`, any
-     *  case/combination) were already consumed as a leading IDENTIFIER token by the tokenize
-     *  loop's normal dispatch before this method is reached; this method only handles the quoted
-     *  body starting at the quote character itself. */
+    /** Single-line, single/double-quoted string literal (the tokenize loop dispatches the
+     *  triple-quoted case to {@link #emitTripleQuotedString} before reaching here -- see class
+     *  javadoc for what's still out of scope, e.g. f-string interpolation). Any string-prefix
+     *  letters (`r`/`b`/`f`/`u`, any case/combination) were already consumed as a leading
+     *  IDENTIFIER token by the tokenize loop's normal dispatch before this method is reached;
+     *  this method only handles the quoted body starting at the quote character itself. */
     private Token emitSimpleString(final char quote) {
         final int start = pos;
         pos++; // opening quote
@@ -148,6 +151,30 @@ public class TokenizerIndent extends TokenizerCore {
             }
             if (c == '\r' || c == '\n') {
                 break; // unterminated on this line -- stop, don't swallow the newline
+            }
+            pos++;
+        }
+        return new Token(TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
+                null);
+    }
+
+    /** Triple-quoted string/docstring (RDD_KEY_186: opaque, preserved verbatim beyond the
+     *  opening `"""`/`'''`, may span multiple lines/embed the other quote character singly or
+     *  doubly). Emitted as one {@code STRING} token including any embedded newlines -- callers
+     *  that need per-line indentation info must not assume one token is one line, same
+     *  precedent as {@link TokenizerCurly}'s block comments/text blocks. */
+    private Token emitTripleQuotedString(final char quote) {
+        final int start = pos;
+        pos += 3; // opening triple-quote
+        while (pos < length) {
+            final char c = source.charAt(pos);
+            if (c == '\\' && pos + 1 < length) {
+                pos += 2;
+                continue;
+            }
+            if (c == quote && peek(1) == quote && peek(2) == quote) {
+                pos += 3;
+                break;
             }
             pos++;
         }

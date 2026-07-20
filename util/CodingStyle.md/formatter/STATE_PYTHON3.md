@@ -229,18 +229,31 @@ real-world drift patterns in the `psf/black`/`django` fixture repos once
       `make test` run (114/114 forward + 114/114 idempotency, zero
       regressions — this class isn't wired into any live dispatch path yet,
       so the "zero regressions" check is about compile/link health, not
-      behavior change). **Explicitly NOT yet covered by this slice** (still
-      open, needed before this item can be checked off): triple-quoted
-      string/docstring bodies (currently would mis-lex — each `"` is
-      treated as its own single-line string delimiter), f-string
-      interpolation-boundary sub-tokenization (a prefixed string is lexed
-      as identifier-then-opaque-string, `{...}` interior not split out),
-      the `:=` walrus operator (currently falls out as separate `:` PUNCT
-      then `=` OP tokens — harmless for pure pass-through but wrong once a
-      rule needs to recognize it as one unit), and any
-      INDENT/DEDENT/structural-depth synthesis (this slice emits
-      `WHITESPACE`/`NEWLINE` verbatim with no depth tracking at all, same
-      as every other family today — the Open Questions section's
+      behavior change). **Second slice landed:** `emitTripleQuotedString`
+      added (dispatched from `tokenize()` when the current char and the
+      next two both match the same quote character, checked before the
+      single-line-string branch). Consumes through the matching closing
+      `"""`/`'''`, correctly spanning embedded newlines and singly/doubly-
+      embedded instances of the other quote character, and honors
+      backslash escapes the same way `emitSimpleString` does. Emits one
+      `STRING` token for the whole body — satisfies RDD_KEY_186's "opaque,
+      preserved verbatim beyond the opening line" requirement at the
+      tokenizer level (no rule pass needs its own docstring-body-
+      preservation logic; it never sees inside the token). Verified via a
+      one-off smoke test (a multi-line docstring with an embedded
+      `"quote"`, a `'''...'''` string, and adjacent single-line
+      `"a"`/`'b'` strings all tokenized correctly as distinct,
+      correctly-bounded tokens) and a full `make test` run (114/114
+      forward + idempotency, zero regressions). **Explicitly NOT yet
+      covered by this slice** (still open, needed before this item can be
+      checked off): f-string interpolation-boundary sub-tokenization (a
+      prefixed string is lexed as identifier-then-opaque-string, `{...}`
+      interior not split out), the `:=` walrus operator (currently falls
+      out as separate `:` PUNCT then `=` OP tokens — harmless for pure
+      pass-through but wrong once a rule needs to recognize it as one
+      unit), and any INDENT/DEDENT/structural-depth synthesis (this slice
+      emits `WHITESPACE`/`NEWLINE` verbatim with no depth tracking at all,
+      same as every other family today — the Open Questions section's
       per-block-indent-conversion design still needs to be built on top of
       this, not assumed already present).
 - [ ] Implement basic statement/indentation formatting first (the Python

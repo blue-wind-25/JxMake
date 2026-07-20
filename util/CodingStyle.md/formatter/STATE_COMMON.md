@@ -261,6 +261,10 @@ kotlin-import-blank-lines        = 1
 js-import-order                  = builtin, third-party, local
 js-import-sort                   = on
 js-import-blank-lines            = 1
+
+# ── Python 3 ──────────────────────────────────────────────────────────────────
+python-import-sort               = on
+python-import-blank-lines        = 1
 ```
 
 For every added, deleted, or modified configuration item,

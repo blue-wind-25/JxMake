@@ -54,15 +54,87 @@ public abstract class DeclarationAlignmentRuleCore {
      *  (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change. */
     protected String renderTokens(final List<Token> tokens) {
         final StringBuilder sb = new StringBuilder();
+        // JS/TS-only (STATE_JS_TS.md Checkpoint 20): an object-literal property `key: value`
+        // colon must be tight before / spaced after (`a: 1`), but this method's generic
+        // `needsSpaceBetween` has no colon-specific case at all -- a plain `:` is simply not in
+        // `isTightToken`'s set for any language, so the default fallback (space on both sides,
+        // correct for a ternary `cond ? 1 : 2`) was also wrongly applied to an object-literal
+        // property colon whenever the initializer went through this shared join point (e.g. a
+        // declaration's `= {a: 1, b: 2}` rendered via `renderTokens(r.initTokens)`), producing
+        // `{ a : 1, b : 2 }`. `jsObjectPropertyColons` pre-classifies (via a lightweight
+        // bracket-stack scan, see `computeJsObjectPropertyColons`) exactly which `:` tokens are a
+        // genuine property-key colon at this frame's own depth -- a ternary `:` inside the same
+        // object literal's value position, or a nested paren/bracket's own colon (e.g. a TS
+        // arrow-parameter type colon, already separately normalized by
+        // `JsTsSpecificRule.enforceTypeColonSpacing`'s own later flat pass), is left completely
+        // out of the set and keeps this method's existing default spacing. Empty (zero-cost, zero
+        // behavior change) for every other language.
+        final java.util.Set<Token> jsObjectPropertyColons = (lang.isJs || lang.isTs)
+                ? computeJsObjectPropertyColons(tokens) : java.util.Collections.emptySet();
         Token prev = null;
         for (final Token t : tokens) {
-            if (prev != null && needsSpaceBetween(prev, t)) {
-                sb.append(' ');
+            if (prev != null) {
+                if (!jsObjectPropertyColons.contains(t) && needsSpaceBetween(prev, t)) {
+                    sb.append(' ');
+                }
             }
             sb.append(t.text);
             prev = t;
         }
         return sb.toString();
+    }
+
+    /** JS/TS-only helper for {@link #renderTokens}: identifies every `:` token that is a
+     *  genuine object-literal property-key colon (tight-before), as opposed to a ternary `:`
+     *  or a colon nested inside a paren/bracket frame (e.g. a TS parameter type annotation,
+     *  already handled downstream by {@code JsTsSpecificRule.enforceTypeColonSpacing}). Tracks a
+     *  small per-frame stack: each `{`/`(`/`[` pushes a frame; a `{` is classified as an
+     *  object-literal frame unless its immediately preceding significant token is an
+     *  IDENTIFIER, `=>`, or `)` (a block body, not a literal) -- the very first token of an
+     *  initializer (`prevSig == null`) is treated as an object literal, matching `= {...}`'s
+     *  own shape. Within an object-literal frame, an `expectingKey` flag starts `true` right
+     *  after `{`/a top-level `,`, and is cleared the first time a `:` is seen at that frame's own
+     *  depth -- so only that first colon per key/value pair is classified; a later ternary `:`
+     *  in the same value position (`{a: cond ? 1 : 2}`) is correctly left unclassified since
+     *  `expectingKey` is already `false` by the time it's reached. */
+    private java.util.Set<Token> computeJsObjectPropertyColons(final List<Token> tokens) {
+        final java.util.Set<Token> result = new java.util.HashSet<>();
+        final java.util.Deque<Boolean> objFrame = new java.util.ArrayDeque<>();
+        final java.util.Deque<Boolean> expectKey = new java.util.ArrayDeque<>();
+        Token prevSig = null;
+        for (final Token t : tokens) {
+            if (isGapToken(t)) {
+                continue;
+            }
+            if (isPunct(t, "{")) {
+                final boolean isObj = prevSig == null
+                        || !(prevSig.type == TokenType.IDENTIFIER || isOp(prevSig, "=>") || isPunct(prevSig, ")"));
+                objFrame.push(isObj);
+                expectKey.push(isObj);
+            } else if (isPunct(t, "}")) {
+                if (!objFrame.isEmpty()) {
+                    objFrame.pop();
+                    expectKey.pop();
+                }
+            } else if (isPunct(t, "(") || isPunct(t, "[")) {
+                objFrame.push(false);
+                expectKey.push(false);
+            } else if (isPunct(t, ")") || isPunct(t, "]")) {
+                if (!objFrame.isEmpty()) {
+                    objFrame.pop();
+                    expectKey.pop();
+                }
+            } else if (isPunct(t, ",") && !objFrame.isEmpty() && objFrame.peek()) {
+                expectKey.pop();
+                expectKey.push(true);
+            } else if (isOp(t, ":") && !objFrame.isEmpty() && objFrame.peek() && !expectKey.isEmpty() && expectKey.peek()) {
+                result.add(t);
+                expectKey.pop();
+                expectKey.push(false);
+            }
+            prevSig = t;
+        }
+        return result;
     }
 
     /** Renders initializer value tokens (the right-hand side of `= expr`) where `*` and `&`

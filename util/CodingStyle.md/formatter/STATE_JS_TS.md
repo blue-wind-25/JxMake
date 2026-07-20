@@ -1375,11 +1375,12 @@ attempted this session, future work:
       **Bug 1 fixed — see Checkpoint 17. Bug 2 (generics suppressing Allman
       conversion) fixed — see Checkpoint 18. Bug 3 (decorator-argument,
       and more generally any call-argument, object-literal padding) fixed
-      — see Checkpoint 19.** Only the colon-padding oddity (`{ a : 1 }` —
-      space before `:` too) remains unclassified/unfixed; once it is
-      resolved or accepted, the four local `.js`/`.ts` fixture pairs
-      (`js_combined`, `js_comments`, `ts_combined`, `ts_comments`) can be
-      revisited for activation/uncommenting in the Makefile.
+      — see Checkpoint 19. The colon-padding oddity (`{ a : 1 }` — space
+      before `:` too) fixed — see Checkpoint 20.** All four items are now
+      resolved; the four local `.js`/`.ts` fixture pairs (`js_combined`,
+      `js_comments`, `ts_combined`, `ts_comments`) are judged ready to be
+      revisited for activation/uncommenting in the Makefile as the next
+      checkpoint (see Checkpoint 20's own closing note).
 - [x] **Checkpoint 17 done — bug 1 fixed: import named-list braces now get
       `{ }` padding, matching plain object-literal initializers.** Root
       cause was NOT in `JsTsSpecificRule.classifyBraces` (that method only
@@ -1597,6 +1598,121 @@ attempted this session, future work:
       activated/uncommented in the Makefile this checkpoint -- that
       follow-up is still explicitly gated on the colon-padding oddity
       being resolved or accepted first, not attempted here.
+- [x] **Checkpoint 20 done -- the colon-padding oddity fixed: a plain
+      object-literal property colon (`{a: 1, b: 2}`) no longer picks up a
+      space before the colon.** Reproduced first via a standalone harness
+      before any code change: `const obj = {a: 1, b: 2};` rendered as
+      `const obj = { a : 1, b : 2 };` (space before **and** after the colon)
+      through the full `FormatterCore.forLanguage("js")` pipeline.
+      **Root cause, confirmed by tracing rather than guessed:** NOT
+      `JsTsSpecificRule.enforceTypeColonSpacing` (that pass is
+      `lang.isTs`-gated and is a no-op for `.js`; the bug reproduces
+      identically in a plain `.js` file, proving it independently) and NOT
+      shared cross-language colon-handling in the sense the task worried
+      about (Java/C++/Kotlin ternary `a ? b : c`, `case 1 :` labels, and
+      `label:` statements were all directly tested via the same harness and
+      found unaffected/pre-existing-as-is -- this is not a shared quirky
+      convention this codebase already has for other languages). The actual
+      mechanism: `DeclarationAlignmentRuleCore.renderTokens` (a
+      family-agnostic base method used by every curly language, including
+      `JsTsDeclarationAlignmentRule`'s own `renderTokens(r.initTokens)` call
+      for a declaration's `= expr` initializer, Checkpoint 5's own
+      machinery) has a completely generic `needsSpaceBetween`/`isTightToken`
+      pair with **no colon-specific case at all** for any language -- a
+      bare `:` simply isn't in `isTightToken`'s set, so the default fallback
+      (space on both sides) applies universally. That default is *correct*
+      for a ternary (`cond ? 1 : 2`, verified via harness to render
+      correctly both before and after this fix) but *wrong* for an
+      object-literal property colon, which needs tight-before/spaced-after.
+      The bug only manifests when an object literal is rendered as a
+      declaration's initializer (`const obj = {a: 1};`, going through this
+      shared `renderTokens` join point) -- a call-argument or decorator-
+      argument object literal (`foo({a: 1})`, `@Component({selector: "x"})`)
+      is a completely different code path (`MiscRuleCore
+      .enforceInitializerBraceSpacing`, Checkpoints 17/19's own pass, which
+      only pads around `{`/`}`/`,` and never re-renders interior tokens
+      pairwise) and was already confirmed correct (verified via harness
+      before touching any code: `@Component({selector: "app-x", template:
+      "y"})` already rendered `selector: "app-x"` correctly, tight-before,
+      through that separate mechanism) -- the bug's blast radius is narrowly
+      "object literal used as a declaration initializer" only, not "object
+      literals in general".
+      **Fix, scoped to `DeclarationAlignmentRuleCore.renderTokens`,
+      `lang.isJs || lang.isTs`-gated (zero effect on any other language):**
+      new private helper `computeJsObjectPropertyColons` -- a lightweight
+      bracket-stack scan (`{`/`(`/`[` push a frame, matching close pops it)
+      that classifies a `{` as an object-literal frame unless its
+      immediately preceding significant token is an IDENTIFIER, `=>`, or `)`
+      (a block body, not a literal) -- the very first token of an
+      initializer (`prevSig == null`) is treated as an object literal,
+      matching `= {...}`'s own shape. Within an object-literal frame, an
+      `expectingKey` flag starts `true` right after `{` or a top-level `,`
+      at that frame's own depth, and clears the first time a `:` is seen at
+      that depth -- so only that first per-property colon is classified as
+      tight-before; a ternary `:` inside the same value position (`{a: cond
+      ? 1 : 2}`) is correctly left unclassified (`expectingKey` already
+      `false` by the time it's reached) and keeps the default symmetric
+      spacing. `renderTokens` itself now precomputes this identity-based
+      `Set<Token>` once per call (empty/zero-cost for every non-JS/TS
+      language) and skips the space-before check for any token in the set.
+      **Explicitly confirmed NOT needed / correctly left alone:** a colon
+      nested inside a paren/bracket frame within the initializer (e.g. a TS
+      arrow-parameter type annotation, `{a: (x: number) => x}`) is
+      classified `objFrame.peek() == false` (paren frame, not object-literal
+      frame) so is left with default spacing by this pass -- verified this
+      is not a regression, since `JsTsSpecificRule.enforceTypeColonSpacing`
+      (Checkpoint 7's own TS-only flat pass, runs later in `FormatterCurly`
+      Phase 4) already unconditionally normalizes any parameter-position
+      colon to tight-before regardless of what this earlier grid-rendering
+      phase produced, so the two passes compose correctly without needing
+      this new logic to also handle that shape.
+      Verified via a standalone harness (`FormatterCore.forLanguage("js")`/
+      `"ts"`): the exact BLOCKED-entry repro (`const obj = {a: 1, b: 2};`)
+      now renders `const obj = { a: 1, b: 2 };` (brace padding from the
+      pre-existing §3.3 pass retained, colon spacing now correct); a single
+      property (`{a: 1}`), a nested object-literal value (`{a: {b: 1}}` ->
+      `{ a: { b: 1 } }`, both levels' colons correct), a shorthand property
+      (`{a}`, no colon at all, untouched) all render correctly. Explicitly
+      re-verified unaffected (byte-for-byte, per the task's own hard
+      requirement): a top-level ternary in a declaration initializer
+      (`let x = cond ? 1 : 2;`, both an already-correctly-spaced and a
+      deliberately mis-spaced `cond?1:2` input, both correctly normalize to
+      `cond ? 1 : 2`); a ternary *inside* an object-literal property value
+      (`{a: cond ? 1 : 2, b: y ? 3 : 4}` -> both property colons tight-
+      before, both ternary colons spaced-both-sides, correctly
+      disambiguated in the same statement); destructuring rename
+      (`const { a: renamed } = obj;`, unaffected -- this statement is
+      excluded from the grid entirely per Checkpoints 5/6, never reaches
+      this method); a decorator-argument / call-argument object literal
+      (`@Component({selector: "app-x", template: "y"})`,
+      `foo({a: 1})`, verified already-correct through the separate
+      `enforceInitializerBraceSpacing` mechanism, confirmed still correct
+      and untouched by this checkpoint's change since that's a different
+      code path); a TS arrow-parameter-typed object-literal value
+      (`{a: (x: number) => x}`, both the outer property colon and the inner
+      parameter-type colon end up correctly spaced, composing with
+      Checkpoint 7's later pass as expected); a multi-declarator group with
+      object-literal initializers (`const a = {x: 1}; let bb = {y: 2};`,
+      both declarators correctly grid-aligned with correct colon spacing in
+      each initializer). Round-trip (harness round1 -> round2) confirmed
+      idempotent on every case above. `make` compiles clean; `make test`:
+      106/106 forward + 106/106 idempotency, zero regressions in the
+      existing C/C++/Java/Kotlin fixture corpus (the new helper and its
+      call site are both `lang.isJs || lang.isTs`-gated, so no other
+      language's declaration/initializer rendering is affected -- reconfirmed
+      by the full suite passing unchanged, not just reasoned about).
+      **All four items from the original BLOCKED entry (bugs 1-3, plus this
+      colon-padding oddity) are now resolved.** Per the existing plan, the
+      four local `.js`/`.ts` fixture pairs (`js_combined`, `js_comments`,
+      `ts_combined`, `ts_comments`) are judged **ready to be revisited for
+      Makefile activation** as the next checkpoint -- that re-verification
+      pass (re-running each fixture's actual JAR output against its
+      recorded `_out` file, reconciling the already-known stale-expectation
+      divergences the BLOCKED entry separately noted, e.g. the
+      reindentation-assumption cases in `ts_combined_inp.ts`) was
+      **explicitly not attempted this session** per this session's own
+      scope (item 6 in the task brief) and remains the next session's first
+      task.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_JS_TS.md`'s listed test-fixture repos (`nodejs/node`,
       `expressjs/express`, `lodash/lodash`, `microsoft/TypeScript`,

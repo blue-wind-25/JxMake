@@ -199,7 +199,7 @@ real-world drift patterns in the `psf/black`/`django` fixture repos once
 
 ## Checklist
 
-- [ ] Tokenizer support pass: survey `STYLE_PYTHON3.md` for every token/
+- [~] Tokenizer support pass: survey `STYLE_PYTHON3.md` for every token/
       construct not already lexed correctly (f-string interpolation
       boundaries, `:=` walrus if present, significant-whitespace/indent
       tracking as a first-class tokenizer concern rather than braces,
@@ -214,6 +214,35 @@ real-world drift patterns in the `psf/black`/`django` fixture repos once
       cosmetic) is the single biggest structural difference from every
       existing language and should be resolved architecturally in this
       step, before any statement-level rule work begins.
+      **First slice landed:** `TokenizerIndent` no longer throws — its
+      constructor + a real `tokenize(String)` now handle whitespace,
+      newlines, `#` line comments, numbers (reusing
+      `TokenizerCore.emitNumber`), identifiers-vs-keywords (own
+      `KEYWORDS_PYTHON` set, deliberately excluding `match`/`case`/`_`/
+      `type` since those are context-sensitive soft keywords, not
+      unconditional ones — misclassifying them would break their use as
+      ordinary identifiers), single-line single/double-quoted string
+      literals, and a generic operator/punctuation fallback
+      (`(`/`)`/`[`/`]`/`{`/`}`/`,`/`:`/`;` as `PUNCT`, everything else as a
+      one-char `OP`). Verified via a one-off smoke test (`def foo(x, y=1):`
+      + comment + `return x + y  # trail` tokenized correctly) and a full
+      `make test` run (114/114 forward + 114/114 idempotency, zero
+      regressions — this class isn't wired into any live dispatch path yet,
+      so the "zero regressions" check is about compile/link health, not
+      behavior change). **Explicitly NOT yet covered by this slice** (still
+      open, needed before this item can be checked off): triple-quoted
+      string/docstring bodies (currently would mis-lex — each `"` is
+      treated as its own single-line string delimiter), f-string
+      interpolation-boundary sub-tokenization (a prefixed string is lexed
+      as identifier-then-opaque-string, `{...}` interior not split out),
+      the `:=` walrus operator (currently falls out as separate `:` PUNCT
+      then `=` OP tokens — harmless for pure pass-through but wrong once a
+      rule needs to recognize it as one unit), and any
+      INDENT/DEDENT/structural-depth synthesis (this slice emits
+      `WHITESPACE`/`NEWLINE` verbatim with no depth tracking at all, same
+      as every other family today — the Open Questions section's
+      per-block-indent-conversion design still needs to be built on top of
+      this, not assumed already present).
 - [ ] Implement basic statement/indentation formatting first (the Python
       analog of a "get the skeleton right" starting point, since there are
       no braces to reuse the existing block-structure rule against) —

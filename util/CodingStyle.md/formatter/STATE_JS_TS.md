@@ -93,9 +93,30 @@ work, before moving on to any other language job:
      stay unaligned by design, matching C++/Java's own existing behavior).
    - ~~**`static get`/`set` vs. plain accessor padding inconsistency**~~ —
      **RESOLVED**, see Still Open #5.
-   - **Import-ordering comment/blank-line group-break rework**
-     (RDD_KEY_197) — design decided, code change not written (segment at
-     standalone comments instead of bailing the whole pass).
+   - ~~**Import-ordering comment/blank-line group-break rework**
+     (RDD_KEY_197)~~ — **RESOLVED.** `JsTsSpecificRule.enforceImportOrdering`:
+     a trailing same-line comment right after an import's `;` (only
+     whitespace, no NEWLINE, in between) is now folded into that import's
+     own emitted span (new `ParsedJsImport.endIdx`, via a new
+     `extendPastTrailingComment` helper) so it travels with its import
+     through reordering instead of triggering the old bail-the-whole-pass
+     `hasCommentBetween` check. A standalone comment on its own line between
+     two imports still can't be reordered across, but instead of bailing
+     the entire pass it now acts as a segment boundary (new
+     `renderImportSegment` helper, called once per segment instead of once
+     for the whole import list): imports before the standalone comment and
+     imports after it are bucketed/sorted independently, with the comment's
+     own original text (verbatim, including its surrounding blank-line
+     layout) re-emitted between the two segments untouched. Found and fixed
+     an off-by-one introduced while implementing this (the trailing-footer
+     slice used `lastEndIdx + 1` instead of `lastEndIdx` -- `endIdx` is
+     already an exclusive bound -- which silently ate the first token after
+     the last import, e.g. dropping a blank line before the next statement;
+     caught via a manual before/after diff against a pre-change build, not
+     by `make test` since no existing fixture exercised a code line
+     immediately after the import block). New fixture
+     `test/js_import_ordering_comments_inp/out.js`. `make test`: 109/109
+     forward + 109/109 idempotency, zero regressions.
    - **Nested template-literal interpolation** — `` `${`inner ${x}`}` ``
      isn't recursively reformatted (known low-priority gap, §4).
    - The `Config`-threading TODO above (HTML `<script>` splice path).
@@ -306,7 +327,7 @@ session.
   flips: (1) wire an actual dispatch call into `renderScriptOrStyle`
   (reformat spliced-out content, reindent back in, matching `<style>`'s
   existing CSS-splice shape); (2) remove the DIS/ENA wrapper from both HTML
-  fixtures; (3) regenerate both `_out.html` files and re-run `make test`.
+  fixtures; (3) regenerate both `_out.html` files and re-run `make test` — **RESOLVED**.
 
 ---
 

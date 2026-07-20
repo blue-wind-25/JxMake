@@ -2145,11 +2145,17 @@ public final class JsTsSpecificRule {
     private static final class ParsedJsImport {
         final int startIdx;
         final int semicolonIdx;
+        // Exclusive end of this import's own emitted span -- normally semicolonIdx + 1, but
+        // extended past a trailing same-line comment (RDD_KEY_197) so that comment travels with
+        // this import through reordering instead of being treated as a floating comment between
+        // imports.
+        final int endIdx;
         final String path;
 
-        ParsedJsImport(final int startIdx, final int semicolonIdx, final String path) {
+        ParsedJsImport(final int startIdx, final int semicolonIdx, final int endIdx, final String path) {
             this.startIdx = startIdx;
             this.semicolonIdx = semicolonIdx;
+            this.endIdx = endIdx;
             this.path = path;
         }
     }
@@ -2194,10 +2200,17 @@ public final class JsTsSpecificRule {
 
         int depth = 0;
         int firstImportIdx = -1;
-        int prevSemicolonIdx = -1;
-        int lastSemicolonIdx = -1;
+        int prevEndIdx = -1;
+        int lastEndIdx = -1;
         boolean blocked = false;
-        final List<ParsedJsImport> imports = new ArrayList<>();
+        // RDD_KEY_197: a standalone comment between two imports no longer bails the whole pass --
+        // it segments the import list instead (same "blank line breaks the group" precedent used
+        // elsewhere in this codebase). Each segment is grouped/sorted independently; the comment's
+        // own original text (verbatim, including its surrounding gap) is preserved in place
+        // between the two segments it separated.
+        final List<List<ParsedJsImport>> segments = new ArrayList<>();
+        final List<String> interSegmentGaps = new ArrayList<>();
+        List<ParsedJsImport> currentSegment = new ArrayList<>();
         final int n = tokens.size();
         int i = 0;
         while (i < n) {
@@ -2222,32 +2235,62 @@ public final class JsTsSpecificRule {
                 }
                 if (firstImportIdx < 0) {
                     firstImportIdx = i;
-                } else if (hasCommentBetween(tokens, prevSemicolonIdx + 1, i)) {
-                    blocked = true;
-                    break;
+                } else if (hasCommentBetween(tokens, prevEndIdx, i)) {
+                    // A trailing same-line comment on the previous import is already folded into
+                    // that import's own endIdx below, so any comment still found in this gap is a
+                    // standalone one -- a segment boundary, not a bail condition.
+                    segments.add(currentSegment);
+                    currentSegment = new ArrayList<>();
+                    interSegmentGaps.add(collapseTokensToOneLine(tokens.subList(prevEndIdx, i)));
                 }
                 final ParsedJsImport parsed = parseJsImportStatement(tokens, i);
                 if (parsed == null) {
                     blocked = true;
                     break;
                 }
-                if (anyFrozen(tokens, i, parsed.semicolonIdx + 1)) {
+                final int endIdx = extendPastTrailingComment(tokens, parsed.semicolonIdx + 1);
+                if (anyFrozen(tokens, i, endIdx)) {
                     blocked = true;
                     break;
                 }
-                imports.add(parsed);
-                prevSemicolonIdx = parsed.semicolonIdx;
-                lastSemicolonIdx = parsed.semicolonIdx;
-                i = parsed.semicolonIdx + 1;
+                final ParsedJsImport withSpan = new ParsedJsImport(parsed.startIdx, parsed.semicolonIdx,
+                        endIdx, parsed.path);
+                currentSegment.add(withSpan);
+                prevEndIdx = endIdx;
+                lastEndIdx = endIdx;
+                i = endIdx;
                 continue;
             }
             i++;
         }
+        segments.add(currentSegment);
 
-        if (blocked || imports.isEmpty()) {
+        final boolean anyImports = segments.stream().anyMatch(seg -> !seg.isEmpty());
+        if (blocked || !anyImports) {
             return render(tokens, java.util.Collections.emptyMap());
         }
 
+        final StringBuilder body = new StringBuilder();
+        for (int s = 0; s < segments.size(); s++) {
+            if (s > 0) {
+                body.append(interSegmentGaps.get(s - 1));
+            }
+            body.append(renderImportSegment(tokens, segments.get(s), groupOrder, sortAlphabetically, blankLines));
+        }
+
+        final StringBuilder out = new StringBuilder();
+        out.append(collapseTokensToOneLine(tokens.subList(0, firstImportIdx)));
+        out.append(body);
+        out.append(collapseTokensToOneLine(tokens.subList(lastEndIdx, n)));
+        return out.toString();
+    }
+
+    /** Groups/sorts and renders one segment's imports (a maximal run of imports uninterrupted by
+     *  a standalone comment, RDD_KEY_197) into its own bucketed, blank-line-separated text --
+     *  the same shape {@code enforceImportOrdering} used to produce for the whole file before
+     *  segmenting at standalone comments was introduced. */
+    private String renderImportSegment(final List<Token> tokens, final List<ParsedJsImport> imports,
+            final List<String> groupOrder, final boolean sortAlphabetically, final int blankLines) {
         final Map<String, List<ParsedJsImport>> buckets = new HashMap<>();
         for (final String key : IMPORT_GROUP_KEYS) {
             buckets.put(key, new ArrayList<>());
@@ -2278,16 +2321,11 @@ public final class JsTsSpecificRule {
                     body.append('\n');
                 }
                 final ParsedJsImport imp = members.get(m);
-                body.append(collapseTokensToOneLine(tokens.subList(imp.startIdx, imp.semicolonIdx + 1)));
+                body.append(collapseTokensToOneLine(tokens.subList(imp.startIdx, imp.endIdx)));
             }
             emittedAnyGroup = true;
         }
-
-        final StringBuilder out = new StringBuilder();
-        out.append(collapseTokensToOneLine(tokens.subList(0, firstImportIdx)));
-        out.append(body);
-        out.append(collapseTokensToOneLine(tokens.subList(lastSemicolonIdx + 1, n)));
-        return out.toString();
+        return body.toString();
     }
 
     /** Parses one {@code import ...;} declaration starting at the {@code import} keyword token at
@@ -2321,7 +2359,26 @@ public final class JsTsSpecificRule {
         if (stringIdx < 0 || semicolonIdx < 0) {
             return null;
         }
-        return new ParsedJsImport(importIdx, semicolonIdx, stringLiteralContent(tokens.get(stringIdx).text));
+        return new ParsedJsImport(importIdx, semicolonIdx, semicolonIdx + 1,
+                stringLiteralContent(tokens.get(stringIdx).text));
+    }
+
+    /** RDD_KEY_197: extends a just-parsed import's span past a trailing same-line comment right
+     *  after its `;` (only whitespace, no NEWLINE, in between) -- that comment travels with its
+     *  own import through reordering rather than being (mis)treated as a floating comment between
+     *  imports that would otherwise segment the list. Returns {@code fromIdx} unchanged (no
+     *  trailing comment found) otherwise. */
+    private int extendPastTrailingComment(final List<Token> tokens, final int fromIdx) {
+        int idx = fromIdx;
+        final int n = tokens.size();
+        while (idx < n && tokens.get(idx).type == TokenType.WHITESPACE) {
+            idx++;
+        }
+        if (idx < n && (tokens.get(idx).type == TokenType.COMMENT_LINE
+                || tokens.get(idx).type == TokenType.COMMENT_BLOCK)) {
+            return idx + 1;
+        }
+        return fromIdx;
     }
 
     /** Strips the surrounding quote characters (`'`/`"`/`` ` ``) from a {@code STRING} token's raw

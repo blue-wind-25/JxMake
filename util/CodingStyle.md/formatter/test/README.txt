@@ -354,6 +354,17 @@ JS/TS:
                                             padded correctly. Now fixed with an ASI-aware
                                             depth-0-NEWLINE statement boundary (JS/TS only).
 
+  js_import_ordering_comments_inp/out.js -- §15 import-ordering comment
+                                            handling (RDD_KEY_197): a trailing same-line comment
+                                            on an import (`import a from "alpha"; // keep with a`)
+                                            travels with its own import through reordering instead
+                                            of blocking the pass; a standalone comment on its own
+                                            line between two imports now segments the import list
+                                            (imports before/after it are grouped/sorted
+                                            independently, never reordered across each other) with
+                                            the comment preserved verbatim in place, instead of
+                                            bailing the whole pass.
+
 HTML5:
   html_combined_inp/out.html             -- Void element normalization (`<img>`/`<input>`/
                                             `<br>` lose self-closing `/`, contrasted with

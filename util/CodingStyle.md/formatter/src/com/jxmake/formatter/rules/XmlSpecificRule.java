@@ -66,6 +66,12 @@ public final class XmlSpecificRule {
     private final int indentWidth;
     private final boolean useTabs;
     private final boolean normalizeCommentStartCase;
+    /** Real resolved Config of the enclosing HTML file, threaded through so a spliced
+     *  {@code <script>} block inherits every JS/TS-specific config key (e.g. `js-import-order`),
+     *  not just the 4 primitive fields above. May be null (legacy/test constructors) -- in that
+     *  case {@link #renderScriptOrStyle} falls back to a throwaway {@code Config.resolve(null, ...)}
+     *  built from those 4 fields, same as before this was threaded through. */
+    private final Config enclosingConfig;
 
     private String s;
     private int pos;
@@ -84,11 +90,17 @@ public final class XmlSpecificRule {
 
     public XmlSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth,
             final String indentStyle, final boolean normalizeCommentStartCase) {
+        this(lang, lineLengthLimit, indentWidth, indentStyle, normalizeCommentStartCase, null);
+    }
+
+    public XmlSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth,
+            final String indentStyle, final boolean normalizeCommentStartCase, final Config enclosingConfig) {
         this.lang = lang;
         this.lineLengthLimit = lineLengthLimit;
         this.indentWidth = indentWidth;
         this.useTabs = "tabs".equals(indentStyle);
         this.normalizeCommentStartCase = normalizeCommentStartCase;
+        this.enclosingConfig = enclosingConfig;
     }
 
     private String indent(final int depth) {
@@ -551,12 +563,17 @@ public final class XmlSpecificRule {
             out.append(openTag).append(n.raw).append("</").append(n.tagName).append(">\n");
             return;
         }
-        final java.util.Map<String, String> overrides = new java.util.LinkedHashMap<>();
-        overrides.put("line-length", Integer.toString(lineLengthLimit));
-        overrides.put("indent-size", Integer.toString(indentWidth));
-        overrides.put("indent-style", useTabs ? "tabs" : "spaces");
-        overrides.put("normalize-comment-start-case", normalizeCommentStartCase ? "on" : "off");
-        final Config jsConfig = Config.resolve(null, overrides);
+        final Config jsConfig;
+        if (enclosingConfig != null) {
+            jsConfig = enclosingConfig;
+        } else {
+            final java.util.Map<String, String> overrides = new java.util.LinkedHashMap<>();
+            overrides.put("line-length", Integer.toString(lineLengthLimit));
+            overrides.put("indent-size", Integer.toString(indentWidth));
+            overrides.put("indent-style", useTabs ? "tabs" : "spaces");
+            overrides.put("normalize-comment-start-case", normalizeCommentStartCase ? "on" : "off");
+            jsConfig = Config.resolve(null, overrides);
+        }
         final String dedented = dedent(n.raw).trim();
         final boolean isCdata = dedented.startsWith("<![CDATA[") && dedented.endsWith("]]>");
         final String jsSource = isCdata

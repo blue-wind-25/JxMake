@@ -63,13 +63,21 @@ work, before moving on to any other language job:
        non-blank line of the raw body) applied before dispatch, so each
        round starts from the same flush-left baseline regardless of what
        absolute depth the previous round's `reindent` left behind.
-   The `Config`-threading TODO (the throwaway `Config.resolve(null,
+   ~~The `Config`-threading TODO (the throwaway `Config.resolve(null,
    overrides)` synthesis from 4 primitive fields, instead of the real
-   resolved `Config`) is **still open, not addressed by this step** — see
-   Open Design Questions below; it doesn't block correctness for any
-   currently-exercised JS/TS config key, only for someone relying on a
-   JS/TS-specific key (`js-import-order`, etc.) inside spliced `<script>`
-   content specifically.
+   resolved `Config`)~~ — **RESOLVED.** `XmlSpecificRule` gained a new
+   6-arg constructor (`..., Config enclosingConfig`) storing the real
+   resolved `Config`; `FormatterXml.formatOne` now passes its own `config`
+   parameter through. `renderScriptOrStyle` uses `enclosingConfig` directly
+   when non-null, falling back to the old 4-field `Config.resolve(null,
+   overrides)` synthesis only for the legacy/test constructors that don't
+   supply one. Verified via manual smoke test: an HTML file with a
+   `.jxmake-code-formatter` setting `js-import-blank-lines=2` in scope now
+   applies that value inside a spliced `<script>` block's import grouping
+   (2 blank lines between import groups instead of the default 1) — no
+   diff-fixture added (config-override scenario doesn't fit the `_inp`/
+   `_out` pattern cleanly), smoke test documented here instead per the task
+   instructions.
    Both HTML fixtures (`test/html_combined_inp/out.html`,
    `test/html_comments_inp/out.html`) are updated and green: `make test`
    106/106 forward + 106/106 idempotency.
@@ -275,18 +283,8 @@ session.
 
 ### Open Design Questions (not attempted, future work)
 
-- **`XmlSpecificRule`'s `<script>` dispatch doesn't thread the real resolved
-  `Config`.** `renderScriptOrStyle` synthesizes a throwaway `Config` via
-  `Config.resolve(null, overrides)` from just 4 primitive fields
-  (`lineLengthLimit`, `indentWidth`, `useTabs`, `normalizeCommentStartCase`)
-  it happens to already carry, silently defaulting every other JS/TS-
-  specific knob (`js-import-order`, `js-import-sort`, `js-import-blank-
-  lines`, etc.) instead of inheriting the enclosing HTML file's actually-
-  resolved `Config`. Should be refactored to thread the real `Config`
-  through from `FormatterXml.formatOne` (which already has it as a
-  parameter) into `XmlSpecificRule`'s constructor. Not blocking — no
-  currently-exercised fixture relies on a non-default JS/TS config key
-  inside spliced `<script>` content — but should land before relying on one.
+- ~~`XmlSpecificRule`'s `<script>` dispatch doesn't thread the real resolved
+  `Config`.~~ — **RESOLVED**, see Next Steps item 1 above.
 - **HTML5 needs its own dispatcher.** A `.html` file can embed inline
   `<script>`/`<style>` blocks that need to be spliced out, formatted by the
   appropriate sub-formatter (JS/TS for `<script>`, CSS for `<style>`, per

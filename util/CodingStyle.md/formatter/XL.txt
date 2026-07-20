@@ -39,7 +39,6 @@ Compact (use one sub-agent) the narration in `test/README.txt`:
 
 
 Next, implement these first:
-   - The `Config`-threading TODO above (HTML `<script>` splice path).
    - **RDD_KEY_182/183**: destructuring-pattern LHS, multi-declarator
      statements, and `type X = ...` alias groups aren't joined to the
      declaration-alignment grid yet — explicitly "not yet implemented",

@@ -22,7 +22,7 @@ public final class FormatterXml extends FormatterCore {
             return content;
         }
         final XmlSpecificRule rule = new XmlSpecificRule(lang, config.lineLength(), config.indentSize(),
-                config.indentStyle(), config.isNormalizeCommentStartCase());
+                config.indentStyle(), config.isNormalizeCommentStartCase(), config);
         return rule.format(content);
     }
 }

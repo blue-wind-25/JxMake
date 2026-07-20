@@ -123,6 +123,7 @@ INP_FILES += cpp26_reflection_inp.cpp
 INP_FILES += ts_decl_grid_ext_inp.ts
 INP_FILES += js_getter_setter_asi_inp.js
 INP_FILES += js_import_ordering_comments_inp.js
+INP_FILES += js_nested_template_literal_inp.js
 
 INP_FILES += html_combined_inp.html
 INP_FILES += html_comments_inp.html

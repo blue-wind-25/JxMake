@@ -117,8 +117,19 @@ work, before moving on to any other language job:
      immediately after the import block). New fixture
      `test/js_import_ordering_comments_inp/out.js`. `make test`: 109/109
      forward + 109/109 idempotency, zero regressions.
-   - **Nested template-literal interpolation** — `` `${`inner ${x}`}` ``
-     isn't recursively reformatted (known low-priority gap, §4).
+   - ~~**Nested template-literal interpolation** — `` `${`inner ${x}`}` ``
+     isn't recursively reformatted~~ — **RESOLVED.**
+     `reformatInterpolationInterior` now recurses: after re-tokenizing an
+     interpolation's interior, any nested backtick-delimited STRING token
+     found among its own significant tokens (a template literal nested
+     inside this interpolation) is itself passed back through
+     `rewriteTemplateLiteral` before the interior's tokens are re-joined via
+     `renderTokens` -- so `` `outer ${`inner ${x+1}`}` `` now normalizes to
+     `` `outer ${`inner ${x + 1}`}` `` (the inner `${...}`'s own expression
+     spacing fixed, not just the outer one), and nesting of any depth is
+     handled the same way (each level recurses into the next). New fixture
+     `test/js_nested_template_literal_inp/out.js`. `make test`: 110/110
+     forward + 110/110 idempotency, zero regressions.
    - The `Config`-threading TODO above (HTML `<script>` splice path).
 
    Only once those are closed does it become "implemented, just dogfood"

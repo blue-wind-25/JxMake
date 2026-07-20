@@ -365,6 +365,14 @@ JS/TS:
                                             the comment preserved verbatim in place, instead of
                                             bailing the whole pass.
 
+  js_nested_template_literal_inp/out.js  -- §4 nested template-literal interpolation
+                                            (`` `outer ${`inner ${x+1}`}` ``): the inner template
+                                            literal's own `${...}` interpolation now gets its
+                                            expression spacing normalized too (`x + 1`), not just
+                                            the outermost `${...}` span -- recursive reformatting
+                                            of any nesting depth via
+                                            enforceTemplateLiteralInterpolationSpacing.
+
 HTML5:
   html_combined_inp/out.html             -- Void element normalization (`<img>`/`<input>`/
                                             `<br>` lose self-closing `/`, contrasted with

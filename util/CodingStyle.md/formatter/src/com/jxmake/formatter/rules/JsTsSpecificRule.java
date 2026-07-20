@@ -526,9 +526,11 @@ public final class JsTsSpecificRule {
      * pass in this file: a span containing a NEWLINE or comment token (multi-line or commented
      * interpolation), a frozen token, or a tokenizer-rejected fragment is left byte-for-byte
      * untouched rather than guessed at. A nested template literal inside an interpolation
-     * (`` `${`inner ${x}`}` ``) is treated as opaque quoted text for span-finding purposes and its
-     * own interior is not recursively reformatted this pass -- a documented, narrow scope limit,
-     * not attempted given how rare doubly-nested interpolation is in practice.
+     * (`` `${`inner ${x}`}` ``) is treated as opaque quoted text for span-finding purposes (its own
+     * outer `${...}` delimiters aren't re-scanned as part of the enclosing literal's own span list),
+     * but its interior IS still recursively reformatted -- {@link #reformatInterpolationInterior}
+     * re-runs this same {@code rewriteTemplateLiteral} on any nested backtick STRING token found
+     * among its own significant tokens before final re-joining, so nesting of any depth is handled.
      */
     public String enforceTemplateLiteralInterpolationSpacing(final List<Token> tokens) {
         if (!lang.isJs && !lang.isTs) {
@@ -649,7 +651,11 @@ public final class JsTsSpecificRule {
      *  isolation and re-joins its significant tokens via {@code renderTokens}'s ordinary
      *  tight/loose adjacency rules. Returns {@code null} (caller leaves the original interior
      *  untouched) if the interior is empty/blank, contains a NEWLINE or comment token (multi-line
-     *  or commented interpolation -- out of this flat pass's scope), or contains a frozen token. */
+     *  or commented interpolation -- out of this flat pass's scope), or contains a frozen token.
+     *  A nested backtick-delimited STRING token among the interior's own significant tokens (a
+     *  template literal nested inside this interpolation, e.g. `` `${`inner ${x}`}` ``) is
+     *  recursively reformatted via {@code rewriteTemplateLiteral} before re-joining, so nesting of
+     *  any depth gets its own `${...}` spacing normalized, not just the outermost level. */
     private String reformatInterpolationInterior(final String interior, final TokenizerCurly innerTokenizer,
             final MiscRuleCurly misc) {
         if (interior.trim().isEmpty()) {
@@ -668,6 +674,9 @@ public final class JsTsSpecificRule {
             }
             if (t.type == TokenType.WHITESPACE) {
                 continue;
+            }
+            if (t.type == TokenType.STRING && t.text.length() >= 2 && t.text.charAt(0) == '`') {
+                t.text = rewriteTemplateLiteral(t.text, innerTokenizer, misc);
             }
             significant.add(t);
         }

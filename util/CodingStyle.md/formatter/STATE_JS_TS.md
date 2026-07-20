@@ -26,52 +26,55 @@ Makefile's local js/ts fixture lines (`INP_FILES += js_combined_inp.js`
 etc.) are still commented out as of this note. Agreed order for remaining
 work, before moving on to any other language job:
 
-1. Unblock JS from HTML5 (`XmlSpecificRule.renderScriptOrStyle`'s
-   `<script>` dispatch, currently throws per RDD_KEY_194 pending this job).
-   A first attempt at this step (uncommitted, in-progress as of this note)
-   found it is NOT bug-free — two things need fixing before this step can
-   be considered done:
-   TODO: `XmlSpecificRule`'s `<script>` dispatch (in `renderScriptOrStyle`)
-   currently synthesizes a throwaway `Config` via `Config.resolve(null,
-   overrides)` from just 4 primitive fields (`lineLengthLimit`,
-   `indentWidth`, `useTabs`, `normalizeCommentStartCase`) it happens to
-   already carry, silently defaulting every other JS/TS-specific knob
-   (`js-import-order`, `semicolons`, etc.) instead of inheriting the
-   enclosing HTML file's actually-resolved `Config`. Should be refactored
-   to thread the real `Config` through from `FormatterXml`/
-   `XmlSpecificRule`'s constructor instead. Deferred — not blocking, but
-   should be done before relying on any JS/TS-specific config key inside
-   spliced `<script>` content.
-   1a. **CDATA unwrapping not implemented.** `<script><![CDATA[ ... ]]>
-       </script>` content is captured verbatim by `finishRawTextElement`
-       *including* the literal `<![CDATA[`/`]]>` marker lines — dispatching
-       that raw text straight to the JS formatter would try to tokenize the
-       CDATA markers themselves as JS syntax and break. This is the
-       known limitation flagged in RDD_KEY_194 ("CDATA-inside-`<script>`/
-       `<style>` unwrap-and-dispatch exception is not implemented").
-       `test/html_comments_inp.html`'s `<script><![CDATA[...]]></script>`
-       relies on the `//% JXM_CFMT_DIS`/`ENA` freeze escape for exactly
-       this reason and must stay frozen until CDATA unwrap-and-rewrap is
-       implemented (strip the markers before dispatch, re-add them around
-       the formatted output on the way back out). Implement this first.
-   1b. **Spliced JS loses body indentation.** Even for a plain (non-CDATA)
-       `<script>` with real JS content, a quick harness test of the
-       plain-script dispatch path showed the formatted function body was
-       not indented under its Allman `{` (e.g. `return "Hello, " + name;`
-       flush against the margin instead of one level in) — root cause not
-       yet investigated, needs debugging once CDATA unwrapping (1a) is
-       done and the dispatch path is being revisited anyway.
-   Once both are fixed: wire the real dispatch call mirroring `<style>`'s
-   CSS splice (including CDATA unwrap/rewrap), update the two HTML
-   fixtures (`test/html_combined_inp/out.html`,
-   `test/html_comments_inp/out.html`), re-run `make test`.
-   Note: the user may open/edit these HTML fixtures directly between now
-   and the next session; it's fine if `make test` errors temporarily as a
-   result — don't treat a failing `make test` on these two fixtures alone
-   as a regression to chase blindly, check what changed in the fixtures
-   first.
+1. ~~Unblock JS from HTML5~~ — **DONE.** `XmlSpecificRule.renderScriptOrStyle`
+   dispatches real `<script>` content to `FormatterCore.forLanguage("js")`,
+   mirroring `<style>`'s CSS splice. Both sub-bugs found while finishing
+   this step are fixed:
+   1a. **CDATA unwrap/rewrap** — `renderScriptOrStyle` now detects a
+       dedented/trimmed raw body bounded by `<![CDATA[`/`]]>`, strips both
+       markers before dispatching the inner text to the JS formatter, and
+       re-wraps the formatted result in `<![CDATA[\n...\n]]>\n` before the
+       HTML-level `reindent`. Without this, the literal `<![CDATA[` text
+       was fed straight into the JS tokenizer as if it were source — it
+       didn't crash (unrecognized tokens pass through largely unchanged),
+       but it silently broke the declaration-alignment grid for `var`/`let`/
+       `const` groups following it (confirmed via a standalone `.js`
+       repro with a literal `<![CDATA[` header line: `=` alignment across
+       `var now = ...; var elapsed = ...;` was lost, while brace placement,
+       semicolon insertion, and the closing-comment pass were unaffected).
+       No remaining `//% JXM_CFMT_DIS`/`ENA` freeze wrapper needed —
+       confirmed removed from both HTML fixtures.
+   1b. **Spliced JS indentation doubling on idempotency round-trip** — the
+       original "body flush against the margin" symptom this item was filed
+       under turned out to be the same, already-documented general
+       limitation as `STATE_COMMON.md`'s "General scope-depth
+       reindentation" gap (this formatter preserves original relative
+       indentation, it doesn't reindent flush-left bodies from scratch) —
+       not something to special-case in the splice path. The actual,
+       splice-specific bug was different: `renderScriptOrStyle` fed the JS
+       formatter the raw `<script>` body without removing its existing
+       baked-in absolute indentation, then unconditionally added another
+       `reindent(..., depth + 1)` layer on top — round1 was fine, but
+       reformatting round1's own already-spliced output (idempotency
+       round2) doubled the indentation every round, since the previous
+       round's baked whitespace survived untouched through the JS formatter
+       and got a second prefix stacked on it. Fixed via a new `dedent()`
+       helper (strips the common leading whitespace shared by every
+       non-blank line of the raw body) applied before dispatch, so each
+       round starts from the same flush-left baseline regardless of what
+       absolute depth the previous round's `reindent` left behind.
+   The `Config`-threading TODO (the throwaway `Config.resolve(null,
+   overrides)` synthesis from 4 primitive fields, instead of the real
+   resolved `Config`) is **still open, not addressed by this step** — see
+   Open Design Questions below; it doesn't block correctness for any
+   currently-exercised JS/TS config key, only for someone relying on a
+   JS/TS-specific key (`js-import-order`, etc.) inside spliced `<script>`
+   content specifically.
+   Both HTML fixtures (`test/html_combined_inp/out.html`,
+   `test/html_comments_inp/out.html`) are updated and green: `make test`
+   106/106 forward + 106/106 idempotency.
 
-   Beyond steps 1-3 below, "JS/TS implemented, just needs dogfooding" is
+   Beyond steps 2-3 below, "JS/TS implemented, just needs dogfooding" is
    NOT yet accurate — these are real implementation gaps, not just
    untested code, and should be closed before treating the job as feature-
    complete:
@@ -272,6 +275,18 @@ session.
 
 ### Open Design Questions (not attempted, future work)
 
+- **`XmlSpecificRule`'s `<script>` dispatch doesn't thread the real resolved
+  `Config`.** `renderScriptOrStyle` synthesizes a throwaway `Config` via
+  `Config.resolve(null, overrides)` from just 4 primitive fields
+  (`lineLengthLimit`, `indentWidth`, `useTabs`, `normalizeCommentStartCase`)
+  it happens to already carry, silently defaulting every other JS/TS-
+  specific knob (`js-import-order`, `js-import-sort`, `js-import-blank-
+  lines`, etc.) instead of inheriting the enclosing HTML file's actually-
+  resolved `Config`. Should be refactored to thread the real `Config`
+  through from `FormatterXml.formatOne` (which already has it as a
+  parameter) into `XmlSpecificRule`'s constructor. Not blocking — no
+  currently-exercised fixture relies on a non-default JS/TS config key
+  inside spliced `<script>` content — but should land before relying on one.
 - **HTML5 needs its own dispatcher.** A `.html` file can embed inline
   `<script>`/`<style>` blocks that need to be spliced out, formatted by the
   appropriate sub-formatter (JS/TS for `<script>`, CSS for `<style>`, per

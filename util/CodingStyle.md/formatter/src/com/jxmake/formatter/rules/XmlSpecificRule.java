@@ -557,11 +557,53 @@ public final class XmlSpecificRule {
         overrides.put("indent-style", useTabs ? "tabs" : "spaces");
         overrides.put("normalize-comment-start-case", normalizeCommentStartCase ? "on" : "off");
         final Config jsConfig = Config.resolve(null, overrides);
+        final String dedented = dedent(n.raw).trim();
+        final boolean isCdata = dedented.startsWith("<![CDATA[") && dedented.endsWith("]]>");
+        final String jsSource = isCdata
+                ? dedented.substring("<![CDATA[".length(), dedented.length() - "]]>".length()).trim()
+                : dedented;
         final String jsFormatted = FormatterCore.forLanguage("js")
-                .formatOne(n.raw.trim(), "<script>", jsConfig, false);
+                .formatOne(jsSource, "<script>", jsConfig, false);
+        final String spliced = isCdata
+                ? "<![CDATA[\n" + jsFormatted.replaceAll("\\s+$", "") + "\n]]>\n"
+                : jsFormatted;
         out.append(openTag).append('\n');
-        out.append(reindent(jsFormatted, depth + 1));
+        out.append(reindent(spliced, depth + 1));
         out.append(indent(depth)).append("</").append(n.tagName).append(">\n");
+    }
+
+    /** Strips the common leading whitespace shared by every non-blank line of `text`. Without this,
+     *  reformatting an already-spliced `<script>` block (idempotency round2) would feed the JS
+     *  formatter content that already carries the previous round's `reindent`-baked absolute
+     *  indentation -- since this formatter preserves original relative indentation rather than
+     *  re-deriving it from brace depth (STATE_COMMON.md's "General scope-depth reindentation" gap),
+     *  that baked indentation survives untouched and `reindent` then adds a second layer on top,
+     *  compounding the indentation on every round. */
+    private String dedent(final String text) {
+        final String[] lines = text.split("\n", -1);
+        int minIndent = Integer.MAX_VALUE;
+        for (final String line : lines) {
+            if (line.trim().isEmpty()) {
+                continue;
+            }
+            int i = 0;
+            while (i < line.length() && (line.charAt(i) == ' ' || line.charAt(i) == '\t')) {
+                i++;
+            }
+            minIndent = Math.min(minIndent, i);
+        }
+        if (minIndent == Integer.MAX_VALUE || minIndent == 0) {
+            return text;
+        }
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < lines.length; i++) {
+            final String line = lines[i];
+            sb.append(line.length() >= minIndent ? line.substring(minIndent) : line.trim());
+            if (i < lines.length - 1) {
+                sb.append('\n');
+            }
+        }
+        return sb.toString();
     }
 
     /** Whether `raw` (a `<script>` element's inner content, possibly `<![CDATA[ ]]>`-wrapped)

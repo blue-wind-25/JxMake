@@ -31,6 +31,17 @@ work, before moving on to any other language job:
    A first attempt at this step (uncommitted, in-progress as of this note)
    found it is NOT bug-free — two things need fixing before this step can
    be considered done:
+   TODO: `XmlSpecificRule`'s `<script>` dispatch (in `renderScriptOrStyle`)
+   currently synthesizes a throwaway `Config` via `Config.resolve(null,
+   overrides)` from just 4 primitive fields (`lineLengthLimit`,
+   `indentWidth`, `useTabs`, `normalizeCommentStartCase`) it happens to
+   already carry, silently defaulting every other JS/TS-specific knob
+   (`js-import-order`, `semicolons`, etc.) instead of inheriting the
+   enclosing HTML file's actually-resolved `Config`. Should be refactored
+   to thread the real `Config` through from `FormatterXml`/
+   `XmlSpecificRule`'s constructor instead. Deferred — not blocking, but
+   should be done before relying on any JS/TS-specific config key inside
+   spliced `<script>` content.
    1a. **CDATA unwrapping not implemented.** `<script><![CDATA[ ... ]]>
        </script>` content is captured verbatim by `finishRawTextElement`
        *including* the literal `<![CDATA[`/`]]>` marker lines — dispatching
@@ -59,6 +70,28 @@ work, before moving on to any other language job:
    result — don't treat a failing `make test` on these two fixtures alone
    as a regression to chase blindly, check what changed in the fixtures
    first.
+
+   Beyond steps 1-3 below, "JS/TS implemented, just needs dogfooding" is
+   NOT yet accurate — these are real implementation gaps, not just
+   untested code, and should be closed before treating the job as feature-
+   complete:
+   - **RDD_KEY_182/183**: destructuring-pattern LHS, multi-declarator
+     statements, and `type X = ...` alias groups aren't joined to the
+     declaration-alignment grid yet — explicitly "not yet implemented",
+     not just untested.
+   - **`static get`/`set` vs. plain accessor padding inconsistency** —
+     confirmed real bug (Still Open #5's second half), no fix attempted.
+   - **Import-ordering comment/blank-line group-break rework**
+     (RDD_KEY_197) — design decided, code change not written (segment at
+     standalone comments instead of bailing the whole pass).
+   - **Nested template-literal interpolation** — `` `${`inner ${x}`}` ``
+     isn't recursively reformatted (known low-priority gap, §4).
+   - The `Config`-threading TODO above (HTML `<script>` splice path).
+
+   Only once those are closed does it become "implemented, just dogfood"
+   — i.e. the real-code testing pass against `nodejs/node`, `express`,
+   `lodash`, `microsoft/TypeScript`, `angular`, `nestjs`, `vue` already
+   listed in the Test-Fixture Repos section but not yet run.
 2. Activate `test/js_combined_inp/out.js` and `test/js_comments_inp/out.js`
    in the Makefile, run `make test`, and bug-fix whatever surfaces.
 3. Activate `test/ts_combined_inp/out.ts` and `test/ts_comments_inp/out.ts`

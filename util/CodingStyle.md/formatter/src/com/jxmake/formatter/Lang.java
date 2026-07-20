@@ -14,14 +14,15 @@ import java.util.Locale;
  * exactly once per {@link FormatterCore#formatOne}, so rule classes read {@link #isC}/{@link #isCpp}/
  * {@link #isJava}/{@link #isKotlin} instead of each re-comparing the raw {@link #language} string.
  *
- * <p>Also recognizes ("dispatches") a second tier of languages that are wired into detection but
- * have no real formatting logic yet -- {@link #isJson}/{@link #isJson5}/{@link #isYaml}/
- * {@link #isToml}, {@link #isJs}/{@link #isTs}, {@link #isPython3}. These are
- * intentionally excluded from {@link #isSupported}/{@link #SUPPORTED_LANGUAGES} (the `--lang`
- * CLI flag / server `lang` param whitelist) so a caller can never construct a {@link FormatterCore}
- * pipeline for them; {@link #isScaffoldOnly} is the single source of truth callers use to route
- * a recognized-but-unimplemented language to {@link UnsupportedLanguageException} instead -- see
- * `Main.processFile`/`ServerMode.FormatHandler.handle`.
+ * <p>Also recognizes ("dispatches") {@link #isPython3}, the one remaining language that is wired
+ * into detection but has no real formatting logic yet. It is intentionally excluded from
+ * {@link #isSupported}/{@link #SUPPORTED_LANGUAGES} (the `--lang` CLI flag / server `lang` param
+ * whitelist) so a caller can never construct a {@link FormatterCore} pipeline for it;
+ * {@link #isScaffoldOnly} is the single source of truth callers use to route a
+ * recognized-but-unimplemented language to {@link UnsupportedLanguageException} instead -- see
+ * `Main.processFile`/`ServerMode.FormatHandler.handle`. {@link #isJs}/{@link #isTs} moved out of
+ * scaffold-only once `JsTsSpecificRule`/`JsTsDeclarationAlignmentRule` landed real logic -- see
+ * `STATE_JS_TS.md`.
  *
  * <p>{@link #isCurly}/{@link #isIndentBased}/{@link #isTagBased} classify by scoping-delimiter
  * family (brace-block, indentation-block, tag-nested) -- used to pick the right `*Curly`/
@@ -81,26 +82,27 @@ public final class Lang {
      *    `ServerMode.FormatHandler.handle()`
      */
     public static final String SUPPORTED_LANGUAGES =
-            "c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5";
+            "c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts";
 
     /**
      * Scaffold-only languages: recognized by {@link #infer} and accepted by `--lang`/`lang=`, but
      * every real formatting attempt throws {@link UnsupportedLanguageException} -- no rule classes
-     * exist for them yet. See `STATE_DATA_FORMATS.md`/`STATE_JS_TS.md`/`STATE_PYTHON3.md`. (C++26
-     * is deliberately NOT a separate scaffold entry here -- it is future incremental rule coverage
-     * on the existing, already-implemented {@code "cpp"} pipeline, the same way C++20 support was
-     * folded in with no separate {@code isCpp20}/{@code --lang cpp20} selector. See RDD_KEY_180,
-     * which supersedes RDD_KEY_179's now-reverted separate-language approach.) JSON/JSON5/CSS moved
-     * out of this list once `FormatterJson`/`JsonSpecificRule` and `FormatterCss`/`CssSpecificRule`
-     * landed real logic -- see RDD_KEY_190. YAML/TOML moved out once `FormatterYaml`/
-     * `YamlSpecificRule` and `FormatterToml`/`TomlSpecificRule` landed real logic. XML and HTML5
-     * moved out once `FormatterXml`/`XmlSpecificRule` landed real logic for both (they share the
-     * same class internally, gated on `lang.isHtml5` -- RDD_KEY_188); HTML5's `<script>` dispatch
-     * to JS/TS still throws for any real (non-frozen) script content since JS/TS itself is still
-     * scaffold-only -- see `XmlSpecificRule.renderScriptOrStyle`/`STATE_JS_TS.md`.
+     * exist for them yet. See `STATE_PYTHON3.md`. (C++26 is deliberately NOT a separate scaffold
+     * entry here -- it is future incremental rule coverage on the existing, already-implemented
+     * {@code "cpp"} pipeline, the same way C++20 support was folded in with no separate
+     * {@code isCpp20}/{@code --lang cpp20} selector. See RDD_KEY_180, which supersedes
+     * RDD_KEY_179's now-reverted separate-language approach.) JSON/JSON5/CSS moved out of this
+     * list once `FormatterJson`/`JsonSpecificRule` and `FormatterCss`/`CssSpecificRule` landed
+     * real logic -- see RDD_KEY_190. YAML/TOML moved out once `FormatterYaml`/`YamlSpecificRule`
+     * and `FormatterToml`/`TomlSpecificRule` landed real logic. XML and HTML5 moved out once
+     * `FormatterXml`/`XmlSpecificRule` landed real logic for both (they share the same class
+     * internally, gated on `lang.isHtml5` -- RDD_KEY_188). JS/TS moved out once
+     * `JsTsSpecificRule`/`JsTsDeclarationAlignmentRule` landed real logic -- see `STATE_JS_TS.md`;
+     * HTML5's `<script>` dispatch to JS/TS (`XmlSpecificRule.renderScriptOrStyle`) now formats
+     * real (non-frozen) script content for real rather than throwing.
      */
     public static final String SCAFFOLD_ONLY_LANGUAGES =
-            "js, ts, python3";
+            "python3";
 
     public static boolean isSupported(final String language) {
         return "c".equals(language) || "cpp".equals(language)

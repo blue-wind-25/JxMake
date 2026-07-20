@@ -7,8 +7,7 @@
  * by `make test`'s diff loop (the fixture is commented out of INP_FILES on purpose).
  *
  * To exercise it manually, uncomment its INP_FILES line in the Makefile and confirm:
- *   java -jar target/code-formatter-1.00.jar --standalone --check test/in_file_config_error_inp.hpp
- * exits 1 with:
- *   jxmake-code-formatter: error: test/in_file_config_error_inp.hpp: multiple JXM_CFMT_CFG
- *   directives found -- only one is allowed per file
+ *     java -jar target/code-formatter-1.00.jar --standalone --check test/in_file_config_error_inp.hpp
+ * It will exit 1 with:
+ *     jxmake-code-formatter: error: test/in_file_config_error_inp.hpp: multiple JXM_CFMT_CFG directives found -- only one is allowed per file
  */

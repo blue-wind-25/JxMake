@@ -278,6 +278,20 @@ public abstract class DeclarationAlignmentRuleCore {
         if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isOp(prev, ".") || isOp(prev, "->") || isPunct(prev, "[") || isPunct(prev, "(")) {
             return false;
         }
+        // JS/TS spread/rest `...` is always tight against what follows it (`...rest`,
+        // `...items`) -- STYLE_JS_TS.md §3, enforced file-wide by
+        // JsTsSpecificRule.enforceSpreadRestSpacing, which runs long after this class's own
+        // declaration-alignment pass (FormatterCurly Phase 0 vs. its later flat Phase-1 pass).
+        // Without this, a destructuring-pattern LHS's `nameText` (built via this method through
+        // `renderTokens(patternTokens)`) measures `...rest` with a stray space (`... rest`,
+        // 22 chars) that the later pass then strips from the *rendered* text -- but not before
+        // ColumnGrid has already baked that 1-char-too-wide measurement into a sibling row's
+        // padding (`const { id, name, ...rest } = obj;` / `const x = 1;` misaligned by one
+        // column). Mirroring the later pass's own tight-after rule here up front keeps the two
+        // in agreement from the start.
+        if ((lang.isJs || lang.isTs) && isOp(prev, "...")) {
+            return false;
+        }
         return true;
     }
 

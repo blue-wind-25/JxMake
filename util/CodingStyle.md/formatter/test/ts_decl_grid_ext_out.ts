@@ -6,7 +6,7 @@
 function grid()
 {
     const { id, name, ...rest } = obj;
-    const x                      = 1;
+    const x                     = 1;
     type Status   = "a" | "b";
     type Combined = Status | number;
 }

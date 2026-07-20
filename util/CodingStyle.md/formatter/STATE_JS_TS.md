@@ -710,6 +710,27 @@ entry below unless noted otherwise.
    blank-line normalization (but not reordering) around a commented
    import. Flagging per the ambiguity protocol rather than guessing which
    the user wants.
+10. ~~`ts_decl_grid_ext_out.ts`'s destructuring/plain-identifier declaration
+    group misaligns `=` by one column~~ — **RESOLVED** (post-Item-5
+    checkpoint, reported by direct user testing of the Item 2 fixture).
+    Root cause: `JsTsDeclarationAlignmentRule`'s per-row `nameText` for a
+    destructuring-pattern LHS (`{ id, name, ...rest }`) is built via
+    `DeclarationAlignmentRuleCore.renderTokens`/`needsSpaceBetween` at
+    declaration-alignment-pass time (`FormatterCurly` Phase 0), which had
+    no spread/rest-operator tightness rule and so measured `...rest` with
+    a stray space (`... rest`, 22 chars). `JsTsSpecificRule
+    .enforceSpreadRestSpacing` (STYLE_JS_TS.md §3) strips that space in
+    the final rendered text, but only runs in Phase 1 — long after
+    `ColumnGrid` has already baked the stale 22-char measurement into the
+    group's shared column width, over-padding the sibling `const x = 1;`
+    row's `=` by one space. Fixed by adding a JS/TS-gated case to
+    `DeclarationAlignmentRuleCore.needsSpaceBetween` (mirroring
+    `enforceSpreadRestSpacing`'s own tight-after-`...` rule): `prev` being
+    a spread/rest `...` token now suppresses the following space, so
+    `nameText` is measured with the correct final width from the start.
+    `test/ts_decl_grid_ext_out.ts` regenerated (`const x` line: one fewer
+    padding space). Verified via `make jar && make test`: 110/110 forward,
+    110/110 idempotency, no regressions.
 
 Bugs 1, 2, and 4 are resolved (source fixes, earlier checkpoint). Bug 5's
 `#`-private-field doubled-`;` half is now also resolved (this checkpoint,

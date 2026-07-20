@@ -11,7 +11,7 @@ other jobs' files) are NOT required reading for this one — only
 
 Tracks implementation of C++26 support in the deterministic JAR formatter
 (`util/CodingStyle.md/formatter/`), per `STYLE_CPP26.md` (which itself builds
-on `STYLE.md`, `STYLE_C_CPP.md`, and `STYLE_CPP20.md`). 
+on `STYLE.md`, `STYLE_C_CPP.md`, and `STYLE_CPP20.md`).
 
 ---
 

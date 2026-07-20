@@ -177,10 +177,6 @@ invocation per file — `xargs` (without `-n1`) already chunks automatically if
 needed, so this is mainly a concern for a manually-constructed argument list.
 Same applies to round2 and to any `--diff`/`--check` verification pass.
 
-**Run one candidate at a time, via one sub-agent — never launch multiple
-real-code-testing sub-agents concurrently.** Wait for one to finish (or stop
-it) before starting the next.
-
 When an idempotency (or forward-pass) failure doesn't reproduce at the
 default config, try re-testing with a `.jxmake-code-formatter` overriding
 `indent-size`, `indent-style`, etc. to match the candidate's own actual

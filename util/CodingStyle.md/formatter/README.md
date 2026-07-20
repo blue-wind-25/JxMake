@@ -415,13 +415,13 @@ third-party client only needs to speak this HTTP protocol, not link against the 
 
 ## Known Limitations
 
-- **General scope‑depth reindentation is not supported for C/C++/Java/Kotlin.** These
-  languages preserve original whitespace by default (only narrow, targeted passes reindent
-  anything — see below), so jxmake‑code‑formatter cannot properly format badly indented
-  machine‑generated code, obfuscated code, or code copy‑pasted from emails and forums that
-  lost their indentation. This does **not** apply to JSON/JSON5/CSS/XML/HTML5/YAML/TOML,
+- **General scope‑depth reindentation is not supported for C/C++/Java/Kotlin/JavaScript/TypeScript.**
+  These languages preserve original whitespace by default (only narrow, targeted passes
+  reindent anything — see below), so jxmake‑code‑formatter cannot properly format badly
+  indented machine‑generated code, obfuscated code, or code copy‑pasted from emails and
+  forums that  lost their indentation. This does **not** apply to JSON/JSON5/CSS/YAML/TOML/XML/HTML5,
   which parse into a real tree and print indentation fresh from structural nesting depth
-  regardless of source formatting.
+  regardless of source formatting (however it **does** apply to embedded JavaScript in HTML5).
 
 - **Non-idempotent reindent on internally-inconsistent generated source, for any pass using
   a relative-delta technique.** Two known call sites share this root cause:

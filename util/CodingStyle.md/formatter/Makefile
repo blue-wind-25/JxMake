@@ -116,8 +116,8 @@ INP_FILES += cpp26_core_inp.cpp
 INP_FILES += cpp26_comments_inp.cpp
 INP_FILES += cpp26_reflection_inp.cpp
 
-#INP_FILES += js_combined_inp.js
-#INP_FILES += js_comments_inp.js
+INP_FILES += js_combined_inp.js
+INP_FILES += js_comments_inp.js
 INP_FILES += js_getter_setter_asi_inp.js
 INP_FILES += js_import_ordering_comments_inp.js
 INP_FILES += js_nested_template_literal_inp.js

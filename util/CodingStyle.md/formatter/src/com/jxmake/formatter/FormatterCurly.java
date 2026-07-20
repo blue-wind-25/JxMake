@@ -81,22 +81,35 @@ public final class FormatterCurly extends FormatterCore {
         if (lang.isCpp) {
             text = cppRule.enforceTemplateAngleBracketSpacing(tokenizer.apply(text));
         }
+        if (lang.isJs || lang.isTs) {
+            // STYLE_JS_TS.md §2: always insert explicit semicolons. Must run before
+            // ScopePipelineCurly.process below -- its own §11 declaration-alignment-grid pass
+            // (JsTsDeclarationAlignmentRule.parseDeclaration) requires a literal `;` token to
+            // recognize a statement's end at all; an ASI-reliant statement with no explicit `;`
+            // yet (e.g. `const calc = (a, b) => a + b`) was silently bailing out of grid-grouping
+            // entirely -- not just missing alignment, but every flat cosmetic-spacing pass inside
+            // that dropped group (comma spacing among them) never ran either, since none of them
+            // ever got the chance to re-tokenize that span. Confirmed via a standalone harness:
+            // the same statement list aligned/spaced correctly once already `;`-terminated, but
+            // silently fell back to raw input when relying on ASI. Also still runs before
+            // collapseSingleExpressionBlocks (now further down, inside Phase 1) for the original
+            // reason recorded below.
+            text = jsTsRule.enforceSemicolonInsertion(tokenizer.apply(text));
+        }
         text = new ScopePipelineCurly(lang, config.indentStyle(), config.isNormalizeCommentStartCase(),
                 config.isNormalizeCommentEndPeriod(), config.isCommentNormalizationClassifier(),
                 formatOff, indentWidth, lineLengthLimit).process(text);
 
         // Phase 1: structural/brace passes.
-        if (lang.isJs || lang.isTs) {
-            // STYLE_JS_TS.md §2: always insert explicit semicolons. Must run before
-            // collapseSingleExpressionBlocks below -- that pass's braceless-collapse eligibility
-            // check reads the block body's own trailing token, so if semicolon insertion ran
-            // later, round1 (no semicolon yet) and round2 (semicolon already present from round1's
-            // own output) would feed collapseSingleExpressionBlocks two different token shapes for
-            // the same logical statement, breaking idempotency (confirmed via a standalone
-            // harness: `if (x) { doThing() }` stayed braced on round1 but collapsed to
-            // `if(x) doThing();` on round2 when this ran after the collapse pass instead).
-            text = jsTsRule.enforceSemicolonInsertion(tokenizer.apply(text));
-        }
+        // (STYLE_JS_TS.md §2 semicolon insertion itself now runs earlier, right before
+        // ScopePipelineCurly.process above -- see the comment there. It must still run before
+        // collapseSingleExpressionBlocks below: that pass's braceless-collapse eligibility check
+        // reads the block body's own trailing token, so if semicolon insertion ran later, round1
+        // (no semicolon yet) and round2 (semicolon already present from round1's own output)
+        // would feed collapseSingleExpressionBlocks two different token shapes for the same
+        // logical statement, breaking idempotency (confirmed via a standalone harness: `if (x) {
+        // doThing() }` stayed braced on round1 but collapsed to `if(x) doThing();` on round2 when
+        // this ran after the collapse pass instead).
         if (lang.isTs) {
             // STYLE_JS_TS.md §12: TS enum bodies are always reflowed to one member per line
             // (regardless of original layout) with `=` column-alignment when explicit values are

@@ -732,6 +732,21 @@ protected static String padLeft(final String s, final int width) {
         if (targetType == TokenType.KEYWORD && "auto".equals(stmt.get(targetIdx).text)) {
             return null;
         }
+        // Same shape, JS/TS side: `const [a, b, ...c] = expr;` (array-destructuring
+        // declaration) starts with `const`/`let`/`var` followed by `[` -- that's
+        // JsTsDeclarationAlignmentRule's shape, not an assignment to a subscript of a variable
+        // literally named "const"/"let"/"var". Without this bail-out, this method's generic
+        // `[`-as-subscript scan below still matched it, and this class's own JS/TS-unaware
+        // `renderTokens`/`isTightToken` (which treats `...` as tight on BOTH sides, unlike
+        // JsTsDeclarationAlignmentRule's JS/TS-aware "space before, tight after" rule) re-
+        // rendered and re-spliced the already-correctly-rendered pattern, corrupting `[first,
+        // second, ...others]` into `[first, second,... others]` (object-destructuring `{...}`
+        // patterns were never affected -- `{` isn't one of this scan's recognized LHS shapes).
+        if ((lang.isJs || lang.isTs) && targetType == TokenType.KEYWORD
+                && ("const".equals(stmt.get(targetIdx).text) || "let".equals(stmt.get(targetIdx).text)
+                        || "var".equals(stmt.get(targetIdx).text))) {
+            return null;
+        }
         // Scan forward to find the assignment operator, allowing member-access chains
         // (obj.field, ptr->field) and subscript expressions (arr[i]) in the LHS.
         // State 0: after target/field, expecting op or member-access operator.

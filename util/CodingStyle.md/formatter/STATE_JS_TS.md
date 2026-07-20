@@ -31,13 +31,31 @@ import-ordering rework, nested template-literal interpolation, the
 `XmlSpecificRule` Config-threading TODO) are **resolved** — see Resolved
 Design Decisions and Checklist below. Remaining work, in order:
 
-1. Activate `test/js_combined_inp/out.js` and `test/js_comments_inp/out.js`
-   in the Makefile, run `make test`, bug-fix whatever surfaces. Note:
-   `js_comments_inp.js`'s `_out.js` fixture predates the RDD_KEY_197 import-
-   ordering rework — re-verify its expectation still matches the new
-   segment-not-bail behavior before assuming a diff is a new bug.
+1. ~~Activate `test/js_combined_inp/out.js` and `test/js_comments_inp/out.js`~~
+   **DONE.** Both active in the Makefile, `make test` green. Three real bugs
+   found and fixed along the way — see "Resolved this session" below.
 2. Activate `test/ts_combined_inp/out.ts` and `test/ts_comments_inp/out.ts`
-   in the Makefile, run `make test`, bug-fix whatever surfaces.
+   in the Makefile, run `make test`, bug-fix whatever surfaces. **IN
+   PROGRESS** — Makefile activation attempted, `make test` currently FAILS
+   with a large diff. Root cause identified but not yet fixed: TS
+   `interface`/`type`-literal member lists and class-field declarations are
+   ASI-reliant in the fixture's input (no explicit `;`), same shape as the
+   JS declaration bug just fixed, but `enforceSemicolonInsertion` only
+   inserts semicolons for ordinary statements — it does not cover
+   interface/type-literal property-signature members or bare class-field
+   declarations, so the `;`-requiring passes downstream
+   (`enforceInterfaceTypeAliasMemberColonAlignment`, class field colon
+   spacing) bail out on the whole containing body. A second, narrower bug
+   found in the same pass: `void` is listed in `CONTINUATION_KEYWORDS`
+   (correct for the expression operator `void 0`) but wrongly also blocks
+   semicolon insertion when `void` is a TS *type* keyword ending a
+   function-type return position (`(id: string) => void`) — these are two
+   different grammatical roles colliding on one token spelling. Additional
+   surfaced (not yet triaged) diffs: multi-line union-type continuation
+   indent, decorator+class-declaration same-line splitting, an oversized
+   class name's closing `}` comment. The Makefile's TS activation lines are
+   currently reverted back to commented-out pending this fix — re-activate
+   as part of resolving this item.
 3. Real-code testing pass (see Test-Fixture Repos below) — not started.
 
 Rationale (user's own words): the JS/TS basics should be solid before
@@ -197,6 +215,51 @@ Phase 4 flat spacing, Phase 5 import ordering). `make test`: 110/110 forward
   threads the enclosing HTML file's real resolved `Config` into the spliced
   `<script>` path instead of a throwaway 4-field synthesis.
 - **Real-code testing pass** — NOT started (see Test-Fixture Repos).
+
+### Resolved this session (js_combined/js_comments activation)
+
+- **Destructuring-pattern-with-internal-comment collapse bug** — a comment
+  embedded inside a destructuring pattern (e.g. `{ id, // note\n name }`)
+  was silently dropped on a second format pass, because `significantOnly()`
+  strips comment tokens the same as whitespace, so
+  `JsTsDeclarationAlignmentRule.parseDestructuringDeclaration`'s pattern scan
+  never saw it. Fixed by scanning the raw (comment-bearing) statement
+  tokens for a comment between the pattern's first/last tokens and bailing
+  (leaving the statement's own multi-line form untouched) if found.
+- **ASI-vs-declaration-alignment-grid phase-ordering bug** — a significant
+  pipeline defect: `FormatterCurly.formatOne`'s Phase 0 ran the
+  declaration-alignment grid pass *before* `enforceSemicolonInsertion`, so
+  any ASI-reliant declaration (no explicit `;` in source) was invisible to
+  `JsTsDeclarationAlignmentRule.parseDeclaration`'s hard requirement for a
+  literal `;` token — it (and every row in its alignment group) silently
+  fell back to raw, unformatted input. Fixed by moving
+  `enforceSemicolonInsertion` to run before `ScopePipelineCurly.process()`
+  instead of after it.
+- **Array-destructuring `,`→`...` missing space** — `[first, second,
+  ...others]` was rendering as `[first, second,... others]` (space
+  misplaced from before `...` to after it), while the equivalent
+  object-destructuring `{ ...rest }` rendered correctly. Root cause:
+  `MiscRuleCore.parseAssignment` (the older, JS/TS-unaware §6 bare-
+  assignment grouping pass) misparsed `const [first, second, ...others] =
+  expr;` as a plain assignment — `const` (a KEYWORD) was accepted as an
+  assignment target, and the following `[...]` was scanned as a subscript
+  expression, not recognized as `JsTsDeclarationAlignmentRule`'s own
+  destructuring shape. This let `applyAssignmentsPass` re-parse and re-
+  splice a statement the declaration-alignment pass had *already* rendered
+  correctly, using this class's own separate `renderTokens`/`isTightToken`
+  (which treats `...` as tight on both sides, unlike
+  `JsTsDeclarationAlignmentRule`'s JS/TS-aware "space before, tight after"
+  rule). Object-destructuring was never affected — `{` isn't one of
+  `parseAssignment`'s recognized LHS shapes, only `[` is. Fixed by adding a
+  `const`/`let`/`var` bail-out to `parseAssignment`, mirroring the existing
+  C++ `auto [a, b] = expr;` structured-binding bail-out.
+- **`js_combined_out.js` fixture regenerated** — the fixture expected
+  `const process = (data) => {...}` (a multi-line arrow-function
+  initializer) to join the alignment grid with a padded `=`, but
+  `JsTsDeclarationAlignmentRule`'s documented design deliberately excludes
+  multi-line block/lambda initializers from the grid (same precedent as
+  Kotlin). Confirmed with the user: keep the design, regenerate the
+  fixture — done.
 
 ### Known false positives (no source change needed, fixture-only)
 

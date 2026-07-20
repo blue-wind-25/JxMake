@@ -34,7 +34,7 @@ export class Widget {
         const len                        = this.profile?.bio?.length ?? 0;
         const calc                       = (a, b) => a + b;
         const withDefault                = (a, b = 10) => a + b;
-        const process                    = (data) => {
+        const process = (data) => {
             return transform(data);
         };
         this.#cache.set(id, merged);

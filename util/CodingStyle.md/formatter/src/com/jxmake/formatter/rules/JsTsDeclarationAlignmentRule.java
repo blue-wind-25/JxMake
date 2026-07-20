@@ -266,6 +266,12 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
         if (patternTokens.isEmpty() || !close.equals(patternTokens.get(patternTokens.size() - 1).text)) {
             return null;
         }
+        if (hasCommentWithin(stmt, patternTokens.get(0), patternTokens.get(patternTokens.size() - 1))) {
+            return null; // significantOnly() already stripped comments out of patternTokens --
+                         // check the raw stmt so a comment embedded inside the destructuring
+                         // pattern (e.g. `{ id, // note\n name }`) isn't silently dropped by
+                         // renderTokens' one-line collapse
+        }
         final Token anchorName = patternTokens.get(0);
 
         List<Token> typeTokens = new ArrayList<>();
@@ -402,6 +408,25 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
         final Token lastAnchor = trailingComment != null ? trailingComment : semi;
         return new Row(keyword, name, name.text, new ArrayList<>(), initTokens, trailingComment,
                 lastAnchor, true);
+    }
+
+    /** Scans the raw (comment-bearing) {@code stmt} for any comment token between {@code from}
+     *  and {@code to} inclusive (matched by identity, since both come from a {@code
+     *  significantOnly}-filtered sublist of the same token objects). */
+    private boolean hasCommentWithin(final List<Token> stmt, final Token from, final Token to) {
+        boolean inRange = false;
+        for (final Token t : stmt) {
+            if (t == from) {
+                inRange = true;
+            }
+            if (inRange && (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK)) {
+                return true;
+            }
+            if (t == to) {
+                break;
+            }
+        }
+        return false;
     }
 
     /** Same "embedded comment inside the initializer would be silently dropped" bailout as

@@ -38,6 +38,21 @@ Compact (use one sub-agent) the narration in `test/README.txt`:
 
 
 
+Next, implement these first:
+   - The `Config`-threading TODO above (HTML `<script>` splice path).
+   - **RDD_KEY_182/183**: destructuring-pattern LHS, multi-declarator
+     statements, and `type X = ...` alias groups aren't joined to the
+     declaration-alignment grid yet — explicitly "not yet implemented",
+     not just untested.
+   - **`static get`/`set` vs. plain accessor padding inconsistency** —
+     confirmed real bug (Still Open #5's second half), no fix attempted.
+   - **Import-ordering comment/blank-line group-break rework**
+     (RDD_KEY_197) — design decided, code change not written (segment at
+     standalone comments instead of bailing the whole pass).
+   - **Nested template-literal interpolation** — `` `${`inner ${x}`}` ``
+     isn't recursively reformatted (known low-priority gap, §4).
+Use one sub-agent if needed, but group the jobs for token efficiency.
+
 Continue with the implementation of the JS/TS formatter.
 Don't implement it all at once, make check points to ensure the formatter source code is clean and compiles well.
 Use one sub-agent if needed, the sub-agent can launch up to two more research sub-sub-agents.

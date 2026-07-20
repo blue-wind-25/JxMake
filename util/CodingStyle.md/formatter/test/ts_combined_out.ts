@@ -33,7 +33,7 @@ interface Props extends BaseProps {
 type Point = {
     x : number;
     y : number;
-};
+}; // type Point
 
 type Keys = keyof Point;
 

@@ -8,6 +8,7 @@ import { debounce } from "lodash"; // Utility for rate limiting
 @Component({ selector: "app-widget" })
 // Class-level implementation note
 export class Widget {
+
     // Exposed input
     @Input() name;
     @Output() changed = new EventEmitter(); // Fired on change
@@ -26,7 +27,7 @@ export class Widget {
         const len = this.profile?.bio?.length ?? 0;
 
         return merged;
-    } // async load
+    } // load
 
     // Generator for iteration
     *iterate()
@@ -34,4 +35,5 @@ export class Widget {
         yield 1; // First value
         yield 2;
     }
+
 } // class Widget

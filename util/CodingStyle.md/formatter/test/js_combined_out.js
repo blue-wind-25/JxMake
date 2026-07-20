@@ -9,6 +9,7 @@ import { helper } from "./helper";
 
 @Component({ selector: "app-widget" })
 export class Widget {
+
     @Input() name;
     @Output() changed = new EventEmitter();
     #cache = new Map();
@@ -34,13 +35,14 @@ export class Widget {
         this.#cache.set(id, merged);
 
         return merged;
-    } // async load
+    } // load
 
     *iterate()
     {
         yield 1;
         yield 2;
     }
+
 } // class Widget
 
 export default Widget;

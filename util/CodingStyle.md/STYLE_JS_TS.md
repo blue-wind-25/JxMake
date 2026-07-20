@@ -125,7 +125,7 @@ class Widget {
     {
         return this.template;
     }
-}
+} // class Widget
 ```
 
 **Exceptions that stay K&R / one-liner, not Allman:**
@@ -187,7 +187,7 @@ class Point {
     set x   (value) { this._x = value; }
     get y   ()      { return this._y; }
     isValid ()      { return this._x > 0 && this._y > 0; }
-}
+} // class Point
 ```
 
 Same STYLE.md §14 rules apply directly: align the `)` column, `{` column, body, and
@@ -213,7 +213,7 @@ export class Widget {
     @Output() changed = new EventEmitter<void>();
 
     constructor(@Inject(TOKEN) private service: Service) {}
-}
+} // class Widget
 ```
 
 **Placement** — own-line (before a class/method) vs. inline (before a property or
@@ -243,7 +243,7 @@ async function load()
 {
     const result = await api.get(url);
     return result;
-}
+} // load
 ```
 
 `async` before a function/arrow declaration follows the same single-space-after-
@@ -331,7 +331,7 @@ class Config {
     private static readonly DEFAULT : string = "en";
     private                 locale  : string;
     protected               count   : number;
-}
+} // class Config
 ```
 
 ## 12. Enums
@@ -351,7 +351,7 @@ style consistently lists enum members one-per-line either way.
       Red,
       Green,
       Blue,
-  }
+  } // enum Color
   ```
 - **Explicit member values present** — one member per line, `NAME = VALUE,`, `=`
   column-aligned across the group, same as C++'s `enum class` values (STYLE.md §6's
@@ -361,7 +361,7 @@ style consistently lists enum members one-per-line either way.
       Active   = 1,
       Inactive = 2,
       Pending  = 3,
-  }
+  } // enum Status
   ```
 - Closing brace gets a closing comment, same convention as §1's Baseline
   (`} // enum Status`) — no trailing `;` needed, unlike C++'s `enum class`.
@@ -393,12 +393,12 @@ interface Props {
     id       : string;
     label    : string;
     onSelect : (id: string) => void;
-}
+} // interface Props
 
 type Point = {
     x : number;
     y : number;
-};
+}; // type Point
 ```
 
 Brace style for the declaration itself is **K&R** (`{` on the same line as the
@@ -406,6 +406,13 @@ declaration) — `interface`/`type`/`class` bodies are container constructs, not
 function/method definitions, so they follow STYLE.md §11 (Non-function Block Brace
 Style), the same rule Java's own class/interface/enum bodies use, not §5 above's
 Allman rule for named functions/methods.
+
+An object-shaped `type X = { ... }` alias is a named construct in the same
+sense as `interface`, `class`, and `enum` (STYLE.md §7's universal rule), so
+it always gets a closing comment regardless of body length — `}; // type X`,
+with the comment placed after the trailing semicolon the alias requires.
+Non-object-shaped aliases (e.g. `type Status = "active" | "inactive";`, §13
+above) have no brace body and so this doesn't apply to them.
 
 ## 15. Import Ordering
 

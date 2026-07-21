@@ -21,12 +21,12 @@ import java.util.Set;
  * strings/operators/punctuation, mirroring {@link TokenizerCurly}'s generic-emitter usage.
  * Deliberately NOT yet covered (still out of scope until a later checklist item): f-string
  * interpolation-boundary sub-tokenization (a prefixed string is lexed as identifier-then-opaque-
- * string, `{...}` interior not split out), the `:=` walrus operator's own OP text (currently
- * falls out of {@link #emitOperator} as plain `:` then `=` -- fine for opaque pass-through, wrong
- * once assignment-alignment rules need to recognize walrus as one unit), and INDENT/DEDENT
- * synthesis (Python's indentation is significant/load-bearing -- see STATE_PYTHON3.md's Open
- * Questions -- this slice only emits {@code WHITESPACE}/{@code NEWLINE} tokens verbatim, same as
- * every other family, with no structural depth tracking yet).
+ * string, `{...}` interior not split out), and INDENT/DEDENT synthesis (Python's indentation is
+ * significant/load-bearing -- see STATE_PYTHON3.md's Open Questions -- this slice only emits
+ * {@code WHITESPACE}/{@code NEWLINE} tokens verbatim, same as every other family, with no
+ * structural depth tracking yet). The `:=` walrus operator (PEP 572) IS handled -- see
+ * {@link #emitWalrus} -- emitted as a single OP token rather than falling out as `:` PUNCT + `=`
+ * OP.
  */
 public class TokenizerIndent extends TokenizerCore {
 
@@ -83,6 +83,8 @@ public class TokenizerIndent extends TokenizerCore {
                 t = emitNumber();
             } else if (isIdentifierStart(c)) {
                 t = emitIdentifierOrKeyword();
+            } else if (c == ':' && peek(1) == '=') {
+                t = emitWalrus();
             } else if (c == '(' || c == '[' || c == '{' || c == ')' || c == ']' || c == '}'
                     || c == ',' || c == ':' || c == ';') {
                 t = emitPunct(c);
@@ -185,6 +187,16 @@ public class TokenizerIndent extends TokenizerCore {
     private Token emitPunct(final char c) {
         pos++;
         return new Token(TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null);
+    }
+
+    /** The `:=` walrus operator (PEP 572), emitted as a single OP token rather than falling out
+     *  as separate `:` PUNCT + `=` OP -- dispatched from {@link #tokenize} before the general
+     *  punct branch since `:` is otherwise claimed by {@link #emitPunct}. */
+    private Token emitWalrus() {
+        final int start = pos;
+        pos += 2;
+        return new Token(TokenType.OP, source.substring(start, pos), braceDepth, parenDepth,
+                null);
     }
 
     private Token emitOperator() {

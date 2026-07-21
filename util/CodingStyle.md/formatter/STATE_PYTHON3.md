@@ -244,18 +244,23 @@ real-world drift patterns in the `psf/black`/`django` fixture repos once
       `"quote"`, a `'''...'''` string, and adjacent single-line
       `"a"`/`'b'` strings all tokenized correctly as distinct,
       correctly-bounded tokens) and a full `make test` run (114/114
-      forward + idempotency, zero regressions). **Explicitly NOT yet
-      covered by this slice** (still open, needed before this item can be
-      checked off): f-string interpolation-boundary sub-tokenization (a
+      forward + idempotency, zero regressions). **Third slice landed:**
+      `emitWalrus` added — the `:=` walrus operator (PEP 572) is now
+      dispatched (in `tokenize()`, checked before the general punct branch
+      since `:` is otherwise claimed by `emitPunct`) as a single `OP`
+      token instead of falling out as separate `:` PUNCT + `=` OP.
+      Verified via a one-off smoke test (`if (n := len(a)) > 10:`
+      tokenized with `:=` as one `OP` token and the trailing statement `:`
+      still correctly a separate `PUNCT`) and a full `make test` run
+      (114/114 forward + idempotency, zero regressions). **Explicitly NOT
+      yet covered by this slice** (still open, needed before this item can
+      be checked off): f-string interpolation-boundary sub-tokenization (a
       prefixed string is lexed as identifier-then-opaque-string, `{...}`
-      interior not split out), the `:=` walrus operator (currently falls
-      out as separate `:` PUNCT then `=` OP tokens — harmless for pure
-      pass-through but wrong once a rule needs to recognize it as one
-      unit), and any INDENT/DEDENT/structural-depth synthesis (this slice
-      emits `WHITESPACE`/`NEWLINE` verbatim with no depth tracking at all,
-      same as every other family today — the Open Questions section's
-      per-block-indent-conversion design still needs to be built on top of
-      this, not assumed already present).
+      interior not split out), and any INDENT/DEDENT/structural-depth
+      synthesis (this slice emits `WHITESPACE`/`NEWLINE` verbatim with no
+      depth tracking at all, same as every other family today — the Open
+      Questions section's per-block-indent-conversion design still needs
+      to be built on top of this, not assumed already present).
 - [ ] Implement basic statement/indentation formatting first (the Python
       analog of a "get the skeleton right" starting point, since there are
       no braces to reuse the existing block-structure rule against) —

@@ -1,13 +1,10 @@
 # STATE_JS_TS.md — JavaScript / TypeScript JAR Support Tracker
 
-Read `STATE_COMMON.md` first — it has the shared commit/ambiguity/testing
-conventions this file assumes. `STATE_C_CPP_JAVA.md`/`STATE_KOTLIN.md` (the
-other jobs' files) are NOT required reading for this one — only
-`STATE_COMMON.md` is.
+Read `STATE_COMMON.md` first (shared commit/ambiguity/testing conventions).
+`STATE_C_CPP_JAVA.md`/`STATE_KOTLIN.md` are not required reading for this job.
 
-Full historical narrative (root-cause writeups for each resolved bug) lives
-in `git log` for this directory, not duplicated here — this file tracks
-current state only.
+Full historical narrative (root-cause writeups) lives in `git log` for this
+directory, not duplicated here — this file tracks current state only.
 
 ---
 
@@ -32,24 +29,25 @@ import-ordering rework, nested template-literal interpolation, the
 Design Decisions and Checklist below. Remaining work, in order:
 
 1. ~~Activate `test/js_combined_inp/out.js` and `test/js_comments_inp/out.js`~~
-   **DONE.** Both active in the Makefile, `make test` green. Three real bugs
-   found and fixed along the way — see "Resolved this session" below.
+   **DONE.** Both active in Makefile, `make test` green. Three real bugs
+   found/fixed — see "Resolved this session (js_combined/js_comments
+   activation)" below.
 2. ~~Activate `test/ts_combined_inp/out.ts` and `test/ts_comments_inp/out.ts`~~
-   **DONE.** Both active in the Makefile, `make test` green (114/114 forward
-   + idempotency). Real bugs found and fixed: `GENERIC_SAFE_KEYWORDS`
-   missing TS primitive type keywords (ASI-breaking angle-bracket
-   misdetection), `parseEnumMembers` bailing instead of ending the value on
-   a last-member depth-0 NEWLINE, no comma-spacing pass for generic type
-   arguments, no continuation-indent pass for multi-line union/intersection
-   `type` aliases (including one that unconditionally bailed on any comment
-   in the RHS span rather than just frozen tokens), and no `:`/`=`
-   alignment-grid pass for class fields at all. See "Resolved this session
-   (ts_combined/ts_comments activation)" below for full detail on each.
+   **DONE.** Both active in Makefile, `make test` green (114/114 forward +
+   idempotency). Real bugs found/fixed: `GENERIC_SAFE_KEYWORDS` missing TS
+   primitive type keywords (ASI-breaking angle-bracket misdetection),
+   `parseEnumMembers` bailing instead of ending the value on a last-member
+   depth-0 NEWLINE, no comma-spacing pass for generic type arguments, no
+   continuation-indent pass for multi-line union/intersection `type` aliases
+   (including one that unconditionally bailed on any comment in the RHS span
+   rather than just frozen tokens), and no `:`/`=` alignment-grid pass for
+   class fields at all. See "Resolved this session (ts_combined/ts_comments
+   activation)" below for full detail.
 3. Real-code testing pass (see Test-Fixture Repos below) — not started.
 
 Rationale (user's own words): the JS/TS basics should be solid before
 dogfooding — get this job to a genuinely stable baseline first, then move on
-to Python3 (next language job in the rotation).
+to Python3 (next language job in rotation).
 
 ---
 
@@ -126,8 +124,8 @@ extension (`.js` vs. `.ts`), not shared, since TS-only constructs
 `js_combined`/`js_comments`/`ts_combined`/`ts_comments` are all now active
 in the Makefile and passing (see Next Steps 1–2, both DONE). All other
 local JS/TS fixtures (`ts_decl_grid_ext`, `js_getter_setter_asi`,
-`js_import_ordering_comments`, `js_nested_template_literal`, etc.) are
-also active and passing.
+`js_import_ordering_comments`, `js_nested_template_literal`, etc.) are also
+active and passing.
 
 ---
 
@@ -214,11 +212,11 @@ Phase 4 flat spacing, Phase 5 import ordering). `make test`: 114/114 forward
 ### Resolved this session (js_combined/js_comments activation)
 
 - **Destructuring-pattern-with-internal-comment collapse bug** — a comment
-  embedded inside a destructuring pattern (e.g. `{ id, // note\n name }`)
-  was silently dropped on a second format pass, because `significantOnly()`
-  strips comment tokens the same as whitespace, so
-  `JsTsDeclarationAlignmentRule.parseDestructuringDeclaration`'s pattern scan
-  never saw it. Fixed by scanning the raw (comment-bearing) statement
+  inside a destructuring pattern (e.g. `{ id, // note\n name }`) was
+  silently dropped on a second format pass, because `significantOnly()`
+  strips comment tokens like whitespace, so
+  `JsTsDeclarationAlignmentRule.parseDestructuringDeclaration`'s pattern
+  scan never saw it. Fixed by scanning the raw (comment-bearing) statement
   tokens for a comment between the pattern's first/last tokens and bailing
   (leaving the statement's own multi-line form untouched) if found.
 - **ASI-vs-declaration-alignment-grid phase-ordering bug** — a significant
@@ -231,23 +229,23 @@ Phase 4 flat spacing, Phase 5 import ordering). `make test`: 114/114 forward
   `enforceSemicolonInsertion` to run before `ScopePipelineCurly.process()`
   instead of after it.
 - **Array-destructuring `,`→`...` missing space** — `[first, second,
-  ...others]` was rendering as `[first, second,... others]` (space
-  misplaced from before `...` to after it), while the equivalent
-  object-destructuring `{ ...rest }` rendered correctly. Root cause:
-  `MiscRuleCore.parseAssignment` (the older, JS/TS-unaware §6 bare-
-  assignment grouping pass) misparsed `const [first, second, ...others] =
-  expr;` as a plain assignment — `const` (a KEYWORD) was accepted as an
-  assignment target, and the following `[...]` was scanned as a subscript
-  expression, not recognized as `JsTsDeclarationAlignmentRule`'s own
-  destructuring shape. This let `applyAssignmentsPass` re-parse and re-
-  splice a statement the declaration-alignment pass had *already* rendered
-  correctly, using this class's own separate `renderTokens`/`isTightToken`
-  (which treats `...` as tight on both sides, unlike
-  `JsTsDeclarationAlignmentRule`'s JS/TS-aware "space before, tight after"
-  rule). Object-destructuring was never affected — `{` isn't one of
-  `parseAssignment`'s recognized LHS shapes, only `[` is. Fixed by adding a
-  `const`/`let`/`var` bail-out to `parseAssignment`, mirroring the existing
-  C++ `auto [a, b] = expr;` structured-binding bail-out.
+  ...others]` rendered as `[first, second,... others]` (space misplaced
+  from before `...` to after it), while equivalent object-destructuring
+  `{ ...rest }` rendered correctly. Root cause: `MiscRuleCore.
+  parseAssignment` (the older, JS/TS-unaware §6 bare-assignment grouping
+  pass) misparsed `const [first, second, ...others] = expr;` as a plain
+  assignment — `const` (a KEYWORD) was accepted as an assignment target,
+  and the following `[...]` was scanned as a subscript expression, not
+  recognized as `JsTsDeclarationAlignmentRule`'s own destructuring shape.
+  This let `applyAssignmentsPass` re-parse and re-splice a statement the
+  declaration-alignment pass had *already* rendered correctly, using this
+  class's own separate `renderTokens`/`isTightToken` (which treats `...`
+  as tight on both sides, unlike `JsTsDeclarationAlignmentRule`'s JS/TS-
+  aware "space before, tight after" rule). Object-destructuring was never
+  affected — `{` isn't a `parseAssignment`-recognized LHS shape, only `[`
+  is. Fixed by adding a `const`/`let`/`var` bail-out to `parseAssignment`,
+  mirroring the existing C++ `auto [a, b] = expr;` structured-binding
+  bail-out.
 - **`js_combined_out.js` fixture regenerated** — the fixture expected
   `const process = (data) => {...}` (a multi-line arrow-function
   initializer) to join the alignment grid with a padded `=`, but
@@ -306,15 +304,15 @@ Phase 4 flat spacing, Phase 5 import ordering). `make test`: 114/114 forward
   modifier-phrase/name/type columns per group, matching the existing
   interface/enum alignment convention (double-space before trailing
   comment, name padded to the widest name in the group even across an
-  interspersed leading comment on another member). Two bugs found and
-  fixed during implementation, both in `rewriteClassFieldGroups`:
+  interspersed leading comment on another member). Two bugs found/fixed
+  during implementation, both in `rewriteClassFieldGroups`:
   - Double-indentation on the first field of each group — the group-start
     raw-copy loop was copying WHITESPACE tokens (indentation) as well as
     NEWLINE tokens, duplicating the indent `flushClassFieldGroup` supplies
     itself. Fixed by only copying NEWLINE tokens.
   - Duplicate blank line before a group's first field when that field has
-    a leading comment — the same raw-copy loop counted the newline
-    *after* the leading comment as part of the "blank line before group"
+    a leading comment — the same raw-copy loop counted the newline *after*
+    the leading comment as part of the "blank line before group"
     preservation, but `flushClassFieldGroup` already renders that comment
     with its own trailing newline. Fixed by tracking
     `leadingCommentsStartIdx` and stopping the raw-copy loop there instead
@@ -346,9 +344,9 @@ Phase 4 flat spacing, Phase 5 import ordering). `make test`: 114/114 forward
 
 ### Known false positives (no source change needed, fixture-only)
 
-- A spurious-looking blank line after a class's opening `{` in older
-  `.js` fixture drafts, and a doubled trailing space before a one-liner
-  getter body's closing `}` — both confirmed correct, existing behavior
+- A spurious-looking blank line after a class's opening `{` in older `.js`
+  fixture drafts, and a doubled trailing space before a one-liner getter
+  body's closing `}` — both confirmed correct, existing behavior
   (STYLE.md §7 named-construct blank line; `GetterSetterRuleCurly`'s
   group-width body padding), matching passing C++/Java/Kotlin fixtures
   byte-for-byte. Only the stale hand-authored `.js` draft fixtures were

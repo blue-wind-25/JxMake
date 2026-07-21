@@ -153,15 +153,13 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 ## Open Questions
 
 - **range-v3 real-code-testing item 20, bug (a): RESOLVED.** Idempotency divergence in
-  `utility/any.hpp`, `iterator/common_iterator.hpp`, `meta.hpp`. Root cause and fix: see entry
-  (20) in "Finished dogfood / real-code testing" below. Full narrative and refuted alternative
-  hypotheses: `RDD_KEY_169` in `RDD_LOG.md`.
+  `utility/any.hpp`, `iterator/common_iterator.hpp`, `meta.hpp`. Root cause/fix: entry (20) in
+  "Finished dogfood / real-code testing" below. Full narrative: `RDD_KEY_169` in `RDD_LOG.md`.
 
-- **Separate, unconfirmed observation — still OPEN, do not conflate with the above:** some
-  already-passing test fixtures reportedly fail syntax-check under `clang` in C++23 mode while
-  passing under `gcc 12` in C++20 mode. May be a real language-version mismatch in the fixture's
-  source, or may indicate the formatter's output triggers stricter-parser-only diagnostics.
-  Needs its own investigation; not yet linked to bug (a) above.
+- **OPEN, unconfirmed, not conflated with the above:** some already-passing fixtures reportedly
+  fail syntax-check under `clang` C++23 mode while passing under `gcc 12` C++20 mode — may be a
+  real fixture language-version mismatch, or the formatter's output triggering stricter-parser-only
+  diagnostics. Needs its own investigation; not yet linked to bug (a).
 
 ---
 
@@ -200,18 +198,17 @@ accept `final` there). Applies to all `.java` files under `src/`.
 **Step 1.5 — Dogfood checkpoint (in progress):**
 
 **Critical rules for this step:**
-- The user may name a specific `*_inp.*` file to run next — do not assume sequential
-  order; run only the named file unless told to run all remaining.
-- Run test files one at a time. After each file (including the self-dogfood pass, i.e.
-  formatting the formatter's own source), if output doesn't match `*_out` (or produces
-  unexpected changes), **stop and ask the user** before attempting any fix — the mismatch
-  may be a hand-authored error in the `*_out`/expectation, not necessarily a formatter bug.
-- After each file test — pass or fail — update the checklist item inline with `(PASS)`,
-  `(FAIL)`, or `(SKIP)` and commit immediately (no batching), so no progress is lost.
-- Never remove `[x]`/`(PASS)` entries, even once all tests pass — a later fix could
-  regress a previously-passing file, and the user may ask to re-run any entry at any time.
-- Apply STATE_COMMON.md's "evidence over reasoning" rule strictly here, to limit quota
-  usage and avoid regressing `(PASS)` tests/prior fixes.
+- User may name a specific `*_inp.*` file to run next — run only that one unless told to run
+  all remaining; do not assume sequential order.
+- Run test files one at a time, including the self-dogfood pass (formatting the formatter's own
+  source). On mismatch vs. `*_out` (or unexpected changes), **stop and ask the user** before
+  fixing — the mismatch may be a hand-authored error in the expectation, not a formatter bug.
+- After each file test — pass or fail — update the checklist item inline with `(PASS)`/`(FAIL)`/
+  `(SKIP)` and commit immediately (no batching).
+- Never remove `[x]`/`(PASS)` entries — a later fix could regress a previously-passing file, and
+  the user may ask to re-run any entry at any time.
+- Apply STATE_COMMON.md's "evidence over reasoning" rule strictly here to limit quota usage and
+  avoid regressing `(PASS)` tests/prior fixes.
 
 `Main.java` standalone-mode cache note: `IndentationDetector` results are cached at
 `/tmp/jxmake-code-formatter-indent-<sha256-of-boundary-dir>.cache`, content = detected style + `\n`
@@ -467,31 +464,28 @@ on the noted commits/fixtures)
 (7) Local `../../../src` minus the already-DONE `../../../src/jxm` subtree (item 23 above) —
     vendored third-party Java libraries under `src/com/`/`src/org/` (~173 `.java` files):
     `com.j256.simplemagic`, `com.intellectualsites.http`, `org.tukaani.xz`,
-    `org.kamranzafar.jtar`, `org.itadaki.bzip2`. Plain `.java` only, no PCPP `.java.in`/
-    `.java.inc` involved (those live only under `src/jxm`), so this is a plain real-code
-    round1/round2 + `java_sc` pass, not the PCPP-aware methodology item 23 needed. Multiple
-    distinct third-party authorial styles in one tree — good "does this hold up against code
-    JxMake didn't write" coverage, distinct from item 23's self-dogfood angle. `src/`'s other
-    top-level loose `.java` files (`ATest1.java`, `GTest1.java`, `GTest2.java`, `PTest1B.java`,
-    `PTest1X.java`, `PTest2B.java`, `PTest2X.java`, `PTest3X.java`, `PTestF.java`) and the
-    `0-JxMake`/`1-TestData` directories were not surveyed for language/hand-written-vs-generated
-    status when this entry was queued — check before including them in the same pass, they may
-    warrant their own separate candidate entry instead. (NOT STARTED)
+    `org.kamranzafar.jtar`, `org.itadaki.bzip2`. Plain `.java` only, no PCPP `.java.in`/`.java.inc`
+    involved (those live only under `src/jxm`), so this is a plain real-code round1/round2 +
+    `java_sc` pass, not item 23's PCPP-aware methodology. Multiple distinct third-party authorial
+    styles in one tree — distinct "external code" coverage vs. item 23's self-dogfood angle.
+    `src/`'s other top-level loose `.java` files (`ATest1.java`, `GTest1.java`, `GTest2.java`,
+    `PTest1B.java`, `PTest1X.java`, `PTest2B.java`, `PTest2X.java`, `PTest3X.java`, `PTestF.java`)
+    and the `0-JxMake`/`1-TestData` directories were not surveyed for language/hand-written-vs-
+    generated status when queued — check before folding into this pass; may warrant their own
+    candidate entry instead. (NOT STARTED)
 
-Priority order for the C/C++ queue above unless the user redirects:
-`STL` → `llvm-project` → `gcc-mirror` (`mp11`/`lexy`/`stdexec`/`range-v3`/`boost-ext/ut`/
-`microsoft/proxy` already DONE, see "Finished" above — `mp11` was smallest/narrowest, `lexy` next for touching
-operator overloading/concepts/CRTP/dense declaration-alignment in one small tree, `stdexec` for
-concepts/`requires`/deep metaprogramming, `range-v3` for its own distinct
-`template(...)`/`CPP_ret`-style concept-emulation-macro convention). For any C/C++ candidate
-distributed under a `.h`/`.hpp` extension, confirm which language it actually is before testing —
-copy to `.hpp` first if really C++.
+Priority order for the C/C++ queue unless the user redirects: `STL` → `llvm-project` →
+`gcc-mirror` (`mp11`/`lexy`/`stdexec`/`range-v3`/`boost-ext/ut`/`microsoft/proxy` already DONE —
+`mp11` was smallest/narrowest, `lexy` next for operator-overloading/concepts/CRTP/dense
+declaration-alignment in one small tree, `stdexec` for concepts/`requires`/deep metaprogramming,
+`range-v3` for its `template(...)`/`CPP_ret`-style concept-emulation-macro convention). For any
+C/C++ candidate under a `.h`/`.hpp` extension, confirm the actual language before testing — copy
+to `.hpp` first if really C++.
 
 *(`stdexec`, `mp11` reached DONE with no open gaps. javaparser/javaparser's (15b) full narrative —
-including two intermediate full-tree re-verification passes, one of which showed a spurious "26
-files differing" reading later found to not reproduce (stale pre-rebuild jar) — is compacted into
-entry (16) above and "Known Gaps — Open" below; nothing in the removed narrative was still-open
-or unrecorded.)*
+including a spurious "26 files differing" reading later found not to reproduce (stale
+pre-rebuild jar) — is compacted into entry (16) above and "Known Gaps — Open" below; nothing
+still-open or unrecorded was removed.)*
 
 When a test completes, remove/compact its entry from "Not started" (or its "In progress"
 detail block here) and add it to "Finished dogfood / real-code testing" above — and to
@@ -512,18 +506,18 @@ at default settings; verified live at `indent-size = 2`.
 **Removal (same day):** `header-guard-style` removed entirely (silently-dead config surface)
 from `Config.java`, `README.md`, and this file's sample config.
 
-**Dogfood-compile-check bug** (predates the round1/round2 methodology; referenced by Step A's
+**Dogfood-compile-check bug** (predates round1/round2 methodology; referenced by Step A's
 "Dogfood self-format compile" item above): `MiscRule`'s call/declaration preserve-group
 renderers reset paren/bracket/angle depth to 0 at each physical line start, corrupting
 multi-line nested calls (including the formatter's own `TokenizerCore.java`). Fixed with a
 `groupByOriginalLine` helper tracking depth cumulatively across the whole slice.
 
-**Known pre-existing gaps** (discovered during `Main.java` smoke-testing, left unfixed as
-out of scope, flagged to user): `ServerMode.FormatHandler` doesn't resolve
-`indent-style = auto` before calling `Formatter.formatOne` (masked in practice by `Main`'s
-fallback-to-standalone-on-delegation-failure behavior); `Config.lineEndings()` is applied by
-`Main.applyLineEndings()` for standalone/in-process formatting but not yet by
-`ServerMode.FormatHandler`. Full detail: RDD_KEY_88.
+**Known pre-existing gaps** (found during `Main.java` smoke-testing, left unfixed as out of
+scope, flagged to user): `ServerMode.FormatHandler` doesn't resolve `indent-style = auto` before
+calling `Formatter.formatOne` (masked in practice by `Main`'s fallback-to-standalone-on-
+delegation-failure behavior); `Config.lineEndings()` is applied by `Main.applyLineEndings()` for
+standalone/in-process formatting but not yet by `ServerMode.FormatHandler`. Full detail:
+RDD_KEY_88.
 
 **Step 2 — AI integration: NOT FEASIBLE (deferred) — see `STATE_NEXT_AI.md`.**
 

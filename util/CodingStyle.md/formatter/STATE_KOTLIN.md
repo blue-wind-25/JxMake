@@ -15,8 +15,7 @@ Tracks implementation of Kotlin support in the deterministic JAR formatter
 
 ## Hard Constraint — Shared Classes
 
-The formatter's tokenizer and several rule classes are **shared across all
-languages** (C, C++, Java, and now Kotlin) — they are not per-language files:
+Shared across all languages (C, C++, Java, Kotlin), not per-language files:
 
 ```
 tokenizer/TokenizerCore.java (TokenizerCore + TokenizerCurly)
@@ -32,28 +31,23 @@ ScopePipeline.java (ScopePipelineCore + ScopePipelineCurly)
 Formatter.java (FormatterCore + FormatterCurly)
 ```
 
-**Any change to one of these files for Kotlin's benefit must not change
-behavior for C/C++/Java.** Before and after every such change, re-run the
-formatter's full existing test suite (`make test` — all C/C++/Java fixtures
-under `test/`) and confirm zero regressions — same discipline STATE_COMMON.md
-requires generally, called out here explicitly because shared-class edits are
+**Any change to one of these for Kotlin's benefit must not change behavior
+for C/C++/Java.** Before/after every such change, re-run `make test` (all
+C/C++/Java fixtures) and confirm zero regressions — shared-class edits are
 this job's biggest risk. Record the before/after test count in the commit
 message.
 
-Kotlin-only work belongs in new files (see Project Layout below), added
-alongside the existing per-language files (`JavaSpecificRule.java`,
-`CppSpecificRule.java`) rather than folded into them.
+Kotlin-only work belongs in new files (see Project Layout below), alongside
+`JavaSpecificRule.java`/`CppSpecificRule.java`, not folded into them.
 
-**Before modifying a shared class, grep first — do not read `STATE_C_CPP_JAVA.md`
-in full.** Run `grep -Fm1 'ClassName' RDD_LOG.md` (substitute the class or
-method you're about to touch) to surface any existing `RDD_KEY_n` decisions
-that already explain its shape — e.g. why `TokenizerCore`'s multi-char
-operator table is structured the way it is (RDD_KEY_69), or why a rule class
-re-derives named-construct-ness from raw tokens instead of trusting one flag
-(RDD_KEY_84/85). This is almost always sufficient. Only read
-`STATE_C_CPP_JAVA.md`'s Project Layout section specifically (never its
-Checklist or full history) if the grep hits don't explain what you're
-looking at.
+**Before modifying a shared class, grep first — do not read
+`STATE_C_CPP_JAVA.md` in full.** Run `grep -Fm1 'ClassName' RDD_LOG.md`
+(substitute the class/method) to surface existing `RDD_KEY_n` decisions
+already explaining its shape — e.g. `TokenizerCore`'s multi-char operator
+table (RDD_KEY_69), or why a rule class re-derives named-construct-ness from
+raw tokens instead of trusting one flag (RDD_KEY_84/85). Usually sufficient.
+Only read `STATE_C_CPP_JAVA.md`'s Project Layout section (never Checklist or
+full history) if the grep hits don't explain what you're looking at.
 
 ---
 
@@ -159,78 +153,71 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 
 ### Step 0 — Tokenizer Support (shared file, additive only)
 
-**Critical rule for this step:** `TokenizerCore.java` is shared with C/C++/Java.
-Every addition here must be additive (new keyword/operator recognition) and
-must not change how any existing C/C++/Java token is lexed. Re-run the full
-existing test suite after this step, before moving to Step 1.
+**Critical rule:** `TokenizerCore.java` is shared with C/C++/Java. Every
+addition must be additive and must not change existing token lexing.
+Re-run the full test suite after this step, before Step 1.
 
-- [x] Survey `STYLE_KOTLIN.md`/`STYLE_KOTLIN2.md` for every token not already
-      lexed correctly by `TokenizerCore.java`. Added to `MULTI_CHAR_OPS`: `?.`,
-      `?:`, `!!`, `..<`, `..` (longest-prefix-first: `..<` before `..`, same
-      requirement as the existing `...`/`->*` ordering). `->` already existed
-      and is reused as-is for Kotlin's lambda/function-type/`when` arrow. `@`
-      in labeled jumps needs no new operator entry — it falls through to
-      `emitOperator`'s single-char fallback, sufficient since the surrounding
-      spacing rule is a Step 3 `KotlinSpecificRule` concern.
-      **Found and fixed a real bug in the process:** `emitNumber()`
-      unconditionally consumed every `.`, so `1..10` lexed as one bogus
-      `NUMBER` token (and `1..<10` as `NUMBER "1.."` + `OP "<"` + `NUMBER
-      "10"`) instead of `NUMBER "1"` + a range `OP`. Fixed by stopping number
-      consumption when a `.` is followed by another `.` — safe for all four
-      languages (a decimal point is never followed by a second `.`). Verified
-      via `TokenizerCore` dump and `make test` (25/25 unaffected).
-- [x] Add a Kotlin keyword set (`KEYWORDS_KOTLIN`), parallel to
-      `KEYWORDS_JAVA`/`KEYWORDS_CPP` — includes all hard keywords plus the
-      modifier/soft keywords in the checklist's original "at minimum" set
-      (unconditionally reserved, same simplification as Java's `var`/`record`).
-- [x] Add Kotlin named-construct detection (`NAMED_CONSTRUCT_KOTLIN` =
-      `class`, `object`, `interface`, `enum`, `init`). Deliberately did not
-      special-case `companion object`/`enum class` or verify
-      `computeConstructName()`'s lookback window per shape yet — that
-      cross-check is Step 1's job, not this one's.
-- [x] Re-run full existing C/C++/Java test suite. **25/25 pass, zero
-      regressions** (24 pre-existing + `real_code_regressions_13`, added the
-      same session before this Kotlin work started).
-- [x] **Follow-up (Step 1's §13 cross-check):** added `"in"`/`"out"` to
-      `GENERIC_SAFE_KEYWORDS` so `reclassifyAngleBrackets` correctly
-      recognizes declaration-site variance (`Box<out T>`, `Comparable<in T>`)
-      as a generic `<`/`>` pair rather than a comparison. No-op for
-      C/C++/Java. `make test` 32/32 before/after. RDD_KEY_113.
-- [x] **Follow-up (Step 1's §19 cross-check):** added a Kotlin-only
+- [x] Surveyed style docs for tokens not already lexed. Added to
+      `MULTI_CHAR_OPS`: `?.`, `?:`, `!!`, `..<`, `..` (longest-prefix-first:
+      `..<` before `..`, same rule as existing `...`/`->*` ordering). `->`
+      reused as-is for lambda/function-type/`when` arrow. `@` in labeled
+      jumps needs no new operator entry (falls to `emitOperator`'s
+      single-char fallback; spacing is Step 3's concern).
+      **Bug found/fixed:** `emitNumber()` unconditionally consumed every
+      `.`, so `1..10` lexed as one bogus `NUMBER` (and `1..<10` as
+      `NUMBER "1.."` + `OP "<"` + `NUMBER "10"`) instead of `NUMBER "1"` +
+      range `OP`. Fixed by stopping number consumption when a `.` is
+      followed by another `.` — safe for all four languages. Verified via
+      `TokenizerCore` dump and `make test` (25/25 unaffected).
+- [x] Added Kotlin keyword set `KEYWORDS_KOTLIN`, parallel to
+      `KEYWORDS_JAVA`/`KEYWORDS_CPP` — hard keywords plus modifier/soft
+      keywords, unconditionally reserved (same simplification as Java's
+      `var`/`record`).
+- [x] Added `NAMED_CONSTRUCT_KOTLIN` = `class`, `object`, `interface`,
+      `enum`, `init`. Deliberately did not special-case `companion
+      object`/`enum class` or verify `computeConstructName()`'s lookback per
+      shape yet — that's Step 1's job.
+- [x] Re-ran full C/C++/Java suite: **25/25 pass, zero regressions** (24
+      pre-existing + `real_code_regressions_13`, added same session before
+      this Kotlin work started).
+- [x] **Follow-up (Step 1 §13 cross-check):** added `"in"`/`"out"` to
+      `GENERIC_SAFE_KEYWORDS` so `reclassifyAngleBrackets` recognizes
+      declaration-site variance (`Box<out T>`, `Comparable<in T>`) as a
+      generic pair not a comparison. No-op for C/C++/Java. `make test`
+      32/32 before/after. RDD_KEY_113.
+- [x] **Follow-up (Step 1 §19 cross-check):** added Kotlin-only
       interpolation-aware string scan (`skipKotlinString`/
       `skipKotlinInterpolationBlock`/`skipKotlinChar`) inside `emitString()`,
-      gated behind `lang.isKotlin` — the shared naive scan-to-next-`"`
-      misread a nested string inside `${...}` (`"${foo("x")}"`) as three
-      tokens instead of one, confirmed via harness. Depth-tracks `${...}`'s
-      own `{`/`}` nesting and recurses for nested string/char literals,
-      arbitrarily deep. Non-Kotlin scan untouched. `make test` 32/32
-      before/after. RDD_KEY_116.
+      gated `lang.isKotlin` — shared naive scan-to-next-`"` misread a nested
+      string inside `${...}` (`"${foo("x")}"`) as three tokens instead of
+      one (confirmed via harness). Depth-tracks `${...}`'s own `{`/`}`
+      nesting, recurses for nested string/char literals arbitrarily deep.
+      Non-Kotlin scan untouched. `make test` 32/32 before/after. RDD_KEY_116.
 - [x] **Follow-up (row 19.1, investigated on explicit request):** added
       Kotlin-only raw-string support (`isKotlinRawStringOpener`/
       `emitKotlinRawString`/`skipKotlinRawString`), checked before the
-      plain-`"` and C/C++ raw-string-prefix branches. Confirmed via harness
-      the naive path was badly broken: `"""..."""` mis-lexed into multiple
-      STRING/IDENTIFIER tokens, a multi-line one leaked a spurious `NEWLINE`
-      into its content. No backslash-escape processing (literal `\` by
-      design); terminates greedily at the first `"""`, matching the real
-      Kotlin compiler. `skipKotlinInterpolationBlock` extended to recognize a
-      nested raw string inside an interpolation. Non-Kotlin paths confirmed
+      plain-`"` and C/C++ raw-string-prefix branches. Naive path was badly
+      broken: `"""..."""` mis-lexed into multiple STRING/IDENTIFIER tokens,
+      multi-line ones leaked a spurious `NEWLINE`. No backslash-escape
+      processing (literal `\` by design); terminates greedily at first
+      `"""`, matching the real compiler. `skipKotlinInterpolationBlock`
+      extended for nested raw strings inside interpolation. Non-Kotlin paths
       untouched. `make test` 32/32 before/after. RDD_KEY_117.
 
 ### Step 1 — Scoping Pass (mirrors `JavaSpecificRule.java`'s own scoping, RDD_KEY_59)
 
-- [x] Cross-check every section of `STYLE_KOTLIN.md`/`STYLE_KOTLIN2.md`
-      against the already-COMPLETE shared rule classes (`DeclarationAlignmentRule`,
-      `BlockStructureRule`, `SwitchRule`, `GetterSetterRule`, `MiscRule`) to
-      determine, per section: (a) already satisfied as-is once Step 0 lands,
-      (b) satisfied by a small additive shared-class extension, or (c) needs
-      a new method in `KotlinSpecificRule.java`. Table below.
-- [x] Flag anything requiring a change to already-COMPLETE shared-class
-      *behavior* (not just an addition) — see **Open Questions**:
-      `DeclarationAlignmentRule`'s `Declaration` model assumes C/Java's
-      `[modifiers] Type name [= init]` order, structurally reversed from
-      Kotlin's `[modifiers] val/var name : Type [= init]`. Stopped here
-      rather than guessing a direction.
+- [x] Cross-checked every section of `STYLE_KOTLIN.md`/`STYLE_KOTLIN2.md`
+      against the already-COMPLETE shared rule classes
+      (`DeclarationAlignmentRule`, `BlockStructureRule`, `SwitchRule`,
+      `GetterSetterRule`, `MiscRule`) to determine, per section: (a) already
+      satisfied as-is once Step 0 lands, (b) satisfied by a small additive
+      shared-class extension, or (c) needs a new method in
+      `KotlinSpecificRule.java`. Table below.
+- [x] Flagged shared-class *behavior* changes (not just additions) — see
+      **Open Questions**: `DeclarationAlignmentRule`'s `Declaration` model
+      assumes C/Java's `[modifiers] Type name [= init]` order, structurally
+      reversed from Kotlin's `[modifiers] val/var name : Type [= init]`.
+      Stopped here rather than guessing a direction.
 
 **Scoping table** (section numbers match `STYLE_KOTLIN.md`; `K2.N` = `STYLE_KOTLIN2.md` §N):
 
@@ -288,60 +275,41 @@ existing test suite after this step, before moving to Step 1.
 
 ### Step 3 — `KotlinSpecificRule.java`
 
-- [x] Implement each section flagged "(c)" in Step 1's scoping table, one
-      section at a time, each as its own checkpoint commit. §8/§9 one-liner
-      getter/setter grouping: §9 fixed via `KotlinGetterSetterRule`
-      (RDD_KEY_132), §8 fixed via the same class (RDD_KEY_133) —
-      block-bodied/setter/initializer accessor shapes remain an open,
-      documented gap (see Open Questions). Every other flagged section done.
+- [x] Implemented each "(c)"-flagged section from Step 1's scoping table,
+      one per checkpoint commit. §8/§9 one-liner getter/setter grouping: §9
+      fixed via `KotlinGetterSetterRule` (RDD_KEY_132), §8 fixed via the
+      same class (RDD_KEY_133) — block-bodied/setter/initializer accessor
+      shapes remain an open, documented gap (see Open Questions). Every
+      other flagged section done.
 
-Full implementation/verification narratives for every item below are recorded
-in `RDD_LOG.md` (`grep -Fm1 'RDD_KEY_n'`), not duplicated here.
-
-- [x] §1 Semicolons — `KotlinSpecificRule.stripOptionalSemicolons`. RDD_KEY_115
-      (supersedes an earlier flawed version, `b0e778f`).
-- [x] §3.1/§3.4 Class/Object/Companion Object/`init` bodies. RDD_KEY_99.
-- [x] §3.2 `when` no space before `(`. RDD_KEY_100.
-- [x] §4 `when` expression (arrow alignment, closing comment, blank lines).
-      RDD_KEY_101; idempotency bug fixed under RDD_KEY_121.
-- [x] §5 Null-safety operators (`?.`/`!!` tight, `?:` spaced). RDD_KEY_102.
-- [x] §6 Variable/property declaration alignment — `KotlinDeclarationAlignmentRule
-      extends DeclarationAlignmentRule`. RDD_KEY_103.
-- [x] §7/§7.1 Constructor/function parameter lists, named/default arguments —
-      `KotlinSignatureRule extends MiscRule`. RDD_KEY_104. Call-site named
-      arguments (`foo(x = 1, y = 2)`) not covered — different shape.
-- [x] §11 Labeled jumps (`@label` spacing). RDD_KEY_105.
-- [x] §14 Generic `where` clause. RDD_KEY_106.
-- [x] §12 Destructuring declarations. RDD_KEY_107, revised under RDD_KEY_126
-      (now merges into the adjacent §6 alignment group, C++
-      structured-bindings precedent, per user request).
-- [x] §16 Annotation use-site targets. RDD_KEY_108.
-- [x] §17/§17.1 Lambda-with-receiver/function-type nesting exemption + arrow
-      spacing. RDD_KEY_109 (shared-class change: `ComplexityPaddingEvaluator.isLoose`).
-- [x] §10 `for` loops and ranges. RDD_KEY_110.
-- [x] §2 `enum class` with members. RDD_KEY_111.
-- [x] §9 Expression-bodied functions. RDD_KEY_112 (shared-class change:
-      `MiscRule.isTightToken` gated off for Kotlin `*`/`&`).
-- [x] §3/§3.3 Function/secondary-constructor body Allman-brace conversion.
-      RDD_KEY_114.
-- [x] §19/§19.1 String templates + triple-quoted raw strings — tokenizer-level
-      fix (shared-class change). RDD_KEY_116, RDD_KEY_117.
-- [x] §8/§9 one-liner getter/setter grouping — new
-      `KotlinGetterSetterRule extends GetterSetterRule`. §9 fixed under
-      RDD_KEY_132. §8 (plain expression-bodied `get()` property accessors,
-      no initializer, no `set`) fixed under RDD_KEY_133. Block-bodied
-      accessors, getter+setter pairs, and initializer+accessor properties
-      remain unhandled (preserved as written, not grouped) — see Open
-      Questions.
+Implementation/verification narratives in `RDD_LOG.md` (`grep -Fm1
+'RDD_KEY_n'`), not duplicated here. Per-section RDD_KEY mapping (see Step 1
+scoping table above for full detail): §1 RDD_KEY_115 (supersedes flawed
+`b0e778f`); §3.1/§3.4 RDD_KEY_99; §3.2 RDD_KEY_100; §4 RDD_KEY_101
+(idempotency fix RDD_KEY_121); §5 RDD_KEY_102; §6
+`KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule` RDD_KEY_103;
+§7/§7.1 `KotlinSignatureRule extends MiscRule` RDD_KEY_104 (call-site named
+args `foo(x = 1, y = 2)` not covered — different shape); §11 RDD_KEY_105;
+§14 RDD_KEY_106; §12 RDD_KEY_107, revised RDD_KEY_126 (merges into adjacent
+§6 alignment group, C++ structured-bindings precedent, per user request);
+§16 RDD_KEY_108; §17/§17.1 RDD_KEY_109 (shared-class change:
+`ComplexityPaddingEvaluator.isLoose`); §10 RDD_KEY_110; §2 RDD_KEY_111; §9
+RDD_KEY_112 (shared-class change: `MiscRule.isTightToken` gated off for
+Kotlin `*`/`&`); §3/§3.3 RDD_KEY_114; §19/§19.1 tokenizer-level RDD_KEY_116,
+RDD_KEY_117; §8/§9 one-liner getter/setter grouping — new
+`KotlinGetterSetterRule extends GetterSetterRule`, §9 RDD_KEY_132, §8 (plain
+expression-bodied `get()`, no initializer, no `set`) RDD_KEY_133.
+Block-bodied accessors, getter+setter pairs, and initializer+accessor
+properties remain unhandled (preserved as written, not grouped) — see Open
+Questions.
 
 ### Step 3.5 — Configuration Property Wiring
 
-**Correction (this session):** the pipeline is already fully wired (verified
-live, not just re-read) — `Main.java` `inferLanguage` auto-detects `.kt`/`.kts`,
-`Formatter.java` already constructs and runs every Kotlin rule class through
-the same pipeline as Java/C++. An earlier stale framing implying otherwise
-has been removed. Config uses `.jxmake-code-formatter`, `key=value` format
-(not YAML); boolean keys accept `on`/`off` only, not `true`/`false`.
+Pipeline is fully wired (verified live) — `Main.java` `inferLanguage`
+auto-detects `.kt`/`.kts`, `Formatter.java` constructs and runs every Kotlin
+rule class through the same pipeline as Java/C++. Config uses
+`.jxmake-code-formatter`, `key=value` format (not YAML); boolean keys accept
+`on`/`off` only, not `true`/`false`.
 
 - [x] `line-length`/`indent-size`/`indent-style`: wired, same behavior as
       Java/C++. See `STATE_COMMON.md` → **Config Keys and Defaults** for the
@@ -366,27 +334,20 @@ has been removed. Config uses `.jxmake-code-formatter`, `key=value` format
 ### Step 4 — Test Fixtures
 
 **DONE — both `kt_combined_inp.kt`/`kt_combined_out.kt` and
-`kt_comments_inp.kt`/`kt_comments_out.kt` fully pass, both now enabled in the
+`kt_comments_inp.kt`/`kt_comments_out.kt` fully pass, both enabled in the
 `Makefile`.**
 
-**The test fixtures are handwritten and may have syntax error.
-Confirm with the user as needed.***
+**Fixtures are handwritten and may have syntax errors — confirm with the user
+as needed.**
 
-`test/kt_combined_inp.kt` and `test/kt_combined_out.kt`
-capture STYLE_KOTLIN.md + STYLE_KOTLIN2.md end-to-end coverage.
+`test/kt_combined_inp.kt`/`kt_combined_out.kt` capture STYLE_KOTLIN.md +
+STYLE_KOTLIN2.md end-to-end coverage. `test/kt_comments_inp.kt`/
+`kt_comments_out.kt` capture uncommon comment locations + JXM_CFMT_DIS/ENA.
 
-`test/kt_comments_inp.kt` and `test/kt_comments_out.kt`
-capture uncommon comment locations + JXM_CFMT_DIS/ENA).
-
-**The `test/kt_*_inp.kt` files are the input files.**
-**The `test/kt_*_output.kt` files are the reference output files.**
-
-Run the formatter to an input file and output the result in `/tmp`.
-
-Perform `diff` between the output file in `/tmp` and the reference output file.
-Use the result to fix the formatter.
-
-Also perform idempotency test.
+`kt_*_inp.kt` = input files; `kt_*_out.kt` = reference output. Methodology:
+run the formatter on the input, diff the `/tmp` output against the reference
+to find bugs, and also run an idempotency test (output re-run through the
+formatter should be unchanged).
 
 - [x] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — **DONE.** Enabled in
       the `Makefile`'s `INP_FILES`; round-trips clean, both forward
@@ -487,25 +448,22 @@ regression-watching / further polish, not a known-broken state. See
 `kotlin-compiler-embeddable` + `kotlin-stdlib` classpath cannot syntax-check
 an Android/AndroidX candidate: every file under
 `gui_frontend_android/app/src/main/java/*.kt` imports `android.*`/AndroidX
-APIs, which only exist in the Android SDK jars pulled in by the project's own
-Gradle build — a bare compiler classpath would fail on essentially every real
-file, not just report genuine syntax errors. Use the project's own Gradle
-wrapper instead (tool (2) below) for any Android/Gradle candidate.
+APIs, only resolvable via the project's own Gradle build — a bare classpath
+would fail on nearly every file. Use the project's Gradle wrapper (tool (2)
+below) for any Android/Gradle candidate.
 
-For `gui_frontend_android`: copy it once into a **persistent** location —
+For `gui_frontend_android`: copy once into a **persistent** location —
 `~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD` — rather than `/tmp`, so
-it survives reboots and doesn't need re-copying every session. Do not touch
-`~/Projects/RobotCoding/gui_frontend_android` itself (read-only, never write
-there) — only the dogfood copy, and always re-verify a fix against the true
-pristine originals there, not just the dogfood copy (a stale dogfood copy can
-hold already-formatted, pre-fix output from an earlier session and falsely
-look fixed/unfixed).
+it survives reboots. Never write to
+`~/Projects/RobotCoding/gui_frontend_android` itself (read-only); always
+re-verify a fix against the true pristine originals there, not just the
+dogfood copy (a stale dogfood copy can hold already-formatted, pre-fix
+output from an earlier session and falsely look fixed/unfixed).
 
 **One-time setup after the copy:** edit `gradle.properties` in the dogfood
-copy so `project.buildDir=build` (a plain relative value — the original
-points at the real project's own external build dir, which would still
-collide with the original project even from a copy). Do this once per copy —
-redo it if the dogfood dir is ever deleted and recopied.
+copy so `project.buildDir=build` (plain relative value — the original points
+at the real project's own external build dir, which would still collide even
+from a copy). Redo if the dogfood dir is ever deleted and recopied.
 
 ```bash
 cp -r ~/Projects/RobotCoding/gui_frontend_android ~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD
@@ -521,16 +479,15 @@ export PATH=/opt/openjdk-21_linux-x64_bin/jdk-21/bin:$PATH
 ends by `exec bash`-ing into an interactive session — source only its
 `export`/`cd` lines for a scripted run.)
 
-**Lightweight PSI-based syntax-only checker (`kotlin_sc`) — viable,
-distinct from the rejected full-compilation recipe above.** The rejected
-K2JVMCompiler note above is about a bare classpath doing a *full compile*,
-which genuinely cannot resolve `android.*`/AndroidX imports without Gradle's
-dependency graph. `kotlin_sc` is a much lighter tool: it parses a `.kt`
-file to a PSI/AST via `KotlinCoreEnvironment`/`KtPsiFactory` and reports
-`PsiErrorElement` nodes (parse errors) — no semantic/type checking, never
-needs to resolve `android.*` imports, so the AndroidX objection doesn't
-apply. Built as a plain classpath-based standalone Java program; every
-needed class is bundled in the single shaded
+**Lightweight PSI-based syntax-only checker (`kotlin_sc`) — viable, distinct
+from the rejected full-compilation recipe above.** The rejected K2JVMCompiler
+note is about a bare classpath doing a *full compile*, which can't resolve
+`android.*`/AndroidX imports without Gradle's dependency graph. `kotlin_sc`
+is lighter: parses a `.kt` file to a PSI/AST via
+`KotlinCoreEnvironment`/`KtPsiFactory` and reports `PsiErrorElement` nodes
+(parse errors) — no semantic/type checking, never resolves `android.*`
+imports, so the AndroidX objection doesn't apply. Plain classpath-based
+standalone Java program; every needed class is bundled in the single shaded
 `~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib/kotlin-compiler.jar` (confirmed via
 `unzip -l`, no separate intellij-core/trove4j jars needed).
 
@@ -593,12 +550,12 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
 
 **Finished dogfood / real-code testing**
 1. **RobotCoding `gui_frontend_android`** (Android/Gradle app, 46 `.kt`
-   files) — complete, config: default. 9 idempotency bugs (RDD_KEY_134–140:
-   trailing-lambda collapse, call-wrapped-initializer misclassification,
+   files) — complete, config: default. 9 idempotency bugs, RDD_KEY_134–140
+   (trailing-lambda collapse, call-wrapped-initializer misclassification,
    lambda-brace indent anchor, if/else-as-value collapse, `&&`-vs-`&`
    confusion, §9 column-width flap, Allman width-prediction gap). Then
-   `./gradlew compileDebugKotlin` found ~50 compile errors across 9 files
-   (RDD_KEY_141–144: return-type-tail misdetection eating a fluent-chain
+   `./gradlew compileDebugKotlin` found ~50 compile errors across 9 files,
+   RDD_KEY_141–144 (return-type-tail misdetection eating a fluent-chain
    call, `@Annotation`-vs-label false positive, `when`-arm `else ->`
    mismatched by braceless-`else` collapse, two unrelated bugs in one
    statement). Final: `BUILD SUCCESSFUL`, zero errors (2 pre-existing

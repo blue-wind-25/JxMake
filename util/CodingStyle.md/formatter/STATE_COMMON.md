@@ -1,12 +1,12 @@
 # STATE_COMMON.md — Shared Process Conventions
 
 Read this file first, no matter which job (`STATE_C_CPP_JAVA.md` or
-`STATE_KOTLIN.md`) you're picking up. It holds every process convention that
-is identical across both jobs — commit workflow, ambiguity handling, file
+`STATE_KOTLIN.md`) you're picking up. It holds every process convention
+identical across both jobs — commit workflow, ambiguity handling, file
 exclusions, testing methodology, RDD_LOG.md lookup discipline. The per-job
 file assumes all of this and does not restate it; it only contains what's
-specific to that job (Project Layout, Resolved Design Decisions index,
-Open Questions, Checklist).
+specific to that job (Project Layout, Resolved Design Decisions index, Open
+Questions, Checklist).
 
 **Do NOT read `README.md`** unless the user explicitly asks. All decisions
 relevant to implementation are recorded in each job file's own **Resolved
@@ -47,33 +47,31 @@ are very long, and `-A` context will flood output unnecessarily.
   4. `git commit -m "<message>"` — short descriptive message, no strict
      format required, trailer ending with
      `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
-- Small related items within a section may be grouped into one commit if they
-  are trivially connected — use judgment based on line count (~50 lines
-  threshold).
+- Small related items within a section may be grouped into one commit if
+  trivially connected — use judgment based on the ~50-line threshold.
 - Never let implemented files and the state file drift out of sync — the
-  state file must always reflect the true current state at every commit.
-- Never modify the files `util/CodingStyle.md/formatter/test/*_inp.*` unless
-  they contain syntax errors (they are the test input files).
-- Never modify the files `util/CodingStyle.md/formatter/test/*_out.*` unless
-  explicitly asked (they are the reference output files that show the
-  expected results).
+  state file must always reflect true current state at every commit.
+- Never modify `util/CodingStyle.md/formatter/test/*_inp.*` unless they
+  contain syntax errors (they are the test input files).
+- Never modify `util/CodingStyle.md/formatter/test/*_out.*` unless
+  explicitly asked (they are the reference output files).
 - Ignore `XL.txt` — that is the user tracker file.
 - When registering a new local test fixture pair that did **not** come from
   real-code testing (e.g. a hand-authored dogfood pair), add its entry in
   both `test/README.txt` and the `Makefile`'s `INP_FILES` **before** the
   `Real-code regressions:` section/entries — the same "ahead of
   `real_code_regressions_*`" ordering the Real-code testing methodology
-  section below already uses for bug-fix fixtures.
+  section below uses for bug-fix fixtures.
 - **New local test fixtures are authored directly in `formatter/test/`** —
   there is no staging step. (Historically, `../FUTURE_TEST_FIXTURES.md` held
   hand-drafted pairs for languages ahead of their real implementation; every
   pair it ever held has since been extracted and registered, and that file
-  is now historical/empty of live drafts — don't add new ones there.) When
-  authoring a fixture pair for a language with no real formatter logic yet,
-  register it commented-out in the Makefile's `INP_FILES` (same pattern
-  CPP26/JS/TS/HTML5/Python3 used) until real logic lands; for a language
-  with real logic, verify the pair against the actual JAR before registering
-  it active.
+  is now historical/empty — don't add new drafts there.) When authoring a
+  fixture pair for a language with no real formatter logic yet, register it
+  commented-out in the Makefile's `INP_FILES` (same pattern CPP26/JS/TS/
+  HTML5/Python3 used) until real logic lands; for a language with real
+  logic, verify the pair against the actual JAR before registering it
+  active.
 - Use `/tmp` for temporary smoke-test and mini-test files.
 - NEVER perform a filesystem-wide find; search first in `/tmp/claude-1000`
   or the project root. If still not found, ask the user.
@@ -82,7 +80,7 @@ are very long, and `-A` context will flood output unnecessarily.
   to insert debug prints. Use debug prints and `make test` to diagnose and
   validate fixes, not static analysis as the primary method. After a fix is
   verified with `make test`, remove all debug prints, then commit only the
-  files you actually modified. Do not add `RDD_KEY_*` text in test fixture
+  files you actually modified. Do not add `RDD_KEY_*` text in a test fixture
   group title in `test/README.txt`. If unsure, ask.
 
 ## When a file reaches COMPLETE
@@ -122,9 +120,9 @@ faster):
    existing checkout from a prior session (this candidate's name/org may
    already be present under `/tmp` or a scratchpad dir from earlier work) —
    reuse it if found. If not found, re-clone fresh. **Never perform a
-   filesystem-wide search** (e.g. `find /`) to locate it — search only within
-   `/tmp`/the scratchpad dir, or ask the user, per the no-filesystem-wide-find
-   rule elsewhere in this file.
+   filesystem-wide search** (e.g. `find /`) to locate it — search only
+   within `/tmp`/the scratchpad dir, or ask the user, per the
+   no-filesystem-wide-find rule elsewhere in this file.
 2. Format it once (round1).
 3. Format round1's output again (round2).
 4. `diff round1 round2` must be empty (idempotency).
@@ -173,9 +171,10 @@ find <candidate-dir> \( -name '*.hpp' -o -name '*.cpp' -o -name '*.h' \) -print0
 If the file count is large enough to risk hitting the shell/`exec` argv
 length limit, group by subdirectory (one invocation per top-level
 subdirectory under the candidate tree) rather than falling back to one
-invocation per file — `xargs` (without `-n1`) already chunks automatically if
-needed, so this is mainly a concern for a manually-constructed argument list.
-Same applies to round2 and to any `--diff`/`--check` verification pass.
+invocation per file — `xargs` (without `-n1`) already chunks automatically
+if needed, so this is mainly a concern for a manually-constructed argument
+list. Same applies to round2 and to any `--diff`/`--check` verification
+pass.
 
 When an idempotency (or forward-pass) failure doesn't reproduce at the
 default config, try re-testing with a `.jxmake-code-formatter` overriding
@@ -387,9 +386,9 @@ and fixed (commit `949b7a9`).
 
 ### General scope-depth reindentation (not started — high risk, read before attempting)
 
-**Current state, confirmed by direct testing (C++26 session):** this formatter
-does not reindent ordinary body statements from scratch. A flush-left/
-unindented function body passes through completely untouched except for
+**Current state, confirmed by direct testing (C++26 session):** this
+formatter does not reindent ordinary body statements from scratch. A
+flush-left/unindented function body passes through untouched except for
 specific recognized rewrites (brace placement, spacing, alignment) —
 original whitespace is preserved by default; only a few narrow passes
 (`SwitchRule.applyNonInlineCaseIndent`, `ScopePipeline.applyDeclarationsPass`)
@@ -410,33 +409,33 @@ narrow passes:**
 - **Blast radius inversion.** The current model's invariant is "don't touch
   indentation unless a specific, well-understood construct requires it" —
   that's *why* every real-code-testing bug found so far (see this file's
-  "Finished dogfood" list of ~20+ external repos) has been narrow and
-  isolated to one construct in one file. A general reindent pass makes
-  every line in every file a candidate for a wrong result, not just lines
-  matching a specific recognized shape — the same bug class that's
-  currently rare (1 file out of ~2000 in the `javaparser` candidate) would
-  become the default risk surface for the entire test corpus.
+  "Finished dogfood" list of ~20+ external repos) has been narrow, isolated
+  to one construct in one file. A general reindent pass makes every line in
+  every file a candidate for a wrong result, not just lines matching a
+  specific recognized shape — the same bug class currently rare (1 file out
+  of ~2000 in the `javaparser` candidate) would become the default risk
+  surface for the entire test corpus.
 - **Continuation vs. block depth is a second axis, not a free extension.**
   Brace/paren/bracket nesting depth alone is not enough — a wrapped
-  multi-line expression, a chained method call, a multi-line initializer,
-  or a continuation line inside an unfinished statement each have their own
-  established continuation-indent conventions (see STYLE.md §2's line-break
-  alignment rules) that don't reduce to "one level per enclosing `{`". Any
-  real implementation has to merge two different indent models (structural
-  block depth + statement-continuation alignment) without them fighting —
-  this is exactly the mechanism the two existing narrow passes get subtly
-  wrong today.
+  multi-line expression, chained method call, multi-line initializer, or
+  continuation line inside an unfinished statement each have their own
+  established continuation-indent conventions (see STYLE.md §2's
+  line-break alignment rules) that don't reduce to "one level per enclosing
+  `{`". Any real implementation has to merge two different indent models
+  (structural block depth + statement-continuation alignment) without them
+  fighting — exactly the mechanism the two existing narrow passes get
+  subtly wrong today.
 - **Content that must never be touched.** Raw string literals/multi-line
-  string content, block-comment interior lines (which have their own
-  alignment convention, not block-depth), preprocessor directives
-  (traditionally column-0 regardless of brace depth, with their own
-  continuation rules), and anything `frozen` all need to be excluded from
-  whatever general mechanism is built — each of these has already been a
-  real bug source in this codebase's history (see e.g. the backslash-
-  continued preprocessor corruption bug and raw-string-literal tokenizer gap
-  in the "Finished dogfood" list) under the *current*, much narrower set of
-  passes; a general pass multiplies the number of places these exclusions
-  must be re-applied correctly.
+  string content, block-comment interior lines (their own alignment
+  convention, not block-depth), preprocessor directives (traditionally
+  column-0 regardless of brace depth, with their own continuation rules),
+  and anything `frozen` all need to be excluded from whatever general
+  mechanism is built — each has already been a real bug source in this
+  codebase's history (see e.g. the backslash-continued preprocessor
+  corruption bug and raw-string-literal tokenizer gap in the "Finished
+  dogfood" list) under the *current*, much narrower set of passes; a
+  general pass multiplies the number of places these exclusions must be
+  re-applied correctly.
 - **Ordering interacts with every other pass.** Brace-placement (Allman
   conversion), line-wrapping (`enforceCallLineBreaking`), and switch-case
   handling all run at specific points in `FormatterCurly`'s phase ordering
@@ -444,18 +443,18 @@ narrow passes:**
   is afterward (see the `formatNonInlineSwitches`/`enforceCallLineBreaking`
   ordering bug in the "Finished dogfood" list, fixture `_56`). A general
   reindent pass would need to run late enough that every line-count/brace-
-  placement decision is already final, but a bug in that ordering assumption
-  silently produces plausible-looking-but-wrong output rather than an
-  obvious crash — this class of bug is hard to catch by inspection.
+  placement decision is already final, but a bug in that ordering
+  assumption silently produces plausible-looking-but-wrong output rather
+  than an obvious crash — hard to catch by inspection.
 
 **If this is ever attempted:**
 - Treat it as its own dedicated multi-session job with its own `STATE_*.md`
   (do not fold it into an existing job's file), given the size and risk.
-  Likely touches `ScopePipelineCurly.java` primarily, potentially subsuming/
-  replacing `SwitchRule.applyNonInlineCaseIndent`'s relative-delta logic
-  (which would actually retire the two open "Known Gaps" above as a side
-  effect, since an absolute-depth-derived target doesn't have the
-  reference-line-dependence that causes those bugs).
+  Likely touches `ScopePipelineCurly.java` primarily, potentially
+  subsuming/replacing `SwitchRule.applyNonInlineCaseIndent`'s
+  relative-delta logic (which would actually retire the two open "Known
+  Gaps" above as a side effect, since an absolute-depth-derived target
+  doesn't have the reference-line-dependence that causes those bugs).
 - `make test`'s 101/101 fixture corpus is a floor, not a substitute, for
   validation here. Those fixtures were authored/tuned under the current
   indentation-preserving model, so passing them only proves "didn't break
@@ -467,11 +466,11 @@ narrow passes:**
   indent bugs (`javaparser/javaparser`, local `tool/JSONEncoderLite.java`
   dogfood, `serge-sans-paille/frozen`) is necessary, and re-running against
   a fresh, previously-untested large real-world corpus (idempotency-checked
-  full-tree, not just `--out DIR`) is strongly advisable given the blast-
-  radius argument above — a clean `make test` run alone would not have
-  caught either of the two currently-open gaps, since neither was found via
-  the permanent fixture suite (both came from one-off real-code-testing
-  sessions).
-- Expect this to be the single riskiest change ever made to this formatter's
-  core; budget for it accordingly rather than treating it as an incremental
-  fix.
+  full-tree, not just `--out DIR`) is strongly advisable given the
+  blast-radius argument above — a clean `make test` run alone would not
+  have caught either of the two currently-open gaps, since neither was
+  found via the permanent fixture suite (both came from one-off
+  real-code-testing sessions).
+- Expect this to be the single riskiest change ever made to this
+  formatter's core; budget for it accordingly rather than treating it as
+  an incremental fix.

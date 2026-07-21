@@ -8,8 +8,16 @@
 package com.jxmake.formatter;
 
 /**
- * Skeleton landing spot for the indentation-block language family (Python3) -- see
- * `STATE_PYTHON3.md`. Not yet implemented.
+ * Indentation-block-family formatter (Python3 -- see STATE_PYTHON3.md). Currently a statement/
+ * indentation skeleton only -- delegates straight to {@link ScopePipelineIndent}'s identity
+ * tokenize/render round-trip, no STYLE_PYTHON3.md §1-9 cosmetic rules applied yet. Reachable only
+ * via direct construction/test harnesses today: `Main.run`/`ServerMode` both gate on
+ * {@link Lang#isScaffoldOnly} and throw {@link UnsupportedLanguageException} before ever
+ * constructing this class for a real `--lang python3` invocation, consistent with every other
+ * language's precedent in this codebase (a language leaves {@link Lang#SCAFFOLD_ONLY_LANGUAGES}
+ * only once it has real, substantive formatting logic -- not merely a lossless skeleton). Mirrors
+ * {@link FormatterJson}'s whole-file `formatOff` short-circuit (Python has no per-region frozen-
+ * span mechanism decided/implemented yet, so there is nothing narrower to honor).
  */
 public final class FormatterIndent extends FormatterCore {
 
@@ -20,8 +28,9 @@ public final class FormatterIndent extends FormatterCore {
     @Override
     public String formatOne(final String content, final String filePath, final Config config,
             final boolean formatOff) {
-        throw new UnsupportedOperationException(
-                "'" + lang.language + "' formatting is not yet implemented (scaffold only -- see "
-                        + "STATE_PYTHON3.md)");
+        if (formatOff) {
+            return content;
+        }
+        return new ScopePipelineIndent(lang, config.indentSize()).process(content);
     }
 }

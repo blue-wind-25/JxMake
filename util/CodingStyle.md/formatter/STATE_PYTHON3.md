@@ -323,12 +323,39 @@ real-world drift patterns in the `psf/black`/`django` fixture repos once
       replacement field within* a spec is unhandled, a narrow, rare
       case). Next checklist item is the statement/indentation formatting
       skeleton.
-- [ ] Implement basic statement/indentation formatting first (the Python
+- [x] Implement basic statement/indentation formatting first (the Python
       analog of a "get the skeleton right" starting point, since there are
       no braces to reuse the existing block-structure rule against) —
       confirm indentation depth is never altered in a way that changes
       block membership before any cosmetic rule (alignment, spacing,
       compaction) is layered on top.
+      **Landed:** `ScopePipelineIndent.process` tokenizes via
+      `TokenizerIndent` and renders the token stream straight back to
+      source text with a new `render` helper — a deliberate identity
+      pass (every token's `text` appended verbatim, except the
+      synthesized zero-text `INDENT`/`DEDENT` markers, which are
+      skipped). `FormatterIndent.formatOne` now delegates to it (mirrors
+      `FormatterJson`'s whole-file `formatOff` short-circuit — Python has
+      no per-region frozen-span mechanism decided/implemented yet).
+      `ScopePipelineIndent`'s constructor gained a `Lang` parameter
+      (needed to construct `TokenizerIndent`; had no external callers
+      yet, so free to change). This intentionally does NOT flip `python3`
+      out of `Lang.SCAFFOLD_ONLY_LANGUAGES` — every other language in
+      this codebase left that list only once it had real, substantive
+      rule logic, not a lossless skeleton; `Main.run`/`ServerMode` still
+      gate on `Lang.isScaffoldOnly` and throw
+      `UnsupportedLanguageException` before ever reaching this class for
+      a real `--lang python3` invocation, so `FormatterIndent`/
+      `ScopePipelineIndent` are reachable only via direct
+      construction/test harnesses for now (same posture as the
+      tokenizer-only slices before it). Verified via a one-off smoke-test
+      harness calling `FormatterCore.forLanguage("python3").formatOne`
+      directly against the two registered local fixtures' `_inp.py`
+      files (`test/py_combined_inp.py`, `test/py_comments_inp.py`) —
+      output byte-identical to input for both — plus a full `make test`
+      run (114/114 forward + idempotency, zero regressions; still
+      compile/link-health only for this class, since it isn't reachable
+      from the CLI/server dispatch paths yet).
 - [ ] Implement §1 (bracket complexity detector, including its four
       Python-only sub-categories) as the next foundational piece, since
       §2/§6/§7 all depend on its alignment/padding primitives.

@@ -63,9 +63,14 @@ below; nothing started, this is a design note, not scoped implementation work ye
 - [~] Wire the LLM fallback into the existing `CommentClassifier` ABSTAIN path —
       **NOT FEASIBLE, superseded** — ABSTAIN now routes to the GRU classifier only
       (see "Fail-safe" note in "GRU implementation design" below)
-- [ ] `com.jxmake.formatter.classifier.gru` package — GRU now determined to be the
+- [~] `com.jxmake.formatter.classifier.gru` package — GRU now determined to be the
       preferred v1 approach (see "Model size determination" below), supersedes the
-      earlier LLM-for-v1 lean — NOT STARTED
+      earlier LLM-for-v1 lean — SKELETON ONLY: `GruClassifier.java` (tokenize/hashBucket
+      implemented per RDD_EXT_12/13; `classify` and `load` are unimplemented throwing
+      stubs) and `GruWeights.java` (field layout/schema-version constant only; `load`
+      is an unimplemented throwing stub, no JSON parsing yet). No training pipeline,
+      no weights file format finalized/written, no wiring into `CommentClassifier`'s
+      ABSTAIN path yet.
 
 ---
 

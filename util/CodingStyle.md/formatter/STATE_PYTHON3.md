@@ -14,16 +14,6 @@ imperative surface differs enough from every currently-supported
 brace-delimited language (significant whitespace, several bracket-content
 categories with no C-family analog) that most rules are new, not inherited.
 
-**As of 2026-07-22, Python3 is no longer scaffold-only.** §1-9 of
-`STYLE_PYTHON3.md` all have real, landed logic (see the Checklist below);
-`python3` was removed from `Lang.SCAFFOLD_ONLY_LANGUAGES` (now empty) and
-added to `Lang.isSupported`/`Lang.SUPPORTED_LANGUAGES`, so `--lang python3`
-(CLI) and `lang=python3` (server) now reach `FormatterIndent`/
-`ScopePipelineIndent` for real formatting instead of throwing
-`UnsupportedLanguageException`. Only the separate, larger "real-code testing
-pass" against external repos (see the Checklist's final unchecked item)
-remains outstanding.
-
 ---
 
 ## Scope

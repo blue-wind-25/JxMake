@@ -240,6 +240,10 @@ js-import-blank-lines            = 1
 # ── Python 3 ──────────────────────────────────────────────────────────────────
 python-import-sort               = on
 python-import-blank-lines        = 1
+
+# ── AI-assist (GRU) ───────────────────────────────────────────────────────────
+gru-classifier                   = off         # off | on (opt-in, no trained model ships yet)
+gru-weights-path                 = target/gru/weights.json
 ```
 
 ### `.jxmake-code-formatter` inheritance

@@ -73,16 +73,16 @@ clean:
 GRU_TOOLS_DIR        = tools/gru
 GRU_BUILD_DIR        = $(BUILD_DIR)/gru
 GRU_TOOLS_CLASSES    = $(GRU_BUILD_DIR)/classes
-GRU_WEIGHTS_OUT      = $(GRU_BUILD_DIR)/weights.json
-GRU_SAMPLE_EXAMPLES  = $(GRU_TOOLS_DIR)/sample_examples.txt
 GRU_WEIGHTS_FILENAME = code-formatter-ai-assist-weights.json
+GRU_WEIGHTS_OUT      = $(GRU_BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)
+GRU_SAMPLE_EXAMPLES  = $(GRU_TOOLS_DIR)/sample_examples.txt
 
 gru-train: $(JAR_FILE)
 	@mkdir -p $(GRU_TOOLS_CLASSES)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/GruTrainer.java
 	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT)
-	@cp $(GRU_WEIGHTS_OUT) $(CLASS_DIR)/$(GRU_WEIGHTS_FILENAME)
-#	@cp $(GRU_WEIGHTS_OUT) $(GRU_WEIGHTS_FILENAME)
+	@cp $(GRU_WEIGHTS_OUT) $(CLASS_DIR)
+#	@cp $(GRU_WEIGHTS_OUT) .
 
 
 # ── Test target ───────────────────────────────────────────────────────────────

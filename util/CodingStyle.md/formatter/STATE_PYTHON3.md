@@ -13,9 +13,17 @@ Tracks implementation of Python 3 support in the deterministic JAR formatter
 imperative surface differs enough from every currently-supported
 brace-delimited language (significant whitespace, several bracket-content
 categories with no C-family analog) that most rules are new, not inherited.
-**Current status is scaffold-only:** dispatch exists only as a "not yet
-implemented" error thrown for Python constructs; no real formatting logic
-yet.
+
+**As of 2026-07-22, Python3 is no longer scaffold-only.** §1-9 of
+`STYLE_PYTHON3.md` all have real, landed logic (see the Checklist below);
+`python3` was removed from `Lang.SCAFFOLD_ONLY_LANGUAGES` (now empty) and
+added to `Lang.isSupported`/`Lang.SUPPORTED_LANGUAGES`, so `--lang python3`
+(CLI) and `lang=python3` (server) now reach `FormatterIndent`/
+`ScopePipelineIndent` for real formatting instead of throwing
+`UnsupportedLanguageException`. Python3 is now on the same implemented
+footing as every other language in this codebase; only the separate,
+larger "real-code testing pass" against external repos (see the Checklist's
+final unchecked item) remains outstanding.
 
 ---
 
@@ -946,9 +954,23 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "Python3" section and register in the Makefile's `INP_FILES` /
       `test/README.txt`. Done: `py_combined_inp/out.py` and
-      `py_comments_inp/out.py` extracted to `test/`, registered
-      commented-out in the Makefile (real logic not yet implemented),
-      documented in `test/README.txt`.
+      `py_comments_inp/out.py` extracted to `test/`, documented in
+      `test/README.txt`. **Now active (2026-07-22):** with real logic
+      landed, both pairs were verified against the actual JAR (simpler
+      `py_comments` pair first, then `py_combined`) and uncommented in the
+      Makefile's `INP_FILES` -- no longer commented out. Each pair's
+      `_out.py` was hand-authored speculatively before real logic existed
+      and needed updating to match actual, correct current-scope output;
+      every diff traced back to an already-documented gap from the §2-9
+      slices above (no general expression/operator-respacing pass outside
+      decorator calls/signatures/case colons; no call/signature
+      inline-vs-one-per-line overflow-wrap decision; no automatic blank-line
+      insertion between import groups; Python3 has no comment
+      capitalization/period-normalization pass at all, unlike the C-family),
+      not a formatter bug -- confirmed via direct source inspection of
+      `ScopePipelineIndent`/`MiscRuleIndent`, not guessed. Both fixtures now
+      pass forward + idempotency under `make test` (116/116 forward +
+      116/116 idempotency, zero regressions).
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_PYTHON3.md`'s listed test-fixture repos (`python/cpython`,
       `pallets/flask`, `django/django`, `psf/black`, `pallets/click`).

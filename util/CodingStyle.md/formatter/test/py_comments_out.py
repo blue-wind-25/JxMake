@@ -6,55 +6,52 @@
 # Module setup
 import os
 import sys
-# Local helper
+# local helper
 from . import sibling
 
 flags  = 0x01
 flags |= 0x02
-# Comment breaks the group
+# comment breaks the group
 timeout = 100
 
 # Build the lookup table
-lookup   = { k: v for k, v in items.items() } # Inline note
-filtered = [ y for x in data if( y := transform(x) ) is not None ] # Keep truthy values
+lookup   = {k:v for k,v in items.items()} # inline note
+filtered = [y for x in data if (y := transform(x)) is not None] # keep truthy values
 
 @dataclass
 class Point:
-    x : int  # Horizontal position
-    # Vertical position
-    y : int
+    x: int  # horizontal position
+    # vertical position
+    y: int
 
-def process(
-    extra,
-    x : int,  # Required
-    y : "List[int]"
-) -> Optional[str]:
+def process(extra, x: int,  # required
+y: "List[int]") -> Optional[str]:
     ...
 
-@app.route("/status") # Health check endpoint
+@app.route("/status") # health check endpoint
 def status():
     """
     Health check endpoint.
         Always returns "ok" for now.
     """
+
     return "ok"
 
 def dispatch(event):
     match event:
         case "start":
             begin()
-        # Stopping the process
-        case "stop":
-            end()
+        # stopping the process
+        case "stop": end()
         case _:
             pass
 
 def check(x):
     if x < 0:
-        # Negative case
+        # negative case
         return None
 
-    # Zero case
+    # zero case
     if x == 0:
         return 0
 
@@ -62,8 +59,7 @@ def check(x):
 
 def classify(code):
     match code:
-        case 1: return "one" # First
+        case 1: return "one" # first
         case 2: return "two"
-        # Fallback
+        # fallback
         case _: return "unknown"
-    # match code

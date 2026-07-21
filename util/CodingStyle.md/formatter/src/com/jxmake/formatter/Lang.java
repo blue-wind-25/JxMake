@@ -14,15 +14,13 @@ import java.util.Locale;
  * exactly once per {@link FormatterCore#formatOne}, so rule classes read {@link #isC}/{@link #isCpp}/
  * {@link #isJava}/{@link #isKotlin} instead of each re-comparing the raw {@link #language} string.
  *
- * <p>Also recognizes ("dispatches") {@link #isPython3}, the one remaining language that is wired
- * into detection but has no real formatting logic yet. It is intentionally excluded from
+ * <p>{@link #isPython3} is a fully implemented language like every other -- included in
  * {@link #isSupported}/{@link #SUPPORTED_LANGUAGES} (the `--lang` CLI flag / server `lang` param
- * whitelist) so a caller can never construct a {@link FormatterCore} pipeline for it;
- * {@link #isScaffoldOnly} is the single source of truth callers use to route a
- * recognized-but-unimplemented language to {@link UnsupportedLanguageException} instead -- see
- * `Main.processFile`/`ServerMode.FormatHandler.handle`. {@link #isJs}/{@link #isTs} moved out of
+ * whitelist). {@link #isScaffoldOnly} currently always returns {@code false}: every language this
+ * codebase recognizes has real formatting logic. {@link #isJs}/{@link #isTs} moved out of
  * scaffold-only once `JsTsSpecificRule`/`JsTsDeclarationAlignmentRule` landed real logic -- see
- * `STATE_JS_TS.md`.
+ * `STATE_JS_TS.md`; {@link #isPython3} moved out once `FormatterIndent`/`ScopePipelineIndent`
+ * landed real logic -- see `STATE_PYTHON3.md`.
  *
  * <p>{@link #isCurly}/{@link #isIndentBased}/{@link #isTagBased} classify by scoping-delimiter
  * family (brace-block, indentation-block, tag-nested) -- used to pick the right `*Curly`/
@@ -82,12 +80,12 @@ public final class Lang {
      *    `ServerMode.FormatHandler.handle()`
      */
     public static final String SUPPORTED_LANGUAGES =
-            "c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts";
+            "c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3";
 
     /**
      * Scaffold-only languages: recognized by {@link #infer} and accepted by `--lang`/`lang=`, but
      * every real formatting attempt throws {@link UnsupportedLanguageException} -- no rule classes
-     * exist for them yet. See `STATE_PYTHON3.md`. (C++26 is deliberately NOT a separate scaffold
+     * exist for them yet. (C++26 is deliberately NOT a separate scaffold
      * entry here -- it is future incremental rule coverage on the existing, already-implemented
      * {@code "cpp"} pipeline, the same way C++20 support was folded in with no separate
      * {@code isCpp20}/{@code --lang cpp20} selector. See RDD_KEY_180, which supersedes
@@ -99,10 +97,14 @@ public final class Lang {
      * internally, gated on `lang.isHtml5` -- RDD_KEY_188). JS/TS moved out once
      * `JsTsSpecificRule`/`JsTsDeclarationAlignmentRule` landed real logic -- see `STATE_JS_TS.md`;
      * HTML5's `<script>` dispatch to JS/TS (`XmlSpecificRule.renderScriptOrStyle`) now formats
-     * real (non-frozen) script content for real rather than throwing.
+     * real (non-frozen) script content for real rather than throwing. Python3 moved out once
+     * `FormatterIndent`/`ScopePipelineIndent` landed real logic for §1-9 of `STYLE_PYTHON3.md`
+     * -- see `STATE_PYTHON3.md`. This list is now empty; kept as a `String` constant (rather than
+     * removed outright) since `Main.java`/`ServerMode.java` still reference it in usage/error text
+     * for a future scaffold-only language to reuse.
      */
     public static final String SCAFFOLD_ONLY_LANGUAGES =
-            "python3";
+            "";
 
     public static boolean isSupported(final String language) {
         return "c".equals(language) || "cpp".equals(language)
@@ -110,11 +112,12 @@ public final class Lang {
                 || "json".equals(language) || "json5".equals(language)
                 || "css".equals(language) || "yaml".equals(language) || "toml".equals(language)
                 || "xml".equals(language) || "html5".equals(language)
-                || "js".equals(language) || "ts".equals(language);
+                || "js".equals(language) || "ts".equals(language)
+                || "python3".equals(language);
     }
 
     public static boolean isScaffoldOnly(final String language) {
-        return "python3".equals(language);
+        return false;
     }
 
     /** {@code isSupported || isScaffoldOnly} -- every language recognized by this codebase at all. */

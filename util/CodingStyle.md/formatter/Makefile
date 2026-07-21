@@ -129,8 +129,8 @@ INP_FILES += ts_decl_grid_ext_inp.ts
 INP_FILES += html_combined_inp.html
 INP_FILES += html_comments_inp.html
 
-#INP_FILES += py_combined_inp.py
-#INP_FILES += py_comments_inp.py
+INP_FILES += py_combined_inp.py
+INP_FILES += py_comments_inp.py
 
 INP_FILES += real_code_regressions_1_inp.cpp
 INP_FILES += real_code_regressions_2_inp.java

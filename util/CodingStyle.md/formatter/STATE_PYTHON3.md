@@ -686,6 +686,78 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       parameter whose own default value or type hint itself spans more than one physical line
       (bracket continuation nested inside the outer signature's own continuation) -- each of these
       shapes causes the *whole* signature to be left untouched rather than partially aligned.
+      **§7 (Structural Pattern Matching, `match`/`case`) landed -- `:` column alignment-only
+      slice.** New `ScopePipelineIndent.CaseLine`/`applyCaseColonAlignment`/`classifyCaseLine`/
+      `flushCaseGroup` -- no new `MiscRuleIndent` method needed (unlike §2/§3/§6), since this pass
+      only ever pads the gap between a case's own trimmed pattern text and its `:`, never rebuilds a
+      whole rendered line; reuses the existing `normalizeGap`/`verbatimLineText`/`isOpenBracketText`/
+      `isCloseBracketText`/`trimEndIdx` helpers already landed for §4-§6 rather than adding parallel
+      ones. `classifyCaseLine` checks the line's first significant token's own literal text against
+      `"case"` rather than `TokenType.KEYWORD`, since `case` (like `match`/`_`/`type`) is a
+      context-sensitive soft keyword the tokenizer deliberately leaves as a plain `IDENTIFIER`
+      (`STATE_PYTHON3.md`'s own tokenizer-slice note). The header-terminating `:` is found via a
+      bracket-depth-0 scan starting right after `case` -- correctly skips a mapping pattern's own
+      `{"action": action}` colon (inside `{}`, depth > 0) without any special-casing, and a guard
+      clause's own `if x == y` is included in the pattern span by construction (the guard has no `:`
+      of its own to stop the scan early, and `:=` is already a single pre-merged `OP` token per the
+      tokenizer's own `emitWalrus`, so it was never at risk of being mistaken for the header colon
+      either). `compact` is true iff at least one significant, non-comment token follows the `:` on
+      the same physical line -- reads the body's existing same-line-vs-block shape exactly as
+      written, never decides to compact or expand it, same posture §6 takes toward an
+      already-broken-out signature. Grouping mirrors §2/§3's own shape: contiguous same-depth `case`
+      lines form one group, broken by a blank line, a comment-only line, a depth change, or any
+      non-`case` statement (including the enclosing `match subject:` header itself, which never
+      classifies as a `case` line and so naturally closes out any group before it). **All-or-nothing**
+      (STYLE_PYTHON3.md §7's own explicit rule): `flushCaseGroup` emits zero replacements for the
+      entire group the moment any member is block-form, even for that group's own compact members --
+      checked before any padding-width computation, not filtered case-by-case. For an all-compact
+      group, each member's replacement covers only `[patternEnd, colonIdx)` (a whitespace-only gap,
+      via the shared `normalizeGap`), padded with `maxLen - thisLen` spaces so every pattern's
+      trimmed text lines up flush before an aligned `:` column -- the pattern/body text itself is
+      never touched, only the gap immediately before the colon.
+
+      **Points 4-7 of the task's own scope guidance verified as smoke-tested, not newly built** (or
+      pre-existing documented gaps, not something this slice papers over): or-pattern `|` spacing and
+      guard-clause `if`/`==` spacing both survive already-correct source untouched (verified via
+      dedicated smoke cases) because there is still no general expression/operator-respacing pass for
+      Python3 anywhere in the `*Indent` family -- the same gap §5's own slice already documented (its
+      own "no general expression-spacing primitive exists" note) -- so this is confirmed pre-existing,
+      not introduced or newly deferred by §7. Wildcard `_` is an ordinary `IDENTIFIER` token with no
+      new rule needed, confirmed via a standalone smoke case, and already participates correctly in
+      compact-group alignment (the varying-pattern-width smoke case includes a `case _:` member).
+      Deconstruction/sequence/mapping pattern content (`Point(x=0, y=0)`, `[1, 2, *rest]`, `{"k": v}`)
+      is not repadded by any bracket-complexity-driven rewrite in this slice -- `PythonBracketComplexityEvaluator`
+      exists and *could* classify such content per §1, but nothing wires it into case-pattern
+      rendering the way §4 wires it into decorator-call padding; this slice's own bracket-depth scan
+      in `classifyCaseLine` only uses bracket nesting to find the header colon safely, never to
+      repad the pattern's own internal spacing. Not treated as a new gap requiring documentation as
+      a checklist blocker -- narrowing to `:`-column alignment only was this checkpoint's explicit,
+      pre-agreed scope, and every worked example in STYLE_PYTHON3.md §7 itself already has correctly
+      spaced pattern content, so nothing in the style doc's own examples is left unsatisfied.
+
+      **Point 8 (closing comment) explicitly deferred, confirmed absent rather than guessed.** Grepped
+      the whole `src/com/jxmake/formatter/` tree for `closing-comment`/`closingComment`/
+      `ClosingComment` before writing any code: every hit lives in `Config.java` (the shared config
+      key itself), `FormatterCurly.java`, `ScopePipelineCurly.java`, `SwitchRule.java`,
+      `CppSpecificRule.java`, `KotlinSpecificRule.java`, `MiscRuleCore.java`, `BlockStructureRule.java`,
+      `JsTsSpecificRule.java` -- entirely Curly-family (and JS/TS's own `Tags`-adjacent equivalent),
+      zero hits anywhere in the `*Indent` family for any Python3 construct, not even `def`/`class`.
+      Building the mechanism from scratch as a side effect of `match`'s own closing comment would be
+      exactly the "large amount of missing supporting infra, not a narrow addition" case the task's
+      own guidance said to defer on -- left uncovered here, consistent with that guidance, not folded
+      into this checkpoint.
+
+      Verified via an 8-case smoke-test harness (`FormatterCore.forLanguage("python3").formatOne`
+      direct construction, same pattern as every prior slice's own harness): STYLE_PYTHON3.md §7's own
+      block-body worked example left byte-for-byte untouched, its own compact-form worked example
+      round-tripping unchanged (idempotency, all three patterns equal width already), a compact group
+      with varying pattern widths (`Point(x=0, y=0)` vs `_`) correctly `:`-aligned, a mixed
+      compact/block group abandoning alignment entirely (all-or-nothing), or-pattern (`1 | 2 | 3`) and
+      guard-clause (`if x == y`) spacing both surviving untouched, a standalone wildcard `case _:`
+      block left untouched, and idempotency of the varying-width case's own aligned output -- all 8
+      passed -- plus a full `make test` run (114/114 forward + idempotency, zero regressions; still
+      compile/link-health only, `python3` stays in `Lang.SCAFFOLD_ONLY_LANGUAGES`, this pass reachable
+      only via direct construction/test harnesses, same posture as every prior Python3 slice).
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "Python3" section and register in the Makefile's `INP_FILES` /
       `test/README.txt`. Done: `py_combined_inp/out.py` and

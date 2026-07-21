@@ -56,6 +56,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         replacements.addAll(applyDecoratorSpacing(tokens, rawLines));
         replacements.addAll(applyFStringSpacing(tokens));
         replacements.addAll(applySignatureAlignment(tokens, rawLines));
+        replacements.addAll(applyCaseColonAlignment(tokens, rawLines));
         replacements.sort(Comparator.comparingInt(r -> r.start));
         return render(tokens, replacements);
     }
@@ -1012,6 +1013,148 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             }
         }
         return start;
+    }
+
+    // ── §7: Structural Pattern Matching (match/case) ────────────────────────────────────
+
+    /** One recognized {@code case pattern:} header on a single physical line: {@code
+     *  [patternStart, patternEnd)} is the pattern's own trimmed token span (including any {@code if}
+     *  guard clause -- the guard is part of the case's own header, not the body), {@code colonIdx}
+     *  is the header-terminating `:` (found at bracket depth 0 relative to the pattern, so a mapping
+     *  pattern's own `{"key": value}` colon -- inside `{}` -- is never mistaken for it), and {@code
+     *  compact} is true when at least one significant, non-comment token follows the `:` on the same
+     *  physical line (STYLE_PYTHON3.md §7/§8: the body stays same-line vs. drops to an indented
+     *  block is read as-already-written, never decided here, same posture as §6's signature-grouping
+     *  toward an already-broken-out parameter list). */
+    private static final class CaseLine {
+        final int patternStart;
+        final int patternEnd;
+        final int colonIdx;
+        final boolean compact;
+
+        CaseLine(final int patternStart, final int patternEnd, final int colonIdx, final boolean compact) {
+            this.patternStart = patternStart;
+            this.patternEnd = patternEnd;
+            this.colonIdx = colonIdx;
+            this.compact = compact;
+        }
+    }
+
+    /** Classifies each {@code rawLines} entry as a §7 {@code case} header or not, groups
+     *  contiguous same-depth {@code case} lines (a blank line, a comment-only line, a depth change,
+     *  or any non-{@code case} statement all break the group -- same boundary convention §2/§3 use),
+     *  and -- **all-or-nothing** per STYLE_PYTHON3.md §7 -- aligns the `:` column across a group only
+     *  when every member in it is already in compact one-line form; a group containing even one
+     *  block-body {@code case} gets no alignment at all, not even for its own compact members. */
+    private List<Replacement> applyCaseColonAlignment(final List<Token> tokens, final List<RawLine> rawLines) {
+        final List<Replacement> replacements = new ArrayList<>();
+        List<CaseLine> group = new ArrayList<>();
+        int groupDepth = -1;
+        for (final RawLine line : rawLines) {
+            final CaseLine c = classifyCaseLine(tokens, line);
+            if (c != null && (group.isEmpty() || line.depth == groupDepth)) {
+                group.add(c);
+                groupDepth = line.depth;
+                continue;
+            }
+            flushCaseGroup(tokens, group, replacements);
+            group = new ArrayList<>();
+            if (c != null) {
+                group.add(c);
+                groupDepth = line.depth;
+            } else {
+                groupDepth = -1;
+            }
+        }
+        flushCaseGroup(tokens, group, replacements);
+        return replacements;
+    }
+
+    /** Classifies one line as a §7 {@code case} header: {@code case} is tokenized as a plain {@code
+     *  IDENTIFIER} (a context-sensitive soft keyword, per {@code TokenizerIndent}'s own {@code
+     *  KEYWORDS_PYTHON} exclusion), so this checks its literal text rather than {@code
+     *  TokenType.KEYWORD}. Rejects (returns {@code null}) a multi-physical-line {@code case} header
+     *  (a wrapped pattern spanning a bracket/backslash continuation) -- same "documented gap, not a
+     *  guess" precedent as every prior §2-§6 slice -- and any line with no top-level `:` at all. */
+    private CaseLine classifyCaseLine(final List<Token> tokens, final RawLine line) {
+        if (line.multiPhysicalLine) {
+            return null;
+        }
+        final int caseIdx = nextSignificant(tokens, line.contentStart, line.end);
+        if (caseIdx < 0 || tokens.get(caseIdx).type != TokenType.IDENTIFIER || !"case".equals(tokens.get(caseIdx).text)) {
+            return null;
+        }
+        final int patternStart = nextSignificant(tokens, caseIdx + 1, line.end);
+        if (patternStart < 0) {
+            return null;
+        }
+        int depth = 0;
+        int colonIdx = -1;
+        for (int k = patternStart; k < line.end; k++) {
+            final Token t = tokens.get(k);
+            if (t.type == TokenType.PUNCT && isOpenBracketText(t.text)) {
+                depth++;
+            } else if (t.type == TokenType.PUNCT && isCloseBracketText(t.text)) {
+                depth--;
+            } else if (depth == 0 && t.type == TokenType.PUNCT && ":".equals(t.text)) {
+                colonIdx = k;
+                break;
+            }
+        }
+        if (colonIdx < 0) {
+            return null;
+        }
+        final int patternEnd = trimEndIdx(tokens, patternStart, colonIdx);
+        if (patternEnd <= patternStart) {
+            return null;
+        }
+        boolean compact = false;
+        for (int k = colonIdx + 1; k < line.end; k++) {
+            final Token t = tokens.get(k);
+            if (!isGapToken(t) && t.type != TokenType.COMMENT_LINE) {
+                compact = true;
+                break;
+            }
+        }
+        return new CaseLine(patternStart, patternEnd, colonIdx, compact);
+    }
+
+    /** Emits one {@link Replacement} per compact group member, padding the gap between its own
+     *  trimmed pattern text and its `:` to the group's widest pattern width -- mirrors {@link
+     *  #normalizeGap}'s "gap-only, no whole-line rebuild" shape (used for §4/§5's bracket/brace
+     *  padding), just with a per-group computed width instead of a fixed tight/loose text. Does
+     *  nothing at all (no replacements) when the group is empty or contains any block-body member,
+     *  per §7's all-or-nothing rule. */
+    private void flushCaseGroup(final List<Token> tokens, final List<CaseLine> group,
+            final List<Replacement> replacements) {
+        if (group.isEmpty()) {
+            return;
+        }
+        for (final CaseLine c : group) {
+            if (!c.compact) {
+                return; // all-or-nothing: one block-body case abandons alignment for the whole group
+            }
+        }
+        int maxLen = 0;
+        for (final CaseLine c : group) {
+            maxLen = Math.max(maxLen, verbatimLineText(tokens, c.patternStart, c.patternEnd).length());
+        }
+        for (final CaseLine c : group) {
+            final int len = verbatimLineText(tokens, c.patternStart, c.patternEnd).length();
+            final String desired = padRightSpaces(maxLen - len);
+            final Replacement gap = normalizeGap(tokens, c.patternEnd, c.colonIdx, desired);
+            if (gap != null) {
+                replacements.add(gap);
+            }
+        }
+    }
+
+    private String padRightSpaces(final int count) {
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            sb.append(' ');
+        }
+        return sb.toString();
     }
 
     /** Reassembles {@code tokens}' source text verbatim. Every token kind's {@code text} is its

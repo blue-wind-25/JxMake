@@ -64,7 +64,7 @@ in place of its own extension-based guess for that request.
 ### Output modes
 
 ```sh
-java -jar code-formatter-1.00.jar File.java             # in-place edit (default)
+java -jar code-formatter-1.00.jar --in-place File.java  # in-place edit (overwrites File.java)
 java -jar code-formatter-1.00.jar --diff File.java      # print unified diff, do not edit
 java -jar code-formatter-1.00.jar --check File.java     # exit 1 if file would change (CI)
 java -jar code-formatter-1.00.jar --out DIR File.java   # write to DIR/File.java instead
@@ -72,6 +72,11 @@ java -jar code-formatter-1.00.jar --out DIR \           # write to DIR/sub/File.
     --preserve-tree --root ROOT sub/File.java           # ROOT-relative subdirectory structure
 
 ```
+
+One of `--in-place`, `--diff`, `--check`, or `--out DIR` is required — there is no implicit
+default output mode, specifically so that running the formatter without thinking about output
+mode can never silently overwrite an input file. Use `--in-place` when you deliberately want
+that behavior.
 
 `--out DIR` alone flattens every input file to its basename under `DIR` — two input files
 with the same name in different source directories will collide and overwrite each other.

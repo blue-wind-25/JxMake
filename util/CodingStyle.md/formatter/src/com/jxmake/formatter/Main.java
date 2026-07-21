@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 public final class Main {
-    private enum OutputMode { IN_PLACE, DIFF, CHECK, OUT_DIR }
+    private enum OutputMode { NONE, IN_PLACE, DIFF, CHECK, OUT_DIR }
 
     /**
      * Sentinel {@code run()} result meaning "a fresh server was started -- its live,
@@ -53,7 +53,7 @@ public final class Main {
         boolean stopMode = false;
         boolean standalone = false;
         boolean formatOff = false;
-        OutputMode outputMode = OutputMode.IN_PLACE;
+        OutputMode outputMode = OutputMode.NONE;
         String outDir = null;
         Integer port = null;
         String explicitLanguage = null;
@@ -72,18 +72,23 @@ public final class Main {
             } else if ("--format-off".equals(arg)) {
                 formatOff = true;
             } else if ("--diff".equals(arg)) {
-                if (outputMode != OutputMode.IN_PLACE) {
-                    return usageError("--diff cannot be combined with --check or --out");
+                if (outputMode != OutputMode.NONE) {
+                    return usageError("--diff cannot be combined with --check, --out, or --in-place");
                 }
                 outputMode = OutputMode.DIFF;
             } else if ("--check".equals(arg)) {
-                if (outputMode != OutputMode.IN_PLACE) {
-                    return usageError("--check cannot be combined with --diff or --out");
+                if (outputMode != OutputMode.NONE) {
+                    return usageError("--check cannot be combined with --diff, --out, or --in-place");
                 }
                 outputMode = OutputMode.CHECK;
+            } else if ("--in-place".equals(arg)) {
+                if (outputMode != OutputMode.NONE) {
+                    return usageError("--in-place cannot be combined with --diff, --check, or --out");
+                }
+                outputMode = OutputMode.IN_PLACE;
             } else if ("--out".equals(arg)) {
-                if (outputMode != OutputMode.IN_PLACE) {
-                    return usageError("--out cannot be combined with --diff or --check");
+                if (outputMode != OutputMode.NONE) {
+                    return usageError("--out cannot be combined with --diff, --check, or --in-place");
                 }
                 if (i + 1 >= args.length) {
                     return usageError("--out requires a directory argument");
@@ -102,13 +107,15 @@ public final class Main {
                 }
             } else if ("--lang".equals(arg)) {
                 if (i + 1 >= args.length) {
-                    return usageError("--lang requires an argument (" + Lang.SUPPORTED_LANGUAGES + ", "
-                            + Lang.SCAFFOLD_ONLY_LANGUAGES + ")");
+                    return usageError("--lang requires an argument (" + Lang.SUPPORTED_LANGUAGES
+                            + (Lang.SCAFFOLD_ONLY_LANGUAGES.isEmpty() ? "" : ", " + Lang.SCAFFOLD_ONLY_LANGUAGES)
+                            + ")");
                 }
                 final String langArg = args[++i];
                 if (!Lang.isRecognized(langArg)) {
-                    return usageError("--lang must be one of: " + Lang.SUPPORTED_LANGUAGES + ", "
-                            + Lang.SCAFFOLD_ONLY_LANGUAGES + " (got: " + langArg + ")");
+                    return usageError("--lang must be one of: " + Lang.SUPPORTED_LANGUAGES
+                            + (Lang.SCAFFOLD_ONLY_LANGUAGES.isEmpty() ? "" : ", " + Lang.SCAFFOLD_ONLY_LANGUAGES)
+                            + " (got: " + langArg + ")");
                 }
                 explicitLanguage = langArg;
             } else if ("--preserve-tree".equals(arg)) {
@@ -160,6 +167,10 @@ public final class Main {
         if (files.isEmpty()) {
             return usageError("no input files given");
         }
+        if (outputMode == OutputMode.NONE) {
+            return usageError("one of --out DIR, --diff, --check, or --in-place is required "
+                    + "(in-place overwriting is no longer the implicit default)");
+        }
 
         boolean anyChanged = false;
         boolean anyError = false;
@@ -195,9 +206,10 @@ public final class Main {
 
     private static void printUsage() {
         System.err.println("usage: jxmake-code-formatter [--standalone] [--format-off] "
-                + "[--lang " + Lang.SUPPORTED_LANGUAGES.replace(", ", "|") + "|"
-                + Lang.SCAFFOLD_ONLY_LANGUAGES.replace(", ", "|") + "] "
-                + "[--diff | --check | --out DIR [--preserve-tree --root DIR]] [file...]");
+                + "[--lang " + Lang.SUPPORTED_LANGUAGES.replace(", ", "|")
+                + (Lang.SCAFFOLD_ONLY_LANGUAGES.isEmpty() ? "" : "|" + Lang.SCAFFOLD_ONLY_LANGUAGES.replace(", ", "|"))
+                + "] "
+                + "(--diff | --check | --in-place | --out DIR [--preserve-tree --root DIR]) [file...]");
         System.err.println("       jxmake-code-formatter --server [--port N]");
         System.err.println("       jxmake-code-formatter --stop");
     }
@@ -249,11 +261,12 @@ public final class Main {
                 writeFile(outPath, formatted);
                 break;
             case IN_PLACE:
-            default:
                 if (changed) {
                     writeFile(path, formatted);
                 }
                 break;
+            default:
+                throw new IllegalStateException("unresolved output mode: " + outputMode);
         }
 
         return changed;

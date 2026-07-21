@@ -101,6 +101,16 @@ below; nothing started, this is a design note, not scoped implementation work ye
       unreadable/nonexistent file) using small temp JSON files under the system temp dir
       (cleaned up after each check); run via `java GruWeightsSelfTest` — all checks currently
       pass.
+      `GruClassifier.softmax(double[])` (numerically-stable, subtracts max logit before
+      exponentiating) and `GruClassifier.decide(double[], double)` (RDD_EXT_11's abstain-threshold
+      mapping -- top class must strictly clear the threshold, not just be the argmax, else
+      `ABSTAIN`) added, both pure math/logic usable without a real forward pass. Introduced a new
+      fixed `CLASS_ORDER = {YES, NO, ABSTAIN}` constant as the softmax-output-index convention
+      (documented as an encoding choice, not one of the still-open items -- any future training
+      pipeline must emit its 3-way output in this order). Covered by
+      `tools/gru/GruSoftmaxSelfTest.java` (sum-to-one, uniform on equal logits, numerical
+      stability on large logits, highest-logit-ranks-highest, empty input, above/below/exactly-at
+      threshold, wrong-length rejection) — all checks currently pass.
       `Vocabulary.java` added: the explicit-vocab-vs-hash-bucket lookup mechanism only
       (`lookup(word)` returns an explicit index if present, else `explicitVocabSize +
       hashBucket(word)`), case-preserved, no dedup surprises. The actual ~3.5k-word explicit

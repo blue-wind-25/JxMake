@@ -41,6 +41,14 @@ public final class GruClassifier {
     /** Per-comment token cap (truncate/pad), per the finalized architecture. */
     static final int SEQUENCE_CAP = 64;
 
+    /** Fixed softmax output class order this codebase uses -- an encoding convention (like
+     *  {@link #HASH_BUCKETS}'s hash choice), not one of STATE_NEXT_AI.md's open items. Whatever
+     *  training pipeline produces the weights file must emit its 3-way softmax output in this
+     *  same order, since {@link #decide} maps output index -> class positionally. */
+    public static final CommentDecision[] CLASS_ORDER = {
+        CommentDecision.YES, CommentDecision.NO, CommentDecision.ABSTAIN
+    };
+
     private final GruWeights weights;
 
     private GruClassifier(GruWeights weights) {
@@ -95,6 +103,56 @@ public final class GruClassifier {
             }
         }
         return tokens;
+    }
+
+    /** Numerically-stable softmax: converts raw class scores (logits) into a probability
+     *  distribution that sums to 1. Subtracts the max logit before exponentiating to avoid
+     *  overflow -- this doesn't change the result ({@code softmax(x) == softmax(x - c)} for any
+     *  constant {@code c}), only its numerical stability for large logit magnitudes. Pure math,
+     *  independent of any trained weights -- usable now even though the forward pass that
+     *  produces real logits isn't implemented yet. */
+    public static double[] softmax(double[] logits) {
+        if (logits.length == 0) {
+            return new double[0];
+        }
+        double max = logits[0];
+        for (double v : logits) {
+            if (v > max) {
+                max = v;
+            }
+        }
+        double[] exp = new double[logits.length];
+        double sum = 0.0;
+        for (int i = 0; i < logits.length; i++) {
+            exp[i] = Math.exp(logits[i] - max);
+            sum += exp[i];
+        }
+        for (int i = 0; i < exp.length; i++) {
+            exp[i] /= sum;
+        }
+        return exp;
+    }
+
+    /** Maps a softmax probability distribution to a {@link CommentDecision} per RDD_EXT_11: the
+     *  top class must clear {@code abstainThreshold} (not just be the argmax) to be returned as
+     *  that class; otherwise this abstains, same posture as the missing-weights-file fail-safe.
+     *  {@code probabilities[i]} corresponds to {@link #CLASS_ORDER}{@code [i]} -- callers must
+     *  pass a distribution produced in that same class order. */
+    public static CommentDecision decide(double[] probabilities, double abstainThreshold) {
+        if (probabilities.length != CLASS_ORDER.length) {
+            throw new IllegalArgumentException("expected " + CLASS_ORDER.length
+                    + " probabilities (one per CLASS_ORDER entry), got " + probabilities.length);
+        }
+        int argmax = 0;
+        for (int i = 1; i < probabilities.length; i++) {
+            if (probabilities[i] > probabilities[argmax]) {
+                argmax = i;
+            }
+        }
+        if (probabilities[argmax] > abstainThreshold) {
+            return CLASS_ORDER[argmax];
+        }
+        return CommentDecision.ABSTAIN;
     }
 
     private static boolean isWordChar(char c) {

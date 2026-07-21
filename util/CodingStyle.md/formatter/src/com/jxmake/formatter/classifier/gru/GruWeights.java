@@ -79,15 +79,20 @@ public final class GruWeights {
                     + schemaVersion + ", expected " + CURRENT_SCHEMA_VERSION);
         }
 
-        return new GruWeights(
-                schemaVersion,
-                requireIntField(json, "vocabSize", path),
-                requireIntField(json, "hashBuckets", path),
-                requireIntField(json, "embeddingDim", path),
-                requireIntField(json, "hiddenSize", path),
-                requireIntField(json, "sequenceCap", path),
-                requireIntField(json, "numClasses", path),
-                requireDoubleField(json, "abstainThreshold", path));
+        int vocabSize = requirePositiveIntField(json, "vocabSize", path);
+        int hashBuckets = requirePositiveIntField(json, "hashBuckets", path);
+        int embeddingDim = requirePositiveIntField(json, "embeddingDim", path);
+        int hiddenSize = requirePositiveIntField(json, "hiddenSize", path);
+        int sequenceCap = requirePositiveIntField(json, "sequenceCap", path);
+        int numClasses = requirePositiveIntField(json, "numClasses", path);
+        double abstainThreshold = requireDoubleField(json, "abstainThreshold", path);
+        if (abstainThreshold < 0.0 || abstainThreshold > 1.0) {
+            throw new IOException("GRU weights file " + path + " field \"abstainThreshold\" must "
+                    + "be within [0.0, 1.0], got " + abstainThreshold);
+        }
+
+        return new GruWeights(schemaVersion, vocabSize, hashBuckets, embeddingDim, hiddenSize,
+                sequenceCap, numClasses, abstainThreshold);
     }
 
     private static final Pattern NUMBER_FIELD = Pattern.compile(
@@ -111,6 +116,15 @@ public final class GruWeights {
             throw new IOException("GRU weights file " + path + " field \"" + key
                     + "\" is not an integer: " + value);
         }
+    }
+
+    private static int requirePositiveIntField(String json, String key, Path path) throws IOException {
+        int value = requireIntField(json, key, path);
+        if (value <= 0) {
+            throw new IOException("GRU weights file " + path + " field \"" + key
+                    + "\" must be positive, got " + value);
+        }
+        return value;
     }
 
     private static double requireDoubleField(String json, String key, Path path) throws IOException {

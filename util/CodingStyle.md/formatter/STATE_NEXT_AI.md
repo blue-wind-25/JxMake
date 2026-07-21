@@ -100,7 +100,10 @@ below; nothing started, this is a design note, not scoped implementation work ye
       path plus each error path (missing field, wrong schema version, malformed number,
       unreadable/nonexistent file) using small temp JSON files under the system temp dir
       (cleaned up after each check); run via `java GruWeightsSelfTest` — all checks currently
-      pass.
+      pass. `load` now also rejects a non-positive dimension field (`vocabSize`/`hashBuckets`/
+      `embeddingDim`/`hiddenSize`/`sequenceCap`/`numClasses`) and an `abstainThreshold` outside
+      `[0.0, 1.0]` as hard errors, instead of silently accepting a nonsensical shape; covered by
+      two more `GruWeightsSelfTest.java` checks.
       `GruClassifier.softmax(double[])` (numerically-stable, subtracts max logit before
       exponentiating) and `GruClassifier.decide(double[], double)` (RDD_EXT_11's abstain-threshold
       mapping -- top class must strictly clear the threshold, not just be the argmax, else

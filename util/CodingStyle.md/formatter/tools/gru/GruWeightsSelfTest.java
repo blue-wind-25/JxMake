@@ -28,6 +28,8 @@ public final class GruWeightsSelfTest {
         checkWrongSchemaVersion();
         checkMalformedNumber();
         checkUnreadableFile();
+        checkNonPositiveDimensionRejected();
+        checkAbstainThresholdOutOfRangeRejected();
 
         if (failures == 0) {
             System.out.println("GruWeightsSelfTest: all checks passed");
@@ -118,6 +120,52 @@ public final class GruWeightsSelfTest {
             if (!e.getMessage().contains("not readable")) {
                 fail("unreadable-file error message unexpected: " + e.getMessage());
             }
+        }
+    }
+
+    private static void checkNonPositiveDimensionRejected() throws IOException {
+        Path path = writeTemp("{"
+                + "\"schemaVersion\": 1,"
+                + "\"vocabSize\": 3500,"
+                + "\"hashBuckets\": 1024,"
+                + "\"embeddingDim\": 16,"
+                + "\"hiddenSize\": 0,"
+                + "\"sequenceCap\": 64,"
+                + "\"numClasses\": 3,"
+                + "\"abstainThreshold\": 0.5"
+                + "}");
+        try {
+            GruWeights.load(path);
+            fail("zero hiddenSize unexpectedly loaded without error");
+        } catch (IOException e) {
+            if (!e.getMessage().contains("must be positive")) {
+                fail("non-positive-dimension error message unexpected: " + e.getMessage());
+            }
+        } finally {
+            Files.deleteIfExists(path);
+        }
+    }
+
+    private static void checkAbstainThresholdOutOfRangeRejected() throws IOException {
+        Path path = writeTemp("{"
+                + "\"schemaVersion\": 1,"
+                + "\"vocabSize\": 3500,"
+                + "\"hashBuckets\": 1024,"
+                + "\"embeddingDim\": 16,"
+                + "\"hiddenSize\": 224,"
+                + "\"sequenceCap\": 64,"
+                + "\"numClasses\": 3,"
+                + "\"abstainThreshold\": 1.5"
+                + "}");
+        try {
+            GruWeights.load(path);
+            fail("out-of-range abstainThreshold unexpectedly loaded without error");
+        } catch (IOException e) {
+            if (!e.getMessage().contains("abstainThreshold")) {
+                fail("out-of-range abstainThreshold error message unexpected: " + e.getMessage());
+            }
+        } finally {
+            Files.deleteIfExists(path);
         }
     }
 

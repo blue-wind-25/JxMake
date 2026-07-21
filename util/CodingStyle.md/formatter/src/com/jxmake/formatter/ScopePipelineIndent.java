@@ -7,6 +7,7 @@
 
 package com.jxmake.formatter;
 
+import com.jxmake.formatter.evaluator.PythonBracketComplexityEvaluator;
 import com.jxmake.formatter.rules.MiscRuleIndent;
 import com.jxmake.formatter.rules.MiscRuleIndent.PyAssignment;
 import com.jxmake.formatter.rules.MiscRuleIndent.PyImport;
@@ -36,6 +37,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     private final Lang lang;
     private final MiscRuleIndent miscRule;
+    private final PythonBracketComplexityEvaluator bracketEval = new PythonBracketComplexityEvaluator();
 
     public ScopePipelineIndent(final Lang lang, final int indentWidth) {
         super(indentWidth);
@@ -50,6 +52,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final List<Replacement> replacements = new ArrayList<>();
         replacements.addAll(applyAssignmentAlignment(tokens, rawLines));
         replacements.addAll(applyImportSort(tokens, rawLines));
+        replacements.addAll(applyDecoratorSpacing(tokens, rawLines));
         replacements.sort(Comparator.comparingInt(r -> r.start));
         return render(tokens, replacements);
     }
@@ -497,6 +500,161 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             next = nextSignificant(tokens, nameIdx + 1, to);
         }
         return next;
+    }
+
+    // ── §4: Decorators ───────────────────────────────────────────────────────────────
+
+    /** STYLE_PYTHON3.md §4: a decorator line's own `@` binds tight to whatever follows it (any
+     *  whitespace between them is removed), and every `(`/`[`/`{` pair anywhere in the decorator's
+     *  own expression (the call's argument list, plus any bracket nested inside it, e.g. a
+     *  `methods=[...]` kwarg) gets its immediate delimiter gap normalized per §1's tight/loose
+     *  test ({@link PythonBracketComplexityEvaluator#isLooseParen}/{@code isLooseBracket}/
+     *  {@code isLooseBrace}) -- one space just inside the opener/closer when loose, none when
+     *  tight, same delimiter-only-padding convention {@code MiscRuleCore#enforceComplexityPadding}
+     *  uses for the C-family (comma/operator spacing inside the content is deliberately left
+     *  untouched, not this pass's concern, same division of responsibility as that method).
+     *  Multi-physical-line decorators (a wrapped call spanning a bracket continuation) are left
+     *  completely untouched -- same "documented gap, not a guess" precedent as §2/§3, and
+     *  consistent with STATE_PYTHON3.md's note that call-overflow line-wrapping has no existing
+     *  mechanism anywhere in this codebase to build on yet. */
+    private List<Replacement> applyDecoratorSpacing(final List<Token> tokens, final List<RawLine> rawLines) {
+        final List<Replacement> replacements = new ArrayList<>();
+        for (final RawLine line : rawLines) {
+            if (line.multiPhysicalLine) {
+                continue;
+            }
+            final int atIdx = nextSignificant(tokens, line.contentStart, line.end);
+            if (atIdx < 0 || tokens.get(atIdx).type != TokenType.OP || !"@".equals(tokens.get(atIdx).text)) {
+                continue;
+            }
+            final int nameIdx = nextSignificant(tokens, atIdx + 1, line.end);
+            if (nameIdx < 0) {
+                continue;
+            }
+            final Replacement tight = normalizeGap(tokens, atIdx + 1, nameIdx, "");
+            if (tight != null) {
+                replacements.add(tight);
+            }
+            applyBracketPadding(tokens, nameIdx, line.end, replacements);
+        }
+        return replacements;
+    }
+
+    /** Recursively normalizes the immediate delimiter gap of every `(`/`[`/`{` pair found in
+     *  {@code [from, to)} (a decorator's own expression range) -- applies at every nesting level,
+     *  not just the outermost call, mirroring {@code enforceComplexityPadding}'s uniform-depth
+     *  posture. */
+    private void applyBracketPadding(final List<Token> tokens, final int from, final int to,
+            final List<Replacement> out) {
+        int i = from;
+        while (i < to) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.PUNCT && isOpenBracketText(t.text)) {
+                final int close = matchBracket(tokens, i, to);
+                if (close < 0) {
+                    i++;
+                    continue;
+                }
+                final int contentFirst = nextSignificant(tokens, i + 1, close);
+                if (contentFirst >= 0) {
+                    final boolean loose = classifyLoose(t.text, tokens, i + 1, close);
+                    final String desired = loose ? " " : "";
+                    final Replacement openGap = normalizeGap(tokens, i + 1, contentFirst, desired);
+                    if (openGap != null) {
+                        out.add(openGap);
+                    }
+                    final int lastSig = prevSignificant(tokens, close - 1, i);
+                    final Replacement closeGap = normalizeGap(tokens, lastSig + 1, close, desired);
+                    if (closeGap != null) {
+                        out.add(closeGap);
+                    }
+                }
+                applyBracketPadding(tokens, i + 1, close, out);
+                i = close + 1;
+            } else {
+                i++;
+            }
+        }
+    }
+
+    private boolean classifyLoose(final String openText, final List<Token> tokens, final int contentStart,
+            final int contentEnd) {
+        final List<Token> content = tokens.subList(contentStart, contentEnd);
+        if ("(".equals(openText)) {
+            return bracketEval.isLooseParen(content);
+        }
+        if ("[".equals(openText)) {
+            return bracketEval.isLooseBracket(content);
+        }
+        return bracketEval.isLooseBrace(content);
+    }
+
+    private boolean isOpenBracketText(final String text) {
+        return "(".equals(text) || "[".equals(text) || "{".equals(text);
+    }
+
+    /** Finds {@code openIdx}'s matching close bracket within {@code [openIdx, limit)}, tracking
+     *  depth across all three bracket kinds jointly (same joint-nesting convention {@link
+     *  TokenizerIndent}'s own {@code parenDepth} uses) so a mismatched-kind close never
+     *  short-circuits the match. Returns -1 if unmatched within the range (should not happen for
+     *  syntactically valid, single-physical-line input). */
+    private int matchBracket(final List<Token> tokens, final int openIdx, final int limit) {
+        final String open = tokens.get(openIdx).text;
+        final String close = "(".equals(open) ? ")" : "[".equals(open) ? "]" : "}";
+        int depth = 0;
+        for (int j = openIdx; j < limit; j++) {
+            final Token t = tokens.get(j);
+            if (t.type != TokenType.PUNCT) {
+                continue;
+            }
+            if (isOpenBracketText(t.text)) {
+                depth++;
+            } else if (")".equals(t.text) || "]".equals(t.text) || "}".equals(t.text)) {
+                depth--;
+                if (depth == 0) {
+                    return close.equals(t.text) ? j : -1;
+                }
+            }
+        }
+        return -1;
+    }
+
+    /** Scans backward from {@code from} for the nearest non-gap token, stopping strictly before
+     *  {@code lowExclusive}. Returns {@code lowExclusive} itself if every token in between is a
+     *  gap token (i.e. no significant token found) -- callers only invoke this when {@code
+     *  nextSignificant} already confirmed at least one significant token exists in the range, so
+     *  that case is unreachable in practice, but the bound keeps this helper safe standalone. */
+    private int prevSignificant(final List<Token> tokens, final int from, final int lowExclusive) {
+        int i = from;
+        while (i > lowExclusive && isGapToken(tokens.get(i))) {
+            i--;
+        }
+        return i;
+    }
+
+    /** Returns a {@link Replacement} collapsing the gap {@code [from, to)} to exactly {@code
+     *  desired} text ({@code ""} for tight, {@code " "} for loose), or {@code null} if the gap
+     *  already renders as {@code desired} or the gap contains a comment/newline (conservative skip
+     *  -- same posture as {@code enforceComplexityPadding}'s own comment/NEWLINE exclusion, though
+     *  a comment inside a single-physical-line decorator's own delimiter gap should not occur in
+     *  practice). {@code from == to} (no existing gap token at all, e.g. a tight `("x")`) is a
+     *  valid zero-width insertion point, not a no-op -- unlike {@code from > to}, which cannot
+     *  happen for a well-formed range and is guarded against defensively. */
+    private Replacement normalizeGap(final List<Token> tokens, final int from, final int to, final String desired) {
+        if (from > to) {
+            return null;
+        }
+        for (int i = from; i < to; i++) {
+            final TokenType type = tokens.get(i).type;
+            if (type == TokenType.COMMENT_LINE || type == TokenType.NEWLINE) {
+                return null;
+            }
+        }
+        final String current = from < to ? verbatimLineText(tokens, from, to) : "";
+        if (current.equals(desired)) {
+            return null;
+        }
+        return new Replacement(from, to, desired);
     }
 
     /** Reassembles {@code tokens}' source text verbatim. Every token kind's {@code text} is its

@@ -494,6 +494,65 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       sorting by its own module name ignoring the alias) — all 6 passed —
       plus a full `make test` run (114/114 forward + idempotency, zero
       regressions).
+
+      **§4 (Decorators) landed.** New `ScopePipelineIndent.applyDecoratorSpacing`
+      (plus its helpers `applyBracketPadding`/`classifyLoose`/`isOpenBracketText`/
+      `matchBracket`/`prevSignificant`/`normalizeGap`) — no new `MiscRuleIndent`
+      method needed, unlike §2/§3, since this pass only ever rewrites tiny
+      delimiter-gap spans, never rebuilds a whole rendered line. For each
+      single-physical-line raw line whose first significant token is the `@` OP:
+      (1) any whitespace between `@` and the following token is collapsed to zero
+      width (tight bind, STYLE_PYTHON3.md §4's "no space" rule — covers a stray
+      `@  app.route(...)`, the ambiguity flagged in the task prompt, resolved as
+      "any whitespace on the same logical line is removed"); (2) every `(`/`[`/`{`
+      pair anywhere in the decorator's own expression (recursively, at every
+      nesting depth — e.g. a `methods=[...]` kwarg list nested inside the outer
+      call) gets its own immediate delimiter gap (right after the opener, right
+      before the closer) normalized to one space if
+      `PythonBracketComplexityEvaluator.isLooseParen`/`isLooseBracket`/
+      `isLooseBrace` (picked by the bracket's own kind) says loose, zero if tight
+      — deliberately delimiter-gap-only, exactly `MiscRuleCore#enforceComplexityPadding`'s
+      division of responsibility for the C-family (comma/operator spacing *inside*
+      the content is not this pass's concern and is left untouched). A decorator
+      with no call (`@dataclass`, bare `@x.setter`) never enters the bracket-padding
+      helper at all (no `(` found), so `@property`/`@x.setter` get zero special
+      treatment beyond the shared tight-`@` rule, per §4's explicit "no special
+      getter/setter alignment" text. A multi-physical-line decorator (wrapped call
+      spanning a bracket continuation) is completely skipped (`RawLine.multiPhysicalLine`
+      check), same "documented gap, not a guess" precedent as §2/§3.
+      **Explicitly NOT covered by this slice, and why:** overflow/line-wrapping of
+      a too-long decorator call's argument list (STYLE_PYTHON3.md §4's own
+      "Overflow" paragraph, one-arg-per-line wrap) — surveyed the existing `*Indent`
+      classes and `PythonBracketComplexityEvaluator` before writing any code; no
+      general line-length-based call-argument-wrapping mechanism exists anywhere
+      in this codebase yet (the C-family's own `enforceCallLineBreaking` is a
+      `*Curly`-only mechanism, out of scope to port here per the task's explicit
+      instruction not to invent fresh wrapping infra from scratch). Scoped this
+      checkpoint to spacing/padding normalization only, consistent with how §2/§3
+      each documented their own uncovered shapes (multi-line RHS, parenthesized
+      `from`-import, multi-module `import a, b`) rather than guessing at machinery
+      that doesn't exist yet. Verified via a 7-case smoke-test harness
+      (`FormatterCore.forLanguage("python3").formatOne` direct construction, same
+      pattern as the statement/indentation-skeleton slice's own harness): the
+      style doc's own `@app.route("/users/<int:user_id>")` example, a bare
+      `@dataclass`, a `@property`/`@x.setter` pair, `@app.route( "/x" )` extra
+      internal padding collapsing to tight (no nested bracket, so `isLooseParen`
+      is false), a stray-space `@  app.route("/x")` collapsing to tight-`@`, a
+      call with a nested `methods=["GET", "POST"]` list forcing the outer call's
+      parens loose while the inner list itself stays tight (no nested bracket
+      inside the list), and the same already-loose/already-tight input round-
+      tripping unchanged (idempotency at the unit level) — all 7 passed. One real
+      bug found and fixed during this verification: the first `normalizeGap`
+      draft treated an already-tight `(` `x` `)` gap (`from == to`, no existing
+      whitespace token at all) as "nothing to do" and returned `null`
+      unconditionally whenever `from >= to`, which silently skipped the loose
+      case's needed zero-width insertion — fixed by only treating `from > to` as
+      the invalid/no-op guard and allowing `from == to` to fall through to a
+      zero-width `Replacement` insertion when `desired` is non-empty. Full
+      `make test` run: 114/114 forward + idempotency, zero regressions (still
+      compile/link-health only — `python3` stays in `Lang.SCAFFOLD_ONLY_LANGUAGES`,
+      this pass is reachable only via direct construction/test harnesses, same
+      posture as every prior Python3 slice).
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "Python3" section and register in the Makefile's `INP_FILES` /
       `test/README.txt`. Done: `py_combined_inp/out.py` and

@@ -360,6 +360,9 @@ main index in `STATE.md`.
 | RDD_EXT_13 | Step 3 GRU OOV hashing: FNV-1a (32-bit) mod 1024 for the bucket index — deterministic, no external dependency, trivial to reimplement identically on the training and runtime sides |
 | RDD_EXT_14 | Step 3 GRU weights file: top-level `"schemaVersion"` integer field (starts at 1), `GruWeights.java`'s loader throws a clear mismatch error rather than silently misparsing; the abstain-threshold (RDD_EXT_11) also lives in this file, not hardcoded |
 | RDD_EXT_15 | Step 3 GRU Pool B (period-ambiguity) extraction: grep-based recall-favoring filter — comments with 2+ `.` where one is whitespace-surrounded, or containing an abbreviation-adjacent token (`etc.`/`vs.`/`approx.`/single-capital-dot) not followed by more lowercase text; false positives discarded during existing frontier-model labeling, not filtered here |
+| RDD_EXT_16 | Step 3 GRU training-data source (was open item 10/licensing): own dogfooded repos first (src/jxm, local dogfood copies already used for real-code testing — clearly owned/licensed), extend later with a vetted list of permissively-licensed public repos once the pipeline itself is proven on the smaller corpus |
+| RDD_EXT_17 | Step 3 GRU evaluation target (was open item 4): 90% precision bar for the GRU to resolve a rule-based ABSTAIN to YES/NO; below the bar, GRU itself abstains (RDD_EXT_11's mechanism). Starting number, not fixed — revisit once item 9's real measurement exists, adjust to 85% or 95% if the measured precision/coverage tradeoff calls for it |
+| RDD_EXT_18 | Step 3 GRU training hyperparameters (was open item 3): documented starting defaults, not yet validated against real data — Adam optimizer, learning rate ~1e-3, batch size 32, 20-50 epochs with early stopping on validation loss, dropout 0.2-0.3. To be tuned once a real training set exists; these are a starting point, not a final answer |
 
 ---
 
@@ -634,26 +637,25 @@ training-data pipeline shape (measure-first sizing, two-pool split,
 labeling/verification/fixing approach) are settled above via session Q&A.
 Items 1, 2, 5, 6, 7, 8 below were pure judgment calls with no data
 dependency, so they're now resolved (RDD_EXT_10–15, added to the index
-above). Items 3, 4, 9, 10 remain open — each needs a real measurement,
-training run, or external lookup that hasn't happened yet, not just a
-decision:
+above). Items 3, 4, 10 were likewise decidable by judgment call (session
+Q&A, RDD_EXT_16–18) even without real data yet — recorded as starting
+points, explicitly revisitable once real measurements land. Item 9 remains
+genuinely open — it needs an actual measurement run, not a decision:
 
-3. **Training hyperparameters** — loss function, learning rate, batch size,
-   epoch count, dropout/regularization, train/val/test split ratios. None
-   chosen yet — deferred to implementation time, once a real training set
-   exists to tune against (picking these on paper now, before any data,
-   would be guesswork).
-4. **Evaluation target** — what accuracy/precision-recall bar makes this
-   "good enough" to ship, and against which held-out set. Deferred until
-   item 9's measured ABSTAIN rate and a real held-out set exist — a target
-   set against no baseline data is arbitrary.
+3. **Training hyperparameters** — resolved as a starting-point default, not
+   a final answer. See RDD_EXT_18 (Adam, lr~1e-3, batch 32, 20-50 epochs,
+   dropout 0.2-0.3, early stopping on val loss). To be tuned once a real
+   training set exists.
+4. **Evaluation target** — resolved as a starting-point bar. See RDD_EXT_17
+   (90% precision to resolve ABSTAIN→YES/NO, GRU itself abstains below the
+   bar). Revisit against item 9's measured rate once available.
 9. **Real ABSTAIN-rate measurement** — the "run the existing rule-based
    classifier over a large sample first, measure before committing to a
    training-set size" step is planned but not yet executed; current
-   pool-size estimates are directional, not measured.
+   pool-size estimates are directional, not measured. Still genuinely open.
 10. **Licensing/provenance check** for bulk-sourced GitHub comment data —
-    flagged open in multiple places above (acquisition, `cwg/`'s own
-    notes), not investigated yet.
+    resolved via data-source choice. See RDD_EXT_16 (own dogfooded repos
+    first, vetted permissive public repos as a later extension).
 
 Resolved this session (design-only, no code — GRU implementation itself
 remains NOT STARTED per the checklist above):
@@ -770,28 +772,24 @@ input, the new `gru-train` Makefile target, and four self-tests
 trained classifier yet** — no embedding table, GRU weight matrices, or
 dense-head weights exist anywhere, `GruClassifier.classify` always returns
 `ABSTAIN`, and `Vocabulary`'s ~3.5k-word explicit vocab is still unseeded.
-What's left all traces back to the four still-open items from "Open
-refinement items" above — none of these can be scoped further without a
-real measurement, training run, or external lookup:
+Items 3, 4, and 10 from "Open refinement items" above are now resolved as
+starting-point decisions via session Q&A (RDD_EXT_16–18 — data source, eval
+target, hyperparameters). **Item 9 remains the sole genuinely blocking
+item** — it needs an actual measurement run, not a decision:
 
-3. **Training hyperparameters** (loss function, learning rate, batch size,
-   epoch count, dropout/regularization, train/val/test split ratios) —
-   deferred until a real training set exists to tune against.
-4. **Evaluation target** (accuracy/precision-recall bar to ship, and against
-   which held-out set) — deferred until item 9's measured rate and a real
-   held-out set exist.
 9. **Real ABSTAIN-rate measurement** — running the existing rule-based
    `CommentClassifier` over a large comment sample to measure the actual
    ABSTAIN rate, before committing to a training-set size, hasn't been
    done yet.
-10. **Licensing/provenance check** for bulk-sourced GitHub/web comment
-    data — not investigated yet.
 
-Everything downstream of these is blocked in turn: acquiring/labeling the
-Pool A/Pool B training sets, populating `Vocabulary`'s ~3.5k-word explicit
-vocab content, adding the embedding table/GRU weight matrices/dense-head
-weights to `GruWeights`, implementing `GruClassifier.classify`'s actual
-forward pass, implementing `GruTrainer`'s training loop, and writing the
-first real weights file. Do not guess at any of items 3/4/9/10 to unblock
-this work — resolve them per `STATE_COMMON.md`'s ambiguity-handling
-protocol first.
+Everything downstream is blocked on this measurement plus the actual
+training-data acquisition it feeds into: acquiring/labeling the Pool A/Pool
+B training sets from RDD_EXT_16's chosen sources (own dogfooded repos
+first), populating `Vocabulary`'s ~3.5k-word explicit vocab content, adding
+the embedding table/GRU weight matrices/dense-head weights to `GruWeights`,
+implementing `GruClassifier.classify`'s actual forward pass, implementing
+`GruTrainer`'s training loop using RDD_EXT_18's starting hyperparameters,
+and writing the first real weights file, evaluated against RDD_EXT_17's 90%
+precision starting bar. Do not guess at item 9 to unblock this work —
+resolve it per `STATE_COMMON.md`'s ambiguity-handling protocol first (i.e.
+actually run the measurement, don't estimate it).

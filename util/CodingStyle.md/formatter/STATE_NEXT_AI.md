@@ -96,6 +96,11 @@ below; nothing started, this is a design note, not scoped implementation work ye
       existing zero-dependency style). Covers punctuation-splitting, camelCase/snake_case
       wholeness, empty/whitespace-only input, hash determinism, and hash range; run via
       `java GruTokenizerSelfTest` after compiling — all checks currently pass.
+      `tools/gru/GruWeightsSelfTest.java` added: same pattern, covers `GruWeights.load`'s happy
+      path plus each error path (missing field, wrong schema version, malformed number,
+      unreadable/nonexistent file) using small temp JSON files under the system temp dir
+      (cleaned up after each check); run via `java GruWeightsSelfTest` — all checks currently
+      pass.
       `Vocabulary.java` added: the explicit-vocab-vs-hash-bucket lookup mechanism only
       (`lookup(word)` returns an explicit index if present, else `explicitVocabSize +
       hashBucket(word)`), case-preserved, no dedup surprises. The actual ~3.5k-word explicit

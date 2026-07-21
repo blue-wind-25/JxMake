@@ -118,44 +118,44 @@ xstat:
 
 ##### Archive the whole project
 arcv: distclean
-	@(                                                                                                \
-		COPY_NAME=JxMake-`date +'%Y%m%d-%H%M'`;                                                   \
-		echo;                                                                                     \
-		echo -e "$(C_YELLOW)Synchronizing project shadow checkout ...$(C_RESET)";                 \
-		cd ../Shadow/jxmake;                                                                      \
-		svn cleanup >/dev/null && svn update >/dev/null && svn cleanup >/dev/null;                \
-		cd -  >/dev/null;                                                                         \
-		echo -e "$(C_MAGENTA)Comparing project tree size to shadow checkout size ...$(C_RESET)";  \
-		SRC_SIZE=$$(find .                                                                        \
-			\( -name .git -o -name .svn -o -name 0_excluded_directory \) -prune -o            \
-			\( -type f -o -type l \) -printf '%s\n' | awk '{sum+=$$1} END{print sum}');       \
-		SHW_SIZE=$$(find ../Shadow/jxmake                                                         \
-			\( -name .git -o -name .svn \) -prune -o                                          \
-			\( -type f -o -type l \) -printf '%s\n' | awk '{sum+=$$1} END{print sum}');       \
-		if [ "$$SRC_SIZE" != "$$SHW_SIZE" ]; then                                                 \
-			echo -e "$(C_RED)ERROR$(C_RESET) - shadow checkout size is different!";           \
-			echo "    Source : $$SRC_SIZE bytes";                                             \
-			echo "    Shadow : $$SHW_SIZE bytes";                                             \
-			exit 1;                                                                           \
-		fi;                                                                                       \
-		echo -e "$(C_GREEN)Copying the project tree (excluding '.git' and '.svn') ...$(C_RESET)"; \
-		cd ..;                                                                                    \
-		rsync -a --quiet --exclude=.git --exclude=.svn JxMake/ "$$COPY_NAME/" || exit $$?;        \
-		echo -e "$(C_BLUE)Comparing project tree size to archive directory size ...$(C_RESET)";   \
-		SRC_SIZE=$$(find JxMake                                                                   \
-			\( -name .git -o -name .svn \) -prune -o                                          \
-			\( -type f -o -type l \) -printf '%s\n' | awk '{sum+=$$1} END{print sum}');       \
-		DST_SIZE=$$(find "$$COPY_NAME"                                                            \
-			\( -name .git -o -name .svn \) -prune -o                                          \
-			\( -type f -o -type l \) -printf '%s\n' | awk '{sum+=$$1} END{print sum}');       \
-		if [ "$$SRC_SIZE" != "$$DST_SIZE" ]; then                                                 \
-			echo -e "$(C_RED)ERROR$(C_RESET) - archive directory size is different!";         \
-			echo "    Source : $$SRC_SIZE bytes";                                             \
-			echo "    Target : $$DST_SIZE bytes";                                             \
-			exit 1;                                                                           \
-		fi;                                                                                       \
-		echo -e "$(C_CYAN)Archiving files from the copied project tree ...$(C_RESET)";            \
-		tar -cjpf "$${COPY_NAME}.tar.bz2" "$$COPY_NAME";                                          \
-		echo -e "$(C_WHITE)Done '$${COPY_NAME}.tar.bz2'$(C_RESET)";                               \
-		echo;                                                                                     \
+	@(                                                                                                      \
+		COPY_NAME=JxMake-`date +'%Y%m%d-%H%M'`;                                                         \
+		echo;                                                                                           \
+		echo -e "$(C_YELLOW)Synchronizing project shadow checkout ...$(C_RESET)";                       \
+		cd ../Shadow/jxmake;                                                                            \
+		svn cleanup >/dev/null && svn update >/dev/null && svn cleanup >/dev/null;                      \
+		cd -  >/dev/null;                                                                               \
+		echo -e "$(C_MAGENTA)Comparing project tree size to shadow checkout size ...$(C_RESET)";        \
+		SRC_SIZE=$$(find .                                                                              \
+			\( -name .git -o -name .svn -o -name .claude -o -name 0_excluded_directory \) -prune -o \
+			\( -type f -o -type l \) -printf '%s\n' | awk '{sum+=$$1} END{print sum}');             \
+		SHW_SIZE=$$(find ../Shadow/jxmake                                                               \
+			\( -name .git -o -name .svn \) -prune -o                                                \
+			\( -type f -o -type l \) -printf '%s\n' | awk '{sum+=$$1} END{print sum}');             \
+		if [ "$$SRC_SIZE" != "$$SHW_SIZE" ]; then                                                       \
+			echo -e "$(C_RED)ERROR$(C_RESET) - shadow checkout size is different!";                 \
+			echo "    Source : $$SRC_SIZE bytes";                                                   \
+			echo "    Shadow : $$SHW_SIZE bytes";                                                   \
+			exit 1;                                                                                 \
+		fi;                                                                                             \
+		echo -e "$(C_GREEN)Copying the project tree (excluding '.git' and '.svn') ...$(C_RESET)";       \
+		cd ..;                                                                                          \
+		rsync -a --quiet --exclude=.git --exclude=.svn JxMake/ "$$COPY_NAME/" || exit $$?;              \
+		echo -e "$(C_BLUE)Comparing project tree size to archive directory size ...$(C_RESET)";         \
+		SRC_SIZE=$$(find JxMake                                                                         \
+			\( -name .git -o -name .svn \) -prune -o                                                \
+			\( -type f -o -type l \) -printf '%s\n' | awk '{sum+=$$1} END{print sum}');             \
+		DST_SIZE=$$(find "$$COPY_NAME"                                                                  \
+			\( -name .git -o -name .svn \) -prune -o                                                \
+			\( -type f -o -type l \) -printf '%s\n' | awk '{sum+=$$1} END{print sum}');             \
+		if [ "$$SRC_SIZE" != "$$DST_SIZE" ]; then                                                       \
+			echo -e "$(C_RED)ERROR$(C_RESET) - archive directory size is different!";               \
+			echo "    Source : $$SRC_SIZE bytes";                                                   \
+			echo "    Target : $$DST_SIZE bytes";                                                   \
+			exit 1;                                                                                 \
+		fi;                                                                                             \
+		echo -e "$(C_CYAN)Archiving files from the copied project tree ...$(C_RESET)";                  \
+		tar -cjpf "$${COPY_NAME}.tar.bz2" "$$COPY_NAME";                                                \
+		echo -e "$(C_WHITE)Done '$${COPY_NAME}.tar.bz2'$(C_RESET)";                                     \
+		echo;                                                                                           \
 	)

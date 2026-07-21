@@ -82,8 +82,13 @@ below; nothing started, this is a design note, not scoped implementation work ye
       in `GruWeights` yet -- those need the training pipeline to produce real numbers
       first. `tools/gru/GruTrainer.java`
       added as a skeleton `main()` entry point (non-shipped, outside `src/`, per the "Files"
-      section below) — throws immediately, actual training loop blocked on open items 3/4/9/10
-      (hyperparameters, evaluation target, measured ABSTAIN rate, licensing check).
+      section below). CLI arg parsing/validation is real and unblocked (pure plumbing, no
+      hyperparameter names/values decided by it): validates the two positional args (readable
+      labeled-examples file; output-weights-path whose parent directory exists), collects any
+      further `--key=value` args generically into an ordered map without interpreting specific
+      keys, exits 2 with a usage message on any parsing failure. Only past that point does it
+      throw, naming the parsed args in the error — actual training loop still blocked on open
+      items 3/4/9/10 (hyperparameters, evaluation target, measured ABSTAIN rate, licensing check).
       `tools/gru/GruTokenizerSelfTest.java` added: a plain-`main()` assertion-based self-check
       for `tokenize`/`hashBucket` (no JUnit or other test framework exists anywhere in this
       project — the formatter's own testing methodology is the `_inp`/`_out` fixture-diffing in

@@ -252,13 +252,39 @@ real-world drift patterns in the `psf/black`/`django` fixture repos once
       Verified via a one-off smoke test (`if (n := len(a)) > 10:`
       tokenized with `:=` as one `OP` token and the trailing statement `:`
       still correctly a separate `PUNCT`) and a full `make test` run
-      (114/114 forward + idempotency, zero regressions). **Explicitly NOT
-      yet covered by this slice** (still open, needed before this item can
-      be checked off): f-string interpolation-boundary sub-tokenization (a
-      prefixed string is lexed as identifier-then-opaque-string, `{...}`
-      interior not split out), and any INDENT/DEDENT/structural-depth
-      synthesis (this slice emits `WHITESPACE`/`NEWLINE` verbatim with no
-      depth tracking at all, same as every other family today — the Open
+      (114/114 forward + idempotency, zero regressions). **Fourth slice
+      landed:** f-string interpolation-boundary sub-tokenization. Follows
+      CPython 3.12+'s own FSTRING_START/MIDDLE/END scheme (new shared
+      `TokenType` constants `FSTRING_START`/`FSTRING_MIDDLE`/`FSTRING_END`/
+      `FSTRING_FORMAT_SPEC`, added to `TokenizerCore`, Python3-only). The
+      per-character dispatch previously inlined in `tokenize()` was
+      factored into `dispatchToken(List<Token>)` so it can be shared with
+      the new `emitFStringField`'s expression sub-scan (nested
+      strings/f-strings/brackets/numbers inside a `{...}` field all
+      tokenize normally, recursively). `emitFString` emits FSTRING_START,
+      alternates FSTRING_MIDDLE literal-text tokens with `{...}` fields
+      (escaped `{{`/`}}` stays in the literal text), then FSTRING_END.
+      `emitFStringField` tracks a local bracket depth so a nested `:`/`}`
+      (dict literal, slice) isn't mistaken for the field's own
+      format-spec separator or closing brace; at depth 0 a `!r`/`!s`/`!a`
+      conversion (only recognized when immediately followed by `:` or `}`)
+      becomes an opaque OP token and a `:` starts
+      `emitFStringFormatSpec`, which brace-balances to find the field's
+      true end (STYLE_PYTHON3.md §5: format spec is opaque, literal, not
+      code) but does NOT recursively sub-tokenize a nested `{expr}`
+      *within* the spec (`f"{x:{width}}"` — a known, documented
+      limitation of this slice). Verified via 8 smoke-test cases (basic
+      interpolation, conversion+spec, plain spec, escaped braces, nested
+      spec field, multi-line triple-quoted f-string, nested
+      dict/slice/call expressions inside fields, and confirming plain
+      non-f prefixed strings like `rb'raw'` are unaffected) and a full
+      `make test` run (114/114 forward + idempotency, zero regressions).
+      **Explicitly NOT yet covered by this slice** (still open, needed
+      before this item can be checked off): recursive sub-tokenization of
+      a nested replacement field inside a format spec (see above), and any
+      INDENT/DEDENT/structural-depth synthesis (this slice emits
+      `WHITESPACE`/`NEWLINE` verbatim with no depth tracking at all, same
+      as every other family today — the Open
       Questions section's per-block-indent-conversion design still needs
       to be built on top of this, not assumed already present).
 - [ ] Implement basic statement/indentation formatting first (the Python

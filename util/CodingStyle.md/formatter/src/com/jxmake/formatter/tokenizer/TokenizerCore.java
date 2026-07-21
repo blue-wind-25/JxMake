@@ -35,7 +35,11 @@ public class TokenizerCore {
         PREPROCESSOR,        // C/C++ only — opaque single-line #-directive
         MACRO_DEF,           // C/C++ only — opaque multiline #define with \ continuations
         ANGLE_BRACKET_OPEN,  // generic/template context
-        ANGLE_BRACKET_CLOSE  // generic/template context
+        ANGLE_BRACKET_CLOSE, // generic/template context
+        FSTRING_START,       // Python3 only — opening quote(s) of an f-string, see TokenizerIndent
+        FSTRING_MIDDLE,      // Python3 only — literal text segment of an f-string between fields
+        FSTRING_END,         // Python3 only — closing quote(s) of an f-string
+        FSTRING_FORMAT_SPEC  // Python3 only — opaque `:format_spec` tail of an f-string field
     }
 
     public static final class Token {

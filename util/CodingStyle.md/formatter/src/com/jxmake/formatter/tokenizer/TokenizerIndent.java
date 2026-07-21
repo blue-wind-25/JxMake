@@ -18,15 +18,21 @@ import java.util.Set;
 /**
  * Indentation-block-family tokenizer (Python3 -- see STATE_PYTHON3.md). Real lexing of
  * whitespace/newlines/comments/numbers/identifiers-or-keywords/single-line and triple-quoted
- * strings/operators/punctuation, mirroring {@link TokenizerCurly}'s generic-emitter usage.
- * Deliberately NOT yet covered (still out of scope until a later checklist item): f-string
- * interpolation-boundary sub-tokenization (a prefixed string is lexed as identifier-then-opaque-
- * string, `{...}` interior not split out), and INDENT/DEDENT synthesis (Python's indentation is
- * significant/load-bearing -- see STATE_PYTHON3.md's Open Questions -- this slice only emits
- * {@code WHITESPACE}/{@code NEWLINE} tokens verbatim, same as every other family, with no
- * structural depth tracking yet). The `:=` walrus operator (PEP 572) IS handled -- see
- * {@link #emitWalrus} -- emitted as a single OP token rather than falling out as `:` PUNCT + `=`
- * OP.
+ * strings/f-strings/operators/punctuation, mirroring {@link TokenizerCurly}'s generic-emitter
+ * usage. Deliberately NOT yet covered (still out of scope until a later checklist item):
+ * INDENT/DEDENT synthesis (Python's indentation is significant/load-bearing -- see
+ * STATE_PYTHON3.md's Open Questions -- this slice only emits {@code WHITESPACE}/{@code NEWLINE}
+ * tokens verbatim, same as every other family, with no structural depth tracking yet). The `:=`
+ * walrus operator (PEP 572) IS handled -- see {@link #emitWalrus} -- emitted as a single OP token
+ * rather than falling out as `:` PUNCT + `=` OP.
+ *
+ * <p>F-strings are sub-tokenized following CPython 3.12+'s own FSTRING_START/MIDDLE/END scheme
+ * (see {@link #emitFString}): literal text segments become opaque {@code FSTRING_MIDDLE} tokens,
+ * each `{...}` field's expression portion is tokenized as ordinary Python tokens (so a later rule
+ * pass can apply normal expression-spacing rules per STYLE_PYTHON3.md §5), and an optional
+ * `!conversion`/`:format_spec` tail is preserved opaque (format specs are literal, not code; a
+ * nested `{expr}` field *within* a format spec is brace-balanced to find the correct end but is
+ * NOT itself recursively sub-tokenized -- a known, documented limitation of this slice).
  */
 public class TokenizerIndent extends TokenizerCore {
 
@@ -45,6 +51,12 @@ public class TokenizerIndent extends TokenizerCore {
             "global", "if", "import", "in", "is", "lambda", "nonlocal", "not", "or", "pass",
             "raise", "return", "try", "while", "with", "yield");
 
+    // Valid Python 3 string-prefix letters (case-insensitive, 1-2 chars, e.g. r/b/u/f/rb/br/
+    // rf/fr) -- checked against a completed IDENTIFIER token immediately followed by a quote to
+    // decide whether that identifier is actually a string prefix rather than an ordinary name.
+    private static final Set<String> STRING_PREFIXES = setOf(
+            "r", "b", "u", "f", "rb", "br", "rf", "fr");
+
     private final Lang lang;
 
     public TokenizerIndent(final Lang lang) {
@@ -59,43 +71,60 @@ public class TokenizerIndent extends TokenizerCore {
         this.parenDepth = 0;
 
         final List<Token> tokens = new ArrayList<>();
-
         while (pos < length) {
-            final char c = source.charAt(pos);
-
-            if (c == '\r' || c == '\n') {
-                tokens.add(emitNewline());
-                continue;
-            }
-            if (c == ' ' || c == '\t') {
-                tokens.add(emitWhitespace());
-                continue;
-            }
-
-            final Token t;
-            if (c == '#') {
-                t = emitLineComment();
-            } else if ((c == '"' || c == '\'') && peek(1) == c && peek(2) == c) {
-                t = emitTripleQuotedString(c);
-            } else if (c == '"' || c == '\'') {
-                t = emitSimpleString(c);
-            } else if (Character.isDigit(c) || (c == '.' && Character.isDigit(peek(1)))) {
-                t = emitNumber();
-            } else if (isIdentifierStart(c)) {
-                t = emitIdentifierOrKeyword();
-            } else if (c == ':' && peek(1) == '=') {
-                t = emitWalrus();
-            } else if (c == '(' || c == '[' || c == '{' || c == ')' || c == ']' || c == '}'
-                    || c == ',' || c == ':' || c == ';') {
-                t = emitPunct(c);
-            } else {
-                t = emitOperator();
-            }
-
-            tokens.add(t);
+            dispatchToken(tokens);
         }
-
         return tokens;
+    }
+
+    /** One dispatch step: appends exactly one token to {@code out}, except for a string-prefixed
+     *  identifier immediately followed by a quote, which appends the prefix IDENTIFIER plus
+     *  either one STRING token (plain/triple-quoted) or the full FSTRING_START/.../FSTRING_END
+     *  sequence (f-strings, via {@link #emitFString}). Shared between the top-level {@link
+     *  #tokenize} loop and {@link #emitFStringField}'s expression sub-scan so both stay in sync
+     *  on identifier/string/number/operator handling. */
+    private void dispatchToken(final List<Token> out) {
+        final char c = source.charAt(pos);
+
+        if (c == '\r' || c == '\n') {
+            out.add(emitNewline());
+        } else if (c == ' ' || c == '\t') {
+            out.add(emitWhitespace());
+        } else if (c == '#') {
+            out.add(emitLineComment());
+        } else if (isIdentifierStart(c)) {
+            final Token idTok = emitIdentifierOrKeyword();
+            final boolean followedByQuote = pos < length
+                    && (source.charAt(pos) == '"' || source.charAt(pos) == '\'');
+            if (idTok.type == TokenType.IDENTIFIER && followedByQuote
+                    && STRING_PREFIXES.contains(idTok.text.toLowerCase(java.util.Locale.ROOT))) {
+                out.add(idTok);
+                final char q = source.charAt(pos);
+                final boolean triple = peek(1) == q && peek(2) == q;
+                if (idTok.text.toLowerCase(java.util.Locale.ROOT).indexOf('f') >= 0) {
+                    out.addAll(emitFString(q, triple));
+                } else if (triple) {
+                    out.add(emitTripleQuotedString(q));
+                } else {
+                    out.add(emitSimpleString(q));
+                }
+            } else {
+                out.add(idTok);
+            }
+        } else if ((c == '"' || c == '\'') && peek(1) == c && peek(2) == c) {
+            out.add(emitTripleQuotedString(c));
+        } else if (c == '"' || c == '\'') {
+            out.add(emitSimpleString(c));
+        } else if (Character.isDigit(c) || (c == '.' && Character.isDigit(peek(1)))) {
+            out.add(emitNumber());
+        } else if (c == ':' && peek(1) == '=') {
+            out.add(emitWalrus());
+        } else if (c == '(' || c == '[' || c == '{' || c == ')' || c == ']' || c == '}'
+                || c == ',' || c == ':' || c == ';') {
+            out.add(emitPunct(c));
+        } else {
+            out.add(emitOperator());
+        }
     }
 
     /** Python identifiers never include `$` (unlike the curly family's JS/TS-driven
@@ -182,6 +211,128 @@ public class TokenizerIndent extends TokenizerCore {
         }
         return new Token(TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
                 null);
+    }
+
+    /** F-string body (prefix already consumed/emitted by {@link #dispatchToken}), following
+     *  CPython 3.12+'s FSTRING_START/MIDDLE/END scheme. Emits FSTRING_START (opening quote(s)),
+     *  then alternates FSTRING_MIDDLE literal-text tokens with `{...}` fields (see {@link
+     *  #emitFStringField}), then FSTRING_END (closing quote(s)). A doubled `{{`/`}}` is an
+     *  escaped literal brace and stays inside the surrounding FSTRING_MIDDLE text verbatim. */
+    private List<Token> emitFString(final char quote, final boolean triple) {
+        final List<Token> out = new ArrayList<>();
+        final int quoteLen = triple ? 3 : 1;
+        final int openStart = pos;
+        pos += quoteLen;
+        out.add(new Token(TokenType.FSTRING_START, source.substring(openStart, pos), braceDepth,
+                parenDepth, null));
+
+        int literalStart = pos;
+        while (pos < length) {
+            final char c = source.charAt(pos);
+            if (c == '\\' && pos + 1 < length) {
+                pos += 2;
+                continue;
+            }
+            final boolean atClosingQuote = c == quote && (!triple || (peek(1) == quote && peek(2) == quote));
+            if (atClosingQuote) {
+                if (pos > literalStart) {
+                    out.add(new Token(TokenType.FSTRING_MIDDLE, source.substring(literalStart, pos),
+                            braceDepth, parenDepth, null));
+                }
+                final int closeStart = pos;
+                pos += quoteLen;
+                out.add(new Token(TokenType.FSTRING_END, source.substring(closeStart, pos),
+                        braceDepth, parenDepth, null));
+                return out;
+            }
+            if ((c == '{' && peek(1) == '{') || (c == '}' && peek(1) == '}')) {
+                pos += 2; // escaped literal brace, stays in the literal text
+                continue;
+            }
+            if (c == '{') {
+                if (pos > literalStart) {
+                    out.add(new Token(TokenType.FSTRING_MIDDLE, source.substring(literalStart, pos),
+                            braceDepth, parenDepth, null));
+                }
+                out.add(emitPunct('{'));
+                emitFStringField(out);
+                literalStart = pos;
+                continue;
+            }
+            pos++;
+        }
+        // Unterminated f-string -- flush whatever literal text remains rather than losing it.
+        if (pos > literalStart) {
+            out.add(new Token(TokenType.FSTRING_MIDDLE, source.substring(literalStart, pos),
+                    braceDepth, parenDepth, null));
+        }
+        return out;
+    }
+
+    /** Scans one f-string `{...}` field's contents -- called with {@code pos} positioned right
+     *  after the opening `{` (already emitted by {@link #emitFString}). Tokenizes the expression
+     *  portion via {@link #dispatchToken} (same dispatch the top-level tokenizer uses, so nested
+     *  strings/f-strings/brackets/numbers all work normally), tracking a local bracket depth so a
+     *  nested `:`/`}` (e.g. a dict literal or slice inside the expression) isn't mistaken for the
+     *  field's own format-spec separator or closing brace. At depth 0, a `!` immediately followed
+     *  by a conversion letter (`r`/`s`/`a`) and then `:`/`}` starts an opaque conversion OP token;
+     *  a `:` starts an opaque {@link #emitFStringFormatSpec}. Consumes and emits the field's
+     *  closing `}` before returning. */
+    private void emitFStringField(final List<Token> out) {
+        int depth = 0;
+        while (pos < length) {
+            final char c = source.charAt(pos);
+            if (depth == 0 && c == '}') {
+                out.add(emitPunct('}'));
+                return;
+            }
+            if (depth == 0 && c == '!' && "rsa".indexOf(peek(1)) >= 0
+                    && (peek(2) == ':' || peek(2) == '}')) {
+                final int start = pos;
+                pos += 2;
+                out.add(new Token(TokenType.OP, source.substring(start, pos), braceDepth,
+                        parenDepth, null));
+                continue;
+            }
+            if (depth == 0 && c == ':') {
+                out.add(emitFStringFormatSpec());
+                continue;
+            }
+            if (c == '(' || c == '[' || c == '{') {
+                depth++;
+            } else if (c == ')' || c == ']' || c == '}') {
+                depth--;
+            }
+            dispatchToken(out);
+        }
+    }
+
+    /** Opaque `:format_spec` tail of an f-string field (STYLE_PYTHON3.md §5: "format spec is
+     *  opaque" -- a literal spec string, not code, preserved exactly as written). Brace-balances
+     *  to find the field's true closing `}` (a format spec may itself contain a nested `{expr}`
+     *  replacement field per Python grammar), but does NOT recursively sub-tokenize that nested
+     *  field -- a documented limitation of this slice, consistent with the class javadoc. */
+    private Token emitFStringFormatSpec() {
+        final int start = pos;
+        pos++; // ':'
+        int depth = 0;
+        while (pos < length) {
+            final char c = source.charAt(pos);
+            if (c == '{') {
+                depth++;
+                pos++;
+            } else if (c == '}') {
+                if (depth == 0) {
+                    break;
+                }
+                depth--;
+                pos++;
+            } else {
+                pos++;
+            }
+        }
+        return new Token(TokenType.FSTRING_FORMAT_SPEC, source.substring(start, pos), braceDepth,
+                parenDepth, null);
     }
 
     private Token emitPunct(final char c) {

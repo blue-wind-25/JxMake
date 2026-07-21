@@ -90,7 +90,13 @@ below; nothing started, this is a design note, not scoped implementation work ye
       `test/`, which doesn't apply to internal classifier logic — so this follows the project's
       existing zero-dependency style). Covers punctuation-splitting, camelCase/snake_case
       wholeness, empty/whitespace-only input, hash determinism, and hash range; run via
-      `java GruTokenizerSelfTest` after compiling — all checks currently pass. No weights
+      `java GruTokenizerSelfTest` after compiling — all checks currently pass.
+      `Vocabulary.java` added: the explicit-vocab-vs-hash-bucket lookup mechanism only
+      (`lookup(word)` returns an explicit index if present, else `explicitVocabSize +
+      hashBucket(word)`), case-preserved, no dedup surprises. The actual ~3.5k-word explicit
+      vocab content (which keywords, which common words) is training-data curation, not an
+      architectural decision, so it's a constructor argument, not hardcoded — currently unseeded.
+      Smoke-tested with a small hand-written word list. No weights
       file format finalized/written yet, no wiring into `CommentClassifier`'s ABSTAIN path yet.
 
 ---

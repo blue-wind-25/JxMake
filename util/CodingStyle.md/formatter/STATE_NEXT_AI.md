@@ -543,3 +543,35 @@ FEASIBLE) would resolve it, provided its training set includes enough mid-word-d
 examples to learn the distinction. No longer blanket NOT FEASIBLE — feasible via
 Step 3's GRU once that pipeline is implemented; until then, remains an accepted
 mechanical-rule limitation (`dotCount != 1` → leave as-is).
+
+---
+
+## Remaining blocked open items (as of the GRU skeleton work)
+
+Everything unblocked has been scaffolded: `GruClassifier` (`tokenize`, `hashBucket`,
+`softmax`, `decide`, `CLASS_ORDER`), `GruWeights` (flat-schema `load` with schema-version
+and sanity validation), `Vocabulary` (explicit-vocab-vs-hash-bucket lookup, unseeded),
+`tools/gru/GruTrainer.java` (CLI arg parsing only), and three self-tests
+(`GruTokenizerSelfTest`, `GruWeightsSelfTest`, `GruSoftmaxSelfTest`, all passing). What's
+left all traces back to the four still-open items from "Open refinement items" above —
+none of these can be scoped further without a real measurement, training run, or external
+lookup:
+
+3. **Training hyperparameters** (loss function, learning rate, batch size, epoch count,
+   dropout/regularization, train/val/test split ratios) — deferred until a real training
+   set exists to tune against.
+4. **Evaluation target** (accuracy/precision-recall bar to ship, and against which
+   held-out set) — deferred until item 9's measured rate and a real held-out set exist.
+9. **Real ABSTAIN-rate measurement** — running the existing rule-based `CommentClassifier`
+   over a large comment sample to measure the actual ABSTAIN rate, before committing to a
+   training-set size, hasn't been done yet.
+10. **Licensing/provenance check** for bulk-sourced GitHub/web comment data — not
+    investigated yet.
+
+Everything downstream of these is blocked in turn: acquiring/labeling the Pool
+A/Pool B training sets, populating `Vocabulary`'s ~3.5k-word explicit vocab content,
+adding the embedding table/GRU weight matrices/dense-head weights to `GruWeights`,
+implementing `GruClassifier.classify`'s actual forward pass, implementing
+`GruTrainer`'s training loop, and writing the first real weights file. Do not guess at
+any of items 3/4/9/10 to unblock this work — resolve them per
+`STATE_COMMON.md`'s ambiguity-handling protocol first.

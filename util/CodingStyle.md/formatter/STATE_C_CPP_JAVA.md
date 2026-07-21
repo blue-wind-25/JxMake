@@ -11,7 +11,7 @@ assumes. `STATE_KOTLIN.md` is a separate job's file, not required reading here.
 util/CodingStyle.md/formatter/
   STATE_C_CPP_JAVA.md        ← this file
   RDD_LOG.md           ← full Resolved Design Decisions text (do not read in full)
-  STATE_NEXT_AI.md           ← deferred AI-assist design and NOT FEASIBLE rationale
+  STATE_AI.md           ← deferred AI-assist design and NOT FEASIBLE rationale
   README.md
   Makefile
   LICENSE
@@ -264,7 +264,7 @@ bug-by-bug root-cause narratives have been compacted out of this file — availa
 - [x] File-pair test: `combined_inp.hpp` → diff vs `combined_out.hpp` (PASS) — 2 bugs fixed
   (constructor/destructor/operator-overload one-liner exclusion, `template<...>` prefix
   recognition); 1 not feasible (mid-word-dot vs. sentence-period needs semantic understanding —
-  Tier-3 AI-assist candidate in `STATE_NEXT_AI.md`, fixture hand-edited instead).
+  Tier-3 AI-assist candidate in `STATE_AI.md`, fixture hand-edited instead).
 - [x] File-pair test: `combined_inp.cpp` → diff vs `combined_out.cpp` (PASS) — 4 bugs fixed
   (destructor `~` vs. return type, class-template member tight brackets + layout,
   structured-binding misparse, trailing comment duplication on group-gap trim).
@@ -519,7 +519,7 @@ delegation-failure behavior); `Config.lineEndings()` is applied by `Main.applyLi
 standalone/in-process formatting but not yet by `ServerMode.FormatHandler`. Full detail:
 RDD_KEY_88.
 
-**Step 2 — AI integration: NOT FEASIBLE (deferred) — see `STATE_NEXT_AI.md`.**
+**Step 2 — AI integration: NOT FEASIBLE (deferred) — see `STATE_AI.md`.**
 
 ---
 

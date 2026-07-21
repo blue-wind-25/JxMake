@@ -14,7 +14,7 @@ job's file.
 | Data-format support: JSON/JSON5/YAML/TOML/etc. (JSON/JSON5/CSS/YAML/TOML/XML implemented; only HTML5's `<script>` dispatch remains scaffold-only) | `STATE_COMMON.md` | `STATE_DATA_FORMATS.md` |
 | JS/TS support (implemented; JSX/TSX still need their own future embedding-aware dispatcher) | `STATE_COMMON.md` | `STATE_JS_TS.md` |
 | Python3 support (scaffold only) | `STATE_COMMON.md` | `STATE_PYTHON3.md` |
-| AI-assist Step 3: GRU comment-classifier abstain resolution (skeleton started — `com.jxmake.formatter.classifier.gru` package) | `STATE_COMMON.md` | `STATE_NEXT_AI.md` |
+| AI-assist Step 3: GRU comment-classifier abstain resolution (skeleton started — `com.jxmake.formatter.classifier.gru` package) | `STATE_COMMON.md` | `STATE_AI.md` |
 
 `STATE_COMMON.md` holds the shared commit workflow, ambiguity-handling
 protocol, file-exclusion rules, and real-code-testing methodology used by
@@ -22,7 +22,7 @@ every job. `STATE_C_CPP_JAVA.md` is the authoritative source for the
 C/C++/Java job's progress, implementation protocol, and "Resolved Design
 Decisions" table — it supersedes general guesswork for that job.
 `STATE_KOTLIN.md`, `STATE_CPP26.md`, `STATE_DATA_FORMATS.md`,
-`STATE_JS_TS.md`, `STATE_PYTHON3.md`, and `STATE_NEXT_AI.md` are each job's
+`STATE_JS_TS.md`, `STATE_PYTHON3.md`, and `STATE_AI.md` are each job's
 own equivalent. Do not cross-reference between any two job state files
 unless a state file's own text says otherwise.
 

@@ -69,9 +69,14 @@ below; nothing started, this is a design note, not scoped implementation work ye
 - [~] `com.jxmake.formatter.classifier.gru` package — GRU now determined to be the
       preferred v1 approach (see "Model size determination" below), supersedes the
       earlier LLM-for-v1 lean — SKELETON ONLY: `GruClassifier.java` (tokenize/hashBucket
-      implemented per RDD_EXT_12/13; `classify` and `load` are unimplemented throwing
-      stubs) and `GruWeights.java` (field layout/schema-version constant only; `load`
-      is an unimplemented throwing stub, no JSON parsing yet). `tools/gru/GruTrainer.java`
+      implemented per RDD_EXT_12/13; `classify` is an unimplemented throwing stub) and
+      `GruWeights.java` (`load` now hand-parses the flat scalar schema via regex --
+      no external JSON library exists in this project and the schema has no nested
+      arrays yet; validates `schemaVersion` per RDD_EXT_14, hard-errors on mismatch or
+      missing field; smoke-tested against a hand-written sample weights file). The
+      embedding table, GRU weight matrices, and dense-head weights are not represented
+      in `GruWeights` yet -- those need the training pipeline to produce real numbers
+      first. `tools/gru/GruTrainer.java`
       added as a skeleton `main()` entry point (non-shipped, outside `src/`, per the "Files"
       section below) — throws immediately, actual training loop blocked on open items 3/4/9/10
       (hyperparameters, evaluation target, measured ABSTAIN rate, licensing check). No weights

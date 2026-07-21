@@ -440,6 +440,62 @@ real-world drift patterns in the `psf/black`/`django` fixture repos once
       left untouched) — all 5 passed — plus a full `make test` run
       (114/114 forward + idempotency, zero regressions; still compile/
       link-health only, `python3` stays in `SCAFFOLD_ONLY_LANGUAGES`).
+      **§3 (Import Ordering) landed.** New `MiscRuleIndent.PyImport`
+      (`Kind` enum `FUTURE < IMPORT < FROM`, implementing `Comparable`
+      directly as the full §3.1/§3.3 sort key: kind, then `moduleName`
+      alphabetically — relative-import leading `.`/`..` sort correctly for
+      free since ASCII `.` precedes any letter, no special-casing needed —
+      then per-name lexicographic comparison; plus `nameListStart`/
+      `nameListEnd`/`nameUnitTexts` fields letting a `FROM` import's own
+      comma-separated name list be rebuilt in sorted order independently of
+      whole-statement reordering) plus a new
+      `ScopePipelineIndent.applyImportSort` pass. The old §2-only line-
+      splitter was generalized into a shared `RawLine`/`splitRawLines`
+      (same NEWLINE/INDENT/DEDENT/continuation-aware algorithm, now reused
+      by both §2 and §3 — `process()` now runs both passes off one shared
+      `splitRawLines` call, merges their `Replacement`s, and sorts by
+      `start` before a single `render`, since the two passes' replacement
+      spans can never overlap by construction). Grouping: consecutive
+      same-depth `import`/`from` statements form one sortable group; a
+      blank line, a comment-only line, a depth change, or any non-import
+      statement (including one that itself contains a nested import, e.g.
+      an `if`-guarded `import winreg`) all break the group — the blank/
+      comment-as-breaker extension goes beyond STYLE_PYTHON3.md §3's literal
+      text (which only names "non-import statement"), a deliberate
+      conservative choice since the spec is silent on how a blank line or
+      attached comment should move when statements are physically
+      reordered around it. `classifyImport` recognizes `import
+      dotted.name[ as alias]` and `from [.[.[...]]][dotted.name] import
+      (name[ as alias][, ...] | *)`. **Discovered mid-implementation, not
+      just an inter-statement tie-breaker:** STYLE_PYTHON3.md §3.1's own
+      worked example (`from os import path, sep`) requires the names
+      *within* a single `from` clause to themselves be alphabetized, not
+      merely used to break ties between statements — `flushImportGroup`
+      now independently rebuilds just a `FROM` import's own name-list span
+      (via `nameListStart`/`nameListEnd`/`nameUnitTexts`) when its names
+      are out of order, even inside an otherwise-unchanged or singleton
+      group; a group flush is now skipped only when neither the
+      statement order nor any single statement's own name list needs
+      changing (no longer gated on `group.size() < 2` alone, since a lone
+      `from` statement can still need its own names re-sorted).
+      **Explicitly NOT yet covered by this slice** (each a documented gap,
+      not a guess): any multi-physical-line import (bracket or backslash
+      continuation) is left untouched; parenthesized `from X import
+      (...)` is rejected entirely, even a single-physical-line form,
+      since reliably distinguishing it from the simpler comma-list parsing
+      wasn't judged worth the risk this slice; multi-module `import a, b`
+      on one line is rejected/deferred (only single-module `import
+      a.b.c[ as alias]` is recognized) — no worked example covers that
+      shape, and it's structurally similar to but riskier than the
+      from-clause name-list problem already solved. Verified via a 6-case
+      one-off smoke-test harness (§3.1's full worked example including
+      within-clause name sorting, §3.2 grouping with a blank line and a
+      nested-import `if` both acting as breakers, §3.3 future-import
+      promotion to group top, a lone import left untouched, a
+      parenthesized from-import left untouched, and an aliased import
+      sorting by its own module name ignoring the alias) — all 6 passed —
+      plus a full `make test` run (114/114 forward + idempotency, zero
+      regressions).
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "Python3" section and register in the Makefile's `INP_FILES` /
       `test/README.txt`. Done: `py_combined_inp/out.py` and

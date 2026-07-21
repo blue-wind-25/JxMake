@@ -15,7 +15,8 @@ import java.util.List;
 
 /**
  * Landing spot for the indent-based language family's (Python3) statement-level rules -- see
- * `STATE_PYTHON3.md`. Currently implements STYLE_PYTHON3.md §2 (Assignment Alignment) only.
+ * `STATE_PYTHON3.md`. Currently implements STYLE_PYTHON3.md §2 (Assignment Alignment) and §3
+ * (Import Ordering).
  *
  * <p>Deliberately does not reuse {@link MiscRuleCore#groupAssignments}/{@code render} verbatim --
  * those are `;`/`{}`-shaped (C-family statement termination) and always append a literal `;`.
@@ -49,6 +50,72 @@ public final class MiscRuleIndent extends MiscRuleCore {
      *  com.jxmake.formatter.ScopePipelineIndent}'s line classifier) cannot reference it directly. */
     public static boolean isAssignmentOp(final String opText) {
         return ASSIGNMENT_OPS.contains(opText);
+    }
+
+    /** One recognized §3 import-statement candidate: `import <moduleName>` ({@code IMPORT}, empty
+     *  {@code names}) or `from <moduleName> import <names>` ({@code FROM}, or {@code FUTURE} when
+     *  {@code moduleName} is exactly {@code "__future__"}). {@code moduleName} is the dotted-name
+     *  text verbatim (including any leading `.`/`..` relative-import dots -- ASCII `.` (0x2E)
+     *  already sorts before any letter, so no special-casing is needed per STYLE_PYTHON3.md §3.1's
+     *  own note). {@code names} holds each imported name's own text in source order (ignoring any
+     *  `as alias` -- STYLE_PYTHON3.md §3.1 point 3 sorts by "the first imported name", not its
+     *  alias), or a single {@code "*"} for a star-import. Implements {@link Comparable} directly as
+     *  §3's full sort key: {@code kind} (FUTURE < IMPORT < FROM, per §3.1 point 1 plus §3.3's
+     *  future-import-to-group-top promotion), then {@code moduleName} alphabetically (§3.1 point
+     *  2), then {@code names} lexicographically element-by-element (§3.1 point 3). */
+    public static final class PyImport implements Comparable<PyImport> {
+        public enum Kind {
+            FUTURE,
+            IMPORT,
+            FROM
+        }
+
+        public final Kind kind;
+        public final String moduleName;
+        public final List<String> names;
+        // Only meaningful for FROM: the token-index span of the name list itself (`n1, n2 as a2`,
+        // no surrounding parens/keywords), and each name's own verbatim rendered unit (`n` or
+        // `n as alias`) in source order, parallel to `names`. Lets the caller rebuild just this
+        // span in alphabetized order (STYLE_PYTHON3.md §3.1 point 3's within-clause implication --
+        // the worked example's canonical `from os import path, sep` is itself name-sorted) without
+        // touching the rest of the line (indentation, `from`/module/`import`, trailing comment).
+        public final int nameListStart;
+        public final int nameListEnd;
+        public final List<String> nameUnitTexts;
+
+        public PyImport(final Kind kind, final String moduleName, final List<String> names) {
+            this(kind, moduleName, names, -1, -1, null);
+        }
+
+        public PyImport(final Kind kind, final String moduleName, final List<String> names,
+                final int nameListStart, final int nameListEnd, final List<String> nameUnitTexts) {
+            this.kind = kind;
+            this.moduleName = moduleName;
+            this.names = names;
+            this.nameListStart = nameListStart;
+            this.nameListEnd = nameListEnd;
+            this.nameUnitTexts = nameUnitTexts;
+        }
+
+        @Override
+        public int compareTo(final PyImport other) {
+            int c = kind.compareTo(other.kind);
+            if (c != 0) {
+                return c;
+            }
+            c = moduleName.compareTo(other.moduleName);
+            if (c != 0) {
+                return c;
+            }
+            final int n = Math.min(names.size(), other.names.size());
+            for (int i = 0; i < n; i++) {
+                c = names.get(i).compareTo(other.names.get(i));
+                if (c != 0) {
+                    return c;
+                }
+            }
+            return Integer.compare(names.size(), other.names.size());
+        }
     }
 
     public MiscRuleIndent(final Lang lang, final boolean normalizeCommentStartCase,

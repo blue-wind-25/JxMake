@@ -356,9 +356,38 @@ real-world drift patterns in the `psf/black`/`django` fixture repos once
       run (114/114 forward + idempotency, zero regressions; still
       compile/link-health only for this class, since it isn't reachable
       from the CLI/server dispatch paths yet).
-- [ ] Implement §1 (bracket complexity detector, including its four
+- [x] Implement §1 (bracket complexity detector, including its four
       Python-only sub-categories) as the next foundational piece, since
       §2/§6/§7 all depend on its alignment/padding primitives.
+      **Landed:** new `evaluator/PythonBracketComplexityEvaluator.java`,
+      deliberately self-contained rather than delegating to the existing
+      `ComplexityPaddingEvaluator` (that class never treats a nested `{`
+      as a complexity signal — a non-issue for C-family since `{}` is
+      only ever an initializer there, but Python's dict/set literals are
+      common call-argument/index content; and its Kotlin receiver-
+      function-type carve-out has no Python analog). Three entry points
+      per bracket kind: `isLooseParen` (§1.1 baseline + §1.2 — a
+      top-level `for` makes a generator-expression argument loose the
+      same as any other comprehension), `isLooseBracket` (§1.1-§1.4 — a
+      top-level comprehension is unconditionally loose; otherwise splits
+      on top-level `:` per §1.3 and evaluates each slice segment
+      independently, so `a[i+1:(j*k)-1]` goes loose from its second
+      segment's nested `()` while the `:` itself is never a signal;
+      §1.4 star-unpacking needed no special case since `*`/`**` are `OP`
+      tokens, never bracket punctuation), `isLooseBrace`/`classifyBrace`
+      (§1.5 — non-empty `{}` unconditionally loose regardless of
+      content shape, empty `{}` unconditionally tight and classified
+      `DICT`; non-empty classified `DICT`/`SET` by top-level `:`
+      presence). All depth tracking is a shared private `(`/`[`/`{`
+      counter, not delegated to the tokenizer's own `parenDepth` field
+      (this evaluator only ever sees an already-extracted content slice,
+      not the full token stream, so it needs its own local notion of
+      depth-0-relative-to-this-slice). Verified via an 18-case one-off
+      smoke-test harness covering every example given in
+      STYLE_PYTHON3.md §1.1-§1.5 verbatim (all 18 passed) and a full
+      `make test` run (114/114 forward + idempotency, zero regressions;
+      still compile/link-health only — no caller wires this evaluator in
+      yet, that lands with §2/§6/§7's own padding/alignment rules).
 - [ ] Implement §2–9 rule-by-rule, each its own checkpoint commit, per
       `STATE_COMMON.md`'s workflow.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s

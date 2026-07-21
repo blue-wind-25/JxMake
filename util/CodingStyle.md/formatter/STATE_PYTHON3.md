@@ -199,7 +199,7 @@ real-world drift patterns in the `psf/black`/`django` fixture repos once
 
 ## Checklist
 
-- [~] Tokenizer support pass: survey `STYLE_PYTHON3.md` for every token/
+- [x] Tokenizer support pass: survey `STYLE_PYTHON3.md` for every token/
       construct not already lexed correctly (f-string interpolation
       boundaries, `:=` walrus if present, significant-whitespace/indent
       tracking as a first-class tokenizer concern rather than braces,
@@ -279,14 +279,50 @@ real-world drift patterns in the `psf/black`/`django` fixture repos once
       dict/slice/call expressions inside fields, and confirming plain
       non-f prefixed strings like `rb'raw'` are unaffected) and a full
       `make test` run (114/114 forward + idempotency, zero regressions).
-      **Explicitly NOT yet covered by this slice** (still open, needed
-      before this item can be checked off): recursive sub-tokenization of
-      a nested replacement field inside a format spec (see above), and any
-      INDENT/DEDENT/structural-depth synthesis (this slice emits
-      `WHITESPACE`/`NEWLINE` verbatim with no depth tracking at all, same
-      as every other family today — the Open
-      Questions section's per-block-indent-conversion design still needs
-      to be built on top of this, not assumed already present).
+      **Explicitly NOT yet covered by this slice** (still open): recursive
+      sub-tokenization of a nested replacement field inside a format spec
+      (see above).
+      **Fifth slice landed:** INDENT/DEDENT synthesis. `(`/`[`/`{` now
+      track a single merged bracket-nesting counter via the inherited
+      `parenDepth` field (new `emitOpenBracket`/`emitCloseBracket`,
+      dispatched from `dispatchToken` in place of the old generic
+      `emitPunct` for those six chars) — Python attaches no separate
+      scope meaning to `{` the way the curly family does, so all three
+      bracket kinds suppress logical-line significance identically. New
+      `synthesizeIndentation(List<Token>)` runs as a post-pass at the end
+      of `tokenize()` (CPython-style indent-width stack: spaces +1,
+      tabs to next multiple of 8, form-feed resets to 0), inserting
+      zero-width `INDENT`/`DEDENT` marker tokens (new `TokenType`
+      entries, Python3-only; `text` carries the new width as a string for
+      any later rule pass) at the start of each logical line whose
+      indentation width differs from the enclosing block's. A physical
+      line is skipped for indent purposes (no marker emitted, but still
+      copied through verbatim) when blank, comment-only, inside an open
+      bracket (`NEWLINE` token's own `parenDepth > 0`), or when the prior
+      line ended in a backslash continuation (`isBackslashContinuation`:
+      the token immediately before the `NEWLINE` is a `\` OP). Trailing
+      `DEDENT`s are emitted at EOF to close any still-open blocks. No
+      `TabError`-style tabs/spaces consistency validation — this
+      tokenizer assumes syntactically valid input, same posture as every
+      other language here; the Open Questions section's per-block
+      indent-size/style rescaling design still needs to be built on top
+      of this width data, not assumed already present. Verified via a
+      one-off smoke-test harness (nested `if` inside `def`, a blank line,
+      a comment-only line, a parenthesized multi-line call, a backslash-
+      continued assignment, and a second top-level `class`/`def` nesting)
+      — INDENT/DEDENT markers, suppressed markers inside the open call's
+      parens, no marker across the backslash continuation, and correct
+      DEDENT-to-0 at EOF all confirmed — plus a full `make test` run
+      (114/114 forward + idempotency, zero regressions; still
+      compile/link-health only, not wired into any live dispatch path
+      yet).
+      **Tokenizer support pass is now considered complete** except for
+      the one documented format-spec sub-tokenization limitation noted
+      above, which is deferred (opaque format specs are explicitly
+      allowed not to recurse per STYLE_PYTHON3.md §5 — only a *nested
+      replacement field within* a spec is unhandled, a narrow, rare
+      case). Next checklist item is the statement/indentation formatting
+      skeleton.
 - [ ] Implement basic statement/indentation formatting first (the Python
       analog of a "get the skeleton right" starting point, since there are
       no braces to reuse the existing block-structure rule against) —

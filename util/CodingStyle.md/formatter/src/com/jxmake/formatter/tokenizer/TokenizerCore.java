@@ -39,7 +39,9 @@ public class TokenizerCore {
         FSTRING_START,       // Python3 only — opening quote(s) of an f-string, see TokenizerIndent
         FSTRING_MIDDLE,      // Python3 only — literal text segment of an f-string between fields
         FSTRING_END,         // Python3 only — closing quote(s) of an f-string
-        FSTRING_FORMAT_SPEC  // Python3 only — opaque `:format_spec` tail of an f-string field
+        FSTRING_FORMAT_SPEC, // Python3 only — opaque `:format_spec` tail of an f-string field
+        INDENT,              // Python3 only — synthesized, see TokenizerIndent#synthesizeIndentation
+        DEDENT               // Python3 only — synthesized, see TokenizerIndent#synthesizeIndentation
     }
 
     public static final class Token {

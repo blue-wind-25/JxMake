@@ -9,8 +9,10 @@ package com.jxmake.formatter.tokenizer;
 
 import com.jxmake.formatter.Lang;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -20,11 +22,14 @@ import java.util.Set;
  * whitespace/newlines/comments/numbers/identifiers-or-keywords/single-line and triple-quoted
  * strings/f-strings/operators/punctuation, mirroring {@link TokenizerCurly}'s generic-emitter
  * usage. Deliberately NOT yet covered (still out of scope until a later checklist item):
- * INDENT/DEDENT synthesis (Python's indentation is significant/load-bearing -- see
- * STATE_PYTHON3.md's Open Questions -- this slice only emits {@code WHITESPACE}/{@code NEWLINE}
- * tokens verbatim, same as every other family, with no structural depth tracking yet). The `:=`
- * walrus operator (PEP 572) IS handled -- see {@link #emitWalrus} -- emitted as a single OP token
- * rather than falling out as `:` PUNCT + `=` OP.
+ * INDENT/DEDENT synthesis IS now handled -- see {@link #synthesizeIndentation} -- run as a
+ * post-pass over the flat token stream produced by {@link #tokenize}'s main loop. `(`/`[`/`{`
+ * (see {@link #emitOpenBracket}/{@link #emitCloseBracket}) now track {@code parenDepth} as a
+ * single merged bracket-nesting counter (unlike the curly family, Python has no separate
+ * scope-vs-expression distinction between `{` and `(`/`[` -- all three suppress logical line
+ * breaks identically per the language grammar); {@code braceDepth} is unused/always 0 for this
+ * tokenizer. The `:=` walrus operator (PEP 572) IS handled -- see {@link #emitWalrus} -- emitted
+ * as a single OP token rather than falling out as `:` PUNCT + `=` OP.
  *
  * <p>F-strings are sub-tokenized following CPython 3.12+'s own FSTRING_START/MIDDLE/END scheme
  * (see {@link #emitFString}): literal text segments become opaque {@code FSTRING_MIDDLE} tokens,
@@ -74,7 +79,109 @@ public class TokenizerIndent extends TokenizerCore {
         while (pos < length) {
             dispatchToken(tokens);
         }
-        return tokens;
+        return synthesizeIndentation(tokens);
+    }
+
+    /** Post-pass over the flat token stream: inserts {@code INDENT}/{@code DEDENT} markers at
+     *  the start of each logical line whose indentation width differs from the enclosing block's,
+     *  per Python's significant-whitespace grammar. Mirrors CPython's own tokenizer algorithm
+     *  (a stack of indent widths, compared line-by-line) without attempting its stricter
+     *  tabs/spaces consistency error (`TabError`) -- this formatter assumes syntactically valid
+     *  input, same posture as every other language here.
+     *
+     *  <p>A physical line only starts a new logical line -- and is therefore eligible to open/
+     *  close a block -- when: it is not blank, is not comment-only (STYLE_PYTHON3.md: blank and
+     *  comment-only lines never affect indentation tracking), the previous line's `NEWLINE` was
+     *  not inside an open bracket (`parenDepth > 0`, tracked by {@link #emitOpenBracket}/{@link
+     *  #emitCloseBracket}), and the previous line did not end in a backslash line-continuation
+     *  (see {@link #isBackslashContinuation}). `INDENT`/`DEDENT` tokens carry no source text of
+     *  their own (zero-width markers) but carry the new indent width as their {@code text} field
+     *  for any later rule pass that needs it (e.g. the per-block indent-size/style rescaling work
+     *  noted as an open question in STATE_PYTHON3.md). Any leading `WHITESPACE` token of the line
+     *  is preserved verbatim in the output either way -- this pass only inserts markers, it never
+     *  rewrites existing tokens' text. */
+    private List<Token> synthesizeIndentation(final List<Token> tokens) {
+        final List<Token> out = new ArrayList<>();
+        final Deque<Integer> indentStack = new ArrayDeque<>();
+        indentStack.push(0);
+        boolean atLineStart = true;
+        int i = 0;
+        final int n = tokens.size();
+
+        while (i < n) {
+            if (atLineStart) {
+                int width = 0;
+                if (tokens.get(i).type == TokenType.WHITESPACE) {
+                    width = indentWidth(tokens.get(i).text);
+                    out.add(tokens.get(i));
+                    i++;
+                }
+                final boolean blankOrComment = i >= n
+                        || tokens.get(i).type == TokenType.NEWLINE
+                        || tokens.get(i).type == TokenType.COMMENT_LINE;
+                if (!blankOrComment) {
+                    if (width > indentStack.peek()) {
+                        indentStack.push(width);
+                        out.add(new Token(TokenType.INDENT, String.valueOf(width), 0, 0, null));
+                    } else {
+                        while (indentStack.peek() > width) {
+                            indentStack.pop();
+                            out.add(new Token(TokenType.DEDENT, String.valueOf(indentStack.peek()),
+                                    0, 0, null));
+                        }
+                    }
+                }
+                atLineStart = false;
+                continue;
+            }
+
+            final Token t = tokens.get(i);
+            out.add(t);
+            i++;
+            if (t.type == TokenType.NEWLINE) {
+                final boolean insideBrackets = t.parenDepth > 0;
+                if (!insideBrackets && !isBackslashContinuation(out)) {
+                    atLineStart = true;
+                }
+            }
+        }
+
+        while (indentStack.peek() > 0) {
+            indentStack.pop();
+            out.add(new Token(TokenType.DEDENT, String.valueOf(indentStack.peek()), 0, 0, null));
+        }
+        return out;
+    }
+
+    /** {@code out}'s last element is a just-appended `NEWLINE` -- true when the token right
+     *  before it is a `\` OP (a backslash line-continuation, which per Python grammar must be
+     *  the line's final character, making it immediately adjacent to the newline with nothing,
+     *  not even whitespace, between). */
+    private boolean isBackslashContinuation(final List<Token> out) {
+        if (out.size() < 2) {
+            return false;
+        }
+        final Token prev = out.get(out.size() - 2);
+        return prev.type == TokenType.OP && "\\".equals(prev.text);
+    }
+
+    /** Python's own indentation-width rule (CPython tokenizer): each space advances by 1, each
+     *  tab advances to the next multiple of 8, and a form-feed resets the count to 0. Used only
+     *  to compare relative indentation levels for INDENT/DEDENT purposes -- not a tabs/spaces
+     *  validity check. */
+    private static int indentWidth(final String whitespace) {
+        int width = 0;
+        for (int k = 0; k < whitespace.length(); k++) {
+            final char c = whitespace.charAt(k);
+            if (c == '\t') {
+                width = (width / 8 + 1) * 8;
+            } else if (c == '\f') {
+                width = 0;
+            } else {
+                width++;
+            }
+        }
+        return width;
     }
 
     /** One dispatch step: appends exactly one token to {@code out}, except for a string-prefixed
@@ -119,8 +226,11 @@ public class TokenizerIndent extends TokenizerCore {
             out.add(emitNumber());
         } else if (c == ':' && peek(1) == '=') {
             out.add(emitWalrus());
-        } else if (c == '(' || c == '[' || c == '{' || c == ')' || c == ']' || c == '}'
-                || c == ',' || c == ':' || c == ';') {
+        } else if (c == '(' || c == '[' || c == '{') {
+            out.add(emitOpenBracket(c));
+        } else if (c == ')' || c == ']' || c == '}') {
+            out.add(emitCloseBracket(c));
+        } else if (c == ',' || c == ':' || c == ';') {
             out.add(emitPunct(c));
         } else {
             out.add(emitOperator());
@@ -336,6 +446,28 @@ public class TokenizerIndent extends TokenizerCore {
     }
 
     private Token emitPunct(final char c) {
+        pos++;
+        return new Token(TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null);
+    }
+
+    /** `(`/`[`/`{` all merge into one bracket-nesting counter (unlike the curly family, Python
+     *  attaches no separate scope meaning to `{` -- it's only ever a dict/set literal), stored in
+     *  the inherited {@code parenDepth} field. Any of the three suppresses logical-line/NEWLINE
+     *  significance identically, which is what {@link #synthesizeIndentation} relies on. */
+    private Token emitOpenBracket(final char c) {
+        parenDepth++;
+        pos++;
+        return new Token(TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null);
+    }
+
+    /** Counterpart to {@link #emitOpenBracket}. Guards against going negative on unbalanced/
+     *  syntactically invalid input rather than throwing -- this tokenizer assumes valid input but
+     *  shouldn't corrupt {@code parenDepth} for the rest of the file if that assumption is ever
+     *  violated. */
+    private Token emitCloseBracket(final char c) {
+        if (parenDepth > 0) {
+            parenDepth--;
+        }
         pos++;
         return new Token(TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null);
     }

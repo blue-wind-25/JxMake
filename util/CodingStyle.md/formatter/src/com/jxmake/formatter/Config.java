@@ -35,7 +35,8 @@ public final class Config {
         "java-import-blank-lines",
         "kotlin-import-order", "kotlin-import-sort", "kotlin-import-depth",
         "kotlin-import-blank-lines",
-        "js-import-order", "js-import-sort", "js-import-blank-lines"
+        "js-import-order", "js-import-sort", "js-import-blank-lines",
+        "gru-classifier", "gru-weights-path"
     };
 
     private static final java.util.Set<String> ALL_KEYS_SET =
@@ -47,6 +48,12 @@ public final class Config {
     public static final String DEFAULT_INDENT_STYLE = "spaces";
     public static final int DEFAULT_INDENT_SIZE = 4;
     public static final int DEFAULT_LINE_LENGTH = 100;
+
+    /** Default weights-file path for the Step 3 GRU classifier (STATE_AI.md), a
+     *  {@code target/}-relative build artifact produced by {@code make gru-train} (see the
+     *  Makefile). Aspirational at a fresh checkout -- harmless if absent, since a missing weights
+     *  file is already a fail-safe ABSTAIN path (see {@code GruAbstainResolver}). */
+    public static final String DEFAULT_GRU_WEIGHTS_PATH = "target/gru/weights.json";
 
     private int lineLength = DEFAULT_LINE_LENGTH;
     private int indentSize = DEFAULT_INDENT_SIZE;
@@ -72,6 +79,12 @@ public final class Config {
     private List<String> jsImportOrder = Arrays.asList("builtin", "third-party", "local");
     private boolean jsImportSort = true;
     private int jsImportBlankLines = 1;
+
+    /** Step 3 GRU classifier gate (STATE_AI.md) -- opt-in, default off, since no trained model
+     *  ships yet. {@code GruAbstainResolver} reads this to decide whether to even attempt loading
+     *  a weights file; when off, no filesystem access is attempted at all. */
+    private boolean gruClassifier = false;
+    private String gruWeightsPath = DEFAULT_GRU_WEIGHTS_PATH;
 
     private Config() {
     }
@@ -162,6 +175,14 @@ public final class Config {
 
     public int jsImportBlankLines() {
         return jsImportBlankLines;
+    }
+
+    public boolean isGruClassifier() {
+        return gruClassifier;
+    }
+
+    public String gruWeightsPath() {
+        return gruWeightsPath;
     }
 
     /**
@@ -292,6 +313,8 @@ public final class Config {
         config.jsImportOrder = parseStringList(raw, "js-import-order", config.jsImportOrder);
         config.jsImportSort = parseBoolean(raw, "js-import-sort", config.jsImportSort);
         config.jsImportBlankLines = parseInt(raw, "js-import-blank-lines", config.jsImportBlankLines);
+        config.gruClassifier = parseBoolean(raw, "gru-classifier", config.gruClassifier);
+        config.gruWeightsPath = parseString(raw, "gru-weights-path", config.gruWeightsPath);
         return config;
     }
 
@@ -322,6 +345,17 @@ public final class Config {
         }
         warnInvalid(key, value, fallback ? "on" : "off");
         return fallback;
+    }
+
+    /** Plain free-form string value, no choice-list validation -- used for the one config key
+     *  (Step 3 GRU's {@code gru-weights-path}) whose value is a filesystem path rather than a
+     *  constrained enum-like choice or a string list. */
+    private static String parseString(final Map<String, String> raw, final String key, final String fallback) {
+        final String value = raw.get(key);
+        if (value == null) {
+            return fallback;
+        }
+        return value.trim();
     }
 
     private static String parseChoice(final Map<String, String> raw, final String key, final String fallback,

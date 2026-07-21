@@ -24,7 +24,7 @@ TEST_TMP      = $(BUILD_DIR)/test-out
 
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
-.PHONY: all build jar clean test bench test-server
+.PHONY: all build jar clean gru-train test bench test-server
 
 all build jar:
 	@if $(MAKE) --no-print-directory -q $(JAR_FILE); then \
@@ -45,6 +45,32 @@ $(JAR_FILE): $(SOURCES) | $(CLASS_DIR)
 
 clean:
 	@rm -rvf $(BUILD_DIR)
+
+
+# ── GRU trainer target ───────────────────────────────────────────────────────
+#
+# Compiles and runs tools/gru/GruTrainer.java (a non-shipped, outside-src/
+# training entry point per STATE_AI.md), writing a scalar-architecture-
+# constants-only weights file to $(BUILD_DIR)/gru/weights.json -- matches
+# Config.DEFAULT_GRU_WEIGHTS_PATH, so a fresh `make build gru-train` run
+# produces a file GruAbstainResolver's default config would actually find.
+# The real training loop remains blocked on STATE_AI.md open items 3/4/9/10;
+# see GruTrainer's own javadoc. Uses tools/gru/sample_examples.txt, a
+# placeholder/dummy labeled-examples file (no real labeled dataset exists
+# yet), just to satisfy GruTrainer's positional-arg validation.
+#
+GRU_TOOLS_DIR    = tools/gru
+GRU_BUILD_DIR    = $(BUILD_DIR)/gru
+GRU_TOOLS_CLASSES = $(GRU_BUILD_DIR)/classes
+GRU_WEIGHTS_OUT  = $(GRU_BUILD_DIR)/weights.json
+GRU_SAMPLE_EXAMPLES = $(GRU_TOOLS_DIR)/sample_examples.txt
+
+gru-train: $(JAR_FILE)
+	@mkdir -p $(GRU_TOOLS_CLASSES)
+	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) \
+		-cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/GruTrainer.java
+	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer \
+		$(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT)
 
 
 # ── Test target ───────────────────────────────────────────────────────────────

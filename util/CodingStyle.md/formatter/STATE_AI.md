@@ -140,6 +140,116 @@ implementation work yet):
       word list. No weights file format finalized/written yet, no wiring
       into `CommentClassifier`'s ABSTAIN path yet.
 
+- [x] **Abstain-routing plumbing (stub GRU, real pipeline wiring)** — DONE, but
+      still far from a real trained classifier; items 3/4/9/10 remain exactly
+      as blocked as before (see "Remaining blocked open items" below).
+      `GruClassifier.classify(String, int)` no longer throws — it still calls
+      `tokenize` (future-proofing the tokenization path) but unconditionally
+      returns `CommentDecision.ABSTAIN`, with updated javadoc explaining this
+      is intentional stubbed behavior (forward pass blocked on a real trained
+      weights file with an embedding table/GRU weight matrices, neither of
+      which `GruWeights` represents yet), matching the project's fail-safe
+      posture (missing/unusable signal → ABSTAIN → mechanical fallback, never
+      blocks formatting). New class `com.jxmake.formatter.classifier.gru.
+      GruAbstainResolver` (static `resolve(CommentFeatureVector features,
+      String commentText, int targetWordIndex, Config config)`) is the real
+      "Rules → high confidence / abstain → GRU classifier → final decision"
+      pipeline call site: (a) calls `CommentClassifier.classify(features)`
+      and returns immediately if non-`ABSTAIN`, touching no filesystem; (b)
+      if `ABSTAIN` and `config.isGruClassifier()` is `false`, returns
+      `ABSTAIN` immediately, again with no filesystem access (opt-in feature,
+      no wasted I/O when off); (c) otherwise attempts `GruClassifier.load` at
+      `config.gruWeightsPath()`, catching `IOException` as a fail-safe
+      `ABSTAIN`; (d) on successful load, delegates to `GruClassifier.classify`
+      and returns whatever results (currently always `ABSTAIN`, per the stub
+      above). Does not touch `CommentClassifier.classify`'s pure rule-based
+      signature/contract, and is not wired into `MiscRuleCore` (that
+      integration remains its own separate, out-of-scope follow-up, same as
+      `CommentClassifier`'s own pre-existing "not yet wired" status). Since
+      the GRU stage always abstains right now, this cannot change any
+      existing behavior — matches the hard "purely additive" constraint —
+      but the pipeline code path is now real and exercised.
+
+      Two new `Config.java` keys (added to `ALL_KEYS`, with fields/
+      accessors/`fromRawMap` parsing, following the existing `parseBoolean`
+      pattern for the first and a new minimal `parseString` helper — no
+      choice-list validation — for the second, since no prior config key held
+      an unconstrained filesystem path): `gru-classifier` (boolean, default
+      `off` — opt-in, since no trained model exists yet) and
+      `gru-weights-path` (string, default `Config.DEFAULT_GRU_WEIGHTS_PATH =
+      "target/gru/weights.json"`, a `target/`-relative build artifact path;
+      aspirational at a fresh checkout, harmless since the fail-safe already
+      treats a missing file as `ABSTAIN`). Both keys registered in
+      `STATE_COMMON.md`'s "Config Keys and Defaults" table under a new
+      `# ── AI-assist (GRU) ──` heading. `Config.isKnownKey`/env-var
+      collection/in-file `JXM_CFMT_CFG` validation/server query-param
+      validation all pick up both keys automatically (they iterate
+      `ALL_KEYS`), so no other file needed editing.
+
+      New self-test `tools/gru/GruAbstainResolverSelfTest.java` (same
+      zero-framework plain-`main()`-assertion style as the other three GRU
+      self-tests), covering all four required cases: rules resolve
+      non-`ABSTAIN` (GRU never consulted, weights path pointed at a
+      nonexistent file, no error, rule-based result returned unchanged);
+      rules `ABSTAIN` + `gru-classifier` off (falls through immediately, no
+      load attempt, verified via a nonexistent weights path causing no
+      error); rules `ABSTAIN` + `gru-classifier` on + weights file missing
+      (fail-safe `ABSTAIN`); rules `ABSTAIN` + `gru-classifier` on + a real
+      (small, hand-written temp) weights file present (loads successfully,
+      `GruClassifier.classify` stub still returns `ABSTAIN`, final result is
+      `ABSTAIN`). All four pass, alongside all three pre-existing GRU
+      self-tests (`GruTokenizerSelfTest`, `GruWeightsSelfTest`,
+      `GruSoftmaxSelfTest`, unmodified, still passing) and `make test`
+      (116/116 forward + 116/116 idempotency, zero regressions — this task
+      never touches language-formatting rule code).
+
+- [x] **Trainer scalar-weights-file output + Makefile wiring** — DONE, same
+      caveat as above: the real training loop remains exactly as blocked as
+      before. `tools/gru/GruTrainer.java`'s `main()` no longer throws after
+      CLI parsing — it now writes a weights file containing only the flat
+      scalar fields `GruWeights.load` currently parses: `schemaVersion=1`,
+      `hashBuckets=1024` (`GruClassifier.HASH_BUCKETS`), `embeddingDim=16`,
+      `hiddenSize=224`, `sequenceCap=64` (the same finalized architecture
+      constant as `GruClassifier.SEQUENCE_CAP`, written as a literal since
+      that field is package-private and `GruTrainer` lives outside `src/` in
+      a different package — not accessible from there), `numClasses=3`
+      (`GruClassifier.CLASS_ORDER.length`), and `abstainThreshold=0.5`
+      (RDD_EXT_11's stated default). `vocabSize` is derived by counting
+      distinct whitespace-split tokens in the labeled-examples input file
+      (`GruTrainer.countDistinctTokens`) — a natural, non-guessy count from
+      real input, not an invented placeholder number. No embedding table, GRU
+      weight matrices, or dense-head weights are written — `GruWeights` has
+      no fields for them yet, so there is nothing to guess there; this is
+      legitimate to implement now precisely because it only writes the
+      schema that already exists. The `--key=value` hyperparameters map is
+      still collected but not consumed by anything (documented in the
+      class's javadoc and in the runtime's own printed summary) — there is no
+      training loop yet to feed it to.
+
+      New Makefile target `gru-train` (placed immediately after `clean:` and
+      before the `# ── Test target ───...` header, per instruction, and added
+      to `.PHONY` alongside the existing targets at line 27), depends on
+      `$(JAR_FILE)`, compiles `tools/gru/GruTrainer.java` with `-cp
+      $(CLASS_DIR)` into `$(BUILD_DIR)/gru/classes` (it references
+      `GruClassifier`/`GruWeights` from `src/`, so needs that classpath), then
+      runs it against a new placeholder/dummy labeled-examples file,
+      `tools/gru/sample_examples.txt` (checked in, header comment explicitly
+      marks it as placeholder/not-real-training-data, per the same open
+      items 3/4/9/10 blocking real data), writing output to
+      `$(BUILD_DIR)/gru/weights.json` — i.e. `target/gru/weights.json`,
+      matching `Config.DEFAULT_GRU_WEIGHTS_PATH` exactly, so a fresh `make
+      build gru-train` run produces a file the resolver's default config
+      would actually find (still harmless/fail-safe if absent on a clean
+      checkout before this target has run). Verified end-to-end: `make
+      build` succeeds unmodified, `make gru-train` runs and produces a real
+      `target/gru/weights.json`; its contents (`schemaVersion: 1, vocabSize:
+      76, hashBuckets: 1024, embeddingDim: 16, hiddenSize: 224, sequenceCap:
+      64, numClasses: 3, abstainThreshold: 0.5`) were confirmed to
+      round-trip through `GruWeights.load` without error via
+      `GruWeightsSelfTest`'s same parsing logic (not a fresh test case, but
+      the identical schema shape already covered by that self-test's happy
+      path).
+
 ---
 
 ## Background and Architecture (ai-assist)
@@ -591,17 +701,27 @@ until then, remains an accepted mechanical-rule limitation (`dotCount != 1`
 
 ---
 
-## Remaining blocked open items (as of the GRU skeleton work)
+## Remaining blocked open items (as of the abstain-routing-plumbing work)
 
-Everything unblocked has been scaffolded: `GruClassifier` (`tokenize`,
-`hashBucket`, `softmax`, `decide`, `CLASS_ORDER`), `GruWeights` (flat-schema
-`load` with schema-version and sanity validation), `Vocabulary`
-(explicit-vocab-vs-hash-bucket lookup, unseeded), `tools/gru/GruTrainer.java`
-(CLI arg parsing only), and three self-tests (`GruTokenizerSelfTest`,
-`GruWeightsSelfTest`, `GruSoftmaxSelfTest`, all passing). What's left all
-traces back to the four still-open items from "Open refinement items"
-above — none of these can be scoped further without a real measurement,
-training run, or external lookup:
+Everything unblocked has been scaffolded/wired: `GruClassifier` (`tokenize`,
+`hashBucket`, `softmax`, `decide`, `CLASS_ORDER`, and now `classify` itself —
+a real method, but an intentional always-`ABSTAIN` stub, not a real forward
+pass), `GruWeights` (flat-schema `load` with schema-version and sanity
+validation), `Vocabulary` (explicit-vocab-vs-hash-bucket lookup, unseeded),
+the new `GruAbstainResolver` (real "rules then GRU on abstain" pipeline,
+config-gated), the two new `Config.java` keys (`gru-classifier`,
+`gru-weights-path`), `tools/gru/GruTrainer.java` (CLI arg parsing plus now a
+real scalar-architecture-constants-only weights-file writer — still not a
+real training loop), its new placeholder `tools/gru/sample_examples.txt`
+input, the new `gru-train` Makefile target, and four self-tests
+(`GruTokenizerSelfTest`, `GruWeightsSelfTest`, `GruSoftmaxSelfTest`,
+`GruAbstainResolverSelfTest`, all passing). **None of this amounts to a real
+trained classifier yet** — no embedding table, GRU weight matrices, or
+dense-head weights exist anywhere, `GruClassifier.classify` always returns
+`ABSTAIN`, and `Vocabulary`'s ~3.5k-word explicit vocab is still unseeded.
+What's left all traces back to the four still-open items from "Open
+refinement items" above — none of these can be scoped further without a
+real measurement, training run, or external lookup:
 
 3. **Training hyperparameters** (loss function, learning rate, batch size,
    epoch count, dropout/regularization, train/val/test split ratios) —

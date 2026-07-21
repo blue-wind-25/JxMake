@@ -1,0 +1,12 @@
+# PLACEHOLDER labeled-examples file for GruTrainer -- NOT real training data.
+#
+# STATE_AI.md's real Pool A/Pool B labeled dataset acquisition is blocked on
+# open items 3/4/9/10 (hyperparameters, evaluation target, measured ABSTAIN
+# rate, licensing check). This file exists only to satisfy GruTrainer's
+# positional-arg validation (a readable, existing labeled-examples file) so
+# `make gru-train` has something to point at and produces a real, parseable
+# scalar weights file end to end. Do not treat its contents as a real
+# labeled example format -- none has been decided yet.
+for matrix
+for matrix below
+extern C.

@@ -68,12 +68,20 @@ public final class GruClassifier {
      *  {@code YES}/{@code NO}/{@code ABSTAIN} classes as the existing rule-based classifier
      *  (RDD_EXT_10 -- no more granular intermediate class). Abstains when the top softmax class
      *  doesn't clear {@link GruWeights#abstainThreshold} (RDD_EXT_11), same posture as the
-     *  missing-weights-file fail-safe. */
+     *  missing-weights-file fail-safe.
+     *
+     *  <p><b>Stub behavior (intentional, not a bug):</b> the actual forward pass (embedding
+     *  lookup, bidirectional GRU recurrence, dense head) is not yet implemented -- it is blocked
+     *  on a real trained weights file with an embedding table and GRU weight matrices, neither of
+     *  which {@link GruWeights} represents yet (see its javadoc; only the flat scalar
+     *  architecture-constant fields exist so far). Until that lands, this method unconditionally
+     *  returns {@link CommentDecision#ABSTAIN} for every call, matching this project's existing
+     *  fail-safe posture everywhere else in this design: missing/unusable signal -> ABSTAIN ->
+     *  mechanical fallback, never blocks formatting. {@code tokenize} is still called so the
+     *  tokenization path is exercised and ready once a real forward pass lands. */
     public CommentDecision classify(String commentText, int targetWordIndex) {
-        List<String> tokens = tokenize(commentText);
-        throw new UnsupportedOperationException(
-                "GruClassifier.classify: inference not yet implemented -- design-only scaffold "
-                        + "per STATE_NEXT_AI.md, package com.jxmake.formatter.classifier.gru is NOT STARTED");
+        tokenize(commentText);
+        return CommentDecision.ABSTAIN;
     }
 
     /** Word-level tokenization per RDD_EXT_12: trailing/attached punctuation splits into its own

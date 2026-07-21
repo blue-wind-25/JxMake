@@ -68,8 +68,12 @@ below; nothing started, this is a design note, not scoped implementation work ye
       (see "Fail-safe" note in "GRU implementation design" below)
 - [~] `com.jxmake.formatter.classifier.gru` package — GRU now determined to be the
       preferred v1 approach (see "Model size determination" below), supersedes the
-      earlier LLM-for-v1 lean — SKELETON ONLY: `GruClassifier.java` (tokenize/hashBucket
-      implemented per RDD_EXT_12/13; `classify` is an unimplemented throwing stub) and
+      earlier LLM-for-v1 lean — SKELETON ONLY: `GruClassifier.java` (`tokenize`/`hashBucket`/
+      `HASH_BUCKETS` implemented per RDD_EXT_12/13, and made `public` — not just for
+      `tools/gru/GruTokenizerSelfTest.java` below, but because RDD_EXT_13 requires the
+      training side to call the exact same hash/tokenizer as the runtime, and the trainer
+      lives in a different package outside `src/`; `classify` is an unimplemented throwing
+      stub) and
       `GruWeights.java` (`load` now hand-parses the flat scalar schema via regex --
       no external JSON library exists in this project and the schema has no nested
       arrays yet; validates `schemaVersion` per RDD_EXT_14, hard-errors on mismatch or
@@ -79,7 +83,14 @@ below; nothing started, this is a design note, not scoped implementation work ye
       first. `tools/gru/GruTrainer.java`
       added as a skeleton `main()` entry point (non-shipped, outside `src/`, per the "Files"
       section below) — throws immediately, actual training loop blocked on open items 3/4/9/10
-      (hyperparameters, evaluation target, measured ABSTAIN rate, licensing check). No weights
+      (hyperparameters, evaluation target, measured ABSTAIN rate, licensing check).
+      `tools/gru/GruTokenizerSelfTest.java` added: a plain-`main()` assertion-based self-check
+      for `tokenize`/`hashBucket` (no JUnit or other test framework exists anywhere in this
+      project — the formatter's own testing methodology is the `_inp`/`_out` fixture-diffing in
+      `test/`, which doesn't apply to internal classifier logic — so this follows the project's
+      existing zero-dependency style). Covers punctuation-splitting, camelCase/snake_case
+      wholeness, empty/whitespace-only input, hash determinism, and hash range; run via
+      `java GruTokenizerSelfTest` after compiling — all checks currently pass. No weights
       file format finalized/written yet, no wiring into `CommentClassifier`'s ABSTAIN path yet.
 
 ---

@@ -33,8 +33,10 @@ public final class GruClassifier {
 
     /** Number of OOV hash buckets (RDD_EXT_13): FNV-1a (32-bit) mod this value. Deterministic,
      *  no external dependency, trivially identical to reimplement on the training and runtime
-     *  sides. */
-    static final int HASH_BUCKETS = 1024;
+     *  sides. Public so {@code tools/gru/GruTrainer.java} (outside {@code src/}, a different
+     *  package) can call the exact same {@link #tokenize}/{@link #hashBucket} the runtime uses --
+     *  RDD_EXT_13 requires these stay bit-for-bit identical between training and runtime. */
+    public static final int HASH_BUCKETS = 1024;
 
     /** Per-comment token cap (truncate/pad), per the finalized architecture. */
     static final int SEQUENCE_CAP = 64;
@@ -71,7 +73,7 @@ public final class GruClassifier {
      *  rule-based classifier's own dot-count reasoning. camelCase/snake_case identifiers stay
      *  whole -- not sub-tokenized, since the classification signal comes from surrounding context
      *  words, not from decomposing the identifier itself. */
-    static List<String> tokenize(String commentText) {
+    public static List<String> tokenize(String commentText) {
         List<String> tokens = new ArrayList<>();
         int i = 0;
         int n = commentText.length();
@@ -101,7 +103,7 @@ public final class GruClassifier {
 
     /** FNV-1a (32-bit) hash mod {@link #HASH_BUCKETS}, per RDD_EXT_13. Must stay bit-for-bit
      *  identical between the training side and this runtime side. */
-    static int hashBucket(String token) {
+    public static int hashBucket(String token) {
         int hash = 0x811C9DC5;
         byte[] bytes = token.getBytes(StandardCharsets.UTF_8);
         for (byte b : bytes) {

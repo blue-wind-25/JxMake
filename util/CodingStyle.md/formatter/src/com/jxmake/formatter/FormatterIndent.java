@@ -31,6 +31,6 @@ public final class FormatterIndent extends FormatterCore {
         if (formatOff) {
             return content;
         }
-        return new ScopePipelineIndent(lang, config.indentSize()).process(content);
+        return new ScopePipelineIndent(lang, config.indentSize(), config.lineLength()).process(content);
     }
 }

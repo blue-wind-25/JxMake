@@ -686,6 +686,103 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       parameter whose own default value or type hint itself spans more than one physical line
       (bracket continuation nested inside the outer signature's own continuation) -- each of these
       shapes causes the *whole* signature to be left untouched rather than partially aligned.
+
+      **§8 (Single-Statement Bodies) landed.** Unlike §2-§7 (all of which take the human's existing
+      line-structure as given and never themselves decide to join/split a line), §8 is a genuine
+      join operation, per the task's own framing: it collapses a block already written as `header:`
+      followed by exactly one indented simple-statement line back onto the header's own line
+      (`header: statement`), when the joined line fits within `line-length` -- STYLE_PYTHON3.md §8
+      is a real, precedented feature (the Python analog of STYLE.md §10's C-family single-
+      expression-body compaction, whose reference implementation, `BlockStructureRule
+      .collapseSingleExpressionBlocks`/`isSingleStatementBody`, was read first as the working
+      design precedent), not new architecture.
+
+      `ScopePipelineIndent` gained a third constructor parameter, `lineLength` (new
+      `Config.DEFAULT_LINE_LENGTH = 100` constant factored out of the previously-inline literal in
+      `Config.java`; `FormatterIndent.formatOne` now passes `config.lineLength()` through), plus new
+      `applySingleStatementBody`/`classifySingleStatementHeaderColon`/`bodyOpensNewBlock`/
+      `physicalLineLength`/`containsComment` and a `SINGLE_STMT_HEADER_KEYWORDS` set (`if`/`elif`/
+      `else`/`while`/`for` -- `case` is handled separately by delegating to the already-landed §7
+      `classifyCaseLine`, since `case` is a context-sensitive soft keyword tokenized as a plain
+      `IDENTIFIER`, not a member of this set; `def`/`class`/`try`/`except`/`finally`/`with` are
+      deliberately never members, satisfying §8's explicit "never applies" list by construction, not
+      a runtime check). For each `RawLine`, a header qualifies only when: single physical line, first
+      significant token is a qualifying keyword (or `case` via `classifyCaseLine` with
+      `compact == false`), and nothing but an optional trailing comment follows its own header-
+      terminating `:` (i.e. genuinely block-form, not already compact -- STYLE_PYTHON3.md's own
+      `if x: return y`/`while x: x -= 1` worked examples are recognized as already compact by this
+      exact check and correctly left alone, never re-derived to a different compact spelling). The
+      immediately following `RawLine` must exist, sit exactly one depth deeper, not be
+      `multiPhysicalLine`, not be blank/comment-only, not itself carry a trailing comment
+      (conservative skip, no worked example either way for this shape), and not itself open a
+      further nested block (`bodyOpensNewBlock` -- a depth-0 `:` inside the body's own token span
+      means it's itself a compound-statement header, e.g. nested `if`/`for`/`while`/`with`/`match`/
+      `def`/`class`, and must keep its own indented block, never qualifies as the "simple statement"
+      being joined). The line after the body (if any) must sit at a shallower depth than the body --
+      a sibling line still at the body's own depth means the block held more than one statement (or
+      a trailing blank/comment line), and the whole join is skipped, mirroring §2/§3's own
+      conservative group-boundary posture. On success, one `Replacement` spans
+      `[header.start, bodyContentEnd)` (deliberately NOT through the body's own trailing `NEWLINE`
+      token -- that token is left alone so the line rendered afterward still terminates correctly;
+      an earlier draft that included it in the replaced span produced a corrupted single line with
+      no `\n` before whatever followed, caught immediately by the smoke test's very first case)
+      with the joined `headerText + " " + bodyText` text; overflow (joined length exceeds
+      `line-length`) leaves the block form completely untouched, per §8's own explicit rule.
+
+      **Ambiguity resolved conservatively, not guessed, and confirmed via a dedicated smoke case:**
+      a body statement containing `lambda` (e.g. `f = lambda: 1`) has its own top-level `:` that
+      does not open a block, but reliably distinguishing that from a genuine nested-compound-
+      statement `:` would need lambda-parameter-list-aware depth tracking this slice does not build.
+      `bodyOpensNewBlock` (and the header's own condition-colon search in
+      `classifySingleStatementHeaderColon`, for the same reason) conservatively treats any `lambda`
+      keyword found anywhere in the relevant span as "opens a new block" -- i.e. never joined --
+      sidestepping the ambiguity by leaving that narrow shape's block form untouched rather than
+      risking a wrong join, per the task's own explicit "safe conservative default, not a genuine
+      ambiguity requiring a stop" framing for exactly this shape. `:=` was never at risk of being
+      mistaken for either kind of `:` search, since `TokenizerIndent.emitWalrus` already merges it
+      into a single pre-tokenized `OP` token.
+
+      **A nested compound statement's own header still legitimately gets its own independent join
+      opportunity** -- discovered while writing the smoke test, not a bug: STYLE_PYTHON3.md §8's
+      "never applies to a nested compound body" rule disqualifies the *outer* header from joining
+      with a nested-if/for/etc. body, but the *inner* header, evaluated independently against the
+      same original `RawLines`, can still qualify for its own join if its own sole body statement is
+      itself simple (e.g. `if x:\n    if y:\n        return 1` correctly becomes
+      `if x:\n    if y: return 1`, not left fully untouched) -- the first smoke-test draft asserted
+      the wrong expectation here (assumed no joins at all) and was corrected once the actual,
+      correct output was traced back to the rule's own wording.
+
+      Verified via a 17-case smoke-test harness (`FormatterCore.forLanguage("python3").formatOne`
+      direct construction, same pattern as every prior slice's own harness): STYLE_PYTHON3.md §8's
+      own two already-compact worked examples left untouched, block-form `if`/`while`/`for` each
+      joining correctly, a full `if`/`elif`/`else` chain joining each branch independently, the
+      style doc's own `match`/`case` worked example (starting from block form) joining each `case`,
+      the overflow worked example staying a block, `def`/`class`/`try`-`except`-`finally`/`with`
+      each never joining even though grammatically permitted, a nested-compound-statement body
+      (single nested `if`/`for`) leaving the *outer* header untouched while the *inner* header still
+      independently joins, a nested compound body whose own inner block holds two statements leaving
+      everything fully untouched, the `lambda`-body conservative skip, and idempotency of an
+      already-joined line -- all 17 passed -- plus a full `make test` run (114/114 forward +
+      idempotency, zero regressions; still compile/link-health only, `python3` stays in
+      `Lang.SCAFFOLD_ONLY_LANGUAGES`, this pass reachable only via direct construction/test
+      harnesses, same posture as every prior Python3 slice).
+
+      **Explicitly NOT yet covered by this slice** (documented scope boundaries, not guesses): a
+      header or body spanning more than one physical line (bracket/backslash continuation) is never
+      a candidate, same "documented gap" precedent as every prior §2-§7 slice; a body carrying its
+      own trailing same-line comment is conservatively skipped rather than carried onto the joined
+      line; this pass never decides to *expand* an already-compact one-line form back into a block
+      (STYLE_PYTHON3.md §8 names no such rule, and the task's own scope guidance explicitly excluded
+      building it); no `;`-chaining is ever produced, moot since only exactly one statement is ever
+      joined, per §8's own text. **A real, discovered (not guessed) interaction, same posture as
+      §5's own documented one:** this pass's `Replacement` for a qualifying header+body span starts
+      earlier than any inner replacement another pass (e.g. §2's assignment alignment, if the body
+      statement is itself a simple assignment) might produce for a sub-span nested inside it --
+      `render`'s "first match at this position wins, a later nested replacement is silently never
+      reached" behavior means the §8 join always wins whole for that occurrence, and the inner
+      pass's own narrower replacement is simply never applied there (not corrupted) -- not
+      independently re-verified via its own dedicated smoke case this slice, since §5's own
+      analogous case already established the render-merge behavior is safe.
       **§7 (Structural Pattern Matching, `match`/`case`) landed -- `:` column alignment-only
       slice.** New `ScopePipelineIndent.CaseLine`/`applyCaseColonAlignment`/`classifyCaseLine`/
       `flushCaseGroup` -- no new `MiscRuleIndent` method needed (unlike §2/§3/§6), since this pass

@@ -20,8 +20,11 @@ import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isKeyword;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Indentation-block-family scope pipeline (Python3 -- see STATE_PYTHON3.md). Tokenizes via
@@ -39,11 +42,17 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     private final Lang lang;
     private final MiscRuleIndent miscRule;
     private final PythonBracketComplexityEvaluator bracketEval = new PythonBracketComplexityEvaluator();
+    private final int lineLength;
 
     public ScopePipelineIndent(final Lang lang, final int indentWidth) {
+        this(lang, indentWidth, Config.DEFAULT_LINE_LENGTH);
+    }
+
+    public ScopePipelineIndent(final Lang lang, final int indentWidth, final int lineLength) {
         super(indentWidth);
         this.lang = lang;
         this.miscRule = new MiscRuleIndent(lang, false, false, false, indentWidth, 0);
+        this.lineLength = lineLength;
     }
 
     @Override
@@ -57,6 +66,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         replacements.addAll(applyFStringSpacing(tokens));
         replacements.addAll(applySignatureAlignment(tokens, rawLines));
         replacements.addAll(applyCaseColonAlignment(tokens, rawLines));
+        replacements.addAll(applySingleStatementBody(tokens, rawLines));
         replacements.sort(Comparator.comparingInt(r -> r.start));
         return render(tokens, replacements);
     }
@@ -1155,6 +1165,188 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             sb.append(' ');
         }
         return sb.toString();
+    }
+
+    // ── §8: Single-Statement Bodies ─────────────────────────────────────────────────────
+
+    /** Keywords whose already-block-form header ({@code header:} on its own line, body on the next
+     *  indented line) is a §8 join candidate: `if`/`elif`/`else`/`while`/`for`. {@code case} is
+     *  handled separately (reuses {@link #classifyCaseLine}, since `case` is a context-sensitive
+     *  soft keyword tokenized as a plain {@code IDENTIFIER}, not a member of this set) --
+     *  `def`/`class`/`try`/`except`/`finally`/`with` are deliberately never members, per
+     *  STYLE_PYTHON3.md §8's explicit "never applies" list. */
+    private static final Set<String> SINGLE_STMT_HEADER_KEYWORDS =
+            new HashSet<>(Arrays.asList("if", "elif", "else", "while", "for"));
+
+    /** STYLE_PYTHON3.md §8: joins a block already written as `header:` followed by exactly one
+     *  indented simple-statement line back onto the header's own line (`header: statement`) when
+     *  the joined line fits within {@code line-length}; otherwise (or when any qualification below
+     *  fails) the block form is left completely untouched -- this pass only ever joins, it never
+     *  itself decides to expand an already-compact one-line form back into a block (STYLE_PYTHON3.md
+     *  §8 names no such rule, and every already-compact worked example in the style doc is confirmed
+     *  left alone by this pass's own "compactAlready" check below).
+     *
+     *  <p>A header qualifies only when: it is a single physical line (not {@code
+     *  multiPhysicalLine}), its first significant token is one of {@link
+     *  #SINGLE_STMT_HEADER_KEYWORDS} or the {@code case} soft keyword (via {@link
+     *  #classifyCaseLine}), and nothing but an optional trailing comment follows its own
+     *  header-terminating `:` on the same physical line (i.e. it is genuinely block-form, not
+     *  already compact). The immediately following {@link RawLine} must exist, sit exactly one
+     *  depth deeper, not itself be {@code multiPhysicalLine}, not be blank/comment-only, and not
+     *  itself open a further nested block (see {@link #bodyOpensNewBlock} -- a nested `if`/`for`/
+     *  `while`/`with`/`match`/`def`/`class`/etc. always keeps its own indented block, never
+     *  qualifies as the "simple statement" this pass joins). The line after the body (if any) must
+     *  sit at a shallower depth than the body -- a sibling line still at the body's own depth means
+     *  the block held more than one statement (or a trailing blank/comment line), and the whole
+     *  join is skipped, consistent with every prior §2/§3 slice's own conservative "leave the group
+     *  boundary alone" posture. A body line carrying its own trailing comment is also skipped
+     *  (conservative -- STYLE_PYTHON3.md §8 shows no worked example either way for this shape).
+     *
+     *  <p><b>Ambiguity resolved conservatively, not guessed:</b> a body statement containing a
+     *  `lambda` anywhere (`x = lambda: 1`) has its own top-level `:` that does not open a block, but
+     *  distinguishing that from a genuine nested-compound-statement `:` reliably would need
+     *  lambda-parameter-list-aware depth tracking this pass does not build -- {@link
+     *  #bodyOpensNewBlock} conservatively treats any body containing a `lambda` keyword as "opens a
+     *  new block" (i.e. never joined), sidestepping the ambiguity by leaving that narrow shape's
+     *  block form untouched rather than risking a wrong join. The same conservative `lambda` check
+     *  also guards the header's own condition-scanning colon search ({@link
+     *  #classifySingleStmtHeader}), for the same reason. */
+    private List<Replacement> applySingleStatementBody(final List<Token> tokens, final List<RawLine> rawLines) {
+        final List<Replacement> replacements = new ArrayList<>();
+        for (int i = 0; i < rawLines.size(); i++) {
+            final RawLine header = rawLines.get(i);
+            final int colonIdx = classifySingleStatementHeaderColon(tokens, header);
+            if (colonIdx < 0) {
+                continue;
+            }
+            if (i + 1 >= rawLines.size()) {
+                continue;
+            }
+            final RawLine body = rawLines.get(i + 1);
+            if (body.multiPhysicalLine || body.depth != header.depth + 1) {
+                continue;
+            }
+            final int bodyContentStart = nextSignificant(tokens, body.contentStart, body.end);
+            if (bodyContentStart < 0) {
+                continue; // blank line -- not a real statement
+            }
+            if (tokens.get(bodyContentStart).type == TokenType.COMMENT_LINE
+                    || tokens.get(bodyContentStart).type == TokenType.COMMENT_BLOCK) {
+                continue; // comment-only line -- not a real statement
+            }
+            if (i + 2 < rawLines.size() && rawLines.get(i + 2).depth == body.depth) {
+                continue; // a sibling line (second statement, or trailing blank/comment) remains
+            }
+            final int bodyContentEnd = trimEndIdx(tokens, bodyContentStart, body.end);
+            if (containsComment(tokens, bodyContentEnd, body.end)) {
+                continue; // body carries its own trailing comment -- conservative skip
+            }
+            if (bodyOpensNewBlock(tokens, bodyContentStart, bodyContentEnd)) {
+                continue;
+            }
+            final String headerText = verbatimLineText(tokens, header.start, colonIdx + 1);
+            final String bodyText = verbatimLineText(tokens, bodyContentStart, bodyContentEnd);
+            final String joined = headerText + " " + bodyText;
+            if (physicalLineLength(joined) > lineLength) {
+                continue; // overflow -- leave the indented block form untouched
+            }
+            replacements.add(new Replacement(header.start, bodyContentEnd, joined));
+        }
+        return replacements;
+    }
+
+    /** Length of {@code joined}'s longest physical line -- {@code joined} is always a single
+     *  physical line by construction here (header + one simple statement), so this is just its own
+     *  length, but named for clarity against STYLE.md §2's line-length limit. */
+    private int physicalLineLength(final String joined) {
+        return joined.length();
+    }
+
+    /** True iff any token in {@code [from, to)} is a comment. Used to conservatively skip a body
+     *  statement carrying its own trailing same-line comment (see {@link
+     *  #applySingleStatementBody}'s javadoc). */
+    private boolean containsComment(final List<Token> tokens, final int from, final int to) {
+        for (int i = from; i < to; i++) {
+            final TokenType ty = tokens.get(i).type;
+            if (ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Classifies {@code line} as a §8 block-form header, returning the index of its own
+     *  header-terminating `:`, or {@code -1} if it doesn't qualify (already compact, not one of the
+     *  qualifying keywords, multi-physical-line, or no depth-0 `:` found). Delegates to {@link
+     *  #classifyCaseLine} for the {@code case} soft keyword (reusing §7's own header-colon/compact
+     *  detection rather than re-deriving it); handles `if`/`elif`/`else`/`while`/`for` directly. */
+    private int classifySingleStatementHeaderColon(final List<Token> tokens, final RawLine line) {
+        if (line.multiPhysicalLine) {
+            return -1;
+        }
+        final int kwIdx = nextSignificant(tokens, line.contentStart, line.end);
+        if (kwIdx < 0) {
+            return -1;
+        }
+        final Token kw = tokens.get(kwIdx);
+        if (kw.type == TokenType.IDENTIFIER && "case".equals(kw.text)) {
+            final CaseLine c = classifyCaseLine(tokens, line);
+            return c != null && !c.compact ? c.colonIdx : -1;
+        }
+        if (kw.type != TokenType.KEYWORD || !SINGLE_STMT_HEADER_KEYWORDS.contains(kw.text)) {
+            return -1;
+        }
+        int depth = 0;
+        int colonIdx = -1;
+        for (int k = kwIdx + 1; k < line.end; k++) {
+            final Token t = tokens.get(k);
+            if (t.type == TokenType.KEYWORD && "lambda".equals(t.text)) {
+                return -1; // ambiguous condition colon vs lambda colon -- conservative bail
+            }
+            if (t.type == TokenType.PUNCT && isOpenBracketText(t.text)) {
+                depth++;
+            } else if (t.type == TokenType.PUNCT && isCloseBracketText(t.text)) {
+                depth--;
+            } else if (depth == 0 && t.type == TokenType.PUNCT && ":".equals(t.text)) {
+                colonIdx = k;
+                break;
+            }
+        }
+        if (colonIdx < 0) {
+            return -1;
+        }
+        for (int k = colonIdx + 1; k < line.end; k++) {
+            final Token t = tokens.get(k);
+            if (!isGapToken(t) && t.type != TokenType.COMMENT_LINE) {
+                return -1; // already compact (something besides a trailing comment follows `:`)
+            }
+        }
+        return colonIdx;
+    }
+
+    /** True iff {@code [contentStart, contentEnd)} (a candidate body statement's own trimmed token
+     *  span) itself opens a new nested block: a depth-0 `:` (a nested `if`/`for`/`while`/`with`/
+     *  `match`/`def`/`class`/etc. header) or a `lambda` keyword anywhere in the span (conservative
+     *  bail on the lambda-colon ambiguity -- see {@link #applySingleStatementBody}'s javadoc).
+     *  `:=` is never at risk of being mistaken for either, since {@link
+     *  com.jxmake.formatter.tokenizer.TokenizerIndent#emitWalrus} already merges it into a single
+     *  pre-tokenized `OP`. */
+    private boolean bodyOpensNewBlock(final List<Token> tokens, final int contentStart, final int contentEnd) {
+        int depth = 0;
+        for (int k = contentStart; k < contentEnd; k++) {
+            final Token t = tokens.get(k);
+            if (t.type == TokenType.KEYWORD && "lambda".equals(t.text)) {
+                return true;
+            }
+            if (t.type == TokenType.PUNCT && isOpenBracketText(t.text)) {
+                depth++;
+            } else if (t.type == TokenType.PUNCT && isCloseBracketText(t.text)) {
+                depth--;
+            } else if (depth == 0 && t.type == TokenType.PUNCT && ":".equals(t.text)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Reassembles {@code tokens}' source text verbatim. Every token kind's {@code text} is its

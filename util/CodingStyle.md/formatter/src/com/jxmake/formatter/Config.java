@@ -46,8 +46,9 @@ public final class Config {
 
     public static final String DEFAULT_INDENT_STYLE = "spaces";
     public static final int DEFAULT_INDENT_SIZE = 4;
+    public static final int DEFAULT_LINE_LENGTH = 100;
 
-    private int lineLength = 100;
+    private int lineLength = DEFAULT_LINE_LENGTH;
     private int indentSize = DEFAULT_INDENT_SIZE;
     private String indentStyle = DEFAULT_INDENT_STYLE;
     private int serverPort = 17173;

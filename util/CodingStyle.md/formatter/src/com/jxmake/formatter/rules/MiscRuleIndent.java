@@ -45,6 +45,29 @@ public final class MiscRuleIndent extends MiscRuleCore {
         }
     }
 
+    /** One recognized §6 function-signature parameter, restricted (by {@link
+     *  com.jxmake.formatter.ScopePipelineIndent}'s own classifier) to a parameter already written on
+     *  its own physical line inside an already one-parameter-per-line {@code def} signature --
+     *  this class never itself decides to break/join lines, mirroring {@link PyAssignment}'s own
+     *  "given, not decided" posture for §2. {@code typeTokens}/{@code defaultTokens} are empty
+     *  (never null) when the parameter has no type hint / no default value, so a bare {@code name}
+     *  or {@code name=default} parameter still participates in the group per STYLE_PYTHON3.md §6's
+     *  own "padded as if its `:` column were empty" text. */
+    public static final class PyParam {
+        public final List<Token> nameTokens;
+        public final List<Token> typeTokens;
+        public final List<Token> defaultTokens;
+        public final boolean trailingComma;
+
+        public PyParam(final List<Token> nameTokens, final List<Token> typeTokens,
+                final List<Token> defaultTokens, final boolean trailingComma) {
+            this.nameTokens = nameTokens;
+            this.typeTokens = typeTokens;
+            this.defaultTokens = defaultTokens;
+            this.trailingComma = trailingComma;
+        }
+    }
+
     /** Public wrapper around the inherited {@link MiscRuleCore#ASSIGNMENT_OPS} -- that field is
      *  `protected`, so callers outside the {@code rules} package (e.g. {@link
      *  com.jxmake.formatter.ScopePipelineIndent}'s line classifier) cannot reference it directly. */
@@ -147,6 +170,49 @@ public final class MiscRuleIndent extends MiscRuleCore {
             final String lhs = padRight(a.target.text, maxNameLen)
                     + padLeft(assignOpPrefix(a.operator), maxPrefixLen) + "=";
             out.add(lhs + " " + joinVerbatim(a.valueTokens));
+        }
+        return out;
+    }
+
+    /** Renders one broken-out §6 signature group's replacement text for each parameter, in order.
+     *  Alignment target is the {@code :} column (name padded to the group's widest name, same "pad
+     *  to widest, one gap before the marker" shape {@link #renderPyGroup} uses for {@code =}) and,
+     *  independently, the {@code =} column for whichever parameters have BOTH a type hint and a
+     *  default -- {@code maxTypeLenForDefault} is computed only over that subset, so a parameter's
+     *  own type text is never padded unless its own default needs the padding to align its `=`; a
+     *  typed-but-defaultless parameter (e.g. {@code y : "List[int]"} in STYLE_PYTHON3.md §6's own
+     *  worked example) renders its type text unpadded, avoiding trailing whitespace before its
+     *  comma. A parameter with no type hint at all skips the `:`-column segment entirely (STYLE_
+     *  PYTHON3.md §6: "padded as if its `:` column were empty" -- read literally as "omitted", not
+     *  as a fake blank-padded `:` -- so its own `=`, if present, is not forced to align with typed
+     *  rows' `=` column; this is the documented, expected shape of a partial row in this grid, same
+     *  posture as any other sparse alignment grid elsewhere in this codebase). */
+    public List<String> renderPySignatureGroup(final List<PyParam> group) {
+        int maxNameLen = 0;
+        for (final PyParam p : group) {
+            maxNameLen = Math.max(maxNameLen, joinVerbatim(p.nameTokens).length());
+        }
+        int maxTypeLenForDefault = 0;
+        for (final PyParam p : group) {
+            if (!p.typeTokens.isEmpty() && !p.defaultTokens.isEmpty()) {
+                maxTypeLenForDefault = Math.max(maxTypeLenForDefault, joinVerbatim(p.typeTokens).length());
+            }
+        }
+        final List<String> out = new ArrayList<>();
+        for (final PyParam p : group) {
+            final StringBuilder sb = new StringBuilder();
+            sb.append(padRight(joinVerbatim(p.nameTokens), maxNameLen));
+            if (!p.typeTokens.isEmpty()) {
+                final String typeText = joinVerbatim(p.typeTokens);
+                sb.append(" : ").append(p.defaultTokens.isEmpty() ? typeText : padRight(typeText, maxTypeLenForDefault));
+            }
+            if (!p.defaultTokens.isEmpty()) {
+                sb.append(" = ").append(joinVerbatim(p.defaultTokens));
+            }
+            if (p.trailingComma) {
+                sb.append(",");
+            }
+            out.add(sb.toString());
         }
         return out;
     }

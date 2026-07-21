@@ -11,6 +11,7 @@ import com.jxmake.formatter.evaluator.PythonBracketComplexityEvaluator;
 import com.jxmake.formatter.rules.MiscRuleIndent;
 import com.jxmake.formatter.rules.MiscRuleIndent.PyAssignment;
 import com.jxmake.formatter.rules.MiscRuleIndent.PyImport;
+import com.jxmake.formatter.rules.MiscRuleIndent.PyParam;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 import com.jxmake.formatter.tokenizer.TokenizerIndent;
@@ -54,6 +55,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         replacements.addAll(applyImportSort(tokens, rawLines));
         replacements.addAll(applyDecoratorSpacing(tokens, rawLines));
         replacements.addAll(applyFStringSpacing(tokens));
+        replacements.addAll(applySignatureAlignment(tokens, rawLines));
         replacements.sort(Comparator.comparingInt(r -> r.start));
         return render(tokens, replacements);
     }
@@ -819,6 +821,197 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         if (closeGap != null) {
             out.add(closeGap);
         }
+    }
+
+    // ── §6: Function Signature Wrapping (alignment-only slice) ─────────────────────────
+
+    /** STYLE_PYTHON3.md §6's inline-vs-one-per-line *decision* has no home in this codebase yet --
+     *  same documented gap as §4's own call-argument-overflow wrapping (no general line-length-
+     *  triggered breaking mechanism exists anywhere in the {@code *Indent}/{@code *Curly} family;
+     *  the C-family's {@code enforceCallLineBreaking} is Curly-only). This pass therefore never
+     *  decides to break or join a signature -- it only column-aligns the {@code :}/{@code =} of a
+     *  {@code def} signature's parameter list that is <em>already</em> written one-parameter-per-
+     *  line in the source, taking that human-authored line-breaking as given (the same posture §2's
+     *  assignment alignment takes toward an already-single-line assignment candidate: normalize
+     *  spacing given the existing structure, never decide when to (re)break a line). An inline
+     *  (already-one-line) signature is untouched by construction -- it is never
+     *  {@code multiPhysicalLine}, so it never reaches {@link #trySignatureGroup} at all. */
+    private List<Replacement> applySignatureAlignment(final List<Token> tokens, final List<RawLine> rawLines) {
+        final List<Replacement> replacements = new ArrayList<>();
+        for (final RawLine line : rawLines) {
+            if (!line.multiPhysicalLine) {
+                continue;
+            }
+            int kwIdx = nextSignificant(tokens, line.contentStart, line.end);
+            if (kwIdx < 0 || tokens.get(kwIdx).type != TokenType.KEYWORD) {
+                continue;
+            }
+            if (isKeyword(tokens.get(kwIdx), "async")) {
+                kwIdx = nextSignificant(tokens, kwIdx + 1, line.end);
+                if (kwIdx < 0 || tokens.get(kwIdx).type != TokenType.KEYWORD) {
+                    continue;
+                }
+            }
+            if (!isKeyword(tokens.get(kwIdx), "def")) {
+                continue;
+            }
+            final int nameIdx = nextSignificant(tokens, kwIdx + 1, line.end);
+            if (nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER) {
+                continue;
+            }
+            final int openIdx = nextSignificant(tokens, nameIdx + 1, line.end);
+            if (openIdx < 0 || tokens.get(openIdx).type != TokenType.PUNCT || !"(".equals(tokens.get(openIdx).text)) {
+                continue;
+            }
+            final int closeIdx = matchBracket(tokens, openIdx, line.end);
+            if (closeIdx < 0) {
+                continue;
+            }
+            final List<Replacement> group = trySignatureGroup(tokens, openIdx, closeIdx);
+            if (group != null) {
+                replacements.addAll(group);
+            }
+        }
+        return replacements;
+    }
+
+    /** Attempts to classify {@code (openIdx, closeIdx)}'s interior as an already one-parameter-per-
+     *  line signature: the opening `(` has nothing but a {@code NEWLINE} after it on its own line,
+     *  the closing `)` has nothing but its own leading indentation before it on its own line, and
+     *  every line in between is exactly one parameter (optionally comment-free, single top-level
+     *  {@code :}/{@code =}, optional trailing comma). Returns {@code null} (leave completely
+     *  untouched) the moment any of that isn't true -- an inline first parameter
+     *  (`def f(x,\n    y,\n)`), a multi-parameter line, a per-parameter trailing comment, or a
+     *  parameter itself spanning more than one physical line (a multi-line default value/nested
+     *  bracket continuation) are all treated as this slice's own documented gaps, same "STOP and
+     *  leave untouched rather than guess" precedent §2-§5 already established -- not a hard
+     *  STATE_COMMON.md ambiguity requiring a user answer, since STYLE_PYTHON3.md §6 itself only ever
+     *  describes the already-one-per-line shape being aligned here. */
+    private List<Replacement> trySignatureGroup(final List<Token> tokens, final int openIdx, final int closeIdx) {
+        final List<int[]> segments = new ArrayList<>(); // [segStart, segEnd) per NEWLINE-delimited segment
+        int segStart = openIdx + 1;
+        for (int i = openIdx + 1; i < closeIdx; i++) {
+            if (tokens.get(i).type == TokenType.NEWLINE) {
+                segments.add(new int[] { segStart, i });
+                segStart = i + 1;
+            }
+        }
+        segments.add(new int[] { segStart, closeIdx });
+        if (segments.size() < 3) {
+            return null; // need >=1 param line plus the blank pre-`(`/pre-`)` framing lines
+        }
+        final int firstSig = nextSignificant(tokens, segments.get(0)[0], segments.get(0)[1]);
+        if (firstSig >= 0) {
+            return null; // an inline first parameter shares `(`'s own line -- unsupported shape
+        }
+        final int[] lastSeg = segments.get(segments.size() - 1);
+        final int lastSegSig = nextSignificant(tokens, lastSeg[0], lastSeg[1]);
+        if (lastSegSig >= 0) {
+            return null; // `)` doesn't stand alone on its own line -- unsupported shape
+        }
+        final List<PyParam> params = new ArrayList<>();
+        final List<int[]> spans = new ArrayList<>(); // [contentFirst, contentEndExclusive] per param
+        for (int s = 1; s < segments.size() - 1; s++) {
+            final int[] seg = segments.get(s);
+            final PyParam p = classifySignatureParam(tokens, seg[0], seg[1]);
+            if (p == null) {
+                return null;
+            }
+            params.add(p);
+            final int contentFirst = nextSignificant(tokens, seg[0], seg[1]);
+            final int contentEnd = trimEndIdx(tokens, contentFirst, seg[1]);
+            spans.add(new int[] { contentFirst, contentEnd });
+        }
+        final List<String> rendered = miscRule.renderPySignatureGroup(params);
+        final List<Replacement> out = new ArrayList<>();
+        for (int i = 0; i < params.size(); i++) {
+            out.add(new Replacement(spans.get(i)[0], spans.get(i)[1], rendered.get(i)));
+        }
+        return out;
+    }
+
+    /** Classifies one already-isolated parameter line ({@code [segStart, segEnd)}, a single
+     *  {@code NEWLINE}-delimited segment strictly inside a signature's `(`/`)`) into a {@link
+     *  PyParam}: {@code name[: type][= default][,]}. The top-level {@code :}/{@code =} search
+     *  tracks this segment's own local bracket depth (starting fresh at 0, since the segment is
+     *  known to hold exactly one parameter) so a nested-bracket type hint like
+     *  {@code List[Dict[str, int]]} never has its own internal {@code :}/{@code =} mistaken for the
+     *  parameter's own annotation/default separator -- the same depth-tracking shape {@link
+     *  #classifyLoose}/{@link #matchBracket} already use elsewhere in this class, just applied to
+     *  {@code :}/{@code =} search instead of bracket matching. Returns {@code null} (segment
+     *  rejected, whole signature left untouched by the caller) if the segment contains a comment or
+     *  has no name token at all. */
+    private PyParam classifySignatureParam(final List<Token> tokens, final int segStart, final int segEnd) {
+        for (int k = segStart; k < segEnd; k++) {
+            if (tokens.get(k).type == TokenType.COMMENT_LINE) {
+                return null;
+            }
+        }
+        final int nameStart = nextSignificant(tokens, segStart, segEnd);
+        if (nameStart < 0) {
+            return null;
+        }
+        int lastSig = -1;
+        for (int k = segEnd - 1; k >= segStart; k--) {
+            if (!isGapToken(tokens.get(k))) {
+                lastSig = k;
+                break;
+            }
+        }
+        final boolean trailingComma = tokens.get(lastSig).type == TokenType.PUNCT && ",".equals(tokens.get(lastSig).text);
+        final int contentEnd = trailingComma ? lastSig : lastSig + 1;
+        if (contentEnd <= nameStart) {
+            return null;
+        }
+        int depth = 0;
+        int colonIdx = -1;
+        int eqIdx = -1;
+        for (int k = nameStart; k < contentEnd; k++) {
+            final Token t = tokens.get(k);
+            if (t.type == TokenType.PUNCT && isOpenBracketText(t.text)) {
+                depth++;
+            } else if (t.type == TokenType.PUNCT && isCloseBracketText(t.text)) {
+                depth--;
+            } else if (depth == 0 && colonIdx < 0 && t.type == TokenType.PUNCT && ":".equals(t.text)) {
+                colonIdx = k;
+            } else if (depth == 0 && eqIdx < 0 && t.type == TokenType.OP && "=".equals(t.text)) {
+                eqIdx = k;
+            }
+        }
+        final int nameEnd = colonIdx >= 0 ? colonIdx : (eqIdx >= 0 ? eqIdx : contentEnd);
+        final int nameEndTrimmed = trimEndIdx(tokens, nameStart, nameEnd);
+        if (nameEndTrimmed <= nameStart) {
+            return null;
+        }
+        final List<Token> nameTokens = tokens.subList(nameStart, nameEndTrimmed);
+        List<Token> typeTokens = new ArrayList<>();
+        List<Token> defaultTokens = new ArrayList<>();
+        if (colonIdx >= 0) {
+            final int typeEnd = eqIdx >= 0 ? eqIdx : contentEnd;
+            final int typeStart = nextSignificant(tokens, colonIdx + 1, typeEnd);
+            if (typeStart >= 0 && typeStart < typeEnd) {
+                typeTokens = tokens.subList(typeStart, trimEndIdx(tokens, typeStart, typeEnd));
+            }
+        }
+        if (eqIdx >= 0) {
+            final int defStart = nextSignificant(tokens, eqIdx + 1, contentEnd);
+            if (defStart >= 0 && defStart < contentEnd) {
+                defaultTokens = tokens.subList(defStart, trimEndIdx(tokens, defStart, contentEnd));
+            }
+        }
+        return new PyParam(nameTokens, typeTokens, defaultTokens, trailingComma);
+    }
+
+    /** Scans backward from {@code end - 1} for the nearest non-gap token strictly at/after {@code
+     *  start}, returning the index right after it (i.e. the exclusive end of the trimmed range), or
+     *  {@code start} itself if no significant token is found in {@code [start, end)}. */
+    private int trimEndIdx(final List<Token> tokens, final int start, final int end) {
+        for (int k = end - 1; k >= start; k--) {
+            if (!isGapToken(tokens.get(k))) {
+                return k + 1;
+            }
+        }
+        return start;
     }
 
     /** Reassembles {@code tokens}' source text verbatim. Every token kind's {@code text} is its

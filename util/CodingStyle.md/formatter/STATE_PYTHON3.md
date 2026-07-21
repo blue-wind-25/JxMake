@@ -614,6 +614,78 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       idempotency, zero regressions; still compile/link-health only, `python3` stays in
       `Lang.SCAFFOLD_ONLY_LANGUAGES`, this pass reachable only via direct construction/test
       harnesses, same posture as every prior Python3 slice).
+
+      **§6 (Function Signature Wrapping) landed -- alignment-only slice.** Confirmed first (per the
+      task's own instruction) that STYLE_PYTHON3.md §6's inline-vs-one-per-line *decision* still has
+      no home anywhere in the `*Indent`/`*Curly` family (grepped for any line-length-triggered
+      breaking mechanism; the only such thing, the C-family's `enforceCallLineBreaking`, is
+      Curly-only) -- same documented gap §4 already found for decorator-call overflow, not
+      reinvented here. New `MiscRuleIndent.PyParam` (`nameTokens`/`typeTokens`/`defaultTokens`
+      triple, `typeTokens`/`defaultTokens` empty-not-null when absent, `trailingComma` flag) plus
+      `renderPySignatureGroup` (name column padded to the group's widest name, mirroring
+      `renderPyGroup`'s "pad to widest, one gap before the marker" shape for `:`; `=` column padded
+      only across the subset of parameters that have BOTH a type hint and a default, so a
+      typed-but-defaultless parameter's own type text is never padded and never leaves trailing
+      whitespace before its comma -- confirmed against STYLE_PYTHON3.md §6's own worked example,
+      whose `y : "List[int]"` row has no default). A parameter with no type hint at all skips the
+      `:`-segment entirely per §6's "padded as if its `:` column were empty" text, read literally as
+      "omitted" rather than "fake-padded" -- its own `=`, if present, is not forced to align with
+      typed rows' `=` column; this is the grid's own documented partial-row shape, not a bug.
+
+      New `ScopePipelineIndent.applySignatureAlignment`/`trySignatureGroup`/
+      `classifySignatureParam`/`trimEndIdx`. Unlike §2-§5 (all of which explicitly skip any
+      `multiPhysicalLine` `RawLine`), this is the first pass to deliberately target one: a `def`
+      (optionally `async def`) statement's parameter list is required to already be written
+      one-parameter-per-line in the source -- taking that human-authored line-breaking as given,
+      the same posture §2 takes toward an already-single-line assignment candidate (never itself
+      decides to break/join a line). `trySignatureGroup` requires the opening `(` to have nothing
+      but a `NEWLINE` on its own line, the closing `)` to stand alone on its own line (only its own
+      leading indentation before it), and every line strictly between them to classify as exactly
+      one parameter via `classifySignatureParam` -- any deviation (an inline first parameter sharing
+      `(`'s own line, multiple parameters on one line, a per-parameter trailing comment, a parameter
+      itself spanning more than one physical line) returns `null` and the *whole* signature is left
+      completely untouched, same "documented gap, not a guess" precedent as every prior §2-§5 slice
+      -- this was verified to be a scope-boundary call, not a genuine STATE_COMMON.md ambiguity,
+      since STYLE_PYTHON3.md §6 itself only ever describes the already-one-per-line shape aligned
+      here. `classifySignatureParam`'s top-level `:`/`=` search tracks the parameter's own local
+      bracket depth (starting fresh at 0 per parameter line, mirroring `classifyLoose`/`matchBracket`'s
+      own depth-tracking shape elsewhere in this class) so a nested-bracket type hint like
+      `List[Dict[str, int]]` never has its own internal `:`/`=` mistaken for the parameter's own
+      annotation/default separator -- confirmed this handles the task's own flagged nested-type-hint
+      concern without needing to treat it as an open ambiguity. The return-type arrow (`-> Optional
+      [str]`) is untouched by construction -- nothing after `closeIdx` is ever scanned or replaced.
+      An inline (already-one-line) signature is untouched by construction too, since it's never
+      `multiPhysicalLine` and so never reaches `trySignatureGroup` at all.
+
+      Verified via a 5-case smoke-test harness (`FormatterCore.forLanguage("python3").formatOne`
+      direct construction, same pattern as every prior slice's own harness): STYLE_PYTHON3.md §6's
+      own `process` worked example (4 params, mixed type-hint widths incl. a quoted forward-ref
+      type, one with a default), a bare-name/`name=default` parameter participating correctly in
+      the padding grid (`alpha` untouched, `beta = 2` aligned with `gamma : int = 3`'s own `=`
+      landing in a different column since `beta` has no type segment -- the documented partial-row
+      shape above), the fixed-position return-type arrow surviving byte-for-byte including internal
+      extra spacing (`->    Optional[int]:`), an inline signature under the line-length limit left
+      completely untouched, and an idempotency case (the worked example's own already-aligned
+      output round-tripping unchanged) -- all 5 passed -- plus a full `make test` run (114/114
+      forward + idempotency, zero regressions; still compile/link-health only, `python3` stays in
+      `Lang.SCAFFOLD_ONLY_LANGUAGES`, this pass reachable only via direct construction/test
+      harnesses, same posture as every prior Python3 slice).
+
+      **Explicitly NOT yet covered by this slice** (a scope-boundary call, not a guess, per the
+      task's own explicit instruction): the inline-vs-one-per-line *decision* itself (STYLE_PYTHON3.md
+      §6's opening sentence) is NOT implemented -- this pass never decides to break an inline
+      signature into one-per-line form, nor to join an already-broken one back to one line, even
+      when the line-length limit would call for it either way. This is blocked on the same missing
+      general inline/break-decision infra §4 already documented as absent for decorator-call
+      overflow wrapping (no general line-length-triggered call/signature-wrapping mechanism exists
+      anywhere in the `*Indent` family; the C-family's `enforceCallLineBreaking` is Curly-only and
+      not reusable here) -- not a new gap, the same one, now confirmed to also block §6. Also NOT
+      covered, each a deliberate narrow-scope exclusion mirroring §2-§5's own precedent: a signature
+      with an inline first parameter sharing `(`'s own line; multiple parameters written on one
+      physical line inside an otherwise-broken signature; a per-parameter trailing comment; a
+      parameter whose own default value or type hint itself spans more than one physical line
+      (bracket continuation nested inside the outer signature's own continuation) -- each of these
+      shapes causes the *whole* signature to be left untouched rather than partially aligned.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "Python3" section and register in the Makefile's `INP_FILES` /
       `test/README.txt`. Done: `py_combined_inp/out.py` and

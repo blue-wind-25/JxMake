@@ -19,9 +19,11 @@ import com.jxmake.formatter.tokenizer.TokenizerIndent;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isKeyword;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -67,6 +69,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         replacements.addAll(applySignatureAlignment(tokens, rawLines));
         replacements.addAll(applyCaseColonAlignment(tokens, rawLines));
         replacements.addAll(applySingleStatementBody(tokens, rawLines));
+        replacements.addAll(applyControlFlowBlankLines(tokens, rawLines));
         replacements.sort(Comparator.comparingInt(r -> r.start));
         return render(tokens, replacements);
     }
@@ -1347,6 +1350,221 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             }
         }
         return false;
+    }
+
+    // ── §9: Control Flow Blank Lines ─────────────────────────────────────────────────────
+
+    /** Tracks one active indentation frame while scanning {@code rawLines} linearly: {@code
+     *  isFunctionBody} is true iff this frame was opened by a {@code def}/{@code async def} header
+     *  (as opposed to {@code if}/{@code for}/{@code while}/{@code with}/{@code try}/{@code class}/
+     *  {@code match}, all of which push a non-function frame); {@code sawContent} becomes true once
+     *  at least one real statement has been processed directly inside this frame (mirrors {@code
+     *  MiscRuleCurly.FuncFrame}'s own field of the same name and purpose for the C-family). */
+    private static final class ControlFlowFrame {
+        boolean isFunctionBody;
+        boolean sawContent;
+    }
+
+    /** STYLE_PYTHON3.md §9: two independent blank-line-insertion rules, both direct ports of an
+     *  already-implemented C-family precedent (§9.1 mirrors {@code
+     *  MiscRuleCurly#insertBlankLineBeforeReturn}'s STYLE.md §9; §9.2 mirrors
+     *  AI_PREAMBLE_FULL.md §12's default as literally stated in STYLE_PYTHON3.md §9.2's own text --
+     *  the C-family's own {@code BlockStructureRule#placeElseOnOwnLine}, cited as the nominal C-family
+     *  reference, turned out on inspection to only ever <em>preserve</em> an existing blank line
+     *  before {@code else}, never actively insert one from a last-statement-content check; §9.2 is
+     *  therefore implemented directly from STYLE_PYTHON3.md's own unambiguous text rather than by
+     *  porting a mechanism that doesn't actually exist in the C-family code, since the style doc's
+     *  wording ("add a blank line ... only when ...") leaves no ambiguity about the desired active
+     *  behavior -- not a STATE_COMMON.md-blocking ambiguity, just a documented discrepancy between
+     *  the task's framing and the actual C-family implementation). Both rules only ever ADD a
+     *  missing blank line, exactly mirroring {@code insertBlankLineBeforeReturn}'s own
+     *  "already-blank gap is left untouched" posture -- never removes one that's already present,
+     *  even an extraneous one beyond a single blank line (no worked example in STYLE_PYTHON3.md §9
+     *  shows a 2+-blank-line gap being collapsed, so this pass never collapses one either).
+     *
+     *  <p><b>§9.1</b>: a blank line is added directly before a {@code return} statement when it is
+     *  the first significant token of its own {@link RawLine} (this alone, by construction, already
+     *  excludes a §8 compact one-line body's own inline {@code return} -- e.g. {@code if x: return
+     *  y}'s leading token is {@code if}, never classified here as a return statement at all, so the
+     *  compact-form carve-out needs no special-case code) AND the innermost enclosing {@link
+     *  ControlFlowFrame} is a function body ({@code isFunctionBody}) that has already seen at least
+     *  one statement before this one ({@code sawContent} -- mirrors the C-family reference's own
+     *  {@code top.sawContent} gate, and, like that reference, does not separately re-verify this is
+     *  the function body's textually <em>final</em> statement; STYLE_PYTHON3.md's own prose describes
+     *  the common case, but the actual C-family implementation this ports never adds that extra
+     *  lookahead check either, so neither does this port). A {@code return} nested inside a further
+     *  block (its own frame's {@code isFunctionBody} is false) never qualifies, regardless of what's
+     *  on top of the frame stack above it -- matches the C-family reference's own "only the top
+     *  frame is ever consulted" behavior exactly.
+     *
+     *  <p><b>§9.2</b>: a blank line is added directly before {@code elif}/{@code else} (any {@code
+     *  else}, not just an {@code if}-{@code else} -- a Python {@code for}/{@code while}/{@code try}
+     *  {@code else} is grammatically the same keyword and STYLE_PYTHON3.md §9.2's own text draws no
+     *  distinction, so none is added here either) when the nearest preceding non-blank, non-comment
+     *  {@link RawLine} (found via {@link #previousContentLine}, which walks past intervening blank/
+     *  comment lines regardless of their depth) has {@code return}/{@code break}/{@code continue} --
+     *  never {@code raise}, matching the C-family list's own existing omission exactly, not a Python-
+     *  specific extension -- as its own first significant token. Walking past comment/blank lines
+     *  (rather than requiring the immediately preceding line to be exactly the exiting statement)
+     *  means this correctly finds the deepest last leaf statement of the preceding block without any
+     *  depth bookkeeping of its own: Python's strict block nesting guarantees the last non-blank/
+     *  non-comment line textually before the {@code elif}/{@code else} is always that block's own
+     *  deepest last leaf statement, however many levels of nested compound statements it sits inside
+     *  -- confirmed by construction, not guessed. Matching this exit-statement check against only the
+     *  <em>first</em> significant token of that {@link RawLine} means (same "by construction, not a
+     *  special case" reasoning as §9.1's own compact-form exclusion) a §8-compact preceding block
+     *  whose own sole statement happens to be {@code return}/{@code break}/{@code continue} (e.g. an
+     *  already-compact {@code if x: return y} as the immediately preceding block) is never recognized
+     *  as ending in an exit here, since that {@link RawLine}'s own leading token is {@code if}, not
+     *  {@code return} -- a real, deliberate consequence of reusing the same by-construction exclusion
+     *  strategy, not independently re-verified via its own dedicated smoke case this slice (documented
+     *  here rather than guessed silently).
+     *
+     *  <p><b>Explicitly NOT covered by this slice</b> (documented scope boundaries, not guesses,
+     *  matching every prior §2-§8 slice's own precedent): a {@code def} header itself written as a
+     *  multi-physical-line (wrapped) parameter list is never recognized as a function-body-opening
+     *  header by {@link #isDefHeaderLine} (conservatively returns false for any {@code
+     *  multiPhysicalLine} header), silently disabling §9.1 for such a function's own {@code return}
+     *  statements -- same posture as §6's own already-documented multi-physical-line-signature gaps.
+     *  A semicolon-chained statement (e.g. {@code x = 1; return y} on one physical line) is never
+     *  recognized as a return/exit statement by either half of this rule, since only a {@link
+     *  RawLine}'s own <em>first</em> significant token is ever inspected, not a semicolon-
+     *  delimited sub-statement -- no STYLE_PYTHON3.md worked example exercises semicolon-chaining
+     *  anywhere in this job, so this is consistent with every other section's own silence on that
+     *  shape. A {@code return}/{@code elif}/{@code else} whose immediately preceding {@link RawLine}
+     *  is a comment-only line (no blank line of its own) is conservatively left untouched -- same
+     *  "no worked example to guess a relocation from" posture the C-family reference itself uses for
+     *  Java/C++ (as opposed to Kotlin's own separately-carved-out comment-relocation behavior, which
+     *  has no Python analog here). {@code try}/{@code except}/{@code finally} blank-line placement is
+     *  entirely out of scope -- STYLE_PYTHON3.md §9.2's own text names only {@code elif}/{@code else}. */
+    private List<Replacement> applyControlFlowBlankLines(final List<Token> tokens, final List<RawLine> rawLines) {
+        final List<Replacement> replacements = new ArrayList<>();
+        final Deque<ControlFlowFrame> stack = new ArrayDeque<>();
+        RawLine lastContentLine = null;
+
+        for (int i = 0; i < rawLines.size(); i++) {
+            final RawLine line = rawLines.get(i);
+            final int sig = nextSignificant(tokens, line.contentStart, line.end);
+            if (sig < 0) {
+                continue; // blank line -- doesn't affect frames or content tracking
+            }
+            final Token first = tokens.get(sig);
+            if (first.type == TokenType.COMMENT_LINE || first.type == TokenType.COMMENT_BLOCK) {
+                continue; // comment-only line -- doesn't affect frames or content tracking
+            }
+
+            while (stack.size() > line.depth) {
+                stack.pop();
+            }
+            while (stack.size() < line.depth) {
+                final ControlFlowFrame f = new ControlFlowFrame();
+                f.isFunctionBody = stack.size() == line.depth - 1 && lastContentLine != null
+                        && isDefHeaderLine(tokens, lastContentLine);
+                stack.push(f);
+            }
+            final ControlFlowFrame top = stack.peek();
+
+            if (top != null && top.isFunctionBody && top.sawContent
+                    && first.type == TokenType.KEYWORD && "return".equals(first.text)) {
+                final Replacement r = insertBlankLineBefore(tokens, rawLines, i, line);
+                if (r != null) {
+                    replacements.add(r);
+                }
+            }
+
+            if (first.type == TokenType.KEYWORD && ("elif".equals(first.text) || "else".equals(first.text))) {
+                final RawLine prevStmt = previousContentLine(tokens, rawLines, i);
+                if (prevStmt != null && isUnconditionalExitLine(tokens, prevStmt)) {
+                    final Replacement r = insertBlankLineBefore(tokens, rawLines, i, line);
+                    if (r != null) {
+                        replacements.add(r);
+                    }
+                }
+            }
+
+            if (top != null) {
+                top.sawContent = true;
+            }
+            lastContentLine = line;
+        }
+        return replacements;
+    }
+
+    /** True iff {@code line}'s first significant token is {@code def} (optionally preceded by {@code
+     *  async}) -- i.e. it opens a function-body frame. A {@code multiPhysicalLine} header (a wrapped
+     *  parameter list) conservatively returns false -- documented gap, see {@link
+     *  #applyControlFlowBlankLines}'s javadoc. */
+    private boolean isDefHeaderLine(final List<Token> tokens, final RawLine line) {
+        if (line.multiPhysicalLine) {
+            return false;
+        }
+        int idx = nextSignificant(tokens, line.contentStart, line.end);
+        if (idx < 0) {
+            return false;
+        }
+        Token t = tokens.get(idx);
+        if (t.type == TokenType.KEYWORD && "async".equals(t.text)) {
+            idx = nextSignificant(tokens, idx + 1, line.end);
+            if (idx < 0) {
+                return false;
+            }
+            t = tokens.get(idx);
+        }
+        return t.type == TokenType.KEYWORD && "def".equals(t.text);
+    }
+
+    /** Walks backward from {@code idx - 1}, skipping blank and comment-only lines, and returns the
+     *  nearest genuine-content {@link RawLine}, or {@code null} if none exists before {@code idx}. */
+    private RawLine previousContentLine(final List<Token> tokens, final List<RawLine> rawLines, final int idx) {
+        for (int k = idx - 1; k >= 0; k--) {
+            final RawLine candidate = rawLines.get(k);
+            final int sig = nextSignificant(tokens, candidate.contentStart, candidate.end);
+            if (sig < 0) {
+                continue;
+            }
+            final TokenType ty = tokens.get(sig).type;
+            if (ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK) {
+                continue;
+            }
+            return candidate;
+        }
+        return null;
+    }
+
+    /** True iff {@code line}'s first significant token is exactly {@code return}/{@code break}/
+     *  {@code continue} -- deliberately NOT {@code raise}, matching the C-family reference list's own
+     *  existing omission (STYLE_PYTHON3.md §9.2). */
+    private boolean isUnconditionalExitLine(final List<Token> tokens, final RawLine line) {
+        final int sig = nextSignificant(tokens, line.contentStart, line.end);
+        if (sig < 0) {
+            return false;
+        }
+        final Token t = tokens.get(sig);
+        return t.type == TokenType.KEYWORD
+                && ("return".equals(t.text) || "break".equals(t.text) || "continue".equals(t.text));
+    }
+
+    /** Returns a zero-width {@link Replacement} inserting one blank line (a bare {@code "\n"})
+     *  immediately before {@code line}'s own leading indentation, or {@code null} if a blank line is
+     *  already present there (idempotent -- matches the C-family reference's own "already-blank gap
+     *  left untouched" posture) or if the immediately preceding {@link RawLine} is a comment-only
+     *  line (conservative skip, see {@link #applyControlFlowBlankLines}'s javadoc). {@code idx == 0}
+     *  (no preceding line at all) also returns {@code null} -- nothing to separate a blank line from. */
+    private Replacement insertBlankLineBefore(final List<Token> tokens, final List<RawLine> rawLines,
+            final int idx, final RawLine line) {
+        if (idx == 0) {
+            return null;
+        }
+        final RawLine prevRaw = rawLines.get(idx - 1);
+        final int prevSig = nextSignificant(tokens, prevRaw.contentStart, prevRaw.end);
+        if (prevSig < 0) {
+            return null; // already blank
+        }
+        final TokenType prevTy = tokens.get(prevSig).type;
+        if (prevTy == TokenType.COMMENT_LINE || prevTy == TokenType.COMMENT_BLOCK) {
+            return null; // comment directly adjacent -- conservative skip
+        }
+        return new Replacement(line.start, line.start, "\n");
     }
 
     /** Reassembles {@code tokens}' source text verbatim. Every token kind's {@code text} is its

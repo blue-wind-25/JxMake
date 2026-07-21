@@ -383,7 +383,7 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       regressions; still compile/link-health only — no caller wires this
       evaluator in yet, that lands with §2/§6/§7's own padding/alignment
       rules).
-- [~] Implement §2–9 rule-by-rule, each its own checkpoint commit, per
+- [x] Implement §2–9 rule-by-rule, each its own checkpoint commit, per
       `STATE_COMMON.md`'s workflow.
 
       **§2 (Assignment Alignment) landed.** `TokenizerIndent.emitOperator`
@@ -855,6 +855,94 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       passed -- plus a full `make test` run (114/114 forward + idempotency, zero regressions; still
       compile/link-health only, `python3` stays in `Lang.SCAFFOLD_ONLY_LANGUAGES`, this pass reachable
       only via direct construction/test harnesses, same posture as every prior Python3 slice).
+
+      **§9 (Control Flow Blank Lines) landed -- last §2-9 sub-item, checklist item now
+      complete.** New `ScopePipelineIndent.ControlFlowFrame`/`applyControlFlowBlankLines`/
+      `isDefHeaderLine`/`previousContentLine`/`isUnconditionalExitLine`/`insertBlankLineBefore`.
+      Read `MiscRuleCurly#insertBlankLineBeforeReturn` (STYLE.md §9) first as §9.1's C-family
+      reference -- ported faithfully: a blank line is inserted directly before a `return` when it
+      is the first significant token of its own logical line AND the innermost enclosing frame is
+      a function body (opened by a `def`/`async def` header, tracked via a `ControlFlowFrame`
+      stack keyed by `RawLine.depth`, mirroring `FuncFrame`'s own `isFunctionBody`/`sawContent`
+      shape) that has already seen at least one statement. Like the C-family reference, this does
+      NOT separately re-verify the return is the body's textually final statement (the reference
+      implementation never adds that lookahead either, despite STYLE.md's own prose describing the
+      common case) -- a faithful port of the actual code, not the prose. The §8 compact-form
+      carve-out (`if x: return y` must never get an inner blank line) needs no special-case code at
+      all: a compact line's own first significant token is the header keyword (`if`), never
+      `return`, so it is never classified as a return statement in the first place -- confirmed via
+      a dedicated smoke case, not assumed.
+
+      **§9.2 could NOT be ported from a C-family mechanism, because none exists to port --
+      discovered, not guessed, during the required pre-implementation grep.** The task's own
+      nominal C-family reference for elif/else blank-line placement, `BlockStructureRule
+      .placeElseOnOwnLine` (STYLE.md §12), was read in full and turned out to only ever *preserve*
+      whatever blank-line state already exists directly before `else` -- its own javadoc states
+      "§12 treats that blank line as an optional, context-driven separator... that this method
+      must never add or remove on its own." There is no last-statement-content check anywhere in
+      the C-family source (`return`/`break`/`continue` string literals do not appear together
+      anywhere relevant). Since STYLE_PYTHON3.md §9.2's own text is unambiguous ("add a blank line
+      before elif/else only when...") and gives a fully worked rule with no missing information,
+      this was treated as a documented implementation-detail discrepancy between the task's framing
+      and actual C-family behavior -- not a STATE_COMMON.md-blocking ambiguity -- and §9.2 was
+      implemented directly from the style doc's own text: a blank line is inserted before any
+      `elif`/`else` (any `else`, not just `if`-`else` -- Python's `for`/`while`/`try` `else` is the
+      same keyword and the style doc draws no distinction) whose nearest preceding non-blank,
+      non-comment logical line (`previousContentLine`, which walks backward past intervening
+      blank/comment lines regardless of their own depth) has `return`/`break`/`continue` -- never
+      `raise`, matching the C-family list's own existing omission -- as its own first significant
+      token. Walking past blank/comment lines rather than requiring strict adjacency is what finds
+      the deepest last leaf statement of the preceding block with no depth bookkeeping of its own:
+      Python's strict block nesting guarantees the last non-blank/non-comment line before
+      elif/else is always that block's own deepest last leaf statement, however many levels of
+      nested compound statements deep -- confirmed by construction via the smoke harness's own
+      nested `for`/`if`/`elif` case, not guessed.
+
+      Both halves only ever ADD a missing blank line, never remove one -- mirrors
+      `insertBlankLineBeforeReturn`'s own "an already-blank gap is left untouched" posture exactly
+      (verified via a dedicated smoke case: a 2-blank-line gap before a qualifying `return` is left
+      at 2, never collapsed to 1). A `return`/`elif`/`else` whose immediately preceding line is a
+      comment-only line (no blank line already there) is conservatively left untouched -- same
+      "no worked example to guess a relocation from" posture the C-family reference itself uses for
+      Java/C++ (as opposed to Kotlin's own separately-carved-out comment-relocation behavior, which
+      has no Python analog here).
+
+      **Explicitly NOT covered by this slice** (documented scope boundaries, not guesses, same
+      precedent as every prior §2-§8 slice): a `def` header itself written as a multi-physical-line
+      (wrapped) parameter list is never recognized as function-body-opening by `isDefHeaderLine`
+      (conservatively returns false for any `multiPhysicalLine` header), silently disabling §9.1
+      for such a function's own `return` statements -- same posture as §6's own already-documented
+      multi-physical-line-signature gaps. A semicolon-chained statement (`x = 1; return y` on one
+      physical line) is never recognized as a return/exit statement by either half of this rule,
+      since only a logical line's own first significant token is ever inspected -- no
+      STYLE_PYTHON3.md worked example exercises semicolon-chaining anywhere in this job. A §8-compact
+      preceding block whose own sole statement happens to be `return`/`break`/`continue` (e.g. an
+      already-compact `if x: return y` as the block immediately preceding an `elif`/`else`) is never
+      recognized by §9.2 as ending in an exit, by the same by-construction reasoning as §9.1's own
+      compact-form exclusion (that line's own leading token is `if`, not `return`) -- a real,
+      deliberate consequence, not independently re-verified via its own dedicated smoke case this
+      slice (documented here rather than silently guessed). `try`/`except`/`finally` blank-line
+      placement is entirely out of scope -- STYLE_PYTHON3.md §9.2's own text names only
+      `elif`/`else`.
+
+      Verified via a 14-case smoke-test harness (`FormatterCore.forLanguage("python3").formatOne`
+      direct construction, same pattern as every prior slice's own harness): STYLE_PYTHON3.md §9.1's
+      own `process` worked example (idempotent) and a variant with the blank line missing (inserted
+      correctly), STYLE_PYTHON3.md §9.2's own `check` worked example (idempotent -- this example, on
+      inspection, has no `elif`/`else` in it at all and mainly exercises §9.1's own final-return
+      case, not §9.2, since the style doc's own two named sections happen to share one combined
+      example), a nested return never qualifying, a single-statement function body never forcing a
+      blank line, the §8 compact-form interaction (inner compact return untouched, following
+      real return still qualifies), `elif`/`else` after a block ending in `raise` (no blank,
+      excluded), after a block NOT ending in an exit (no blank), after a block ending in `return`/
+      `break`/`continue` respectively (blank inserted in each case, including a nested `for`/`if`/
+      `elif` case proving the deepest-leaf-statement lookup), idempotency of an already-correct
+      elif/else case, an extraneous 2-blank-line gap left uncollapsed (never-remove posture), and a
+      comment directly preceding a qualifying `return` left untouched (conservative skip) -- all 14
+      passed -- plus a full `make test` run (114/114 forward + idempotency, zero regressions; still
+      compile/link-health only, `python3` stays in `Lang.SCAFFOLD_ONLY_LANGUAGES`, this pass
+      reachable only via direct construction/test harnesses, same posture as every prior Python3
+      slice).
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "Python3" section and register in the Makefile's `INP_FILES` /
       `test/README.txt`. Done: `py_combined_inp/out.py` and

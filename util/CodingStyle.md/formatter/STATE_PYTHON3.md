@@ -553,6 +553,67 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       compile/link-health only — `python3` stays in `Lang.SCAFFOLD_ONLY_LANGUAGES`,
       this pass is reachable only via direct construction/test harnesses, same
       posture as every prior Python3 slice).
+
+      **§5 (F-Strings) landed.** New `ScopePipelineIndent.applyFStringSpacing` (plus helpers
+      `processFString`/`processField`/`isFStringConversion`/`addBraceTrim`/`isCloseBracketText`)
+      -- unlike §2/§3/§4, this pass operates directly over the full token stream, not per
+      `RawLine`, since a field's own brace/expression tokens never carry a `NEWLINE` and a
+      triple-quoted f-string's multi-physical-line literal text is irrelevant to it. Confirmed
+      first (per the task's own instruction) exactly what `TokenizerIndent.emitFStringField`
+      already produces: the `{...}` expression portion is tokenized as ordinary
+      IDENTIFIER/OP/NUMBER/etc tokens (via the shared `dispatchToken`, same as any other Python
+      expression), not opaque text -- confirming there is real per-token structure to work with,
+      not just a raw string span. `processFString` walks one f-string's FSTRING_START/MIDDLE/
+      field/END sequence; `processField` walks one field from its opening `{`, tracking a local
+      `(`/`[`/`{` depth (mirroring the tokenizer's own field-scan depth) so a nested bracket's own
+      `}` isn't mistaken for the field's close, and recursing into any nested f-string found in
+      the expression (`f"{f'{a}'}"`) via `processFString` again so its own fields get their own
+      independent trim without affecting the outer field's depth count. `exprEnd` is the first
+      depth-0 `!conversion` OP / `FSTRING_FORMAT_SPEC` token, or (absent either) the field's own
+      closing `}`. `addBraceTrim` unconditionally trims the gap right after the opening `{` to
+      zero-width (the expression's own leading whitespace is never significant), and trims the gap
+      right before `exprEnd` to zero-width ONLY when `exprEnd` is itself the closing `}` (i.e. no
+      conversion/format-spec present) -- discovered mid-implementation via the smoke test that
+      STYLE_PYTHON3.md §5's own worked example `f"{value !r}"` (listed as "never touched") means
+      the whitespace immediately before an opaque conversion/format-spec tail is itself left alone,
+      not just the tail's own text; the first draft trimmed that boundary gap unconditionally and
+      failed this exact worked example, corrected by gating the closing-side trim on
+      `exprEnd`-is-the-actual-`}` (a `directClose` boolean) rather than always trimming.
+      **Explicitly NOT covered by this slice** (a scope-boundary call per the task's own explicit
+      instruction, not a guess): re-spacing the expression's OWN internal operator/operand spacing
+      (e.g. `f"{x  +  1}"` -> `f"{x + 1}"`) is out of scope -- surveyed `MiscRuleCore`/
+      `MiscRuleIndent`/`PythonBracketComplexityEvaluator` first; the only inherited token-joining
+      primitive (`MiscRuleCore#renderTokens`/`needsSpaceBetween`/`isTightToken`) is a C-family
+      declarator-spacing helper (hardcodes `*`/`&` as tight pointer/reference sigils, which would
+      wrongly collapse Python multiplication `a * b` -> `a* b`; has no notion of Python-only
+      operators `**`/`//`/`:=`/`and`/`or`/`not`/comprehension `for`/`if`), not a general
+      expression-spacing primitive -- building one from scratch would be a large scope increase
+      beyond §5's narrow "braces are tight" ask, deferred to future general-expression-formatting
+      work (same posture as §2's "multi-line RHS"/§3's "multi-physical-line import" gaps). Every
+      worked example in STYLE_PYTHON3.md §5 itself already has correctly spaced internal
+      expression text, so this narrower scope satisfies the style doc's own examples.
+      **Also discovered, not guessed, and explicitly left as-is:** when an f-string containing a
+      field appears inside a span another pass in the same `process()` call already fully rewrites
+      -- concretely, a §2-recognized assignment's own RHS (`x = f"{ y }"`) -- that other pass's
+      own wider `Replacement` (covering the whole `target...value` span, sorted first since its
+      `start` is smaller) wins, and `ScopePipelineIndent.render`'s "first match at a given token
+      position wins; a later, already-passed-over nested replacement is silently never reached"
+      behavior means this pass's own narrower replacement for that specific occurrence is dropped
+      (not corrupted -- confirmed via a dedicated smoke-test case that the original untrimmed text
+      survives unchanged for that one occurrence). An f-string NOT nested inside another pass's own
+      replaced span (bare expression statement, function-call argument, any unrecognized-shape
+      line) is unaffected and trims normally -- confirmed via the "standalone call-argument
+      f-string trims" smoke case. Verified via an 8-case smoke-test harness (direct
+      `FormatterCore.forLanguage("python3").formatOne` construction, same pattern as §4's own
+      harness): basic `{ x + 1 }` brace trim, format-spec left opaque, conversion-with-space left
+      opaque (`{value !r}`, the worked example that caught the bug above), expression-before-format
+      -spec trimmed at the open brace only, a plain non-f string with literal `{`/`}` left
+      untouched, an already-normalized f-string round-tripping unchanged (idempotency), a
+      standalone call-argument f-string trimming normally, and the assignment-RHS interaction
+      case documented above -- all 8 passed -- plus a full `make test` run (114/114 forward +
+      idempotency, zero regressions; still compile/link-health only, `python3` stays in
+      `Lang.SCAFFOLD_ONLY_LANGUAGES`, this pass reachable only via direct construction/test
+      harnesses, same posture as every prior Python3 slice).
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "Python3" section and register in the Makefile's `INP_FILES` /
       `test/README.txt`. Done: `py_combined_inp/out.py` and

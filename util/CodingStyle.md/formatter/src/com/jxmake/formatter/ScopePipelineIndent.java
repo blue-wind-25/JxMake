@@ -53,6 +53,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         replacements.addAll(applyAssignmentAlignment(tokens, rawLines));
         replacements.addAll(applyImportSort(tokens, rawLines));
         replacements.addAll(applyDecoratorSpacing(tokens, rawLines));
+        replacements.addAll(applyFStringSpacing(tokens));
         replacements.sort(Comparator.comparingInt(r -> r.start));
         return render(tokens, replacements);
     }
@@ -593,6 +594,10 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         return "(".equals(text) || "[".equals(text) || "{".equals(text);
     }
 
+    private boolean isCloseBracketText(final String text) {
+        return ")".equals(text) || "]".equals(text) || "}".equals(text);
+    }
+
     /** Finds {@code openIdx}'s matching close bracket within {@code [openIdx, limit)}, tracking
      *  depth across all three bracket kinds jointly (same joint-nesting convention {@link
      *  TokenizerIndent}'s own {@code parenDepth} uses) so a mismatched-kind close never
@@ -655,6 +660,165 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             return null;
         }
         return new Replacement(from, to, desired);
+    }
+
+    // ── §5: F-Strings ────────────────────────────────────────────────────────────────
+
+    /** STYLE_PYTHON3.md §5: an f-string field's `{...}` braces are tight against the expression
+     *  they hold (`f"{ x + 1 }"` -> `f"{x + 1}"`) -- whitespace directly inside the braces is
+     *  never part of the printed output, so it is trimmed to nothing, same delimiter-only-padding
+     *  posture {@link #applyBracketPadding} uses for a decorator's own call parens (except here the
+     *  desired gap is unconditionally zero-width, never a padded space -- STYLE_PYTHON3.md §5 shows
+     *  no loose-brace-padding shape for a field, only tight). Everything from the field's own
+     *  `!conversion`/`:format_spec` onward (opaque per §5, see {@link
+     *  com.jxmake.formatter.tokenizer.TokenizerIndent#emitFStringField}) is left completely
+     *  untouched, including its own internal whitespace.
+     *
+     *  <p>Operates directly over the full token stream (not per-{@link RawLine}, unlike §2/§3/§4)
+     *  since a field's own brace/expression tokens never carry a `NEWLINE`, and a triple-quoted
+     *  f-string's surrounding literal text spanning multiple physical lines is otherwise irrelevant
+     *  here -- only the field's own immediate brace-adjacent gap is ever touched.
+     *
+     *  <p><b>Explicitly NOT covered by this slice</b> (a deliberate scope-boundary call, not a
+     *  guess): re-spacing the expression's own *internal* operator/operand spacing (e.g. collapsing
+     *  `f"{x  +  1}"` to `f"{x + 1}"`) is out of scope. Surveyed {@code MiscRuleCore}/{@code
+     *  MiscRuleIndent}/{@code PythonBracketComplexityEvaluator} first: the only inherited
+     *  token-joining primitive ({@code MiscRuleCore#renderTokens}/{@code needsSpaceBetween}/{@code
+     *  isTightToken}) is a C-family declarator-spacing helper, not a general expression-spacing one
+     *  -- it hardcodes `*`/`&` as tight pointer/reference sigils (would wrongly collapse Python
+     *  multiplication, e.g. `a * b` -> `a* b`), `.`/`->`/`::` as tight member-access/scope operators
+     *  (Python's `.` attribute access is genuinely tight, but the others don't exist in Python), and
+     *  has no notion of Python-only operators (`**`, `//`, `:=`, `and`/`or`/`not`, comprehension
+     *  `for`/`if`). Building a genuine general Python expression-spacing primitive from scratch as a
+     *  side effect of this checkpoint would be a large scope increase beyond §5's narrow "braces are
+     *  tight" ask -- deferred to whatever future general-expression-formatting work eventually lands
+     *  (same posture as §2's "multi-line RHS not yet covered"/§3's "multi-physical-line import not
+     *  yet covered" gaps). Every worked example in STYLE_PYTHON3.md §5 itself already has correctly
+     *  spaced internal expression text (`x + 1`, `price * quantity`), so this narrower scope is
+     *  sufficient to satisfy the style doc's own examples.
+     *
+     *  <p><b>Also NOT covered</b> (a discovered, not guessed, interaction): when an f-string
+     *  containing a field appears inside a span already fully rewritten by another pass in this
+     *  same {@code process()} call -- e.g. as a §2-recognized assignment's own RHS (`x = f"{ y }"`)
+     *  -- that other pass's own {@link Replacement} (covering the whole assignment's `target...
+     *  value` span, rendered via verbatim token join) sorts first (smaller {@code start}) and wins;
+     *  {@link #render}'s "first match at this position wins, subsequent nested-inside replacements
+     *  are silently never reached" behavior means this pass's own narrower, nested replacement for
+     *  that specific occurrence is dropped (not corrupted -- the original untrimmed text is kept
+     *  for that one occurrence, verified via the smoke test's dedicated case below). An f-string NOT
+     *  nested inside another pass's own replaced span (a bare expression statement, a function-call
+     *  argument, an un-recognized-shape line) is unaffected by this interaction and trims normally. */
+    private List<Replacement> applyFStringSpacing(final List<Token> tokens) {
+        final List<Replacement> replacements = new ArrayList<>();
+        int i = 0;
+        final int n = tokens.size();
+        while (i < n) {
+            if (tokens.get(i).type == TokenType.FSTRING_START) {
+                i = processFString(tokens, i, replacements);
+            } else {
+                i++;
+            }
+        }
+        return replacements;
+    }
+
+    /** Processes one f-string span starting at {@code startIdx} (its {@code FSTRING_START}
+     *  token), dispatching each `{...}` field found at this level to {@link #processField}.
+     *  Returns the index right after this f-string's {@code FSTRING_END}. */
+    private int processFString(final List<Token> tokens, final int startIdx, final List<Replacement> out) {
+        int i = startIdx + 1;
+        final int n = tokens.size();
+        while (i < n) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.FSTRING_END) {
+                return i + 1;
+            }
+            if (t.type == TokenType.PUNCT && "{".equals(t.text)) {
+                i = processField(tokens, i, out);
+            } else {
+                i++;
+            }
+        }
+        return i;
+    }
+
+    /** Processes one `{...}` field, {@code openIdx} pointing at its opening `{`. Tracks a local
+     *  `(`/`[`/`{` depth (mirroring {@link
+     *  com.jxmake.formatter.tokenizer.TokenizerIndent#emitFStringField}'s own depth counter) so a
+     *  nested bracket's own `}` isn't mistaken for this field's closing brace; a nested f-string
+     *  found inside the expression (e.g. `f"{f'{a}'}"`) is skipped over atomically via a recursive
+     *  {@link #processFString} call -- its own fields get their own independent trim through that
+     *  call, and its internal brackets never affect this field's own depth count. {@code exprEnd}
+     *  is the index of the first depth-0 `!conversion` OP token, {@code FSTRING_FORMAT_SPEC} token,
+     *  or (if neither is present) this field's own closing `}` -- whichever comes first. Returns
+     *  the index right after the field's closing `}`. */
+    private int processField(final List<Token> tokens, final int openIdx, final List<Replacement> out) {
+        int i = openIdx + 1;
+        int depth = 0;
+        int exprEnd = -1;
+        while (true) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.FSTRING_START) {
+                i = processFString(tokens, i, out);
+                continue;
+            }
+            if (depth == 0 && t.type == TokenType.PUNCT && "}".equals(t.text)) {
+                final boolean directClose = exprEnd < 0;
+                if (directClose) {
+                    exprEnd = i;
+                }
+                addBraceTrim(tokens, openIdx, exprEnd, directClose, out);
+                return i + 1;
+            }
+            if (depth == 0 && exprEnd < 0 && t.type == TokenType.OP && isFStringConversion(t.text)) {
+                exprEnd = i;
+            } else if (depth == 0 && exprEnd < 0 && t.type == TokenType.FSTRING_FORMAT_SPEC) {
+                exprEnd = i;
+            } else if (t.type == TokenType.PUNCT && isOpenBracketText(t.text)) {
+                depth++;
+            } else if (t.type == TokenType.PUNCT && isCloseBracketText(t.text)) {
+                depth--;
+            }
+            i++;
+        }
+    }
+
+    /** A `!r`/`!s`/`!a` conversion OP token, per {@link
+     *  com.jxmake.formatter.tokenizer.TokenizerIndent#emitFStringField}'s own emission rule (only
+     *  ever a 2-character `!`-prefixed OP token). */
+    private boolean isFStringConversion(final String text) {
+        return text.length() == 2 && text.charAt(0) == '!';
+    }
+
+    /** Trims the gap directly inside a field's opening `{` to zero-width unconditionally (the
+     *  expression's own leading whitespace is never significant, STYLE_PYTHON3.md §5). The gap
+     *  right before {@code exprEnd} is only trimmed when {@code trimClose} is true -- i.e. when
+     *  {@code exprEnd} is itself the field's own closing `}` (no `!conversion`/`:format_spec`
+     *  present). When a conversion or format spec IS present, STYLE_PYTHON3.md §5's own worked
+     *  example (`f"{value !r}"`, listed as "never touched") keeps any whitespace immediately
+     *  before the opaque tail exactly as written -- only the opaque tail's own text ({@code !r}/
+     *  {@code :spec}), not the boundary gap leading into it, is what "never touched" refers to in
+     *  the brace-tightness sense used here, so this pass does not touch that gap at all. A field
+     *  with no significant expression token at all (e.g. a malformed empty `{}`) is left alone --
+     *  defensive only, not valid Python. */
+    private void addBraceTrim(final List<Token> tokens, final int openIdx, final int exprEnd,
+            final boolean trimClose, final List<Replacement> out) {
+        final int firstSig = nextSignificant(tokens, openIdx + 1, exprEnd);
+        if (firstSig < 0) {
+            return;
+        }
+        final Replacement openGap = normalizeGap(tokens, openIdx + 1, firstSig, "");
+        if (openGap != null) {
+            out.add(openGap);
+        }
+        if (!trimClose) {
+            return;
+        }
+        final int lastSig = prevSignificant(tokens, exprEnd - 1, openIdx);
+        final Replacement closeGap = normalizeGap(tokens, lastSig + 1, exprEnd, "");
+        if (closeGap != null) {
+            out.add(closeGap);
+        }
     }
 
     /** Reassembles {@code tokens}' source text verbatim. Every token kind's {@code text} is its

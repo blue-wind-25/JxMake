@@ -1,9 +1,12 @@
-# STATE_NEXT_AI.md — Deferred AI-Assist Design Reference
+# STATE_NEXT_AI.md — AI-Assist Design Reference and GRU Job State
 
 This file documents the background and architecture for the JAR's built-in
-`ai-assist` feature. It is **not part of the active implementation tracker** — do
-not read this file during a normal CLI session. It is reference material for any
-future revisit of AI-assisted Tier-3 formatting.
+`ai-assist` feature. Step 2 (argument-layout/getter-setter-grouping) is
+permanently NOT FEASIBLE and is reference-only — no active work there. Step 3
+(the GRU comment-classifier abstain resolution) is now an active tracked job
+per `CLAUDE.md`'s job table (`com.jxmake.formatter.classifier.gru`,
+skeleton started) and follows the same `STATE_COMMON.md` process conventions
+as every other job in that table.
 
 Two separate determinations live here, for two different decision points — they are
 not in tension with each other:

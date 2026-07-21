@@ -181,10 +181,14 @@ public final class Main {
                     anyChanged = true;
                 }
             } catch (final IOException e) {
-                System.err.println("jxmake-code-formatter: error: " + file + ": " + e.getMessage());
+                System.err.println();
+                System.err.println("jxmake-code-formatter: ERROR:\n  " + file + ": " + e.getMessage());
+                System.err.println();
                 anyError = true;
             } catch (final Exception e) {
-                System.err.println("jxmake-code-formatter: internal error: " + file + ": " + e);
+                System.err.println();
+                System.err.println("jxmake-code-formatter: INTERNAL ERROR:\n  " + file + ": " + e);
+                System.err.println();
                 e.printStackTrace();
                 anyError = true;
             }
@@ -199,7 +203,8 @@ public final class Main {
     }
 
     private static int usageError(final String message) {
-        System.err.println("jxmake-code-formatter: error: " + message);
+        System.err.println();
+        System.err.println("jxmake-code-formatter: USAGE ERROR:\n  " + message);
         printUsage();
         return 2;
     }
@@ -207,26 +212,29 @@ public final class Main {
     private static void printUsage() {
         final String langs = Lang.SUPPORTED_LANGUAGES.replace(", ", "|")
                 + (Lang.SCAFFOLD_ONLY_LANGUAGES.isEmpty() ? "" : "|" + Lang.SCAFFOLD_ONLY_LANGUAGES.replace(", ", "|"));
-        System.err.println("usage: jxmake-code-formatter <output-mode> [options] [file...]");
         System.err.println();
-        System.err.println("output mode (exactly one required):");
-        System.err.println("  --in-place              overwrite each input file with its formatted output");
-        System.err.println("  --diff                  print a unified diff, do not write anything");
-        System.err.println("  --check                 exit 1 if any file would change (for CI)");
-        System.err.println("  --out DIR               write formatted output under DIR instead");
+        System.err.println("Usage:");
+        System.err.println("  jxmake-code-formatter <output-mode> [options] [file...]");
         System.err.println();
-        System.err.println("options:");
-        System.err.println("  --lang LANG             force language instead of inferring from extension");
-        System.err.println("                          LANG is one of: " + langs);
-        System.err.println("  --standalone            format as a standalone file (no enclosing project)");
-        System.err.println("  --format-off            disable all formatting (pass-through)");
-        System.err.println("  --preserve-tree         with --out DIR, preserve each file's subdirectory");
-        System.err.println("                          structure instead of flattening to its basename");
-        System.err.println("  --root DIR              root directory --preserve-tree paths are relative to");
+        System.err.println("  Output mode (exactly one required):");
+        System.err.println("    --in-place              overwrite each input file with its formatted output");
+        System.err.println("    --diff                  print a unified diff, do not write anything");
+        System.err.println("    --check                 exit 1 if any file would change (for CI)");
+        System.err.println("    --out DIR               write formatted output under DIR instead");
         System.err.println();
-        System.err.println("server mode:");
+        System.err.println("  Options:");
+        System.err.println("    --lang LANG             force language instead of inferring from extension");
+        System.err.println("                            LANG is one of: " + langs);
+        System.err.println("    --standalone            format as a standalone file (no enclosing project)");
+        System.err.println("    --format-off            disable all formatting (pass-through)");
+        System.err.println("    --preserve-tree         with --out DIR, preserve each file's subdirectory");
+        System.err.println("                            structure instead of flattening to its basename");
+        System.err.println("    --root DIR              root directory --preserve-tree paths are relative to");
+        System.err.println();
+        System.err.println("Server mode:");
         System.err.println("  jxmake-code-formatter --server [--port N]");
         System.err.println("  jxmake-code-formatter --stop");
+        System.err.println();
     }
 
     /** Returns {@code true} if the file's formatted content differs from its original content. */
@@ -296,7 +304,7 @@ public final class Main {
                 try {
                     return delegateToServer(serverPort, path, language, original, formatOff);
                 } catch (final IOException e) {
-                    System.err.println("jxmake-code-formatter: warning: server delegation failed (" + e.getMessage()
+                    System.err.println("jxmake-code-formatter: WARNING:\n  server delegation failed (" + e.getMessage()
                             + "), falling back to standalone formatting");
                 }
             }
@@ -352,7 +360,7 @@ public final class Main {
             try {
                 Files.deleteIfExists(cacheFile);
             } catch (final IOException e) {
-                System.err.println("jxmake-code-formatter: warning: could not delete stale indent-style cache: "
+                System.err.println("jxmake-code-formatter: WARNING:\n  could not delete stale indent-style cache: "
                         + e.getMessage());
             }
         }
@@ -361,7 +369,7 @@ public final class Main {
         try {
             Files.write(cacheFile, (detected + "\n" + boundaryLastModified + "\n").getBytes(StandardCharsets.UTF_8));
         } catch (final IOException e) {
-            System.err.println("jxmake-code-formatter: warning: could not write indent-style cache: " + e.getMessage());
+            System.err.println("jxmake-code-formatter: WARNING:\n  could not write indent-style cache: " + e.getMessage());
         }
         return detected;
     }

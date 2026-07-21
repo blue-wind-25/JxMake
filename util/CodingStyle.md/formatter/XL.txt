@@ -8,11 +8,19 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 ####################################################################################################
 ####################################################################################################
 
-Compact (use one sub-agent) `STATE_PYTHON3.md`.
+Compact (use one sub-agent) `STATE_DATA_FORMATS.md`.
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.
 
 Compact (use one sub-agent) `STATE_JS_TS.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
+
+Compact (use one sub-agent) `STATE_CPP26.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
+
+Compact (use one sub-agent) `STATE_PYTHON3.md`.
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.
 
@@ -28,12 +36,6 @@ Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_62_inp/out.kt`
     to   `real_code_regressions_67_inp/out.hpp`
 [DONE]
-
-
-
-Continue with the implementation of the Python3 formatter.
-Don't implement it all at once, make check points to ensure the formatter source code is clean and compiles well.
-Use one sub-agent if needed, the sub-agent can launch up to two more research sub-sub-agents.
 
 
 
@@ -56,7 +58,7 @@ Adjust active vs scaffold-only as needed. Also ensure jsx and tsx are after js a
 ----------------------------------------------------------------------------------------------------
 
 Continue with JSON/JSON5 work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
+the sub-agent can launch up to one more research sub-sub-agent):
 ...
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
@@ -69,7 +71,7 @@ recompile test allowed. Try reformat with `indent-size = 2` if the idempotency t
 ----------------------------------------------------------------------------------------------------
 
 Continue with CSS work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
+the sub-agent can launch up to one more research sub-sub-agent):
 ...
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
@@ -82,7 +84,7 @@ recompile test allowed. Try reformat with `indent-size = 2` if the idempotency t
 ----------------------------------------------------------------------------------------------------
 
 Continue with YAML work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
+the sub-agent can launch up to one more research sub-sub-agent):
 ...
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
@@ -95,7 +97,7 @@ recompile test allowed. Try reformat with `indent-size = 2` if the idempotency t
 ----------------------------------------------------------------------------------------------------
 
 Continue with TOML work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
+the sub-agent can launch up to one more research sub-sub-agent):
 ...
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
@@ -108,7 +110,7 @@ recompile test allowed. Try reformat with `indent-size = 2` if the idempotency t
 ----------------------------------------------------------------------------------------------------
 
 Continue with XML work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
+the sub-agent can launch up to one more research sub-sub-agent):
 ..
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
@@ -121,7 +123,7 @@ recompile test allowed. Try reformat with `indent-size = 2` if the idempotency t
 ----------------------------------------------------------------------------------------------------
 
 Continue with C++26 work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
+the sub-agent can launch up to one more research sub-sub-agent):
 ...
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
@@ -138,7 +140,7 @@ needs its own corpus, once its tokenizer support pass lands:
 ----------------------------------------------------------------------------------------------------
 
 Continue with HTML work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
+the sub-agent can launch up to one more research sub-sub-agent):
 ...
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
@@ -154,7 +156,7 @@ before the `<script>`/`<style>` embedded-content dispatcher can be exercised end
 ----------------------------------------------------------------------------------------------------
 
 Continue with JS/TS work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
+the sub-agent can launch up to one more research sub-sub-agent):
 ...
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
@@ -170,7 +172,7 @@ recompile test allowed. Try reformat with `indent-size = 2` if the idempotency t
 ----------------------------------------------------------------------------------------------------
 
 Continue with Python3 work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
+the sub-agent can launch up to one more research sub-sub-agent):
 ...
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
@@ -186,7 +188,7 @@ recompile test allowed. Try reformat with `indent-size = 2` if the idempotency t
 ----------------------------------------------------------------------------------------------------
 
 Continue with C/C++ work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
+the sub-agent can launch up to one more research sub-sub-agent):
 ...
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
@@ -198,7 +200,7 @@ recompile test allowed. Try reformat with `indent-size = 2` if the idempotency t
 ----------------------------------------------------------------------------------------------------
 
 Continue with Java work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
+the sub-agent can launch up to one more research sub-sub-agent):
 ...
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
@@ -210,7 +212,7 @@ recompile test allowed. Use `java_sc` instead of `javac` if necessary. Try refor
 ----------------------------------------------------------------------------------------------------
 
 Continue with Kotlin work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to two more research sub-sub-agents):
+the sub-agent can launch up to one more research sub-sub-agent):
 ...
 When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
 already correct files are a waste of time. Only after all bugs are fixed is a full reformat and

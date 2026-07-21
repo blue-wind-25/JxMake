@@ -51,26 +51,38 @@ clean:
 #
 # Compiles and runs tools/gru/GruTrainer.java (a non-shipped, outside-src/
 # training entry point per STATE_AI.md), writing a scalar-architecture-
-# constants-only weights file to $(BUILD_DIR)/gru/weights.json -- matches
-# Config.DEFAULT_GRU_WEIGHTS_PATH, so a fresh `make build gru-train` run
-# produces a file GruAbstainResolver's default config would actually find.
-# The real training loop remains blocked on STATE_AI.md open items 3/4/9/10;
-# see GruTrainer's own javadoc. Uses tools/gru/sample_examples.txt, a
+# constants-only weights file to $(BUILD_DIR)/gru/weights.json. The real
+# training loop remains blocked on STATE_AI.md open items 3/4/9/10; see
+# GruTrainer's own javadoc. Uses tools/gru/sample_examples.txt, a
 # placeholder/dummy labeled-examples file (no real labeled dataset exists
 # yet), just to satisfy GruTrainer's positional-arg validation.
 #
-GRU_TOOLS_DIR    = tools/gru
-GRU_BUILD_DIR    = $(BUILD_DIR)/gru
-GRU_TOOLS_CLASSES = $(GRU_BUILD_DIR)/classes
-GRU_WEIGHTS_OUT  = $(GRU_BUILD_DIR)/weights.json
-GRU_SAMPLE_EXAMPLES = $(GRU_TOOLS_DIR)/sample_examples.txt
+# Config.DEFAULT_GRU_WEIGHTS_PATH is empty by default -- GruAbstainResolver
+# derives the weights-file location from the running program's own
+# directory instead (the jar's parent dir when run via -jar, or $(CLASS_DIR)
+# itself for a dev/test run against classes -- see
+# GruAbstainResolver.programDirectory()/WEIGHTS_FILENAME). So after writing
+# the build-artifact weights file, this target also copies it into
+# $(CLASS_DIR) under that expected filename, so `make test`/dev runs against
+# $(CLASS_DIR) can find it. The commented-out `cp` below mirrors the
+# similarly-commented-out `@cp $(JAR_FILE) .` above: when that jar-copy line
+# is enabled (e.g. for the top-level dist_build/jxmake_dist packaging step,
+# see apps/code-formatter/ in that tree), enable this one alongside it so
+# the weights file ships next to the jar the same way.
+#
+GRU_TOOLS_DIR        = tools/gru
+GRU_BUILD_DIR        = $(BUILD_DIR)/gru
+GRU_TOOLS_CLASSES    = $(GRU_BUILD_DIR)/classes
+GRU_WEIGHTS_OUT      = $(GRU_BUILD_DIR)/weights.json
+GRU_SAMPLE_EXAMPLES  = $(GRU_TOOLS_DIR)/sample_examples.txt
+GRU_WEIGHTS_FILENAME = code-formatter-ai-assist-weights.json
 
 gru-train: $(JAR_FILE)
 	@mkdir -p $(GRU_TOOLS_CLASSES)
-	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) \
-		-cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/GruTrainer.java
-	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer \
-		$(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT)
+	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/GruTrainer.java
+	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT)
+	@cp $(GRU_WEIGHTS_OUT) $(CLASS_DIR)/$(GRU_WEIGHTS_FILENAME)
+#	@cp $(GRU_WEIGHTS_OUT) $(GRU_WEIGHTS_FILENAME)
 
 
 # ── Test target ───────────────────────────────────────────────────────────────

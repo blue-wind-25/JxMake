@@ -177,14 +177,63 @@ implementation work yet):
       an unconstrained filesystem path): `gru-classifier` (boolean, default
       `off` — opt-in, since no trained model exists yet) and
       `gru-weights-path` (string, default `Config.DEFAULT_GRU_WEIGHTS_PATH =
-      "target/gru/weights.json"`, a `target/`-relative build artifact path;
-      aspirational at a fresh checkout, harmless since the fail-safe already
-      treats a missing file as `ABSTAIN`). Both keys registered in
-      `STATE_COMMON.md`'s "Config Keys and Defaults" table under a new
-      `# ── AI-assist (GRU) ──` heading. `Config.isKnownKey`/env-var
-      collection/in-file `JXM_CFMT_CFG` validation/server query-param
-      validation all pick up both keys automatically (they iterate
-      `ALL_KEYS`), so no other file needed editing.
+      ""`, empty). Both keys registered in `STATE_COMMON.md`'s "Config Keys
+      and Defaults" table under a new `# ── AI-assist (GRU) ──` heading.
+      `Config.isKnownKey`/env-var collection/in-file `JXM_CFMT_CFG`
+      validation/server query-param validation all pick up both keys
+      automatically (they iterate `ALL_KEYS`), so no other file needed
+      editing.
+
+      **Follow-up (same session): program-directory-relative weights
+      resolution.** `gru-weights-path`'s default is empty rather than a fixed
+      `target/`-relative path, per explicit user direction — `GruAbstainResolver`
+      now derives the weights-file location from the running program's own
+      directory when the config value is empty, instead of requiring an
+      explicit path. New `GruAbstainResolver.WEIGHTS_FILENAME =
+      "code-formatter-ai-assist-weights.json"` constant (the filename the
+      top-level `dist_build/jxmake_dist/apps/code-formatter/` distribution
+      layout is expected to use) and two new private helpers:
+      `resolveWeightsPath(Config)` (returns `config.gruWeightsPath()` as a
+      `Path` if explicitly set/non-empty, else `programDirectory().resolve(
+      WEIGHTS_FILENAME)`, or `null` if neither is available) and
+      `programDirectory()` (resolves the running program's own directory via
+      `GruAbstainResolver.class.getProtectionDomain().getCodeSource()
+      .getLocation()` — the jar's parent directory when run via `-jar`, or
+      the classes directory itself for a dev/test run against `$(CLASS_DIR)`
+      since there's no jar to take a parent of in that mode; returns `null`
+      on any `URISyntaxException`/`RuntimeException`, treated as "can't
+      resolve a default path" by the caller). A `null` from either helper is
+      a fail-safe "no path" result — `GruAbstainResolver.resolve` treats it
+      exactly like a missing/unreadable weights file, i.e. `ABSTAIN`, never
+      throws. Verified via `programDirectory()` (called through reflection,
+      since it's private) resolving to `target/classes` when run against
+      `-cp target/classes` and to `target/` (the jar's parent) when run
+      against the packaged jar — both confirmed by direct manual testing.
+
+      `Makefile`'s `gru-train` target now also copies the generated
+      `$(GRU_WEIGHTS_OUT)` into `$(CLASS_DIR)/code-formatter-ai-assist-
+      weights.json` (active `cp` line) so `make test`/dev runs against
+      `$(CLASS_DIR)` can find it via the same empty-path-derivation logic,
+      plus a second, deliberately commented-out `cp $(GRU_WEIGHTS_OUT)
+      code-formatter-ai-assist-weights.json` mirroring the pre-existing
+      commented-out `@cp $(JAR_FILE) .` line — both are meant to be enabled
+      together later for the top-level `dist_build/jxmake_dist` packaging
+      step, per explicit user direction; not enabled yet since the jar-copy
+      line itself isn't either.
+
+      `GruAbstainResolverSelfTest.java` gained a fifth check,
+      `checkEmptyWeightsPath_derivesFromProgramDirectory`, confirming (a)
+      the default `gru-weights-path` is indeed empty, (b) resolving with it
+      empty doesn't throw and returns a fail-safe `ABSTAIN` (no weights file
+      is expected to exist at the derived location in the test environment),
+      and (c) `programDirectory()` (invoked via reflection) resolves to a
+      real, existing directory rather than `null` or a nonexistent path —
+      guarding against a silent resolution bug that a bare `ABSTAIN` check
+      alone wouldn't catch (both a resolution failure and a resolution
+      success with no file present end in `ABSTAIN`). All five
+      `GruAbstainResolverSelfTest` checks pass, alongside the three
+      pre-existing GRU self-tests and `make test` (116/116 forward + 116/116
+      idempotency, zero regressions, re-confirmed after this follow-up).
 
       New self-test `tools/gru/GruAbstainResolverSelfTest.java` (same
       zero-framework plain-`main()`-assertion style as the other three GRU
@@ -236,11 +285,13 @@ implementation work yet):
       `tools/gru/sample_examples.txt` (checked in, header comment explicitly
       marks it as placeholder/not-real-training-data, per the same open
       items 3/4/9/10 blocking real data), writing output to
-      `$(BUILD_DIR)/gru/weights.json` — i.e. `target/gru/weights.json`,
-      matching `Config.DEFAULT_GRU_WEIGHTS_PATH` exactly, so a fresh `make
-      build gru-train` run produces a file the resolver's default config
-      would actually find (still harmless/fail-safe if absent on a clean
-      checkout before this target has run). Verified end-to-end: `make
+      `$(BUILD_DIR)/gru/weights.json` — i.e. `target/gru/weights.json` — then
+      also copies that file into `$(CLASS_DIR)/code-formatter-ai-assist-
+      weights.json` (see the "Follow-up" note above), so a fresh `make build
+      gru-train` run produces a file the resolver's empty-default
+      program-directory derivation would actually find when run against
+      `$(CLASS_DIR)` (still harmless/fail-safe if absent on a clean checkout
+      before this target has run). Verified end-to-end: `make
       build` succeeds unmodified, `make gru-train` runs and produces a real
       `target/gru/weights.json`; its contents (`schemaVersion: 1, vocabSize:
       76, hashBuckets: 1024, embeddingDim: 16, hiddenSize: 224, sequenceCap:

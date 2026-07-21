@@ -49,11 +49,15 @@ public final class Config {
     public static final int DEFAULT_INDENT_SIZE = 4;
     public static final int DEFAULT_LINE_LENGTH = 100;
 
-    /** Default weights-file path for the Step 3 GRU classifier (STATE_AI.md), a
-     *  {@code target/}-relative build artifact produced by {@code make gru-train} (see the
-     *  Makefile). Aspirational at a fresh checkout -- harmless if absent, since a missing weights
-     *  file is already a fail-safe ABSTAIN path (see {@code GruAbstainResolver}). */
-    public static final String DEFAULT_GRU_WEIGHTS_PATH = "target/gru/weights.json";
+    /** Default {@code gru-weights-path} value for the Step 3 GRU classifier (STATE_AI.md): empty,
+     *  meaning "not explicitly configured". {@code GruAbstainResolver} treats an empty value as an
+     *  instruction to derive the weights file location from the running program's own directory
+     *  (the jar's parent directory when run via {@code -jar}, or the classes directory itself for
+     *  a dev/test run against {@code $(CLASS_DIR)}) instead of a fixed path -- see
+     *  {@code GruAbstainResolver.WEIGHTS_FILENAME}/{@code resolveWeightsPath}. Harmless if the
+     *  derived file is absent, since a missing/unreadable/corrupt weights file is already a
+     *  fail-safe ABSTAIN path. */
+    public static final String DEFAULT_GRU_WEIGHTS_PATH = "";
 
     private int lineLength = DEFAULT_LINE_LENGTH;
     private int indentSize = DEFAULT_INDENT_SIZE;

@@ -266,8 +266,8 @@ python-import-sort               = on
 python-import-blank-lines        = 1
 
 # ── AI-assist (GRU) ───────────────────────────────────────────────────────────
-gru-classifier                   = off        # off | on (opt-in, no trained model ships yet)
-gru-weights-path                 = target/gru/weights.json
+gru-classifier                   = off         # off | on (opt-in, no trained model ships yet)
+gru-weights-path                 =             # empty = derive from program dir, see STATE_AI.md
 ```
 
 For every added, deleted, or modified configuration item,

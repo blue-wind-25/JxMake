@@ -12,6 +12,7 @@ import com.jxmake.formatter.classifier.gru.GruAbstainResolver;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -47,6 +48,7 @@ public final class GruAbstainResolverSelfTest {
         checkRulesAbstain_gruClassifierOff_noLoadAttempt();
         checkRulesAbstain_gruClassifierOn_weightsMissing_failSafeAbstain();
         checkRulesAbstain_gruClassifierOn_weightsPresent_stillAbstain();
+        checkEmptyWeightsPath_derivesFromProgramDirectory();
 
         if (failures == 0) {
             System.out.println("GruAbstainResolverSelfTest: all checks passed");
@@ -114,6 +116,49 @@ public final class GruAbstainResolverSelfTest {
             }
         } finally {
             Files.deleteIfExists(weightsPath);
+        }
+    }
+
+    private static void checkEmptyWeightsPath_derivesFromProgramDirectory() throws IOException {
+        // gru-weights-path left at its default (empty) -- GruAbstainResolver must derive the
+        // weights-file location from the running program's own directory (see
+        // GruAbstainResolver.programDirectory()) instead of throwing or failing outright. This
+        // test process runs against a classes directory (via -cp), not a packaged jar, so
+        // programDirectory() should resolve to that classes directory itself.
+        Map<String, String> cliOverrides = new LinkedHashMap<String, String>();
+        cliOverrides.put("gru-classifier", "on");
+        Config config = Config.resolve(null, cliOverrides);
+        if (!config.gruWeightsPath().isEmpty()) {
+            fail("expected default gru-weights-path to be empty, got " + config.gruWeightsPath());
+        }
+
+        // No weights file is expected to actually exist at the derived location in this test
+        // environment, so the end-to-end result must still be a fail-safe ABSTAIN (not a thrown
+        // exception) -- proving the empty-path branch is exercised without crashing.
+        CommentFeatureVector features = nonLatinFeatures();
+        CommentDecision result = GruAbstainResolver.resolve(features, "中文 comment", 0, config);
+        if (result != CommentDecision.ABSTAIN) {
+            fail("expected ABSTAIN with empty gru-weights-path (derived path is unlikely to "
+                    + "exist in this test environment), got " + result);
+        }
+
+        // Directly verify programDirectory() resolves to a real, existing directory (the classes
+        // directory this test process was launched against), not null/nonexistent -- this is the
+        // part that would silently mask a resolution bug if only checked via the ABSTAIN result
+        // above, since a resolution failure and a resolution success with no file present both
+        // end in ABSTAIN.
+        try {
+            Method programDirectory = com.jxmake.formatter.classifier.gru.GruAbstainResolver.class
+                    .getDeclaredMethod("programDirectory");
+            programDirectory.setAccessible(true);
+            Object resolved = programDirectory.invoke(null);
+            if (resolved == null) {
+                fail("programDirectory() unexpectedly returned null in this test environment");
+            } else if (!Files.isDirectory((Path) resolved)) {
+                fail("programDirectory() returned a non-existent/non-directory path: " + resolved);
+            }
+        } catch (ReflectiveOperationException e) {
+            fail("could not invoke programDirectory() via reflection: " + e);
         }
     }
 

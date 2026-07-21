@@ -388,8 +388,58 @@ real-world drift patterns in the `psf/black`/`django` fixture repos once
       `make test` run (114/114 forward + idempotency, zero regressions;
       still compile/link-health only — no caller wires this evaluator in
       yet, that lands with §2/§6/§7's own padding/alignment rules).
-- [ ] Implement §2–9 rule-by-rule, each its own checkpoint commit, per
+- [~] Implement §2–9 rule-by-rule, each its own checkpoint commit, per
       `STATE_COMMON.md`'s workflow.
+      **§2 (Assignment Alignment) landed.** `TokenizerIndent.emitOperator`
+      had a real gap discovered while implementing this: it only ever
+      consumed a single character, so every compound-assignment operator
+      (`+=`, `|=`, `**=`, `//=`, etc.) came out as two-plus separate `OP`
+      tokens instead of one — invisible to the identity-pass/§1 work
+      landed so far since neither cares about operator identity, but fatal
+      to §2's alignment grouping. Fixed by giving `TokenizerIndent` its own
+      `MULTI_CHAR_OPS` longest-first array (mirroring
+      `TokenizerCurly.MULTI_CHAR_OPS`'s precedent), covering Python's set:
+      `**=`, `//=`, `<<=`, `>>=`, `->`, `**`, `//`, `<<`, `>>`, `<=`, `>=`,
+      `==`, `!=`, `+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `@=` (`:=`
+      already had its own dedicated `emitWalrus` dispatch, unaffected).
+      §2 itself: new `MiscRuleIndent.PyAssignment`/`renderPyGroup`
+      (target/operator/valueTokens triple; padded `name (op)= value`
+      rendering, no trailing `;`, no comment-column alignment — nothing in
+      STYLE_PYTHON3.md §2 calls for aligning trailing comments, unlike the
+      C-family's `ColumnGrid` usage) plus a new
+      `ScopePipelineIndent.applyAssignmentAlignment` pass: a from-scratch
+      NEWLINE/INDENT/DEDENT-aware logical-line splitter (no `;`/`{}` to
+      split on, unlike `MiscRuleCore.splitAssignmentStatements`) that
+      classifies each logical line as a single-physical-line `identifier
+      (op)= value` candidate or not, tracks indentation depth via the
+      synthesized `INDENT`/`DEDENT` markers, and groups consecutive
+      same-depth candidates (blank line, comment-only line, depth change,
+      or any unrecognized statement all break the group, matching
+      STYLE_PYTHON3.md §2's explicit "a blank line or a comment breaks the
+      group" text — confirmed this is a genuine Python-specific addition
+      versus STYLE.md §6's C-family text, which only names blank lines;
+      not a discrepancy to resolve, just two specs each stating their own
+      rule). Each grouped assignment gets one `Replacement` covering only
+      its own `target...value` token span — indentation, surrounding
+      blank/comment lines, and any trailing same-line comment are left
+      completely untouched, so no gap-text reconstruction was needed at
+      all (simpler than `ScopePipelineCurly.applyAssignmentsPass`, which
+      must rewrite whole multi-statement spans since curly's rendering can
+      change line count). **Explicitly NOT yet covered by this slice:**
+      multi-line right-hand sides (STYLE_PYTHON3.md §2's two continuation
+      examples) — a logical line whose token range spans more than one
+      `NEWLINE` token (bracket or backslash continuation) is never
+      classified as a candidate, left completely untouched; a lone bare-
+      IDENTIFIER-target restriction is kept (same restriction
+      `MiscRuleCore.parseAssignment` already applies to the C-family, so
+      `self.x = 1`/`a[0] = 1`/tuple-assignment all correctly fall through
+      unrecognized, no target-rendering machinery needed). Verified via a
+      5-case one-off smoke-test harness (basic group + comment-break per
+      STYLE_PYTHON3.md §2's own worked example, depth breaking a group,
+      blank-line self-check, attribute-target exclusion, multi-line-RHS
+      left untouched) — all 5 passed — plus a full `make test` run
+      (114/114 forward + idempotency, zero regressions; still compile/
+      link-health only, `python3` stays in `SCAFFOLD_ONLY_LANGUAGES`).
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "Python3" section and register in the Makefile's `INP_FILES` /
       `test/README.txt`. Done: `py_combined_inp/out.py` and

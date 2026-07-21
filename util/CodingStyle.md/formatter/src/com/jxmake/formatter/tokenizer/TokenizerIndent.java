@@ -482,7 +482,25 @@ public class TokenizerIndent extends TokenizerCore {
                 null);
     }
 
+    /** Python's multi-character operators (CPython grammar), longest-first so e.g. `**=` matches
+     *  before `**`/`*=` and `//=` before `//`. `:=` (walrus) is dispatched separately by {@link
+     *  #emitWalrus} before this method is ever reached, since `:` is otherwise claimed by {@link
+     *  #emitPunct}. */
+    private static final String[] MULTI_CHAR_OPS = {
+            "**=", "//=", "<<=", ">>=",
+            "->", "**", "//", "<<", ">>", "<=", ">=", "==", "!=",
+            "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "@=",
+    };
+
     private Token emitOperator() {
+        for (final String op : MULTI_CHAR_OPS) {
+            if (source.startsWith(op, pos)) {
+                final int start = pos;
+                pos += op.length();
+                return new Token(TokenType.OP, source.substring(start, pos), braceDepth, parenDepth,
+                        null);
+            }
+        }
         final int start = pos;
         pos++;
         return new Token(TokenType.OP, source.substring(start, pos), braceDepth, parenDepth,

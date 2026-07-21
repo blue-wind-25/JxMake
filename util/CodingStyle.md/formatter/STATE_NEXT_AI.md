@@ -71,9 +71,11 @@ below; nothing started, this is a design note, not scoped implementation work ye
       earlier LLM-for-v1 lean — SKELETON ONLY: `GruClassifier.java` (tokenize/hashBucket
       implemented per RDD_EXT_12/13; `classify` and `load` are unimplemented throwing
       stubs) and `GruWeights.java` (field layout/schema-version constant only; `load`
-      is an unimplemented throwing stub, no JSON parsing yet). No training pipeline,
-      no weights file format finalized/written, no wiring into `CommentClassifier`'s
-      ABSTAIN path yet.
+      is an unimplemented throwing stub, no JSON parsing yet). `tools/gru/GruTrainer.java`
+      added as a skeleton `main()` entry point (non-shipped, outside `src/`, per the "Files"
+      section below) — throws immediately, actual training loop blocked on open items 3/4/9/10
+      (hyperparameters, evaluation target, measured ABSTAIN rate, licensing check). No weights
+      file format finalized/written yet, no wiring into `CommentClassifier`'s ABSTAIN path yet.
 
 ---
 

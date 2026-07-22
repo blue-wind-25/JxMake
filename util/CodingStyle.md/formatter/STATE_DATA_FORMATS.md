@@ -768,3 +768,50 @@ None recorded yet in this file.
         shows only expected re-indentation). Flagged as a checker-script gap,
         not fixed (out of scope this session). `ansible/ansible`,
         `actions/starter-workflows` remain not-started.
+      - `ansible/ansible`: 2110 `.yaml`/`.yml` files found (well over the
+        several-hundred sampling threshold), sampled every 5th file (sorted
+        list) for 422 files. Baseline `yaml_sc.js`: 7 fail (Ansible-specific
+        custom scalar tags `!vault`/`!unsafe` js-yaml doesn't recognize) —
+        **in-scope corpus: 415 files.** Forward pass: 422/422 processed, zero
+        crashes. Idempotency: 422/422 clean. Syntax-check: same 7 baseline
+        failures, no new ones. **3 bugs found, all via content-preservation**
+        (`yaml_content_diff.py` — every corrupted output stayed syntactically
+        valid YAML, syntax-check alone missed all three, consistent with
+        every prior YAML dogfood session). (1) A plain (non-keyed) sequence
+        item's own unquoted scalar value wrapping across physical lines
+        (common in changelog-fragment prose, e.g. `- some long sentence\n
+        continuing here.`) had no continuation handling at all — unlike the
+        keyed/seqOfMapping-firstKey cases, which already captured this shape
+        — silently dropping every line past the first. Fixed by adding the
+        same multi-line-plain-scalar capture to that branch, anchored one
+        column later than a keyed value's baseline (there's no `key:` prefix
+        eating a column first, so the continuation's own column can be equal
+        to, not just deeper than, the scalar's start column). (2) A comment
+        line dedented below its enclosing block's own indent (a real
+        `# FIXME: ...` note at column 0 sitting between two sibling keys
+        indented deeper) made `parseBlock` break out of every enclosing block
+        in turn without ever consuming it — each level's own indent check
+        rejected it in turn, with no caller left to consume it once it
+        bubbled past the outermost block — permanently orphaning it and
+        silently dropping everything that followed at every level. Root
+        cause: a comment's own column was compared directly against each
+        block's indent instead of considering where the comment actually
+        belongs structurally. Fixed by looking past the comment (and any
+        more like it) to the next real content line and attaching the
+        comment to whichever block that next line's own indent actually
+        belongs to, rather than to whichever block happened to be innermost
+        when the comment was reached. (3) A bare top-level plain-scalar
+        document (e.g. an `$ANSIBLE_VAULT;...`-header vault blob: an unquoted
+        first line followed by several more lines of opaque hex data with no
+        `key:`/`- ` shape of their own) kept only its first line, silently
+        dropping the rest — the bare-scalar-document detection added for a
+        prior single-line case never accounted for further wrapped lines.
+        Fixed by emitting the remaining raw lines verbatim once that shape is
+        detected. Fixture (all 3 combined) `test/real_code_regressions_73_
+        {inp,out}.yaml`. `make test`: 122/122. Commit `9f2a80a`. **Final
+        numbers after all 3 fixes, full 422-file re-run:**
+        forward/idempotency/syntax-check clean (422/422, 422/422, same 7
+        baseline failures respectively); content-preservation 415/415 clean
+        (the 7 custom-tag files are out of scope for this check too, since
+        `yaml_content_diff.py` also can't parse them). `actions/starter-
+        workflows` remains not-started for YAML.

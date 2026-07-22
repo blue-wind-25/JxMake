@@ -158,6 +158,32 @@ the repo, alongside `java_sc`/`kotlin_sc`, not committed):
   `parseFromString` is also wrapped in try/catch (deduped against
   `onError` already having recorded the same fatalError).
 
+**`xml_content_diff.py`** — a content-preservation checker for XML,
+complementing `xml_sc.js` (which only proves "still parses", same
+`css_content_diff.py` precedent). Parses both original and formatted files
+with stdlib `xml.dom.minidom` (no extra package dependency, unlike
+`xml_sc.js`) and walks both DOMs in parallel, comparing (skipping
+pure-whitespace text nodes so pure re-indentation is never flagged):
+(1) element names and attribute name+value pairs, **in order** (XML
+attribute order is spec-preserved per `STYLE_DATA_FORMATS.md` SS2.2, so
+reordering is a real bug here, unlike most other formats); (2) text-node
+content, whitespace-normalized; (3) comment text, whitespace-normalized —
+this is the check that would have caught CSS's `twbs/bootstrap`
+rtlcss-directive comment-corruption bug had it been an XML/HTML bug, since a
+corrupted comment is often still syntactically valid; (4) CDATA content,
+byte-identical (no whitespace normalization — CDATA is opaque/verbatim).
+Node-type mismatches at the same tree position are reported as a structural
+mismatch. Exit 0/1, description of every mismatch on mismatch, exit 2 if the
+original itself doesn't parse (not applicable). Verified against a
+hand-crafted good pair (whitespace-only reformat) and a deliberately-mutated
+bad pair (attribute reorder + comment text change) before being trusted for
+real dogfood use — both caught correctly. Written and first used during the
+`apache/maven` XML dogfood session (see Checklist); reusable as-is for the
+remaining XML test-fixture repos (`apache/ant`, `jenkinsci/jenkins`,
+`w3c/svgwg`). Usage: `python3 xml_content_diff.py <original.xml>
+<formatted.xml>` (stdlib only, no `npm install` needed, unlike the `*_sc.js`
+scripts).
+
 `html_sc.js` (`parse5`, `onParseError`) also exists for HTML5, but per-spec
 HTML5 parsing is deliberately error-tolerant (e.g. auto-closes mismatched
 tags rather than failing), so it only catches the narrow set of conditions
@@ -464,7 +490,8 @@ None recorded yet in this file.
       `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format —
       **`json5/json5` done, `microsoft/vscode` done, `babel/babel` done**
       (see below); `eslint/eslint` still not started for JSON;
-      `apache/maven`/etc. still not started for XML;
+      **`apache/maven` done for XML (first XML dogfood run, see below)**;
+      `apache/ant`/`jenkinsci/jenkins`/`w3c/svgwg` still not started for XML;
       **`twbs/bootstrap`/`necolas/normalize.css`/`foundation/foundation-sites`/
       `primer/css` done for CSS — all four CSS test-fixture repos now
       dogfood-tested** (see below);
@@ -781,3 +808,51 @@ None recorded yet in this file.
       real-code-testing sub-portion of this checklist item is complete; the
       overall item stays unchecked pending XML, HTML5, YAML, and TOML
       repos (CSS's sub-portion is already complete per its own note above).
+      **`apache/maven` (XML, first XML dogfood run; fresh shallow clone
+      `--depth 1`, not found under `/tmp` from a prior session):** 3158
+      `.xml` files found (no `target`/`build`/generated-output dirs present
+      at all — a fresh shallow clone with no build ever run — so no
+      exclusions were needed on that front). 3158 is well above the "several
+      hundred+" sampling threshold, so a **representative sample of 398
+      files** was taken (not the full set), per this session's sizing
+      guidance: **all 90 top-level/module `pom.xml` files** (one per Maven
+      module across the whole multi-module repo, giving a genuine
+      cross-section of Maven's signature artifact from trivial parent POMs
+      to large multi-dependency ones), plus every 10th of the remaining
+      1882 `pom.xml` files living under `src/.../test/resources/**` (189
+      sampled — these are small hand-authored POM fixtures used by Maven's
+      own model-builder/core test suites), plus every 10th of the 1186
+      non-`pom.xml` `.xml` files (settings.xml, `maven-metadata.xml`,
+      `extensions.xml`, `components.xml`, `web.xml`, Doxia `site.xml`, etc.;
+      119 sampled) — 398 total. Baseline syntax-check of the unformatted
+      sample first (`xml_sc.js`): 397/398 pass; the one failure
+      (`its/core-it-suite/src/test/resources/mng-5898/servlets/servlet/
+      src/main/webapp/WEB-INF/web.xml`) is a genuinely 0-byte fixture file
+      (not valid XML by definition), a pre-existing repo artifact, not a
+      formatter concern. Round1 format (`--preserve-tree --root`, one
+      invocation): exit 0, 398/398 processed (the empty file stays empty, as
+      expected — same as the JSON dogfood runs' empty-file precedent).
+      Round2 vs round1: `diff -rq` empty across all 398 files — clean
+      idempotency. Syntax-check of round1 output: 397/398 pass, exactly
+      matching the 397/398 baseline — zero formatter-induced corruption.
+      **Content-preservation check:** no `xml_content_diff.py` existed yet
+      for XML (unlike CSS's `css_content_diff.py`) — written this session
+      (see "Dogfood Output Validation" above), verified against a
+      hand-crafted good/bad pair before trusting it for real use, then run
+      across all 397 non-empty sample files: 355/397 exact match, 42/397
+      reported a mismatch — **all 86 individual mismatches across those 42
+      files are comment-text differences that are case-insensitive-equal to
+      the original** (verified programmatically, not just by inspection),
+      i.e. exactly the documented `normalize-comment-start-case=on` default
+      behavior capitalizing a lowercase-starting prose comment's first
+      letter (e.g. `'various versions'` -> `'Various versions'`) — the same
+      already-accepted normalization the `primer/css` CSS dogfood session
+      hit and confirmed was correct behavior, not a defect. Zero attribute-
+      order, text-content, CDATA-content, or structural (node-type/child-
+      count) mismatches were found in any of the 397 files. **Zero bugs
+      found** — forward 397/398 (1 pre-existing empty fixture, expected),
+      idempotency 398/398, syntax-check 397/398 (matching baseline exactly),
+      content-preservation 397/397 once the universally-expected comment
+      capitalization is accounted for. No new fixtures needed (nothing to
+      regress-test). `apache/ant`, `jenkinsci/jenkins`, `w3c/svgwg` remain
+      not-started for XML.

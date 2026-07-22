@@ -75,7 +75,8 @@ rule set. Revisit once §5 graduates out of draft status.
 
 For §5 Reflection tokenizer/rule validation (see Scope §5 and Checklist
 below), real-code testing against:
-- `bloomberg/clang-p2996`
+- `bloomberg/clang-p2996` — checked this session: repo is empty/unusable, no
+  further attempts needed
 - `wrocpp/cpp26-reflection-examples`
 - `simdjson/experimental_json_builder`
 - `stephenberry/glaze`
@@ -334,6 +335,35 @@ Question here since real implementation hasn't started.
       user instruction, since the pair was needed to seed the initial
       tokenizer test for `^^`/`[:`/`:]` — its expected output still isn't
       validated against that cross-check.
-- [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
-      this file's "Test Fixtures (External, corpus-scale)" list, once §5
-      is implemented.
+- [x] Real-code testing pass against `wrocpp/cpp26-reflection-examples`
+      done this session (fresh shallow clone under `/tmp`, not previously
+      present). 103 `.cpp`/`.hpp`/`.h`/`.cc` files (curated reflection blog
+      examples repo), 51 of which exercise `^^`/`[: :]`/`template for`
+      syntax. Formatted in one batch via `--out`/`--preserve-tree`/`--root`
+      — zero crashes/exceptions. round1 -> round2 `diff -r` empty (103/103
+      idempotent). No bugs found — zero fixtures added. Compilation not
+      attempted: system's only available compilers are `g++ 4.8.5` and
+      `clang++ 3.7.1`, both far too old for any P2996/reflection support
+      (predates even C++20), so full compile verification isn't possible on
+      this system; idempotency + manual inspection used as the documented
+      fallback. Manually spot-checked several files with reflection syntax
+      (`hello_reflection.cpp`, `posts/03-splicing/examples/
+      splice_basics.cpp`, `posts/20-reflect-arbitrary/examples/
+      arbitrary.cpp`): `^^int`/`^^T`/`^^Point` stay tight as designed;
+      `[: r_int :]`/`obj.[: m :]` collapse to tight (`[:r_int:]`/
+      `obj.[:m:]`) when interior is a bare identifier, stay loose
+      (`[: std::meta::type_of(m) :]`) when interior contains a nested
+      call/`::`-qualified expression — consistent with the existing
+      `isLoose` bracket-complexity rule, no corruption in either case;
+      `template for(...)` renders with the same no-space-before-paren
+      style as ordinary `for(...)` in this corpus's config, and a
+      single-statement body collapses to inline exactly like an ordinary
+      single-statement `for` loop does (confirmed this is pre-existing
+      general behavior, not reflection-specific or a new bug, by
+      reproducing with a plain non-`template` `for` snippet in `/tmp`); a
+      multi-statement `template for` body correctly keeps its braces. This
+      now provides real external corpus validation for §5 previously noted
+      as pending (see Scope §5 / Test Fixtures (External, corpus-scale)).
+      `bloomberg/clang-p2996` confirmed empty/unusable (see that section).
+      `simdjson/experimental_json_builder`, `stephenberry/glaze` remain
+      not-started.

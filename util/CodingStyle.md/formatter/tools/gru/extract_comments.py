@@ -45,8 +45,6 @@ HASH_STYLE_LANGS = {"yaml", "toml", "python3"}
 # Languages whose comment syntax is "<!-- -->" block only.
 XML_STYLE_LANGS = {"xml", "html5"}
 
-LINE_COMMENT_RE = re.compile(r"//(.*)$", re.MULTILINE)
-BLOCK_COMMENT_RE = re.compile(r"/\*(.*?)\*/", re.DOTALL)
 HASH_COMMENT_RE = re.compile(r"#(.*)$", re.MULTILINE)
 XML_COMMENT_RE = re.compile(r"<!--(.*?)-->", re.DOTALL)
 
@@ -57,13 +55,43 @@ XML_COMMENT_RE = re.compile(r"<!--(.*?)-->", re.DOTALL)
 SKIP_DIR_NAMES = {".git", "target", "node_modules", "__pycache__", "3rd_party"}
 
 
+def extract_c_style_comments(text):
+    # A single left-to-right scan, rather than independent "//" and "/* */"
+    # regex passes: a "//" line comment can itself contain a literal "/*"
+    # (e.g. "///*mlen = n;", a common commented-out-code idiom), and an
+    # independent BLOCK_COMMENT_RE pass would match that embedded "/*" as a
+    # real block-comment opener, then non-greedily swallow everything up to
+    # some unrelated later "*/" -- silently merging code into the "comment".
+    # Scanning once and treating "//"/"/* */" as mutually exclusive consumed
+    # spans avoids that: a "/*" found while already inside a "//" span was
+    # already consumed as line-comment text, so it can't be reinterpreted.
+    comments = []
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i:i + 2] == "//":
+            end = text.find("\n", i + 2)
+            if end == -1:
+                end = n
+            comments.append(text[i + 2:end])
+            i = end
+        elif text[i:i + 2] == "/*":
+            end = text.find("*/", i + 2)
+            if end == -1:
+                comments.append(text[i + 2:])
+                i = n
+            else:
+                comments.append(text[i + 2:end])
+                i = end + 2
+        else:
+            i += 1
+    return comments
+
+
 def extract_from_text(text, lang):
     comments = []
     if lang in C_STYLE_LANGS:
-        for m in BLOCK_COMMENT_RE.finditer(text):
-            comments.append(m.group(1))
-        for m in LINE_COMMENT_RE.finditer(text):
-            comments.append(m.group(1))
+        comments.extend(extract_c_style_comments(text))
     elif lang in HASH_STYLE_LANGS:
         for m in HASH_COMMENT_RE.finditer(text):
             comments.append(m.group(1))

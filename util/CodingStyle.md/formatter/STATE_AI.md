@@ -940,6 +940,42 @@ and closing conclusion below:
    placeholder vocab-count purpose, but remains explicitly fake, not real
    extracted text.
 
+   **First real acquisition run: eCxx/SusterCaller/VMA-GIT (own dogfooded
+   repos, per RDD_EXT_16), and a real extraction-tool bug found and fixed
+   along the way.** Re-running `extract_comments.py` against the same
+   combined corpus already measured above (58739 comments / 0.4% ABSTAIN)
+   and feeding it through `gru-extract-pool-a`/`gru-extract-pool-b`
+   surfaced a genuine defect, not just expected noise: `BLOCK_COMMENT_RE`
+   and `LINE_COMMENT_RE` scanned the text independently, so a literal `/*`
+   occurring inside a `//` line comment (a common commented-out-code idiom,
+   e.g. `///*mlen = n;`) got matched by the block-comment regex on its own
+   and non-greedily swallowed everything up to some unrelated *later* `*/`
+   -- merging real code (and sometimes a real subsequent Javadoc block)
+   into one bogus "comment" record. Reproduced concretely at
+   `TweetNacl.java:2354-2364` in SusterCaller. Fixed by replacing the
+   two-regex approach with a single left-to-right scanner
+   (`extract_c_style_comments` in `extract_comments.py`) that treats `//`
+   and `/* */` as mutually exclusive consumed spans, so a `/*` already
+   inside a consumed `//` span can never be reinterpreted as a block
+   opener. Verified against the exact reproduction snippet and against the
+   real `SimpleAppletStub.java`/BearSSL/esp8266 sources that had produced
+   large multi-line entries pre-fix -- those turned out to be genuine large
+   `/* ... */` blocks of intentionally commented-out code or license
+   headers, not tool-corrupted merges, and are now extracted correctly as
+   single coherent comments.
+
+   Post-fix counts for the eCxx/SusterCaller/VMA-GIT corpus (57974
+   comments, down from 58739 pre-fix -- the difference is exactly the
+   bogus merged records the bug used to produce): **Pool A 167 candidates**
+   (c=49, cpp=92, java=26); **Pool B 241 candidates** (c=181, cpp=54,
+   java=6, unchanged from pre-fix since Pool B's filter runs on raw text
+   and wasn't sensitive to this particular merge bug). Pool B's usual
+   recall-favoring false positives (Doxygen blocks, GPL/LGPL license
+   headers matched via `etc.`/single-capital-dot) are present and expected
+   per RDD_EXT_15, to be discarded during by-hand labeling, not a defect.
+   Per RDD_EXT_19, none of this run's actual output is committed -- only
+   these summary counts are recorded here.
+
 Item 9 is now CLOSED (see conclusion above) and no longer blocks anything.
 Everything downstream is still NOT STARTED, but is now blocked only on
 actually doing the work, not on any further measurement or decision:

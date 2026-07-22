@@ -850,13 +850,35 @@ item** — it needs an actual measurement run, not a decision:
      ordinary hand-written comment style** — future extraction passes
      should consider excluding known third-party/vendored directories (this
      run's `extract_comments.py` invocation did not exclude `3rd_party/`).
+   - **`extract_comments.py` now excludes `3rd_party` directories** (added to
+     `SKIP_DIR_NAMES` alongside `.git`/`target`/`node_modules`/`__pycache__`),
+     per the lesson above. Both runs above were re-run after the fix:
+     - `eCxx` + `SusterCaller` + `VMA-GIT`: 58739 comments (down from 65754 —
+       the excluded volume was mostly non-comment noise elsewhere), overall
+       ABSTAIN **0.4%** (unchanged) -- c 30351/81 = 0.3%, cpp 20732/109 =
+       0.5%, java 7032/31 = 0.4% (unchanged, no `3rd_party` java there),
+       python3 239/0 = **0.0%** (down from 0.9%/27 -- those abstains were
+       apparently all inside a vendored `3rd_party` Python file).
+     - `TTGO_VGA32_Lite` + `RobotCoding`: 38870 comments (down from 67549 --
+       confirms `3rd_party` was the bulk of the corpus), overall ABSTAIN
+       dropped from 14.6% to **4.6%** -- c 27502/1701 = **5.8%** (down from
+       16.9%, confirming the misaki font table was almost all of the prior
+       spike, though c is still the highest of any language/run measured so
+       far), cpp 5752/75 = 1.3%, java 2831/8 = 0.3%, python3 253/3 = 1.2%,
+       kotlin/html5/css/xml/yaml near-zero volume at 0%. The remaining
+       elevated-vs-eCxx C rate (5.8% vs 0.3%) hasn't been investigated
+       further -- could be genuine embedded/hardware-comment style
+       (`RDD_EXT_15`-style short comments with keywords are plausibly more
+       common in this kind of firmware code), not necessarily another
+       vendored-file artifact, but that's not confirmed.
    - These are still preliminary/directional, not the final item-9
      measurement: coverage is limited to whatever languages/repos happened
      to be scanned, and RDD_EXT_16's full corpus plan (own dogfooded repos
      first, then vetted public repos) hasn't been fully run yet. The spread
-     across runs so far (0.4% / 1.4% / 14.6%) itself shows the ABSTAIN rate
-     is highly corpus-dependent, reinforcing that item 9 needs the full
-     planned corpus, not one or two repos, before sizing a training set.
+     across runs, post-`3rd_party`-exclusion (0.4% / 1.4% / 4.6%), is
+     narrower than before but still shows the ABSTAIN rate is corpus-
+     dependent, reinforcing that item 9 needs the full planned corpus, not
+     one or two repos, before sizing a training set.
 
 Everything downstream is blocked on this measurement plus the actual
 training-data acquisition it feeds into: acquiring/labeling the Pool A/Pool

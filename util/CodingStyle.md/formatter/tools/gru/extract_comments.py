@@ -50,7 +50,11 @@ BLOCK_COMMENT_RE = re.compile(r"/\*(.*?)\*/", re.DOTALL)
 HASH_COMMENT_RE = re.compile(r"#(.*)$", re.MULTILINE)
 XML_COMMENT_RE = re.compile(r"<!--(.*?)-->", re.DOTALL)
 
-SKIP_DIR_NAMES = {".git", "target", "node_modules", "__pycache__"}
+# "3rd_party" excluded per STATE_AI.md's item-9 lesson: a single vendored
+# non-code-comment data file (a bitmap-font glyph table) dominated a whole
+# language's ABSTAIN count in an earlier run and wasn't representative of
+# ordinary hand-written comment style.
+SKIP_DIR_NAMES = {".git", "target", "node_modules", "__pycache__", "3rd_party"}
 
 
 def extract_from_text(text, lang):

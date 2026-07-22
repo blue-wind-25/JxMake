@@ -1141,6 +1141,25 @@ Real-code regressions:
                                             copyright-header comment block on this fixture -- plain
                                             `.json` has no comment syntax to carry it.
 
+  real_code_regressions_69_inp/out.css   -- CSS, twbs/bootstrap real-code testing (content-
+                                            preservation spot-check, not the syntax-checker): CSS's
+                                            lightweight `normalize-comment-start-case` unconditionally
+                                            capitalized any lowercase-starting comment, corrupting
+                                            case-sensitive third-party tool directives like rtlcss's
+                                            `/* rtl:begin:ignore */`/`/* rtl:end:ignore */` into
+                                            `/* Rtl:begin:ignore */` (silently breaking rtlcss's
+                                            directive parsing) -- found because it still parses as
+                                            valid CSS, so the syntax-checker alone would have missed
+                                            it. Fixed by adding a directive-comment carve-out
+                                            (`FormatterSimpleBraced.isSingleTokenDirective`): a
+                                            single-line comment whose entire trimmed body is one
+                                            whitespace-free token containing `:` or `-` (e.g.
+                                            `rtl:begin:ignore`, `stylelint-disable`) is left alone,
+                                            while ordinary prose that merely starts with a
+                                            colon/hyphen-containing word followed by more text (e.g.
+                                            `auto-generated file, do not edit`) is still capitalized
+                                            as before.
+
 How Tests Are Run
 -----------------
 

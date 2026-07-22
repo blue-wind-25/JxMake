@@ -50,7 +50,16 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
      *  {@code MiscRuleCore.capitalizeFirstLetter}, this has no keyword-exclusion list or
      *  classifier gate -- JSON/CSS have no language keywords a comment could start with that
      *  would need protecting from titlecasing. Only the very first line of a multi-line block
-     *  comment is affected: {@code content.length()} scanning stops at the first letter found. */
+     *  comment is affected: {@code content.length()} scanning stops at the first letter found.
+     *  <p><b>Directive-comment carve-out</b> (found via real-code dogfood testing against
+     *  `twbs/bootstrap`): a single-line comment whose entire trimmed body contains no whitespace
+     *  at all (e.g. CSS's `/* rtl:begin:ignore *&#47;`/`/* rtl:end:ignore *&#47;` -- a case-sensitive
+     *  rtlcss build-tool directive, or `/* stylelint-disable *&#47;`) is treated as an opaque
+     *  machine-readable token, not an English prose sentence, and is never capitalized -- doing so
+     *  would silently break the third-party tool that parses it. This is narrower than "starts with
+     *  a lowercase word containing a colon" (which would wrongly suppress the common `TODO: fix
+     *  this` / `NOTE: ...` prose convention, already capitalized as-is since `TODO`/`NOTE` start
+     *  uppercase): only a body with *zero* whitespace anywhere is treated as directive-like. */
     public static String capitalizeCommentStart(final String commentText) {
         final int delimLen = commentText.startsWith("//") || commentText.startsWith("/*") ? 2 : 0;
         int i = delimLen;
@@ -59,11 +68,51 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
         }
         if (i < commentText.length()) {
             final char c = commentText.charAt(i);
-            if (Character.isLetter(c) && Character.isLowerCase(c)) {
+            if (Character.isLetter(c) && Character.isLowerCase(c) && !isSingleTokenDirective(commentText, i)) {
                 return commentText.substring(0, i) + Character.toUpperCase(c) + commentText.substring(i + 1);
             }
         }
         return commentText;
+    }
+
+    /** True iff the first line's entire body (starting at {@code bodyStart}, the first
+     *  non-whitespace character after the delimiter, up to end-of-line or the comment's closing
+     *  `*&#47;`/end-of-string) is a *single* whitespace-free token containing a `:` or `-`
+     *  separator -- i.e. the whole comment line is one opaque directive like `rtl:begin:ignore` or
+     *  `stylelint-disable`, not a prose sentence that merely happens to start with a
+     *  hyphenated/colon-containing word (e.g. "auto-generated file, do not edit" has more content
+     *  after the first token and must NOT be treated as directive-like). */
+    private static boolean isSingleTokenDirective(final String commentText, final int bodyStart) {
+        int end = bodyStart;
+        while (end < commentText.length()) {
+            final char c = commentText.charAt(end);
+            if (c == '\n' || Character.isWhitespace(c)) {
+                break;
+            }
+            if (c == '*' && end + 1 < commentText.length() && commentText.charAt(end + 1) == '/') {
+                break;
+            }
+            end++;
+        }
+        // Everything from `end` to line-end/comment-close must be pure trailing whitespace (plus
+        // the closing `*&#47;`, if any) -- otherwise more sentence content follows the first token
+        // and this isn't a single-token directive comment.
+        int rest = end;
+        while (rest < commentText.length()) {
+            final char c = commentText.charAt(rest);
+            if (c == '\n') {
+                break;
+            }
+            if (c == '*' && rest + 1 < commentText.length() && commentText.charAt(rest + 1) == '/') {
+                break;
+            }
+            if (!Character.isWhitespace(c)) {
+                return false;
+            }
+            rest++;
+        }
+        final String token = commentText.substring(bodyStart, end);
+        return token.indexOf(':') >= 0 || token.indexOf('-') >= 0;
     }
 
     /** Reindents a (possibly multi-line) block comment's continuation lines to the new structural

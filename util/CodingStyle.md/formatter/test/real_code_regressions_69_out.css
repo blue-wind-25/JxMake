@@ -1,0 +1,18 @@
+/*
+ * Copyright (C) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+.carousel-caption {
+    color : red;
+}
+/* rtl:begin:ignore */
+.carousel-caption {
+    margin-right : .75rem;
+    margin-left  : .75rem;
+}
+/* rtl:end:ignore */
+/* stylelint-disable */
+.badge {
+    color : blue;
+}
+/* Auto-generated file, do not edit */

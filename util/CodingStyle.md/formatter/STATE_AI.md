@@ -639,8 +639,9 @@ Items 1, 2, 5, 6, 7, 8 below were pure judgment calls with no data
 dependency, so they're now resolved (RDD_EXT_10–15, added to the index
 above). Items 3, 4, 10 were likewise decidable by judgment call (session
 Q&A, RDD_EXT_16–18) even without real data yet — recorded as starting
-points, explicitly revisitable once real measurements land. Item 9 remains
-genuinely open — it needs an actual measurement run, not a decision:
+points, explicitly revisitable once real measurements land. Item 9 is now
+CLOSED — see "Remaining blocked open items" below for the full measurement
+and its conclusion:
 
 3. **Training hyperparameters** — resolved as a starting-point default, not
    a final answer. See RDD_EXT_18 (Adam, lr~1e-3, batch 32, 20-50 epochs,
@@ -649,15 +650,16 @@ genuinely open — it needs an actual measurement run, not a decision:
 4. **Evaluation target** — resolved as a starting-point bar. See RDD_EXT_17
    (90% precision to resolve ABSTAIN→YES/NO, GRU itself abstains below the
    bar). Revisit against item 9's measured rate once available.
-9. **Real ABSTAIN-rate measurement** — the "run the existing rule-based
-   classifier over a large sample first, measure before committing to a
-   training-set size" step is planned but not yet executed; current
-   pool-size estimates are directional, not measured. Still genuinely open.
-   Tooling to run this measurement now exists (`tools/gru/extract_comments.py`
-   + `tools/gru/CommentAbstainTally.java`, `make gru-measure-abstain-rate` —
-   see "Remaining blocked open items" below) — the tooling doesn't resolve
-   this item by itself, it still needs to actually be pointed at a real,
-   sizeable comment corpus and run.
+9. **Real ABSTAIN-rate measurement — CLOSED.** The "run the existing
+   rule-based classifier over a large sample first, measure before
+   committing to a training-set size" step has now been executed across 14
+   corpora (own repos plus every job's public dogfood/test-fixture list),
+   ~199,000 comments total. Conclusion: the ABSTAIN rate is consistently
+   0.0%-0.6% for ordinary comment corpora, confirming random sampling is
+   impractical for training-set acquisition and targeted extraction (as
+   RDD_EXT_15 already chose for Pool B) is the right approach for Pool A
+   too. See "Remaining blocked open items" below for the full run-by-run
+   detail and conclusion.
 10. **Licensing/provenance check** for bulk-sourced GitHub comment data —
     resolved via data-source choice. See RDD_EXT_16 (own dogfooded repos
     first, vetted permissive public repos as a later extension).
@@ -779,13 +781,14 @@ dense-head weights exist anywhere, `GruClassifier.classify` always returns
 `ABSTAIN`, and `Vocabulary`'s ~3.5k-word explicit vocab is still unseeded.
 Items 3, 4, and 10 from "Open refinement items" above are now resolved as
 starting-point decisions via session Q&A (RDD_EXT_16–18 — data source, eval
-target, hyperparameters). **Item 9 remains the sole genuinely blocking
-item** — it needs an actual measurement run, not a decision:
+target, hyperparameters). **Item 9 is now CLOSED** — full run-by-run detail
+and closing conclusion below:
 
-9. **Real ABSTAIN-rate measurement** — running the existing rule-based
-   `CommentClassifier` over a large comment sample to measure the actual
-   ABSTAIN rate, before committing to a training-set size, hasn't been
-   done yet. **Tooling for this now exists** (not yet run against real data):
+9. **Real ABSTAIN-rate measurement — CLOSED.** Running the existing
+   rule-based `CommentClassifier` over a large comment sample to measure the
+   actual ABSTAIN rate, before committing to a training-set size, has now
+   been done (see conclusion at the end of this item). **Tooling for this
+   now exists:**
    `tools/gru/extract_comments.py` walks a source tree, maps file extensions
    to `Lang`-recognized language strings, and extracts raw comment text
    (marker-stripped) per language's comment syntax into a flat
@@ -992,14 +995,51 @@ item** — it needs an actual measurement run, not a decision:
      except css/html5/json5/toml/js/ts (all only seen at low/trace volume
      as side effects of other repos' file mixes so far).
 
-Everything downstream is blocked on this measurement plus the actual
-training-data acquisition it feeds into: acquiring/labeling the Pool A/Pool
-B training sets from RDD_EXT_16's chosen sources (own dogfooded repos
-first), populating `Vocabulary`'s ~3.5k-word explicit vocab content, adding
-the embedding table/GRU weight matrices/dense-head weights to `GruWeights`,
-implementing `GruClassifier.classify`'s actual forward pass, implementing
-`GruTrainer`'s training loop using RDD_EXT_18's starting hyperparameters,
-and writing the first real weights file, evaluated against RDD_EXT_17's 90%
-precision starting bar. Do not guess at item 9 to unblock this work —
-resolve it per `STATE_COMMON.md`'s ambiguity-handling protocol first (i.e.
-actually run the measurement, don't estimate it).
+   **Conclusion — item 9 CLOSED.** Across 14 corpora (3 own-repo, 11
+   public-repo; ~199,000 comments total, not deduplicated across reruns)
+   spanning every job's own dogfood/test-fixture list
+   (`STATE_C_CPP_JAVA.md`, `STATE_KOTLIN.md`, `STATE_JS_TS.md`,
+   `STATE_DATA_FORMATS.md` ×4 sub-formats, `STATE_PYTHON3.md`,
+   `STATE_CPP26.md`) and 10 of `Lang.SUPPORTED_LANGUAGES`'s 14 languages at
+   meaningful volume (c, cpp, java, kotlin, python3, xml, yaml, css, js,
+   toml-trace; json5/html5/ts only ever seen at trace volume as a side
+   effect of other repos' file mixes, toml likewise trace-only), the
+   rule-based `CommentClassifier`'s real-world ABSTAIN rate is **consistently
+   in the 0.0%-0.6% band** for ordinary hand-written comment corpora,
+   regardless of language or repo, with exactly two explained departures:
+   (a) `TTGO_VGA32_Lite`+`RobotCoding`'s 4.6% (c sub-rate 5.8%), fully traced
+   to vendored bitmap-font glyph-table files and embedded third-party code,
+   not a classifier defect or genuine corpus variance; (b) `json5/json5`'s
+   14.6%, on a 103-comment sample too small to be informative, flagged as
+   an unexplored outlier rather than root-caused. No other run showed any
+   anomaly worth investigating.
+
+   **Implication for training-set sizing (feeds RDD_EXT_18's hyperparameters
+   and the still-not-started Pool A/Pool B acquisition):** at a ~0.3-0.5%
+   typical ABSTAIN rate, random sampling over a raw comment corpus would
+   need an impractically large raw volume to yield a usable labeled
+   training set. This confirms RDD_EXT_15's Pool B design choice (targeted
+   grep-based extraction, not random sampling) was the right call, and the
+   same targeted-extraction principle should apply to Pool A's construction
+   too, once that acquisition actually starts — measure-first sizing (this
+   item's whole purpose) is done; volume-based random sampling is now ruled
+   out as impractical, not merely undesirable.
+
+   **This closes item 9.** It no longer blocks anything below. The next
+   actionable step for Step 3 as a whole is starting the actual Pool A/Pool
+   B training-data acquisition per RDD_EXT_16 (own dogfooded repos first),
+   using the corpora and tooling (`tools/gru/extract_comments.py` +
+   `tools/gru/CommentAbstainTally.java`) already exercised above as the
+   starting extraction base rather than re-deriving from scratch.
+
+Item 9 is now CLOSED (see conclusion above) and no longer blocks anything.
+Everything downstream is still NOT STARTED, but is now blocked only on
+actually doing the work, not on any further measurement or decision:
+acquiring/labeling the Pool A/Pool B training sets from RDD_EXT_16's chosen
+sources (own dogfooded repos first, using targeted extraction per item 9's
+sizing conclusion, not random sampling), populating `Vocabulary`'s ~3.5k-word
+explicit vocab content, adding the embedding table/GRU weight matrices/
+dense-head weights to `GruWeights`, implementing `GruClassifier.classify`'s
+actual forward pass, implementing `GruTrainer`'s training loop using
+RDD_EXT_18's starting hyperparameters, and writing the first real weights
+file, evaluated against RDD_EXT_17's 90% precision starting bar.

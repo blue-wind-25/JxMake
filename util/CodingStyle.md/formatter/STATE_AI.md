@@ -824,10 +824,21 @@ item** — it needs an actual measurement run, not a decision:
      keyword, not random sampling) matters even more than assumed, since
      random sampling at this rate would need a very large raw volume to
      yield a usable labeled set.
+   - `~/Projects/TTGO_VGA32_Lite` + `~/Projects/RobotCoding` combined: 67549
+     comments classified, overall ABSTAIN rate **14.6%** — notably higher
+     than the two runs above (c 47991/9774 = **16.9%**, cpp 5866/78 = 1.3%,
+     java 2831/8 = 0.3%, python3 253/3 = 1.2%, kotlin/html5/css/xml/yaml
+     near-zero volume at 0%). The c-language ABSTAIN rate here is an order
+     of magnitude above every other run so far — worth a closer look at
+     *why* (this repo's C comment style vs. the others') before treating
+     any single run's rate as representative; not yet investigated.
    - These are still preliminary/directional, not the final item-9
      measurement: coverage is limited to whatever languages/repos happened
      to be scanned, and RDD_EXT_16's full corpus plan (own dogfooded repos
-     first, then vetted public repos) hasn't been fully run yet.
+     first, then vetted public repos) hasn't been fully run yet. The spread
+     across runs so far (0.4% / 1.4% / 14.6%) itself shows the ABSTAIN rate
+     is highly corpus-dependent, reinforcing that item 9 needs the full
+     planned corpus, not one or two repos, before sizing a training set.
 
 Everything downstream is blocked on this measurement plus the actual
 training-data acquisition it feeds into: acquiring/labeling the Pool A/Pool

@@ -1124,6 +1124,23 @@ Real-code regressions:
                                             -- originally found via ericniebler/range-v3 item 20 bug
                                             (a), see STATE_C_CPP_JAVA.md Open Questions).
 
+  real_code_regressions_68_inp/out.json  -- JSON, microsoft/vscode real-code testing: an object
+                                            containing only blank lines (no comment) before its
+                                            closing `}` was kept as a non-empty container via a
+                                            dangling placeholder `Item`, forcing loose `{\n}`
+                                            rendering on the first pass -- but that placeholder's
+                                            blank-line intent is never actually emitted to output
+                                            (renderItems only prints a blank line before item index
+                                            > 0), so reformatting the already-loose output found no
+                                            blank line before `}` and collapsed it to tight `{}`
+                                            (non-idempotent). Fixed by only keeping the dangling
+                                            placeholder when there's a real leading comment to
+                                            preserve; a comment-less blank line before the closer is
+                                            now dropped during parsing, so a `{ <blank lines> }`
+                                            input formats straight to `{}` in one pass. No standard
+                                            copyright-header comment block on this fixture -- plain
+                                            `.json` has no comment syntax to carry it.
+
 How Tests Are Run
 -----------------
 

@@ -24,7 +24,7 @@ TEST_TMP      = $(BUILD_DIR)/test-out
 
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
-.PHONY: all build jar clean gru-train test bench test-server
+.PHONY: all build jar clean gru-train gru-measure-abstain-rate test bench test-server
 
 all build jar:
 	@if $(MAKE) --no-print-directory -q $(JAR_FILE); then \
@@ -83,6 +83,29 @@ gru-train: $(JAR_FILE)
 	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT)
 	@cp $(GRU_WEIGHTS_OUT) $(CLASS_DIR)
 #	@cp $(GRU_WEIGHTS_OUT) .
+
+
+# ── GRU ABSTAIN-rate measurement (STATE_AI.md Step 3 open item 9) ───────────
+#
+# Compiles and runs tools/gru/CommentAbstainTally.java against a comment
+# corpus extracted by tools/gru/extract_comments.py, tallying the real
+# rule-based CommentClassifier's YES/NO/ABSTAIN counts. This is item 9's
+# measurement step -- not a decision, an actual run against real comments.
+#
+# Usage:
+#   python3 tools/gru/extract_comments.py <root-dir> [<root-dir> ...] --out /tmp/comments.txt
+#   make gru-measure-abstain-rate GRU_ABSTAIN_INPUT=/tmp/comments.txt
+#
+GRU_ABSTAIN_INPUT    ?=
+
+gru-measure-abstain-rate: $(JAR_FILE)
+	@if [ -z "$(GRU_ABSTAIN_INPUT)" ]; then \
+		echo "gru-measure-abstain-rate: set GRU_ABSTAIN_INPUT=<path from extract_comments.py>"; \
+		exit 2; \
+	fi
+	@mkdir -p $(GRU_TOOLS_CLASSES)
+	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/CommentAbstainTally.java
+	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) CommentAbstainTally $(GRU_ABSTAIN_INPUT)
 
 
 # ── Test target ───────────────────────────────────────────────────────────────
@@ -237,6 +260,7 @@ INP_FILES += real_code_regressions_64_inp.kt
 INP_FILES += real_code_regressions_65_inp.java
 INP_FILES += real_code_regressions_66_inp.java
 INP_FILES += real_code_regressions_67_inp.hpp
+INP_FILES += real_code_regressions_68_inp.json
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

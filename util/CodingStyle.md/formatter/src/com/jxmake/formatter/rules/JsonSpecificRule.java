@@ -215,7 +215,14 @@ public final class JsonSpecificRule {
             }
             if (Token.isPunct(t, closer)) {
                 c.i++;
-                if (!item.leadingComments.isEmpty() || item.blankBefore) {
+                // A dangling blank line with no comment before the closer carries no information
+                // that survives to rendered output (it would only ever be rendered via
+                // renderItems' `i > 0 && item.blankBefore` check, which never fires for the first
+                // item in the list) -- keeping it as a placeholder made an empty-looking container
+                // non-empty per c.items.isEmpty(), forcing loose "{\n}" rendering that collapses to
+                // tight "{}" on the very next reformat (non-idempotent). Only a real dangling
+                // trailing comment needs the placeholder.
+                if (!item.leadingComments.isEmpty()) {
                     item.value = null;
                     container.items.add(item);
                 }

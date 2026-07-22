@@ -800,6 +800,35 @@ item** — it needs an actual measurement run, not a decision:
    representative; the real measurement still needs to run against
    RDD_EXT_16's chosen corpus (own dogfooded repos first).
 
+   **Preliminary real-corpus runs (not yet the final measurement, no
+   training-set-size decision made from these numbers yet):**
+
+   - `~/Projects/eCxx` + `~/Projects/SusterCaller` + `~/Projects/VMA-GIT`
+     combined: 65754 comments classified, overall ABSTAIN rate **0.4%**
+     (c 34191/97 abstain = 0.3%, cpp 21130/114 = 0.5%, java 7032/31 = 0.4%,
+     python3 2968/27 = 0.9%, xml/html5/yaml near-zero volume, 0% abstain).
+     No kotlin/js/ts/json/json5/toml/css comments turned up (those repos
+     have no files of those extensions), so this run doesn't exercise those
+     language paths.
+   - `JxMake/src/` (the build system's own source, `../../../src` relative
+     to this directory): 22857 comments classified, overall ABSTAIN rate
+     **1.4%** (java 22521/328 = 1.4%, xml near-zero volume at 0%).
+   - **Notable pattern across both runs: `CommentDecision.NO` never fires** —
+     every classified comment came back either `YES` or `ABSTAIN`, zero
+     `NO`s, in every language in both runs. Not yet traced into
+     `CommentClassifier`'s rule logic to confirm whether this is expected
+     real-world behavior or worth investigating separately.
+   - Both runs land well under the earlier ~5M-examples-style planning
+     assumption's implied ABSTAIN volume — at a ~0.4-1.4% ABSTAIN rate,
+     Pool A's targeted-extraction approach (short comments containing a
+     keyword, not random sampling) matters even more than assumed, since
+     random sampling at this rate would need a very large raw volume to
+     yield a usable labeled set.
+   - These are still preliminary/directional, not the final item-9
+     measurement: coverage is limited to whatever languages/repos happened
+     to be scanned, and RDD_EXT_16's full corpus plan (own dogfooded repos
+     first, then vetted public repos) hasn't been fully run yet.
+
 Everything downstream is blocked on this measurement plus the actual
 training-data acquisition it feeds into: acquiring/labeling the Pool A/Pool
 B training sets from RDD_EXT_16's chosen sources (own dogfooded repos

@@ -910,16 +910,22 @@ item** — it needs an actual measurement run, not a decision:
        near-zero volume at 0%) — consistent with every own-repo run's ~0.3-0.5%
        cpp/c rate so far, no anomaly investigated (no elevated-rate flag like
        the TTGO/RobotCoding runs above).
+     - `arrow-kt/arrow` (`/tmp/arrow_orig`, Apache-2.0 — `STATE_KOTLIN.md`'s
+       "Finished dogfood / real-code testing" list, item 5, reused as-is):
+       2787 comments, overall ABSTAIN **0.5%** (kotlin 2773/13 = 0.5%, toml
+       negligible volume at 0%) — first Kotlin-specific public-repo data
+       point, in line with the low own-repo Kotlin-adjacent rates seen so
+       far, no anomaly.
    - These are still preliminary/directional, not the final item-9
      measurement: coverage is limited to whatever languages/repos happened
      to be scanned, and RDD_EXT_16's full corpus plan (own dogfooded repos
-     first, then vetted public repos) hasn't been fully run yet -- these two
+     first, then vetted public repos) hasn't been fully run yet -- these
      public-repo runs are a first step into that second stage, not its
      completion. The spread across runs, post-`3rd_party`-exclusion (0.4% /
-     1.4% / 4.6% own-repo, 0.0% / 0.4% public-repo), is narrower than before
-     but still shows the ABSTAIN rate is corpus-dependent, reinforcing that
-     item 9 needs the full planned corpus, not one or two repos, before
-     sizing a training set.
+     1.4% / 4.6% own-repo, 0.0% / 0.4% / 0.5% public-repo), is narrower than
+     before but still shows the ABSTAIN rate is corpus-dependent, reinforcing
+     that item 9 needs the full planned corpus, not a handful of repos,
+     before sizing a training set.
 
 Everything downstream is blocked on this measurement plus the actual
 training-data acquisition it feeds into: acquiring/labeling the Pool A/Pool

@@ -541,8 +541,8 @@ None recorded yet in this file.
       Status: JSON/JSON5 complete (4/4 repos); CSS complete (4/4 repos); XML
       1/4 (`apache/maven` done; `apache/ant`/`jenkinsci/jenkins`/`w3c/svgwg`
       not started); YAML 2/4 (`kubernetes/kubernetes`, `docker/compose` done;
-      `ansible/ansible`/`actions/starter-workflows` not started); TOML 2/4
-      (`rust-lang/cargo`, `python-poetry/poetry` done; `pola-rs/polars`/
+      `ansible/ansible`/`actions/starter-workflows` not started); TOML 3/4
+      (`rust-lang/cargo`, `python-poetry/poetry`, `pola-rs/polars` done;
       `toml-lang/toml` not started); HTML5 not started. Overall item stays
       unchecked pending the remaining repos above.
 
@@ -688,8 +688,18 @@ None recorded yet in this file.
         (`toml_content_diff.py`, reused as-is) all 106/106 clean, zero
         crashes (nested inline-table dependency specs like
         `{ version = "^1.0", extras = ["foo"] }` hit no unhandled shape).
-        Zero bugs found. `pola-rs/polars`, `toml-lang/toml` remain
-        not-started.
+        Zero bugs found.
+      - `pola-rs/polars`: 57 files, full set processed (below sampling
+        threshold — every `Cargo.toml`/`pyproject.toml`/`clippy.toml`/
+        `rust-toolchain.toml`/`deny.toml`/`rustfmt.toml`/`.typos.toml` found,
+        incl. the workspace root, member crates of varying complexity, and
+        `py-polars`/`pyo3-polars` `pyproject.toml`s). Baseline 57/57 pass — no
+        deliberately-invalid fixtures in this corpus. Forward/idempotency/
+        syntax-check/content-preservation (`toml_content_diff.py`, reused
+        as-is) all 57/57 clean. Zero crashes on workspace-inheritance
+        dependency tables (`{ workspace = true, features = [...] }`), the
+        root `[workspace] members = [...]` array, or feature arrays. Zero
+        bugs found. `toml-lang/toml` remains not-started.
 
       **YAML (2/4 repos done):**
       - `kubernetes/kubernetes`: 6366 files found, above sampling threshold —

@@ -1,0 +1,12 @@
+# Copyright (C) 2024 Example Corp.
+# SPDX-License-Identifier: MIT
+steps :
+    - name : Checkout repository
+      uses : actions/checkout@v4
+    - name : Cache files
+      uses : actions/cache@v3
+      with :
+            path         : |
+                ~/.sonar
+            key          : ${{ runner.os }}-sonar
+            restore-keys : ${{ runner.os }}-sonar

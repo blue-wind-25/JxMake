@@ -1253,6 +1253,25 @@ Real-code regressions:
                                              by adding `.svg` alongside `.xml` in `Lang.infer`'s
                                              extension check.
 
+  real_code_regressions_75_inp/out.yaml   -- YAML, actions/starter-workflows real-code testing
+                                             (fourth and final planned YAML test-fixture repo): a
+                                             sequence item whose dash is followed by more than one
+                                             space before the key (`-   name: foo`, a style some
+                                             hand-authored YAML uses to visually align with a wider
+                                             indent-size elsewhere in the file) caused the next
+                                             sibling key (`uses:`) to be misidentified as a nested
+                                             child of the first key instead of a sibling, producing
+                                             invalid YAML (a "bad indentation" parse error) --
+                                             `parseSeqItem` computed the sibling-key column as a
+                                             hardcoded dash-plus-one-space offset instead of the
+                                             actual column the key started at. Found via syntax-
+                                             checking round1 output (not baseline, not idempotency --
+                                             the corrupted output failed to parse at all). Fixed by
+                                             computing the actual first-key column from the dash
+                                             line's real leading whitespace and using it consistently
+                                             for the sibling/nested-child decision and multi-line
+                                             scalar continuation anchoring.
+
 How Tests Are Run
 -----------------
 

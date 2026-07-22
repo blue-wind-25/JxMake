@@ -774,6 +774,18 @@ public final class YamlSpecificRule {
             }
             return;
         }
+        // The dash may be followed by more than one space before the actual key/value starts
+        // (e.g. "-   name: foo", a style some hand-authored YAML uses to visually align with a
+        // wider indent-size elsewhere in the file). `innerCol` (ln.indent + 2) assumes exactly one
+        // space after the dash and is only correct as the anchor for the DASH's own rendered
+        // column (block-scalar relative-offset capture below); the actual first key/value column
+        // -- which sibling keys in the same mapping must match to be recognized as siblings rather
+        // than a nested child of the first key -- is `keyCol`, accounting for any extra padding.
+        int leadingPad = 0;
+        while (leadingPad < rest.length() && rest.charAt(leadingPad) == ' ') {
+            leadingPad++;
+        }
+        final int keyCol = innerCol + leadingPad;
         final String[] parts = splitTrailingComment(rest);
         final String code = parts[0];
         final int colon = findMappingColon(code);
@@ -789,7 +801,7 @@ public final class YamlSpecificRule {
                     && findClosingQuote(after, 1, after.charAt(0)) < 0) {
                 // Same multi-line quoted-scalar continuation handling as parseKeyItem, for a
                 // sequence-of-mapping's first (inline) key.
-                parseMultilineQuotedScalar(firstKey, after, innerCol);
+                parseMultilineQuotedScalar(firstKey, after, keyCol);
             } else {
                 firstKey.trailingComment = parts[1] != null ? normComment(parts[1]) : null;
                 if (!after.isEmpty()) {
@@ -801,24 +813,25 @@ public final class YamlSpecificRule {
                 final boolean nextIsKeyLine = nextLn != null && !nextIsSeqLine
                         && findMappingColon(nextLn.content) >= 0;
                 // A sequence child of firstKey is allowed at the same indent as firstKey itself
-                // (innerCol) -- the common "- apiGroups:\n  - \"*\"" k8s manifest style -- same
-                // same-indent-sequence-child rule as parseKeyItem's own handling. A mapping child
-                // must be strictly deeper than innerCol, and not equal to innerCol (which would
-                // instead belong to the siblingKeys block parsed right below).
+                // (keyCol, the first key's actual column, not the dash-plus-one-space `innerCol`
+                // when extra padding follows the dash) -- the common "- apiGroups:\n  - \"*\""
+                // k8s manifest style -- same same-indent-sequence-child rule as parseKeyItem's own
+                // handling. A mapping child must be strictly deeper than keyCol, and not equal to
+                // keyCol (which would instead belong to the siblingKeys block parsed right below).
                 if ((after.isEmpty() || !looksLikeFlow(after)) && nextLn != null
-                        && (nextIsSeqLine ? nextLn.indent >= innerCol
-                                : (nextIsKeyLine && nextLn.indent > innerCol - 2 && nextLn.indent != innerCol))) {
+                        && (nextIsSeqLine ? nextLn.indent >= keyCol
+                                : (nextIsKeyLine && nextLn.indent > keyCol - 2 && nextLn.indent != keyCol))) {
                     firstKey.children = parseBlock(nextLn.indent);
                 } else if (!after.isEmpty() && !looksLikeFlow(after) && nextLn != null
-                        && !nextIsSeqLine && !nextIsKeyLine && nextLn.indent > innerCol) {
+                        && !nextIsSeqLine && !nextIsKeyLine && nextLn.indent > keyCol) {
                     // A plain (unquoted) scalar continuation wrapping across physical lines --
                     // same disambiguation as parseKeyItem's own tail handling, applied here for a
                     // sequence-of-mapping's first (inline) key (e.g. "- description: Foo is a bar\n
                     // and baz." under an "additionalPrinterColumns:" style sequence).
-                    parseMultilinePlainScalar(firstKey, innerCol);
+                    parseMultilinePlainScalar(firstKey, keyCol);
                 }
             }
-            final List<Item> siblingKeys = parseBlock(innerCol);
+            final List<Item> siblingKeys = parseBlock(keyCol);
             item.children = new ArrayList<>();
             item.children.add(firstKey);
             item.children.addAll(siblingKeys);
@@ -837,7 +850,7 @@ public final class YamlSpecificRule {
                 && findClosingQuote(code, 1, code.charAt(0)) < 0) {
             // Same multi-line quoted-scalar continuation handling as the other cases, for a
             // plain (non-keyed) sequence item's own quoted value.
-            parseMultilineQuotedScalar(item, code, innerCol);
+            parseMultilineQuotedScalar(item, code, keyCol);
             return;
         }
         item.inlineValue = code;
@@ -846,15 +859,16 @@ public final class YamlSpecificRule {
         // firstKey, applied here for a plain (non-keyed) sequence item's own unquoted value (e.g. a
         // changelog fragment's "- module_utils - some long sentence\n  continuing here."). Without
         // this, continuation lines were silently dropped, truncating the scalar's content.
-        // The scalar's own text starts right at innerCol (immediately after "- "), so a wrapped
-        // continuation line commonly aligns to that same column (not strictly deeper, unlike a
-        // keyed value's continuation, which is always past its key's own line indent).
+        // The scalar's own text starts right at keyCol (immediately after the dash and however much
+        // padding follows it), so a wrapped continuation line commonly aligns to that same column
+        // (not strictly deeper, unlike a keyed value's continuation, which is always past its key's
+        // own line indent).
         final Line nextLn = peekNonBlank();
-        if (nextLn != null && nextLn.indent >= innerCol) {
+        if (nextLn != null && nextLn.indent >= keyCol) {
             final boolean nextIsSeqLine = nextLn.content.equals("-") || nextLn.content.startsWith("- ");
             final boolean nextIsKeyLine = !nextIsSeqLine && findMappingColon(nextLn.content) >= 0;
             if (!nextIsSeqLine && !nextIsKeyLine) {
-                parseMultilinePlainScalar(item, innerCol);
+                parseMultilinePlainScalar(item, keyCol);
             }
         }
     }

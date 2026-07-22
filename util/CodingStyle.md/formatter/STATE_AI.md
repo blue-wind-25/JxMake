@@ -865,12 +865,35 @@ item** — it needs an actual measurement run, not a decision:
        16.9%, confirming the misaki font table was almost all of the prior
        spike, though c is still the highest of any language/run measured so
        far), cpp 5752/75 = 1.3%, java 2831/8 = 0.3%, python3 253/3 = 1.2%,
-       kotlin/html5/css/xml/yaml near-zero volume at 0%. The remaining
-       elevated-vs-eCxx C rate (5.8% vs 0.3%) hasn't been investigated
-       further -- could be genuine embedded/hardware-comment style
-       (`RDD_EXT_15`-style short comments with keywords are plausibly more
-       common in this kind of firmware code), not necessarily another
-       vendored-file artifact, but that's not confirmed.
+       kotlin/html5/css/xml/yaml near-zero volume at 0%. **The remaining
+       elevated C rate (5.8% vs eCxx's 0.3%) is investigated and explained --
+       same root cause as before, just not caught by the `3rd_party`
+       exclusion this time.** Sampled the 1701 C ABSTAINs (ad hoc diagnostic,
+       not committed): 1408 (82.8%) are `NonLatinScriptGate` hits from
+       per-glyph-annotation comments (`Character #224 0xE0 U+000003B1 'α'`)
+       in bitmap-font header files checked in directly under `src/`, not
+       `3rd_party/`:
+       `TTGO_VGA32_Lite/src/BitmapFont_8x8_{DefaultExt,MisakiHKS,DefaultCP437}.h`.
+       Same category of artifact (auto-generated glyph-table data, not
+       hand-written prose) as the earlier misaki file, just not excludable
+       by directory name since these copies live at the top level of `src/`.
+       Of the remaining 293: most are legitimate keyword-ambiguity ABSTAINs
+       on **commented-out real code** (`if (state->window == Z_NULL)`,
+       `sizeof(unsigned char)`, `unsigned char h_samp_factor; /* ... */`) --
+       looks like vendored zlib/libjpeg source embedded in the tree outside
+       any `3rd_party`-named directory -- correctly abstaining, since these
+       genuinely are code fragments, not prose; plus one more copy of the
+       Misaki font's Japanese license-header block (also legitimately
+       non-Latin). **Conclusion: this repo's elevated C rate is not a
+       classifier bug and not (this time) a directory-name-excludable
+       vendored file -- it's font-glyph data and embedded third-party
+       library code checked in under `src/` itself.** Excluding by directory
+       name alone can't fully solve this; a more targeted signal (e.g.
+       filename patterns like `BitmapFont*`, or a per-repo vendored-file
+       allowlist) would be needed, but that's increasingly bespoke per-repo
+       cleanup rather than a general `extract_comments.py` improvement --
+       not implemented, since it isn't clear it generalizes beyond this one
+       repo.
    - These are still preliminary/directional, not the final item-9
      measurement: coverage is limited to whatever languages/repos happened
      to be scanned, and RDD_EXT_16's full corpus plan (own dogfooded repos

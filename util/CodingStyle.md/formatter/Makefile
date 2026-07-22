@@ -302,6 +302,7 @@ INP_FILES += real_code_regressions_68_inp.json
 INP_FILES += real_code_regressions_69_inp.css
 INP_FILES += real_code_regressions_70_inp.toml
 INP_FILES += real_code_regressions_71_inp.yaml
+INP_FILES += real_code_regressions_72_inp.yaml
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

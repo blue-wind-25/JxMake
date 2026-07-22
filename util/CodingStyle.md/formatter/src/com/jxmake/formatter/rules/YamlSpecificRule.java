@@ -464,6 +464,22 @@ public final class YamlSpecificRule {
         return pos < lines.size() ? lines.get(pos) : null;
     }
 
+    /** Looks ahead past any blank line(s) to the next real (non-blank) line, WITHOUT consuming
+     *  anything -- {@code pos} is left unchanged so a blank line between a key and its child block
+     *  is still consumed normally (as {@code pendingBlank}) by whichever {@link #parseBlock} call
+     *  eventually reaches it. Used purely to decide "does this key have a child block at all" --
+     *  a plain {@link #peek()} would see the blank line itself and (since it isn't blank-aware)
+     *  wrongly conclude there's no child, silently truncating the rest of the mapping (a real
+     *  docker/compose dogfood bug: a blank line right after a top-level key like "services:"
+     *  caused everything under it to be dropped). */
+    private Line peekNonBlank() {
+        int i = pos;
+        while (i < lines.size() && lines.get(i).isBlank()) {
+            i++;
+        }
+        return i < lines.size() ? lines.get(i) : null;
+    }
+
     /** Parses a single homogeneous block (all mapping keys, or all sequence dashes) whose items sit
      *  at exactly {@code blockIndent}. Stops (without consuming) at dedent, at end of input, or at a
      *  line whose shape (dash vs. key) doesn't match the block's own kind -- a block is always
@@ -566,8 +582,8 @@ public final class YamlSpecificRule {
         }
         item.trailingComment = parts[1] != null ? normComment(parts[1]) : null;
         if (after.isEmpty()) {
-            final Line next = peek();
-            if (next != null && !next.isBlank()) {
+            final Line next = peekNonBlank();
+            if (next != null) {
                 final boolean nextIsSeq = next.content.equals("-") || next.content.startsWith("- ");
                 // A sequence child is allowed at the same indent as its parent key (a common,
                 // valid YAML style); a mapping child must be strictly deeper to avoid ambiguity
@@ -588,8 +604,8 @@ public final class YamlSpecificRule {
         // is instead a continuation of an unquoted (plain) scalar that wraps across physical lines
         // (common in real-world CRD/API description fields, e.g. "description: Foo is a bar and\n
         // baz.") -- captured verbatim/opaque, same approach as the quoted-scalar case above.
-        if (peek() != null && !peek().isBlank() && peek().indent > ln.indent) {
-            final Line next = peek();
+        if (peekNonBlank() != null && peekNonBlank().indent > ln.indent) {
+            final Line next = peekNonBlank();
             final boolean nextIsSeqLine = next.content.equals("-") || next.content.startsWith("- ");
             final boolean nextIsKeyLine = !nextIsSeqLine && findMappingColon(next.content) >= 0;
             if (nextIsSeqLine || nextIsKeyLine) {
@@ -679,8 +695,9 @@ public final class YamlSpecificRule {
         final String rest = ln.content.equals("-") ? "" : ln.content.substring(2);
         final int innerCol = ln.indent + 2;
         if (rest.trim().isEmpty()) {
-            if (peek() != null && !peek().isBlank() && peek().indent >= innerCol) {
-                item.children = parseBlock(peek().indent);
+            final Line nextForBlock = peekNonBlank();
+            if (nextForBlock != null && nextForBlock.indent >= innerCol) {
+                item.children = parseBlock(nextForBlock.indent);
             }
             return;
         }
@@ -705,21 +722,21 @@ public final class YamlSpecificRule {
                 if (!after.isEmpty()) {
                     firstKey.inlineValue = after;
                 }
-                final Line nextLn = peek();
-                final boolean nextIsSeqLine = nextLn != null && !nextLn.isBlank()
+                final Line nextLn = peekNonBlank();
+                final boolean nextIsSeqLine = nextLn != null
                         && (nextLn.content.equals("-") || nextLn.content.startsWith("- "));
-                final boolean nextIsKeyLine = nextLn != null && !nextLn.isBlank() && !nextIsSeqLine
+                final boolean nextIsKeyLine = nextLn != null && !nextIsSeqLine
                         && findMappingColon(nextLn.content) >= 0;
                 // A sequence child of firstKey is allowed at the same indent as firstKey itself
                 // (innerCol) -- the common "- apiGroups:\n  - \"*\"" k8s manifest style -- same
                 // same-indent-sequence-child rule as parseKeyItem's own handling. A mapping child
                 // must be strictly deeper than innerCol, and not equal to innerCol (which would
                 // instead belong to the siblingKeys block parsed right below).
-                if ((after.isEmpty() || !looksLikeFlow(after)) && nextLn != null && !nextLn.isBlank()
+                if ((after.isEmpty() || !looksLikeFlow(after)) && nextLn != null
                         && (nextIsSeqLine ? nextLn.indent >= innerCol
                                 : (nextIsKeyLine && nextLn.indent > innerCol - 2 && nextLn.indent != innerCol))) {
                     firstKey.children = parseBlock(nextLn.indent);
-                } else if (!after.isEmpty() && !looksLikeFlow(after) && nextLn != null && !nextLn.isBlank()
+                } else if (!after.isEmpty() && !looksLikeFlow(after) && nextLn != null
                         && !nextIsSeqLine && !nextIsKeyLine && nextLn.indent > innerCol) {
                     // A plain (unquoted) scalar continuation wrapping across physical lines --
                     // same disambiguation as parseKeyItem's own tail handling, applied here for a

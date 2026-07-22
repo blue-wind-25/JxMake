@@ -1240,6 +1240,28 @@ Real-code regressions:
                                             Fixed by adding the same block-scalar (and, while at it,
                                             multi-line-quoted-scalar) detection to that branch.
 
+  real_code_regressions_72_inp/out.yaml  -- YAML, docker/compose real-code testing: a real
+                                            data-loss bug found via the content-preservation check
+                                            (the corrupted output was still syntactically valid
+                                            YAML). A blank line immediately after a keyed line with
+                                            no inline value (e.g. "services:" followed by a blank
+                                            line, then its nested mapping) caused the whole nested
+                                            block to be silently dropped. Root cause: every "does
+                                            this key have a child block" detection site
+                                            (`parseKeyItem`'s empty-value case, its scalar-then-
+                                            nested-mapping case, `parseSeqItem`'s empty-rest case,
+                                            and the sequence-of-mapping first-key case) used a plain
+                                            `peek()` to look one line ahead -- if that line was
+                                            blank, it was treated as "no child" rather than being
+                                            skipped over to find the real next line, so the intended
+                                            child block was never parsed and the parent key's value
+                                            fell through to nothing. Fixed by adding a
+                                            `peekNonBlank()` helper (looks ahead past blank lines
+                                            without consuming them, so the blank line is still
+                                            correctly consumed later as the child block's own
+                                            leading `pendingBlank`) and using it at all four
+                                            detection sites instead of `peek()`.
+
 How Tests Are Run
 -----------------
 

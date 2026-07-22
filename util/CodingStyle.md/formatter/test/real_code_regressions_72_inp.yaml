@@ -1,0 +1,17 @@
+#% JXM_CFMT_CFG indent-size=2
+# Copyright (C) 2024 Example Corp.
+# SPDX-License-Identifier: MIT
+
+services:
+
+  web:
+    image: nginx
+    links:
+      - db:database
+
+  db:
+    image: postgres
+    networks:
+      default:
+        aliases:
+          - alias-of-db

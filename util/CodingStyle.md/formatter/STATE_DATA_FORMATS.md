@@ -465,8 +465,8 @@ None recorded yet in this file.
       **`json5/json5` done, `microsoft/vscode` done, `babel/babel` done**
       (see below); `eslint/eslint` still not started for JSON;
       `apache/maven`/etc. still not started for XML;
-      **`twbs/bootstrap` done for CSS** (see below), `necolas/normalize.css`/
-      `foundation/foundation-sites`/`primer/css` still not started for CSS;
+      **`twbs/bootstrap`/`necolas/normalize.css`/`foundation/foundation-sites`
+      done for CSS** (see below), `primer/css` still not started for CSS;
       `h5bp/html5-boilerplate`/etc. still not started for HTML5;
       `kubernetes/kubernetes`/etc. still not started for YAML;
       `rust-lang/cargo`/etc. still not started for TOML.
@@ -548,8 +548,27 @@ None recorded yet in this file.
       **Zero bugs found** — forward 1/1, idempotency 1/1, syntax-check 1/1,
       content-preservation 1/1 (comments, tokens, `!important` count, vendor-
       prefix count all matched exactly). No new fixtures needed (nothing to
-      regress-test). `foundation/foundation-sites`/`primer/css` remain the
-      last not-started CSS test-fixture repos for a future session.
+      regress-test).
+      **`foundation/foundation-sites` (fresh shallow clone, `--depth 1`, not
+      found under `/tmp` from a prior session):** verified foundation-sites'
+      real hand-authored source is `.scss` (136 files under `scss/`), same as
+      bootstrap — but unlike bootstrap, this repo has **zero genuinely
+      hand-authored `.css` files anywhere**. The only `.css` matches in the
+      whole tree are the 8 files under `dist/css/**`
+      (`foundation.css`/`foundation-rtl.css`/`foundation-float.css`/
+      `foundation-prototype.css` and their four `.min.css` counterparts,
+      each with a matching `.css.map` sourcemap confirming Sass-compiled
+      origin) — produced by the `gulp` `sass` task per `gulpfile.js`'s
+      `build`/`watch` tasks, same generated-output reasoning as bootstrap's
+      excluded `dist/css/**`. No docs/example HTML-adjacent hand-authored
+      CSS exists in this repo the way bootstrap's `site/src/assets/
+      examples/**` did (`docs/`'s ~191 HTML files have no accompanying
+      plain-`.css` assets; `_vendor/` is Sass helper libraries, no CSS).
+      **In-scope corpus: 0 files** — nothing to format, round-trip, syntax-
+      check, or content-diff. No forward/idempotency/syntax-check/content-
+      preservation pass was run (would be vacuous), no fixtures added (no
+      bug to regress-test), no bugs found. `primer/css` remains the last
+      not-started CSS test-fixture repo for a future session.
       **`json5/json5` (fresh clone, not found under `/tmp` from a prior
       session):** small corpus — 6 hand-authored `.json`/`.json5` files
       total (`.eslintrc.json`, `package.json`, `package-lock.json`,

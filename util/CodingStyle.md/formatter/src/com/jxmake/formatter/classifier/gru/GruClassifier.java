@@ -13,22 +13,24 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-/** Inference-only runtime for the Step 3 comment-classifier abstain-case resolution, per
- *  STATE_NEXT_AI.md's "GRU implementation design" -- a purpose-trained ~500k-parameter
- *  bidirectional GRU, the only feasible Step 3 approach (small instruction-tuned LLMs were
- *  tested and confirmed NOT FEASIBLE at this task). Loads a trained {@link GruWeights} file at
- *  startup; never contains literal weight arrays in source, unlike
+/** Runtime and shared forward/backward math for the Step 3 comment-classifier abstain-case
+ *  resolution, per STATE_NEXT_AI.md's "GRU implementation design" -- a purpose-trained
+ *  ~500k-parameter bidirectional GRU, the only feasible Step 3 approach (small instruction-tuned
+ *  LLMs were tested and confirmed NOT FEASIBLE at this task). Loads a trained {@link GruWeights}
+ *  file at startup; never contains literal weight arrays in source, unlike
  *  {@link com.jxmake.formatter.classifier.CommentClassifierWeights}'s baked-in linear-model
  *  constants -- a neural net's weight count isn't hand-editable the same way, and retraining
  *  shouldn't require a JAR rebuild.
  *
- *  <p>Design-only scaffold: package {@code com.jxmake.formatter.classifier.gru} is NOT STARTED
- *  per STATE_NEXT_AI.md's checklist. Method bodies below follow the finalized architecture
- *  (word-level tokens, ~3.5k explicit vocab + 1024 FNV-1a hash buckets for OOV, 16-dim
- *  embeddings, single-layer bidirectional GRU hidden=224, target-word biGRU-output indexing,
- *  dense(64, ReLU) -> softmax) but are not yet implemented. */
+ *  <p>{@link #forward} and {@link #backward} are {@code public static} (not just used internally
+ *  by {@link #classify}) so {@code tools/gru/GruTrainer.java} -- outside {@code src/}, a different
+ *  package, since the runtime JAR must never bundle training code -- can run the exact same
+ *  forward pass and backpropagate through it during training, per the same bit-for-bit-identical
+ *  requirement RDD_EXT_13 states for {@link #tokenize}/{@link #hashBucket}. */
 public final class GruClassifier {
 
     /** Number of OOV hash buckets (RDD_EXT_13): FNV-1a (32-bit) mod this value. Deterministic,
@@ -38,8 +40,10 @@ public final class GruClassifier {
      *  RDD_EXT_13 requires these stay bit-for-bit identical between training and runtime. */
     public static final int HASH_BUCKETS = 1024;
 
-    /** Per-comment token cap (truncate/pad), per the finalized architecture. */
-    static final int SEQUENCE_CAP = 64;
+    /** Per-comment token cap (truncate/pad), per the finalized architecture. Public for the same
+     *  cross-package reason as {@link #HASH_BUCKETS} -- the trainer must cap sequences the same
+     *  way the runtime does. */
+    public static final int SEQUENCE_CAP = 64;
 
     /** Fixed softmax output class order this codebase uses -- an encoding convention (like
      *  {@link #HASH_BUCKETS}'s hash choice), not one of STATE_NEXT_AI.md's open items. Whatever
@@ -68,20 +72,22 @@ public final class GruClassifier {
      *  {@code YES}/{@code NO}/{@code ABSTAIN} classes as the existing rule-based classifier
      *  (RDD_EXT_10 -- no more granular intermediate class). Abstains when the top softmax class
      *  doesn't clear {@link GruWeights#abstainThreshold} (RDD_EXT_11), same posture as the
-     *  missing-weights-file fail-safe.
-     *
-     *  <p><b>Stub behavior (intentional, not a bug):</b> the actual forward pass (embedding
-     *  lookup, bidirectional GRU recurrence, dense head) is not yet implemented -- it is blocked
-     *  on a real trained weights file with an embedding table and GRU weight matrices, neither of
-     *  which {@link GruWeights} represents yet (see its javadoc; only the flat scalar
-     *  architecture-constant fields exist so far). Until that lands, this method unconditionally
-     *  returns {@link CommentDecision#ABSTAIN} for every call, matching this project's existing
-     *  fail-safe posture everywhere else in this design: missing/unusable signal -> ABSTAIN ->
-     *  mechanical fallback, never blocks formatting. {@code tokenize} is still called so the
-     *  tokenization path is exercised and ready once a real forward pass lands. */
+     *  missing-weights-file/untrained-weights fail-safe. */
     public CommentDecision classify(String commentText, int targetWordIndex) {
-        tokenize(commentText);
-        return CommentDecision.ABSTAIN;
+        List<String> tokens = tokenize(commentText);
+        if (!weights.hasTrainedWeights()) {
+            return CommentDecision.ABSTAIN;
+        }
+        if (tokens.size() > SEQUENCE_CAP) {
+            tokens = tokens.subList(0, SEQUENCE_CAP);
+        }
+        if (targetWordIndex < 0 || targetWordIndex >= tokens.size()) {
+            return CommentDecision.ABSTAIN;
+        }
+        Vocabulary vocabulary = new Vocabulary(java.util.Arrays.asList(weights.explicitVocab));
+        ForwardCache cache = forward(weights, vocabulary, tokens, targetWordIndex);
+        double[] probabilities = softmax(cache.logits);
+        return decide(probabilities, weights.abstainThreshold);
     }
 
     /** Word-level tokenization per RDD_EXT_12: trailing/attached punctuation splits into its own
@@ -116,9 +122,7 @@ public final class GruClassifier {
     /** Numerically-stable softmax: converts raw class scores (logits) into a probability
      *  distribution that sums to 1. Subtracts the max logit before exponentiating to avoid
      *  overflow -- this doesn't change the result ({@code softmax(x) == softmax(x - c)} for any
-     *  constant {@code c}), only its numerical stability for large logit magnitudes. Pure math,
-     *  independent of any trained weights -- usable now even though the forward pass that
-     *  produces real logits isn't implemented yet. */
+     *  constant {@code c}), only its numerical stability for large logit magnitudes. */
     public static double[] softmax(double[] logits) {
         if (logits.length == 0) {
             return new double[0];
@@ -177,5 +181,356 @@ public final class GruClassifier {
             hash *= 0x01000193;
         }
         return Math.floorMod(hash, HASH_BUCKETS);
+    }
+
+    // ── Forward pass + cached activations (shared by inference and training) ────────────────────
+
+    /** Every intermediate activation the forward pass produces, kept around so {@link #backward}
+     *  can backpropagate through it without recomputing. Plain data holder (flat public fields,
+     *  no getters), consistent with {@link GruWeights}'s own style. Only populated across the
+     *  ranges actually computed: forward-direction state for token indices {@code [0, targetIndex]},
+     *  backward-direction state for {@code [targetIndex, tokens.size())} -- per the recurrence's
+     *  causality, hidden state at any other index can't affect the target position's output, so
+     *  computing (and later backpropagating through) it would be wasted work. */
+    public static final class ForwardCache {
+        public final List<String> tokens;
+        public final int targetIndex;
+        public final int[] tokenRow;
+        public final double[][] x;
+        public final double[][] fZ, fR, fHTilde, fH, fRH;
+        public final double[][] bZ, bR, bHTilde, bH, bRH;
+        public final double[] denseInput;
+        public final double[] densePre;
+        public final double[] denseHidden;
+        public final double[] logits;
+
+        ForwardCache(List<String> tokens, int targetIndex, int[] tokenRow, double[][] x,
+                double[][] fZ, double[][] fR, double[][] fHTilde, double[][] fH, double[][] fRH,
+                double[][] bZ, double[][] bR, double[][] bHTilde, double[][] bH, double[][] bRH,
+                double[] denseInput, double[] densePre, double[] denseHidden, double[] logits) {
+            this.tokens = tokens;
+            this.targetIndex = targetIndex;
+            this.tokenRow = tokenRow;
+            this.x = x;
+            this.fZ = fZ;
+            this.fR = fR;
+            this.fHTilde = fHTilde;
+            this.fH = fH;
+            this.fRH = fRH;
+            this.bZ = bZ;
+            this.bR = bR;
+            this.bHTilde = bHTilde;
+            this.bH = bH;
+            this.bRH = bRH;
+            this.denseInput = denseInput;
+            this.densePre = densePre;
+            this.denseHidden = denseHidden;
+            this.logits = logits;
+        }
+    }
+
+    /** Runs the bidirectional-GRU + dense-head forward pass for one comment's tokens, targeting
+     *  {@code targetIndex} (per the finalized architecture: classification indexes into the
+     *  target word's own biGRU output, concat forward+backward, no marker token). */
+    public static ForwardCache forward(GruWeights weights, Vocabulary vocabulary, List<String> tokens, int targetIndex) {
+        int t = tokens.size();
+        int e = weights.embeddingDim;
+        int h = weights.hiddenSize;
+
+        double[][] x = new double[t][];
+        int[] tokenRow = new int[t];
+        for (int i = 0; i < t; i++) {
+            tokenRow[i] = vocabulary.lookup(tokens.get(i));
+            x[i] = weights.embeddings[tokenRow[i]];
+        }
+
+        double[][] fZ = new double[t][], fR = new double[t][], fHTilde = new double[t][], fH = new double[t][], fRH = new double[t][];
+        double[] hPrev = new double[h];
+        for (int i = 0; i <= targetIndex; i++) {
+            double[] az = addVec(matVec(weights.forward.Wz, x[i]), matVec(weights.forward.Uz, hPrev), weights.forward.bz);
+            double[] z = sigmoidVec(az);
+            double[] ar = addVec(matVec(weights.forward.Wr, x[i]), matVec(weights.forward.Ur, hPrev), weights.forward.br);
+            double[] r = sigmoidVec(ar);
+            double[] rh = hadamard(r, hPrev);
+            double[] ah = addVec(matVec(weights.forward.Wh, x[i]), matVec(weights.forward.Uh, rh), weights.forward.bh);
+            double[] hTilde = tanhVec(ah);
+            double[] hNew = new double[h];
+            for (int k = 0; k < h; k++) {
+                hNew[k] = (1 - z[k]) * hPrev[k] + z[k] * hTilde[k];
+            }
+            fZ[i] = z;
+            fR[i] = r;
+            fHTilde[i] = hTilde;
+            fRH[i] = rh;
+            fH[i] = hNew;
+            hPrev = hNew;
+        }
+
+        double[][] bZ = new double[t][], bR = new double[t][], bHTilde = new double[t][], bH = new double[t][], bRH = new double[t][];
+        double[] hNext = new double[h];
+        for (int i = t - 1; i >= targetIndex; i--) {
+            double[] az = addVec(matVec(weights.backward.Wz, x[i]), matVec(weights.backward.Uz, hNext), weights.backward.bz);
+            double[] z = sigmoidVec(az);
+            double[] ar = addVec(matVec(weights.backward.Wr, x[i]), matVec(weights.backward.Ur, hNext), weights.backward.br);
+            double[] r = sigmoidVec(ar);
+            double[] rh = hadamard(r, hNext);
+            double[] ah = addVec(matVec(weights.backward.Wh, x[i]), matVec(weights.backward.Uh, rh), weights.backward.bh);
+            double[] hTilde = tanhVec(ah);
+            double[] hNew = new double[h];
+            for (int k = 0; k < h; k++) {
+                hNew[k] = (1 - z[k]) * hNext[k] + z[k] * hTilde[k];
+            }
+            bZ[i] = z;
+            bR[i] = r;
+            bHTilde[i] = hTilde;
+            bRH[i] = rh;
+            bH[i] = hNew;
+            hNext = hNew;
+        }
+
+        double[] denseInput = new double[2 * h];
+        System.arraycopy(fH[targetIndex], 0, denseInput, 0, h);
+        System.arraycopy(bH[targetIndex], 0, denseInput, h, h);
+
+        double[] densePre = addVec(matVec(weights.denseW, denseInput), weights.denseB);
+        double[] denseHidden = new double[densePre.length];
+        for (int i = 0; i < densePre.length; i++) {
+            denseHidden[i] = Math.max(0.0, densePre[i]);
+        }
+        double[] logits = addVec(matVec(weights.outW, denseHidden), weights.outB);
+
+        return new ForwardCache(tokens, targetIndex, tokenRow, x, fZ, fR, fHTilde, fH, fRH,
+                bZ, bR, bHTilde, bH, bRH, denseInput, densePre, denseHidden, logits);
+    }
+
+    /** Accumulated gradients, one field per {@link GruWeights} trained-weight field, plus a sparse
+     *  per-row embedding gradient (most embedding rows are untouched by any single example, so a
+     *  map avoids allocating a full-size dense gradient table per example). Mutable accumulator,
+     *  built fresh per example by {@link #backward} -- callers (the trainer) apply it to their own
+     *  running weights via their own optimizer (Adam), then discard it. */
+    public static final class Gradients {
+        public final Map<Integer, double[]> embeddingGrad = new HashMap<>();
+        public final GruWeights.DirectionWeights forward;
+        public final GruWeights.DirectionWeights backward;
+        public final double[][] denseW;
+        public final double[] denseB;
+        public final double[][] outW;
+        public final double[] outB;
+
+        Gradients(int hiddenSize, int embeddingDim, int denseSize, int numClasses) {
+            forward = GruWeights.DirectionWeights.zeros(hiddenSize, embeddingDim);
+            backward = GruWeights.DirectionWeights.zeros(hiddenSize, embeddingDim);
+            denseW = new double[denseSize][2 * hiddenSize];
+            denseB = new double[denseSize];
+            outW = new double[numClasses][denseSize];
+            outB = new double[numClasses];
+        }
+
+        private void addEmbeddingGrad(int row, double[] delta) {
+            double[] existing = embeddingGrad.get(row);
+            if (existing == null) {
+                embeddingGrad.put(row, delta.clone());
+            } else {
+                for (int i = 0; i < existing.length; i++) {
+                    existing[i] += delta[i];
+                }
+            }
+        }
+    }
+
+    /** Backpropagates the cross-entropy loss for {@code trueClassIndex} (an index into
+     *  {@link #CLASS_ORDER}) through {@code cache}, returning per-parameter gradients. Standard
+     *  GRU backprop-through-time equations, run only across the ranges {@link #forward} actually
+     *  computed (see {@link ForwardCache}'s javadoc on why that's sufficient). */
+    public static Gradients backward(GruWeights weights, ForwardCache cache, int trueClassIndex) {
+        int h = weights.hiddenSize;
+        int denseSize = weights.denseW.length;
+        Gradients grad = new Gradients(h, weights.embeddingDim, denseSize, weights.numClasses);
+
+        double[] probabilities = softmax(cache.logits);
+        double[] dLogits = probabilities.clone();
+        dLogits[trueClassIndex] -= 1.0;
+
+        for (int c = 0; c < weights.numClasses; c++) {
+            for (int j = 0; j < denseSize; j++) {
+                grad.outW[c][j] += dLogits[c] * cache.denseHidden[j];
+            }
+            grad.outB[c] += dLogits[c];
+        }
+        double[] dDenseHidden = matTVec(weights.outW, dLogits, denseSize);
+        double[] dDensePre = new double[denseSize];
+        for (int j = 0; j < denseSize; j++) {
+            dDensePre[j] = cache.densePre[j] > 0 ? dDenseHidden[j] : 0.0;
+        }
+        for (int j = 0; j < denseSize; j++) {
+            for (int k = 0; k < cache.denseInput.length; k++) {
+                grad.denseW[j][k] += dDensePre[j] * cache.denseInput[k];
+            }
+            grad.denseB[j] += dDensePre[j];
+        }
+        double[] dDenseInput = matTVec(weights.denseW, dDensePre, cache.denseInput.length);
+        double[] dhFwdTarget = new double[h];
+        double[] dhBwdTarget = new double[h];
+        System.arraycopy(dDenseInput, 0, dhFwdTarget, 0, h);
+        System.arraycopy(dDenseInput, h, dhBwdTarget, 0, h);
+
+        backpropDirection(weights.forward, grad.forward, cache, grad, true, dhFwdTarget);
+        backpropDirection(weights.backward, grad.backward, cache, grad, false, dhBwdTarget);
+
+        return grad;
+    }
+
+    private static void backpropDirection(GruWeights.DirectionWeights weights, GruWeights.DirectionWeights gradWeights,
+            ForwardCache cache, Gradients grad, boolean isForward, double[] dhAtTarget) {
+        int h = weights.bz.length;
+        double[] dh = dhAtTarget;
+
+        int start = isForward ? cache.targetIndex : cache.targetIndex;
+        int end = isForward ? 0 : cache.tokens.size() - 1;
+        int step = isForward ? -1 : 1;
+
+        for (int t = start; isForward ? t >= end : t <= end; t += step) {
+            double[] z = isForward ? cache.fZ[t] : cache.bZ[t];
+            double[] r = isForward ? cache.fR[t] : cache.bR[t];
+            double[] hTilde = isForward ? cache.fHTilde[t] : cache.bHTilde[t];
+            double[] hPrev = prevHidden(cache, t, isForward);
+            double[] x = cache.x[t];
+
+            double[] dz = new double[h];
+            double[] dhTilde = new double[h];
+            double[] dhPrevDirect = new double[h];
+            for (int k = 0; k < h; k++) {
+                dz[k] = dh[k] * (hTilde[k] - hPrev[k]);
+                dhTilde[k] = dh[k] * z[k];
+                dhPrevDirect[k] = dh[k] * (1 - z[k]);
+            }
+
+            double[] dAh = new double[h];
+            double[] dAz = new double[h];
+            for (int k = 0; k < h; k++) {
+                dAh[k] = dhTilde[k] * (1 - hTilde[k] * hTilde[k]);
+                dAz[k] = dz[k] * z[k] * (1 - z[k]);
+            }
+
+            double[] dRh = matTVec(weights.Uh, dAh, h);
+            double[] dr = new double[h];
+            double[] dhPrevViaR = new double[h];
+            for (int k = 0; k < h; k++) {
+                dr[k] = dRh[k] * hPrev[k];
+                dhPrevViaR[k] = dRh[k] * r[k];
+            }
+            double[] dAr = new double[h];
+            for (int k = 0; k < h; k++) {
+                dAr[k] = dr[k] * r[k] * (1 - r[k]);
+            }
+
+            for (int i = 0; i < h; i++) {
+                for (int j = 0; j < x.length; j++) {
+                    gradWeights.Wz[i][j] += dAz[i] * x[j];
+                    gradWeights.Wr[i][j] += dAr[i] * x[j];
+                    gradWeights.Wh[i][j] += dAh[i] * x[j];
+                }
+                for (int j = 0; j < h; j++) {
+                    gradWeights.Uz[i][j] += dAz[i] * hPrev[j];
+                    gradWeights.Ur[i][j] += dAr[i] * hPrev[j];
+                    double rh = r[j] * hPrev[j];
+                    gradWeights.Uh[i][j] += dAh[i] * rh;
+                }
+                gradWeights.bz[i] += dAz[i];
+                gradWeights.br[i] += dAr[i];
+                gradWeights.bh[i] += dAh[i];
+            }
+
+            double[] dx = new double[x.length];
+            double[] wzTdaz = matTVec(weights.Wz, dAz, x.length);
+            double[] wrTdar = matTVec(weights.Wr, dAr, x.length);
+            double[] whTdah = matTVec(weights.Wh, dAh, x.length);
+            for (int j = 0; j < x.length; j++) {
+                dx[j] = wzTdaz[j] + wrTdar[j] + whTdah[j];
+            }
+            grad.addEmbeddingGrad(cache.tokenRow[t], dx);
+
+            double[] uzTdaz = matTVec(weights.Uz, dAz, h);
+            double[] urTdar = matTVec(weights.Ur, dAr, h);
+            double[] dhPrev = new double[h];
+            for (int k = 0; k < h; k++) {
+                dhPrev[k] = dhPrevDirect[k] + dhPrevViaR[k] + uzTdaz[k] + urTdar[k];
+            }
+            dh = dhPrev;
+        }
+    }
+
+    private static double[] prevHidden(ForwardCache cache, int t, boolean isForward) {
+        int h = isForward ? cache.fH[0].length : cache.bH[cache.tokens.size() - 1].length;
+        if (isForward) {
+            return t == 0 ? new double[h] : cache.fH[t - 1];
+        }
+        return t == cache.tokens.size() - 1 ? new double[h] : cache.bH[t + 1];
+    }
+
+    // ── Small linear-algebra helpers (dense, no external math library) ──────────────────────────
+
+    private static double[] matVec(double[][] w, double[] x) {
+        double[] y = new double[w.length];
+        for (int i = 0; i < w.length; i++) {
+            double sum = 0.0;
+            for (int j = 0; j < x.length; j++) {
+                sum += w[i][j] * x[j];
+            }
+            y[i] = sum;
+        }
+        return y;
+    }
+
+    /** {@code W}-transpose times {@code v}: {@code result[j] = sum_i W[i][j] * v[i]}, where
+     *  {@code W} is {@code v.length} rows by {@code resultLength} columns. */
+    private static double[] matTVec(double[][] w, double[] v, int resultLength) {
+        double[] result = new double[resultLength];
+        for (int i = 0; i < w.length; i++) {
+            for (int j = 0; j < resultLength; j++) {
+                result[j] += w[i][j] * v[i];
+            }
+        }
+        return result;
+    }
+
+    private static double[] addVec(double[] a, double[] b) {
+        double[] r = new double[a.length];
+        for (int i = 0; i < a.length; i++) {
+            r[i] = a[i] + b[i];
+        }
+        return r;
+    }
+
+    private static double[] addVec(double[] a, double[] b, double[] c) {
+        double[] r = new double[a.length];
+        for (int i = 0; i < a.length; i++) {
+            r[i] = a[i] + b[i] + c[i];
+        }
+        return r;
+    }
+
+    private static double[] hadamard(double[] a, double[] b) {
+        double[] r = new double[a.length];
+        for (int i = 0; i < a.length; i++) {
+            r[i] = a[i] * b[i];
+        }
+        return r;
+    }
+
+    private static double[] sigmoidVec(double[] v) {
+        double[] r = new double[v.length];
+        for (int i = 0; i < v.length; i++) {
+            r[i] = 1.0 / (1.0 + Math.exp(-v[i]));
+        }
+        return r;
+    }
+
+    private static double[] tanhVec(double[] v) {
+        double[] r = new double[v.length];
+        for (int i = 0; i < v.length; i++) {
+            r[i] = Math.tanh(v[i]);
+        }
+        return r;
     }
 }

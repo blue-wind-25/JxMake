@@ -1,38 +1,38 @@
 # PLACEHOLDER labeled-examples file for GruTrainer -- NOT real training data.
 #
-# All of STATE_AI.md's open items that used to block real Pool A/Pool B
-# acquisition (hyperparameters, evaluation target, measured ABSTAIN rate,
-# licensing approach) are now resolved/closed -- see RDD_EXT_16-18 and item
-# 9's conclusion. What's still NOT STARTED is actually running that
-# acquisition: pointing tools/gru/ExtractPoolA.java / extract_pool_b.py at a
-# real corpus and labeling the result. This file exists only to satisfy
-# GruTrainer's positional-arg validation (a readable, existing
-# labeled-examples file) so `make gru-train` has something to point at and
-# produces a real, parseable scalar weights file end to end -- GruTrainer's
-# actual training loop is still a stub, so nothing here is learned from yet.
+# GruTrainer now has a real training loop (forward pass, backprop-through-time,
+# Adam, early stopping on a validation split) -- see its class javadoc. This
+# file exists only to give `make gru-train` a small, always-available input so
+# that target keeps working end to end; the actual production run trains
+# against the real Pool A/Pool B corpora, which per RDD_EXT_19 live only under
+# /tmp/the session scratchpad and are never committed here.
 #
-# IMPORTANT: the real extracted/labeled Pool A/Pool B corpora are NEVER
-# committed to this repo -- per explicit user decision, all real extraction
-# output stays under /tmp (or the session scratchpad), same as every
-# CommentAbstainTally/ExtractPoolA/extract_pool_b.py run so far in STATE_AI.md.
-# Only small, clearly-fake illustrative lines belong in this checked-in file.
-# Do not treat its contents as a real labeled example format -- none has been
-# decided yet (no label column, no schema -- GruTrainer currently just counts
-# distinct whitespace-separated tokens across these lines for a vocab-size
-# placeholder, it doesn't parse a label out of them).
+# Schema (RDD_EXT_20 + RDD_EXT_21): one example per line, tab-separated --
+#   <lang>\t<label:YES|NO>\t<targetWordIndex>\t<escaped-comment-text>
+# label is binary ground truth (ABSTAIN is the GRU's own below-threshold
+# runtime behavior, never a training class -- RDD_EXT_20). targetWordIndex is
+# the 0-based index, after GruClassifier.tokenize, of the ambiguous word the
+# label is about: the leading keyword for Pool A (keyword-ambiguity) examples,
+# the last token for Pool B (period-ambiguity) examples (RDD_EXT_21). Comment
+# text has literal newlines/tabs escaped as \n/\t, mirroring
+# extract_comments.py's own escaping.
 #
 # Illustrative shapes only (not real extracted text, not licensed from
 # anywhere) -- a few Pool A (keyword-ambiguity) examples, short comments
 # leading with a keyword with/without enough context:
-for matrix
-for matrix below
-for error message handler
-if valid
-if valid before continuing
-return early
-return early once validated
-# A few Pool B (period-ambiguity) examples, per RDD_EXT_15's shape:
-extern C.
-the dot . here separates fields
-supports JSON, YAML, etc.
-uses a vs. b comparison
+c	YES	0	for matrix
+c	NO	0	for matrix below
+cpp	YES	0	if valid
+cpp	NO	0	if valid before continuing
+java	YES	0	return early
+java	NO	0	return early once validated
+c	YES	0	for loop
+cpp	YES	0	if ready
+java	NO	0	if not ready yet
+c	NO	0	for loop below here
+# A few Pool B (period-ambiguity) examples, per RDD_EXT_15's shape -- target
+# index is the last token (the trailing "." itself):
+c	NO	3	extern C.
+c	YES	5	the dot . here separates fields
+cpp	NO	4	supports JSON, YAML, etc.
+cpp	NO	3	uses a vs. b comparison

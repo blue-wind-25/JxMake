@@ -365,6 +365,7 @@ main index in `STATE.md`.
 | RDD_EXT_18 | Step 3 GRU training hyperparameters (was open item 3): documented starting defaults, not yet validated against real data — Adam optimizer, learning rate ~1e-3, batch size 32, 20-50 epochs with early stopping on validation loss, dropout 0.2-0.3. To be tuned once a real training set exists; these are a starting point, not a final answer |
 | RDD_EXT_19 | Step 3 Pool A/Pool B corpus storage (asked and resolved by the user): the real extracted/labeled corpora are **never committed to this repo** — they stay under `/tmp` (or the session scratchpad), same as every measurement run in item 9. `tools/gru/sample_examples.txt` (checked in) holds only small, clearly-fake illustrative lines, never real extracted text |
 | RDD_EXT_20 | Step 3 labeled-corpus schema (previously undecided, per `sample_examples.txt`'s own "no label column, no schema" note): `<lang>\t<label:YES\|NO>\t<escaped-comment-text>` — a label column inserted before the existing `<lang>\t<escaped-text>` extraction format, so `ExtractPoolA`/`extract_pool_b.py`'s output only needs a label column added, not reformatting. Label is binary (`YES`/`NO`), not the 3-way `YES`/`NO`/`ABSTAIN` enum — ground truth for training is "should this resolve to YES or NO", `ABSTAIN` is the GRU's own below-threshold behavior (RDD_EXT_17), never a ground-truth class |
+| RDD_EXT_21 | Step 3 labeled-corpus schema extension, needed once `GruTrainer`'s real training loop landed: RDD_EXT_20's schema gained a 4th column, `<lang>\t<label:YES\|NO>\t<targetWordIndex>\t<escaped-comment-text>` — `targetWordIndex` is the 0-based index (after `GruClassifier.tokenize`) of the ambiguous word the label is about, since the architecture's target-word biGRU-output indexing needs to know which token that is. Convention: the leading keyword for Pool A (keyword-ambiguity) examples, the last token for Pool B (period-ambiguity) examples. The Pool A/B corpora already labeled under RDD_EXT_20 (see below) predate this column and have not been regenerated with it yet — that's still open, tracked below |
 
 ---
 
@@ -1022,6 +1023,52 @@ and closing conclusion below:
    that lands, not yet fed into anything.
 
 Item 9 is now CLOSED (see conclusion above) and no longer blocks anything.
+
+   **GruTrainer's real training loop landed.** `GruWeights` was extended
+   (backward-compatibly — `GruWeightsSelfTest`'s existing scalar-only fixture
+   files still load unchanged, see `hasTrainedWeights()`) to hold the actual
+   trained numbers: explicit vocab word list, embedding table, both GRU
+   directions' gate matrices/biases, dense head, output layer, all parsed via
+   a small hand-rolled recursive-descent JSON value parser (numbers, strings,
+   nested arrays — no external JSON library, same no-dependency convention as
+   the existing flat-scalar regex parser it sits alongside). `GruClassifier`
+   now runs a real forward pass (`forward`) — embedding lookup, bidirectional
+   GRU recurrence computed only across the ranges that can actually affect
+   the target word's output (forward direction `[0, targetIndex]`, backward
+   direction `[targetIndex, end)`, per the recurrence's own causality), dense
+   ReLU head, softmax — replacing the old unconditional-ABSTAIN stub;
+   `classify()` still abstains whenever `hasTrainedWeights()` is false, same
+   fail-safe posture as before. `forward`/`backward` (full analytic
+   backprop-through-time, standard GRU gate gradient equations) are public so
+   `GruTrainer` (a different package outside `src/`) can call the identical
+   math, per the same bit-for-bit-identical requirement RDD_EXT_13 states for
+   `tokenize`/`hashBucket`.
+
+   `GruTrainer` now does real training: Xavier/Glorot random weight init,
+   per-example forward+backward+Adam-step (batch size 1 — a deliberate
+   simplification of RDD_EXT_18's batch-32 starting default, revisit once a
+   real production run shows it matters), a held-out validation split (20%)
+   with patience-based early stopping on validation cross-entropy loss per
+   RDD_EXT_18. Reads RDD_EXT_21's 4-column schema. The explicit vocab is
+   built from whatever tokens appear in the labeled-examples file (order of
+   first appearance) — the ~3.5k-word curated list `Vocabulary.java`'s
+   javadoc describes is still not separately curated; this is an honest
+   placeholder until a real production run needs the full keyword coverage.
+   Verified end to end: `make gru-train` (against the fake, RDD_EXT_21-schema
+   `sample_examples.txt`) trains, logs decreasing train loss and early-stops
+   on validation loss, and the written weights file was loaded by
+   `GruClassifier.load`/`classify` and produced real (non-ABSTAIN, correct
+   for the trivial smoke examples) decisions — the full pipeline is real, not
+   stubbed, end to end.
+
+   **Not yet done:** the real Pool A/Pool B corpora labeled under RDD_EXT_20
+   (`ecxx_suster_vma_pool_a_labeled.txt` / `_pool_b_labeled.txt`, scratchpad
+   only per RDD_EXT_19) predate RDD_EXT_21's `targetWordIndex` column and
+   have not been regenerated with it; no real production training run has
+   happened yet, only the fake-data smoke test above. The ~3.5k-word curated
+   explicit vocab (every keyword across every supported/planned language)
+   is still unaddressed — `GruTrainer` currently derives vocab purely from
+   whatever training file it's pointed at.
 Everything downstream is still NOT STARTED, but is now blocked only on
 actually doing the work, not on any further measurement or decision:
 acquiring/labeling the Pool A/Pool B training sets from RDD_EXT_16's chosen

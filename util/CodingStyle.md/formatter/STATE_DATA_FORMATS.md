@@ -570,13 +570,17 @@ None recorded yet in this file.
       `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format.
       Status: JSON/JSON5 complete (4/4 repos); CSS complete (4/4 repos); XML
       2/4 (`apache/maven`, `w3c/svgwg` done; `apache/ant`/`jenkinsci/jenkins`
-      not started); YAML 2/4 (`kubernetes/kubernetes`, `docker/compose` done;
-      `ansible/ansible`/`actions/starter-workflows` not started); **TOML 4/4,
-      DONE** (`rust-lang/cargo`, `python-poetry/poetry`, `pola-rs/polars`,
-      `toml-lang/toml` all done — TOML Test-Fixture Repos list now fully
-      complete); HTML5 1/4 (`h5bp/html5-boilerplate` done;
-      `twbs/bootstrap` docs site, `mdn/content`, `whatwg/html` not started).
-      Overall item stays
+      not started); **YAML: all 4 originally-planned repos DONE**
+      (`kubernetes/kubernetes`, `docker/compose`, `ansible/ansible`,
+      `actions/starter-workflows` all done — see per-repo entries below; two
+      further repos, `prometheus/prometheus` and `home-assistant/core`, were
+      later added to the YAML Test-Fixture Repos list above and remain
+      not-started, so the list itself is not fully exhausted even though the
+      original 4-repo plan is); **TOML 4/4, DONE** (`rust-lang/cargo`,
+      `python-poetry/poetry`, `pola-rs/polars`, `toml-lang/toml` all done —
+      TOML Test-Fixture Repos list now fully complete); HTML5 1/4
+      (`h5bp/html5-boilerplate` done; `twbs/bootstrap` docs site,
+      `mdn/content`, `whatwg/html` not started). Overall item stays
       unchecked pending the remaining repos above.
 
       **Shared methodology note (applies to every run below, not restated per
@@ -893,6 +897,54 @@ None recorded yet in this file.
         (the 7 custom-tag files are out of scope for this check too, since
         `yaml_content_diff.py` also can't parse them). `actions/starter-
         workflows` remains not-started for YAML.
+      - `actions/starter-workflows`: 188 `.yaml`/`.yml` files found, full set
+        processed (well below sampling threshold — this is a template-library
+        repo, not a monorepo). Baseline `yaml_sc.js`: 2 fail (`code-scanning/
+        nowsecure.yml`, `code-scanning/nowsecure-mobile-sbom.yml`, both
+        containing an unquoted `group_id: {{ groupId }}` Handlebars-style
+        template placeholder — js-yaml parses the double-brace as a flow
+        mapping whose key is itself a mapping, "object-based map does not
+        support complex keys"; pre-existing/invalid as authored, unrelated to
+        the quoted `${{ ... }}` GitHub Actions expression syntax used
+        everywhere else in the corpus). **In-scope corpus: 186 files.**
+        Forward pass: 188/188 processed, zero crashes. Idempotency: 188/188
+        clean. Syntax-check of round1 output: same 2 baseline failures, no
+        new ones. **1 bug found+fixed, via syntax-check on round1 output**
+        (not baseline, not idempotency -- the corrupted output failed to
+        parse at all, unlike every bug in the three prior YAML sessions,
+        which were all only catchable via content-preservation): `code-
+        scanning/codescan.yml` uses `-   name: foo` (extra spaces after the
+        sequence dash before its first key, a hand-authored alignment style)
+        for its `steps:` items. `parseSeqItem` computed the sibling-key
+        column (used to decide whether the next key belongs to the same
+        mapping as the sequence item's first key, or is instead a nested
+        child of that first key) as a hardcoded `ln.indent + 2` -- correct
+        only when exactly one space follows the dash. With extra padding,
+        the real key column was deeper than that hardcoded value, so the
+        next sibling key (`uses:`) was misidentified as a nested child one
+        level too deep, producing an invalid "bad indentation" YAML output.
+        Fixed by deriving the real first-key column from the dash line's
+        actual leading whitespace (`keyCol`) and using it consistently for
+        the sibling/nested-child decision and every multi-line-scalar
+        continuation anchor point that previously assumed the hardcoded
+        offset. Fixture `test/real_code_regressions_75_{inp,out}.yaml`.
+        `make test`: 124/124. Commit `f1648c5`. **Final numbers after the
+        fix, full 188-file re-run:** forward 188/188 clean; idempotency
+        188/188 clean; syntax-check same 2 baseline failures, no new ones;
+        content-preservation (`yaml_content_diff.py`) 179/186 clean, the
+        remaining 7 all `ERROR: original file failed to parse` -- PyYAML's
+        `safe_load` rejects an emoji character (`💁`/`📚`/`🦅`/`🏁`/`👋`, one
+        per file) present in a prose comment, the same known
+        `yaml_content_diff.py` tool gap first flagged during the
+        `docker/compose` session (`yaml_sc.js`/js-yaml handles the same files
+        fine on both original and formatted copies; manual line-by-line diff
+        of all 7 confirmed only expected re-indentation and comment-
+        capitalization changes, zero structural differences) -- not a
+        formatter bug. **This completes all 4 originally-planned YAML
+        Test-Fixture Repos** (`kubernetes/kubernetes`, `docker/compose`,
+        `ansible/ansible`, `actions/starter-workflows`); two further repos
+        (`prometheus/prometheus`, `home-assistant/core`) were added to the
+        list above after this plan was made and remain not-started.
 
       **HTML5 (1/4 repos done, first HTML5 dogfood run):**
       - `h5bp/html5-boilerplate`: 4 files (`dist/index.html`, `dist/404.html`,

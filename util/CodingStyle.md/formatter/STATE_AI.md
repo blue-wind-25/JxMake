@@ -936,17 +936,29 @@ item** — it needs an actual measurement run, not a decision:
        total) — flagged here as an outlier rather than root-caused, unlike
        the TTGO/RobotCoding anomaly above, which had enough volume (and an
        explicit user request) to justify digging in.
+     - `pallets/flask` (`/tmp/flask`, BSD-3-Clause —
+       `STATE_PYTHON3.md`'s Test-Fixture Repos list; fresh shallow clone, no
+       existing checkout on disk): 973 comments, overall ABSTAIN **0.0%**
+       (python3 937/0 = 0.0%, yaml/toml/css negligible volume at 0%) — the
+       first real `python3`-language volume seen in any of item 9's runs
+       (all prior runs' python3 counts, e.g. `microsoft/proxy`, were
+       near-zero). Note `STATE_PYTHON3.md`'s own job is scaffold-only per
+       `CLAUDE.md`'s job table (Python3 formatting itself isn't
+       implemented yet), but `CommentFeatureExtractor`/`CommentClassifier`
+       don't depend on that -- `new Lang("python3")` and the classifier
+       pipeline both already work standalone, so this measurement is valid
+       independent of the Python3 job's own implementation status.
    - These are still preliminary/directional, not the final item-9
      measurement: coverage is limited to whatever languages/repos happened
      to be scanned, and RDD_EXT_16's full corpus plan (own dogfooded repos
      first, then vetted public repos) hasn't been fully run yet -- these
      public-repo runs are a first step into that second stage, not its
      completion. The spread across runs, post-`3rd_party`-exclusion (0.4% /
-     1.4% / 4.6% own-repo, 0.0% / 0.1% / 0.4% / 0.4% / 0.5% / 14.6%(small
-     sample) public-repo), is narrower than before but still shows the
-     ABSTAIN rate is corpus-dependent, reinforcing that item 9 needs the
-     full planned corpus, not a handful of repos, before sizing a training
-     set.
+     1.4% / 4.6% own-repo, 0.0% / 0.0% / 0.1% / 0.4% / 0.4% / 0.5% /
+     14.6%(small sample) public-repo), is narrower than before but still
+     shows the ABSTAIN rate is corpus-dependent, reinforcing that item 9
+     needs the full planned corpus, not a handful of repos, before sizing a
+     training set.
 
 Everything downstream is blocked on this measurement plus the actual
 training-data acquisition it feeds into: acquiring/labeling the Pool A/Pool

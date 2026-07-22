@@ -537,609 +537,224 @@ None recorded yet in this file.
       `line-length` and should stay flow — fixture corrected to match the
       (correct) implementation.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
-      `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format —
-      **`json5/json5` done, `microsoft/vscode` done, `babel/babel` done**
-      (see below); `eslint/eslint` still not started for JSON;
-      **`apache/maven` done for XML (first XML dogfood run, see below)**;
-      `apache/ant`/`jenkinsci/jenkins`/`w3c/svgwg` still not started for XML;
-      **`twbs/bootstrap`/`necolas/normalize.css`/`foundation/foundation-sites`/
-      `primer/css` done for CSS — all four CSS test-fixture repos now
-      dogfood-tested** (see below);
-      `h5bp/html5-boilerplate`/etc. still not started for HTML5;
-      **`kubernetes/kubernetes` done for YAML (first YAML dogfood run, see
-      below)**; `docker/compose`/`ansible/ansible`/`actions/starter-workflows`
-      still not started for YAML;
-      **`rust-lang/cargo`/`python-poetry/poetry` done for TOML (see below)**;
-      `pola-rs/polars`/`toml-lang/toml` still not started for TOML.
-      **`twbs/bootstrap` (CSS, first CSS dogfood run; fresh shallow clone
-      `--depth 1`, not found under `/tmp` from a prior session):** bootstrap's
-      real hand-authored source is `.scss`, not `.css` (this formatter only
-      handles CSS proper, not SCSS) — its only genuine hand-authored `.css`
-      is 47 files under `site/src/assets/examples/**` (Bootstrap's docs-site
-      HTML example pages), plus `dist/css/**` (16 files) which is
-      SCSS-compiled+minified *generated* output, excluded per this session's
-      sizing guidance. **In-scope corpus: 31 files** (47 minus 16 `dist/`),
-      a small corpus so the **full set** was processed, not a sample.
-      Baseline syntax-check of the unformatted originals (`css_sc.js`):
-      31/31 pass. Round1 format (`--preserve-tree --root`, one invocation):
-      exit 0, 31/31 processed. Round2 vs round1: `diff -rq` empty (clean
-      idempotency, 31/31). Syntax-check of round1 output: 31/31 pass,
-      matching baseline. **Content-preservation spot-check** (this session's
-      new requirement beyond syntax-checking, since CSS bugs can produce
-      still-valid-but-semantically-wrong output): a comment-stripped/
-      whitespace-collapsed token-stream diff of every one of the 31 files'
-      original vs round1 output found 31/31 exact matches — **except** it
-      cannot see inside comments (stripped before comparing), which is
-      exactly where the one bug below was hiding; found instead by manually
-      grepping/reading the two files (`carousel.css`) that contain the
-      `@media` rules plus lowercase-starting `/* rtl:... */` comments used
-      by the rtlcss build tool. **One bug found+fixed:**
-      `FormatterSimpleBraced.capitalizeCommentStart` (shared by CSS/JSON5's
-      `normalize-comment-start-case`) unconditionally capitalized any
-      lowercase-starting comment's first letter with no exclusion mechanism
-      (the class's own doc comment claimed "JSON/CSS have no language
-      keywords a comment could start with that would need protecting" —
-      true for keywords, but not for third-party *tool directives*).
-      `carousel.css`'s `/* rtl:begin:ignore */`/`/* rtl:end:ignore */`/
-      `/* rtl:begin:remove */`/`/* rtl:end:remove */` (rtlcss's
-      case-sensitive RTL-conversion-suppression directive) got silently
-      corrupted to `/* Rtl:begin:ignore */` etc. — still perfectly valid
-      CSS syntactically (why `css_sc.js` never caught it), but semantically
-      broken for any pipeline that runs rtlcss over the formatter's output.
-      Fixed by adding `FormatterSimpleBraced.isSingleTokenDirective`: skip
-      capitalization when the comment's entire first-line body (up to
-      end-of-line/comment-close) is one whitespace-free token containing `:`
-      or `-` (directive-shaped, e.g. `rtl:begin:ignore`,
-      `stylelint-disable`), while ordinary prose that happens to start with
-      a similar word followed by more text (e.g. `auto-generated file, do
-      not edit`) is still capitalized as before — verified via direct unit
-      calls covering both cases before/after the fix. Fixture:
-      `test/real_code_regressions_69_{inp,out}.css` (`test/README.txt`).
-      `make test`: 118/118 forward + 118/118 idempotency, zero regressions.
-      **Final full re-run after the fix** (all 31 in-scope files,
-      forward+idempotency+syntax-check+content-preservation-spot-check
-      repeated end-to-end): 31/31 forward, 31/31 idempotency (`diff -rq`
-      empty), 31/31 syntax-check pass, 31/31 content-preservation match,
-      plus a manual re-check confirming all 4 `rtl:` directive occurrences
-      in `carousel.css`'s round1 output are now byte-identical to source
-      (no stray capitalization). Commit `8f5f597`.
-      **`necolas/normalize.css` (fresh shallow clone, `--depth 1`, not found
-      under `/tmp` from a prior session):** genuinely tiny corpus — exactly
-      **1 hand-authored `.css` file** (`normalize.css` itself, 6138 bytes);
-      the repo has no `test/`/`node_modules`/`dist`/`build` `.css` matches
-      and no compiled/minified copy alongside it (`test.html` references it
-      directly, `package.json` has no build step producing a second CSS
-      artifact). Full set (1 file) processed, no sampling needed. Baseline
-      syntax-check of the unformatted original (`css_sc.js`): pass. Round1
-      format (`--preserve-tree --root`): exit 0, 1/1 processed. Round2 vs
-      round1: `diff -rq` empty (idempotent). Syntax-check of round1 output:
-      pass, matching baseline. **Content-preservation spot-check** (the one
-      file, checked in full, not sampled), via the new permanent
-      `css_content_diff.py` (see "Dogfood Output Validation" above, written
-      this session): all 71 comments byte-identical in content (only
-      re-indentation/re-wrap, no wording/case/punctuation change); the
-      comment-stripped, colon/whitespace-normalized token stream identical
-      (confirms no property/value/selector was altered); `!important` count
-      matched (0 in both); vendor-prefixed property counts matched exactly
-      (8 occurrences across 6 distinct prefixed properties in both), ruling
-      out silent vendor-prefix drift. Script exits 0 (`OK: content
-      preserved...`). Manual `diff` of the two files independently confirms
-      the only differences are indentation width (2→4 spaces, the tool's
-      default) and colon-alignment padding — no semantic change.
-      **Zero bugs found** — forward 1/1, idempotency 1/1, syntax-check 1/1,
-      content-preservation 1/1 (comments, tokens, `!important` count, vendor-
-      prefix count all matched exactly). No new fixtures needed (nothing to
-      regress-test).
-      **`foundation/foundation-sites` (fresh shallow clone, `--depth 1`, not
-      found under `/tmp` from a prior session):** verified foundation-sites'
-      real hand-authored source is `.scss` (136 files under `scss/`), same as
-      bootstrap — but unlike bootstrap, this repo has **zero genuinely
-      hand-authored `.css` files anywhere**. The only `.css` matches in the
-      whole tree are the 8 files under `dist/css/**`
-      (`foundation.css`/`foundation-rtl.css`/`foundation-float.css`/
-      `foundation-prototype.css` and their four `.min.css` counterparts,
-      each with a matching `.css.map` sourcemap confirming Sass-compiled
-      origin) — produced by the `gulp` `sass` task per `gulpfile.js`'s
-      `build`/`watch` tasks, same generated-output reasoning as bootstrap's
-      excluded `dist/css/**`. No docs/example HTML-adjacent hand-authored
-      CSS exists in this repo the way bootstrap's `site/src/assets/
-      examples/**` did (`docs/`'s ~191 HTML files have no accompanying
-      plain-`.css` assets; `_vendor/` is Sass helper libraries, no CSS).
-      **In-scope corpus: 0 files** — nothing to format, round-trip, syntax-
-      check, or content-diff. No forward/idempotency/syntax-check/content-
-      preservation pass was run (would be vacuous), no fixtures added (no
-      bug to regress-test), no bugs found.
-      **`primer/css` (fresh shallow clone `--depth 1`, not found under
-      `/tmp` from a prior session; `github.com/primer/css` still exists,
-      no archival/redirect — GitHub's own Primer CSS design system, v22.3.0
-      per `package.json`):** verified this repo's real hand-authored source
-      is `.scss` under `src/` (113 files), same pattern as bootstrap/
-      foundation-sites. Unlike foundation-sites, this repo does have a
-      small genuinely hand-authored `.css` corpus outside `src/`/`dist/`:
-      **2 files**, `docs/.storybook/preview.css` (an `@import`-only file
-      pulling in `@primer/primitives` CSS custom-property bundles, no rules
-      of its own) and `docs/.storybook/storybook.css` (60 lines, ordinary
-      selectors/declarations, Storybook-preview-only styling — no
-      `dist/`/`.min.css`/`.css.map` matches anywhere in the tree, so nothing
-      to exclude as generated). **In-scope corpus: 2 files, full set
-      processed** (too small to sample). Baseline syntax-check of the
-      unformatted originals (`css_sc.js`): 2/2 pass. Round1 format
-      (`--preserve-tree --root`, one invocation): exit 0, 2/2 processed.
-      Round2 vs round1: `diff -r` empty (idempotent, 2/2). Syntax-check of
-      round1 output: 2/2 pass, matching baseline. **Content-preservation
-      check** (`css_content_diff.py`, both files, full not sampled):
-      `storybook.css` — exit 0, exact match (0 comments, 3 `!important`,
-      0 vendor-prefixed properties, all matched). `preview.css` — exit 1,
-      one comment-text mismatch: `/* color */` → `/* Color */`. Investigated
-      and confirmed **not a bug**: `normalize-comment-start-case=on` is the
-      documented default, and per the `real_code_regressions_69` fix (this
-      same file, twbs/bootstrap session), only directive-shaped comments
-      (single whitespace-free token containing `:` or `-`, e.g.
-      `rtl:begin:ignore`) are excluded from capitalization — `color` is a
-      plain word with neither `:` nor `-`, so `isSingleTokenDirective`
-      correctly returns false and the comment is capitalized as intended,
-      exactly the same normalization normal prose comments always get. A
-      manual `diff` of both original-vs-round1 file pairs found no other
-      discrepancy beyond this one intentional capitalization and expected
-      re-indentation/colon-alignment (2-space → 4-space indent,
-      colon-alignment padding on `storybook.css`'s declaration blocks).
-      **Zero bugs found** — forward 2/2, idempotency 2/2, syntax-check 2/2,
-      content-preservation 2/2 (once the one intentional, correctly-applied
-      capitalization is accounted for as expected behavior, not a defect).
-      No new fixtures needed (nothing to regress-test; the capitalization
-      behavior exercised here is already covered by `real_code_regressions_69`).
-      **All four CSS test-fixture repos are now dogfood-tested:**
-      `twbs/bootstrap` (31 in-scope files, 1 bug found+fixed — comment
-      capitalization corrupting rtlcss directives, fixture
-      `real_code_regressions_69`); `necolas/normalize.css` (1 in-scope file,
-      zero bugs); `foundation/foundation-sites` (0 in-scope files, 100%
-      SCSS-compiled); `primer/css` (2 in-scope files, zero bugs). CSS's
-      real-code-testing sub-portion of this checklist item is complete;
-      the overall item stays unchecked pending JSON's `eslint/eslint`, XML,
-      HTML5, YAML, and TOML repos.
-      **`json5/json5` (fresh clone, not found under `/tmp` from a prior
-      session):** small corpus — 6 hand-authored `.json`/`.json5` files
-      total (`.eslintrc.json`, `package.json`, `package-lock.json`,
-      `package.json5`, `test/test.json5`, `test/invalid.json5`; no
-      `node_modules`/`.git`/`dist`/`build` matches). Baseline syntax-check
-      of the unformatted originals first (per methodology, to rule out
-      pre-existing invalid fixtures): 5/6 pass, `test/invalid.json5`
-      (deliberately-invalid single-byte fixture `a`, used by the repo's own
-      test suite to test invalid-JSON5 handling) fails with
-      `1:1: JSON5: invalid character 'a' at 1:1` — expected, not a
-      formatter bug. Round1 format (`--preserve-tree --root`): 6/6 files
-      processed, exit 0. Round2 vs round1: `diff -r` empty (idempotent).
-      Syntax-check of round1 output: identical result to baseline — 5/6
-      pass, `test/invalid.json5` fails with the exact same message as the
-      unformatted original (formatter left its content byte-identical, `a`,
-      confirmed via direct diff). **Zero bugs found** — forward 6/6,
-      idempotency 6/6, syntax-check 5/6 (matching baseline exactly, the one
-      failure being the repo's own pre-existing invalid fixture, not
-      formatter-induced). No new fixtures needed (nothing to regress-test).
-      Corpus is small enough that a second JSON/JSON5-listed repo
-      (`microsoft/vscode`/`babel/babel`/`eslint/eslint`) would give more
-      real-code coverage in a future session.
-      **`microsoft/vscode` (fresh shallow clone, `--depth 1`, not found
-      under `/tmp` from a prior session):** much larger monorepo — 1377
-      `.json`/`.json5` files found after excluding `node_modules`/`.git`/
-      `out`/`dist`/`build` (shallow clone has no `node_modules` anyway; zero
-      `.json5` files exist in this repo). Below the "several thousand+"
-      threshold for mandatory sampling, so the **full set** was processed,
-      not a sample. Of the 1377: 5 are genuinely empty files (0 bytes,
-      `extensions/copilot/test/simulation/fixtures/{gen-json/test.json,
-      tests/simple-ts-proj*/tsconfig.json}`) — the formatter correctly
-      throws `JsonParseException: unexpected end of input` on these; not a
-      bug (an empty file isn't valid JSON either) and not JSONC, just
-      genuinely-invalid/placeholder fixtures. Of the remaining 1372
-      successfully-parsed files, 100 are real JSONC (`.vscode/*.json`,
-      `tsconfig.json`, `language-configuration.json`, etc. — verified: 87
-      contain `//`/`/* */` comments, the other 13 contain no comment marker
-      but do contain a trailing comma before `}`/`]`, confirmed by direct
-      grep on each) and were excluded from formatter-bug scope per this
-      session's instructions (plain `.json` mode has no comment/
-      trailing-comma support, out of scope by design) — baseline
-      syntax-check of the unformatted originals confirms all 100 already
-      fail `JSON.parse` before the formatter ever touches them, so any
-      formatter behavior on them is moot. **In-scope corpus: 1272 genuinely
-      RFC-8259-clean `.json` files.**
-      Round1 format (`--preserve-tree --root`, one invocation, all 1377
-      files): exit 123 (the 5 empty-file errors), 1372 files written to
-      round1, matching expectations. Round2 (reformat round1's 1372 output
-      files): exit 0, zero internal errors. **`diff -r round1 round2` found
-      one real idempotency bug**, fixed this session (see below) — after
-      the fix, a full re-run of round1→round2 across all 1377 files (1372
-      succeeding) shows `diff -rq` empty (0 differing files) — clean
-      idempotency. Syntax-check (of the 1272 in-scope files' round1 output,
-      via `json_sc.js`): 1272/1272 pass, exactly matching the 1272/1272
-      baseline pass count on the unformatted originals — zero
-      formatter-induced corruption.
-      **One bug found+fixed:** `JsonSpecificRule.parseContainer`'s
-      closing-brace handling kept a dangling placeholder `Item` for *any*
-      blank line before the closer, not just a real dangling comment. A
-      comment-less blank-only placeholder (`{` then only blank lines then
-      `}`) made `Container.items` non-empty, so `render()`'s
-      `c.items.isEmpty()` short-circuit for tight `{}"`/`"[]"` never fired,
-      forcing loose `"{\n}"` rendering — but `renderItems`'s
-      `i > 0 && item.blankBefore` check never actually emits that blank line
-      for the first (only) item, so the loose output round1 produced had no
-      blank line before `}`. Reformatting that (round2) found no
-      leadingComments/blankBefore on re-parse, so `items.isEmpty()` was
-      correctly true the second time and collapsed to tight `"{}"` — a
-      genuine non-idempotency (`extensions/vscode-api-tests/testWorkspace/
-      bower.json`, whose source is `"{\n\n\t\n}\n"`). Fixed by only keeping
-      the dangling placeholder when `!item.leadingComments.isEmpty()` (drop
-      the `|| item.blankBefore` disjunct) — a comment-less blank line before
-      the closer is now dropped at parse time, so the whole container
-      renders straight to tight `"{}"` in one pass, matching what round2
-      would have collapsed to anyway. Fixture added:
-      `test/real_code_regressions_68_{inp,out}.json` (no copyright-header
-      comment — plain `.json` has no comment syntax to carry it, per
-      `STATE_COMMON.md`'s methodology's own carve-out). `make test`:
-      117/117 forward + 117/117 idempotency, zero regressions. Commit
-      `e2a6f0e`.
-      **`babel/babel` (fresh shallow clone, `--depth 1`, not found under
-      `/tmp` from a prior session):** large monorepo — 9245 `.json`/`.json5`
-      files found after excluding `node_modules`/`.git`/`lib`/`dist`/`build`
-      (zero `.json5` files exist in this repo; shallow clone has no
-      `node_modules` anyway). Well above the "several thousand+" sampling
-      threshold, so a **representative sample of 964 files** was taken (not
-      the full set) per this session's sizing guidance: all 204
-      package-level `package.json`s across every package, all 500
-      non-fixture `.json` files (config files, `.babelrc`-equivalents,
-      etc.), plus every 20th file (438 files) from the 8745
-      `test/fixtures/**` options.json-style files, deduplicated to 964
-      unique paths. Baseline syntax-check of the unformatted sample first
-      (per methodology): 810/964 pass, 154 fail as JSONC-flavored
-      `tsconfig.json`/`tsconfig.paths.json` (contain `/* ... */` header
-      comments — same carve-out as the vscode run, out of scope for this
-      formatter's plain-`.json` mode by design), and 2 fail as
-      deliberately-invalid fixtures used by babel's own error-handling test
-      suite (`packages/babel-core/test/fixtures/{config/config-files/
-      pkg-error,errors/invalid-pkg-json}/package.json`, both intentionally
-      malformed JSON, e.g. `{\n  foo\n}` — same `test/invalid.json5`-style
-      precedent as the json5/json5 run). **In-scope corpus: 810 genuinely
-      RFC-8259-clean `.json` files.** (One methodology note: the sampled
-      fixture tree includes at least one legitimate directory name
-      containing literal spaces — `packages/babel-cli/test/fixtures/babel/
-      dir --out-dir --watch multiple dir/options.json` — file-list handling
-      must preserve it as one path, e.g. `xargs -d '\n'`, not naive
-      unquoted `$(cat ...)` word-splitting, which breaks on it.)
-      Round1 format (`--preserve-tree --root`, one invocation, all 810
-      in-scope files): exit 0, 810/810 processed. Round2 (reformat round1's
-      810 output files): exit 0, `diff -rq round1 round2` empty — clean
-      idempotency, 810/810. Syntax-check of round1 output (`json_sc.js`):
-      810/810 pass, exactly matching the 810/810 baseline pass count on the
-      unformatted originals. **Zero bugs found** — forward 810/810,
-      idempotency 810/810, syntax-check 810/810 (matching baseline exactly).
-      No new fixtures needed (nothing to regress-test).
-      **`eslint/eslint` (fresh shallow clone, `--depth 1`, not found under
-      `/tmp` from a prior session):** small corpus — 98 `.json`/`.json5`
-      files total after excluding `node_modules`/`.git`/`dist`/`build`/
-      `coverage` (1 `.json5` — `.github/renovate.json5`; the rest `.json`).
-      Below any sampling threshold, so the **full set** was processed, not a
-      sample. Baseline syntax-check of the unformatted originals first (per
-      methodology): 92/98 pass. **6 excluded as JSONC/pre-existing-invalid**
-      (same carve-out as the vscode/babel runs): `tsconfig.types-legacy.json`
-      (trailing `//` comment inside `compilerOptions`, real JSONC);
-      `tests/fixtures/configurations/comments.json` (`/* */`/`//` comments,
-      a deliberate fixture for eslint's own comments-in-config test);
-      `tests/fixtures/config-file/broken-package-json/package.json` and
-      `tests/fixtures/ignored-paths/broken-package-json/package.json` (both
-      deliberately malformed — missing closing brace / missing comma — used
-      by eslint's own broken-config error-handling tests, same
-      `test/invalid.json5`-style precedent as the json5/json5 run);
-      `tests/fixtures/configurations/empty/empty.json` (genuinely 0 bytes,
-      not valid JSON, not JSONC either); and, found only once formatting was
-      attempted (not caught by the baseline check since `JSON.parse` and
-      this formatter both reject a leading UTF-8 BOM before any content),
-      **2 more BOM-prefixed files** — `tests/fixtures/config-file/bom/
-      package.json` and `tests/fixtures/config-file/bom/.eslintrc.json`
-      (both deliberate fixtures for eslint's own BOM-handling tests) — both
-      fail `JSON.parse` on the raw BOM byte identically to how the
-      formatter's own parser rejects it (`unexpected token: ﻿`),
-      confirmed via direct baseline re-check, so excluded as
-      pre-existing-invalid too, not a formatter bug (a corpus of 6 baseline
-      failures total). **In-scope corpus: 91 files** (90 `.json` + 1
-      `.json5`; the two BOM files were only discovered during round1 and
-      then retroactively excluded and re-verified against baseline, so the
-      92-minus-1 arithmetic reflects that). Round1 format
-      (`--preserve-tree --root`, one invocation): exit 0, 91/91 processed.
-      Round2 vs round1: `diff -rq` empty (idempotent, 91/91). Syntax-check
-      of round1 output: 90/90 `.json` + 1/1 `.json5` pass, exactly matching
-      the 91/91 baseline pass count on the unformatted in-scope originals.
-      Manual spot-check of `package.json` and `.github/renovate.json5`
-      diffs confirms only re-indentation/colon-alignment, no content loss.
-      **Zero bugs found** — forward 91/91, idempotency 91/91, syntax-check
-      91/91 (matching baseline exactly). No new fixtures needed (nothing to
-      regress-test).
-      **All four JSON/JSON5 test-fixture repos are now dogfood-tested:**
-      `json5/json5` (6 files, zero bugs); `microsoft/vscode` (1272 in-scope
-      files, 1 bug found+fixed — `JsonSpecificRule.parseContainer` blank-line-
-      before-closer non-idempotency, fixture `real_code_regressions_68`);
-      `babel/babel` (810 in-scope files, sampled from 9245 found, zero bugs);
-      `eslint/eslint` (91 in-scope files, zero bugs). JSON/JSON5's
-      real-code-testing sub-portion of this checklist item is complete; the
-      overall item stays unchecked pending XML, HTML5, YAML, and TOML
-      repos (CSS's sub-portion is already complete per its own note above).
-      **`apache/maven` (XML, first XML dogfood run; fresh shallow clone
-      `--depth 1`, not found under `/tmp` from a prior session):** 3158
-      `.xml` files found (no `target`/`build`/generated-output dirs present
-      at all — a fresh shallow clone with no build ever run — so no
-      exclusions were needed on that front). 3158 is well above the "several
-      hundred+" sampling threshold, so a **representative sample of 398
-      files** was taken (not the full set), per this session's sizing
-      guidance: **all 90 top-level/module `pom.xml` files** (one per Maven
-      module across the whole multi-module repo, giving a genuine
-      cross-section of Maven's signature artifact from trivial parent POMs
-      to large multi-dependency ones), plus every 10th of the remaining
-      1882 `pom.xml` files living under `src/.../test/resources/**` (189
-      sampled — these are small hand-authored POM fixtures used by Maven's
-      own model-builder/core test suites), plus every 10th of the 1186
-      non-`pom.xml` `.xml` files (settings.xml, `maven-metadata.xml`,
-      `extensions.xml`, `components.xml`, `web.xml`, Doxia `site.xml`, etc.;
-      119 sampled) — 398 total. Baseline syntax-check of the unformatted
-      sample first (`xml_sc.js`): 397/398 pass; the one failure
-      (`its/core-it-suite/src/test/resources/mng-5898/servlets/servlet/
-      src/main/webapp/WEB-INF/web.xml`) is a genuinely 0-byte fixture file
-      (not valid XML by definition), a pre-existing repo artifact, not a
-      formatter concern. Round1 format (`--preserve-tree --root`, one
-      invocation): exit 0, 398/398 processed (the empty file stays empty, as
-      expected — same as the JSON dogfood runs' empty-file precedent).
-      Round2 vs round1: `diff -rq` empty across all 398 files — clean
-      idempotency. Syntax-check of round1 output: 397/398 pass, exactly
-      matching the 397/398 baseline — zero formatter-induced corruption.
-      **Content-preservation check:** no `xml_content_diff.py` existed yet
-      for XML (unlike CSS's `css_content_diff.py`) — written this session
-      (see "Dogfood Output Validation" above), verified against a
-      hand-crafted good/bad pair before trusting it for real use, then run
-      across all 397 non-empty sample files: 355/397 exact match, 42/397
-      reported a mismatch — **all 86 individual mismatches across those 42
-      files are comment-text differences that are case-insensitive-equal to
-      the original** (verified programmatically, not just by inspection),
-      i.e. exactly the documented `normalize-comment-start-case=on` default
-      behavior capitalizing a lowercase-starting prose comment's first
-      letter (e.g. `'various versions'` -> `'Various versions'`) — the same
-      already-accepted normalization the `primer/css` CSS dogfood session
-      hit and confirmed was correct behavior, not a defect. Zero attribute-
-      order, text-content, CDATA-content, or structural (node-type/child-
-      count) mismatches were found in any of the 397 files. **Zero bugs
-      found** — forward 397/398 (1 pre-existing empty fixture, expected),
-      idempotency 398/398, syntax-check 397/398 (matching baseline exactly),
-      content-preservation 397/397 once the universally-expected comment
-      capitalization is accounted for. No new fixtures needed (nothing to
-      regress-test). `apache/ant`, `jenkinsci/jenkins`, `w3c/svgwg` remain
-      not-started for XML.
-      **`rust-lang/cargo` (TOML, first TOML dogfood run; fresh shallow clone
-      `--depth 1`, not found under `/tmp` from a prior session):** 672 `.toml`
-      files found (no `target`/`build`/generated-output dirs present at all —
-      a fresh shallow clone that's never been built). Not above the "several
-      hundred+" sampling threshold by enough to force sampling, and the files
-      are all small, so the **full set was processed**, not a sample.
-      Baseline syntax-check of the unformatted originals (`toml_sc.js`):
-      670/672 pass; the 2 failures
-      (`tests/testsuite/cargo_add/invalid_manifest/{in,out}/Cargo.toml`) are
-      cargo's own deliberately-invalid fixtures for its manifest
-      error-handling tests (`[invalid-section]` followed by a bare
-      `key = invalid-value` with no quotes) — confirmed genuinely invalid
-      TOML via the same real-parser baseline-check precedent as
-      `json5/json5`'s `test/invalid.json5`/`eslint/eslint`'s broken-package-json
-      fixtures, not a formatter bug. **In-scope corpus: 670 files.** Initial
-      round1 format attempt hit **2 real bugs, both crashes on genuinely-valid
-      files** (found via the forward pass itself failing, before syntax-check
-      or content-preservation ever ran) — both fixed this session (see
-      `real_code_regressions_70` above and the commit below) — Cargo's own
-      `bracketBalance`/`splitTrailingComment` continuation-line logic had
-      never been exercised against an interior per-element comment inside a
-      multi-line array, and TOML's `"""`/`'''` multi-line basic/literal
-      strings had no handling at all in the flat line-scanner (RDD_KEY_192's
-      original implementation only tracked bracket balance for array/inline-
-      table continuation, nothing for multi-line-string continuation).
-      **After the fix, full re-run across all 670 in-scope files:** Round1
-      format (`--preserve-tree --root`, one invocation): exit 0, 670/670
-      processed, zero internal errors. Round2 vs round1: `diff -rq` empty
-      across all 670 files — clean idempotency. Syntax-check of round1 output
-      (`toml_sc.js`): 670/670 pass, matching the 670/670 in-scope baseline.
-      **Content-preservation check** (`toml_content_diff.py`, written this
-      session — see "Dogfood Output Validation" below for its design, since
-      this system's Python 3.6 has no stdlib `tomllib`): all 670 files, exit
-      0, zero mismatches (comment-blind by construction — only proves
-      key/value/table/array structure, not comment wording — but this session
-      hit no comment-corruption-shaped bug the way CSS's `real_code_
-      regressions_69` did, so a comment-level checker wasn't additionally
-      needed here). **Two bugs found+fixed** (both via the forward-pass
-      crashing, not syntax-check or content-preservation):
-      (1) `Cargo.toml`'s `exclude = [\n  "target/", # exclude bench
-      testing\n]` — the continuation-line-joining loop only stripped a
-      trailing `#` comment from the fully-assembled logical line at the very
-      end, so an interior continuation line's own comment got treated as
-      extending to the end of the whole joined string, swallowing the array's
-      closing `]` as "comment text" and throwing "unterminated array". Fixed
-      by stripping each continuation line's own trailing comment before
-      joining it in. (2) `triagebot.toml`'s `message = """\...\n"""` — TOML
-      v1.0's multi-line basic/literal strings were never handled by the flat
-      line-scanner at all (no bracket to balance-track the way array/inline-
-      table continuation uses), throwing "expected 'key = value' line".
-      Fixed by detecting an unterminated `"""`/`'''` opener before the
-      bracket-balance check and consuming subsequent raw (untrimmed) lines
-      verbatim until the matching closing delimiter, preserving the string's
-      real embedded newlines/whitespace exactly (same "opaque, preserve
-      exactly" treatment as JSON5's multi-line string continuations). Fixture
-      `test/real_code_regressions_70_{inp,out}.toml` combines both bugs in
-      one file (`test/README.txt`). `make test`: 119/119 forward + 119/119
-      idempotency, zero regressions. Commit `d56eb3a`.
-      **Final numbers after the fix:** forward 670/670, idempotency 670/670,
-      syntax-check 670/670, content-preservation 670/670.
-      `python-poetry/poetry`, `pola-rs/polars`, `toml-lang/toml` remain
-      not-started for TOML.
-      **`kubernetes/kubernetes` (YAML, first YAML dogfood run; fresh shallow
-      clone `--depth 1`, found already under the scratchpad from a prior
-      session, reused). Excluding `.git`/`vendor`/`_output`/`bazel-*`/
-      `build`, this monorepo has 6366 hand-authored `.yaml`/`.yml` files —
-      far above the several-hundred sampling threshold, so a representative
-      **455-file sample** (evenly spaced across the full sorted list, so it
-      spans a broad cross-section of directories rather than one
-      subdirectory) was used, not the full set. Baseline syntax-check of the
-      unformatted sample originals (`yaml_sc.js`, `loadAll()`): 453/455 pass;
-      the 2 failures (`test/integration/scheduler_perf/podgroup/tas/
-      templates/podgroup.yaml`, `test/kubemark/resources/
-      hollow-node_template.yaml`) are Go/Salt template files using `{{...}}`
-      template syntax misidentified by their `.yaml` extension — confirmed
-      genuinely invalid YAML via the same real-parser baseline-check
-      precedent as `json5/json5`'s `test/invalid.json5`/`rust-lang/cargo`'s
-      deliberately-invalid manifest fixtures, not a formatter bug.
-      **In-scope corpus: 453 files.** Round1 format (one invocation,
-      `--preserve-tree --root`) surfaced **6 real bugs, 5 found via the
-      forward pass crashing on genuinely-valid files and 1 (idempotency-only)
-      found re-formatting round1's own output** — all fixed this session
-      (see `real_code_regressions_71` below and the two commits below).
-      (1) A sequence-of-mapping's first key ("- key:") rejected a same-indent
-      nested sequence child (the common `- apiGroups:\n    - "*"` manifest
-      style) — a plain mapping key already allowed this, the
-      sequence-of-mapping first-key path just hadn't been taught the same
-      rule; fixed by mirroring it. (2)/(3) Both quoted and unquoted (plain)
-      scalars can wrap across physical lines when a continuation is more
-      indented than the key (common in real-world CRD/API `description`
-      fields) — the line-based parser had zero support for this shape and
-      crashed treating the continuation as its own malformed mapping line;
-      fixed by detecting an unterminated quote / a non-key/non-seq deeper
-      continuation line and capturing it as an opaque multi-line scalar
-      body, applied to plain mapping keys, a sequence-of-mapping's first
-      key, and (found only later, see bug 6) a plain sequence item's own
-      value. (4) A trailing comment with no following sibling key inside a
-      sequence-of-mapping's children (a "dangling" item with a null key)
-      reached the colon-alignment padding helper and threw a
-      NullPointerException calling `.length()` on the null key; fixed by
-      excluding dangling items from the padding key list and rendering their
-      leading comments directly. (5) Idempotency-only: the new multi-line-
-      scalar continuation capture (bugs 2/3) and the pre-existing `|`/`>`
-      block-scalar body capture both stored continuation lines at their
-      original ABSOLUTE indentation; since the header key's own rendered
-      column can shift (colon-alignment padding, indent-size, nesting-depth
-      quirks elsewhere in the renderer), a second formatting pass could
-      leave the body less-indented than its own re-rendered key line,
-      breaking idempotency and, in one case, re-parseability. Fixed by
-      storing every continuation/body line's indentation as a delta
-      RELATIVE to its own key's original indent, and re-anchoring that delta
-      to the key's newly-rendered column at render time. Fixture
-      `test/real_code_regressions_71_{inp,out}.yaml` combines bugs 1-5 in
-      one file (`test/README.txt`). `make test`: 120/120 forward + 120/120
-      idempotency, zero regressions. Commit `fff5a3f`.
-      **A final full re-run across all 453 in-scope files after bugs 1-5**
-      caught a **6th bug via the content-preservation check** (not the
-      syntax-checker — the corrupted output was still syntactically valid
-      YAML): a `|`/`>` block scalar as a PLAIN (non-keyed) sequence item's
-      own value (e.g. a shell script in a `command:` array element, a common
-      real-world shape) was silently rendered as an empty string — the
-      no-colon branch of the sequence-item parser never checked for a
-      block-scalar header at all, unlike the mapping-key and
-      sequence-of-mapping-first-key cases. Fixing it also surfaced a latent
-      render-offset bug in the bug-5 relative-indent scheme: a block
-      scalar's capture baseline is the dash line's own indent, not the
-      value's column, so its render anchor must be the dash's own rendered
-      column (not a "+2" offset, which is only correct for the
-      quoted/plain-scalar case above, whose capture baseline is the value's
-      own column) for both a plain sequence item and a sequence-of-mapping
-      first key — only sibling keys (whose capture baseline already includes
-      the +2) use the +2-offset anchor. Extended
-      `test/real_code_regressions_71_{inp,out}.yaml` to also cover this
-      shape. `make test`: 120/120 forward + 120/120 idempotency, zero
-      regressions. Commit `025af9f`.
-      **Final numbers after all 6 fixes, full 453-file re-run:** forward
-      453/453 (matching the 453-file in-scope baseline exactly, the 2
-      Go/Salt template files excluded per above), idempotency 453/453
-      (`diff -rq` empty), syntax-check 453/453 pass, content-preservation
-      (new `yaml_content_diff.py`, see "Dogfood Output Validation" above)
-      453/453 match (informational-only comment-capitalization diffs noted
-      on a handful of files, not structural mismatches).
-      **`docker/compose` (YAML, second YAML dogfood run; fresh shallow clone
-      `--depth 1`, not found under `/tmp`/scratchpad from a prior session):**
-      261 `.yaml`/`.yml` files found (no `.git`/`vendor`/`node_modules`/
-      `bin`/`build` matches — a fresh shallow clone). Well below the
-      several-hundred sampling threshold, so the **full set was processed**,
-      not a sample. Baseline syntax-check of the unformatted originals
-      (`yaml_sc.js`, `loadAll()`): 250/261 pass; the 11 failures (all under
-      `pkg/e2e/fixtures/bridge/expected-helm/templates/**`) are genuine Helm
-      chart templates using `{{ ... }}` Go-template placeholders as mapping
-      keys/values (e.g. `{{- range ... }}`), confirmed genuinely invalid
-      plain YAML via the same real-parser baseline-check precedent as prior
-      sessions' deliberately-invalid/templated fixtures, not a formatter
-      bug. **In-scope corpus: 250 files.** Round1 format (one invocation,
-      `--preserve-tree --root`): the same 11 Helm-template files fail
-      identically (`expected ':' in flow mapping near: }}`, exact match to
-      the baseline-invalid set — confirmed no new failures), 250/250
-      in-scope files processed successfully. Round2 vs round1: `diff -rq`
-      empty across all 250 files — clean idempotency. Syntax-check of
-      round1 output: 250/250 pass, matching the 250/250 in-scope baseline.
-      **One bug found+fixed via the content-preservation check** (not the
-      syntax-checker — the corrupted output was still syntactically valid
-      YAML, same detection pattern as the kubernetes session's 6th bug): a
-      blank line immediately after a keyed line with no inline value (e.g.
-      `services:` followed by a blank line, then its nested service
-      mappings — a common human-authored compose-file style, both
-      `pkg/e2e/fixtures/network-alias/compose.yaml` and `pkg/e2e/fixtures/
-      hooks/poststart/compose-error.yaml` hit it) caused the entire nested
-      block to be silently dropped (`services: {}`-equivalent data loss).
-      Root cause: all four "does this key have a child block" detection
-      sites in `YamlSpecificRule.java` (`parseKeyItem`'s empty-inline-value
-      case, its scalar-then-nested-mapping case, `parseSeqItem`'s
-      empty-rest case, and the sequence-of-mapping first-key case) used a
-      plain `peek()` to look one line ahead; if that line happened to be
-      blank, it was read as "no child block" instead of being skipped past
-      to find the real next line, so the intended nested block was never
-      parsed at all. Fixed by adding a `peekNonBlank()` helper (looks ahead
-      past blank lines without consuming `pos`, so the blank line is still
-      correctly consumed later as the child block's own leading
-      `pendingBlank` once `parseBlock` is actually invoked on it) and using
-      it at all four detection sites in place of `peek()`. Fixture:
-      `test/real_code_regressions_72_{inp,out}.yaml` (`test/README.txt`).
-      `make test`: 121/121 forward + 121/121 idempotency, zero regressions.
-      Commit `2640cf2`. **Final full 250-file re-run after the fix:**
-      forward 250/250, idempotency 250/250 (`diff -rq` empty), syntax-check
-      250/250 pass, content-preservation 249/250 match — the one remaining
-      "failure" (`.github/ISSUE_TEMPLATE/bug_report.yml`) is not a
-      formatter bug but a `yaml_content_diff.py` **tool gap**: the file's
-      `name: 🐞 Bug` line contains an emoji, which PyYAML's `safe_load`
-      rejects outright (`unacceptable character #x1f41e: special
-      characters are not allowed`) on BOTH the original and the formatted
-      copy — `yaml_sc.js` (js-yaml) confirms both parse fine, and a manual
-      `diff` of the two files shows only expected re-indentation/
-      colon-alignment, no content change. Flagged as a `yaml_content_
-      diff.py` gap (PyYAML's stricter-than-YAML-1.1/1.2-spec printable-
-      character restriction on certain non-ASCII/emoji codepoints), not
-      fixed this session (out of scope — it's the checker script, not the
-      formatter).
-      `ansible/ansible`, `actions/starter-workflows` remain not-started for
-      YAML.
-      **`python-poetry/poetry` (TOML, second TOML dogfood run; fresh shallow
-      clone `--depth 1`, not found under `/tmp`/scratchpad from a prior
-      session):** 106 `.toml` files found (no `.git`/`node_modules`/`build`/
-      `dist`/`.venv` matches — a fresh shallow clone that's never been
-      built), a modest count well under any sampling threshold, so the
-      **full set was processed**, not a sample — mostly `pyproject.toml`
-      (its own PEP 621 + `[tool.poetry.*]` root file, plus ~100 small
-      test-fixture `pyproject.toml`s under `tests/**/fixtures/**` covering
-      poetry's own dependency-resolution/build-system/git-dependency test
-      matrix) with a handful of `poetry.toml`/JSON-source-derived `.toml`
-      test fixtures (`tests/json/fixtures/**`). Baseline syntax-check of the
-      unformatted originals (`toml_sc.js`): **106/106 pass** — unlike
-      `rust-lang/cargo`'s corpus, this repo's test-fixture `.toml` files
-      (e.g. `bad_scripts_project/{no_colon,too_many_colon}/pyproject.toml`,
-      `invalid_pyproject/pyproject.toml`, `invalid_lock/pyproject.toml`)
-      are deliberately invalid at the *poetry-schema* level (missing
-      required keys, malformed script entries, mismatched lock hashes) but
-      are all syntactically well-formed TOML, so none tripped `toml_sc.js` —
-      no exclusions were needed. **In-scope corpus: 106 files, full set.**
-      Round1 format (`--preserve-tree --root`, one invocation): exit 0,
-      106/106 processed, zero internal errors/crashes (unlike the
-      `rust-lang/cargo` run, this repo's dependency-version-constraint
-      strings and nested inline-table dependency specs, e.g.
-      `{ version = "^1.0", extras = ["foo"] }`, hit no unhandled shape).
-      Round2 vs round1: `diff -rq` empty across all 106 files — clean
-      idempotency. Syntax-check of round1 output (`toml_sc.js`): 106/106
-      pass, matching the 106/106 baseline exactly. **Content-preservation
-      check** (`toml_content_diff.py`, reused as-is per this session's
-      instructions, no changes needed): all 106 files, exit 0, zero
-      mismatches. **Zero bugs found** — forward 106/106, idempotency
-      106/106, syntax-check 106/106, content-preservation 106/106. No new
-      fixtures needed (nothing to regress-test).
-      `pola-rs/polars`, `toml-lang/toml` remain not-started for TOML.
+      `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format.
+      Status: JSON/JSON5 complete (4/4 repos); CSS complete (4/4 repos); XML
+      1/4 (`apache/maven` done; `apache/ant`/`jenkinsci/jenkins`/`w3c/svgwg`
+      not started); YAML 2/4 (`kubernetes/kubernetes`, `docker/compose` done;
+      `ansible/ansible`/`actions/starter-workflows` not started); TOML 2/4
+      (`rust-lang/cargo`, `python-poetry/poetry` done; `pola-rs/polars`/
+      `toml-lang/toml` not started); HTML5 not started. Overall item stays
+      unchecked pending the remaining repos above.
+
+      **Shared methodology note (applies to every run below, not restated per
+      repo):** each run clones fresh (or reuses a prior-session checkout under
+      `/tmp`/scratchpad if found) per `STATE_COMMON.md`'s methodology, excludes
+      build/vendor/generated-output dirs, and — above a per-format sampling
+      threshold (JSON/CSS: "several thousand+"; XML/YAML: "several hundred+")
+      — takes a representative sample rather than the full set; below
+      threshold the full set is processed. Every run does: baseline
+      syntax-check of unformatted originals (to separate pre-existing-invalid/
+      template/deliberately-malformed fixtures from real in-scope files) →
+      round1 format (`--preserve-tree --root`, one invocation) → round2
+      (reformat round1 output) → `diff -rq` idempotency check → syntax-check of
+      round1 output vs baseline → format-specific content-preservation check
+      (`css_content_diff.py`/`xml_content_diff.py`/`yaml_content_diff.py`/
+      `toml_content_diff.py`, per "Dogfood Output Validation" above). A
+      comment-capitalization diff (`normalize-comment-start-case=on`,
+      lowercase-starting prose comment capitalized) recurs across several runs
+      below and is expected/correct behavior per the `real_code_regressions_69`
+      precedent, not a bug — noted per-repo only when it's the sole diff found.
+
+      **CSS (all 4 repos done, sub-portion complete):**
+      - `twbs/bootstrap`: real source is `.scss`; in-scope corpus 31
+        hand-authored `.css` files (`site/src/assets/examples/**`, `dist/css/**`
+        excluded as generated). Forward/idempotency/syntax-check all 31/31
+        clean. **1 bug found+fixed** (via manual comment inspection, not the
+        token-stream content-diff, which strips comments): `carousel.css`'s
+        rtlcss directive comments (`/* rtl:begin:ignore */` etc.) were
+        silently capitalized to `/* Rtl:... */` by
+        `FormatterSimpleBraced.capitalizeCommentStart` — still valid CSS, so
+        `css_sc.js` missed it, but semantically broken for any pipeline
+        running rtlcss over the output. Fixed by adding
+        `isSingleTokenDirective`: skip capitalization when a comment's
+        first-line body is one whitespace-free token containing `:` or `-`
+        (directive-shaped), while ordinary prose is still capitalized.
+        Fixture `test/real_code_regressions_69_{inp,out}.css`. `make test`:
+        118/118 forward + idempotency. Commit `8f5f597`. Final full re-run:
+        31/31 clean on all four checks.
+      - `necolas/normalize.css`: 1 hand-authored file (`normalize.css`, 6138
+        bytes), no generated copy in-repo. Wrote `css_content_diff.py` this
+        session (see "Dogfood Output Validation"). Zero bugs — 1/1 clean on
+        all four checks (71 comments byte-identical, token stream identical,
+        `!important` count and vendor-prefix counts matched).
+      - `foundation/foundation-sites`: real source is 100% `.scss`; the only
+        `.css` files are 8 generated `dist/css/**` outputs (Sass-compiled, with
+        matching `.css.map`). **In-scope corpus: 0 files** — no run performed,
+        nothing to regress-test.
+      - `primer/css`: real source is `.scss`; in-scope corpus 2 hand-authored
+        files (`docs/.storybook/{preview,storybook}.css`). Forward/idempotency/
+        syntax-check 2/2 clean. Content-preservation: `storybook.css` exact
+        match; `preview.css` one diff, `/* color */` → `/* Color */` —
+        confirmed expected capitalization (not directive-shaped per
+        `isSingleTokenDirective`), not a bug. Zero bugs found.
+
+      **JSON/JSON5 (all 4 repos done, sub-portion complete):**
+      - `json5/json5`: 6 files. Baseline 5/6 pass (`test/invalid.json5` is the
+        repo's own deliberately-invalid fixture, expected fail). Forward 6/6,
+        idempotent, syntax-check of output matches baseline exactly incl. the
+        one expected failure (formatter left its content byte-identical).
+        Zero bugs found.
+      - `microsoft/vscode`: 1377 files found, below sampling threshold so full
+        set processed. 5 genuinely-empty files correctly throw
+        `JsonParseException`. 100 JSONC files (comments or trailing commas)
+        excluded as out-of-scope by design (already fail baseline
+        `JSON.parse`). **In-scope corpus: 1272 files.** Round1: exit 123 (the
+        5 empty-file errors as expected), 1372 written. **1 idempotency bug
+        found+fixed** (via `diff -rq round1 round2`, not syntax-check):
+        `JsonSpecificRule.parseContainer` kept a dangling placeholder `Item`
+        for any comment-less blank line before a closing brace, defeating the
+        tight-`{}` short-circuit on round1 but not round2 (whose re-parse saw
+        no comment) — non-idempotent (`extensions/vscode-api-tests/
+        testWorkspace/bower.json`, source `"{\n\n\t\n}\n"`). Fixed by only
+        keeping the placeholder when a real leading comment exists. Fixture
+        `test/real_code_regressions_68_{inp,out}.json` (no copyright header —
+        plain `.json` has no comment syntax). `make test`: 117/117. Commit
+        `e2a6f0e`. After fix: full 1377-file re-run clean idempotency;
+        syntax-check 1272/1272 matching baseline.
+      - `babel/babel`: 9245 files found, above sampling threshold — sampled
+        964 files (all 204 package.json across packages, all 500 non-fixture
+        `.json`, every 20th of 8745 `test/fixtures/**` files = 438,
+        deduplicated to 964). Baseline 810/964 pass (154 JSONC `tsconfig*`
+        excluded by design, 2 deliberately-invalid error-handling fixtures
+        excluded). **In-scope corpus: 810 files.** Forward/idempotency/
+        syntax-check all 810/810 clean, matching baseline. Zero bugs found.
+        (Methodology note: one sampled path contains literal spaces —
+        file-list handling must preserve it as one path, e.g. `xargs -d '\n'`,
+        not unquoted `$(cat ...)` word-splitting.)
+      - `eslint/eslint`: 98 files, full set processed. Baseline 92/98 pass; 6
+        excluded (2 real JSONC, 2 deliberately-malformed error-handling
+        fixtures, 1 genuinely-empty file, plus 2 BOM-prefixed fixtures
+        discovered only during round1 and retroactively confirmed
+        pre-existing-invalid at baseline too — both this formatter and
+        `JSON.parse` reject a leading BOM identically). **In-scope corpus: 91
+        files.** Forward/idempotency/syntax-check 91/91 clean, matching
+        baseline. Manual spot-check confirmed only re-indentation/
+        colon-alignment, no content loss. Zero bugs found.
+
+      **XML (1/4 repos done):**
+      - `apache/maven`: 3158 files found, above sampling threshold — sampled
+        398 files (all 90 top-level/module `pom.xml`, every 10th of 1882
+        `test/resources` `pom.xml` = 189, every 10th of 1186 non-pom `.xml`
+        = 119). Baseline 397/398 pass (1 genuinely 0-byte fixture, expected).
+        Forward 398/398 (empty file stays empty), idempotency 398/398 clean,
+        syntax-check 397/398 matching baseline. Wrote `xml_content_diff.py`
+        this session (see "Dogfood Output Validation"), verified against a
+        hand-crafted good/bad pair first, then run on all 397 non-empty
+        files: 355/397 exact match, 42/397 flagged — all 86 individual
+        mismatches across those files are case-insensitive-equal
+        comment-capitalization diffs (the same expected
+        `normalize-comment-start-case=on` behavior), confirmed
+        programmatically, not a bug. Zero attribute-order/text/CDATA/
+        structural mismatches. Zero bugs found. `apache/ant`,
+        `jenkinsci/jenkins`, `w3c/svgwg` remain not-started.
+
+      **TOML (2/4 repos done):**
+      - `rust-lang/cargo`: 672 files, full set processed (below sampling
+        threshold). Baseline 670/672 pass (2 deliberately-invalid manifest
+        error-handling fixtures excluded). **In-scope corpus: 670 files.**
+        **2 bugs found+fixed, both via the forward pass crashing** (before
+        syntax-check/content-preservation ever ran) on genuinely-valid files:
+        (1) `Cargo.toml`'s interior per-element array comment
+        (`"target/", # exclude bench testing`) — the continuation-line
+        joining loop only stripped a trailing `#` comment from the fully
+        assembled line at the very end, so an interior line's own comment
+        swallowed the array's closing `]` as comment text, throwing
+        "unterminated array". Fixed by stripping each continuation line's own
+        trailing comment before joining. (2) `triagebot.toml`'s
+        `"""..."""` multi-line string — TOML v1.0 multi-line basic/literal
+        strings had no handling at all in the flat line-scanner, throwing
+        "expected 'key = value' line". Fixed by detecting an unterminated
+        `"""`/`'''` opener and consuming subsequent raw lines verbatim until
+        the closing delimiter (same opaque-preserve treatment as JSON5's
+        multi-line strings). Fixture combines both bugs:
+        `test/real_code_regressions_70_{inp,out}.toml`. `make test`:
+        119/119. Commit `d56eb3a`. After fix, full 670-file re-run: forward/
+        idempotency/syntax-check/content-preservation (`toml_content_diff.py`,
+        written this session, comment-blind by design) all 670/670 clean.
+      - `python-poetry/poetry`: 106 files, full set processed. Baseline
+        106/106 pass — this repo's poetry-schema-invalid fixtures (missing
+        keys, malformed scripts) are all syntactically well-formed TOML, so
+        none excluded. Forward/idempotency/syntax-check/content-preservation
+        (`toml_content_diff.py`, reused as-is) all 106/106 clean, zero
+        crashes (nested inline-table dependency specs like
+        `{ version = "^1.0", extras = ["foo"] }` hit no unhandled shape).
+        Zero bugs found. `pola-rs/polars`, `toml-lang/toml` remain
+        not-started.
+
+      **YAML (2/4 repos done):**
+      - `kubernetes/kubernetes`: 6366 files found, above sampling threshold —
+        sampled 455 files (evenly spaced across the full sorted list).
+        Baseline 453/455 pass (2 Go/Salt template files using `{{...}}`
+        misidentified by `.yaml` extension, expected fail). **In-scope
+        corpus: 453 files.** **6 bugs found+fixed** across two sessions (5 via
+        the forward pass crashing on genuinely-valid files, 1 idempotency-only,
+        1 more via content-preservation on a final re-run):
+        (1) sequence-of-mapping's first key rejected a same-indent nested
+        sequence child (`- apiGroups:\n    - "*"`) though plain mapping keys
+        already allowed it; fixed by mirroring the rule. (2)/(3) quoted and
+        unquoted scalars wrapping across physical lines with a more-indented
+        continuation (common in CRD/API `description` fields) crashed the
+        line-based parser; fixed by detecting an unterminated quote or
+        deeper non-key/non-seq continuation line and capturing it as an
+        opaque multi-line scalar body (applied to mapping keys,
+        sequence-of-mapping first keys, and later, per bug 6, plain sequence
+        item values). (4) a dangling comment-only item (null key) inside a
+        sequence-of-mapping's children threw a NullPointerException in the
+        colon-alignment padding helper; fixed by excluding dangling items from
+        the padding key list. (5, idempotency-only) multi-line-scalar and
+        block-scalar (`|`/`>`) continuation bodies were stored at original
+        ABSOLUTE indentation, so a second pass could leave the body
+        less-indented than its re-rendered key line; fixed by storing each
+        continuation's indent as a delta RELATIVE to its own key's original
+        indent, re-anchored to the key's newly-rendered column at render
+        time. Fixture (bugs 1-5) `test/real_code_regressions_71_{inp,out}
+        .yaml`. `make test`: 120/120. Commit `fff5a3f`. (6, found via a final
+        453-file content-preservation re-run, not syntax-check — output was
+        still valid YAML): a `|`/`>` block scalar as a plain (non-keyed)
+        sequence item's own value (e.g. a shell script in a `command:` array
+        element) rendered as an empty string — the no-colon sequence-item
+        branch never checked for a block-scalar header. Fixing it also
+        surfaced a latent bug-5 render-offset error: a block scalar's anchor
+        must be the dash's own rendered column (not the "+2" offset that's
+        only correct for the quoted/plain-scalar case, whose baseline is the
+        value's column) for a plain sequence item or sequence-of-mapping
+        first key — only sibling keys use the +2 anchor. Extended the same
+        fixture. `make test`: 120/120. Commit `025af9f`. **Final numbers
+        after all 6 fixes, full 453-file re-run:** forward/idempotency/
+        syntax-check/content-preservation (`yaml_content_diff.py`, written
+        this session) all 453/453 clean (informational-only comment-
+        capitalization diffs on a handful of files, not structural).
+      - `docker/compose`: 261 files, full set processed. Baseline 250/261
+        pass (11 Helm-chart templates using `{{...}}` as mapping keys/values,
+        expected fail). **In-scope corpus: 250 files.** Round1: the same 11
+        fail identically (no new failures), 250/250 processed. Idempotency
+        and syntax-check both clean/matching baseline. **1 bug found+fixed
+        via content-preservation** (not syntax-check — output stayed
+        syntactically valid): a blank line right after a keyed line with no
+        inline value (e.g. `services:` then a blank line then its nested
+        mappings — common human-authored compose-file style) caused the
+        entire nested block to be silently dropped. Root cause: all four
+        "does this key have a child block" detection sites in
+        `YamlSpecificRule.java` used a plain `peek()`, so a blank next line
+        was read as "no child block" instead of being skipped past. Fixed by
+        adding a `peekNonBlank()` helper and using it at all four sites.
+        Fixture `test/real_code_regressions_72_{inp,out}.yaml`. `make test`:
+        121/121. Commit `2640cf2`. Final 250-file re-run: forward/
+        idempotency/syntax-check 250/250 clean; content-preservation
+        249/250 — the one "failure" is a `yaml_content_diff.py` tool gap, not
+        a formatter bug: `.github/ISSUE_TEMPLATE/bug_report.yml` contains an
+        emoji PyYAML's `safe_load` rejects on both original and formatted
+        copies (js-yaml/`yaml_sc.js` confirms both parse fine; manual diff
+        shows only expected re-indentation). Flagged as a checker-script gap,
+        not fixed (out of scope this session). `ansible/ansible`,
+        `actions/starter-workflows` remain not-started.

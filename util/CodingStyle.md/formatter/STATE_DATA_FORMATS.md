@@ -209,6 +209,31 @@ the remaining TOML test-fixture repos (`python-poetry/poetry`,
 `NODE_PATH`/`PATH` env as `toml_sc.js` (see below), unlike `xml_content_diff.py`
 which is stdlib-only.
 
+**`yaml_content_diff.py`** — a content-preservation checker for YAML,
+complementing `yaml_sc.js` (which only proves "still parses", same
+`css_content_diff.py`/`xml_content_diff.py`/`toml_content_diff.py`
+precedent). PyYAML is installed on this system, so unlike
+`toml_content_diff.py` it parses directly in Python: `yaml.safe_load_all`
+on both original and formatted files (multi-document-stream aware, same
+`loadAll()` reasoning as `yaml_sc.js`), then compares the resulting
+per-document Python data structures (`dict`/`list`/scalar) for deep
+equality. Exit 0 if all documents' parsed structures match (a lightweight,
+best-effort `#`-comment-line scan is also run and any textual difference
+reported as informational-only, since comment normalization is a separate,
+non-structural concern), exit 1 with a description of the mismatch
+otherwise, exit 2 if either file fails to parse as YAML at all (not
+applicable to a real dogfood run where both files are already
+syntax-checked separately). Verified against a hand-crafted good pair
+(whitespace-only reformat, same comment) and a bad pair (a scalar value
+silently changed) before being trusted for real dogfood use — both caught
+correctly. Written and first used during the `kubernetes/kubernetes` YAML
+dogfood session (see Checklist); this is also the check that caught a real
+bug (a plain block-scalar sequence item silently truncated to an empty
+string) that `yaml_sc.js` alone missed, since the truncated output was
+still syntactically valid YAML. Usage: `python3 yaml_content_diff.py
+<original.yaml> <formatted.yaml>` (needs `pip3 install --user pyyaml` if
+not already present; no Node/env vars needed, unlike `toml_content_diff.py`).
+
 `html_sc.js` (`parse5`, `onParseError`) also exists for HTML5, but per-spec
 HTML5 parsing is deliberately error-tolerant (e.g. auto-closes mismatched
 tags rather than failing), so it only catches the narrow set of conditions
@@ -234,7 +259,7 @@ inline Python snippet during the `twbs/bootstrap` session, now promoted to a
 permanent, reusable script alongside the other `*_sc.js` checkers. No new
 package dependency (stdlib `re` only).
 
-All six were verified against hand-crafted good/bad pairs (malformed
+All six `*_sc.js` syntax checkers were verified against hand-crafted good/bad pairs (malformed
 trailing comma, unclosed brace, mismatched tag, etc.) before being trusted
 for real dogfood use; each caught its bad case and passed its good case.
 
@@ -521,7 +546,9 @@ None recorded yet in this file.
       `primer/css` done for CSS — all four CSS test-fixture repos now
       dogfood-tested** (see below);
       `h5bp/html5-boilerplate`/etc. still not started for HTML5;
-      `kubernetes/kubernetes`/etc. still not started for YAML;
+      **`kubernetes/kubernetes` done for YAML (first YAML dogfood run, see
+      below)**; `docker/compose`/`ansible/ansible`/`actions/starter-workflows`
+      still not started for YAML;
       **`rust-lang/cargo` done for TOML (first TOML dogfood run, see below)**;
       `python-poetry/poetry`/`pola-rs/polars`/`toml-lang/toml` still not
       started for TOML.
@@ -945,3 +972,85 @@ None recorded yet in this file.
       syntax-check 670/670, content-preservation 670/670.
       `python-poetry/poetry`, `pola-rs/polars`, `toml-lang/toml` remain
       not-started for TOML.
+      **`kubernetes/kubernetes` (YAML, first YAML dogfood run; fresh shallow
+      clone `--depth 1`, found already under the scratchpad from a prior
+      session, reused). Excluding `.git`/`vendor`/`_output`/`bazel-*`/
+      `build`, this monorepo has 6366 hand-authored `.yaml`/`.yml` files —
+      far above the several-hundred sampling threshold, so a representative
+      **455-file sample** (evenly spaced across the full sorted list, so it
+      spans a broad cross-section of directories rather than one
+      subdirectory) was used, not the full set. Baseline syntax-check of the
+      unformatted sample originals (`yaml_sc.js`, `loadAll()`): 453/455 pass;
+      the 2 failures (`test/integration/scheduler_perf/podgroup/tas/
+      templates/podgroup.yaml`, `test/kubemark/resources/
+      hollow-node_template.yaml`) are Go/Salt template files using `{{...}}`
+      template syntax misidentified by their `.yaml` extension — confirmed
+      genuinely invalid YAML via the same real-parser baseline-check
+      precedent as `json5/json5`'s `test/invalid.json5`/`rust-lang/cargo`'s
+      deliberately-invalid manifest fixtures, not a formatter bug.
+      **In-scope corpus: 453 files.** Round1 format (one invocation,
+      `--preserve-tree --root`) surfaced **6 real bugs, 5 found via the
+      forward pass crashing on genuinely-valid files and 1 (idempotency-only)
+      found re-formatting round1's own output** — all fixed this session
+      (see `real_code_regressions_71` below and the two commits below).
+      (1) A sequence-of-mapping's first key ("- key:") rejected a same-indent
+      nested sequence child (the common `- apiGroups:\n    - "*"` manifest
+      style) — a plain mapping key already allowed this, the
+      sequence-of-mapping first-key path just hadn't been taught the same
+      rule; fixed by mirroring it. (2)/(3) Both quoted and unquoted (plain)
+      scalars can wrap across physical lines when a continuation is more
+      indented than the key (common in real-world CRD/API `description`
+      fields) — the line-based parser had zero support for this shape and
+      crashed treating the continuation as its own malformed mapping line;
+      fixed by detecting an unterminated quote / a non-key/non-seq deeper
+      continuation line and capturing it as an opaque multi-line scalar
+      body, applied to plain mapping keys, a sequence-of-mapping's first
+      key, and (found only later, see bug 6) a plain sequence item's own
+      value. (4) A trailing comment with no following sibling key inside a
+      sequence-of-mapping's children (a "dangling" item with a null key)
+      reached the colon-alignment padding helper and threw a
+      NullPointerException calling `.length()` on the null key; fixed by
+      excluding dangling items from the padding key list and rendering their
+      leading comments directly. (5) Idempotency-only: the new multi-line-
+      scalar continuation capture (bugs 2/3) and the pre-existing `|`/`>`
+      block-scalar body capture both stored continuation lines at their
+      original ABSOLUTE indentation; since the header key's own rendered
+      column can shift (colon-alignment padding, indent-size, nesting-depth
+      quirks elsewhere in the renderer), a second formatting pass could
+      leave the body less-indented than its own re-rendered key line,
+      breaking idempotency and, in one case, re-parseability. Fixed by
+      storing every continuation/body line's indentation as a delta
+      RELATIVE to its own key's original indent, and re-anchoring that delta
+      to the key's newly-rendered column at render time. Fixture
+      `test/real_code_regressions_71_{inp,out}.yaml` combines bugs 1-5 in
+      one file (`test/README.txt`). `make test`: 120/120 forward + 120/120
+      idempotency, zero regressions. Commit `fff5a3f`.
+      **A final full re-run across all 453 in-scope files after bugs 1-5**
+      caught a **6th bug via the content-preservation check** (not the
+      syntax-checker — the corrupted output was still syntactically valid
+      YAML): a `|`/`>` block scalar as a PLAIN (non-keyed) sequence item's
+      own value (e.g. a shell script in a `command:` array element, a common
+      real-world shape) was silently rendered as an empty string — the
+      no-colon branch of the sequence-item parser never checked for a
+      block-scalar header at all, unlike the mapping-key and
+      sequence-of-mapping-first-key cases. Fixing it also surfaced a latent
+      render-offset bug in the bug-5 relative-indent scheme: a block
+      scalar's capture baseline is the dash line's own indent, not the
+      value's column, so its render anchor must be the dash's own rendered
+      column (not a "+2" offset, which is only correct for the
+      quoted/plain-scalar case above, whose capture baseline is the value's
+      own column) for both a plain sequence item and a sequence-of-mapping
+      first key — only sibling keys (whose capture baseline already includes
+      the +2) use the +2-offset anchor. Extended
+      `test/real_code_regressions_71_{inp,out}.yaml` to also cover this
+      shape. `make test`: 120/120 forward + 120/120 idempotency, zero
+      regressions. Commit `025af9f`.
+      **Final numbers after all 6 fixes, full 453-file re-run:** forward
+      453/453 (matching the 453-file in-scope baseline exactly, the 2
+      Go/Salt template files excluded per above), idempotency 453/453
+      (`diff -rq` empty), syntax-check 453/453 pass, content-preservation
+      (new `yaml_content_diff.py`, see "Dogfood Output Validation" above)
+      453/453 match (informational-only comment-capitalization diffs noted
+      on a handful of files, not structural mismatches).
+      `docker/compose`, `ansible/ansible`, `actions/starter-workflows`
+      remain not-started for YAML.

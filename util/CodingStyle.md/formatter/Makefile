@@ -84,7 +84,6 @@ gru-train: $(JAR_FILE)
 	@cp $(GRU_WEIGHTS_OUT) $(CLASS_DIR)
 #	@cp $(GRU_WEIGHTS_OUT) .
 
-
 # ── GRU ABSTAIN-rate measurement (STATE_AI.md Step 3 open item 9) ───────────
 #
 # Compiles and runs tools/gru/CommentAbstainTally.java against a comment
@@ -96,12 +95,12 @@ gru-train: $(JAR_FILE)
 #   python3 tools/gru/extract_comments.py <root-dir> [<root-dir> ...] --out /tmp/comments.txt
 #   make gru-measure-abstain-rate GRU_ABSTAIN_INPUT=/tmp/comments.txt
 #
-GRU_ABSTAIN_INPUT    ?=
+GRU_ABSTAIN_INPUT ?=
 
 gru-measure-abstain-rate: $(JAR_FILE)
-	@if [ -z "$(GRU_ABSTAIN_INPUT)" ]; then \
+	@if [ -z "$(GRU_ABSTAIN_INPUT)" ]; then                                                         \
 		echo "gru-measure-abstain-rate: set GRU_ABSTAIN_INPUT=<path from extract_comments.py>"; \
-		exit 2; \
+		exit 2;                                                                                 \
 	fi
 	@mkdir -p $(GRU_TOOLS_CLASSES)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/CommentAbstainTally.java

@@ -539,7 +539,7 @@ None recorded yet in this file.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format.
       Status: JSON/JSON5 complete (4/4 repos); CSS complete (4/4 repos); XML
-      1/4 (`apache/maven` done; `apache/ant`/`jenkinsci/jenkins`/`w3c/svgwg`
+      2/4 (`apache/maven`, `w3c/svgwg` done; `apache/ant`/`jenkinsci/jenkins`
       not started); YAML 2/4 (`kubernetes/kubernetes`, `docker/compose` done;
       `ansible/ansible`/`actions/starter-workflows` not started); TOML 3/4
       (`rust-lang/cargo`, `python-poetry/poetry`, `pola-rs/polars` done;
@@ -655,8 +655,37 @@ None recorded yet in this file.
         comment-capitalization diffs (the same expected
         `normalize-comment-start-case=on` behavior), confirmed
         programmatically, not a bug. Zero attribute-order/text/CDATA/
-        structural mismatches. Zero bugs found. `apache/ant`,
-        `jenkinsci/jenkins`, `w3c/svgwg` remain not-started.
+        structural mismatches. Zero bugs found.
+      - `w3c/svgwg`: 298 files found (22 `.xml` + 276 `.svg`, both extensions
+        are real XML — spot-checked before trusting the count), below the
+        several-hundred sampling threshold so the full set was processed
+        (after excluding 1 vendored `tools/publish/node_modules/**` fixture).
+        Baseline `xml_sc.js`: 294/298 pass — 4 excluded (1 deliberately-
+        illustrative two-root-element snippet, `05_07.xml`; 3 BOM-prefixed
+        `.svg` files, same pre-existing-invalid precedent as `eslint/eslint`'s
+        BOM fixtures). **In-scope corpus: 294 files.** **1 bug found+fixed**,
+        via the forward pass itself erroring before syntax-check/content-
+        preservation could even run: `Lang.infer` never mapped the `.svg`
+        extension to `xml` at all, so all 276 `.svg` files failed with
+        "could not infer language from file extension" — not a parser/printer
+        bug, a missing extension-to-language mapping. Fixed by adding `.svg`
+        alongside `.xml` in `Lang.infer`. Fixture
+        `test/real_code_regressions_74_{inp,out}.svg`. `make test`: 123/123.
+        Commit `3408acd`. Final full 298-file re-run: forward 298/298 (zero
+        errors, the 4 baseline-invalid files still produce output — the
+        formatter is more lenient than `xmldom`, tolerating the BOM and the
+        stray second root element rather than crashing); idempotency 298/298
+        clean; syntax-check of round1 output matches baseline exactly (same 4
+        pre-existing failures, no new ones); content-preservation
+        (`xml_content_diff.py`, reused as-is) 22/294 flagged, all 59
+        individual comment mismatches across those 22 files confirmed
+        programmatically case-insensitive-equal (the same expected
+        `normalize-comment-start-case=on` behavior as `apache/maven`'s run) —
+        zero attribute-order/text/CDATA/structural mismatches, zero further
+        bugs. Namespaces (`xmlns:xlink` etc.), deeply nested `<g>` groups,
+        whitespace-sensitive path-data attribute values, and CDATA (18 files)
+        all exercised with no corruption. `apache/ant`, `jenkinsci/jenkins`
+        remain not-started.
 
       **TOML (2/4 repos done):**
       - `rust-lang/cargo`: 672 files, full set processed (below sampling

@@ -731,6 +731,53 @@ None recorded yet in this file.
       810/810 pass, exactly matching the 810/810 baseline pass count on the
       unformatted originals. **Zero bugs found** — forward 810/810,
       idempotency 810/810, syntax-check 810/810 (matching baseline exactly).
-      No new fixtures needed (nothing to regress-test). `eslint/eslint`
-      remains the last unstarted JSON/JSON5 test-fixture repo for a future
-      session.
+      No new fixtures needed (nothing to regress-test).
+      **`eslint/eslint` (fresh shallow clone, `--depth 1`, not found under
+      `/tmp` from a prior session):** small corpus — 98 `.json`/`.json5`
+      files total after excluding `node_modules`/`.git`/`dist`/`build`/
+      `coverage` (1 `.json5` — `.github/renovate.json5`; the rest `.json`).
+      Below any sampling threshold, so the **full set** was processed, not a
+      sample. Baseline syntax-check of the unformatted originals first (per
+      methodology): 92/98 pass. **6 excluded as JSONC/pre-existing-invalid**
+      (same carve-out as the vscode/babel runs): `tsconfig.types-legacy.json`
+      (trailing `//` comment inside `compilerOptions`, real JSONC);
+      `tests/fixtures/configurations/comments.json` (`/* */`/`//` comments,
+      a deliberate fixture for eslint's own comments-in-config test);
+      `tests/fixtures/config-file/broken-package-json/package.json` and
+      `tests/fixtures/ignored-paths/broken-package-json/package.json` (both
+      deliberately malformed — missing closing brace / missing comma — used
+      by eslint's own broken-config error-handling tests, same
+      `test/invalid.json5`-style precedent as the json5/json5 run);
+      `tests/fixtures/configurations/empty/empty.json` (genuinely 0 bytes,
+      not valid JSON, not JSONC either); and, found only once formatting was
+      attempted (not caught by the baseline check since `JSON.parse` and
+      this formatter both reject a leading UTF-8 BOM before any content),
+      **2 more BOM-prefixed files** — `tests/fixtures/config-file/bom/
+      package.json` and `tests/fixtures/config-file/bom/.eslintrc.json`
+      (both deliberate fixtures for eslint's own BOM-handling tests) — both
+      fail `JSON.parse` on the raw BOM byte identically to how the
+      formatter's own parser rejects it (`unexpected token: ﻿`),
+      confirmed via direct baseline re-check, so excluded as
+      pre-existing-invalid too, not a formatter bug (a corpus of 6 baseline
+      failures total). **In-scope corpus: 91 files** (90 `.json` + 1
+      `.json5`; the two BOM files were only discovered during round1 and
+      then retroactively excluded and re-verified against baseline, so the
+      92-minus-1 arithmetic reflects that). Round1 format
+      (`--preserve-tree --root`, one invocation): exit 0, 91/91 processed.
+      Round2 vs round1: `diff -rq` empty (idempotent, 91/91). Syntax-check
+      of round1 output: 90/90 `.json` + 1/1 `.json5` pass, exactly matching
+      the 91/91 baseline pass count on the unformatted in-scope originals.
+      Manual spot-check of `package.json` and `.github/renovate.json5`
+      diffs confirms only re-indentation/colon-alignment, no content loss.
+      **Zero bugs found** — forward 91/91, idempotency 91/91, syntax-check
+      91/91 (matching baseline exactly). No new fixtures needed (nothing to
+      regress-test).
+      **All four JSON/JSON5 test-fixture repos are now dogfood-tested:**
+      `json5/json5` (6 files, zero bugs); `microsoft/vscode` (1272 in-scope
+      files, 1 bug found+fixed — `JsonSpecificRule.parseContainer` blank-line-
+      before-closer non-idempotency, fixture `real_code_regressions_68`);
+      `babel/babel` (810 in-scope files, sampled from 9245 found, zero bugs);
+      `eslint/eslint` (91 in-scope files, zero bugs). JSON/JSON5's
+      real-code-testing sub-portion of this checklist item is complete; the
+      overall item stays unchecked pending XML, HTML5, YAML, and TOML
+      repos (CSS's sub-portion is already complete per its own note above).

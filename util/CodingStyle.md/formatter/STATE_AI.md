@@ -1123,13 +1123,7 @@ Item 9 is now CLOSED (see conclusion above) and no longer blocks anything.
    **Not yet done:** a larger real corpus (the current 408 examples came
 from one three-repo dogfood batch per RDD_EXT_16) would substantially
 de-risk the precision estimate above. No cross-validation or repeated
-splits have been run to bound the precision estimate's variance. A fresh
-production training run against the now-permanent explicit vocab
-(RDD_EXT_22 — superseding this run's ad hoc 3141-word, training-file-only
-vocab) has not yet been done; the 97.96%/97.37% precision figures above
-predate RDD_EXT_22 and should be re-measured once that run happens, since
-a larger, fixed-layout embedding table changes the model's effective
-capacity and initialization compared to this run.
+splits have been run to bound the precision estimate's variance.
 
    **Explicit vocab curated (RDD_EXT_22).** Built
    `tools/gru/explicit_vocab.txt` (3500 words: 154 keyword slots across
@@ -1142,6 +1136,40 @@ capacity and initialization compared to this run.
    against the placeholder `sample_examples.txt` (`vocabSize=3500` in the
    written weights file, confirming the checked-in list is what actually got
    used, not the tiny placeholder-derived one).
+
+   **Retrained against the permanent vocab, superseding the earlier
+   precision figures.** Reran `GruTrainer` (`--epochs=40 --patience=6`,
+   otherwise RDD_EXT_18 defaults) against the same 327-example train split
+   used above, now picking up the 3500-word `explicit_vocab.txt` by default
+   instead of the old ad hoc 3141-word training-file-derived vocab. Training
+   loss fell from 0.49 to near-zero; validation loss bottomed at epoch 9
+   (0.062) and early-stopped at epoch 15 -- the same overall shape as the
+   earlier run. Measured precision on the same 81-example held-out test file
+   (same one-off, not-committed `/tmp` eval harness as before): **46/49
+   decided correct = 93.88% precision** (YES: 11 correct/2 incorrect; NO: 35
+   correct/0 incorrect), abstain rate 39.5% (32/81) -- still clears
+   RDD_EXT_17's 90% bar. Training-split sanity check: 99.12% precision
+   (226/228 decided), 30.3% abstain rate -- again close in shape to the
+   held-out figure, not suspiciously perfect. The precision dropped slightly
+   from the old run's 97.96% (still within the single-small-split sampling
+   variance both runs are already caveated as having, per the "Caveats"
+   paragraph above -- not read as a regression) rather than a controlled
+   comparison, since the vocab, not just its size, changed between the two
+   runs. This is now the current baseline; the 97.96%/97.37% figures above
+   are superseded and should be read as historical (pre-RDD_EXT_22) only.
+
+   Also spot-checked the retrained weights against a handful of hand-written
+   real-shaped inputs (not part of either corpus) to sanity-check qualitative
+   behavior beyond the aggregate metric -- e.g. `"for the sake of clarity,
+   rewrite this"` (target index 0, "for") decided YES, `"for (int i = 0; i <
+   n; i++) increments"` (same leading token) decided NO, `"extern C."`
+   (target = trailing ".") decided YES, `"supports JSON, YAML, TOML, etc."`
+   (target = trailing ".") decided NO, and a comment with a non-trailing
+   mid-sentence period at a different index than the target abstained rather
+   than guessing. These are illustrative only (too few cases to move the
+   precision estimate), but show the model differentiating on surrounding
+   context rather than keying off the target token in isolation.
+
 Everything downstream is still NOT STARTED, but is now blocked only on
 actually doing the work, not on any further measurement or decision:
 acquiring/labeling the Pool A/Pool B training sets from RDD_EXT_16's chosen

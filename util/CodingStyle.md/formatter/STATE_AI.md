@@ -948,13 +948,23 @@ item** — it needs an actual measurement run, not a decision:
        don't depend on that -- `new Lang("python3")` and the classifier
        pipeline both already work standalone, so this measurement is valid
        independent of the Python3 job's own implementation status.
+     - `stephenberry/glaze` (`/tmp/glaze`, MIT — `STATE_CPP26.md`'s Test
+       Fixtures (External, corpus-scale) list, the §5 Reflection tokenizer-
+       validation repo set; fresh shallow clone, no existing checkout on
+       disk): 19253 comments, overall ABSTAIN **0.6%** (cpp 19037/116 =
+       0.6%, c 58/1 = 1.7% at very low volume, yaml negligible at 0%) --
+       consistent with every other cpp-heavy run so far (~0.3-0.6%); note
+       this repo was picked for its C++26-reflection-heavy usage, not for
+       its comment style, and this run says nothing about C++26 rule
+       coverage itself (a separate, `CommentClassifier`-unrelated concern) --
+       it's just another real-world cpp comment-style data point for item 9.
    - These are still preliminary/directional, not the final item-9
      measurement: coverage is limited to whatever languages/repos happened
      to be scanned, and RDD_EXT_16's full corpus plan (own dogfooded repos
      first, then vetted public repos) hasn't been fully run yet -- these
      public-repo runs are a first step into that second stage, not its
      completion. The spread across runs, post-`3rd_party`-exclusion (0.4% /
-     1.4% / 4.6% own-repo, 0.0% / 0.0% / 0.1% / 0.4% / 0.4% / 0.5% /
+     1.4% / 4.6% own-repo, 0.0% / 0.0% / 0.1% / 0.4% / 0.4% / 0.5% / 0.6% /
      14.6%(small sample) public-repo), is narrower than before but still
      shows the ABSTAIN rate is corpus-dependent, reinforcing that item 9
      needs the full planned corpus, not a handful of repos, before sizing a

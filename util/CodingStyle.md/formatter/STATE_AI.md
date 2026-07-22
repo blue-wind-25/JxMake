@@ -364,6 +364,7 @@ main index in `STATE.md`.
 | RDD_EXT_17 | Step 3 GRU evaluation target (was open item 4): 90% precision bar for the GRU to resolve a rule-based ABSTAIN to YES/NO; below the bar, GRU itself abstains (RDD_EXT_11's mechanism). Starting number, not fixed — revisit once item 9's real measurement exists, adjust to 85% or 95% if the measured precision/coverage tradeoff calls for it |
 | RDD_EXT_18 | Step 3 GRU training hyperparameters (was open item 3): documented starting defaults, not yet validated against real data — Adam optimizer, learning rate ~1e-3, batch size 32, 20-50 epochs with early stopping on validation loss, dropout 0.2-0.3. To be tuned once a real training set exists; these are a starting point, not a final answer |
 | RDD_EXT_19 | Step 3 Pool A/Pool B corpus storage (asked and resolved by the user): the real extracted/labeled corpora are **never committed to this repo** — they stay under `/tmp` (or the session scratchpad), same as every measurement run in item 9. `tools/gru/sample_examples.txt` (checked in) holds only small, clearly-fake illustrative lines, never real extracted text |
+| RDD_EXT_20 | Step 3 labeled-corpus schema (previously undecided, per `sample_examples.txt`'s own "no label column, no schema" note): `<lang>\t<label:YES\|NO>\t<escaped-comment-text>` — a label column inserted before the existing `<lang>\t<escaped-text>` extraction format, so `ExtractPoolA`/`extract_pool_b.py`'s output only needs a label column added, not reformatting. Label is binary (`YES`/`NO`), not the 3-way `YES`/`NO`/`ABSTAIN` enum — ground truth for training is "should this resolve to YES or NO", `ABSTAIN` is the GRU's own below-threshold behavior (RDD_EXT_17), never a ground-truth class |
 
 ---
 
@@ -975,6 +976,50 @@ and closing conclusion below:
    per RDD_EXT_15, to be discarded during by-hand labeling, not a defect.
    Per RDD_EXT_19, none of this run's actual output is committed -- only
    these summary counts are recorded here.
+
+   **First real labeling pass, using RDD_EXT_20's schema.** Pool A's 167
+   candidates were each reviewed individually (frontier-model labeling per
+   the "Labeling -- Pool A" design above, done in this same session rather
+   than via a separate API call) against the actual question the GRU must
+   answer: is this comment genuine prose (`YES` -- capitalize + strip sole
+   trailing period) or code/commented-out-code/a version-or-case data label
+   (`NO` -- leave untouched)? Result: **45 YES / 122 NO** (c: 25 YES / 24
+   NO; cpp: 19 YES / 73 NO; java: 1 YES / 25 NO). The large NO share
+   matches expectations for a keyword-leading-comment pool drawn from
+   embedded/driver code (eCxx, lwIP, esp8266 core) -- most short
+   keyword-led comments in this style of codebase are commented-out code or
+   terse code-shaped labels (`for ;;`, `namespace esp8266`, `case 2.5.0:`),
+   not full sentences.
+
+   Pool B's 241 candidates were labeled via a documented rule-based
+   fallback rather than full per-example manual review (explicitly
+   sanctioned by the "Labeling -- Pool B" design above for volume reasons,
+   and by the general "cheaper heuristic first pass" fallback in the
+   "Labeling -- Pool A" note): `NO` if the comment spans 2+ newlines
+   (license headers, multi-paragraph Doxygen blocks -- not a single
+   ambiguous sentence), if it doesn't end in `.` at all (nothing to strip,
+   moot), if it ends in an ellipsis (`..`+), or if the trailing `.` belongs
+   to the abbreviation itself (`etc.`/`vs.`/`approx.`/a trailing single
+   capital letter) where stripping it would corrupt the abbreviation rather
+   than remove a redundant sentence-ending period; `YES` otherwise (a
+   single coherent sentence whose one real trailing period should be
+   stripped, e.g. BearSSL's many one-line Doxygen `\brief X.509 status:
+   ...` entries, whose internal `X.509`/`X509` dots are what triggered
+   Pool B's filter in the first place, not the genuine sentence-ending
+   period). Result: **41 YES / 200 NO** (c: 37 YES / 144 NO; cpp: 3 YES /
+   51 NO; java: 1 YES / 5 NO). Spot-checked both the YES set (single
+   sentences with a real trailing period, e.g. the X.509 status Doxygen
+   lines) and the NO set (license/copyright blocks, abbreviation-final
+   fragments like "etc.)" left alone, sentence fragments with no trailing
+   period at all) for correctness before accepting.
+
+   Labeled corpora (`ecxx_suster_vma_pool_a_labeled.txt` /
+   `ecxx_suster_vma_pool_b_labeled.txt`, RDD_EXT_20 schema) live in the
+   session scratchpad only, per RDD_EXT_19 -- not committed. This is
+   `own dogfooded repos first` per RDD_EXT_16's first real batch; a real
+   training loop still doesn't exist in `GruTrainer` to consume it yet (see
+   that file's own doc comment) -- this labeled batch is ready for whenever
+   that lands, not yet fed into anything.
 
 Item 9 is now CLOSED (see conclusion above) and no longer blocks anything.
 Everything downstream is still NOT STARTED, but is now blocked only on

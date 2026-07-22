@@ -240,6 +240,31 @@ tags rather than failing), so it only catches the narrow set of conditions
 the spec defines as parse errors, not general malformed-markup the way the
 XML checker does — documented as a caveat directly in the script.
 
+**`html_content_diff.py`** — a content-preservation checker for HTML5,
+complementing `html_sc.js` (which only proves "still parses per HTML5's
+error-tolerant grammar", an even weaker signal than the other formats'
+syntax checkers per that caveat, making this check even more essential
+here). Python's stdlib can't parse real-world HTML5 (not XML-well-formed —
+void elements, optional closing tags), so like `toml_content_diff.py` it
+shells out to a small inline Node.js helper using the already-installed
+`parse5` package (same one `html_sc.js` uses) to parse each file into a
+simplified JSON tree, then walks both trees in parallel comparing element
+tag names/structure, attribute name+value pairs in order, whitespace-
+normalized text content, comment content, and the DOCTYPE declaration.
+`<script>`/`<style>` element bodies are deliberately NOT compared
+byte-for-byte (the formatter legitimately dispatches their content to the
+JS/TS and CSS pipelines, which may reformat it) — only that the element
+itself survives at the same tree position with the same attributes and a
+non-empty body (proving the content wasn't silently dropped), the same
+"structural HTML must be exactly preserved, embedded content just needs its
+own pipeline's guarantees" split the task's methodology calls for. Verified
+against a hand-crafted good pair (whitespace-only reformat) and two bad
+pairs (a dropped attribute, a corrupted comment) before being trusted for
+real dogfood use — all three cases caught correctly. Written and first used
+during the `h5bp/html5-boilerplate` HTML5 dogfood session (see Checklist).
+Usage: `python3 html_content_diff.py <original.html> <formatted.html>` —
+needs the same `LD_LIBRARY_PATH`/`NODE_PATH`/`PATH` env as `html_sc.js`.
+
 **`css_content_diff.py`** — a content-preservation checker, complementing
 `css_sc.js` (which only proves "still parses", not "still means the same
 thing" — the twbs/bootstrap rtlcss directive-comment corruption bug,
@@ -543,7 +568,9 @@ None recorded yet in this file.
       not started); YAML 2/4 (`kubernetes/kubernetes`, `docker/compose` done;
       `ansible/ansible`/`actions/starter-workflows` not started); TOML 3/4
       (`rust-lang/cargo`, `python-poetry/poetry`, `pola-rs/polars` done;
-      `toml-lang/toml` not started); HTML5 not started. Overall item stays
+      `toml-lang/toml` not started); HTML5 1/4 (`h5bp/html5-boilerplate` done;
+      `twbs/bootstrap` docs site, `mdn/content`, `whatwg/html` not started).
+      Overall item stays
       unchecked pending the remaining repos above.
 
       **Shared methodology note (applies to every run below, not restated per
@@ -844,3 +871,22 @@ None recorded yet in this file.
         (the 7 custom-tag files are out of scope for this check too, since
         `yaml_content_diff.py` also can't parse them). `actions/starter-
         workflows` remains not-started for YAML.
+
+      **HTML5 (1/4 repos done, first HTML5 dogfood run):**
+      - `h5bp/html5-boilerplate`: 4 files (`dist/index.html`, `dist/404.html`,
+        `src/index.html`, `src/404.html` — this version of the boilerplate
+        uses external `<script src="...">`/linked stylesheets, no inline
+        `<script>` bodies, but both `404.html` variants have an inline
+        `<style>` block, exercising the CSS dispatch). Baseline `html_sc.js`
+        4/4 clean. Forward 4/4 processed, zero errors/crashes. Idempotency
+        (`diff -rq round1 round2`) 4/4 clean. Syntax-check of round1 output
+        4/4 clean, matching baseline. Wrote `html_content_diff.py` this
+        session (see "Dogfood Output Validation"), verified against a
+        hand-crafted good pair plus two bad pairs (dropped attribute,
+        corrupted comment) before trusting it — both bad cases caught
+        correctly. Content-preservation 4/4 clean (DOCTYPE, element/attribute
+        order, text, and comment content all preserved; `<style>` dispatch to
+        `CssSpecificRule` confirmed present with non-empty body per the
+        tool's script/style opaque-body-presence check). **Zero bugs found.**
+        `twbs/bootstrap` (docs site), `mdn/content`, `whatwg/html` remain
+        not-started for HTML5.

@@ -813,11 +813,17 @@ item** — it needs an actual measurement run, not a decision:
    - `JxMake/src/` (the build system's own source, `../../../src` relative
      to this directory): 22857 comments classified, overall ABSTAIN rate
      **1.4%** (java 22521/328 = 1.4%, xml near-zero volume at 0%).
-   - **Notable pattern across both runs: `CommentDecision.NO` never fires** —
-     every classified comment came back either `YES` or `ABSTAIN`, zero
-     `NO`s, in every language in both runs. Not yet traced into
-     `CommentClassifier`'s rule logic to confirm whether this is expected
-     real-world behavior or worth investigating separately.
+   - **`CommentDecision.NO` never fires, in any run, any language — confirmed
+     expected, not a bug.** Traced into `CommentClassifier.classify`
+     (`src/com/jxmake/formatter/classifier/CommentClassifier.java:20-40`):
+     there is currently no code path that produces `NO` at all -- the main
+     path is a fixed `BIAS` constant compared to `THRESHOLD` (always `YES`
+     for the non-ambiguous majority), and the keyword-ambiguity path
+     (`KeywordAmbiguityGate.resolveAmbiguousKeyword`) only ever resolves to
+     `YES` or `ABSTAIN` by design (its own comment: "a stage-2 'not prose'
+     result is ABSTAIN, not NO -- no NO-producing path exists yet"). `NO` is
+     a declared enum value with zero producers in current logic -- nothing
+     to investigate further here.
    - Both runs land well under the earlier ~5M-examples-style planning
      assumption's implied ABSTAIN volume — at a ~0.4-1.4% ABSTAIN rate,
      Pool A's targeted-extraction approach (short comments containing a
@@ -828,10 +834,22 @@ item** — it needs an actual measurement run, not a decision:
      comments classified, overall ABSTAIN rate **14.6%** — notably higher
      than the two runs above (c 47991/9774 = **16.9%**, cpp 5866/78 = 1.3%,
      java 2831/8 = 0.3%, python3 253/3 = 1.2%, kotlin/html5/css/xml/yaml
-     near-zero volume at 0%). The c-language ABSTAIN rate here is an order
-     of magnitude above every other run so far — worth a closer look at
-     *why* (this repo's C comment style vs. the others') before treating
-     any single run's rate as representative; not yet investigated.
+     near-zero volume at 0%). **Investigated and explained, not a formatter
+     bug:** sampled the actual C-language ABSTAIN cases (ad hoc diagnostic,
+     not committed) and found 9743 of the 9774 (99.7%) are
+     `NonLatinScriptGate` hits (Gate 1), not keyword ambiguity — single-
+     character comments (`ヽ`, `ゞ`, `あ`, `か`, ...) from one vendored
+     third-party file, `TTGO_VGA32_Lite/3rd_party/tools/bfg/misaki/
+     misaki_gothic_non_Kanji_list.h` (a bitmap-font glyph table listing
+     Japanese kana one per comment, `.h` extension → classified as C). Only
+     ~26-31 of the 9774 are genuine keyword-ambiguity ABSTAINs (e.g.
+     `sizeof(TDialogColor)` — leading `sizeof` + open-paren correctly
+     triggering `KeywordAmbiguityGate`'s negative paren weight). **Lesson
+     for future corpus runs: a single vendored non-code-comment data file
+     can dominate a language's ABSTAIN count and isn't representative of
+     ordinary hand-written comment style** — future extraction passes
+     should consider excluding known third-party/vendored directories (this
+     run's `extract_comments.py` invocation did not exclude `3rd_party/`).
    - These are still preliminary/directional, not the final item-9
      measurement: coverage is limited to whatever languages/repos happened
      to be scanned, and RDD_EXT_16's full corpus plan (own dogfooded repos

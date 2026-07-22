@@ -1243,6 +1243,16 @@ Real-code regressions:
                                              fixed by emitting the remaining raw lines verbatim once
                                              this bare-scalar-document shape is detected.
 
+  real_code_regressions_74_inp/out.svg    -- XML, w3c/svgwg real-code testing: `.svg` files were
+                                             never mapped to the "xml" language in `Lang.infer`,
+                                             so every `.svg` in the corpus (276 of 298 candidate
+                                             files) failed with "could not infer language from
+                                             file extension" -- found via the forward pass itself
+                                             erroring on plausible hand-authored files, before any
+                                             syntax-check/content-preservation could even run. Fixed
+                                             by adding `.svg` alongside `.xml` in `Lang.infer`'s
+                                             extension check.
+
 How Tests Are Run
 -----------------
 

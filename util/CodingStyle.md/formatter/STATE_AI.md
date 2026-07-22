@@ -363,6 +363,7 @@ main index in `STATE.md`.
 | RDD_EXT_16 | Step 3 GRU training-data source (was open item 10/licensing): own dogfooded repos first (src/jxm, local dogfood copies already used for real-code testing — clearly owned/licensed), extend later with a vetted list of permissively-licensed public repos once the pipeline itself is proven on the smaller corpus |
 | RDD_EXT_17 | Step 3 GRU evaluation target (was open item 4): 90% precision bar for the GRU to resolve a rule-based ABSTAIN to YES/NO; below the bar, GRU itself abstains (RDD_EXT_11's mechanism). Starting number, not fixed — revisit once item 9's real measurement exists, adjust to 85% or 95% if the measured precision/coverage tradeoff calls for it |
 | RDD_EXT_18 | Step 3 GRU training hyperparameters (was open item 3): documented starting defaults, not yet validated against real data — Adam optimizer, learning rate ~1e-3, batch size 32, 20-50 epochs with early stopping on validation loss, dropout 0.2-0.3. To be tuned once a real training set exists; these are a starting point, not a final answer |
+| RDD_EXT_19 | Step 3 Pool A/Pool B corpus storage (asked and resolved by the user): the real extracted/labeled corpora are **never committed to this repo** — they stay under `/tmp` (or the session scratchpad), same as every measurement run in item 9. `tools/gru/sample_examples.txt` (checked in) holds only small, clearly-fake illustrative lines, never real extracted text |
 
 ---
 
@@ -931,7 +932,13 @@ and closing conclusion below:
    `extract_comments.py` already produces. Wired into the Makefile as
    `gru-extract-pool-a`/`gru-extract-pool-b`. Smoke-tested against the
    already-extracted `glaze` corpus (19253 comments): 111 Pool A and 67
-   Pool B candidates.
+   Pool B candidates. **Per RDD_EXT_19, none of this smoke-test output (or
+   any future real acquisition run's output) is committed to the repo** --
+   extraction output stays under `/tmp`/the session scratchpad only;
+   `tools/gru/sample_examples.txt` (checked in) was expanded with a few
+   more illustrative Pool A/Pool B example shapes for `GruTrainer`'s
+   placeholder vocab-count purpose, but remains explicitly fake, not real
+   extracted text.
 
 Item 9 is now CLOSED (see conclusion above) and no longer blocks anything.
 Everything downstream is still NOT STARTED, but is now blocked only on

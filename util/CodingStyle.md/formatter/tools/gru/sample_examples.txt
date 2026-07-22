@@ -1,12 +1,38 @@
 # PLACEHOLDER labeled-examples file for GruTrainer -- NOT real training data.
 #
-# STATE_AI.md's real Pool A/Pool B labeled dataset acquisition is blocked on
-# open items 3/4/9/10 (hyperparameters, evaluation target, measured ABSTAIN
-# rate, licensing check). This file exists only to satisfy GruTrainer's
-# positional-arg validation (a readable, existing labeled-examples file) so
-# `make gru-train` has something to point at and produces a real, parseable
-# scalar weights file end to end. Do not treat its contents as a real
-# labeled example format -- none has been decided yet.
+# All of STATE_AI.md's open items that used to block real Pool A/Pool B
+# acquisition (hyperparameters, evaluation target, measured ABSTAIN rate,
+# licensing approach) are now resolved/closed -- see RDD_EXT_16-18 and item
+# 9's conclusion. What's still NOT STARTED is actually running that
+# acquisition: pointing tools/gru/ExtractPoolA.java / extract_pool_b.py at a
+# real corpus and labeling the result. This file exists only to satisfy
+# GruTrainer's positional-arg validation (a readable, existing
+# labeled-examples file) so `make gru-train` has something to point at and
+# produces a real, parseable scalar weights file end to end -- GruTrainer's
+# actual training loop is still a stub, so nothing here is learned from yet.
+#
+# IMPORTANT: the real extracted/labeled Pool A/Pool B corpora are NEVER
+# committed to this repo -- per explicit user decision, all real extraction
+# output stays under /tmp (or the session scratchpad), same as every
+# CommentAbstainTally/ExtractPoolA/extract_pool_b.py run so far in STATE_AI.md.
+# Only small, clearly-fake illustrative lines belong in this checked-in file.
+# Do not treat its contents as a real labeled example format -- none has been
+# decided yet (no label column, no schema -- GruTrainer currently just counts
+# distinct whitespace-separated tokens across these lines for a vocab-size
+# placeholder, it doesn't parse a label out of them).
+#
+# Illustrative shapes only (not real extracted text, not licensed from
+# anywhere) -- a few Pool A (keyword-ambiguity) examples, short comments
+# leading with a keyword with/without enough context:
 for matrix
 for matrix below
+for error message handler
+if valid
+if valid before continuing
+return early
+return early once validated
+# A few Pool B (period-ambiguity) examples, per RDD_EXT_15's shape:
 extern C.
+the dot . here separates fields
+supports JSON, YAML, etc.
+uses a vs. b comparison

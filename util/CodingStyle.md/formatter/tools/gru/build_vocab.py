@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+"""Curates the ~3.5k-word explicit vocab Vocabulary.java's constructor needs (per STATE_AI.md's
+"GRU implementation design"): every keyword across every supported/planned language gets a
+guaranteed slot, plus common English comment-corpus words filling the rest.
+
+This is a ONE-OFF generator, not something GruTrainer runs per training pass -- its output,
+explicit_vocab.txt, is meant to be curated once and checked in (see that file's own header),
+then stay fixed across retrains (changing it would shift every word's embedding-row index,
+invalidating any previously trained weights file).
+
+Copyright note: nothing here reproduces any corpus text. The keyword section is our own
+per-language reserved-word lists (facts about each language's grammar, not copyrightable
+expression). The common-word section is derived by counting single-word frequencies across a
+real extracted-comment corpus and keeping only the words themselves (never sentences/phrases) --
+individual common words are not copyrightable subject matter (Feist), so this carries no
+licensing risk regardless of the source corpus's own license.
+
+Usage:
+    python3 build_vocab.py <extracted-comments-path> --out <output-file> [--target-size 3500]
+"""
+
+import argparse
+import re
+import sys
+from collections import Counter
+
+# Mirrors com.jxmake.formatter.classifier.KeywordAmbiguityGate's own per-language lists exactly
+# (kept in sync by hand, same as that class's own header note about MiscRuleCore) -- these are
+# the languages with C-family-style reserved words already gated in the rule-based classifier.
+KEYWORDS_C = [
+    "auto", "break", "case", "char", "const", "continue", "default", "do", "double",
+    "else", "enum", "extern", "float", "for", "goto", "if", "inline", "int", "long",
+    "register", "restrict", "return", "short", "signed", "sizeof", "static", "struct",
+    "switch", "typedef", "union", "unsigned", "void", "volatile", "while",
+]
+KEYWORDS_CPP = [
+    "alignas", "alignof", "asm", "bool", "catch", "char16_t", "char32_t", "class",
+    "co_await", "co_return", "co_yield", "concept", "consteval", "constexpr", "constinit",
+    "const_cast", "decltype", "delete", "dynamic_cast", "explicit", "export", "false",
+    "final", "friend", "mutable", "namespace", "new", "noexcept", "nullptr", "operator",
+    "override", "private", "protected", "public", "reinterpret_cast", "requires",
+    "static_assert", "static_cast", "template", "this", "thread_local", "throw", "true",
+    "try", "typeid", "typename", "using", "virtual", "wchar_t",
+]
+KEYWORDS_JAVA = [
+    "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class",
+    "const", "continue", "default", "do", "else", "enum", "extends", "final", "finally",
+    "for", "goto", "if", "implements", "import", "instanceof", "interface", "native",
+    "new", "package", "permits", "private", "protected", "public", "record", "return",
+    "sealed", "static", "strictfp", "super", "switch", "synchronized", "this", "throw",
+    "throws", "transient", "try", "var", "void", "volatile", "while", "yield", "null",
+    "true", "false",
+]
+KEYWORDS_KOTLIN = [
+    "as", "break", "class", "continue", "do", "else", "false", "for", "fun", "if", "in",
+    "interface", "is", "null", "object", "package", "return", "super", "this", "throw",
+    "true", "try", "typealias", "typeof", "val", "var", "when", "while",
+]
+# JS/TS reserved words + TS-only additions (STATE_JS_TS.md: implemented, no keyword-ambiguity
+# gate of its own yet, but still one of the "every supported/planned language" this vocab
+# promises coverage for).
+KEYWORDS_JS_TS = [
+    "break", "case", "catch", "class", "const", "continue", "debugger", "default", "delete",
+    "do", "else", "export", "extends", "false", "finally", "for", "function", "if", "import",
+    "in", "instanceof", "new", "null", "return", "super", "switch", "this", "throw", "true",
+    "try", "typeof", "var", "void", "while", "with", "yield", "let", "static", "async", "await",
+    "of", "get", "set", "interface", "type", "enum", "implements", "private", "protected",
+    "public", "readonly", "abstract", "as", "asserts", "is", "keyof", "infer", "module",
+    "namespace", "declare", "never", "unknown", "satisfies",
+]
+# Python3 reserved words (STATE_PYTHON3.md: scaffold-only in the formatter itself, but a
+# "planned language" per that file, so it still gets guaranteed vocab slots now).
+KEYWORDS_PYTHON3 = [
+    "False", "None", "True", "and", "as", "assert", "async", "await", "break", "class",
+    "continue", "def", "del", "elif", "else", "except", "finally", "for", "from", "global",
+    "if", "import", "in", "is", "lambda", "nonlocal", "not", "or", "pass", "raise", "return",
+    "try", "while", "with", "yield",
+]
+# JSON5/YAML/TOML/XML/CSS don't have "reserved words" in the same programming-language sense
+# (CSS property/selector names aren't a fixed keyword set; XML has no keywords at all) -- only
+# their literal-value tokens are relevant here.
+KEYWORDS_DATA_FORMATS = ["true", "false", "null", "yes", "no", "nan", "inf"]
+
+ALL_KEYWORD_GROUPS = [
+    KEYWORDS_C, KEYWORDS_CPP, KEYWORDS_JAVA, KEYWORDS_KOTLIN,
+    KEYWORDS_JS_TS, KEYWORDS_PYTHON3, KEYWORDS_DATA_FORMATS,
+]
+
+WORD_RE = re.compile(r"^[A-Za-z]+$")
+
+
+def unescape(escaped):
+    out = []
+    i = 0
+    while i < len(escaped):
+        c = escaped[i]
+        if c == "\\" and i + 1 < len(escaped):
+            nxt = escaped[i + 1]
+            if nxt == "n":
+                out.append("\n")
+                i += 2
+                continue
+            if nxt == "t":
+                out.append("\t")
+                i += 2
+                continue
+            if nxt == "\\":
+                out.append("\\")
+                i += 2
+                continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def is_word_char(c):
+    return c.isalnum() or c == "_"
+
+
+def tokenize(text):
+    # Mirrors com.jxmake.formatter.classifier.gru.GruClassifier.tokenize exactly, same reasoning
+    # as add_target_index.py's own copy: keeps token boundaries (and therefore which strings show
+    # up as candidate vocab words) consistent with what the runtime/trainer actually see.
+    tokens = []
+    i = 0
+    n = len(text)
+    while i < n:
+        c = text[i]
+        if c.isspace():
+            i += 1
+            continue
+        if is_word_char(c):
+            start = i
+            while i < n and is_word_char(text[i]):
+                i += 1
+            tokens.append(text[start:i])
+        else:
+            tokens.append(c)
+            i += 1
+    return tokens
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("input", help="extract_comments.py-format corpus file to count word frequency over")
+    parser.add_argument("--out", required=True)
+    parser.add_argument("--target-size", type=int, default=3500)
+    args = parser.parse_args()
+
+    explicit_words = []
+    seen = set()
+    for group in ALL_KEYWORD_GROUPS:
+        for word in group:
+            if word not in seen:
+                seen.add(word)
+                explicit_words.append(word)
+    keyword_count = len(explicit_words)
+
+    counts = Counter()
+    with open(args.input, "r", encoding="utf-8") as inp:
+        for line in inp:
+            line = line.rstrip("\n")
+            if not line:
+                continue
+            tab = line.find("\t")
+            if tab < 0:
+                continue
+            comment_text = unescape(line[tab + 1:])
+            for token in tokenize(comment_text):
+                if WORD_RE.match(token) and token not in seen:
+                    # Case-preserved per the finalized architecture (RDD_EXT_12 note on casing
+                    # being a real signal) -- "Return" and "return" are counted/ranked separately.
+                    counts[token] += 1
+
+    remaining = max(0, args.target_size - keyword_count)
+    for word, _count in counts.most_common(remaining):
+        seen.add(word)
+        explicit_words.append(word)
+
+    with open(args.out, "w", encoding="utf-8") as out:
+        out.write("# Explicit vocab for the Step 3 GRU (STATE_AI.md's \"GRU implementation\n")
+        out.write("# design\"). One word per line, in embedding-row order -- DO NOT REORDER OR\n")
+        out.write("# REMOVE LINES once a weights file has been trained against this list, since\n")
+        out.write("# that would shift every word's embedding row index. Append-only if this ever\n")
+        out.write("# needs to grow. Generated by tools/gru/build_vocab.py -- see that script's\n")
+        out.write("# header for the copyright rationale (no corpus text is reproduced here, only\n")
+        out.write("# individual common words and language keywords, neither of which is\n")
+        out.write("# copyrightable subject matter).\n")
+        for word in explicit_words:
+            out.write(word)
+            out.write("\n")
+
+    print(f"build_vocab: {keyword_count} keyword(s) + {len(explicit_words) - keyword_count} "
+          f"frequency-derived common word(s) = {len(explicit_words)} total, written to {args.out}",
+          file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()

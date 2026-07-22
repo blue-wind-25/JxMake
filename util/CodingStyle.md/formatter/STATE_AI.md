@@ -366,6 +366,7 @@ main index in `STATE.md`.
 | RDD_EXT_19 | Step 3 Pool A/Pool B corpus storage (asked and resolved by the user): the real extracted/labeled corpora are **never committed to this repo** — they stay under `/tmp` (or the session scratchpad), same as every measurement run in item 9. `tools/gru/sample_examples.txt` (checked in) holds only small, clearly-fake illustrative lines, never real extracted text |
 | RDD_EXT_20 | Step 3 labeled-corpus schema (previously undecided, per `sample_examples.txt`'s own "no label column, no schema" note): `<lang>\t<label:YES\|NO>\t<escaped-comment-text>` — a label column inserted before the existing `<lang>\t<escaped-text>` extraction format, so `ExtractPoolA`/`extract_pool_b.py`'s output only needs a label column added, not reformatting. Label is binary (`YES`/`NO`), not the 3-way `YES`/`NO`/`ABSTAIN` enum — ground truth for training is "should this resolve to YES or NO", `ABSTAIN` is the GRU's own below-threshold behavior (RDD_EXT_17), never a ground-truth class |
 | RDD_EXT_21 | Step 3 labeled-corpus schema extension, needed once `GruTrainer`'s real training loop landed: RDD_EXT_20's schema gained a 4th column, `<lang>\t<label:YES\|NO>\t<targetWordIndex>\t<escaped-comment-text>` — `targetWordIndex` is the 0-based index (after `GruClassifier.tokenize`) of the ambiguous word the label is about, since the architecture's target-word biGRU-output indexing needs to know which token that is. Convention: the leading keyword for Pool A (keyword-ambiguity) examples, the last token for Pool B (period-ambiguity) examples. The Pool A/B corpora already labeled under RDD_EXT_20 (see below) predate this column and have not been regenerated with it yet — that's still open, tracked below |
+| RDD_EXT_22 | The ~3.5k-word explicit vocab is a **permanent, checked-in** resource, not a licensing-sensitive derived artifact like the real Pool A/B corpora or trained weights files (RDD_EXT_19 doesn't apply to it): individual common words and per-language keywords are not copyrightable subject matter (Feist v. Rural — facts/short words/phrases aren't protected expression), and a word-frequency list derived from a real corpus that only ever yields single words (never sentences/verbatim phrases) reproduces none of that corpus's protected expression regardless of the corpus's own license. Checked in as `tools/gru/explicit_vocab.txt` (one word per line, in embedding-row order) plus its generator `tools/gru/build_vocab.py`. Content: every keyword across every `Lang.java`-supported/planned language (C, C++, Java, Kotlin — reused from `KeywordAmbiguityGate`'s existing per-language sets rather than retyped; JS/TS and Python3 reserved words sourced fresh since `KeywordAmbiguityGate` doesn't cover those; `true`/`false`/`null`/`yes`/`no`/`nan`/`inf` for the data formats, which don't have "keywords" in the programming-language sense — 154 keyword slots total, no duplicates across languages), then the remaining slots up to 3500 filled by frequency-counting real corpus tokens (case-preserved, alphabetic only) via `rerun_ecxx_suster_vma_fixed.txt`, taking the most common words not already a keyword (3346 common-word slots). Once any weights file is trained against this list, the list must never be reordered or have lines removed (only ever appended) — doing so would shift every word's embedding-row index and silently corrupt every previously trained weights file. `GruTrainer` now loads this file by default (`tools/gru/explicit_vocab.txt`, overridable via `--vocab=<path>`, empty/missing falls back to the old per-training-file token-derivation behavior for quick smoke tests) instead of deriving vocab from the training file alone |
 
 ---
 
@@ -1120,13 +1121,27 @@ Item 9 is now CLOSED (see conclusion above) and no longer blocks anything.
    the production ABSTAIN rate at scale.
 
    **Not yet done:** a larger real corpus (the current 408 examples came
-   from one three-repo dogfood batch per RDD_EXT_16) would substantially
-   de-risk the precision estimate above. The ~3.5k-word curated explicit
-   vocab (every keyword across every supported/planned language) is still
-   unaddressed — `GruTrainer` currently derives vocab purely from whatever
-   training file it's pointed at (this run's vocab size was 3141, derived
-   from the 327-example train file alone). No cross-validation or repeated
-   splits have been run to bound the precision estimate's variance.
+from one three-repo dogfood batch per RDD_EXT_16) would substantially
+de-risk the precision estimate above. No cross-validation or repeated
+splits have been run to bound the precision estimate's variance. A fresh
+production training run against the now-permanent explicit vocab
+(RDD_EXT_22 — superseding this run's ad hoc 3141-word, training-file-only
+vocab) has not yet been done; the 97.96%/97.37% precision figures above
+predate RDD_EXT_22 and should be re-measured once that run happens, since
+a larger, fixed-layout embedding table changes the model's effective
+capacity and initialization compared to this run.
+
+   **Explicit vocab curated (RDD_EXT_22).** Built
+   `tools/gru/explicit_vocab.txt` (3500 words: 154 keyword slots across
+   every `Lang.java`-supported/planned language + 3346 frequency-derived
+   common words from `rerun_ecxx_suster_vma_fixed.txt`) and its generator
+   `tools/gru/build_vocab.py`, both checked in per RDD_EXT_22's copyright
+   reasoning. Wired `GruTrainer` to load it by default (`--vocab=` override,
+   empty/missing path falls back to the old per-training-file derivation for
+   quick smoke tests) -- verified via a manual compile plus a smoke run
+   against the placeholder `sample_examples.txt` (`vocabSize=3500` in the
+   written weights file, confirming the checked-in list is what actually got
+   used, not the tiny placeholder-derived one).
 Everything downstream is still NOT STARTED, but is now blocked only on
 actually doing the work, not on any further measurement or decision:
 acquiring/labeling the Pool A/Pool B training sets from RDD_EXT_16's chosen

@@ -47,11 +47,15 @@ import java.util.Set;
  *  examples, per RDD_EXT_21. The comment text has literal newlines/tabs escaped as {@code \n}/
  *  {@code \t}, mirroring {@code extract_comments.py}'s own escaping.
  *
- *  <p>The explicit vocab (Vocabulary.java's ~3.5k-word list) is built here, not curated separately
- *  ahead of time: every distinct token seen across the labeled-examples file becomes an explicit
- *  vocab entry (order of first appearance). This is honest about what's actually been curated so
- *  far -- a real production run against the full keyword list STATE_AI.md describes remains future
- *  work; nothing here invents or claims a keyword list beyond what the training data provides. */
+ *  <p>The explicit vocab is loaded from {@code tools/gru/explicit_vocab.txt} by default (override
+ *  with {@code --vocab=<path>}) -- see that file's own header and RDD_EXT_22 in STATE_AI.md. It is
+ *  a permanent, checked-in, one-time-curated resource (every supported/planned language's
+ *  keywords, plus ~3.3k common words frequency-derived from a real extracted-comments corpus): its
+ *  row order fixes every trained weights file's embedding-row layout, so it must never be
+ *  reordered/shrunk once anything has been trained against it. If the default file is missing (or
+ *  {@code --vocab=} is explicitly empty), falls back to the old behavior of deriving a vocab from
+ *  every distinct token seen in the labeled-examples file itself (order of first appearance) --
+ *  useful only for quick local smoke tests against tiny placeholder data. */
 public final class GruTrainer {
 
     private GruTrainer() {
@@ -64,6 +68,7 @@ public final class GruTrainer {
     private static final int HIDDEN_SIZE = 224;
     private static final int DENSE_SIZE = 64;
     private static final double ABSTAIN_THRESHOLD = 0.5;
+    private static final String DEFAULT_VOCAB_PATH = "tools/gru/explicit_vocab.txt";
 
     public static void main(String[] args) {
         if (args.length < 2) {
@@ -130,7 +135,20 @@ public final class GruTrainer {
             return;
         }
 
-        List<String> explicitVocab = buildVocab(examples);
+        String vocabPath = hyperparameters.getOrDefault("vocab", DEFAULT_VOCAB_PATH);
+        List<String> explicitVocab;
+        File vocabFile = new File(vocabPath);
+        if (!vocabPath.isEmpty() && vocabFile.isFile() && vocabFile.canRead()) {
+            try {
+                explicitVocab = readVocab(vocabFile);
+            } catch (IOException e) {
+                System.err.println("GruTrainer: could not read vocab file " + vocabPath + ": " + e.getMessage());
+                System.exit(2);
+                return;
+            }
+        } else {
+            explicitVocab = buildVocab(examples);
+        }
         Vocabulary vocabulary = new Vocabulary(explicitVocab);
 
         Random random = new Random(seed);
@@ -283,6 +301,18 @@ public final class GruTrainer {
             sb.append(c);
         }
         return sb.toString();
+    }
+
+    private static List<String> readVocab(File vocabFile) throws IOException {
+        List<String> words = new ArrayList<>();
+        for (String line : Files.readAllLines(vocabFile.toPath(), StandardCharsets.UTF_8)) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                continue;
+            }
+            words.add(trimmed);
+        }
+        return words;
     }
 
     private static List<String> buildVocab(List<Example> examples) {

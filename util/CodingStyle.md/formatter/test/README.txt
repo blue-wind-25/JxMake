@@ -1124,143 +1124,141 @@ Real-code regressions:
                                             -- originally found via ericniebler/range-v3 item 20 bug
                                             (a), see STATE_C_CPP_JAVA.md Open Questions).
 
-  real_code_regressions_68_inp/out.json  -- JSON, microsoft/vscode real-code testing: an object
-                                            containing only blank lines (no comment) before its
-                                            closing `}` was kept as a non-empty container via a
-                                            dangling placeholder `Item`, forcing loose `{\n}`
-                                            rendering on the first pass -- but that placeholder's
-                                            blank-line intent is never actually emitted to output
-                                            (renderItems only prints a blank line before item index
-                                            > 0), so reformatting the already-loose output found no
-                                            blank line before `}` and collapsed it to tight `{}`
-                                            (non-idempotent). Fixed by only keeping the dangling
-                                            placeholder when there's a real leading comment to
-                                            preserve; a comment-less blank line before the closer is
-                                            now dropped during parsing, so a `{ <blank lines> }`
-                                            input formats straight to `{}` in one pass. No standard
-                                            copyright-header comment block on this fixture -- plain
-                                            `.json` has no comment syntax to carry it.
+  real_code_regressions_68_inp/out.json  -- JSON, microsoft/vscode real-code
+                                            testing: non-idempotent
+                                            empty-container rendering.
+                                            JsonSpecificRule.parseContainer
+                                            kept a dangling placeholder Item
+                                            for a comment-less blank line
+                                            before closing `}`/`]`, so round1
+                                            emitted loose `{\n}` but round2
+                                            (finding no blank line to
+                                            preserve) collapsed it to `{}`.
+                                            Fixed by only keeping the
+                                            placeholder when a real leading
+                                            comment exists; a comment-less
+                                            blank line before the closer is
+                                            now dropped during parsing. No
+                                            copyright-header block on this
+                                            fixture -- plain `.json` has no
+                                            comment syntax to carry it.
 
-  real_code_regressions_69_inp/out.css   -- CSS, twbs/bootstrap real-code testing (content-
-                                            preservation spot-check, not the syntax-checker): CSS's
-                                            lightweight `normalize-comment-start-case` unconditionally
-                                            capitalized any lowercase-starting comment, corrupting
-                                            case-sensitive third-party tool directives like rtlcss's
-                                            `/* rtl:begin:ignore */`/`/* rtl:end:ignore */` into
-                                            `/* Rtl:begin:ignore */` (silently breaking rtlcss's
-                                            directive parsing) -- found because it still parses as
-                                            valid CSS, so the syntax-checker alone would have missed
-                                            it. Fixed by adding a directive-comment carve-out
-                                            (`FormatterSimpleBraced.isSingleTokenDirective`): a
-                                            single-line comment whose entire trimmed body is one
-                                            whitespace-free token containing `:` or `-` (e.g.
-                                            `rtl:begin:ignore`, `stylelint-disable`) is left alone,
-                                            while ordinary prose that merely starts with a
-                                            colon/hyphen-containing word followed by more text (e.g.
-                                            `auto-generated file, do not edit`) is still capitalized
-                                            as before.
+  real_code_regressions_69_inp/out.css  -- CSS, twbs/bootstrap real-code
+                                            testing (content-preservation
+                                            check, not syntax-check -- still
+                                            parses as valid CSS):
+                                            normalize-comment-start-case
+                                            unconditionally capitalized
+                                            case-sensitive rtlcss directive
+                                            comments (e.g. `/*
+                                            rtl:begin:ignore */` -> `/*
+                                            Rtl:begin:ignore */`), silently
+                                            breaking rtlcss's directive
+                                            parsing. Fixed via new
+                                            `FormatterSimpleBraced.isSingleTokenDirective`
+                                            exemption: a single-line comment
+                                            whose whole trimmed body is one
+                                            whitespace-free token containing
+                                            `:` or `-` is left alone; ordinary
+                                            prose is still capitalized as
+                                            before.
 
-  real_code_regressions_70_inp/out.toml  -- TOML, rust-lang/cargo real-code testing (first TOML
-                                            dogfood run): two bugs found via the forward-pass crashing
-                                            on genuinely-valid files (not the syntax-checker or
-                                            content-preservation check, both of which only run on
-                                            files the formatter didn't crash on in the first place).
-                                            (1) A multi-line array with an interior per-element
-                                            trailing `#` comment (e.g. `exclude = [\n  "target/", #
-                                            note\n]`) crashed with "unterminated array": the
-                                            continuation-line-joining loop only stripped a trailing
-                                            comment from the fully-joined logical line at the very
-                                            end, so an interior line's own comment was treated as
-                                            extending all the way to the end of the joined string,
-                                            swallowing the array's closing `]` as "comment text".
-                                            Fixed by stripping each continuation line's own trailing
-                                            comment before joining it in, not just the final joined
-                                            result's. (2) TOML v1.0's multi-line basic/literal strings
-                                            (`"""..."""`/`'''...'''`) were not handled at all -- the
-                                            flat line-scanner only knew how to detect array/inline-
-                                            table continuation via bracket balance, so a `key = """`
-                                            block spanning multiple physical lines crashed with
-                                            "expected 'key = value' line". Fixed by detecting an
-                                            unterminated multi-line-string opener before the bracket-
-                                            balance check and consuming subsequent raw (untrimmed)
-                                            lines verbatim until the matching closing delimiter is
-                                            found, preserving the string's real embedded newlines and
-                                            internal whitespace exactly (same "opaque, preserve
-                                            exactly" treatment as JSON5's multi-line string
-                                            continuations).
+  real_code_regressions_70_inp/out.toml  -- TOML, rust-lang/cargo real-code
+                                            testing (first TOML dogfood run):
+                                            two forward-pass crash bugs. (1) A
+                                            multi-line array's interior
+                                            per-element trailing `#` comment
+                                            was treated as extending to the
+                                            end of the joined logical line,
+                                            swallowing the array's closing `]`
+                                            as comment text ("unterminated
+                                            array"). Fixed by stripping each
+                                            continuation line's own trailing
+                                            comment before joining, not just
+                                            the final result's. (2) Multi-line
+                                            basic/literal strings
+                                            (`"""..."""`/`'''...'''`) were
+                                            entirely unsupported, crashing
+                                            ("expected 'key = value' line") on
+                                            a `key = """` block. Fixed by
+                                            detecting an unterminated
+                                            multi-line-string opener before
+                                            the bracket-balance check and
+                                            consuming raw lines verbatim to
+                                            the matching closing delimiter,
+                                            same opaque treatment as JSON5's
+                                            multi-line strings.
 
-  real_code_regressions_71_inp/out.yaml  -- YAML, kubernetes/kubernetes real-code testing (first
-                                            YAML dogfood run): four crash-causing bugs found via the
-                                            forward pass (not the syntax-checker or content-
-                                            preservation check, both of which only run on files the
-                                            formatter didn't crash on in the first place), plus one
-                                            idempotency-only bug found on re-formatting round1's own
-                                            output. (1) A sequence-of-mapping's first key ("- key:")
-                                            rejected a same-indent nested sequence child (the common
-                                            "- apiGroups:\n    - \"*\"" manifest style), unlike a
-                                            plain mapping key which already allowed it -- fixed by
-                                            mirroring that same same-indent-sequence-child rule.
-                                            (2)/(3) Both quoted and unquoted (plain) scalars can wrap
-                                            across physical lines when a continuation is more indented
-                                            than the key (common in real-world CRD/API description
-                                            fields) -- the line-based parser had no support for this
-                                            at all and crashed treating the continuation as its own
-                                            malformed mapping line; fixed by detecting an unterminated
-                                            quote / a non-key/non-seq deeper continuation line and
-                                            capturing it as an opaque multi-line scalar body, applied
-                                            to both plain mapping keys and a sequence-of-mapping's
-                                            first key. (4) A trailing comment with no following
-                                            sibling key inside a sequence-of-mapping's children (a
-                                            "dangling" item with a null key) reached the colon-
-                                            alignment padding helper and threw a NullPointerException
-                                            calling `.length()` on the null key -- fixed by excluding
-                                            dangling items from the padding key list and rendering
-                                            their leading comments directly. (5) Idempotency-only:
-                                            both the new multi-line-scalar continuation capture above
-                                            and the pre-existing `|`/`>` block-scalar body capture
-                                            stored continuation lines at their original ABSOLUTE
-                                            indentation; since the header key's own rendered column
-                                            can shift (colon-alignment padding, indent-size, nesting-
-                                            depth quirks elsewhere in the renderer), a second
-                                            formatting pass could leave the body less-indented than
-                                            its own re-rendered key line, breaking both idempotency
-                                            and, in one case, re-parseability. Fixed by storing every
-                                            continuation/body line's indentation as a delta RELATIVE
-                                            to its own key's original indent, and re-anchoring that
-                                            delta to the key's newly-rendered column at render time.
-                                            (6) A `|`/`>` block scalar as a PLAIN (non-keyed)
-                                            sequence item's own value (e.g. `command:\n- |\n  script
-                                            text`, a common shell-script-as-array-element shape) was
-                                            silently truncated to an empty string -- the no-colon
-                                            branch of the sequence-item parser never checked for a
-                                            block-scalar header at all, unlike the mapping-key and
-                                            seqOfMapping-first-key cases. Found via the content-
-                                            preservation check (the truncated output was still
-                                            syntactically valid YAML, just semantically wrong).
-                                            Fixed by adding the same block-scalar (and, while at it,
-                                            multi-line-quoted-scalar) detection to that branch.
+  real_code_regressions_71_inp/out.yaml  -- YAML, kubernetes/kubernetes
+                                            real-code testing (first YAML
+                                            dogfood run): six combined bugs.
+                                            (1) A sequence-of-mapping's first
+                                            key rejected a same-indent nested
+                                            sequence child (common "-
+                                            apiGroups:\n    - \"*\"" manifest
+                                            style); fixed by mirroring the
+                                            same rule plain mapping keys
+                                            already had. (2)/(3) Quoted and
+                                            plain scalars wrapping across
+                                            physical lines (common in CRD/API
+                                            description fields) crashed the
+                                            line-based parser; fixed by
+                                            detecting an unterminated quote /
+                                            deeper continuation line and
+                                            capturing it as an opaque
+                                            multi-line scalar, for both plain
+                                            keys and sequence-of-mapping first
+                                            keys. (4) A dangling
+                                            trailing-comment item (null key)
+                                            inside a sequence-of-mapping's
+                                            children threw an NPE in the
+                                            colon-alignment padding helper;
+                                            fixed by excluding dangling items
+                                            from the padding key list. (5)
+                                            Idempotency-only: multi-line
+                                            scalar/block-scalar continuations
+                                            stored their indentation as an
+                                            ABSOLUTE value rather than a delta
+                                            relative to their own key, so a
+                                            shift in the key's rendered column
+                                            (from colon-alignment padding
+                                            etc.) broke idempotency on a
+                                            second pass; fixed by
+                                            storing/re-anchoring a RELATIVE
+                                            delta instead. (6) A `|`/`>` block
+                                            scalar as a plain (non-keyed)
+                                            sequence item's own value (e.g.
+                                            "command:\n- |\n  script text")
+                                            was silently truncated to an empty
+                                            string -- found via the
+                                            content-preservation check, since
+                                            the truncated output was still
+                                            syntactically valid YAML. Fixed by
+                                            adding the same block-scalar (and
+                                            multi-line-quoted-scalar)
+                                            detection to that sequence-item
+                                            parser branch.
 
-  real_code_regressions_72_inp/out.yaml  -- YAML, docker/compose real-code testing: a real
-                                            data-loss bug found via the content-preservation check
-                                            (the corrupted output was still syntactically valid
-                                            YAML). A blank line immediately after a keyed line with
-                                            no inline value (e.g. "services:" followed by a blank
-                                            line, then its nested mapping) caused the whole nested
-                                            block to be silently dropped. Root cause: every "does
-                                            this key have a child block" detection site
-                                            (`parseKeyItem`'s empty-value case, its scalar-then-
-                                            nested-mapping case, `parseSeqItem`'s empty-rest case,
-                                            and the sequence-of-mapping first-key case) used a plain
-                                            `peek()` to look one line ahead -- if that line was
-                                            blank, it was treated as "no child" rather than being
-                                            skipped over to find the real next line, so the intended
-                                            child block was never parsed and the parent key's value
-                                            fell through to nothing. Fixed by adding a
-                                            `peekNonBlank()` helper (looks ahead past blank lines
-                                            without consuming them, so the blank line is still
-                                            correctly consumed later as the child block's own
-                                            leading `pendingBlank`) and using it at all four
-                                            detection sites instead of `peek()`.
+  real_code_regressions_72_inp/out.yaml  -- YAML, docker/compose real-code
+                                            testing: a data-loss bug found via
+                                            the content-preservation check
+                                            (corrupted output still
+                                            syntactically valid YAML). A blank
+                                            line immediately after a keyed
+                                            line with no inline value (e.g.
+                                            "services:" then a blank line then
+                                            its nested mapping) caused the
+                                            whole nested block to be silently
+                                            dropped -- every "does this key
+                                            have a child block" detection site
+                                            used a plain `peek()`, so a blank
+                                            next line was treated as "no
+                                            child". Fixed by adding a
+                                            `peekNonBlank()` helper (looks
+                                            past blank lines without consuming
+                                            them) and using it at all four
+                                            detection sites instead of
+                                            `peek()`.
 
 How Tests Are Run
 -----------------

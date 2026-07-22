@@ -1061,14 +1061,30 @@ Item 9 is now CLOSED (see conclusion above) and no longer blocks anything.
    for the trivial smoke examples) decisions — the full pipeline is real, not
    stubbed, end to end.
 
-   **Not yet done:** the real Pool A/Pool B corpora labeled under RDD_EXT_20
-   (`ecxx_suster_vma_pool_a_labeled.txt` / `_pool_b_labeled.txt`, scratchpad
-   only per RDD_EXT_19) predate RDD_EXT_21's `targetWordIndex` column and
-   have not been regenerated with it; no real production training run has
-   happened yet, only the fake-data smoke test above. The ~3.5k-word curated
-   explicit vocab (every keyword across every supported/planned language)
-   is still unaddressed — `GruTrainer` currently derives vocab purely from
-   whatever training file it's pointed at.
+   **Pool A/Pool B corpora upgraded to RDD_EXT_21's schema.** Added
+   `tools/gru/add_target_index.py` (checked in — a small, non-data
+   conversion tool, same category as `extract_pool_b.py`) which inserts the
+   `targetWordIndex` column into an existing RDD_EXT_20-schema labeled file:
+   index 0 for Pool A (the leading keyword — exactly what
+   `KeywordAmbiguityGate.leadingWord()` extracts, which is what made these
+   comments ABSTAIN in the first place, and exactly `GruClassifier.tokenize`'s
+   token 0), and the last token's index for Pool B (the position
+   `MiscRuleCore`'s sole-trailing-period decision would apply to, whether or
+   not that token actually is a "." — many Pool B candidates don't end in a
+   period at all, in which case the label is trivially NO per the existing
+   labeling methodology). The script's own `tokenize()` mirrors
+   `GruClassifier.tokenize` exactly; cross-checked against the real Java
+   tokenizer on a real Pool B example (67 tokens, last = "pdf") to confirm
+   they agree bit-for-bit before trusting the conversion. Ran it against both
+   real corpora: 167/167 Pool A and 241/241 Pool B examples converted, 0
+   skipped (no comment had zero tokens). The upgraded files replace the old
+   ones in the scratchpad, still never committed per RDD_EXT_19.
+
+   **Not yet done:** no real production training run against these upgraded
+   corpora has happened yet — only the fake-data smoke test described above.
+   The ~3.5k-word curated explicit vocab (every keyword across every
+   supported/planned language) is still unaddressed — `GruTrainer` currently
+   derives vocab purely from whatever training file it's pointed at.
 Everything downstream is still NOT STARTED, but is now blocked only on
 actually doing the work, not on any further measurement or decision:
 acquiring/labeling the Pool A/Pool B training sets from RDD_EXT_16's chosen

@@ -894,14 +894,32 @@ item** — it needs an actual measurement run, not a decision:
        cleanup rather than a general `extract_comments.py` improvement --
        not implemented, since it isn't clear it generalizes beyond this one
        repo.
+   - **First public-repo runs (RDD_EXT_16's "extend later with a vetted list
+     of permissively-licensed public repos" stage), both reused from prior
+     `STATE_C_CPP_JAVA.md` dogfood clones already on disk (no re-clone
+     needed) — MIT/Apache-2.0 only, per explicit user instruction to be
+     careful with licensing on this measurement step (raw-comment-text
+     extraction for internal measurement only, not redistributed, still not
+     yet a licensing decision for actual training data — that remains
+     RDD_EXT_16's own separate check when real acquisition starts):**
+     - `microsoft/proxy` (`/tmp/proxy`, MIT — dogfood item 22): only 235
+       comments (small repo, 28 files), 0.0% ABSTAIN across cpp/c/python3/yaml.
+       Too small a sample to be very informative on its own.
+     - `NVIDIA/stdexec` (`/tmp/stdexec`, Apache-2.0 — dogfood item 12): 10115
+       comments, overall ABSTAIN **0.4%** (cpp 10014/45 = 0.4%, c/python3/yaml
+       near-zero volume at 0%) — consistent with every own-repo run's ~0.3-0.5%
+       cpp/c rate so far, no anomaly investigated (no elevated-rate flag like
+       the TTGO/RobotCoding runs above).
    - These are still preliminary/directional, not the final item-9
      measurement: coverage is limited to whatever languages/repos happened
      to be scanned, and RDD_EXT_16's full corpus plan (own dogfooded repos
-     first, then vetted public repos) hasn't been fully run yet. The spread
-     across runs, post-`3rd_party`-exclusion (0.4% / 1.4% / 4.6%), is
-     narrower than before but still shows the ABSTAIN rate is corpus-
-     dependent, reinforcing that item 9 needs the full planned corpus, not
-     one or two repos, before sizing a training set.
+     first, then vetted public repos) hasn't been fully run yet -- these two
+     public-repo runs are a first step into that second stage, not its
+     completion. The spread across runs, post-`3rd_party`-exclusion (0.4% /
+     1.4% / 4.6% own-repo, 0.0% / 0.4% public-repo), is narrower than before
+     but still shows the ABSTAIN rate is corpus-dependent, reinforcing that
+     item 9 needs the full planned corpus, not one or two repos, before
+     sizing a training set.
 
 Everything downstream is blocked on this measurement plus the actual
 training-data acquisition it feeds into: acquiring/labeling the Pool A/Pool

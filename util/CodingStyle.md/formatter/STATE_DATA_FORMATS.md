@@ -129,6 +129,54 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 
 ---
 
+## Dogfood Output Validation (syntax checkers)
+
+For the still-open real-code-testing pass (see Checklist), "did the
+formatter corrupt the file" is checked by feeding formatted output through a
+real, independent third-party parser per format — same principle as
+`java_sc`/`kotlin_sc` (parse-only, no semantic/schema validation, prints
+`line:col: message` on error, exit 1 if any file has errors, exit 0
+otherwise). Six Node.js scripts, one per format, live in
+`~/Projects/JxMake/0_excluded_directory/personal/SyntaxChecker/` (outside
+the repo, alongside `java_sc`/`kotlin_sc`, not committed):
+
+- `json_sc.js` — built-in `JSON.parse` (plain `.json` only)
+- `json5_sc.js` — `json5` package
+- `yaml_sc.js` — `js-yaml`, `loadAll()` so multi-document streams are fully
+  checked
+- `toml_sc.js` — `smol-toml`
+- `css_sc.js` — `postcss` (**not** `css-tree`: css-tree's parser is
+  deliberately tolerant and silently auto-closes an unclosed `{ ... }` block
+  at EOF instead of reporting a parse error — confirmed by direct testing,
+  a hand-crafted `body { color: red` with no closing brace produced zero
+  `onParseError` calls. `postcss.parse()` throws a `CssSyntaxError` with
+  line/column for the same input, so it's used instead.)
+- `xml_sc.js` — `@xmldom/xmldom`. Its default `onError` handler only logs
+  warnings/`error`-level problems and does not throw, so a custom `onError`
+  is wired in to capture those; but `fatalError`-level problems (e.g.
+  mismatched tags) throw a `ParseError` regardless of `onError`, so
+  `parseFromString` is also wrapped in try/catch (deduped against
+  `onError` already having recorded the same fatalError).
+
+`html_sc.js` (`parse5`, `onParseError`) also exists for HTML5, but per-spec
+HTML5 parsing is deliberately error-tolerant (e.g. auto-closes mismatched
+tags rather than failing), so it only catches the narrow set of conditions
+the spec defines as parse errors, not general malformed-markup the way the
+XML checker does — documented as a caveat directly in the script.
+
+All six were verified against hand-crafted good/bad pairs (malformed
+trailing comma, unclosed brace, mismatched tag, etc.) before being trusted
+for real dogfood use; each caught its bad case and passed its good case.
+
+Requires the same `LD_LIBRARY_PATH`/`NODE_PATH`/`PATH` env as
+`STATE_JS_TS.md`'s "Tools/compiler used" section (same `node` binary, same
+`~/mynpm`-installed package location) — see that file for the exact export
+lines and why `LD_LIBRARY_PATH` is required on this system. Install each
+script's package once via `npm install --prefix ~/mynpm <pkg>` (json5,
+js-yaml, smol-toml, postcss, @xmldom/xmldom, parse5) before first use.
+
+---
+
 ## Test-Fixture Repos
 
 Recorded for regression testing once implemented (not a commitment — see

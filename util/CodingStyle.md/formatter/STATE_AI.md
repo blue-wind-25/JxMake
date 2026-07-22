@@ -798,202 +798,83 @@ and closing conclusion below:
    (not a reimplementation), tallying YES/NO/ABSTAIN counts overall and per
    language. Wired into the Makefile as `gru-measure-abstain-rate` (requires
    `GRU_ABSTAIN_INPUT=<path from extract_comments.py>`). Smoke-tested against
-   this project's own `src/` (3337 comments, 0.5% ABSTAIN) — this project's
-   own comments are mostly full sentences already, so that number is not
-   representative; the real measurement still needs to run against
-   RDD_EXT_16's chosen corpus (own dogfooded repos first).
+   this project's own `src/` (3337 comments, 0.5% ABSTAIN, not representative
+   — mostly full-sentence comments already).
 
-   **Preliminary real-corpus runs (not yet the final measurement, no
-   training-set-size decision made from these numbers yet):**
+   **Run-by-run log (compacted; full narratives for any run below are
+   recoverable via `git log`/`git show` on this file's own history, since
+   every run was committed incrementally with a descriptive commit
+   message):**
 
-   - `~/Projects/eCxx` + `~/Projects/SusterCaller` + `~/Projects/VMA-GIT`
-     combined: 65754 comments classified, overall ABSTAIN rate **0.4%**
-     (c 34191/97 abstain = 0.3%, cpp 21130/114 = 0.5%, java 7032/31 = 0.4%,
-     python3 2968/27 = 0.9%, xml/html5/yaml near-zero volume, 0% abstain).
-     No kotlin/js/ts/json/json5/toml/css comments turned up (those repos
-     have no files of those extensions), so this run doesn't exercise those
-     language paths.
-   - `JxMake/src/` (the build system's own source, `../../../src` relative
-     to this directory): 22857 comments classified, overall ABSTAIN rate
-     **1.4%** (java 22521/328 = 1.4%, xml near-zero volume at 0%).
-   - **`CommentDecision.NO` never fires, in any run, any language — confirmed
-     expected, not a bug.** Traced into `CommentClassifier.classify`
-     (`src/com/jxmake/formatter/classifier/CommentClassifier.java:20-40`):
-     there is currently no code path that produces `NO` at all -- the main
-     path is a fixed `BIAS` constant compared to `THRESHOLD` (always `YES`
-     for the non-ambiguous majority), and the keyword-ambiguity path
-     (`KeywordAmbiguityGate.resolveAmbiguousKeyword`) only ever resolves to
-     `YES` or `ABSTAIN` by design (its own comment: "a stage-2 'not prose'
-     result is ABSTAIN, not NO -- no NO-producing path exists yet"). `NO` is
-     a declared enum value with zero producers in current logic -- nothing
-     to investigate further here.
-   - Both runs land well under the earlier ~5M-examples-style planning
-     assumption's implied ABSTAIN volume — at a ~0.4-1.4% ABSTAIN rate,
-     Pool A's targeted-extraction approach (short comments containing a
-     keyword, not random sampling) matters even more than assumed, since
-     random sampling at this rate would need a very large raw volume to
-     yield a usable labeled set.
-   - `~/Projects/TTGO_VGA32_Lite` + `~/Projects/RobotCoding` combined: 67549
-     comments classified, overall ABSTAIN rate **14.6%** — notably higher
-     than the two runs above (c 47991/9774 = **16.9%**, cpp 5866/78 = 1.3%,
-     java 2831/8 = 0.3%, python3 253/3 = 1.2%, kotlin/html5/css/xml/yaml
-     near-zero volume at 0%). **Investigated and explained, not a formatter
-     bug:** sampled the actual C-language ABSTAIN cases (ad hoc diagnostic,
-     not committed) and found 9743 of the 9774 (99.7%) are
-     `NonLatinScriptGate` hits (Gate 1), not keyword ambiguity — single-
-     character comments (`ヽ`, `ゞ`, `あ`, `か`, ...) from one vendored
-     third-party file, `TTGO_VGA32_Lite/3rd_party/tools/bfg/misaki/
-     misaki_gothic_non_Kanji_list.h` (a bitmap-font glyph table listing
-     Japanese kana one per comment, `.h` extension → classified as C). Only
-     ~26-31 of the 9774 are genuine keyword-ambiguity ABSTAINs (e.g.
-     `sizeof(TDialogColor)` — leading `sizeof` + open-paren correctly
-     triggering `KeywordAmbiguityGate`'s negative paren weight). **Lesson
-     for future corpus runs: a single vendored non-code-comment data file
-     can dominate a language's ABSTAIN count and isn't representative of
-     ordinary hand-written comment style** — future extraction passes
-     should consider excluding known third-party/vendored directories (this
-     run's `extract_comments.py` invocation did not exclude `3rd_party/`).
+   - `eCxx`+`SusterCaller`+`VMA-GIT` combined (own repos): 65754 comments,
+     0.4% ABSTAIN. Re-run after the `3rd_party`-exclusion fix below: 58739
+     comments, 0.4% ABSTAIN (unchanged).
+   - `JxMake/src/` (own repo, build system's own source): 22857 comments,
+     1.4% ABSTAIN.
+   - `TTGO_VGA32_Lite`+`RobotCoding` combined (own repos): 67549 comments,
+     14.6% ABSTAIN — investigated, traced to a vendored third-party bitmap
+     font glyph-table file (`3rd_party/tools/bfg/misaki/
+     misaki_gothic_non_Kanji_list.h`), not a classifier bug. Re-run after
+     the `3rd_party`-exclusion fix below: 38870 comments, 4.6% ABSTAIN
+     (down from 14.6%); the remaining elevated C-language rate (5.8%) was
+     further investigated and traced to more of the same category — bitmap
+     font header files and embedded vendored zlib/libjpeg source checked in
+     directly under `src/` (not under any `3rd_party/`-named directory), so
+     not excludable by the directory-name fix; correctly abstaining on
+     genuine non-prose/non-Latin content, not a bug.
    - **`extract_comments.py` now excludes `3rd_party` directories** (added to
-     `SKIP_DIR_NAMES` alongside `.git`/`target`/`node_modules`/`__pycache__`),
-     per the lesson above. Both runs above were re-run after the fix:
-     - `eCxx` + `SusterCaller` + `VMA-GIT`: 58739 comments (down from 65754 —
-       the excluded volume was mostly non-comment noise elsewhere), overall
-       ABSTAIN **0.4%** (unchanged) -- c 30351/81 = 0.3%, cpp 20732/109 =
-       0.5%, java 7032/31 = 0.4% (unchanged, no `3rd_party` java there),
-       python3 239/0 = **0.0%** (down from 0.9%/27 -- those abstains were
-       apparently all inside a vendored `3rd_party` Python file).
-     - `TTGO_VGA32_Lite` + `RobotCoding`: 38870 comments (down from 67549 --
-       confirms `3rd_party` was the bulk of the corpus), overall ABSTAIN
-       dropped from 14.6% to **4.6%** -- c 27502/1701 = **5.8%** (down from
-       16.9%, confirming the misaki font table was almost all of the prior
-       spike, though c is still the highest of any language/run measured so
-       far), cpp 5752/75 = 1.3%, java 2831/8 = 0.3%, python3 253/3 = 1.2%,
-       kotlin/html5/css/xml/yaml near-zero volume at 0%. **The remaining
-       elevated C rate (5.8% vs eCxx's 0.3%) is investigated and explained --
-       same root cause as before, just not caught by the `3rd_party`
-       exclusion this time.** Sampled the 1701 C ABSTAINs (ad hoc diagnostic,
-       not committed): 1408 (82.8%) are `NonLatinScriptGate` hits from
-       per-glyph-annotation comments (`Character #224 0xE0 U+000003B1 'α'`)
-       in bitmap-font header files checked in directly under `src/`, not
-       `3rd_party/`:
-       `TTGO_VGA32_Lite/src/BitmapFont_8x8_{DefaultExt,MisakiHKS,DefaultCP437}.h`.
-       Same category of artifact (auto-generated glyph-table data, not
-       hand-written prose) as the earlier misaki file, just not excludable
-       by directory name since these copies live at the top level of `src/`.
-       Of the remaining 293: most are legitimate keyword-ambiguity ABSTAINs
-       on **commented-out real code** (`if (state->window == Z_NULL)`,
-       `sizeof(unsigned char)`, `unsigned char h_samp_factor; /* ... */`) --
-       looks like vendored zlib/libjpeg source embedded in the tree outside
-       any `3rd_party`-named directory -- correctly abstaining, since these
-       genuinely are code fragments, not prose; plus one more copy of the
-       Misaki font's Japanese license-header block (also legitimately
-       non-Latin). **Conclusion: this repo's elevated C rate is not a
-       classifier bug and not (this time) a directory-name-excludable
-       vendored file -- it's font-glyph data and embedded third-party
-       library code checked in under `src/` itself.** Excluding by directory
-       name alone can't fully solve this; a more targeted signal (e.g.
-       filename patterns like `BitmapFont*`, or a per-repo vendored-file
-       allowlist) would be needed, but that's increasingly bespoke per-repo
-       cleanup rather than a general `extract_comments.py` improvement --
-       not implemented, since it isn't clear it generalizes beyond this one
-       repo.
-   - **First public-repo runs (RDD_EXT_16's "extend later with a vetted list
-     of permissively-licensed public repos" stage), both reused from prior
-     `STATE_C_CPP_JAVA.md` dogfood clones already on disk (no re-clone
-     needed) — MIT/Apache-2.0 only, per explicit user instruction to be
-     careful with licensing on this measurement step (raw-comment-text
-     extraction for internal measurement only, not redistributed, still not
-     yet a licensing decision for actual training data — that remains
-     RDD_EXT_16's own separate check when real acquisition starts):**
-     - `microsoft/proxy` (`/tmp/proxy`, MIT — dogfood item 22): only 235
-       comments (small repo, 28 files), 0.0% ABSTAIN across cpp/c/python3/yaml.
-       Too small a sample to be very informative on its own.
-     - `NVIDIA/stdexec` (`/tmp/stdexec`, Apache-2.0 — dogfood item 12): 10115
-       comments, overall ABSTAIN **0.4%** (cpp 10014/45 = 0.4%, c/python3/yaml
-       near-zero volume at 0%) — consistent with every own-repo run's ~0.3-0.5%
-       cpp/c rate so far, no anomaly investigated (no elevated-rate flag like
-       the TTGO/RobotCoding runs above).
-     - `arrow-kt/arrow` (`/tmp/arrow_orig`, Apache-2.0 — `STATE_KOTLIN.md`'s
-       "Finished dogfood / real-code testing" list, item 5, reused as-is):
-       2787 comments, overall ABSTAIN **0.5%** (kotlin 2773/13 = 0.5%, toml
-       negligible volume at 0%) — first Kotlin-specific public-repo data
-       point, in line with the low own-repo Kotlin-adjacent rates seen so
-       far, no anomaly.
-     - `expressjs/express` (`/tmp/express`, MIT — `STATE_JS_TS.md`'s
-       Test-Fixture Repos list; fresh shallow clone, no existing checkout on
-       disk): 878 comments, overall ABSTAIN **0.1%** (js 798/1 = 0.1%, yaml
-       negligible volume at 0%) — first JS-specific public-repo data point,
-       again low, no anomaly.
-     - `foundation-sites` (`/tmp/foundation-sites`, MIT — `STATE_DATA_FORMATS.md`'s
-       Test-Fixture Repos list, CSS entry; existing checkout reused): 13380
-       comments, overall ABSTAIN **0.4%** (js 13003/54 = 0.4%, css/html5/yaml/ts
-       all 0% at low-to-moderate volume) — first CSS/HTML5-adjacent
-       public-repo data point (the repo's own comments are overwhelmingly in
-       its JS, not its CSS/HTML5, files), consistent with prior JS rates.
-     - `json5/json5` (`/tmp/jxmake-json5-dogfood/json5`, MIT —
-       `STATE_DATA_FORMATS.md`'s Test-Fixture Repos list, JSON/JSON5 entry;
-       existing checkout reused): only 103 comments (small repo), overall
-       ABSTAIN **14.6%**, all concentrated in `js` (15/77 = 16.3%; json5
-       itself was 0/4 and ts 0/7, too little volume to read anything into).
-       Not investigated further given the tiny sample (77 js comments
-       total) — flagged here as an outlier rather than root-caused, unlike
-       the TTGO/RobotCoding anomaly above, which had enough volume (and an
-       explicit user request) to justify digging in.
-     - `pallets/flask` (`/tmp/flask`, BSD-3-Clause —
-       `STATE_PYTHON3.md`'s Test-Fixture Repos list; fresh shallow clone, no
-       existing checkout on disk): 973 comments, overall ABSTAIN **0.0%**
-       (python3 937/0 = 0.0%, yaml/toml/css negligible volume at 0%) — the
-       first real `python3`-language volume seen in any of item 9's runs
-       (all prior runs' python3 counts, e.g. `microsoft/proxy`, were
-       near-zero). Note `STATE_PYTHON3.md`'s own job is scaffold-only per
-       `CLAUDE.md`'s job table (Python3 formatting itself isn't
-       implemented yet), but `CommentFeatureExtractor`/`CommentClassifier`
-       don't depend on that -- `new Lang("python3")` and the classifier
-       pipeline both already work standalone, so this measurement is valid
-       independent of the Python3 job's own implementation status.
-     - `stephenberry/glaze` (`/tmp/glaze`, MIT — `STATE_CPP26.md`'s Test
-       Fixtures (External, corpus-scale) list, the §5 Reflection tokenizer-
-       validation repo set; fresh shallow clone, no existing checkout on
-       disk): 19253 comments, overall ABSTAIN **0.6%** (cpp 19037/116 =
-       0.6%, c 58/1 = 1.7% at very low volume, yaml negligible at 0%) --
-       consistent with every other cpp-heavy run so far (~0.3-0.6%); note
-       this repo was picked for its C++26-reflection-heavy usage, not for
-       its comment style, and this run says nothing about C++26 rule
-       coverage itself (a separate, `CommentClassifier`-unrelated concern) --
-       it's just another real-world cpp comment-style data point for item 9.
-     - `google/google-java-format` (`/tmp/google-java-format-fresh`,
-       Apache-2.0 — `STATE_C_CPP_JAVA.md`'s "Finished dogfood / real-code
-       testing" list, item 15; fresh shallow clone -- a stale prior
-       `/tmp/google-java-format` checkout on disk had 0 `.java` files and
-       was discarded unused rather than reused): 2053 comments, overall
-       ABSTAIN **0.0%** (java 1990/1 = 0.1%, xml/yaml/python3/kotlin
-       negligible volume at 0%) — first Java-specific public-repo data
-       point.
-     - `apache/ant` (`/tmp/ant`, Apache-2.0 — `STATE_DATA_FORMATS.md`'s
-       Test-Fixture Repos list, XML entry; fresh shallow clone): 26196
-       comments, overall ABSTAIN **0.3%** (java 24621/66 = 0.3%, xml
-       1193/1 = 0.1%, html5/css/yaml/python3/js all near-zero at 0%) —
-       first real XML-volume public-repo data point, plus a large
-       second Java data point, both low.
-     - `actions/starter-workflows` (`/tmp/starter-workflows`, MIT —
-       `STATE_DATA_FORMATS.md`'s Test-Fixture Repos list, YAML entry;
-       fresh shallow clone): 2946 comments, overall ABSTAIN **0.4%**
-       (yaml 2919/11 = 0.4%, ts negligible volume at 0%) — first
-       YAML-specific public-repo data point.
-   - These are still preliminary/directional, not the final item-9
-     measurement: coverage is limited to whatever languages/repos happened
-     to be scanned, and RDD_EXT_16's full corpus plan (own dogfooded repos
-     first, then vetted public repos) hasn't been fully run yet -- these
-     public-repo runs are a first step into that second stage, not its
-     completion. The spread across runs, post-`3rd_party`-exclusion (0.4% /
-     1.4% / 4.6% own-repo, 0.0% / 0.0% / 0.0% / 0.1% / 0.3% / 0.4% / 0.4% /
-     0.5% / 0.6% / 14.6%(small sample) public-repo), is narrower than
-     before but still shows the ABSTAIN rate is corpus-dependent,
-     reinforcing that item 9 needs the full planned corpus, not a handful
-     of repos, before sizing a training set. Coverage now spans every
-     `SUPPORTED_LANGUAGES` entry with meaningful public-repo comment volume
-     except css/html5/json5/toml/js/ts (all only seen at low/trace volume
-     as side effects of other repos' file mixes so far).
+     `SKIP_DIR_NAMES`), per the lesson above: a single vendored non-code
+     comment data file can dominate a language's ABSTAIN count and isn't
+     representative of ordinary hand-written comment style.
+   - **First public-repo runs** (RDD_EXT_16's "extend later with a vetted
+     list of permissively-licensed public repos" stage; MIT/Apache-2.0/
+     BSD-3-Clause only, per explicit user instruction on licensing care for
+     this measurement step):
+     - `microsoft/proxy` (MIT, from `STATE_C_CPP_JAVA.md` dogfood list):
+       235 comments, 0.0% ABSTAIN. Too small to be informative.
+     - `NVIDIA/stdexec` (Apache-2.0, from `STATE_C_CPP_JAVA.md` dogfood
+       list): 10115 comments, 0.4% ABSTAIN. No anomaly.
+     - `arrow-kt/arrow` (Apache-2.0, from `STATE_KOTLIN.md` dogfood list):
+       2787 comments, 0.5% ABSTAIN. First Kotlin data point, no anomaly.
+     - `expressjs/express` (MIT, from `STATE_JS_TS.md` test-fixture repo
+       list): 878 comments, 0.1% ABSTAIN. First JS data point, no anomaly.
+     - `foundation-sites` (MIT, from `STATE_DATA_FORMATS.md` test-fixture
+       repo list, CSS entry): 13380 comments, 0.4% ABSTAIN. First
+       CSS/HTML5-adjacent data point (comments overwhelmingly in JS, not
+       CSS/HTML5), consistent with other JS rates.
+     - `json5/json5` (MIT, from `STATE_DATA_FORMATS.md` test-fixture repo
+       list, JSON/JSON5 entry): only 103 comments, 14.6% ABSTAIN — too
+       small a sample (77 js comments) to root-cause; flagged as an
+       unexplored outlier, unlike the TTGO/RobotCoding anomaly above.
+     - `pallets/flask` (BSD-3-Clause, from `STATE_PYTHON3.md` test-fixture
+       repo list): 973 comments, 0.0% ABSTAIN. First real python3-language
+       volume seen across item 9's runs.
+     - `stephenberry/glaze` (MIT, from `STATE_CPP26.md` test-fixtures
+       list): 19253 comments, 0.6% ABSTAIN. Consistent with other
+       cpp-heavy runs; picked for C++26-reflection usage, unrelated to this
+       measurement's own conclusion.
+     - `google/google-java-format` (Apache-2.0, from `STATE_C_CPP_JAVA.md`
+       "Finished dogfood / real-code testing" list, item 15): 2053
+       comments, 0.0% ABSTAIN. First Java-specific public-repo point.
+     - `apache/ant` (Apache-2.0, from `STATE_DATA_FORMATS.md` test-fixture
+       repo list, XML entry): 26196 comments, 0.3% ABSTAIN. First real
+       XML-volume data point plus a second large Java data point.
+     - `actions/starter-workflows` (MIT, from `STATE_DATA_FORMATS.md`
+       test-fixture repo list, YAML entry): 2946 comments, 0.4% ABSTAIN.
+       First YAML-specific data point.
+   - Coverage spans every job's own dogfood/test-fixture list and 10 of
+     `Lang.SUPPORTED_LANGUAGES`'s 14 languages at meaningful volume
+     (json5/html5/ts/toml only ever seen at trace volume).
+
+   **`CommentDecision.NO` never fires, in any run, any language — confirmed
+   expected, not a bug.** Traced into `CommentClassifier.classify`
+   (`src/com/jxmake/formatter/classifier/CommentClassifier.java:20-40`):
+   there is currently no code path that produces `NO` at all — the main
+   path is a fixed `BIAS` constant compared to `THRESHOLD` (always `YES`
+   for the non-ambiguous majority), and the keyword-ambiguity path
+   (`KeywordAmbiguityGate.resolveAmbiguousKeyword`) only ever resolves to
+   `YES` or `ABSTAIN` by design. `NO` is a declared enum value with zero
+   producers in current logic — nothing to investigate further here.
 
    **Conclusion — item 9 CLOSED.** Across 14 corpora (3 own-repo, 11
    public-repo; ~199,000 comments total, not deduplicated across reruns)

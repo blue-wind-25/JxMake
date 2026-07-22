@@ -549,9 +549,8 @@ None recorded yet in this file.
       **`kubernetes/kubernetes` done for YAML (first YAML dogfood run, see
       below)**; `docker/compose`/`ansible/ansible`/`actions/starter-workflows`
       still not started for YAML;
-      **`rust-lang/cargo` done for TOML (first TOML dogfood run, see below)**;
-      `python-poetry/poetry`/`pola-rs/polars`/`toml-lang/toml` still not
-      started for TOML.
+      **`rust-lang/cargo`/`python-poetry/poetry` done for TOML (see below)**;
+      `pola-rs/polars`/`toml-lang/toml` still not started for TOML.
       **`twbs/bootstrap` (CSS, first CSS dogfood run; fresh shallow clone
       `--depth 1`, not found under `/tmp` from a prior session):** bootstrap's
       real hand-authored source is `.scss`, not `.css` (this formatter only
@@ -1054,3 +1053,36 @@ None recorded yet in this file.
       on a handful of files, not structural mismatches).
       `docker/compose`, `ansible/ansible`, `actions/starter-workflows`
       remain not-started for YAML.
+      **`python-poetry/poetry` (TOML, second TOML dogfood run; fresh shallow
+      clone `--depth 1`, not found under `/tmp`/scratchpad from a prior
+      session):** 106 `.toml` files found (no `.git`/`node_modules`/`build`/
+      `dist`/`.venv` matches — a fresh shallow clone that's never been
+      built), a modest count well under any sampling threshold, so the
+      **full set was processed**, not a sample — mostly `pyproject.toml`
+      (its own PEP 621 + `[tool.poetry.*]` root file, plus ~100 small
+      test-fixture `pyproject.toml`s under `tests/**/fixtures/**` covering
+      poetry's own dependency-resolution/build-system/git-dependency test
+      matrix) with a handful of `poetry.toml`/JSON-source-derived `.toml`
+      test fixtures (`tests/json/fixtures/**`). Baseline syntax-check of the
+      unformatted originals (`toml_sc.js`): **106/106 pass** — unlike
+      `rust-lang/cargo`'s corpus, this repo's test-fixture `.toml` files
+      (e.g. `bad_scripts_project/{no_colon,too_many_colon}/pyproject.toml`,
+      `invalid_pyproject/pyproject.toml`, `invalid_lock/pyproject.toml`)
+      are deliberately invalid at the *poetry-schema* level (missing
+      required keys, malformed script entries, mismatched lock hashes) but
+      are all syntactically well-formed TOML, so none tripped `toml_sc.js` —
+      no exclusions were needed. **In-scope corpus: 106 files, full set.**
+      Round1 format (`--preserve-tree --root`, one invocation): exit 0,
+      106/106 processed, zero internal errors/crashes (unlike the
+      `rust-lang/cargo` run, this repo's dependency-version-constraint
+      strings and nested inline-table dependency specs, e.g.
+      `{ version = "^1.0", extras = ["foo"] }`, hit no unhandled shape).
+      Round2 vs round1: `diff -rq` empty across all 106 files — clean
+      idempotency. Syntax-check of round1 output (`toml_sc.js`): 106/106
+      pass, matching the 106/106 baseline exactly. **Content-preservation
+      check** (`toml_content_diff.py`, reused as-is per this session's
+      instructions, no changes needed): all 106 files, exit 0, zero
+      mismatches. **Zero bugs found** — forward 106/106, idempotency
+      106/106, syntax-check 106/106, content-preservation 106/106. No new
+      fixtures needed (nothing to regress-test).
+      `pola-rs/polars`, `toml-lang/toml` remain not-started for TOML.

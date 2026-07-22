@@ -443,7 +443,31 @@ None recorded yet in this file.
       (correct) implementation.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format —
-      still open, not yet run (`json5/json5`/`microsoft/vscode`/etc. for
-      JSON; `apache/maven`/etc. for XML; `twbs/bootstrap`/etc. for CSS;
-      `h5bp/html5-boilerplate`/etc. for HTML5; `kubernetes/kubernetes`/etc.
-      for YAML; `rust-lang/cargo`/etc. for TOML).
+      **`json5/json5` done** (see below); `microsoft/vscode`/`babel/babel`/
+      `eslint/eslint` still not started for JSON; `apache/maven`/etc. still
+      not started for XML; `twbs/bootstrap`/etc. still not started for CSS;
+      `h5bp/html5-boilerplate`/etc. still not started for HTML5;
+      `kubernetes/kubernetes`/etc. still not started for YAML;
+      `rust-lang/cargo`/etc. still not started for TOML.
+      **`json5/json5` (fresh clone, not found under `/tmp` from a prior
+      session):** small corpus — 6 hand-authored `.json`/`.json5` files
+      total (`.eslintrc.json`, `package.json`, `package-lock.json`,
+      `package.json5`, `test/test.json5`, `test/invalid.json5`; no
+      `node_modules`/`.git`/`dist`/`build` matches). Baseline syntax-check
+      of the unformatted originals first (per methodology, to rule out
+      pre-existing invalid fixtures): 5/6 pass, `test/invalid.json5`
+      (deliberately-invalid single-byte fixture `a`, used by the repo's own
+      test suite to test invalid-JSON5 handling) fails with
+      `1:1: JSON5: invalid character 'a' at 1:1` — expected, not a
+      formatter bug. Round1 format (`--preserve-tree --root`): 6/6 files
+      processed, exit 0. Round2 vs round1: `diff -r` empty (idempotent).
+      Syntax-check of round1 output: identical result to baseline — 5/6
+      pass, `test/invalid.json5` fails with the exact same message as the
+      unformatted original (formatter left its content byte-identical, `a`,
+      confirmed via direct diff). **Zero bugs found** — forward 6/6,
+      idempotency 6/6, syntax-check 5/6 (matching baseline exactly, the one
+      failure being the repo's own pre-existing invalid fixture, not
+      formatter-induced). No new fixtures needed (nothing to regress-test).
+      Corpus is small enough that a second JSON/JSON5-listed repo
+      (`microsoft/vscode`/`babel/babel`/`eslint/eslint`) would give more
+      real-code coverage in a future session.

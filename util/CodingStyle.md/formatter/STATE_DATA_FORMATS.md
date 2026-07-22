@@ -443,12 +443,12 @@ None recorded yet in this file.
       (correct) implementation.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format —
-      **`json5/json5` done** (see below); `microsoft/vscode`/`babel/babel`/
-      `eslint/eslint` still not started for JSON; `apache/maven`/etc. still
-      not started for XML; `twbs/bootstrap`/etc. still not started for CSS;
-      `h5bp/html5-boilerplate`/etc. still not started for HTML5;
-      `kubernetes/kubernetes`/etc. still not started for YAML;
-      `rust-lang/cargo`/etc. still not started for TOML.
+      **`json5/json5` done, `microsoft/vscode` done** (see below);
+      `babel/babel`/`eslint/eslint` still not started for JSON;
+      `apache/maven`/etc. still not started for XML; `twbs/bootstrap`/etc.
+      still not started for CSS; `h5bp/html5-boilerplate`/etc. still not
+      started for HTML5; `kubernetes/kubernetes`/etc. still not started for
+      YAML; `rust-lang/cargo`/etc. still not started for TOML.
       **`json5/json5` (fresh clone, not found under `/tmp` from a prior
       session):** small corpus — 6 hand-authored `.json`/`.json5` files
       total (`.eslintrc.json`, `package.json`, `package-lock.json`,
@@ -471,3 +471,61 @@ None recorded yet in this file.
       Corpus is small enough that a second JSON/JSON5-listed repo
       (`microsoft/vscode`/`babel/babel`/`eslint/eslint`) would give more
       real-code coverage in a future session.
+      **`microsoft/vscode` (fresh shallow clone, `--depth 1`, not found
+      under `/tmp` from a prior session):** much larger monorepo — 1377
+      `.json`/`.json5` files found after excluding `node_modules`/`.git`/
+      `out`/`dist`/`build` (shallow clone has no `node_modules` anyway; zero
+      `.json5` files exist in this repo). Below the "several thousand+"
+      threshold for mandatory sampling, so the **full set** was processed,
+      not a sample. Of the 1377: 5 are genuinely empty files (0 bytes,
+      `extensions/copilot/test/simulation/fixtures/{gen-json/test.json,
+      tests/simple-ts-proj*/tsconfig.json}`) — the formatter correctly
+      throws `JsonParseException: unexpected end of input` on these; not a
+      bug (an empty file isn't valid JSON either) and not JSONC, just
+      genuinely-invalid/placeholder fixtures. Of the remaining 1372
+      successfully-parsed files, 100 are real JSONC (`.vscode/*.json`,
+      `tsconfig.json`, `language-configuration.json`, etc. — verified: 87
+      contain `//`/`/* */` comments, the other 13 contain no comment marker
+      but do contain a trailing comma before `}`/`]`, confirmed by direct
+      grep on each) and were excluded from formatter-bug scope per this
+      session's instructions (plain `.json` mode has no comment/
+      trailing-comma support, out of scope by design) — baseline
+      syntax-check of the unformatted originals confirms all 100 already
+      fail `JSON.parse` before the formatter ever touches them, so any
+      formatter behavior on them is moot. **In-scope corpus: 1272 genuinely
+      RFC-8259-clean `.json` files.**
+      Round1 format (`--preserve-tree --root`, one invocation, all 1377
+      files): exit 123 (the 5 empty-file errors), 1372 files written to
+      round1, matching expectations. Round2 (reformat round1's 1372 output
+      files): exit 0, zero internal errors. **`diff -r round1 round2` found
+      one real idempotency bug**, fixed this session (see below) — after
+      the fix, a full re-run of round1→round2 across all 1377 files (1372
+      succeeding) shows `diff -rq` empty (0 differing files) — clean
+      idempotency. Syntax-check (of the 1272 in-scope files' round1 output,
+      via `json_sc.js`): 1272/1272 pass, exactly matching the 1272/1272
+      baseline pass count on the unformatted originals — zero
+      formatter-induced corruption.
+      **One bug found+fixed:** `JsonSpecificRule.parseContainer`'s
+      closing-brace handling kept a dangling placeholder `Item` for *any*
+      blank line before the closer, not just a real dangling comment. A
+      comment-less blank-only placeholder (`{` then only blank lines then
+      `}`) made `Container.items` non-empty, so `render()`'s
+      `c.items.isEmpty()` short-circuit for tight `{}"`/`"[]"` never fired,
+      forcing loose `"{\n}"` rendering — but `renderItems`'s
+      `i > 0 && item.blankBefore` check never actually emits that blank line
+      for the first (only) item, so the loose output round1 produced had no
+      blank line before `}`. Reformatting that (round2) found no
+      leadingComments/blankBefore on re-parse, so `items.isEmpty()` was
+      correctly true the second time and collapsed to tight `"{}"` — a
+      genuine non-idempotency (`extensions/vscode-api-tests/testWorkspace/
+      bower.json`, whose source is `"{\n\n\t\n}\n"`). Fixed by only keeping
+      the dangling placeholder when `!item.leadingComments.isEmpty()` (drop
+      the `|| item.blankBefore` disjunct) — a comment-less blank line before
+      the closer is now dropped at parse time, so the whole container
+      renders straight to tight `"{}"` in one pass, matching what round2
+      would have collapsed to anyway. Fixture added:
+      `test/real_code_regressions_68_{inp,out}.json` (no copyright-header
+      comment — plain `.json` has no comment syntax to carry it, per
+      `STATE_COMMON.md`'s methodology's own carve-out). `make test`:
+      117/117 forward + 117/117 idempotency, zero regressions. Commit
+      `e2a6f0e`.

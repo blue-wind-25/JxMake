@@ -916,16 +916,21 @@ item** — it needs an actual measurement run, not a decision:
        negligible volume at 0%) — first Kotlin-specific public-repo data
        point, in line with the low own-repo Kotlin-adjacent rates seen so
        far, no anomaly.
+     - `expressjs/express` (`/tmp/express`, MIT — `STATE_JS_TS.md`'s
+       Test-Fixture Repos list; fresh shallow clone, no existing checkout on
+       disk): 878 comments, overall ABSTAIN **0.1%** (js 798/1 = 0.1%, yaml
+       negligible volume at 0%) — first JS-specific public-repo data point,
+       again low, no anomaly.
    - These are still preliminary/directional, not the final item-9
      measurement: coverage is limited to whatever languages/repos happened
      to be scanned, and RDD_EXT_16's full corpus plan (own dogfooded repos
      first, then vetted public repos) hasn't been fully run yet -- these
      public-repo runs are a first step into that second stage, not its
      completion. The spread across runs, post-`3rd_party`-exclusion (0.4% /
-     1.4% / 4.6% own-repo, 0.0% / 0.4% / 0.5% public-repo), is narrower than
-     before but still shows the ABSTAIN rate is corpus-dependent, reinforcing
-     that item 9 needs the full planned corpus, not a handful of repos,
-     before sizing a training set.
+     1.4% / 4.6% own-repo, 0.0% / 0.1% / 0.4% / 0.5% public-repo), is
+     narrower than before but still shows the ABSTAIN rate is
+     corpus-dependent, reinforcing that item 9 needs the full planned
+     corpus, not a handful of repos, before sizing a training set.
 
 Everything downstream is blocked on this measurement plus the actual
 training-data acquisition it feeds into: acquiring/labeling the Pool A/Pool

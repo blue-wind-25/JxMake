@@ -913,12 +913,34 @@ and closing conclusion below:
    `tools/gru/CommentAbstainTally.java`) already exercised above as the
    starting extraction base rather than re-deriving from scratch.
 
+   **Pool A/Pool B extraction tooling now exists** (not yet run against a
+   real acquisition target, and doesn't do any labeling itself):
+   `tools/gru/ExtractPoolA.java` reuses the real
+   `CommentFeatureExtractor`/`CommentClassifier` pipeline (like
+   `CommentAbstainTally`) but writes out only the ABSTAIN comments where
+   `CommentFeatureVector.hasLeadingKeywordMatch` is set -- i.e. exactly
+   Pool A's keyword-ambiguity definition -- deliberately excluding
+   `NonLatinScriptGate` ABSTAINs (vendored font/glyph data, not
+   keyword ambiguity, per this item's own TTGO_VGA32_Lite/RobotCoding
+   investigation above). `tools/gru/extract_pool_b.py` implements
+   RDD_EXT_15's grep-based recall-favoring filter directly over comment
+   text (2+ dots with one whitespace-surrounded, or an
+   abbreviation-adjacent token: `etc.`/`vs.`/`approx.`/single-capital-dot)
+   -- an independent ambiguity class, not derived from `CommentClassifier`
+   at all. Both read the same `<lang>\t<escaped-text>` corpus format
+   `extract_comments.py` already produces. Wired into the Makefile as
+   `gru-extract-pool-a`/`gru-extract-pool-b`. Smoke-tested against the
+   already-extracted `glaze` corpus (19253 comments): 111 Pool A and 67
+   Pool B candidates.
+
 Item 9 is now CLOSED (see conclusion above) and no longer blocks anything.
 Everything downstream is still NOT STARTED, but is now blocked only on
 actually doing the work, not on any further measurement or decision:
 acquiring/labeling the Pool A/Pool B training sets from RDD_EXT_16's chosen
 sources (own dogfooded repos first, using targeted extraction per item 9's
-sizing conclusion, not random sampling), populating `Vocabulary`'s ~3.5k-word
+sizing conclusion, not random sampling -- extraction tooling for both pools
+now exists, see above, but hasn't been pointed at a real acquisition target
+or fed into any labeling step yet), populating `Vocabulary`'s ~3.5k-word
 explicit vocab content, adding the embedding table/GRU weight matrices/
 dense-head weights to `GruWeights`, implementing `GruClassifier.classify`'s
 actual forward pass, implementing `GruTrainer`'s training loop using

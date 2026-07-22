@@ -1228,6 +1228,17 @@ Real-code regressions:
                                             continuation/body line's indentation as a delta RELATIVE
                                             to its own key's original indent, and re-anchoring that
                                             delta to the key's newly-rendered column at render time.
+                                            (6) A `|`/`>` block scalar as a PLAIN (non-keyed)
+                                            sequence item's own value (e.g. `command:\n- |\n  script
+                                            text`, a common shell-script-as-array-element shape) was
+                                            silently truncated to an empty string -- the no-colon
+                                            branch of the sequence-item parser never checked for a
+                                            block-scalar header at all, unlike the mapping-key and
+                                            seqOfMapping-first-key cases. Found via the content-
+                                            preservation check (the truncated output was still
+                                            syntactically valid YAML, just semantically wrong).
+                                            Fixed by adding the same block-scalar (and, while at it,
+                                            multi-line-quoted-scalar) detection to that branch.
 
 How Tests Are Run
 -----------------

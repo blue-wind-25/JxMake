@@ -32,5 +32,12 @@ spec       :
                 - name  : FOO
                   value : bar
                 # Trailing comment on last field of this item
-        - name  : sidecar
-          image : sidecar:latest
+        - name    : sidecar
+          image   : sidecar:latest
+          command :
+                - "/bin/bash"
+                - "-ecx"
+                - |
+                  # comment inside a plain (non-keyed) sequence item's block scalar
+                  echo "hello"
+                  exit 0

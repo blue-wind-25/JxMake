@@ -734,6 +734,22 @@ public final class YamlSpecificRule {
             item.children.addAll(siblingKeys);
             return;
         }
+        if (code.startsWith("|") || code.startsWith(">")) {
+            // A block scalar as a plain (non-keyed) sequence item's own value, e.g.
+            // "- |\n    line one\n    line two" (a script/command string in a plain YAML
+            // sequence) -- same block-scalar handling as the mapping-key and seqOfMapping-
+            // firstKey cases above, just without an intervening "key:" prefix.
+            item.inlineValue = code;
+            item.blockScalarBody = captureBlockScalarBody(innerCol - 2);
+            return;
+        }
+        if (!code.isEmpty() && (code.charAt(0) == '\'' || code.charAt(0) == '"')
+                && findClosingQuote(code, 1, code.charAt(0)) < 0) {
+            // Same multi-line quoted-scalar continuation handling as the other cases, for a
+            // plain (non-keyed) sequence item's own quoted value.
+            parseMultilineQuotedScalar(item, code, innerCol);
+            return;
+        }
         item.inlineValue = code;
         item.trailingComment = parts[1] != null ? normComment(parts[1]) : null;
     }
@@ -884,6 +900,23 @@ public final class YamlSpecificRule {
             renderItems(item.children, depth + 1, out);
             return;
         }
+        if (item.blockScalarBody != null) {
+            out.append(dashPrefix).append(item.inlineValue).append('\n');
+            if (!item.blockScalarBody.isEmpty()) {
+                // Captured relative to the dash line's own indent (see captureBlockScalarBody's
+                // caller, which passes ln.indent, i.e. innerCol - 2) -- whose rendered equivalent
+                // is indent(depth) itself, NOT a "+2" offset (that offset is only correct for
+                // multilineScalarBody below, whose capture baseline is the value's own column,
+                // innerCol).
+                appendMultilineScalarBody(item.blockScalarBody, depth, out);
+            }
+            return;
+        }
+        if (item.multilineScalarBody != null) {
+            out.append(dashPrefix).append(item.inlineValue).append('\n');
+            appendMultilineScalarBody(item.multilineScalarBody, indent(depth) + "  ", out);
+            return;
+        }
         if (item.inlineValue != null && looksLikeFlow(item.inlineValue)) {
             out.append(dashPrefix);
             renderFlowValue(parseFlow(new FlowCursor(item.inlineValue)), depth + 1, dashPrefix, out);
@@ -932,7 +965,12 @@ public final class YamlSpecificRule {
             if (c.blockScalarBody != null) {
                 out.append(' ').append(c.inlineValue).append('\n');
                 if (!c.blockScalarBody.isEmpty()) {
-                    appendMultilineScalarBody(c.blockScalarBody, alignPrefix, out);
+                    // The first (inline) key's block scalar is captured relative to the dash
+                    // line's own indent (indent(depth)); a sibling key's is captured relative to
+                    // its own key line's indent, which equals alignPrefix's column. Different
+                    // baseline per position, unlike multilineScalarBody (which uses the value's
+                    // own column, alignPrefix, for both).
+                    appendMultilineScalarBody(c.blockScalarBody, i == 0 ? indent(depth) : alignPrefix, out);
                 }
                 continue;
             }

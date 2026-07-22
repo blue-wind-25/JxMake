@@ -1080,11 +1080,53 @@ Item 9 is now CLOSED (see conclusion above) and no longer blocks anything.
    skipped (no comment had zero tokens). The upgraded files replace the old
    ones in the scratchpad, still never committed per RDD_EXT_19.
 
-   **Not yet done:** no real production training run against these upgraded
-   corpora has happened yet — only the fake-data smoke test described above.
-   The ~3.5k-word curated explicit vocab (every keyword across every
-   supported/planned language) is still unaddressed — `GruTrainer` currently
-   derives vocab purely from whatever training file it's pointed at.
+   **First real production training run.** Combined both upgraded corpora
+   (167 Pool A + 241 Pool B = 408 examples), shuffled with a fixed seed, and
+   split 80/20 into an 327-example train file and an 81-example held-out
+   test file kept completely separate from anything `GruTrainer` saw (its
+   own internal validation split, used only for early stopping, is a further
+   20% carved out of the 327-example train file — the 81-example test file
+   never touches training or early-stopping decisions at all).
+
+   Ran `GruTrainer` (`--epochs=40 --patience=6`, otherwise RDD_EXT_18
+   defaults) against the 327-example train file: train loss fell from 0.57
+   to near-zero, validation loss bottomed out at epoch 9 (0.156) and early
+   stopping fired at epoch 15 — a real, if small-scale, confirmation the
+   architecture/training loop learns rather than just running.
+
+   Measured precision on the 81-example held-out test file (via a one-off
+   `GruClassifier.load`/`classify` eval, not committed — a throwaway
+   `/tmp` harness, same non-committed-tooling posture as everything else
+   derived from the real corpora per RDD_EXT_19): **48/49 decided correct =
+   97.96% precision**, clearing RDD_EXT_17's 90% bar with room to spare
+   (YES: 13 correct/1 incorrect; NO: 35 correct/0 incorrect). Abstain rate
+   was 39.5% (32/81) — the model routinely doesn't clear
+   `abstainThreshold=0.5` and falls back to the existing rule-based
+   classifier's ABSTAIN, which is the intended fail-safe behavior, not a
+   defect. Sanity-checked against the training split itself too (97.37%
+   precision, 30.3% abstain rate) — close to the held-out numbers rather
+   than suspiciously perfect, meaning this isn't a trivial memorization
+   artifact of that split.
+
+   **Caveats, stated plainly:** 408 total examples is a very small corpus
+   for a ~425k-parameter model; a single random 80/20 split (not
+   cross-validated) on a dataset this size means the 97.96% figure has real
+   sampling variance — it should read as "a real positive signal", not as a
+   validated production accuracy claim. The high abstain rate also means
+   most ABSTAIN cases in practice still fall through to the rule-based
+   classifier's own (already-existing) ABSTAIN behavior unchanged; this run
+   demonstrates the pipeline works and clears the precision bar on the data
+   available, not that Step 3 is "done" in the sense of measurably reducing
+   the production ABSTAIN rate at scale.
+
+   **Not yet done:** a larger real corpus (the current 408 examples came
+   from one three-repo dogfood batch per RDD_EXT_16) would substantially
+   de-risk the precision estimate above. The ~3.5k-word curated explicit
+   vocab (every keyword across every supported/planned language) is still
+   unaddressed — `GruTrainer` currently derives vocab purely from whatever
+   training file it's pointed at (this run's vocab size was 3141, derived
+   from the 327-example train file alone). No cross-validation or repeated
+   splits have been run to bound the precision estimate's variance.
 Everything downstream is still NOT STARTED, but is now blocked only on
 actually doing the work, not on any further measurement or decision:
 acquiring/labeling the Pool A/Pool B training sets from RDD_EXT_16's chosen

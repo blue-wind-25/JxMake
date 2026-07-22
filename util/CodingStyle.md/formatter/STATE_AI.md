@@ -1125,6 +1125,42 @@ from one three-repo dogfood batch per RDD_EXT_16) would substantially
 de-risk the precision estimate above. No cross-validation or repeated
 splits have been run to bound the precision estimate's variance.
 
+   **Tooling added for both open items above (not yet run at scale).**
+   `tools/gru/acquire_corpus.sh` automates acquisition + extraction only, per
+   RDD_EXT_16's own-repos-then-vetted-public-repos policy: for each
+   configured source (local dogfood path under `~`, or a public repo
+   shallow-cloned to a scratch dir and removed again after extraction) it
+   runs `extract_comments.py` then `make gru-extract-pool-a`/
+   `gru-extract-pool-b`, writing candidate files under `--out-dir` (default
+   `/tmp/gru_corpus`). It deliberately stops there -- assigning each
+   candidate's YES/NO ground-truth label is a human judgment call
+   (RDD_EXT_20's labeling methodology), not something the script attempts,
+   so its output is "ready for hand labeling," not a finished corpus.
+   Smoke-tested against one local source (`--only eCxx`): extracted 45357
+   comments, 140 Pool A / 215 Pool B candidates, matching the shape of the
+   original by-hand run. Its source list is hardcoded from STATE_AI.md's own
+   run-by-run log (the three original dogfood repos plus TTGO_VGA32_Lite/
+   RobotCoding, plus the 11 MIT/BSD-3-Clause/Apache-2.0 public repos from
+   item 9's measurement) -- extend the list by hand as new sources get
+   vetted, don't add unvetted ones.
+
+   `tools/gru/GruEval.java` (checked in -- ordinary evaluation tooling like
+   `CommentAbstainTally.java`, not derived corpus data) loads a trained
+   weights file and reports precision/abstain-rate against an RDD_EXT_21-
+   schema examples file; it replaces the earlier throwaway `/tmp/GruEval.java`
+   harness used for the RDD_EXT_22 retrain measurement above.
+   `tools/gru/cross_validate.py` drives repeated Monte Carlo cross-
+   validation on top of it: reshuffles a combined labeled file with a fresh
+   seed per round (default 5), retrains `GruTrainer` from scratch on an 80%
+   split, evaluates on the untouched 20% via `GruEval`, and reports
+   mean/stdev/min/max precision across rounds instead of one number.
+   Smoke-tested (2 rounds, `--epochs=5 --patience=2` against the existing
+   408-example combined corpus): precision 0.8333/0.8163, mean=0.8248
+   stdev=0.0120 -- confirms the pipeline runs end to end; the low epoch
+   count for the smoke test itself is not a real accuracy measurement.
+   Neither script's own working files (splits, weights, cloned repos) are
+   ever committed, per RDD_EXT_19.
+
    **Explicit vocab curated (RDD_EXT_22).** Built
    `tools/gru/explicit_vocab.txt` (3500 words: 154 keyword slots across
    every `Lang.java`-supported/planned language + 3346 frequency-derived

@@ -653,6 +653,11 @@ genuinely open — it needs an actual measurement run, not a decision:
    classifier over a large sample first, measure before committing to a
    training-set size" step is planned but not yet executed; current
    pool-size estimates are directional, not measured. Still genuinely open.
+   Tooling to run this measurement now exists (`tools/gru/extract_comments.py`
+   + `tools/gru/CommentAbstainTally.java`, `make gru-measure-abstain-rate` —
+   see "Remaining blocked open items" below) — the tooling doesn't resolve
+   this item by itself, it still needs to actually be pointed at a real,
+   sizeable comment corpus and run.
 10. **Licensing/provenance check** for bulk-sourced GitHub comment data —
     resolved via data-source choice. See RDD_EXT_16 (own dogfooded repos
     first, vetted permissive public repos as a later extension).
@@ -780,7 +785,20 @@ item** — it needs an actual measurement run, not a decision:
 9. **Real ABSTAIN-rate measurement** — running the existing rule-based
    `CommentClassifier` over a large comment sample to measure the actual
    ABSTAIN rate, before committing to a training-set size, hasn't been
-   done yet.
+   done yet. **Tooling for this now exists** (not yet run against real data):
+   `tools/gru/extract_comments.py` walks a source tree, maps file extensions
+   to `Lang`-recognized language strings, and extracts raw comment text
+   (marker-stripped) per language's comment syntax into a flat
+   `<lang>\t<escaped-text>` corpus file; `tools/gru/CommentAbstainTally.java`
+   reads that file and feeds each comment through the actual
+   `CommentFeatureExtractor.extract`/`CommentClassifier.classify` pipeline
+   (not a reimplementation), tallying YES/NO/ABSTAIN counts overall and per
+   language. Wired into the Makefile as `gru-measure-abstain-rate` (requires
+   `GRU_ABSTAIN_INPUT=<path from extract_comments.py>`). Smoke-tested against
+   this project's own `src/` (3337 comments, 0.5% ABSTAIN) — this project's
+   own comments are mostly full sentences already, so that number is not
+   representative; the real measurement still needs to run against
+   RDD_EXT_16's chosen corpus (own dogfooded repos first).
 
 Everything downstream is blocked on this measurement plus the actual
 training-data acquisition it feeds into: acquiring/labeling the Pool A/Pool

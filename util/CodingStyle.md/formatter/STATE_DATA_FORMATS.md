@@ -1051,8 +1051,65 @@ None recorded yet in this file.
       (new `yaml_content_diff.py`, see "Dogfood Output Validation" above)
       453/453 match (informational-only comment-capitalization diffs noted
       on a handful of files, not structural mismatches).
-      `docker/compose`, `ansible/ansible`, `actions/starter-workflows`
-      remain not-started for YAML.
+      **`docker/compose` (YAML, second YAML dogfood run; fresh shallow clone
+      `--depth 1`, not found under `/tmp`/scratchpad from a prior session):**
+      261 `.yaml`/`.yml` files found (no `.git`/`vendor`/`node_modules`/
+      `bin`/`build` matches — a fresh shallow clone). Well below the
+      several-hundred sampling threshold, so the **full set was processed**,
+      not a sample. Baseline syntax-check of the unformatted originals
+      (`yaml_sc.js`, `loadAll()`): 250/261 pass; the 11 failures (all under
+      `pkg/e2e/fixtures/bridge/expected-helm/templates/**`) are genuine Helm
+      chart templates using `{{ ... }}` Go-template placeholders as mapping
+      keys/values (e.g. `{{- range ... }}`), confirmed genuinely invalid
+      plain YAML via the same real-parser baseline-check precedent as prior
+      sessions' deliberately-invalid/templated fixtures, not a formatter
+      bug. **In-scope corpus: 250 files.** Round1 format (one invocation,
+      `--preserve-tree --root`): the same 11 Helm-template files fail
+      identically (`expected ':' in flow mapping near: }}`, exact match to
+      the baseline-invalid set — confirmed no new failures), 250/250
+      in-scope files processed successfully. Round2 vs round1: `diff -rq`
+      empty across all 250 files — clean idempotency. Syntax-check of
+      round1 output: 250/250 pass, matching the 250/250 in-scope baseline.
+      **One bug found+fixed via the content-preservation check** (not the
+      syntax-checker — the corrupted output was still syntactically valid
+      YAML, same detection pattern as the kubernetes session's 6th bug): a
+      blank line immediately after a keyed line with no inline value (e.g.
+      `services:` followed by a blank line, then its nested service
+      mappings — a common human-authored compose-file style, both
+      `pkg/e2e/fixtures/network-alias/compose.yaml` and `pkg/e2e/fixtures/
+      hooks/poststart/compose-error.yaml` hit it) caused the entire nested
+      block to be silently dropped (`services: {}`-equivalent data loss).
+      Root cause: all four "does this key have a child block" detection
+      sites in `YamlSpecificRule.java` (`parseKeyItem`'s empty-inline-value
+      case, its scalar-then-nested-mapping case, `parseSeqItem`'s
+      empty-rest case, and the sequence-of-mapping first-key case) used a
+      plain `peek()` to look one line ahead; if that line happened to be
+      blank, it was read as "no child block" instead of being skipped past
+      to find the real next line, so the intended nested block was never
+      parsed at all. Fixed by adding a `peekNonBlank()` helper (looks ahead
+      past blank lines without consuming `pos`, so the blank line is still
+      correctly consumed later as the child block's own leading
+      `pendingBlank` once `parseBlock` is actually invoked on it) and using
+      it at all four detection sites in place of `peek()`. Fixture:
+      `test/real_code_regressions_72_{inp,out}.yaml` (`test/README.txt`).
+      `make test`: 121/121 forward + 121/121 idempotency, zero regressions.
+      Commit `2640cf2`. **Final full 250-file re-run after the fix:**
+      forward 250/250, idempotency 250/250 (`diff -rq` empty), syntax-check
+      250/250 pass, content-preservation 249/250 match — the one remaining
+      "failure" (`.github/ISSUE_TEMPLATE/bug_report.yml`) is not a
+      formatter bug but a `yaml_content_diff.py` **tool gap**: the file's
+      `name: 🐞 Bug` line contains an emoji, which PyYAML's `safe_load`
+      rejects outright (`unacceptable character #x1f41e: special
+      characters are not allowed`) on BOTH the original and the formatted
+      copy — `yaml_sc.js` (js-yaml) confirms both parse fine, and a manual
+      `diff` of the two files shows only expected re-indentation/
+      colon-alignment, no content change. Flagged as a `yaml_content_
+      diff.py` gap (PyYAML's stricter-than-YAML-1.1/1.2-spec printable-
+      character restriction on certain non-ASCII/emoji codepoints), not
+      fixed this session (out of scope — it's the checker script, not the
+      formatter).
+      `ansible/ansible`, `actions/starter-workflows` remain not-started for
+      YAML.
       **`python-poetry/poetry` (TOML, second TOML dogfood run; fresh shallow
       clone `--depth 1`, not found under `/tmp`/scratchpad from a prior
       session):** 106 `.toml` files found (no `.git`/`node_modules`/`build`/

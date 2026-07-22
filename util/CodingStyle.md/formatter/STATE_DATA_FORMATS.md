@@ -445,10 +445,67 @@ None recorded yet in this file.
       `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format —
       **`json5/json5` done, `microsoft/vscode` done, `babel/babel` done**
       (see below); `eslint/eslint` still not started for JSON;
-      `apache/maven`/etc. still not started for XML; `twbs/bootstrap`/etc.
-      still not started for CSS; `h5bp/html5-boilerplate`/etc. still not
-      started for HTML5; `kubernetes/kubernetes`/etc. still not started for
-      YAML; `rust-lang/cargo`/etc. still not started for TOML.
+      `apache/maven`/etc. still not started for XML;
+      **`twbs/bootstrap` done for CSS** (see below), `necolas/normalize.css`/
+      `foundation/foundation-sites`/`primer/css` still not started for CSS;
+      `h5bp/html5-boilerplate`/etc. still not started for HTML5;
+      `kubernetes/kubernetes`/etc. still not started for YAML;
+      `rust-lang/cargo`/etc. still not started for TOML.
+      **`twbs/bootstrap` (CSS, first CSS dogfood run; fresh shallow clone
+      `--depth 1`, not found under `/tmp` from a prior session):** bootstrap's
+      real hand-authored source is `.scss`, not `.css` (this formatter only
+      handles CSS proper, not SCSS) — its only genuine hand-authored `.css`
+      is 47 files under `site/src/assets/examples/**` (Bootstrap's docs-site
+      HTML example pages), plus `dist/css/**` (16 files) which is
+      SCSS-compiled+minified *generated* output, excluded per this session's
+      sizing guidance. **In-scope corpus: 31 files** (47 minus 16 `dist/`),
+      a small corpus so the **full set** was processed, not a sample.
+      Baseline syntax-check of the unformatted originals (`css_sc.js`):
+      31/31 pass. Round1 format (`--preserve-tree --root`, one invocation):
+      exit 0, 31/31 processed. Round2 vs round1: `diff -rq` empty (clean
+      idempotency, 31/31). Syntax-check of round1 output: 31/31 pass,
+      matching baseline. **Content-preservation spot-check** (this session's
+      new requirement beyond syntax-checking, since CSS bugs can produce
+      still-valid-but-semantically-wrong output): a comment-stripped/
+      whitespace-collapsed token-stream diff of every one of the 31 files'
+      original vs round1 output found 31/31 exact matches — **except** it
+      cannot see inside comments (stripped before comparing), which is
+      exactly where the one bug below was hiding; found instead by manually
+      grepping/reading the two files (`carousel.css`) that contain the
+      `@media` rules plus lowercase-starting `/* rtl:... */` comments used
+      by the rtlcss build tool. **One bug found+fixed:**
+      `FormatterSimpleBraced.capitalizeCommentStart` (shared by CSS/JSON5's
+      `normalize-comment-start-case`) unconditionally capitalized any
+      lowercase-starting comment's first letter with no exclusion mechanism
+      (the class's own doc comment claimed "JSON/CSS have no language
+      keywords a comment could start with that would need protecting" —
+      true for keywords, but not for third-party *tool directives*).
+      `carousel.css`'s `/* rtl:begin:ignore */`/`/* rtl:end:ignore */`/
+      `/* rtl:begin:remove */`/`/* rtl:end:remove */` (rtlcss's
+      case-sensitive RTL-conversion-suppression directive) got silently
+      corrupted to `/* Rtl:begin:ignore */` etc. — still perfectly valid
+      CSS syntactically (why `css_sc.js` never caught it), but semantically
+      broken for any pipeline that runs rtlcss over the formatter's output.
+      Fixed by adding `FormatterSimpleBraced.isSingleTokenDirective`: skip
+      capitalization when the comment's entire first-line body (up to
+      end-of-line/comment-close) is one whitespace-free token containing `:`
+      or `-` (directive-shaped, e.g. `rtl:begin:ignore`,
+      `stylelint-disable`), while ordinary prose that happens to start with
+      a similar word followed by more text (e.g. `auto-generated file, do
+      not edit`) is still capitalized as before — verified via direct unit
+      calls covering both cases before/after the fix. Fixture:
+      `test/real_code_regressions_69_{inp,out}.css` (`test/README.txt`).
+      `make test`: 118/118 forward + 118/118 idempotency, zero regressions.
+      **Final full re-run after the fix** (all 31 in-scope files,
+      forward+idempotency+syntax-check+content-preservation-spot-check
+      repeated end-to-end): 31/31 forward, 31/31 idempotency (`diff -rq`
+      empty), 31/31 syntax-check pass, 31/31 content-preservation match,
+      plus a manual re-check confirming all 4 `rtl:` directive occurrences
+      in `carousel.css`'s round1 output are now byte-identical to source
+      (no stray capitalization). Commit `8f5f597`.
+      `necolas/normalize.css`/`foundation/foundation-sites`/`primer/css`
+      remain the last not-started CSS test-fixture repos for a future
+      session.
       **`json5/json5` (fresh clone, not found under `/tmp` from a prior
       session):** small corpus — 6 hand-authored `.json`/`.json5` files
       total (`.eslintrc.json`, `package.json`, `package-lock.json`,

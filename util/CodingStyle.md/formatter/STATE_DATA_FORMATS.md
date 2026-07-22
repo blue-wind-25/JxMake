@@ -465,8 +465,9 @@ None recorded yet in this file.
       **`json5/json5` done, `microsoft/vscode` done, `babel/babel` done**
       (see below); `eslint/eslint` still not started for JSON;
       `apache/maven`/etc. still not started for XML;
-      **`twbs/bootstrap`/`necolas/normalize.css`/`foundation/foundation-sites`
-      done for CSS** (see below), `primer/css` still not started for CSS;
+      **`twbs/bootstrap`/`necolas/normalize.css`/`foundation/foundation-sites`/
+      `primer/css` done for CSS — all four CSS test-fixture repos now
+      dogfood-tested** (see below);
       `h5bp/html5-boilerplate`/etc. still not started for HTML5;
       `kubernetes/kubernetes`/etc. still not started for YAML;
       `rust-lang/cargo`/etc. still not started for TOML.
@@ -567,8 +568,55 @@ None recorded yet in this file.
       **In-scope corpus: 0 files** — nothing to format, round-trip, syntax-
       check, or content-diff. No forward/idempotency/syntax-check/content-
       preservation pass was run (would be vacuous), no fixtures added (no
-      bug to regress-test), no bugs found. `primer/css` remains the last
-      not-started CSS test-fixture repo for a future session.
+      bug to regress-test), no bugs found.
+      **`primer/css` (fresh shallow clone `--depth 1`, not found under
+      `/tmp` from a prior session; `github.com/primer/css` still exists,
+      no archival/redirect — GitHub's own Primer CSS design system, v22.3.0
+      per `package.json`):** verified this repo's real hand-authored source
+      is `.scss` under `src/` (113 files), same pattern as bootstrap/
+      foundation-sites. Unlike foundation-sites, this repo does have a
+      small genuinely hand-authored `.css` corpus outside `src/`/`dist/`:
+      **2 files**, `docs/.storybook/preview.css` (an `@import`-only file
+      pulling in `@primer/primitives` CSS custom-property bundles, no rules
+      of its own) and `docs/.storybook/storybook.css` (60 lines, ordinary
+      selectors/declarations, Storybook-preview-only styling — no
+      `dist/`/`.min.css`/`.css.map` matches anywhere in the tree, so nothing
+      to exclude as generated). **In-scope corpus: 2 files, full set
+      processed** (too small to sample). Baseline syntax-check of the
+      unformatted originals (`css_sc.js`): 2/2 pass. Round1 format
+      (`--preserve-tree --root`, one invocation): exit 0, 2/2 processed.
+      Round2 vs round1: `diff -r` empty (idempotent, 2/2). Syntax-check of
+      round1 output: 2/2 pass, matching baseline. **Content-preservation
+      check** (`css_content_diff.py`, both files, full not sampled):
+      `storybook.css` — exit 0, exact match (0 comments, 3 `!important`,
+      0 vendor-prefixed properties, all matched). `preview.css` — exit 1,
+      one comment-text mismatch: `/* color */` → `/* Color */`. Investigated
+      and confirmed **not a bug**: `normalize-comment-start-case=on` is the
+      documented default, and per the `real_code_regressions_69` fix (this
+      same file, twbs/bootstrap session), only directive-shaped comments
+      (single whitespace-free token containing `:` or `-`, e.g.
+      `rtl:begin:ignore`) are excluded from capitalization — `color` is a
+      plain word with neither `:` nor `-`, so `isSingleTokenDirective`
+      correctly returns false and the comment is capitalized as intended,
+      exactly the same normalization normal prose comments always get. A
+      manual `diff` of both original-vs-round1 file pairs found no other
+      discrepancy beyond this one intentional capitalization and expected
+      re-indentation/colon-alignment (2-space → 4-space indent,
+      colon-alignment padding on `storybook.css`'s declaration blocks).
+      **Zero bugs found** — forward 2/2, idempotency 2/2, syntax-check 2/2,
+      content-preservation 2/2 (once the one intentional, correctly-applied
+      capitalization is accounted for as expected behavior, not a defect).
+      No new fixtures needed (nothing to regress-test; the capitalization
+      behavior exercised here is already covered by `real_code_regressions_69`).
+      **All four CSS test-fixture repos are now dogfood-tested:**
+      `twbs/bootstrap` (31 in-scope files, 1 bug found+fixed — comment
+      capitalization corrupting rtlcss directives, fixture
+      `real_code_regressions_69`); `necolas/normalize.css` (1 in-scope file,
+      zero bugs); `foundation/foundation-sites` (0 in-scope files, 100%
+      SCSS-compiled); `primer/css` (2 in-scope files, zero bugs). CSS's
+      real-code-testing sub-portion of this checklist item is complete;
+      the overall item stays unchecked pending JSON's `eslint/eslint`, XML,
+      HTML5, YAML, and TOML repos.
       **`json5/json5` (fresh clone, not found under `/tmp` from a prior
       session):** small corpus — 6 hand-authored `.json`/`.json5` files
       total (`.eslintrc.json`, `package.json`, `package-lock.json`,

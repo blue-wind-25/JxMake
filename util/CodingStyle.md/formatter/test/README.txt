@@ -1160,6 +1160,35 @@ Real-code regressions:
                                             `auto-generated file, do not edit`) is still capitalized
                                             as before.
 
+  real_code_regressions_70_inp/out.toml  -- TOML, rust-lang/cargo real-code testing (first TOML
+                                            dogfood run): two bugs found via the forward-pass crashing
+                                            on genuinely-valid files (not the syntax-checker or
+                                            content-preservation check, both of which only run on
+                                            files the formatter didn't crash on in the first place).
+                                            (1) A multi-line array with an interior per-element
+                                            trailing `#` comment (e.g. `exclude = [\n  "target/", #
+                                            note\n]`) crashed with "unterminated array": the
+                                            continuation-line-joining loop only stripped a trailing
+                                            comment from the fully-joined logical line at the very
+                                            end, so an interior line's own comment was treated as
+                                            extending all the way to the end of the joined string,
+                                            swallowing the array's closing `]` as "comment text".
+                                            Fixed by stripping each continuation line's own trailing
+                                            comment before joining it in, not just the final joined
+                                            result's. (2) TOML v1.0's multi-line basic/literal strings
+                                            (`"""..."""`/`'''...'''`) were not handled at all -- the
+                                            flat line-scanner only knew how to detect array/inline-
+                                            table continuation via bracket balance, so a `key = """`
+                                            block spanning multiple physical lines crashed with
+                                            "expected 'key = value' line". Fixed by detecting an
+                                            unterminated multi-line-string opener before the bracket-
+                                            balance check and consuming subsequent raw (untrimmed)
+                                            lines verbatim until the matching closing delimiter is
+                                            found, preserving the string's real embedded newlines and
+                                            internal whitespace exactly (same "opaque, preserve
+                                            exactly" treatment as JSON5's multi-line string
+                                            continuations).
+
 How Tests Are Run
 -----------------
 

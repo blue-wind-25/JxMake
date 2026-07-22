@@ -1,0 +1,24 @@
+#% JXM_CFMT_DIS
+# Copyright (C) 2024 Example Corp.
+# SPDX-License-Identifier: MIT
+#% JXM_CFMT_ENA
+
+[workspace]
+members = [
+  "crates/*",
+  "credential/*",
+]
+exclude = [
+  "target/", # exclude bench testing
+]
+
+[ping.windows]
+message = """\
+Hey Windows Group! This bug has been identified as a good "Windows candidate".
+In case it's useful, here are some [instructions] for tackling these sorts of
+bugs. Maybe take a look?
+Thanks! <3
+
+[instructions]: https://rustc-dev-guide.rust-lang.org/notification-groups/windows.html
+"""
+label = "O-windows"

@@ -163,6 +163,35 @@ public final class TomlSpecificRule {
         return new String[] {rtrim(s), null};
     }
 
+    /** Returns {@code """}/{@code '''} if {@code value} opens a multi-line basic/literal string,
+     *  else {@code null}. */
+    private static String multilineStringDelim(final String value) {
+        if (value.startsWith("\"\"\"")) {
+            return "\"\"\"";
+        }
+        if (value.startsWith("'''")) {
+            return "'''";
+        }
+        return null;
+    }
+
+    /** True when {@code trimmedLine} is a {@code key = """.../key = '''...} line whose
+     *  multi-line-string value is not closed on the same physical line -- i.e. real continuation
+     *  lines must be consumed (TOML v1.0 core syntax; found missing entirely via rust-lang/cargo
+     *  dogfood testing, see the "Line-based parsing" loop). */
+    private static boolean isUnterminatedMultilineStringLine(final String trimmedLine) {
+        final int eq = findAssignmentEquals(trimmedLine);
+        if (eq < 0) {
+            return false;
+        }
+        final String value = trimmedLine.substring(eq + 1).trim();
+        final String delim = multilineStringDelim(value);
+        if (delim == null) {
+            return false;
+        }
+        return !value.substring(delim.length()).contains(delim);
+    }
+
     private static String rtrim(final String s) {
         int end = s.length();
         while (end > 0 && Character.isWhitespace(s.charAt(end - 1))) {
@@ -481,12 +510,48 @@ public final class TomlSpecificRule {
                 item.isHeader = true;
                 item.headerRaw = raw;
                 idx++;
+            } else if (isUnterminatedMultilineStringLine(trimmed)) {
+                // A `key = """`/`'''`-opened multi-line basic/literal string (TOML v1.0 core
+                // syntax) has no bracket to balance-track like an array/inline-table continuation
+                // does -- found via rust-lang/cargo dogfood testing (triagebot.toml's
+                // `message = """\...` block). Consume subsequent RAW (untrimmed) lines verbatim,
+                // preserving the string's real embedded newlines, until the matching closing
+                // delimiter line is found; the whole span becomes one opaque Scalar value (same
+                // "preserve exactly" treatment as JSON5's multi-line string continuations).
+                final int eq = findAssignmentEquals(trimmed);
+                final String firstChunk = trimmed.substring(eq + 1).trim();
+                final String delim = multilineStringDelim(firstChunk);
+                final StringBuilder valueSpan = new StringBuilder(firstChunk);
+                idx++;
+                boolean closed = false;
+                while (!closed && idx < lines.size()) {
+                    // Append subsequent lines verbatim (untrimmed) -- indentation/whitespace
+                    // inside a multi-line string's body is real content, not incidental
+                    // formatting, and must be preserved exactly.
+                    final String nextRaw = lines.get(idx);
+                    valueSpan.append('\n').append(nextRaw);
+                    idx++;
+                    if (nextRaw.contains(delim)) {
+                        closed = true;
+                    }
+                }
+                if (!closed) {
+                    throw new TomlParseException("unterminated multi-line string starting: " + trimmed);
+                }
+                item.key = trimmed.substring(0, eq).trim();
+                item.value = new Scalar(valueSpan.toString());
             } else {
                 String logical = trimmed;
                 idx++;
                 int balance = bracketBalance(logical);
                 while (balance > 0 && idx < lines.size()) {
-                    final String cont = lines.get(idx).trim();
+                    // Strip each continuation line's own trailing comment before joining --
+                    // otherwise an interior comment (e.g. `"target/", # note` mid-array) gets
+                    // treated by the final splitTrailingComment() call as extending to the very
+                    // end of the whole joined logical line, swallowing the array's closing `]`/`}`
+                    // as "comment text" and producing a spurious "unterminated array" parse error.
+                    // Found via rust-lang/cargo dogfood testing (Cargo.toml's `exclude = [...]`).
+                    final String cont = splitTrailingComment(lines.get(idx).trim())[0];
                     logical = logical + " " + cont;
                     balance += bracketBalance(cont);
                     idx++;

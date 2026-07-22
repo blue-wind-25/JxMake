@@ -1189,6 +1189,46 @@ Real-code regressions:
                                             exactly" treatment as JSON5's multi-line string
                                             continuations).
 
+  real_code_regressions_71_inp/out.yaml  -- YAML, kubernetes/kubernetes real-code testing (first
+                                            YAML dogfood run): four crash-causing bugs found via the
+                                            forward pass (not the syntax-checker or content-
+                                            preservation check, both of which only run on files the
+                                            formatter didn't crash on in the first place), plus one
+                                            idempotency-only bug found on re-formatting round1's own
+                                            output. (1) A sequence-of-mapping's first key ("- key:")
+                                            rejected a same-indent nested sequence child (the common
+                                            "- apiGroups:\n    - \"*\"" manifest style), unlike a
+                                            plain mapping key which already allowed it -- fixed by
+                                            mirroring that same same-indent-sequence-child rule.
+                                            (2)/(3) Both quoted and unquoted (plain) scalars can wrap
+                                            across physical lines when a continuation is more indented
+                                            than the key (common in real-world CRD/API description
+                                            fields) -- the line-based parser had no support for this
+                                            at all and crashed treating the continuation as its own
+                                            malformed mapping line; fixed by detecting an unterminated
+                                            quote / a non-key/non-seq deeper continuation line and
+                                            capturing it as an opaque multi-line scalar body, applied
+                                            to both plain mapping keys and a sequence-of-mapping's
+                                            first key. (4) A trailing comment with no following
+                                            sibling key inside a sequence-of-mapping's children (a
+                                            "dangling" item with a null key) reached the colon-
+                                            alignment padding helper and threw a NullPointerException
+                                            calling `.length()` on the null key -- fixed by excluding
+                                            dangling items from the padding key list and rendering
+                                            their leading comments directly. (5) Idempotency-only:
+                                            both the new multi-line-scalar continuation capture above
+                                            and the pre-existing `|`/`>` block-scalar body capture
+                                            stored continuation lines at their original ABSOLUTE
+                                            indentation; since the header key's own rendered column
+                                            can shift (colon-alignment padding, indent-size, nesting-
+                                            depth quirks elsewhere in the renderer), a second
+                                            formatting pass could leave the body less-indented than
+                                            its own re-rendered key line, breaking both idempotency
+                                            and, in one case, re-parseability. Fixed by storing every
+                                            continuation/body line's indentation as a delta RELATIVE
+                                            to its own key's original indent, and re-anchoring that
+                                            delta to the key's newly-rendered column at render time.
+
 How Tests Are Run
 -----------------
 

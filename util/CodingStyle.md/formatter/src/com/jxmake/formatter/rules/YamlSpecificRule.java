@@ -215,6 +215,8 @@ public final class YamlSpecificRule {
         List<Item> children; // nested block belonging to this item (mapping or sequence)
         boolean seqOfMapping; // sequence item whose value is an inline-first-key mapping
         String blockScalarBody; // raw verbatim body (joined by \n) for | / > scalars
+        String multilineScalarBody; // raw verbatim continuation lines (joined by \n) for a
+                                     // quoted scalar whose closing quote isn't on the key's own line
 
         boolean isKeyed() {
             return key != null;
@@ -552,6 +554,16 @@ public final class YamlSpecificRule {
             item.blockScalarBody = captureBlockScalarBody(ln.indent);
             return;
         }
+        if (!after.isEmpty() && (after.charAt(0) == '\'' || after.charAt(0) == '"')
+                && findClosingQuote(after, 1, after.charAt(0)) < 0) {
+            // A quoted (single or double) scalar whose closing quote isn't on this physical line --
+            // YAML allows a quoted scalar to wrap across multiple lines (common in real-world CRD/
+            // API description fields). Preserved verbatim (opaque, like a block scalar body) rather
+            // than reflowed/folded, since exact fold-whitespace semantics aren't needed for a
+            // round-trip-preserving formatter and this keeps the fix minimal/idempotent.
+            parseMultilineQuotedScalar(item, after, ln.indent);
+            return;
+        }
         item.trailingComment = parts[1] != null ? normComment(parts[1]) : null;
         if (after.isEmpty()) {
             final Line next = peek();
@@ -571,10 +583,94 @@ public final class YamlSpecificRule {
             return; // rendered via flow parsing/overflow-check at render time
         }
         // A scalar value can still carry a nested block underneath it (an anchor followed by a
-        // nested mapping, e.g. "anchor_example: &default" then an indented "color: blue").
+        // nested mapping, e.g. "anchor_example: &default" then an indented "color: blue"). But a
+        // more-indented following line that doesn't itself look like a mapping key or sequence dash
+        // is instead a continuation of an unquoted (plain) scalar that wraps across physical lines
+        // (common in real-world CRD/API description fields, e.g. "description: Foo is a bar and\n
+        // baz.") -- captured verbatim/opaque, same approach as the quoted-scalar case above.
         if (peek() != null && !peek().isBlank() && peek().indent > ln.indent) {
-            item.children = parseBlock(peek().indent);
+            final Line next = peek();
+            final boolean nextIsSeqLine = next.content.equals("-") || next.content.startsWith("- ");
+            final boolean nextIsKeyLine = !nextIsSeqLine && findMappingColon(next.content) >= 0;
+            if (nextIsSeqLine || nextIsKeyLine) {
+                item.children = parseBlock(next.indent);
+            } else {
+                parseMultilinePlainScalar(item, ln.indent);
+            }
         }
+    }
+
+    /** Consumes physical lines (verbatim, raw) following a keyed item's unquoted plain scalar value,
+     *  as long as each is more-indented than the key and doesn't itself look like a new mapping key
+     *  or sequence dash (which would instead be a genuine nested block, handled by the caller before
+     *  reaching here). Stored verbatim/opaque in {@code item.multilineScalarBody}, same rendering and
+     *  idempotency rationale as {@link #parseMultilineQuotedScalar}. */
+    private void parseMultilinePlainScalar(final Item item, final int keyIndent) {
+        final List<String> bodyLines = new ArrayList<>();
+        while (peek() != null && !peek().isBlank() && peek().indent > keyIndent) {
+            final Line next = peek();
+            final boolean isSeqLine = next.content.equals("-") || next.content.startsWith("- ");
+            final boolean isKeyLine = !isSeqLine && findMappingColon(next.content) >= 0;
+            if (isSeqLine || isKeyLine) {
+                break;
+            }
+            bodyLines.add(repeatChar(' ', next.indent - keyIndent) + next.content);
+            pos++;
+        }
+        if (!bodyLines.isEmpty()) {
+            item.multilineScalarBody = String.join("\n", bodyLines);
+        }
+    }
+
+    /** Returns the index of the unescaped closing {@code quote} character in {@code s} starting the
+     *  scan at {@code start}, or -1 if not found on this line/segment. A doubled single-quote
+     *  ({@code ''}) inside a single-quoted scalar is YAML's escape for a literal quote (not a
+     *  closer); a backslash-escaped char is skipped whole inside a double-quoted scalar. */
+    private static int findClosingQuote(final String s, final int start, final char quote) {
+        int i = start;
+        while (i < s.length()) {
+            final char c = s.charAt(i);
+            if (quote == '\'') {
+                if (c == '\'') {
+                    if (i + 1 < s.length() && s.charAt(i + 1) == '\'') {
+                        i += 2;
+                        continue;
+                    }
+                    return i;
+                }
+            } else {
+                if (c == '\\') {
+                    i += 2;
+                    continue;
+                }
+                if (c == '"') {
+                    return i;
+                }
+            }
+            i++;
+        }
+        return -1;
+    }
+
+    /** Consumes physical lines (verbatim, raw) following a keyed item's quoted scalar value until the
+     *  scalar's closing quote is found (or input runs out / a blank line is hit -- a conservative
+     *  stopping point, since a blank line inside a real quoted scalar continuation is rare in
+     *  practice). The captured continuation lines are stored verbatim/opaque in
+     *  {@code item.multilineScalarBody} -- not reflowed -- so re-formatting the formatter's own
+     *  output is trivially idempotent (the captured lines pass through byte-for-byte). */
+    private void parseMultilineQuotedScalar(final Item item, final String firstLineAfter, final int keyIndent) {
+        final char quote = firstLineAfter.charAt(0);
+        final List<String> bodyLines = new ArrayList<>();
+        while (peek() != null && !peek().isBlank()) {
+            final Line next = peek();
+            pos++;
+            bodyLines.add(repeatChar(' ', Math.max(0, next.indent - keyIndent)) + next.content);
+            if (findClosingQuote(next.content, 0, quote) >= 0) {
+                break;
+            }
+        }
+        item.inlineValue = firstLineAfter;
+        item.multilineScalarBody = String.join("\n", bodyLines);
     }
 
     private void parseSeqItem(final Item item, final Line ln) {
@@ -599,14 +695,37 @@ public final class YamlSpecificRule {
             if (after.startsWith("|") || after.startsWith(">")) {
                 firstKey.inlineValue = after;
                 firstKey.blockScalarBody = captureBlockScalarBody(innerCol - 2);
+            } else if (!after.isEmpty() && (after.charAt(0) == '\'' || after.charAt(0) == '"')
+                    && findClosingQuote(after, 1, after.charAt(0)) < 0) {
+                // Same multi-line quoted-scalar continuation handling as parseKeyItem, for a
+                // sequence-of-mapping's first (inline) key.
+                parseMultilineQuotedScalar(firstKey, after, innerCol);
             } else {
                 firstKey.trailingComment = parts[1] != null ? normComment(parts[1]) : null;
                 if (!after.isEmpty()) {
                     firstKey.inlineValue = after;
                 }
-                if ((after.isEmpty() || !looksLikeFlow(after)) && peek() != null && !peek().isBlank()
-                        && peek().indent > innerCol - 2 && peek().indent != innerCol) {
-                    firstKey.children = parseBlock(peek().indent);
+                final Line nextLn = peek();
+                final boolean nextIsSeqLine = nextLn != null && !nextLn.isBlank()
+                        && (nextLn.content.equals("-") || nextLn.content.startsWith("- "));
+                final boolean nextIsKeyLine = nextLn != null && !nextLn.isBlank() && !nextIsSeqLine
+                        && findMappingColon(nextLn.content) >= 0;
+                // A sequence child of firstKey is allowed at the same indent as firstKey itself
+                // (innerCol) -- the common "- apiGroups:\n  - \"*\"" k8s manifest style -- same
+                // same-indent-sequence-child rule as parseKeyItem's own handling. A mapping child
+                // must be strictly deeper than innerCol, and not equal to innerCol (which would
+                // instead belong to the siblingKeys block parsed right below).
+                if ((after.isEmpty() || !looksLikeFlow(after)) && nextLn != null && !nextLn.isBlank()
+                        && (nextIsSeqLine ? nextLn.indent >= innerCol
+                                : (nextIsKeyLine && nextLn.indent > innerCol - 2 && nextLn.indent != innerCol))) {
+                    firstKey.children = parseBlock(nextLn.indent);
+                } else if (!after.isEmpty() && !looksLikeFlow(after) && nextLn != null && !nextLn.isBlank()
+                        && !nextIsSeqLine && !nextIsKeyLine && nextLn.indent > innerCol) {
+                    // A plain (unquoted) scalar continuation wrapping across physical lines --
+                    // same disambiguation as parseKeyItem's own tail handling, applied here for a
+                    // sequence-of-mapping's first (inline) key (e.g. "- description: Foo is a bar\n
+                    // and baz." under an "additionalPrinterColumns:" style sequence).
+                    parseMultilinePlainScalar(firstKey, innerCol);
                 }
             }
             final List<Item> siblingKeys = parseBlock(innerCol);
@@ -619,11 +738,24 @@ public final class YamlSpecificRule {
         item.trailingComment = parts[1] != null ? normComment(parts[1]) : null;
     }
 
+    /** Captures a {@code |}/{@code >} block scalar's body lines, stored with each line's
+     *  indentation as a delta <em>relative to the header key's own original indent</em>
+     *  (not absolute/verbatim) -- same reasoning and same idempotency requirement as
+     *  {@link #parseMultilineQuotedScalar}/{@link #parseMultilinePlainScalar}: the header key's
+     *  rendered column can shift (indent-size changes, colon-alignment padding, nesting-depth
+     *  differences elsewhere in the renderer), and an absolute-indent copy would drift out of
+     *  sync with it, breaking idempotency (and potentially validity, since the body must stay
+     *  more-indented than the header to still parse as part of the block scalar). */
     private String captureBlockScalarBody(final int headerIndent) {
         final List<String> body = new ArrayList<>();
         while (pos < lines.size() && (peek().isBlank() || peek().indent > headerIndent)) {
-            body.add(peek().raw);
+            final Line next = peek();
             pos++;
+            if (next.isBlank()) {
+                body.add("");
+            } else {
+                body.add(repeatChar(' ', Math.max(0, next.indent - headerIndent)) + next.content);
+            }
         }
         return String.join("\n", body);
     }
@@ -681,13 +813,46 @@ public final class YamlSpecificRule {
         }
     }
 
+    /** Renders a multi-line scalar's continuation lines: {@code body} holds each continuation line
+     *  as its indentation <em>relative to its own key's original indent</em> (not absolute), joined
+     *  by {@code \n} -- see {@link #parseMultilinePlainScalar}/{@link #parseMultilineQuotedScalar}.
+     *  Rendering re-anchors each line to the key's newly-computed {@code indent(depth)} plus that
+     *  preserved relative delta, so the continuation always stays deeper than its key regardless of
+     *  indent-size or nesting-depth changes introduced elsewhere by reformatting -- required for
+     *  idempotency (a verbatim/absolute-indent copy would drift out of sync with a reindented key
+     *  line, e.g. after a global indent-size change or an unrelated nesting-depth fix). */
+    private void appendMultilineScalarBody(final String body, final int depth, final StringBuilder out) {
+        appendMultilineScalarBody(body, indent(depth), out);
+    }
+
+    /** Same as {@link #appendMultilineScalarBody(String, int, StringBuilder)} but anchored at an
+     *  explicit prefix string rather than a clean {@code indent(depth)} value -- needed for
+     *  contexts (e.g. sequence-of-mapping sibling keys) whose rendered column is an offset like
+     *  {@code indent(depth) + "  "} rather than a depth the {@code indent()} helper itself models.
+     *  Blank body lines (originally-blank lines inside the block scalar/continuation) are emitted
+     *  as truly empty lines, not padded with trailing whitespace. */
+    private void appendMultilineScalarBody(final String body, final String keyIndentStr, final StringBuilder out) {
+        for (final String line : body.split("\n", -1)) {
+            if (line.isEmpty()) {
+                out.append('\n');
+            } else {
+                out.append(keyIndentStr).append(line).append('\n');
+            }
+        }
+    }
+
     private void renderKeyItem(final Item item, final int depth, final String pad, final StringBuilder out) {
         final String keyPrefix = indent(depth) + item.key + pad + ":";
         if (item.blockScalarBody != null) {
             out.append(keyPrefix).append(' ').append(item.inlineValue).append('\n');
             if (!item.blockScalarBody.isEmpty()) {
-                out.append(item.blockScalarBody).append('\n');
+                appendMultilineScalarBody(item.blockScalarBody, depth, out);
             }
+            return;
+        }
+        if (item.multilineScalarBody != null) {
+            out.append(keyPrefix).append(' ').append(item.inlineValue).append('\n');
+            appendMultilineScalarBody(item.multilineScalarBody, depth, out);
             return;
         }
         if (item.inlineValue != null && looksLikeFlow(item.inlineValue)) {
@@ -736,22 +901,44 @@ public final class YamlSpecificRule {
      *  (under the first key), per §5.3. */
     private void renderSeqOfMapping(final Item item, final int depth, final StringBuilder out) {
         final List<Item> children = item.children;
+        // A dangling item (trailing comment(s)/blank line with no following sibling key at this
+        // block level -- see parseBlock's own tail handling) has a null key and isn't a real keyed
+        // row: it must be excluded from colon-alignment padding (its null key would otherwise NPE
+        // in padKeysForColonAlignment) and rendered as bare comment line(s) instead of a "key:" row.
         final List<String> keys = new ArrayList<>();
         for (final Item c : children) {
-            keys.add(c.key);
+            if (!c.dangling) {
+                keys.add(c.key);
+            }
         }
         final String[] pad = FormatterSimpleBraced.padKeysForColonAlignment(keys);
         final String dashPrefix = indent(depth) + "- ";
         final String alignPrefix = indent(depth) + "  ";
+        int padIdx = 0;
         for (int i = 0; i < children.size(); i++) {
             final Item c = children.get(i);
-            final String prefix = (i == 0 ? dashPrefix : alignPrefix) + c.key + pad[i] + ":";
+            if (c.dangling) {
+                for (final String comment : c.leadingComments) {
+                    out.append(alignPrefix).append(comment).append('\n');
+                }
+                continue;
+            }
+            for (final String comment : c.leadingComments) {
+                out.append(i == 0 ? dashPrefix : alignPrefix).append(comment).append('\n');
+            }
+            final String prefix = (i == 0 ? dashPrefix : alignPrefix) + c.key + pad[padIdx] + ":";
+            padIdx++;
             out.append(prefix);
             if (c.blockScalarBody != null) {
                 out.append(' ').append(c.inlineValue).append('\n');
                 if (!c.blockScalarBody.isEmpty()) {
-                    out.append(c.blockScalarBody).append('\n');
+                    appendMultilineScalarBody(c.blockScalarBody, alignPrefix, out);
                 }
+                continue;
+            }
+            if (c.multilineScalarBody != null) {
+                out.append(' ').append(c.inlineValue).append('\n');
+                appendMultilineScalarBody(c.multilineScalarBody, alignPrefix, out);
                 continue;
             }
             if (c.inlineValue != null && looksLikeFlow(c.inlineValue)) {

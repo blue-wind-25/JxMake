@@ -1,0 +1,36 @@
+# Copyright (C) 2024 Example Corp.
+# SPDX-License-Identifier: MIT
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: widgets.example.com
+spec:
+  group: example.com
+  rules:
+  - apiGroups:
+    - "*"
+    resources:
+    - pods
+  additionalPrinterColumns:
+  - description: Indicates if the widget is ready
+      to be used by any consumer.
+    jsonPath: .status.ready
+  properties:
+    name:
+      description: 'Name is the widget name. More info: https://example.com/docs
+        for details.'
+      type: string
+    summary:
+      description: |-
+        Summary text line one.
+        Summary text line two.
+      type: string
+  containers:
+  - name: app
+    image: widget:latest
+    env:
+    - name: FOO
+      value: bar
+    # trailing comment on last field of this item
+  - name: sidecar
+    image: sidecar:latest

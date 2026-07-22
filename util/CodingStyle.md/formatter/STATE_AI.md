@@ -921,16 +921,32 @@ item** — it needs an actual measurement run, not a decision:
        disk): 878 comments, overall ABSTAIN **0.1%** (js 798/1 = 0.1%, yaml
        negligible volume at 0%) — first JS-specific public-repo data point,
        again low, no anomaly.
+     - `foundation-sites` (`/tmp/foundation-sites`, MIT — `STATE_DATA_FORMATS.md`'s
+       Test-Fixture Repos list, CSS entry; existing checkout reused): 13380
+       comments, overall ABSTAIN **0.4%** (js 13003/54 = 0.4%, css/html5/yaml/ts
+       all 0% at low-to-moderate volume) — first CSS/HTML5-adjacent
+       public-repo data point (the repo's own comments are overwhelmingly in
+       its JS, not its CSS/HTML5, files), consistent with prior JS rates.
+     - `json5/json5` (`/tmp/jxmake-json5-dogfood/json5`, MIT —
+       `STATE_DATA_FORMATS.md`'s Test-Fixture Repos list, JSON/JSON5 entry;
+       existing checkout reused): only 103 comments (small repo), overall
+       ABSTAIN **14.6%**, all concentrated in `js` (15/77 = 16.3%; json5
+       itself was 0/4 and ts 0/7, too little volume to read anything into).
+       Not investigated further given the tiny sample (77 js comments
+       total) — flagged here as an outlier rather than root-caused, unlike
+       the TTGO/RobotCoding anomaly above, which had enough volume (and an
+       explicit user request) to justify digging in.
    - These are still preliminary/directional, not the final item-9
      measurement: coverage is limited to whatever languages/repos happened
      to be scanned, and RDD_EXT_16's full corpus plan (own dogfooded repos
      first, then vetted public repos) hasn't been fully run yet -- these
      public-repo runs are a first step into that second stage, not its
      completion. The spread across runs, post-`3rd_party`-exclusion (0.4% /
-     1.4% / 4.6% own-repo, 0.0% / 0.1% / 0.4% / 0.5% public-repo), is
-     narrower than before but still shows the ABSTAIN rate is
-     corpus-dependent, reinforcing that item 9 needs the full planned
-     corpus, not a handful of repos, before sizing a training set.
+     1.4% / 4.6% own-repo, 0.0% / 0.1% / 0.4% / 0.4% / 0.5% / 14.6%(small
+     sample) public-repo), is narrower than before but still shows the
+     ABSTAIN rate is corpus-dependent, reinforcing that item 9 needs the
+     full planned corpus, not a handful of repos, before sizing a training
+     set.
 
 Everything downstream is blocked on this measurement plus the actual
 training-data acquisition it feeds into: acquiring/labeling the Pool A/Pool

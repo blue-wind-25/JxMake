@@ -202,9 +202,26 @@ public final class YamlSpecificRule {
 
     // ---- AST -------------------------------------------------------------------------------------
 
+    /** One leading comment line preceding an item, plus whether a blank line separated it from
+     *  whatever came right before it (the previous comment, or the previous item) -- needed so a
+     *  blank/comment/blank run isn't collapsed into "one blank, then all comments bunched
+     *  together" (that shape is common right after a nested block ends, e.g. a comment between
+     *  two top-level tasks in an Ansible playbook, and was previously lossy/non-idempotent:
+     *  {@link Item#blankBefore} alone can only represent one blank-line position, not one before
+     *  *and* one after a comment run). */
+    private static final class CommentLine {
+        final boolean blankBefore;
+        final String text;
+
+        CommentLine(final boolean blankBefore, final String text) {
+            this.blankBefore = blankBefore;
+            this.text = text;
+        }
+    }
+
     private static final class Item {
-        List<String> leadingComments = new ArrayList<>();
-        boolean blankBefore;
+        List<CommentLine> leadingComments = new ArrayList<>();
+        boolean blankBefore; // blank line between the last comment (or previous item) and this item itself
         boolean isSeq;
         boolean isFrozen;
         List<String> frozenLines;
@@ -292,8 +309,24 @@ public final class YamlSpecificRule {
                 c.skipWs();
                 final String key = readFlowScalarText(c, true);
                 c.skipWs();
+                // A flow-mapping entry with no ':' before its terminating ','/'}' is a valid
+                // key-only entry with an implicit null value (same as a bare "key:" line in block
+                // context) -- real-world example: an unquoted plain-scalar value that itself
+                // contains a ',' (which YAML's flow grammar treats as an entry separator, not
+                // literal text) splits into exactly this shape. Previously this threw a hard
+                // parse error on otherwise-valid YAML that js-yaml/PyYAML accept.
                 if (c.cur() != ':') {
-                    throw new YamlParseException("expected ':' in flow mapping near: " + c.s.substring(c.i));
+                    map.entries.add(new FlowEntry(key.trim(), null));
+                    c.skipWs();
+                    if (c.cur() == ',') {
+                        c.i++;
+                        continue;
+                    }
+                    if (c.cur() == '}') {
+                        c.i++;
+                        break;
+                    }
+                    throw new YamlParseException("unterminated flow mapping near: " + c.s.substring(c.i));
                 }
                 c.i++;
                 c.skipWs();
@@ -379,7 +412,10 @@ public final class YamlSpecificRule {
                     sb.append(", ");
                 }
                 final FlowEntry e = map.entries.get(i);
-                sb.append(e.key).append(": ").append(renderFlowTight(e.value));
+                sb.append(e.key);
+                if (e.value != null) {
+                    sb.append(": ").append(renderFlowTight(e.value));
+                }
             }
             return sb.append('}').toString();
         }
@@ -432,6 +468,16 @@ public final class YamlSpecificRule {
             final String[] pad = FormatterSimpleBraced.padKeysForColonAlignment(keys);
             for (int i = 0; i < map.entries.size(); i++) {
                 final FlowEntry e = map.entries.get(i);
+                if (e.value == null) {
+                    // Key-only flow entry (implicit null value, see parseFlow). Block-mapping
+                    // syntax (unlike flow) requires the trailing ':' even for a null value -- a
+                    // bare word with no colon at all isn't a valid block mapping entry. Uses
+                    // pad[i] like every other entry in the group so round-tripping this same
+                    // output back through the ordinary (non-flow) key-item path -- which always
+                    // applies group padding -- doesn't change anything (idempotency).
+                    out.append(indent(depth)).append(e.key).append(pad[i]).append(':').append('\n');
+                    continue;
+                }
                 final String keyPrefix = indent(depth) + e.key + pad[i] + ":";
                 out.append(keyPrefix);
                 renderFlowValueOrScalar(e.value, depth, keyPrefix, out);
@@ -474,7 +520,7 @@ public final class YamlSpecificRule {
      *  caused everything under it to be dropped). */
     private Line peekNonBlank() {
         int i = pos;
-        while (i < lines.size() && lines.get(i).isBlank()) {
+        while (i < lines.size() && (lines.get(i).isBlank() || lines.get(i).content.startsWith("#"))) {
             i++;
         }
         return i < lines.size() ? lines.get(i) : null;
@@ -487,7 +533,7 @@ public final class YamlSpecificRule {
      *  back to the caller's own block instead. */
     private List<Item> parseBlock(final int blockIndent) {
         final List<Item> items = new ArrayList<>();
-        List<String> pendingComments = new ArrayList<>();
+        List<CommentLine> pendingComments = new ArrayList<>();
         boolean pendingBlank = false;
         Boolean isSeqBlock = null;
         while (pos < lines.size()) {
@@ -497,10 +543,21 @@ public final class YamlSpecificRule {
                 pos++;
                 continue;
             }
-            if (ln.indent != blockIndent) {
-                break;
-            }
-            if (ln.content.startsWith("#")) {
+            // A comment line's own indentation is not grammatically significant in YAML and is not
+            // required to match blockIndent -- real-world YAML frequently dedents trailing comments
+            // (e.g. a "# FIXME: ..." note at column 0 sitting between two sibling keys/seq-items that
+            // are themselves indented deeper). Rather than compare the comment's own column against
+            // blockIndent (which either grabs it into the wrong, too-deep nested block, or -- if it
+            // bubbles all the way out past every enclosing block without ever matching a blockIndent
+            // exactly -- drops it and everything after it), decide by looking past all the immediately
+            // following comment/blank lines to the next real content line: this comment belongs to
+            // THIS block if and only if that next real line's indent equals blockIndent (i.e. it's a
+            // sibling of what comes next in this same block); if it doesn't (or there's no more real
+            // content at all), let this and any subsequent comment lines fall through as this block's
+            // own trailing/dangling comments once the loop ends, same as before.
+            final boolean isComment = ln.content.startsWith("#");
+            final Line nextReal = isComment && ln.indent != blockIndent ? peekNonBlank() : null;
+            if (isComment && (ln.indent == blockIndent || nextReal == null || nextReal.indent == blockIndent)) {
                 if ("#% JXM_CFMT_DIS".equals(ln.content)) {
                     final Item item = new Item();
                     item.leadingComments = pendingComments;
@@ -522,9 +579,13 @@ public final class YamlSpecificRule {
                     items.add(item);
                     continue;
                 }
-                pendingComments.add(normComment(ln.content));
+                pendingComments.add(new CommentLine(pendingBlank, normComment(ln.content)));
+                pendingBlank = false;
                 pos++;
                 continue;
+            }
+            if (ln.indent != blockIndent) {
+                break;
             }
             final boolean lineIsSeq = ln.content.equals("-") || ln.content.startsWith("- ");
             if (isSeqBlock != null && isSeqBlock.booleanValue() != lineIsSeq) {
@@ -585,11 +646,23 @@ public final class YamlSpecificRule {
             final Line next = peekNonBlank();
             if (next != null) {
                 final boolean nextIsSeq = next.content.equals("-") || next.content.startsWith("- ");
+                final boolean nextIsKey = !nextIsSeq && findMappingColon(next.content) >= 0;
                 // A sequence child is allowed at the same indent as its parent key (a common,
                 // valid YAML style); a mapping child must be strictly deeper to avoid ambiguity
                 // with the next sibling key at the parent's own indent.
                 if (nextIsSeq ? next.indent >= ln.indent : next.indent > ln.indent) {
-                    item.children = parseBlock(next.indent);
+                    if (nextIsSeq || nextIsKey) {
+                        item.children = parseBlock(next.indent);
+                    } else {
+                        // A key with no value on its own line whose child isn't shaped like a
+                        // mapping key or a sequence dash is a plain multi-line scalar whose entire
+                        // body (not just a continuation) sits on the following, more-indented
+                        // lines -- e.g. an Ansible "msg:" field wrapped onto its own lines with no
+                        // text at all after the colon. Captured verbatim/opaque, relative to the
+                        // key's own indent, same treatment as a block scalar body.
+                        item.inlineValue = "";
+                        item.blockScalarBody = captureBlockScalarBody(ln.indent);
+                    }
                 }
             }
             return;
@@ -623,7 +696,7 @@ public final class YamlSpecificRule {
      *  idempotency rationale as {@link #parseMultilineQuotedScalar}. */
     private void parseMultilinePlainScalar(final Item item, final int keyIndent) {
         final List<String> bodyLines = new ArrayList<>();
-        while (peek() != null && !peek().isBlank() && peek().indent > keyIndent) {
+        while (peek() != null && !peek().isBlank() && peek().indent >= keyIndent) {
             final Line next = peek();
             final boolean isSeqLine = next.content.equals("-") || next.content.startsWith("- ");
             final boolean isKeyLine = !isSeqLine && findMappingColon(next.content) >= 0;
@@ -769,6 +842,21 @@ public final class YamlSpecificRule {
         }
         item.inlineValue = code;
         item.trailingComment = parts[1] != null ? normComment(parts[1]) : null;
+        // Same plain-scalar-wraps-across-physical-lines handling as parseKeyItem/seqOfMapping's
+        // firstKey, applied here for a plain (non-keyed) sequence item's own unquoted value (e.g. a
+        // changelog fragment's "- module_utils - some long sentence\n  continuing here."). Without
+        // this, continuation lines were silently dropped, truncating the scalar's content.
+        // The scalar's own text starts right at innerCol (immediately after "- "), so a wrapped
+        // continuation line commonly aligns to that same column (not strictly deeper, unlike a
+        // keyed value's continuation, which is always past its key's own line indent).
+        final Line nextLn = peekNonBlank();
+        if (nextLn != null && nextLn.indent >= innerCol) {
+            final boolean nextIsSeqLine = nextLn.content.equals("-") || nextLn.content.startsWith("- ");
+            final boolean nextIsKeyLine = !nextIsSeqLine && findMappingColon(nextLn.content) >= 0;
+            if (!nextIsSeqLine && !nextIsKeyLine) {
+                parseMultilinePlainScalar(item, innerCol);
+            }
+        }
     }
 
     /** Captures a {@code |}/{@code >} block scalar's body lines, stored with each line's
@@ -823,11 +911,15 @@ public final class YamlSpecificRule {
 
         for (int i = 0; i < items.size(); i++) {
             final Item item = items.get(i);
-            if (i > 0 && item.blankBefore) {
-                out.append('\n');
+            for (int ci = 0; ci < item.leadingComments.size(); ci++) {
+                final CommentLine comment = item.leadingComments.get(ci);
+                if (comment.blankBefore && (i > 0 || ci > 0)) {
+                    out.append('\n');
+                }
+                out.append(indent(depth)).append(comment.text).append('\n');
             }
-            for (final String comment : item.leadingComments) {
-                out.append(indent(depth)).append(comment).append('\n');
+            if (item.blankBefore && i > 0) {
+                out.append('\n');
             }
             if (item.dangling) {
                 continue;
@@ -877,7 +969,15 @@ public final class YamlSpecificRule {
     private void renderKeyItem(final Item item, final int depth, final String pad, final StringBuilder out) {
         final String keyPrefix = indent(depth) + item.key + pad + ":";
         if (item.blockScalarBody != null) {
-            out.append(keyPrefix).append(' ').append(item.inlineValue).append('\n');
+            // An empty inlineValue here means this isn't a real "|"/">" indicator but a key with
+            // no value on its own line whose entire multi-line plain-scalar body was captured on
+            // the following lines (see parseKeyItem's after.isEmpty() branch) -- omit the stray
+            // trailing space that a literal "|"/">" value would otherwise need.
+            if (item.inlineValue.isEmpty()) {
+                out.append(keyPrefix).append('\n');
+            } else {
+                out.append(keyPrefix).append(' ').append(item.inlineValue).append('\n');
+            }
             if (!item.blockScalarBody.isEmpty()) {
                 appendMultilineScalarBody(item.blockScalarBody, depth, out);
             }
@@ -935,8 +1035,17 @@ public final class YamlSpecificRule {
             return;
         }
         if (item.inlineValue != null && looksLikeFlow(item.inlineValue)) {
-            out.append(dashPrefix);
-            renderFlowValue(parseFlow(new FlowCursor(item.inlineValue)), depth + 1, dashPrefix, out);
+            // Write the bare dash (no trailing space yet) -- renderFlowValue itself appends
+            // either " <tight-value>" (fits) or just '\n' (overflow, block-converted), so
+            // pre-appending dashPrefix's trailing space here would leave a stray trailing space
+            // before the newline in the overflow case. Depth is passed as-is (not depth + 1):
+            // renderFlowValue itself adds one level for its block-converted children, matching
+            // renderKeyItem's identical call below -- the previous depth + 1 here double-counted
+            // a level, corrupting both indentation and idempotency for any plain sequence item
+            // whose flow-map/flow-seq value overflows line-length.
+            final String dashOnly = indent(depth) + "-";
+            out.append(dashOnly);
+            renderFlowValue(parseFlow(new FlowCursor(item.inlineValue)), depth, dashOnly, out);
             return;
         }
         out.append(dashPrefix).append(item.inlineValue);
@@ -968,13 +1077,13 @@ public final class YamlSpecificRule {
         for (int i = 0; i < children.size(); i++) {
             final Item c = children.get(i);
             if (c.dangling) {
-                for (final String comment : c.leadingComments) {
-                    out.append(alignPrefix).append(comment).append('\n');
+                for (final CommentLine comment : c.leadingComments) {
+                    out.append(alignPrefix).append(comment.text).append('\n');
                 }
                 continue;
             }
-            for (final String comment : c.leadingComments) {
-                out.append(i == 0 ? dashPrefix : alignPrefix).append(comment).append('\n');
+            for (final CommentLine comment : c.leadingComments) {
+                out.append(i == 0 ? dashPrefix : alignPrefix).append(comment.text).append('\n');
             }
             final String prefix = (i == 0 ? dashPrefix : alignPrefix) + c.key + pad[padIdx] + ":";
             padIdx++;
@@ -1022,6 +1131,50 @@ public final class YamlSpecificRule {
         if (lines.isEmpty()) {
             return;
         }
+        // A document can validly be a single bare top-level scalar (e.g. "invalid") or flow
+        // collection (e.g. "[]"/"{a: 1}") instead of a block mapping/sequence -- rare, but real
+        // (seen in ansible/ansible's own test fixtures). parseBlock only knows how to parse
+        // "key:"/"- " shaped lines, so detect this shape up front and render it directly instead.
+        int firstSignificant = 0;
+        while (firstSignificant < lines.size()
+                && (lines.get(firstSignificant).isBlank() || lines.get(firstSignificant).content.startsWith("#"))) {
+            firstSignificant++;
+        }
+        if (firstSignificant < lines.size()) {
+            final Line firstLn = lines.get(firstSignificant);
+            final boolean looksLikeSeq = firstLn.content.equals("-") || firstLn.content.startsWith("- ");
+            final boolean looksLikeKey = !looksLikeSeq && findMappingColon(splitTrailingComment(firstLn.content)[0]) >= 0;
+            if (!looksLikeSeq && !looksLikeKey) {
+                for (int i = 0; i < firstSignificant; i++) {
+                    out.append(lines.get(i).raw).append('\n');
+                }
+                final String[] parts = splitTrailingComment(firstLn.content);
+                final String value = parts[0].trim();
+                if (looksLikeFlow(value)) {
+                    // No "key:" prefix precedes a bare top-level flow value, so renderFlowValue's
+                    // usual "prefix + ' ' + tight" shape doesn't apply here -- render the flow
+                    // collection directly instead (block-conversion-on-overflow doesn't apply to a
+                    // bare root value either, same simplification).
+                    out.append(renderFlowTight(parseFlow(new FlowCursor(value)))).append('\n');
+                } else {
+                    out.append(indent(0)).append(value);
+                    if (parts[1] != null) {
+                        out.append(' ').append(normComment(parts[1]));
+                    }
+                    out.append('\n');
+                    // A bare top-level plain scalar can itself still wrap across further physical
+                    // lines (seen in ansible/ansible's own vault-encrypted test fixtures: an
+                    // unquoted "$ANSIBLE_VAULT;..." header line followed by several more lines of
+                    // opaque hex data with no "key:"/"- " shape of their own). Emitted verbatim/
+                    // opaque -- not reflowed -- same rationale as multilineScalarBody elsewhere:
+                    // without this, every line past the first was silently dropped.
+                    for (int i = firstSignificant + 1; i < lines.size(); i++) {
+                        out.append(lines.get(i).raw).append('\n');
+                    }
+                }
+                return;
+            }
+        }
         final int blockIndent = lines.get(0).indent;
         final List<Item> items = parseBlock(blockIndent);
         renderItems(items, 0, out);
@@ -1040,8 +1193,14 @@ public final class YamlSpecificRule {
         final StringBuilder out = new StringBuilder();
         final List<String> docLines = new ArrayList<>();
         for (final String raw : allLines) {
-            final String trimmed = raw.trim();
-            if (trimmed.equals("---") || trimmed.equals("...")) {
+            // Document markers are only meaningful at column 0 (YAML spec) -- a "---"/"..." line
+            // indented deeper than that is ordinary content (e.g. a literal block-scalar body
+            // containing a YAML example, very common in doc/comment fields), never a real
+            // document boundary. Using the raw (only trailing-whitespace-stripped) line here,
+            // instead of a fully trimmed one, avoids misinterpreting such indented occurrences as
+            // stream separators and corrupting the rest of the file.
+            final String rTrimmed = raw.replaceAll("\\s+$", "");
+            if (rTrimmed.equals("---") || rTrimmed.equals("...")) {
                 if (!docLines.isEmpty()) {
                     renderDocument(docLines, out);
                     docLines.clear();

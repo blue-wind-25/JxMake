@@ -1,0 +1,23 @@
+#% JXM_CFMT_CFG indent-size=2
+# Copyright (C) 2024 Example Corp.
+# SPDX-License-Identifier: MIT
+bugfixes :
+  - module_utils - some function now raises the documented error type
+    (instead of an uncaught crash) for a handful of edge-case string values,
+    which decimal parsing accepts but cannot be converted to an int.
+---
+- name  : verify legacy playbook-adjacent role behavior
+  hosts : testhost
+  roles :
+    - testrole
+  # FIXME: this should technically work to look up a playbook-adjacent role
+  #  - ansible.legacy.testrole
+  tasks :
+    - name   : ensure role executed
+      assert :
+        that :
+          - test_role_output.msg == test_role_input
+---
+$ANSIBLE_VAULT;1.1;AES256
+63666636353064303132316633383734303731353066643832633666616162373531306563616139
+3038343765633138376561336530366162646332353132620a643661663366336237636562393662

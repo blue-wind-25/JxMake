@@ -66,11 +66,11 @@ clean:
 #   make gru-extract-pool-a GRU_ABSTAIN_INPUT=/tmp/comments.txt GRU_POOL_A_OUT=/tmp/pool_a.txt
 #   make gru-extract-pool-b GRU_ABSTAIN_INPUT=/tmp/comments.txt GRU_POOL_B_OUT=/tmp/pool_b.txt
 #
-GRU_TOOLS_DIR        = tools/gru
-GRU_BUILD_DIR        = $(BUILD_DIR)/gru
-GRU_TOOLS_CLASSES    = $(GRU_BUILD_DIR)/classes
-GRU_POOL_A_OUT ?=
-GRU_POOL_B_OUT ?=
+GRU_TOOLS_DIR      = tools/gru
+GRU_BUILD_DIR      = $(BUILD_DIR)/gru
+GRU_TOOLS_CLASSES  = $(GRU_BUILD_DIR)/classes
+GRU_POOL_A_OUT    ?=
+GRU_POOL_B_OUT    ?=
 
 gru-extract-pool-a: $(JAR_FILE)
 	@if [ -z "$(GRU_ABSTAIN_INPUT)" ] || [ -z "$(GRU_POOL_A_OUT)" ]; then                                              \
@@ -304,6 +304,7 @@ INP_FILES += real_code_regressions_69_inp.css
 INP_FILES += real_code_regressions_70_inp.toml
 INP_FILES += real_code_regressions_71_inp.yaml
 INP_FILES += real_code_regressions_72_inp.yaml
+INP_FILES += real_code_regressions_73_inp.yaml
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

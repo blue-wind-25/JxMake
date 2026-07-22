@@ -47,42 +47,47 @@ clean:
 	@rm -rvf $(BUILD_DIR)
 
 
-# ── GRU trainer target ───────────────────────────────────────────────────────
+# ── GRU Pool A/Pool B training-data extraction (STATE_AI.md "Training-set
+#    acquisition, verification, fixing") ─────────────────────────────────────
 #
-# Compiles and runs tools/gru/GruTrainer.java (a non-shipped, outside-src/
-# training entry point per STATE_AI.md), writing a scalar-architecture-
-# constants-only weights file to $(BUILD_DIR)/gru/weights.json. The real
-# training loop remains blocked on STATE_AI.md open items 3/4/9/10; see
-# GruTrainer's own javadoc. Uses tools/gru/sample_examples.txt, a
-# placeholder/dummy labeled-examples file (no real labeled dataset exists
-# yet), just to satisfy GruTrainer's positional-arg validation.
+# Pool A (keyword-ambiguity): compiles and runs tools/gru/ExtractPoolA.java
+# against a comment corpus extracted by tools/gru/extract_comments.py, keeping
+# only comments the real CommentClassifier ABSTAINs on due to
+# hasLeadingKeywordMatch (excludes NonLatinScriptGate ABSTAINs -- those are a
+# different, non-keyword-ambiguity signal, see STATE_AI.md item 9's
+# TTGO_VGA32_Lite/RobotCoding investigation).
 #
-# Config.DEFAULT_GRU_WEIGHTS_PATH is empty by default -- GruAbstainResolver
-# derives the weights-file location from the running program's own
-# directory instead (the jar's parent dir when run via -jar, or $(CLASS_DIR)
-# itself for a dev/test run against classes -- see
-# GruAbstainResolver.programDirectory()/WEIGHTS_FILENAME). So after writing
-# the build-artifact weights file, this target also copies it into
-# $(CLASS_DIR) under that expected filename, so `make test`/dev runs against
-# $(CLASS_DIR) can find it. The commented-out `cp` below mirrors the
-# similarly-commented-out `@cp $(JAR_FILE) .` above: when that jar-copy line
-# is enabled (e.g. for the top-level dist_build/jxmake_dist packaging step,
-# see apps/code-formatter/ in that tree), enable this one alongside it so
-# the weights file ships next to the jar the same way.
+# Pool B (period-ambiguity): runs tools/gru/extract_pool_b.py's RDD_EXT_15
+# grep-based recall-favoring filter directly over the same corpus format --
+# not derived from CommentClassifier at all, a separate ambiguity class.
+#
+# Usage:
+#   python3 tools/gru/extract_comments.py <root-dir> [<root-dir> ...] --out /tmp/comments.txt
+#   make gru-extract-pool-a GRU_ABSTAIN_INPUT=/tmp/comments.txt GRU_POOL_A_OUT=/tmp/pool_a.txt
+#   make gru-extract-pool-b GRU_ABSTAIN_INPUT=/tmp/comments.txt GRU_POOL_B_OUT=/tmp/pool_b.txt
 #
 GRU_TOOLS_DIR        = tools/gru
 GRU_BUILD_DIR        = $(BUILD_DIR)/gru
 GRU_TOOLS_CLASSES    = $(GRU_BUILD_DIR)/classes
-GRU_WEIGHTS_FILENAME = code-formatter-ai-assist-weights.json
-GRU_WEIGHTS_OUT      = $(GRU_BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)
-GRU_SAMPLE_EXAMPLES  = $(GRU_TOOLS_DIR)/sample_examples.txt
+GRU_POOL_A_OUT ?=
+GRU_POOL_B_OUT ?=
 
-gru-train: $(JAR_FILE)
+gru-extract-pool-a: $(JAR_FILE)
+	@if [ -z "$(GRU_ABSTAIN_INPUT)" ] || [ -z "$(GRU_POOL_A_OUT)" ]; then                                              \
+		echo "gru-extract-pool-a: set GRU_ABSTAIN_INPUT=<path from extract_comments.py> GRU_POOL_A_OUT=<output path>"; \
+		exit 2;                                                                                                        \
+	fi
 	@mkdir -p $(GRU_TOOLS_CLASSES)
-	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/GruTrainer.java
-	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT)
-	@cp $(GRU_WEIGHTS_OUT) $(CLASS_DIR)
-#	@cp $(GRU_WEIGHTS_OUT) .
+	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/ExtractPoolA.java
+	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) ExtractPoolA $(GRU_ABSTAIN_INPUT) $(GRU_POOL_A_OUT)
+
+gru-extract-pool-b:
+	@if [ -z "$(GRU_ABSTAIN_INPUT)" ] || [ -z "$(GRU_POOL_B_OUT)" ]; then                                              \
+		echo "gru-extract-pool-b: set GRU_ABSTAIN_INPUT=<path from extract_comments.py> GRU_POOL_B_OUT=<output path>"; \
+		exit 2;                                                                                                        \
+	fi
+	@python3 $(GRU_TOOLS_DIR)/extract_pool_b.py $(GRU_ABSTAIN_INPUT) --out $(GRU_POOL_B_OUT)
+
 
 # ── GRU ABSTAIN-rate measurement (STATE_AI.md Step 3 open item 9) ───────────
 #
@@ -107,43 +112,39 @@ gru-measure-abstain-rate: $(JAR_FILE)
 	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) CommentAbstainTally $(GRU_ABSTAIN_INPUT)
 
 
-# ── GRU Pool A/Pool B training-data extraction (STATE_AI.md "Training-set
-#    acquisition, verification, fixing") ─────────────────────────────────────
+# ── GRU trainer target ───────────────────────────────────────────────────────
 #
-# Pool A (keyword-ambiguity): compiles and runs tools/gru/ExtractPoolA.java
-# against a comment corpus extracted by tools/gru/extract_comments.py, keeping
-# only comments the real CommentClassifier ABSTAINs on due to
-# hasLeadingKeywordMatch (excludes NonLatinScriptGate ABSTAINs -- those are a
-# different, non-keyword-ambiguity signal, see STATE_AI.md item 9's
-# TTGO_VGA32_Lite/RobotCoding investigation).
+# Compiles and runs tools/gru/GruTrainer.java (a non-shipped, outside-src/
+# training entry point per STATE_AI.md), writing a scalar-architecture-
+# constants-only weights file to $(BUILD_DIR)/gru/weights.json. The real
+# training loop remains blocked on STATE_AI.md open items 3/4/9/10; see
+# GruTrainer's own javadoc. Uses tools/gru/sample_examples.txt, a
+# placeholder/dummy labeled-examples file (no real labeled dataset exists
+# yet), just to satisfy GruTrainer's positional-arg validation.
 #
-# Pool B (period-ambiguity): runs tools/gru/extract_pool_b.py's RDD_EXT_15
-# grep-based recall-favoring filter directly over the same corpus format --
-# not derived from CommentClassifier at all, a separate ambiguity class.
+# Config.DEFAULT_GRU_WEIGHTS_PATH is empty by default -- GruAbstainResolver
+# derives the weights-file location from the running program's own
+# directory instead (the jar's parent dir when run via -jar, or $(CLASS_DIR)
+# itself for a dev/test run against classes -- see
+# GruAbstainResolver.programDirectory()/WEIGHTS_FILENAME). So after writing
+# the build-artifact weights file, this target also copies it into
+# $(CLASS_DIR) under that expected filename, so `make test`/dev runs against
+# $(CLASS_DIR) can find it. The commented-out `cp` below mirrors the
+# similarly-commented-out `@cp $(JAR_FILE) .` above: when that jar-copy line
+# is enabled (e.g. for the top-level dist_build/jxmake_dist packaging step,
+# see apps/code-formatter/ in that tree), enable this one alongside it so
+# the weights file ships next to the jar the same way.
 #
-# Usage:
-#   python3 tools/gru/extract_comments.py <root-dir> [<root-dir> ...] --out /tmp/comments.txt
-#   make gru-extract-pool-a GRU_ABSTAIN_INPUT=/tmp/comments.txt GRU_POOL_A_OUT=/tmp/pool_a.txt
-#   make gru-extract-pool-b GRU_ABSTAIN_INPUT=/tmp/comments.txt GRU_POOL_B_OUT=/tmp/pool_b.txt
-#
-GRU_POOL_A_OUT ?=
-GRU_POOL_B_OUT ?=
+GRU_WEIGHTS_FILENAME = code-formatter-ai-assist-weights.json
+GRU_WEIGHTS_OUT      = $(GRU_BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)
+GRU_SAMPLE_EXAMPLES  = $(GRU_TOOLS_DIR)/sample_examples.txt
 
-gru-extract-pool-a: $(JAR_FILE)
-	@if [ -z "$(GRU_ABSTAIN_INPUT)" ] || [ -z "$(GRU_POOL_A_OUT)" ]; then                                              \
-		echo "gru-extract-pool-a: set GRU_ABSTAIN_INPUT=<path from extract_comments.py> GRU_POOL_A_OUT=<output path>"; \
-		exit 2;                                                                                                        \
-	fi
+gru-train: $(JAR_FILE)
 	@mkdir -p $(GRU_TOOLS_CLASSES)
-	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/ExtractPoolA.java
-	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) ExtractPoolA $(GRU_ABSTAIN_INPUT) $(GRU_POOL_A_OUT)
-
-gru-extract-pool-b:
-	@if [ -z "$(GRU_ABSTAIN_INPUT)" ] || [ -z "$(GRU_POOL_B_OUT)" ]; then                                              \
-		echo "gru-extract-pool-b: set GRU_ABSTAIN_INPUT=<path from extract_comments.py> GRU_POOL_B_OUT=<output path>"; \
-		exit 2;                                                                                                        \
-	fi
-	@python3 $(GRU_TOOLS_DIR)/extract_pool_b.py $(GRU_ABSTAIN_INPUT) --out $(GRU_POOL_B_OUT)
+	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/GruTrainer.java
+	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT)
+	@cp $(GRU_WEIGHTS_OUT) $(CLASS_DIR)
+#	@cp $(GRU_WEIGHTS_OUT) .
 
 
 # ── Test target ───────────────────────────────────────────────────────────────

@@ -958,17 +958,39 @@ item** — it needs an actual measurement run, not a decision:
        its comment style, and this run says nothing about C++26 rule
        coverage itself (a separate, `CommentClassifier`-unrelated concern) --
        it's just another real-world cpp comment-style data point for item 9.
+     - `google/google-java-format` (`/tmp/google-java-format-fresh`,
+       Apache-2.0 — `STATE_C_CPP_JAVA.md`'s "Finished dogfood / real-code
+       testing" list, item 15; fresh shallow clone -- a stale prior
+       `/tmp/google-java-format` checkout on disk had 0 `.java` files and
+       was discarded unused rather than reused): 2053 comments, overall
+       ABSTAIN **0.0%** (java 1990/1 = 0.1%, xml/yaml/python3/kotlin
+       negligible volume at 0%) — first Java-specific public-repo data
+       point.
+     - `apache/ant` (`/tmp/ant`, Apache-2.0 — `STATE_DATA_FORMATS.md`'s
+       Test-Fixture Repos list, XML entry; fresh shallow clone): 26196
+       comments, overall ABSTAIN **0.3%** (java 24621/66 = 0.3%, xml
+       1193/1 = 0.1%, html5/css/yaml/python3/js all near-zero at 0%) —
+       first real XML-volume public-repo data point, plus a large
+       second Java data point, both low.
+     - `actions/starter-workflows` (`/tmp/starter-workflows`, MIT —
+       `STATE_DATA_FORMATS.md`'s Test-Fixture Repos list, YAML entry;
+       fresh shallow clone): 2946 comments, overall ABSTAIN **0.4%**
+       (yaml 2919/11 = 0.4%, ts negligible volume at 0%) — first
+       YAML-specific public-repo data point.
    - These are still preliminary/directional, not the final item-9
      measurement: coverage is limited to whatever languages/repos happened
      to be scanned, and RDD_EXT_16's full corpus plan (own dogfooded repos
      first, then vetted public repos) hasn't been fully run yet -- these
      public-repo runs are a first step into that second stage, not its
      completion. The spread across runs, post-`3rd_party`-exclusion (0.4% /
-     1.4% / 4.6% own-repo, 0.0% / 0.0% / 0.1% / 0.4% / 0.4% / 0.5% / 0.6% /
-     14.6%(small sample) public-repo), is narrower than before but still
-     shows the ABSTAIN rate is corpus-dependent, reinforcing that item 9
-     needs the full planned corpus, not a handful of repos, before sizing a
-     training set.
+     1.4% / 4.6% own-repo, 0.0% / 0.0% / 0.0% / 0.1% / 0.3% / 0.4% / 0.4% /
+     0.5% / 0.6% / 14.6%(small sample) public-repo), is narrower than
+     before but still shows the ABSTAIN rate is corpus-dependent,
+     reinforcing that item 9 needs the full planned corpus, not a handful
+     of repos, before sizing a training set. Coverage now spans every
+     `SUPPORTED_LANGUAGES` entry with meaningful public-repo comment volume
+     except css/html5/json5/toml/js/ts (all only seen at low/trace volume
+     as side effects of other repos' file mixes so far).
 
 Everything downstream is blocked on this measurement plus the actual
 training-data acquisition it feeds into: acquiring/labeling the Pool A/Pool

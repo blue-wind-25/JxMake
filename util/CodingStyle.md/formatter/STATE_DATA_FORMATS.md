@@ -311,7 +311,12 @@ Checklist for current per-language status):
 - **YAML:** `kubernetes/kubernetes` (manifests/Helm-adjacent config, heavy real-world
   nesting/anchors), `docker/compose` (compose-file corpus), `ansible/ansible`
   (playbooks — heavy on lists-of-maps, block scalars), `actions/starter-workflows`
-  (small, dense GitHub Actions YAML, good for quick spot checks)
+  (small, dense GitHub Actions YAML, good for quick spot checks), `prometheus/prometheus`
+  (not started — alerting/recording rule YAML with PromQL expressions embedded in
+  scalars, `$labels`/`$value` templating, deeply nested rule groups),
+  `home-assistant/core` (not started — very large volume of hand-authored
+  automation/config YAML, deeply nested, heavy use of block scalars, a different
+  large-corpus stress test than kubernetes' API-manifest shape)
 - **TOML:** `rust-lang/cargo` (`Cargo.toml` corpus across its own repo and any
   vendored crates), `python-poetry/poetry` (`pyproject.toml`-heavy), `pola-rs/polars`
   (large Rust workspace, many `Cargo.toml` files), `toml-lang/toml` (the spec repo

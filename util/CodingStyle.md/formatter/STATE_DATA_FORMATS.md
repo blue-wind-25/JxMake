@@ -566,9 +566,10 @@ None recorded yet in this file.
       Status: JSON/JSON5 complete (4/4 repos); CSS complete (4/4 repos); XML
       2/4 (`apache/maven`, `w3c/svgwg` done; `apache/ant`/`jenkinsci/jenkins`
       not started); YAML 2/4 (`kubernetes/kubernetes`, `docker/compose` done;
-      `ansible/ansible`/`actions/starter-workflows` not started); TOML 3/4
-      (`rust-lang/cargo`, `python-poetry/poetry`, `pola-rs/polars` done;
-      `toml-lang/toml` not started); HTML5 1/4 (`h5bp/html5-boilerplate` done;
+      `ansible/ansible`/`actions/starter-workflows` not started); **TOML 4/4,
+      DONE** (`rust-lang/cargo`, `python-poetry/poetry`, `pola-rs/polars`,
+      `toml-lang/toml` all done — TOML Test-Fixture Repos list now fully
+      complete); HTML5 1/4 (`h5bp/html5-boilerplate` done;
       `twbs/bootstrap` docs site, `mdn/content`, `whatwg/html` not started).
       Overall item stays
       unchecked pending the remaining repos above.
@@ -755,7 +756,23 @@ None recorded yet in this file.
         as-is) all 57/57 clean. Zero crashes on workspace-inheritance
         dependency tables (`{ workspace = true, features = [...] }`), the
         root `[workspace] members = [...]` array, or feature arrays. Zero
-        bugs found. `toml-lang/toml` remains not-started.
+        bugs found.
+      - `toml-lang/toml`: this is the TOML spec's own repo, not a compliance-
+        test-suite checkout — a shallow clone contains only the spec prose
+        (`toml.md`, `toml.abnf`, `docs/`, `CHANGELOG.md`) and tooling config,
+        no `examples/`/`tests/` directory and no `.gitmodules` pointing at a
+        separate compliance repo (e.g. `toml-lang/compliance`) — confirmed by
+        direct inspection of the checkout, not assumed from directory naming.
+        **In-scope corpus: 1 file** (`.prettierrc.toml`, `proseWrap =
+        "always"` — Prettier tool config, not a TOML-format example/edge-case
+        corpus). Baseline `toml_sc.js` clean. Forward/idempotency/syntax-check/
+        content-preservation (`toml_content_diff.py`, reused as-is) all 1/1
+        clean. Zero bugs found — no exotic values (hex/octal/binary,
+        inf/nan, date-times, arrays-of-tables, deep inline-table nesting) were
+        actually present to stress-test, since the repo's real canonical
+        example/compliance corpus lives outside this repo. **This completes
+        all 4 planned TOML Test-Fixture Repos** (`rust-lang/cargo`,
+        `python-poetry/poetry`, `pola-rs/polars`, `toml-lang/toml`).
 
       **YAML (2/4 repos done):**
       - `kubernetes/kubernetes`: 6366 files found, above sampling threshold —

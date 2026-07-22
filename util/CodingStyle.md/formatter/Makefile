@@ -24,7 +24,7 @@ TEST_TMP      = $(BUILD_DIR)/test-out
 
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
-.PHONY: all build jar clean gru-train gru-measure-abstain-rate test bench test-server
+.PHONY: all build jar clean gru-train gru-measure-abstain-rate gru-extract-pool-a gru-extract-pool-b test bench test-server
 
 all build jar:
 	@if $(MAKE) --no-print-directory -q $(JAR_FILE); then \
@@ -105,6 +105,45 @@ gru-measure-abstain-rate: $(JAR_FILE)
 	@mkdir -p $(GRU_TOOLS_CLASSES)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/CommentAbstainTally.java
 	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) CommentAbstainTally $(GRU_ABSTAIN_INPUT)
+
+
+# ── GRU Pool A/Pool B training-data extraction (STATE_AI.md "Training-set
+#    acquisition, verification, fixing") ─────────────────────────────────────
+#
+# Pool A (keyword-ambiguity): compiles and runs tools/gru/ExtractPoolA.java
+# against a comment corpus extracted by tools/gru/extract_comments.py, keeping
+# only comments the real CommentClassifier ABSTAINs on due to
+# hasLeadingKeywordMatch (excludes NonLatinScriptGate ABSTAINs -- those are a
+# different, non-keyword-ambiguity signal, see STATE_AI.md item 9's
+# TTGO_VGA32_Lite/RobotCoding investigation).
+#
+# Pool B (period-ambiguity): runs tools/gru/extract_pool_b.py's RDD_EXT_15
+# grep-based recall-favoring filter directly over the same corpus format --
+# not derived from CommentClassifier at all, a separate ambiguity class.
+#
+# Usage:
+#   python3 tools/gru/extract_comments.py <root-dir> [<root-dir> ...] --out /tmp/comments.txt
+#   make gru-extract-pool-a GRU_ABSTAIN_INPUT=/tmp/comments.txt GRU_POOL_A_OUT=/tmp/pool_a.txt
+#   make gru-extract-pool-b GRU_ABSTAIN_INPUT=/tmp/comments.txt GRU_POOL_B_OUT=/tmp/pool_b.txt
+#
+GRU_POOL_A_OUT ?=
+GRU_POOL_B_OUT ?=
+
+gru-extract-pool-a: $(JAR_FILE)
+	@if [ -z "$(GRU_ABSTAIN_INPUT)" ] || [ -z "$(GRU_POOL_A_OUT)" ]; then                                              \
+		echo "gru-extract-pool-a: set GRU_ABSTAIN_INPUT=<path from extract_comments.py> GRU_POOL_A_OUT=<output path>"; \
+		exit 2;                                                                                                        \
+	fi
+	@mkdir -p $(GRU_TOOLS_CLASSES)
+	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/ExtractPoolA.java
+	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) ExtractPoolA $(GRU_ABSTAIN_INPUT) $(GRU_POOL_A_OUT)
+
+gru-extract-pool-b:
+	@if [ -z "$(GRU_ABSTAIN_INPUT)" ] || [ -z "$(GRU_POOL_B_OUT)" ]; then                                              \
+		echo "gru-extract-pool-b: set GRU_ABSTAIN_INPUT=<path from extract_comments.py> GRU_POOL_B_OUT=<output path>"; \
+		exit 2;                                                                                                        \
+	fi
+	@python3 $(GRU_TOOLS_DIR)/extract_pool_b.py $(GRU_ABSTAIN_INPUT) --out $(GRU_POOL_B_OUT)
 
 
 # ── Test target ───────────────────────────────────────────────────────────────

@@ -164,6 +164,25 @@ tags rather than failing), so it only catches the narrow set of conditions
 the spec defines as parse errors, not general malformed-markup the way the
 XML checker does — documented as a caveat directly in the script.
 
+**`css_content_diff.py`** — a content-preservation checker, complementing
+`css_sc.js` (which only proves "still parses", not "still means the same
+thing" — the twbs/bootstrap rtlcss directive-comment corruption bug,
+fixture `real_code_regressions_69`, produced still-valid CSS and would not
+have been caught by `css_sc.js` alone). Takes `<original.css>
+<formatted.css>`, checks: (1) every `/* ... */` comment's whitespace-
+normalized text is byte-identical between the two files, in order; (2) the
+comment-stripped, colon/whitespace-normalized token stream is identical
+(proves no property/value/selector was added/removed/reordered); (3)
+`!important` occurrence count matches; (4) vendor-prefixed
+(`-webkit-`/`-moz-`/`-ms-`/`-o-`) property occurrence counts match exactly
+per distinct prefixed-property string. Exit 0 if all four checks pass, exit
+1 with a description of each mismatch otherwise. Written and verified
+(positive case + a deliberately-mutated-comment negative case) during the
+`necolas/normalize.css` dogfood session below; first used as an ad hoc
+inline Python snippet during the `twbs/bootstrap` session, now promoted to a
+permanent, reusable script alongside the other `*_sc.js` checkers. No new
+package dependency (stdlib `re` only).
+
 All six were verified against hand-crafted good/bad pairs (malformed
 trailing comma, unclosed brace, mismatched tag, etc.) before being trusted
 for real dogfood use; each caught its bad case and passed its good case.
@@ -514,19 +533,18 @@ None recorded yet in this file.
       format (`--preserve-tree --root`): exit 0, 1/1 processed. Round2 vs
       round1: `diff -rq` empty (idempotent). Syntax-check of round1 output:
       pass, matching baseline. **Content-preservation spot-check** (the one
-      file, checked in full, not sampled): a Python script extracted all
-      `/* ... */` comments from original vs round1 separately (whitespace-
-      normalized) — all 71 comments byte-identical in content (only
-      re-indentation/re-wrap, no wording/case/punctuation change); a second
-      pass stripped comments and normalized all remaining whitespace
-      (including around `:`) and found the token streams identical —
-      confirms no property/value/selector was altered, and separately
-      grepped-and-counted both files for `!important` (0 in both) and every
-      `-webkit-`/`-moz-`/`-ms-`/`-o-` vendor-prefixed property (8 occurrences
-      across 6 distinct prefixed properties, identical counts and names in
-      both) to rule out silent vendor-prefix drift. Manual `diff` of the two
-      files confirms the only differences are indentation width (2→4 spaces,
-      the tool's default) and colon-alignment padding — no semantic change.
+      file, checked in full, not sampled), via the new permanent
+      `css_content_diff.py` (see "Dogfood Output Validation" above, written
+      this session): all 71 comments byte-identical in content (only
+      re-indentation/re-wrap, no wording/case/punctuation change); the
+      comment-stripped, colon/whitespace-normalized token stream identical
+      (confirms no property/value/selector was altered); `!important` count
+      matched (0 in both); vendor-prefixed property counts matched exactly
+      (8 occurrences across 6 distinct prefixed properties in both), ruling
+      out silent vendor-prefix drift. Script exits 0 (`OK: content
+      preserved...`). Manual `diff` of the two files independently confirms
+      the only differences are indentation width (2→4 spaces, the tool's
+      default) and colon-alignment padding — no semantic change.
       **Zero bugs found** — forward 1/1, idempotency 1/1, syntax-check 1/1,
       content-preservation 1/1 (comments, tokens, `!important` count, vendor-
       prefix count all matched exactly). No new fixtures needed (nothing to

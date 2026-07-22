@@ -503,9 +503,35 @@ None recorded yet in this file.
       plus a manual re-check confirming all 4 `rtl:` directive occurrences
       in `carousel.css`'s round1 output are now byte-identical to source
       (no stray capitalization). Commit `8f5f597`.
-      `necolas/normalize.css`/`foundation/foundation-sites`/`primer/css`
-      remain the last not-started CSS test-fixture repos for a future
-      session.
+      **`necolas/normalize.css` (fresh shallow clone, `--depth 1`, not found
+      under `/tmp` from a prior session):** genuinely tiny corpus — exactly
+      **1 hand-authored `.css` file** (`normalize.css` itself, 6138 bytes);
+      the repo has no `test/`/`node_modules`/`dist`/`build` `.css` matches
+      and no compiled/minified copy alongside it (`test.html` references it
+      directly, `package.json` has no build step producing a second CSS
+      artifact). Full set (1 file) processed, no sampling needed. Baseline
+      syntax-check of the unformatted original (`css_sc.js`): pass. Round1
+      format (`--preserve-tree --root`): exit 0, 1/1 processed. Round2 vs
+      round1: `diff -rq` empty (idempotent). Syntax-check of round1 output:
+      pass, matching baseline. **Content-preservation spot-check** (the one
+      file, checked in full, not sampled): a Python script extracted all
+      `/* ... */` comments from original vs round1 separately (whitespace-
+      normalized) — all 71 comments byte-identical in content (only
+      re-indentation/re-wrap, no wording/case/punctuation change); a second
+      pass stripped comments and normalized all remaining whitespace
+      (including around `:`) and found the token streams identical —
+      confirms no property/value/selector was altered, and separately
+      grepped-and-counted both files for `!important` (0 in both) and every
+      `-webkit-`/`-moz-`/`-ms-`/`-o-` vendor-prefixed property (8 occurrences
+      across 6 distinct prefixed properties, identical counts and names in
+      both) to rule out silent vendor-prefix drift. Manual `diff` of the two
+      files confirms the only differences are indentation width (2→4 spaces,
+      the tool's default) and colon-alignment padding — no semantic change.
+      **Zero bugs found** — forward 1/1, idempotency 1/1, syntax-check 1/1,
+      content-preservation 1/1 (comments, tokens, `!important` count, vendor-
+      prefix count all matched exactly). No new fixtures needed (nothing to
+      regress-test). `foundation/foundation-sites`/`primer/css` remain the
+      last not-started CSS test-fixture repos for a future session.
       **`json5/json5` (fresh clone, not found under `/tmp` from a prior
       session):** small corpus — 6 hand-authored `.json`/`.json5` files
       total (`.eslintrc.json`, `package.json`, `package-lock.json`,

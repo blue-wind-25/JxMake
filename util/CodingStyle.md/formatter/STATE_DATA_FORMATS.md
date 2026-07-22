@@ -443,8 +443,8 @@ None recorded yet in this file.
       (correct) implementation.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format —
-      **`json5/json5` done, `microsoft/vscode` done** (see below);
-      `babel/babel`/`eslint/eslint` still not started for JSON;
+      **`json5/json5` done, `microsoft/vscode` done, `babel/babel` done**
+      (see below); `eslint/eslint` still not started for JSON;
       `apache/maven`/etc. still not started for XML; `twbs/bootstrap`/etc.
       still not started for CSS; `h5bp/html5-boilerplate`/etc. still not
       started for HTML5; `kubernetes/kubernetes`/etc. still not started for
@@ -529,3 +529,40 @@ None recorded yet in this file.
       `STATE_COMMON.md`'s methodology's own carve-out). `make test`:
       117/117 forward + 117/117 idempotency, zero regressions. Commit
       `e2a6f0e`.
+      **`babel/babel` (fresh shallow clone, `--depth 1`, not found under
+      `/tmp` from a prior session):** large monorepo — 9245 `.json`/`.json5`
+      files found after excluding `node_modules`/`.git`/`lib`/`dist`/`build`
+      (zero `.json5` files exist in this repo; shallow clone has no
+      `node_modules` anyway). Well above the "several thousand+" sampling
+      threshold, so a **representative sample of 964 files** was taken (not
+      the full set) per this session's sizing guidance: all 204
+      package-level `package.json`s across every package, all 500
+      non-fixture `.json` files (config files, `.babelrc`-equivalents,
+      etc.), plus every 20th file (438 files) from the 8745
+      `test/fixtures/**` options.json-style files, deduplicated to 964
+      unique paths. Baseline syntax-check of the unformatted sample first
+      (per methodology): 810/964 pass, 154 fail as JSONC-flavored
+      `tsconfig.json`/`tsconfig.paths.json` (contain `/* ... */` header
+      comments — same carve-out as the vscode run, out of scope for this
+      formatter's plain-`.json` mode by design), and 2 fail as
+      deliberately-invalid fixtures used by babel's own error-handling test
+      suite (`packages/babel-core/test/fixtures/{config/config-files/
+      pkg-error,errors/invalid-pkg-json}/package.json`, both intentionally
+      malformed JSON, e.g. `{\n  foo\n}` — same `test/invalid.json5`-style
+      precedent as the json5/json5 run). **In-scope corpus: 810 genuinely
+      RFC-8259-clean `.json` files.** (One methodology note: the sampled
+      fixture tree includes at least one legitimate directory name
+      containing literal spaces — `packages/babel-cli/test/fixtures/babel/
+      dir --out-dir --watch multiple dir/options.json` — file-list handling
+      must preserve it as one path, e.g. `xargs -d '\n'`, not naive
+      unquoted `$(cat ...)` word-splitting, which breaks on it.)
+      Round1 format (`--preserve-tree --root`, one invocation, all 810
+      in-scope files): exit 0, 810/810 processed. Round2 (reformat round1's
+      810 output files): exit 0, `diff -rq round1 round2` empty — clean
+      idempotency, 810/810. Syntax-check of round1 output (`json_sc.js`):
+      810/810 pass, exactly matching the 810/810 baseline pass count on the
+      unformatted originals. **Zero bugs found** — forward 810/810,
+      idempotency 810/810, syntax-check 810/810 (matching baseline exactly).
+      No new fixtures needed (nothing to regress-test). `eslint/eslint`
+      remains the last unstarted JSON/JSON5 test-fixture repo for a future
+      session.

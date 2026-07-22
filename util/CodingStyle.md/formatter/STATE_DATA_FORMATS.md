@@ -184,6 +184,31 @@ remaining XML test-fixture repos (`apache/ant`, `jenkinsci/jenkins`,
 <formatted.xml>` (stdlib only, no `npm install` needed, unlike the `*_sc.js`
 scripts).
 
+**`toml_content_diff.py`** — a content-preservation checker for TOML,
+complementing `toml_sc.js` (which only proves "still parses", same
+`css_content_diff.py`/`xml_content_diff.py` precedent). This system's Python
+is 3.6 (no stdlib `tomllib`, 3.11+ only) with no `toml`/`tomli` package
+installed, so instead of parsing directly in Python it shells out to a small
+inline Node.js helper (embedded as a string in the script, run via `node -e
+... -- <path>`) that uses the already-installed `smol-toml` package (same one
+`toml_sc.js` uses) to parse each file to JSON, then compares the two
+resulting Python data structures (`dict`/`list`/scalar) for deep equality —
+same principle a direct `tomllib` comparison would give, just relayed through
+JSON as the interchange format. Note: `node -e <script> -- <path>` puts
+`<path>` at `process.argv[1]`, not `argv[2]` (no script-file slot is filled
+when using `-e`) — a gotcha hit and fixed during this script's own
+verification. Exit 0 if parsed structures match, 1 with a diff of both
+parsed structures otherwise, 2 if either file fails to parse as TOML at all.
+Verified against a hand-crafted good pair (whitespace/alignment-only reformat)
+and a bad pair (a scalar value changed) before being trusted for real dogfood
+use — both caught correctly. Written and first used during the
+`rust-lang/cargo` TOML dogfood session (see Checklist); reusable as-is for
+the remaining TOML test-fixture repos (`python-poetry/poetry`,
+`pola-rs/polars`, `toml-lang/toml`). Usage: `python3 toml_content_diff.py
+<original.toml> <formatted.toml>` — needs the same `LD_LIBRARY_PATH`/
+`NODE_PATH`/`PATH` env as `toml_sc.js` (see below), unlike `xml_content_diff.py`
+which is stdlib-only.
+
 `html_sc.js` (`parse5`, `onParseError`) also exists for HTML5, but per-spec
 HTML5 parsing is deliberately error-tolerant (e.g. auto-closes mismatched
 tags rather than failing), so it only catches the narrow set of conditions
@@ -497,7 +522,9 @@ None recorded yet in this file.
       dogfood-tested** (see below);
       `h5bp/html5-boilerplate`/etc. still not started for HTML5;
       `kubernetes/kubernetes`/etc. still not started for YAML;
-      `rust-lang/cargo`/etc. still not started for TOML.
+      **`rust-lang/cargo` done for TOML (first TOML dogfood run, see below)**;
+      `python-poetry/poetry`/`pola-rs/polars`/`toml-lang/toml` still not
+      started for TOML.
       **`twbs/bootstrap` (CSS, first CSS dogfood run; fresh shallow clone
       `--depth 1`, not found under `/tmp` from a prior session):** bootstrap's
       real hand-authored source is `.scss`, not `.css` (this formatter only
@@ -856,3 +883,65 @@ None recorded yet in this file.
       capitalization is accounted for. No new fixtures needed (nothing to
       regress-test). `apache/ant`, `jenkinsci/jenkins`, `w3c/svgwg` remain
       not-started for XML.
+      **`rust-lang/cargo` (TOML, first TOML dogfood run; fresh shallow clone
+      `--depth 1`, not found under `/tmp` from a prior session):** 672 `.toml`
+      files found (no `target`/`build`/generated-output dirs present at all —
+      a fresh shallow clone that's never been built). Not above the "several
+      hundred+" sampling threshold by enough to force sampling, and the files
+      are all small, so the **full set was processed**, not a sample.
+      Baseline syntax-check of the unformatted originals (`toml_sc.js`):
+      670/672 pass; the 2 failures
+      (`tests/testsuite/cargo_add/invalid_manifest/{in,out}/Cargo.toml`) are
+      cargo's own deliberately-invalid fixtures for its manifest
+      error-handling tests (`[invalid-section]` followed by a bare
+      `key = invalid-value` with no quotes) — confirmed genuinely invalid
+      TOML via the same real-parser baseline-check precedent as
+      `json5/json5`'s `test/invalid.json5`/`eslint/eslint`'s broken-package-json
+      fixtures, not a formatter bug. **In-scope corpus: 670 files.** Initial
+      round1 format attempt hit **2 real bugs, both crashes on genuinely-valid
+      files** (found via the forward pass itself failing, before syntax-check
+      or content-preservation ever ran) — both fixed this session (see
+      `real_code_regressions_70` above and the commit below) — Cargo's own
+      `bracketBalance`/`splitTrailingComment` continuation-line logic had
+      never been exercised against an interior per-element comment inside a
+      multi-line array, and TOML's `"""`/`'''` multi-line basic/literal
+      strings had no handling at all in the flat line-scanner (RDD_KEY_192's
+      original implementation only tracked bracket balance for array/inline-
+      table continuation, nothing for multi-line-string continuation).
+      **After the fix, full re-run across all 670 in-scope files:** Round1
+      format (`--preserve-tree --root`, one invocation): exit 0, 670/670
+      processed, zero internal errors. Round2 vs round1: `diff -rq` empty
+      across all 670 files — clean idempotency. Syntax-check of round1 output
+      (`toml_sc.js`): 670/670 pass, matching the 670/670 in-scope baseline.
+      **Content-preservation check** (`toml_content_diff.py`, written this
+      session — see "Dogfood Output Validation" below for its design, since
+      this system's Python 3.6 has no stdlib `tomllib`): all 670 files, exit
+      0, zero mismatches (comment-blind by construction — only proves
+      key/value/table/array structure, not comment wording — but this session
+      hit no comment-corruption-shaped bug the way CSS's `real_code_
+      regressions_69` did, so a comment-level checker wasn't additionally
+      needed here). **Two bugs found+fixed** (both via the forward-pass
+      crashing, not syntax-check or content-preservation):
+      (1) `Cargo.toml`'s `exclude = [\n  "target/", # exclude bench
+      testing\n]` — the continuation-line-joining loop only stripped a
+      trailing `#` comment from the fully-assembled logical line at the very
+      end, so an interior continuation line's own comment got treated as
+      extending to the end of the whole joined string, swallowing the array's
+      closing `]` as "comment text" and throwing "unterminated array". Fixed
+      by stripping each continuation line's own trailing comment before
+      joining it in. (2) `triagebot.toml`'s `message = """\...\n"""` — TOML
+      v1.0's multi-line basic/literal strings were never handled by the flat
+      line-scanner at all (no bracket to balance-track the way array/inline-
+      table continuation uses), throwing "expected 'key = value' line".
+      Fixed by detecting an unterminated `"""`/`'''` opener before the
+      bracket-balance check and consuming subsequent raw (untrimmed) lines
+      verbatim until the matching closing delimiter, preserving the string's
+      real embedded newlines/whitespace exactly (same "opaque, preserve
+      exactly" treatment as JSON5's multi-line string continuations). Fixture
+      `test/real_code_regressions_70_{inp,out}.toml` combines both bugs in
+      one file (`test/README.txt`). `make test`: 119/119 forward + 119/119
+      idempotency, zero regressions. Commit `d56eb3a`.
+      **Final numbers after the fix:** forward 670/670, idempotency 670/670,
+      syntax-check 670/670, content-preservation 670/670.
+      `python-poetry/poetry`, `pola-rs/polars`, `toml-lang/toml` remain
+      not-started for TOML.

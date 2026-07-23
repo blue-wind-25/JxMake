@@ -1639,6 +1639,24 @@ Real-code regressions:
                                              but the round1 output is stable/idempotent, which is all
                                              this regression test asserts.
 
+  real_code_regressions_90_inp/out.ts     -- JS/TS, vuejs/core real-code testing (ref.test-d.ts /
+                                             watch.test-d.ts): `JsTsSpecificRule.classifyBraces`'s
+                                             `isValue` prev-token list (deciding whether a `{` is a
+                                             value-shaped brace, e.g. object literal/type, vs. a
+                                             statement-body brace) had no entry for TS's union/
+                                             intersection continuation operators `|`/`&`. An inline
+                                             object type directly following one of them in a union
+                                             type alias (`type Steps = { step: '1' } | { step: '2'
+                                             }`) fell through to the method's own documented
+                                             "defaults to not a value" fallback, misclassifying the
+                                             second object type's `{` as a statement-body brace and
+                                             resetting `enforceSemicolonInsertion`'s depth counter to
+                                             0 at a point that isn't a real statement boundary --
+                                             corrupting every subsequent line's indentation for the
+                                             rest of the enclosing scope (not just a semicolon
+                                             defect). Fixed by adding `lang.isTs && (isOp(prev, "|")
+                                             || isOp(prev, "&"))` to the `isValue` check.
+
 How Tests Are Run
 -----------------
 

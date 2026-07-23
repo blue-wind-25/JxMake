@@ -353,6 +353,16 @@ public final class JsTsSpecificRule {
                     isArrowBody || isOp(prev, "=") || isPunct(prev, "(") || isPunct(prev, "[")
                             || isPunct(prev, ",") || isOp(prev, ":") || isOp(prev, "??") || isOp(prev, "||")
                             || isOp(prev, "&&") || isOp(prev, "?") || isOp(prev, "...")
+                            // TS union/intersection type continuation (vuejs/core dogfood,
+                            // `type Steps = { step: '1' } | { step: '2' }`): an inline object type
+                            // directly following `|`/`&` is a *value*-shaped brace (a type literal,
+                            // never individually semicolon-terminated the way a statement body is)
+                            // exactly like the object-literal cases just above it -- without this,
+                            // the default-false fallthrough at the bottom of this list misclassifies
+                            // it as a statement-body brace, resetting the depth counter to 0 at a
+                            // point that isn't a real statement boundary and corrupting every
+                            // subsequent line's indentation for the rest of the enclosing scope.
+                            || (lang.isTs && (isOp(prev, "|") || isOp(prev, "&")))
                             || (prev.type == TokenType.KEYWORD
                                     && ("return".equals(prev.text) || "yield".equals(prev.text)
                                             || "throw".equals(prev.text) || "typeof".equals(prev.text)
@@ -2371,6 +2381,37 @@ public final class JsTsSpecificRule {
         final int prevIdx = prevSignificantIndex(tokens, braceIdx - 1);
         if (prevIdx < 0 || !isOp(tokens.get(prevIdx), "=")) {
             return false;
+        }
+        // `type X = { ... } | { ... }` (a union of two-or-more inline object types on the RHS,
+        // vuejs/core dogfood `ref.test-d.ts`/`watch.test-d.ts`: `type Steps = { step: '1' } |
+        // { step: '2' }`) -- the FIRST `{...}` here is preceded by `=` exactly like a plain
+        // single-object type alias, but it is not the whole RHS: treating it as one (resetDepth
+        // + needsSemicolon both true, same as the real single-object case just below) makes the
+        // depth-0 boundary land on this brace's own `}` instead of the real statement end, which
+        // then corrupts every subsequent line's indentation via the alignment-grid/depth-reset
+        // interaction (not just a missing/extra semicolon). Detected by matching this brace's own
+        // close and checking whether a union/intersection operator follows it -- if so, fall
+        // through to the ordinary isValue-brace classification below instead (conservative: no
+        // member `;`-alignment for a union member's object type, but no depth corruption either).
+        int matchDepth = 0;
+        int closeIdx = -1;
+        for (int i = braceIdx; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "{")) {
+                matchDepth++;
+            } else if (isPunct(t, "}")) {
+                matchDepth--;
+                if (matchDepth == 0) {
+                    closeIdx = i;
+                    break;
+                }
+            }
+        }
+        if (closeIdx >= 0) {
+            final int afterClose = nextSignificantIndex(tokens, closeIdx + 1);
+            if (afterClose >= 0 && (isOp(tokens.get(afterClose), "|") || isOp(tokens.get(afterClose), "&"))) {
+                return false;
+            }
         }
         int depth = 0;
         for (int i = prevIdx - 1; i >= 0; i--) {

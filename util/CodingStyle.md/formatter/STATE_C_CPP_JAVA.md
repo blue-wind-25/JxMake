@@ -477,6 +477,10 @@ on the noted commits/fixtures)
     external-authorial-style coverage distinct from item (6)'s AST-rewrite-engine style and
     item (7)'s vendored-library styles. Plain `.java`, no PCPP involved — same
     round1/round2 + `java_sc` methodology as item (7). (NOT STARTED)
+(9) `github.com/apache/ant` — large, mature legacy Java build tool; older/pre-Java-8-idioms-
+    heavy authorial style, distinct from items (6)/(7)/(8)'s more modern conventions (may
+    exercise more tabs/older brace-and-wrap conventions). Queue behind item (8). Plain `.java`,
+    no PCPP involved — same round1/round2 + `java_sc` methodology as item (7). (NOT STARTED)
 
 Priority order for the C/C++ queue unless the user redirects: `STL` → `llvm-project` →
 `gcc-mirror` (`mp11`/`lexy`/`stdexec`/`range-v3`/`boost-ext/ut`/`microsoft/proxy` already DONE —

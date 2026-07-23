@@ -21,10 +21,11 @@ MANIFEST      = $(CLASS_DIR)/MANIFEST.MF
 
 TEST_DIR      = test
 TEST_TMP      = $(BUILD_DIR)/test-out
+TEST_LOCK     = $(BUILD_DIR)/.test.lock
 
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
-.PHONY: all build jar clean gru-train gru-measure-abstain-rate gru-extract-pool-a gru-extract-pool-b test bench test-server
+.PHONY: all build jar clean gru-train gru-measure-abstain-rate gru-extract-pool-a gru-extract-pool-b test _test_serial bench test-server
 
 all build jar:
 	@if $(MAKE) --no-print-directory -q $(JAR_FILE); then \
@@ -331,6 +332,15 @@ REF_FILES := $(subst _inp,_out,$(INP_FILES))
 # make test 2>/dev/null
 # make test 2>&1 | grep -E 'PASS|FAIL'
 test: $(JAR_FILE)
+	@mkdir -p $(BUILD_DIR)
+	@flock $(TEST_LOCK) $(MAKE) --no-print-directory _test_serial
+
+# Actual `test` body, run one-at-a-time under `test`'s flock -- concurrent
+# `make test` invocations (e.g. from parallel dogfood sessions) share the same
+# $(TEST_TMP) directory, so running them simultaneously would race on it
+# (one invocation's `rm $(TEST_TMP)/*` deleting another's in-flight results).
+# flock makes a second concurrent call block and queue instead of racing.
+_test_serial:
 	@(                                                                             \
 		export JXMAKE_CODE_FORMATTER_FORMAT_MACROS=on;                         \
 		mkdir -p $(TEST_TMP);                                                  \

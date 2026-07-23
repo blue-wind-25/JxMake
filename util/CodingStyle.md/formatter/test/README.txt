@@ -1212,65 +1212,54 @@ Real-code regressions:
                                              consuming them) and using it at all four detection
                                              sites instead of `peek()`.
 
-  real_code_regressions_73_inp/out.yaml   -- YAML, ansible/ansible real-code testing: five combined
+  real_code_regressions_73_inp/out.yaml   -- YAML, ansible/ansible real-code testing: three combined
                                              bugs, all found via the content-preservation check
                                              (every corrupted output stayed syntactically valid
                                              YAML). (1) A plain (non-keyed) sequence item's own
                                              unquoted scalar value wrapping across physical lines
-                                             (e.g. a changelog fragment's "- some sentence\n
-                                             continuing here.") had no continuation handling at all
-                                             (unlike the keyed/seqOfMapping-firstKey cases), silently
-                                             dropping every line past the first; fixed by adding the
-                                             same multi-line-plain-scalar capture to that branch, with
-                                             the continuation's baseline column at the scalar's own
-                                             start (one column later than a keyed value's, since there
-                                             is no "key:" prefix eating a column first). (2) A
-                                             comment line dedented below its enclosing block's own
-                                             indent (a real "# FIXME: ..." note at column 0 between
-                                             two sibling keys indented deeper) caused `parseBlock` to
-                                             break out of every enclosing block in turn without ever
-                                             consuming it, permanently orphaning it and silently
-                                             dropping everything that followed at every level, since
-                                             a comment's own column was compared directly against
-                                             each block's indent; fixed by instead looking past the
-                                             comment (and any more like it) to the next real content
-                                             line and attaching the comment to whichever block that
-                                             line's own indent actually belongs to. (3) A bare
-                                             top-level plain scalar document (e.g. an
-                                             `$ANSIBLE_VAULT;...` header followed by several more
-                                             lines of opaque unquoted hex data with no "key:"/"- "
-                                             shape) only kept its first line, dropping the rest;
-                                             fixed by emitting the remaining raw lines verbatim once
-                                             this bare-scalar-document shape is detected.
+                                             (e.g. a changelog fragment) had no continuation
+                                             handling at all, silently dropping every line past the
+                                             first; fixed by adding the same multi-line-plain-scalar
+                                             capture used for keyed/seqOfMapping-first-key values,
+                                             with the continuation's baseline column at the scalar's
+                                             own start. (2) A comment dedented below its enclosing
+                                             block's indent (a real "# FIXME: ..." note at column 0
+                                             between deeper-indented sibling keys) made `parseBlock`
+                                             break out of every enclosing block in turn without
+                                             consuming it, permanently orphaning it and dropping
+                                             everything that followed at every level; fixed by
+                                             looking past the comment (and any more like it) to the
+                                             next real content line and attaching the comment to
+                                             whichever block that line's own indent belongs to. (3)
+                                             A bare top-level plain scalar document (e.g. an
+                                             `$ANSIBLE_VAULT;...` header followed by opaque unquoted
+                                             hex data with no "key:"/"- " shape) only kept its first
+                                             line, dropping the rest; fixed by emitting the
+                                             remaining raw lines verbatim once this bare-scalar-
+                                             document shape is detected.
 
   real_code_regressions_74_inp/out.svg    -- XML, w3c/svgwg real-code testing: `.svg` files were
-                                             never mapped to the "xml" language in `Lang.infer`,
-                                             so every `.svg` in the corpus (276 of 298 candidate
-                                             files) failed with "could not infer language from
-                                             file extension" -- found via the forward pass itself
-                                             erroring on plausible hand-authored files, before any
-                                             syntax-check/content-preservation could even run. Fixed
-                                             by adding `.svg` alongside `.xml` in `Lang.infer`'s
-                                             extension check.
+                                             never mapped to the "xml" language in `Lang.infer`, so
+                                             every `.svg` in the corpus failed with "could not infer
+                                             language from file extension" -- found via the forward
+                                             pass itself erroring, before any syntax-check/content-
+                                             preservation could even run. Fixed by adding `.svg`
+                                             alongside `.xml` in `Lang.infer`'s extension check.
 
   real_code_regressions_75_inp/out.yaml   -- YAML, actions/starter-workflows real-code testing
                                              (fourth and final planned YAML test-fixture repo): a
                                              sequence item whose dash is followed by more than one
-                                             space before the key (`-   name: foo`, a style some
-                                             hand-authored YAML uses to visually align with a wider
-                                             indent-size elsewhere in the file) caused the next
+                                             space before the key (`-   name: foo`) caused the next
                                              sibling key (`uses:`) to be misidentified as a nested
                                              child of the first key instead of a sibling, producing
-                                             invalid YAML (a "bad indentation" parse error) --
-                                             `parseSeqItem` computed the sibling-key column as a
-                                             hardcoded dash-plus-one-space offset instead of the
-                                             actual column the key started at. Found via syntax-
-                                             checking round1 output (not baseline, not idempotency --
-                                             the corrupted output failed to parse at all). Fixed by
-                                             computing the actual first-key column from the dash
-                                             line's real leading whitespace and using it consistently
-                                             for the sibling/nested-child decision and multi-line
-                                             scalar continuation anchoring.
+                                             invalid YAML ("bad indentation") -- `parseSeqItem`
+                                             computed the sibling-key column as a hardcoded dash-
+                                             plus-one-space offset instead of the actual column the
+                                             key started at. Found via syntax-checking round1
+                                             output. Fixed by computing the actual first-key column
+                                             from the dash line's real leading whitespace and using
+                                             it consistently for the sibling/nested-child decision
+                                             and multi-line scalar continuation anchoring.
 
   real_code_regressions_76_inp/out.hpp    -- C++26, simdjson/experimental_json_builder real-code
                                              testing: `enforceAttributeAndSpliceBracketPadding`'s
@@ -1280,96 +1269,72 @@ Real-code regressions:
                                              format saw the pre-padding width and stayed one line,
                                              while reformatting that already-padded output saw the
                                              now-over-limit width and wrapped, a non-idempotent
-                                             round1/round2 mismatch. Found via idempotency diffing
-                                             (not baseline, not a crash). Fixed by pulling
-                                             `enforceAttributeAndSpliceBracketPadding` forward to run
-                                             right before `enforceCallLineBreaking`, same fix shape
-                                             already used for `enforceComplexityPadding`.
+                                             round1/round2 mismatch. Found via idempotency diffing.
+                                             Fixed by pulling
+                                             `enforceAttributeAndSpliceBracketPadding` forward to
+                                             run right before `enforceCallLineBreaking`, same fix
+                                             shape already used for `enforceComplexityPadding`.
 
-  real_code_regressions_77_inp/out.js     -- JS, expressjs/express real-code testing: two
-                                             combined ASI (§2 semicolon insertion) bugs. (1) A
-                                             leading-continuation-operator/comma line (method
-                                             chaining `.get()`/`.expect()` on its own line, or a
-                                             comma-first multi-declarator `var a = require(...)\n
-                                             , b = require(...)`) was wrongly treated as ending
-                                             the previous statement -- `needsSemicolonAfter` only
-                                             checked the *previous* line's own trailing token, never
-                                             the *next* line's leading token, so a bogus `;` landed
-                                             mid-chain/mid-declarator-list, corrupting valid JS into
-                                             a syntax error. Found via `node --check` on round1
-                                             output (not baseline crash, not idempotency -- the
-                                             corrupted output still looked plausible until parsed).
-                                             Fixed by adding a leading-operator/comma lookahead
-                                             alongside the existing trailing-operator check. (2) The
-                                             tokenizer had no JS/TS regex-literal recognition at all
-                                             -- a bare `/` was always treated as the division
-                                             operator, so a regex containing a `"` inside a bracketed
-                                             character class (`/^(?:W\/)?"[^"]+"$/`) got its `"`
-                                             mistaken for the start of a string literal, corrupting
-                                             brace/paren tracking for the rest of the statement.
-                                             Found via `node --check` on round1 output. Fixed by
-                                             adding `TokenizerCurly.emitRegexLiteral`/
-                                             `isRegexLiteralAllowedHere` (classic regex-vs-division
-                                             disambiguation heuristic based on the preceding
-                                             significant token), emitting the whole literal as one
-                                             opaque `STRING` token.
+  real_code_regressions_77_inp/out.js     -- JS, expressjs/express real-code testing: two combined
+                                             bugs. (1) ASI (§2 semicolon insertion): a leading-
+                                             continuation-operator/comma line (method chaining on
+                                             its own line, or a comma-first multi-declarator list)
+                                             was wrongly treated as ending the previous statement --
+                                             `needsSemicolonAfter` only checked the previous line's
+                                             own trailing token, never the next line's leading
+                                             token, so a bogus `;` landed mid-chain/mid-declarator-
+                                             list. Found via `node --check` on round1 output. Fixed
+                                             by adding a leading-operator/comma lookahead alongside
+                                             the existing trailing-operator check. (2) The tokenizer
+                                             had no JS/TS regex-literal recognition at all -- a bare
+                                             `/` was always treated as the division operator, so a
+                                             regex containing a `"` inside a bracketed character
+                                             class got its `"` mistaken for a string literal,
+                                             corrupting brace/paren tracking for the rest of the
+                                             statement. Found via `node --check` on round1 output.
+                                             Fixed by adding `TokenizerCurly.emitRegexLiteral`/`isRe
+                                             gexLiteralAllowedHere` (regex-vs-division
+                                             disambiguation based on the preceding significant
+                                             token), emitting the whole literal as one opaque
+                                             `STRING` token.
 
-  real_code_regressions_78_inp/out.py     -- Python3, pallets/flask real-code testing (first
-                                             Python3 dogfood run): a non-idempotency bug found via
-                                             `diff -r round1 round2` (Python's own `ast.dump`
-                                             comparison confirmed round1's tree was already
-                                             semantically correct -- this was a formatter
-                                             under-application bug, not a scoping corruption).
-                                             `ScopePipelineIndent.render`'s replacement-merge loop
-                                             advanced its replacement-list cursor `r` only on an
-                                             exact `start == i` match; whenever two independently-
-                                             computed passes legitimately produced overlapping
-                                             token-range replacements (here, §8's single-statement-
-                                             body join and §2's own trivial single-member assignment-
-                                             alignment group for that same nested body statement),
-                                             the now-stale, already-passed-over entry permanently
-                                             stalled `r`, silently dropping every later replacement
-                                             in the file, not just the one genuinely-overlapping
-                                             entry -- corrupting unrelated assignment-alignment
-                                             padding arbitrarily far downstream. Fixed by having
-                                             `render` skip past (not get stuck on) any replacement
-                                             whose `start` has already been passed by `i`.
+  real_code_regressions_78_inp/out.py     -- Python3, pallets/flask real-code testing (first Python3
+                                             dogfood run): a non-idempotency bug found via `diff -r
+                                             round1 round2` (a formatter under-application bug, not
+                                             scoping corruption -- round1's tree was already
+                                             semantically correct). `ScopePipelineIndent.render`'s
+                                             replacement-merge loop advanced its replacement-list
+                                             cursor `r` only on an exact `start == i` match;
+                                             whenever two independently-computed passes legitimately
+                                             produced overlapping token-range replacements, the now-
+                                             stale entry permanently stalled `r`, silently dropping
+                                             every later replacement in the file, not just the
+                                             genuinely-overlapping one. Fixed by having `render`
+                                             skip past (not get stuck on) any replacement whose
+                                             `start` has already been passed by `i`.
 
   real_code_regressions_79_inp/out.py     -- Python3, pallets/flask real-code testing (same run as
                                              fixture 78): two more bugs found via the same final
                                              idempotency re-check after fixture 78's fix. (1) §6
                                              signature alignment: `trySignatureGroup` split a
                                              signature's interior into per-parameter segments purely
-                                             on raw `NEWLINE` tokens, not bracket-depth-aware --
-                                             a parameter whose own type hint spans multiple physical
-                                             lines via a still-open nested bracket (`attempts:
-                                             list[\n    tuple[...]\n]`) got its own continuation
-                                             lines misclassified as separate bogus parameters instead
-                                             of correctly triggering the documented "parameter spans
+                                             on raw `NEWLINE` tokens, not bracket-depth-aware -- a
+                                             parameter whose type hint spans multiple physical lines
+                                             via a still-open nested bracket got its continuation
+                                             lines misclassified as separate bogus parameters
+                                             instead of triggering the documented "parameter spans
                                              multiple physical lines -- leave whole signature
                                              untouched" gap, corrupting the signature with growing
                                              trailing whitespace each idempotency round (non-
                                              convergent). Fixed by only splitting segments at a
                                              `NEWLINE` when local bracket depth is 0, and rejecting
                                              any segment that still contains an embedded `NEWLINE`
-                                             (multi-line param) in `classifySignatureParam`. (2) §9.2
-                                             blank-line-before-`elif`/`else`: when the `elif`/`else`
-                                             header's own body also qualified for §8's single-
-                                             statement join, both passes produced a replacement
-                                             starting at the exact same token index (the header's own
-                                             start) -- §9's zero-width blank-line insertion and §8's
-                                             wider header-rewriting join. The render() merge's
-                                             stable sort on `start` alone left the zero-width entry
-                                             second, so §8's replacement jumped straight over it,
-                                             silently dropping the blank-line insertion outright (a
-                                             forward-pass bug, present on round1 already, not merely
-                                             an idempotency artifact -- found via a hand-authored
-                                             worked example while investigating fixture 78's own
-                                             idempotency failure, then confirmed against the same
-                                             debughelpers.py shape). Fixed by sorting equal-`start`
-                                             replacements with zero-width entries first, so an
-                                             insertion always composes with a same-position rewrite
-                                             rather than being swallowed by it.
+                                             in `classifySignatureParam`. (2) §9.2 blank-line-
+                                             before-`elif`/`else` and §8's single-statement join
+                                             could produce a replacement starting at the same token
+                                             index, and tie-breaking let §8's statement-join swallow
+                                             §9.2's zero-width blank-line insertion. Fixed by
+                                             sorting zero-width entries first on ties.
 
 How Tests Are Run
 -----------------

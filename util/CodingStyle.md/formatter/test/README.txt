@@ -1286,6 +1286,34 @@ Real-code regressions:
                                              right before `enforceCallLineBreaking`, same fix shape
                                              already used for `enforceComplexityPadding`.
 
+  real_code_regressions_77_inp/out.js     -- JS, expressjs/express real-code testing: two
+                                             combined ASI (§2 semicolon insertion) bugs. (1) A
+                                             leading-continuation-operator/comma line (method
+                                             chaining `.get()`/`.expect()` on its own line, or a
+                                             comma-first multi-declarator `var a = require(...)\n
+                                             , b = require(...)`) was wrongly treated as ending
+                                             the previous statement -- `needsSemicolonAfter` only
+                                             checked the *previous* line's own trailing token, never
+                                             the *next* line's leading token, so a bogus `;` landed
+                                             mid-chain/mid-declarator-list, corrupting valid JS into
+                                             a syntax error. Found via `node --check` on round1
+                                             output (not baseline crash, not idempotency -- the
+                                             corrupted output still looked plausible until parsed).
+                                             Fixed by adding a leading-operator/comma lookahead
+                                             alongside the existing trailing-operator check. (2) The
+                                             tokenizer had no JS/TS regex-literal recognition at all
+                                             -- a bare `/` was always treated as the division
+                                             operator, so a regex containing a `"` inside a bracketed
+                                             character class (`/^(?:W\/)?"[^"]+"$/`) got its `"`
+                                             mistaken for the start of a string literal, corrupting
+                                             brace/paren tracking for the rest of the statement.
+                                             Found via `node --check` on round1 output. Fixed by
+                                             adding `TokenizerCurly.emitRegexLiteral`/
+                                             `isRegexLiteralAllowedHere` (classic regex-vs-division
+                                             disambiguation heuristic based on the preceding
+                                             significant token), emitting the whole literal as one
+                                             opaque `STRING` token.
+
 How Tests Are Run
 -----------------
 

@@ -71,6 +71,21 @@ public final class JsTsSpecificRule {
             "!==", "<", ">", "<=", ">=", "+=", "-=", "*=", "/=", "%=", "&&=", "||=", "??=", "&",
             "|", "^", "<<", ">>", ">>>", "...", "**", "**=", "&=", "|=", "^=", "<<=", ">>=", ">>>="));
 
+    /** Operators that, when they're the FIRST significant token on the line following a
+     *  candidate statement boundary (leading-operator continuation style -- method chaining
+     *  `.get()\n.expect()`, comma-first declarator lists `var a = 1\n  , b = 2`, ternary
+     *  break-before-operator `cond\n  ? x\n  : y`, logical-operator chains, etc.), can *never*
+     *  legally begin a new statement -- so their presence there means the previous line's
+     *  statement is not actually finished yet, regardless of what its own last token was.
+     *  Deliberately excludes ops that have a valid unary/statement-leading use (`+`, `-`, `!`,
+     *  `...` (rest/spread can't start a statement either, but is excluded out of caution as
+     *  it is not observed as a real leading-continuation shape) -- so this set stays narrower
+     *  than {@link #CONTINUATION_OPS} on purpose. */
+    private static final Set<String> LEADING_CONTINUATION_OPS = new HashSet<>(Arrays.asList(
+            ".", "?.", "?", ":", "&&", "||", "??", "==", "===", "!=", "!==", "<=", ">=",
+            "+=", "-=", "*=", "/=", "%=", "&&=", "||=", "??=", "*", "/", "%", "&", "^",
+            "<<", ">>", ">>>", "**"));
+
     // "void" is deliberately excluded here even though it's a prefix operator (`void 0`) in
     // expression position -- as such it's never the LAST token of a statement (its operand
     // always follows), so it would only ever matter here as TS's *type*-position `void` (a
@@ -187,6 +202,20 @@ public final class JsTsSpecificRule {
             // same statement continuing, not a new one, even though the current line's own last
             // token (`A`) isn't itself a trailing continuation operator.
             if (nextSig >= 0 && (isOp(tokens.get(nextSig), "|") || isOp(tokens.get(nextSig), "&"))) {
+                return;
+            }
+            // Leading-operator continuation style: method chaining (`.get()\n.expect()`),
+            // ternary break-before-operator (`cond\n  ? x\n  : y`), logical-operator chains,
+            // etc. -- none of these operators can legally begin a new statement, so their
+            // presence as the very next significant token means the previous line's statement
+            // isn't actually finished, regardless of its own last token.
+            if (nextSig >= 0 && tokens.get(nextSig).type == TokenType.OP
+                    && LEADING_CONTINUATION_OPS.contains(tokens.get(nextSig).text)) {
+                return;
+            }
+            // Comma-first declarator-list style (`var a = 1\n  , b = 2`) -- a leading `,` can
+            // never begin a new statement either.
+            if (nextSig >= 0 && isPunct(tokens.get(nextSig), ",")) {
                 return;
             }
         }

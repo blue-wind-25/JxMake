@@ -277,6 +277,8 @@ public class TokenizerCurly extends TokenizerCore {
                 t = emitLineComment();
             } else if (c == '/' && peek(1) == '*') {
                 t = emitBlockComment();
+            } else if (c == '/' && (lang.isJs || lang.isTs) && isRegexLiteralAllowedHere(tokens)) {
+                t = emitRegexLiteral();
             } else if (c == '"' && isTextBlockOpener()) {
                 t = emitTextBlock();
             } else if (c == '"' && isKotlinRawStringOpener()) {
@@ -951,6 +953,96 @@ public class TokenizerCurly extends TokenizerCore {
                 pos += 2;
                 skipTemplateInterpolation();
                 continue;
+            }
+            pos++;
+        }
+        syntaxError = true;
+        return new Token(TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
+                null);
+    }
+
+    /**
+     * JS/TS regex-literal vs. division-operator disambiguation at a bare {@code /}. The classic
+     * heuristic: a `/` starts a regex literal unless the last significant (non-gap) token already
+     * completed a value expression (identifier, number, string/template/regex literal, or a
+     * closing `)`/`]`/`}` -- e.g. `a / b`, `arr[0] / 2`, `f() / 2`) or is a keyword that itself
+     * denotes a value (`this`, `super`) rather than one that expects an operand to follow. Absent
+     * any prior significant token (start of file/statement) or after any operator/punctuation/
+     * keyword that expects an expression next (`return`, `=`, `(`, `,`, `&&`, etc.), `/` begins a
+     * regex literal instead. Deliberately conservative: `++`/`--` (postfix on a value) are the
+     * only OP tokens treated like a value-completing token, matching real JS semantics (`x++ / 2`
+     * is division, not `x++` followed by a regex).
+     */
+    private boolean isRegexLiteralAllowedHere(final List<Token> tokens) {
+        int i = tokens.size() - 1;
+        while (i >= 0 && Token.isGapToken(tokens.get(i))) {
+            i--;
+        }
+        if (i < 0) {
+            return true;
+        }
+        final Token last = tokens.get(i);
+        switch (last.type) {
+            case IDENTIFIER:
+            case NUMBER:
+            case STRING:
+            case CHAR:
+                return false;
+            case KEYWORD:
+                return !("this".equals(last.text) || "super".equals(last.text));
+            case PUNCT:
+                return !(")".equals(last.text) || "]".equals(last.text) || "}".equals(last.text));
+            case OP:
+                return !("++".equals(last.text) || "--".equals(last.text));
+            default:
+                return true;
+        }
+    }
+
+    /**
+     * JS/TS regex literal (`/pattern/flags`), disambiguated from division by
+     * {@link #isRegexLiteralAllowedHere}. Scans to the matching unescaped closing `/`, correctly
+     * skipping over a bracketed character class (`[...]`) where an unescaped `/` does NOT
+     * terminate the literal (e.g. the `/` has no special meaning inside `[...]`, though a literal
+     * `/` there is rare -- the real motivating case is a `"`/`'` inside `[...]` that must NOT be
+     * mistaken for the start of a string/char literal, which is exactly what happened before this
+     * method existed: `/^(?:W\/)?"[^"]+"$/` in real-world test code). Emitted as an opaque
+     * {@code STRING} token (same posture as {@link #emitTemplateLiteral}) -- content preserved
+     * byte-for-byte, no rule currently needs to see inside a regex literal. Trailing flag letters
+     * (`g`, `i`, `m`, `s`, `u`, `y`, `d`) are consumed as part of the same token. Unterminated
+     * (reaches end of line without a closing `/`) is a syntax error, same posture as
+     * {@link #emitTemplateLiteral} hitting EOF.
+     */
+    private Token emitRegexLiteral() {
+        final int start = pos;
+        pos++; // consume opening '/'
+        boolean inCharClass = false;
+        while (pos < length) {
+            final char c = source.charAt(pos);
+            if (c == '\\' && pos + 1 < length) {
+                pos += 2;
+                continue;
+            }
+            if (c == '\n' || c == '\r') {
+                break;
+            }
+            if (c == '[') {
+                inCharClass = true;
+                pos++;
+                continue;
+            }
+            if (c == ']') {
+                inCharClass = false;
+                pos++;
+                continue;
+            }
+            if (c == '/' && !inCharClass) {
+                pos++;
+                while (pos < length && Character.isLetter(source.charAt(pos))) {
+                    pos++;
+                }
+                return new Token(TokenType.STRING, source.substring(start, pos), braceDepth,
+                        parenDepth, null);
             }
             pos++;
         }

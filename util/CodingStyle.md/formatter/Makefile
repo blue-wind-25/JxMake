@@ -308,6 +308,7 @@ INP_FILES += real_code_regressions_73_inp.yaml
 INP_FILES += real_code_regressions_74_inp.svg
 INP_FILES += real_code_regressions_75_inp.yaml
 INP_FILES += real_code_regressions_76_inp.hpp
+INP_FILES += real_code_regressions_77_inp.js
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

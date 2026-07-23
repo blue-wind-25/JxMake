@@ -16,7 +16,7 @@ C-family brace/paren/statement shape). Scaffold gate is flipped
 (`Lang.isScaffoldOnly` no longer includes js/ts) and all §1–15 rules are
 implemented in `JsTsSpecificRule.java` (+ `JsTsDeclarationAlignmentRule.java`
 for the declaration-alignment grid), wired into `FormatterCurly`'s phase
-pipeline. `make test`: 114/114 forward + 114/114 idempotency.
+pipeline. `make test`: 126/126 forward + 126/126 idempotency.
 
 ---
 
@@ -43,7 +43,9 @@ Design Decisions and Checklist below. Remaining work, in order:
    rather than just frozen tokens), and no `:`/`=` alignment-grid pass for
    class fields at all. See "Resolved this session (ts_combined/ts_comments
    activation)" below for full detail.
-3. Real-code testing pass (see Test-Fixture Repos below) — not started.
+3. ~~Real-code testing pass (see Test-Fixture Repos below)~~ **DONE** —
+   `expressjs/express` dogfood run. See "Resolved this session
+   (expressjs/express real-code testing)" below for full detail.
 
 Rationale (user's own words): the JS/TS basics should be solid before
 dogfooding — get this job to a genuinely stable baseline first, then move on
@@ -161,8 +163,8 @@ active and passing.
 
 All items below are implemented in `JsTsSpecificRule.java` unless noted, and
 wired into `FormatterCurly`'s phase pipeline (Phase 1 structural/brace,
-Phase 4 flat spacing, Phase 5 import ordering). `make test`: 114/114 forward
-+ 114/114 idempotency, zero regressions.
+Phase 4 flat spacing, Phase 5 import ordering). `make test`: 126/126 forward
++ 126/126 idempotency, zero regressions.
 
 - **§1 Baseline-inherited rules** — DONE.
 - **Tokenizer support** — DONE (`TokenizerCurly.java`: `KEYWORDS_JS`/`_TS`,
@@ -219,7 +221,8 @@ Phase 4 flat spacing, Phase 5 import ordering). `make test`: 114/114 forward
 - **`XmlSpecificRule` Config-threading** — RESOLVED. New 6-arg constructor
   threads the enclosing HTML file's real resolved `Config` into the spliced
   `<script>` path instead of a throwaway 4-field synthesis.
-- **Real-code testing pass** — NOT started (see Test-Fixture Repos).
+- **Real-code testing pass** — DONE, `expressjs/express`. See "Resolved this
+  session (expressjs/express real-code testing)" below.
 
 ### Resolved this session (js_combined/js_comments activation)
 
@@ -353,6 +356,77 @@ Phase 4 flat spacing, Phase 5 import ordering). `make test`: 114/114 forward
   `Active   = 1,` padding were fixture mistakes, not gaps. Corrected to
   match. `Widget`'s class-field block needed the same alignment-grid
   update as `ts_combined_out.ts`'s.
+
+### Resolved this session (expressjs/express real-code testing)
+
+First real-code-testing pass for this job. Repo: `expressjs/express`
+(shallow clone already present under `/tmp/express`, HEAD `ae6dd37`),
+confirmed genuinely small (1.9M, 141 `.js` files total: `lib/` 6, `test/` 91,
+plus `examples/`; 0 `.jsx`/`.tsx` files present, so no exclusion was
+necessary). All 141 files processed (both `lib/` and `test/` in full, no
+sampling needed given the corpus size).
+
+Two real bugs found, both via `node --check` (not baseline crash, not
+idempotency — the corrupted output stayed syntactically plausible enough on
+a first glance that only Node's own parser caught it), both fixed in the
+same session, combined into one fixture (`test/real_code_regressions_77_
+inp/out.js`):
+
+- **ASI leading-continuation-operator/comma bug** — `JsTsSpecificRule.
+  maybeInsertSemicolon` only ever looked at the *previous* line's own
+  trailing token (`CONTINUATION_OPS`) to decide whether a statement was
+  still open; it never looked ahead to the *next* line's leading token. A
+  method-chaining style with the operator leading the continuation line
+  (`request(app)\n.get('/')\n.expect(...)`, ubiquitous in Express's own
+  Mocha test suite) or a comma-first multi-declarator list (`var a = ...\n
+  , b = ...`) both got a bogus `;` inserted mid-chain/mid-list, corrupting
+  valid JS into a syntax error. Fixed by adding a new `LEADING_CONTINUATION_
+  OPS` set (deliberately narrower than `CONTINUATION_OPS` — excludes `+`/
+  `-`/etc. that have a legitimate unary/statement-leading use) plus a
+  leading-`,` check, both consulted via a next-significant-token lookahead
+  alongside the existing `|`/`&` union-type lookahead already there for
+  RDD_KEY handling of §11.1.
+- **No JS/TS regex-literal tokenizing at all** — confirmed by reading
+  `TokenizerCurly`'s dispatch loop: every `/` that wasn't `//`/`/*` fell
+  through to the generic operator scan (division), with zero regex-literal
+  recognition. Usually harmless by coincidence (a regex with no `"`/`'`
+  inside just re-renders as itself), but a real-world regex containing a
+  `"` inside a bracketed character class (`/^(?:W\/)?"[^"]+"$/`, from
+  `test/res.sendFile.js`'s ETag assertions) had its `"` mistaken for the
+  start of a string literal, corrupting brace/paren/statement tracking for
+  the rest of the enclosing statement (observed as a mis-wrapped, mis-joined
+  multi-statement mess extending several lines past the regex itself).
+  Fixed by adding `TokenizerCurly.emitRegexLiteral` (opaque `STRING`-typed
+  token, same posture as `emitTemplateLiteral`; correctly treats an
+  unescaped `/` inside `[...]` as non-terminating) and `isRegexLiteralAllowedHere`
+  (classic regex-vs-division disambiguation: regex unless the previous
+  significant token already completed a value — identifier/number/string/
+  char, a closing `)`/`]`/`}`, `this`/`super`, or postfix `++`/`--`).
+
+Final numbers (full 141-file corpus, both bugs fixed): forward pass zero
+crashes/exceptions; round1→round2 `diff -r` empty (idempotent); `node
+--check` 141/141 pass (was 93/141 failing before the fix — effectively the
+entire corpus, since the comma-first import-list idiom alone appears in
+nearly every `test/*.js` file). `require()`-based semantic check: went
+further than the syntax-only fallback — `npm install --prefix <scratch>
+express` (network available) supplied a real (if not exactly version-pinned)
+dependency tree; `require('./index.js')` on the formatted `lib/express.js`
+tree returned the expected function, `express()` produced a working `app`
+object, and a real `app.get('/hello', ...)` + `app.listen()` + an actual
+HTTP GET round-tripped correctly end-to-end. Also ran the formatted `test/`
+files directly under `mocha` (not just `node --check`): a clean file with no
+static-file-serving dependency (`test/req.host.js` + `test/req.hostname.js`
++ `test/Route.js`) passed 35/35: confirms the formatted `require()` graph
+and Mocha harness genuinely execute, not just parse. `test/res.sendFile.js`
+itself (the regex-bug file, post-fix) also loads and runs under Mocha
+without any crash — 42 of its assertions do fail, but confirmed as an
+environment limitation, not formatter-induced corruption: they're all
+static-file-serving 404s, and the identical failure pattern reproduces
+against the *unformatted* checkout once dependencies are up (this repo's
+exact `package-lock.json`-pinned dependency versions aren't installed
+offline; the generic unpinned `npm install express` pulled a different
+`send`/`serve-static` version than this exact commit expects). Documented
+here rather than silently omitted, per the task's honesty requirement.
 
 ### Known false positives (no source change needed, fixture-only)
 

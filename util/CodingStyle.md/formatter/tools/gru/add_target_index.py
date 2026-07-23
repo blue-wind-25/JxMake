@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Copyright (C) 2022-2026 Aloysius Indrayanto
+#
+# This file is part of the JxMake build system and is distributed under the Apache License, Version 2.0.
+# See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
+
 """Adds RDD_EXT_21's targetWordIndex column to an RDD_EXT_20-schema labeled-examples
 file (`<lang>\\t<label:YES|NO>\\t<escaped-text>`), producing the RDD_EXT_21 schema
 GruTrainer now reads (`<lang>\\t<label>\\t<targetWordIndex>\\t<escaped-text>`).

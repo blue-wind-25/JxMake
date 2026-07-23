@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Copyright (C) 2022-2026 Aloysius Indrayanto
+#
+# This file is part of the JxMake build system and is distributed under the Apache License, Version 2.0.
+# See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
+
 """Curates the ~3.5k-word explicit vocab Vocabulary.java's constructor needs (per STATE_AI.md's
 "GRU implementation design"): every keyword across every supported/planned language gets a
 guaranteed slot, plus common English comment-corpus words filling the rest.

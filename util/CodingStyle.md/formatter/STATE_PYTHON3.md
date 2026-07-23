@@ -147,10 +147,9 @@ or:
 `python_ast_diff.py` — content-preservation checker for real-code testing,
 modeled on `STATE_DATA_FORMATS.md`'s `*_content_diff.py` scripts (not that
 job's file, own equivalent here since Python has a real parser in its own
-stdlib). Lives in
-`~/Projects/JxMake/0_excluded_directory/personal/SyntaxChecker/
-python_ast_diff.py` (outside the repo, alongside the other jobs' checkers,
-not committed). Parses both original and formatted files with stdlib `ast`
+stdlib). Lives in `tools/syntax_checker/python_ast_diff.py` (committed,
+licensed project tooling, alongside the other jobs' checkers). Parses both
+original and formatted files with stdlib `ast`
 and compares `ast.dump(tree, include_attributes=False)` for structural
 equality (position attributes stripped since formatting legitimately
 changes those). Exit 0 if identical, 1 with a first-mismatch line printed if

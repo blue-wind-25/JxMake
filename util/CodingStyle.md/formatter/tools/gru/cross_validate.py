@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Copyright (C) 2022-2026 Aloysius Indrayanto
+#
+# This file is part of the JxMake build system and is distributed under the Apache License, Version 2.0.
+# See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
+
 """Bounds the variance on a single held-out-split precision estimate (STATE_AI.md open item
 "no cross-validation or repeated splits have been run") via repeated Monte Carlo cross-validation:
 reshuffles the combined RDD_EXT_21-schema labeled-examples file with a fresh seed each round,

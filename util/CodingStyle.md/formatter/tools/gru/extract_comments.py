@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Copyright (C) 2022-2026 Aloysius Indrayanto
+#
+# This file is part of the JxMake build system and is distributed under the Apache License, Version 2.0.
+# See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
+
 """Extracts raw comment text from source files into a flat file for
 tools/gru/CommentAbstainTally.java to feed through the real CommentClassifier.
 

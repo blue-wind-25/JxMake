@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+# Copyright (C) 2022-2026 Aloysius Indrayanto
+#
+# This file is part of the JxMake build system and is distributed under the Apache License, Version 2.0.
+# See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
+
 """Extracts Pool B (period-ambiguity) candidates for Step 3's GRU training set --
 STATE_AI.md's "Training-set acquisition" section, filter design per RDD_EXT_15.
 

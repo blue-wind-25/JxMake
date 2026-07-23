@@ -647,52 +647,124 @@ Open Questions below) -- this dogfood pass is **not yet complete**.
   `rendererTemplateRef.ts`, `renderer.ts`, `vOn.ts`) via a targeted
   affected-files-only re-run (not yet a full-tree re-run — see Next Steps).
 
-**Found, not yet fixed — 5 files still non-idempotent after the above fix,**
-each a distinct-looking symptom, not yet root-caused:
+**Of the original 5 non-idempotent files, 4 fully resolved this session** (3
+distinct new bugs found and fixed, all committed with fixtures):
 
-- `packages/reactivity/src/collectionHandlers.ts` — a multi-line function
-  signature (`function createInstrumentations(\n  readonly: boolean,\n
-  shallow: boolean,\n): Instrumentations {`) is already badly over-indented
-  in round1 (many levels deeper than its true nesting depth) even before any
-  second pass; round2 additionally re-wraps the signature onto a different
-  line layout and further shifts the closing `}`'s comment
-  (`// createInstrumentationGetter`) to a wrong indent. Likely the
-  general-reindent architectural gap already documented in
-  `STATE_COMMON.md`'s "Architectural TODOs" (this formatter does not
-  reindent from structural depth), not a new bug class — not confirmed via
-  debug-print root-causing yet.
-- `packages/runtime-core/src/componentOptions.ts` — an interface member
-  alignment-grid block (`beforeCreate?`/`created?`/... `MergedHook` fields)
-  renders with a different column width between round1 and round2.
+- `packages/reactivity/src/collectionHandlers.ts` — FIXED. Root cause was
+  NOT the general-reindent architectural gap (initial guess above was
+  wrong) — `TokenizerCurly.GENERIC_SAFE_KEYWORDS` was missing TS primitive
+  keywords `symbol`/`bigint`, and `isGenericSafeToken`'s OP case had no
+  entry for `|`, both needed for a union type directly inside a generic
+  argument list (`Record<string | symbol, Function | number>`) to keep the
+  enclosing `<...>` reclassified as angle brackets rather than plain `<`/`>`
+  OP tokens — see `real_code_regressions_88` fixture and commit 189118e.
+- `packages/runtime-core/src/componentOptions.ts` — the interface-member
+  alignment-grid symptom above was itself a downstream corruption artifact,
+  not the real bug. Three distinct root causes chased down and fixed in
+  sequence: (1) the same symbol/bigint/`|` bug as collectionHandlers.ts,
+  above; (2) `JsTsDeclarationAlignmentRule.parseTypeAlias`'s generic-clause
+  skip loop (`type MergedHook<T = () => void> = ...`) advanced past a
+  type-parameter-default clause without capturing its tokens, silently
+  deleting the whole `<...>` clause from the output; (3) `TokenizerCurly`'s
+  tokenizer dispatch loop had an unconditional (not language-gated) `]`
+  immediately-followed-by-`]` branch meant only for C++11 attribute closes,
+  which fired for a TS mapped type's `{ [K in T[number]]?: unknown }` (an
+  indexed-access type's own close immediately followed by the mapped-type
+  bracket's close) and emitted an OP token instead of the ordinary PUNCT
+  `emitCloseBracket()` path, desyncing `enforceSemicolonInsertion`'s `[`/`]`
+  depth counter for the rest of the file. See `real_code_regressions_89`
+  fixture and commit 453deef. **One narrower, still-open residual bug found
+  in this same file during the full-corpus re-verification below** (a
+  different, unrelated symptom) — see "Still open" below.
 - `packages-private/dts-test/ref.test-d.ts` /
-  `packages-private/dts-test/watch.test-d.ts` — `const shallowUnionAsCast =
-  shallowRef({ step: '1' } as Steps);` gains a large, wrong extra indent on
-  round2 only.
-- `scripts/release.js` — a multi-line `fetch(...)` call (its single
-  argument line exactly at/near `lineLengthLimit`) stays wrapped in round1
-  but collapses to one line in round2 — plausibly the same call-wrap/
-  collapse non-idempotency class already fixed once for a different call
-  shape (see "Resolved this session (nestjs/nest real-code testing)"'s
-  fifth bug, `real_code_regressions_85`), possibly a related but distinct
-  gap in the same area, not yet confirmed.
-- A separate, likely-unrelated symptom seen in several of the *now-fixed*
-  files' original diffs during triage: nested nested-call bracket padding
-  (`if( ... isReservedPrefix(key[0]) ... )` gaining spaces around the inner
-  call's own parens, `isReservedPrefix( key[0] )`, only on round2) — seen in
-  `componentPublicInstance.ts`, `renderer.ts`, `vOn.ts`,
-  `componentEmits.ts`, `rendererTemplateRef.ts` during initial triage but
-  **not reproducing** after the comment-reindent fix landed (those 5 files'
-  post-fix diffs are now empty) — likely was a downstream symptom of the
-  same comment-reindent bug shifting later token/line context, not its own
-  separate bug; flagged here only so a future session doesn't need to
-  re-investigate it from scratch if it resurfaces.
+  `packages-private/dts-test/watch.test-d.ts` — FIXED.
+  `JsTsSpecificRule.classifyBraces`'s `isValue` prev-token list had no entry
+  for TS's union/intersection continuation operators `|`/`&`; an inline
+  object type directly following one of them in a union type alias (`type
+  Steps = { step: '1' } | { step: '2' }`) fell through to the "default to
+  not a value" fallback, misclassifying that object type's `{` as a
+  statement-body brace and resetting the ASI depth counter to 0 at a false
+  statement boundary — corrupting every subsequent line's indentation in
+  the enclosing scope, not just a semicolon defect. See
+  `real_code_regressions_90` fixture and commit a6edd22.
 
-**Next steps for this dogfood pass:** root-cause and fix (or explicitly
-accept, per `STATE_COMMON.md`'s architectural-gap precedent) the remaining 5
-files' non-idempotency, then re-run round1/round2 across the **full** 514-file
-corpus (not just the previously-affected subset) plus a `tsc` typecheck pass
-per this job's "Real-code testing methodology" step 5, before marking
-`vuejs/core` dogfood DONE.
+**Full-corpus re-verification (all 514 files, not just the previously-
+affected subset) done after the above 3 fixes landed:** round1 forward pass
+clean (zero crashes/errors, 514/514 formatted); round1→round2 idempotency
+re-check found **12 files still differing** — down from the original 20, but
+not zero. `scripts/release.js` (the 5th originally-listed file) is one of
+them; the other 11 are files whose diffs the comment-reindent fix (previous
+session) and this session's 3 fixes both happened to fully resolve for
+*most* but not *all* of their original symptoms.
+
+**Still open — 2 distinct bug shapes, NOT the general-reindent architectural
+gap, found via this full-corpus re-check, not yet fixed (root-caused but
+budget-exhausted this session):**
+
+- **`if( ... )` nested-call paren-padding order-dependency** — affects 11
+  files: `parser.ts`, `transformElement.ts`, `vModel.ts`, `vSlot.ts`,
+  `resolveType.ts`, `componentEmits.ts`, `componentOptions.ts`,
+  `componentPublicInstance.ts`, `rendererTemplateRef.ts`, `renderer.ts`,
+  `vOn.ts`. Shape: `if( !isReservedPrefix(key[0]) ) Object.defineProperty(\n
+  ...\n);`. **Correction from this section's first-pass framing** (found by
+  checking `ComplexityPaddingEvaluator.isLoose`'s own contract, `MiscRuleCore
+  .enforceComplexityPadding`'s doc comment, and RDD_KEY_62 directly): a
+  nested `(` *or* `[` anywhere inside a paren pair's content makes that pair
+  "loose" per STYLE.md §3.1, applied universally by
+  `enforceComplexityPadding` (not just to `if`/`while`/`for`/`switch`'s own
+  condition parens, which is the narrower, keyword-anchored
+  `enforceKeywordSpacing`/RDD_KEY_62 pass) -- so `isReservedPrefix(key[0])`'s
+  own parens, containing `key[0]`'s `[`, are correctly loose,
+  `isReservedPrefix( key[0] )`. **Round2's output is therefore the
+  spec-correct one; round1 is the actual bug** (a real formatter defect --
+  under-padding, not round2 over-padding as first written here). Confirmed
+  the discrepancy is real and reproducible only in the *file* context, not
+  a minimal single-line repro (`if( !isReservedPrefix(key[0]) ) foo()`
+  already fully/correctly pads on round1, round1==round2) -- it appears
+  specifically when the `if`'s own **consequent** is itself a multi-line
+  call spanning several following lines (`warn(\n ...\n)` /
+  `Object.defineProperty(\n ...\n)` / `queuePostRenderEffect(\n ...\n)`,
+  etc.), suggesting `enforceComplexityPadding`'s scan somehow misses or
+  skips this inner call's parens specifically in that context on the first
+  pass -- root cause (which phase/exclusion is responsible) not yet
+  isolated. (This is the same symptom previously flagged as "not
+  reproducing" in this section's earlier triage -- it was masked at the
+  time because the comment-reindent fix's targeted affected-files-only
+  re-run happened to not exercise this specific shape; the full-corpus
+  re-check surfaces it directly.)
+- **`scripts/release.js` — call-wrap/collapse boundary miscalculation.**
+  `enforceCallLineBreaking`'s JS/TS-only single-argument fits-check
+  (`MiscRuleCurly.java`, the nestjs/nest `join(...)` fix,
+  `real_code_regressions_85`) measures the candidate collapsed line's length
+  *before* `JsTsDeclarationAlignmentRule`'s later column-alignment pass runs
+  — for `const res = await fetch(\`...\`)`, the unaligned prefix `const res
+  = ` measures exactly 100 chars (the default `lineLengthLimit`), so the
+  fits-check passes and round1 leaves it collapsed... no, precisely
+  reversed: round1 (declaration NOT yet alignment-padded when this
+  particular call is first measured relative to its own group) computes a
+  shorter length and does not collapse/does collapse differently than
+  round2, where the preceding `const branch = ...` / following `const data
+  = ...` sibling declarations' alignment-grid padding (`res    =` instead of
+  `res =`) has already been applied, pushing the same candidate line past
+  100 chars. Confirmed via direct measurement: unaligned `    const res =
+  await fetch(...)...);` is exactly 100 chars (fits, collapses); the
+  post-alignment-padded form is longer (no longer fits, would need to stay
+  wrapped) — but the fits-check runs *before* alignment padding is applied,
+  so its estimate doesn't account for padding a sibling declaration in the
+  same alignment group will add. Real fix needs either running this
+  fits-check after declaration-alignment, or having declaration-alignment
+  itself account for calls that were fits-check-collapsed right at the
+  boundary — genuine cross-pass-ordering fix, out of scope to attempt
+  without dedicated follow-up given this session's remaining budget.
+
+**Next steps for this dogfood pass:** root-cause deeper and fix the two
+bugs above (both confirmed real formatter bugs, not the architectural gap),
+re-run the full 514-file round1/round2 check until clean, then do the `tsc`
+typecheck pass per this job's "Real-code testing methodology" step 5, before
+marking `vuejs/core` dogfood DONE. This session's own full-corpus check
+(round1 clean, round2 diff count 20 → 12) already ran; the `tsc` typecheck
+pass has NOT yet been attempted this session (deferred until the remaining
+12-file idempotency gap is closed, per this job's methodology ordering).
 
 ### Known false positives (no source change needed, fixture-only)
 

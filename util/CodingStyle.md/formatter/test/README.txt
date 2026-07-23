@@ -1668,6 +1668,41 @@ Real-code regressions:
   real_code_regressions_92_inp/out.xsd    -- XML, apache/ant real-code testing: same `Lang.infer` gap
                                              as real_code_regressions_91, for the `.xsd` extension.
 
+  real_code_regressions_95_inp/out.java   -- Java, local `src/com`/`src/org` vendored third-party
+                                             library dogfood testing: two idempotency bugs from the
+                                             same "raw source indent measured before it's converted
+                                             to the target indent-style" root cause, both only
+                                             observable against tab-indented source (this codebase's
+                                             own default `indent-style = spaces` config never
+                                             triggers them from spaces-indented input). (1)
+                                             `MiscRule.enforceCommentStyle` reindented a multi-line
+                                             block comment's continuation lines to the comment's own
+                                             *raw*, not-yet-converted leading indent (still a literal
+                                             tab), baking a tab into the continuation lines' own text
+                                             -- `convertIndentation` (always last in the pipeline)
+                                             never revisits that text since by then it is embedded
+                                             inside the comment's own token rather than a separate
+                                             leading `WHITESPACE` token, so the opening `/**` line
+                                             converted to spaces but the continuation lines stayed
+                                             tab-indented on a fresh format, self-correcting only on
+                                             a second pass once the opening line's own indent was
+                                             already spaces. Fixed by normalizing the indent through
+                                             `MiscRuleCore.renderIndent` before use (new `indentStyle`
+                                             parameter on `enforceCommentStyle`). (2)
+                                             `MiscRule.enforceCallLineBreaking`'s whole-line/candidate
+                                             fits-checks measured a tab-indented line's leading indent
+                                             via `String.length()` (a tab counts as 1 char), so a line
+                                             whose true width only exceeds `lineLengthLimit` once its
+                                             tab is expanded to `indentWidth` stayed wrongly collapsed
+                                             on a fresh format, wrapping only on a second pass once
+                                             the leading indent was already spaces. Fixed by a new
+                                             `MiscRuleCore.expandedIndentWidth` helper (tab-expanding
+                                             width computation, same formula as `renderIndent`'s)
+                                             used in place of raw `.length()` at both fits-check
+                                             sites. Both found via real-code testing (STATE_C_CPP_
+                                             JAVA.md dogfood item (7): `com.j256.simplemagic`,
+                                             `org.itadaki.bzip2`, `org.kamranzafar.jtar`).
+
 How Tests Are Run
 -----------------
 

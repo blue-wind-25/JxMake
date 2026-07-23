@@ -137,14 +137,29 @@ protected static final Set<String> TIGHT_PAREN_KEYWORDS =
         return out.toString();
     }
 protected String renderIndent(final String original, final String indentStyle) {
-        int width = 0;
-        for (int i = 0; i < original.length(); i++) {
-            width += (original.charAt(i) == '\t') ? (indentWidth - (width % indentWidth)) : 1;
-        }
+        final int width = expandedIndentWidth(original);
         if (width % indentWidth != 0) {
             return original;
         }
         return indentText(width / indentWidth, indentStyle);
+    }
+    /** Column width of a raw (not-yet-{@link #convertIndentation}-normalized) leading-whitespace
+     *  run, expanding each {@code '\t'} to the next {@link #indentWidth} tab stop the same way
+     *  {@link #renderIndent} does -- unlike {@code original.length()}, which undercounts a tab as
+     *  a single character. Any line-length fits-check that measures a physical line still
+     *  containing raw source indentation (i.e. anything that runs before {@code
+     *  convertIndentation}, which is always the pipeline's last phase) must use this instead of
+     *  {@code String.length()} on that indent, or a tab-indented line whose true post-conversion
+     *  width would exceed {@code lineLengthLimit} can wrongly measure as fitting -- stable only on
+     *  a second format pass, once the indent is already spaces from the start (found via real-code
+     *  testing, local `src/com`/`src/org` dogfood -- `enforceCallLineBreaking`'s whole-line/
+     *  candidate fits-checks). */
+    protected int expandedIndentWidth(final String original) {
+        int width = 0;
+        for (int i = 0; i < original.length(); i++) {
+            width += (original.charAt(i) == '\t') ? (indentWidth - (width % indentWidth)) : 1;
+        }
+        return width;
     }
     /** Renders `level` indent levels in the requested style -- shared by §1's line converter
      *  above and §8's signature-wrapping below, which both need to *generate* brand-new
@@ -1173,8 +1188,22 @@ protected int matchParenBackward(final List<Token> tokens, final int closeIdx) {
      * §13 passes that create those comments) only holds the first time a file is formatted; a
      * re-format of already-formatted output sees the generated comments as ordinary input and,
      * without this detection, would wrongly capitalize a lowercase label like `// switch`.
+     * <p>{@code indentStyle} (the same {@code "spaces"|"tabs"} value later passed to
+     * {@link #convertIndentation}, which always runs after this pass) is used to normalize the
+     * reference indentation baked into a reformatted multi-line block comment's continuation
+     * lines (see {@link #reformatMultiLineBlockComment}) -- this pass runs *before*
+     * {@code convertIndentation}, so the raw indentation captured from the source
+     * ({@link #indentBefore}) has not been converted to the target style yet; feeding that raw,
+     * unconverted indent straight into the continuation lines' own text (which
+     * {@code convertIndentation} never revisits, since by then it is embedded inside a single
+     * multi-line {@code COMMENT_BLOCK} token rather than a separate leading {@code WHITESPACE}
+     * token) left tab-indented continuation lines under a `spaces`-converted opening line on a
+     * fresh format, self-correcting only on a second pass once the opening line's own indent was
+     * already converted -- an idempotency bug found via real-code testing (`org.itadaki.bzip2`
+     * et al., local `src/com`/`src/org` dogfood). Normalizing through {@link #renderIndent} here
+     * up front makes the very first pass already correct.
      */
-    public String enforceCommentStyle(final List<Token> tokens) {
+    public String enforceCommentStyle(final List<Token> tokens, final String indentStyle) {
         final Map<Integer, String> lineCommentContent = computeLineCommentGroups(tokens);
         final StringBuilder out = new StringBuilder();
         for (int i = 0; i < tokens.size(); i++) {
@@ -1196,7 +1225,7 @@ protected int matchParenBackward(final List<Token> tokens, final int closeIdx) {
                     out.append("/*").append(applyCommentTextRules(inner)).append("*/");
                 }
             } else if (t.type == TokenType.COMMENT_BLOCK) {
-                out.append(reformatMultiLineBlockComment(t.text, indentBefore(tokens, i)));
+                out.append(reformatMultiLineBlockComment(t.text, renderIndent(indentBefore(tokens, i), indentStyle)));
             } else if (t.type == TokenType.PREPROCESSOR) {
                 out.append(capitalizePreprocessorTrailingComment(t.text));
             } else {

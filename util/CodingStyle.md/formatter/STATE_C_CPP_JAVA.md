@@ -443,6 +443,41 @@ on the noted commits/fixtures)
      zero-width-space character already present in the pristine original source, not
      formatter-introduced); `make test` 90/90 forward + 90/90 idempotency (up from 88/88).
      Fixtures: `real_code_regressions_65` (a+b combined), `real_code_regressions_66` (c).
+(24) Local `../../../src` minus the already-DONE `../../../src/jxm` subtree (item 23 above) —
+     vendored third-party Java libraries under `src/com/`/`src/org/` (173 `.java` files):
+     `com.j256.simplemagic`, `com.intellectualsites.http`, `org.tukaani.xz`,
+     `org.kamranzafar.jtar`, `org.itadaki.bzip2`. Plain `.java` only, no PCPP `.java.in`/`.java.inc`
+     involved. Surveyed `src/`'s other loose top-level `.java` files (`ATest1.java`, `GTest1.java`,
+     `GTest2.java`, `PTest1B.java`, `PTest1X.java`, `PTest2B.java`, `PTest2X.java`, `PTest3X.java`,
+     `PTestF.java`) and the `0-JxMake`/`1-TestData` directories — excluded from this pass and left
+     for a future candidate rather than guessed into scope (not confirmed plain hand-written Java
+     suitable for this same methodology). 2 bugs found, both the same "raw source indent measured
+     before it's converted to the target indent-style" architectural pattern, both only observable
+     against tab-indented source (never triggered by this codebase's own default
+     `indent-style = spaces` config from spaces-indented input): (a) `MiscRule.enforceCommentStyle`
+     reindented a multi-line block comment's continuation lines to the comment's own *raw*,
+     not-yet-converted leading indent, baking a literal tab into the continuation lines' own text
+     that `convertIndentation` (always last in the pipeline) never revisits, since by then it's
+     embedded inside the comment's own token rather than a separate leading `WHITESPACE` token —
+     self-correcting only on a second pass once the opening line's own indent was already
+     converted; fixed by normalizing through `MiscRuleCore.renderIndent` before use (new
+     `indentStyle` parameter on `enforceCommentStyle`); (b) `MiscRule.enforceCallLineBreaking`'s
+     whole-line/candidate fits-checks measured a tab-indented line's leading indent via
+     `String.length()` (a tab counts as 1 char), so a line whose true width only exceeds
+     `lineLengthLimit` once its tab expands to `indentWidth` stayed wrongly collapsed on a fresh
+     format; fixed by a new `MiscRuleCore.expandedIndentWidth` helper (tab-expanding width
+     computation, same formula as `renderIndent`'s) used at both fits-check sites. Verified: full
+     round1/round2 idempotency over all 173 files (down to 6 pre-existing/deferred diffs — 1 file
+     owned by a concurrent JS/TS-job in-flight fix, the other 5 a genuinely separate,
+     not-yet-fixed declaration-alignment column-padding gap, documented below rather than
+     investigated further to avoid conflicting with concurrent edits to the same shared files);
+     `make test` 145/145 forward + 145/145 idempotency; `javac` compile-check (100 pre-existing
+     errors, all inside the untouched `jxm/` sibling tree pulled in transitively by
+     `com.intellectualsites.http`'s real `jxm.*` imports, identical baseline vs. round1, zero
+     inside `com`/`org`); `java_sc` 173/173 clean, identical baseline vs. round1. All
+     round1/round2/compile/`java_sc` validation run out-of-place (`--out` to scratch dirs) — the
+     real vendored `src/com`/`src/org` tree itself was never modified. Fixture:
+     `real_code_regressions_95`.
 
 **Not started dogfood / real-code testing**
 (2) `github.com/microsoft/STL` — Microsoft's `std::` implementation; large, best raw grammar
@@ -461,26 +496,14 @@ on the noted commits/fixtures)
     priority given size, pick up once smaller candidates are exhausted. Likely some
     annotation-processor-generated/Lombok-style code (`AI_PREAMBLE`-adjacent gaps). Would
     verify with (4). (NOT STARTED)
-(7) Local `../../../src` minus the already-DONE `../../../src/jxm` subtree (item 23 above) —
-    vendored third-party Java libraries under `src/com/`/`src/org/` (~173 `.java` files):
-    `com.j256.simplemagic`, `com.intellectualsites.http`, `org.tukaani.xz`,
-    `org.kamranzafar.jtar`, `org.itadaki.bzip2`. Plain `.java` only, no PCPP `.java.in`/`.java.inc`
-    involved (those live only under `src/jxm`), so this is a plain real-code round1/round2 +
-    `java_sc` pass, not item 23's PCPP-aware methodology. Multiple distinct third-party authorial
-    styles in one tree — distinct "external code" coverage vs. item 23's self-dogfood angle.
-    `src/`'s other top-level loose `.java` files (`ATest1.java`, `GTest1.java`, `GTest2.java`,
-    `PTest1B.java`, `PTest1X.java`, `PTest2B.java`, `PTest2X.java`, `PTest3X.java`, `PTestF.java`)
-    and the `0-JxMake`/`1-TestData` directories were not surveyed for language/hand-written-vs-
-    generated status when queued — check before folding into this pass; may warrant their own
-    candidate entry instead. (NOT STARTED)
 (8) `github.com/jenkinsci/jenkins` — large, long-lived Java project (core CI/CD server); good
     external-authorial-style coverage distinct from item (6)'s AST-rewrite-engine style and
-    item (7)'s vendored-library styles. Plain `.java`, no PCPP involved — same
-    round1/round2 + `java_sc` methodology as item (7). (NOT STARTED)
+    item (24)'s vendored-library styles. Plain `.java`, no PCPP involved — same
+    round1/round2 + `java_sc` methodology as item (24). (NOT STARTED)
 (9) `github.com/apache/ant` — large, mature legacy Java build tool; older/pre-Java-8-idioms-
-    heavy authorial style, distinct from items (6)/(7)/(8)'s more modern conventions (may
+    heavy authorial style, distinct from items (6)/(8)/(24)'s more modern conventions (may
     exercise more tabs/older brace-and-wrap conventions). Queue behind item (8). Plain `.java`,
-    no PCPP involved — same round1/round2 + `java_sc` methodology as item (7). (NOT STARTED)
+    no PCPP involved — same round1/round2 + `java_sc` methodology as item (24). (NOT STARTED)
 
 Priority order for the C/C++ queue unless the user redirects: `STL` → `llvm-project` →
 `gcc-mirror` (`mp11`/`lexy`/`stdexec`/`range-v3`/`boost-ext/ut`/`microsoft/proxy` already DONE —
@@ -570,6 +593,20 @@ RDD_KEY_88.
   nontrivial rework (derive each line's absolute target from structural depth rather than a
   raw-source-derived delta), same regression risk against the current passing test suite for a
   narrow real-world shape. Left open alongside the entry above; no fixture (nothing was fixed).
+
+- **Declaration-alignment column-padding non-idempotency** — ACCEPTED, not fixed. Found in local
+  `src/com`/`src/org` real-code testing (candidate 24 above): 5 of 173 files still differed
+  between round1 and round2 after both idempotency bugs in that entry were fixed. Not
+  investigated further to a root cause — left open rather than risk conflicting with a
+  concurrent JS/TS-job session's own in-flight edits to the same shared `MiscRuleCurly.java`/
+  `BlockStructureRule.java` files at the time this was found. Symptom shape (from a first-pass
+  read of the diffs, not confirmed via debug prints): a `=`/type/name-alignment grid's own
+  column-padding width recomputed differently once a prior pass's output already contains that
+  padding, the same general "a pass's own generated formatting isn't a stable fixed point for a
+  later measurement/decision in the same pipeline" architectural family as the two entries
+  above, just in the declaration-alignment grid machinery instead of switch-case reindent or
+  the declarations pass. No fixture (nothing was fixed); revisit once a broader pattern of
+  impact emerges or the concurrent session's own edits to these files have landed and settled.
 
 ## Known Gaps — Fixed
 

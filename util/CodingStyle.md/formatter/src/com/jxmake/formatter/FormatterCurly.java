@@ -244,7 +244,7 @@ public final class FormatterCurly extends FormatterCore {
         text = miscRule.insertBlankLineBeforeReturn(tokenizer.apply(text));
 
         // Phase 2: comment-style normalization -- must precede Phase 3 (RDD_KEY_47).
-        text = miscRule.enforceCommentStyle(tokenizer.apply(text));
+        text = miscRule.enforceCommentStyle(tokenizer.apply(text), config.indentStyle());
         text = miscRule.alignCommentSeparators(tokenizer.apply(text));
 
         // Phase 3: comment/marker-generating passes.

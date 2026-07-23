@@ -1153,7 +1153,7 @@ private boolean isFunctionBodyQualifier(final Token t) {
                     appendRange(prefix, tokens, lineStartIndex(tokens, nameIdx), openIdx);
                     final StringBuilder suffix = new StringBuilder();
                     appendRange(suffix, tokens, closeIdx + 1, effectiveLineEndIndex(tokens, closeIdx));
-                    final int candidateLen = baseIndent.length() + prefix.length() + candidate.length() + suffix.length();
+                    final int candidateLen = expandedIndentWidth(baseIndent) + prefix.length() + candidate.length() + suffix.length();
                     if (candidateLen <= lineLengthLimit) {
                         return candidate;
                     }
@@ -1203,9 +1203,9 @@ private boolean isFunctionBodyQualifier(final Token t) {
             return lines == null ? null : "(\n" + String.join("\n", lines);
         }
 
-        final String wholeLine = baseIndent
-                + collapseToOneLine(tokens, lineStartIndex(tokens, nameIdx), effectiveLineEndIndex(tokens, closeIdx) - 1);
-        if (wholeLine.length() <= lineLengthLimit) {
+        final String wholeLineRest =
+                collapseToOneLine(tokens, lineStartIndex(tokens, nameIdx), effectiveLineEndIndex(tokens, closeIdx) - 1);
+        if (expandedIndentWidth(baseIndent) + wholeLineRest.length() <= lineLengthLimit) {
             return null; // Option 0 -- already fits, no change
         }
 

@@ -33,9 +33,18 @@ Be careful not to lose important information, especially the `**Tools/compiler u
 `indent-size` exception, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_62_inp/out.kt`
-    to   `real_code_regressions_67_inp/out.hpp`
+    from `real_code_regressions_71_inp/out.yaml`
+    to   `real_code_regressions_79_inp/out.py`
 [DONE]
+
+
+
+Update and fix `CLAUDE.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`,
+`../AI_PREAMBLE_AESTHETIC.md`, etc.
+
+Ensure the languange order in the documentations, help strings, etc. is:
+    c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3
+Adjust active vs scaffold-only as needed. Also ensure jsx and tsx are after js and ts.
 
 
 
@@ -44,144 +53,53 @@ I have run `make test` and all test passed.
 `/tmp` contains many undeleted artifacts from this and previous sessions, can you find the one used
 for reproducing bugs and mini/small tests (not the cloned repositories) them and maybe delete them?
 
-
-
-Update and fix `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`,
-all languages should already been implemented by now.
-
-Ensure the languange order in the documentations, help strings, etc. is:
-    c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3
-Adjust active vs scaffold-only as needed. Also ensure jsx and tsx are after js and ts.
-
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 
-Continue with JSON/JSON5 work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to one more research sub-sub-agent):
+Continue with XXX dogfood test (search in /tmp first, clone the repo if not found;
+use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent):
 ...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-    `github.com/json5/json5`
-    `github.com/microsoft/vscode`
-    `github.com/babel/babel`
-    `github.com/eslint/eslint`
+When fixing bugs, only reformat and re-syntax-checking the affected files; reformatting and
+re-syntax-checking already correct files are a waste of time. Only after all bugs are fixed is
+a full reformat and re-syntax-checking test allowed. Try reformat with `indent-size = 2` if
+the idempotency test failed.
 
-----------------------------------------------------------------------------------------------------
+JSON5:
+CSS:
+YAML:
+    `github.com/prometheus/prometheus` [with vendor/built exclusions built in]
+    `github.com/home-assistant/core`
+TOML:
 
-Continue with CSS work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to one more research sub-sub-agent):
-...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-    `github.com/twbs/bootstrap`
-    `github.com/necolas/normalize.css`
-    `github.com/foundation/foundation-sites`
-    `github.com/primer/css`
+XML:
+    `github.com/apache/ant`        [LARGE]
+    `github.com/jenkinsci/jenkins` [HUGE]
 
-----------------------------------------------------------------------------------------------------
-
-Continue with YAML work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to one more research sub-sub-agent):
-...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-    `github.com/kubernetes/kubernetes`
-    `github.com/docker/compose`
-    `github.com/ansible/ansible`
-    `github.com/actions/starter-workflows`
-
-----------------------------------------------------------------------------------------------------
-
-Continue with TOML work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to one more research sub-sub-agent):
-...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-    `github.com/rust-lang/cargo`
-    `github.com/python-poetry/poetry`
-    `github.com/pola-rs/polars`
-    `github.com/toml-lang/toml`
-
-----------------------------------------------------------------------------------------------------
-
-Continue with XML work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to one more research sub-sub-agent):
-..
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-    `github.com/apache/maven`
-    `github.com/apache/ant`
-    `github.com/jenkinsci/jenkins`
-    `github.com/w3c/svgwg`
-
-----------------------------------------------------------------------------------------------------
-
-Continue with C++26 work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to one more research sub-sub-agent):
-...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-
-NOTE: C++26 is not a separate language -- §1-4 rule coverage lands in the existing "cpp"
-pipeline and reuses the C/C++ block's fixtures below. Only §5 Reflection (`^^`/`[:`/`:]`)
-needs its own corpus, once its tokenizer support pass lands:
-    `github.com/bloomberg/clang-p2996`
-    `github.com/wrocpp/cpp26-reflection-examples`
-    `github.com/simdjson/experimental_json_builder`
-    `github.com/stephenberry/glaze`
+C++26:
+    `github.com/stephenberry/glaze` [NEXT]
     `ryanjk5.github.io/posts/rjk-duck` (blog post, not a repo)
-----------------------------------------------------------------------------------------------------
 
-Continue with HTML work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to one more research sub-sub-agent):
-...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-    `github.com/h5bp/html5-boilerplate`
+HTML5:
     `github.com/twbs/bootstrap` (docs site)
-    `github.com/mdn/content`
-    `github.com/whatwg/html`
+    `github.com/mdn/content` [HUGE]
+    `github.com/whatwg/html` [HUGE]
 
-NOTE: depends on CSS support above and JS/TS support (separate job) both being available
-before the `<script>`/`<style>` embedded-content dispatcher can be exercised end-to-end.
+JS:
+    `github.com/lodash/lodash` [dense functional-style JS, bracket-padding stress test]
+    `github.com/nodejs/node`   [large, mixed-style JS core + tooling]
 
-----------------------------------------------------------------------------------------------------
-
-Continue with JS/TS work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to one more research sub-sub-agent):
-...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-    `github.com/nodejs/node`          [large, mixed-style JS core + tooling]
-    `github.com/expressjs/express`    [smaller, idiomatic, widely-read real-world JS]
-    `github.com/lodash/lodash`        [dense functional-style JS, bracket-padding stress test]
-    `github.com/microsoft/TypeScript` [the compiler itself; canonical, heavily-typed real TS at scale]
-    `github.com/angular/angular`      [large, idiomatic, decorator-heavy real TS]
-    `github.com/nestjs/nest`          [decorator/generic-heavy backend TS, type-annotation alignment]
+TS:
+    `github.com/nestjs/nest` [NEXT]   [decorator/generic-heavy backend TS, type-annotation alignment]
     `github.com/vuejs/core`           [modern TS, heavy generics and type-level code]
+    `github.com/angular/angular`      [large, idiomatic, decorator-heavy real TS]
+    `github.com/microsoft/TypeScript` [the compiler itself; canonical, heavily-typed real TS at scale]
 
-----------------------------------------------------------------------------------------------------
-
-Continue with Python3 work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to one more research sub-sub-agent):
-...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-    `github.com/python/cpython` [reference implementation's own stdlib; large, disciplined, real-world]
-    `github.com/pallets/flask`  [small-to-medium, idiomatic, widely-read real Python]
-    `github.com/django/django`  [large real-world Python, heavy decorator/class-based-pattern density]
+Python3:
+    `github.com/pallets/click`  [NEXT] [dense decorator and nested-call-argument use]
     `github.com/psf/black`      [a formatter itself; its own tests/data corpus may be directly reusable]
-    `github.com/pallets/click`  [dense decorator and nested-call-argument use]
+    `github.com/django/django`  [large real-world Python, heavy decorator/class-based-pattern density]
+    `github.com/python/cpython` [reference implementation's own stdlib; large, disciplined, real-world]
 
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------

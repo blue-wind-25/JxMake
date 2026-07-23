@@ -48,7 +48,6 @@
       "Read(//home/aloysius/xsdk/**)",
       "Read(//opt/openjdk-21_linux-x64_bin/jdk-21/**)",
       "Read(//tmp/**)",
-      "Write(//tmp/**)",
       "Edit(//tmp/**)"
     ],
     "deny": [

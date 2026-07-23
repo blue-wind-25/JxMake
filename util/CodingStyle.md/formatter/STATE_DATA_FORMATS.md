@@ -388,7 +388,29 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
 
 ## Open Questions
 
-None recorded yet in this file.
+- **`twbs/bootstrap` docs-site HTML dogfood candidate no longer exists in the
+  current repo — how to proceed?** Investigated a fresh-enough checkout
+  (`main`, shallow clone reused from the prior CSS dogfood session, HEAD at a
+  dependabot commit dated 2026-07-22) looking for the docs-site HTML this
+  candidate was picked for (many inline `<script>`/`<style>` blocks alongside
+  component markup, to exercise `XmlSpecificRule.renderScriptOrStyle`). Found
+  **zero** `.html` files anywhere under `site/` — the docs site has migrated
+  to Astro + MDX (`site/src/content/docs/**/*.mdx`, `site/src/pages/**/*.astro`);
+  there is no committed HTML source for the docs pages at all in this
+  snapshot (they're presumably generated at build time, not checked in). A
+  full-tree search found only 14 `.html` files total in the entire repo, all
+  under `js/tests/visual/**` and `js/tests/integration/index.html` — JS
+  component test pages, not docs-site content, and out of the task's declared
+  scope ("do not touch compiled JS/CSS or component source unless incidentally
+  alongside the docs HTML"). Options not decided: (a) substitute the
+  `js/tests/visual`/`integration` HTML corpus anyway despite it not being
+  "docs site" HTML, (b) mark `twbs/bootstrap` (docs site) as not-applicable/
+  skipped in the HTML5 Test-Fixture Repos list and rely on the other three
+  (`mdn/content`, `whatwg/html`, already-done `h5bp/html5-boilerplate`), (c)
+  try an older commit/release tag of `twbs/bootstrap` from before the Astro
+  migration (last version with Jekyll-rendered docs HTML actually committed)
+  to get a real docs-site HTML corpus. No changes made to
+  `XmlSpecificRule.java` or any fixture pending this decision.
 
 ---
 

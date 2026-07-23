@@ -524,9 +524,46 @@ Third bug found and fixed:
   -reported nestjs/nest files: round1→round2 diff now empty. `node --check`
   (Node 24) passes on both round1 outputs.
 
+Fourth bug found and fixed:
+
+- **Comment-continuation-indent drift / arbitrary-deep-indent corruption on
+  an object-shaped `type X = { ... } & Y;` intersection alias** —
+  `packages/core/inspector/interfaces/edge.interface.ts`. Root cause:
+  `JsTsSpecificRule.enforceUnionTypeContinuationIndent` (STYLE_JS_TS.md
+  §11.1's union/intersection continuation-line re-alignment) treats a
+  `type NAME = ...;` RHS as eligible whenever it contains a depth-0 `|`/`&`
+  and spans multiple physical lines, then re-indents *every* `NEWLINE` from
+  the RHS's start through the terminating `;` to the RHS's own column —
+  with no bracket-depth tracking at all. That's harmless for a plain
+  multi-line union list (every `NEWLINE` genuinely is a top-level break),
+  but an intersection whose left operand is a multi-line object-type
+  literal (`{ ... } & Y`) has `NEWLINE`s nested many bracket-levels deep
+  that belong to the object body's own already-correct indentation — those
+  were force-reindented to the alias's RHS column too, blowing every member
+  out to an arbitrarily deep column matching the `type NAME = ` prefix's
+  length. A leading `/** ... */` JSDoc comment on one member is a single
+  token, so only the `NEWLINE` immediately before it got corrupted this way
+  on a first pass; its own interior continuation lines (untouched by this
+  pass) drifted further out of sync only once a second re-format pass
+  reindented the token before it again, compounding the mismatch — matching
+  the originally observed "grows between round1 and round2" symptom. Fixed
+  by tracking bracket depth in the re-indent loop itself and only
+  re-indenting a `NEWLINE` found at the union/intersection's own top level
+  (depth 0), leaving any `NEWLINE` nested inside a bracketed sub-shape
+  (object-type literal, tuple, generic argument list, ...) completely
+  untouched. New fixture `test/real_code_regressions_84_{inp,out}.ts`.
+  `make test`: 133/133 forward + 133/133 idempotency, zero regressions.
+  Confirmed against the originally-reported nestjs/nest file: round1→round2
+  diff now empty. `node --check` (Node 24) passes on the round1 output.
+  (Debug-print methodology used: dumped `text` right after
+  `ScopePipelineCurly.process` — already correct 2-space indent there —
+  and right after `enforceInterfaceTypeAliasMemberColonAlignment` — the
+  type-alias body was still untouched at that point too, since
+  `parseInterfaceMembers` bails on the embedded JSDoc comment/union-typed
+  member — which pointed at a later pass; grepping for `&`/union handling
+  led directly to `enforceUnionTypeContinuationIndent`.)
+
 Additional bugs found in the same dogfood pass, **not yet fixed**:
-- Comment-continuation-indent drift still reproduces in at least one file
-  (`edge.interface.ts`) even at `indent-size=2`.
 - `join(...)` call-wrap/collapse non-idempotency: a multi-line call wraps
   once, then a second pass collapses it back to one line (fits under 100
   chars) rather than settling into a stable form.

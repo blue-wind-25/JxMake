@@ -1105,9 +1105,21 @@ public final class JsTsSpecificRule {
             out.append(tokens.get(k).text);
         }
         int k = rhsStart;
+        int nestedDepth = 0;
         while (k < semiIdx) {
             final Token t = tokens.get(k);
-            if (t.type == TokenType.NEWLINE) {
+            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                nestedDepth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                nestedDepth--;
+            }
+            // Only re-indent a continuation line that breaks at the union/intersection's own
+            // top level (nestedDepth == 0) -- a NEWLINE inside a nested object-type literal
+            // member (e.g. `type X = { ...multi-line-body... } & Y;`) belongs to that nested
+            // shape's own indentation (already normalized by an earlier pass/ScopePipelineCurly)
+            // and must be left completely untouched here, or its lines get wrongly forced onto
+            // this alias's RHS column (STYLE_JS_TS.md §11.1 real-code regression).
+            if (t.type == TokenType.NEWLINE && nestedDepth == 0) {
                 out.append('\n');
                 k++;
                 while (k < semiIdx && tokens.get(k).type == TokenType.WHITESPACE) {

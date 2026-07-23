@@ -1401,6 +1401,69 @@ Real-code regressions:
                                              treatment -- same conservative "only rewrite what's
                                              fully understood" posture as the rest of this method).
 
+  real_code_regressions_83_inp/out.yaml   -- YAML, prometheus/prometheus real-code testing.
+                                             Combines four distinct data-loss bugs found in
+                                             `YamlSpecificRule`, all sharing the theme of a dash/key
+                                             line whose "value" is absent/comment-only/anchor-only/an
+                                             unbalanced multi-line flow opener, with real content on
+                                             following more-indented lines: (1) `parseKeyItem`'s early
+                                             return for a flow-looking value didn't check whether the
+                                             flow was actually closed on the same physical line,
+                                             truncating everything after an unbalanced multi-line
+                                             `[...]` opener; (2) `parseSeqItem`'s `seqOfMapping`
+                                             first-key handling had the same gap for
+                                             `- source_labels:\n    [...]`, and separately dropped
+                                             everything after a `- # comment`-only dash line whose
+                                             real mapping keys start on subsequent lines; (3) a dash
+                                             line holding only an anchor tag (`- &highalert`) followed
+                                             by a nested mapping at an indent equal to (not just
+                                             greater than) the dash's own key column lost its child
+                                             block entirely; (4) `renderFlowValue` rendered an empty
+                                             flow map/seq (`{}`/`[]`) as a block conversion whenever
+                                             its line didn't `fits()`, but `renderFlowBlock`'s loop
+                                             has nothing to iterate for zero entries, so the value
+                                             silently vanished -- happened whenever a long key
+                                             elsewhere in the same colon-alignment group pushed an
+                                             unrelated `{}`/`[]` line past the width limit (seen in
+                                             `web/ui/pnpm-lock.yaml`'s dependency snapshot maps, most
+                                             visibly when the dropped key was the file's very last
+                                             line).
+
+  real_code_regressions_84_inp/out.ts     -- JS/TS, nestjs/nest real-code testing.
+                                             Comment-continuation-indent drift /
+                                             arbitrary-deep-indent corruption on an object-shaped
+                                             `type X = { ... } & Y;` intersection alias.
+                                             `JsTsSpecificRule.enforceUnionTypeContinuationIndent`
+                                             (STYLE_JS_TS.md 11.1's union/intersection
+                                             continuation-line re-alignment) detects a `type NAME =
+                                             ...;` RHS as eligible whenever it contains a depth-0
+                                             `|`/`&` and spans multiple physical lines, then
+                                             re-indents *every* NEWLINE from the RHS's start through
+                                             the terminating `;` to the RHS's own column -- with no
+                                             bracket-depth tracking of its own. For a plain
+                                             multi-line union list (`A |\n B |\n C`) every NEWLINE
+                                             genuinely is a top-level break, so this was harmless,
+                                             but an intersection whose left operand is a multi-line
+                                             object-type literal (`{ ... } & Y`) has NEWLINEs nested
+                                             many bracket-levels deep that belong to the object
+                                             body's own (already-correct) indentation -- those got
+                                             force-reindented to the alias's RHS column too, blowing
+                                             every member out to an arbitrarily deep column matching
+                                             the `type NAME = ` prefix's length. A leading `/** ...
+                                             */` JSDoc comment on one member is a single token, so
+                                             only the NEWLINE immediately before it (its own line)
+                                             was corrupted this way on a first pass -- its interior
+                                             continuation lines, untouched by this pass, drifted
+                                             further out of sync (matching the deep column) only
+                                             once a second re-format pass reindented the token
+                                             *before* it again, compounding the mismatch. Fixed by
+                                             tracking bracket depth in the re-indent loop itself and
+                                             only re-indenting a NEWLINE found at the union/
+                                             intersection's own top level (depth 0), leaving any
+                                             NEWLINE nested inside a bracketed sub-shape (object-type
+                                             literal, tuple, generic argument list, ...) completely
+                                             untouched.
+
 How Tests Are Run
 -----------------
 

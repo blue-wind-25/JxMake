@@ -307,9 +307,13 @@ Checklist for current per-language status):
 - **XML:** `apache/maven`, `apache/ant`, `jenkinsci/jenkins`, `w3c/svgwg`
 - **CSS:** `twbs/bootstrap`, `necolas/normalize.css`, `foundation/foundation-sites`,
   `primer/css`
-- **HTML5:** `h5bp/html5-boilerplate`, `mdn/content`, `whatwg/html`
-  (`twbs/bootstrap` docs site dropped — see Open Questions resolution below;
-  no longer has committed docs HTML to test against)
+- **HTML5:** `h5bp/html5-boilerplate` (done — see Checklist). `twbs/bootstrap`
+  (docs site), `mdn/content`, `whatwg/html`, and `kangax/html-minifier` were
+  all investigated and dropped — see Open Questions resolution below; none
+  have a real committed HTML5 corpus (content is Astro/MDX, Markdown, a
+  giant non-HTML preprocessed spec source, and JS unit tests with inline
+  HTML strings, respectively). No replacement candidates queued yet — next
+  session should look for one before resuming this list, or ask the user.
 - **YAML:** `kubernetes/kubernetes` (manifests/Helm-adjacent config, heavy real-world
   nesting/anchors), `docker/compose` (compose-file corpus), `ansible/ansible`
   (playbooks — heavy on lists-of-maps, block scalars), `actions/starter-workflows`
@@ -417,9 +421,29 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   dropped from the HTML5 Test-Fixture Repos list — its docs site no longer
   ships committed HTML (Astro/MDX now), so there's no real docs-HTML corpus
   left to dogfood against, and substituting its unrelated JS component test
-  pages (option a) wasn't worth diluting the point of the candidate. HTML5
-  dogfood proceeds with the remaining three: `h5bp/html5-boilerplate` (done),
-  `mdn/content`, `whatwg/html` (both not started).
+  pages (option a) wasn't worth diluting the point of the candidate.
+
+- **`mdn/content` and `whatwg/html` also turned out to have no real HTML5
+  corpus — both dropped (user, 2026-07-24).** Verified via `gh api`:
+  `mdn/content` is entirely Markdown (`files/en-us/**/*.md` with frontmatter,
+  no `.html` anywhere in the docs tree — content is rendered to HTML only at
+  publish time, not checked in). `whatwg/html` is a single 7.9MB `source`
+  file with no `.html` extension, written in a custom Nim-preprocessed macro
+  syntax (not valid standalone HTML5) — the repo's only real `.html` is a
+  single tiny `404.html` plus two small `demos/canvas`/`demos/workers` dirs,
+  not enough for a meaningful corpus. A third candidate suggested in the same
+  session, `kangax/html-minifier` (its `tests/` dir, hoped to contain many
+  real hand-authored edge-case `.html` fixture files), was also checked and
+  is actually all `.js` unit tests with inline HTML template strings, not
+  real `.html` files — also dropped. **HTML5 Test-Fixture Repos list is now
+  down to just `h5bp/html5-boilerplate` (done); no replacement candidates
+  queued.** Next session (or the user) needs to find a real hand-authored or
+  build-committed static HTML5 site corpus before HTML5 dogfooding can
+  continue past what's already done — repos that look promising by name
+  (docs sites, spec repos, minifier test suites) have repeatedly turned out
+  to store their HTML as Markdown/MDX/custom-macro-source/JS-string-literals
+  instead of real `.html` files; verify actual file contents via `gh api`
+  before proposing a candidate, not just repo purpose/reputation.
 
 ---
 
@@ -610,11 +634,13 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       `prometheus/prometheus`, `home-assistant/core` all done — see per-repo
       entries below); **TOML 4/4, DONE** (`rust-lang/cargo`,
       `python-poetry/poetry`, `pola-rs/polars`, `toml-lang/toml` all done —
-      TOML Test-Fixture Repos list now fully complete); HTML5 1/3
-      (`h5bp/html5-boilerplate` done; `twbs/bootstrap` docs site dropped —
-      no longer has committed docs HTML, see Open Questions resolution;
-      `mdn/content`, `whatwg/html` not started). Overall item stays
-      unchecked pending the remaining repos above.
+      TOML Test-Fixture Repos list now fully complete); HTML5 1/1 of the
+      remaining list (`h5bp/html5-boilerplate` done; `twbs/bootstrap` docs
+      site, `mdn/content`, `whatwg/html`, `kangax/html-minifier` all
+      investigated and dropped — no real HTML5 corpus in any, see Open
+      Questions resolution; no replacement candidates queued). Overall item
+      stays unchecked pending the remaining repos above (XML) and any future
+      HTML5 replacement candidate.
 
       **Shared methodology note (applies to every run below, not restated per
       repo):** each run clones fresh (or reuses a prior-session checkout under

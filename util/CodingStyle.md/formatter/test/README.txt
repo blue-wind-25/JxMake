@@ -1594,6 +1594,51 @@ Real-code regressions:
                                              `GENERIC_SAFE_KEYWORDS` and `|` (TS-only) to
                                              `isGenericSafeToken`'s OP case.
 
+  real_code_regressions_89_inp/out.ts     -- JS/TS, vuejs/core real-code testing
+                                             (componentOptions.ts), two further distinct bugs found
+                                             chasing the same file's remaining non-idempotency after
+                                             the _88 fix above:
+                                             (1) `JsTsDeclarationAlignmentRule.parseTypeAlias`'s
+                                             generic-parameter-list skip loop (only reached when the
+                                             clause's own content, e.g. a type-parameter default
+                                             `<T = X>`, invalidates the tokenizer's `<`/`>`
+                                             reclassification) advanced past the clause's tokens
+                                             without ever capturing them for re-rendering, silently
+                                             deleting the whole `<...>` clause from the output
+                                             (`type MergedHook<T = () => void> = T | T[]` lost its
+                                             `<T = () => void>` entirely). Fixed by capturing the
+                                             clause's token range before the skip loop and rendering
+                                             it back (tight against the outer `<`/`>`, which stay
+                                             literal OP tokens here) into the `Row`'s name text.
+                                             (2) `TokenizerCurly`'s dispatch loop had an unconditional
+                                             `c == ']' && peek(1) == ']'` branch (routing to
+                                             `emitOperator()`, alongside the already-language-gated
+                                             `[[`/`[:` branches for C++11 attributes/C++26 splice
+                                             brackets) that fired for *any* two adjacent `]`
+                                             characters regardless of language -- not just the C++
+                                             attribute close it was meant for. A TS mapped type whose
+                                             `[K in ...]` source is itself an indexed-access type
+                                             (`{ [K in T[number]]?: unknown }`) produces exactly that
+                                             shape with no C++ meaning at all; even after gating
+                                             `MULTI_CHAR_OPS`'s own `"]]"` entry to C++ only (a
+                                             preceding, insufficient fix attempt), reaching
+                                             `emitOperator()` at all here still emitted a single `]`
+                                             as an OP token instead of going through
+                                             `emitCloseBracket()`'s ordinary PUNCT path, which defeats
+                                             every `isPunct(t, "]")` check the same way one merged
+                                             `"]]"` token would have. This desynced
+                                             `JsTsSpecificRule.enforceSemicolonInsertion`'s `[`/`]`
+                                             depth counter, which never recovered for the rest of the
+                                             file, permanently disabling semicolon insertion from that
+                                             point on. Fixed by also gating the dispatch-loop branch to
+                                             `lang.isCpp`. Fixture's expected output still carries the
+                                             pre-existing, separately-tracked general-reindentation gap
+                                             (STATE_COMMON.md's "General scope-depth reindentation"
+                                             section) for the mapped type's own body -- its `}` and
+                                             `[K in ...]` bracket spacing are not house-style-correct,
+                                             but the round1 output is stable/idempotent, which is all
+                                             this regression test asserts.
+
 How Tests Are Run
 -----------------
 

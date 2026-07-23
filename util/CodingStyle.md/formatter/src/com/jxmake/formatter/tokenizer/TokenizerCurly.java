@@ -301,7 +301,16 @@ public class TokenizerCurly extends TokenizerCore {
                 t = emitIdentifierOrKeyword();
             } else if (c == '[' && peek(1) == '[' && looksLikeAttributeOpen()) {
                 t = emitOperator();
-            } else if (c == ']' && peek(1) == ']') {
+            } else if (c == ']' && peek(1) == ']' && lang.isCpp) {
+                // C++11 attribute close (`]]` closing `[[nodiscard]]` etc, STYLE_CPP26.md §5).
+                // Must stay C++-only like the "[[" branch just above it -- outside C++, two
+                // adjacent `]` are unrelated closes (e.g. TS `{ [K in T[number]]?: unknown }`'s
+                // indexed-access-type close immediately followed by the mapped-type bracket's own
+                // close) and must each go through the ordinary emitCloseBracket() PUNCT path below,
+                // not emitOperator() -- even after gating MULTI_CHAR_OPS's own "]]" entry to C++
+                // only (see emitOperator()), reaching emitOperator() at all here still emits an OP
+                // token instead of a PUNCT one, which defeats every isPunct(t, "]") check the same
+                // way (vuejs/core dogfood, componentOptions.ts's InjectToObject mapped type).
                 t = emitOperator();
             } else if (c == '[' && peek(1) == ':' && lang.isCpp) {
                 t = emitOperator();
@@ -1291,6 +1300,18 @@ public class TokenizerCurly extends TokenizerCore {
             // immediately followed by an ordinary type-annotation `:`, no space between), so
             // this single MULTI_CHAR_OPS entry must not swallow them together outside Kotlin.
             if ("?:".equals(op) && !lang.isKotlin) {
+                continue;
+            }
+            // "[[" / "]]" are C++11 attribute brackets (`[[nodiscard]]`, STYLE_CPP26.md §5 and
+            // earlier) -- in TS a closing mapped-type indexed-access type immediately followed by
+            // the mapped-type bracket's own close (`{ [K in T[number]]?: unknown }`) produces the
+            // exact same two adjacent `]` characters with no C++-attribute meaning at all. Outside
+            // C++, swallowing them into one "]]"/"[[" OP token desyncs every depth counter that
+            // tracks `[`/`]` one-for-one (e.g. `JsTsSpecificRule.enforceSemicolonInsertion`'s
+            // `depth`), which never recovers for the rest of the file (vuejs/core dogfood,
+            // `componentOptions.ts`'s `InjectToObject` mapped type). Kept for C++ only, same as
+            // the "?:" Kotlin-only guard immediately above.
+            if (("[[".equals(op) || "]]".equals(op)) && !lang.isCpp) {
                 continue;
             }
             if (source.startsWith(op, pos)) {

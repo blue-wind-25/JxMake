@@ -349,6 +349,15 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
         final Token keyword = sig.get(0);
         final Token name = sig.get(1);
         int i = 2;
+        // A generic type-parameter list with no default value inside (`type Foo<T> = ...`) has
+        // already had its `<`/`>` reclassified to ANGLE_BRACKET_OPEN/CLOSE by the tokenizer's own
+        // generic-disambiguation pass -- that shape isn't handled by this OP-literal `<`/`>` scan
+        // at all (falls straight through to the `=` check below and bails, leaving the whole
+        // statement untouched/unaligned, which is safe but simply not this method's concern). Only
+        // a generic clause containing something that *invalidates* reclassification (most commonly
+        // a type-parameter default, `<T = X>` -- `=` isn't a generic-safe OP) leaves `<`/`>` as
+        // literal OP tokens, which is what this scan exists to skip past.
+        final int genericStart = i;
         if (i < sig.size() && isOp(sig.get(i), "<")) {
             int depth = 0;
             while (i < sig.size()) {
@@ -365,6 +374,17 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
                 i++;
             }
         }
+        // The generic clause's own tokens (if any were skipped above) must be preserved in the
+        // rendered name column verbatim -- previously discarded entirely, silently dropping the
+        // whole `<...>` type-parameter list from the output (vuejs/core dogfood,
+        // `type MergedHook<T = () => void> = T | T[]`). Rendered tight against the outer `<`/`>`
+        // (matching every other generic-clause rendering in this codebase) -- `renderTokens`
+        // doesn't know these particular `<`/`>` are a generic bracket pair (they're still literal
+        // OP tokens here, not ANGLE_BRACKET_OPEN/CLOSE, precisely because something inside
+        // invalidated the tokenizer's own reclassification), so it would otherwise space them
+        // like an ordinary comparison operator (`< T = ... >`).
+        final String genericClauseText = i > genericStart
+                ? "<" + renderTokens(sig.subList(genericStart + 1, i - 1)) + ">" : "";
         if (i >= sig.size() || !isOp(sig.get(i), "=")) {
             return null;
         }
@@ -406,8 +426,8 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
 
         final Token trailingComment = findTrailingComment(stmt);
         final Token lastAnchor = trailingComment != null ? trailingComment : semi;
-        return new Row(keyword, name, name.text, new ArrayList<>(), initTokens, trailingComment,
-                lastAnchor, true);
+        return new Row(keyword, name, name.text + genericClauseText, new ArrayList<>(), initTokens,
+                trailingComment, lastAnchor, true);
     }
 
     /** Scans the raw (comment-bearing) {@code stmt} for any comment token between {@code from}

@@ -169,7 +169,6 @@ public final class JsTsSpecificRule {
                     depth = depthStack.pop();
                 }
             }
-
             lastSigIdx = i;
         }
 

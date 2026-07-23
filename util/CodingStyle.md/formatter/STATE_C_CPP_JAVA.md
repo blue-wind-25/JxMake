@@ -329,7 +329,7 @@ still available via `git log`/`git show` on the noted commits/fixtures.
     checking). Build/run commands:
 ```bash
 JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
-cd ~/Projects/JxMake/0_excluded_directory/personal/SyntaxChecker
+cd util/CodingStyle.md/formatter/tools/syntax_checker
 "$JDK/bin/javac" java_sc.java
 "$JDK/bin/java" java_sc <file.java> [file2.java ...]
 ```

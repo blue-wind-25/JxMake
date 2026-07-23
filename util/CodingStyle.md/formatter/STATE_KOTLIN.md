@@ -491,9 +491,9 @@ standalone Java program; every needed class is bundled in the single shaded
 `~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib/kotlin-compiler.jar` (confirmed via
 `unzip -l`, no separate intellij-core/trove4j jars needed).
 
-Tool location: `~/Projects/JxMake/0_excluded_directory/personal/SyntaxChecker/`
-(`kotlin_sc.java` + compiled `kotlin_sc.class`; gitignored via the
-top-level `.gitignore`'s `0_excluded_directory` entry).
+Tool location: `util/CodingStyle.md/formatter/tools/syntax_checker/`
+(`kotlin_sc.java` + compiled `kotlin_sc.class`; committed, licensed project
+tooling, alongside the other jobs' syntax checkers).
 
 Build/run (JDK 21, matches this compiler's class file version 52 = Java 8
 target, runs fine on 21):
@@ -501,7 +501,7 @@ target, runs fine on 21):
 ```bash
 JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
 KLIB=~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib
-cd ~/Projects/JxMake/0_excluded_directory/personal/SyntaxChecker
+cd util/CodingStyle.md/formatter/tools/syntax_checker
 "$JDK/bin/javac" -cp "$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_sc.java
 "$JDK/bin/java" -cp ".:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_sc <file.kt> [file2.kt ...]
 ```

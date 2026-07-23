@@ -4,6 +4,14 @@
 # This file is part of the JxMake build system and is distributed under the Apache License, Version 2.0.
 # See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
 
+# This script shells out to Node.js (see parse_toml_via_node below), so run it
+# with the following env vars set (Node.js + its packages are installed under
+# these non-default locations, not the system paths):
+#
+#   export LD_LIBRARY_PATH=/opt/gcc-7.5.0/lib64:/opt/gcc-7.5.0/lib:/opt/isl-0.16.1/lib
+#   export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules:~/mynpm/node_modules
+#   export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
+
 """
 toml_content_diff.py - content-preservation checker for TOML, modeled on
 css_content_diff.py / xml_content_diff.py.

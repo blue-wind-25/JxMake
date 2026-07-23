@@ -75,15 +75,19 @@ rule set. Revisit once §5 graduates out of draft status.
 
 For §5 Reflection tokenizer/rule validation (see Scope §5 and Checklist
 below), real-code testing against:
-- `bloomberg/clang-p2996` — checked this session: repo is empty/unusable, no
-  further attempts needed
-- `wrocpp/cpp26-reflection-examples`
-- `simdjson/experimental_json_builder`
-- `stephenberry/glaze`
-- `ryanjk5.github.io/posts/rjk-duck` (blog post, not a repo — `^^`/`[:`/`:]`/
-  `template for` examples covering vtable generation and member-pointer
-  substitution; formatting-wise plain, no unusual whitespace/nesting —
-  useful extra source but doesn't substitute for the repos above)
+- `bloomberg/clang-p2996` — checked in an earlier session: repo is
+  empty/unusable, no further attempts needed
+- `wrocpp/cpp26-reflection-examples` — DONE (see Checklist)
+- `simdjson/experimental_json_builder` — DONE (see Checklist; one real bug
+  found and fixed, `real_code_regressions_76`)
+- `stephenberry/glaze` — DONE (see Checklist; zero bugs found within this
+  job's scope, several out-of-scope C/C++/Java-job findings documented)
+- `ryanjk5.github.io/posts/rjk-duck` (blog post, not a repo) — DONE (see
+  Checklist; useful extra source, zero bugs within this job's scope)
+
+All four named candidates above are now complete. No further named
+candidates remain queued — a future session sourcing more §5 real-code
+coverage would need to pick a new candidate first.
 
 ## Test Fixtures (Local)
 
@@ -503,3 +507,90 @@ Question here since real implementation hasn't started.
       substitute for them.
 
       `stephenberry/glaze` remains not-started.
+- [x] Real-code testing pass against `stephenberry/glaze` done this session.
+      Reused an existing checkout found under `/tmp/glaze` (checked first per
+      methodology — not a fresh clone). 414 `.hpp`/`.cpp`/`.h` files.
+      Formatted in one batch pass grouped by subdirectory via `--out`/
+      `--preserve-tree`/`--root` (one JVM invocation per subdirectory hit a
+      transient `SIGBUS` JVM crash in `libzip.so` on one directory, tracked
+      to this system's `/tmp` filesystem sitting at 99% full at the time —
+      confirmed environmental, not a formatter bug, since a bare retry of the
+      same 5 remaining directories succeeded with exit 0 every time). All
+      414 files formatted with zero crashes/exceptions once retried.
+
+      round1 -> round2 (single-invocation re-format, all 414 files in one
+      JAR call — no crash that time) surfaced 37 files with a non-empty
+      `diff`. **Investigated each; none involve any C++26 construct** (no
+      `^^`/`[:`/`:]`/`contract_assert`/pack-indexing `...[` in any of the 37
+      — confirmed by grepping each diffed file). Root causes identified by
+      inspection, all pre-existing and outside this job's scope
+      (`CppSpecificRule.java`/§1-5 rules), matching the general-reindentation
+      gap class `STATE_COMMON.md`'s Architectural TODOs already documents:
+      - Most (33/37) are the known switch/case relative-delta reindentation
+        drift (`SwitchRule.applyNonInlineCaseIndent`) on internally
+        inconsistent source — same bug shape as the already-ACCEPTED
+        `javaparser`/`JSONEncoderLite.java` gaps, not new.
+      - A handful (`glaze_asio.hpp`, `ordered_map_test.cpp`) showed member-
+        initializer-list line-wrapping inserting a stray space after `.`
+        (`other.index` -> `other. index` -> `other. ec`) when a long
+        single-line init-list gets wrapped one-member-per-line — a C/C++/Java
+        job bug in the general call/init-list wrapping logic, not
+        `CppSpecificRule`.
+      - One (`json_perf_common.hpp`/`json_performance.cpp`) showed `**`
+        (pointer-to-pointer-looking multiply, `iterations**binary_byte_length`)
+        gaining an inconsistent space on reformat — again general C/C++
+        operator-spacing logic, not a C++26 rule.
+      - One (`json_patch_test.cpp`) showed a long initializer-list line
+        wrapped differently between round1/round2 — general line-breaking
+        logic, not C++26.
+      All confirmed out-of-scope the same way prior sessions confirmed the
+      `.h`-vs-`.hpp` (`simdjson` session) and lambda-body (`rjk-duck` session)
+      findings: none of this job's owned methods
+      (`enforceReflectionOperatorSpacing`/
+      `enforceAttributeAndSpliceBracketPadding`/
+      `enforcePackIndexingSpacing`/`enforceContractClausePlacement`/
+      `enforceContractAssertSpacing`) touch switch/case indentation,
+      initializer-list wrapping, or `*`/`**` operator spacing. Not raised as
+      a blocked Open Question (not an ambiguity within this job's own rule
+      set) — documented here purely as real-corpus findings for whoever next
+      touches `SwitchRule`/init-list wrapping/operator-spacing in the
+      C/C++/Java job.
+
+      **Every file containing actual C++26 reflection syntax was separately
+      verified idempotent and correctly formatted**, isolated from the 37
+      failures above: `include/glaze/reflection/get_name.hpp`,
+      `include/glaze/reflection/to_tuple.hpp`,
+      `tests/networking_tests/http_server_test/
+      http_server_headers_validation_test.cpp`, `tests/jsonrpc_test/
+      jsonrpc_test.cpp`, `tests/yaml_conformance/yaml_conformance.cpp` all
+      round-trip with an empty `diff`. Manually spot-checked `^^T`/`^^E`/
+      `^^std::remove_cvref_t<T>` (stay tight), `[:Enums:][I]`/`[:Enums:]`/
+      `obj.[:member:]` (bare-identifier interior, tight) and
+      `enumerators_of(^^E)` nested-call interiors rendering loose padding
+      where the source itself already had a nested call — all consistent
+      with the existing `isLoose` bracket-complexity rule, no corruption.
+      `template for(constexpr std::meta::info I : [:Enums:])` renders with
+      the same no-space-before-paren convention as ordinary `for(...)`,
+      consistent with the `wrocpp` session's finding that this is general,
+      not reflection-specific.
+
+      Compilation not attempted for the same reason as every prior session
+      this checklist item's toolchain note applies to: `g++ 4.8.5`/
+      `clang++ 3.7.1` (confirmed again this session, `-std=c++2a` isn't even
+      a recognized flag on this `g++`) are both far too old for glaze's
+      required modern-C++/reflection features; idempotency + manual
+      inspection used as the documented fallback, same as `wrocpp`/`simdjson`/
+      `rjk-duck`.
+
+      **No fixtures added — zero bugs found within this job's scope
+      (`CppSpecificRule.java`/§1-5 C++26 rules).** All 37 idempotency
+      mismatches are pre-existing, non-C++26, C/C++/Java-job-owned gaps.
+
+      This completes all four named external-corpus candidates in "Test
+      Fixtures (External, corpus-scale)"
+      (`wrocpp/cpp26-reflection-examples`, `simdjson/experimental_json_builder`,
+      `stephenberry/glaze`, plus the `rjk-duck` blog-post extra source) —
+      `bloomberg/clang-p2996` was confirmed empty/unusable in an earlier
+      session (see that section). No further named candidates remain on the
+      list; a future session would need to source a new candidate before
+      continuing this line of work.

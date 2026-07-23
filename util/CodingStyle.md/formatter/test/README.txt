@@ -1378,6 +1378,29 @@ Real-code regressions:
                                              immediate `{` body, already exempted earlier in the same
                                              method).
 
+  real_code_regressions_82_inp/out.ts     -- JS/TS, nestjs/nest real-code testing. Content
+                                             duplication: `JsTsSpecificRule.
+                                             enforceClassFieldAlignmentGrid`'s single linear
+                                             `cursor` sweep over every brace classified `CLASS`
+                                             assumed every selected class span was disjoint, but an
+                                             anonymous `return class extends Base { ... };`
+                                             expression nested inside an outer class's method (seen
+                                             in `Module.createModuleReferenceType`) is a real,
+                                             legitimate nesting. The outer class's own
+                                             `rewriteClassFieldGroups` call already copies the
+                                             entire inner class span through byte-for-byte (as an
+                                             ordinary unrecognized member), so re-processing the
+                                             inner span again as its own top-level `classOpens`
+                                             entry both duplicated its content and walked `cursor`
+                                             backward to the inner class's own (earlier) `closeIdx`
+                                             -- causing the method's final raw-copy loop to re-emit
+                                             everything from there to the true end of file a second
+                                             time. Fixed by filtering `classOpens` to keep only the
+                                             outermost class brace at each nesting level (a nested
+                                             class's own fields don't get the alignment-grid
+                                             treatment -- same conservative "only rewrite what's
+                                             fully understood" posture as the rest of this method).
+
 How Tests Are Run
 -----------------
 

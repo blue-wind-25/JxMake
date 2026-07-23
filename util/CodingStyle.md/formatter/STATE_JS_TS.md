@@ -495,10 +495,36 @@ alone — see below):
   round-trips with the output; not this bug). `node --check` (Node 24, which
   strips TS types natively) passes on all 5 round1 outputs.
 
+Third bug found and fixed:
+
+- **Content duplication in `JsTsSpecificRule.enforceClassFieldAlignmentGrid`
+  — nested `CLASS` braces not handled** — `packages/core/injector/module.ts`
+  (`Module.createModuleReferenceType`, `return class extends ModuleRef {
+  ... };` nested inside an outer class method) and
+  `packages/core/middleware/builder.ts` (a nested class similarly) had
+  entire method/constructor blocks duplicated in round2 that weren't present
+  in round1. Root cause: `enforceClassFieldAlignmentGrid` collects every
+  brace classified `CLASS` by `classBraceKind` into a flat `classOpens` list
+  and sweeps through them with a single linear `cursor`, assuming every
+  selected class span is disjoint -- but a nested anonymous class (or any
+  class nested inside another) breaks that assumption. The outer class's own
+  `rewriteClassFieldGroups` call already copies the entire inner class span
+  through byte-for-byte (as an ordinary unrecognized member, via
+  `skipTopLevelMember`), so the loop's later top-level entry for the inner
+  class re-appended its content a second time *and* walked `cursor` backward
+  to the inner class's own (earlier) `closeIdx` -- so the method's final
+  raw-copy-to-EOF loop re-emitted everything from there to the true end of
+  file a second time too. Fixed by filtering `classOpens` down to only the
+  outermost class brace at each nesting level (a nested class's own fields
+  simply don't get the alignment-grid treatment -- consistent with this
+  method's existing conservative "only rewrite what's fully understood"
+  posture, not a regression). New fixture
+  `test/real_code_regressions_82_{inp,out}.ts`. `make test`: 131/131 forward
+  + 131/131 idempotency, zero regressions. Confirmed against both originally
+  -reported nestjs/nest files: round1→round2 diff now empty. `node --check`
+  (Node 24) passes on both round1 outputs.
+
 Additional bugs found in the same dogfood pass, **not yet fixed**:
-- Content duplication — `packages/core/injector/module.ts` and
-  `packages/core/middleware/builder.ts` had entire method/constructor blocks
-  duplicated in round2 that weren't present in round1.
 - Comment-continuation-indent drift still reproduces in at least one file
   (`edge.interface.ts`) even at `indent-size=2`.
 - `join(...)` call-wrap/collapse non-idempotency: a multi-line call wraps

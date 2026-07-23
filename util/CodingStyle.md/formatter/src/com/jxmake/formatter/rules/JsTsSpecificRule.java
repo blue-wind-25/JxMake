@@ -1596,13 +1596,36 @@ public final class JsTsSpecificRule {
             return render(tokens, new HashMap<>());
         }
         final Map<Integer, Integer> braces = matchBraces(tokens);
-        final List<Integer> classOpens = new ArrayList<>();
+        final List<Integer> allClassOpens = new ArrayList<>();
         for (final Map.Entry<Integer, Integer> e : braces.entrySet()) {
             if ("CLASS".equals(classBraceKind(tokens, e.getKey()))) {
-                classOpens.add(e.getKey());
+                allClassOpens.add(e.getKey());
             }
         }
-        classOpens.sort(Integer::compare);
+        allClassOpens.sort(Integer::compare);
+        // A class body can legitimately nest another class (e.g. an anonymous `return class
+        // extends Base { ... };` expression inside an outer class's method, seen in nestjs/nest's
+        // Module.createModuleReferenceType). The single linear `cursor` sweep below assumes every
+        // selected class span is disjoint -- given an inner class nested inside an already-selected
+        // outer one, the outer's own `rewriteClassFieldGroups` call already copies the inner class's
+        // entire span through byte-for-byte (as an ordinary unrecognized member, via
+        // `skipTopLevelMember`), so re-processing the inner span again as its own top-level entry
+        // both duplicates its content in the output and -- far worse -- walks `cursor` backward to
+        // the inner class's own (earlier) `closeIdx`, causing the final raw-copy loop below to
+        // re-emit everything from there to the true end of file a second time. Keep only the
+        // outermost class open at each nesting level; a nested class's own fields simply don't get
+        // the alignment-grid treatment (same conservative "only rewrite what's fully understood"
+        // posture as the rest of this method -- extending the grid into nested class bodies is
+        // future work, not a regression from before this fix).
+        final List<Integer> classOpens = new ArrayList<>();
+        int coveredUntil = -1;
+        for (final int openIdx : allClassOpens) {
+            if (openIdx < coveredUntil) {
+                continue; // nested inside an already-selected outer class -- skip
+            }
+            classOpens.add(openIdx);
+            coveredUntil = braces.get(openIdx);
+        }
 
         final StringBuilder out = new StringBuilder();
         int cursor = 0;

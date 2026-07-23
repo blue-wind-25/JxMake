@@ -1525,7 +1525,12 @@ protected static final class SepMatch {
             }
         }
 
-        final String firstContent = rawLines[0].substring(2).trim();
+        int openMarkerEnd = 2;
+        while (openMarkerEnd < rawLines[0].length() && rawLines[0].charAt(openMarkerEnd) == '*') {
+            openMarkerEnd++;
+        }
+        final String openMarker = rawLines[0].substring(0, openMarkerEnd);
+        final String firstContent = rawLines[0].substring(openMarkerEnd).trim();
 
         final String lastStripped = stripLeadingWhitespace(rawLines[n - 1]);
         final String lastContent;
@@ -1555,7 +1560,7 @@ protected static final class SepMatch {
         }
         stripSoleTrailingPeriodAcrossLines(contentLines);
 
-        final StringBuilder out = new StringBuilder("/*");
+        final StringBuilder out = new StringBuilder(openMarker);
         for (final String line : contentLines) {
             out.append('\n').append(indent).append(" *");
             if (!line.isEmpty()) {

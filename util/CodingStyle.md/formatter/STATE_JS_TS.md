@@ -428,6 +428,45 @@ offline; the generic unpinned `npm install express` pulled a different
 `send`/`serve-static` version than this exact commit expects). Documented
 here rather than silently omitted, per the task's honesty requirement.
 
+### Resolved this session (nestjs/nest real-code testing, in progress)
+
+Repo: `nestjs/nest` (fresh shallow clone, `/tmp/nest`, HEAD `7e6e313`). First
+bug found and fixed:
+
+- **`/**`-style JSDoc opener corruption in `MiscRuleCore.
+  reformatMultiLineBlockComment`** — near-universal bug affecting every
+  language sharing this class (JS/TS, Java, Kotlin, C/C++), not just JS/TS.
+  `firstContent = rawLines[0].substring(2).trim()` assumed the opening marker
+  is always exactly 2 chars (`/*`), but a JSDoc/Javadoc-style `/**` opener is
+  3 chars — `substring(2)` left a stray `*` that got promoted to a fake
+  first content line, rendering `/**` as `/*` followed by a spurious `* *`
+  line on **every** multi-line `/** ... */` comment reformatted by this
+  method (i.e. nearly all of them, in any curly-family language). Fixed by
+  scanning forward from index 2 while the character is `*` to find the true
+  marker end, capturing that whole marker (`/*`, `/**`, `/***`, etc.) and
+  reusing it verbatim as the output's opening token instead of a hardcoded
+  `/*` literal, so the original marker style (plain vs. JSDoc/Javadoc) is
+  preserved. Confirmed fixed for Java too via a standalone smoke test.
+  Existing local fixture `test/real_code_regressions_38_out.kt` (Kotlin
+  job's fixture, already exercising this exact shape) updated to the
+  corrected expected output. `make test`: 128/128 forward + 128/128
+  idempotency, zero regressions.
+
+Additional bugs found in the same dogfood pass, **not yet fixed** (handed to
+a follow-up subagent):
+- Dot+space corruption (`options.provideInjectionTokensFrom` →
+  `options. provideInjectionTokensFrom`) appearing when a multi-line call's
+  arguments get rejoined/rewrapped — compounds every re-format pass, some
+  round2 instances had 50+ inserted spaces after the dot.
+- Content duplication — `packages/core/injector/module.ts` and
+  `packages/core/middleware/builder.ts` had entire method/constructor blocks
+  duplicated in round2 that weren't present in round1.
+- Comment-continuation-indent drift still reproduces in at least one file
+  (`edge.interface.ts`) even at `indent-size=2`.
+- `join(...)` call-wrap/collapse non-idempotency: a multi-line call wraps
+  once, then a second pass collapses it back to one line (fits under 100
+  chars) rather than settling into a stable form.
+
 ### Known false positives (no source change needed, fixture-only)
 
 - A spurious-looking blank line after a class's opening `{` in older `.js`

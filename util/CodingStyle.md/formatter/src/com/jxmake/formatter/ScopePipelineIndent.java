@@ -580,6 +580,24 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                     i++;
                     continue;
                 }
+                // An f-string field's own `{`/`}` (emitted as plain PUNCT by TokenizerIndent#
+                // emitFStringField, indistinguishable by type/text alone from a dict/set literal
+                // brace) is owned by applyFStringSpacing, not this pass -- the field-open `{` is
+                // always immediately preceded by FSTRING_START/FSTRING_MIDDLE with no gap token in
+                // between (real code find: `@click.custom_version_option(lambda ctx:
+                // f"{ctx.info_name} 1.0")` in pallets/click's test_basic.py -- padding it here as an
+                // ordinary non-empty-brace-is-loose dict/set literal produced `{ ctx.info_name }`,
+                // which applyFStringSpacing's own unconditional open-gap trim then silently undid on
+                // a second formatting pass, a non-idempotency bug; skip the whole field's content
+                // entirely here rather than just the outer pair, since nothing downstream in this
+                // recursive descent should touch it either).
+                if ("{".equals(t.text) && i > from) {
+                    final TokenType prevType = tokens.get(i - 1).type;
+                    if (prevType == TokenType.FSTRING_START || prevType == TokenType.FSTRING_MIDDLE) {
+                        i = close + 1;
+                        continue;
+                    }
+                }
                 final int contentFirst = nextSignificant(tokens, i + 1, close);
                 if (contentFirst >= 0) {
                     final boolean loose = classifyLoose(t.text, tokens, i + 1, close);

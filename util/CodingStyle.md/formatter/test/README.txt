@@ -1336,6 +1336,26 @@ Real-code regressions:
                                              §9.2's zero-width blank-line insertion. Fixed by
                                              sorting zero-width entries first on ties.
 
+  real_code_regressions_80_inp/out.py     -- Python3, pallets/click real-code testing. §4 decorator
+                                             bracket-padding (`applyBracketPadding`) recursively pads
+                                             every `(`/`[`/`{` pair in a decorator's own expression,
+                                             but couldn't distinguish an f-string field's own `{`/`}`
+                                             (emitted as plain PUNCT by `TokenizerIndent
+                                             #emitFStringField`, same token shape as a dict/set
+                                             literal brace) from an actual dict/set literal -- it
+                                             padded an f-string field nested inside a decorator's
+                                             lambda default argument as if it were a non-empty (thus
+                                             always-loose per §1.5) brace pair, producing `f"{
+                                             ctx.info_name }"` on the forward pass. §5's own f-string
+                                             spacing pass then unconditionally trimmed that same gap
+                                             back on the *next* formatting round, so the bug only
+                                             surfaced as non-idempotency, not a single-pass mismatch.
+                                             Fixed by skipping a `{`/`}` pair entirely in
+                                             `applyBracketPadding` whenever the `{` is immediately
+                                             preceded by an `FSTRING_START`/`FSTRING_MIDDLE` token --
+                                             that adjacency only ever occurs for an f-string field's
+                                             own delimiters, never a dict/set literal's.
+
 How Tests Are Run
 -----------------
 

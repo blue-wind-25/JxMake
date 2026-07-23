@@ -581,5 +581,45 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       128/128 idempotency after the final fixture additions.
 
       New tool: `python_ast_diff.py` (see "Dogfood Tooling" below).
-      `python/cpython`, `django/django`, `psf/black`, `pallets/click` —
-      still not started.
+
+      **`pallets/click` — DONE.** 78 `.py` files processed (fresh clone,
+      `/tmp/click`; no existing checkout found in `/tmp`/scratchpad from a
+      prior session). Zero crashes on the forward pass.
+
+      **One real bug found and fixed, via non-idempotency
+      (`diff -rq round1 round2`):** `ScopePipelineIndent
+      .applyBracketPadding` (§4's decorator recursive bracket-padding)
+      couldn't distinguish an f-string field's own `{`/`}` (plain PUNCT,
+      same token shape as a dict/set literal brace — see
+      `TokenizerIndent#emitFStringField`) from an actual dict/set literal,
+      so it padded an f-string field nested inside a decorator's lambda
+      default argument as a non-empty (thus always-loose per §1.5) brace
+      pair — found in `tests/test_basic.py`'s
+      `@click.custom_version_option(lambda ctx: f"{ctx.info_name} 1.0")`,
+      which became `f"{ ctx.info_name }"` on the forward pass; §5's own
+      f-string spacing pass then unconditionally trimmed that gap back on
+      the *next* round, so the bug only surfaced as non-idempotency, not a
+      single-pass mismatch. Fixed by skipping a `{`/`}` pair entirely in
+      `applyBracketPadding` whenever the `{` is immediately preceded by an
+      `FSTRING_START`/`FSTRING_MIDDLE` token (that adjacency only ever
+      occurs for an f-string field's own delimiters). Fixture
+      `real_code_regressions_80_{inp,out}.py`.
+
+      **Final numbers:** forward pass zero crashes; `diff -rq round1 round2`
+      **empty** (clean idempotency, 78/78) after the fix; `python3.12 -m
+      py_compile` clean on all 78 round1 files (same as the 78 unmodified
+      originals — zero new syntax errors); semantic sanity check beyond
+      syntax: the formatted package imports cleanly
+      (`PYTHONPATH=.../src python3.12 -c "import click"`, prints version
+      `8.4.0` with only click's own unrelated deprecation warning), and a
+      representative slice of click's own pytest suite run against the
+      formatted package (`tests/test_basic.py` — the exact file the bug was
+      found in — plus `test_arguments.py`/`test_options.py`) passed 857/857;
+      the full `tests/` run was not completed (timed out past 120s on what
+      looks like an interactive/terminal-waiting test, unrelated to this
+      job's formatting output) and was not chased further per the "don't be
+      a time sink" guidance — the targeted subset already exercises the
+      exact regression found. `make test`: 129/129 forward + 129/129
+      idempotency after the fixture addition.
+
+      `python/cpython`, `django/django`, `psf/black` — still not started.

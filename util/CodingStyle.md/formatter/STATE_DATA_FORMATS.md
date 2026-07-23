@@ -307,8 +307,9 @@ Checklist for current per-language status):
 - **XML:** `apache/maven`, `apache/ant`, `jenkinsci/jenkins`, `w3c/svgwg`
 - **CSS:** `twbs/bootstrap`, `necolas/normalize.css`, `foundation/foundation-sites`,
   `primer/css`
-- **HTML5:** `h5bp/html5-boilerplate`, `twbs/bootstrap` (docs site), `mdn/content`,
-  `whatwg/html`
+- **HTML5:** `h5bp/html5-boilerplate`, `mdn/content`, `whatwg/html`
+  (`twbs/bootstrap` docs site dropped — see Open Questions resolution below;
+  no longer has committed docs HTML to test against)
 - **YAML:** `kubernetes/kubernetes` (manifests/Helm-adjacent config, heavy real-world
   nesting/anchors), `docker/compose` (compose-file corpus), `ansible/ansible`
   (playbooks — heavy on lists-of-maps, block scalars), `actions/starter-workflows`
@@ -411,6 +412,14 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   migration (last version with Jekyll-rendered docs HTML actually committed)
   to get a real docs-site HTML corpus. No changes made to
   `XmlSpecificRule.java` or any fixture pending this decision.
+
+  **Resolved (user, 2026-07-24): option (b).** `twbs/bootstrap` (docs site)
+  dropped from the HTML5 Test-Fixture Repos list — its docs site no longer
+  ships committed HTML (Astro/MDX now), so there's no real docs-HTML corpus
+  left to dogfood against, and substituting its unrelated JS component test
+  pages (option a) wasn't worth diluting the point of the candidate. HTML5
+  dogfood proceeds with the remaining three: `h5bp/html5-boilerplate` (done),
+  `mdn/content`, `whatwg/html` (both not started).
 
 ---
 
@@ -601,8 +610,9 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       `prometheus/prometheus`, `home-assistant/core` all done — see per-repo
       entries below); **TOML 4/4, DONE** (`rust-lang/cargo`,
       `python-poetry/poetry`, `pola-rs/polars`, `toml-lang/toml` all done —
-      TOML Test-Fixture Repos list now fully complete); HTML5 1/4
-      (`h5bp/html5-boilerplate` done; `twbs/bootstrap` docs site,
+      TOML Test-Fixture Repos list now fully complete); HTML5 1/3
+      (`h5bp/html5-boilerplate` done; `twbs/bootstrap` docs site dropped —
+      no longer has committed docs HTML, see Open Questions resolution;
       `mdn/content`, `whatwg/html` not started). Overall item stays
       unchecked pending the remaining repos above.
 

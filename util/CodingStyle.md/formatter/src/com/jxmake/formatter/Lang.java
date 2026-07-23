@@ -152,7 +152,8 @@ public final class Lang {
         if (lower.endsWith(".toml")) {
             return "toml";
         }
-        if (lower.endsWith(".xml") || lower.endsWith(".svg")) {
+        if (lower.endsWith(".xml") || lower.endsWith(".svg") || lower.endsWith(".xsd")
+                || lower.endsWith(".xsl")) {
             return "xml";
         }
         if (lower.endsWith(".css")) {

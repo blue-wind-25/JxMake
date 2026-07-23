@@ -1657,6 +1657,17 @@ Real-code regressions:
                                              defect). Fixed by adding `lang.isTs && (isOp(prev, "|")
                                              || isOp(prev, "&"))` to the `isValue` check.
 
+  real_code_regressions_91_inp/out.xsl    -- XML, apache/ant real-code testing: `Lang.infer` never
+                                             mapped the `.xsl` extension to `xml` at all (same gap
+                                             shape as `real_code_regressions_74`'s `.svg` fix), so
+                                             every `.xsl` file in the candidate failed with "could not
+                                             infer language from file extension" instead of being
+                                             formatted. Fixed by adding `.xsd`/`.xsl` alongside `.xml`/
+                                             `.svg` in `Lang.infer`.
+
+  real_code_regressions_92_inp/out.xsd    -- XML, apache/ant real-code testing: same `Lang.infer` gap
+                                             as real_code_regressions_91, for the `.xsd` extension.
+
 How Tests Are Run
 -----------------
 

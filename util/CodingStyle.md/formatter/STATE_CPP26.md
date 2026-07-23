@@ -442,4 +442,64 @@ Question here since real implementation hasn't started.
       documented here purely as a real-corpus finding for whoever next
       touches `Lang.infer`'s `.h`-handling decision.
 
+- [x] Real-code testing pass against `ryanjk5.github.io/posts/rjk-duck` (blog
+      post, not a repo) done this session. No local copy found under `/tmp`
+      (checked first per methodology); fetched via WebFetch and extracted all
+      26 C++ code samples from the post into one file,
+      `/tmp/dogfood/rjk-duck/duck_samples.cpp` (samples wrapped in enough
+      surrounding scaffolding — e.g. dummy bodies for `{ ... }` placeholder
+      elisions, renamed a few duplicate type names across samples like
+      `MyTrait`/`Container`/`vtable_wrapper` so the concatenated file doesn't
+      redefine the same symbol twice — to be syntactically parseable by the
+      tokenizer even though several samples were never meant to compile
+      standalone, e.g. `[: /* find perf_options trait, or fall back to
+      default */ :]` placeholder specializations).
+
+      Formatted once (round1), reformatted round1's output (round2): `diff`
+      fully empty (idempotent), zero crashes/exceptions on either pass.
+      Compilation not attempted — same `g++ 4.8.5`/`clang++ 3.7.1` toolchain
+      limitation already documented for the `wrocpp`/`simdjson` sessions
+      (both far too old for P2996/reflection); idempotency + manual
+      inspection used as the same documented fallback (no `syntax_checker`
+      entry exists for C++ either — that tool only covers the data-format/
+      Java/Kotlin jobs).
+
+      Manually spot-checked every `^^`/`[: :]` occurrence in round1 output:
+      `^^MyType`/`^^trait`/`^^has_fn`/`^^Traits...`/`^^void*`/`^^vtable`/
+      `^^T`/`^^candidate_wrapper`/`^^overload_set`/`^^vtable_function2`/
+      `^^vtable_function_wrapper`/`^^inlined_functions` all stay tight to
+      their operand as designed; `[: slots[index] :]` (nested bracket
+      interior) renders loose, `[:VtableMember:]`/`[:Member:]` (bare
+      identifier interior) render tight — consistent with the existing
+      `isLoose` bracket-complexity rule, no corruption in any occurrence.
+
+      **One finding, confirmed out of scope for this job, not fixed here:**
+      Sample 10's multi-statement lambda body inside a `std::views::transform(
+      [=](...) { ...; ...; ...; return ...; })` pipe-chain argument collapses
+      onto one very long line with statements joined by `;` instead of
+      staying multi-line, e.g. body statements
+      `self_type`/`params`/`args`/`return substitute(...)` all end up on one
+      source line. Reproduced with a plain non-C++26 snippet
+      (`/tmp/dogfood/rjk-duck/repro.cpp` — no `^^`/`[: :]`/`template for`
+      anywhere in it) to confirm this is pre-existing general lambda-body/
+      call-line-breaking behavior, not a §5 (or any C++26 §1-4) rule
+      artifact — every §5 rule this job owns is narrowly gap-buffering-only
+      (`enforceReflectionOperatorSpacing`/
+      `enforceAttributeAndSpliceBracketPadding`), none of them touch
+      statement-level line breaking inside a lambda body. Belongs to the
+      general call-line-breaking/lambda-body logic
+      (`MiscRuleCurly.enforceCallLineBreaking` per this file's own earlier
+      references), C/C++/Java job's territory not `CppSpecificRule`/
+      C++26-owned code — not raised as a blocked Open Question since it
+      isn't an ambiguity within this job's own rule set, documented here
+      purely as a real-corpus finding for whoever next touches that method,
+      same posture as the earlier `.h`-vs-`.hpp` `Lang.infer` finding from
+      the `simdjson` session.
+
+      No fixtures added (no bug within this job's scope found). This
+      completes the `ryanjk5.github.io/posts/rjk-duck` entry in "Test
+      Fixtures (External, corpus-scale)" — it was always noted there as
+      "useful extra source" alongside the repo-scale candidates, not a
+      substitute for them.
+
       `stephenberry/glaze` remains not-started.

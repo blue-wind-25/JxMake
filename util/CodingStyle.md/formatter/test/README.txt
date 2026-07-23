@@ -1464,6 +1464,52 @@ Real-code regressions:
                                              literal, tuple, generic argument list, ...) completely
                                              untouched.
 
+  real_code_regressions_85_inp/out.ts     -- JS/TS, nestjs/nest real-code testing.
+                                             `join(...)` call-wrap/collapse non-idempotency:
+                                             `MiscRuleCurly.renderCallCandidate`'s multi-line-source
+                                             (`containsNewline(paramsSlice)`) branch always
+                                             preserved the call's original per-line argument
+                                             grouping (Option 2) unconditionally, with no fits-check
+                                             of its own -- unlike the sibling single-line branch a
+                                             few lines below, which correctly collapses (Option 0)
+                                             whenever the call already fits under the line-length
+                                             limit. A call an author (or a previous format pass) had
+                                             wrapped across multiple lines therefore stayed wrapped
+                                             forever even once it easily fit back onto one line,
+                                             while the exact same call written fresh on one line
+                                             collapsed correctly -- the same logical call could
+                                             settle into two different stable shapes depending
+                                             purely on incidental prior formatting, and one sitting
+                                             right at the boundary (`integration/repl/e2e/
+                                             repl-process.spec.ts`'s `localPackageResolver = join(
+                                             workspaceRoot, '...')`, exactly 100 characters
+                                             collapsed) flipped between a preserved multi-line form
+                                             and a freshly-collapsed one-line form across repeated
+                                             passes -- non-idempotent. Fixed by adding the same
+                                             fits-check to this branch (JS/TS-only, `sigForRender ==
+                                             null && (lang.isJs || lang.isTs)` -- widening to
+                                             C/C++/Java regressed `real_code_regressions_1`, since a
+                                             plain call's `sigForRender` is `null` there for the
+                                             ordinary "not a real signature" reason too, not a
+                                             JS/TS-specific misparse signal): measures the actual
+                                             tight single-line candidate text (not the existing
+                                             sibling branch's loose whitespace-collapsing
+                                             `collapseToOneLine` helper, which turns the newline that
+                                             originally followed the call's own `(` into a phantom
+                                             single space and overestimates length by up to 2
+                                             characters, wrongly disqualifying a call that truly
+                                             fits) and collapses to one line whenever it fits,
+                                             dropping any dangling trailing empty argument group
+                                             (`splitTopLevelCommas`, unlike `groupByOriginalLine`,
+                                             doesn't drop a trailing comma's empty tail itself) so a
+                                             trailing-comma multi-line source doesn't gain a spurious
+                                             trailing `, ` before `)` once collapsed. (Also required
+                                             updating `real_code_regressions_81_out.ts`'s own
+                                             expected output -- its `getInjectionProviders(...)` call
+                                             now correctly collapses to one line too, since it fits;
+                                             the old expected shape had itself been an artifact of
+                                             this same bug.)
+
 How Tests Are Run
 -----------------
 

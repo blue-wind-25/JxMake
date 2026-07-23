@@ -10,9 +10,7 @@ class Foo {
   {
     if(options.inject && options.provideInjectionTokensFrom) return [ this.createAsyncOptionsProvider(
         options
-    ), ...getInjectionProviders(
-        options.provideInjectionTokensFrom, options.inject
-    ), ];
+    ), ...getInjectionProviders(options.provideInjectionTokensFrom, options.inject), ];
     return [ this.createAsyncOptionsProvider(options) ];
   }
 

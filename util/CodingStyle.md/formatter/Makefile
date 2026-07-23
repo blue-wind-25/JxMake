@@ -25,7 +25,7 @@ TEST_LOCK     = $(BUILD_DIR)/.test.lock
 
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
-.PHONY: all build jar clean gru-train gru-measure-abstain-rate gru-extract-pool-a gru-extract-pool-b test _test_serial bench test-server
+.PHONY: all build jar clean gru-extract-pool-a gru-extract-pool-b gru-measure-abstain-rate gru-train test _test_serial bench test-server
 
 all build jar:
 	@if $(MAKE) --no-print-directory -q $(JAR_FILE); then \
@@ -317,6 +317,7 @@ INP_FILES += real_code_regressions_81_inp.ts
 INP_FILES += real_code_regressions_82_inp.ts
 INP_FILES += real_code_regressions_83_inp.yaml
 INP_FILES += real_code_regressions_84_inp.ts
+INP_FILES += real_code_regressions_85_inp.ts
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

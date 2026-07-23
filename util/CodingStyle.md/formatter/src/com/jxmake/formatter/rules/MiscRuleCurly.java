@@ -1081,6 +1081,84 @@ private boolean isFunctionBodyQualifier(final Token t) {
         final String baseIndent = effectiveCallBaseIndent(tokens, nameIdx);
 
         if (containsNewline(paramsSlice)) {
+            // Idempotency fix (nestjs/nest real-code testing, `integration/repl/e2e/
+            // repl-process.spec.ts`'s `join(workspaceRoot, '...')` call): before falling through
+            // to the original-grouping-preserving Option 2 path below, check whether a plain call
+            // (not a real forward declaration -- `sigForRender == null`) would actually fit back
+            // onto one line if collapsed. Previously this branch preserved the original multi-line
+            // grouping *unconditionally* whenever the source already had one, with no fits-check
+            // at all -- so a call an author had wrapped (or that a previous format pass had left
+            // wrapped) stayed wrapped forever on this pass even once it easily fit under
+            // `lineLengthLimit`, while a *fresh* single-line source over the limit still correctly
+            // collapsed via Option 1/3 below. That asymmetry meant the exact same logical call could
+            // render two different stable shapes depending purely on incidental prior formatting,
+            // and a call sitting right at the boundary could flip between a preserved multi-line
+            // form (round1, since `renderCallPreserveGroups`'s own per-line rendering happened to
+            // differ byte-for-byte from a fresh single-line collapse) and a freshly-collapsed
+            // one-line form (round2, once round1's own output was re-scanned and this fits-check
+            // -- reached this time because Option 2's own output still technically contains a
+            // newline -- finally fired) -- non-idempotent. `wholeLine` here reuses the exact same
+            // whitespace-collapsing helper as the measurement below (including any trailing `,`
+            // before `)` from a trailing-comma source style), which can only ever *overestimate*
+            // length by the one stray comma character -- never underestimate -- so this fits-check
+            // is at worst one byte more conservative than the real rendered form, never wrongly
+            // permissive.
+            //
+            // Scoped to JS/TS only (`lang.isJs || lang.isTs`): re-running the full test suite with
+            // this fits-check applied unconditionally to every language regressed
+            // `real_code_regressions_1` (C++) -- a plain call whose arguments are ordinary
+            // expressions (not typed "type name" pairs) also has `sigForRender == null` in C/C++/
+            // Java, which is the common case for any real call in those languages too, not a
+            // JS/TS-specific signal the way it is here (see the Kotlin/JS/TS-only comment on
+            // `sigForRender`'s own assignment above). Collapsing those to one line changed
+            // long-settled, deliberately-preserved multi-line C++ call formatting; this bug was
+            // only ever reported against a JS/TS call (nestjs/nest's `join(...)`), so the fix stays
+            // scoped to where it was actually observed and verified, rather than risking
+            // undocumented behavior changes in the other three languages.
+            if (sigForRender == null && (lang.isJs || lang.isTs)) {
+                final List<List<Token>> args = splitTopLevelCommas(paramsSlice);
+                boolean anyArgHasBraceNewline = false;
+                for (final List<Token> arg : args) {
+                    if (containsInternalNewline(arg) && containsBrace(arg)) {
+                        anyArgHasBraceNewline = true;
+                        break;
+                    }
+                }
+                if (!anyArgHasBraceNewline) {
+                    // Drop a dangling trailing empty group (a trailing comma before `)` with
+                    // nothing after it -- e.g. this codebase's own multi-line call style,
+                    // `foo(\n  a,\n  b,\n);` -- `splitTopLevelCommas` (unlike its sibling
+                    // `groupByOriginalLine`) doesn't drop it itself; without this, the collapsed
+                    // one-line form gained a spurious trailing `, ` before `)`.
+                    while (!args.isEmpty() && significantOnly(args.get(args.size() - 1)).isEmpty()) {
+                        args.remove(args.size() - 1);
+                    }
+                    final StringBuilder argsText = new StringBuilder();
+                    for (int i = 0; i < args.size(); i++) {
+                        if (i > 0) {
+                            argsText.append(", ");
+                        }
+                        argsText.append(collapseTokensToOneLine(args.get(i)));
+                    }
+                    final String candidate = "(" + argsText + ")";
+                    // Measure the *actual* tight candidate text (no phantom space at the `(`/`)`
+                    // boundary) rather than reusing the loose whitespace-collapsing
+                    // `collapseToOneLine` helper used by the sibling non-newline fits-check below --
+                    // that helper turns *any* whitespace/newline run (including the newline that
+                    // originally followed this call's own `(`) into a single space, which would
+                    // measure a phantom `join( workspaceRoot` / `...ts', )` shape that this
+                    // candidate's own tight rendering never actually produces, overestimating length
+                    // by up to 2 characters and wrongly disqualifying a call that truly fits.
+                    final StringBuilder prefix = new StringBuilder();
+                    appendRange(prefix, tokens, lineStartIndex(tokens, nameIdx), openIdx);
+                    final StringBuilder suffix = new StringBuilder();
+                    appendRange(suffix, tokens, closeIdx + 1, effectiveLineEndIndex(tokens, closeIdx));
+                    final int candidateLen = baseIndent.length() + prefix.length() + candidate.length() + suffix.length();
+                    if (candidateLen <= lineLengthLimit) {
+                        return candidate;
+                    }
+                }
+            }
             // renderCallPreserveGroups/renderDeclarationPreserveGroups re-split each original
             // source line independently, resetting paren-depth tracking to 0 per line -- correct
             // only when paramsSlice actually holds multiple top-level (sibling) arguments. A single

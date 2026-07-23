@@ -563,10 +563,52 @@ Fourth bug found and fixed:
   member — which pointed at a later pass; grepping for `&`/union handling
   led directly to `enforceUnionTypeContinuationIndent`.)
 
-Additional bugs found in the same dogfood pass, **not yet fixed**:
-- `join(...)` call-wrap/collapse non-idempotency: a multi-line call wraps
-  once, then a second pass collapses it back to one line (fits under 100
-  chars) rather than settling into a stable form.
+Fifth bug found and fixed (all four originally-reported bugs now resolved):
+
+- **`join(...)` call-wrap/collapse non-idempotency** —
+  `integration/repl/e2e/repl-process.spec.ts`'s `const localPackageResolver
+  = join(workspaceRoot, 'integration/_support/register-local-packages.ts')`
+  (exactly 100 characters collapsed -- right at `lineLengthLimit`). Root
+  cause: `MiscRuleCurly.renderCallCandidate`'s multi-line-source
+  (`containsNewline(paramsSlice)`) branch always preserved the call's
+  original per-line argument grouping (Option 2) unconditionally, with no
+  fits-check of its own -- unlike the sibling single-line branch a few
+  lines below, which correctly returns Option 0 (no change) whenever the
+  call already fits. A call an author (or a previous format pass) had
+  wrapped stayed wrapped forever even once it easily fit back onto one
+  line, while the same call written fresh on one line collapsed correctly
+  -- the same logical call could settle into two different stable shapes
+  depending purely on incidental prior formatting, and one sitting right at
+  the boundary flipped between forms across repeated passes. Fixed by
+  adding the same fits-check to this branch, scoped to JS/TS only
+  (`sigForRender == null && (lang.isJs || lang.isTs)` -- widening to every
+  language unconditionally regressed `real_code_regressions_1`/C++, since a
+  plain call's `sigForRender` is `null` there too for the ordinary "not a
+  real signature" reason, not a JS/TS-specific misparse signal): measures
+  the actual tight single-line candidate text directly (building the real
+  `(args)` candidate and its own prefix/suffix token ranges via
+  `appendRange`, rather than reusing the sibling branch's loose
+  whitespace-collapsing `collapseToOneLine` helper, which turns the
+  newline that originally followed the call's own `(` into a phantom
+  single space and overestimates length by up to 2 characters, wrongly
+  disqualifying a call that truly fits), and collapses to one line
+  whenever it fits -- dropping any dangling trailing empty argument group
+  first (`splitTopLevelCommas`, unlike its `groupByOriginalLine` sibling,
+  doesn't drop a trailing comma's empty tail itself, so a trailing-comma
+  multi-line source would otherwise gain a spurious trailing `, ` before
+  `)` once collapsed -- found and fixed via an intermediate `make test`
+  regression in `real_code_regressions_81`, since fixture 81's own
+  `getInjectionProviders(...)` call has a trailing comma). New fixture
+  `test/real_code_regressions_85_{inp,out}.ts`. Also required updating
+  `real_code_regressions_81_out.ts`'s own expected output — its
+  `getInjectionProviders(...)` call now correctly collapses to one line
+  too (it fits); the old expected shape had itself been an artifact of
+  this same bug, baked in as "correct" only because Bug 4 didn't have a
+  fixture yet at the time Bug 1 was fixed. `make test`: 134/134 forward +
+  134/134 idempotency, zero regressions beyond the intentional
+  `real_code_regressions_81_out.ts` update. Confirmed against the
+  originally-reported nestjs/nest file: round1→round2 diff now empty.
+  `node --check` (Node 24) passes on the round1 output.
 
 ### Known false positives (no source change needed, fixture-only)
 

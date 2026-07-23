@@ -1272,6 +1272,20 @@ Real-code regressions:
                                              for the sibling/nested-child decision and multi-line
                                              scalar continuation anchoring.
 
+  real_code_regressions_76_inp/out.hpp    -- C++26, simdjson/experimental_json_builder real-code
+                                             testing: `enforceAttributeAndSpliceBracketPadding`'s
+                                             loose `[: expr :]` padding ran in Phase 4, after
+                                             `enforceCallLineBreaking` had already measured/decided
+                                             not to wrap a line right at the length limit -- a fresh
+                                             format saw the pre-padding width and stayed one line,
+                                             while reformatting that already-padded output saw the
+                                             now-over-limit width and wrapped, a non-idempotent
+                                             round1/round2 mismatch. Found via idempotency diffing
+                                             (not baseline, not a crash). Fixed by pulling
+                                             `enforceAttributeAndSpliceBracketPadding` forward to run
+                                             right before `enforceCallLineBreaking`, same fix shape
+                                             already used for `enforceComplexityPadding`.
+
 How Tests Are Run
 -----------------
 

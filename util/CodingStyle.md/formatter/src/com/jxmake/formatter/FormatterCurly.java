@@ -190,6 +190,22 @@ public final class FormatterCurly extends FormatterCore {
         // bitwise_rotate_right/left overloads and te_parser::list's while loop,
         // github.com/blake-madden/tinyexpr-plusplus).
         text = miscRule.enforceComplexityPadding(tokenizer.apply(text));
+        // Same "measurement must see the final width" reasoning as enforceComplexityPadding just
+        // above: enforceAttributeAndSpliceBracketPadding's loose `[: expr :]`/`[[ expr ]]` padding
+        // can push a line right at the boundary past LINE_LENGTH_LIMIT with no further re-check if
+        // it ran later (originally Phase 4, after enforceCallLineBreaking already measured/decided
+        // not to wrap) -- a fresh format sees the pre-padding width and stays one line, while a
+        // reformat of already-formatted output (padding already baked in) sees the post-padding
+        // width and wraps, a genuine idempotency bug (found via real-world testing,
+        // simdjson/experimental_json_builder's `from_json.hpp`
+        // `[:simdjson::json_builder::expand(std::meta::nonstatic_data_members_of(^T)):] >>`
+        // line). Pulled forward from Phase 4 to run right before enforceCallLineBreaking, same fix
+        // shape as enforceComplexityPadding above; enforcePackIndexingSpacing/
+        // enforceReflectionOperatorSpacing stay in Phase 4 since they only ever tighten (remove)
+        // spacing, never grow a line's width, so they can't trigger this class of bug.
+        if (lang.isCpp) {
+            text = cppRule.enforceAttributeAndSpliceBracketPadding(tokenizer.apply(text));
+        }
         text = miscRule.enforceCallLineBreaking(tokenizer.apply(text));
         // enforceCallLineBreaking can turn a one-liner function body into a multi-line one (an
         // overlong call inside it gets wrapped across lines) -- but enforceFunctionDefinitionAllman
@@ -264,7 +280,6 @@ public final class FormatterCurly extends FormatterCore {
             text = cppRule.enforceTemplateAngleBracketSpacing(tokenizer.apply(text));
             text = cppRule.enforcePackIndexingSpacing(tokenizer.apply(text));
             text = cppRule.enforceContractAssertSpacing(tokenizer.apply(text));
-            text = cppRule.enforceAttributeAndSpliceBracketPadding(tokenizer.apply(text));
             text = cppRule.enforceReflectionOperatorSpacing(tokenizer.apply(text));
         }
         if (isCOrCpp && config.isFormatMacros()) {

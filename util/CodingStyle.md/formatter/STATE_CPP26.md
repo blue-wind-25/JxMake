@@ -367,3 +367,79 @@ Question here since real implementation hasn't started.
       `bloomberg/clang-p2996` confirmed empty/unusable (see that section).
       `simdjson/experimental_json_builder`, `stephenberry/glaze` remain
       not-started.
+- [x] Real-code testing pass against `simdjson/experimental_json_builder`
+      done this session (fresh shallow clone under scratchpad, not
+      previously present). Repo confirmed genuinely small as expected: 27
+      `.cpp`/`.hpp`/`.h`/`.cc` files, 3.9k total lines, no bundled/amalgamated
+      simdjson single-header blob present (largest file, `apple_arm_events.h`
+      at 1104 lines, is a plain perf-counter-ID header, not vendored
+      simdjson). Formatted in one batch via `--out`/`--preserve-tree`/
+      `--root` -- zero crashes/exceptions on the initial pass.
+
+      **One real idempotency bug found and fixed.** round1 -> round2 `diff
+      -r` was NOT initially empty:
+      `benchmarks/simpleparser/from_json.hpp`'s
+      `[:simdjson::json_builder::expand(std::meta::nonstatic_data_members_of(^T)):] >>`
+      line rendered as one (102-char, over the 100-char limit) line on
+      round1 but wrapped onto three lines on round2. Root cause:
+      `FormatterCurly`'s Phase ordering had
+      `CppSpecificRule.enforceAttributeAndSpliceBracketPadding` (which can
+      grow a line's width via its loose `[: expr :]` padding) running in
+      Phase 4, *after* `MiscRuleCurly.enforceCallLineBreaking`'s
+      "does it fit in `LINE_LENGTH_LIMIT`" measurement in Phase 1 had already
+      run and decided not to wrap -- so a fresh format measured the
+      pre-padding (98-char, fits) width and stayed one line, while
+      reformatting that already-padded output measured the post-padding
+      (102-char, over limit) width and wrapped. Exactly the same bug shape
+      already documented and fixed once for `enforceComplexityPadding`
+      (see the comment at `FormatterCurly.java`'s Phase 1/enforceComplexity
+      Padding call) and flagged as a generic risk in `STATE_COMMON.md`'s
+      Architectural TODOs ("Ordering interacts with every other pass").
+      Fixed the same way: pulled `enforceAttributeAndSpliceBracketPadding`
+      forward to run right before `enforceCallLineBreaking`, alongside
+      `enforceComplexityPadding` (both `lang.isCpp`-gated at that point
+      instead of down in Phase 4). `enforcePackIndexingSpacing`/
+      `enforceReflectionOperatorSpacing` were deliberately left in Phase 4 --
+      both only ever tighten (remove) spacing, never grow a line's width, so
+      they can't trigger this class of bug. Added fixture pair
+      `test/real_code_regressions_76_{inp,out}.hpp` (minimal repro of the
+      exact construct), registered in the Makefile's `INP_FILES` and
+      `test/README.txt`. `make test`: 125/125 forward + idempotency, zero
+      regressions.
+
+      **Final full-corpus re-run after the fix:** all 27 files reformatted
+      again -- zero crashes, round1 -> round2 `diff -r` fully empty
+      (27/27 idempotent). Compilation not attempted: same `g++ 4.8.5`/
+      `clang++ 3.7.1` toolchain limitation already documented for the
+      `wrocpp` session (both far too old for P2996/reflection); idempotency +
+      manual inspection used as the same documented fallback.
+
+      Manually spot-checked every file containing `^^`/`[: :]` syntax
+      (`examples/demo.cpp`, `examples/example2.cpp`, `examples/example3.cpp`,
+      `tests/user_profile_tests.cpp`, `benchmarks/simpleparser/
+      from_json.hpp`, plus the two `.h` files below): `^^T`/`^^Z` stay tight;
+      `[:expand(...):]`/`[: json_builder::expand(...) :]` correctly go loose
+      (nested call inside) with consistent padding on both the `[:`/`:]`
+      boundary and the call's own parens; `t.[:dm:]`/`t.[:mem:]` (member
+      splice, bare identifier interior) stay tight; no corruption found in
+      any reflection construct.
+
+      **Separate finding, confirmed out of scope for this job, not fixed
+      here:** `include/simdjson/json_builder/json_builder.h` and
+      `universal_formatter.h` both use `^^`/`[: :]` reflection syntax but are
+      `.h`-extensioned -- `Lang.infer` maps `.h` to plain `"c"`, not `"cpp"`
+      (pre-existing, `.h`-is-ambiguous-defaults-to-C design predating this
+      job, in `Lang.java`, C/C++/Java job's territory, not `CppSpecificRule`/
+      Curly-family code this job owns). Since every §5 rule in this job is
+      `lang.isCpp`-gated, these two files silently get zero §5 rules applied
+      -- no crash, no corruption, just complete non-application (confirmed by
+      isolating: identical content reformats loose/§5-aware under a `.hpp`
+      filename but tight/§5-unaware under a `.h` filename, in the same
+      directory, same invocation). Not this job's file/scope to change
+      (`Lang.infer`'s extension table is shared, general-purpose language
+      detection, not C++26-specific), and not raised as a blocked Open
+      Question since it isn't an ambiguity *within* this job's own rule set --
+      documented here purely as a real-corpus finding for whoever next
+      touches `Lang.infer`'s `.h`-handling decision.
+
+      `stephenberry/glaze` remains not-started.

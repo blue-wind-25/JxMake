@@ -1335,6 +1335,42 @@ Real-code regressions:
                                              `render` skip past (not get stuck on) any replacement
                                              whose `start` has already been passed by `i`.
 
+  real_code_regressions_79_inp/out.py     -- Python3, pallets/flask real-code testing (same run as
+                                             fixture 78): two more bugs found via the same final
+                                             idempotency re-check after fixture 78's fix. (1) §6
+                                             signature alignment: `trySignatureGroup` split a
+                                             signature's interior into per-parameter segments purely
+                                             on raw `NEWLINE` tokens, not bracket-depth-aware --
+                                             a parameter whose own type hint spans multiple physical
+                                             lines via a still-open nested bracket (`attempts:
+                                             list[\n    tuple[...]\n]`) got its own continuation
+                                             lines misclassified as separate bogus parameters instead
+                                             of correctly triggering the documented "parameter spans
+                                             multiple physical lines -- leave whole signature
+                                             untouched" gap, corrupting the signature with growing
+                                             trailing whitespace each idempotency round (non-
+                                             convergent). Fixed by only splitting segments at a
+                                             `NEWLINE` when local bracket depth is 0, and rejecting
+                                             any segment that still contains an embedded `NEWLINE`
+                                             (multi-line param) in `classifySignatureParam`. (2) §9.2
+                                             blank-line-before-`elif`/`else`: when the `elif`/`else`
+                                             header's own body also qualified for §8's single-
+                                             statement join, both passes produced a replacement
+                                             starting at the exact same token index (the header's own
+                                             start) -- §9's zero-width blank-line insertion and §8's
+                                             wider header-rewriting join. The render() merge's
+                                             stable sort on `start` alone left the zero-width entry
+                                             second, so §8's replacement jumped straight over it,
+                                             silently dropping the blank-line insertion outright (a
+                                             forward-pass bug, present on round1 already, not merely
+                                             an idempotency artifact -- found via a hand-authored
+                                             worked example while investigating fixture 78's own
+                                             idempotency failure, then confirmed against the same
+                                             debughelpers.py shape). Fixed by sorting equal-`start`
+                                             replacements with zero-width entries first, so an
+                                             insertion always composes with a same-position rewrite
+                                             rather than being swallowed by it.
+
 How Tests Are Run
 -----------------
 

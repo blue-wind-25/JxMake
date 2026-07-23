@@ -70,7 +70,15 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         replacements.addAll(applyCaseColonAlignment(tokens, rawLines));
         replacements.addAll(applySingleStatementBody(tokens, rawLines));
         replacements.addAll(applyControlFlowBlankLines(tokens, rawLines));
-        replacements.sort(Comparator.comparingInt(r -> r.start));
+        // Ties on `start` must put zero-width insertions (start == end, e.g. §9's blank-line-before
+        // insertion) ahead of any wider, token-consuming replacement at that same position (e.g. §8's
+        // header-rewriting join) -- a zero-width entry renders without advancing the render() cursor,
+        // so ordering it first lets both compose (blank line inserted, then the join's own rewritten
+        // text follows); ordering it second would let the wider replacement's jump-ahead strand the
+        // zero-width entry as stale and silently drop it (see render()'s own javadoc for the general
+        // stale-entry posture this preserves).
+        replacements.sort(Comparator.<Replacement>comparingInt(r -> r.start)
+                .thenComparingInt(r -> r.end - r.start));
         return render(tokens, replacements);
     }
 
@@ -902,10 +910,25 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      *  STATE_COMMON.md ambiguity requiring a user answer, since STYLE_PYTHON3.md §6 itself only ever
      *  describes the already-one-per-line shape being aligned here. */
     private List<Replacement> trySignatureGroup(final List<Token> tokens, final int openIdx, final int closeIdx) {
-        final List<int[]> segments = new ArrayList<>(); // [segStart, segEnd) per NEWLINE-delimited segment
+        // NEWLINE only ends a segment at local bracket-depth 0 -- a parameter whose own type hint or
+        // default itself contains a nested bracket spanning multiple physical lines (e.g.
+        // `attempts: list[\n    tuple[...]\n]`) must never be split into multiple bogus segments at
+        // its own interior NEWLINEs; each such NEWLINE is still inside that one parameter's own
+        // unclosed bracket, so it's skipped here and the whole multi-line param collapses back into
+        // one segment, which classifySignatureParam then rejects for containing embedded NEWLINEs
+        // (via its own single-line assumption), correctly leaving the whole signature untouched per
+        // this method's documented "parameter spanning more than one physical line" gap -- instead of
+        // silently misclassifying each of that param's own continuation lines as separate params.
+        final List<int[]> segments = new ArrayList<>(); // [segStart, segEnd) per top-level-NEWLINE-delimited segment
         int segStart = openIdx + 1;
+        int localDepth = 0;
         for (int i = openIdx + 1; i < closeIdx; i++) {
-            if (tokens.get(i).type == TokenType.NEWLINE) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.PUNCT && isOpenBracketText(t.text)) {
+                localDepth++;
+            } else if (t.type == TokenType.PUNCT && isCloseBracketText(t.text)) {
+                localDepth--;
+            } else if (t.type == TokenType.NEWLINE && localDepth == 0) {
                 segments.add(new int[] { segStart, i });
                 segStart = i + 1;
             }
@@ -958,6 +981,15 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     private PyParam classifySignatureParam(final List<Token> tokens, final int segStart, final int segEnd) {
         for (int k = segStart; k < segEnd; k++) {
             if (tokens.get(k).type == TokenType.COMMENT_LINE) {
+                return null;
+            }
+            // A segment containing its own embedded NEWLINE means the caller's bracket-depth-aware
+            // segmentation had to fold multiple physical lines into one segment because they all
+            // belonged to one still-open bracket -- i.e. this parameter's own type hint or default
+            // spans more than one physical line. Reject it (whole signature left untouched), per this
+            // class's documented gap, rather than misclassifying multi-line content as one flattened
+            // param.
+            if (tokens.get(k).type == TokenType.NEWLINE) {
                 return null;
             }
         }

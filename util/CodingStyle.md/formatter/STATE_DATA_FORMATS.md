@@ -572,7 +572,7 @@ None recorded yet in this file.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format.
       Status: JSON/JSON5 complete (4/4 repos); CSS complete (4/4 repos); XML
-      2/4 (`apache/maven`, `w3c/svgwg` done; `apache/ant`/`jenkinsci/jenkins`
+      3/4 (`apache/maven`, `w3c/svgwg`, `apache/ant` done; `jenkinsci/jenkins`
       not started); **YAML: all 4 originally-planned repos DONE, plus both
       later-added repos, list now fully complete** (`kubernetes/kubernetes`,
       `docker/compose`, `ansible/ansible`, `actions/starter-workflows`,
@@ -679,7 +679,7 @@ None recorded yet in this file.
         baseline. Manual spot-check confirmed only re-indentation/
         colon-alignment, no content loss. Zero bugs found.
 
-      **XML (1/4 repos done):**
+      **XML (3/4 repos done):**
       - `apache/maven`: 3158 files found, above sampling threshold — sampled
         398 files (all 90 top-level/module `pom.xml`, every 10th of 1882
         `test/resources` `pom.xml` = 189, every 10th of 1186 non-pom `.xml`
@@ -724,6 +724,43 @@ None recorded yet in this file.
         whitespace-sensitive path-data attribute values, and CDATA (18 files)
         all exercised with no corruption. `apache/ant`, `jenkinsci/jenkins`
         remain not-started.
+      - `apache/ant`: 558 files found (517 `.xml` + 2 `.xsd` + 39 `.xsl`),
+        above the several-hundred sampling threshold — sampled every 3rd
+        `.xml` file (sorted path order, 173 files) plus all 2 `.xsd` + 39
+        `.xsl` (214 files total, no build/vendor/generated dirs to exclude —
+        this is Ant's own source tree, not a built output). Baseline
+        `xml_sc.js`: 207/214 pass — 7 excluded, all under
+        `src/etc/testcases/**` (Ant's own deliberately-invalid/malformed XML
+        task-test fixtures: entity-relative-include, encoding, and
+        include-parse-error cases — same pre-existing-invalid precedent as
+        prior repos). **In-scope corpus: 214 files** (the 7 excluded still
+        get forward/idempotency-checked, just not syntax-checked against a
+        parse-error baseline they were never expected to pass).
+        **1 bug found+fixed:** `Lang.infer` never mapped the `.xsd`/`.xsl`
+        extensions to `xml` at all (same gap shape as the `w3c/svgwg`
+        session's `.svg` bug) — every `.xsl`/`.xsd` file in the sample (41
+        files) failed with "could not infer language from file extension"
+        instead of being formatted, surfaced immediately by the forward pass
+        itself. Fixed by adding `.xsd`/`.xsl` alongside `.xml`/`.svg` in
+        `Lang.infer`. Fixtures `test/real_code_regressions_91_{inp,out}.xsl`,
+        `test/real_code_regressions_92_{inp,out}.xsd`. `make test`: 141/141
+        forward + 141/141 idempotency. Commit `25bd5b8`. Full 214-file re-run
+        after the fix: forward 214/214 (zero errors); idempotency 214/214
+        clean (`diff -rq` round1 vs round2 empty); syntax-check of round1
+        output matches baseline exactly (same 7 pre-existing
+        `testcases/**` failures, no new ones). Content-preservation
+        (`xml_content_diff.py`, reused as-is) flagged 66/214 files, 484
+        individual mismatches across those files, all confirmed
+        programmatically case-insensitive-equal (the same expected
+        `normalize-comment-start-case=on` behavior as `apache/maven`'s and
+        `w3c/svgwg`'s runs) — zero attribute-order/text/CDATA/structural
+        mismatches, zero further bugs. Ant's `build.xml`-family files (heavy
+        `<macrodef>`/`<target>`/`<condition>`/nested-task structure),
+        XSLT report stylesheets (`junit-frames.xsl` etc., deeply nested
+        `<xsl:template>`/`<xsl:for-each>`/HTML-in-XSLT), and the 2 `.xsd`
+        schema files all exercised with no corruption beyond the expected
+        comment-capitalization normalization. `jenkinsci/jenkins` remains
+        not-started.
 
       **TOML (2/4 repos done):**
       - `rust-lang/cargo`: 672 files, full set processed (below sampling

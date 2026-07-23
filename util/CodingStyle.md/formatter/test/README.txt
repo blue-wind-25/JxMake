@@ -1314,6 +1314,27 @@ Real-code regressions:
                                              significant token), emitting the whole literal as one
                                              opaque `STRING` token.
 
+  real_code_regressions_78_inp/out.py     -- Python3, pallets/flask real-code testing (first
+                                             Python3 dogfood run): a non-idempotency bug found via
+                                             `diff -r round1 round2` (Python's own `ast.dump`
+                                             comparison confirmed round1's tree was already
+                                             semantically correct -- this was a formatter
+                                             under-application bug, not a scoping corruption).
+                                             `ScopePipelineIndent.render`'s replacement-merge loop
+                                             advanced its replacement-list cursor `r` only on an
+                                             exact `start == i` match; whenever two independently-
+                                             computed passes legitimately produced overlapping
+                                             token-range replacements (here, §8's single-statement-
+                                             body join and §2's own trivial single-member assignment-
+                                             alignment group for that same nested body statement),
+                                             the now-stale, already-passed-over entry permanently
+                                             stalled `r`, silently dropping every later replacement
+                                             in the file, not just the one genuinely-overlapping
+                                             entry -- corrupting unrelated assignment-alignment
+                                             padding arbitrarily far downstream. Fixed by having
+                                             `render` skip past (not get stuck on) any replacement
+                                             whose `start` has already been passed by `i`.
+
 How Tests Are Run
 -----------------
 

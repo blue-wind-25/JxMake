@@ -1571,13 +1571,26 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      *  exact original source span, EXCEPT the synthesized {@code INDENT}/{@code DEDENT} markers
      *  (see {@link TokenizerIndent#synthesizeIndentation}), which carry no source text of their
      *  own (their {@code text} field instead holds the new indent width, for a later rule pass's
-     *  use) and so must be skipped here rather than appended. */
+     *  use) and so must be skipped here rather than appended.
+     *
+     *  <p>Two independently-computed passes' replacements can legitimately overlap in token-index
+     *  range (e.g. {@link #applySingleStatementBody}'s header+body span and {@link
+     *  #applyAssignmentAlignment}'s own trivial single-member-group span for that same body
+     *  statement) -- per this class's established "wider, earlier-sorted replacement wins" posture
+     *  (see {@link #applySingleStatementBody}'s javadoc), any later replacement whose {@code start}
+     *  has already been passed by {@code i} must be discarded, not left for a future exact-match
+     *  check that can never succeed once {@code i} has moved beyond it -- leaving it in place would
+     *  permanently stall the {@code r} cursor and silently drop every subsequent replacement in the
+     *  file, not just the one genuinely-overlapping entry. */
     private String render(final List<Token> tokens, final List<Replacement> replacements) {
         final StringBuilder out = new StringBuilder();
         final int n = tokens.size();
         int i = 0;
         int r = 0;
         while (i < n) {
+            while (r < replacements.size() && replacements.get(r).start < i) {
+                r++;
+            }
             if (r < replacements.size() && replacements.get(r).start == i) {
                 out.append(replacements.get(r).text);
                 i = replacements.get(r).end;

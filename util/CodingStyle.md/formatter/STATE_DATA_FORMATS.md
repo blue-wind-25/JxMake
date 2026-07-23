@@ -316,9 +316,10 @@ Checklist for current per-language status):
   (done — see Checklist; alerting/recording rule YAML with PromQL expressions
   embedded in scalars, `$labels`/`$value` templating, deeply nested rule groups,
   plus large hand-authored `pnpm-lock.yaml` corpora under `web/ui/`),
-  `home-assistant/core` (not started — very large volume of hand-authored
-  automation/config YAML, deeply nested, heavy use of block scalars, a different
-  large-corpus stress test than kubernetes' API-manifest shape)
+  `home-assistant/core` (done — see Checklist; very large volume of
+  hand-authored automation/config YAML, deeply nested, heavy use of block
+  scalars, a different large-corpus stress test than kubernetes' API-manifest
+  shape)
 - **TOML:** `rust-lang/cargo` (`Cargo.toml` corpus across its own repo and any
   vendored crates), `python-poetry/poetry` (`pyproject.toml`-heavy), `pola-rs/polars`
   (large Rust workspace, many `Cargo.toml` files), `toml-lang/toml` (the spec repo
@@ -572,12 +573,11 @@ None recorded yet in this file.
       `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format.
       Status: JSON/JSON5 complete (4/4 repos); CSS complete (4/4 repos); XML
       2/4 (`apache/maven`, `w3c/svgwg` done; `apache/ant`/`jenkinsci/jenkins`
-      not started); **YAML: all 4 originally-planned repos DONE, plus 1 of 2
-      later-added repos** (`kubernetes/kubernetes`, `docker/compose`,
-      `ansible/ansible`, `actions/starter-workflows`, and now
-      `prometheus/prometheus` all done — see per-repo entries below;
-      `home-assistant/core` remains not-started, so the list itself is not
-      fully exhausted); **TOML 4/4, DONE** (`rust-lang/cargo`,
+      not started); **YAML: all 4 originally-planned repos DONE, plus both
+      later-added repos, list now fully complete** (`kubernetes/kubernetes`,
+      `docker/compose`, `ansible/ansible`, `actions/starter-workflows`,
+      `prometheus/prometheus`, `home-assistant/core` all done — see per-repo
+      entries below); **TOML 4/4, DONE** (`rust-lang/cargo`,
       `python-poetry/poetry`, `pola-rs/polars`, `toml-lang/toml` all done —
       TOML Test-Fixture Repos list now fully complete); HTML5 1/4
       (`h5bp/html5-boilerplate` done; `twbs/bootstrap` docs site,
@@ -1001,6 +1001,64 @@ None recorded yet in this file.
         the full in-scope corpus. **This completes `prometheus/prometheus`**
         in the YAML Test-Fixture Repos list; `home-assistant/core` remains
         not-started.
+
+      **`home-assistant/core` (added-repo session, done — completes the YAML
+      Test-Fixture Repos list):**
+      - Fresh shallow clone. 921 `.yaml`/`.yml` files found (excluding
+        `node_modules/`), full set processed in one batch invocation (below
+        the several-hundred+ sampling threshold's practical ceiling for a
+        single-pass run). Baseline `yaml_sc.js`: 43 fail — Home Assistant's
+        own custom-tag/templating idioms (`!include`/`!secret`/`!env_var`
+        custom YAML tags, `{{ ... }}` Jinja2 blueprint placeholders used as
+        bare scalars) js-yaml doesn't recognize, same class of exclusion as
+        `ansible/ansible`'s `!vault`/`!unsafe` and `actions/starter-
+        workflows`'s Handlebars placeholders — confirmed via `yaml_sc.js`'s
+        actual baseline failures, not filename-pattern guessing. **In-scope
+        corpus: 878 files.** Forward pass (pre-fix jar): 921/921 processed,
+        zero crashes. **1 bug found+fixed, via `yaml_content_diff.py`
+        content-preservation** (not syntax-check — every corrupted output
+        stayed syntactically valid YAML, consistent with every prior YAML
+        dogfood session's bug history): a sequence item whose own value is
+        itself another sequence, written in the compact single-line form
+        `- - a\n  - b` (this repo's `services.yaml` files use it for
+        mutually-exclusive `supported_features` group pairs, e.g. `toggle`
+        needing either `OPEN` or `CLOSE`). `parseSeqItem` never recognized
+        this shape at all — the inner `- ` was captured as a literal scalar
+        value, leaving the sibling nested-seq item on the next physical line
+        completely unconsumed in the line stream; that orphaned line's
+        indent then didn't match the enclosing block's own `blockIndent`, so
+        `parseBlock`'s loop broke out of the entire enclosing block early —
+        silently dropping the rest of the nested sequence AND every sibling
+        item/key that followed it, at every level (6 files affected:
+        `cover`/`media_player`/`overkiz`/`siren`/`valve`/`wmspro`
+        `services.yaml`, each losing everything from the second feature-
+        group entry onward, including unrelated later top-level keys like
+        `fields`/`stop_cover`). Fixed by detecting the nested-dash shape up
+        front in `parseSeqItem` and parsing it via a new
+        `parseInlineNestedSeq` helper (the inline dash-line's own value,
+        recursing for further nesting, plus sibling nested items via the
+        ordinary `parseBlock`); rendered through the existing generic
+        `item.children` sequence-render path, which non-lossily expands the
+        compact `- -` form into a bare dash followed by the nested items one
+        level deeper — always valid YAML, no data loss, same "prefer an
+        unambiguous expanded form" precedent as this formatter's flow-to-
+        block conversion elsewhere. Fixture `test/real_code_regressions_86_
+        {inp,out}.yaml`. `make test`: 135/135 forward + idempotency. Commit
+        `e7f0334`. **Final numbers after the fix, full 921-file re-run:**
+        forward 921/921 clean, zero crashes; idempotency (`diff -rq round1
+        round2`) 921/921 clean; syntax-check of round1 output: same 43
+        baseline failures, no new ones; content-preservation
+        (`yaml_content_diff.py`) 870/878 clean across the in-scope corpus —
+        the remaining 8 are the same `yaml_content_diff.py`/PyYAML
+        emoji-in-comment tool gap first flagged during the `docker/compose`
+        session (`.github/workflows/{detect-duplicate-issues,detect-non-
+        english-issues,stale}.yml` and `homeassistant/components/{bring,
+        habitica,html5,matrix,telegram_bot}/services.yaml`, one emoji each
+        — `yaml_sc.js`/js-yaml parses all 8 fine on both original and
+        formatted copies; not a formatter bug). **This completes
+        `home-assistant/core`**, and with it all 6 planned YAML Test-Fixture
+        Repos (4 originally-planned plus both later-added) — the YAML
+        Test-Fixture Repos list is now fully exhausted.
 
       **HTML5 (1/4 repos done, first HTML5 dogfood run):**
       - `h5bp/html5-boilerplate`: 4 files (`dist/index.html`, `dist/404.html`,

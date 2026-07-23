@@ -145,15 +145,15 @@ or:
 ## Dogfood Tooling
 
 `python_ast_diff.py` — content-preservation checker for real-code testing,
-modeled on `STATE_DATA_FORMATS.md`'s `*_content_diff.py` scripts (not that
-job's file, own equivalent here since Python has a real parser in its own
-stdlib). Lives in `tools/syntax_checker/python_ast_diff.py` (committed,
+modeled on `STATE_DATA_FORMATS.md`'s `*_content_diff.py` scripts (own
+equivalent here, not that job's file, since Python has a real parser in its
+own stdlib). Lives in `tools/syntax_checker/python_ast_diff.py` (committed,
 licensed project tooling, alongside the other jobs' checkers). Parses both
-original and formatted files with stdlib `ast`
-and compares `ast.dump(tree, include_attributes=False)` for structural
-equality (position attributes stripped since formatting legitimately
-changes those). Exit 0 if identical, 1 with a first-mismatch line printed if
-not, 2 if either file fails to parse. Usage:
+original and formatted files with stdlib `ast` and compares
+`ast.dump(tree, include_attributes=False)` for structural equality
+(position attributes stripped since formatting legitimately changes those).
+Exit 0 if identical, 1 with a first-mismatch line printed if not, 2 if
+either file fails to parse. Usage:
 `python3 python_ast_diff.py <original.py> <formatted.py>`.
 
 **Known false-positive shape, triage manually, do not treat as a bug

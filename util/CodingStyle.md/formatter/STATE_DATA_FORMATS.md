@@ -138,9 +138,8 @@ real, independent third-party parser per format — same principle as
 `line:col: message` on error, exit 1 if any file has errors, exit 0
 otherwise). Six Node.js scripts, one per format, live in
 `tools/syntax_checker/` (committed, licensed project tooling; `java_sc`/
-`kotlin_sc` remain outside the repo at
-`~/Projects/JxMake/0_excluded_directory/personal/SyntaxChecker/`, unrelated
-to this campaign):
+`kotlin_sc` remain outside the repo, unrelated to this campaign, at
+`~/Projects/JxMake/0_excluded_directory/personal/SyntaxChecker/`):
 
 - `json_sc.js` — built-in `JSON.parse` (plain `.json` only)
 - `json5_sc.js` — `json5` package

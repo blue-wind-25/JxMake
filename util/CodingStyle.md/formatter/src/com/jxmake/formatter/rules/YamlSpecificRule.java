@@ -806,6 +806,23 @@ public final class YamlSpecificRule {
         final int keyCol = innerCol + leadingPad;
         final String[] parts = splitTrailingComment(rest);
         final String code = parts[0];
+        if (code.equals("-") || code.startsWith("- ")) {
+            // A dash whose own value is itself another sequence dash (e.g. "- - a\n  - b", a
+            // sequence item that's itself a nested sequence, common for "supported_features:
+            // - - X\n  - Y" pairs of mutually-exclusive-feature groups). Without this check, `code`
+            // fell through to the plain-scalar branch far below and was captured as a literal
+            // "- a" string; the sibling nested-seq items on subsequent physical lines (at `keyCol`,
+            // the inner dash's own column) were then left completely unconsumed in the line stream,
+            // which made the caller's parseBlock loop see a line indented deeper than its own
+            // blockIndent and break out of the entire enclosing block -- silently dropping the rest
+            // of the nested sequence AND every sibling item/key that followed it, at every level.
+            // Rendered via the ordinary item.children path (a bare "-" line followed by the nested
+            // items one level deeper) -- a non-lossy, always-valid expansion of the compact "- -"
+            // form, same "prefer an unambiguous expanded block form" precedent as this formatter's
+            // flow-to-block conversion elsewhere.
+            item.children = parseInlineNestedSeq(code, keyCol);
+            return;
+        }
         final int colon = findMappingColon(code);
         if (colon >= 0) {
             item.seqOfMapping = true;
@@ -908,6 +925,27 @@ public final class YamlSpecificRule {
                 parseMultilinePlainScalar(item, keyCol);
             }
         }
+    }
+
+    /** Parses a nested sequence dash that sits inline on its parent dash's own physical line (e.g.
+     *  the {@code "- a"} in {@code "- - a\n  - b"}). {@code dashLine} is the {@code "- ..."}-shaped
+     *  text starting at column {@code dashCol}; the first nested item's value/further nesting comes
+     *  from {@code dashLine} itself, and any sibling nested items follow on subsequent physical
+     *  lines at the same column ({@code dashCol}), parsed via the ordinary {@link #parseBlock}. */
+    private List<Item> parseInlineNestedSeq(final String dashLine, final int dashCol) {
+        final Item first = new Item();
+        first.isSeq = true;
+        final String rest = dashLine.equals("-") ? "" : dashLine.substring(2);
+        final String restTrim = rest.trim();
+        if (restTrim.equals("-") || restTrim.startsWith("- ")) {
+            first.children = parseInlineNestedSeq(restTrim, dashCol + 2);
+        } else if (!restTrim.isEmpty()) {
+            first.inlineValue = restTrim;
+        }
+        final List<Item> items = new ArrayList<>();
+        items.add(first);
+        items.addAll(parseBlock(dashCol));
+        return items;
     }
 
     /** Captures a {@code |}/{@code >} block scalar's body lines, stored with each line's

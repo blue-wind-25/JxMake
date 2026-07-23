@@ -1510,6 +1510,43 @@ Real-code regressions:
                                              the old expected shape had itself been an artifact of
                                              this same bug.)
 
+  real_code_regressions_86_inp/out.yaml   -- YAML, home-assistant/core real-code testing.
+                                             Nested-sequence data loss: a sequence item whose own
+                                             value is itself another sequence, written in the
+                                             compact single-line form `- - a\n  - b` (e.g.
+                                             `supported_features:\n  - - X\n    - Y`, common in this
+                                             repo's `services.yaml` mutually-exclusive-feature-group
+                                             pairs). `parseSeqItem` never recognized this shape --
+                                             the inner `- ` was captured as a literal scalar value
+                                             (`"- X"`), leaving the sibling nested-seq item on the
+                                             next physical line completely unconsumed in the line
+                                             stream. That orphaned line's indent then didn't match
+                                             the enclosing block's own `blockIndent`, so
+                                             `parseBlock`'s loop broke out of the entire enclosing
+                                             block early -- silently dropping the rest of the nested
+                                             sequence AND every sibling item/key that followed it, at
+                                             every level (in the real files, everything from the
+                                             second feature-group entry onward, including unrelated
+                                             later top-level keys like `fields`/`stop_cover`). Fixed
+                                             by detecting the `code.equals("-") ||
+                                             code.startsWith("- ")` shape up front in `parseSeqItem`
+                                             and parsing it via a new `parseInlineNestedSeq` helper:
+                                             the first nested item's value comes from the inline
+                                             dash-line text itself (recursing one more level for a
+                                             further-nested `- - - x`), and any sibling nested items
+                                             on subsequent physical lines (at the same column as the
+                                             inline dash) are parsed via the ordinary `parseBlock`.
+                                             Rendered via the existing generic `item.children`
+                                             sequence-render path, which non-lossily expands the
+                                             compact `- -` form into a bare dash followed by the
+                                             nested items one level deeper -- always valid YAML, no
+                                             data loss, same "prefer an unambiguous expanded form"
+                                             precedent as this formatter's flow-to-block conversion
+                                             elsewhere. Found via `yaml_content_diff.py` content-
+                                             preservation checking (not syntax-check -- the corrupted
+                                             output stayed syntactically valid YAML), consistent with
+                                             every other YAML dogfood session's bug history.
+
 How Tests Are Run
 -----------------
 

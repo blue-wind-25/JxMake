@@ -1,0 +1,46 @@
+#% JXM_CFMT_CFG indent-size=2
+# Describes the format for available cover services
+
+open_cover:
+  target:
+    entity:
+      domain: cover
+      supported_features:
+        - cover.CoverEntityFeature.OPEN
+
+close_cover:
+  target:
+    entity:
+      domain: cover
+      supported_features:
+        - cover.CoverEntityFeature.CLOSE
+
+toggle:
+  target:
+    entity:
+      domain: cover
+      supported_features:
+        - - cover.CoverEntityFeature.CLOSE
+          - cover.CoverEntityFeature.OPEN
+
+set_cover_position:
+  target:
+    entity:
+      domain: cover
+      supported_features:
+        - cover.CoverEntityFeature.SET_POSITION
+  fields:
+    position:
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+
+stop_cover:
+  target:
+    entity:
+      domain: cover
+      supported_features:
+        - cover.CoverEntityFeature.STOP

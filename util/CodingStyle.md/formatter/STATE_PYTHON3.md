@@ -142,6 +142,32 @@ or:
 
 ---
 
+## Dogfood Tooling
+
+`python_ast_diff.py` — content-preservation checker for real-code testing,
+modeled on `STATE_DATA_FORMATS.md`'s `*_content_diff.py` scripts (not that
+job's file, own equivalent here since Python has a real parser in its own
+stdlib). Lives in
+`~/Projects/JxMake/0_excluded_directory/personal/SyntaxChecker/
+python_ast_diff.py` (outside the repo, alongside the other jobs' checkers,
+not committed). Parses both original and formatted files with stdlib `ast`
+and compares `ast.dump(tree, include_attributes=False)` for structural
+equality (position attributes stripped since formatting legitimately
+changes those). Exit 0 if identical, 1 with a first-mismatch line printed if
+not, 2 if either file fails to parse. Usage:
+`python3 python_ast_diff.py <original.py> <formatted.py>`.
+
+**Known false-positive shape, triage manually, do not treat as a bug
+without checking:** §3's import-sort pass legitimately reorders `from X
+import name` sibling statements, which changes AST statement order (a real,
+intended difference) even though the imported names themselves are
+unchanged — confirmed during the `pallets/flask` run (9 of 9 initial
+AST-diff mismatches were this shape). Before treating any AST-diff
+mismatch as a bug, check whether it's solely an import-statement reordering
+by comparing each file's own set of `(module, name, asname)` import tuples
+pre/post format (order-independent) — if that set is unchanged, it's §3
+working as intended, not corruption.
+
 ## Class Scoping (post Core/Curly/Indent/Tags refactor)
 
 Python3 is the first real implementation to land in the `*Indent` skeleton
@@ -489,6 +515,72 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       formatter bug, confirmed via direct source inspection. Both fixtures
       pass forward + idempotency under `make test` (116/116 forward +
       116/116 idempotency, zero regressions).
-- [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
+- [~] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_PYTHON3.md`'s listed test-fixture repos (`python/cpython`,
       `pallets/flask`, `django/django`, `psf/black`, `pallets/click`).
+      **`pallets/flask` — DONE (first Python3 dogfood run).** 83 `.py` files
+      processed (24 `src/flask/`, 41 `tests/`, 18 `examples/`/`docs/` — the
+      full tree, no exclusions needed; "not large" confirmed, 3.5M total).
+      Zero crashes on the forward pass.
+
+      **Four real bugs found and fixed, all via non-idempotency
+      (`diff -r round1 round2`), none via `py_compile`/AST-diff (both of
+      those came back clean once the four fixes landed — see below):**
+      1. `ScopePipelineIndent.render`'s replacement-merge loop advanced its
+         cursor `r` only on an exact `start == i` match; when two
+         independently-computed passes legitimately produced overlapping
+         token-range replacements (§8's single-statement-body join and §2's
+         own trivial single-member assignment-alignment group for that same
+         nested body statement), the now-stale entry permanently stalled
+         `r`, silently dropping every later replacement in the *entire
+         file*, not just the one genuinely-overlapping entry — a single
+         nested nullary-effect assignment group inside a `while`/`try` block
+         anywhere in a file could silently disable all downstream
+         assignment-alignment padding. Fixed by skipping stale entries
+         instead of stalling on them. Fixture `real_code_regressions_78_
+         {inp,out}.py`.
+      2. §6 `trySignatureGroup` split a signature's interior into
+         parameter segments on raw `NEWLINE` tokens only, not bracket-depth-
+         aware — a parameter whose own type hint spans multiple physical
+         lines via a still-open nested bracket (`attempts: list[\n
+         tuple[...]\n]`) had its continuation lines misclassified as
+         separate bogus parameters instead of triggering the already-
+         documented "leave whole signature untouched" gap, producing
+         growing/non-convergent trailing whitespace across idempotency
+         rounds. Fixed by only splitting at depth-0 `NEWLINE`s and
+         rejecting any segment with an embedded `NEWLINE`.
+      3. §9.2's blank-line-before-`elif`/`else` zero-width insertion and
+         §8's single-statement join could both start at the same token
+         index (an `elif`/`else` header whose own body also qualifies for
+         §8); the stable sort left the zero-width entry second, so §8's
+         wider replacement jumped over it, silently dropping the blank line
+         — a forward-pass bug, not merely an idempotency artifact (found via
+         a hand-authored worked example investigating bug 2's file, then
+         confirmed present in `debughelpers.py` on round1 already). Fixed
+         by sorting equal-`start` replacements with zero-width entries
+         first. Bugs 2+3 combined into fixture `real_code_regressions_79_
+         {inp,out}.py`.
+
+      **Final numbers (after all four fixes, full 83-file corpus,
+      re-cloned-fresh directories to avoid a `/tmp/round1`-name collision
+      with a concurrently-running JS/TS dogfood session — always use a
+      dedicated scratchpad subdir, never the bare name other jobs also
+      use):** forward pass zero crashes; `diff -r round1 round2` **empty**
+      (clean idempotency, 83/83); `python3.12 -m py_compile` clean on all 83
+      round1 files (python3.6 is NOT viable for this repo — flask's own
+      source uses the walrus operator and `from __future__ import
+      annotations`, both post-3.6 syntax, so python3.6 falsely reports
+      syntax errors unrelated to the formatter); AST-diff (new
+      `python_ast_diff.py`, see below) clean on all 83 files **after manual
+      triage of 9 initial reports** — every one of those 9 was the §3
+      import-sort pass legitimately reordering `from X import name` sibling
+      statements (verified by comparing each file's own set of imported
+      `(module, name, asname)` tuples pre/post format — identical sets, only
+      statement order differs, which is §3's documented, intentional
+      behavior), not corruption; zero true AST-shape mismatches (i.e. zero
+      indentation/scoping corruption) found. `make test`: 128/128 forward +
+      128/128 idempotency after the final fixture additions.
+
+      New tool: `python_ast_diff.py` (see "Dogfood Tooling" below).
+      `python/cpython`, `django/django`, `psf/black`, `pallets/click` —
+      still not started.

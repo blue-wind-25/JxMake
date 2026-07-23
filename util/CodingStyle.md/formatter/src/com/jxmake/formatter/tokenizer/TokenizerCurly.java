@@ -121,7 +121,11 @@ public class TokenizerCurly extends TokenizerCore {
             // are tokenized as KEYWORD, not IDENTIFIER, and appear directly inside a generic
             // argument list -- without these, the second type argument invalidated the whole
             // `<...>` tracking before the matching `>` was reached, leaving it a plain OP token.
-            "string", "number", "boolean", "any", "unknown", "never", "object", "undefined", "null");
+            "string", "number", "boolean", "any", "unknown", "never", "object", "undefined", "null",
+            // Missed the first time this set was extended (vuejs/core dogfood,
+            // `Record<string | symbol, Function | number>`): `symbol`/`bigint` are TS primitive
+            // type keywords exactly like `string`/`number` above, tokenized as KEYWORD too.
+            "symbol", "bigint");
 
     // C++ cast keywords: `static_cast<T>(...)` etc. are tokenized as KEYWORD (not IDENTIFIER),
     // so the generic `<` after an IDENTIFIER check in reclassifyAngleBrackets() misses them
@@ -1496,7 +1500,18 @@ public class TokenizerCurly extends TokenizerCore {
                 // use `:` inside a generic argument/parameter list.
                 return ".".equals(t.text) || "::".equals(t.text) || "?".equals(t.text)
                         || "*".equals(t.text) || "&".equals(t.text)
-                        || (lang.isKotlin && ":".equals(t.text));
+                        || (lang.isKotlin && ":".equals(t.text))
+                        // TS union types are legal directly inside a generic argument list
+                        // (`Record<string | symbol, Function | number>`) -- without this, `|`
+                        // invalidates the enclosing `<...>` tracking the same way an unrecognized
+                        // OP always does, leaving the closing `>` a plain OP token instead of
+                        // ANGLE_BRACKET_CLOSE; that in turn defeats `JsTsSpecificRule.
+                        // enforceSemicolonInsertion`'s CONTINUATION_OPS check (a trailing `>` OP
+                        // looks like an unfinished comparison), silently dropping the statement's
+                        // semicolon and letting `JsTsDeclarationAlignmentRule.parseTypeAlias`'s
+                        // depth-scan run away past the real statement boundary (vuejs/core
+                        // dogfood, `collectionHandlers.ts`).
+                        || (lang.isTs && "|".equals(t.text));
             default:
                 return false;
         }

@@ -1571,6 +1571,29 @@ Real-code regressions:
                                              all three sites instead of emitting the captured comment
                                              text raw.
 
+  real_code_regressions_88_inp/out.ts     -- JS/TS, vuejs/core real-code testing.
+                                             `TokenizerCurly.GENERIC_SAFE_KEYWORDS` was missing the
+                                             TS primitive type keywords `symbol`/`bigint` (an earlier
+                                             fix added `string`/`number`/`boolean`/etc. but missed
+                                             these two), and `isGenericSafeToken`'s OP case had no
+                                             entry for `|` -- both meant a union type written directly
+                                             inside a generic argument list (`Record<string | symbol,
+                                             Function | number>`) invalidated the enclosing `<...>`
+                                             tracking, leaving the closing `>` a plain OP token instead
+                                             of ANGLE_BRACKET_CLOSE. That defeated
+                                             `JsTsSpecificRule.enforceSemicolonInsertion`'s
+                                             CONTINUATION_OPS check (a trailing `>` OP looks like an
+                                             unfinished comparison), silently dropping the statement's
+                                             semicolon; `JsTsDeclarationAlignmentRule.parseTypeAlias`'s
+                                             depth-scan (tracking only `(`/`[`/`{`, not real angle-
+                                             bracket depth) then ran past the missing `;` into
+                                             unrelated following statements (a function declaration,
+                                             then a const), corrupting them with alignment-grid column
+                                             padding matching the type alias's own keyword+name+`=`
+                                             width. Fixed by adding `symbol`/`bigint` to
+                                             `GENERIC_SAFE_KEYWORDS` and `|` (TS-only) to
+                                             `isGenericSafeToken`'s OP case.
+
 How Tests Are Run
 -----------------
 

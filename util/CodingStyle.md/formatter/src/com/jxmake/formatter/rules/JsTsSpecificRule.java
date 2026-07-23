@@ -7,6 +7,7 @@
 
 package com.jxmake.formatter.rules;
 
+import com.jxmake.formatter.FormatterSimpleBraced;
 import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.tokenizer.TokenizerCurly;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
@@ -956,6 +957,34 @@ public final class JsTsSpecificRule {
         return out.toString();
     }
 
+    /** Reindents a leading multi-line block comment (captured verbatim from the source, so its
+     *  continuation lines still carry whatever absolute indentation they had at the *original*
+     *  code depth) to align under {@code indentPrefix} at the *new* depth this comment is being
+     *  re-emitted at (e.g. by an alignment-grid rewrite that may reindent the code around it).
+     *  Unlike {@link FormatterSimpleBraced#reindentBlockComment}, which only prepends
+     *  {@code indentPrefix} in front of whatever whitespace a continuation line already has (correct
+     *  when that line has none of its own, e.g. freshly generated text), this fully strips each
+     *  continuation line's existing leading whitespace first and reconstructs
+     *  {@code indentPrefix + " " + strippedLine} -- correct regardless of what depth the comment's
+     *  interior lines were originally written at, and idempotent (re-running against already
+     *  correctly-reindented text is a no-op). Single-line comments (no {@code '\n'}) pass through
+     *  unchanged. */
+    private static String reindentLeadingComment(final String commentText, final String indentPrefix) {
+        if (commentText.indexOf('\n') < 0) {
+            return commentText;
+        }
+        final String[] lines = commentText.split("\n", -1);
+        final StringBuilder sb = new StringBuilder(lines[0]);
+        for (int i = 1; i < lines.length; i++) {
+            int j = 0;
+            while (j < lines[i].length() && Character.isWhitespace(lines[i].charAt(j))) {
+                j++;
+            }
+            sb.append('\n').append(indentPrefix).append(' ').append(lines[i].substring(j));
+        }
+        return sb.toString();
+    }
+
     /** Line-leading whitespace of the physical line containing token {@code idx} -- {@code ""} if
      *  that line has no leading whitespace (column-0 start). */
     private String lineIndent(final List<Token> tokens, final int idx) {
@@ -1446,7 +1475,8 @@ public final class JsTsSpecificRule {
         final StringBuilder sb = new StringBuilder();
         for (final EnumMember m : members) {
             for (final String comment : m.leadingComments) {
-                sb.append('\n').append(memberIndent).append(comment);
+                sb.append('\n').append(memberIndent)
+                        .append(reindentLeadingComment(comment, memberIndent));
             }
             sb.append('\n').append(memberIndent);
             if (m.hasValue) {
@@ -1799,7 +1829,9 @@ public final class JsTsSpecificRule {
         final String memberIndent = lineIndent(tokens, classOpenIdx) + defaultIndentUnit;
         for (final ClassField f : group) {
             for (final String comment : f.leadingComments) {
-                out.append(memberIndent).append(comment).append('\n');
+                out.append(memberIndent)
+                        .append(reindentLeadingComment(comment, memberIndent))
+                        .append('\n');
             }
             out.append(memberIndent);
             if (maxModifierWidth > 0) {
@@ -2466,7 +2498,8 @@ public final class JsTsSpecificRule {
         final StringBuilder sb = new StringBuilder();
         for (final InterfaceMember m : members) {
             for (final String comment : m.leadingComments) {
-                sb.append('\n').append(memberIndent).append(comment);
+                sb.append('\n').append(memberIndent)
+                        .append(reindentLeadingComment(comment, memberIndent));
             }
             sb.append('\n').append(memberIndent);
             sb.append(padRight(m.namePhrase, maxNameWidth)).append(" : ").append(m.type).append(';');

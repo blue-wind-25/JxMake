@@ -610,6 +610,90 @@ Fifth bug found and fixed (all four originally-reported bugs now resolved):
   originally-reported nestjs/nest file: round1→round2 diff now empty.
   `node --check` (Node 24) passes on the round1 output.
 
+### Resolved this session (vuejs/core real-code testing, in progress)
+
+Repo: `vuejs/core` (fresh shallow clone, `/tmp/vue-core`, HEAD `b5f8518`). 514
+`.ts`/`.js` files under `packages/`, `packages-private/`, `scripts/` (5
+`.tsx` files under `packages-private/dts-test/` correctly excluded, out of
+scope per Open Questions). Full-corpus round1 (forward pass): zero
+crashes/errors, 514/514 files formatted. Round1→round2 idempotency check
+found 20 files differing; one root cause found and fixed so far (affecting
+all 20 -- see below), 15 files' diffs resolved by the fix, 5 remaining files
+still non-idempotent for other, separate, not-yet-root-caused reasons (see
+Open Questions below) -- this dogfood pass is **not yet complete**.
+
+- **Leading multi-line block comment reindent non-idempotency** — FIXED.
+  `JsTsSpecificRule`'s class-field alignment grid (`flushClassFieldGroup`),
+  enum-member formatting (`rewriteEnumBody`), and interface/type-alias
+  member alignment (`enforceInterfaceTypeAliasMemberColonAlignment`) all
+  re-emitted a member's captured leading `/** ... */` comment verbatim,
+  including whatever absolute indentation its continuation lines happened to
+  carry at the *original* source depth (e.g. this repo's own 2-space
+  convention) — never reindented to match the member's own re-rendered
+  indent depth (this formatter's 4-space default). A first pass left the
+  comment's continuation lines visually misaligned under the member; a
+  second pass' general block-comment reindent then caught up, producing a
+  stable-but-misaligned round1 and a differently-aligned round2. Fixed by
+  adding `reindentLeadingComment` (strips each continuation line's existing
+  leading whitespace and reconstructs `indentPrefix + " " + strippedLine`,
+  static helper local to `JsTsSpecificRule.java`) and calling it at all
+  three sites instead of emitting the captured comment text raw. New fixture
+  `test/real_code_regressions_87_{inp,out}.ts`. `make test`: 136/136 forward
+  + 136/136 idempotency, zero regressions. Confirmed fixed against 15 of the
+  originally-affected `vuejs/core` files (`dep.ts`, `computed.ts`,
+  `effect.ts`, `effectScope.ts`, `collectionHandlers.ts` [comment part only,
+  see below], `parser.ts`, `transformElement.ts`, `vModel.ts`, `vSlot.ts`,
+  `resolveType.ts`, `componentEmits.ts`, `componentPublicInstance.ts`,
+  `rendererTemplateRef.ts`, `renderer.ts`, `vOn.ts`) via a targeted
+  affected-files-only re-run (not yet a full-tree re-run — see Next Steps).
+
+**Found, not yet fixed — 5 files still non-idempotent after the above fix,**
+each a distinct-looking symptom, not yet root-caused:
+
+- `packages/reactivity/src/collectionHandlers.ts` — a multi-line function
+  signature (`function createInstrumentations(\n  readonly: boolean,\n
+  shallow: boolean,\n): Instrumentations {`) is already badly over-indented
+  in round1 (many levels deeper than its true nesting depth) even before any
+  second pass; round2 additionally re-wraps the signature onto a different
+  line layout and further shifts the closing `}`'s comment
+  (`// createInstrumentationGetter`) to a wrong indent. Likely the
+  general-reindent architectural gap already documented in
+  `STATE_COMMON.md`'s "Architectural TODOs" (this formatter does not
+  reindent from structural depth), not a new bug class — not confirmed via
+  debug-print root-causing yet.
+- `packages/runtime-core/src/componentOptions.ts` — an interface member
+  alignment-grid block (`beforeCreate?`/`created?`/... `MergedHook` fields)
+  renders with a different column width between round1 and round2.
+- `packages-private/dts-test/ref.test-d.ts` /
+  `packages-private/dts-test/watch.test-d.ts` — `const shallowUnionAsCast =
+  shallowRef({ step: '1' } as Steps);` gains a large, wrong extra indent on
+  round2 only.
+- `scripts/release.js` — a multi-line `fetch(...)` call (its single
+  argument line exactly at/near `lineLengthLimit`) stays wrapped in round1
+  but collapses to one line in round2 — plausibly the same call-wrap/
+  collapse non-idempotency class already fixed once for a different call
+  shape (see "Resolved this session (nestjs/nest real-code testing)"'s
+  fifth bug, `real_code_regressions_85`), possibly a related but distinct
+  gap in the same area, not yet confirmed.
+- A separate, likely-unrelated symptom seen in several of the *now-fixed*
+  files' original diffs during triage: nested nested-call bracket padding
+  (`if( ... isReservedPrefix(key[0]) ... )` gaining spaces around the inner
+  call's own parens, `isReservedPrefix( key[0] )`, only on round2) — seen in
+  `componentPublicInstance.ts`, `renderer.ts`, `vOn.ts`,
+  `componentEmits.ts`, `rendererTemplateRef.ts` during initial triage but
+  **not reproducing** after the comment-reindent fix landed (those 5 files'
+  post-fix diffs are now empty) — likely was a downstream symptom of the
+  same comment-reindent bug shifting later token/line context, not its own
+  separate bug; flagged here only so a future session doesn't need to
+  re-investigate it from scratch if it resurfaces.
+
+**Next steps for this dogfood pass:** root-cause and fix (or explicitly
+accept, per `STATE_COMMON.md`'s architectural-gap precedent) the remaining 5
+files' non-idempotency, then re-run round1/round2 across the **full** 514-file
+corpus (not just the previously-affected subset) plus a `tsc` typecheck pass
+per this job's "Real-code testing methodology" step 5, before marking
+`vuejs/core` dogfood DONE.
+
 ### Known false positives (no source change needed, fixture-only)
 
 - A spurious-looking blank line after a class's opening `{` in older `.js`

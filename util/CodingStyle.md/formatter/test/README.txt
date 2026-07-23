@@ -1547,6 +1547,30 @@ Real-code regressions:
                                              output stayed syntactically valid YAML), consistent with
                                              every other YAML dogfood session's bug history.
 
+  real_code_regressions_87_inp/out.ts     -- JS/TS, vuejs/core real-code testing.
+                                             Leading multi-line block comment reindent
+                                             non-idempotency: `JsTsSpecificRule`'s class-field
+                                             alignment grid (`flushClassFieldGroup`), enum-member
+                                             formatting (`rewriteEnumBody`), and interface/type-alias
+                                             member alignment (`enforceInterfaceTypeAliasMemberColon
+                                             Alignment`) all re-emitted a member's captured leading
+                                             `/** ... */` comment verbatim, including whatever
+                                             absolute indentation its continuation lines happened to
+                                             carry at the *original* source depth -- never reindented
+                                             to match the member's own (possibly different, e.g. this
+                                             formatter's 4-space default vs. a 2-space source
+                                             convention) re-rendered indent depth. A first pass left
+                                             the comment's continuation lines visually misaligned
+                                             under the field/member they precede; a second pass then
+                                             caught up (a general block-comment reindent pass
+                                             elsewhere normalizes it), producing a stable-but-wrong
+                                             round1 and a different round2. Fixed by adding
+                                             `reindentLeadingComment` (strips each continuation line's
+                                             existing leading whitespace and reconstructs
+                                             `indentPrefix + " " + strippedLine`) and calling it at
+                                             all three sites instead of emitting the captured comment
+                                             text raw.
+
 How Tests Are Run
 -----------------
 

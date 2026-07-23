@@ -1,0 +1,24 @@
+# Copyright (C) 2024 Example Corp.
+# SPDX-License-Identifier: MIT
+scrape_configs :
+    - job_name        : "kubernetes-apiservers"
+      relabel_configs :
+            - source_labels :
+                [
+                  __meta_kubernetes_namespace,
+                  __meta_kubernetes_service_name,
+                ]
+              action        : keep
+    - # A leading comment before the real keys of this list entry.
+        region : eu-west-2
+        name   : outscale
+    - &highalert
+        alert : HighErrorRate
+        expr  : up == 0
+snapshots      :
+    '@csstools/color-helpers@5.1.0'                                                                                                 : {}
+    '@csstools/css-calc@2.1.4(@csstools/css-parser-algorithms@3.0.5(@csstools/css-tokenizer@3.0.4))(@csstools/css-tokenizer@3.0.4)' :
+        dependencies :
+            '@csstools/css-parser-algorithms' : 3.0.5(@csstools/css-tokenizer@3.0.4)
+            '@csstools/css-tokenizer'         : 3.0.4
+    '@csstools/css-tokenizer@3.0.4'                                                                                                 : {}

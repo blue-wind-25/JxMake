@@ -313,8 +313,9 @@ Checklist for current per-language status):
   nesting/anchors), `docker/compose` (compose-file corpus), `ansible/ansible`
   (playbooks — heavy on lists-of-maps, block scalars), `actions/starter-workflows`
   (small, dense GitHub Actions YAML, good for quick spot checks), `prometheus/prometheus`
-  (not started — alerting/recording rule YAML with PromQL expressions embedded in
-  scalars, `$labels`/`$value` templating, deeply nested rule groups),
+  (done — see Checklist; alerting/recording rule YAML with PromQL expressions
+  embedded in scalars, `$labels`/`$value` templating, deeply nested rule groups,
+  plus large hand-authored `pnpm-lock.yaml` corpora under `web/ui/`),
   `home-assistant/core` (not started — very large volume of hand-authored
   automation/config YAML, deeply nested, heavy use of block scalars, a different
   large-corpus stress test than kubernetes' API-manifest shape)
@@ -571,13 +572,12 @@ None recorded yet in this file.
       `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format.
       Status: JSON/JSON5 complete (4/4 repos); CSS complete (4/4 repos); XML
       2/4 (`apache/maven`, `w3c/svgwg` done; `apache/ant`/`jenkinsci/jenkins`
-      not started); **YAML: all 4 originally-planned repos DONE**
-      (`kubernetes/kubernetes`, `docker/compose`, `ansible/ansible`,
-      `actions/starter-workflows` all done — see per-repo entries below; two
-      further repos, `prometheus/prometheus` and `home-assistant/core`, were
-      later added to the YAML Test-Fixture Repos list above and remain
-      not-started, so the list itself is not fully exhausted even though the
-      original 4-repo plan is); **TOML 4/4, DONE** (`rust-lang/cargo`,
+      not started); **YAML: all 4 originally-planned repos DONE, plus 1 of 2
+      later-added repos** (`kubernetes/kubernetes`, `docker/compose`,
+      `ansible/ansible`, `actions/starter-workflows`, and now
+      `prometheus/prometheus` all done — see per-repo entries below;
+      `home-assistant/core` remains not-started, so the list itself is not
+      fully exhausted); **TOML 4/4, DONE** (`rust-lang/cargo`,
       `python-poetry/poetry`, `pola-rs/polars`, `toml-lang/toml` all done —
       TOML Test-Fixture Repos list now fully complete); HTML5 1/4
       (`h5bp/html5-boilerplate` done; `twbs/bootstrap` docs site,
@@ -946,6 +946,61 @@ None recorded yet in this file.
         `ansible/ansible`, `actions/starter-workflows`); two further repos
         (`prometheus/prometheus`, `home-assistant/core`) were added to the
         list above after this plan was made and remain not-started.
+
+      **`prometheus/prometheus` (added-repo session, done):**
+      - Fresh shallow clone. 380 `.yml`/`.yaml` files found (no `vendor/`
+        directory present), full set processed in one batch invocation.
+        Baseline `yaml_sc.js`: 5 fail, all `config/testdata/*.bad.yml`
+        (`static_config.bad.yml`, `labelvalue.bad.yml`, `labelname.bad.yml`,
+        `section_key_dup.bad.yml`, `labelmap.bad.yml`) — these are
+        deliberately-invalid YAML-syntax test fixtures for Prometheus's own
+        config-parser error-path tests (unknown `!!binary` scalar tags, a
+        duplicated mapping key), not naive `*bad.yml`-glob false positives
+        (152 files match that substring but most are legitimately-valid-YAML
+        Prometheus-config-*schema*-invalid fixtures, not YAML-syntax-invalid
+        ones — the exclusion list was derived from `yaml_sc.js`'s actual
+        baseline failures, not filename pattern matching). **In-scope
+        corpus: 375 files.** **4 bugs found+fixed**, all data loss, all only
+        catchable via `yaml_content_diff.py` content-preservation (not
+        syntax-check, since the corrupted output stayed syntactically
+        valid), all in `YamlSpecificRule`'s sequence/mapping parsing, sharing
+        the common theme of a dash/key line whose "value" is entirely
+        absent/comment-only/anchor-tag-only/an unbalanced multi-line flow
+        opener, with the real content on subsequent more-indented lines:
+        (1) `parseKeyItem`'s early return for a flow-looking inline value
+        didn't check whether the flow was actually closed on the same
+        physical line, truncating everything after an unbalanced multi-line
+        `[...]` opener (`documentation/examples/prometheus-kubernetes.yml`'s
+        `source_labels: [...]` spanning several lines — 300→52 lines lost).
+        (2) `parseSeqItem`'s `seqOfMapping` first-key handling had the same
+        flow-closure gap for `- source_labels:\n    [...]` (opener entirely
+        on the following line), and separately dropped everything after a
+        `- # comment`-only dash line whose real mapping keys start on
+        subsequent lines (`- # comment\n  region: eu-west-2`, found in a
+        `prometheus-outscale.yml`-shaped fixture). (3) a dash line holding
+        only an anchor tag (`- &highalert`) followed by a nested mapping at
+        an indent *equal to* (not just greater than) the dash's own key
+        column lost its child block entirely (`model/rulefmt/testdata/
+        test_aliases.yaml`). (4) `renderFlowValue` rendered an empty flow
+        map/seq (`{}`/`[]`) as a block conversion whenever its line didn't
+        `fits()`, but `renderFlowBlock`'s loop has nothing to iterate for
+        zero entries, so the value silently vanished — triggered whenever a
+        long key elsewhere in the same colon-alignment group pushed an
+        unrelated `{}`/`[]` line past the width limit, found in `web/ui/
+        pnpm-lock.yaml` and `web/ui/react-app/pnpm-lock.yaml`'s dependency
+        snapshot maps (most visibly when the dropped key was the file's very
+        last line, e.g. `'@csstools/css-tokenizer@3.0.4': {}` at true EOF).
+        All 4 combined into one fixture, `test/real_code_regressions_83_
+        {inp,out}.yaml`. `make test`: 132/132 (133/133 after a concurrent
+        session's own unrelated fixture 84 landed alongside). Commit
+        `<pending — see commit below>`. **Final numbers after all 4 fixes,
+        full 380-file re-run:** forward 380/380 clean, zero crashes;
+        idempotency (`diff -rq round1 round2`) 380/380 clean; syntax-check
+        of round1 output: same 5 baseline failures, no new ones;
+        content-preservation (`yaml_content_diff.py`) 375/375 clean across
+        the full in-scope corpus. **This completes `prometheus/prometheus`**
+        in the YAML Test-Fixture Repos list; `home-assistant/core` remains
+        not-started.
 
       **HTML5 (1/4 repos done, first HTML5 dogfood run):**
       - `h5bp/html5-boilerplate`: 4 files (`dist/index.html`, `dist/404.html`,

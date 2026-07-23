@@ -441,7 +441,13 @@ public final class YamlSpecificRule {
     private void renderFlowValue(final FlowNode node, final int depth, final String keyPrefix,
             final StringBuilder out) {
         final String tight = renderFlowTight(node);
-        if (fits(keyPrefix, 1 + tight.length())) {
+        // An empty flow map/seq ("{}"/"[]") has no entries to convert to block form -- overflow
+        // never helps and renderFlowBlock's loop simply emits nothing for zero entries, silently
+        // dropping the value entirely when the line is long (e.g. a very long key elsewhere in the
+        // same colon-alignment group pushes keyPrefix past the width limit). Always keep it inline.
+        final boolean empty = (node instanceof FlowMap && ((FlowMap) node).entries.isEmpty())
+                || (node instanceof FlowSeq && ((FlowSeq) node).elements.isEmpty());
+        if (empty || fits(keyPrefix, 1 + tight.length())) {
             out.append(' ').append(tight).append('\n');
             return;
         }
@@ -668,8 +674,9 @@ public final class YamlSpecificRule {
             return;
         }
         item.inlineValue = after;
-        if (looksLikeFlow(after)) {
-            return; // rendered via flow parsing/overflow-check at render time
+        if (looksLikeFlow(after) && (peekNonBlank() == null || peekNonBlank().indent <= ln.indent)) {
+            return; // single-line (or already-closed) flow value, rendered via flow
+                    // parsing/overflow-check at render time
         }
         // A scalar value can still carry a nested block underneath it (an anchor followed by a
         // nested mapping, e.g. "anchor_example: &default" then an indented "color: blue"). But a
@@ -766,8 +773,19 @@ public final class YamlSpecificRule {
         pos++;
         item.isSeq = true;
         final String rest = ln.content.equals("-") ? "" : ln.content.substring(2);
+        final String restTrim = rest.trim();
         final int innerCol = ln.indent + 2;
-        if (rest.trim().isEmpty()) {
+        if (restTrim.isEmpty() || restTrim.startsWith("#")) {
+            // A dash whose own line carries nothing but a trailing comment (e.g. "- # region
+            // defaults..." followed by the item's real mapping content on subsequent, more-indented
+            // lines) -- same shape as a bare dash, just with a comment attached, that must not be
+            // left for the caller's leading-comment scan to (mis)handle since it's on the dash's OWN
+            // line, not a preceding line. Without this, the comment-only rest previously fell through
+            // to the plain-scalar/no-colon branch far below, capturing an empty inlineValue with no
+            // child-block detection at all and permanently orphaning every following line.
+            if (restTrim.startsWith("#")) {
+                item.trailingComment = normComment(restTrim);
+            }
             final Line nextForBlock = peekNonBlank();
             if (nextForBlock != null && nextForBlock.indent >= innerCol) {
                 item.children = parseBlock(nextForBlock.indent);
@@ -822,12 +840,20 @@ public final class YamlSpecificRule {
                         && (nextIsSeqLine ? nextLn.indent >= keyCol
                                 : (nextIsKeyLine && nextLn.indent > keyCol - 2 && nextLn.indent != keyCol))) {
                     firstKey.children = parseBlock(nextLn.indent);
-                } else if (!after.isEmpty() && !looksLikeFlow(after) && nextLn != null
-                        && !nextIsSeqLine && !nextIsKeyLine && nextLn.indent > keyCol) {
+                } else if (nextLn != null && !nextIsSeqLine && !nextIsKeyLine && nextLn.indent > keyCol) {
                     // A plain (unquoted) scalar continuation wrapping across physical lines --
                     // same disambiguation as parseKeyItem's own tail handling, applied here for a
                     // sequence-of-mapping's first (inline) key (e.g. "- description: Foo is a bar\n
-                    // and baz." under an "additionalPrinterColumns:" style sequence).
+                    // and baz." under an "additionalPrinterColumns:" style sequence). Also covers a
+                    // flow collection (`[`/`{`) value left unbalanced on this physical line (whether
+                    // the opener is on this line, e.g. "source_labels: [", or the entire value starts
+                    // on the following line, e.g. "source_labels:" then a lone "[" line) -- its
+                    // remaining lines are captured verbatim the same way, rather than being silently
+                    // left unconsumed in the line stream (which previously corrupted everything
+                    // after it).
+                    if (after.isEmpty()) {
+                        firstKey.inlineValue = "";
+                    }
                     parseMultilinePlainScalar(firstKey, keyCol);
                 }
             }
@@ -867,7 +893,18 @@ public final class YamlSpecificRule {
         if (nextLn != null && nextLn.indent >= keyCol) {
             final boolean nextIsSeqLine = nextLn.content.equals("-") || nextLn.content.startsWith("- ");
             final boolean nextIsKeyLine = !nextIsSeqLine && findMappingColon(nextLn.content) >= 0;
-            if (!nextIsSeqLine && !nextIsKeyLine) {
+            if (nextIsKeyLine && nextLn.indent >= keyCol) {
+                // A bare dash-line "value" that's actually just an anchor tag (e.g. "- &highalert",
+                // no key of its own) followed by its real mapping content, strictly deeper-indented,
+                // on subsequent lines -- valid YAML (anchoring an entire sequence-item mapping), but
+                // genuinely invalid for an ordinary scalar dash-item to be followed by a nested
+                // mapping at all, so this shape unambiguously means "anchor prefix, real mapping
+                // follows" rather than "plain scalar, coincidentally followed by an unrelated key
+                // line". Previously silently dropped every line here and beyond (nothing consumed
+                // them). The anchor tag itself stays in item.inlineValue and is rendered on the bare
+                // dash line, mirroring the empty-rest/comment-only case above.
+                item.children = parseBlock(nextLn.indent);
+            } else if (!nextIsSeqLine && !nextIsKeyLine) {
                 parseMultilinePlainScalar(item, keyCol);
             }
         }
@@ -1027,7 +1064,14 @@ public final class YamlSpecificRule {
         }
         final String dashPrefix = indent(depth) + "- ";
         if (item.children != null) {
-            out.append(indent(depth)).append('-').append('\n');
+            out.append(indent(depth)).append('-');
+            if (item.inlineValue != null && !item.inlineValue.isEmpty()) {
+                out.append(' ').append(item.inlineValue);
+            }
+            if (item.trailingComment != null) {
+                out.append(' ').append(item.trailingComment);
+            }
+            out.append('\n');
             renderItems(item.children, depth + 1, out);
             return;
         }
@@ -1115,7 +1159,10 @@ public final class YamlSpecificRule {
                 continue;
             }
             if (c.multilineScalarBody != null) {
-                out.append(' ').append(c.inlineValue).append('\n');
+                if (c.inlineValue != null && !c.inlineValue.isEmpty()) {
+                    out.append(' ').append(c.inlineValue);
+                }
+                out.append('\n');
                 appendMultilineScalarBody(c.multilineScalarBody, alignPrefix, out);
                 continue;
             }

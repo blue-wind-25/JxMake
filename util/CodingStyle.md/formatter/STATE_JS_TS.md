@@ -452,12 +452,50 @@ bug found and fixed:
   corrected expected output. `make test`: 128/128 forward + 128/128
   idempotency, zero regressions.
 
-Additional bugs found in the same dogfood pass, **not yet fixed** (handed to
-a follow-up subagent):
-- Dot+space corruption (`options.provideInjectionTokensFrom` →
-  `options. provideInjectionTokensFrom`) appearing when a multi-line call's
-  arguments get rejoined/rewrapped — compounds every re-format pass, some
-  round2 instances had 50+ inserted spaces after the dot.
+Second bug found and fixed (via debug-print root-causing, not static analysis
+alone — see below):
+
+- **Dot+space corruption in `MiscRuleCurly.renderCallCandidate`'s
+  `sigForRender` typed/untyped selection** — `options.provideInjectionTokensFrom`
+  became `options. provideInjectionTokensFrom` when a multi-arg call whose
+  every argument is a bare dotted member-access expression (no top-level
+  comma of its own) got rejoined/rewrapped. Root-caused with debug prints at
+  each `FormatterCurly` phase boundary plus inside `collapseTokensToOneLine`
+  (not static analysis alone, per this file's methodology): the corruption
+  was **not** in `collapseTokensToOneLine` at all (that method was called
+  with the right input and produced the right output on the first
+  `enforceCallLineBreaking` pass) — it was introduced by the *second*
+  `enforceCallLineBreaking` pass (`FormatterCurly` re-runs it twice, see that
+  file's own comments for why), which took an entirely different render path
+  the first pass didn't: `parseSignature` misparsed the multi-arg call's
+  argument list as a real C/C++/Java-style "type name" forward-declaration
+  parameter list (type `options.`, name `provideInjectionTokensFrom`) — the
+  exact same misparse class already known and guarded for Kotlin only (see
+  `sigForRender`'s existing doc comment, RobotCoding `gui_frontend_android`
+  bug), but the guard was never extended to JS/TS. The typed dropped/
+  one-per-line render path then inserted a column-separator space between
+  the bogus "type" and "name" tokens. Fixed by forcing `sigForRender` to
+  `null` for JS/TS too (`(lang.isKotlin || lang.isJs || lang.isTs) ? null :
+  sig`), same reasoning as Kotlin: neither language has a prototype-only
+  forward-declaration shape (a JS/TS function declaration always has an
+  immediate `{` body, already exempted earlier in the same method). Also
+  hardened `collapseTokensToOneLine` itself (defense-in-depth, not the
+  actual root cause here but a related exposure) to never insert a space
+  immediately before/after a tight `.`/`?.` token even when the original
+  source's line break happened to fall right at that dot. New fixture
+  `test/real_code_regressions_81_{inp,out}.ts`. `make test`: 130/130 forward
+  + 130/130 idempotency, zero regressions. Confirmed against all 5
+  originally-reported nestjs/nest files (`configurable-module.builder.ts`,
+  `middleware-module.ts`, `router-execution-context.ts`, `client-rmq.ts`,
+  `kafka-reply-partition-assigner.ts`): round1→round2 diff now empty for
+  this bug's shape (a separate, pre-existing, unrelated general-reindent
+  idempotency gap — see this file's "Architectural TODOs" in
+  `STATE_COMMON.md` — still produces indentation-only diff noise across the
+  whole nest tree when no per-directory `.jxmake-code-formatter` config
+  round-trips with the output; not this bug). `node --check` (Node 24, which
+  strips TS types natively) passes on all 5 round1 outputs.
+
+Additional bugs found in the same dogfood pass, **not yet fixed**:
 - Content duplication — `packages/core/injector/module.ts` and
   `packages/core/middleware/builder.ts` had entire method/constructor blocks
   duplicated in round2 that weren't present in round1.

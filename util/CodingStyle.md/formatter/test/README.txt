@@ -1356,6 +1356,28 @@ Real-code regressions:
                                              that adjacency only ever occurs for an f-string field's
                                              own delimiters, never a dict/set literal's.
 
+  real_code_regressions_81_inp/out.ts     -- JS/TS, nestjs/nest real-code testing. A multi-arg call
+                                             whose every argument is a bare dotted member-access
+                                             expression with no top-level comma of its own (`options.
+                                             provideInjectionTokensFrom`, `options.inject`) could be
+                                             misparsed by `MiscRuleCurly.renderCallCandidate`'s
+                                             `parseSignature` call as a real C/C++/Java-style
+                                             "type name" forward-declaration parameter list (`type`
+                                             `options.`, `name` `provideInjectionTokensFrom`) --
+                                             the exact same misparse already known and guarded for
+                                             Kotlin only (RDD_KEY -- see `sigForRender`'s doc comment
+                                             in `MiscRuleCurly`), but the guard was never extended to
+                                             JS/TS. The typed dropped/one-per-line render path then
+                                             inserted a column-separator space between the bogus
+                                             "type" and "name", corrupting the expression into
+                                             `options. provideInjectionTokensFrom` -- compounding on
+                                             every re-format pass. Fixed by forcing `sigForRender` to
+                                             `null` for JS/TS as well as Kotlin, since neither
+                                             language has a prototype-only forward-declaration shape
+                                             either (a JS/TS function declaration always has an
+                                             immediate `{` body, already exempted earlier in the same
+                                             method).
+
 How Tests Are Run
 -----------------
 

@@ -1064,7 +1064,18 @@ private boolean isFunctionBodyQualifier(final Token t) {
         // RobotCoding gui_frontend_android's ProgramBuilder.kt). Forcing every Kotlin candidate's
         // render-path selection through the untyped call-argument path instead never inserts a
         // space where the source had none.
-        final Signature sigForRender = lang.isKotlin ? null : sig;
+        //
+        // JS/TS has the exact same exposure, for the exact same structural reason: neither
+        // language has a C/C++/Java-style prototype-only forward declaration shape either (a JS/TS
+        // function declaration always has an immediate `{` body, already exempted above by the
+        // `afterClose == "{"` check), so any "IDENTIFIER ( ... )" this pass still sees is always a
+        // plain call, never a real signature. Without this, a multi-arg call whose arguments are
+        // each a bare dotted member-access expression (`getInjectionProviders(options.
+        // provideInjectionTokensFrom, options.inject)`) can misparse the same way -- each arg's
+        // trailing identifier read as a parameter name, everything before it (`options.`) read as
+        // its type -- corrupting the expression into `options. provideInjectionTokensFrom` (found
+        // via nestjs/nest real-code testing, `configurable-module.builder.ts`).
+        final Signature sigForRender = (lang.isKotlin || lang.isJs || lang.isTs) ? null : sig;
 
         final List<Token> paramsSlice = tokens.subList(openIdx + 1, closeIdx);
         final String baseIndent = effectiveCallBaseIndent(tokens, nameIdx);
@@ -1424,14 +1435,29 @@ private boolean isFunctionBodyQualifier(final Token t) {
      *  unprocessed rather than being normalized. */
     private String collapseTokensToOneLine(final List<Token> tokens) {
         final StringBuilder sb = new StringBuilder();
+        Token prevSignificant = null;
+        boolean pendingSpace = false;
         for (final Token t : tokens) {
             if (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE) {
-                if (sb.length() > 0 && sb.charAt(sb.length() - 1) != ' ') {
-                    sb.append(' ');
-                }
+                pendingSpace = true;
                 continue;
             }
+            // A wrapped member-access/optional-chaining `.`/`?.` is tight against both the
+            // expression before it and the property/method name after it -- when the original
+            // source happened to break its line right at that `.` (e.g. `options.\n
+            // provideInjectionTokensFrom`), collapsing the run unconditionally into a literal
+            // single space corrupted the expression into `options. provideInjectionTokensFrom`
+            // (found via nestjs/nest real-code testing). Suppress the space on either side of a
+            // tight `.`/`?.` join, regardless of how much original whitespace/newline separated
+            // them.
+            if (pendingSpace && sb.length() > 0
+                    && !(prevSignificant != null && (isOp(prevSignificant, ".") || isOp(prevSignificant, "?.")))
+                    && !(isOp(t, ".") || isOp(t, "?."))) {
+                sb.append(' ');
+            }
+            pendingSpace = false;
             sb.append(t.text);
+            prevSignificant = t;
         }
         return sb.toString().trim();
     }

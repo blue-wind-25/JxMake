@@ -11,6 +11,20 @@ Tracks C++26 support in the deterministic JAR formatter
 (`util/CodingStyle.md/formatter/`), per `STYLE_CPP26.md` (builds on
 `STYLE.md`, `STYLE_C_CPP.md`, `STYLE_CPP20.md`).
 
+**Toolchain note (discovered during the `glaze` session):** this system
+also has a modern `clang++ 22.1.8` at
+`~/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/clang++`, capable of real
+`-std=c++23 -fsyntax-only` compile validation including reflection syntax
+— use `-stdlib=libc++` (required for standard headers to resolve) and pipe
+stderr through `grep -v 'no version information available'` (a harmless
+`libstdc++.so.6` symbol-versioning warning, not a compile error).
+`/opt/glibc-2.41/` is available if a glibc-mismatch/patchelf issue is ever
+hit with some other prebuilt binary. This supersedes the older `g++
+4.8.5`/`clang++ 3.7.1` toolchain the "Compilation not attempted" notes in
+earlier checklist entries below refer to — prefer `clang++ 22.1.8` for any
+future compile-check step in this job rather than falling back to
+idempotency-only validation.
+
 ---
 
 ## Scope
@@ -120,6 +134,16 @@ Still NOT cross-checked against the STYLE_CPP26.md §5 external-corpus
 fixture repos (`bloomberg/clang-p2996` etc.) — only against this
 formatter's own actual JAR output. That corpus-scale validation pass
 remains open (see Scope §5 / Test Fixtures (External, corpus-scale)).
+
+## Tools/compiler used
+(1) `g++ -std=c++20 -fsyntax-only <file>` — usually `/opt/gcc-12.2.0/bin/g++`; PEGTL,
+    stdexec, and mp11 additionally need `LD_LIBRARY_PATH=/opt/isl-0.16.1/lib` with this
+    toolchain
+(2) `clang++ -std=c++23 -fsyntax-only <file>.cpp` (with/without `-stdlib=libc++`) at
+    `~/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/clang++` — pipe stderr through
+    `grep -v 'no version information available'` to filter a harmless libstdc++
+    symbol-versioning warning (not a compile error); `/opt/glibc-2.41/` is available if a
+    genuine glibc-mismatch/patchelf issue is ever hit with some other prebuilt binary
 
 ---
 
@@ -574,13 +598,37 @@ Question here since real implementation hasn't started.
       consistent with the `wrocpp` session's finding that this is general,
       not reflection-specific.
 
-      Compilation not attempted for the same reason as every prior session
-      this checklist item's toolchain note applies to: `g++ 4.8.5`/
-      `clang++ 3.7.1` (confirmed again this session, `-std=c++2a` isn't even
-      a recognized flag on this `g++`) are both far too old for glaze's
-      required modern-C++/reflection features; idempotency + manual
-      inspection used as the documented fallback, same as `wrocpp`/`simdjson`/
-      `rjk-duck`.
+      **Toolchain upgrade, this session:** a modern `clang++ 22.1.8`
+      (`~/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/clang++`) was pointed out as
+      available on this system mid-session, superseding the `g++ 4.8.5`/
+      `clang++ 3.7.1` too-old-for-reflection limitation documented in every
+      prior C++26 session. `-std=c++23 -stdlib=libc++ -fsyntax-only`
+      (`-stdlib=libc++` required — without it, `<string_view>` etc. aren't
+      found; stderr piped through `grep -v 'no version information
+      available'` to filter a harmless `libstdc++.so.6` symbol-versioning
+      warning, not a compile error) gave **genuine compile validation**,
+      not just idempotency + manual inspection:
+      - `include/glaze/reflection/get_name.hpp` +
+        `include/glaze/reflection/to_tuple.hpp` (the two files with actual
+        `^^`/`[: :]` reflection syntax): compile clean, zero diagnostics,
+        both unmodified and round1-formatted.
+      - **Full `include/glaze/glaze.hpp` umbrella header (254 headers
+        transitively, the entire `include/glaze` tree) compiles clean with
+        zero diagnostics, both unmodified and against the full
+        round1-formatted `include/` tree** — the strongest validation any
+        C++26 dogfood session has achieved so far, covering every header in
+        the corpus rather than a handful of spot-checked files.
+      - Two `tests/*.cpp` files (`jsonrpc_test.cpp`, `yaml_conformance.cpp`)
+        could not be compiled standalone — missing vendored test-only
+        dependency `ut/ut.hpp` (a testing framework, not part of this
+        checkout) — unrelated to formatting, not pursued further given the
+        umbrella-header result already covers the same reflection code
+        those tests exercise via `include/glaze`.
+      Idempotency + manual inspection is retained as documentation of the
+      prior fallback approach but is no longer the only validation used
+      this session — actual `-fsyntax-only` compilation confirms zero
+      formatter-induced compile regressions across the entire `include/`
+      tree.
 
       **No fixtures added — zero bugs found within this job's scope
       (`CppSpecificRule.java`/§1-5 C++26 rules).** All 37 idempotency

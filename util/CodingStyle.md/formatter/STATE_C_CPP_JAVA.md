@@ -473,6 +473,10 @@ on the noted commits/fixtures)
     and the `0-JxMake`/`1-TestData` directories were not surveyed for language/hand-written-vs-
     generated status when queued — check before folding into this pass; may warrant their own
     candidate entry instead. (NOT STARTED)
+(8) `github.com/jenkinsci/jenkins` — large, long-lived Java project (core CI/CD server); good
+    external-authorial-style coverage distinct from item (6)'s AST-rewrite-engine style and
+    item (7)'s vendored-library styles. Plain `.java`, no PCPP involved — same
+    round1/round2 + `java_sc` methodology as item (7). (NOT STARTED)
 
 Priority order for the C/C++ queue unless the user redirects: `STL` → `llvm-project` →
 `gcc-mirror` (`mp11`/`lexy`/`stdexec`/`range-v3`/`boost-ext/ut`/`microsoft/proxy` already DONE —

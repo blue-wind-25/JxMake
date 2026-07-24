@@ -4,9 +4,8 @@ Read [STYLE.md](STYLE.md), [STYLE_C_CPP.md](STYLE_C_CPP.md), and
 [STYLE_CPP20.md](STYLE_CPP20.md) first. This file extends all three for C++26
 constructs not covered there. `STYLE_CPP20.md` remains frozen as the C++17/20/23
 baseline (its constructs are fully implemented and cross-checked against actual JAR
-behavior) — kept in its own file rather than extended, the same reasoning
-STATE_KOTLIN.md gives for staying self-contained rather than folded into STATE.md,
-so the riskier/newer C++26 work here doesn't mix into a file that's otherwise done.
+behavior) — kept in its own file rather than extended, so the riskier/newer C++26
+work here doesn't mix into a file that's otherwise done.
 
 C++26 shipped/finalized 28 March 2026. Covers only finalized C++26 constructs — no
 C++29 content: C++29 only began its first WG21 meeting in June 2026, and "adopted

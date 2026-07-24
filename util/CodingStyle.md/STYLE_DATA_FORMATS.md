@@ -330,8 +330,7 @@ YAML and is ignored**: the YAML spec forbids tab characters for structural
 indentation entirely, so YAML output is always space-indented regardless of the
 configured `indent-style` (spaces/tabs/auto). This is the one config key in this
 entire file that a format has to explicitly opt out of, rather than just reusing —
-called out here and in `STATE_DATA_FORMATS.md`'s Config section so it isn't
-mistaken for an oversight.
+called out here so it isn't mistaken for an oversight.
 
 ### 5.2 Key/Value Alignment
 

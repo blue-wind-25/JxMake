@@ -151,8 +151,8 @@ total = (
 
 Python import order has no runtime-correctness requirement the way, say, a C header
 guard does — imports execute top-to-bottom like any other statement, so ordering here
-is purely a formatting convention, not semantics-preserving in the sense STATE_*.md
-uses that term elsewhere. This is a deliberately simpler rule than PEP 8/`isort`'s
+is purely a formatting convention, not a semantics-preserving one. This is a
+deliberately simpler rule than PEP 8/`isort`'s
 four-tier (stdlib/third-party/local) convention — **no stdlib-vs-third-party
 classification is needed at all.**
 

@@ -312,8 +312,20 @@ Checklist for current per-language status):
   all investigated and dropped — see Open Questions resolution below; none
   have a real committed HTML5 corpus (content is Astro/MDX, Markdown, a
   giant non-HTML preprocessed spec source, and JS unit tests with inline
-  HTML strings, respectively). No replacement candidates queued yet — next
-  session should look for one before resuming this list, or ask the user.
+  HTML strings, respectively). Three replacement candidates added (user,
+  2026-07-24), verified via `gh api` to actually contain real `.html`:
+  `web-platform-tests/wpt` (confirmed 6,552 real `.html` files via code
+  search — strongest candidate, but the full repo is ~2.6GB/"TOO MASSIVE",
+  so scope to one targeted subtree, e.g. `html/` or a specific test-suite
+  dir, same as the `llvm-project`/`gcc-mirror` C/C++ candidates' partial-run
+  precedent); `WordPress/wordpress-develop` (263 real `.html` hits, but
+  mostly thin Gutenberg block-theme templates dominated by
+  `<!-- wp:... {json} -->` comment shorthand rather than dense markup —
+  `src/readme.html` is a genuine standalone page; usable as a light
+  supplement, not a flagship run); `alexandersandberg/html5-elements-tester`
+  (a single 42KB `index.html` exercising many HTML5 elements — good
+  breadth-of-tag smoke test, but one file, not a corpus; treat as a quick
+  spot-check, not a full dogfood session).
 - **YAML:** `kubernetes/kubernetes` (manifests/Helm-adjacent config, heavy real-world
   nesting/anchors), `docker/compose` (compose-file corpus), `ansible/ansible`
   (playbooks — heavy on lists-of-maps, block scalars), `actions/starter-workflows`
@@ -634,13 +646,14 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       `prometheus/prometheus`, `home-assistant/core` all done — see per-repo
       entries below); **TOML 4/4, DONE** (`rust-lang/cargo`,
       `python-poetry/poetry`, `pola-rs/polars`, `toml-lang/toml` all done —
-      TOML Test-Fixture Repos list now fully complete); HTML5 1/1 of the
-      remaining list (`h5bp/html5-boilerplate` done; `twbs/bootstrap` docs
-      site, `mdn/content`, `whatwg/html`, `kangax/html-minifier` all
-      investigated and dropped — no real HTML5 corpus in any, see Open
-      Questions resolution; no replacement candidates queued). Overall item
-      stays unchecked pending the remaining repos above (XML) and any future
-      HTML5 replacement candidate.
+      TOML Test-Fixture Repos list now fully complete); HTML5 1/4
+      (`h5bp/html5-boilerplate` done; `twbs/bootstrap` docs site,
+      `mdn/content`, `whatwg/html`, `kangax/html-minifier` all investigated
+      and dropped — no real HTML5 corpus in any, see Open Questions
+      resolution; `web-platform-tests/wpt`, `WordPress/wordpress-develop`,
+      `alexandersandberg/html5-elements-tester` added as replacements, not
+      started). Overall item stays unchecked pending the remaining repos
+      above (XML) and the newly-added HTML5 candidates.
 
       **Shared methodology note (applies to every run below, not restated per
       repo):** each run clones fresh (or reuses a prior-session checkout under

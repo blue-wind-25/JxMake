@@ -334,6 +334,49 @@ cd util/CodingStyle.md/formatter/tools/syntax_checker
 "$JDK/bin/java" java_sc <file.java> [file2.java ...]
 ```
 
+**Dogfood Output Validation — `java_content_diff`.** A content-preservation
+checker for Java, complementing `java_sc` (which only proves "still
+parses", same `css_content_diff.py`/`xml_content_diff.py` precedent from
+`STATE_DATA_FORMATS.md`). Reuses `java_sc`'s `JavacTask.parse()`
+infrastructure (no new dependency) but keeps the `CompilationUnitTree`
+instead of only scanning diagnostics. Since this formatter *intentionally*
+reorders/transforms some Java content (`java-import-order` sorting,
+declaration-alignment whitespace, `normalize-comment-start-case`), a naive
+text/token diff would false-positive on all of that, so the comparison is
+split by content family:
+- **imports** — compared as a multiset (sorted qualified-identifier
+  strings, `static` flag included) since reordering here is legitimate.
+- **package declaration + every top-level type declaration** — compared
+  **in original relative order**, each via javac's own pretty-printer
+  (`Tree.toString()`), whitespace-normalized. The pretty-printer encodes
+  structure/identifiers/literal values but not original whitespace or
+  comments, so pure reindentation/alignment-padding differences canonicalize
+  to identical text while a dropped/added declaration, renamed identifier,
+  or changed literal value still shows up as a text difference.
+- **comments** — extracted separately via a raw-text scan (skips
+  string/char literals so a `//`/`/*` inside a literal is never
+  mistaken for a comment start; the pretty-printer drops comments
+  entirely), compared as a multiset, whitespace-normalized **and**
+  lowercased — a case-only change is expected
+  (`normalize-comment-start-case`) so it must not be flagged, but a
+  dropped or otherwise-corrupted comment still is.
+
+Exit 0 if content is preserved, 1 with a description of each mismatch
+otherwise, 2 if either file fails to parse. Build/run:
+```bash
+JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
+cd util/CodingStyle.md/formatter/tools/syntax_checker
+"$JDK/bin/javac" java_content_diff.java
+"$JDK/bin/java" java_content_diff <original.java> <formatted.java>
+```
+Verified against a hand-crafted good pair (reindentation + import sort +
+one comment recapitalization — passes clean) and two bad pairs, a dropped
+statement (correctly flagged as "top-level declaration #0 structure/content
+differs") and a corrupted comment (correctly flagged as a comment present in
+one file's set but not the other's) — all three cases caught correctly.
+Test fixtures kept in `/tmp` only (hand-crafted verification pairs, not
+registered as permanent `test/` fixtures).
+
 **Finished dogfood / real-code testing** (one line each; full narratives via `git log`/`git show`
 on the noted commits/fixtures)
 (1) `blake-madden/tinyexpr-plusplus` (C++20) — 3 bugs, `MiscRule` multi-line call/decl

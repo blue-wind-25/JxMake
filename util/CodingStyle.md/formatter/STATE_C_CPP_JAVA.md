@@ -523,7 +523,7 @@ on the noted commits/fixtures)
      real vendored `src/com`/`src/org` tree itself was never modified. Fixture:
      `real_code_regressions_95`.
 
-(25) **IN PROGRESS** — `github.com/jenkinsci/jenkins` (1929 `.java` files across `core`/`cli`/
+(25) **DONE** — `github.com/jenkinsci/jenkins` (1929 `.java` files across `core`/`cli`/
      `test`/`war`/`websocket`, plain Java, no PCPP involved). Reused the checkout already cloned
      under this session's scratchpad dir by a prior XML-focused dogfood session on the same repo
      (see `STATE_DATA_FORMATS.md` for that unrelated write-up) rather than re-cloning. Baseline
@@ -559,12 +559,12 @@ on the noted commits/fixtures)
      `java_content_diff` spot-checked on a handful of round1 files including `IdStrategy.java`
      and `PluginManager.java` (the two files with non-idempotency): content preserved in all
      cases (only whitespace/reordering-class differences, no dropped/changed declarations).
-     **Full clean final numbers not yet taken** — per this task's explicit instruction, that step
-     is deferred until a future session resolves the remaining separator-alignment design
-     question and the PluginManager.java pathological-line-wrap gap. Resume point: ask the user
-     how to narrow `alignCommentSeparators`'s qualifying-character definition (see "Known Gaps —
-     Open" for the specific question), then re-run the full round1/round2 + `java_sc` +
-     `java_content_diff` pass one more time for final numbers.
+     **Session closed with the remaining 2 gaps explicitly accepted, not fixed** — user decision:
+     mark this dogfood DONE rather than continuing to defer on the separator-alignment design
+     question and the PluginManager.java pathological-line-wrap gap. Both are now documented as
+     permanent known limitations (also called out in `README.md`'s "Known Limitations" section for
+     the `alignCommentSeparators` case) rather than open resume points. No further action planned
+     against this repo unless one of those two gaps is revisited independently in a future session.
 
 **Not started dogfood / real-code testing**
 (2) `github.com/microsoft/STL` — Microsoft's `std::` implementation; large, best raw grammar

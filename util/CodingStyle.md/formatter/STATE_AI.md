@@ -414,6 +414,48 @@ Neither script's working files (splits, weights, clones) are ever committed,
 per RDD_EXT_19. See `tools/gru/README.txt` for exact invocation syntax for
 every tool in this directory.
 
+### Optional synthetic-augmentation tooling (chat-LLM assisted, NOT the real corpus)
+
+Separate, optional tooling to pad Pool A/B with LLM-generated synthetic
+examples via a manually-copy-pasted chat prompt (Gemini/Grok free tiers,
+no API key). This is **explicitly not a replacement** for the
+acquire_corpus.sh + hand-labeling pipeline (RDD_EXT_19/20) — synthetic
+comments risk teaching the GRU "what an LLM thinks ambiguous code looks
+like" rather than real-world distribution, which is the exact failure
+mode Step 3 was designed around when the small-instruction-tuned-LLM
+approach was rejected. Treat any synthetic-augmented file as a distinct,
+clearly-labeled source, not silently merged into the real combined corpus.
+
+- `tools/gru/gen_synthetic_prompt.py` — reads `explicit_vocab.txt`,
+  prints a self-contained copy/paste prompt (RDD_EXT_20/21 schema spelled
+  out inline, no file upload needed) requesting Pool A + Pool B lines for
+  the next unused slice of the vocab. `--words-per-batch` is configurable
+  (default 20, producing `2 * words_per_batch` total lines). State
+  (`next_index` into the vocab) persists in `.gen_synthetic_state.json`
+  next to the script, so consecutive daily runs walk forward through the
+  3500-word vocab instead of repeating words; wraps back to index 0 once
+  exhausted. `--reset` restarts from 0.
+- `tools/gru/regroup_synthetic.py` — takes one pasted-in file containing
+  scattered Pool A/B lines (e.g. concatenated output from multiple chat
+  responses/models) and splits it into `pool_a.tsv` / `pool_b.tsv` /
+  `unresolved.tsv`. Field splitting tolerates inconsistent space/tab
+  spacing (any whitespace run counts as one separator). Classification
+  is deliberately conservative: `targetWordIndex == 0` → Pool A;
+  `targetWordIndex == index of the last whitespace-split token` → Pool B;
+  anything else (including malformed labels/indices) → `unresolved.tsv`
+  for manual review, never silently discarded.
+  **Known limitation:** the real `GruClassifier.tokenize` splits trailing
+  attached punctuation into its own token (RDD_EXT_12), so the true
+  target token is not always the last *raw* whitespace-split word (see
+  the `extern C.` / `uses a vs. b comparison` examples in
+  `sample_examples.txt`). Neither this script nor the chat LLM generating
+  the data can reconstruct that tokenizer's exact behavior without its
+  source, so a meaningful fraction of real Pool B lines are expected to
+  land in `unresolved.tsv` rather than being auto/mis-classified — this
+  is intentional, not a bug to fix by loosening the match.
+
+---
+
 ### acquire_corpus.sh run at full scale (16 sources)
 
 Run for real (not a smoke test) against all 16 configured sources, output to

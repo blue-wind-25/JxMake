@@ -611,6 +611,44 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   from real WPT dogfood input are now crash-free; only the tree-shape
   accuracy of the deep tree-construction gaps above remains open.
 
+  **Tag-name case-folding (item 3 of the 4 deep tree-construction gaps
+  above) is being split out and fixed separately as a small, standalone
+  item** (user, 2026-07-25) -- unlike the other three, it's a pure
+  lookup-table fixup (SVG/MathML have small, fixed spec case-correction
+  tables, e.g. `foreignObject`/`clipPath`), reusing the same pattern as the
+  existing single-entry `TAG_NAME_REWRITES` map, with no dependency on the
+  insertion-mode/open-elements-stack foundation the other three need. See
+  its own checklist entry below once landed.
+
+  **TODO -- adoption agency, foster-parenting, implicit `<body>`
+  insertion, and misnested `<form>`-in-`<template>` (items 1/2/4/5 above)
+  are grouped as one future multi-session job, not four separate fixes**
+  (user-reviewed sizing, 2026-07-25). All four ultimately need the same
+  prerequisite the current recursive-descent `XmlSpecificRule` parser
+  doesn't have: an explicit open-elements-stack + HTML5 insertion-mode
+  state machine (currently "what insertion mode / what's open" is implicit
+  in the Java call stack, not an inspectable structure) -- building that
+  foundation is the dominant cost, comparable in size/risk to
+  `STATE_COMMON.md`'s "general scope-depth reindentation" Architectural
+  TODO (its own riskiest-change precedent). Once the foundation exists,
+  each algorithm on top is a smaller incremental add. Recommended landing
+  order once undertaken: **implicit `<body>` insertion first** (narrowest,
+  self-contained -- auto-open `<body>` if content appears with none
+  written), then **foster-parenting** (needed before foreign-content trees
+  are shape-accurate), then **misnested `<form>`-in-`<template>`**
+  (template-scoped, narrow once insertion modes exist), then **adoption
+  agency last** (the spec's own most notoriously fiddly algorithm --
+  attempt only once the foundation has proven solid on the other three).
+  Real-world impact is low in the meantime: every actual dogfood corpus run
+  so far (`h5bp/html5-boilerplate`, `WordPress/wordpress-develop`,
+  `alexandersandberg/html5-elements-tester`, `web-platform-tests/wpt`
+  `html/syntax/`) formatted cleanly with zero structural loss -- these four
+  gaps only bite on the kind of deliberately pathological
+  misnesting/foreign-content edge cases WPT's own conformance fixtures are
+  built to exercise, not on markup anyone hand-writes. Not blocking any
+  current checklist item; flagged here as a scoped future job, per
+  `STATE_COMMON.md`'s ambiguity/open-question convention.
+
 ## Checklist
 
 - [x] **Implement JSON/JSON5 (§1).** DONE. `JsonTokenizer` (extends

@@ -287,8 +287,9 @@ Phase 4 flat spacing, Phase 5 import ordering). `make test`: 126/126 forward
 - **`XmlSpecificRule` Config-threading** — RESOLVED. New 6-arg constructor
   threads the enclosing HTML file's real resolved `Config` into the spliced
   `<script>` path instead of a throwaway 4-field synthesis.
-- **Real-code testing pass** — DONE, `expressjs/express`. See "Resolved this
-  session (expressjs/express real-code testing)" below.
+- **Real-code testing pass** — DONE for `expressjs/express`, `nestjs/nest`,
+  `vuejs/core`, and `lodash/lodash`. See the "Resolved this session"/dogfood
+  narrative sections below for each repo's detail.
 
 ### Resolved this session (js_combined/js_comments activation)
 
@@ -795,7 +796,16 @@ separately-discovered spacing-only gap in the single-declarator colon path.
   feature interacting badly with consecutive `case` labels sharing a single
   body) but confirmed pre-existing via `git stash` comparison against the
   unmodified codebase, not introduced by any fix in this session. Needs its
-  own dedicated fix + fixture in a future session.
+  own dedicated fix + fixture in a future session. **Second confirming
+  recurrence found in the `lodash/lodash` dogfood pass** (see below): a
+  different but related symptom — `fp/_baseConvert.js`'s
+  `initCloneByTag`'s typed-array fallthrough case body (`case uint8Tag :
+  /* FALL-THROUGH */ ... case uint32Tag : return cloneTypedArray(object,
+  isDeep);`, 196 chars) round1 leaves unwrapped past `line-length-limit`,
+  round2 wraps the trailing call's arguments — a `SwitchRule` case-grid vs.
+  generic call-wrap-fits-check ordering gap. Still not fixed (shared
+  C/C++/Java-owned `SwitchRule` logic, deliberately left to its own future
+  session per both dogfood passes' scoping).
 - **Single-declarator colon spacing**: `const x: number = 1;` renders as
   `const x : number = 1;` (space inserted before the colon) even at plain
   top level with no function-type involved. Confirmed to be
@@ -810,6 +820,106 @@ separately-discovered spacing-only gap in the single-declarator colon path.
   status since it produces no compile error and is a pre-existing gap in
   `JsTsDeclarationAlignmentRule`, not a regression from this session's
   generic-tracking fixes.
+
+### `lodash/lodash` dogfood pass — DONE
+
+Repo: `lodash/lodash` (fresh shallow clone, `/tmp/lodash`, HEAD `a666ba5`,
+package.json version `4.18.1`). This checkout's current tree is a single
+large `lodash.js` (17259 lines) plus build tooling/tests, **not** the
+per-function-file layout the Test-Fixture Repos note originally anticipated
+— that split lives only in older tags/derived packages, not this repo's
+current `main`. In-scope corpus: 27 real `.js` files (`lodash.js`, `fp/*.js`
+[4], `lib/common/*.js`/`lib/fp/*.js`/`lib/main/*.js` [11 build-tooling
+files], `test/test.js`/`test-fp.js`/`remove.js`/`asset/*.js`/
+`playwright-runner.spec.js`, `perf/*.js`/`perf/asset/perf-ui.js`,
+`.markdown-doctest-setup.js`, `playwright.config.js`) — `dist/*` (generated
+minified bundles) and `vendor/*` (backbone/underscore/firebug-lite/json-js,
+third-party vendor code) excluded per `STATE_COMMON.md`'s file-exclusion
+conventions. 50983 total lines across the 27 files.
+
+**Baseline:** `node --check` 27/27 pass; a throwaway TS-compiler-API
+parse-only script (`ts.createSourceFile` + checking `sf.parseDiagnostics`,
+same idiom as `js_ts_content_diff.js`, not a permanent tool) also confirmed
+27/27 zero pre-existing parse errors.
+
+**Round1** (one batch invocation, `--preserve-tree --root /tmp/lodash --out
+/tmp/round1-lodash`, all 27 files): zero crashes, 27/27 formatted. `node
+--check` 27/27 pass on round1 output; the same TS-compiler-API parse script
+also 27/27 clean on round1 output — no new syntax errors introduced.
+
+**Idempotency (round1→round2):** 26/27 files byte-identical; **1 file
+differs**, `lodash.js`, in exactly the same "switch-case fallthrough
+one-liner" shape already tracked below as a known, pre-existing, deferred
+issue (see "Known open issues" — `utils.ts` entry from the `vuejs/core`
+pass): a long collapsed `case A: /* FALL-THROUGH */ ... case Z: return
+foo(a, b);` line (`initCloneByTag`'s typed-array branch, 196 chars, well
+over `line-length-limit`) is left unwrapped by `SwitchRule`'s fallthrough
+render on round1, then `enforceCallLineBreaking`/complexity-padding wraps
+the trailing call's arguments onto their own lines on round2 (a boundary/
+ordering gap between the case-fallthrough grid render and the generic
+call-wrap fits-check, structurally the same class of bug as the already-
+recorded `SwitchRule`/case-grid interaction). `SwitchRule` is shared,
+core C/C++/Java-owned logic (not JS/TS-specific) — not re-root-caused or
+fixed in this session, consistent with the `vuejs/core` pass leaving its
+own analogous `utils.ts` switch-case issue open rather than modifying
+shared switch-case logic under this job. Not a new bug class; recorded here
+as a second confirming data point for the existing open issue, not a new
+entry.
+
+**Content-preservation** (`js_ts_content_diff.js`, every file's original vs.
+round1 output): 17/27 files reported as "MISMATCH", but every single flagged
+line across all 17 decomposes into exactly two already-understood,
+intentional, non-lossy formatting transformations that this checker's
+current comment/statement canonicalization doesn't tolerate (not real
+content loss, confirmed by manual inspection of every distinct flagged
+statement index and every flagged comment):
+
+- **Comment trailing-period stripping** (`normalize-comment-end-period=on`'s
+  documented `stripSoleTrailingPeriod`/`stripSoleTrailingPeriodAcrossLines`
+  behavior, `MiscRuleCore.java`) — every flagged comment pair in this run is
+  identical except for a trailing `.` present in the original and absent in
+  the formatted text (e.g. `"assign aliases."` vs `"assign aliases"`). The
+  checker's comment multiset already tolerates a lowercase-only diff
+  (`normalize-comment-start-case`) but was never extended to also tolerate
+  this period-stripping transformation, so it flags an intentional,
+  documented rule as a mismatch. Confirmed for every one of this run's
+  flagged comments — no comment text was altered beyond the trailing period.
+- **§10 single-expression-block brace omission** (`STYLE.md` §10, existing
+  behavior, not JS/TS-specific) — every flagged "non-import top-level
+  statement #N structure/content differs" traces to a single-statement
+  `if (...) { body; }` / `while (...) { body; }` being rendered brace-less
+  (`if (...) body;` / `while (...) body;`) per this pre-existing style rule.
+  Confirmed directly for `fp/_baseConvert.js` (`cloneArray`'s `while
+  (length--) { result[length] = array[length]; }` →  `while (length--)
+  result[length] = array[length];`; `wrapImmutable`'s `if (!length) { return;
+  } ` → `if (!length) return;`) and `fp/_mapping.js` (an `if/else` pair
+  inside `_mapping.js`'s IIFE, same shape) by diffing each flagged
+  statement's canonicalized text with its leading-JSDoc-comment span
+  stripped — the only remaining difference in every case was exactly this
+  brace-omission transformation, no tokens added/removed/reordered beyond
+  it. (JSDoc `@private`/`@param`/`@returns` tags are parsed as real AST
+  nodes by the TS compiler API even for `.js` files, which is why some
+  flagged statements' canonicalized text includes JSDoc tag words — a
+  pre-existing checker characteristic, not new, and not a false positive on
+  its own since both sides include the same JSDoc tag tokens.)
+
+No other content-preservation category (dropped statement, reordered
+non-import code, corrupted comment wording) appeared anywhere in the 27-file
+corpus. Both transformations above are candidates for a future
+`js_ts_content_diff.js` tolerance update (documented here rather than
+changed now, since the task for this session was dogfooding the formatter,
+not the checker), but are explicitly NOT formatter bugs.
+
+**Verdict: DONE.** Zero new formatter bugs found. The corpus turned out
+clean per this task's "0-3 distinct bugs" branch — the one idempotency
+diff is a confirming recurrence of the already-tracked, pre-existing,
+deferred `SwitchRule` case-fallthrough issue (see "Known open issues"
+below), not a new bug, and is left unfixed here for the same reason it was
+left unfixed in the `vuejs/core` pass (shared C/C++/Java-owned logic, out of
+scope for a targeted JS/TS-job fix without its own dedicated session). No
+full corpus re-run is needed beyond what's documented above — baseline,
+round1, round1↔round2 idempotency (26/27 clean, 1 known-issue recurrence),
+and content-preservation are all accounted for.
 
 ### Known false positives (no source change needed, fixture-only)
 

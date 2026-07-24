@@ -813,657 +813,185 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       real-code-testing pass across all six sub-formats (JSON/JSON5, CSS,
       XML, YAML, TOML, HTML5).
 
-      **Shared methodology note (applies to every run below, not restated per
-      repo):** each run clones fresh (or reuses a prior-session checkout under
-      `/tmp`/scratchpad if found) per `STATE_COMMON.md`'s methodology, excludes
-      build/vendor/generated-output dirs, and — above a per-format sampling
-      threshold (JSON/CSS: "several thousand+"; XML/YAML: "several hundred+")
-      — takes a representative sample rather than the full set; below
-      threshold the full set is processed. Every run does: baseline
-      syntax-check of unformatted originals (to separate pre-existing-invalid/
-      template/deliberately-malformed fixtures from real in-scope files) →
-      round1 format (`--preserve-tree --root`, one invocation) → round2
-      (reformat round1 output) → `diff -rq` idempotency check → syntax-check of
-      round1 output vs baseline → format-specific content-preservation check
-      (`css_content_diff.py`/`xml_content_diff.py`/`yaml_content_diff.py`/
-      `toml_content_diff.py`, per "Dogfood Output Validation" above). A
-      comment-capitalization diff (`normalize-comment-start-case=on`,
-      lowercase-starting prose comment capitalized) recurs across several runs
-      below and is expected/correct behavior per the `real_code_regressions_69`
-      precedent, not a bug — noted per-repo only when it's the sole diff found.
+      **Shared methodology (every run below):** clone fresh (or reuse a
+      prior-session checkout) per `STATE_COMMON.md`; exclude build/vendor/
+      generated dirs; sample above a per-format threshold (JSON/CSS:
+      "several thousand+"; XML/YAML: "several hundred+"), else process the
+      full set. Every run: baseline syntax-check (separates pre-existing-
+      invalid/template fixtures from in-scope files) → round1 format
+      (`--preserve-tree --root`) → round2 → `diff -rq` idempotency →
+      syntax-check round1 vs baseline → format-specific content-preservation
+      check (`css_content_diff.py`/`xml_content_diff.py`/
+      `yaml_content_diff.py`/`toml_content_diff.py`/`html_content_diff.py`,
+      per "Dogfood Output Validation" above). A comment-capitalization-only
+      diff (`normalize-comment-start-case=on`) recurs across nearly every
+      run below and is expected/correct per the `real_code_regressions_69`
+      precedent, not a bug.
 
-      **CSS (all 4 repos done, sub-portion complete):**
-      - `twbs/bootstrap`: real source is `.scss`; in-scope corpus 31
-        hand-authored `.css` files (`dist/css/**` excluded as generated).
-        Forward/idempotency/syntax-check all 31/31 clean. **1 bug
-        found+fixed** (via manual comment inspection, not the comment-
-        stripping token-diff): `carousel.css`'s rtlcss directive comments
-        (`/* rtl:begin:ignore */` etc.) were silently capitalized to
-        `/* Rtl:... */` by `FormatterSimpleBraced.capitalizeCommentStart` —
-        still valid CSS so `css_sc.js` missed it, but breaks any pipeline
-        running rtlcss over the output. Fixed by adding
-        `isSingleTokenDirective`: skip capitalization when a comment's
-        first-line body is one whitespace-free token containing `:` or `-`
-        (directive-shaped), ordinary prose still capitalized. Fixture
-        `test/real_code_regressions_69_{inp,out}.css`. `make test`: 118/118
-        forward + idempotency. Commit `8f5f597`. Final full re-run: 31/31
-        clean on all four checks.
-      - `necolas/normalize.css`: 1 hand-authored file (`normalize.css`, 6138
-        bytes), no generated copy in-repo. Wrote `css_content_diff.py` this
-        session (see "Dogfood Output Validation"). Zero bugs — 1/1 clean on
-        all four checks (71 comments byte-identical, token stream identical,
-        `!important` count and vendor-prefix counts matched).
-      - `foundation/foundation-sites`: real source is 100% `.scss`; the only
-        `.css` files are 8 generated `dist/css/**` outputs (Sass-compiled, with
-        matching `.css.map`). **In-scope corpus: 0 files** — no run performed,
-        nothing to regress-test.
-      - `primer/css`: real source is `.scss`; in-scope corpus 2 hand-authored
-        files (`docs/.storybook/{preview,storybook}.css`). Forward/idempotency/
-        syntax-check 2/2 clean. Content-preservation: `storybook.css` exact
-        match; `preview.css` one diff, `/* color */` → `/* Color */` —
-        confirmed expected capitalization (not directive-shaped per
-        `isSingleTokenDirective`), not a bug. Zero bugs found.
+      **CSS (4/4 done):** `twbs/bootstrap` (31 in-scope `.css`, rest `.scss`)
+      — 1 bug: rtlcss directive comments (`/* rtl:begin:ignore */`) were
+      capitalized to `/* Rtl:... */`, breaking rtlcss but still valid CSS
+      (`css_sc.js` missed it); fixed via `isSingleTokenDirective` (skip
+      capitalization when a comment's first-line body is one whitespace-free
+      `:`/`-`-containing token). Fixture `real_code_regressions_69`, commit
+      `8f5f597`. Final 31/31 clean. `necolas/normalize.css` (1 file) — zero
+      bugs, 1/1 clean; `css_content_diff.py` written this session.
+      `foundation/foundation-sites` — 100% `.scss`, 0 in-scope files, no run.
+      `primer/css` (2 files) — zero bugs, 2/2 clean (one expected comment
+      capitalization).
 
-      **JSON/JSON5 (all 4 repos done, sub-portion complete):**
-      - `json5/json5`: 6 files. Baseline 5/6 pass (`test/invalid.json5` is the
-        repo's own deliberately-invalid fixture, expected fail). Forward 6/6,
-        idempotent, syntax-check of output matches baseline exactly incl. the
-        one expected failure (formatter left its content byte-identical).
-        Zero bugs found.
-      - `microsoft/vscode`: 1377 files found, full set processed. 5
-        genuinely-empty files correctly throw `JsonParseException`. 100 JSONC
-        files excluded as out-of-scope (already fail baseline `JSON.parse`).
-        **In-scope corpus: 1272 files.** **1 idempotency bug found+fixed**
-        (via `diff -rq round1 round2`): `JsonSpecificRule.parseContainer`
-        kept a dangling placeholder `Item` for a comment-less blank line
-        before a closing brace, defeating the tight-`{}` short-circuit on
-        round1 but not round2 — non-idempotent
-        (`extensions/vscode-api-tests/testWorkspace/bower.json`, source
-        `"{\n\n\t\n}\n"`). Fixed by only keeping the placeholder when a real
-        leading comment exists. Fixture
-        `test/real_code_regressions_68_{inp,out}.json`. `make test`: 117/117.
-        Commit `e2a6f0e`. After fix: full 1377-file re-run clean idempotency;
-        syntax-check 1272/1272 matching baseline.
-      - `babel/babel`: 9245 files found, above sampling threshold — sampled
-        964 files (all 204 package.json across packages, all 500 non-fixture
-        `.json`, every 20th of 8745 `test/fixtures/**` files = 438,
-        deduplicated to 964). Baseline 810/964 pass (154 JSONC `tsconfig*`
-        excluded by design, 2 deliberately-invalid error-handling fixtures
-        excluded). **In-scope corpus: 810 files.** Forward/idempotency/
-        syntax-check all 810/810 clean, matching baseline. Zero bugs found.
-        (Methodology note: one sampled path contains literal spaces —
-        file-list handling must preserve it as one path, e.g. `xargs -d '\n'`,
-        not unquoted `$(cat ...)` word-splitting.)
-      - `eslint/eslint`: 98 files, full set processed. Baseline 92/98 pass; 6
-        excluded (2 real JSONC, 2 deliberately-malformed error-handling
-        fixtures, 1 genuinely-empty file, plus 2 BOM-prefixed fixtures
-        discovered only during round1 and retroactively confirmed
-        pre-existing-invalid at baseline too — both this formatter and
-        `JSON.parse` reject a leading BOM identically). **In-scope corpus: 91
-        files.** Forward/idempotency/syntax-check 91/91 clean, matching
-        baseline. Manual spot-check confirmed only re-indentation/
-        colon-alignment, no content loss. Zero bugs found.
+      **JSON/JSON5 (4/4 done):** `json5/json5` (6 files) — zero bugs.
+      `microsoft/vscode` (1272 in-scope of 1377) — 1 idempotency bug:
+      `parseContainer` kept a dangling placeholder `Item` for a
+      comment-less blank line before `}`, defeating the tight-`{}`
+      short-circuit only on round2; fixed to keep the placeholder only with
+      a real leading comment. Fixture `real_code_regressions_68`, commit
+      `e2a6f0e`. `babel/babel` (810 sampled of 9245) — zero bugs.
+      `eslint/eslint` (91 in-scope of 98) — zero bugs.
 
-      **XML (4/4 repos done, DONE):**
-      - `apache/maven`: 3158 files found, above sampling threshold — sampled
-        398 files (all 90 top-level/module `pom.xml`, every 10th of 1882
-        `test/resources` `pom.xml` = 189, every 10th of 1186 non-pom `.xml`
-        = 119). Baseline 397/398 pass (1 genuinely 0-byte fixture, expected).
-        Forward 398/398 (empty file stays empty), idempotency 398/398 clean,
-        syntax-check 397/398 matching baseline. Wrote `xml_content_diff.py`
-        this session (see "Dogfood Output Validation"), verified against a
-        hand-crafted good/bad pair first, then run on all 397 non-empty
-        files: 355/397 exact match, 42/397 flagged — all 86 individual
-        mismatches across those files are case-insensitive-equal
-        comment-capitalization diffs (the same expected
-        `normalize-comment-start-case=on` behavior), confirmed
-        programmatically, not a bug. Zero attribute-order/text/CDATA/
-        structural mismatches. Zero bugs found.
-      - `w3c/svgwg`: 298 files found (22 `.xml` + 276 `.svg`, spot-checked as
-        real XML), full set processed (1 vendored `node_modules` fixture
-        excluded). Baseline `xml_sc.js`: 294/298 pass — 4 excluded (1
-        illustrative two-root-element snippet, 3 BOM-prefixed `.svg`, same
-        precedent as `eslint/eslint`'s BOM fixtures). **In-scope corpus: 294
-        files.** **1 bug found+fixed**, forward pass erroring outright:
-        `Lang.infer` never mapped `.svg` to `xml` at all, so all 276 `.svg`
-        files failed with "could not infer language" — a missing extension
-        mapping, not a parser bug. Fixed by adding `.svg` alongside `.xml` in
-        `Lang.infer`. Fixture `test/real_code_regressions_74_{inp,out}.svg`.
-        `make test`: 123/123. Commit `3408acd`. Final 298-file re-run:
-        forward/idempotency 298/298 clean; syntax-check matches baseline (4
-        pre-existing failures, no new); content-preservation
-        (`xml_content_diff.py`) 22/294 flagged, all 59 mismatches confirmed
-        case-insensitive-equal comment-capitalization diffs (expected
-        `normalize-comment-start-case=on` behavior) — zero structural
-        mismatches. Namespaces, nested `<g>` groups, path-data attributes,
-        CDATA (18 files) all exercised with no corruption. `apache/ant`,
-        `jenkinsci/jenkins` remain not-started.
-      - `apache/ant`: 558 files found (517 `.xml` + 2 `.xsd` + 39 `.xsl`),
-        sampled every 3rd `.xml` (173) plus all `.xsd`/`.xsl` (214 total, no
-        exclusion dirs — this is Ant's own source tree). Baseline `xml_sc.js`:
-        207/214 pass — 7 excluded, all Ant's own deliberately-invalid
-        `src/etc/testcases/**` fixtures. **In-scope corpus: 214 files** (the
-        7 excluded still forward/idempotency-checked, just not
-        syntax-checked). **1 bug found+fixed:** `Lang.infer` never mapped
-        `.xsd`/`.xsl` to `xml` at all (same gap shape as `w3c/svgwg`'s `.svg`
-        bug) — all 41 `.xsl`/`.xsd` files in the sample failed with "could
-        not infer language". Fixed by adding `.xsd`/`.xsl` alongside
-        `.xml`/`.svg` in `Lang.infer`. Fixtures
-        `test/real_code_regressions_91_{inp,out}.xsl`,
-        `test/real_code_regressions_92_{inp,out}.xsd`. `make test`: 141/141
-        forward + idempotency. Commit `25bd5b8`. Full 214-file re-run after
-        fix: forward/idempotency 214/214 clean; syntax-check matches baseline
-        (same 7 pre-existing failures); content-preservation
-        (`xml_content_diff.py`) flagged 66/214 files, 484 mismatches, all
-        confirmed case-insensitive-equal comment-capitalization diffs (same
-        expected behavior as `apache/maven`/`w3c/svgwg`) — zero structural
-        mismatches. Ant's `build.xml`-family (`<macrodef>`/`<target>`/
-        `<condition>`/nested-task), XSLT report stylesheets
-        (`junit-frames.xsl` etc., deeply nested `<xsl:template>`/
-        `<xsl:for-each>`/HTML-in-XSLT), and the 2 `.xsd` schema files all
-        exercised with no corruption beyond expected comment normalization.
-      - `jenkinsci/jenkins`: 131 files found (below the "several hundred+"
-        sampling threshold, full set processed: 9 `pom.xml`, 58 `config.xml`
-        test fixtures, 8 `build.xml`, plus assorted other `.xml` across
-        `core`, `test`, `war`, `cli`, `bom`, `websocket`, `.idea`, `.mvn`,
-        `src`). Baseline `xml_sc.js`: 130/131 pass — 1 excluded,
-        `core/src/test/resources/hudson/util/
-        Digester2Security2147TestData.xml`, a deliberately-crafted XXE/
-        entity-expansion security-test fixture with no root element
-        (expected pre-existing invalid, same posture as prior repos'
-        deliberately-invalid fixtures). **In-scope corpus: 130 files.**
-        Forward 130/130, idempotency (`diff -rq round1 round2`) 130/130
-        clean, syntax-check of round1 output 130/130 matching baseline
-        exactly (no new failures). Content-preservation
-        (`xml_content_diff.py`): 14/130 flagged — 11 files with 72 total
-        mismatches, all confirmed case-insensitive-equal
-        comment-capitalization diffs (expected `normalize-comment-start-
-        case=on` behavior, same precedent as `apache/maven`/`w3c/svgwg`/
-        `apache/ant`), zero structural/attribute-order/text/CDATA
-        mismatches; plus 3 files (`config_1_0_with_special_chars.xml`,
-        `config_1_1_with_special_chars.xml`,
-        `XMLFileTest/silentlyMigrateConfigsTest/config.xml`) where
-        `xml_content_diff.py` itself can't parse the original with stdlib
-        `xml.dom.minidom` (embedded control characters lenient `xmldom`
-        tolerates but `minidom` rejects) — a content-diff tool limitation,
-        not a formatter bug; all three still passed `xml_sc.js` baseline/
-        round1 and the forward/idempotency checks cleanly. **Zero bugs
-        found.** Maven POM dependency-management blocks, Ant-style
-        `build.xml`, XStream test-fixture data, Windows-service descriptor
-        XML, and checkstyle config all exercised with no corruption beyond
-        expected comment normalization. XML Test-Fixture Repos list now
-        fully complete (4/4: `apache/maven`, `w3c/svgwg`, `apache/ant`,
-        `jenkinsci/jenkins` all done).
+      **XML (4/4 done):** `apache/maven` (398 sampled of 3158) — zero bugs;
+      wrote `xml_content_diff.py` this session. `w3c/svgwg` (294 in-scope of
+      298, incl. `.svg`) — 1 bug: `Lang.infer` never mapped `.svg` to `xml`;
+      fixed by adding the extension. Fixture `real_code_regressions_74`,
+      commit `3408acd`. `apache/ant` (214 in-scope of 558, incl. `.xsd`/
+      `.xsl`) — 1 bug, same shape: `.xsd`/`.xsl` also unmapped in
+      `Lang.infer`; fixed. Fixtures `real_code_regressions_91`/`_92`, commit
+      `25bd5b8`. `jenkinsci/jenkins` (130 in-scope of 131) — zero bugs (3
+      files hit a `xml_content_diff.py` stdlib-`minidom` parsing limitation
+      on embedded control chars, not a formatter bug). All four final
+      re-runs: forward/idempotency clean, content-preservation diffs are all
+      comment-capitalization-only.
 
-      **TOML (2/4 repos done):**
-      - `rust-lang/cargo`: 672 files, full set processed (below sampling
-        threshold). Baseline 670/672 pass (2 deliberately-invalid manifest
-        error-handling fixtures excluded). **In-scope corpus: 670 files.**
-        **2 bugs found+fixed, both via the forward pass crashing** (before
-        syntax-check/content-preservation ever ran) on genuinely-valid files:
-        (1) `Cargo.toml`'s interior per-element array comment
-        (`"target/", # exclude bench testing`) — the continuation-line
-        joining loop only stripped a trailing `#` comment from the fully
-        assembled line at the very end, so an interior line's own comment
-        swallowed the array's closing `]` as comment text, throwing
-        "unterminated array". Fixed by stripping each continuation line's own
-        trailing comment before joining. (2) `triagebot.toml`'s
-        `"""..."""` multi-line string — TOML v1.0 multi-line basic/literal
-        strings had no handling at all in the flat line-scanner, throwing
-        "expected 'key = value' line". Fixed by detecting an unterminated
-        `"""`/`'''` opener and consuming subsequent raw lines verbatim until
-        the closing delimiter (same opaque-preserve treatment as JSON5's
-        multi-line strings). Fixture combines both bugs:
-        `test/real_code_regressions_70_{inp,out}.toml`. `make test`:
-        119/119. Commit `d56eb3a`. After fix, full 670-file re-run: forward/
-        idempotency/syntax-check/content-preservation (`toml_content_diff.py`,
-        written this session, comment-blind by design) all 670/670 clean.
-      - `python-poetry/poetry`: 106 files, full set processed. Baseline
-        106/106 pass — this repo's poetry-schema-invalid fixtures (missing
-        keys, malformed scripts) are all syntactically well-formed TOML, so
-        none excluded. Forward/idempotency/syntax-check/content-preservation
-        (`toml_content_diff.py`, reused as-is) all 106/106 clean, zero
-        crashes (nested inline-table dependency specs like
-        `{ version = "^1.0", extras = ["foo"] }` hit no unhandled shape).
-        Zero bugs found.
-      - `pola-rs/polars`: 57 files, full set processed (below sampling
-        threshold — every `Cargo.toml`/`pyproject.toml`/`clippy.toml`/
-        `rust-toolchain.toml`/`deny.toml`/`rustfmt.toml`/`.typos.toml` found,
-        incl. the workspace root, member crates of varying complexity, and
-        `py-polars`/`pyo3-polars` `pyproject.toml`s). Baseline 57/57 pass — no
-        deliberately-invalid fixtures in this corpus. Forward/idempotency/
-        syntax-check/content-preservation (`toml_content_diff.py`, reused
-        as-is) all 57/57 clean. Zero crashes on workspace-inheritance
-        dependency tables (`{ workspace = true, features = [...] }`), the
-        root `[workspace] members = [...]` array, or feature arrays. Zero
-        bugs found.
-      - `toml-lang/toml`: this is the TOML spec's own repo, not a compliance-
-        test-suite checkout — a shallow clone contains only the spec prose
-        (`toml.md`, `toml.abnf`, `docs/`, `CHANGELOG.md`) and tooling config,
-        no `examples/`/`tests/` directory and no `.gitmodules` pointing at a
-        separate compliance repo (e.g. `toml-lang/compliance`) — confirmed by
-        direct inspection of the checkout, not assumed from directory naming.
-        **In-scope corpus: 1 file** (`.prettierrc.toml`, `proseWrap =
-        "always"` — Prettier tool config, not a TOML-format example/edge-case
-        corpus). Baseline `toml_sc.js` clean. Forward/idempotency/syntax-check/
-        content-preservation (`toml_content_diff.py`, reused as-is) all 1/1
-        clean. Zero bugs found — no exotic values (hex/octal/binary,
-        inf/nan, date-times, arrays-of-tables, deep inline-table nesting) were
-        actually present to stress-test, since the repo's real canonical
-        example/compliance corpus lives outside this repo. **This completes
-        all 4 planned TOML Test-Fixture Repos** (`rust-lang/cargo`,
-        `python-poetry/poetry`, `pola-rs/polars`, `toml-lang/toml`).
+      **TOML (4/4 done):** `rust-lang/cargo` (670 in-scope of 672) — 2 bugs,
+      both forward-pass crashes: (1) an interior per-array-element comment
+      (`"target/", # exclude ...`) — the continuation-joining loop only
+      stripped a trailing `#` comment from the fully-assembled line, so an
+      interior line's comment swallowed the array's `]`; fixed by stripping
+      each continuation line's own comment before joining. (2) `"""..."""`
+      multi-line strings had no handling in the flat line-scanner; fixed by
+      capturing them as an opaque verbatim span (same treatment as JSON5's
+      multi-line strings). Fixture `real_code_regressions_70`, commit
+      `d56eb3a`. `python-poetry/poetry` (106 files), `pola-rs/polars` (57
+      files), `toml-lang/toml` (1 in-scope file — repo is spec prose only,
+      no compliance corpus) — zero bugs each. All final re-runs clean on all
+      four checks.
 
-      **YAML (2/4 repos done):**
-      - `kubernetes/kubernetes`: 6366 files found, above sampling threshold —
-        sampled 455 files (evenly spaced across the full sorted list).
-        Baseline 453/455 pass (2 Go/Salt template files using `{{...}}`
-        misidentified by `.yaml` extension, expected fail). **In-scope
-        corpus: 453 files.** **6 bugs found+fixed** across two sessions (5 via
-        the forward pass crashing, 1 idempotency-only, 1 via content-
-        preservation on a final re-run):
-        (1) sequence-of-mapping's first key rejected a same-indent nested
-        sequence child (`- apiGroups:\n    - "*"`), though plain mapping keys
-        already allowed it; fixed by mirroring the rule.
-        (2)/(3) quoted/unquoted scalars wrapping across physical lines with a
-        more-indented continuation (common in CRD `description` fields)
-        crashed the parser; fixed by capturing an unterminated quote or
-        deeper non-key/non-seq continuation as an opaque multi-line scalar
-        body.
-        (4) a dangling comment-only item (null key) in a sequence-of-
-        mapping's children threw an NPE in the colon-alignment padding
-        helper; fixed by excluding dangling items from the padding key list.
-        (5, idempotency-only) multi-line-scalar/block-scalar (`|`/`>`)
-        continuation bodies were stored at ABSOLUTE indentation, so a second
-        pass could under-indent the body relative to its re-rendered key
-        line; fixed by storing indent as a delta RELATIVE to the key's
-        original indent, re-anchored at render time.
-        Fixture (bugs 1-5) `test/real_code_regressions_71_{inp,out}.yaml`.
-        `make test`: 120/120. Commit `fff5a3f`.
-        (6, found via a final 453-file content-preservation re-run — output
-        stayed valid YAML): a `|`/`>` block scalar as a plain sequence item's
-        own value rendered as an empty string (no-colon branch never checked
-        for a block-scalar header). Fixing it surfaced a latent bug-5
-        render-offset error: a block scalar's anchor must be the dash's own
-        rendered column, not the "+2" offset that's only correct for
-        quoted/plain scalars — only sibling keys use +2. Extended the same
-        fixture. `make test`: 120/120. Commit `025af9f`. **Final numbers
-        after all 6 fixes, full 453-file re-run:** forward/idempotency/
-        syntax-check/content-preservation (`yaml_content_diff.py`) all
-        453/453 clean (informational-only comment-capitalization diffs, not
-        structural).
-      - `docker/compose`: 261 files, full set processed. Baseline 250/261
-        pass (11 Helm-chart templates using `{{...}}` as mapping keys/values,
-        expected fail). **In-scope corpus: 250 files.** Round1: the same 11
-        fail identically (no new failures), 250/250 processed. Idempotency
-        and syntax-check both clean/matching baseline. **1 bug found+fixed
-        via content-preservation** (not syntax-check — output stayed
-        syntactically valid): a blank line right after a keyed line with no
-        inline value (e.g. `services:` then a blank line then its nested
-        mappings — common human-authored compose-file style) caused the
-        entire nested block to be silently dropped. Root cause: all four
-        "does this key have a child block" detection sites in
-        `YamlSpecificRule.java` used a plain `peek()`, so a blank next line
-        was read as "no child block" instead of being skipped past. Fixed by
-        adding a `peekNonBlank()` helper and using it at all four sites.
-        Fixture `test/real_code_regressions_72_{inp,out}.yaml`. `make test`:
-        121/121. Commit `2640cf2`. Final 250-file re-run: forward/
-        idempotency/syntax-check 250/250 clean; content-preservation
-        249/250 — the one "failure" is a `yaml_content_diff.py` tool gap, not
-        a formatter bug: `.github/ISSUE_TEMPLATE/bug_report.yml` contains an
-        emoji PyYAML's `safe_load` rejects on both original and formatted
-        copies (js-yaml/`yaml_sc.js` confirms both parse fine; manual diff
-        shows only expected re-indentation). Flagged as a checker-script gap,
-        not fixed (out of scope this session). `ansible/ansible`,
-        `actions/starter-workflows` remain not-started.
-      - `ansible/ansible`: 2110 `.yaml`/`.yml` files found, sampled every 5th
-        (422 files). Baseline `yaml_sc.js`: 7 fail (`!vault`/`!unsafe`
-        custom scalar tags) — **in-scope corpus: 415 files.** Forward/
-        idempotency 422/422 clean; syntax-check same 7 baseline failures.
-        **3 bugs found, all via content-preservation** (output stayed valid
-        YAML, syntax-check alone missed all three).
-        (1) A plain (non-keyed) sequence item's unquoted scalar wrapping
-        across physical lines (common in changelog-fragment prose) had no
-        continuation handling, silently dropping lines past the first —
-        unlike the keyed/seqOfMapping-firstKey cases, which already handled
-        this shape. Fixed by adding the same multi-line-plain-scalar capture
-        to that branch.
-        (2) A comment dedented below its enclosing block's indent (e.g. a
-        `# FIXME:` at column 0 between deeper sibling keys) made `parseBlock`
-        break out of every enclosing block without consuming it, permanently
-        orphaning it and dropping everything that followed at every level.
-        Fixed by looking past the comment to the next real content line and
-        attaching it to whichever block that line actually belongs to.
-        (3) A bare top-level plain-scalar document (e.g. an
-        `$ANSIBLE_VAULT;...` header blob spanning several opaque hex lines)
-        kept only its first line — the bare-scalar-document detection never
-        accounted for further wrapped lines. Fixed by emitting remaining raw
-        lines verbatim once that shape is detected.
-        Fixture (all 3) `test/real_code_regressions_73_{inp,out}.yaml`.
-        `make test`: 122/122. Commit `9f2a80a`. **Final numbers after fixes,
-        full 422-file re-run:** forward/idempotency/syntax-check clean;
-        content-preservation 415/415 clean. `actions/starter-workflows`
-        remains not-started for YAML.
-      - `actions/starter-workflows`: 188 `.yaml`/`.yml` files, full set
-        processed. Baseline `yaml_sc.js`: 2 fail (`code-scanning/
-        nowsecure*.yml`, both an unquoted `group_id: {{ groupId }}`
-        Handlebars placeholder js-yaml can't parse as a flow-mapping key —
-        pre-existing, unrelated to the corpus's normal quoted `${{ ... }}`
-        GitHub Actions syntax). **In-scope corpus: 186 files.**
-        Forward/idempotency 188/188 clean; syntax-check same 2 baseline
-        failures. **1 bug found+fixed, via syntax-check on round1 output**
-        (the corrupted output failed to parse outright, unlike every bug in
-        the three prior YAML sessions, which were content-preservation-only):
-        `code-scanning/codescan.yml` uses `-   name: foo` (extra spaces after
-        the dash) for its `steps:` items. `parseSeqItem` computed the
-        sibling-key column as a hardcoded `ln.indent + 2` — correct only for
-        exactly one space after the dash — so with extra padding the next
-        sibling key (`uses:`) was misidentified as a nested child, producing
-        invalid "bad indentation" output. Fixed by deriving the real
-        first-key column from the dash line's actual leading whitespace and
-        using it consistently for the sibling/nested-child decision and every
-        multi-line-scalar continuation anchor. Fixture
-        `test/real_code_regressions_75_{inp,out}.yaml`. `make test`:
-        124/124. Commit `f1648c5`. **Final numbers after fix, full 188-file
-        re-run:** forward/idempotency clean; syntax-check same 2 baseline
-        failures; content-preservation (`yaml_content_diff.py`) 179/186
-        clean, remaining 7 are the known PyYAML emoji-in-comment tool gap
-        (first flagged in the `docker/compose` session) — `yaml_sc.js`/
-        js-yaml parses all 7 fine on both copies; not a formatter bug.
-        **This completes all 4 originally-planned YAML Test-Fixture Repos**
-        (`kubernetes/kubernetes`, `docker/compose`, `ansible/ansible`,
-        `actions/starter-workflows`); `prometheus/prometheus`/
-        `home-assistant/core` were added later and remain not-started at this
-        point.
+      **YAML (6/6 done):** `kubernetes/kubernetes` (453 sampled of 6366) —
+      6 bugs, all in `YamlSpecificRule`'s sequence/mapping parsing: (1)
+      same-indent sequence child under its first mapping key not allowed
+      (mirrored the already-allowed case); (2)/(3) quoted/unquoted scalars
+      wrapping across lines with a deeper continuation crashed the parser,
+      fixed by capturing as an opaque multi-line scalar; (4) a dangling
+      comment-only (null-key) item NPE'd the colon-alignment padding helper,
+      fixed by excluding it; (5) block-scalar continuation indent was
+      stored absolute instead of relative to the key, breaking idempotency;
+      (6, found via content-preservation) a block scalar as a plain
+      sequence item's value rendered empty (no-colon branch never checked
+      for a block-scalar header), which also surfaced a related dash-anchor
+      render-offset bug. Fixture `real_code_regressions_71` (extended for
+      bug 6), commits `fff5a3f`/`025af9f`. Final 453/453 clean all checks.
+      `docker/compose` (250 in-scope of 261) — 1 bug via content-
+      preservation: a blank line after a keyed line with no inline value
+      made all four "does this key have a child block" sites (plain
+      `peek()`) miss the nested block entirely, silently dropping it; fixed
+      with a `peekNonBlank()` helper. Fixture `real_code_regressions_72`,
+      commit `2640cf2`. Final 250-file re-run clean (1 pre-existing
+      PyYAML-emoji tool-gap flagged, not a formatter bug).
+      `ansible/ansible` (415 in-scope of 2110, sampled) — 3 bugs, all via
+      content-preservation: (1) a plain sequence item's unquoted scalar
+      wrapping across lines had no continuation handling, unlike the keyed
+      case; fixed by adding the same capture. (2) a comment dedented below
+      its enclosing block's indent made `parseBlock` break out without
+      consuming it, orphaning everything after at every level; fixed by
+      looking past the comment to the real next line. (3) a bare top-level
+      plain-scalar document (`$ANSIBLE_VAULT;...` blob) kept only its first
+      line; fixed by emitting the remaining raw lines verbatim. Fixture
+      `real_code_regressions_73`, commit `9f2a80a`. Final 415/415 clean.
+      `actions/starter-workflows` (186 in-scope of 188) — 1 bug via
+      syntax-check (output actually invalid, unlike the prior 3 YAML
+      sessions): `parseSeqItem` hardcoded the sibling-key column as
+      `ln.indent + 2`, so extra padding after a sequence dash
+      (`-   name: foo`) misidentified the next sibling key as a nested
+      child; fixed by deriving the real column from the dash line's actual
+      leading whitespace. Fixture `real_code_regressions_75`, commit
+      `f1648c5`. Final re-run clean (7 files hit the known PyYAML-emoji gap).
+      `prometheus/prometheus` (375 in-scope of 380) — 4 bugs, all data loss
+      only caught by content-preservation, all sharing the "dash/key line
+      whose value is absent/comment-only/anchor-only, real content on a
+      deeper subsequent line" shape: (1)/(2) `parseKeyItem`/`parseSeqItem`'s
+      flow-looking-inline-value checks didn't confirm the flow actually
+      closed on the same line, truncating an unbalanced multi-line `[...]`
+      opener (also (2): a `- # comment`-only dash line dropped its
+      subsequent real mapping keys). (3) an anchor-only dash line
+      (`- &highalert`) followed by a nested mapping at an equal (not just
+      greater) indent lost its child block. (4) `renderFlowValue` rendered
+      an empty flow map/seq (`{}`/`[]`) as a block conversion when it didn't
+      fit, but `renderFlowBlock` has nothing to iterate for zero entries,
+      silently vanishing the value. Fixture `real_code_regressions_83`.
+      Final 375/375 clean. `home-assistant/core` (878 in-scope of 921) — 1
+      bug via content-preservation: compact single-line nested-sequence
+      items (`- - a\n  - b`) weren't recognized by `parseSeqItem`, causing
+      the sibling item's indent to mismatch and `parseBlock` to break out
+      early, dropping the rest of the sequence and every later sibling at
+      every level (6 files affected); fixed via a new
+      `parseInlineNestedSeq` helper rendered through the existing
+      `item.children` path. Fixture `real_code_regressions_86`, commit
+      `e7f0334`. Final 870/878 clean (8 files hit the known PyYAML-emoji
+      gap). **This completes all 6 planned YAML Test-Fixture Repos.**
 
-      **`prometheus/prometheus` (added-repo session, done):**
-      - Fresh shallow clone. 380 `.yml`/`.yaml` files found, full set
-        processed. Baseline `yaml_sc.js`: 5 fail, all `config/testdata/
-        *.bad.yml` — deliberately-invalid fixtures for Prometheus's own
-        config-parser error-path tests (unknown `!!binary` tags, a duplicated
-        mapping key), confirmed via `yaml_sc.js`'s actual failures not
-        filename pattern-matching (152 files match `*bad.yml` by name but
-        most are schema-invalid, not syntax-invalid). **In-scope corpus: 375
-        files.** **4 bugs found+fixed**, all data loss, all only catchable
-        via `yaml_content_diff.py` content-preservation, all in
-        `YamlSpecificRule`'s sequence/mapping parsing, sharing the theme of a
-        dash/key line whose "value" is absent/comment-only/anchor-only/an
-        unbalanced multi-line flow opener with the real content on
-        subsequent more-indented lines:
-        (1) `parseKeyItem`'s flow-looking-inline-value early return didn't
-        check the flow was actually closed on the same physical line,
-        truncating everything after an unbalanced multi-line `[...]` opener
-        (`documentation/examples/prometheus-kubernetes.yml` — 300→52 lines
-        lost).
-        (2) `parseSeqItem`'s `seqOfMapping` first-key handling had the same
-        flow-closure gap, and separately dropped everything after a
-        `- # comment`-only dash line whose real mapping keys start on
-        subsequent lines.
-        (3) a dash line holding only an anchor tag (`- &highalert`) followed
-        by a nested mapping at an indent equal to (not just greater than) the
-        dash's own key column lost its child block entirely
-        (`model/rulefmt/testdata/test_aliases.yaml`).
-        (4) `renderFlowValue` rendered an empty flow map/seq (`{}`/`[]`) as a
-        block conversion whenever its line didn't `fits()`, but
-        `renderFlowBlock` has nothing to iterate for zero entries, silently
-        vanishing the value — found in `web/ui/pnpm-lock.yaml`'s dependency
-        snapshot maps (most visibly when the dropped key was the file's last
-        line).
-        All 4 combined into `test/real_code_regressions_83_{inp,out}.yaml`.
-        `make test`: 132/132 (133/133 after a concurrent session's unrelated
-        fixture 84 landed alongside). **Final numbers after fixes, full
-        380-file re-run:** forward/idempotency 380/380 clean; syntax-check
-        same 5 baseline failures; content-preservation 375/375 clean. **This
-        completes `prometheus/prometheus`**; `home-assistant/core` remains
-        not-started.
-
-      **`home-assistant/core` (added-repo session, done — completes the YAML
-      Test-Fixture Repos list):**
-      - Fresh shallow clone. 921 `.yaml`/`.yml` files found (excluding
-        `node_modules/`), full set processed. Baseline `yaml_sc.js`: 43 fail
-        — Home Assistant's own custom-tag/templating idioms
-        (`!include`/`!secret`/`!env_var`, `{{ ... }}` Jinja2 blueprint
-        placeholders as bare scalars), same exclusion class as
-        `ansible/ansible`'s `!vault`/`!unsafe`, confirmed via `yaml_sc.js`'s
-        actual failures. **In-scope corpus: 878 files.** Forward pass:
-        921/921 processed, zero crashes. **1 bug found+fixed, via
-        content-preservation** (output stayed valid YAML): a sequence item
-        whose own value is itself another sequence, in compact single-line
-        form `- - a\n  - b` (this repo's `services.yaml` uses it for
-        mutually-exclusive `supported_features` pairs). `parseSeqItem` never
-        recognized this shape — the inner `- ` was captured as a literal
-        scalar, leaving the sibling nested-seq item on the next line
-        unconsumed; its indent then didn't match the enclosing block, so
-        `parseBlock` broke out early, silently dropping the rest of the
-        nested sequence AND every later sibling item/key at every level (6
-        files affected: `cover`/`media_player`/`overkiz`/`siren`/`valve`/
-        `wmspro` `services.yaml`). Fixed by detecting the nested-dash shape
-        up front via a new `parseInlineNestedSeq` helper, rendered through
-        the existing generic `item.children` path, which non-lossily expands
-        the compact `- -` form — same "prefer an unambiguous expanded form"
-        precedent as this formatter's flow-to-block conversion elsewhere.
-        Fixture `test/real_code_regressions_86_{inp,out}.yaml`. `make test`:
-        135/135 forward + idempotency. Commit `e7f0334`. **Final numbers
-        after fix, full 921-file re-run:** forward/idempotency 921/921
-        clean; syntax-check same 43 baseline failures; content-preservation
-        870/878 clean — remaining 8 are the same PyYAML emoji-in-comment
-        tool gap first flagged in `docker/compose` (`yaml_sc.js`/js-yaml
-        parses all 8 fine on both copies; not a formatter bug). **This
-        completes `home-assistant/core`**, and with it all 6 planned YAML
-        Test-Fixture Repos — the list is now fully exhausted.
-
-      **HTML5 -- 2nd/3rd dogfood runs (of the 3 replacement candidates added
-      2026-07-24: `WordPress/wordpress-develop`,
-      `alexandersandberg/html5-elements-tester`, `web-platform-tests/wpt`;
-      snapshot at this point in the history: 2 of those 3 done, 1 partial;
-      `web-platform-tests/wpt` itself was finished in a later run, see
-      above):**
-      - `WordPress/wordpress-develop`: scoped to real markup only, per the
-        candidate note's own caveat -- 303 total `.html` files found, 73
-        contain no `wp:...` Gutenberg block-comment shorthand (the rest are
-        thin JSON-in-comments block templates, out of scope). **In-scope
-        corpus: 73 files** (`src/readme.html`, `tests/qunit/index.html` (a
-        109KB real admin-UI test harness page with dozens of
-        `<script type="text/html">` Underscore-template blocks), and 71
-        server-rendered Gutenberg block HTML fixtures under
-        `tests/phpunit/data/blocks/fixtures/**`). Forward 73/73 clean, zero
-        crashes. Idempotency (`diff -rq round1 round2`) 73/73 clean.
-        Baseline `html_sc.js`: 71/73 fail `missing-doctype` (the block
-        fixtures are intentionally bare HTML fragments, not full documents --
-        pre-existing, unrelated to the formatter); round1 output matches the
-        same 71 baseline failures exactly, no new ones. **1 bug found+fixed**,
-        via `html_content_diff.py` content-preservation on
-        `tests/qunit/index.html` (not syntax-check -- the corrupted output
-        stayed syntactically valid HTML5): `renderElement`'s multi-child
-        block-closing render path (used whenever an element's children don't
-        collapse to a single inline text/CDATA child, e.g. a `<div>`
-        containing element children) never emitted `n.trailingComment`,
-        unlike the other three render branches (self-closing, sole-text-
-        child, empty-children), which all route through `appendWithTrailing`.
-        A same-line trailing comment right after such a block element's
-        closing tag (`</div><!-- end widget templates -->`,
-        `</div><!-- end nav menu templates -->`) was silently dropped --
-        real content loss, not cosmetic. Fixed by routing the multi-child
-        closing-tag line through `appendWithTrailing` too. Fixture
-        `test/real_code_regressions_103_{inp,out}.html`. `make test`:
-        152/152 forward + idempotency. Final full 73-file re-run after the
-        fix: forward/idempotency/syntax-check all clean as above;
-        content-preservation (`html_content_diff.py`) 73/73 clean. **2
-        further comment-text-mismatch diffs found on this run are a genuine
-        open design question, not fixed** -- see Open Questions
-        ("WordPress magic-comment capitalization" below); no code change
-        made for those pending resolution. `web-platform-tests/wpt` not
-        started.
-      - `alexandersandberg/html5-elements-tester`: single 42KB `index.html`
-        file, attempted as a one-file spot-check (not a corpus, per the
-        candidate note). **DONE** (as of RDD_KEY_200 -- three sequential
-        blockers found and fixed across three sessions, see below). Original
-        state at this point in the narrative: forward pass failed outright
-        (round1 never completed, no output produced):
-        `XmlSpecificRule.parseElement` has no support at all for HTML5's
-        optional/implied end tags, and this file deliberately exercises
-        them (`<ruby><rb>旧<rb>金<rb>山<rt>jiù<rt>jīn<rt>shān<rtc>San
-        Francisco</ruby>` at line 379 -- `<rb>`/`<rt>`/`<rtc>` never get
-        explicit closing tags in valid ruby markup, they implicitly close at
-        the next sibling or `</ruby>`). Given the size/scope-decision nature
-        of implementing implied-end-tag support (a real HTML5 tree-
-        construction feature covering many more elements than just the ruby
-        family, not a narrow fix, and unspecified in `STYLE_DATA_FORMATS.md`
-        §4), this is recorded as an open design question rather than guessed
-        at -- see Open Questions ("HTML5 optional/implied end tags" above).
-        No code change made at that point; this file could not be dogfooded
-        further until that question was resolved.
-
-        RDD_KEY_198 (`<ruby>` opaque-implied-end-tag support) unblocked the
-        forward pass past line 379, but it then hit a second, distinct
-        blocker at line 718's `<select ... size=5>` -- `parseAttr` requiring
-        a quoted attribute value, fixed by RDD_KEY_199. That unblocked
-        forward progress past line 718, but a third, distinct blocker
-        surfaced at line 759: a `<datalist>` with bare `<option
-        value="...">` tags relying on HTML5's implied-end-tag rule for
-        `<option>`, fixed by RDD_KEY_200's new
-        `XmlSpecificRule.IMPLIED_CLOSE_TRIGGERS` mechanism (unlike `<ruby>`,
-        `<option>` is parsed as a real node, not opaque). With all three
-        fixed, a fresh full run of this file was performed: forward pass now
-        completes end-to-end (round1 produces output for the whole 42KB
-        file, no exception); round2 (reformatting round1's output) diffs
-        empty against round1 (`diff -rq`, idempotent); `html_sc.js`
-        syntax-check clean on both the original and round1 output; and
-        `html_content_diff.py` reports full content preservation (element
-        structure, attributes, text, comments, DOCTYPE all preserved --
-        spot-checked both the explicitly-closed and implied-closed
-        `<option>`s render as real, correctly-indented, correctly-closed
-        nodes, not opaque/verbatim spans). **This completes the
-        `alexandersandberg/html5-elements-tester` dogfood spot-check.**
-
-      **`web-platform-tests/wpt` (final HTML5 Test-Fixture Repos candidate,
-      DONE):** the full repo is ~2.6GB/6,552 real `.html` files, too massive
-      to clone or process whole, per the candidate note's own caveat. This
-      system's old `git` binary doesn't support `--filter=blob:none
-      --sparse`, so the subtree was pulled via `gh api` instead: fetched the
-      `html/` directory's tree SHA, walked it recursively
-      (`git/trees/<sha>?recursive=1`), then picked one targeted test-suite
-      subtree, `html/syntax/` (416 `.html` files, 1.9MB — WPT's own HTML5
-      parsing-syntax conformance suite, a good fit for a markup formatter and
-      comfortably within the XML/YAML "several hundred+" sampling-threshold
-      precedent without needing to sample), and downloaded each file
-      individually via `raw.githubusercontent.com` (`xargs -P 16 curl`). All
-      416 files downloaded successfully (no empty/failed fetches). Baseline
-      `html_sc.js`: 386/416 pass, 30 fail — all 30 confirmed genuinely
-      pre-existing/deliberately-malformed WPT parser-conformance test
-      fixtures (e.g. `unexpected-null-character`, `invalid-first-character-
-      of-tag-name`), not formatter-induced; **in-scope corpus: 386 files**.
-
-      Forward pass on the 386 in-scope files initially failed on 85 of them
-      (`INTERNAL ERROR`, `XmlParseException`) — as expected for a fresh,
-      previously-untested corpus this large, diagnosed via the actual
-      exception text/stack rather than static analysis, per
-      `STATE_COMMON.md`'s methodology. **4 bugs found+fixed** (fixture
-      `test/real_code_regressions_109_{inp,out}.html`, combining all four):
-      (1) **EOF-implied-close (68+5 = 73 of the 85 failures, by far the
-      dominant pattern)**: many `syntax/speculative-parsing/**` generated
-      fixtures validly omit `</body>`/`</html>` (or any other still-open
-      element's closing tag) entirely at end-of-file — valid HTML5 per the
-      spec's "stopped parsing" step, which implicitly closes every open
-      element at EOF regardless of tag name. `XmlSpecificRule.parseElement`
-      previously always threw `expected closing tag ...` when no explicit
-      close was found; now, for HTML5, reaching real EOF returns the element
-      as implicitly closed instead of throwing. Deliberately general (not
-      scoped to specific tag names) since EOF-driven implicit closing is
-      well-defined spec behavior, unlike the mid-document implied-end-tag/
-      adoption-agency cases intentionally left as open questions. (2) **`<image>`
-      → `<img>` tag-name rewrite (2 failures)**: a bare HTML `<image src=...>`
-      start tag is rewritten to `<img>` (a void element) per the HTML5 tree-
-      construction spec's tag-name-rewrite quirk. Correctly scoped to HTML
-      content only via a new `svgDepth` counter incremented/decremented
-      around `<svg>` element parsing — inside real SVG foreign content,
-      `<image>` is a legitimate SVG element with its own closing tag, not an
-      alias (confirmed via `svg-image-href.tentative.html` etc., which nest a
-      real `<image>`/`</image>` pair inside `<svg>`; without the `svgDepth`
-      guard, this would have corrupted 6 further files that only surfaced
-      once fix (2) landed). (3) **`<head>` implied-closed by sibling
-      `<body>` (1 failure, `meta-inhead-insertion-mode.html`)**: registered
-      in the existing, already-general `IMPLIED_CLOSE_TRIGGERS` mechanism
-      (same mechanism RDD_KEY_200 built for `<option>`) — `head` now closes
-      on an upcoming sibling `<body>` start tag with no code change beyond
-      the one new map entry. One further file in this same shape
-      (`meta-inhead-insertion-mode.html`'s underlying case) turned out to
-      also rely on an *implicit `<body>` **start** tag* (never written at
-      all, content flows directly from `<head>`'s sibling position into
-      body context) — a distinct, more complex HTML5 "optional start tag"
-      feature, left unfixed as an open question (see below), not forced.
-
-      A fresh full run of the 386 in-scope files after fixes (1)-(3) found
-      **9 residual forward-pass failures**, all genuinely deep HTML5 tree-
-      construction edge cases the WPT parsing-conformance suite deliberately
-      exercises and this formatter's parser does not implement (same
-      category of complexity as the already-declined general implied-end-tag/
-      adoption-agency scope): 2× a "bogus" custom tag mismatched across a
-      1KB tokenizer buffer boundary, 2× `<p>`-implicit-close-via-foreign-
-      content foster-parenting, 1× a tag literally named `&` (fragment-
-      serialization edge case), 1× MathML tag-name case-folding, 1× an
-      unclosed `<script>` inside SVG foreign content, 1× misnested `<form>`
-      reconstruction inside `<template>`, and 1× the implicit-`<body>`-start-
-      tag case noted above. **Not fixed — recorded as an Open Question**
-      (see below), consistent with the precedent of not forcing a fix for
-      out-of-scope general tree-construction algorithm gaps; these 9 files
-      excluded from the final in-scope corpus. **Final in-scope corpus: 377
-      files.**
-
-      A 5th, distinct bug surfaced only via content-preservation checking
-      (not forward-pass or syntax-check — the corrupted output stayed
-      syntactically valid HTML5), same shape as the `real_code_regressions_103`
-      WordPress precedent (syntax-check alone misses real bugs):
-      **(4) `<xmp>` not recognized as a raw-text element.** `<xmp>` is a
-      legacy HTML5 element (like `<pre>`/`<script>`/`<style>`) whose content
-      must be captured byte-for-byte through the literal closing tag, never
-      parsed as real child markup. Missing this case caused a literal
-      `<script>...</script>` string inside `<xmp>` to be mis-parsed as a real
-      nested `<script>` element and re-serialized with different whitespace
-      (`html_content_diff.py`'s `text content mismatch` on 64 files under
-      `syntax/speculative-parsing/generated/resources/**`, each embedding
-      the same literal-script-in-xmp pattern). Fixed by adding an `xmp`
-      branch reusing the existing `finishRawElement` raw-verbatim-span
-      helper, same pattern as `<pre>`. Folded into the same
-      `real_code_regressions_109` fixture pair. `make test`: 158/158 forward
-      + idempotency, zero regressions.
-
-      **Final full 377-file re-run after all 4 fixes:** forward pass 377/377
-      clean (zero `INTERNAL ERROR`); round2 idempotency (`diff -rq round1
-      round2`) 377/377 clean; `html_sc.js` syntax-check of round1 output
-      377/377 clean, matching the 386-minus-9-excluded baseline exactly (no
-      new failures); `html_content_diff.py` content-preservation: 127/377
-      files show a diff, but every single one of the 192 individual mismatch
-      lines across those 127 files is a `comment text mismatch` that is
-      case-insensitive-equal (`normalize-comment-start-case=on` capitalizing
-      a lowercase-starting prose comment, e.g. `'speculative case'` ->
-      `'Speculative case'`) — confirmed by script, zero non-comment
-      mismatches and zero non-case-insensitive-equal pairs — the same
-      expected/correct behavior as every prior HTML5/XML session's
-      `real_code_regressions_69` precedent, not a bug. **This completes
-      `web-platform-tests/wpt` and, with it, the HTML5 Test-Fixture Repos
-      list and the overall real-code-testing pass across all six
-      sub-formats.**
-
-      **HTML5 -- 1st dogfood run (of the original 4 candidates first
-      proposed: `h5bp/html5-boilerplate`, `twbs/bootstrap` docs,
-      `mdn/content`, `whatwg/html`; snapshot at this point in the history:
-      1 of those original 4 done; 3 of the 4 were later dropped/replaced
-      with the 3 candidates covered in the runs above):**
-      - `h5bp/html5-boilerplate`: 4 files (`dist/index.html`, `dist/404.html`,
-        `src/index.html`, `src/404.html` — this version of the boilerplate
-        uses external `<script src="...">`/linked stylesheets, no inline
-        `<script>` bodies, but both `404.html` variants have an inline
-        `<style>` block, exercising the CSS dispatch). Baseline `html_sc.js`
-        4/4 clean. Forward 4/4 processed, zero errors/crashes. Idempotency
-        (`diff -rq round1 round2`) 4/4 clean. Syntax-check of round1 output
-        4/4 clean, matching baseline. Wrote `html_content_diff.py` this
-        session (see "Dogfood Output Validation"), verified against a
-        hand-crafted good pair plus two bad pairs (dropped attribute,
-        corrupted comment) before trusting it — both bad cases caught
-        correctly. Content-preservation 4/4 clean (DOCTYPE, element/attribute
-        order, text, and comment content all preserved; `<style>` dispatch to
-        `CssSpecificRule` confirmed present with non-empty body per the
-        tool's script/style opaque-body-presence check). **Zero bugs found.**
-        `twbs/bootstrap` (docs site), `mdn/content`, `whatwg/html` remain
-        not-started for HTML5.
+      **HTML5 (all candidates done or dropped):** `twbs/bootstrap` docs
+      site, `mdn/content`, `whatwg/html`, `kangax/html-minifier` were all
+      investigated and dropped — none has a real committed HTML5 corpus
+      (Astro/MDX, Markdown, a custom-macro spec source, and JS-string unit
+      tests respectively; see Open Questions for the investigation detail).
+      `h5bp/html5-boilerplate` (4 files) — zero bugs; wrote
+      `html_content_diff.py` this session.
+      `WordPress/wordpress-develop` (73 in-scope of 303, real markup only —
+      rest are thin Gutenberg block-comment templates) — 1 bug via content-
+      preservation: `renderElement`'s multi-child block-closing render path
+      never emitted `n.trailingComment` (unlike the other three render
+      branches), silently dropping a same-line trailing comment right after
+      a block element's closing tag. Fixed by routing that path through
+      `appendWithTrailing` too. Fixture `real_code_regressions_103`. Final
+      73/73 clean (2 comment-text-mismatch diffs left as an open design
+      question — see "WordPress magic-comment capitalization" below).
+      `alexandersandberg/html5-elements-tester` (1 file, 42KB) — 3
+      sequential blockers found and fixed across sessions: `<ruby>`'s
+      implied-end-tags (RDD_KEY_198, opaque-verbatim-span capture),
+      unquoted attribute values (RDD_KEY_199), and `<option>`'s
+      implied-close-trigger via the new general `IMPLIED_CLOSE_TRIGGERS`
+      map (RDD_KEY_200). File now completes end-to-end on all four checks.
+      `web-platform-tests/wpt` (scoped to `html/syntax/`, 416 files pulled
+      via `gh api` tree-walk + `raw.githubusercontent.com`, since the repo
+      is ~2.6GB/6552 files and this system's `git` can't `--filter=blob:none
+      --sparse`; 386 in-scope after baseline) — 4 bugs found in the initial
+      session (fixture `real_code_regressions_109`): (1) EOF no longer
+      implicitly closes every still-open element (dominant pattern, 73 of
+      85 initial failures — many `syntax/speculative-parsing/**` fixtures
+      validly omit `</body>`/`</html>` at EOF per the spec's "stopped
+      parsing" step); (2) `<image>`→`<img>` tag-name rewrite, scoped to HTML
+      content only via a `svgDepth` counter (real SVG `<image>` is a
+      distinct legitimate element); (3) `<head>` registered in
+      `IMPLIED_CLOSE_TRIGGERS` to close on a sibling `<body>` start tag; (4,
+      found via content-preservation) `<xmp>` wasn't recognized as a
+      raw-text element like `<pre>`/`<script>`/`<style>`, so literal
+      `<script>...</script>` text inside it was mis-parsed as a real nested
+      element (64 files). A follow-up session (fixture
+      `real_code_regressions_110`, after user review) generalized two of
+      these further: the single `<image>` check became a reusable
+      `TAG_NAME_REWRITES` map, and the tolerant-close fallback was broadened
+      from EOF-only to any mismatched/unrecognized closing tag (at both the
+      per-element level and the sole document-root `parseNodes` call site),
+      so an unclosed made-up tag (e.g. `<bogus>`) never crashes even if the
+      stray closing tag bubbles to the document root — this fixed 3 of the
+      9 residual failures from the first session. Final full re-run (377
+      in-scope files after the first session's fixes): forward/idempotency/
+      syntax-check 377/377 clean; content-preservation 127/377 show a diff,
+      every mismatch comment-capitalization-only. Remaining residual
+      failures/deep tree-construction gaps (foster-parenting,
+      case-folding, implicit start-tag insertion, raw-text truly-unclosed
+      crashes) are cataloged in the "HTML5 deep tree-construction edge
+      cases" Open Question below, not re-verified against the live corpus
+      after the follow-up session (no network access that session). **This
+      completes the HTML5 Test-Fixture Repos list and the overall
+      real-code-testing pass across all six sub-formats.**

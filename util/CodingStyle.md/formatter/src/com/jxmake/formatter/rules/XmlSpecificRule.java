@@ -64,6 +64,58 @@ public final class XmlSpecificRule {
         TAG_NAME_REWRITES.put("image", "img");
     }
 
+    /** HTML5 tree-construction spec's "Adjust SVG tag names" step: inside real SVG foreign content,
+     *  a start tag whose lowercased name is a key here is corrected to the mapped mixed-case spec
+     *  name (SVG is XML-based/case-sensitive even though HTML5 parsing is otherwise case-insensitive).
+     *  Opposite gating from {@link #TAG_NAME_REWRITES}: that map applies only OUTSIDE svg
+     *  ({@code svgDepth == 0}), this one applies only INSIDE svg ({@code svgDepth > 0}) -- kept as a
+     *  separate map/gate rather than merged, since the two conditions are mutually exclusive. Table is
+     *  the WHATWG HTML5 spec's stable "Adjust SVG tag names" list (unchanged for years). MathML has an
+     *  analogous small case-fixup (e.g. `definitionurl` -> `definitionURL`, attribute-only) but this
+     *  parser has no MathML-depth-equivalent tracking today (only `svgDepth`), so per the standalone
+     *  scoping of this task, MathML fixup is intentionally left open rather than building new MathML
+     *  foreign-content tracking from scratch -- see STATE_DATA_FORMATS.md. */
+    private static final java.util.Map<String, String> SVG_TAG_NAME_CASE_FIXUP = new java.util.HashMap<>();
+    static {
+        SVG_TAG_NAME_CASE_FIXUP.put("altglyph", "altGlyph");
+        SVG_TAG_NAME_CASE_FIXUP.put("altglyphdef", "altGlyphDef");
+        SVG_TAG_NAME_CASE_FIXUP.put("altglyphitem", "altGlyphItem");
+        SVG_TAG_NAME_CASE_FIXUP.put("animatecolor", "animateColor");
+        SVG_TAG_NAME_CASE_FIXUP.put("animatemotion", "animateMotion");
+        SVG_TAG_NAME_CASE_FIXUP.put("animatetransform", "animateTransform");
+        SVG_TAG_NAME_CASE_FIXUP.put("clippath", "clipPath");
+        SVG_TAG_NAME_CASE_FIXUP.put("feblend", "feBlend");
+        SVG_TAG_NAME_CASE_FIXUP.put("fecolormatrix", "feColorMatrix");
+        SVG_TAG_NAME_CASE_FIXUP.put("fecomponenttransfer", "feComponentTransfer");
+        SVG_TAG_NAME_CASE_FIXUP.put("fecomposite", "feComposite");
+        SVG_TAG_NAME_CASE_FIXUP.put("feconvolvematrix", "feConvolveMatrix");
+        SVG_TAG_NAME_CASE_FIXUP.put("fediffuselighting", "feDiffuseLighting");
+        SVG_TAG_NAME_CASE_FIXUP.put("fedisplacementmap", "feDisplacementMap");
+        SVG_TAG_NAME_CASE_FIXUP.put("fedistantlight", "feDistantLight");
+        SVG_TAG_NAME_CASE_FIXUP.put("fedropshadow", "feDropShadow");
+        SVG_TAG_NAME_CASE_FIXUP.put("feflood", "feFlood");
+        SVG_TAG_NAME_CASE_FIXUP.put("fefunca", "feFuncA");
+        SVG_TAG_NAME_CASE_FIXUP.put("fefuncb", "feFuncB");
+        SVG_TAG_NAME_CASE_FIXUP.put("fefuncg", "feFuncG");
+        SVG_TAG_NAME_CASE_FIXUP.put("fefuncr", "feFuncR");
+        SVG_TAG_NAME_CASE_FIXUP.put("fegaussianblur", "feGaussianBlur");
+        SVG_TAG_NAME_CASE_FIXUP.put("feimage", "feImage");
+        SVG_TAG_NAME_CASE_FIXUP.put("femerge", "feMerge");
+        SVG_TAG_NAME_CASE_FIXUP.put("femergenode", "feMergeNode");
+        SVG_TAG_NAME_CASE_FIXUP.put("femorphology", "feMorphology");
+        SVG_TAG_NAME_CASE_FIXUP.put("feoffset", "feOffset");
+        SVG_TAG_NAME_CASE_FIXUP.put("fepointlight", "fePointLight");
+        SVG_TAG_NAME_CASE_FIXUP.put("fespecularlighting", "feSpecularLighting");
+        SVG_TAG_NAME_CASE_FIXUP.put("fespotlight", "feSpotLight");
+        SVG_TAG_NAME_CASE_FIXUP.put("fetile", "feTile");
+        SVG_TAG_NAME_CASE_FIXUP.put("feturbulence", "feTurbulence");
+        SVG_TAG_NAME_CASE_FIXUP.put("foreignobject", "foreignObject");
+        SVG_TAG_NAME_CASE_FIXUP.put("glyphref", "glyphRef");
+        SVG_TAG_NAME_CASE_FIXUP.put("lineargradient", "linearGradient");
+        SVG_TAG_NAME_CASE_FIXUP.put("radialgradient", "radialGradient");
+        SVG_TAG_NAME_CASE_FIXUP.put("textpath", "textPath");
+    }
+
     /** HTML5 elements whose children rely on the spec's implied-end-tag tree-construction rule
      *  (e.g. `<rb>`/`<rt>`/`<rp>`/`<rtc>` inside `<ruby>` never carry an explicit closing tag in
      *  valid markup) -- rather than modeling the full per-element-family implied-closing-trigger
@@ -176,6 +228,30 @@ public final class XmlSpecificRule {
 
     private boolean startsWith(final String tok) {
         return s.regionMatches(pos, tok, 0, tok.length());
+    }
+
+    /** Case-insensitive `</tagName>` (or `</tagName `) check at the cursor, used only for HTML5
+     *  closing-tag matching against an {@code n.tagName} that may have been case-rewritten from the
+     *  source's own literal casing ({@link #TAG_NAME_REWRITES}/{@link #SVG_TAG_NAME_CASE_FIXUP}) --
+     *  e.g. source `<fegaussianblur>...</fegaussianblur>` becomes `n.tagName ==
+     *  "feGaussianBlur"`, so a literal-case match against the source's own lowercase closing tag would
+     *  never succeed without this. HTML5 tag-name matching is spec-mandated case-insensitive; other
+     *  languages (XML/XHTML-family) keep the exact-case {@link #startsWith(String)} check since they
+     *  never rewrite tag names. */
+    private boolean startsWithCloseTagIgnoreCase(final String tagName) {
+        if (!startsWith("</")) {
+            return false;
+        }
+        final int nameStart = pos + 2;
+        final int nameLen = tagName.length();
+        if (nameStart + nameLen > s.length() || !s.regionMatches(true, nameStart, tagName, 0, nameLen)) {
+            return false;
+        }
+        if (nameStart + nameLen >= s.length()) {
+            return false;
+        }
+        final char c = s.charAt(nameStart + nameLen);
+        return c == '>' || Character.isWhitespace(c);
     }
 
     private void skipWs() {
@@ -413,6 +489,11 @@ public final class XmlSpecificRule {
             n.tagName = TAG_NAME_REWRITES.get(lowerTag);
             lowerTag = n.tagName;
         }
+        // See SVG_TAG_NAME_CASE_FIXUP -- opposite gate from TAG_NAME_REWRITES: only applies INSIDE
+        // real SVG foreign content (svgDepth > 0), never in plain HTML content.
+        if (lang.isHtml5 && svgDepth > 0 && SVG_TAG_NAME_CASE_FIXUP.containsKey(lowerTag)) {
+            n.tagName = SVG_TAG_NAME_CASE_FIXUP.get(lowerTag);
+        }
         final boolean isSvg = lang.isHtml5 && "svg".equals(lowerTag);
         final boolean isVoid = lang.isHtml5 && VOID_ELEMENTS.contains(lowerTag);
         if (lang.isHtml5 && OPAQUE_IMPLIED_END_TAG_ELEMENTS.contains(lowerTag)) {
@@ -470,7 +551,8 @@ public final class XmlSpecificRule {
         final String closeTok = "</" + n.tagName + ">";
         final int beforeTrailingWs = pos;
         skipInlineWs();
-        if (startsWith(closeTok) || startsWith("</" + n.tagName + " ")) {
+        if (startsWith(closeTok) || startsWith("</" + n.tagName + " ")
+                || (lang.isHtml5 && startsWithCloseTagIgnoreCase(n.tagName))) {
             final int gt = s.indexOf('>', pos);
             pos = gt + 1;
             return n;

@@ -1777,6 +1777,37 @@ Real-code regressions:
                                              tree-construction edge cases" Open Question in
                                              `STATE_DATA_FORMATS.md`.
 
+  real_code_regressions_112_inp/out.html  -- HTML5, standalone follow-up (user request, 2026-07-25):
+                                             SVG tag-name case-folding, the tag-name-case-folding item
+                                             split out of the "HTML5 deep tree-construction edge cases"
+                                             Open Question as its own small, lookup-table-only fix. New
+                                             `XmlSpecificRule.SVG_TAG_NAME_CASE_FIXUP` map (spec's
+                                             "Adjust SVG tag names" table, e.g. `lineargradient` ->
+                                             `linearGradient`, `fegaussianblur` -> `feGaussianBlur`,
+                                             `foreignobject` -> `foreignObject`), gated the opposite way
+                                             from the existing `TAG_NAME_REWRITES` map (`svgDepth > 0`
+                                             instead of `== 0`) since it only applies inside real SVG
+                                             foreign content, never in plain HTML. Fixture proves both
+                                             directions: several SVG-nested lowercase-source elements
+                                             are rewritten to spec mixed-case, and a same-named
+                                             `<foreignobject>` used as plain HTML content outside any
+                                             `<svg>` is left untouched. Applying the fixup surfaced a
+                                             real latent bug in `parseElement`'s closing-tag match: once
+                                             `n.tagName` is case-rewritten, the literal-case `closeTok`
+                                             built from it no longer matches the source's own
+                                             (differently-cased) closing tag, silently mis-parsing the
+                                             element as unclosed via the existing tolerant-close
+                                             fallback and corrupting the tree. Fixed with a new
+                                             case-insensitive closing-tag check,
+                                             `startsWithCloseTagIgnoreCase`, applied only on the
+                                             `lang.isHtml5` path (other languages keep the exact-case
+                                             check, since they never rewrite tag names). MathML's small
+                                             attribute-only case-fixup (`definitionurl` ->
+                                             `definitionURL`) was intentionally left open -- this parser
+                                             has no MathML-depth-equivalent tracking today, and building
+                                             one from scratch was out of scope for this standalone fix;
+                                             see `STATE_DATA_FORMATS.md`.
+
 How Tests Are Run
 -----------------
 

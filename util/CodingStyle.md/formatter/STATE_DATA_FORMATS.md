@@ -545,9 +545,11 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   Resolved Design Decisions table and HTML5 checklist entry below.
 
 - **HTML5 deep tree-construction edge cases (adoption agency, foreign-content
-  foster-parenting, tag-name case-folding, implicit `<body>` start-tag
-  insertion) -- NOT fixed, same "genuinely too large a scope, don't force
-  it" posture as the earlier general implied-end-tag question.** Found
+  foster-parenting, tag-name case-folding [since fixed separately, see
+  below], implicit `<body>` start-tag insertion) -- NOT fixed except
+  tag-name case-folding, same "genuinely too large a scope, don't force
+  it" posture as the earlier general implied-end-tag question for the
+  remaining three.** Found
   during the final
   `web-platform-tests/wpt` (`html/syntax/`) dogfood run: after the 4 bugs
   fixed that session (EOF-implied-close, `<image>`->`<img>` rewrite,
@@ -612,13 +614,37 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   accuracy of the deep tree-construction gaps above remains open.
 
   **Tag-name case-folding (item 3 of the 4 deep tree-construction gaps
-  above) is being split out and fixed separately as a small, standalone
-  item** (user, 2026-07-25) -- unlike the other three, it's a pure
-  lookup-table fixup (SVG/MathML have small, fixed spec case-correction
-  tables, e.g. `foreignObject`/`clipPath`), reusing the same pattern as the
-  existing single-entry `TAG_NAME_REWRITES` map, with no dependency on the
-  insertion-mode/open-elements-stack foundation the other three need. See
-  its own checklist entry below once landed.
+  above) -- DONE, fixed separately as a small, standalone item**
+  (`real_code_regressions_112`, user, 2026-07-25). New
+  `XmlSpecificRule.SVG_TAG_NAME_CASE_FIXUP` map holds the spec's full
+  "Adjust SVG tag names" table (`altglyph`->`altGlyph`,
+  `lineargradient`->`linearGradient`, `fegaussianblur`->`feGaussianBlur`,
+  `foreignobject`->`foreignObject`, etc. -- the well-known, spec-stable
+  full list), gated the *opposite* way from the existing single-entry
+  `TAG_NAME_REWRITES` map: `svgDepth > 0` (inside real SVG foreign content)
+  instead of `TAG_NAME_REWRITES`'s `svgDepth == 0` (outside it), since the
+  two conditions are mutually exclusive and folding both cases into one map
+  would have been wrong. Fixture proves the gate works both directions: SVG
+  -nested lowercase-source elements are rewritten to spec mixed-case, and a
+  same-named `<foreignobject>` used as plain HTML content outside any
+  `<svg>` is left untouched. Applying the fixup surfaced a real latent bug
+  in `parseElement`'s closing-tag match, fixed in the same commit: once
+  `n.tagName` is case-rewritten, the old literal-case `closeTok` built from
+  it no longer matches the source's own (differently-cased) closing tag,
+  silently mis-parsing the element as unclosed via the existing
+  tolerant-close fallback and corrupting the tree. Fixed with a new
+  case-insensitive closing-tag check, `startsWithCloseTagIgnoreCase`,
+  applied only on the `lang.isHtml5` path (other languages keep the
+  exact-case check, since they never rewrite tag names). No dependency on
+  the insertion-mode/open-elements-stack foundation the other three deep
+  tree-construction gaps need. MathML's small attribute-only case-fixup
+  (`definitionurl`->`definitionURL`) was intentionally left open -- this
+  parser has no MathML-depth-equivalent tracking today (only `svgDepth`),
+  and building one from scratch was judged scope creep beyond this
+  standalone fix; revisit only if/when MathML foreign content gets its own
+  tracking (e.g. as part of the grouped future job below, if it ever
+  touches MathML). `make test`: 161/161 forward + idempotency, zero
+  regressions.
 
   **TODO -- adoption agency, foster-parenting, implicit `<body>`
   insertion, and misnested `<form>`-in-`<template>` (items 1/2/4/5 above)

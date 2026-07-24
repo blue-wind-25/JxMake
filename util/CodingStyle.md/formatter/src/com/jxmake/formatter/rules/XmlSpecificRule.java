@@ -537,7 +537,7 @@ public final class XmlSpecificRule {
             appendWrappedOpenTag(n, depth, out);
         }
         renderNodes(n.children, depth + 1, out);
-        out.append(indent(depth)).append("</").append(n.tagName).append('>').append('\n');
+        appendWithTrailing(out, indent(depth) + "</" + n.tagName + ">", n.trailingComment);
     }
 
     /** HTML5 §4.2: `<style>` content splices out to the CSS formatter and back, reindented one

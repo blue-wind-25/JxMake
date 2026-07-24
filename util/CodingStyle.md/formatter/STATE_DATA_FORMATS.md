@@ -459,6 +459,40 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
 
 ---
 
+- **WordPress magic-comment capitalization — should HTML/XML comment-start
+  normalization skip "directive-shaped" comments the way CSS's
+  `isSingleTokenDirective` already does, and if so, what shape qualifies?**
+  Found during the `WordPress/wordpress-develop` HTML5 dogfood session
+  (2026-07-24): `normalize-comment-start-case=on`'s `normComment` in
+  `XmlSpecificRule.java` unconditionally capitalizes any lowercase-starting
+  comment, with no directive-shape exclusion at all (unlike
+  `FormatterSimpleBraced`'s CSS-specific `isSingleTokenDirective`, added for
+  the `twbs/bootstrap` rtlcss-comment bug, `real_code_regressions_69`). Two
+  WordPress fixtures (`tests/phpunit/data/blocks/fixtures/core__more.server
+  .html`, `core__nextpage.server.html`, plus `do-blocks-expected.html`) use
+  `<!--more-->` and `<!--nextpage-->` — WordPress core's own literal,
+  case-sensitive(-ish) content-splitting magic comments (`get_extended()`,
+  block "next page" splitting), not prose — which the formatter silently
+  rewrites to `<!--More-->`/`<!--Nextpage-->`. Unlike the CSS precedent, a
+  straight reuse of `isSingleTokenDirective`'s exact rule (single
+  whitespace-free token containing `:` or `-`) would NOT catch this case —
+  `more`/`nextpage` contain neither character, so the existing "directive
+  shape" heuristic doesn't generalize as-is. Whether HTML/XML should adopt a
+  broader "any single lowercase word with no interior whitespace, regardless
+  of `:`/`-` content" exclusion (risking under-capitalizing genuine short
+  one-word prose comments like `<!--fixme-->` or `<!--todo-->`, which
+  arguably *should* still get capitalized) or some other rule
+  (allow-list of known magic-comment strings? scope the exclusion to HTML5
+  only, not XML?) is a real design tradeoff not specified anywhere in
+  `STYLE_DATA_FORMATS.md` §4. No code change made to `normComment` pending
+  this decision — leaving the current blanket-capitalization behavior as-is
+  (same posture as CSS had before its own precedent bug was found). Not
+  blocking: the HTML5 `WordPress/wordpress-develop` dogfood run otherwise
+  completed and is recorded as done in the Checklist below; this is a
+  content-correctness caveat on that run's comment-normalization output
+  only, does not affect structural output, and does not block moving on to
+  other HTML5 candidates.
+
 ## Checklist
 
 - [x] **Implement JSON/JSON5 (§1).** DONE. `JsonTokenizer` (extends
@@ -646,14 +680,15 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       `prometheus/prometheus`, `home-assistant/core` all done — see per-repo
       entries below); **TOML 4/4, DONE** (`rust-lang/cargo`,
       `python-poetry/poetry`, `pola-rs/polars`, `toml-lang/toml` all done —
-      TOML Test-Fixture Repos list now fully complete); HTML5 1/4
+      TOML Test-Fixture Repos list now fully complete); HTML5 3/4-candidate-list
       (`h5bp/html5-boilerplate` done; `twbs/bootstrap` docs site,
       `mdn/content`, `whatwg/html`, `kangax/html-minifier` all investigated
       and dropped — no real HTML5 corpus in any, see Open Questions
-      resolution; `web-platform-tests/wpt`, `WordPress/wordpress-develop`,
-      `alexandersandberg/html5-elements-tester` added as replacements, not
-      started). Overall item stays unchecked pending the remaining repos
-      above (XML) and the newly-added HTML5 candidates.
+      resolution; of the three added replacements, `WordPress/wordpress-
+      develop` done (1 bug found+fixed, 1 open question raised — see below)
+      and `alexandersandberg/html5-elements-tester` done (zero bugs);
+      `web-platform-tests/wpt` not started). Overall item stays unchecked
+      pending the remaining repos above (XML) and `web-platform-tests/wpt`.
 
       **Shared methodology note (applies to every run below, not restated per
       repo):** each run clones fresh (or reuses a prior-session checkout under
@@ -1167,6 +1202,55 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
         `home-assistant/core`**, and with it all 6 planned YAML Test-Fixture
         Repos (4 originally-planned plus both later-added) — the YAML
         Test-Fixture Repos list is now fully exhausted.
+
+      **HTML5 (2 repos done / 1 partial, first two follow-up HTML5 dogfood
+      runs against the replacement candidates added 2026-07-24):**
+      - `WordPress/wordpress-develop`: scoped to real markup only, per the
+        candidate note's own caveat -- 303 total `.html` files found, 73
+        contain no `wp:...` Gutenberg block-comment shorthand (the rest are
+        thin JSON-in-comments block templates, out of scope). **In-scope
+        corpus: 73 files** (`src/readme.html`, `tests/qunit/index.html` (a
+        109KB real admin-UI test harness page with dozens of
+        `<script type="text/html">` Underscore-template blocks), and 71
+        server-rendered Gutenberg block HTML fixtures under
+        `tests/phpunit/data/blocks/fixtures/**`). Forward 73/73 clean, zero
+        crashes. Idempotency (`diff -rq round1 round2`) 73/73 clean.
+        Baseline `html_sc.js`: 71/73 fail `missing-doctype` (the block
+        fixtures are intentionally bare HTML fragments, not full documents --
+        pre-existing, unrelated to the formatter); round1 output matches the
+        same 71 baseline failures exactly, no new ones. **1 bug found+fixed**,
+        via `html_content_diff.py` content-preservation on
+        `tests/qunit/index.html` (not syntax-check -- the corrupted output
+        stayed syntactically valid HTML5): `renderElement`'s multi-child
+        block-closing render path (used whenever an element's children don't
+        collapse to a single inline text/CDATA child, e.g. a `<div>`
+        containing element children) never emitted `n.trailingComment`,
+        unlike the other three render branches (self-closing, sole-text-
+        child, empty-children), which all route through `appendWithTrailing`.
+        A same-line trailing comment right after such a block element's
+        closing tag (`</div><!-- end widget templates -->`,
+        `</div><!-- end nav menu templates -->`) was silently dropped --
+        real content loss, not cosmetic. Fixed by routing the multi-child
+        closing-tag line through `appendWithTrailing` too. Fixture
+        `test/real_code_regressions_103_{inp,out}.html`. `make test`:
+        152/152 forward + idempotency. Final full 73-file re-run after the
+        fix: forward/idempotency/syntax-check all clean as above;
+        content-preservation (`html_content_diff.py`) 73/73 clean. **2
+        further comment-text-mismatch diffs found on this run are a genuine
+        open design question, not fixed** -- see Open Questions
+        ("WordPress magic-comment capitalization" below); no code change
+        made for those pending resolution. `alexandersandberg/
+        html5-elements-tester` remains not started for this session's queue;
+        `web-platform-tests/wpt` not started.
+      - `alexandersandberg/html5-elements-tester`: single 42KB `index.html`
+        file, formatted as a one-file spot-check (not a corpus, per the
+        candidate note). Forward 1/1 clean. Idempotency (`diff round1
+        round2`) clean. Baseline and round1 `html_sc.js`: both clean (0
+        errors). Content-preservation (`html_content_diff.py`) clean --
+        DOCTYPE, element/attribute order, text, and comment content all
+        preserved across the file's broad HTML5 tag-breadth exercise
+        (forms, tables, media, semantic sectioning elements, etc.). **Zero
+        bugs found.**
 
       **HTML5 (1/4 repos done, first HTML5 dogfood run):**
       - `h5bp/html5-boilerplate`: 4 files (`dist/index.html`, `dist/404.html`,

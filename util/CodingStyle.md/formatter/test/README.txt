@@ -1703,6 +1703,20 @@ Real-code regressions:
                                              JAVA.md dogfood item (7): `com.j256.simplemagic`,
                                              `org.itadaki.bzip2`, `org.kamranzafar.jtar`).
 
+  real_code_regressions_103_inp/out.html  -- HTML5, WordPress/wordpress-develop real-code testing
+                                             (`tests/qunit/index.html`): `renderElement`'s multi-child
+                                             block-closing render path (used whenever an element's
+                                             children don't collapse to a single inline text/CDATA
+                                             child) never emitted `n.trailingComment`, unlike the other
+                                             three render branches (self-closing, sole-text-child,
+                                             empty-children) which all call `appendWithTrailing`. A
+                                             same-line trailing comment right after a block element's
+                                             closing tag (`</div><!-- end widget templates -->`) was
+                                             silently dropped whenever that div had element children
+                                             (not just a lone text node) -- real data loss, not just a
+                                             cosmetic diff. Fixed by routing the multi-child closing-tag
+                                             line through `appendWithTrailing` too.
+
 How Tests Are Run
 -----------------
 

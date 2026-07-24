@@ -327,6 +327,7 @@ INP_FILES += real_code_regressions_91_inp.xsl
 INP_FILES += real_code_regressions_92_inp.xsd
 INP_FILES += real_code_regressions_95_inp.java
 
+INP_FILES += real_code_regressions_103_inp.html
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 
 # clear && git status && echo && svn stat && echo

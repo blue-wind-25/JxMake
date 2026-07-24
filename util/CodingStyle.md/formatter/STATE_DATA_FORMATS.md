@@ -103,6 +103,7 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_192 | YAML/TOML real-logic implementation: line-based recursive-descent parser for YAML, flat single-pass line-scanner for TOML, independent `#%` frozen-span/comment-normalization logic (no `TokenizerCore.markFrozenSpans`/`FormatterSimpleBraced.capitalizeCommentStart` reuse); migrated out of `Lang.SCAFFOLD_ONLY_LANGUAGES` into `Lang.SUPPORTED_LANGUAGES`; all 8 fixtures pass `make test`; two YAML bugs (same-indent sequence-child silent truncation, untrimmed key breaking idempotency) and one TOML bug (multi-line array continuation breaking idempotency) found and fixed; one fixture-authoring error found and corrected. |
 | RDD_KEY_193 | XML real-logic implementation: character-cursor recursive-descent parser (no natural line boundary in tag grammar, no `TokenizerCore` reuse); independent `<!--%`-based frozen-span/comment-normalization logic; `InFileConfig` extended for `<!--% JXM_CFMT_CFG ... -->`; migrated `xml` out of `Lang.SCAFFOLD_ONLY_LANGUAGES` into `Lang.SUPPORTED_LANGUAGES` (HTML5 stays scaffold-only); unlike YAML/TOML, XML's rule constructor takes `indentStyle` (§2.1 has no ignored-setting exception); wrap-shape judgment call (closing `>` attached to last attribute line); one bug found+fixed (childless-tag overflow wrap never triggered); all 4 fixtures (`xml_combined`/`xml_comments`) pass `make test`, 202/202 total (originally shipped as a mismatched `xml_core` pair, later corrected). |
 | RDD_KEY_198 | HTML5 `<ruby>` implied-end-tag support: small, extensible `XmlSpecificRule.OPAQUE_IMPLIED_END_TAG_ELEMENTS` name set (currently just `ruby`) reusing the existing `<script>`/`<style>`/`<pre>` opaque-verbatim-span pattern -- scans from the element's own opening `<` to its own MATCHING `</tag>` (nested same-name depth tracked) and captures the whole span (incl. `<rb>`/`<rt>`/`<rp>`/`<rtc>` children and the outer tags themselves) byte-for-byte verbatim as a new `NodeType.OPAQUE` node; no per-element implied-closing-trigger logic built. Fixture `test/real_code_regressions_104_{inp,out}.html`; `make test` 153/153, zero regressions. |
+| RDD_KEY_199 | HTML5 unquoted attribute value support: `XmlSpecificRule.parseAttr`'s `lang.isHtml5` branch now accepts an unquoted value per the HTML5 spec grammar (no whitespace/`"`/`'`/`=`/`<`/`>`/backtick) instead of requiring `"`/`'`; preserved unquoted on output, no forced normalization to double-quoted (consistent with the codebase's existing "preserve as written" quote-style posture elsewhere); plain XML unchanged, still requires quotes. Fixture `test/real_code_regressions_106_{inp,out}.html`; `make test` 155/155, zero regressions. Unblocked the `alexandersandberg/html5-elements-tester` dogfood run past line 718, but it now hits a distinct, unrelated blocker at line 759 (bare `<option>` tags relying on HTML5's implied-end-tag rule, not yet in `OPAQUE_IMPLIED_END_TAG_ELEMENTS`) -- see HTML5 checklist entry. |
 
 ---
 
@@ -513,6 +514,26 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   Checklist entry below (still marked partial, now blocked on the
   unquoted-attribute-value gap instead).
 
+- **HTML5 unquoted attribute values -- RESOLVED (RDD_KEY_199).** `parseAttr`'s
+  `lang.isHtml5` branch now accepts an unquoted attribute value per the HTML5
+  spec grammar and preserves it unquoted on output (no forced double-quote
+  normalization -- `STYLE_DATA_FORMATS.md` says nothing about attribute
+  quote-style normalization, and the codebase's existing quoted-value
+  behavior already preserves whichever quote character was written verbatim,
+  so unquoted-stays-unquoted follows the same "preserve as written" posture,
+  not a new convention). Plain XML unchanged (still requires quotes -- no
+  such grammar exists in the XML spec). Fixture
+  `test/real_code_regressions_106_{inp,out}.html`; `make test` 155/155, zero
+  regressions. Unblocked the `alexandersandberg/html5-elements-tester`
+  forward pass past line 718's `<select size=5>`, but it now hits a new,
+  distinct, unrelated blocker at line 759: a `<datalist>` containing bare
+  `<option value="...">` tags with no closing `</option>` at all, relying on
+  HTML5's implied-end-tag rule for `<option>` (closed by the next sibling
+  `<option>` or the parent's close) -- the same open-ended
+  implied-end-tag-family gap RDD_KEY_198 named but deliberately did not build
+  out beyond `ruby`. Not fixed (out of scope for this fix); see the HTML5
+  checklist entry below for current status.
+
 ## Checklist
 
 - [x] **Implement JSON/JSON5 (§1).** DONE. `JsonTokenizer` (extends
@@ -708,14 +729,18 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       resolution; of the three added replacements, `WordPress/wordpress-
       develop` done (1 bug found+fixed, 1 open question raised — see below),
       `alexandersandberg/html5-elements-tester` STILL BLOCKED (its
-      `<ruby>`/implied-end-tag `XmlParseException` fixed per RDD_KEY_198,
-      but forward pass now fails on a separate, unrelated pre-existing bug —
-      an unquoted attribute value, `size=5` on a `<select>`, line 718,
-      which `parseAttr` requires to be quoted; out of scope for RDD_KEY_198,
-      not yet fixed); `web-platform-tests/
+      `<ruby>`/implied-end-tag `XmlParseException` fixed per RDD_KEY_198, its
+      unquoted-attribute-value `XmlParseException` (`size=5` on a `<select>`,
+      line 718) fixed per RDD_KEY_199, but forward pass now fails further
+      along on a third, distinct, unrelated pre-existing bug — a `<datalist>`
+      at line 759 containing bare `<option value="...">` tags with no
+      closing `</option>` at all, relying on HTML5's implied-end-tag rule for
+      `<option>`, which `XmlSpecificRule.OPAQUE_IMPLIED_END_TAG_ELEMENTS`
+      does not (yet) include — out of scope for RDD_KEY_199, not fixed);
+      `web-platform-tests/
       wpt` not started). Overall item stays unchecked pending the remaining
-      repos above (XML), `web-platform-tests/wpt`, and the unquoted-
-      attribute-value gap.
+      repos above (XML), `web-platform-tests/wpt`, and the `<option>`
+      implied-end-tag gap.
 
       **Shared methodology note (applies to every run below, not restated per
       repo):** each run clones fresh (or reuses a prior-session checkout under

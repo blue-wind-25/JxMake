@@ -1927,6 +1927,90 @@ Real-code regressions:
                                              real dogfood repro; the first exercises a whitespace-
                                              formatted, more typical `<ruby>` with `<rp>`/`<rt>` pairs.
 
+  real_code_regressions_105_inp/out.ts    -- JS/TS, vuejs/core real-code testing (final batch of
+                                             fixes found via the full 514-file dogfood tsc pass,
+                                             consolidated into one fixture): six independent
+                                             bugs, each isolated with a minimal repro before being
+                                             folded into this composite regression file --
+                                             (1) `TokenizerCurly.reclassifyAngleBrackets`'s
+                                             `nestedBraceDepth`-gated clear-all/invalidation guard
+                                             (added for fixture 102) only covered the nested `{`/`}`
+                                             delimiters themselves, not tokens *inside* them --
+                                             `Record<string, { local: string; default?: Expression
+                                             }>`'s member name `default` (a KEYWORD not in
+                                             `GENERIC_SAFE_KEYWORDS`) and the member-separator `;`
+                                             both still reached the outer `<...>`'s invalidation
+                                             checks and wiped it. Fixed by extending both the
+                                             `;`/`{`/`}` clear-all check and the
+                                             `isGenericSafeToken` invalidation check to skip while
+                                             `nestedBraceDepth > 0`, not just at the delimiters.
+                                             (2) A mapped-type object (`{ [key in Event]: ... }`)
+                                             as a generic type argument needed `ANGLE_BRACKET_OPEN`
+                                             added to `JsTsSpecificRule.classifyBraces`'s `isValue`
+                                             whitelist so the mapped-type's own `{` is recognized as
+                                             a value-position brace, not a block. (3) A ternary
+                                             nested inside a parenthesized grouping expression
+                                             (`(keyof T extends K ? true : false)`) had its `:`
+                                             misclassified as a return-type colon because the
+                                             preceding `)` closes a plain grouping paren, not a
+                                             real function signature -- fixed with a new
+                                             `isGroupingExpressionParen` helper (checks the token
+                                             before the matching `(` is not an operator) consulted
+                                             by `isTypeColonAt`. (4) `key is keyof typeof val =>
+                                             ...` wrongly wrapped `val` in parens because
+                                             `enforceArrowFunctionParameterParens`'s bail-out check
+                                             only recognized `is` as `prevPrev`, not `typeof`/
+                                             `keyof` -- both added to the bail-out. (5) A trailing
+                                             type-annotation `:` that wraps its type to the next
+                                             line got a bogus `;` inserted right after it, because
+                                             `needsSemicolonAfter`'s intended `isPunct(t, ":")`
+                                             guard never matches (`:` tokenizes as OP, not PUNCT)
+                                             -- fixed by adding `":"` to `CONTINUATION_OPS` instead,
+                                             which is the check that actually applies to OP tokens.
+                                             (6) A standalone TS function-type parameter list
+                                             (`(...args: any[]) => void`) got padded/tightened like
+                                             an arbitrary grouping paren by
+                                             `MiscRuleCore.enforceComplexityPadding`'s generic
+                                             non-identifier-preceded `(` branch -- fixed with a
+                                             `lang.isTs`-gated exception that skips padding when the
+                                             matching `)` is immediately followed by `=>` (the same
+                                             signal `isFunctionDefFollower` uses to recognize a real
+                                             signature). Separately, while chasing (5), `=>` and
+                                             `...` were also added to `isGenericSafeToken`'s
+                                             TS-safe OP list (a function-type generic argument like
+                                             `Map<(...args: any[]) => void, Handler>` was losing its
+                                             outer `<...>` tracking the same way); `...` had to be
+                                             gated to `lang.isTs` only after it was found to regress
+                                             C++'s variadic-template spacing in test 53
+                                             (`Args...`) when added unconditionally. All of these
+                                             bugs were found via the tsc typecheck pass on formatted
+                                             vuejs/core output (0 errors on the original tree; each
+                                             surfaced as a new tsc syntax error only after
+                                             formatting).
+
+  real_code_regressions_106_inp/out.html  -- HTML5, unquoted attribute values (RDD_KEY_199). Found
+                                             via the `alexandersandberg/html5-elements-tester`
+                                             dogfood spot-check continuing past RDD_KEY_198's
+                                             `<ruby>` fix: `XmlSpecificRule.parseAttr` required a
+                                             quoted (`"`/`'`) attribute value and threw on the
+                                             file's `<select ... size=5>` (line 718), even though
+                                             unquoted attribute values are valid per the HTML5 spec
+                                             grammar (any run of characters with no whitespace,
+                                             quote, `=`, `<`, `>`, or backtick). Fixed by accepting
+                                             an unquoted value on the `lang.isHtml5` branch only
+                                             (plain XML still requires quotes, unchanged) and
+                                             preserving it unquoted on output -- no forced
+                                             normalization to double-quoted, consistent with this
+                                             codebase's existing "preserve as written" posture for
+                                             attribute quote-style choice (the quoted branch already
+                                             preserves whichever of `"`/`'` was written) and
+                                             elsewhere (JSON5 per-key quote style, TOML string quote
+                                             style). This fixture isolates the case with a `<select
+                                             size=5>`/multiple unquoted `<option value=...>` block
+                                             plus an `<input>` mixing unquoted values and a bare
+                                             boolean attribute (`disabled`), independent of the
+                                             `real_code_regressions_104` `<ruby>` fixture.
+
 How Tests Are Run
 -----------------
 

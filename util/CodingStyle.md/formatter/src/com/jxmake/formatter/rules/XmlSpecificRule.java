@@ -517,6 +517,25 @@ public final class XmlSpecificRule {
         pos++;
         skipWs();
         if (eof() || (s.charAt(pos) != '"' && s.charAt(pos) != '\'')) {
+            if (lang.isHtml5) {
+                // HTML5 unquoted attribute value (spec grammar: no whitespace, quote,
+                // '=', '<', '>', or backtick) -- preserved unquoted on output, same
+                // "preserve as written" posture the quoted branch below already gives
+                // the quote-character choice (no forced normalization).
+                final int valStart = pos;
+                while (!eof()) {
+                    final char c = s.charAt(pos);
+                    if (Character.isWhitespace(c) || c == '"' || c == '\'' || c == '='
+                            || c == '<' || c == '>' || c == '`') {
+                        break;
+                    }
+                    pos++;
+                }
+                if (pos == valStart) {
+                    throw new XmlParseException("expected value for attribute '" + name + "'");
+                }
+                return name + "=" + s.substring(valStart, pos);
+            }
             throw new XmlParseException("expected quoted value for attribute '" + name + "'");
         }
         final char quote = s.charAt(pos);

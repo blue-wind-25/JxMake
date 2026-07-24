@@ -495,11 +495,19 @@ bench: $(JAR_FILE)
 # ── Server-mode test target ───────────────────────────────────────────────────
 #
 # Functional (not benchmark) coverage of the /format inline-config query
-# parameters added for browser/no-real-file clients:
+# parameters added for browser/no-real-file clients, plus general dispatch
+# coverage now that data formats/JS-TS/Python3/HTML5 are all real (no longer
+# scaffold-only), so JSX/TSX are the only languages left to exercise the
+# scaffold-only-rejection path:
 #
 #     1. inline config, no `path` (path optional when lang + inline present)
 #     2. inline config overriding a `.jxmake-code-formatter` file next to `path`
 #     3. an unrecognized config-shaped query key -> HTTP 400
+#     4. language auto-inferred from `path`'s extension, no explicit `lang`
+#     5. a full round-trip through a non-Java language (yaml), proving the
+#        server actually reformats rather than echoing the body back verbatim
+#     6. an unrecognized `lang` (e.g. `jsx` -- no longer even scaffold-only,
+#        since `Lang.SCAFFOLD_ONLY_LANGUAGES` is now empty) -> HTTP 400
 #
 # Runs against a dedicated port so it doesn't collide with a server a
 # developer already has running. Always stops its own server on exit, pass
@@ -517,6 +525,7 @@ test-server: $(JAR_FILE)
 		printf 'class X {\n  void f() {\n    if (true) {\n      int y = 1;\n    }\n  }\n}\n'                              \
 			> $(TEST_SERVER_TMP)/Sample.java;                                                                         \
 		printf 'indent-size = 8\n' > $(TEST_SERVER_TMP)/.jxmake-code-formatter;                                           \
+		printf 'foo:   bar   \nbaz:\n\n\n\n' > $(TEST_SERVER_TMP)/Sample.yaml;                                            \
 		$(JAVA) -jar $(JAR_FILE) --server --port $(TEST_SERVER_PORT) 2>&1 &                                               \
 		tries=0;                                                                                                          \
 		while [ $$tries -lt 50 ]; do                                                                                      \
@@ -546,6 +555,30 @@ test-server: $(JAR_FILE)
 			"http://localhost:$(TEST_SERVER_PORT)/format?lang=java&bogus-key=1"                                       \
 			--data-binary @$(TEST_SERVER_TMP)/Sample.java);                                                           \
 		if [ "$$code" = "400" ]; then echo "PASS (HTTP $$code)"; else echo "FAIL (HTTP $$code)"; fail=1; fi;              \
+		echo "";                                                                                                          \
+		echo "=== Server test: lang auto-inferred from path extension ===";                                              \
+		code=$$(curl -s -o $(TEST_SERVER_TMP)/r4 -w '%{http_code}'                                                        \
+			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.yaml"                          \
+			--data-binary @$(TEST_SERVER_TMP)/Sample.yaml);                                                           \
+		if [ "$$code" = "200" ]; then echo "PASS (HTTP $$code, .yaml path inferred lang without 'lang=')";               \
+		else echo "FAIL (HTTP $$code)"; fail=1; fi;                                                                      \
+		echo "";                                                                                                          \
+		echo "=== Server test: full round-trip through a non-Java language (yaml) ===";                                  \
+		code=$$(curl -s -o $(TEST_SERVER_TMP)/r5 -w '%{http_code}'                                                        \
+			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.yaml&lang=yaml"              \
+			--data-binary @$(TEST_SERVER_TMP)/Sample.yaml);                                                           \
+		if [ "$$code" = "200" ] && ! diff -q $(TEST_SERVER_TMP)/Sample.yaml $(TEST_SERVER_TMP)/r5 > /dev/null 2>&1; then  \
+			echo "PASS (HTTP $$code, output differs from input -- real formatting happened, not an echo)";           \
+		else                                                                                                              \
+			echo "FAIL (HTTP $$code, or output was an unmodified echo of the input)"; fail=1;                        \
+		fi;                                                                                                               \
+		echo "";                                                                                                          \
+		echo "=== Server test: unrecognized lang (jsx) still rejected ===";                                              \
+		code=$$(curl -s -o $(TEST_SERVER_TMP)/r6 -w '%{http_code}'                                                        \
+			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.yaml&lang=jsx"               \
+			--data-binary @$(TEST_SERVER_TMP)/Sample.yaml);                                                           \
+		if [ "$$code" = "400" ]; then echo "PASS (HTTP $$code, jsx correctly rejected)";                                 \
+		else echo "FAIL (HTTP $$code)"; fail=1; fi;                                                                      \
 		echo "";                                                                                                          \
 		$(JAVA) -jar $(JAR_FILE) --port $(TEST_SERVER_PORT) --stop > /dev/null 2>&1 || true;                              \
 		if [ $$fail -ne 0 ]; then exit 1; fi;                                                                             \

@@ -363,272 +363,192 @@ Question here since real implementation hasn't started.
       user instruction, since the pair was needed to seed the initial
       tokenizer test for `^^`/`[:`/`:]` — its expected output still isn't
       validated against that cross-check.
-- [x] Real-code testing pass against `wrocpp/cpp26-reflection-examples`
-      done this session (fresh shallow clone under `/tmp`, not previously
-      present). 103 `.cpp`/`.hpp`/`.h`/`.cc` files (curated reflection blog
-      examples repo), 51 of which exercise `^^`/`[: :]`/`template for`
-      syntax. Formatted in one batch via `--out`/`--preserve-tree`/`--root`
-      — zero crashes/exceptions. round1 -> round2 `diff -r` empty (103/103
-      idempotent). No bugs found — zero fixtures added. Compilation not
-      attempted: system's only available compilers are `g++ 4.8.5` and
-      `clang++ 3.7.1`, both far too old for any P2996/reflection support
-      (predates even C++20), so full compile verification isn't possible on
-      this system; idempotency + manual inspection used as the documented
-      fallback. Manually spot-checked several files with reflection syntax
-      (`hello_reflection.cpp`, `posts/03-splicing/examples/
-      splice_basics.cpp`, `posts/20-reflect-arbitrary/examples/
-      arbitrary.cpp`): `^^int`/`^^T`/`^^Point` stay tight as designed;
-      `[: r_int :]`/`obj.[: m :]` collapse to tight (`[:r_int:]`/
-      `obj.[:m:]`) when interior is a bare identifier, stay loose
-      (`[: std::meta::type_of(m) :]`) when interior contains a nested
-      call/`::`-qualified expression — consistent with the existing
-      `isLoose` bracket-complexity rule, no corruption in either case;
-      `template for(...)` renders with the same no-space-before-paren
-      style as ordinary `for(...)` in this corpus's config, and a
-      single-statement body collapses to inline exactly like an ordinary
-      single-statement `for` loop does (confirmed this is pre-existing
-      general behavior, not reflection-specific or a new bug, by
-      reproducing with a plain non-`template` `for` snippet in `/tmp`); a
-      multi-statement `template for` body correctly keeps its braces. This
-      now provides real external corpus validation for §5 previously noted
-      as pending (see Scope §5 / Test Fixtures (External, corpus-scale)).
+- [x] Real-code testing pass against `wrocpp/cpp26-reflection-examples` done
+      this session (fresh clone, `/tmp`). 103 `.cpp`/`.hpp`/`.h`/`.cc` files
+      (51 exercise `^^`/`[: :]`/`template for`). `--out --preserve-tree
+      --root`, zero crashes; round1→round2 `diff -r` empty (103/103
+      idempotent). No bugs found, zero fixtures added. Compilation not
+      attempted (this system's only compilers, `g++ 4.8.5`/`clang++ 3.7.1`,
+      predate P2996/C++20 support); idempotency + manual inspection used as
+      fallback (documented once here, applies to the `simdjson`/`rjk-duck`
+      sessions below too until the toolchain upgrade noted under `glaze`).
+      Manual spot-check of `hello_reflection.cpp`/`splice_basics.cpp`/
+      `arbitrary.cpp`: `^^int`/`^^T`/`^^Point` stay tight; `[: r_int :]`/
+      `obj.[: m :]` tight for bare-identifier interior, loose
+      (`[: std::meta::type_of(m) :]`) for nested-call/`::`-qualified
+      interior — consistent with `isLoose`, no corruption. `template
+      for(...)` uses the same no-space-before-paren + single-statement
+      inline collapse as ordinary `for` (confirmed pre-existing/general via
+      a plain non-`template` repro, not reflection-specific). This is the
+      external-corpus validation for §5 previously pending (Scope §5).
       `bloomberg/clang-p2996` confirmed empty/unusable (see that section).
       `simdjson/experimental_json_builder`, `stephenberry/glaze` remain
       not-started.
 - [x] Real-code testing pass against `simdjson/experimental_json_builder`
-      done this session (fresh shallow clone under scratchpad, not
-      previously present). Repo confirmed genuinely small as expected: 27
-      `.cpp`/`.hpp`/`.h`/`.cc` files, 3.9k total lines, no bundled/amalgamated
-      simdjson single-header blob present (largest file, `apple_arm_events.h`
-      at 1104 lines, is a plain perf-counter-ID header, not vendored
-      simdjson). Formatted in one batch via `--out`/`--preserve-tree`/
-      `--root` -- zero crashes/exceptions on the initial pass.
+      done this session (fresh shallow clone, scratchpad). 27
+      `.cpp`/`.hpp`/`.h`/`.cc` files, 3.9k lines, no bundled/amalgamated
+      simdjson header present. `--out --preserve-tree --root`, zero
+      crashes on the initial pass.
 
-      **One real idempotency bug found and fixed.** round1 -> round2 `diff
-      -r` was NOT initially empty:
-      `benchmarks/simpleparser/from_json.hpp`'s
+      **One idempotency bug found+fixed.** round1→round2 `diff -r`
+      non-empty: `benchmarks/simpleparser/from_json.hpp`'s
       `[:simdjson::json_builder::expand(std::meta::nonstatic_data_members_of(^T)):] >>`
-      line rendered as one (102-char, over the 100-char limit) line on
-      round1 but wrapped onto three lines on round2. Root cause:
-      `FormatterCurly`'s Phase ordering had
-      `CppSpecificRule.enforceAttributeAndSpliceBracketPadding` (which can
-      grow a line's width via its loose `[: expr :]` padding) running in
-      Phase 4, *after* `MiscRuleCurly.enforceCallLineBreaking`'s
-      "does it fit in `LINE_LENGTH_LIMIT`" measurement in Phase 1 had already
-      run and decided not to wrap -- so a fresh format measured the
-      pre-padding (98-char, fits) width and stayed one line, while
-      reformatting that already-padded output measured the post-padding
-      (102-char, over limit) width and wrapped. Exactly the same bug shape
-      already documented and fixed once for `enforceComplexityPadding`
-      (see the comment at `FormatterCurly.java`'s Phase 1/enforceComplexity
-      Padding call) and flagged as a generic risk in `STATE_COMMON.md`'s
+      line rendered one-line (102-char, over 100-char limit) on round1 but
+      wrapped on round2. Root cause: `FormatterCurly`'s phase ordering ran
+      `CppSpecificRule.enforceAttributeAndSpliceBracketPadding` (can grow a
+      line via its loose `[: expr :]` padding) in Phase 4, *after*
+      `MiscRuleCurly.enforceCallLineBreaking`'s fits-check in Phase 1 had
+      already decided not to wrap — a fresh format measured the pre-padding
+      (98-char, fits) width, reformatting the already-padded output measured
+      the post-padding (102-char) width and wrapped. Same bug shape already
+      fixed once for `enforceComplexityPadding` (see that call's comment in
+      `FormatterCurly.java`) and flagged generically in `STATE_COMMON.md`'s
       Architectural TODOs ("Ordering interacts with every other pass").
-      Fixed the same way: pulled `enforceAttributeAndSpliceBracketPadding`
-      forward to run right before `enforceCallLineBreaking`, alongside
-      `enforceComplexityPadding` (both `lang.isCpp`-gated at that point
-      instead of down in Phase 4). `enforcePackIndexingSpacing`/
-      `enforceReflectionOperatorSpacing` were deliberately left in Phase 4 --
-      both only ever tighten (remove) spacing, never grow a line's width, so
-      they can't trigger this class of bug. Added fixture pair
-      `test/real_code_regressions_76_{inp,out}.hpp` (minimal repro of the
-      exact construct), registered in the Makefile's `INP_FILES` and
-      `test/README.txt`. `make test`: 125/125 forward + idempotency, zero
-      regressions.
+      Fixed by pulling `enforceAttributeAndSpliceBracketPadding` forward to
+      run right before `enforceCallLineBreaking`, alongside
+      `enforceComplexityPadding` (both `lang.isCpp`-gated there instead of
+      Phase 4). `enforcePackIndexingSpacing`/`enforceReflectionOperatorSpacing`
+      stayed in Phase 4 — they only ever tighten spacing, can't trigger this
+      bug class. Fixture `test/real_code_regressions_76_{inp,out}.hpp`.
+      `make test`: 125/125 forward + idempotency, zero regressions.
 
-      **Final full-corpus re-run after the fix:** all 27 files reformatted
-      again -- zero crashes, round1 -> round2 `diff -r` fully empty
-      (27/27 idempotent). Compilation not attempted: same `g++ 4.8.5`/
-      `clang++ 3.7.1` toolchain limitation already documented for the
-      `wrocpp` session (both far too old for P2996/reflection); idempotency +
-      manual inspection used as the same documented fallback.
-
-      Manually spot-checked every file containing `^^`/`[: :]` syntax
-      (`examples/demo.cpp`, `examples/example2.cpp`, `examples/example3.cpp`,
+      **Final full-corpus re-run:** all 27 files, zero crashes,
+      round1→round2 `diff -r` empty (27/27 idempotent). Compilation not
+      attempted (same `g++ 4.8.5`/`clang++ 3.7.1` too-old-for-reflection
+      limitation as the `wrocpp` session); idempotency + manual inspection
+      used as fallback. Manually spot-checked every `^^`/`[: :]` file
+      (`examples/demo.cpp`, `example2.cpp`, `example3.cpp`,
       `tests/user_profile_tests.cpp`, `benchmarks/simpleparser/
-      from_json.hpp`, plus the two `.h` files below): `^^T`/`^^Z` stay tight;
-      `[:expand(...):]`/`[: json_builder::expand(...) :]` correctly go loose
-      (nested call inside) with consistent padding on both the `[:`/`:]`
-      boundary and the call's own parens; `t.[:dm:]`/`t.[:mem:]` (member
-      splice, bare identifier interior) stay tight; no corruption found in
-      any reflection construct.
+      from_json.hpp`, plus the two `.h` files below): `^^T`/`^^Z` tight;
+      `[:expand(...):]`/`[: json_builder::expand(...) :]` correctly loose
+      (nested call) with consistent boundary+call-paren padding;
+      `t.[:dm:]`/`t.[:mem:]` (bare-identifier splice) tight — no corruption.
 
-      **Separate finding, confirmed out of scope for this job, not fixed
-      here:** `include/simdjson/json_builder/json_builder.h` and
-      `universal_formatter.h` both use `^^`/`[: :]` reflection syntax but are
-      `.h`-extensioned -- `Lang.infer` maps `.h` to plain `"c"`, not `"cpp"`
-      (pre-existing, `.h`-is-ambiguous-defaults-to-C design predating this
-      job, in `Lang.java`, C/C++/Java job's territory, not `CppSpecificRule`/
-      Curly-family code this job owns). Since every §5 rule in this job is
-      `lang.isCpp`-gated, these two files silently get zero §5 rules applied
-      -- no crash, no corruption, just complete non-application (confirmed by
-      isolating: identical content reformats loose/§5-aware under a `.hpp`
-      filename but tight/§5-unaware under a `.h` filename, in the same
-      directory, same invocation). Not this job's file/scope to change
-      (`Lang.infer`'s extension table is shared, general-purpose language
-      detection, not C++26-specific), and not raised as a blocked Open
-      Question since it isn't an ambiguity *within* this job's own rule set --
-      documented here purely as a real-corpus finding for whoever next
-      touches `Lang.infer`'s `.h`-handling decision.
+      **Separate finding, out of scope, not fixed:**
+      `include/simdjson/json_builder/json_builder.h` and
+      `universal_formatter.h` use `^^`/`[: :]` but are `.h`-extensioned —
+      `Lang.infer` maps `.h` to `"c"`, not `"cpp"` (pre-existing C/C++/Java-job
+      design, not this job's territory), so every §5 rule (`lang.isCpp`-gated)
+      silently doesn't apply to them — no crash/corruption, just complete
+      non-application (confirmed: identical content reformats §5-aware under
+      `.hpp` but not under `.h`, same directory/invocation). Not a blocked
+      Open Question (no ambiguity within this job's own rule set) — documented
+      for whoever next touches `Lang.infer`'s `.h`-handling.
 
 - [x] Real-code testing pass against `ryanjk5.github.io/posts/rjk-duck` (blog
-      post, not a repo) done this session. No local copy found under `/tmp`
-      (checked first per methodology); fetched via WebFetch and extracted all
-      26 C++ code samples from the post into one file,
-      `/tmp/dogfood/rjk-duck/duck_samples.cpp` (samples wrapped in enough
-      surrounding scaffolding — e.g. dummy bodies for `{ ... }` placeholder
-      elisions, renamed a few duplicate type names across samples like
-      `MyTrait`/`Container`/`vtable_wrapper` so the concatenated file doesn't
-      redefine the same symbol twice — to be syntactically parseable by the
-      tokenizer even though several samples were never meant to compile
-      standalone, e.g. `[: /* find perf_options trait, or fall back to
-      default */ :]` placeholder specializations).
+      post, not a repo) done this session. No local copy found under `/tmp`;
+      fetched via WebFetch, extracted all 26 C++ code samples into one file
+      (`/tmp/dogfood/rjk-duck/duck_samples.cpp`, with minimal scaffolding —
+      dummy bodies for `{ ... }` elisions, a few duplicate type names renamed
+      across samples — to make the concatenation parseable even though
+      several samples were never meant to compile standalone).
 
-      Formatted once (round1), reformatted round1's output (round2): `diff`
-      fully empty (idempotent), zero crashes/exceptions on either pass.
-      Compilation not attempted — same `g++ 4.8.5`/`clang++ 3.7.1` toolchain
-      limitation already documented for the `wrocpp`/`simdjson` sessions
-      (both far too old for P2996/reflection); idempotency + manual
-      inspection used as the same documented fallback (no `syntax_checker`
-      entry exists for C++ either — that tool only covers the data-format/
-      Java/Kotlin jobs).
+      Formatted once (round1), reformatted (round2): `diff` empty
+      (idempotent), zero crashes on either pass. Compilation not attempted
+      (same `g++ 4.8.5`/`clang++ 3.7.1` too-old limitation as `wrocpp`/
+      `simdjson`); idempotency + manual inspection used as fallback (no C++
+      `syntax_checker` entry exists — that tool only covers data-format/
+      Java/Kotlin). Manually spot-checked every `^^`/`[: :]` occurrence in
+      round1 output: all 12 distinct `^^operand` forms stay tight as
+      designed; `[: slots[index] :]` (nested-bracket interior) renders
+      loose, `[:VtableMember:]`/`[:Member:]` (bare identifier) tight —
+      consistent with `isLoose`, no corruption.
 
-      Manually spot-checked every `^^`/`[: :]` occurrence in round1 output:
-      `^^MyType`/`^^trait`/`^^has_fn`/`^^Traits...`/`^^void*`/`^^vtable`/
-      `^^T`/`^^candidate_wrapper`/`^^overload_set`/`^^vtable_function2`/
-      `^^vtable_function_wrapper`/`^^inlined_functions` all stay tight to
-      their operand as designed; `[: slots[index] :]` (nested bracket
-      interior) renders loose, `[:VtableMember:]`/`[:Member:]` (bare
-      identifier interior) render tight — consistent with the existing
-      `isLoose` bracket-complexity rule, no corruption in any occurrence.
+      **One finding, out of scope, not fixed:** Sample 10's multi-statement
+      lambda body inside a `std::views::transform([=](...) { ...; ...; ...;
+      return ...; })` pipe-chain argument collapses onto one very long
+      `;`-joined line instead of staying multi-line. Reproduced with a plain
+      non-C++26 snippet to confirm this is pre-existing general lambda-body/
+      call-line-breaking behavior (`MiscRuleCurly.enforceCallLineBreaking`),
+      not a §1-5 rule artifact — every §5 rule this job owns only
+      gap-buffers spacing, none touch statement-level line breaking. C/C++/
+      Java job's territory, not raised as a blocked Open Question (no
+      ambiguity within this job's own rule set); documented for whoever next
+      touches that method, same posture as the `simdjson` session's
+      `.h`-vs-`.hpp` finding.
 
-      **One finding, confirmed out of scope for this job, not fixed here:**
-      Sample 10's multi-statement lambda body inside a `std::views::transform(
-      [=](...) { ...; ...; ...; return ...; })` pipe-chain argument collapses
-      onto one very long line with statements joined by `;` instead of
-      staying multi-line, e.g. body statements
-      `self_type`/`params`/`args`/`return substitute(...)` all end up on one
-      source line. Reproduced with a plain non-C++26 snippet
-      (`/tmp/dogfood/rjk-duck/repro.cpp` — no `^^`/`[: :]`/`template for`
-      anywhere in it) to confirm this is pre-existing general lambda-body/
-      call-line-breaking behavior, not a §5 (or any C++26 §1-4) rule
-      artifact — every §5 rule this job owns is narrowly gap-buffering-only
-      (`enforceReflectionOperatorSpacing`/
-      `enforceAttributeAndSpliceBracketPadding`), none of them touch
-      statement-level line breaking inside a lambda body. Belongs to the
-      general call-line-breaking/lambda-body logic
-      (`MiscRuleCurly.enforceCallLineBreaking` per this file's own earlier
-      references), C/C++/Java job's territory not `CppSpecificRule`/
-      C++26-owned code — not raised as a blocked Open Question since it
-      isn't an ambiguity within this job's own rule set, documented here
-      purely as a real-corpus finding for whoever next touches that method,
-      same posture as the earlier `.h`-vs-`.hpp` `Lang.infer` finding from
-      the `simdjson` session.
-
-      No fixtures added (no bug within this job's scope found). This
-      completes the `ryanjk5.github.io/posts/rjk-duck` entry in "Test
-      Fixtures (External, corpus-scale)" — it was always noted there as
-      "useful extra source" alongside the repo-scale candidates, not a
-      substitute for them.
-
-      `stephenberry/glaze` remains not-started.
+      No fixtures added (no in-scope bug found). Completes the
+      `ryanjk5.github.io/posts/rjk-duck` entry in "Test Fixtures (External,
+      corpus-scale)" (noted there as "useful extra source", not a substitute
+      for a repo-scale candidate). `stephenberry/glaze` remains not-started.
 - [x] Real-code testing pass against `stephenberry/glaze` done this session.
-      Reused an existing checkout found under `/tmp/glaze` (checked first per
-      methodology — not a fresh clone). 414 `.hpp`/`.cpp`/`.h` files.
-      Formatted in one batch pass grouped by subdirectory via `--out`/
-      `--preserve-tree`/`--root` (one JVM invocation per subdirectory hit a
-      transient `SIGBUS` JVM crash in `libzip.so` on one directory, tracked
-      to this system's `/tmp` filesystem sitting at 99% full at the time —
-      confirmed environmental, not a formatter bug, since a bare retry of the
-      same 5 remaining directories succeeded with exit 0 every time). All
-      414 files formatted with zero crashes/exceptions once retried.
+      Reused existing checkout at `/tmp/glaze` (not a fresh clone). 414
+      `.hpp`/`.cpp`/`.h` files, formatted in one batch pass grouped by
+      subdirectory (one subdirectory hit a transient `SIGBUS` JVM crash in
+      `libzip.so`, traced to `/tmp` sitting at 99% full — confirmed
+      environmental, not a formatter bug, since a bare retry succeeded with
+      exit 0). All 414 files formatted with zero crashes once retried.
 
-      round1 -> round2 (single-invocation re-format, all 414 files in one
-      JAR call — no crash that time) surfaced 37 files with a non-empty
-      `diff`. **Investigated each; none involve any C++26 construct** (no
-      `^^`/`[:`/`:]`/`contract_assert`/pack-indexing `...[` in any of the 37
-      — confirmed by grepping each diffed file). Root causes identified by
-      inspection, all pre-existing and outside this job's scope
-      (`CppSpecificRule.java`/§1-5 rules), matching the general-reindentation
-      gap class `STATE_COMMON.md`'s Architectural TODOs already documents:
-      - Most (33/37) are the known switch/case relative-delta reindentation
-        drift (`SwitchRule.applyNonInlineCaseIndent`) on internally
-        inconsistent source — same bug shape as the already-ACCEPTED
-        `javaparser`/`JSONEncoderLite.java` gaps, not new.
-      - A handful (`glaze_asio.hpp`, `ordered_map_test.cpp`) showed member-
-        initializer-list line-wrapping inserting a stray space after `.`
-        (`other.index` -> `other. index` -> `other. ec`) when a long
-        single-line init-list gets wrapped one-member-per-line — a C/C++/Java
-        job bug in the general call/init-list wrapping logic, not
-        `CppSpecificRule`.
-      - One (`json_perf_common.hpp`/`json_performance.cpp`) showed `**`
-        (pointer-to-pointer-looking multiply, `iterations**binary_byte_length`)
-        gaining an inconsistent space on reformat — again general C/C++
-        operator-spacing logic, not a C++26 rule.
-      - One (`json_patch_test.cpp`) showed a long initializer-list line
-        wrapped differently between round1/round2 — general line-breaking
-        logic, not C++26.
-      All confirmed out-of-scope the same way prior sessions confirmed the
-      `.h`-vs-`.hpp` (`simdjson` session) and lambda-body (`rjk-duck` session)
-      findings: none of this job's owned methods
+      round1 -> round2 surfaced 37 files with a non-empty `diff`. **None
+      involve any C++26 construct** (grepped each for `^^`/`[:`/`:]`/
+      `contract_assert`/pack-indexing `...[` — none found). All root-caused
+      to pre-existing, out-of-this-job's-scope C/C++/Java gaps (matching
+      `STATE_COMMON.md`'s Architectural TODOs class):
+      - 33/37: known switch/case relative-delta reindentation drift
+        (`SwitchRule.applyNonInlineCaseIndent`) on internally inconsistent
+        source — same shape as the already-ACCEPTED `javaparser`/
+        `JSONEncoderLite.java` gaps.
+      - `glaze_asio.hpp`/`ordered_map_test.cpp`: member-initializer-list
+        wrapping inserts a stray space after `.` (`other.index` ->
+        `other. index`) when a long single-line init-list wraps one-member-
+        per-line — general init-list-wrapping bug, not `CppSpecificRule`.
+      - `json_perf_common.hpp`/`json_performance.cpp`: `**` (pointer-to-
+        pointer-looking multiply, `iterations**binary_byte_length`) gains an
+        inconsistent space on reformat — general operator-spacing logic.
+      - `json_patch_test.cpp`: a long initializer-list line wraps
+        differently between round1/round2 — general line-breaking logic.
+      None of this job's owned methods
       (`enforceReflectionOperatorSpacing`/
       `enforceAttributeAndSpliceBracketPadding`/
       `enforcePackIndexingSpacing`/`enforceContractClausePlacement`/
       `enforceContractAssertSpacing`) touch switch/case indentation,
-      initializer-list wrapping, or `*`/`**` operator spacing. Not raised as
-      a blocked Open Question (not an ambiguity within this job's own rule
-      set) — documented here purely as real-corpus findings for whoever next
-      touches `SwitchRule`/init-list wrapping/operator-spacing in the
-      C/C++/Java job.
+      init-list wrapping, or `*`/`**` spacing — not a blocked Open Question,
+      documented here for whoever next touches `SwitchRule`/init-list-
+      wrapping/operator-spacing in the C/C++/Java job.
 
-      **Every file containing actual C++26 reflection syntax was separately
-      verified idempotent and correctly formatted**, isolated from the 37
-      failures above: `include/glaze/reflection/get_name.hpp`,
+      **Every file with actual C++26 reflection syntax verified idempotent
+      and correctly formatted**, isolated from the 37 failures:
+      `include/glaze/reflection/get_name.hpp`,
       `include/glaze/reflection/to_tuple.hpp`,
       `tests/networking_tests/http_server_test/
       http_server_headers_validation_test.cpp`, `tests/jsonrpc_test/
       jsonrpc_test.cpp`, `tests/yaml_conformance/yaml_conformance.cpp` all
-      round-trip with an empty `diff`. Manually spot-checked `^^T`/`^^E`/
-      `^^std::remove_cvref_t<T>` (stay tight), `[:Enums:][I]`/`[:Enums:]`/
+      round-trip with an empty `diff`. Spot-checked `^^T`/`^^E`/
+      `^^std::remove_cvref_t<T>` (tight), `[:Enums:][I]`/`[:Enums:]`/
       `obj.[:member:]` (bare-identifier interior, tight) and
-      `enumerators_of(^^E)` nested-call interiors rendering loose padding
-      where the source itself already had a nested call — all consistent
-      with the existing `isLoose` bracket-complexity rule, no corruption.
-      `template for(constexpr std::meta::info I : [:Enums:])` renders with
-      the same no-space-before-paren convention as ordinary `for(...)`,
-      consistent with the `wrocpp` session's finding that this is general,
-      not reflection-specific.
+      `enumerators_of(^^E)` nested-call interiors (loose, matching source's
+      own nested call) — consistent with `isLoose`, no corruption.
+      `template for(constexpr std::meta::info I : [:Enums:])` uses the same
+      no-space-before-paren convention as ordinary `for(...)`, consistent
+      with the `wrocpp` finding that this is general, not
+      reflection-specific.
 
       **Toolchain upgrade, this session:** a modern `clang++ 22.1.8`
-      (`~/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/clang++`) was pointed out as
-      available on this system mid-session, superseding the `g++ 4.8.5`/
-      `clang++ 3.7.1` too-old-for-reflection limitation documented in every
-      prior C++26 session. `-std=c++23 -stdlib=libc++ -fsyntax-only`
-      (`-stdlib=libc++` required — without it, `<string_view>` etc. aren't
-      found; stderr piped through `grep -v 'no version information
-      available'` to filter a harmless `libstdc++.so.6` symbol-versioning
-      warning, not a compile error) gave **genuine compile validation**,
-      not just idempotency + manual inspection:
-      - `include/glaze/reflection/get_name.hpp` +
-        `include/glaze/reflection/to_tuple.hpp` (the two files with actual
-        `^^`/`[: :]` reflection syntax): compile clean, zero diagnostics,
-        both unmodified and round1-formatted.
+      (`~/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/clang++`) was found
+      available mid-session, superseding the `g++ 4.8.5`/`clang++ 3.7.1`
+      too-old-for-reflection limitation of every prior C++26 session.
+      `-std=c++23 -stdlib=libc++ -fsyntax-only` (`-stdlib=libc++` required —
+      without it `<string_view>` etc. aren't found; stderr piped through
+      `grep -v 'no version information available'` to filter a harmless
+      symbol-versioning warning) gave **genuine compile validation**, not
+      just idempotency + inspection:
+      - `get_name.hpp` + `to_tuple.hpp` (the two files with actual `^^`/
+        `[: :]` syntax): compile clean, zero diagnostics, unmodified and
+        round1-formatted alike.
       - **Full `include/glaze/glaze.hpp` umbrella header (254 headers
         transitively, the entire `include/glaze` tree) compiles clean with
-        zero diagnostics, both unmodified and against the full
-        round1-formatted `include/` tree** — the strongest validation any
-        C++26 dogfood session has achieved so far, covering every header in
-        the corpus rather than a handful of spot-checked files.
-      - Two `tests/*.cpp` files (`jsonrpc_test.cpp`, `yaml_conformance.cpp`)
-        could not be compiled standalone — missing vendored test-only
-        dependency `ut/ut.hpp` (a testing framework, not part of this
-        checkout) — unrelated to formatting, not pursued further given the
-        umbrella-header result already covers the same reflection code
-        those tests exercise via `include/glaze`.
+        zero diagnostics, unmodified and against the full round1-formatted
+        `include/` tree** — the strongest validation any C++26 dogfood
+        session has achieved, covering every header in the corpus rather
+        than a handful of spot-checked files.
+      - `jsonrpc_test.cpp`/`yaml_conformance.cpp` could not compile
+        standalone (missing vendored test-only `ut/ut.hpp`, unrelated to
+        formatting) — not pursued, given the umbrella-header result already
+        covers the same reflection code those tests exercise.
       Idempotency + manual inspection is retained as documentation of the
-      prior fallback approach but is no longer the only validation used
-      this session — actual `-fsyntax-only` compilation confirms zero
-      formatter-induced compile regressions across the entire `include/`
-      tree.
+      prior fallback but actual `-fsyntax-only` compilation is now the
+      primary validation, confirming zero formatter-induced compile
+      regressions across the entire `include/` tree.
 
       **No fixtures added — zero bugs found within this job's scope
       (`CppSpecificRule.java`/§1-5 C++26 rules).** All 37 idempotency

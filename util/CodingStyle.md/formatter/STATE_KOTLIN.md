@@ -525,6 +525,61 @@ and fixed here (`test/real_code_regressions_N_{inp,out}.kt`, registered in
 header) — same precedent as the `indent-size = 2` config-wiring no-op
 exception noted there.
 
+**Dogfood Output Validation — `kotlin_content_diff`.** A content-preservation
+checker for Kotlin, complementing `kotlin_sc` (which only proves "still
+parses", same `java_content_diff`/`css_content_diff.py`/`xml_content_diff.py`
+precedent). Reuses `kotlin_sc`'s `KotlinCoreEnvironment`/`KtPsiFactory`
+infrastructure (no new dependency), modeled directly on `java_content_diff`'s
+design split by content family (`kotlin-import-order` sorting,
+declaration-alignment whitespace, `normalize-comment-start-case` are all
+legitimate transforms that must not be flagged as corruption):
+- **imports** — compared as a multiset (`getImportedFqName()` +
+  `isAllUnder()`/alias, sorted) since reordering here is legitimate.
+- **every top-level declaration** (`KtFile.getDeclarations()`) — compared
+  **in original relative order**, each canonicalized by a hand-rolled
+  leaf-token walk (whitespace/comment/KDoc nodes skipped, remaining leaf
+  text joined with single spaces) rather than a pretty-printer: unlike
+  javac's `Tree.toString()` (which re-synthesizes text from the AST,
+  losing original whitespace/comments for free), IntelliJ PSI is a
+  lossless concrete syntax tree — `PsiElement.getText()` returns verbatim
+  original source — so there is no built-in canonical form to lean on;
+  this tool builds its own.
+- **comments** (both line/block comments and KDoc blocks) — extracted
+  separately, compared as a multiset, whitespace-normalized **and**
+  lowercased, so a case-only change is not flagged but a dropped/corrupted
+  comment still is.
+
+**Gotcha hit and fixed during verification:** the leaf-token walk and
+comment extraction MUST use `ASTNode.getChildren(null)` (via
+`PsiElement.getNode()`), not `PsiElement.getChildren()` or
+`PsiTreeUtil.findChildrenOfType()`. For stub-based elements (`KtClass`,
+`KtProperty`, `KtNamedFunction`), `PsiElement.getChildren()` only returns
+structurally significant composite children and silently omits every plain
+leaf token — identifiers, keywords, and critically comments — so a
+`PsiTreeUtil.findChildrenOfType(file, PsiComment.class)` scan over the
+whole file found zero comments even with several clearly present (confirmed
+via an ASTNode-level dump showing `BLOCK_COMMENT`/`EOL_COMMENT` nodes
+reachable only through `ASTNode.getChildren(null)`, never through the
+PSI-level children array). Switching both the canonicalization walk and
+comment collection to ASTNode traversal fixed it.
+
+Build/run (same classpath as `kotlin_sc`):
+```bash
+JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
+KLIB=~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib
+cd util/CodingStyle.md/formatter/tools/syntax_checker
+"$JDK/bin/javac" -cp "$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_content_diff.java
+"$JDK/bin/java" -cp ".:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_content_diff <original.kt> <formatted.kt>
+```
+Verified against a hand-crafted good pair (reindentation + import sort +
+one comment recapitalization — passes clean) and two bad pairs, a dropped
+statement (correctly flagged as "top-level declaration #0 structure/content
+differs") and a corrupted comment (correctly flagged as a comment present
+in one file's set but not the other's) — all three cases caught correctly,
+after the ASTNode-traversal fix above. Test fixtures kept in `/tmp` only
+(hand-crafted verification pairs, not registered as permanent `test/`
+fixtures).
+
 **Tools/compiler used**
 (1) `kotlinc` — bare standalone compiler, e.g.:
 ```bash

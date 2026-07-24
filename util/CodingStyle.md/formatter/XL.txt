@@ -33,9 +33,12 @@ Be careful not to lose important information, especially the `**Tools/compiler u
 `indent-size` exception, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_108_inp/out.html`
-    to   `real_code_regressions_113_inp/out.java`
-[DONE]
+    from `real_code_regressions_114_inp/out.py`
+    to   `...`
+
+Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
+    from `...`
+    to   `...`
 
 
 
@@ -79,8 +82,7 @@ C/C++:
 
 C++26:
 
-Java: `jenkinsci/jenkins` `IN PROGRESS`
-    [ ~] `github.com/jenkinsci/jenkins`
+Java: KNOWN GAP - `jenkinsci/jenkins`/`IN PROGRESS` - PENDING
     [ 7] `github.com/apache/ant`
     [ 9] `github.com/openrewrite/rewrite` [~700 kLOC of effective Java code]
 
@@ -103,7 +105,7 @@ TS:
     [11] `github.com/microsoft/TypeScript` [HUGE, the compiler itself; canonical, heavily-typed real TS at scale]
 
 Python3:
-    [ 5] `github.com/psf/black`      [a formatter itself; its own tests/data corpus may be directly reusable]
+    [ #] `github.com/psf/black`      [a formatter itself; its own tests/data corpus may be directly reusable]
     [ 8] `github.com/django/django`  [large real-world Python, heavy decorator/class-based-pattern density]
     [12] `github.com/python/cpython` [HUGE, densereference implementation's own stdlib; large, disciplined, real-world]
 

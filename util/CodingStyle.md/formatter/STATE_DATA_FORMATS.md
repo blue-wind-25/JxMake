@@ -615,7 +615,7 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
 
   **Tag-name case-folding (item 3 of the 4 deep tree-construction gaps
   above) -- DONE, fixed separately as a small, standalone item**
-  (`real_code_regressions_112`, user, 2026-07-25). New
+  (`real_code_regressions_112`, commit `10b20cf`, user, 2026-07-25). New
   `XmlSpecificRule.SVG_TAG_NAME_CASE_FIXUP` map holds the spec's full
   "Adjust SVG tag names" table (`altglyph`->`altGlyph`,
   `lineargradient`->`linearGradient`, `fegaussianblur`->`feGaussianBlur`,

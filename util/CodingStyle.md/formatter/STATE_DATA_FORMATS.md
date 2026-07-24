@@ -546,9 +546,9 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
 
 - **HTML5 deep tree-construction edge cases (adoption agency, foreign-content
   foster-parenting, tag-name case-folding, implicit `<body>` start-tag
-  insertion, raw-text-element truly-unclosed crashes) -- NOT fixed, same
-  "genuinely too large a scope, don't force it" posture as the earlier
-  general implied-end-tag question.** Found during the final
+  insertion) -- NOT fixed, same "genuinely too large a scope, don't force
+  it" posture as the earlier general implied-end-tag question.** Found
+  during the final
   `web-platform-tests/wpt` (`html/syntax/`) dogfood run: after the 4 bugs
   fixed that session (EOF-implied-close, `<image>`->`<img>` rewrite,
   `<head>`/`<body>` implied-close-trigger, `<xmp>` raw-text), 9 of the 386
@@ -585,24 +585,31 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   with no `<body>` start tag ever written at all
   (`parsing/meta-inhead-insertion-mode.html`) -- the spec's separate
   "optional start tag" insertion behavior, distinct from the `<head>`/
-  `<body>` implied-**close**-trigger already fixed. A genuinely distinct
-  crash site was also newly identified while investigating this category:
-  raw-text elements (`<script>`/`<style>`/`<pre>`/`<xmp>`) still throw
-  `"expected closing tag </script>"` etc. from `finishRawTextElement` when
-  a raw-text element's literal closing tag never appears at all (as
-  opposed to the tag mismatch cases just fixed) -- confirmed via a
-  synthetic `<svg><script>...</s>` repro reaching end-of-input with no
-  literal `</script>` anywhere; this is the likely shape of
-  `parsing/unclosed-svg-script.html` but is a separate throw site from the
-  one just generalized, and was NOT touched this session. Implementing
-  foster-parenting/case-folding/implicit-start-tag insertion properly, or
-  extending "never crash" to `finishRawTextElement`'s own throw, remains
-  adoption-agency/foster-parenting-scale tree-construction work or a
-  distinct narrow fix not yet scoped -- flagged here for a future pass
-  rather than forced now. Does not block: `web-platform-tests/wpt` is
-  otherwise recorded DONE below (this is a scope caveat on that run, not a
-  blocking defect), and no other candidate in the HTML5 Test-Fixture Repos
-  list is affected.
+  `<body>` implied-**close**-trigger already fixed. Implementing
+  foster-parenting/case-folding/implicit-start-tag insertion properly
+  remains adoption-agency/foster-parenting-scale tree-construction work --
+  flagged here for a future pass rather than forced now. Does not block:
+  `web-platform-tests/wpt` is otherwise recorded DONE below (this is a
+  scope caveat on that run, not a blocking defect), and no other candidate
+  in the HTML5 Test-Fixture Repos list is affected.
+
+  **A separate, genuinely distinct crash site -- FIXED
+  (`real_code_regressions_111`).** Raw-text elements (`<script>`/`<style>`/
+  `<pre>`/`<xmp>`) previously threw `"expected closing tag </script>"` etc.
+  from `finishRawElement`/`finishRawTextElement` when a raw-text element's
+  literal closing tag never appears at all before real end-of-input
+  (confirmed via a synthetic `<svg><script>...</s>` repro; this is the
+  likely shape of the WPT `parsing/unclosed-svg-script.html` fixture, not
+  re-verified against the live corpus since no network access was
+  available). Unlike the deep tree-construction gaps above, this was a
+  narrow, low-risk fix consistent with the same EOF-tolerance principle
+  `parseElement` already applies to ordinary elements: both helpers (only
+  ever called on the `lang.isHtml5` path) now capture whatever remains
+  verbatim through EOF instead of throwing. `make test`: 160/160 forward +
+  idempotency, zero regressions. This was the last crash site found while
+  investigating this Open Question -- all HTML5 parsing paths reachable
+  from real WPT dogfood input are now crash-free; only the tree-shape
+  accuracy of the deep tree-construction gaps above remains open.
 
 ## Checklist
 
@@ -987,11 +994,17 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       9 residual failures from the first session. Final full re-run (377
       in-scope files after the first session's fixes): forward/idempotency/
       syntax-check 377/377 clean; content-preservation 127/377 show a diff,
-      every mismatch comment-capitalization-only. Remaining residual
-      failures/deep tree-construction gaps (foster-parenting,
-      case-folding, implicit start-tag insertion, raw-text truly-unclosed
-      crashes) are cataloged in the "HTML5 deep tree-construction edge
-      cases" Open Question below, not re-verified against the live corpus
-      after the follow-up session (no network access that session). **This
+      every mismatch comment-capitalization-only. A second follow-up
+      (fixture `real_code_regressions_111`) fixed a further, genuinely
+      distinct crash site found while investigating the residual failures:
+      raw-text elements (`<script>`/`<style>`/`<pre>`/`<xmp>`) whose literal
+      closing tag never appears before real EOF now capture whatever
+      remains verbatim instead of throwing (same EOF-tolerance principle as
+      ordinary elements) -- this is the likely shape of
+      `parsing/unclosed-svg-script.html`, not re-verified against the live
+      corpus (no network access either follow-up session). Remaining
+      residual failures/deep tree-construction gaps (foster-parenting,
+      case-folding, implicit start-tag insertion) are cataloged in the
+      "HTML5 deep tree-construction edge cases" Open Question below. **This
       completes the HTML5 Test-Fixture Repos list and the overall
       real-code-testing pass across all six sub-formats.**

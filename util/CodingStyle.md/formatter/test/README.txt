@@ -1762,6 +1762,21 @@ Real-code regressions:
                                              treating the unclosed tag as if it were a valid void
                                              element, rather than throwing.
 
+  real_code_regressions_111_inp/out.html  -- HTML5, follow-up hardening (user request): raw-text
+                                             elements (`<script>`/`<style>`/`<pre>`/`<xmp>`) whose
+                                             literal closing tag never appears at all (as opposed to
+                                             `real_code_regressions_110`'s mismatched-tag case) used to
+                                             crash with `"expected closing tag </script>"` etc. from
+                                             `finishRawElement`/`finishRawTextElement` when real
+                                             end-of-input was reached first. Both helpers (only ever
+                                             called on the `lang.isHtml5` path) now capture whatever
+                                             remains verbatim through EOF instead of throwing, same
+                                             "stopped parsing" EOF-tolerance principle already applied
+                                             to ordinary elements. This was the last of the crash sites
+                                             identified while investigating the "HTML5 deep
+                                             tree-construction edge cases" Open Question in
+                                             `STATE_DATA_FORMATS.md`.
+
 How Tests Are Run
 -----------------
 

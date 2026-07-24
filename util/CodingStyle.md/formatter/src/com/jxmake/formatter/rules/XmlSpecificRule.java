@@ -508,7 +508,18 @@ public final class XmlSpecificRule {
     private Node finishRawElement(final Node n, final String closeTagLower) {
         final int close = indexOfIgnoreCase(s, closeTagLower, pos);
         if (close < 0) {
-            throw new XmlParseException("expected closing tag " + closeTagLower);
+            // Both call sites of this method are `lang.isHtml5`-gated (`<pre>`/`<xmp>`), so reaching
+            // real end-of-input with the literal closing tag never appearing is the same "stopped
+            // parsing" EOF case already tolerated for ordinary elements in parseElement -- capture
+            // whatever remains verbatim through EOF rather than crashing (confirmed via a synthetic
+            // `<svg><script>...</s>` repro reaching EOF with no literal `</script>` anywhere; this is
+            // the likely shape of the WPT `parsing/unclosed-svg-script.html` fixture, see
+            // STATE_DATA_FORMATS.md's "HTML5 deep tree-construction edge cases" Open Question).
+            n.raw = s.substring(pos);
+            pos = s.length();
+            n.children = null;
+            n.type = NodeType.RAW;
+            return n;
         }
         n.raw = s.substring(pos, close);
         pos = close + closeTagLower.length();
@@ -523,7 +534,12 @@ public final class XmlSpecificRule {
         final String closeTagLower = "</" + lowerTag + ">";
         final int close = indexOfIgnoreCase(s, closeTagLower, pos);
         if (close < 0) {
-            throw new XmlParseException("expected closing tag " + closeTagLower);
+            // See finishRawElement's own comment -- same EOF-tolerance rationale, applied here for
+            // `<script>`/`<style>` raw-text elements whose literal closing tag never appears at all.
+            n.raw = s.substring(pos);
+            pos = s.length();
+            n.children = null;
+            return n;
         }
         n.raw = s.substring(pos, close);
         pos = close + closeTagLower.length();

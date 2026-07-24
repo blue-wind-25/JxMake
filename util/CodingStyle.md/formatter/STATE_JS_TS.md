@@ -1013,6 +1013,14 @@ promoted to permanent `test/` fixtures since `js_ts_content_diff.js` is a
 dogfood-validation tool, not part of the formatter's own `make test`
 corpus.
 
+**TODO (low priority, not currently queued):** teach `js_ts_content_diff.js`
+to tolerate the two remaining false-positive classes above — (a)
+`enforceArrowFunctionParameterParens`-added parens on a bare single arrow
+param, (b) `STYLE.md` §4-mandated post-to-pre increment/decrement rewrite on
+a standalone/unused-value expression. Both are cosmetic gaps in the
+checker's tolerance list, not formatter defects, so this only reduces
+future dogfood-session triage noise — not urgent, do whenever convenient.
+
 ### Known false positives (no source change needed, fixture-only)
 
 - A spurious-looking blank line after a class's opening `{` in older `.js`

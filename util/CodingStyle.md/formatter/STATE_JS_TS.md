@@ -127,6 +127,72 @@ scoped packages already under `~/mynpm/lib/node_modules`).
 
 ---
 
+## Dogfood Output Validation
+
+**`js_ts_content_diff.js`** — a content-preservation checker for JS/TS,
+modeled on `java_content_diff.java`/`kotlin_content_diff.java` (same
+reasoning, applied via the TypeScript compiler API instead of javac/PSI).
+One script handles both `.js` and `.ts` — `ts.createSourceFile` parses
+plain JS fine, same idiom every other Node-based `*_sc.js`/`*_content_diff.py`
+tool in this repo uses (see `STATE_DATA_FORMATS.md`'s `css_content_diff.py`/
+`xml_content_diff.py` write-ups for the established pattern this follows).
+Parses both original and formatted files to a real AST and compares:
+top-level import statements (`ImportDeclaration`/`ImportEqualsDeclaration`)
+as an order-tolerant MULTISET (`js-import-order` legitimately reorders/sorts
+them); every other top-level statement/declaration IN ORIGINAL RELATIVE
+ORDER, via a leaf-token canonicalization (every terminal token's text —
+identifiers, keywords, literals, punctuation — joined with single spaces,
+whitespace collapsed, so declaration-alignment column padding and pure
+reindentation are never flagged); comments as a MULTISET, whitespace-
+normalized AND lowercased (a case-only diff is expected
+`normalize-comment-start-case` behavior per every other content-diff tool's
+precedent, not a bug).
+
+**Gotcha (same shape as `kotlin_content_diff.java`'s PSI one):** TypeScript's
+AST does not attach comments as tree nodes — `node.getChildren()` never
+yields them regardless of traversal strategy. Comments are recovered
+separately from the raw source text via `ts.getLeadingCommentRanges`,
+scanned at every node's `getFullStart()` position (plus position 0 and
+end-of-file, to also catch a comment before the very first token or a
+trailing comment with nothing after it), deduplicated by `[pos, end)` since
+the same comment range can be reached from more than one scan point (e.g.
+simultaneously as one statement's trailing comment and the next statement's
+leading one).
+
+**`typescript` package version gotcha:** `~/mynpm/node_modules` initially
+had nothing installed under `typescript`; `npm install --prefix ~/mynpm
+typescript` (no version pin) installed **`typescript@7.0.2`**, the new
+native tsgo-based rewrite, which exports only `version`/`versionMajorMinor`
+from its default entry point — no `createSourceFile`, no
+`getLeadingCommentRanges`, none of the classic compiler API this tool needs.
+Re-installed pinned to the classic 5.x line (`npm install --prefix ~/mynpm
+typescript@5`, landed `5.9.3`) which has the full classic API. Anyone
+reusing `~/mynpm/node_modules/typescript` for compiler-API work should
+verify `typeof ts.createSourceFile === 'function'` before trusting it, in
+case a future unpinned reinstall pulls `7.x` again.
+
+Exit 0 if content is preserved, 1 with a description of each mismatch
+otherwise, 2 on usage error. No build step — plain `.js`, run directly:
+
+```bash
+export LD_LIBRARY_PATH=/opt/gcc-7.5.0/lib64:/opt/gcc-7.5.0/lib:/opt/isl-0.16.1/lib
+export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules:~/mynpm/node_modules
+export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
+node tools/syntax_checker/js_ts_content_diff.js <original.(js|ts)> <formatted.(js|ts)>
+```
+
+Verified against hand-crafted pairs for both extensions before being
+trusted: a good pair (import-sort + reindent + comment recapitalization) —
+passed clean for both `.js` and `.ts`; a bad pair with a dropped statement
+(dropped the final `const`/interface-consumer statement) — flagged
+`non-import top-level statement count changed` for both; a bad pair with a
+corrupted comment (recapitalized *and* reworded, not just cased) — flagged
+`comments: present in original, missing from formatted` /
+`present in formatted, missing from original` for both. All six cases (3
+pairs × 2 extensions) behaved as expected. 208 lines.
+
+---
+
 ## Test Fixtures (Local)
 
 Local dogfood pairs (distinct from the external-repo list above, which is

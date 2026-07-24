@@ -67,12 +67,15 @@ public final class XmlSpecificRule {
      *  as one of the mapped sibling start-tag names begins, in addition to the existing "parent's own
      *  closing tag also ends me" behavior every element already gets via {@code parseNodes}'s
      *  {@code stopAtCloseTag}. Populate with one entry per element only once real dogfood input needs
-     *  it -- currently only `option` (closes on a sibling `<option>`/`<optgroup>` start, or when its
-     *  parent `<select>`/`<datalist>`/`<optgroup>` closes). Do NOT add `li`/`td`/`tr`/`p`/etc.
-     *  speculatively -- see STATE_DATA_FORMATS.md's Open Questions/RDD_LOG.md for the rationale. */
+     *  it -- currently `option` (closes on a sibling `<option>`/`<optgroup>` start, or when its
+     *  parent `<select>`/`<datalist>`/`<optgroup>` closes) and `head` (closes on a sibling `<body>`
+     *  start, confirmed via real WPT dogfood input, `meta-inhead-insertion-mode.html`). Do NOT add
+     *  `li`/`td`/`tr`/`p`/etc. speculatively -- see STATE_DATA_FORMATS.md's Open Questions/
+     *  RDD_LOG.md for the rationale. */
     private static final java.util.Map<String, java.util.Set<String>> IMPLIED_CLOSE_TRIGGERS = new java.util.HashMap<>();
     static {
         IMPLIED_CLOSE_TRIGGERS.put("option", new java.util.HashSet<>(java.util.Arrays.asList("option", "optgroup")));
+        IMPLIED_CLOSE_TRIGGERS.put("head", new java.util.HashSet<>(java.util.Arrays.asList("body")));
     }
 
     private static final class Node {
@@ -101,6 +104,12 @@ public final class XmlSpecificRule {
 
     private String s;
     private int pos;
+    /** Depth counter for `<svg>` ancestors, tracked only so the HTML5 "image" -> "img" tag-name
+     *  rewrite (see {@link #parseElement}) can be correctly scoped to HTML content only -- inside
+     *  real SVG foreign content, `<image>` is a legitimate SVG element with its own closing tag, not
+     *  a quirk alias for `<img>`. Confirmed via real WPT dogfood input (`svg-image-href.tentative.html`
+     *  etc., which nest a real `<image>`/`</image>` pair inside `<svg>`). */
+    private int svgDepth;
 
     public XmlSpecificRule(final Lang lang) {
         this(lang, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
@@ -371,7 +380,16 @@ public final class XmlSpecificRule {
         final Node n = new Node();
         n.type = NodeType.ELEMENT;
         n.tagName = s.substring(nameStart, pos);
-        final String lowerTag = n.tagName.toLowerCase(java.util.Locale.ROOT);
+        String lowerTag = n.tagName.toLowerCase(java.util.Locale.ROOT);
+        // Per the HTML5 tree-construction spec, a start tag literally named "image" is rewritten to
+        // "img" (a void element) and reprocessed as such -- a real, narrow, well-defined spec quirk
+        // (not part of the general implied-end-tag/adoption-agency scope declined elsewhere in this
+        // file), confirmed via real WPT dogfood input (speculative-parsing image-src fixtures).
+        if (lang.isHtml5 && "image".equals(lowerTag) && svgDepth == 0) {
+            n.tagName = "img";
+            lowerTag = "img";
+        }
+        final boolean isSvg = lang.isHtml5 && "svg".equals(lowerTag);
         final boolean isVoid = lang.isHtml5 && VOID_ELEMENTS.contains(lowerTag);
         if (lang.isHtml5 && OPAQUE_IMPLIED_END_TAG_ELEMENTS.contains(lowerTag)) {
             return parseOpaqueImpliedEndTagElement(nameStart - 1, n.tagName, lowerTag);
@@ -405,8 +423,26 @@ public final class XmlSpecificRule {
         if (lang.isHtml5 && "pre".equals(lowerTag)) {
             return finishRawElement(n, "</pre>");
         }
+        if (lang.isHtml5 && "xmp".equals(lowerTag)) {
+            // `<xmp>` is a legacy HTML5 raw-text element (like `<pre>`/`<script>`/`<style>`) --
+            // its content (including any literal `<tag>`-looking text) must never be parsed as real
+            // child markup, only captured byte-for-byte through the literal closing tag. Missing this
+            // case caused a real content-preservation bug found during the `web-platform-tests/wpt`
+            // dogfood run: a literal `<script>...</script>` string inside `<xmp>` was mis-parsed as a
+            // real nested `<script>` element and re-serialized with different whitespace.
+            return finishRawElement(n, "</xmp>");
+        }
         final java.util.Set<String> impliedTriggers = lang.isHtml5 ? IMPLIED_CLOSE_TRIGGERS.get(lowerTag) : null;
-        n.children = parseNodes(true, impliedTriggers);
+        if (isSvg) {
+            svgDepth++;
+        }
+        try {
+            n.children = parseNodes(true, impliedTriggers);
+        } finally {
+            if (isSvg) {
+                svgDepth--;
+            }
+        }
         final String closeTok = "</" + n.tagName + ">";
         final int beforeTrailingWs = pos;
         skipInlineWs();
@@ -419,6 +455,16 @@ public final class XmlSpecificRule {
             // Implied close (RDD_KEY registered in IMPLIED_CLOSE_TRIGGERS): either an upcoming
             // sibling trigger tag or the parent's own closing tag ended this element's children --
             // no explicit closing tag to consume, don't swallow the inline whitespace we peeked past.
+            pos = beforeTrailingWs;
+            return n;
+        }
+        if (lang.isHtml5 && eof()) {
+            // Per the HTML5 spec's "stopped parsing" step, reaching end-of-input implicitly closes
+            // every still-open element regardless of tag name -- this is general, well-defined
+            // end-of-document behavior (distinct from the mid-document implied-end-tag/adoption-
+            // agency tree-construction cases intentionally left as open questions elsewhere in this
+            // file), confirmed via real WPT dogfood input (many `syntax/speculative-parsing/**`
+            // fixtures omit `</body>`/`</html>` entirely at EOF, which is valid HTML5).
             pos = beforeTrailingWs;
             return n;
         }

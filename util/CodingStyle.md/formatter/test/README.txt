@@ -1722,6 +1722,26 @@ Real-code regressions:
                                              the `alexandersandberg/html5-elements-tester` dogfood
                                              run.
 
+  real_code_regressions_109_inp/out.html  -- HTML5, four bugs found during the
+                                             `web-platform-tests/wpt` dogfood run: (1) `<head>` now
+                                             registered in `IMPLIED_CLOSE_TRIGGERS` -- closes on a
+                                             sibling `<body>` start tag with no explicit `</head>`;
+                                             (2) a bare `<image src=...>` start tag is rewritten to
+                                             `<img>` (a void element) per the HTML5 tree-construction
+                                             spec's tag-name-rewrite quirk, but only outside real SVG
+                                             foreign content -- a real `<image>`/`</image>` pair nested
+                                             inside `<svg>` is left alone (tracked via a `svgDepth`
+                                             counter); (3) reaching end-of-input no longer throws when
+                                             an element (here `<body>`/`<html>`) has no explicit
+                                             closing tag at all -- EOF now implicitly closes every
+                                             still-open element, per the HTML5 spec's "stopped parsing"
+                                             step, general and not scoped to specific tag names;
+                                             (4) `<xmp>` is now recognized as a legacy HTML5 raw-text
+                                             element (like `<pre>`) -- its content, including literal
+                                             `<tag>`-looking text, is captured byte-for-byte through the
+                                             literal closing tag rather than mis-parsed as real child
+                                             markup and re-serialized with different whitespace.
+
 How Tests Are Run
 -----------------
 

@@ -1079,17 +1079,21 @@ protected boolean needsSpaceBetween(final Token prev, final Token cur, final Set
                 || templateOpens.contains(prev)) {
             return false;
         }
-        // A Kotlin annotation's `@` (e.g. `@RaiseDSL public inline fun ...`) is tight against the
-        // identifier that follows it -- without this, an annotation that shares its source line
-        // with the function signature (so it becomes part of `sig.leadTokens` and gets rendered
-        // through this same join point) comes out as `@ RaiseDSL`, which is not valid Kotlin (the
+        // An annotation's `@` (e.g. `@RaiseDSL public inline fun ...`, Java's `@NonNull String
+        // id`) is tight against the identifier that follows it -- without this, an annotation
+        // that shares its source line with a signature/parameter (so it becomes part of
+        // `sig.leadTokens` or an inline parameter list and gets rendered through this same join
+        // point) comes out as `@ RaiseDSL`/`@ NonNull`, which is not valid Java/Kotlin (the
         // parser requires the identifier immediately after `@`). Kotlin's other `@`-uses
         // (`return@label`, `label@`, `this@Label`) are handled separately by
         // `KotlinSpecificRule.enforceLabeledJumpSpacing` over the whole token stream, not through
-        // this lead-token join, so no annotation-vs-jump disambiguation is needed here. Found via
-        // arrow-kt/arrow real-code testing (`RaiseAccumulateContext.kt`'s `@RaiseDSL public inline
-        // fun ... mapOrAccumulate`, confirmed a genuine kotlin_sc parse error, not just cosmetic).
-        if (lang.isKotlin && isOp(prev, "@")) {
+        // this lead-token join, so no annotation-vs-jump disambiguation is needed here; Java has
+        // no such other `@`-use at all, so it's unconditionally safe there too. Kotlin case found
+        // via arrow-kt/arrow real-code testing (`RaiseAccumulateContext.kt`'s `@RaiseDSL public
+        // inline fun ... mapOrAccumulate`, confirmed a genuine kotlin_sc parse error, not just
+        // cosmetic); Java case found via jenkinsci/jenkins real-code testing (`IdStrategy.java`'s
+        // `keyFor(@NonNull String id)`).
+        if ((lang.isKotlin || lang.isJava) && isOp(prev, "@")) {
             return false;
         }
         return true;

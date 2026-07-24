@@ -1108,6 +1108,12 @@ public class JavaSpecificRule {
                 }
                 final String label = collapseToOneLine(tokens, i, arrowIdx - 1);
                 cases.add(new ArrowCase(i, bodyStartIdx, label, isPunct(tokens.get(bodyStartIdx), "{")));
+                // Skip past this case's own arrow -- a multi-value label like
+                // "case null, default ->" contains the keyword "default" *inside* the label
+                // itself (before the arrow); without this, the outer scan would re-match that
+                // embedded "default" as if it were its own case start, sharing the same arrow
+                // and duplicating the label on every subsequent format pass.
+                i = arrowIdx;
             }
         }
         return cases;

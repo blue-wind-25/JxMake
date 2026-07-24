@@ -1808,6 +1808,35 @@ Real-code regressions:
                                              one from scratch was out of scope for this standalone fix;
                                              see `STATE_DATA_FORMATS.md`.
 
+  real_code_regressions_113_inp/out.java  -- Java, jenkinsci/jenkins real-code dogfood session: 2
+                                             bugs. (a) `JavaSpecificRule.findArrowCases`'s brace-depth-0
+                                             scan for `case`/`default` labels in an arrow-form switch
+                                             never skipped past a case's own already-found arrow, so a
+                                             multi-value label like `case null, default ->` (its
+                                             embedded `default` keyword sitting *before* the arrow) was
+                                             re-matched as if it were its own case start sharing the
+                                             same arrow, duplicating the label -- worse on every
+                                             subsequent pass (`-> default -> default -> ...`). Fixed by
+                                             advancing the scan index to the found arrow's position
+                                             once a case is recorded. (b) `MiscRuleCore.needsSpaceBetween`
+                                             only special-cased a Kotlin annotation's `@` as tight
+                                             against the following identifier; Java annotations
+                                             (`@NonNull String id`) fell through to the generic
+                                             "insert a space" default, rendering `@ NonNull` -- not
+                                             valid Java. Fixed by extending the existing Kotlin-only
+                                             condition to also cover `lang.isJava` (Java has no other
+                                             bare-`@` use to disambiguate against, unlike Kotlin's
+                                             `return@label`/`this@Label`, so it's unconditionally safe
+                                             there). A third bug found in the same session
+                                             (`MiscRuleCore.alignCommentSeparators`'s separator-character
+                                             detection false-positiving on ordinary prose) was NOT
+                                             fixed -- it re-opens a previously user-resolved design
+                                             decision (RDD_KEY_50) rather than being a plain
+                                             implementation bug, so it's recorded in
+                                             `STATE_C_CPP_JAVA.md`'s Known Gaps instead of guessed at
+                                             here. See `STATE_C_CPP_JAVA.md`'s jenkinsci/jenkins
+                                             dogfood entry for the full narrative.
+
 How Tests Are Run
 -----------------
 

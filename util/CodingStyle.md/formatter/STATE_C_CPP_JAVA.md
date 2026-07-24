@@ -522,6 +522,49 @@ on the noted commits/fixtures)
      real vendored `src/com`/`src/org` tree itself was never modified. Fixture:
      `real_code_regressions_95`.
 
+(25) **IN PROGRESS** — `github.com/jenkinsci/jenkins` (1929 `.java` files across `core`/`cli`/
+     `test`/`war`/`websocket`, plain Java, no PCPP involved). Reused the checkout already cloned
+     under this session's scratchpad dir by a prior XML-focused dogfood session on the same repo
+     (see `STATE_DATA_FORMATS.md` for that unrelated write-up) rather than re-cloning. Baseline
+     `java_sc` over all 1929 files: 0 pre-existing syntax errors. Full-tree round1 (one batch
+     `--preserve-tree --root <clone> --out <dir>` invocation): all 1929 files formatted cleanly.
+     3 distinct bugs found; 2 fixed this session, 1 left open (plus a possibly-4th, very-low-
+     priority pathological-input case) — see "Known Gaps — Open" for the 2 left open. Fixed:
+     (a) `JavaSpecificRule.findArrowCases`'s brace-depth-0 case/default label scan never
+     skipped past a case's own just-found arrow, so a multi-value arrow-form label like
+     `case null, default -> ...` (whose embedded `default` keyword sits *before* its shared
+     arrow) got re-matched as if it were its own case sharing that arrow, duplicating the label
+     and getting strictly worse each round (`-> default -> default -> ...`, first appearing
+     already on round1, i.e. also a forward-pass bug, not just an idempotency one). Fixed by
+     advancing the scan index to the found arrow once a case is recorded. (b)
+     `MiscRuleCore.needsSpaceBetween` only special-cased a Kotlin annotation's `@` as tight
+     against its following identifier; Java annotations (`@NonNull String id`) fell through to
+     the generic default and rendered as `@ NonNull`, invalid Java. Fixed by extending the same
+     condition to `lang.isJava` (Java has no other bare-`@` use to disambiguate against, unlike
+     Kotlin's `return@label`/`this@Label`, so unconditionally safe there too). Both verified via
+     minimal repros, `make test` 162/162 forward + 162/162 idempotency (up from 161/161), and a
+     targeted re-run of the full 1929-file round1/round2: idempotency diff count dropped from 20
+     files to 15 (the 5 files whose only divergence was the case-null-duplication bug are now
+     clean). Fixture: `real_code_regressions_113` (combines both bugs in one file). The remaining
+     15-file idempotency diff is architectural, not new: 13 files hit the already-documented
+     "non-idempotent reindent on internally-inconsistent source" gap (same root cause as
+     `ASTParser.java`/`JSONEncoderLite.java` above — a bare bracket-less `if`/`for` followed by
+     inconsistent hand-indentation), 1 file (`IdStrategy.java`) hits the newly-found-but-not-
+     fixed `alignCommentSeparators` false-positive (see "Known Gaps — Open"), and 1 file
+     (`PluginManager.java`) hits a low-priority pre-existing-pathological-single-line-statement
+     wrap instability (also "Known Gaps — Open"). `javac` compile pass not attempted (Jenkins'
+     own Maven build has heavy external dependency resolution not worth the setup cost per this
+     task's own guidance; `java_sc` + idempotency are the load-bearing checks here).
+     `java_content_diff` spot-checked on a handful of round1 files including `IdStrategy.java`
+     and `PluginManager.java` (the two files with non-idempotency): content preserved in all
+     cases (only whitespace/reordering-class differences, no dropped/changed declarations).
+     **Full clean final numbers not yet taken** — per this task's explicit instruction, that step
+     is deferred until a future session resolves the remaining separator-alignment design
+     question and the PluginManager.java pathological-line-wrap gap. Resume point: ask the user
+     how to narrow `alignCommentSeparators`'s qualifying-character definition (see "Known Gaps —
+     Open" for the specific question), then re-run the full round1/round2 + `java_sc` +
+     `java_content_diff` pass one more time for final numbers.
+
 **Not started dogfood / real-code testing**
 (2) `github.com/microsoft/STL` — Microsoft's `std::` implementation; large, best raw grammar
     coverage on the list but high testing-time cost; planned as one of the last picked up.
@@ -539,10 +582,6 @@ on the noted commits/fixtures)
     priority given size, pick up once smaller candidates are exhausted. Likely some
     annotation-processor-generated/Lombok-style code (`AI_PREAMBLE`-adjacent gaps). Would
     verify with (4). (NOT STARTED)
-(8) `github.com/jenkinsci/jenkins` — large, long-lived Java project (core CI/CD server); good
-    external-authorial-style coverage distinct from item (6)'s AST-rewrite-engine style and
-    item (24)'s vendored-library styles. Plain `.java`, no PCPP involved — same
-    round1/round2 + `java_sc` methodology as item (24). (NOT STARTED)
 (9) `github.com/apache/ant` — large, mature legacy Java build tool; older/pre-Java-8-idioms-
     heavy authorial style, distinct from items (6)/(8)/(24)'s more modern conventions (may
     exercise more tabs/older brace-and-wrap conventions). Queue behind item (8). Plain `.java`,
@@ -650,6 +689,46 @@ RDD_KEY_88.
   above, just in the declaration-alignment grid machinery instead of switch-case reindent or
   the declarations pass. No fixture (nothing was fixed); revisit once a broader pattern of
   impact emerges or the concurrent session's own edits to these files have landed and settled.
+
+- **`alignCommentSeparators` false-positives on ordinary English prose** — found in
+  `jenkinsci/jenkins` real-code testing (item 25 below, session IN PROGRESS). Root-caused via a
+  minimal repro (`/tmp` scratch, not committed): `MiscRuleCore.parseSeparatorComment`'s
+  RDD_KEY_50-resolved rule — *any* single non-alphanumeric character flanked by a literal space
+  on both sides in a trailing `//` comment qualifies as a "separator" to align across a run of
+  adjacent qualifying comment lines — is far too permissive for real-world text. Two physically
+  adjacent comments that each merely happen to contain one incidental punctuation character
+  surrounded by spaces (e.g. `// The @ can be used in local-part...` immediately followed by
+  `// => the last @ is the one used to separate...`) get treated as a genuine separator-alignment
+  group and padded, even though neither is an intentional aligned-table comment in STYLE.md
+  §15's sense (`int[] x = {...}; // single-level — pad`-style). Confirmed with `jenkins/core/src/
+  main/java/jenkins/model/IdStrategy.java`'s `keyFor(@NonNull String id)`: round1 already inserts
+  9 extra spaces before the `'@'` char-literal mention inside the first comment (widening that
+  line well past `line-length`), and the padding grows further on round2 (non-idempotent), with a
+  knock-on effect of `enforceCallLineBreaking` then wrapping the now-overflowing statement across
+  multiple lines it wouldn't otherwise need. This is NOT a plain implementation bug fixable
+  without re-litigating design: RDD_KEY_50 is an explicit prior user decision ("any single
+  non-alphanumeric character... flanked by a literal space" — deliberately broader than just
+  `—`/`:`), so narrowing the qualifying-character set (e.g. to a fixed allowlist, or requiring
+  the same separator across 3+ lines instead of 2, or requiring the label/rest to look like
+  actual aligned code rather than prose) is a design question for the user, not a bug fix to
+  just make unilaterally. Left open pending user input; no fixture registered (nothing was
+  fixed). Reproduce with:
+  ```java
+  int index = id.lastIndexOf('@'); // The @ can be used in local-part if quoted correctly
+  // => the last @ is the one used to separate the domain and local-part
+  ```
+
+- **Extremely long pre-existing single-physical-line statement wraps differently each round** —
+  found in `jenkinsci/jenkins` (item 25 below, session IN PROGRESS), `hudson/PluginManager.java`
+  around its `getPluginPage`/JSON-serialization lambda: the *original* source already has an
+  entire multi-statement lambda body crammed onto one extremely long physical line (well past
+  `line-length`, apparently hand-minified or copy-pasted that way). `enforceCallLineBreaking`'s
+  wrap decision for the enclosing `.map(...).collect(...)` chain differs between round1 and
+  round2 (round2 additionally breaks the outer `.map(` call onto its own line). Not
+  root-caused this session — only 1 file affected across the whole 1929-file corpus, and it's a
+  pre-existing pathological input shape (a single line thousands of characters long) rather than
+  a common real-world pattern, so triage priority is low. Left open, no fixture; revisit if a
+  similar shape recurs in a future candidate.
 
 ## Known Gaps — Fixed
 

@@ -14,13 +14,13 @@ Pipeline order
 --------------
 1. Extract raw comments from a source tree           -> extract_comments.py
 2. Measure the rule-based classifier's ABSTAIN rate  -> CommentAbstainTally.java
-3. Extract Pool A / Pool B ABSTAIN candidates         -> ExtractPoolA.java / extract_pool_b.py
-4. Hand-label each candidate (YES/NO)                 -> manual, RDD_EXT_20 schema
-5. Add the targetWordIndex column                     -> add_target_index.py
-6. (Re)build the explicit vocab                       -> build_vocab.py
-7. Train                                              -> GruTrainer.java (make gru-train)
-8. Evaluate precision against a held-out set           -> GruEval.java
-9. Bound precision variance via repeated splits        -> cross_validate.py
+3. Extract Pool A / Pool B ABSTAIN candidates        -> ExtractPoolA.java / extract_pool_b.py
+4. Hand-label each candidate (YES/NO)                -> manual, RDD_EXT_20 schema
+5. Add the targetWordIndex column                    -> add_target_index.py
+6. (Re)build the explicit vocab                      -> build_vocab.py
+7. Train                                             -> GruTrainer.java (make gru-train)
+8. Evaluate precision against a held-out set         -> GruEval.java
+9. Bound precision variance via repeated splits      -> cross_validate.py
 
 Steps 1+3 for many sources at once, minus the labeling, are automated by
 acquire_corpus.sh.
@@ -168,6 +168,42 @@ cross_validate.py
 
         python3 tools/gru/cross_validate.py <combined-labeled-file> [--rounds 5] \
             [--work-dir /tmp/gru_cv] [--epochs 40] [--patience 6] [--vocab <path>]
+
+Optional: chat-LLM synthetic augmentation (NOT the real corpus)
+-----------------------------------------------------------------
+See STATE_AI.md's "Optional synthetic-augmentation tooling" note for the
+rationale/caveats. These two scripts let you pad Pool A/B via a manually
+copy-pasted prompt to a free-tier chat LLM (Gemini, Grok, etc.) instead of
+the API — no upload needed, the prompt is self-contained. Keep any resulting
+file clearly labeled as synthetic; do not merge it into the real combined
+corpus without review.
+
+gen_synthetic_prompt.py
+    Reads explicit_vocab.txt and prints a copy/paste-ready prompt asking a
+    chat LLM for Pool A + Pool B lines in RDD_EXT_20/21 schema, using the
+    next unused slice of the vocab as Pool A's leading-keyword list. Tracks
+    which word index to resume from in a small state file next to the
+    script, so repeated runs walk forward through the vocab (wrapping at
+    the end) instead of asking for the same words twice.
+
+        python3 tools/gru/gen_synthetic_prompt.py [--words-per-batch 20] \
+            [--vocab <path>] [--state <path>] [--langs c cpp java ...] [--reset] [--out <file>]
+
+    Paste the printed prompt into the chat LLM, then paste its full reply
+    (Pool A + Pool B lines together, in any order) into one file for the
+    next tool.
+
+regroup_synthetic.py
+    Splits a pasted-in file containing scattered Pool A/B lines (including
+    concatenated replies from more than one chat/model) back into separate
+    pool_a.tsv / pool_b.tsv files. Tolerates inconsistent space/tab spacing
+    between fields. Anything it can't confidently classify (bad label,
+    non-integer index, or a targetWordIndex it can't match to Pool A's 0 or
+    Pool B's last token) goes to unresolved.tsv for manual review rather
+    than being dropped or guessed at — see the known tokenizer-mismatch
+    caveat in STATE_AI.md before assuming unresolved lines are errors.
+
+        python3 tools/gru/regroup_synthetic.py --input <pasted-file> --outdir <dir>
 
 Backing up real corpora / weights to GruArtifacts
 --------------------------------------------------

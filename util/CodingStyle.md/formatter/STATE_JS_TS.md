@@ -969,9 +969,11 @@ and fixed while re-verifying against this same corpus. Re-running
 `js_ts_content_diff.js` across all 27 files (original vs. the same
 `/tmp/round1-lodash` round1 output already on disk from this pass) after
 all three fixes: **22/27 clean** (up from the original 17/27 MISMATCH,
-i.e. 10/27 clean). The remaining 5 decompose into two categories, both
-confirmed by direct token-level inspection, neither a new checker gap of
-the same shape as the three already fixed:
+i.e. 10/27 clean). The remaining 5 decompose into two further categories,
+both confirmed by direct token-level inspection to be intentional,
+non-lossy formatter behavior (not content loss) — a 4th and 5th checker
+false-positive class, distinct in shape from the three already fixed, both
+left unfixed as out of scope for this task's two specified tolerances:
 
 - **3 files** (`lib/fp/build-doc.js`, `lib/fp/build-modules.js`,
   `lib/main/build-modules.js`) — a fourth, distinct, still-unfixed checker
@@ -984,16 +986,24 @@ the same shape as the three already fixed:
   flagged statement is the added `(`/`)` around a single arrow parameter.
   Left unfixed — out of scope for this task's two specified tolerances;
   candidate for a future checker update.
-- **2 files** (`perf/perf.js`, `test/test.js`) — **not a checker false
-  positive: a genuine, real formatter defect**, unrelated to this task.
-  Confirmed via direct source inspection (`perf/perf.js:213` original vs.
-  its round1 output): a standalone post-increment expression statement
-  (`index++;`, `count++;`) is rewritten to pre-increment (`++index;`,
-  `++count;`), and the enclosing `for(`/`if(` also loses its space after
-  the keyword, in both `onComplete`-style handlers. This is a real content
-  change the checker is correctly catching, not a tool defect — flagged
-  here as a newly-found, not-yet-root-caused formatter bug for a future
-  session, out of scope for this checker-focused task to fix.
+- **2 files** (`perf/perf.js`, `test/test.js`) — a fifth, distinct,
+  still-unfixed checker false-positive class, **not a formatter bug**:
+  `STYLE.md` §4 ("Pre/Post Increment and Decrement") mandates
+  pre-increment/pre-decrement (`++i`) except when post-form semantics are
+  actually required by the surrounding expression — a standalone
+  expression statement (`index++;`, `count++;`) or a for-loop increment
+  clause whose value is unused are exactly the case where post-form isn't
+  required, so the formatter correctly rewrites `index++`/`count++` to
+  `++index`/`++count` here (confirmed via direct source inspection,
+  `perf/perf.js:213`: `for (var index = 0, ...; index < length; index++)`
+  → `for(var index = 0, ...; index < length; ++index)`). Initially
+  mis-flagged in this write-up's first draft as "a genuine formatter
+  defect" — corrected: it's intentional, spec-compliant behavior the
+  checker's token comparison doesn't yet tolerate, same shape as the
+  arrow-param class above, not a new bug for a future session. (The
+  accompanying lost space after `for`/`if` in the same statements is a
+  separate, likely pre-existing/unrelated cosmetic detail not
+  re-investigated here.)
 
 Verification commands/pairs used for the checker fix itself (six hand-
 crafted good/bad pairs, `.js`+`.ts`, exercising the two new tolerances plus

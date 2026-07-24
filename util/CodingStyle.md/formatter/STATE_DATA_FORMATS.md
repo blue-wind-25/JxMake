@@ -546,36 +546,60 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
 
 - **HTML5 deep tree-construction edge cases (adoption agency, foreign-content
   foster-parenting, tag-name case-folding, implicit `<body>` start-tag
-  insertion, tokenizer-buffer-boundary edge cases) -- NOT fixed, same
+  insertion, raw-text-element truly-unclosed crashes) -- NOT fixed, same
   "genuinely too large a scope, don't force it" posture as the earlier
   general implied-end-tag question.** Found during the final
   `web-platform-tests/wpt` (`html/syntax/`) dogfood run: after the 4 bugs
-  fixed this session (EOF-implied-close, `<image>`->`<img>` rewrite,
+  fixed that session (EOF-implied-close, `<image>`->`<img>` rewrite,
   `<head>`/`<body>` implied-close-trigger, `<xmp>` raw-text), 9 of the 386
-  in-scope files still fail the forward pass, each exercising a distinct,
-  genuinely deep HTML5 tree-construction algorithm feature this formatter's
-  recursive-descent parser does not implement: a "bogus" custom tag
-  mismatched across a 1KB tokenizer buffer boundary (x2:
-  `charset/after-bogus.html`, `after-bogus-after-1kb.html`); `<p>`-implicit-
-  close-via-foreign-content foster-parenting (x2: `parsing/foreign_content_
-  009.html`, `_010.html`); a fragment containing a tag literally named `&`
-  (`serializing-html-fragments/serializing.html`); MathML tag-name case-
-  folding (`parsing/math-parse03.html`, `<MATH>` vs `<math>`); an unclosed
-  `<script>` inside SVG foreign content (`parsing/unclosed-svg-script.html`);
-  misnested `<form>` reconstruction inside `<template>`
-  (`parsing/misnested-form-in-template.html`); and an *implicit `<body>`
-  start tag* -- content appearing directly after an implicitly-closed
-  `<head>` with no `<body>` start tag ever written at all
-  (`parsing/meta-inhead-insertion-mode.html`) -- distinct from the `<head>`/
-  `<body>` implied-**close**-trigger fixed this session, this is the
-  spec's separate "optional start tag" insertion behavior. Each is a real,
-  spec-defined HTML5 parsing feature, but implementing any of them properly
-  is adoption-agency/foster-parenting-scale tree-construction-algorithm work,
-  not a narrow fix -- same category of complexity as the general
-  implied-end-tag question resolved narrowly above (RDD_KEY_198/199/200) by
-  deliberately NOT building the full spec feature. Not fixed; these 9 files
-  excluded from the `web-platform-tests/wpt` in-scope corpus (386 - 9 = 377
-  files in the final re-run). Does not block: `web-platform-tests/wpt` is
+  in-scope files still failed the forward pass. Following user review of
+  that write-up, a follow-up pass (`real_code_regressions_110`) generalized
+  the crash-avoidance posture: (1) the single hardcoded
+  `"image".equals(...)` check was turned into a `TAG_NAME_REWRITES` map
+  (still just the one entry -- no other spec tag-name rewrite is known to
+  be needed, but any future one is now a one-line addition); (2) the
+  `parseElement`-level tolerant-close fallback was broadened from
+  EOF-only to *any* mismatched/unrecognized closing tag, and a matching
+  fallback was added at the sole top-level `parseNodes(stopAtCloseTag=
+  false)` call site in `format()`, so a stray closing tag with no matching
+  open element anywhere in the document -- e.g. a made-up `<bogus>` tag
+  that's never explicitly closed -- is now silently discarded rather than
+  crashing, even when it bubbles all the way up to the document root. This
+  confirmed-fixed 3 of the original 9 files (both "bogus"-tag-mismatch
+  cases, `charset/after-bogus.html` and `after-bogus-after-1kb.html`, and
+  the `&`-named fragment tag case, `serializing-html-fragments/
+  serializing.html`) and, via a synthetic MathML repro
+  (`<math><mtext></math></div>`), the same fix also silently resolves the
+  `parsing/math-parse03.html`-shaped case (stray closing tag after a
+  case-mismatched/foreign-content element). Real network access to
+  re-fetch the original WPT files was not available this session to
+  re-confirm the exact remaining file count against the live corpus, so
+  the following are catalogued as still-open by category rather than
+  re-verified 1:1: foster-parenting-driven tree reshaping
+  (`parsing/foreign_content_009.html`, `_010.html` -- may no longer crash
+  per the same stray-closing-tag fix, but the *resulting tree shape* is
+  still not spec-accurate, since foster-parenting itself is not
+  implemented); misnested `<form>` reconstruction inside `<template>`
+  (`parsing/misnested-form-in-template.html`); an *implicit `<body>` start
+  tag* -- content appearing directly after an implicitly-closed `<head>`
+  with no `<body>` start tag ever written at all
+  (`parsing/meta-inhead-insertion-mode.html`) -- the spec's separate
+  "optional start tag" insertion behavior, distinct from the `<head>`/
+  `<body>` implied-**close**-trigger already fixed. A genuinely distinct
+  crash site was also newly identified while investigating this category:
+  raw-text elements (`<script>`/`<style>`/`<pre>`/`<xmp>`) still throw
+  `"expected closing tag </script>"` etc. from `finishRawTextElement` when
+  a raw-text element's literal closing tag never appears at all (as
+  opposed to the tag mismatch cases just fixed) -- confirmed via a
+  synthetic `<svg><script>...</s>` repro reaching end-of-input with no
+  literal `</script>` anywhere; this is the likely shape of
+  `parsing/unclosed-svg-script.html` but is a separate throw site from the
+  one just generalized, and was NOT touched this session. Implementing
+  foster-parenting/case-folding/implicit-start-tag insertion properly, or
+  extending "never crash" to `finishRawTextElement`'s own throw, remains
+  adoption-agency/foster-parenting-scale tree-construction work or a
+  distinct narrow fix not yet scoped -- flagged here for a future pass
+  rather than forced now. Does not block: `web-platform-tests/wpt` is
   otherwise recorded DONE below (this is a scope caveat on that run, not a
   blocking defect), and no other candidate in the HTML5 Test-Fixture Repos
   list is affected.
@@ -1228,8 +1252,12 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
         completes `home-assistant/core`**, and with it all 6 planned YAML
         Test-Fixture Repos — the list is now fully exhausted.
 
-      **HTML5 (2 repos done / 1 partial, first two follow-up HTML5 dogfood
-      runs against the replacement candidates added 2026-07-24):**
+      **HTML5 -- 2nd/3rd dogfood runs (of the 3 replacement candidates added
+      2026-07-24: `WordPress/wordpress-develop`,
+      `alexandersandberg/html5-elements-tester`, `web-platform-tests/wpt`;
+      snapshot at this point in the history: 2 of those 3 done, 1 partial;
+      `web-platform-tests/wpt` itself was finished in a later run, see
+      above):**
       - `WordPress/wordpress-develop`: scoped to real markup only, per the
         candidate note's own caveat -- 303 total `.html` files found, 73
         contain no `wp:...` Gutenberg block-comment shorthand (the rest are
@@ -1417,7 +1445,11 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       list and the overall real-code-testing pass across all six
       sub-formats.**
 
-      **HTML5 (1/4 repos done, first HTML5 dogfood run):**
+      **HTML5 -- 1st dogfood run (of the original 4 candidates first
+      proposed: `h5bp/html5-boilerplate`, `twbs/bootstrap` docs,
+      `mdn/content`, `whatwg/html`; snapshot at this point in the history:
+      1 of those original 4 done; 3 of the 4 were later dropped/replaced
+      with the 3 candidates covered in the runs above):**
       - `h5bp/html5-boilerplate`: 4 files (`dist/index.html`, `dist/404.html`,
         `src/index.html`, `src/404.html` — this version of the boilerplate
         uses external `<script src="...">`/linked stylesheets, no inline

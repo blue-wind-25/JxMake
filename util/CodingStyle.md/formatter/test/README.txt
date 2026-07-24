@@ -1742,6 +1742,26 @@ Real-code regressions:
                                              literal closing tag rather than mis-parsed as real child
                                              markup and re-serialized with different whitespace.
 
+  real_code_regressions_110_inp/out.html  -- HTML5, follow-up hardening after user review of
+                                             `real_code_regressions_109`: (1) the single hardcoded
+                                             `"image".equals(...)` check from bug (2) above was
+                                             generalized into a `TAG_NAME_REWRITES` map (currently
+                                             still just the one `image` -> `img` entry -- no other
+                                             spec tag-name rewrites are known/needed -- but any future
+                                             one is now a one-line map entry, no new code); (2) a
+                                             mismatched/orphaned closing tag with no corresponding open
+                                             element anywhere in the document (e.g. a made-up `<bogus>`
+                                             tag never explicitly closed, followed by an unrelated stray
+                                             `</weird>`) no longer crashes even when it bubbles all the
+                                             way up to the document root -- both the existing
+                                             `parseElement`-level tolerant-close fallback (broadened
+                                             from EOF-only to any mismatched closing tag) and a new
+                                             top-level `parseNodes(stopAtCloseTag=false)` fallback (the
+                                             only other call site reachable from `format()`) now
+                                             silently discard the stray closing tag and keep parsing,
+                                             treating the unclosed tag as if it were a valid void
+                                             element, rather than throwing.
+
 How Tests Are Run
 -----------------
 

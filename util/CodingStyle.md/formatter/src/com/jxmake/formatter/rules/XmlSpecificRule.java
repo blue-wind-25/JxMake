@@ -49,6 +49,21 @@ public final class XmlSpecificRule {
             "text/javascript", "application/javascript", "application/ecmascript",
             "text/ecmascript", "module"));
 
+    /** HTML5 tree-construction spec tag-name rewrites: a start tag whose name (lowercased) is a key
+     *  here is renamed to the mapped value and reprocessed as that element instead -- currently just
+     *  `image` -> `img` (a real, spec-mandated quirk, confirmed via real WPT dogfood input,
+     *  `speculative-parsing/**\/resources/image-src-framed.sub.html` etc.). Map (not a single constant)
+     *  so any future tag-name rewrite the spec turns out to need is one entry, no new code -- per the
+     *  spec's tree-construction algorithm this is currently the only such rewrite ("isindex" is a
+     *  different, much larger obsolete-element-expansion quirk, not a simple rename, and out of scope).
+     *  Only applies to HTML content -- callers must additionally gate on not being inside real foreign
+     *  content (see {@link #svgDepth}) since e.g. a real `<image>` inside `<svg>` is a legitimate SVG
+     *  element, not this quirk. */
+    private static final java.util.Map<String, String> TAG_NAME_REWRITES = new java.util.HashMap<>();
+    static {
+        TAG_NAME_REWRITES.put("image", "img");
+    }
+
     /** HTML5 elements whose children rely on the spec's implied-end-tag tree-construction rule
      *  (e.g. `<rb>`/`<rt>`/`<rp>`/`<rtc>` inside `<ruby>` never carry an explicit closing tag in
      *  valid markup) -- rather than modeling the full per-element-family implied-closing-trigger
@@ -218,6 +233,17 @@ public final class XmlSpecificRule {
             if (impliedCloseTriggers != null && startsWithTriggerTag(impliedCloseTriggers)) {
                 break;
             }
+            if (lang.isHtml5 && !stopAtCloseTag && startsWith("</")) {
+                // Document-root-level stray closing tag with no corresponding open element anywhere
+                // in this recursive-descent parse (e.g. one of the genuinely deep tree-construction
+                // gaps documented in STATE_DATA_FORMATS.md's Open Questions -- adoption agency,
+                // foreign-content foster-parenting -- can leave one of these bubbling all the way up).
+                // Per the same "HTML5 parsing must never crash" posture as parseElement's implicit-close
+                // fallback, silently discard the stray tag and keep going rather than throwing.
+                final int gt = s.indexOf('>', pos);
+                pos = gt >= 0 ? gt + 1 : s.length();
+                continue;
+            }
             final Node node = parseSingleNode();
             attachTrailingCommentIfAny(node);
             nodes.add(node);
@@ -381,13 +407,11 @@ public final class XmlSpecificRule {
         n.type = NodeType.ELEMENT;
         n.tagName = s.substring(nameStart, pos);
         String lowerTag = n.tagName.toLowerCase(java.util.Locale.ROOT);
-        // Per the HTML5 tree-construction spec, a start tag literally named "image" is rewritten to
-        // "img" (a void element) and reprocessed as such -- a real, narrow, well-defined spec quirk
-        // (not part of the general implied-end-tag/adoption-agency scope declined elsewhere in this
-        // file), confirmed via real WPT dogfood input (speculative-parsing image-src fixtures).
-        if (lang.isHtml5 && "image".equals(lowerTag) && svgDepth == 0) {
-            n.tagName = "img";
-            lowerTag = "img";
+        // See TAG_NAME_REWRITES -- gated on svgDepth == 0 since real SVG foreign content has its own
+        // legitimate <image> element that must NOT be rewritten (see the field's own javadoc).
+        if (lang.isHtml5 && svgDepth == 0 && TAG_NAME_REWRITES.containsKey(lowerTag)) {
+            n.tagName = TAG_NAME_REWRITES.get(lowerTag);
+            lowerTag = n.tagName;
         }
         final boolean isSvg = lang.isHtml5 && "svg".equals(lowerTag);
         final boolean isVoid = lang.isHtml5 && VOID_ELEMENTS.contains(lowerTag);
@@ -458,13 +482,20 @@ public final class XmlSpecificRule {
             pos = beforeTrailingWs;
             return n;
         }
-        if (lang.isHtml5 && eof()) {
-            // Per the HTML5 spec's "stopped parsing" step, reaching end-of-input implicitly closes
-            // every still-open element regardless of tag name -- this is general, well-defined
-            // end-of-document behavior (distinct from the mid-document implied-end-tag/adoption-
-            // agency tree-construction cases intentionally left as open questions elsewhere in this
-            // file), confirmed via real WPT dogfood input (many `syntax/speculative-parsing/**`
-            // fixtures omit `</body>`/`</html>` entirely at EOF, which is valid HTML5).
+        if (lang.isHtml5) {
+            // HTML5 parsing is spec-mandated to be error-tolerant and never crash (the same posture
+            // html_sc.js's own doc comment already describes for real browsers) -- reaching either
+            // real end-of-input (the spec's "stopped parsing" step implicitly closes every still-open
+            // element, confirmed via real WPT dogfood input: many `syntax/speculative-parsing/**`
+            // fixtures omit `</body>`/`</html>` entirely at EOF) or an upcoming closing tag that
+            // doesn't match ours (an unrecognized/misnested element with no matching close at all,
+            // e.g. a made-up `<bogus>` tag never closed before its ancestor's own closing tag --
+            // confirmed via real WPT dogfood input, `charset/after-bogus.html`) both implicitly close
+            // this element rather than throwing. This is a pragmatic approximation, not the spec's
+            // full per-case adoption-agency/foster-parenting tree-construction algorithm (see
+            // STATE_DATA_FORMATS.md's Open Questions for the cases still deliberately left unhandled
+            // as genuinely out of scope) -- it only prevents a hard crash by treating the element as
+            // closed-with-no-explicit-tag, same as the true-EOF and IMPLIED_CLOSE_TRIGGERS cases above.
             pos = beforeTrailingWs;
             return n;
         }

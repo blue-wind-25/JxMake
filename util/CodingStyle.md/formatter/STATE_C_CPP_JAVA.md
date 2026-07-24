@@ -147,6 +147,7 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_171 | Local `src/jxm` dogfood: `TokenizerCore.reclassifyAngleBrackets` had no case for a literal `>>>` token (triple-nested generics), only `>`/`>>` -- round2 re-lexed round1's tight `>>>` as one token, fell through to the generic-safe-token fallback, invalidated the whole open-`<` stack, spaced the generics out. Fixed by adding an explicit `>>>` case generalizing the existing `>>` split to 3 nesting levels plus its 2/1-leftover-`>` partial-match variants. |
 | RDD_KEY_172 | Local `src/jxm` dogfood: `JavaSpecificRule.isSingleLineBody`'s fits-under-limit prediction omitted the line's leading indentation and any trailing same-line `//` comment, both of which `MiscRule.enforceCallLineBreaking`'s own fit-check counts -- caused a K&R-vs-Allman flip-flop when indent+comment alone pushed an otherwise-fitting one-liner over the limit. Fixed by including both, whitespace-collapsed the same way `collapseToOneLine` does. |
 | RDD_KEY_178 | Local `src/jxm` dogfood: two related bugs in `MiscRule`'s STYLE.md §8 multi-line parameter-list renderer (`render` and its near-duplicate multi-line-declaration renderer) around a standalone `//` banner comment used as a section divider between parameter groups (found in `SWDFlashLoader.Specifier`'s constructor and `STM32QSPI.newQSPICmd`). (1) A leading `//` line comment was inlined as a text prefix on the same physical output line as the following parameter's type+name, silently swallowing that parameter's declaration (and, once re-tokenized, the next one too) into the comment -- compile-breaking. Fixed by emitting a leading `//` line comment on its own separate line; a self-terminating `/* ... */` block comment still inlines as before. (2) The shared column-width used to align type/name (`typeColWidth`, from `maxTypeLen`) is computed only over params with no leading comment at all, so a param preceded by a line comment -- excluded from that computation -- could have a `typeText` as long as or longer than `typeColWidth`, making `padRight` a no-op and merging type+name with zero space (`InstModeinstMode`) on the next reformat. Fixed by never padding to less than `typeText.length() + 1`. |
+| RDD_KEY_201 | `alignCommentSeparators` false-positive narrowing attempt, reverted -- tried a fixed allowlist (`—:–|~`) instead of RDD_KEY_50's "any non-alphanumeric char"; backfired (157/162, was 162/162) by disabling the old rule's incidental 2+-candidate disqualifier that had been protecting `:`-heavy prose comments; fully reverted, 162/162 restored; design question remains open (see "Known Gaps -- Open"). |
 
 ---
 
@@ -717,6 +718,28 @@ RDD_KEY_88.
   int index = id.lastIndexOf('@'); // The @ can be used in local-part if quoted correctly
   // => the last @ is the one used to separate the domain and local-part
   ```
+  **Attempted and reverted** (same session, after explicit user go-ahead to "fix one by one"):
+  tried narrowing `SEPARATOR_ALIGNMENT_CHARS` to a fixed allowlist (`—:–|~`, matching STYLE.md
+  §15's own worked-example characters) instead of "any non-alphanumeric char". This backfired:
+  `make test` dropped from 162/162 to 157/162, newly failing 5 pre-existing Kotlin fixtures
+  (`real_code_regressions_{21,24,25,26,30}`) whose multi-line doc-comment blocks discuss `:` in
+  prose (e.g. "...a genuine `:` actually follows it before the brace..."). Root cause of the
+  backfire: the *original* broad rule's "2+ qualifying candidates on one line disqualifies the
+  whole comment" check was incidentally protecting these blocks — each prose line contains
+  several *other* non-alphanumeric-flanked-by-space characters too (under the old broad
+  definition), so they always had 2+ candidates and never qualified as a separator pair.
+  Narrowing the charset to just `—:–|~` removed those other candidates from consideration, so
+  now only the lone `:` remains per line, and these blocks wrongly pass as genuine separator
+  pairs and get corrupted (extra padding, followed by a downstream comment-reflow/capitalization
+  pass mangling the text) — i.e. narrowing the character set does not fix the false-positive
+  problem in general, it just relocates which punctuation mark triggers it, and can make
+  *previously-safe* real files newly unsafe by disabling the accidental multi-candidate
+  disqualifier they depended on. Reverted in full (`git checkout` on
+  `MiscRuleCore.java`); `make test` back to 162/162. Still open: any real fix needs either (a) a
+  much stronger "does this actually look like an aligned-table comment" heuristic (not just
+  character-set narrowing), or (b) requiring 3+ consecutive qualifying lines instead of 2, or
+  (c) some other structural signal — not attempted this session. Left as a design question for
+  the user, per RDD_KEY_50's original status.
 
 - **Extremely long pre-existing single-physical-line statement wraps differently each round** —
   found in `jenkinsci/jenkins` (item 25 below, session IN PROGRESS), `hudson/PluginManager.java`

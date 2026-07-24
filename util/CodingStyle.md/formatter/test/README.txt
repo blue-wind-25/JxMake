@@ -1314,728 +1314,407 @@ Real-code regressions:
                                              `start` has already been passed by `i`.
 
   real_code_regressions_79_inp/out.py     -- Python3, pallets/flask real-code testing (same run as
-                                             fixture 78): two more bugs found via the same final
-                                             idempotency re-check after fixture 78's fix. (1) §6
-                                             signature alignment: `trySignatureGroup` split a
-                                             signature's interior into per-parameter segments purely
-                                             on raw `NEWLINE` tokens, not bracket-depth-aware -- a
-                                             parameter whose type hint spans multiple physical lines
-                                             via a still-open nested bracket got its continuation
-                                             lines misclassified as separate bogus parameters
-                                             instead of triggering the documented "parameter spans
-                                             multiple physical lines -- leave whole signature
-                                             untouched" gap, corrupting the signature with growing
-                                             trailing whitespace each idempotency round (non-
-                                             convergent). Fixed by only splitting segments at a
-                                             `NEWLINE` when local bracket depth is 0, and rejecting
-                                             any segment that still contains an embedded `NEWLINE`
-                                             in `classifySignatureParam`. (2) §9.2 blank-line-
-                                             before-`elif`/`else` and §8's single-statement join
-                                             could produce a replacement starting at the same token
-                                             index, and tie-breaking let §8's statement-join swallow
-                                             §9.2's zero-width blank-line insertion. Fixed by
-                                             sorting zero-width entries first on ties.
+                                             fixture 78): two more idempotency bugs. (1) §6
+                                             signature alignment: `trySignatureGroup` split params
+                                             on raw NEWLINE tokens without checking bracket depth,
+                                             misclassifying a multi-line type-hint's continuation
+                                             lines as bogus params and corrupting the signature
+                                             with growing trailing whitespace each round; fixed by
+                                             only splitting at depth-0 NEWLINEs in
+                                             `classifySignatureParam`. (2) §9.2
+                                             blank-line-before-`elif`/`else` and §8's
+                                             statement-join could target the same token index,
+                                             letting the join swallow the blank-line insertion;
+                                             fixed by sorting zero-width entries first on ties.
 
-  real_code_regressions_80_inp/out.py     -- Python3, pallets/click real-code testing. §4 decorator
-                                             bracket-padding (`applyBracketPadding`) recursively pads
-                                             every `(`/`[`/`{` pair in a decorator's own expression,
-                                             but couldn't distinguish an f-string field's own `{`/`}`
-                                             (emitted as plain PUNCT by `TokenizerIndent
-                                             #emitFStringField`, same token shape as a dict/set
-                                             literal brace) from an actual dict/set literal -- it
-                                             padded an f-string field nested inside a decorator's
-                                             lambda default argument as if it were a non-empty (thus
-                                             always-loose per §1.5) brace pair, producing `f"{
-                                             ctx.info_name }"` on the forward pass. §5's own f-string
-                                             spacing pass then unconditionally trimmed that same gap
-                                             back on the *next* formatting round, so the bug only
-                                             surfaced as non-idempotency, not a single-pass mismatch.
-                                             Fixed by skipping a `{`/`}` pair entirely in
-                                             `applyBracketPadding` whenever the `{` is immediately
-                                             preceded by an `FSTRING_START`/`FSTRING_MIDDLE` token --
-                                             that adjacency only ever occurs for an f-string field's
-                                             own delimiters, never a dict/set literal's.
+  real_code_regressions_80_inp/out.py     -- Python3, pallets/click real-code testing: §4 decorator
+                                             bracket-padding (`applyBracketPadding`) couldn't
+                                             distinguish an f-string field's `{`/`}` from a
+                                             dict/set literal, padding it like a non-empty brace
+                                             pair and producing `f"{ ctx.info_name }"`; §5's
+                                             f-string spacing pass then trimmed it back next round,
+                                             so it only surfaced as non-idempotency. Fixed by
+                                             skipping any `{`/`}` immediately preceded by
+                                             `FSTRING_START`/`FSTRING_MIDDLE`.
 
-  real_code_regressions_81_inp/out.ts     -- JS/TS, nestjs/nest real-code testing. A multi-arg call
-                                             whose every argument is a bare dotted member-access
-                                             expression with no top-level comma of its own (`options.
-                                             provideInjectionTokensFrom`, `options.inject`) could be
-                                             misparsed by `MiscRuleCurly.renderCallCandidate`'s
-                                             `parseSignature` call as a real C/C++/Java-style
-                                             "type name" forward-declaration parameter list (`type`
-                                             `options.`, `name` `provideInjectionTokensFrom`) --
-                                             the exact same misparse already known and guarded for
-                                             Kotlin only (RDD_KEY -- see `sigForRender`'s doc comment
-                                             in `MiscRuleCurly`), but the guard was never extended to
-                                             JS/TS. The typed dropped/one-per-line render path then
-                                             inserted a column-separator space between the bogus
-                                             "type" and "name", corrupting the expression into
-                                             `options. provideInjectionTokensFrom` -- compounding on
-                                             every re-format pass. Fixed by forcing `sigForRender` to
-                                             `null` for JS/TS as well as Kotlin, since neither
-                                             language has a prototype-only forward-declaration shape
-                                             either (a JS/TS function declaration always has an
-                                             immediate `{` body, already exempted earlier in the same
-                                             method).
+  real_code_regressions_81_inp/out.ts     -- JS/TS, nestjs/nest real-code testing: a multi-arg call
+                                             whose args are all bare dotted member-access
+                                             expressions (`options.provideInjectionTokensFrom`,
+                                             `options.inject`) was misparsed by
+                                             `MiscRuleCurly.renderCallCandidate`'s `parseSignature`
+                                             as a C/C++/Java forward-declaration parameter list --
+                                             the same misparse already guarded for Kotlin but not
+                                             JS/TS -- inserting a column-separator space and
+                                             corrupting `options. provideInjectionTokensFrom`,
+                                             compounding each pass. Fixed by forcing `sigForRender`
+                                             to null for JS/TS too.
 
-  real_code_regressions_82_inp/out.ts     -- JS/TS, nestjs/nest real-code testing. Content
-                                             duplication: `JsTsSpecificRule.
-                                             enforceClassFieldAlignmentGrid`'s single linear
-                                             `cursor` sweep over every brace classified `CLASS`
-                                             assumed every selected class span was disjoint, but an
-                                             anonymous `return class extends Base { ... };`
-                                             expression nested inside an outer class's method (seen
-                                             in `Module.createModuleReferenceType`) is a real,
-                                             legitimate nesting. The outer class's own
-                                             `rewriteClassFieldGroups` call already copies the
-                                             entire inner class span through byte-for-byte (as an
-                                             ordinary unrecognized member), so re-processing the
-                                             inner span again as its own top-level `classOpens`
-                                             entry both duplicated its content and walked `cursor`
-                                             backward to the inner class's own (earlier) `closeIdx`
-                                             -- causing the method's final raw-copy loop to re-emit
-                                             everything from there to the true end of file a second
-                                             time. Fixed by filtering `classOpens` to keep only the
-                                             outermost class brace at each nesting level (a nested
-                                             class's own fields don't get the alignment-grid
-                                             treatment -- same conservative "only rewrite what's
-                                             fully understood" posture as the rest of this method).
+  real_code_regressions_82_inp/out.ts     -- JS/TS, nestjs/nest real-code testing: content
+                                             duplication.
+                                             `JsTsSpecificRule.enforceClassFieldAlignmentGrid`'s
+                                             linear `cursor` sweep assumed every selected class
+                                             span was disjoint, but an anonymous `return class
+                                             extends Base {...}` nested inside an outer class's
+                                             method is legitimate nesting; re-processing the inner
+                                             span as its own top-level entry duplicated content and
+                                             walked `cursor` backward, causing the final raw-copy
+                                             loop to re-emit everything to EOF a second time. Fixed
+                                             by filtering `classOpens` to only the outermost class
+                                             brace at each nesting level.
 
-  real_code_regressions_83_inp/out.yaml   -- YAML, prometheus/prometheus real-code testing.
-                                             Combines four distinct data-loss bugs found in
-                                             `YamlSpecificRule`, all sharing the theme of a dash/key
-                                             line whose "value" is absent/comment-only/anchor-only/an
-                                             unbalanced multi-line flow opener, with real content on
-                                             following more-indented lines: (1) `parseKeyItem`'s early
-                                             return for a flow-looking value didn't check whether the
-                                             flow was actually closed on the same physical line,
-                                             truncating everything after an unbalanced multi-line
-                                             `[...]` opener; (2) `parseSeqItem`'s `seqOfMapping`
-                                             first-key handling had the same gap for
-                                             `- source_labels:\n    [...]`, and separately dropped
-                                             everything after a `- # comment`-only dash line whose
-                                             real mapping keys start on subsequent lines; (3) a dash
-                                             line holding only an anchor tag (`- &highalert`) followed
-                                             by a nested mapping at an indent equal to (not just
-                                             greater than) the dash's own key column lost its child
-                                             block entirely; (4) `renderFlowValue` rendered an empty
-                                             flow map/seq (`{}`/`[]`) as a block conversion whenever
-                                             its line didn't `fits()`, but `renderFlowBlock`'s loop
-                                             has nothing to iterate for zero entries, so the value
-                                             silently vanished -- happened whenever a long key
-                                             elsewhere in the same colon-alignment group pushed an
-                                             unrelated `{}`/`[]` line past the width limit (seen in
-                                             `web/ui/pnpm-lock.yaml`'s dependency snapshot maps, most
-                                             visibly when the dropped key was the file's very last
-                                             line).
+  real_code_regressions_83_inp/out.yaml   -- YAML, prometheus/prometheus real-code testing: four
+                                             combined data-loss bugs in `YamlSpecificRule`, all a
+                                             dash/key line whose "value" is
+                                             absent/comment-only/anchor-only/an unbalanced
+                                             multi-line flow opener with real content on
+                                             more-indented following lines. (1) `parseKeyItem`'s
+                                             flow-value early return didn't check the flow closed
+                                             on the same line, truncating text after an unbalanced
+                                             `[...]`. (2) `parseSeqItem`'s `seqOfMapping` first-key
+                                             handling had the same gap, and also dropped everything
+                                             after a comment-only dash line. (3) An anchor-only
+                                             dash line (`- &highalert`) followed by a nested
+                                             mapping at an equal (not just greater) indent lost its
+                                             child block. (4) `renderFlowValue` rendered an empty
+                                             `{}`/`[]` as a block conversion whenever the line
+                                             didn't fit, but `renderFlowBlock` has nothing to
+                                             iterate for zero entries, silently dropping the value.
 
-  real_code_regressions_84_inp/out.ts     -- JS/TS, nestjs/nest real-code testing.
-                                             Comment-continuation-indent drift /
-                                             arbitrary-deep-indent corruption on an object-shaped
-                                             `type X = { ... } & Y;` intersection alias.
+  real_code_regressions_84_inp/out.ts     -- JS/TS, nestjs/nest real-code testing:
+                                             comment-continuation-indent drift on an object-shaped
+                                             `type X = {...} & Y;` intersection alias.
                                              `JsTsSpecificRule.enforceUnionTypeContinuationIndent`
-                                             (STYLE_JS_TS.md 11.1's union/intersection
-                                             continuation-line re-alignment) detects a `type NAME =
-                                             ...;` RHS as eligible whenever it contains a depth-0
-                                             `|`/`&` and spans multiple physical lines, then
-                                             re-indents *every* NEWLINE from the RHS's start through
-                                             the terminating `;` to the RHS's own column -- with no
-                                             bracket-depth tracking of its own. For a plain
-                                             multi-line union list (`A |\n B |\n C`) every NEWLINE
-                                             genuinely is a top-level break, so this was harmless,
-                                             but an intersection whose left operand is a multi-line
-                                             object-type literal (`{ ... } & Y`) has NEWLINEs nested
-                                             many bracket-levels deep that belong to the object
-                                             body's own (already-correct) indentation -- those got
-                                             force-reindented to the alias's RHS column too, blowing
-                                             every member out to an arbitrarily deep column matching
-                                             the `type NAME = ` prefix's length. A leading `/** ...
-                                             */` JSDoc comment on one member is a single token, so
-                                             only the NEWLINE immediately before it (its own line)
-                                             was corrupted this way on a first pass -- its interior
-                                             continuation lines, untouched by this pass, drifted
-                                             further out of sync (matching the deep column) only
-                                             once a second re-format pass reindented the token
-                                             *before* it again, compounding the mismatch. Fixed by
-                                             tracking bracket depth in the re-indent loop itself and
-                                             only re-indenting a NEWLINE found at the union/
-                                             intersection's own top level (depth 0), leaving any
-                                             NEWLINE nested inside a bracketed sub-shape (object-type
-                                             literal, tuple, generic argument list, ...) completely
-                                             untouched.
+                                             re-indents every NEWLINE from the RHS through the
+                                             terminating `;` to the RHS's column with no
+                                             bracket-depth tracking; for a plain multi-line union
+                                             this is harmless, but an intersection whose left
+                                             operand is a multi-line object-type literal has
+                                             NEWLINEs nested many levels deep that got
+                                             force-reindented too, blowing members out to an
+                                             arbitrarily deep column. Fixed by tracking bracket
+                                             depth and only re-indenting depth-0 NEWLINEs.
 
-  real_code_regressions_85_inp/out.ts     -- JS/TS, nestjs/nest real-code testing.
-                                             `join(...)` call-wrap/collapse non-idempotency:
-                                             `MiscRuleCurly.renderCallCandidate`'s multi-line-source
-                                             (`containsNewline(paramsSlice)`) branch always
-                                             preserved the call's original per-line argument
-                                             grouping (Option 2) unconditionally, with no fits-check
-                                             of its own -- unlike the sibling single-line branch a
-                                             few lines below, which correctly collapses (Option 0)
-                                             whenever the call already fits under the line-length
-                                             limit. A call an author (or a previous format pass) had
-                                             wrapped across multiple lines therefore stayed wrapped
-                                             forever even once it easily fit back onto one line,
-                                             while the exact same call written fresh on one line
-                                             collapsed correctly -- the same logical call could
-                                             settle into two different stable shapes depending
-                                             purely on incidental prior formatting, and one sitting
-                                             right at the boundary (`integration/repl/e2e/
-                                             repl-process.spec.ts`'s `localPackageResolver = join(
-                                             workspaceRoot, '...')`, exactly 100 characters
-                                             collapsed) flipped between a preserved multi-line form
-                                             and a freshly-collapsed one-line form across repeated
-                                             passes -- non-idempotent. Fixed by adding the same
-                                             fits-check to this branch (JS/TS-only, `sigForRender ==
-                                             null && (lang.isJs || lang.isTs)` -- widening to
-                                             C/C++/Java regressed `real_code_regressions_1`, since a
-                                             plain call's `sigForRender` is `null` there for the
-                                             ordinary "not a real signature" reason too, not a
-                                             JS/TS-specific misparse signal): measures the actual
-                                             tight single-line candidate text (not the existing
-                                             sibling branch's loose whitespace-collapsing
-                                             `collapseToOneLine` helper, which turns the newline that
-                                             originally followed the call's own `(` into a phantom
-                                             single space and overestimates length by up to 2
-                                             characters, wrongly disqualifying a call that truly
-                                             fits) and collapses to one line whenever it fits,
-                                             dropping any dangling trailing empty argument group
-                                             (`splitTopLevelCommas`, unlike `groupByOriginalLine`,
-                                             doesn't drop a trailing comma's empty tail itself) so a
-                                             trailing-comma multi-line source doesn't gain a spurious
-                                             trailing `, ` before `)` once collapsed. (Also required
-                                             updating `real_code_regressions_81_out.ts`'s own
-                                             expected output -- its `getInjectionProviders(...)` call
-                                             now correctly collapses to one line too, since it fits;
-                                             the old expected shape had itself been an artifact of
-                                             this same bug.)
+  real_code_regressions_85_inp/out.ts     -- JS/TS, nestjs/nest real-code testing: `join(...)`
+                                             call-wrap/collapse non-idempotency.
+                                             `MiscRuleCurly.renderCallCandidate`'s
+                                             multi-line-source branch always preserved the original
+                                             per-line argument grouping with no fits-check, unlike
+                                             the sibling single-line branch -- a call wrapped
+                                             across lines stayed wrapped forever even once it fit
+                                             on one line, while the same call written fresh on one
+                                             line collapsed correctly, so the same call could
+                                             settle into two different stable shapes. Fixed by
+                                             adding the same fits-check (JS/TS-only, to avoid
+                                             regressing fixture 1's C/C++/Java case), measuring the
+                                             tight single-line candidate rather than the loose
+                                             `collapseToOneLine` helper (which overestimates
+                                             length). Also updated fixture 81's expected output,
+                                             whose old shape was itself an artifact of this bug.
 
-  real_code_regressions_86_inp/out.yaml   -- YAML, home-assistant/core real-code testing.
-                                             Nested-sequence data loss: a sequence item whose own
-                                             value is itself another sequence, written in the
-                                             compact single-line form `- - a\n  - b` (e.g.
-                                             `supported_features:\n  - - X\n    - Y`, common in this
-                                             repo's `services.yaml` mutually-exclusive-feature-group
-                                             pairs). `parseSeqItem` never recognized this shape --
-                                             the inner `- ` was captured as a literal scalar value
-                                             (`"- X"`), leaving the sibling nested-seq item on the
-                                             next physical line completely unconsumed in the line
-                                             stream. That orphaned line's indent then didn't match
-                                             the enclosing block's own `blockIndent`, so
-                                             `parseBlock`'s loop broke out of the entire enclosing
-                                             block early -- silently dropping the rest of the nested
-                                             sequence AND every sibling item/key that followed it, at
-                                             every level (in the real files, everything from the
-                                             second feature-group entry onward, including unrelated
-                                             later top-level keys like `fields`/`stop_cover`). Fixed
-                                             by detecting the `code.equals("-") ||
-                                             code.startsWith("- ")` shape up front in `parseSeqItem`
-                                             and parsing it via a new `parseInlineNestedSeq` helper:
-                                             the first nested item's value comes from the inline
-                                             dash-line text itself (recursing one more level for a
-                                             further-nested `- - - x`), and any sibling nested items
-                                             on subsequent physical lines (at the same column as the
-                                             inline dash) are parsed via the ordinary `parseBlock`.
-                                             Rendered via the existing generic `item.children`
-                                             sequence-render path, which non-lossily expands the
-                                             compact `- -` form into a bare dash followed by the
-                                             nested items one level deeper -- always valid YAML, no
-                                             data loss, same "prefer an unambiguous expanded form"
-                                             precedent as this formatter's flow-to-block conversion
-                                             elsewhere. Found via `yaml_content_diff.py` content-
-                                             preservation checking (not syntax-check -- the corrupted
-                                             output stayed syntactically valid YAML), consistent with
-                                             every other YAML dogfood session's bug history.
+  real_code_regressions_86_inp/out.yaml   -- YAML, home-assistant/core real-code testing:
+                                             nested-sequence data loss. `parseSeqItem` never
+                                             recognized the compact single-line nested-seq form `-
+                                             - a\n  - b`; the inner `- ` was captured as a literal
+                                             scalar, leaving the sibling nested item unconsumed,
+                                             whose mismatched indent then made `parseBlock` break
+                                             out of the entire enclosing block early -- silently
+                                             dropping the rest of the sequence and every sibling
+                                             item/key that followed, at every level. Fixed by
+                                             detecting the `-`/`- ` shape up front via a new
+                                             `parseInlineNestedSeq` helper and rendering
+                                             non-lossily via the existing `item.children` path.
+                                             Found via content-preservation checking, not
+                                             syntax-check.
 
-  real_code_regressions_87_inp/out.ts     -- JS/TS, vuejs/core real-code testing.
-                                             Leading multi-line block comment reindent
-                                             non-idempotency: `JsTsSpecificRule`'s class-field
-                                             alignment grid (`flushClassFieldGroup`), enum-member
-                                             formatting (`rewriteEnumBody`), and interface/type-alias
-                                             member alignment (`enforceInterfaceTypeAliasMemberColon
-                                             Alignment`) all re-emitted a member's captured leading
-                                             `/** ... */` comment verbatim, including whatever
-                                             absolute indentation its continuation lines happened to
-                                             carry at the *original* source depth -- never reindented
-                                             to match the member's own (possibly different, e.g. this
-                                             formatter's 4-space default vs. a 2-space source
-                                             convention) re-rendered indent depth. A first pass left
-                                             the comment's continuation lines visually misaligned
-                                             under the field/member they precede; a second pass then
-                                             caught up (a general block-comment reindent pass
-                                             elsewhere normalizes it), producing a stable-but-wrong
-                                             round1 and a different round2. Fixed by adding
-                                             `reindentLeadingComment` (strips each continuation line's
-                                             existing leading whitespace and reconstructs
-                                             `indentPrefix + " " + strippedLine`) and calling it at
-                                             all three sites instead of emitting the captured comment
-                                             text raw.
+  real_code_regressions_87_inp/out.ts     -- JS/TS, vuejs/core real-code testing: leading
+                                             multi-line block comment reindent non-idempotency.
+                                             `JsTsSpecificRule`'s class-field alignment grid,
+                                             enum-member formatting, and interface/type-alias
+                                             member alignment all re-emitted a member's leading
+                                             `/** ... */` comment verbatim at its original source
+                                             indent, never reindented to the member's own
+                                             re-rendered depth -- misaligned on the first pass,
+                                             self-corrected by an unrelated general reindent pass
+                                             on the second, producing round1 != round2. Fixed by
+                                             adding `reindentLeadingComment` at all three sites.
 
-  real_code_regressions_88_inp/out.ts     -- JS/TS, vuejs/core real-code testing.
-                                             `TokenizerCurly.GENERIC_SAFE_KEYWORDS` was missing the
-                                             TS primitive type keywords `symbol`/`bigint` (an earlier
-                                             fix added `string`/`number`/`boolean`/etc. but missed
-                                             these two), and `isGenericSafeToken`'s OP case had no
-                                             entry for `|` -- both meant a union type written directly
-                                             inside a generic argument list (`Record<string | symbol,
-                                             Function | number>`) invalidated the enclosing `<...>`
-                                             tracking, leaving the closing `>` a plain OP token instead
-                                             of ANGLE_BRACKET_CLOSE. That defeated
-                                             `JsTsSpecificRule.enforceSemicolonInsertion`'s
-                                             CONTINUATION_OPS check (a trailing `>` OP looks like an
-                                             unfinished comparison), silently dropping the statement's
-                                             semicolon; `JsTsDeclarationAlignmentRule.parseTypeAlias`'s
-                                             depth-scan (tracking only `(`/`[`/`{`, not real angle-
-                                             bracket depth) then ran past the missing `;` into
-                                             unrelated following statements (a function declaration,
-                                             then a const), corrupting them with alignment-grid column
-                                             padding matching the type alias's own keyword+name+`=`
-                                             width. Fixed by adding `symbol`/`bigint` to
-                                             `GENERIC_SAFE_KEYWORDS` and `|` (TS-only) to
-                                             `isGenericSafeToken`'s OP case.
+  real_code_regressions_88_inp/out.ts     -- JS/TS, vuejs/core real-code testing:
+                                             `TokenizerCurly.GENERIC_SAFE_KEYWORDS` was missing
+                                             TS's `symbol`/`bigint`, and `isGenericSafeToken`'s OP
+                                             case had no `|` entry -- a union type inside a generic
+                                             argument list (`Record<string | symbol, Function |
+                                             number>`) invalidated the enclosing `<...>` tracking,
+                                             leaving `>` a plain OP token. That defeated
+                                             `enforceSemicolonInsertion`'s continuation check
+                                             (dropping the statement's `;`) and desynced
+                                             `JsTsDeclarationAlignmentRule.parseTypeAlias`'s
+                                             depth-scan, corrupting unrelated following statements
+                                             with bogus alignment padding. Fixed by adding
+                                             `symbol`/`bigint` and `|` (TS-only).
 
   real_code_regressions_89_inp/out.ts     -- JS/TS, vuejs/core real-code testing
-                                             (componentOptions.ts), two further distinct bugs found
-                                             chasing the same file's remaining non-idempotency after
-                                             the _88 fix above:
-                                             (1) `JsTsDeclarationAlignmentRule.parseTypeAlias`'s
-                                             generic-parameter-list skip loop (only reached when the
-                                             clause's own content, e.g. a type-parameter default
-                                             `<T = X>`, invalidates the tokenizer's `<`/`>`
-                                             reclassification) advanced past the clause's tokens
-                                             without ever capturing them for re-rendering, silently
-                                             deleting the whole `<...>` clause from the output
-                                             (`type MergedHook<T = () => void> = T | T[]` lost its
-                                             `<T = () => void>` entirely). Fixed by capturing the
-                                             clause's token range before the skip loop and rendering
-                                             it back (tight against the outer `<`/`>`, which stay
-                                             literal OP tokens here) into the `Row`'s name text.
-                                             (2) `TokenizerCurly`'s dispatch loop had an unconditional
-                                             `c == ']' && peek(1) == ']'` branch (routing to
-                                             `emitOperator()`, alongside the already-language-gated
-                                             `[[`/`[:` branches for C++11 attributes/C++26 splice
-                                             brackets) that fired for *any* two adjacent `]`
-                                             characters regardless of language -- not just the C++
-                                             attribute close it was meant for. A TS mapped type whose
-                                             `[K in ...]` source is itself an indexed-access type
-                                             (`{ [K in T[number]]?: unknown }`) produces exactly that
-                                             shape with no C++ meaning at all; even after gating
-                                             `MULTI_CHAR_OPS`'s own `"]]"` entry to C++ only (a
-                                             preceding, insufficient fix attempt), reaching
-                                             `emitOperator()` at all here still emitted a single `]`
-                                             as an OP token instead of going through
-                                             `emitCloseBracket()`'s ordinary PUNCT path, which defeats
-                                             every `isPunct(t, "]")` check the same way one merged
-                                             `"]]"` token would have. This desynced
-                                             `JsTsSpecificRule.enforceSemicolonInsertion`'s `[`/`]`
-                                             depth counter, which never recovered for the rest of the
-                                             file, permanently disabling semicolon insertion from that
-                                             point on. Fixed by also gating the dispatch-loop branch to
-                                             `lang.isCpp`. Fixture's expected output still carries the
-                                             pre-existing, separately-tracked general-reindentation gap
-                                             (STATE_COMMON.md's "General scope-depth reindentation"
-                                             section) for the mapped type's own body -- its `}` and
-                                             `[K in ...]` bracket spacing are not house-style-correct,
-                                             but the round1 output is stable/idempotent, which is all
-                                             this regression test asserts.
+                                             (componentOptions.ts), two further bugs chasing the
+                                             same file's non-idempotency after fixture 88. (1)
+                                             `JsTsDeclarationAlignmentRule.parseTypeAlias`'s
+                                             generic-parameter-list skip loop advanced past a
+                                             type-parameter default clause (`<T = X>`) without
+                                             capturing it, silently deleting it from the output;
+                                             fixed by capturing and re-rendering the range. (2)
+                                             `TokenizerCurly`'s dispatch loop had an unconditional
+                                             `]]` branch meant for C++ attributes/splice brackets
+                                             that also fired for a TS indexed-access type inside a
+                                             mapped type (`{ [K in T[number]]?: unknown }`),
+                                             emitting a bare OP token instead of going through
+                                             `emitCloseBracket()`'s PUNCT path -- desyncing
+                                             `enforceSemicolonInsertion`'s bracket-depth counter
+                                             for the rest of the file. Fixed by gating the branch
+                                             to `lang.isCpp`. Output still carries the known
+                                             general-reindentation gap for the mapped type's own
+                                             body.
 
-  real_code_regressions_90_inp/out.ts     -- JS/TS, vuejs/core real-code testing (ref.test-d.ts /
-                                             watch.test-d.ts): `JsTsSpecificRule.classifyBraces`'s
-                                             `isValue` prev-token list (deciding whether a `{` is a
-                                             value-shaped brace, e.g. object literal/type, vs. a
-                                             statement-body brace) had no entry for TS's union/
-                                             intersection continuation operators `|`/`&`. An inline
-                                             object type directly following one of them in a union
-                                             type alias (`type Steps = { step: '1' } | { step: '2'
-                                             }`) fell through to the method's own documented
-                                             "defaults to not a value" fallback, misclassifying the
-                                             second object type's `{` as a statement-body brace and
-                                             resetting `enforceSemicolonInsertion`'s depth counter to
-                                             0 at a point that isn't a real statement boundary --
-                                             corrupting every subsequent line's indentation for the
-                                             rest of the enclosing scope (not just a semicolon
-                                             defect). Fixed by adding `lang.isTs && (isOp(prev, "|")
-                                             || isOp(prev, "&"))` to the `isValue` check.
+  real_code_regressions_90_inp/out.ts     -- JS/TS, vuejs/core real-code testing
+                                             (ref.test-d.ts/watch.test-d.ts):
+                                             `JsTsSpecificRule.classifyBraces`'s `isValue`
+                                             prev-token list had no entry for the
+                                             union/intersection operators `|`/`&` -- an inline
+                                             object type following one in a union alias fell
+                                             through to "not a value", misclassifying its `{` as a
+                                             statement-body brace and resetting
+                                             `enforceSemicolonInsertion`'s depth counter
+                                             mid-expression, corrupting every subsequent line's
+                                             indentation for the rest of the scope. Fixed by adding
+                                             `lang.isTs && (isOp(prev, "|") || isOp(prev, "&"))` to
+                                             the check.
 
   real_code_regressions_91_inp/out.xsl    -- XML, apache/ant real-code testing: `Lang.infer` never
-                                             mapped the `.xsl` extension to `xml` at all (same gap
-                                             shape as `real_code_regressions_74`'s `.svg` fix), so
-                                             every `.xsl` file in the candidate failed with "could not
-                                             infer language from file extension" instead of being
-                                             formatted. Fixed by adding `.xsd`/`.xsl` alongside `.xml`/
-                                             `.svg` in `Lang.infer`.
+                                             mapped `.xsl` to `xml` (same gap shape as fixture 74's
+                                             `.svg`), so every `.xsl` file failed with "could not
+                                             infer language from file extension". Fixed by adding
+                                             `.xsd`/`.xsl` alongside `.xml`/`.svg`.
 
-  real_code_regressions_92_inp/out.xsd    -- XML, apache/ant real-code testing: same `Lang.infer` gap
-                                             as real_code_regressions_91, for the `.xsd` extension.
+  real_code_regressions_92_inp/out.xsd    -- XML, apache/ant real-code testing: same `Lang.infer`
+                                             gap as fixture 91, for `.xsd`.
 
-  real_code_regressions_93_inp/out.ts     -- JS/TS, vuejs/core real-code testing: two distinct
-                                             non-idempotency bugs, both from `enforceCallLineBreaking`/
-                                             `enforceComplexityPadding` pass-ordering.
-                                             (1) `MiscRuleCurly.collapseToOneLine`'s fits-check
-                                             flattened every whitespace run (including a same-line
-                                             declaration-alignment `=`-column padding run with no
-                                             newline in it) down to a single space, undercounting a
-                                             padded declaration's true rendered width by the padding
-                                             amount -- `const res    = await fetch(...)` wrongly
-                                             measured as fitting and collapsed to one line even though
-                                             its real (padded) width was over the limit. Fixed by only
-                                             collapsing a whitespace/newline run that actually contains
-                                             a NEWLINE token to one space; a pure horizontal-whitespace
-                                             run (already-real same-line spacing) is preserved verbatim
-                                             for measurement purposes.
-                                             (2) `FormatterCurly`'s final `enforceCallLineBreaking` pass
-                                             had no `enforceComplexityPadding` re-run after it, so a
-                                             candidate that pass 1 wrapped multi-line (because its own
-                                             fits-check saw an inflated line length, fused to a
-                                             not-yet-wrapped sibling call later on the same physical
-                                             line) and pass 2 later re-collapsed back to one line (once
-                                             the sibling was already wrapped) lost its loose `( x )`
-                                             nested-bracket padding (STYLE.md §3.1) in the process --
-                                             `isReservedPrefix(key[0])` inside an `if` whose consequent
-                                             is itself a multi-line call rendered tight instead of
-                                             loose. Fixed by adding one more `enforceComplexityPadding`
-                                             call after the final `enforceCallLineBreaking` pass.
+  real_code_regressions_93_inp/out.ts     -- JS/TS, vuejs/core real-code testing: two
+                                             non-idempotency bugs from
+                                             `enforceCallLineBreaking`/`enforceComplexityPadding`
+                                             pass-ordering. (1) `MiscRuleCurly.collapseToOneLine`'s
+                                             fits-check flattened every whitespace run to one
+                                             space, including same-line declaration-alignment
+                                             padding, undercounting a padded declaration's true
+                                             width and wrongly collapsing it; fixed by only
+                                             collapsing runs that actually contain a NEWLINE. (2)
+                                             `FormatterCurly`'s final `enforceCallLineBreaking`
+                                             pass had no `enforceComplexityPadding` re-run after
+                                             it, so a call wrapped by an earlier inflated
+                                             fits-check and later re-collapsed lost its loose `( x
+                                             )` nested-bracket padding; fixed by adding one more
+                                             `enforceComplexityPadding` call after the final
+                                             line-breaking pass.
 
   real_code_regressions_94_inp/out.js     -- JS/TS, vuejs/core real-code testing:
-                                             `BlockStructureRule.alignBracelessElseIfChain` runs last in
-                                             the pipeline (after every `enforceCallLineBreaking` fits-
-                                             check), so its own column padding of a braceless `if`/`else`
-                                             chain's consequent bodies can push an already-fits-checked
-                                             consequent call's line past `lineLengthLimit` with no further
-                                             re-check -- `scripts/release.js`'s `else console.log(...)`
-                                             (widespread across the corpus, 12 of 13 files still differing
-                                             after the real_code_regressions_93 fixes). Fixed by refusing
-                                             to pad a branch past `lineLengthLimit` when the branch's own
-                                             un-padded width already fit within it (leaving that one
-                                             branch at its natural single-space width instead); a branch
-                                             whose un-padded width was already over the limit is still
-                                             padded as before (matches existing accepted test output for
-                                             unavoidably-long consequent bodies, e.g. `java_combined`'s
-                                             pattern-matching `if`/`else if` chain). Required adding a
-                                             `lineLengthLimit` constructor parameter to
-                                             `BlockStructureRule` (previously had no line-length
-                                             awareness at all).
+                                             `BlockStructureRule.alignBracelessElseIfChain` runs
+                                             last, after every `enforceCallLineBreaking`
+                                             fits-check, so its own column padding of a braceless
+                                             if/else chain could push an already-fits-checked
+                                             consequent past the line limit with no re-check
+                                             (widespread across the corpus). Fixed by refusing to
+                                             pad a branch past the line limit when its un-padded
+                                             width already fit, leaving it at natural width
+                                             instead; an already-over-limit branch is still padded
+                                             as before. Required adding a `lineLengthLimit`
+                                             parameter to `BlockStructureRule`.
 
-  real_code_regressions_95_inp/out.java   -- Java, local `src/com`/`src/org` vendored third-party
-                                             library dogfood testing: two idempotency bugs from the
-                                             same "raw source indent measured before it's converted
-                                             to the target indent-style" root cause, both only
-                                             observable against tab-indented source (this codebase's
-                                             own default `indent-style = spaces` config never
-                                             triggers them from spaces-indented input). (1)
-                                             `MiscRule.enforceCommentStyle` reindented a multi-line
-                                             block comment's continuation lines to the comment's own
-                                             *raw*, not-yet-converted leading indent (still a literal
-                                             tab), baking a tab into the continuation lines' own text
-                                             -- `convertIndentation` (always last in the pipeline)
-                                             never revisits that text since by then it is embedded
-                                             inside the comment's own token rather than a separate
-                                             leading `WHITESPACE` token, so the opening `/**` line
-                                             converted to spaces but the continuation lines stayed
-                                             tab-indented on a fresh format, self-correcting only on
-                                             a second pass once the opening line's own indent was
-                                             already spaces. Fixed by normalizing the indent through
-                                             `MiscRuleCore.renderIndent` before use (new `indentStyle`
-                                             parameter on `enforceCommentStyle`). (2)
-                                             `MiscRule.enforceCallLineBreaking`'s whole-line/candidate
-                                             fits-checks measured a tab-indented line's leading indent
-                                             via `String.length()` (a tab counts as 1 char), so a line
-                                             whose true width only exceeds `lineLengthLimit` once its
-                                             tab is expanded to `indentWidth` stayed wrongly collapsed
-                                             on a fresh format, wrapping only on a second pass once
-                                             the leading indent was already spaces. Fixed by a new
-                                             `MiscRuleCore.expandedIndentWidth` helper (tab-expanding
-                                             width computation, same formula as `renderIndent`'s)
-                                             used in place of raw `.length()` at both fits-check
-                                             sites. Both found via real-code testing (STATE_C_CPP_
-                                             JAVA.md dogfood item (7): `com.j256.simplemagic`,
-                                             `org.itadaki.bzip2`, `org.kamranzafar.jtar`).
+  real_code_regressions_95_inp/out.java   -- Java, local vendored third-party library dogfood
+                                             testing: two idempotency bugs sharing one root cause
+                                             -- raw source indent measured before conversion to the
+                                             target indent-style -- only observable against
+                                             tab-indented source. (1)
+                                             `MiscRule.enforceCommentStyle` reindented a block
+                                             comment's continuation lines to the comment's raw
+                                             (still-tab) leading indent, baking a tab into text
+                                             that `convertIndentation` never revisits since it's
+                                             now inside the comment token; self-corrected only on a
+                                             second pass. Fixed by normalizing through
+                                             `MiscRuleCore.renderIndent` first. (2)
+                                             `MiscRule.enforceCallLineBreaking`'s fits-checks
+                                             measured a tab-indented line's leading indent via
+                                             `String.length()` (tab = 1 char), wrongly
+                                             under-measuring width and leaving an over-limit line
+                                             collapsed until a second pass. Fixed by a new
+                                             `MiscRuleCore.expandedIndentWidth` helper used at both
+                                             fits-check sites.
 
   real_code_regressions_96_inp/out.ts     -- JS/TS, vuejs/core real-code testing:
                                              `BlockStructureRule.collapseSingleExpressionBlocks`
-                                             flattened a braced single-statement `if` body containing
-                                             an object literal (e.g. `if (x) { foo.value = { a: 1, b:
-                                             2 }; }`) onto one physical line, discarding the object
-                                             literal's own original multi-line layout -- a later
-                                             `enforceCallLineBreaking` re-wrap of a call nested inside
-                                             that literal then has no signal that the literal's own
-                                             closing `}` should land on its own line rather than
-                                             staying fused to whatever text follows the wrapped call's
-                                             closing `)`, so a fresh format renders `), loc: x.loc,
-                                             };` all on one line while a reformat of that same output
-                                             (already split from a different code path) renders `),
-                                             loc: x.loc,\n};` -- a genuine non-fixed-point flap
-                                             (`compiler-core/src/parser.ts`'s `onCloseTag`,
-                                             `compiler-sfc/src/script/resolveType.ts`'s analogous
-                                             shape). Fixed conservatively by refusing to collapse (new
-                                             `BlockStructureRule.containsBrace` check in `tryCollapse`)
+                                             flattened a braced single-statement `if` body
+                                             containing an object literal onto one line, discarding
+                                             the literal's own multi-line layout; a later
+                                             `enforceCallLineBreaking` re-wrap of a call nested
+                                             inside it then had no signal the literal's closing `}`
+                                             should get its own line, producing a genuine
+                                             non-fixed-point flap between two stable shapes. Fixed
+                                             by refusing to collapse (new `containsBrace` check)
                                              whenever the single-statement body itself contains a
-                                             `{`/`}` pair, leaving such a body braced instead --
-                                             STYLE.md's own worked examples for this rule never include
-                                             an object-literal consequent, so no coverage is lost.
+                                             `{`/`}` pair.
 
   real_code_regressions_97_inp/out.ts     -- JS/TS, vuejs/core real-code testing:
-                                             `JsTsSpecificRule.enforceSemicolonInsertion`'s depth-
-                                             tracking loop counted only `(`/`[`/`{` against `)`/`]`/`}`,
-                                             with no case for a generic clause's own
-                                             `ANGLE_BRACKET_OPEN`/`_CLOSE` tokens -- a multi-line generic
-                                             clause (`function mergeProps<\n  T,\n  U\n>(...)`) left
-                                             `depth` at 0 across the clause's own internal NEWLINEs, so
-                                             each line inside `<...>` was wrongly treated as a top-level
-                                             statement boundary and got a spurious `;` inserted after
-                                             `<` and after `T,`. Fixed by adding
-                                             `t.type == TokenType.ANGLE_BRACKET_OPEN`/
-                                             `ANGLE_BRACKET_CLOSE` alongside the existing paren/bracket
-                                             cases in the depth-tracking loop.
+                                             `JsTsSpecificRule.enforceSemicolonInsertion`'s
+                                             depth-tracking loop counted only `(`/`[`/`{` against
+                                             `)`/`]`/`}`, with no case for a generic clause's
+                                             `ANGLE_BRACKET_OPEN`/`_CLOSE` -- a multi-line generic
+                                             clause (`function mergeProps<\n  T,\n  U\n>(...)`)
+                                             left depth at 0 across its own NEWLINEs, wrongly
+                                             inserting spurious `;` inside `<...>`. Fixed by adding
+                                             the angle-bracket cases to the depth-tracking loop.
 
   real_code_regressions_98_inp/out.ts     -- JS/TS, vuejs/core real-code testing (found via the
-                                             `tsc` typecheck pass, step 5 of the real-code testing
-                                             methodology): `JsTsSpecificRule.classifyBraces` had no
-                                             case for an `export { ... }` brace header (only an
-                                             `import { ... }` one) -- a single-specifier one-liner
-                                             (`export { baseCompile } from './compile'`) fell through
-                                             to the default "statement body" classification
-                                             (`resetDepth = true`), so its own closing `}` (reached
-                                             with no comma before it) was wrongly treated as a
-                                             statement boundary and got a bogus `;` inserted before
-                                             it -- `export { baseCompile; } from './compile';`, a
-                                             real parse error. Fixed by adding an `isExportBraceHeader`
-                                             case mirroring the import one (`resetDepth = false`, so
-                                             the interior specifier list is never treated as
-                                             statements), but unlike import (which always has a
-                                             `from` clause), `needsSemicolon` is computed per-brace:
-                                             `false` when followed by `from '...'` (real terminator
-                                             lands after the module specifier, not right after `}`,
-                                             same as import) but `true` for a plain named export with
-                                             no `from` clause (`export { Foo, Bar }`), whose own `}`
-                                             really is the statement's last token.
+                                             `tsc` typecheck pass):
+                                             `JsTsSpecificRule.classifyBraces` had no case for an
+                                             `export { ... }` brace header (only `import`), so a
+                                             single-specifier one-liner fell through to "statement
+                                             body" classification and got a bogus `;` inserted
+                                             before its own closing `}` -- a real parse error.
+                                             Fixed by adding an `isExportBraceHeader` case
+                                             mirroring the import one, with `needsSemicolon`
+                                             computed per-brace (false when followed by `from
+                                             '...'`, true for a plain named export with no `from`
+                                             clause).
 
-  real_code_regressions_99_inp/out.ts     -- JS/TS, vuejs/core real-code testing (found via the same
-                                             `tsc` pass as real_code_regressions_98):
-                                             `TokenizerCurly.isGenericSafeToken`'s OP case recognized
-                                             `:` as generic-safe for Kotlin only, not TS -- a TS
-                                             conditional type directly inside a generic argument list
-                                             (`Readonly<\n  A extends B\n    ? C\n    : D\n>`) hit its
-                                             own `:` branch separator, which invalidated the entire
-                                             enclosing `<...>` open-stack (the same "unrecognized OP"
-                                             fallback that already required carving out `|` for TS
-                                             union types) -- the outer `<`/`>` stayed plain OP tokens
-                                             instead of `ANGLE_BRACKET_OPEN`/`_CLOSE`, defeating
-                                             `JsTsSpecificRule.enforceSemicolonInsertion`'s depth
-                                             tracking (the real_code_regressions_97 fix) and wrongly
-                                             inserting a `;` before the clause's own closing `>`.
-                                             Fixed by adding `lang.isTs && ":".equals(t.text)`
-                                             alongside the existing Kotlin-only colon case.
+  real_code_regressions_99_inp/out.ts     -- JS/TS, vuejs/core real-code testing (found via the
+                                             same `tsc` pass as fixture 98):
+                                             `TokenizerCurly.isGenericSafeToken`'s OP case
+                                             recognized `:` as generic-safe for Kotlin only -- a TS
+                                             conditional type inside a generic argument list
+                                             (`Readonly<A extends B ? C : D>`) hit its own `:` and
+                                             invalidated the enclosing `<...>` tracking, defeating
+                                             fixture 97's depth tracking and wrongly inserting a
+                                             `;` before the clause's closing `>`. Fixed by adding
+                                             `lang.isTs && ":".equals(t.text)` alongside the
+                                             Kotlin-only case.
 
-  real_code_regressions_100_inp/out.ts    -- JS/TS, vuejs/core real-code testing (found via the same
-                                             `tsc` pass): `JsTsSpecificRule.enforceSemicolonInsertion`'s
-                                             NEWLINE-boundary continuation checks recognized a leading
-                                             `{`/`|`/`&`/`,` on the next line as "statement not actually
-                                             finished yet" but had no case for a `class`/`interface`
-                                             declaration header wrapping its own `extends`/`implements`
-                                             clause onto its own line (`export interface ParserOptions\n
-                                             extends ErrorHandlingOptions, CompilerCompatOptions {`) --
-                                             the declaration name's own trailing NEWLINE was wrongly
-                                             treated as a statement boundary and got a bogus `;` inserted
-                                             right after the interface/class name, splitting the header
-                                             into two syntactically invalid pieces. Fixed by adding a
-                                             lookahead case: a next-line leading `extends`/`implements`
-                                             KEYWORD token also means the previous line's statement isn't
-                                             finished yet, same as the existing `{`/`|`/`&`/`,` cases.
+  real_code_regressions_100_inp/out.ts    -- JS/TS, vuejs/core real-code testing (found via the
+                                             same `tsc` pass): `enforceSemicolonInsertion`'s
+                                             NEWLINE-boundary continuation checks had no case for a
+                                             class/interface header wrapping its own
+                                             `extends`/`implements` clause onto its own line -- the
+                                             declaration name's trailing NEWLINE was wrongly
+                                             treated as a statement boundary, splitting the header
+                                             with a bogus `;`. Fixed by adding a lookahead: a
+                                             next-line leading `extends`/`implements` keyword also
+                                             means the statement isn't finished, same as the
+                                             existing `{`/`|`/`&`/`,` cases.
 
-  real_code_regressions_101_inp/out.ts    -- JS/TS, vuejs/core real-code testing (found via the same
-                                             `tsc` pass): `JsTsSpecificRule.
-                                             enforceArrowFunctionParameterParens` wrapped any bare
-                                             IDENTIFIER immediately before `=>` in parens (STYLE_JS_TS.md
-                                             §6's always-parenthesize-single-param rule), with no check
-                                             for a TS explicit return-type annotation ending in a type
-                                             predicate or bare type name (`(node: Node): node is
-                                             Function => {...}`, `(a): SomeType => {...}`) -- the
-                                             identifier there is the tail of the return type, not a bare
-                                             arrow parameter, so wrapping it produced `node is
-                                             (Function) =>`, a real TS parse error
-                                             (`compiler-core/src/babelUtils.ts`'s `isFunctionType`).
-                                             Fixed by checking the token immediately preceding the
-                                             candidate identifier: if it's the return-type colon `:` or
-                                             the type-predicate keyword `is`, the identifier is a return
-                                             type, not a bare parameter, and is left unwrapped. A genuine
-                                             bare-param arrow (`x => x + 1`) is unaffected and still gets
-                                             wrapped.
+  real_code_regressions_101_inp/out.ts    -- JS/TS, vuejs/core real-code testing (found via the
+                                             same `tsc` pass):
+                                             `enforceArrowFunctionParameterParens` wrapped any bare
+                                             identifier before `=>` in parens with no check for a
+                                             TS return-type annotation ending in a type predicate
+                                             or bare type name (`(node: Node): node is Function =>
+                                             {...}`), wrapping the return type's tail as if it were
+                                             a parameter -- a real TS parse error. Fixed by
+                                             checking the token before the candidate identifier: a
+                                             preceding `:` or `is` means it's a return type, left
+                                             unwrapped.
 
-  real_code_regressions_102_inp/out.ts    -- JS/TS, vuejs/core real-code testing (found via the same
-                                             `tsc` pass): `TokenizerCurly.GENERIC_SAFE_KEYWORDS` was
-                                             missing TS's `true`/`false` boolean-literal-type keywords
-                                             (tokenized as KEYWORD, not IDENTIFIER, same as the
-                                             `symbol`/`bigint` gap fixed earlier). A `false`/`true`
-                                             type argument inside a multi-line generic clause
-                                             (`CreateComponentPublicInstanceWithMixins<..., false, {},
-                                             S>`) invalidated the whole `<...>` open-stack tracking in
-                                             `reclassifyAngleBrackets` before the matching `>` was
-                                             reached, leaving it a plain OP token instead of
-                                             ANGLE_BRACKET_CLOSE -- which then defeated
-                                             `JsTsSpecificRule.enforceSemicolonInsertion`'s depth
-                                             tracking, wrongly treating the NEWLINE before the final
-                                             `S` as a statement boundary and inserting a bogus `;`
-                                             right before the closing `>`
-                                             (`runtime-core/src/apiDefineComponent.ts`'s
-                                             `DefineSetupFnComponent` type alias). Fixed by adding
-                                             `"true"`/`"false"` to `GENERIC_SAFE_KEYWORDS`. A separate,
-                                             related fix landed in the same investigation:
-                                             `reclassifyAngleBrackets`'s existing "any `{`/`}`/`;`
-                                             clears the whole open stack" rule (meant to bail out of a
-                                             false-positive `<`/`>` guess once a real code block is
-                                             reached) was also firing on a legitimate nested
-                                             object-type argument (`{}`) inside an already-tracked
-                                             generic clause, wiping the outer `<`'s valid state too --
-                                             fixed with a `nestedBraceDepth` counter that skips the
-                                             clear-all for balanced `{...}` seen while the open stack is
-                                             non-empty. This fixture's actual boolean-literal repro only
-                                             needed the `GENERIC_SAFE_KEYWORDS` fix to pass, but the
-                                             nested-brace-clear fix is exercised by the same real
-                                             `{}, false, {}` argument sequence.
+  real_code_regressions_102_inp/out.ts    -- JS/TS, vuejs/core real-code testing (found via the
+                                             same `tsc` pass): `GENERIC_SAFE_KEYWORDS` was missing
+                                             TS's `true`/`false` boolean-literal-type keywords -- a
+                                             boolean type argument inside a multi-line generic
+                                             clause invalidated `reclassifyAngleBrackets`'s
+                                             open-stack tracking, defeating
+                                             `enforceSemicolonInsertion`'s depth tracking and
+                                             inserting a bogus `;` before the closing `>`. Fixed by
+                                             adding `true`/`false` to `GENERIC_SAFE_KEYWORDS`. A
+                                             related fix landed in the same investigation: the
+                                             existing "any `{`/`}`/`;` clears the whole open stack"
+                                             rule was also firing on a legitimate nested
+                                             object-type argument inside an already-tracked generic
+                                             clause; fixed with a `nestedBraceDepth` counter that
+                                             skips the clear-all for balanced `{...}` while the
+                                             open stack is non-empty.
 
-  real_code_regressions_103_inp/out.html  -- HTML5, WordPress/wordpress-develop real-code testing
-                                             (`tests/qunit/index.html`): `renderElement`'s multi-child
-                                             block-closing render path (used whenever an element's
-                                             children don't collapse to a single inline text/CDATA
-                                             child) never emitted `n.trailingComment`, unlike the other
-                                             three render branches (self-closing, sole-text-child,
-                                             empty-children) which all call `appendWithTrailing`. A
-                                             same-line trailing comment right after a block element's
-                                             closing tag (`</div><!-- end widget templates -->`) was
-                                             silently dropped whenever that div had element children
-                                             (not just a lone text node) -- real data loss, not just a
-                                             cosmetic diff. Fixed by routing the multi-child closing-tag
-                                             line through `appendWithTrailing` too.
+  real_code_regressions_103_inp/out.html  -- HTML5, WordPress/wordpress-develop real-code testing:
+                                             `renderElement`'s multi-child block-closing render
+                                             path never emitted `n.trailingComment`, unlike the
+                                             other three render branches -- a same-line trailing
+                                             comment right after a block element's closing tag was
+                                             silently dropped whenever that element had element
+                                             children (not just a lone text node), real data loss.
+                                             Fixed by routing the multi-child closing-tag line
+                                             through `appendWithTrailing` too.
 
   real_code_regressions_104_inp/out.html  -- HTML5, alexandersandberg/html5-elements-tester
                                              real-code testing (RDD_KEY_198): `<ruby>` uses HTML5's
-                                             optional/implied-end-tag tree-construction rule -- its
+                                             optional/implied-end-tag rule -- its
                                              `<rb>`/`<rt>`/`<rp>`/`<rtc>` children never carry an
-                                             explicit closing tag in valid markup. `parseElement`
-                                             previously had no notion of this at all and threw
-                                             `XmlParseException` outright. Fixed by adding a small,
-                                             extensible `OPAQUE_IMPLIED_END_TAG_ELEMENTS` set
-                                             (currently just `ruby`) that scans the whole element --
-                                             from its own opening `<` through its own MATCHING
-                                             `</ruby>` (nested same-name opens/closes tracked) -- as
-                                             one byte-for-byte-verbatim opaque span, reusing the same
-                                             "don't parse the interior" pattern already used for
-                                             `<script>`/`<style>`/`<pre>`. This fixture's second
-                                             `<ruby>` (no whitespace, three `<rb>`/three `<rt>`/one
-                                             `<rtc>`, all implied-closed) is copied verbatim from the
-                                             real dogfood repro; the first exercises a whitespace-
-                                             formatted, more typical `<ruby>` with `<rp>`/`<rt>` pairs.
+                                             explicit closing tag -- and `parseElement` had no
+                                             notion of this, throwing `XmlParseException`. Fixed by
+                                             adding an extensible `OPAQUE_IMPLIED_END_TAG_ELEMENTS`
+                                             set (currently just `ruby`) that scans the whole
+                                             element as one verbatim opaque span, reusing the
+                                             existing `<script>`/`<style>`/`<pre>` pattern.
 
-  real_code_regressions_105_inp/out.ts    -- JS/TS, vuejs/core real-code testing (final batch of
-                                             fixes found via the full 514-file dogfood tsc pass,
-                                             consolidated into one fixture): six independent
-                                             bugs, each isolated with a minimal repro before being
-                                             folded into this composite regression file --
-                                             (1) `TokenizerCurly.reclassifyAngleBrackets`'s
-                                             `nestedBraceDepth`-gated clear-all/invalidation guard
-                                             (added for fixture 102) only covered the nested `{`/`}`
-                                             delimiters themselves, not tokens *inside* them --
-                                             `Record<string, { local: string; default?: Expression
-                                             }>`'s member name `default` (a KEYWORD not in
-                                             `GENERIC_SAFE_KEYWORDS`) and the member-separator `;`
-                                             both still reached the outer `<...>`'s invalidation
-                                             checks and wiped it. Fixed by extending both the
-                                             `;`/`{`/`}` clear-all check and the
-                                             `isGenericSafeToken` invalidation check to skip while
-                                             `nestedBraceDepth > 0`, not just at the delimiters.
-                                             (2) A mapped-type object (`{ [key in Event]: ... }`)
-                                             as a generic type argument needed `ANGLE_BRACKET_OPEN`
-                                             added to `JsTsSpecificRule.classifyBraces`'s `isValue`
-                                             whitelist so the mapped-type's own `{` is recognized as
-                                             a value-position brace, not a block. (3) A ternary
-                                             nested inside a parenthesized grouping expression
-                                             (`(keyof T extends K ? true : false)`) had its `:`
-                                             misclassified as a return-type colon because the
-                                             preceding `)` closes a plain grouping paren, not a
-                                             real function signature -- fixed with a new
-                                             `isGroupingExpressionParen` helper (checks the token
-                                             before the matching `(` is not an operator) consulted
-                                             by `isTypeColonAt`. (4) `key is keyof typeof val =>
-                                             ...` wrongly wrapped `val` in parens because
-                                             `enforceArrowFunctionParameterParens`'s bail-out check
-                                             only recognized `is` as `prevPrev`, not `typeof`/
-                                             `keyof` -- both added to the bail-out. (5) A trailing
-                                             type-annotation `:` that wraps its type to the next
-                                             line got a bogus `;` inserted right after it, because
-                                             `needsSemicolonAfter`'s intended `isPunct(t, ":")`
-                                             guard never matches (`:` tokenizes as OP, not PUNCT)
-                                             -- fixed by adding `":"` to `CONTINUATION_OPS` instead,
-                                             which is the check that actually applies to OP tokens.
-                                             (6) A standalone TS function-type parameter list
-                                             (`(...args: any[]) => void`) got padded/tightened like
-                                             an arbitrary grouping paren by
-                                             `MiscRuleCore.enforceComplexityPadding`'s generic
-                                             non-identifier-preceded `(` branch -- fixed with a
-                                             `lang.isTs`-gated exception that skips padding when the
-                                             matching `)` is immediately followed by `=>` (the same
-                                             signal `isFunctionDefFollower` uses to recognize a real
-                                             signature). Separately, while chasing (5), `=>` and
-                                             `...` were also added to `isGenericSafeToken`'s
-                                             TS-safe OP list (a function-type generic argument like
-                                             `Map<(...args: any[]) => void, Handler>` was losing its
-                                             outer `<...>` tracking the same way); `...` had to be
-                                             gated to `lang.isTs` only after it was found to regress
-                                             C++'s variadic-template spacing in test 53
-                                             (`Args...`) when added unconditionally. All of these
-                                             bugs were found via the tsc typecheck pass on formatted
-                                             vuejs/core output (0 errors on the original tree; each
-                                             surfaced as a new tsc syntax error only after
-                                             formatting).
+  real_code_regressions_105_inp/out.ts    -- JS/TS, vuejs/core real-code testing (final batch from
+                                             the full 514-file dogfood tsc pass, consolidated into
+                                             one fixture): six independent bugs. (1)
+                                             `reclassifyAngleBrackets`'s `nestedBraceDepth` guard
+                                             (added for fixture 102) only covered the nested
+                                             `{`/`}` delimiters, not tokens inside them, still
+                                             letting an interior keyword/`;` wipe the outer `<...>`
+                                             tracking; fixed by extending both checks to skip while
+                                             `nestedBraceDepth > 0`. (2) A mapped-type object as a
+                                             generic type argument needed `ANGLE_BRACKET_OPEN`
+                                             added to `classifyBraces`'s `isValue` whitelist. (3) A
+                                             ternary nested inside a parenthesized grouping
+                                             expression had its `:` misclassified as a return-type
+                                             colon; fixed with a new `isGroupingExpressionParen`
+                                             helper. (4) `key is keyof typeof val => ...` wrongly
+                                             wrapped `val` in parens because the arrow-param
+                                             bail-out only recognized `is`, not `typeof`/`keyof`.
+                                             (5) A trailing type-annotation `:` wrapping to the
+                                             next line got a bogus `;` because
+                                             `needsSemicolonAfter`'s `isPunct(t, ":")` guard never
+                                             matches (`:` tokenizes as OP); fixed by adding `":"`
+                                             to `CONTINUATION_OPS` instead. (6) A standalone TS
+                                             function-type parameter list got padded like an
+                                             arbitrary grouping paren; fixed with a
+                                             `lang.isTs`-gated exception when the matching `)` is
+                                             followed by `=>`. Also added `=>`/`...` to
+                                             `isGenericSafeToken`'s TS-safe OP list (`...` gated to
+                                             TS only, to avoid regressing C++ variadic-template
+                                             spacing in fixture 53).
 
   real_code_regressions_106_inp/out.html  -- HTML5, unquoted attribute values (RDD_KEY_199). Found
-                                             via the `alexandersandberg/html5-elements-tester`
-                                             dogfood spot-check continuing past RDD_KEY_198's
-                                             `<ruby>` fix: `XmlSpecificRule.parseAttr` required a
-                                             quoted (`"`/`'`) attribute value and threw on the
-                                             file's `<select ... size=5>` (line 718), even though
-                                             unquoted attribute values are valid per the HTML5 spec
-                                             grammar (any run of characters with no whitespace,
-                                             quote, `=`, `<`, `>`, or backtick). Fixed by accepting
-                                             an unquoted value on the `lang.isHtml5` branch only
-                                             (plain XML still requires quotes, unchanged) and
-                                             preserving it unquoted on output -- no forced
-                                             normalization to double-quoted, consistent with this
-                                             codebase's existing "preserve as written" posture for
-                                             attribute quote-style choice (the quoted branch already
-                                             preserves whichever of `"`/`'` was written) and
-                                             elsewhere (JSON5 per-key quote style, TOML string quote
-                                             style). This fixture isolates the case with a `<select
-                                             size=5>`/multiple unquoted `<option value=...>` block
-                                             plus an `<input>` mixing unquoted values and a bare
-                                             boolean attribute (`disabled`), independent of the
-                                             `real_code_regressions_104` `<ruby>` fixture.
+                                             via the same `alexandersandberg/html5-elements-tester`
+                                             dogfood spot-check as fixture 104:
+                                             `XmlSpecificRule.parseAttr` required a quoted value
+                                             and threw on `<select ... size=5>`, even though
+                                             unquoted values are valid per the HTML5 spec grammar.
+                                             Fixed by accepting an unquoted value on the
+                                             `lang.isHtml5` branch only (plain XML still requires
+                                             quotes) and preserving it unquoted on output,
+                                             consistent with this codebase's "preserve as written"
+                                             posture elsewhere (JSON5/TOML quote style). Fixture
+                                             isolates a `<select size=5>`/unquoted `<option
+                                             value=...>` block plus an `<input>` mixing unquoted
+                                             values and a bare boolean attribute.
 
   real_code_regressions_107_inp/out.ts    -- JS/TS, vuejs/core real-code testing (found on the
-                                             final full-corpus tsc rerun, after fixture 105 landed):
-                                             `typeof` was missing from
-                                             `TokenizerCurly.GENERIC_SAFE_KEYWORDS` -- a `typeof`
-                                             type-query operand appearing inside a generic argument
-                                             list (`Record<(typeof identityMethods)[number], any>`,
-                                             `reactivity/__tests__/reactiveArray.spec.ts`;
-                                             `ReturnType<typeof createServer>`,
-                                             `vue/__tests__/e2e/trusted-types.spec.ts`) invalidated
-                                             the whole `<...>` open-stack tracking before the
-                                             matching `>` was reached, same class of bug as the
-                                             `keyof`/`is`/`infer`/etc. gap fixed for fixture 101.
-                                             In the multi-line `Record<...>` case this produced a
-                                             bogus `;` right before the closing `>` (same symptom
-                                             as fixture 102). In the single-line `ReturnType<...>`
-                                             case, losing the `<...>` tracking left the closing `>`
-                                             a plain OP token, which defeated
-                                             `enforceSemicolonInsertion`'s statement-boundary
-                                             detection entirely and merged the following
-                                             `beforeAll(...)` statement onto the same line as the
-                                             `let server: ...` declaration -- a more severe symptom
-                                             than the usual bogus-semicolon case, since a missing
-                                             ANGLE_BRACKET_CLOSE can also suppress the newline that
-                                             would otherwise separate two adjacent statements.
-                                             Fixed by adding `"typeof"` to `GENERIC_SAFE_KEYWORDS`.
+                                             final full-corpus tsc rerun, after fixture 105
+                                             landed): `typeof` was missing from
+                                             `GENERIC_SAFE_KEYWORDS` -- a `typeof` type-query
+                                             operand inside a generic argument list
+                                             (`Record<(typeof identityMethods)[number], any>`,
+                                             `ReturnType<typeof createServer>`) invalidated the
+                                             `<...>` open-stack tracking, same class of bug as the
+                                             `keyof`/`is`/`infer` gap fixed for fixture 101. In the
+                                             multi-line case this produced a bogus `;` before the
+                                             closing `>`; in the single-line case, losing the
+                                             tracking left `>` a plain OP token, defeating
+                                             statement-boundary detection entirely and merging the
+                                             following statement onto the same line. Fixed by
+                                             adding `typeof` to `GENERIC_SAFE_KEYWORDS`.
 
 How Tests Are Run
 -----------------

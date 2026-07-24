@@ -53,17 +53,17 @@ clean:
 #
 # Pool A (keyword-ambiguity): compiles and runs `tools/gru/ExtractPoolA.java` against a comment corpus
 # extracted by `tools/gru/extract_comments.py`, keeping only comments the real CommentClassifier ABSTAINs
-# on due to `hasLeadingKeywordMatch` (excludes NonLatinScriptGate ABSTAINs -- those are a different,
+# on due to `hasLeadingKeywordMatch` (excludes `NonLatinScriptGate` ABSTAINs -- those are a different,
 # non-keyword-ambiguity signal, see STATE_AI.md item 9's TTGO_VGA32_Lite/RobotCoding investigation).
 #
-# Pool B (period-ambiguity): runs tools/gru/extract_pool_b.py's RDD_EXT_15 grep-based recall-favoring
-# filter directly over the same corpus format -- not derived from CommentClassifier at all, a separate
+# Pool B (period-ambiguity): runs `tools/gru/extract_pool_b.py`'s RDD_EXT_15 grep-based recall-favoring
+# filter directly over the same corpus format -- not derived from `CommentClassifier` at all, a separate
 # ambiguity class.
 #
 # Usage:
-#   python3 tools/gru/extract_comments.py <root-dir> [<root-dir> ...] --out /tmp/comments.txt
-#   make gru-extract-pool-a GRU_ABSTAIN_INPUT=/tmp/comments.txt GRU_POOL_A_OUT=/tmp/pool_a.txt
-#   make gru-extract-pool-b GRU_ABSTAIN_INPUT=/tmp/comments.txt GRU_POOL_B_OUT=/tmp/pool_b.txt
+#     python3 tools/gru/extract_comments.py <root-dir> [<root-dir> ...] --out /tmp/comments.txt
+#     make gru-extract-pool-a GRU_ABSTAIN_INPUT=/tmp/comments.txt GRU_POOL_A_OUT=/tmp/pool_a.txt
+#     make gru-extract-pool-b GRU_ABSTAIN_INPUT=/tmp/comments.txt GRU_POOL_B_OUT=/tmp/pool_b.txt
 #
 GRU_TOOLS_DIR      = tools/gru
 GRU_BUILD_DIR      = $(BUILD_DIR)/gru
@@ -90,13 +90,13 @@ gru-extract-pool-b:
 
 # ── GRU ABSTAIN-rate measurement (STATE_AI.md Step 3 open item 9) ───────────
 #
-# Compiles and runs tools/gru/CommentAbstainTally.java against a comment corpus extracted by
-# `tools/gru/extract_comments.py`, tallying the real rule-based CommentClassifier's YES/NO/ABSTAIN counts.
+# Compiles and runs `tools/gru/CommentAbstainTally.java` against a comment corpus extracted by
+# `tools/gru/extract_comments.py`, tallying the real rule-based `CommentClassifier`'s YES/NO/ABSTAIN counts.
 # This is item 9's  measurement step -- not a decision, an actual run against real comments.
 #
 # Usage:
-#   python3 tools/gru/extract_comments.py <root-dir> [<root-dir> ...] --out /tmp/comments.txt
-#   make gru-measure-abstain-rate GRU_ABSTAIN_INPUT=/tmp/comments.txt
+#     python3 tools/gru/extract_comments.py <root-dir> [<root-dir> ...] --out /tmp/comments.txt
+#     make gru-measure-abstain-rate GRU_ABSTAIN_INPUT=/tmp/comments.txt
 #
 GRU_ABSTAIN_INPUT ?=
 
@@ -112,20 +112,20 @@ gru-measure-abstain-rate: $(JAR_FILE)
 
 # ── GRU trainer target ───────────────────────────────────────────────────────
 #
-# Compiles and runs tools/gru/GruTrainer.java (a non-shipped, outside-src/training entry point per
-# STATE_AI.md), writing a scalar-architecture- constants-only weights file to `$(BUILD_DIR)/gru/weights.json`.
-# The real training loop remains blocked on STATE_AI.md open items 3/4/9/10; see GruTrainer's own javadoc.
-# Uses tools/gru/sample_examples.txt, a placeholder/dummy labeled-examples file (no real labeled dataset exists
-# yet), just to satisfy GruTrainer's positional-arg validation.
+# Compiles and runs `tools/gru/GruTrainer.java` (a non-shipped, outside-src/training entry point per
+# `STATE_AI.md`), writing a scalar-architecture- constants-only weights file to `$(BUILD_DIR)/gru/weights.json`.
+# The real training loop remains blocked on `STATE_AI.md` open items 3/4/9/10; see `GruTrainer`'s own javadoc.
+# Uses `tools/gru/sample_examples.txt`, a placeholder/dummy labeled-examples file (no real labeled dataset exists
+# yet), just to satisfy `GruTrainer`'s positional-arg validation.
 #
-# Config.DEFAULT_GRU_WEIGHTS_PATH is empty by default -- GruAbstainResolver derives the weights-file location
-# from the running program's own directory instead (the jar's parent dir when run via -jar, or $(CLASS_DIR)
-# itself for a dev/test run against classes -- see GruAbstainResolver.programDirectory()/WEIGHTS_FILENAME).
-# So after writing the build-artifact weights file, this target also copies it into $(CLASS_DIR) under that expected
-# filename, so `make test`/dev runs against $(CLASS_DIR) can find it. The commented-out `cp` below mirrors the
-# similarly-commented-out `@cp $(JAR_FILE) .` above: when that jar-copy line is enabled (e.g. for the top-level
-# dist_build/jxmake_dist packaging step, see apps/code-formatter/ in that tree), enable this one alongside it so
-# the weights file ships next to the jar the same way.
+# `Config.DEFAULT_GRU_WEIGHTS_PATH` is empty by default -- `GruAbstainResolver` derives the weights-file location
+# from the running program's own directory instead (the jar's parent dir when run via `-jar`, or `$(CLASS_DIR)`
+# itself for a dev/test run against classes -- see `GruAbstainResolver.programDirectory`/WEIGHTS_FILENAME).
+# So after writing the build-artifact weights file, this target also copies it into `$(CLASS_DIR)` under that
+# expected filename, so `make test`/developer runs against `$(CLASS_DIR)` can find it. The commented-out `cp` below
+# mirrors the similarly-commented-out `@cp $(JAR_FILE) .` above: when that jar-copy line is enabled (e.g. for
+# the top-level dist_build/jxmake_dist packaging step, see `apps/code-formatter/` in that tree), enable this one
+# alongside it so the weights file ships next to the jar the same way.
 #
 GRU_WEIGHTS_FILENAME = code-formatter-ai-assist-weights.json
 GRU_WEIGHTS_OUT      = $(GRU_BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)
@@ -146,10 +146,10 @@ gru-train: $(JAR_FILE)
 #     Forward pass:    format *_inp.<ext>  → diff result vs *_out.<ext>
 #     Idempotency:     format *_out.<ext>  → diff result vs *_out.<ext>
 #
-# Uses --standalone to avoid depending on a running server instance.
+# Uses `--standalone` to avoid depending on a running server instance.
 # On any diff mismatch the loop prints the offending file and exits non-zero.
 #
-# Override JAVA or JAR_FILE on the command line if needed:
+# Override `JAVA` or `JAR_FILE` on the command line if needed:
 #     make test JAVA=/path/to/java
 #     make test JAR_FILE=/path/to/code-formatter-1.00.jar
 #
@@ -182,7 +182,7 @@ INP_FILES += kt_comments_inp.kt
 INP_FILES += in_file_config_inp.hpp
 INP_FILES += in_file_config_inp.java
 INP_FILES += in_file_config_inp.kt
-# - Deliberately error-only (duplicate JXM_CFMT_CFG directive).
+# - Deliberately error-only (duplicate `JXM_CFMT_CFG` directive).
 # - It will always FAIL the normal `diff` loop, since the formatter exits 1 with no output for it.
 # - It is kept commented out so `make test` stays green; uncomment to exercise its hard-error path manually.
 # - See `test/in_file_config_error_out.hpp` for the expected error message.
@@ -350,11 +350,10 @@ test: $(JAR_FILE)
 	@mkdir -p $(BUILD_DIR)
 	@flock $(TEST_LOCK) $(MAKE) --no-print-directory _test_serial
 
-# Actual `test` body, run one-at-a-time under `test`'s flock -- concurrent
-# `make test` invocations (e.g. from parallel dogfood sessions) share the same
-# $(TEST_TMP) directory, so running them simultaneously would race on it
-# (one invocation's `rm $(TEST_TMP)/*` deleting another's in-flight results).
-# flock makes a second concurrent call block and queue instead of racing.
+# Actual `test` body, run one-at-a-time under `test`'s `flock` -- concurrent # `make test` invocations
+# (e.g. from parallel dogfood sessions) share the same `$(TEST_TMP)` directory, so running them simultaneously
+# would race on it (one invocation's `rm $(TEST_TMP)/*` deleting another's in-flight results). `flock` makes
+# a second concurrent call block and queue instead of racing.
 _test_serial:
 	@(                                                                             \
 		export JXMAKE_CODE_FORMATTER_FORMAT_MACROS=on;                         \
@@ -429,15 +428,15 @@ _test_serial:
 
 # ── Bench target ─────────────────────────────────────────────────────────────
 #
-# Benchmarks total formatting time (excluding server start/stop) across the
-# 15 *_inp.* test files in four configurations:
+# Benchmarks total formatting time (excluding server start/stop) across the test files in four
+# configurations:
 #
-#     1. --standalone,  one file per invocation
-#     2. --standalone,  all files in one invocation
-#     3. client-server, one file per invocation
-#     4. client-server, all files in one invocation
+#     1. `--standalone`, one file per invocation
+#     2. `--standalone`, all files in one invocation
+#     3. client-server , one file per invocation
+#     4. client-server , all files in one invocation
 #
-# Override JAVA or JAR_FILE on the command line if needed, same as `make test`.
+# Override `JAVA` or `JAR_FILE` on the command line if needed, same as `make test`.
 #
 bench: $(JAR_FILE)
 	@(                                                                                                                                              \
@@ -494,11 +493,10 @@ bench: $(JAR_FILE)
 
 # ── Server-mode test target ───────────────────────────────────────────────────
 #
-# Functional (not benchmark) coverage of the /format inline-config query
-# parameters added for browser/no-real-file clients, plus general dispatch
-# coverage now that data formats/JS-TS/Python3/HTML5 are all real (no longer
-# scaffold-only), so JSX/TSX are the only languages left to exercise the
-# scaffold-only-rejection path:
+# Functional (not benchmark) coverage of the /format inline-config query parameters added for
+# browser/no-real-file clients, plus general dispatch coverage now that data formats/JS-TS/
+# Python3/HTML5 are all real (no longer scaffold-only), so JSX/TSX are the only languages left
+# to exercise the scaffold-only-rejection path:
 #
 #     1. inline config, no `path` (path optional when lang + inline present)
 #     2. inline config overriding a `.jxmake-code-formatter` file next to `path`
@@ -509,9 +507,8 @@ bench: $(JAR_FILE)
 #     6. an unrecognized `lang` (e.g. `jsx` -- no longer even scaffold-only,
 #        since `Lang.SCAFFOLD_ONLY_LANGUAGES` is now empty) -> HTTP 400
 #
-# Runs against a dedicated port so it doesn't collide with a server a
-# developer already has running. Always stops its own server on exit, pass
-# or fail.
+# Runs against a dedicated port so it doesn't collide with a server a developer already has running.
+# Always stops its own server on exit, pass or fail.
 #
 TEST_SERVER_PORT := 17999
 TEST_SERVER_TMP   = $(BUILD_DIR)/test-server-out
@@ -556,29 +553,29 @@ test-server: $(JAR_FILE)
 			--data-binary @$(TEST_SERVER_TMP)/Sample.java);                                                           \
 		if [ "$$code" = "400" ]; then echo "PASS (HTTP $$code)"; else echo "FAIL (HTTP $$code)"; fail=1; fi;              \
 		echo "";                                                                                                          \
-		echo "=== Server test: lang auto-inferred from path extension ===";                                              \
+		echo "=== Server test: lang auto-inferred from path extension ===";                                               \
 		code=$$(curl -s -o $(TEST_SERVER_TMP)/r4 -w '%{http_code}'                                                        \
-			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.yaml"                          \
+			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.yaml"                         \
 			--data-binary @$(TEST_SERVER_TMP)/Sample.yaml);                                                           \
-		if [ "$$code" = "200" ]; then echo "PASS (HTTP $$code, .yaml path inferred lang without 'lang=')";               \
-		else echo "FAIL (HTTP $$code)"; fail=1; fi;                                                                      \
+		if [ "$$code" = "200" ]; then echo "PASS (HTTP $$code, .yaml path inferred lang without 'lang=')";                \
+		else echo "FAIL (HTTP $$code)"; fail=1; fi;                                                                       \
 		echo "";                                                                                                          \
-		echo "=== Server test: full round-trip through a non-Java language (yaml) ===";                                  \
+		echo "=== Server test: full round-trip through a non-Java language (yaml) ===";                                   \
 		code=$$(curl -s -o $(TEST_SERVER_TMP)/r5 -w '%{http_code}'                                                        \
-			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.yaml&lang=yaml"              \
+			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.yaml&lang=yaml"               \
 			--data-binary @$(TEST_SERVER_TMP)/Sample.yaml);                                                           \
 		if [ "$$code" = "200" ] && ! diff -q $(TEST_SERVER_TMP)/Sample.yaml $(TEST_SERVER_TMP)/r5 > /dev/null 2>&1; then  \
-			echo "PASS (HTTP $$code, output differs from input -- real formatting happened, not an echo)";           \
+			echo "PASS (HTTP $$code, output differs from input -- real formatting happened, not an echo)";            \
 		else                                                                                                              \
-			echo "FAIL (HTTP $$code, or output was an unmodified echo of the input)"; fail=1;                        \
+			echo "FAIL (HTTP $$code, or output was an unmodified echo of the input)"; fail=1;                         \
 		fi;                                                                                                               \
 		echo "";                                                                                                          \
-		echo "=== Server test: unrecognized lang (jsx) still rejected ===";                                              \
+		echo "=== Server test: unrecognized lang (jsx) still rejected ===";                                               \
 		code=$$(curl -s -o $(TEST_SERVER_TMP)/r6 -w '%{http_code}'                                                        \
-			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.yaml&lang=jsx"               \
+			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.yaml&lang=jsx"                \
 			--data-binary @$(TEST_SERVER_TMP)/Sample.yaml);                                                           \
-		if [ "$$code" = "400" ]; then echo "PASS (HTTP $$code, jsx correctly rejected)";                                 \
-		else echo "FAIL (HTTP $$code)"; fail=1; fi;                                                                      \
+		if [ "$$code" = "400" ]; then echo "PASS (HTTP $$code, jsx correctly rejected)";                                  \
+		else echo "FAIL (HTTP $$code)"; fail=1; fi;                                                                       \
 		echo "";                                                                                                          \
 		$(JAVA) -jar $(JAR_FILE) --port $(TEST_SERVER_PORT) --stop > /dev/null 2>&1 || true;                              \
 		if [ $$fail -ne 0 ]; then exit 1; fi;                                                                             \

@@ -33,8 +33,8 @@ Be careful not to lose important information, especially the `**Tools/compiler u
 `indent-size` exception, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_71_inp/out.yaml`
-    to   `real_code_regressions_79_inp/out.py`
+    from `real_code_regressions_108_inp/out.html`
+    to   `...`
 [DONE]
 
 
@@ -57,86 +57,63 @@ for reproducing bugs and mini/small tests (not the cloned repositories) them and
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 
-Continue with XXX dogfood test (search in /tmp first, clone the repo if not found;
-use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent):
+Continue with the dogfood test (search in `/tmp` first, clone the repo if not found):
 ...
 When fixing bugs, only reformat and re-syntax-checking the affected files; reformatting and
 re-syntax-checking already correct files are a waste of time. Only after all bugs are fixed is
-a full reformat and re-syntax-checking test allowed. Try reformat with `indent-size = 2` if
-the idempotency test failed.
+a full reformat and re-syntax-checking test allowed. Try reformat with `indent-size = 2` if the
+idempotency test failed. Use `tools/syntax_checker` to syntax check. Use one sub-agent as needed,
+the sub-agent can launch up to one more research sub-sub-agent)
+
+
 
 JSON5:
 CSS:
 YAML:
-    `github.com/prometheus/prometheus` [with vendor/built exclusions built in]
-    `github.com/home-assistant/core`
 TOML:
 
 XML:
-    `github.com/apache/ant`        [LARGE]
-    `github.com/jenkinsci/jenkins` [HUGE]
+    [ 1] `github.com/jenkinsci/jenkins`
+
+Kotlin:
+    [13] `github.com/JetBrains/kotlin` [HUGE, ~3000 kLOC of effective Kotlin code]
+
+Java:
+    [ 4] `github.com/jenkinsci/jenkins`
+    [ 7] `github.com/apache/ant`
+    [ 9] `github.com/openrewrite/rewrite` [~700 kLOC of effective Java code]
+
+C/C++:
+    [ 6] `github.com/microsoft/STL`    [~350 kLOC of effective C/C++ code]
+    [ X]`github.com/gcc-mirror/gcc`    [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
+    [ X]`github.com/llvm/llvm-project` [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
 
 C++26:
-    `github.com/stephenberry/glaze` [NEXT]
-    `ryanjk5.github.io/posts/rjk-duck` (blog post, not a repo)
 
 HTML5:
-    `github.com/twbs/bootstrap` (docs site)
-    `github.com/mdn/content` [HUGE]
-    `github.com/whatwg/html` [HUGE]
+    [ 2] `https://github.com/web-platform-tests/wpt`
 
 JS:
-    `github.com/lodash/lodash` [dense functional-style JS, bracket-padding stress test]
-    `github.com/nodejs/node`   [large, mixed-style JS core + tooling]
+    [ 3] `github.com/lodash/lodash` [dense functional-style JS, bracket-padding stress test]
+    [ X] `github.com/nodejs/node`   [TOO MASSIVE, mixed-style JS core + tooling]
 
 TS:
-    `github.com/nestjs/nest` [NEXT]   [decorator/generic-heavy backend TS, type-annotation alignment]
-    `github.com/vuejs/core`           [modern TS, heavy generics and type-level code]
-    `github.com/angular/angular`      [large, idiomatic, decorator-heavy real TS]
-    `github.com/microsoft/TypeScript` [the compiler itself; canonical, heavily-typed real TS at scale]
+    [10] `github.com/angular/angular`      [HUGE, idiomatic, decorator-heavy real TS]
+    [11] `github.com/microsoft/TypeScript` [HUGE, the compiler itself; canonical, heavily-typed real TS at scale]
 
 Python3:
-    `github.com/pallets/click`  [NEXT] [dense decorator and nested-call-argument use]
-    `github.com/psf/black`      [a formatter itself; its own tests/data corpus may be directly reusable]
-    `github.com/django/django`  [large real-world Python, heavy decorator/class-based-pattern density]
-    `github.com/python/cpython` [reference implementation's own stdlib; large, disciplined, real-world]
+    [ 5] `github.com/psf/black`      [a formatter itself; its own tests/data corpus may be directly reusable]
+    [ 8] `github.com/django/django`  [large real-world Python, heavy decorator/class-based-pattern density]
+    [12] `github.com/python/cpython` [HUGE, densereference implementation's own stdlib; large, disciplined, real-world]
 
-----------------------------------------------------------------------------------------------------
-----------------------------------------------------------------------------------------------------
-----------------------------------------------------------------------------------------------------
 
-Continue with C/C++ work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to one more research sub-sub-agent):
+
+Continue with the dogfood test (in parallel; search in `/tmp` first, clone the repo if not found):
 ...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Try reformat with `indent-size = 2` if the idempotency test failed.
-    `github.com/microsoft/STL`     [~350 kLOC of effective C/C++ code] [NEXT - #1]
-    `github.com/gcc-mirror/gcc`    [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
-    `github.com/llvm/llvm-project` [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
-
-----------------------------------------------------------------------------------------------------
-
-Continue with Java work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to one more research sub-sub-agent):
-...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Use `java_sc` instead of `javac` if necessary. Try reformat with
-`indent-size = 2` if the idempotency test failed.
-    `../../../src` minus the already-DONE `../../../src/jxm` subtree    [NEXT - #0]
-    `github.com/openrewrite/rewrite` [~700 kLOC of effective Java code] [NEXT - #2]
-
-----------------------------------------------------------------------------------------------------
-
-Continue with Kotlin work (search in /tmp first, clone the repo if not found; use one sub-agent,
-the sub-agent can launch up to one more research sub-sub-agent):
-...
-When fixing bugs, only reformat and recompile the affected files; reformatting and recompiling
-already correct files are a waste of time. Only after all bugs are fixed is a full reformat and
-recompile test allowed. Use `kotlin_sc` instead of Gradle-copy dance. Try reformat with
-`indent-size = 2` if the idempotency test failed.
-    `github.com/JetBrains/kotlin` [~3000 kLOC of effective Kotlin code]
+When fixing bugs, only reformat and re-syntax-checking the affected files; reformatting and
+re-syntax-checking already correct files are a waste of time. Only after all bugs are fixed is
+a full reformat and re-syntax-checking test allowed. Try reformat with `indent-size = 2` if the
+idempotency test failed. Use `tools/syntax_checker` to syntax check. No worktree, the GIT is old.
 
 ####################################################################################################
 ####################################################################################################

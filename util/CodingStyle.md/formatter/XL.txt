@@ -34,7 +34,7 @@ Be careful not to lose important information, especially the `**Tools/compiler u
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_108_inp/out.html`
-    to   `...`
+    to   `real_code_regressions_113_inp/out.java`
 [DONE]
 
 
@@ -63,25 +63,14 @@ When fixing bugs, only reformat and re-syntax-checking the affected files; refor
 re-syntax-checking already correct files are a waste of time. Only after all bugs are fixed is
 a full reformat and re-syntax-checking test allowed. Try reformat with `indent-size = 2` if the
 idempotency test failed. Use `tools/syntax_checker` to syntax check. Use one sub-agent as needed,
-the sub-agent can launch up to one more research sub-sub-agent)
+the sub-agent can launch up to one more research sub-sub-agent). If there are many errors, work
+in batch, store the rest in the corresponding state file.
+
+Start with the dogfood test for:
+...
+If there are many errors, work in batch, store the rest in the corresponding state file.
 
 
-
-JSON5:
-CSS:
-YAML:
-TOML:
-
-XML:
-    [ 1] `github.com/jenkinsci/jenkins`
-
-Kotlin:
-    [13] `github.com/JetBrains/kotlin` [HUGE, ~3000 kLOC of effective Kotlin code]
-
-Java:
-    [ 4] `github.com/jenkinsci/jenkins`
-    [ 7] `github.com/apache/ant`
-    [ 9] `github.com/openrewrite/rewrite` [~700 kLOC of effective Java code]
 
 C/C++:
     [ 6] `github.com/microsoft/STL`    [~350 kLOC of effective C/C++ code]
@@ -90,12 +79,24 @@ C/C++:
 
 C++26:
 
-HTML5:
-    [ 2] `https://github.com/web-platform-tests/wpt`
+Java: `jenkinsci/jenkins` `IN PROGRESS`
+    [ ~] `github.com/jenkinsci/jenkins`
+    [ 7] `github.com/apache/ant`
+    [ 9] `github.com/openrewrite/rewrite` [~700 kLOC of effective Java code]
 
-JS:
-    [ 3] `github.com/lodash/lodash` [dense functional-style JS, bracket-padding stress test]
-    [ X] `github.com/nodejs/node`   [TOO MASSIVE, mixed-style JS core + tooling]
+Kotlin:
+    [13] `github.com/JetBrains/kotlin` [HUGE, ~3000 kLOC of effective Kotlin code]
+
+JSON:
+JSON5:
+CSS:
+YAML:
+TOML:
+XML:
+HTML5: `**TODO -- adoption agency, foster-parenting, ...`
+
+JS: `**TODO (low priority, not currently queued):** teach ...`
+    [ X] `github.com/nodejs/node` [TOO MASSIVE, mixed-style JS core + tooling]
 
 TS:
     [10] `github.com/angular/angular`      [HUGE, idiomatic, decorator-heavy real TS]

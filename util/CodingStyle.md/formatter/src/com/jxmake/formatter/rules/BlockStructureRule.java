@@ -53,6 +53,12 @@ public class BlockStructureRule {
      *  constructor), not a hardcoded literal, same bug class as `SwitchRule.deriveUnit`'s own
      *  former fallback. */
     private final String indentUnit;
+    /** STYLE.md's overall line-length ceiling, used only by {@link #alignBracelessElseIfChain} to
+     *  refuse to column-pad a chain branch past this width -- see that method's own javadoc for
+     *  why (vuejs/core real-code testing: a padded-but-still-fits-check-stale consequent call
+     *  could otherwise silently render over the limit with no downstream pass left to re-wrap
+     *  it, since this pass runs last). */
+    private final int lineLengthLimit;
 
     public BlockStructureRule(final Lang lang) {
         this(lang, DEFAULT_CLOSING_COMMENT_MIN_LINES);
@@ -63,8 +69,14 @@ public class BlockStructureRule {
     }
 
     public BlockStructureRule(final Lang lang, final int closingCommentMinLines, final int indentWidth) {
+        this(lang, closingCommentMinLines, indentWidth, MiscRuleCore.DEFAULT_LINE_LENGTH_LIMIT);
+    }
+
+    public BlockStructureRule(final Lang lang, final int closingCommentMinLines, final int indentWidth,
+            final int lineLengthLimit) {
         this.lang = lang;
         this.closingCommentMinLines = closingCommentMinLines;
+        this.lineLengthLimit = lineLengthLimit;
         final StringBuilder sb = new StringBuilder();
         for (int i = 0; i < indentWidth; i++) {
             sb.append(' ');
@@ -407,10 +419,37 @@ public class BlockStructureRule {
         if (containsLineComment(tokens.subList(kwIndex, block.closeParenIndex + 1))) {
             return null;
         }
+        // Refuse to collapse when the body itself contains a `{`/`}` pair (an object literal or
+        // similar brace-delimited expression, e.g. `if (x) foo.value = { a: 1, b: 2 };`) --
+        // `renderInline` flattens the whole body (including that inner literal's own original
+        // multi-line layout, if any) onto one physical line with no structural memory of it.
+        // `enforceCallLineBreaking` can later re-wrap a call nested inside that literal, but has
+        // no signal that the literal's own closing `}` should land on its own line rather than
+        // staying fused to whatever text follows the wrapped call's own closing `)` -- stable only
+        // once the input already has that closing `}` split onto its own line from a prior format
+        // pass (i.e. never stable starting from a fresh, still-braced source). Leaving the body
+        // braced sidesteps the whole class of bug entirely; STYLE.md's own worked examples for
+        // this rule never include an object-literal consequent, so no coverage is lost (found via
+        // vuejs/core real-code testing, `parser.ts`'s `onCloseTag`'s `inlineTemplateProp.value =
+        // { ... }` and `compiler-sfc/resolveType.ts`'s analogous shape).
+        if (containsBrace(contents)) {
+            return null;
+        }
         final String prefix = tightenParenPrefix(tokens.get(kwIndex).text,
                 renderInline(tokens.subList(kwIndex, block.closeParenIndex + 1)));
         final String body = renderInline(contents);
         return prefix + " " + body;
+    }
+
+    /** True iff any token in {@code slice} is a `{` or `}` punctuator -- see {@link #tryCollapse}
+     *  for why a body containing one is refused collapse. */
+    private boolean containsBrace(final List<Token> slice) {
+        for (final Token t : slice) {
+            if (isPunct(t, "{") || isPunct(t, "}")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** True iff any token in {@code slice} is a {@code COMMENT_LINE} -- the "unsafe to flatten
@@ -2684,6 +2723,25 @@ public class BlockStructureRule {
                     continue;
                 }
                 final int spaces = Math.max(1, target - end);
+                // Refuse to pad this branch past lineLengthLimit *when the un-padded line would
+                // otherwise still fit* -- alignBracelessElseIfChain runs last (see this method's
+                // own javadoc), so there is no downstream pass left to re-wrap a consequent call
+                // that this column padding alone pushes over the limit; a fresh format would
+                // otherwise commit a width no re-check ever validates, going stale (and
+                // re-collapsing back down) the moment the file is formatted again (found via
+                // vuejs/core real-code testing -- widespread across the corpus, e.g. `scripts/
+                // release.js`'s `else console.log(...)`). Leaving this one branch un-aligned
+                // (single space, its own natural width) is the same conservative "only touch what
+                // unambiguously matches" posture the rest of this class already uses elsewhere. If
+                // the branch's own natural (unpadded) width already exceeds the limit -- nothing
+                // this pass does created that, some earlier pass already accepted it as
+                // unavoidably long -- padding it further changes nothing about whether a
+                // downstream pass would need to react, so it's still applied (matches existing
+                // accepted test output for e.g. long `if(...) return "..." + ...;` bodies).
+                final boolean naturalAlreadyOverLimit = end + 1 + body.length() > lineLengthLimit;
+                if (!naturalAlreadyOverLimit && end + spaces + body.length() > lineLengthLimit) {
+                    continue;
+                }
                 final StringBuilder sb = new StringBuilder(line.substring(0, end));
                 for (int s = 0; s < spaces; s++) {
                     sb.append(' ');

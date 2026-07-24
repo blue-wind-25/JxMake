@@ -45,7 +45,8 @@ public final class FormatterCurly extends FormatterCore {
 
         final int indentWidth = config.indentSize();
         final int lineLengthLimit = config.lineLength();
-        final BlockStructureRule blockRule = new BlockStructureRule(lang, config.closingCommentMinLines(), indentWidth);
+        final BlockStructureRule blockRule = new BlockStructureRule(lang, config.closingCommentMinLines(),
+                indentWidth, lineLengthLimit);
         final SwitchRule switchRule = new SwitchRule(lang, lineLengthLimit, indentWidth);
         final MiscRuleCurly miscRule = new MiscRuleCurly(lang, config.isNormalizeCommentStartCase(),
                 config.isNormalizeCommentEndPeriod(), config.isCommentNormalizationClassifier(),
@@ -241,6 +242,27 @@ public final class FormatterCurly extends FormatterCore {
         // already fits or is already wrapped) re-derives the fits-vs-wraps decision against the
         // now-final column (see javaparser/javaparser's `CsmAttribute.java` bug).
         text = miscRule.enforceCallLineBreaking(tokenizer.apply(text));
+        // Same "re-tightens/loosens whatever enforceCallLineBreaking just finalized" reasoning as
+        // the enforceComplexityPadding call directly above (232), needed again here because this
+        // second enforceCallLineBreaking pass (243) can itself collapse a candidate that the first
+        // pass (209) had wrapped multi-line -- e.g. a nested call whose own "does this whole
+        // physical line fit" fits-check (`effectiveLineEndIndex`) sees a much longer line on a
+        // fresh, not-yet-reflowed format (still fused to a sibling call's own not-yet-wrapped,
+        // still-on-one-physical-line body) than it does once that sibling has already been wrapped
+        // multi-line by an earlier pass -- so the same candidate correctly wraps on pass 209 (its
+        // own single-line rendering measures as "too long" only because of the unrelated
+        // not-yet-wrapped sibling fused onto the same physical line), gets left multi-line-but-
+        // unpadded by complexity-padding at 232 (a NEWLINE inside its own `(...)`, from that
+        // wrapping, blocks padding for a multi-line pair the same as any other), then collapses
+        // back to one line here at 243 once the now-already-wrapped sibling no longer inflates the
+        // fits-check -- but that collapse renders via the generic tight-by-default token join with
+        // no complexity-padding awareness of its own, discarding the loose `( x )` padding a nested
+        // `(`/`[` inside it (STYLE.md §3.1) requires. Stable only on a second format pass, once the
+        // sibling is already wrapped from the start and this candidate never needs the 209-then-243
+        // wrap-then-collapse round-trip at all (found via vuejs/core real-code testing,
+        // `componentPublicInstance.ts`'s `isReservedPrefix(key[0])` inside an `if` whose consequent
+        // is itself a multi-line `warn(...)` call).
+        text = miscRule.enforceComplexityPadding(tokenizer.apply(text));
         text = miscRule.insertBlankLineBeforeReturn(tokenizer.apply(text));
 
         // Phase 2: comment-style normalization -- must precede Phase 3 (RDD_KEY_47).

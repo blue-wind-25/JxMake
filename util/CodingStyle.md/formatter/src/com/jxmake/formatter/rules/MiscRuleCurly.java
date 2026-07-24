@@ -1480,23 +1480,58 @@ private boolean isFunctionBodyQualifier(final Token t) {
         }
     }
     /** Renders {@code tokens[fromInclusive, toInclusive]} verbatim except every whitespace/newline
-     *  run collapses to exactly one space -- same precedent as
+     *  run that actually *contains* a newline collapses to exactly one space (matching what a real
+     *  multi-line-to-single-line join would render there) -- same precedent as
      *  `CppSpecificRule.collapseToOneLine`, duplicated here (see {@link #hasCommentBetween}'s doc
      *  comment); used only to *measure* a would-be single-line rendering against
-     *  {@link #lineLengthLimit}, never committed to output as-is. */
+     *  {@link #lineLengthLimit}, never committed to output as-is. A run of pure horizontal
+     *  whitespace (no {@code NEWLINE} token in it) is preserved verbatim instead of being flattened
+     *  to one space: it's already-real same-line spacing an earlier pass deliberately produced --
+     *  most commonly a declaration-alignment grid's `=`-column padding (`const res    = ...`) -- and
+     *  flattening it here would undercount the candidate's true rendered width by the padding
+     *  amount, letting a call that doesn't actually fit (once its own line's real padding is
+     *  accounted for) wrongly pass the fits-check and collapse to one line anyway (found via
+     *  vuejs/core real-code testing, `scripts/release.js`'s `const res = await fetch(...)` sitting
+     *  in an alignment group with a longer-named sibling declaration). */
     private String collapseToOneLine(final List<Token> tokens, final int fromInclusive, final int toInclusive) {
         final StringBuilder sb = new StringBuilder();
+        final List<Token> gap = new ArrayList<>();
         for (int i = fromInclusive; i <= toInclusive; i++) {
             final Token t = tokens.get(i);
             if (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE) {
-                if (sb.length() > 0 && sb.charAt(sb.length() - 1) != ' ') {
-                    sb.append(' ');
-                }
+                gap.add(t);
                 continue;
             }
+            flushCollapseGap(sb, gap);
+            gap.clear();
             sb.append(t.text);
         }
+        flushCollapseGap(sb, gap);
         return sb.toString().trim();
+    }
+    /** Helper for {@link #collapseToOneLine}: appends a gap of consecutive WHITESPACE/NEWLINE
+     *  tokens either verbatim (pure horizontal whitespace, no NEWLINE in it) or as a single space
+     *  (a NEWLINE present, same "joined multi-line run becomes one space" rule as before). */
+    private void flushCollapseGap(final StringBuilder sb, final List<Token> gap) {
+        if (gap.isEmpty()) {
+            return;
+        }
+        boolean hasNewline = false;
+        for (final Token g : gap) {
+            if (g.type == TokenType.NEWLINE) {
+                hasNewline = true;
+                break;
+            }
+        }
+        if (hasNewline) {
+            if (sb.length() > 0 && sb.charAt(sb.length() - 1) != ' ') {
+                sb.append(' ');
+            }
+        } else {
+            for (final Token g : gap) {
+                sb.append(g.text);
+            }
+        }
     }
     /** Same whitespace/newline-run-collapsing as {@link #collapseToOneLine}, but over a detached
      *  sublist (as returned by {@link #splitTopLevelCommas}/{@link #groupByOriginalLine}) rather than

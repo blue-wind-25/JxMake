@@ -258,6 +258,20 @@ protected static final ComplexityPaddingEvaluator COMPLEXITY_EVALUATOR = new Com
                     if (closeIdx < 0) {
                         continue;
                     }
+                    // TS function-type parameter list (`type Foo = (...args: any[]) => void`,
+                    // `const x: (...args: any[]) => void`, vuejs/core dogfood
+                    // `e2eBrowserUtils.ts`): a standalone function type's own `(...)` is a
+                    // parameter list exactly like a named function's, but it sits in type
+                    // position (preceded by `=`/`:`/`|`/`&`/`(`/`,`/`<`, never an IDENTIFIER),
+                    // so the IDENTIFIER-preceded branch above never recognizes it and this
+                    // generic-expression branch was padding/tightening it like an arbitrary
+                    // parenthesized value instead of leaving a real parameter list untouched.
+                    // Recognized the same way `isFunctionDefFollower` recognizes a real
+                    // signature: the matching `)` is immediately followed by `=>`.
+                    final int afterCloseIdx = nextSignificantIndex(tokens, closeIdx + 1);
+                    if (lang.isTs && afterCloseIdx >= 0 && isOp(tokens.get(afterCloseIdx), "=>")) {
+                        continue;
+                    }
                     final boolean loose = COMPLEXITY_EVALUATOR.isLoose(tokens.subList(i + 1, closeIdx));
                     looseByOpenIdx.put(i, loose);
                     looseByCloseIdx.put(closeIdx, loose);

@@ -125,7 +125,33 @@ public class TokenizerCurly extends TokenizerCore {
             // Missed the first time this set was extended (vuejs/core dogfood,
             // `Record<string | symbol, Function | number>`): `symbol`/`bigint` are TS primitive
             // type keywords exactly like `string`/`number` above, tokenized as KEYWORD too.
-            "symbol", "bigint");
+            "symbol", "bigint",
+            // TS boolean-literal type arguments (`CreateComponentPublicInstanceWithMixins<...,
+            // false, {}, S>`, vuejs/core dogfood `apiDefineComponent.ts`): `true`/`false` are
+            // tokenized as KEYWORD, not IDENTIFIER, same as the primitive type keywords above --
+            // without these, a literal-type argument invalidated the whole `<...>` tracking
+            // before the matching `>` was reached, leaving it a plain OP token and defeating
+            // `JsTsSpecificRule.enforceSemicolonInsertion`'s depth tracking the same way the
+            // `symbol`/`bigint` gap did.
+            "true", "false",
+            // TS type-operator keywords that can legally appear directly inside a generic
+            // argument list / conditional type expression (vuejs/core dogfood,
+            // `shared/src/typeUtils.ts`'s `IsKeyValues<T, K = string> = IfAny<T, false,
+            // T extends object ? (keyof T extends K ? true : false) : false>`): `keyof T` is a
+            // keyed-lookup type operand, `is`/`infer`/`asserts` appear in type-predicate and
+            // conditional-type `infer` positions, `readonly`/`unique` are array/symbol type
+            // modifiers, `as`/`satisfies` are type-assertion operators -- none of these were in
+            // the safe set, so any of them appearing inside a multi-line generic clause
+            // invalidated the whole `<...>` tracking before the matching `>` was reached the same
+            // way the `true`/`false` gap above did. `typeof` (vuejs/core dogfood,
+            // `reactiveArray.spec.ts`'s `Record<(typeof identityMethods)[number], any>` and
+            // `trusted-types.spec.ts`'s `ReturnType<typeof createServer>`) is the same class of
+            // gap: a `typeof` type-query operand appearing inside a generic argument list
+            // invalidated the whole `<...>` tracking before the matching `>` was reached, in one
+            // case producing a bogus `;` before the closing `>` and in the other leaving the `>`
+            // a plain OP token that then defeated statement-boundary detection entirely, merging
+            // the following statement onto the same line.
+            "keyof", "is", "infer", "asserts", "readonly", "unique", "as", "satisfies", "typeof");
 
     // C++ cast keywords: `static_cast<T>(...)` etc. are tokenized as KEYWORD (not IDENTIFIER),
     // so the generic `<` after an IDENTIFIER check in reclassifyAngleBrackets() misses them
@@ -1343,12 +1369,34 @@ public class TokenizerCurly extends TokenizerCore {
         }
 
         final Deque<int[]> openStack = new ArrayDeque<>(); // each entry: {tokenIndex, validFlag}
+        int nestedBraceDepth = 0; // balanced `{...}` seen while openStack is non-empty -- see below
 
         for (int s = 0; s < sig.size(); s++) {
             final int idx = sig.get(s);
             final Token cur = tokens.get(idx);
 
-            if (cur.type == TokenType.PUNCT
+            if (cur.type == TokenType.PUNCT && "{".equals(cur.text) && !openStack.isEmpty()) {
+                // TS object-type argument nested directly inside an active generic clause
+                // (`ComponentPublicInstanceConstructor<Foo<..., {}, S, ...>>` -- an empty or
+                // populated object-type literal used as one of several type arguments) is legal
+                // and generic-safe, not a statement-body brace -- unlike the `{`-always-clears
+                // rule below (which exists to bail out of a false-positive `<`/`>` guess once a
+                // real code block is reached), a brace nested inside an *already-tracked* open
+                // `<` never means the enclosing generic clause was a false guess. Without this,
+                // the `{`/`}` clear-all below wiped the entire open stack -- including the outer
+                // generic's own already-valid open `<` entries -- leaving the whole multi-line
+                // clause's closing `>` a plain OP token instead of ANGLE_BRACKET_CLOSE (vuejs/core
+                // dogfood, `apiDefineComponent.ts`'s `CreateComponentPublicInstanceWithMixins<...,
+                // {}, S, ...>` type argument list).
+                nestedBraceDepth++;
+                continue;
+            }
+            if (cur.type == TokenType.PUNCT && "}".equals(cur.text) && nestedBraceDepth > 0) {
+                nestedBraceDepth--;
+                continue;
+            }
+
+            if (nestedBraceDepth == 0 && cur.type == TokenType.PUNCT
                     && (";".equals(cur.text) || "{".equals(cur.text) || "}".equals(cur.text))) {
                 openStack.clear();
                 continue;
@@ -1475,7 +1523,15 @@ public class TokenizerCurly extends TokenizerCore {
                 continue;
             }
 
-            if (!isGenericSafeToken(cur) && !openStack.isEmpty()) {
+            // Any token inside an already-tracked nested `{...}` (see the nestedBraceDepth
+            // block above) is an ordinary object-type member -- its own shape (property names,
+            // `?`, `:`, keywords like `default`/`in`/`static` used as property names, etc.) has
+            // nothing to do with the *outer* generic clause's own safety and must never
+            // invalidate it (vuejs/core dogfood, `compiler-sfc/src/script/defineProps.ts`'s
+            // `Record<string, { local: string; default?: Expression }>`: the member name
+            // `default` is a KEYWORD not in `GENERIC_SAFE_KEYWORDS`, which invalidated the
+            // enclosing `Record<...>` tracking before this exclusion existed).
+            if (nestedBraceDepth == 0 && !isGenericSafeToken(cur) && !openStack.isEmpty()) {
                 invalidateAll(openStack);
             }
         }
@@ -1522,6 +1578,17 @@ public class TokenizerCurly extends TokenizerCore {
                 return ".".equals(t.text) || "::".equals(t.text) || "?".equals(t.text)
                         || "*".equals(t.text) || "&".equals(t.text)
                         || (lang.isKotlin && ":".equals(t.text))
+                        // TS conditional types (`A extends B ? X : Y`) are legal directly inside
+                        // a generic argument list (`Readonly<A extends B ? X : Y>`) -- the `:`
+                        // there is the conditional type's own `?`/`:` branch separator, not a
+                        // type annotation. Without recognizing it as generic-safe, `:` invalidates
+                        // the enclosing `<...>` tracking the same way an unrecognized OP always
+                        // does, leaving the whole clause's `<`/`>` as plain OP tokens instead of
+                        // ANGLE_BRACKET_OPEN/CLOSE -- which in turn defeats `JsTsSpecificRule.
+                        // enforceSemicolonInsertion`'s depth tracking, wrongly treating a NEWLINE
+                        // inside the multi-line clause as a statement boundary (vuejs/core
+                        // dogfood, `Readonly<\n  A extends B\n    ? C\n    : D\n>`).
+                        || (lang.isTs && ":".equals(t.text))
                         // TS union types are legal directly inside a generic argument list
                         // (`Record<string | symbol, Function | number>`) -- without this, `|`
                         // invalidates the enclosing `<...>` tracking the same way an unrecognized
@@ -1532,7 +1599,17 @@ public class TokenizerCurly extends TokenizerCore {
                         // semicolon and letting `JsTsDeclarationAlignmentRule.parseTypeAlias`'s
                         // depth-scan run away past the real statement boundary (vuejs/core
                         // dogfood, `collectionHandlers.ts`).
-                        || (lang.isTs && "|".equals(t.text));
+                        || (lang.isTs && "|".equals(t.text))
+                        // TS function-type type arguments (`Map<(...args: any[]) => void,
+                        // PageErrorHandler>`, vuejs/core dogfood
+                        // `vue/__tests__/e2e/e2eBrowserUtils.ts`) are legal directly inside a
+                        // generic argument list -- without recognizing the function type's own
+                        // `=>` and rest-parameter `...` as generic-safe, either invalidates the
+                        // enclosing `<...>` tracking the same way an unrecognized OP always does,
+                        // leaving the closing `>` a plain OP token instead of
+                        // ANGLE_BRACKET_CLOSE.
+                        || (lang.isTs && "=>".equals(t.text))
+                        || (lang.isTs && "...".equals(t.text));
             default:
                 return false;
         }

@@ -70,7 +70,13 @@ public final class JsTsSpecificRule {
     private static final Set<String> CONTINUATION_OPS = new HashSet<>(Arrays.asList(
             "=", "+", "-", "*", "/", "%", "&&", "||", "??", "?", ".", "=>", "==", "===", "!=",
             "!==", "<", ">", "<=", ">=", "+=", "-=", "*=", "/=", "%=", "&&=", "||=", "??=", "&",
-            "|", "^", "<<", ">>", ">>>", "...", "**", "**=", "&=", "|=", "^=", "<<=", ">>=", ">>>="));
+            "|", "^", "<<", ">>", ">>>", "...", "**", "**=", "&=", "|=", "^=", "<<=", ">>=", ">>>=",
+            // A trailing `:` (a property-signature/type-annotation colon whose type wraps to the
+            // next line, `'aria-current'?:\n  Booleanish | ... | undefined`, vuejs/core dogfood
+            // `runtime-dom/src/jsx.ts`) can never end a statement -- the intended PUNCT-type
+            // guard in needsSemicolonAfter (`isPunct(t, ":")`) never actually matches since `:`
+            // tokenizes as an OP, not a PUNCT, so this trailing-OP guard is the real fix.
+            ":"));
 
     /** Operators that, when they're the FIRST significant token on the line following a
      *  candidate statement boundary (leading-operator continuation style -- method chaining
@@ -154,10 +160,10 @@ public final class JsTsSpecificRule {
                         parenCloseToOpen, overrides);
             }
 
-            if (isPunct(t, "(") || isPunct(t, "[")) {
+            if (isPunct(t, "(") || isPunct(t, "[") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
                 depthStack.push(depth);
                 depth++;
-            } else if (isPunct(t, ")") || isPunct(t, "]")) {
+            } else if (isPunct(t, ")") || isPunct(t, "]") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
                 if (!depthStack.isEmpty()) {
                     depth = depthStack.pop();
                 }
@@ -216,6 +222,15 @@ public final class JsTsSpecificRule {
             // Comma-first declarator-list style (`var a = 1\n  , b = 2`) -- a leading `,` can
             // never begin a new statement either.
             if (nextSig >= 0 && isPunct(tokens.get(nextSig), ",")) {
+                return;
+            }
+            // `class`/`interface` header wrapping its own `extends`/`implements` clause onto the
+            // next line (`export interface ParserOptions\n  extends ErrorHandlingOptions {`) --
+            // a leading `extends`/`implements` can never begin a new statement, so the previous
+            // line's declaration name isn't actually finished yet (vuejs/core dogfood,
+            // `compiler-core/src/options.ts`).
+            if (nextSig >= 0 && tokens.get(nextSig).type == TokenType.KEYWORD
+                    && ("extends".equals(tokens.get(nextSig).text) || "implements".equals(tokens.get(nextSig).text))) {
                 return;
             }
         }
@@ -323,6 +338,28 @@ public final class JsTsSpecificRule {
                 outNeedsSemicolon.put(openIdx, false);
                 continue;
             }
+            final boolean isExportBraceHeader = prev != null
+                    && ((prev.type == TokenType.KEYWORD && "export".equals(prev.text))
+                            // TS `export type { Foo } from "...";` -- same `type`-modifier lookback
+                            // as the import case above.
+                            || ("type".equals(prev.text) && isKeywordAt(tokens, prevSignificantIndex(tokens, prevIdx - 1), "export")));
+            if (isExportBraceHeader) {
+                // Same "comma-separated specifier list, not statements" shape as an import brace
+                // header, above -- must not reset depth to 0 either (vuejs/core dogfood, single-
+                // specifier one-liner `export { baseCompile } from './compile'` wrongly got a
+                // bogus `;` inserted before its own `}`). Unlike an import (which always has a
+                // trailing `from "path"` clause), a re-export (`export { Foo } from "./mod"`) and
+                // a plain named export (`export { Foo, Bar };`) are both legal -- only the former
+                // has its real statement terminator after the `from` clause; the latter's own `}`
+                // really is the statement's last token and does need a trailing `;`.
+                final Integer closeIdx = openToClose.get(openIdx);
+                final int afterClose = closeIdx != null ? nextSignificantIndex(tokens, closeIdx + 1) : -1;
+                final boolean hasFromClause = afterClose >= 0
+                        && tokens.get(afterClose).type == TokenType.KEYWORD && "from".equals(tokens.get(afterClose).text);
+                outResetDepth.put(openIdx, false);
+                outNeedsSemicolon.put(openIdx, !hasFromClause);
+                continue;
+            }
             if (lang.isTs && isTypeAliasObjectBrace(tokens, openIdx)) {
                 // §14: `type X = { ... };`'s object-shaped body is a `;`-separated property-
                 // signature list (interface-shaped), not a comma-separated object-literal value
@@ -353,6 +390,16 @@ public final class JsTsSpecificRule {
                     isArrowBody || isOp(prev, "=") || isPunct(prev, "(") || isPunct(prev, "[")
                             || isPunct(prev, ",") || isOp(prev, ":") || isOp(prev, "??") || isOp(prev, "||")
                             || isOp(prev, "&&") || isOp(prev, "?") || isOp(prev, "...")
+                            // TS mapped-type/object-type argument sitting directly as a generic
+                            // type argument (`UnionToIntersection<{ [key in Event]: ... }[Event]>`,
+                            // vuejs/core dogfood `runtime-core/src/componentEmits.ts`'s `EmitFn`):
+                            // a `{` immediately preceded by ANGLE_BRACKET_OPEN is the sole/first
+                            // type argument's own object-type brace, a value/pattern brace exactly
+                            // like the object-literal cases above -- without this, the default-
+                            // false fallthrough misclassified it as a statement-body brace,
+                            // resetting the depth counter to 0 mid-generic-clause and wrongly
+                            // inserting a semicolon after the mapped type's last member value.
+                            || prev.type == TokenType.ANGLE_BRACKET_OPEN
                             // TS union/intersection type continuation (vuejs/core dogfood,
                             // `type Steps = { step: '1' } | { step: '2' }`): an inline object type
                             // directly following `|`/`&` is a *value*-shaped brace (a type literal,
@@ -1270,6 +1317,29 @@ public final class JsTsSpecificRule {
             }
             if (hasNewlineOrCommentBetween(tokens, prevIdx, i)) {
                 continue;
+            }
+            // TS explicit return-type annotation (`(node: Node): node is Function => {...}`,
+            // `(a): SomeType => {...}`) -- the identifier immediately before `=>` is the tail of
+            // the return type, not a bare single arrow parameter (a real bare-param arrow can
+            // never itself carry a `:`/type-predicate `is` right before it -- that shape requires
+            // parens on the parameter, not on the return type). Without this check, wrapping
+            // produced `node is (Function) =>`, a real TS parse error (found via vuejs/core
+            // dogfood tsc typecheck, `compiler-core/src/babelUtils.ts`'s `isFunctionType`).
+            // Recognized by the token immediately preceding the identifier being the type-
+            // predicate keyword `is` or the return-type colon `:` itself, or (vuejs/core dogfood,
+            // `shared/src/general.ts`'s `hasOwn`: `key is keyof typeof val => ...`) a unary
+            // type-operator keyword (`typeof`/`keyof`) applied directly to the identifier as part
+            // of the same return-type expression -- `typeof`/`keyof` can never themselves
+            // legally precede a bare arrow parameter (that shape requires parens on the
+            // parameter, not a type operator), so their presence right before the identifier
+            // means it's still part of the return type, same conclusion as the `:`/`is` cases.
+            final int prevPrevIdx = prevSignificantIndex(tokens, prevIdx - 1);
+            if (prevPrevIdx >= 0) {
+                final Token prevPrev = tokens.get(prevPrevIdx);
+                if (isOp(prevPrev, ":") || (prevPrev.type == TokenType.KEYWORD
+                        && ("is".equals(prevPrev.text) || "typeof".equals(prevPrev.text) || "keyof".equals(prevPrev.text)))) {
+                    continue;
+                }
             }
             overrides.put(prevIdx, "(" + prev.text + ")");
         }
@@ -2289,7 +2359,8 @@ public final class JsTsSpecificRule {
             final Deque<String> stack, final boolean inDeclarator, final Map<Integer, Integer> parenCloseToOpen) {
         final Token prev = tokens.get(prevIdx);
         if (isPunct(prev, ")")) {
-            return !isCaseLabelParen(tokens, prevIdx, parenCloseToOpen);
+            return !isCaseLabelParen(tokens, prevIdx, parenCloseToOpen)
+                    && !isGroupingExpressionParen(tokens, prevIdx, parenCloseToOpen);
         }
         int idIdx = -1;
         if (prev.type == TokenType.IDENTIFIER) {
@@ -2692,6 +2763,33 @@ public final class JsTsSpecificRule {
         final int beforeOpen = prevSignificantIndex(tokens, openIdx - 1);
         return beforeOpen >= 0 && tokens.get(beforeOpen).type == TokenType.KEYWORD
                 && "case".equals(tokens.get(beforeOpen).text);
+    }
+
+    /** True if {@code closeParenIdx} closes a plain grouping/sub-expression `(...)` -- e.g. a
+     *  parenthesized ternary (`cond ? (a ? b : c) : d`) or any other parenthesized expression --
+     *  rather than a function/arrow/constructor parameter list, the other shape where a bare `)`
+     *  immediately followed by `:` is NOT a return-type colon. A real parameter list's `(` is
+     *  always immediately preceded by the function/method name (IDENTIFIER), a generic clause's
+     *  closing `>` (`foo<T>(...)`), a signature keyword (`function`/`constructor`/`new`/`get`/
+     *  `set`/etc.), or nothing at all (an anonymous function expression's very first token) --
+     *  never by an operator. A grouping paren, by contrast, always sits in the middle of an
+     *  expression and is therefore always immediately preceded by an operator (`?`, `:`, `&&`,
+     *  `||`, `=`, `return`, etc.) (vuejs/core dogfood, `shared/src/typeUtils.ts`'s
+     *  `T extends object ? (keyof T extends K ? true : false) : false`, where the outer ternary's
+     *  own `:` was misclassified as a return-type colon because its preceding `)` closes the
+     *  parenthesized nested-ternary sub-expression, not a parameter list). */
+    private boolean isGroupingExpressionParen(final List<Token> tokens, final int closeParenIdx,
+            final Map<Integer, Integer> parenCloseToOpen) {
+        final Integer openIdx = parenCloseToOpen.get(closeParenIdx);
+        if (openIdx == null) {
+            return false;
+        }
+        final int beforeOpen = prevSignificantIndex(tokens, openIdx - 1);
+        if (beforeOpen < 0) {
+            return false;
+        }
+        final Token before = tokens.get(beforeOpen);
+        return before.type == TokenType.OP && !"=>".equals(before.text);
     }
 
     /** Same "is this `{` a value/pattern brace" heuristic as {@link #classifyBraces}'s

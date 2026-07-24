@@ -2011,6 +2011,32 @@ Real-code regressions:
                                              boolean attribute (`disabled`), independent of the
                                              `real_code_regressions_104` `<ruby>` fixture.
 
+  real_code_regressions_107_inp/out.ts    -- JS/TS, vuejs/core real-code testing (found on the
+                                             final full-corpus tsc rerun, after fixture 105 landed):
+                                             `typeof` was missing from
+                                             `TokenizerCurly.GENERIC_SAFE_KEYWORDS` -- a `typeof`
+                                             type-query operand appearing inside a generic argument
+                                             list (`Record<(typeof identityMethods)[number], any>`,
+                                             `reactivity/__tests__/reactiveArray.spec.ts`;
+                                             `ReturnType<typeof createServer>`,
+                                             `vue/__tests__/e2e/trusted-types.spec.ts`) invalidated
+                                             the whole `<...>` open-stack tracking before the
+                                             matching `>` was reached, same class of bug as the
+                                             `keyof`/`is`/`infer`/etc. gap fixed for fixture 101.
+                                             In the multi-line `Record<...>` case this produced a
+                                             bogus `;` right before the closing `>` (same symptom
+                                             as fixture 102). In the single-line `ReturnType<...>`
+                                             case, losing the `<...>` tracking left the closing `>`
+                                             a plain OP token, which defeated
+                                             `enforceSemicolonInsertion`'s statement-boundary
+                                             detection entirely and merged the following
+                                             `beforeAll(...)` statement onto the same line as the
+                                             `let server: ...` declaration -- a more severe symptom
+                                             than the usual bogus-semicolon case, since a missing
+                                             ANGLE_BRACKET_CLOSE can also suppress the newline that
+                                             would otherwise separate two adjacent statements.
+                                             Fixed by adding `"typeof"` to `GENERIC_SAFE_KEYWORDS`.
+
 How Tests Are Run
 -----------------
 

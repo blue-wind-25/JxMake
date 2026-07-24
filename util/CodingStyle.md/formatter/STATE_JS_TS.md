@@ -227,135 +227,79 @@ Phase 4 flat spacing, Phase 5 import ordering). `make test`: 126/126 forward
 ### Resolved this session (js_combined/js_comments activation)
 
 - **Destructuring-pattern-with-internal-comment collapse bug** — a comment
-  inside a destructuring pattern (e.g. `{ id, // note\n name }`) was
-  silently dropped on a second format pass, because `significantOnly()`
-  strips comment tokens like whitespace, so
-  `JsTsDeclarationAlignmentRule.parseDestructuringDeclaration`'s pattern
-  scan never saw it. Fixed by scanning the raw (comment-bearing) statement
-  tokens for a comment between the pattern's first/last tokens and bailing
-  (leaving the statement's own multi-line form untouched) if found.
-- **ASI-vs-declaration-alignment-grid phase-ordering bug** — a significant
-  pipeline defect: `FormatterCurly.formatOne`'s Phase 0 ran the
-  declaration-alignment grid pass *before* `enforceSemicolonInsertion`, so
-  any ASI-reliant declaration (no explicit `;` in source) was invisible to
-  `JsTsDeclarationAlignmentRule.parseDeclaration`'s hard requirement for a
-  literal `;` token — it (and every row in its alignment group) silently
-  fell back to raw, unformatted input. Fixed by moving
-  `enforceSemicolonInsertion` to run before `ScopePipelineCurly.process()`
-  instead of after it.
+  inside a destructuring pattern (`{ id, // note\n name }`) was silently
+  dropped on a second pass because `significantOnly()` strips comment
+  tokens, so `parseDestructuringDeclaration`'s pattern scan never saw it.
+  Fixed by scanning raw (comment-bearing) tokens for an interior comment and
+  bailing (leaving multi-line form untouched) if found.
+- **ASI-vs-declaration-alignment-grid phase-ordering bug** — `FormatterCurly
+  .formatOne`'s Phase 0 ran the declaration-alignment grid pass *before*
+  `enforceSemicolonInsertion`, so any ASI-reliant declaration (no explicit
+  `;`) was invisible to `parseDeclaration`'s hard requirement for a literal
+  `;` — it and its whole alignment group silently fell back to raw input.
+  Fixed by moving `enforceSemicolonInsertion` before
+  `ScopePipelineCurly.process()`.
 - **Array-destructuring `,`→`...` missing space** — `[first, second,
-  ...others]` rendered as `[first, second,... others]` (space misplaced
-  from before `...` to after it), while equivalent object-destructuring
-  `{ ...rest }` rendered correctly. Root cause: `MiscRuleCore.
-  parseAssignment` (the older, JS/TS-unaware §6 bare-assignment grouping
-  pass) misparsed `const [first, second, ...others] = expr;` as a plain
-  assignment — `const` (a KEYWORD) was accepted as an assignment target,
-  and the following `[...]` was scanned as a subscript expression, not
-  recognized as `JsTsDeclarationAlignmentRule`'s own destructuring shape.
-  This let `applyAssignmentsPass` re-parse and re-splice a statement the
-  declaration-alignment pass had *already* rendered correctly, using this
-  class's own separate `renderTokens`/`isTightToken` (which treats `...`
-  as tight on both sides, unlike `JsTsDeclarationAlignmentRule`'s JS/TS-
-  aware "space before, tight after" rule). Object-destructuring was never
-  affected — `{` isn't a `parseAssignment`-recognized LHS shape, only `[`
-  is. Fixed by adding a `const`/`let`/`var` bail-out to `parseAssignment`,
-  mirroring the existing C++ `auto [a, b] = expr;` structured-binding
-  bail-out.
-- **`js_combined_out.js` fixture regenerated** — the fixture expected
-  `const process = (data) => {...}` (a multi-line arrow-function
-  initializer) to join the alignment grid with a padded `=`, but
-  `JsTsDeclarationAlignmentRule`'s documented design deliberately excludes
-  multi-line block/lambda initializers from the grid (same precedent as
-  Kotlin). Confirmed with the user: keep the design, regenerate the
-  fixture — done.
+  ...others]` rendered as `[first, second,... others]`. Root cause:
+  `MiscRuleCore.parseAssignment` (older, JS/TS-unaware) misparsed
+  `const [first, second, ...others] = expr;` as a plain assignment, letting
+  it re-splice a statement the declaration-alignment pass had already
+  rendered correctly, via its own `...`-tight-both-sides rule (object
+  destructuring unaffected — `{` isn't a `parseAssignment`-recognized LHS).
+  Fixed by adding a `const`/`let`/`var` bail-out to `parseAssignment`,
+  mirroring the existing C++ `auto [a, b] = expr;` bail-out.
+- **`js_combined_out.js` fixture regenerated** — the fixture wrongly
+  expected a multi-line arrow-function initializer to join the alignment
+  grid; `JsTsDeclarationAlignmentRule` deliberately excludes multi-line
+  block/lambda initializers (same precedent as Kotlin). Confirmed with user:
+  kept the design, regenerated the fixture.
 
 ### Resolved this session (ts_combined/ts_comments activation)
 
-- **`Map<string,number>` ASI bug** — `TokenizerCurly.isGenericSafeToken`'s
-  `GENERIC_SAFE_KEYWORDS` set didn't include TS primitive type keywords
-  (`string`, `number`, `boolean`, `any`, `unknown`, `never`, `object`,
-  `undefined`, `null`), which are tokenized as `KEYWORD` not `IDENTIFIER`.
-  A second type argument in a generic argument list (e.g. `Map<string,
-  number>`) invalidated the whole `<...>` open/close tracking via
-  `invalidateAll` before the matching `>` was reached, leaving it a plain
-  `OP` token instead of `ANGLE_BRACKET_CLOSE` — this broke
-  `CONTINUATION_OPS`-based ASI logic downstream, which then thought the
-  statement wasn't complete. Fixed by extending `GENERIC_SAFE_KEYWORDS`.
+- **`Map<string,number>` ASI bug** — `GENERIC_SAFE_KEYWORDS` didn't include
+  TS primitive type keywords (`string`/`number`/`boolean`/`any`/`unknown`/
+  `never`/`object`/`undefined`/`null`, tokenized as KEYWORD not
+  IDENTIFIER). A second type argument in a generic list invalidated the
+  whole `<...>` tracking before the matching `>`, breaking
+  `CONTINUATION_OPS`-based ASI logic downstream. Fixed by extending
+  `GENERIC_SAFE_KEYWORDS`.
 - **Enum last-member (no trailing comma) bug** — `parseEnumMembers`'s
-  value-scan loop `return null`'d (bailing the whole enum) on any depth-0
-  NEWLINE, treating it as an unsupported multi-line value expression. This
-  is overwhelmingly the common last-member case (`Pending = 3\n}`, no
-  trailing comma). Changed to `break` instead, ending the value there.
+  value-scan loop bailed the whole enum on any depth-0 NEWLINE (the common
+  last-member case, `Pending = 3\n}`). Changed to `break` instead.
 - **Generic-argument comma spacing** — no pass existed for spacing after
-  `,` inside a generic argument list (`Map<string,number>` never got a
-  space after the comma). Added `enforceGenericArgumentCommaSpacing`: flat
-  scan tracking `angleDepth` via `ANGLE_BRACKET_OPEN`/`_CLOSE`, inserts a
-  single space after `,` when `angleDepth > 0`.
-- **Union-type continuation indent — new pass** —
-  `JsTsDeclarationAlignmentRule.parseTypeAlias` deliberately bails on any
-  multi-line initializer, so no existing pass re-indented continuation
-  lines of a multi-line `type X = A | B | C;` alias at all. Added
-  `enforceUnionTypeContinuationIndent` (+ `tryRewriteUnionTypeAlias`,
-  `lineColumnOf`) as an entirely separate pass — column-aligns continuation
-  lines under the RHS's first token, preserving break-before-operator vs.
-  break-after-operator style. Found and fixed one bug in the new pass
-  itself during `ts_comments` triage: the RHS depth-scan bailed
-  unconditionally on ANY comment token found anywhere in the span,
-  including a legitimate same-line trailing comment on an interior operand
-  line (`SecondOptionName | // middle option`). Narrowed the bailout to
-  frozen tokens only — a trailing comment on an operand line is safe to
-  carry through as part of that line's rendered content.
-- **Class-field `:`/`=` alignment grid — new feature, entirely
-  unimplemented before this session.** Confirmed via reading
-  `JsTsDeclarationAlignmentRule` (only handles `let`/`const`/`var`/`type`)
-  and `enforceInterfaceTypeAliasMemberColonAlignment` (only `IFACE`/type-
-  alias-object braces, never `CLASS`) that no pass touched class field
-  declarations at all. Added `enforceClassFieldAlignmentGrid` (+
-  `ClassField`, `rewriteClassFieldGroups`, `flushClassFieldGroup`,
-  `tryParseClassField`, `skipTopLevelMember`, `blankLineBetween`,
-  `lastFieldEnd`, `skipOneNewline`): parses runs of simple typed class
-  fields (`[modifiers]* name[?|!]? : type [= init]? ;`) between blank-line
-  or unrecognized-member boundaries into alignment groups, padding
-  modifier-phrase/name/type columns per group, matching the existing
-  interface/enum alignment convention (double-space before trailing
-  comment, name padded to the widest name in the group even across an
-  interspersed leading comment on another member). Two bugs found/fixed
-  during implementation, both in `rewriteClassFieldGroups`:
-  - Double-indentation on the first field of each group — the group-start
-    raw-copy loop was copying WHITESPACE tokens (indentation) as well as
-    NEWLINE tokens, duplicating the indent `flushClassFieldGroup` supplies
-    itself. Fixed by only copying NEWLINE tokens.
-  - Duplicate blank line before a group's first field when that field has
-    a leading comment — the same raw-copy loop counted the newline *after*
-    the leading comment as part of the "blank line before group"
-    preservation, but `flushClassFieldGroup` already renders that comment
-    with its own trailing newline. Fixed by tracking
-    `leadingCommentsStartIdx` and stopping the raw-copy loop there instead
-    of at the field's own start index.
+  `,` inside a generic argument list. Added
+  `enforceGenericArgumentCommaSpacing` (flat scan tracking `angleDepth`).
+- **Union-type continuation indent — new pass** — no existing pass
+  re-indented continuation lines of a multi-line `type X = A | B | C;`
+  alias (`parseTypeAlias` bails on multi-line initializers). Added
+  `enforceUnionTypeContinuationIndent`, column-aligning continuation lines
+  under the RHS's first token. One bug fixed in the new pass during
+  `ts_comments` triage: the RHS depth-scan bailed on ANY comment anywhere
+  in the span, including a legitimate trailing comment on an interior
+  operand line — narrowed the bailout to frozen tokens only.
+- **Class-field `:`/`=` alignment grid — new feature, unimplemented
+  before this session.** Neither `JsTsDeclarationAlignmentRule` nor
+  `enforceInterfaceTypeAliasMemberColonAlignment` touched class fields.
+  Added `enforceClassFieldAlignmentGrid`: parses runs of simple typed class
+  fields into alignment groups matching the existing interface/enum
+  convention. Two bugs fixed in `rewriteClassFieldGroups`: double-indented
+  first field of each group (raw-copy loop copied WHITESPACE tokens too,
+  fixed to only copy NEWLINE); duplicate blank line before a group's first
+  field with a leading comment (fixed by tracking
+  `leadingCommentsStartIdx`).
 - **Fixture-authoring corrections (not code bugs), `ts_combined_out.ts`:**
-  confirmed via reading `BlockStructureRule.decideComment`'s `NAMED` case
-  (an empty `{}` body never gets a closing comment, by design, regardless
-  of name length) that `class Container<...> {}` was wrongly given a
-  `// class Container` fixture expectation — removed. Confirmed via
-  STYLE_JS_TS.md §9 (decorator+declaration splitting is purely
-  line-length-driven) that `@Injectable() export class
-  UserAuthenticationAndAuditLoggingServiceForEnterpriseApplications {}`
-  (95 chars, under the 100-char limit) was wrongly split onto two lines in
-  the fixture — merged back to one line. The `Widget` class's field block
-  was also inconsistently authored unaligned (copied verbatim from
-  STYLE_JS_TS.md's illustrative §11.2 example) while the sibling `Config`
-  block was aligned — both fall under the same general alignment-grid rule
-  with no stated exception, so `Widget` was updated to match.
+  an empty `{}` class body was wrongly given a `// class Container` closing
+  comment (never happens by design) — removed; a 95-char decorator+class
+  line was wrongly split (under the 100-char limit) — merged back;
+  `Widget`'s field block was inconsistently unaligned vs. sibling `Config`
+  — aligned to match.
 - **Fixture-authoring corrections (not code bugs), `ts_comments_out.ts`:**
-  confirmed via reading the pre-existing (not modified this session)
-  `rewriteEnumBody` that the double-space-before-trailing-comment
-  convention, and name-padding computed across the full group (even past
-  an interspersed leading comment on another member), are the established,
-  already-tested behavior — the fixture's single-space instances
-  (`Red, //`, `id : string; //`, `Pending  = 3, //`) and its missing
-  `Active   = 1,` padding were fixture mistakes, not gaps. Corrected to
-  match. `Widget`'s class-field block needed the same alignment-grid
-  update as `ts_combined_out.ts`'s.
+  confirmed against pre-existing (unmodified) `rewriteEnumBody` behavior
+  that double-space-before-trailing-comment and group-wide name-padding are
+  established, already-tested behavior — the fixture's single-space
+  instances and missing padding were fixture mistakes, corrected to match.
+  `Widget`'s class-field block got the same alignment update as
+  `ts_combined_out.ts`'s.
 
 ### Resolved this session (expressjs/express real-code testing)
 
@@ -372,61 +316,43 @@ a first glance that only Node's own parser caught it), both fixed in the
 same session, combined into one fixture (`test/real_code_regressions_77_
 inp/out.js`):
 
-- **ASI leading-continuation-operator/comma bug** — `JsTsSpecificRule.
-  maybeInsertSemicolon` only ever looked at the *previous* line's own
-  trailing token (`CONTINUATION_OPS`) to decide whether a statement was
-  still open; it never looked ahead to the *next* line's leading token. A
-  method-chaining style with the operator leading the continuation line
-  (`request(app)\n.get('/')\n.expect(...)`, ubiquitous in Express's own
-  Mocha test suite) or a comma-first multi-declarator list (`var a = ...\n
-  , b = ...`) both got a bogus `;` inserted mid-chain/mid-list, corrupting
-  valid JS into a syntax error. Fixed by adding a new `LEADING_CONTINUATION_
-  OPS` set (deliberately narrower than `CONTINUATION_OPS` — excludes `+`/
-  `-`/etc. that have a legitimate unary/statement-leading use) plus a
-  leading-`,` check, both consulted via a next-significant-token lookahead
-  alongside the existing `|`/`&` union-type lookahead already there for
-  RDD_KEY handling of §11.1.
-- **No JS/TS regex-literal tokenizing at all** — confirmed by reading
-  `TokenizerCurly`'s dispatch loop: every `/` that wasn't `//`/`/*` fell
-  through to the generic operator scan (division), with zero regex-literal
-  recognition. Usually harmless by coincidence (a regex with no `"`/`'`
-  inside just re-renders as itself), but a real-world regex containing a
-  `"` inside a bracketed character class (`/^(?:W\/)?"[^"]+"$/`, from
-  `test/res.sendFile.js`'s ETag assertions) had its `"` mistaken for the
-  start of a string literal, corrupting brace/paren/statement tracking for
-  the rest of the enclosing statement (observed as a mis-wrapped, mis-joined
-  multi-statement mess extending several lines past the regex itself).
-  Fixed by adding `TokenizerCurly.emitRegexLiteral` (opaque `STRING`-typed
-  token, same posture as `emitTemplateLiteral`; correctly treats an
-  unescaped `/` inside `[...]` as non-terminating) and `isRegexLiteralAllowedHere`
-  (classic regex-vs-division disambiguation: regex unless the previous
-  significant token already completed a value — identifier/number/string/
-  char, a closing `)`/`]`/`}`, `this`/`super`, or postfix `++`/`--`).
+- **ASI leading-continuation-operator/comma bug** — `maybeInsertSemicolon`
+  only looked at the *previous* line's trailing token, never the *next*
+  line's leading token. Method-chaining with the operator leading the
+  continuation line (`request(app)\n.get('/')\n.expect(...)`, ubiquitous in
+  Express's Mocha suite) or a comma-first multi-declarator list both got a
+  bogus `;` inserted mid-chain/mid-list, corrupting valid JS. Fixed by
+  adding a `LEADING_CONTINUATION_OPS` set (narrower than
+  `CONTINUATION_OPS` — excludes unary-legal `+`/`-`/etc.) plus a
+  leading-`,` check, both via next-significant-token lookahead.
+- **No JS/TS regex-literal tokenizing at all** — every `/` that wasn't
+  `//`/`/*` fell through to the generic division-operator scan, zero regex
+  recognition. Usually harmless by coincidence, but a real-world regex
+  containing a `"` inside a bracketed character class
+  (`/^(?:W\/)?"[^"]+"$/`, from `test/res.sendFile.js`'s ETag assertions)
+  had its `"` mistaken for a string-literal start, corrupting brace/paren/
+  statement tracking for the rest of the enclosing statement. Fixed by
+  adding `TokenizerCurly.emitRegexLiteral` (opaque STRING-typed token, same
+  posture as `emitTemplateLiteral`) and `isRegexLiteralAllowedHere`
+  (classic regex-vs-division disambiguation).
 
 Final numbers (full 141-file corpus, both bugs fixed): forward pass zero
-crashes/exceptions; round1→round2 `diff -r` empty (idempotent); `node
---check` 141/141 pass (was 93/141 failing before the fix — effectively the
-entire corpus, since the comma-first import-list idiom alone appears in
-nearly every `test/*.js` file). `require()`-based semantic check: went
-further than the syntax-only fallback — `npm install --prefix <scratch>
-express` (network available) supplied a real (if not exactly version-pinned)
-dependency tree; `require('./index.js')` on the formatted `lib/express.js`
-tree returned the expected function, `express()` produced a working `app`
-object, and a real `app.get('/hello', ...)` + `app.listen()` + an actual
-HTTP GET round-tripped correctly end-to-end. Also ran the formatted `test/`
-files directly under `mocha` (not just `node --check`): a clean file with no
-static-file-serving dependency (`test/req.host.js` + `test/req.hostname.js`
-+ `test/Route.js`) passed 35/35: confirms the formatted `require()` graph
-and Mocha harness genuinely execute, not just parse. `test/res.sendFile.js`
-itself (the regex-bug file, post-fix) also loads and runs under Mocha
-without any crash — 42 of its assertions do fail, but confirmed as an
-environment limitation, not formatter-induced corruption: they're all
-static-file-serving 404s, and the identical failure pattern reproduces
-against the *unformatted* checkout once dependencies are up (this repo's
-exact `package-lock.json`-pinned dependency versions aren't installed
-offline; the generic unpinned `npm install express` pulled a different
-`send`/`serve-static` version than this exact commit expects). Documented
-here rather than silently omitted, per the task's honesty requirement.
+crashes; round1→round2 `diff -r` empty; `node --check` 141/141 pass (was
+93/141 failing before the fix — the comma-first import-list idiom alone
+appears in nearly every `test/*.js` file). `require()`-based semantic check
+went further than syntax-only: `npm install --prefix <scratch> express`
+supplied a dependency tree; `require('./index.js')` on the formatted
+`lib/express.js` tree returned the expected function, `express()` produced
+a working `app`, and a real `app.get`/`app.listen`/HTTP GET round-tripped
+end-to-end. Formatted `test/` files run directly under `mocha`: a clean
+file with no static-file-serving dependency
+(`test/req.host.js`+`req.hostname.js`+`Route.js`) passed 35/35, confirming
+the formatted `require()` graph and Mocha harness genuinely execute.
+`test/res.sendFile.js` (the regex-bug file, post-fix) also loads and runs
+under Mocha — 42 assertions fail, but confirmed an environment limitation
+(static-file 404s from an unpinned `send`/`serve-static` version, reproduces
+identically against the unformatted checkout), not formatter-induced,
+documented per the task's honesty requirement.
 
 ### Resolved this session (nestjs/nest real-code testing, in progress)
 
@@ -458,70 +384,48 @@ alone — see below):
 - **Dot+space corruption in `MiscRuleCurly.renderCallCandidate`'s
   `sigForRender` typed/untyped selection** — `options.provideInjectionTokensFrom`
   became `options. provideInjectionTokensFrom` when a multi-arg call whose
-  every argument is a bare dotted member-access expression (no top-level
-  comma of its own) got rejoined/rewrapped. Root-caused with debug prints at
-  each `FormatterCurly` phase boundary plus inside `collapseTokensToOneLine`
-  (not static analysis alone, per this file's methodology): the corruption
-  was **not** in `collapseTokensToOneLine` at all (that method was called
-  with the right input and produced the right output on the first
-  `enforceCallLineBreaking` pass) — it was introduced by the *second*
-  `enforceCallLineBreaking` pass (`FormatterCurly` re-runs it twice, see that
-  file's own comments for why), which took an entirely different render path
-  the first pass didn't: `parseSignature` misparsed the multi-arg call's
-  argument list as a real C/C++/Java-style "type name" forward-declaration
-  parameter list (type `options.`, name `provideInjectionTokensFrom`) — the
-  exact same misparse class already known and guarded for Kotlin only (see
-  `sigForRender`'s existing doc comment, RobotCoding `gui_frontend_android`
-  bug), but the guard was never extended to JS/TS. The typed dropped/
-  one-per-line render path then inserted a column-separator space between
-  the bogus "type" and "name" tokens. Fixed by forcing `sigForRender` to
-  `null` for JS/TS too (`(lang.isKotlin || lang.isJs || lang.isTs) ? null :
-  sig`), same reasoning as Kotlin: neither language has a prototype-only
-  forward-declaration shape (a JS/TS function declaration always has an
-  immediate `{` body, already exempted earlier in the same method). Also
-  hardened `collapseTokensToOneLine` itself (defense-in-depth, not the
-  actual root cause here but a related exposure) to never insert a space
-  immediately before/after a tight `.`/`?.` token even when the original
-  source's line break happened to fall right at that dot. New fixture
-  `test/real_code_regressions_81_{inp,out}.ts`. `make test`: 130/130 forward
-  + 130/130 idempotency, zero regressions. Confirmed against all 5
-  originally-reported nestjs/nest files (`configurable-module.builder.ts`,
-  `middleware-module.ts`, `router-execution-context.ts`, `client-rmq.ts`,
-  `kafka-reply-partition-assigner.ts`): round1→round2 diff now empty for
+  every argument is a bare dotted member-access expression got
+  rejoined/rewrapped. Root-caused with debug prints at each phase boundary:
+  not in `collapseTokensToOneLine` itself, but the *second*
+  `enforceCallLineBreaking` pass (`FormatterCurly` re-runs it twice) took a
+  different render path — `parseSignature` misparsed the argument list as a
+  C/C++/Java-style "type name" forward-declaration parameter list (type
+  `options.`, name `provideInjectionTokensFrom`), the same misparse class
+  already guarded for Kotlin only (`sigForRender`'s doc comment, RobotCoding
+  `gui_frontend_android` bug) but never extended to JS/TS. Fixed by forcing
+  `sigForRender` to `null` for JS/TS too, same reasoning as Kotlin (neither
+  language has a prototype-only forward-declaration shape). Also hardened
+  `collapseTokensToOneLine` (defense-in-depth) to never insert a space
+  immediately before/after a tight `.`/`?.` token. New fixture
+  `test/real_code_regressions_81_{inp,out}.ts`. `make test`: 130/130
+  forward + idempotency, zero regressions. Confirmed against all 5
+  originally-reported nestjs/nest files: round1→round2 diff now empty for
   this bug's shape (a separate, pre-existing, unrelated general-reindent
-  idempotency gap — see this file's "Architectural TODOs" in
-  `STATE_COMMON.md` — still produces indentation-only diff noise across the
-  whole nest tree when no per-directory `.jxmake-code-formatter` config
-  round-trips with the output; not this bug). `node --check` (Node 24, which
-  strips TS types natively) passes on all 5 round1 outputs.
+  idempotency gap — see `STATE_COMMON.md`'s Architectural TODOs — still
+  produces indentation-only diff noise elsewhere; not this bug). `node
+  --check` (Node 24) passes on all 5 round1 outputs.
 
 Third bug found and fixed:
 
-- **Content duplication in `JsTsSpecificRule.enforceClassFieldAlignmentGrid`
-  — nested `CLASS` braces not handled** — `packages/core/injector/module.ts`
-  (`Module.createModuleReferenceType`, `return class extends ModuleRef {
-  ... };` nested inside an outer class method) and
-  `packages/core/middleware/builder.ts` (a nested class similarly) had
-  entire method/constructor blocks duplicated in round2 that weren't present
-  in round1. Root cause: `enforceClassFieldAlignmentGrid` collects every
-  brace classified `CLASS` by `classBraceKind` into a flat `classOpens` list
-  and sweeps through them with a single linear `cursor`, assuming every
-  selected class span is disjoint -- but a nested anonymous class (or any
-  class nested inside another) breaks that assumption. The outer class's own
-  `rewriteClassFieldGroups` call already copies the entire inner class span
-  through byte-for-byte (as an ordinary unrecognized member, via
-  `skipTopLevelMember`), so the loop's later top-level entry for the inner
-  class re-appended its content a second time *and* walked `cursor` backward
-  to the inner class's own (earlier) `closeIdx` -- so the method's final
-  raw-copy-to-EOF loop re-emitted everything from there to the true end of
-  file a second time too. Fixed by filtering `classOpens` down to only the
-  outermost class brace at each nesting level (a nested class's own fields
-  simply don't get the alignment-grid treatment -- consistent with this
-  method's existing conservative "only rewrite what's fully understood"
+- **Content duplication in `enforceClassFieldAlignmentGrid` — nested
+  `CLASS` braces not handled** — `packages/core/injector/module.ts` (a
+  `return class extends ModuleRef {...}` nested inside an outer class
+  method) and `packages/core/middleware/builder.ts` (similar) had entire
+  method/constructor blocks duplicated in round2. Root cause: the method
+  collects every `CLASS`-classified brace into a flat `classOpens` list and
+  sweeps with a single linear `cursor`, assuming every selected class span
+  is disjoint — a nested class breaks that assumption: the outer class's
+  own rewrite already copies the inner class span byte-for-byte (as an
+  unrecognized member), so the loop's later top-level entry for the inner
+  class re-appended its content a second time and walked `cursor` backward,
+  causing the final raw-copy-to-EOF loop to re-emit everything a second
+  time too. Fixed by filtering `classOpens` to only the outermost class
+  brace at each nesting level (nested class fields simply don't get
+  alignment-grid treatment — consistent with this method's conservative
   posture, not a regression). New fixture
-  `test/real_code_regressions_82_{inp,out}.ts`. `make test`: 131/131 forward
-  + 131/131 idempotency, zero regressions. Confirmed against both originally
-  -reported nestjs/nest files: round1→round2 diff now empty. `node --check`
+  `test/real_code_regressions_82_{inp,out}.ts`. `make test`: 131/131
+  forward + idempotency, zero regressions. Confirmed against both
+  originally-reported files: round1→round2 diff now empty. `node --check`
   (Node 24) passes on both round1 outputs.
 
 Fourth bug found and fixed:
@@ -529,85 +433,51 @@ Fourth bug found and fixed:
 - **Comment-continuation-indent drift / arbitrary-deep-indent corruption on
   an object-shaped `type X = { ... } & Y;` intersection alias** —
   `packages/core/inspector/interfaces/edge.interface.ts`. Root cause:
-  `JsTsSpecificRule.enforceUnionTypeContinuationIndent` (STYLE_JS_TS.md
-  §11.1's union/intersection continuation-line re-alignment) treats a
-  `type NAME = ...;` RHS as eligible whenever it contains a depth-0 `|`/`&`
-  and spans multiple physical lines, then re-indents *every* `NEWLINE` from
-  the RHS's start through the terminating `;` to the RHS's own column —
-  with no bracket-depth tracking at all. That's harmless for a plain
-  multi-line union list (every `NEWLINE` genuinely is a top-level break),
-  but an intersection whose left operand is a multi-line object-type
-  literal (`{ ... } & Y`) has `NEWLINE`s nested many bracket-levels deep
-  that belong to the object body's own already-correct indentation — those
-  were force-reindented to the alias's RHS column too, blowing every member
-  out to an arbitrarily deep column matching the `type NAME = ` prefix's
-  length. A leading `/** ... */` JSDoc comment on one member is a single
-  token, so only the `NEWLINE` immediately before it got corrupted this way
-  on a first pass; its own interior continuation lines (untouched by this
-  pass) drifted further out of sync only once a second re-format pass
-  reindented the token before it again, compounding the mismatch — matching
-  the originally observed "grows between round1 and round2" symptom. Fixed
-  by tracking bracket depth in the re-indent loop itself and only
-  re-indenting a `NEWLINE` found at the union/intersection's own top level
-  (depth 0), leaving any `NEWLINE` nested inside a bracketed sub-shape
-  (object-type literal, tuple, generic argument list, ...) completely
-  untouched. New fixture `test/real_code_regressions_84_{inp,out}.ts`.
-  `make test`: 133/133 forward + 133/133 idempotency, zero regressions.
-  Confirmed against the originally-reported nestjs/nest file: round1→round2
-  diff now empty. `node --check` (Node 24) passes on the round1 output.
-  (Debug-print methodology used: dumped `text` right after
-  `ScopePipelineCurly.process` — already correct 2-space indent there —
-  and right after `enforceInterfaceTypeAliasMemberColonAlignment` — the
-  type-alias body was still untouched at that point too, since
-  `parseInterfaceMembers` bails on the embedded JSDoc comment/union-typed
-  member — which pointed at a later pass; grepping for `&`/union handling
-  led directly to `enforceUnionTypeContinuationIndent`.)
+  `enforceUnionTypeContinuationIndent` re-indents *every* `NEWLINE` from a
+  multi-line `type NAME = ...;` RHS's start through the terminating `;` to
+  the RHS's own column, with no bracket-depth tracking. Harmless for a
+  plain union list, but an intersection whose left operand is a multi-line
+  object-type literal (`{ ... } & Y`) has `NEWLINE`s nested deep inside the
+  object body's own already-correct indentation — those got
+  force-reindented too, blowing every member out to an arbitrarily deep
+  column. Symptom compounded across passes ("grows between round1 and
+  round2") because a leading JSDoc comment shielded interior lines on the
+  first pass only. Fixed by tracking bracket depth and only re-indenting a
+  `NEWLINE` at the union/intersection's own top level (depth 0). New
+  fixture `test/real_code_regressions_84_{inp,out}.ts`. `make test`:
+  133/133 forward + idempotency, zero regressions. Confirmed against the
+  originally-reported file: round1→round2 diff now empty. `node --check`
+  (Node 24) passes on the round1 output. (Debug-print methodology: dumped
+  `text` after `ScopePipelineCurly.process` and after
+  `enforceInterfaceTypeAliasMemberColonAlignment` to localize the
+  corruption to `enforceUnionTypeContinuationIndent`.)
 
 Fifth bug found and fixed (all four originally-reported bugs now resolved):
 
 - **`join(...)` call-wrap/collapse non-idempotency** —
   `integration/repl/e2e/repl-process.spec.ts`'s `const localPackageResolver
-  = join(workspaceRoot, 'integration/_support/register-local-packages.ts')`
-  (exactly 100 characters collapsed -- right at `lineLengthLimit`). Root
-  cause: `MiscRuleCurly.renderCallCandidate`'s multi-line-source
-  (`containsNewline(paramsSlice)`) branch always preserved the call's
-  original per-line argument grouping (Option 2) unconditionally, with no
-  fits-check of its own -- unlike the sibling single-line branch a few
-  lines below, which correctly returns Option 0 (no change) whenever the
-  call already fits. A call an author (or a previous format pass) had
-  wrapped stayed wrapped forever even once it easily fit back onto one
-  line, while the same call written fresh on one line collapsed correctly
-  -- the same logical call could settle into two different stable shapes
-  depending purely on incidental prior formatting, and one sitting right at
-  the boundary flipped between forms across repeated passes. Fixed by
-  adding the same fits-check to this branch, scoped to JS/TS only
-  (`sigForRender == null && (lang.isJs || lang.isTs)` -- widening to every
-  language unconditionally regressed `real_code_regressions_1`/C++, since a
-  plain call's `sigForRender` is `null` there too for the ordinary "not a
-  real signature" reason, not a JS/TS-specific misparse signal): measures
-  the actual tight single-line candidate text directly (building the real
-  `(args)` candidate and its own prefix/suffix token ranges via
-  `appendRange`, rather than reusing the sibling branch's loose
-  whitespace-collapsing `collapseToOneLine` helper, which turns the
-  newline that originally followed the call's own `(` into a phantom
-  single space and overestimates length by up to 2 characters, wrongly
-  disqualifying a call that truly fits), and collapses to one line
-  whenever it fits -- dropping any dangling trailing empty argument group
-  first (`splitTopLevelCommas`, unlike its `groupByOriginalLine` sibling,
-  doesn't drop a trailing comma's empty tail itself, so a trailing-comma
-  multi-line source would otherwise gain a spurious trailing `, ` before
-  `)` once collapsed -- found and fixed via an intermediate `make test`
-  regression in `real_code_regressions_81`, since fixture 81's own
-  `getInjectionProviders(...)` call has a trailing comma). New fixture
-  `test/real_code_regressions_85_{inp,out}.ts`. Also required updating
-  `real_code_regressions_81_out.ts`'s own expected output — its
-  `getInjectionProviders(...)` call now correctly collapses to one line
-  too (it fits); the old expected shape had itself been an artifact of
-  this same bug, baked in as "correct" only because Bug 4 didn't have a
-  fixture yet at the time Bug 1 was fixed. `make test`: 134/134 forward +
-  134/134 idempotency, zero regressions beyond the intentional
-  `real_code_regressions_81_out.ts` update. Confirmed against the
-  originally-reported nestjs/nest file: round1→round2 diff now empty.
+  = join(workspaceRoot, '...')` (exactly 100 chars collapsed, right at
+  `lineLengthLimit`). Root cause: `renderCallCandidate`'s multi-line-source
+  branch always preserved the call's original per-line argument grouping
+  unconditionally, with no fits-check of its own (unlike the sibling
+  single-line branch) — a call that had ever been wrapped stayed wrapped
+  forever even once it fit on one line, while the same call written fresh
+  on one line collapsed correctly, so a call right at the boundary flipped
+  between forms across repeated passes. Fixed by adding the same
+  fits-check, scoped to JS/TS only (widening to every language
+  unconditionally regressed `real_code_regressions_1`/C++): measures the
+  actual tight single-line candidate directly (rather than the sibling
+  branch's `collapseToOneLine`, which overestimates length by turning a
+  newline into a phantom space) and collapses whenever it fits, dropping
+  any dangling trailing empty argument group first (`splitTopLevelCommas`
+  doesn't drop a trailing comma's empty tail itself — found via an
+  intermediate regression in fixture 81, whose own trailing-comma call
+  exposed it). New fixture `test/real_code_regressions_85_{inp,out}.ts`.
+  Also required updating `real_code_regressions_81_out.ts`'s expected
+  output (its call now correctly collapses too — the old shape had been an
+  artifact of this same bug). `make test`: 134/134 forward + idempotency,
+  zero regressions beyond the intentional fixture-81 update. Confirmed
+  against the originally-reported file: round1→round2 diff now empty.
   `node --check` (Node 24) passes on the round1 output.
 
 ### Resolved this session (vuejs/core real-code testing, in progress)

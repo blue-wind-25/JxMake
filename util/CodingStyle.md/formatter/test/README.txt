@@ -69,17 +69,17 @@ Java:
                                              tightening (`(clrex, ...)`) and are idempotent.
 
 Kotlin:
-  kt_combined_inp/out.kt                 -- Kotlin STYLE_KOTLIN.md + STYLE_KOTLIN2.md end-to-end
-                                            coverage: enum class with members, sealed classes, data
-                                            classes, type aliases, generics/variance, where clauses,
-                                            infix/extension functions, null-safety operators, when
-                                            expressions, property accessors, destructuring
-                                            declarations, labeled jumps, and ranges, all in one
-                                            realistic file. See STATE_KOTLIN.md Step 4.
+  kt_combined_inp/out.kt                  -- Kotlin STYLE_KOTLIN.md + STYLE_KOTLIN2.md end-to-end
+                                             coverage: enum class with members, sealed classes, data
+                                             classes, type aliases, generics/variance, where
+                                             clauses, infix/extension functions, null-safety
+                                             operators, when expressions, property accessors,
+                                             destructuring declarations, labeled jumps, and ranges,
+                                             all in one realistic file. See STATE_KOTLIN.md Step 4.
 
-  kt_comments_inp/out.kt                 -- Uncommon comment placements in Kotlin, plus
-                                            JXM_CFMT_DIS/JXM_CFMT_ENA formatting-toggle markers. See
-                                            STATE_KOTLIN.md Step 4.
+  kt_comments_inp/out.kt                  -- Uncommon comment placements in Kotlin, plus
+                                             JXM_CFMT_DIS/JXM_CFMT_ENA formatting-toggle markers.
+                                             See STATE_KOTLIN.md Step 4.
 
 C:
   c_core_inp/out.c                        -- C11 constructs: declaration alignment, bitfields,
@@ -390,23 +390,21 @@ HTML5:
                                              type="application/json">` block staying fully opaque.
 
 Python3:
-  py_combined_inp/out.py                 -- Bracket-complexity categories, assignment
-                                            alignment (augmented assignment, both
-                                            continuation-break styles), import
-                                            ordering/grouping including `__future__`
-                                            promotion, decorators, f-strings, function
-                                            signature wrapping with type hints, structural
-                                            pattern matching, single-statement compound
-                                            bodies, control-flow blank lines, `async`/`await`,
-                                            and a `@property`/`@x.setter` pair.
+  py_combined_inp/out.py                  -- Bracket-complexity categories, assignment alignment
+                                             (augmented assignment, both continuation-break styles),
+                                             import ordering/grouping including `__future__`
+                                             promotion, decorators, f-strings, function signature
+                                             wrapping with type hints, structural pattern matching,
+                                             single-statement compound bodies, control-flow blank
+                                             lines, `async`/`await`, and a `@property`/`@x.setter`
+                                             pair.
 
-  py_comments_inp/out.py                 -- Uncommon `#` comment placement: a comment
-                                            breaking an assignment-alignment group, trailing
-                                            comments not breaking a comprehension-assignment
-                                            group, a comment forcing a signature to wrap, a
-                                            byte-for-byte-preserved docstring, a comment
-                                            between two `case` blocks, and a comment breaking
-                                            a compact `case`-line alignment group.
+  py_comments_inp/out.py                  -- Uncommon `#` comment placement: a comment breaking an
+                                             assignment-alignment group, trailing comments not
+                                             breaking a comprehension-assignment group, a comment
+                                             forcing a signature to wrap, a byte-for-byte-preserved
+                                             docstring, a comment between two `case` blocks, and a
+                                             comment breaking a compact `case`-line alignment group.
 
 Real-code regressions:
   real_code_regressions_1_inp/out.cpp     -- Distilled from tinyexpr-plusplus: same-line-sibling
@@ -532,93 +530,97 @@ Real-code regressions:
                                              sigaction sa = { };`) misdetected as a struct body,
                                              appending an extra `;` on every pass.
 
-  real_code_regressions_17_inp/out.kt    -- Kotlin dogfood find (RobotTcpSession.kt):
-                                            enforceCallLineBreaking's per-argument-line grouping
-                                            (Option 2) collapsed a multi-line lambda-body sibling
-                                            argument onto one line, merging statements with no `;`
-                                            separator -- invalid Kotlin. Fixed by bailing (Kotlin-
-                                            only) when a top-level argument mixes a newline and `{`.
+  real_code_regressions_17_inp/out.kt     -- Kotlin dogfood find (RobotTcpSession.kt):
+                                             enforceCallLineBreaking's per-argument-line grouping
+                                             (Option 2) collapsed a multi-line lambda-body sibling
+                                             argument onto one line, merging statements with no `;`
+                                             separator -- invalid Kotlin. Fixed by bailing (Kotlin-
+                                             only) when a top-level argument mixes a newline and
+                                             `{`.
 
-  real_code_regressions_18_inp/out.kt    -- Kotlin idempotency (PlayMusicBlock.kt):
-                                            KotlinDeclarationAlignmentRule.spansMultipleLines
-                                            treated a braceless if/else initializer as multi-line
-                                            once a nested call got wrapped by a later pass,
-                                            shrinking the sibling val's alignment on each reformat.
-                                            Fixed with paren/brace-depth-aware newline tracking so
-                                            only real `{`...`}` bodies count as multi-line.
+  real_code_regressions_18_inp/out.kt     -- Kotlin idempotency (PlayMusicBlock.kt):
+                                             KotlinDeclarationAlignmentRule.spansMultipleLines
+                                             treated a braceless if/else initializer as multi-line
+                                             once a nested call got wrapped by a later pass,
+                                             shrinking the sibling val's alignment on each reformat.
+                                             Fixed with paren/brace-depth-aware newline tracking so
+                                             only real `{`...`}` bodies count as multi-line.
 
-  real_code_regressions_19_inp/out.kt    -- Kotlin indent drift (MainActivity.kt):
-                                            ScopePipeline.processScope derived a trailing-lambda
-                                            body's indent/closing-brace from the statement's first
-                                            line instead of the `{`'s own (deeper) physical line,
-                                            under-indenting the body on a fresh format. Fixed via a
-                                            new braceLineIndent helper (Kotlin-only).
+  real_code_regressions_19_inp/out.kt     -- Kotlin indent drift (MainActivity.kt):
+                                             ScopePipeline.processScope derived a trailing-lambda
+                                             body's indent/closing-brace from the statement's first
+                                             line instead of the `{`'s own (deeper) physical line,
+                                             under-indenting the body on a fresh format. Fixed via a
+                                             new braceLineIndent helper (Kotlin-only).
 
-  real_code_regressions_20_inp/out.kt    -- Kotlin compile-break
-                                            (ToolbarActions.kt/MainViewModel.kt):
-                                            collapseSingleExpressionBlocks has no expression- vs
-                                            statement-position `if` distinction, so it swallowed the
-                                            newline after a parenthesized `(if (cond) a else b)`
-                                            initializer, fusing it with the next statement. Fixed by
-                                            tracking unmatched-paren depth and refusing to collapse
-                                            `if`/`else` while inside one.
+  real_code_regressions_20_inp/out.kt     -- Kotlin compile-break
+                                             (ToolbarActions.kt/MainViewModel.kt):
+                                             collapseSingleExpressionBlocks has no expression- vs
+                                             statement-position `if` distinction, so it swallowed
+                                             the newline after a parenthesized `(if (cond) a else
+                                             b)` initializer, fusing it with the next statement.
+                                             Fixed by tracking unmatched-paren depth and refusing to
+                                             collapse `if`/`else` while inside one.
 
-  real_code_regressions_21_inp/out.kt    -- Kotlin spacing bug (BlockCanvasView.kt): isTightToken's
-                                            `&`-repeat check (for C/C++ `&&` rvalue-ref sigils) also
-                                            matched Kotlin's `&&` logical-AND, dropping the space
-                                            before it. Fixed by gating the check to non-Kotlin
-                                            languages, mirroring MiscRule's existing gate.
+  real_code_regressions_21_inp/out.kt     -- Kotlin spacing bug (BlockCanvasView.kt): isTightToken's
+                                             `&`-repeat check (for C/C++ `&&` rvalue-ref sigils)
+                                             also matched Kotlin's `&&` logical-AND, dropping the
+                                             space before it. Fixed by gating the check to
+                                             non-Kotlin languages, mirroring MiscRule's existing
+                                             gate.
 
-  real_code_regressions_22_inp/out.kt    -- Kotlin idempotency (BlockPalette.kt): a one-liner-
-                                            function group's column width was computed from pre-wrap
-                                            text, but a later pass wrapped a too-long member's call,
-                                            leaving stale padding on reformat. Fixed by porting the
-                                            C/Java `hasBreakableCall` + estimated-width pre-check to
-                                            KotlinGetterSetterRule.parseKotlinOneLinerMember.
+  real_code_regressions_22_inp/out.kt     -- Kotlin idempotency (BlockPalette.kt): a one-liner-
+                                             function group's column width was computed from
+                                             pre-wrap text, but a later pass wrapped a too-long
+                                             member's call, leaving stale padding on reformat. Fixed
+                                             by porting the C/Java `hasBreakableCall` +
+                                             estimated-width pre-check to
+                                             KotlinGetterSetterRule.parseKotlinOneLinerMember.
 
-  real_code_regressions_23_inp/out.kt    -- Kotlin idempotency (BlockPalette.kt):
-                                            KotlinSpecificRule.isSingleLineBody kept K&R `{` for a
-                                            body that was pre-wrap one-line but got split by a later
-                                            call-wrapping pass, flipping to Allman on reformat.
-                                            Fixed by porting the same hasBreakableCall + estimated-
-                                            width pre-check, with a corrected width formula that now
-                                            accounts for indentation and spacing.
+  real_code_regressions_23_inp/out.kt     -- Kotlin idempotency (BlockPalette.kt):
+                                             KotlinSpecificRule.isSingleLineBody kept K&R `{` for a
+                                             body that was pre-wrap one-line but got split by a
+                                             later call-wrapping pass, flipping to Allman on
+                                             reformat. Fixed by porting the same hasBreakableCall +
+                                             estimated- width pre-check, with a corrected width
+                                             formula that now accounts for indentation and spacing.
 
-  real_code_regressions_24_inp/out.kt    -- Kotlin compile-break
-                                            (ConnectTypeDialog.kt/WifiApDialog.kt):
-                                            findLastTopLevelCloseParen accepted any last depth-0 `)`
-                                            as a signature's param list even with no `:` following,
-                                            so `x.foo().bar { ... }` misdetected `bar` as a return-
-                                            type tail and silently deleted `.bar`. Fixed by
-                                            requiring a top-level `:` immediately after the `)`
-                                            before accepting the Kotlin return-type-tail branch.
+  real_code_regressions_24_inp/out.kt     -- Kotlin compile-break
+                                             (ConnectTypeDialog.kt/WifiApDialog.kt):
+                                             findLastTopLevelCloseParen accepted any last depth-0
+                                             `)` as a signature's param list even with no `:`
+                                             following, so `x.foo().bar { ... }` misdetected `bar`
+                                             as a return- type tail and silently deleted `.bar`.
+                                             Fixed by requiring a top-level `:` immediately after
+                                             the `)` before accepting the Kotlin return-type-tail
+                                             branch.
 
-  real_code_regressions_25_inp/out.kt    -- Kotlin compile-break
-                                            (BlockCanvasView.kt/ToolbarActions.kt):
-                                            enforceLabeledJumpSpacing's label-detection state
-                                            machine couldn't tell a genuine `label@` from an
-                                            unrelated `@Annotation`, corrupting
-                                            `@JvmOverloads`/`@Volatile` into `@ JvmOverloads`/`@
-                                            Volatile`. Fixed with an isLoopLabelTarget lookahead
-                                            requiring `for`/`while`/`do`/`{` after `@`.
+  real_code_regressions_25_inp/out.kt     -- Kotlin compile-break
+                                             (BlockCanvasView.kt/ToolbarActions.kt):
+                                             enforceLabeledJumpSpacing's label-detection state
+                                             machine couldn't tell a genuine `label@` from an
+                                             unrelated `@Annotation`, corrupting
+                                             `@JvmOverloads`/`@Volatile` into `@ JvmOverloads`/`@
+                                             Volatile`. Fixed with an isLoopLabelTarget lookahead
+                                             requiring `for`/`while`/`do`/`{` after `@`.
 
-  real_code_regressions_26_inp/out.kt    -- Kotlin compile-break (Optimizer.kt):
-                                            collapseSingleExpressionBlocks's bare-`else` handling
-                                            also matched a `when` arm's `else ->` label (no brace,
-                                            since its body follows `->`), flattening a multi-
-                                            statement block onto one line with no `;` separators.
-                                            Fixed by checking for a following `->` and bailing out
-                                            of the braceless-collapse path.
+  real_code_regressions_26_inp/out.kt     -- Kotlin compile-break (Optimizer.kt):
+                                             collapseSingleExpressionBlocks's bare-`else` handling
+                                             also matched a `when` arm's `else ->` label (no brace,
+                                             since its body follows `->`), flattening a multi-
+                                             statement block onto one line with no `;` separators.
+                                             Fixed by checking for a following `->` and bailing out
+                                             of the braceless-collapse path.
 
-  real_code_regressions_27_inp/out.kt    -- Kotlin, two co-occurring bugs (ProgramBuilder.kt): (1)
-                                            needsSpaceBetween had no case for `!is`/`!in`,
-                                            corrupting them into `! is`/`! in`; (2)
-                                            enforceCallLineBreaking's renderCallCandidate used the
-                                            C/Java-style parseSignature on a call argument
-                                            (`it.func.funcName`), misparsing it as `Type name` and
-                                            inserting a spurious space once wrapped. Fixed by adding
-                                            `!is`/`!in` as tight tokens and routing Kotlin calls
-                                            through a separate untyped sigForRender path.
+  real_code_regressions_27_inp/out.kt     -- Kotlin, two co-occurring bugs (ProgramBuilder.kt): (1)
+                                             needsSpaceBetween had no case for `!is`/`!in`,
+                                             corrupting them into `! is`/`! in`; (2)
+                                             enforceCallLineBreaking's renderCallCandidate used the
+                                             C/Java-style parseSignature on a call argument
+                                             (`it.func.funcName`), misparsing it as `Type name` and
+                                             inserting a spurious space once wrapped. Fixed by
+                                             adding `!is`/`!in` as tight tokens and routing Kotlin
+                                             calls through a separate untyped sigForRender path.
 
   real_code_regressions_28_inp/out.hpp    -- C++, real-code test against taocpp/PEGTL
                                              (rematch_input.hpp): reclassifyAngleBrackets'
@@ -640,48 +642,48 @@ Real-code regressions:
                                              Kotlin-only "leave such an argument untouched" bail to
                                              all languages via a new containsInternalNewline check.
 
-  real_code_regressions_30_inp/out.kt    -- Kotlin, real-code test against `square/okio`: three
-                                            co-occurring bugs. (1) renderTokens had no unary-vs-
-                                            binary `-`/`+` notion, corrupting `val x = -1` into `= -
-                                            1`; fixed with an isUnaryMinusOperand lookback. (2)
-                                            applySignaturePass's `: ReturnType` tail detection
-                                            merged a headerless declaration with an unrelated later
-                                            one across a blank line; fixed with a
-                                            hasTopLevelBlankLine guard. (3) braceless if/while/for
-                                            collapse rendered a stale, untightened keyword-paren
-                                            space, causing enforceCallLineBreaking to over-wrap a
-                                            line that fits at its true final width; fixed by
-                                            tightening the space at collapse time.
+  real_code_regressions_30_inp/out.kt     -- Kotlin, real-code test against `square/okio`: three
+                                             co-occurring bugs. (1) renderTokens had no unary-vs-
+                                             binary `-`/`+` notion, corrupting `val x = -1` into `=
+                                             - 1`; fixed with an isUnaryMinusOperand lookback. (2)
+                                             applySignaturePass's `: ReturnType` tail detection
+                                             merged a headerless declaration with an unrelated later
+                                             one across a blank line; fixed with a
+                                             hasTopLevelBlankLine guard. (3) braceless if/while/for
+                                             collapse rendered a stale, untightened keyword-paren
+                                             space, causing enforceCallLineBreaking to over-wrap a
+                                             line that fits at its true final width; fixed by
+                                             tightening the space at collapse time.
 
-  real_code_regressions_31_inp/out.kt    -- Kotlin, two compile-breaking bugs found via `kotlinc`
-                                            against `square/okio` (not caught by idempotency
-                                            diffing). (1) MULTI_CHAR_OPS was missing `===`/`!==`, so
-                                            `!==` lexed as separate tokens and got re-spaced into
-                                            invalid `!= =`; fixed by adding both operators. (2) the
-                                            braceless-collapse dispatch treated a do-while's
-                                            trailing `while (cond)` as a loop-starting `while`,
-                                            fusing the next statement onto the same line; fixed with
-                                            an isDoWhileTailKeyword lookback.
+  real_code_regressions_31_inp/out.kt     -- Kotlin, two compile-breaking bugs found via `kotlinc`
+                                             against `square/okio` (not caught by idempotency
+                                             diffing). (1) MULTI_CHAR_OPS was missing `===`/`!==`,
+                                             so `!==` lexed as separate tokens and got re-spaced
+                                             into invalid `!= =`; fixed by adding both operators.
+                                             (2) the braceless-collapse dispatch treated a
+                                             do-while's trailing `while (cond)` as a loop-starting
+                                             `while`, fusing the next statement onto the same line;
+                                             fixed with an isDoWhileTailKeyword lookback.
 
-  real_code_regressions_32_inp/out.kt    -- Kotlin, real-code test against `square/kotlinpoet`: a
-                                            nested `when { ... }` used as a `when` branch's body
-                                            flapped its closing `}`'s indentation round1-vs-round2,
-                                            since Kotlin's braceLineIndent anchors on the brace's
-                                            pre-merge physical line at Phase 0 but
-                                            formatWhenExpressions' Phase 4 arrow-alignment pass
-                                            later merges the branch label onto that same line. Fixed
-                                            with a findMergingWhenBranchLineStart lookahead that
-                                            anchors on the eventual post-merge line up front.
+  real_code_regressions_32_inp/out.kt     -- Kotlin, real-code test against `square/kotlinpoet`: a
+                                             nested `when { ... }` used as a `when` branch's body
+                                             flapped its closing `}`'s indentation round1-vs-round2,
+                                             since Kotlin's braceLineIndent anchors on the brace's
+                                             pre-merge physical line at Phase 0 but
+                                             formatWhenExpressions' Phase 4 arrow-alignment pass
+                                             later merges the branch label onto that same line.
+                                             Fixed with a findMergingWhenBranchLineStart lookahead
+                                             that anchors on the eventual post-merge line up front.
 
-  real_code_regressions_33_inp/out.kt    -- Kotlin, real-code test against `square/kotlinpoet`: a
-                                            first-pass compile-breaking bug found via `kotlinc` --
-                                            an expression-bodied function whose body is itself a
-                                            trailing-lambda call (`fun addTypes(...): T = apply {
-                                            ... } as T`) had `apply`'s own unrelated `{` wrongly
-                                            Allman-converted as the function's own body brace. Root
-                                            cause: findSignatureCloseParenBeforeBrace's backward
-                                            scan for `: ReturnType` had no bail-out on an
-                                            intervening depth-0 `=`. Fixed with that bail-out.
+  real_code_regressions_33_inp/out.kt     -- Kotlin, real-code test against `square/kotlinpoet`: a
+                                             first-pass compile-breaking bug found via `kotlinc` --
+                                             an expression-bodied function whose body is itself a
+                                             trailing-lambda call (`fun addTypes(...): T = apply {
+                                             ... } as T`) had `apply`'s own unrelated `{` wrongly
+                                             Allman-converted as the function's own body brace. Root
+                                             cause: findSignatureCloseParenBeforeBrace's backward
+                                             scan for `: ReturnType` had no bail-out on an
+                                             intervening depth-0 `=`. Fixed with that bail-out.
 
   real_code_regressions_34_inp/out.hpp    -- C++, real-code test against `NVIDIA/stdexec`: combines
                                              two bugs. (1) A requires-expression
@@ -721,139 +723,140 @@ Real-code regressions:
                                              diffing this was the only remaining divergence, marking
                                              the stdexec candidate DONE.
 
-  real_code_regressions_37_inp/out.kt    -- Kotlin, real-code test against
-                                            `Kotlin/kotlinx.coroutines`: an expression-bodied
-                                            function's unconsumed `{`-led lambda tail made
-                                            `renderWithTail` bake a trailing space onto `= `
-                                            regardless, growing the gap by one space per reformat.
-                                            Fixed by omitting the space when `exprTokens` is empty.
+  real_code_regressions_37_inp/out.kt     -- Kotlin, real-code test against
+                                             `Kotlin/kotlinx.coroutines`: an expression-bodied
+                                             function's unconsumed `{`-led lambda tail made
+                                             `renderWithTail` bake a trailing space onto `= `
+                                             regardless, growing the gap by one space per reformat.
+                                             Fixed by omitting the space when `exprTokens` is empty.
 
-  real_code_regressions_38_inp/out.kt    -- Kotlin, real-code test against
-                                            `Kotlin/kotlinx.coroutines`: a KDoc's own nested `/* ...
-                                            */` snippet closed the outer `/**` doc-comment early,
-                                            mis-lexing and silently truncating the rest of the file
-                                            (`Guidance.kt`, ~330 lines dropped). Fixed by tracking
-                                            block-comment nesting depth, Kotlin-only.
+  real_code_regressions_38_inp/out.kt     -- Kotlin, real-code test against
+                                             `Kotlin/kotlinx.coroutines`: a KDoc's own nested `/*
+                                             ... */` snippet closed the outer `/**` doc-comment
+                                             early, mis-lexing and silently truncating the rest of
+                                             the file (`Guidance.kt`, ~330 lines dropped). Fixed by
+                                             tracking block-comment nesting depth, Kotlin-only.
 
-  real_code_regressions_39_inp/out.kt    -- Kotlin, real-code test against
-                                            `Kotlin/kotlinx.coroutines`: `this@Label` got a stray
-                                            space inserted before `@` (`this @Label`, a real syntax
-                                            error) since `enforceLabeledJumpSpacing`'s state machine
-                                            didn't recognize `this` before `@`. Fixed with a new
-                                            state pair tightening `this@Label`.
+  real_code_regressions_39_inp/out.kt     -- Kotlin, real-code test against
+                                             `Kotlin/kotlinx.coroutines`: `this@Label` got a stray
+                                             space inserted before `@` (`this @Label`, a real syntax
+                                             error) since `enforceLabeledJumpSpacing`'s state
+                                             machine didn't recognize `this` before `@`. Fixed with
+                                             a new state pair tightening `this@Label`.
 
-  real_code_regressions_40_inp/out.kt    -- Kotlin, real-code test against
-                                            `Kotlin/kotlinx.coroutines`: `LimitedDispatcher.kt`'s
-                                            collapsible `while (true) { when (...) { ... } }` body
-                                            owned a nested multi-line `synchronized(...) { ... }`
-                                            block; `tryCollapse`'s brace-depth-unaware flattening
-                                            fused its statements onto one line with no separators --
-                                            a real syntax error. Fixed with a
-                                            `containsMultilineNestedBrace` bail in
-                                            `isKotlinSingleStatementBody`.
+  real_code_regressions_40_inp/out.kt     -- Kotlin, real-code test against
+                                             `Kotlin/kotlinx.coroutines`: `LimitedDispatcher.kt`'s
+                                             collapsible `while (true) { when (...) { ... } }` body
+                                             owned a nested multi-line `synchronized(...) { ... }`
+                                             block; `tryCollapse`'s brace-depth-unaware flattening
+                                             fused its statements onto one line with no separators
+                                             -- a real syntax error. Fixed with a
+                                             `containsMultilineNestedBrace` bail in
+                                             `isKotlinSingleStatementBody`.
 
-  real_code_regressions_41_inp/out.kt    -- Kotlin, real-code idempotency test against
-                                            `Kotlin/kotlinx.coroutines`: `SystemProps.kt`'s chained
-                                            `catch` span kept its stale pre-merge indent once
-                                            `KotlinSignatureRule` merged the `try` signature onto
-                                            one line, disagreeing with the `try` span's re-derived
-                                            indent round1 vs round2. Fixed by having a chained
-                                            `catch`/`finally` span inherit its preceding span's
-                                            resolved indent.
+  real_code_regressions_41_inp/out.kt     -- Kotlin, real-code idempotency test against
+                                             `Kotlin/kotlinx.coroutines`: `SystemProps.kt`'s chained
+                                             `catch` span kept its stale pre-merge indent once
+                                             `KotlinSignatureRule` merged the `try` signature onto
+                                             one line, disagreeing with the `try` span's re-derived
+                                             indent round1 vs round2. Fixed by having a chained
+                                             `catch`/`finally` span inherit its preceding span's
+                                             resolved indent.
 
-  real_code_regressions_42_inp/out.kt    -- Kotlin, real-code idempotency test against
-                                            `Kotlin/kotlinx.coroutines`: a class with a wrapped
-                                            multi-line generic `where` clause had its closing
-                                            brace/comment indent drift deeper, since
-                                            `effectiveSpanIndent` preferred the deeper
-                                            continuation-line `braceIndent` over the header's own
-                                            `spanIndent` (correct for unnamed lambda bodies,
-                                            RDD_KEY_136, but wrong for named class/fun/object
-                                            scopes). Fixed by gating `braceIndent` off for named
-                                            scopes.
+  real_code_regressions_42_inp/out.kt     -- Kotlin, real-code idempotency test against
+                                             `Kotlin/kotlinx.coroutines`: a class with a wrapped
+                                             multi-line generic `where` clause had its closing
+                                             brace/comment indent drift deeper, since
+                                             `effectiveSpanIndent` preferred the deeper
+                                             continuation-line `braceIndent` over the header's own
+                                             `spanIndent` (correct for unnamed lambda bodies,
+                                             RDD_KEY_136, but wrong for named class/fun/object
+                                             scopes). Fixed by gating `braceIndent` off for named
+                                             scopes.
 
-  real_code_regressions_43_inp/out.kt    -- Kotlin, real-code idempotency test against
-                                            `Kotlin/kotlinx.coroutines`: a wrapped multi-argument
-                                            call used as a keyword-less `when` branch body had its
-                                            continuation lines one level deeper on round1 than
-                                            round2, since `enforceCallLineBreaking` computed the
-                                            base indent before the branch label/body got merged onto
-                                            one line by a later phase. Fixed with
-                                            `effectiveCallBaseIndent`, which uses the preceding `->`
-                                            line's indent when present.
+  real_code_regressions_43_inp/out.kt     -- Kotlin, real-code idempotency test against
+                                             `Kotlin/kotlinx.coroutines`: a wrapped multi-argument
+                                             call used as a keyword-less `when` branch body had its
+                                             continuation lines one level deeper on round1 than
+                                             round2, since `enforceCallLineBreaking` computed the
+                                             base indent before the branch label/body got merged
+                                             onto one line by a later phase. Fixed with
+                                             `effectiveCallBaseIndent`, which uses the preceding
+                                             `->` line's indent when present.
 
-  real_code_regressions_44_inp/out.kt    -- Kotlin, real-code idempotency test against
-                                            `Kotlin/kotlinx.coroutines`: a nested-lambda-chain's
-                                            closing `}` drifted from col 4 to col 8 on round2.
-                                            `findParentIndent`'s backward scan could anchor on a
-                                            dangling braceless `else expr` (left as leading text at
-                                            the start of the next span by `splitTopLevelSpans`),
-                                            returning a wrong, unrelated line's indent. Fixed by
-                                            skipping forward past a dangling `else`/`catch`/
-                                            `finally` anchor to the next real statement.
+  real_code_regressions_44_inp/out.kt     -- Kotlin, real-code idempotency test against
+                                             `Kotlin/kotlinx.coroutines`: a nested-lambda-chain's
+                                             closing `}` drifted from col 4 to col 8 on round2.
+                                             `findParentIndent`'s backward scan could anchor on a
+                                             dangling braceless `else expr` (left as leading text at
+                                             the start of the next span by `splitTopLevelSpans`),
+                                             returning a wrong, unrelated line's indent. Fixed by
+                                             skipping forward past a dangling `else`/`catch`/
+                                             `finally` anchor to the next real statement.
 
-  real_code_regressions_45_inp/out.kt    -- Kotlin, real-code idempotency test against
-                                            `Kotlin/kotlinx.coroutines`: a `val` alignment group
-                                            padded a typeless row to match a sibling's type-column
-                                            width, widening that sibling's line enough to trigger a
-                                            lambda-initializer wrap on the next pass, which then
-                                            correctly bailed it out of the group -- an idempotency
-                                            flap. Fixed by making `renderAlignedGroup` budget-aware:
-                                            a row is excluded from the shared column grid up front
-                                            when its own brace-bodied initializer would overflow the
-                                            line-length budget once padded.
+  real_code_regressions_45_inp/out.kt     -- Kotlin, real-code idempotency test against
+                                             `Kotlin/kotlinx.coroutines`: a `val` alignment group
+                                             padded a typeless row to match a sibling's type-column
+                                             width, widening that sibling's line enough to trigger a
+                                             lambda-initializer wrap on the next pass, which then
+                                             correctly bailed it out of the group -- an idempotency
+                                             flap. Fixed by making `renderAlignedGroup`
+                                             budget-aware: a row is excluded from the shared column
+                                             grid up front when its own brace-bodied initializer
+                                             would overflow the line-length budget once padded.
 
-  real_code_regressions_46_inp/out.kt    -- Kotlin, real-code idempotency test against
-                                            `square/kotlinpoet`'s Shape 1 idempotency-gap group (6
-                                            files), two bugs in `enforceCallLineBreaking`. Bug A: a
-                                            wrapped signature with a trailing `= apply { ... }` body
-                                            re-collapsed on reformat because `lineEndIndex`'s width
-                                            check stopped at the first NEWLINE, undercounting width
-                                            when the tail's own nested call was already wrapped from
-                                            a previous round; fixed with a depth-aware
-                                            `effectiveLineEndIndex` that skips NEWLINEs still inside
-                                            an unclosed bracket. Bug B (RDD_KEY_149, now
-                                            root-caused): a signature with an explicit `: ReturnType
-                                            {` block body got its correctly wrapped, padded param
-                                            list re-wrapped as a plain call, discarding
-                                            padding/trailing comma, since the "is this a call"
-                                            exemption only recognized `{` right after `)`. Fixed
-                                            with an `isKotlinReturnTypeThenBlockBody` lookahead.
+  real_code_regressions_46_inp/out.kt     -- Kotlin, real-code idempotency test against
+                                             `square/kotlinpoet`'s Shape 1 idempotency-gap group (6
+                                             files), two bugs in `enforceCallLineBreaking`. Bug A: a
+                                             wrapped signature with a trailing `= apply { ... }`
+                                             body re-collapsed on reformat because `lineEndIndex`'s
+                                             width check stopped at the first NEWLINE, undercounting
+                                             width when the tail's own nested call was already
+                                             wrapped from a previous round; fixed with a depth-aware
+                                             `effectiveLineEndIndex` that skips NEWLINEs still
+                                             inside an unclosed bracket. Bug B (RDD_KEY_149, now
+                                             root-caused): a signature with an explicit `:
+                                             ReturnType {` block body got its correctly wrapped,
+                                             padded param list re-wrapped as a plain call,
+                                             discarding padding/trailing comma, since the "is this a
+                                             call" exemption only recognized `{` right after `)`.
+                                             Fixed with an `isKotlinReturnTypeThenBlockBody`
+                                             lookahead.
 
-  real_code_regressions_47_inp/out.kt    -- Kotlin, real-code idempotency test against
-                                            `square/kotlinpoet`'s Shape 2 (`AbstractTypesTest.kt`):
-                                            a multi-line generic `where` clause gained one extra
-                                            indent level every round, since
-                                            `enforceWhereClausePlacement` derived the base indent
-                                            from `where`'s own (already-wrapped) physical line
-                                            instead of the true signature line. Fixed with a
-                                            `signatureLineIndent` helper that scans backward to the
-                                            nearest depth-0 `;`/`}`/`{`.
+  real_code_regressions_47_inp/out.kt     -- Kotlin, real-code idempotency test against
+                                             `square/kotlinpoet`'s Shape 2 (`AbstractTypesTest.kt`):
+                                             a multi-line generic `where` clause gained one extra
+                                             indent level every round, since
+                                             `enforceWhereClausePlacement` derived the base indent
+                                             from `where`'s own (already-wrapped) physical line
+                                             instead of the true signature line. Fixed with a
+                                             `signatureLineIndent` helper that scans backward to the
+                                             nearest depth-0 `;`/`}`/`{`.
 
-  real_code_regressions_48_inp/out.kt    -- Kotlin, real-code idempotency test against
-                                            `square/kotlinpoet`'s Shape 3: a `when` branch's
-                                            multi-line body (nested `when(subject) { ... }` or a
-                                            trailing-lambda call) had its closing `}` sit 2 spaces
-                                            shallower on round2, since
-                                            `findMergingWhenBranchLineStart` (RDD_KEY_152) only
-                                            recognized a bare `when {` as the merging shape. Fixed
-                                            by generalizing the lookahead to accept a parenthesized
-                                            `when` subject or a plain call-head identifier.
+  real_code_regressions_48_inp/out.kt     -- Kotlin, real-code idempotency test against
+                                             `square/kotlinpoet`'s Shape 3: a `when` branch's
+                                             multi-line body (nested `when(subject) { ... }` or a
+                                             trailing-lambda call) had its closing `}` sit 2 spaces
+                                             shallower on round2, since
+                                             `findMergingWhenBranchLineStart` (RDD_KEY_152) only
+                                             recognized a bare `when {` as the merging shape. Fixed
+                                             by generalizing the lookahead to accept a parenthesized
+                                             `when` subject or a plain call-head identifier.
 
-  real_code_regressions_49_inp/out.kt    -- Kotlin, real-code idempotency test against
-                                            `square/kotlinpoet`'s Shape 4: a `val` declaration's
-                                            alignment padding flapped between rounds because a
-                                            preceding sibling's `Foo::class` reflection literal
-                                            wrongly armed `namedConstructKeywordSeen` (which only
-                                            checks for the `class` KEYWORD, not a real class
-                                            declaration), corrupting a later unrelated scope's name
-                                            tracking. Fixed by never arming on a `class` KEYWORD
-                                            preceded by `::`. Also fixed two side bugs found while
-                                            root-causing this: an `ArrayIndexOutOfBoundsException`
-                                            in `signatureLineIndent` (RDD_KEY_164) for a
-                                            `where`-clause statement with no preceding boundary
-                                            token, and a boundary-anchoring correction matching
-                                            `real_code_regressions_47`'s original fix intent.
+  real_code_regressions_49_inp/out.kt     -- Kotlin, real-code idempotency test against
+                                             `square/kotlinpoet`'s Shape 4: a `val` declaration's
+                                             alignment padding flapped between rounds because a
+                                             preceding sibling's `Foo::class` reflection literal
+                                             wrongly armed `namedConstructKeywordSeen` (which only
+                                             checks for the `class` KEYWORD, not a real class
+                                             declaration), corrupting a later unrelated scope's name
+                                             tracking. Fixed by never arming on a `class` KEYWORD
+                                             preceded by `::`. Also fixed two side bugs found while
+                                             root-causing this: an `ArrayIndexOutOfBoundsException`
+                                             in `signatureLineIndent` (RDD_KEY_164) for a
+                                             `where`-clause statement with no preceding boundary
+                                             token, and a boundary-anchoring correction matching
+                                             `real_code_regressions_47`'s original fix intent.
 
   real_code_regressions_50_inp/out.cpp    -- C++, real-code test against `ericniebler/range-v3`'s
                                              concept-emulation-macro convention
@@ -1000,84 +1003,84 @@ Real-code regressions:
                                              Verified: minimal repro, real file round1/round2
                                              byte-identical, full `make test`.
 
-  real_code_regressions_59_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing: a generic
-                                            bound's `:` (e.g. `<A : Comparable<A>>`) wasn't
-                                            recognized as generic-safe by
-                                            `TokenizerCore.isGenericSafeToken`, invalidating the
-                                            angle-bracket tracking stack so a second bound's `>>`
-                                            stayed unsplit, corrupting both bounds' spacing. Fixed
-                                            by adding a Kotlin-gated `:` case to
-                                            `isGenericSafeToken`'s `OP` branch. Found in
-                                            `arrow-core`'s `Pair.kt` (`compareTo` extension).
-                                            Verified: minimal repro, full `make test`.
+  real_code_regressions_59_inp/out.kt     -- Kotlin, arrow-kt/arrow real-code testing: a generic
+                                             bound's `:` (e.g. `<A : Comparable<A>>`) wasn't
+                                             recognized as generic-safe by
+                                             `TokenizerCore.isGenericSafeToken`, invalidating the
+                                             angle-bracket tracking stack so a second bound's `>>`
+                                             stayed unsplit, corrupting both bounds' spacing. Fixed
+                                             by adding a Kotlin-gated `:` case to
+                                             `isGenericSafeToken`'s `OP` branch. Found in
+                                             `arrow-core`'s `Pair.kt` (`compareTo` extension).
+                                             Verified: minimal repro, full `make test`.
 
-  real_code_regressions_60_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing (found via
-                                            `kotlin_sc` compile-checking round1's output, not
-                                            round1/round2 diffing): `BlockStructureRule
-                                            .isKotlinSingleStatementBody` let a braced `if` body
-                                            whose sole statement was a `val`/`var` declaration
-                                            collapse to braceless form (`if (x) val y = ...`), which
-                                            is illegal Kotlin. Fixed by disqualifying a body whose
-                                            first token is `val`/`var` from collapse, same as
-                                            `COMPOUND_BODY_KEYWORDS` does for nested compound
-                                            bodies. Found in `RaiseAccumulate.kt`'s `addErrors`.
-                                            Verified: minimal repro, full `make test`.
+  real_code_regressions_60_inp/out.kt     -- Kotlin, arrow-kt/arrow real-code testing (found via
+                                             `kotlin_sc` compile-checking round1's output, not
+                                             round1/round2 diffing): `BlockStructureRule
+                                             .isKotlinSingleStatementBody` let a braced `if` body
+                                             whose sole statement was a `val`/`var` declaration
+                                             collapse to braceless form (`if (x) val y = ...`),
+                                             which is illegal Kotlin. Fixed by disqualifying a body
+                                             whose first token is `val`/`var` from collapse, same as
+                                             `COMPOUND_BODY_KEYWORDS` does for nested compound
+                                             bodies. Found in `RaiseAccumulate.kt`'s `addErrors`.
+                                             Verified: minimal repro, full `make test`.
 
-  real_code_regressions_61_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing (also found via
-                                            `kotlin_sc`): `MiscRule.needsSpaceBetween` had no
-                                            tight-after case for a Kotlin annotation's `@` when it
-                                            shares its source line with the function signature
-                                            (rendered through `MiscRule.renderTokens`'s shared join
-                                            point, used by `KotlinSignatureRule`); the default
-                                            space-insert fallback produced invalid `@ RaiseDSL`.
-                                            Fixed by adding a Kotlin-gated tight-after case for `@`.
-                                            Kotlin's other `@`-uses (`return@label`, `label@`,
-                                            `this@Label`) go through a separate rule
-                                            (`KotlinSpecificRule .enforceLabeledJumpSpacing`) and
-                                            are unaffected. Found in `RaiseAccumulateContext.kt`'s
-                                            `mapOrAccumulate`. Verified: minimal repro, full `make
-                                            test`.
+  real_code_regressions_61_inp/out.kt     -- Kotlin, arrow-kt/arrow real-code testing (also found
+                                             via `kotlin_sc`): `MiscRule.needsSpaceBetween` had no
+                                             tight-after case for a Kotlin annotation's `@` when it
+                                             shares its source line with the function signature
+                                             (rendered through `MiscRule.renderTokens`'s shared join
+                                             point, used by `KotlinSignatureRule`); the default
+                                             space-insert fallback produced invalid `@ RaiseDSL`.
+                                             Fixed by adding a Kotlin-gated tight-after case for
+                                             `@`. Kotlin's other `@`-uses (`return@label`, `label@`,
+                                             `this@Label`) go through a separate rule
+                                             (`KotlinSpecificRule .enforceLabeledJumpSpacing`) and
+                                             are unaffected. Found in `RaiseAccumulateContext.kt`'s
+                                             `mapOrAccumulate`. Verified: minimal repro, full `make
+                                             test`.
 
-  real_code_regressions_62_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing: two
-                                            idempotency bugs deferred by RDD_KEY_173. (A)
-                                            RDD_KEY_174 --
-                                            `KotlinSignatureRule.parseKotlinSignature`'s first
-                                            `IDENTIFIER (` scan mistook a leading `context(raise:
-                                            Raise<Error>)` clause's paren for the real parameter
-                                            list when both shared one line, bailing instead of
-                                            continuing the scan (`RaiseContext.kt`'s
-                                            `ensureNotNull`). (B) RDD_KEY_175 -- `Formatter.java`
-                                            ran `formatWhenExpressions` after `addClosingComments`
-                                            had already counted `closing-comment-min-lines` against
-                                            the enclosing `for` loop, dropping its `// for` comment
-                                            on a fresh format; fixed by reordering the passes
-                                            (`Iterable.kt`'s `separateEither`). Verified: minimal
-                                            repro + both real files round1/round2 byte-identical +
-                                            full `make test`.
+  real_code_regressions_62_inp/out.kt     -- Kotlin, arrow-kt/arrow real-code testing: two
+                                             idempotency bugs deferred by RDD_KEY_173. (A)
+                                             RDD_KEY_174 --
+                                             `KotlinSignatureRule.parseKotlinSignature`'s first
+                                             `IDENTIFIER (` scan mistook a leading `context(raise:
+                                             Raise<Error>)` clause's paren for the real parameter
+                                             list when both shared one line, bailing instead of
+                                             continuing the scan (`RaiseContext.kt`'s
+                                             `ensureNotNull`). (B) RDD_KEY_175 -- `Formatter.java`
+                                             ran `formatWhenExpressions` after `addClosingComments`
+                                             had already counted `closing-comment-min-lines` against
+                                             the enclosing `for` loop, dropping its `// for` comment
+                                             on a fresh format; fixed by reordering the passes
+                                             (`Iterable.kt`'s `separateEither`). Verified: minimal
+                                             repro + both real files round1/round2 byte-identical +
+                                             full `make test`.
 
-  real_code_regressions_63_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing: RDD_KEY_176 --
-                                            `BlockStructureRule.collapseBracelessBody`'s
-                                            bare-`else`/ braceless-`if` body scan never checked
-                                            whether the body was a single statement once it could
-                                            itself own a multi-line `{...}` block (e.g. a
-                                            trailing-lambda call); `renderInline` fused the block's
-                                            internal statements with no `;` separator, a genuine
-                                            compile error. Fixed by reusing
-                                            `containsMultilineNestedBrace` as a bail-out guard.
-                                            Found in `Either.kt`'s `zipOrAccumulate`. Verified:
-                                            `kotlin_sc` on `Either.kt` (18 errors -> 0), full `make
-                                            test`.
+  real_code_regressions_63_inp/out.kt     -- Kotlin, arrow-kt/arrow real-code testing: RDD_KEY_176
+                                             -- `BlockStructureRule.collapseBracelessBody`'s
+                                             bare-`else`/ braceless-`if` body scan never checked
+                                             whether the body was a single statement once it could
+                                             itself own a multi-line `{...}` block (e.g. a
+                                             trailing-lambda call); `renderInline` fused the block's
+                                             internal statements with no `;` separator, a genuine
+                                             compile error. Fixed by reusing
+                                             `containsMultilineNestedBrace` as a bail-out guard.
+                                             Found in `Either.kt`'s `zipOrAccumulate`. Verified:
+                                             `kotlin_sc` on `Either.kt` (18 errors -> 0), full `make
+                                             test`.
 
-  real_code_regressions_64_inp/out.kt    -- Kotlin, arrow-kt/arrow real-code testing: RDD_KEY_177,
-                                            closing item of the investigation. Pure idempotency flap
-                                            in `Comparison.kt`'s `sort2`:
-                                            `collapseSingleExpressionBlocks`'s
-                                            `isKotlinExpressionIf` exemption only covered a
-                                            parenthesized expression-position `if`, not an
-                                            unparenthesized depth-0 if-expression used as an entire
-                                            expression-bodied function's whole body, so a fresh
-                                            format and a reformat of already-wrapped output
-                                            converged to two different stable states.
+  real_code_regressions_64_inp/out.kt     -- Kotlin, arrow-kt/arrow real-code testing: RDD_KEY_177,
+                                             closing item of the investigation. Pure idempotency
+                                             flap in `Comparison.kt`'s `sort2`:
+                                             `collapseSingleExpressionBlocks`'s
+                                             `isKotlinExpressionIf` exemption only covered a
+                                             parenthesized expression-position `if`, not an
+                                             unparenthesized depth-0 if-expression used as an entire
+                                             expression-bodied function's whole body, so a fresh
+                                             format and a reformat of already-wrapped output
+                                             converged to two different stable states.
 
   real_code_regressions_65_inp/out.java   -- Java, local `src/jxm` real-code testing: two
                                              idempotency bugs combined in one fixture (RDD_KEY_171,
@@ -1318,23 +1321,23 @@ Real-code regressions:
                                              signature alignment: `trySignatureGroup` split params
                                              on raw NEWLINE tokens without checking bracket depth,
                                              misclassifying a multi-line type-hint's continuation
-                                             lines as bogus params and corrupting the signature
-                                             with growing trailing whitespace each round; fixed by
-                                             only splitting at depth-0 NEWLINEs in
+                                             lines as bogus params and corrupting the signature with
+                                             growing trailing whitespace each round; fixed by only
+                                             splitting at depth-0 NEWLINEs in
                                              `classifySignatureParam`. (2) §9.2
-                                             blank-line-before-`elif`/`else` and §8's
-                                             statement-join could target the same token index,
-                                             letting the join swallow the blank-line insertion;
-                                             fixed by sorting zero-width entries first on ties.
+                                             blank-line-before-`elif`/`else` and §8's statement-join
+                                             could target the same token index, letting the join
+                                             swallow the blank-line insertion; fixed by sorting
+                                             zero-width entries first on ties.
 
   real_code_regressions_80_inp/out.py     -- Python3, pallets/click real-code testing: §4 decorator
                                              bracket-padding (`applyBracketPadding`) couldn't
-                                             distinguish an f-string field's `{`/`}` from a
-                                             dict/set literal, padding it like a non-empty brace
-                                             pair and producing `f"{ ctx.info_name }"`; §5's
-                                             f-string spacing pass then trimmed it back next round,
-                                             so it only surfaced as non-idempotency. Fixed by
-                                             skipping any `{`/`}` immediately preceded by
+                                             distinguish an f-string field's `{`/`}` from a dict/set
+                                             literal, padding it like a non-empty brace pair and
+                                             producing `f"{ ctx.info_name }"`; §5's f-string spacing
+                                             pass then trimmed it back next round, so it only
+                                             surfaced as non-idempotency. Fixed by skipping any
+                                             `{`/`}` immediately preceded by
                                              `FSTRING_START`/`FSTRING_MIDDLE`.
 
   real_code_regressions_81_inp/out.ts     -- JS/TS, nestjs/nest real-code testing: a multi-arg call
@@ -1352,14 +1355,14 @@ Real-code regressions:
   real_code_regressions_82_inp/out.ts     -- JS/TS, nestjs/nest real-code testing: content
                                              duplication.
                                              `JsTsSpecificRule.enforceClassFieldAlignmentGrid`'s
-                                             linear `cursor` sweep assumed every selected class
-                                             span was disjoint, but an anonymous `return class
-                                             extends Base {...}` nested inside an outer class's
-                                             method is legitimate nesting; re-processing the inner
-                                             span as its own top-level entry duplicated content and
-                                             walked `cursor` backward, causing the final raw-copy
-                                             loop to re-emit everything to EOF a second time. Fixed
-                                             by filtering `classOpens` to only the outermost class
+                                             linear `cursor` sweep assumed every selected class span
+                                             was disjoint, but an anonymous `return class extends
+                                             Base {...}` nested inside an outer class's method is
+                                             legitimate nesting; re-processing the inner span as its
+                                             own top-level entry duplicated content and walked
+                                             `cursor` backward, causing the final raw-copy loop to
+                                             re-emit everything to EOF a second time. Fixed by
+                                             filtering `classOpens` to only the outermost class
                                              brace at each nesting level.
 
   real_code_regressions_83_inp/out.yaml   -- YAML, prometheus/prometheus real-code testing: four
@@ -1368,14 +1371,14 @@ Real-code regressions:
                                              absent/comment-only/anchor-only/an unbalanced
                                              multi-line flow opener with real content on
                                              more-indented following lines. (1) `parseKeyItem`'s
-                                             flow-value early return didn't check the flow closed
-                                             on the same line, truncating text after an unbalanced
+                                             flow-value early return didn't check the flow closed on
+                                             the same line, truncating text after an unbalanced
                                              `[...]`. (2) `parseSeqItem`'s `seqOfMapping` first-key
                                              handling had the same gap, and also dropped everything
-                                             after a comment-only dash line. (3) An anchor-only
-                                             dash line (`- &highalert`) followed by a nested
-                                             mapping at an equal (not just greater) indent lost its
-                                             child block. (4) `renderFlowValue` rendered an empty
+                                             after a comment-only dash line. (3) An anchor-only dash
+                                             line (`- &highalert`) followed by a nested mapping at
+                                             an equal (not just greater) indent lost its child
+                                             block. (4) `renderFlowValue` rendered an empty
                                              `{}`/`[]` as a block conversion whenever the line
                                              didn't fit, but `renderFlowBlock` has nothing to
                                              iterate for zero entries, silently dropping the value.
@@ -1396,52 +1399,51 @@ Real-code regressions:
 
   real_code_regressions_85_inp/out.ts     -- JS/TS, nestjs/nest real-code testing: `join(...)`
                                              call-wrap/collapse non-idempotency.
-                                             `MiscRuleCurly.renderCallCandidate`'s
-                                             multi-line-source branch always preserved the original
-                                             per-line argument grouping with no fits-check, unlike
-                                             the sibling single-line branch -- a call wrapped
-                                             across lines stayed wrapped forever even once it fit
-                                             on one line, while the same call written fresh on one
-                                             line collapsed correctly, so the same call could
-                                             settle into two different stable shapes. Fixed by
-                                             adding the same fits-check (JS/TS-only, to avoid
-                                             regressing fixture 1's C/C++/Java case), measuring the
-                                             tight single-line candidate rather than the loose
-                                             `collapseToOneLine` helper (which overestimates
-                                             length). Also updated fixture 81's expected output,
-                                             whose old shape was itself an artifact of this bug.
+                                             `MiscRuleCurly.renderCallCandidate`'s multi-line-source
+                                             branch always preserved the original per-line argument
+                                             grouping with no fits-check, unlike the sibling
+                                             single-line branch -- a call wrapped across lines
+                                             stayed wrapped forever even once it fit on one line,
+                                             while the same call written fresh on one line collapsed
+                                             correctly, so the same call could settle into two
+                                             different stable shapes. Fixed by adding the same
+                                             fits-check (JS/TS-only, to avoid regressing fixture 1's
+                                             C/C++/Java case), measuring the tight single-line
+                                             candidate rather than the loose `collapseToOneLine`
+                                             helper (which overestimates length). Also updated
+                                             fixture 81's expected output, whose old shape was
+                                             itself an artifact of this bug.
 
   real_code_regressions_86_inp/out.yaml   -- YAML, home-assistant/core real-code testing:
                                              nested-sequence data loss. `parseSeqItem` never
-                                             recognized the compact single-line nested-seq form `-
-                                             - a\n  - b`; the inner `- ` was captured as a literal
+                                             recognized the compact single-line nested-seq form `- -
+                                             a\n  - b`; the inner `- ` was captured as a literal
                                              scalar, leaving the sibling nested item unconsumed,
                                              whose mismatched indent then made `parseBlock` break
                                              out of the entire enclosing block early -- silently
                                              dropping the rest of the sequence and every sibling
                                              item/key that followed, at every level. Fixed by
                                              detecting the `-`/`- ` shape up front via a new
-                                             `parseInlineNestedSeq` helper and rendering
-                                             non-lossily via the existing `item.children` path.
-                                             Found via content-preservation checking, not
-                                             syntax-check.
+                                             `parseInlineNestedSeq` helper and rendering non-lossily
+                                             via the existing `item.children` path. Found via
+                                             content-preservation checking, not syntax-check.
 
-  real_code_regressions_87_inp/out.ts     -- JS/TS, vuejs/core real-code testing: leading
-                                             multi-line block comment reindent non-idempotency.
+  real_code_regressions_87_inp/out.ts     -- JS/TS, vuejs/core real-code testing: leading multi-line
+                                             block comment reindent non-idempotency.
                                              `JsTsSpecificRule`'s class-field alignment grid,
-                                             enum-member formatting, and interface/type-alias
-                                             member alignment all re-emitted a member's leading
-                                             `/** ... */` comment verbatim at its original source
-                                             indent, never reindented to the member's own
-                                             re-rendered depth -- misaligned on the first pass,
-                                             self-corrected by an unrelated general reindent pass
-                                             on the second, producing round1 != round2. Fixed by
-                                             adding `reindentLeadingComment` at all three sites.
+                                             enum-member formatting, and interface/type-alias member
+                                             alignment all re-emitted a member's leading `/** ...
+                                             */` comment verbatim at its original source indent,
+                                             never reindented to the member's own re-rendered depth
+                                             -- misaligned on the first pass, self-corrected by an
+                                             unrelated general reindent pass on the second,
+                                             producing round1 != round2. Fixed by adding
+                                             `reindentLeadingComment` at all three sites.
 
   real_code_regressions_88_inp/out.ts     -- JS/TS, vuejs/core real-code testing:
-                                             `TokenizerCurly.GENERIC_SAFE_KEYWORDS` was missing
-                                             TS's `symbol`/`bigint`, and `isGenericSafeToken`'s OP
-                                             case had no `|` entry -- a union type inside a generic
+                                             `TokenizerCurly.GENERIC_SAFE_KEYWORDS` was missing TS's
+                                             `symbol`/`bigint`, and `isGenericSafeToken`'s OP case
+                                             had no `|` entry -- a union type inside a generic
                                              argument list (`Record<string | symbol, Function |
                                              number>`) invalidated the enclosing `<...>` tracking,
                                              leaving `>` a plain OP token. That defeated
@@ -1466,21 +1468,20 @@ Real-code regressions:
                                              mapped type (`{ [K in T[number]]?: unknown }`),
                                              emitting a bare OP token instead of going through
                                              `emitCloseBracket()`'s PUNCT path -- desyncing
-                                             `enforceSemicolonInsertion`'s bracket-depth counter
-                                             for the rest of the file. Fixed by gating the branch
-                                             to `lang.isCpp`. Output still carries the known
+                                             `enforceSemicolonInsertion`'s bracket-depth counter for
+                                             the rest of the file. Fixed by gating the branch to
+                                             `lang.isCpp`. Output still carries the known
                                              general-reindentation gap for the mapped type's own
                                              body.
 
   real_code_regressions_90_inp/out.ts     -- JS/TS, vuejs/core real-code testing
                                              (ref.test-d.ts/watch.test-d.ts):
                                              `JsTsSpecificRule.classifyBraces`'s `isValue`
-                                             prev-token list had no entry for the
-                                             union/intersection operators `|`/`&` -- an inline
-                                             object type following one in a union alias fell
-                                             through to "not a value", misclassifying its `{` as a
-                                             statement-body brace and resetting
-                                             `enforceSemicolonInsertion`'s depth counter
+                                             prev-token list had no entry for the union/intersection
+                                             operators `|`/`&` -- an inline object type following
+                                             one in a union alias fell through to "not a value",
+                                             misclassifying its `{` as a statement-body brace and
+                                             resetting `enforceSemicolonInsertion`'s depth counter
                                              mid-expression, corrupting every subsequent line's
                                              indentation for the rest of the scope. Fixed by adding
                                              `lang.isTs && (isOp(prev, "|") || isOp(prev, "&"))` to
@@ -1499,43 +1500,42 @@ Real-code regressions:
                                              non-idempotency bugs from
                                              `enforceCallLineBreaking`/`enforceComplexityPadding`
                                              pass-ordering. (1) `MiscRuleCurly.collapseToOneLine`'s
-                                             fits-check flattened every whitespace run to one
-                                             space, including same-line declaration-alignment
-                                             padding, undercounting a padded declaration's true
-                                             width and wrongly collapsing it; fixed by only
-                                             collapsing runs that actually contain a NEWLINE. (2)
-                                             `FormatterCurly`'s final `enforceCallLineBreaking`
-                                             pass had no `enforceComplexityPadding` re-run after
-                                             it, so a call wrapped by an earlier inflated
-                                             fits-check and later re-collapsed lost its loose `( x
-                                             )` nested-bracket padding; fixed by adding one more
+                                             fits-check flattened every whitespace run to one space,
+                                             including same-line declaration-alignment padding,
+                                             undercounting a padded declaration's true width and
+                                             wrongly collapsing it; fixed by only collapsing runs
+                                             that actually contain a NEWLINE. (2) `FormatterCurly`'s
+                                             final `enforceCallLineBreaking` pass had no
+                                             `enforceComplexityPadding` re-run after it, so a call
+                                             wrapped by an earlier inflated fits-check and later
+                                             re-collapsed lost its loose `( x )` nested-bracket
+                                             padding; fixed by adding one more
                                              `enforceComplexityPadding` call after the final
                                              line-breaking pass.
 
   real_code_regressions_94_inp/out.js     -- JS/TS, vuejs/core real-code testing:
                                              `BlockStructureRule.alignBracelessElseIfChain` runs
-                                             last, after every `enforceCallLineBreaking`
-                                             fits-check, so its own column padding of a braceless
-                                             if/else chain could push an already-fits-checked
-                                             consequent past the line limit with no re-check
-                                             (widespread across the corpus). Fixed by refusing to
-                                             pad a branch past the line limit when its un-padded
-                                             width already fit, leaving it at natural width
-                                             instead; an already-over-limit branch is still padded
-                                             as before. Required adding a `lineLengthLimit`
-                                             parameter to `BlockStructureRule`.
+                                             last, after every `enforceCallLineBreaking` fits-check,
+                                             so its own column padding of a braceless if/else chain
+                                             could push an already-fits-checked consequent past the
+                                             line limit with no re-check (widespread across the
+                                             corpus). Fixed by refusing to pad a branch past the
+                                             line limit when its un-padded width already fit,
+                                             leaving it at natural width instead; an
+                                             already-over-limit branch is still padded as before.
+                                             Required adding a `lineLengthLimit` parameter to
+                                             `BlockStructureRule`.
 
   real_code_regressions_95_inp/out.java   -- Java, local vendored third-party library dogfood
-                                             testing: two idempotency bugs sharing one root cause
-                                             -- raw source indent measured before conversion to the
+                                             testing: two idempotency bugs sharing one root cause --
+                                             raw source indent measured before conversion to the
                                              target indent-style -- only observable against
-                                             tab-indented source. (1)
-                                             `MiscRule.enforceCommentStyle` reindented a block
-                                             comment's continuation lines to the comment's raw
-                                             (still-tab) leading indent, baking a tab into text
-                                             that `convertIndentation` never revisits since it's
-                                             now inside the comment token; self-corrected only on a
-                                             second pass. Fixed by normalizing through
+                                             tab-indented source. (1) `MiscRule.enforceCommentStyle`
+                                             reindented a block comment's continuation lines to the
+                                             comment's raw (still-tab) leading indent, baking a tab
+                                             into text that `convertIndentation` never revisits
+                                             since it's now inside the comment token; self-corrected
+                                             only on a second pass. Fixed by normalizing through
                                              `MiscRuleCore.renderIndent` first. (2)
                                              `MiscRule.enforceCallLineBreaking`'s fits-checks
                                              measured a tab-indented line's leading indent via
@@ -1563,10 +1563,10 @@ Real-code regressions:
                                              depth-tracking loop counted only `(`/`[`/`{` against
                                              `)`/`]`/`}`, with no case for a generic clause's
                                              `ANGLE_BRACKET_OPEN`/`_CLOSE` -- a multi-line generic
-                                             clause (`function mergeProps<\n  T,\n  U\n>(...)`)
-                                             left depth at 0 across its own NEWLINEs, wrongly
-                                             inserting spurious `;` inside `<...>`. Fixed by adding
-                                             the angle-bracket cases to the depth-tracking loop.
+                                             clause (`function mergeProps<\n  T,\n  U\n>(...)`) left
+                                             depth at 0 across its own NEWLINEs, wrongly inserting
+                                             spurious `;` inside `<...>`. Fixed by adding the
+                                             angle-bracket cases to the depth-tracking loop.
 
   real_code_regressions_98_inp/out.ts     -- JS/TS, vuejs/core real-code testing (found via the
                                              `tsc` typecheck pass):
@@ -1574,52 +1574,50 @@ Real-code regressions:
                                              `export { ... }` brace header (only `import`), so a
                                              single-specifier one-liner fell through to "statement
                                              body" classification and got a bogus `;` inserted
-                                             before its own closing `}` -- a real parse error.
-                                             Fixed by adding an `isExportBraceHeader` case
-                                             mirroring the import one, with `needsSemicolon`
-                                             computed per-brace (false when followed by `from
-                                             '...'`, true for a plain named export with no `from`
-                                             clause).
+                                             before its own closing `}` -- a real parse error. Fixed
+                                             by adding an `isExportBraceHeader` case mirroring the
+                                             import one, with `needsSemicolon` computed per-brace
+                                             (false when followed by `from '...'`, true for a plain
+                                             named export with no `from` clause).
 
-  real_code_regressions_99_inp/out.ts     -- JS/TS, vuejs/core real-code testing (found via the
-                                             same `tsc` pass as fixture 98):
+  real_code_regressions_99_inp/out.ts     -- JS/TS, vuejs/core real-code testing (found via the same
+                                             `tsc` pass as fixture 98):
                                              `TokenizerCurly.isGenericSafeToken`'s OP case
                                              recognized `:` as generic-safe for Kotlin only -- a TS
                                              conditional type inside a generic argument list
                                              (`Readonly<A extends B ? C : D>`) hit its own `:` and
                                              invalidated the enclosing `<...>` tracking, defeating
-                                             fixture 97's depth tracking and wrongly inserting a
-                                             `;` before the clause's closing `>`. Fixed by adding
+                                             fixture 97's depth tracking and wrongly inserting a `;`
+                                             before the clause's closing `>`. Fixed by adding
                                              `lang.isTs && ":".equals(t.text)` alongside the
                                              Kotlin-only case.
 
-  real_code_regressions_100_inp/out.ts    -- JS/TS, vuejs/core real-code testing (found via the
-                                             same `tsc` pass): `enforceSemicolonInsertion`'s
+  real_code_regressions_100_inp/out.ts    -- JS/TS, vuejs/core real-code testing (found via the same
+                                             `tsc` pass): `enforceSemicolonInsertion`'s
                                              NEWLINE-boundary continuation checks had no case for a
                                              class/interface header wrapping its own
                                              `extends`/`implements` clause onto its own line -- the
-                                             declaration name's trailing NEWLINE was wrongly
-                                             treated as a statement boundary, splitting the header
-                                             with a bogus `;`. Fixed by adding a lookahead: a
-                                             next-line leading `extends`/`implements` keyword also
-                                             means the statement isn't finished, same as the
-                                             existing `{`/`|`/`&`/`,` cases.
+                                             declaration name's trailing NEWLINE was wrongly treated
+                                             as a statement boundary, splitting the header with a
+                                             bogus `;`. Fixed by adding a lookahead: a next-line
+                                             leading `extends`/`implements` keyword also means the
+                                             statement isn't finished, same as the existing
+                                             `{`/`|`/`&`/`,` cases.
 
-  real_code_regressions_101_inp/out.ts    -- JS/TS, vuejs/core real-code testing (found via the
-                                             same `tsc` pass):
-                                             `enforceArrowFunctionParameterParens` wrapped any bare
-                                             identifier before `=>` in parens with no check for a
-                                             TS return-type annotation ending in a type predicate
-                                             or bare type name (`(node: Node): node is Function =>
-                                             {...}`), wrapping the return type's tail as if it were
-                                             a parameter -- a real TS parse error. Fixed by
-                                             checking the token before the candidate identifier: a
-                                             preceding `:` or `is` means it's a return type, left
-                                             unwrapped.
+  real_code_regressions_101_inp/out.ts    -- JS/TS, vuejs/core real-code testing (found via the same
+                                             `tsc` pass): `enforceArrowFunctionParameterParens`
+                                             wrapped any bare identifier before `=>` in parens with
+                                             no check for a TS return-type annotation ending in a
+                                             type predicate or bare type name (`(node: Node): node
+                                             is Function => {...}`), wrapping the return type's tail
+                                             as if it were a parameter -- a real TS parse error.
+                                             Fixed by checking the token before the candidate
+                                             identifier: a preceding `:` or `is` means it's a return
+                                             type, left unwrapped.
 
-  real_code_regressions_102_inp/out.ts    -- JS/TS, vuejs/core real-code testing (found via the
-                                             same `tsc` pass): `GENERIC_SAFE_KEYWORDS` was missing
-                                             TS's `true`/`false` boolean-literal-type keywords -- a
+  real_code_regressions_102_inp/out.ts    -- JS/TS, vuejs/core real-code testing (found via the same
+                                             `tsc` pass): `GENERIC_SAFE_KEYWORDS` was missing TS's
+                                             `true`/`false` boolean-literal-type keywords -- a
                                              boolean type argument inside a multi-line generic
                                              clause invalidated `reclassifyAngleBrackets`'s
                                              open-stack tracking, defeating
@@ -1628,21 +1626,21 @@ Real-code regressions:
                                              adding `true`/`false` to `GENERIC_SAFE_KEYWORDS`. A
                                              related fix landed in the same investigation: the
                                              existing "any `{`/`}`/`;` clears the whole open stack"
-                                             rule was also firing on a legitimate nested
-                                             object-type argument inside an already-tracked generic
-                                             clause; fixed with a `nestedBraceDepth` counter that
-                                             skips the clear-all for balanced `{...}` while the
-                                             open stack is non-empty.
+                                             rule was also firing on a legitimate nested object-type
+                                             argument inside an already-tracked generic clause;
+                                             fixed with a `nestedBraceDepth` counter that skips the
+                                             clear-all for balanced `{...}` while the open stack is
+                                             non-empty.
 
   real_code_regressions_103_inp/out.html  -- HTML5, WordPress/wordpress-develop real-code testing:
-                                             `renderElement`'s multi-child block-closing render
-                                             path never emitted `n.trailingComment`, unlike the
-                                             other three render branches -- a same-line trailing
-                                             comment right after a block element's closing tag was
-                                             silently dropped whenever that element had element
-                                             children (not just a lone text node), real data loss.
-                                             Fixed by routing the multi-child closing-tag line
-                                             through `appendWithTrailing` too.
+                                             `renderElement`'s multi-child block-closing render path
+                                             never emitted `n.trailingComment`, unlike the other
+                                             three render branches -- a same-line trailing comment
+                                             right after a block element's closing tag was silently
+                                             dropped whenever that element had element children (not
+                                             just a lone text node), real data loss. Fixed by
+                                             routing the multi-child closing-tag line through
+                                             `appendWithTrailing` too.
 
   real_code_regressions_104_inp/out.html  -- HTML5, alexandersandberg/html5-elements-tester
                                              real-code testing (RDD_KEY_198): `<ruby>` uses HTML5's
@@ -1659,28 +1657,27 @@ Real-code regressions:
                                              the full 514-file dogfood tsc pass, consolidated into
                                              one fixture): six independent bugs. (1)
                                              `reclassifyAngleBrackets`'s `nestedBraceDepth` guard
-                                             (added for fixture 102) only covered the nested
-                                             `{`/`}` delimiters, not tokens inside them, still
-                                             letting an interior keyword/`;` wipe the outer `<...>`
-                                             tracking; fixed by extending both checks to skip while
+                                             (added for fixture 102) only covered the nested `{`/`}`
+                                             delimiters, not tokens inside them, still letting an
+                                             interior keyword/`;` wipe the outer `<...>` tracking;
+                                             fixed by extending both checks to skip while
                                              `nestedBraceDepth > 0`. (2) A mapped-type object as a
-                                             generic type argument needed `ANGLE_BRACKET_OPEN`
-                                             added to `classifyBraces`'s `isValue` whitelist. (3) A
+                                             generic type argument needed `ANGLE_BRACKET_OPEN` added
+                                             to `classifyBraces`'s `isValue` whitelist. (3) A
                                              ternary nested inside a parenthesized grouping
                                              expression had its `:` misclassified as a return-type
                                              colon; fixed with a new `isGroupingExpressionParen`
                                              helper. (4) `key is keyof typeof val => ...` wrongly
                                              wrapped `val` in parens because the arrow-param
                                              bail-out only recognized `is`, not `typeof`/`keyof`.
-                                             (5) A trailing type-annotation `:` wrapping to the
-                                             next line got a bogus `;` because
-                                             `needsSemicolonAfter`'s `isPunct(t, ":")` guard never
-                                             matches (`:` tokenizes as OP); fixed by adding `":"`
-                                             to `CONTINUATION_OPS` instead. (6) A standalone TS
-                                             function-type parameter list got padded like an
-                                             arbitrary grouping paren; fixed with a
-                                             `lang.isTs`-gated exception when the matching `)` is
-                                             followed by `=>`. Also added `=>`/`...` to
+                                             (5) A trailing type-annotation `:` wrapping to the next
+                                             line got a bogus `;` because `needsSemicolonAfter`'s
+                                             `isPunct(t, ":")` guard never matches (`:` tokenizes as
+                                             OP); fixed by adding `":"` to `CONTINUATION_OPS`
+                                             instead. (6) A standalone TS function-type parameter
+                                             list got padded like an arbitrary grouping paren; fixed
+                                             with a `lang.isTs`-gated exception when the matching
+                                             `)` is followed by `=>`. Also added `=>`/`...` to
                                              `isGenericSafeToken`'s TS-safe OP list (`...` gated to
                                              TS only, to avoid regressing C++ variadic-template
                                              spacing in fixture 53).
@@ -1688,24 +1685,23 @@ Real-code regressions:
   real_code_regressions_106_inp/out.html  -- HTML5, unquoted attribute values (RDD_KEY_199). Found
                                              via the same `alexandersandberg/html5-elements-tester`
                                              dogfood spot-check as fixture 104:
-                                             `XmlSpecificRule.parseAttr` required a quoted value
-                                             and threw on `<select ... size=5>`, even though
-                                             unquoted values are valid per the HTML5 spec grammar.
-                                             Fixed by accepting an unquoted value on the
-                                             `lang.isHtml5` branch only (plain XML still requires
-                                             quotes) and preserving it unquoted on output,
-                                             consistent with this codebase's "preserve as written"
-                                             posture elsewhere (JSON5/TOML quote style). Fixture
-                                             isolates a `<select size=5>`/unquoted `<option
-                                             value=...>` block plus an `<input>` mixing unquoted
-                                             values and a bare boolean attribute.
+                                             `XmlSpecificRule.parseAttr` required a quoted value and
+                                             threw on `<select ... size=5>`, even though unquoted
+                                             values are valid per the HTML5 spec grammar. Fixed by
+                                             accepting an unquoted value on the `lang.isHtml5`
+                                             branch only (plain XML still requires quotes) and
+                                             preserving it unquoted on output, consistent with this
+                                             codebase's "preserve as written" posture elsewhere
+                                             (JSON5/TOML quote style). Fixture isolates a `<select
+                                             size=5>`/unquoted `<option value=...>` block plus an
+                                             `<input>` mixing unquoted values and a bare boolean
+                                             attribute.
 
-  real_code_regressions_107_inp/out.ts    -- JS/TS, vuejs/core real-code testing (found on the
-                                             final full-corpus tsc rerun, after fixture 105
-                                             landed): `typeof` was missing from
-                                             `GENERIC_SAFE_KEYWORDS` -- a `typeof` type-query
-                                             operand inside a generic argument list
-                                             (`Record<(typeof identityMethods)[number], any>`,
+  real_code_regressions_107_inp/out.ts    -- JS/TS, vuejs/core real-code testing (found on the final
+                                             full-corpus tsc rerun, after fixture 105 landed):
+                                             `typeof` was missing from `GENERIC_SAFE_KEYWORDS` -- a
+                                             `typeof` type-query operand inside a generic argument
+                                             list (`Record<(typeof identityMethods)[number], any>`,
                                              `ReturnType<typeof createServer>`) invalidated the
                                              `<...>` open-stack tracking, same class of bug as the
                                              `keyof`/`is`/`infer` gap fixed for fixture 101. In the
@@ -1713,8 +1709,8 @@ Real-code regressions:
                                              closing `>`; in the single-line case, losing the
                                              tracking left `>` a plain OP token, defeating
                                              statement-boundary detection entirely and merging the
-                                             following statement onto the same line. Fixed by
-                                             adding `typeof` to `GENERIC_SAFE_KEYWORDS`.
+                                             following statement onto the same line. Fixed by adding
+                                             `typeof` to `GENERIC_SAFE_KEYWORDS`.
 
 How Tests Are Run
 -----------------

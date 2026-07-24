@@ -523,42 +523,34 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       Zero crashes on the forward pass.
 
       **Four real bugs found and fixed, all via non-idempotency
-      (`diff -r round1 round2`), none via `py_compile`/AST-diff (both of
-      those came back clean once the four fixes landed — see below):**
+      (`diff -r round1 round2`), none via `py_compile`/AST-diff (both came
+      back clean once the four fixes landed — see below):**
       1. `ScopePipelineIndent.render`'s replacement-merge loop advanced its
-         cursor `r` only on an exact `start == i` match; when two
-         independently-computed passes legitimately produced overlapping
-         token-range replacements (§8's single-statement-body join and §2's
-         own trivial single-member assignment-alignment group for that same
-         nested body statement), the now-stale entry permanently stalled
-         `r`, silently dropping every later replacement in the *entire
-         file*, not just the one genuinely-overlapping entry — a single
-         nested nullary-effect assignment group inside a `while`/`try` block
-         anywhere in a file could silently disable all downstream
-         assignment-alignment padding. Fixed by skipping stale entries
-         instead of stalling on them. Fixture `real_code_regressions_78_
-         {inp,out}.py`.
-      2. §6 `trySignatureGroup` split a signature's interior into
-         parameter segments on raw `NEWLINE` tokens only, not bracket-depth-
-         aware — a parameter whose own type hint spans multiple physical
-         lines via a still-open nested bracket (`attempts: list[\n
-         tuple[...]\n]`) had its continuation lines misclassified as
-         separate bogus parameters instead of triggering the already-
-         documented "leave whole signature untouched" gap, producing
-         growing/non-convergent trailing whitespace across idempotency
-         rounds. Fixed by only splitting at depth-0 `NEWLINE`s and
-         rejecting any segment with an embedded `NEWLINE`.
+         cursor `r` only on an exact `start == i` match; two legitimately
+         overlapping token-range replacements (§8's single-statement-body
+         join and §2's own trivial assignment-alignment group for the same
+         nested statement) left a stale entry that permanently stalled `r`,
+         silently dropping every later replacement in the entire file — a
+         single nested nullary-effect assignment group inside a
+         `while`/`try` block could disable all downstream assignment-
+         alignment padding. Fixed by skipping stale entries instead of
+         stalling. Fixture `real_code_regressions_78_{inp,out}.py`.
+      2. §6 `trySignatureGroup` split a signature's interior into parameter
+         segments on raw `NEWLINE` tokens only, not bracket-depth-aware — a
+         parameter's type hint spanning multiple physical lines via a
+         still-open nested bracket had its continuation lines misclassified
+         as bogus parameters instead of triggering the documented "leave
+         whole signature untouched" gap, producing non-convergent trailing
+         whitespace across idempotency rounds. Fixed by only splitting at
+         depth-0 `NEWLINE`s and rejecting any segment with an embedded one.
       3. §9.2's blank-line-before-`elif`/`else` zero-width insertion and
          §8's single-statement join could both start at the same token
-         index (an `elif`/`else` header whose own body also qualifies for
-         §8); the stable sort left the zero-width entry second, so §8's
+         index; the stable sort left the zero-width entry second, so §8's
          wider replacement jumped over it, silently dropping the blank line
-         — a forward-pass bug, not merely an idempotency artifact (found via
-         a hand-authored worked example investigating bug 2's file, then
-         confirmed present in `debughelpers.py` on round1 already). Fixed
-         by sorting equal-`start` replacements with zero-width entries
-         first. Bugs 2+3 combined into fixture `real_code_regressions_79_
-         {inp,out}.py`.
+         — a forward-pass bug, not just idempotency (confirmed present on
+         `debughelpers.py`'s round1 already). Fixed by sorting equal-`start`
+         replacements with zero-width entries first. Bugs 2+3 combined into
+         fixture `real_code_regressions_79_{inp,out}.py`.
 
       **Final numbers (after all four fixes, full 83-file corpus,
       re-cloned-fresh directories to avoid a `/tmp/round1`-name collision
@@ -590,19 +582,16 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       (`diff -rq round1 round2`):** `ScopePipelineIndent
       .applyBracketPadding` (§4's decorator recursive bracket-padding)
       couldn't distinguish an f-string field's own `{`/`}` (plain PUNCT,
-      same token shape as a dict/set literal brace — see
-      `TokenizerIndent#emitFStringField`) from an actual dict/set literal,
-      so it padded an f-string field nested inside a decorator's lambda
-      default argument as a non-empty (thus always-loose per §1.5) brace
-      pair — found in `tests/test_basic.py`'s
-      `@click.custom_version_option(lambda ctx: f"{ctx.info_name} 1.0")`,
-      which became `f"{ ctx.info_name }"` on the forward pass; §5's own
-      f-string spacing pass then unconditionally trimmed that gap back on
-      the *next* round, so the bug only surfaced as non-idempotency, not a
-      single-pass mismatch. Fixed by skipping a `{`/`}` pair entirely in
-      `applyBracketPadding` whenever the `{` is immediately preceded by an
-      `FSTRING_START`/`FSTRING_MIDDLE` token (that adjacency only ever
-      occurs for an f-string field's own delimiters). Fixture
+      same token shape as a dict/set literal brace) from an actual dict/set
+      literal, padding an f-string field nested in a decorator's lambda
+      default argument as an always-loose brace pair — found in
+      `tests/test_basic.py`'s `@click.custom_version_option(lambda ctx:
+      f"{ctx.info_name} 1.0")`, which became `f"{ ctx.info_name }"` on the
+      forward pass; §5's own f-string spacing pass then trimmed that gap
+      back on the *next* round, so the bug only surfaced as
+      non-idempotency. Fixed by skipping a `{`/`}` pair in
+      `applyBracketPadding` whenever `{` is immediately preceded by
+      `FSTRING_START`/`FSTRING_MIDDLE`. Fixture
       `real_code_regressions_80_{inp,out}.py`.
 
       **Final numbers:** forward pass zero crashes; `diff -rq round1 round2`

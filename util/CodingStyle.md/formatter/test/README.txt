@@ -1722,120 +1722,63 @@ Real-code regressions:
                                              the `alexandersandberg/html5-elements-tester` dogfood
                                              run.
 
-  real_code_regressions_109_inp/out.html  -- HTML5, four bugs found during the
-                                             `web-platform-tests/wpt` dogfood run: (1) `<head>` now
-                                             registered in `IMPLIED_CLOSE_TRIGGERS` -- closes on a
-                                             sibling `<body>` start tag with no explicit `</head>`;
-                                             (2) a bare `<image src=...>` start tag is rewritten to
-                                             `<img>` (a void element) per the HTML5 tree-construction
-                                             spec's tag-name-rewrite quirk, but only outside real SVG
-                                             foreign content -- a real `<image>`/`</image>` pair nested
-                                             inside `<svg>` is left alone (tracked via a `svgDepth`
-                                             counter); (3) reaching end-of-input no longer throws when
-                                             an element (here `<body>`/`<html>`) has no explicit
-                                             closing tag at all -- EOF now implicitly closes every
-                                             still-open element, per the HTML5 spec's "stopped parsing"
-                                             step, general and not scoped to specific tag names;
-                                             (4) `<xmp>` is now recognized as a legacy HTML5 raw-text
-                                             element (like `<pre>`) -- its content, including literal
-                                             `<tag>`-looking text, is captured byte-for-byte through the
-                                             literal closing tag rather than mis-parsed as real child
-                                             markup and re-serialized with different whitespace.
+  real_code_regressions_109_inp/out.html  -- HTML5, `web-platform-tests/wpt` dogfood: four bugs --
+                                             (1) `<head>` added to `IMPLIED_CLOSE_TRIGGERS` (closes on
+                                             sibling `<body>` start); (2) bare `<image>` rewritten to
+                                             `<img>` outside real SVG foreign content only (`svgDepth`
+                                             counter); (3) EOF now implicitly closes any still-open
+                                             element instead of throwing (HTML5 "stopped parsing" step);
+                                             (4) `<xmp>` recognized as a raw-text element like `<pre>`.
 
-  real_code_regressions_110_inp/out.html  -- HTML5, follow-up hardening after user review of
-                                             `real_code_regressions_109`: (1) the single hardcoded
-                                             `"image".equals(...)` check from bug (2) above was
-                                             generalized into a `TAG_NAME_REWRITES` map (currently
-                                             still just the one `image` -> `img` entry -- no other
-                                             spec tag-name rewrites are known/needed -- but any future
-                                             one is now a one-line map entry, no new code); (2) a
-                                             mismatched/orphaned closing tag with no corresponding open
-                                             element anywhere in the document (e.g. a made-up `<bogus>`
-                                             tag never explicitly closed, followed by an unrelated stray
-                                             `</weird>`) no longer crashes even when it bubbles all the
-                                             way up to the document root -- both the existing
-                                             `parseElement`-level tolerant-close fallback (broadened
-                                             from EOF-only to any mismatched closing tag) and a new
-                                             top-level `parseNodes(stopAtCloseTag=false)` fallback (the
-                                             only other call site reachable from `format()`) now
-                                             silently discard the stray closing tag and keep parsing,
-                                             treating the unclosed tag as if it were a valid void
-                                             element, rather than throwing.
+  real_code_regressions_110_inp/out.html  -- HTML5, follow-up hardening after user review of _109:
+                                             (1) the hardcoded `image` check generalized into a
+                                             `TAG_NAME_REWRITES` map; (2) a mismatched/orphaned closing
+                                             tag with no corresponding open element no longer crashes
+                                             even at document root (tolerant-close fallback broadened,
+                                             plus a new top-level `parseNodes(stopAtCloseTag=false)`
+                                             fallback) -- discarded and parsing continues instead of
+                                             throwing.
 
   real_code_regressions_111_inp/out.html  -- HTML5, follow-up hardening (user request): raw-text
                                              elements (`<script>`/`<style>`/`<pre>`/`<xmp>`) whose
-                                             literal closing tag never appears at all (as opposed to
-                                             `real_code_regressions_110`'s mismatched-tag case) used to
-                                             crash with `"expected closing tag </script>"` etc. from
-                                             `finishRawElement`/`finishRawTextElement` when real
-                                             end-of-input was reached first. Both helpers (only ever
-                                             called on the `lang.isHtml5` path) now capture whatever
-                                             remains verbatim through EOF instead of throwing, same
-                                             "stopped parsing" EOF-tolerance principle already applied
-                                             to ordinary elements. This was the last of the crash sites
-                                             identified while investigating the "HTML5 deep
-                                             tree-construction edge cases" Open Question in
+                                             literal closing tag never appears at all used to crash in
+                                             `finishRawElement`/`finishRawTextElement` on real EOF; both
+                                             now capture verbatim through EOF instead, same tolerance
+                                             principle as _109/_110. Last crash site from the "HTML5
+                                             deep tree-construction edge cases" Open Question in
                                              `STATE_DATA_FORMATS.md`.
 
   real_code_regressions_112_inp/out.html  -- HTML5, standalone follow-up (user request, 2026-07-25):
-                                             SVG tag-name case-folding, the tag-name-case-folding item
-                                             split out of the "HTML5 deep tree-construction edge cases"
-                                             Open Question as its own small, lookup-table-only fix. New
-                                             `XmlSpecificRule.SVG_TAG_NAME_CASE_FIXUP` map (spec's
+                                             SVG tag-name case-folding, split out of the tree-
+                                             construction Open Question as its own lookup-table fix.
+                                             New `XmlSpecificRule.SVG_TAG_NAME_CASE_FIXUP` map (spec's
                                              "Adjust SVG tag names" table, e.g. `lineargradient` ->
-                                             `linearGradient`, `fegaussianblur` -> `feGaussianBlur`,
-                                             `foreignobject` -> `foreignObject`), gated the opposite way
-                                             from the existing `TAG_NAME_REWRITES` map (`svgDepth > 0`
-                                             instead of `== 0`) since it only applies inside real SVG
-                                             foreign content, never in plain HTML. Fixture proves both
-                                             directions: several SVG-nested lowercase-source elements
-                                             are rewritten to spec mixed-case, and a same-named
-                                             `<foreignobject>` used as plain HTML content outside any
-                                             `<svg>` is left untouched. Applying the fixup surfaced a
-                                             real latent bug in `parseElement`'s closing-tag match: once
-                                             `n.tagName` is case-rewritten, the literal-case `closeTok`
-                                             built from it no longer matches the source's own
-                                             (differently-cased) closing tag, silently mis-parsing the
-                                             element as unclosed via the existing tolerant-close
-                                             fallback and corrupting the tree. Fixed with a new
-                                             case-insensitive closing-tag check,
-                                             `startsWithCloseTagIgnoreCase`, applied only on the
-                                             `lang.isHtml5` path (other languages keep the exact-case
-                                             check, since they never rewrite tag names). MathML's small
-                                             attribute-only case-fixup (`definitionurl` ->
-                                             `definitionURL`) was intentionally left open -- this parser
-                                             has no MathML-depth-equivalent tracking today, and building
-                                             one from scratch was out of scope for this standalone fix;
-                                             see `STATE_DATA_FORMATS.md`.
+                                             `linearGradient`), gated `svgDepth > 0` (opposite of
+                                             `TAG_NAME_REWRITES`'s `== 0`). Fixture proves both the
+                                             SVG-nested rewrite and the same tag name left untouched as
+                                             plain HTML. Surfaced a latent closing-tag bug: once
+                                             `tagName` is case-rewritten, the literal-case `closeTok`
+                                             no longer matched the source's original-case closing tag;
+                                             fixed via new case-insensitive `startsWithCloseTagIgnoreCase`
+                                             (HTML5-only). MathML's `definitionurl` -> `definitionURL`
+                                             attribute-only fixup intentionally left open -- no MathML-
+                                             depth tracking exists yet; see `STATE_DATA_FORMATS.md`.
 
-  real_code_regressions_113_inp/out.java  -- Java, jenkinsci/jenkins real-code dogfood session: 2
-                                             bugs. (a) `JavaSpecificRule.findArrowCases`'s brace-depth-0
-                                             scan for `case`/`default` labels in an arrow-form switch
-                                             never skipped past a case's own already-found arrow, so a
-                                             multi-value label like `case null, default ->` (its
-                                             embedded `default` keyword sitting *before* the arrow) was
-                                             re-matched as if it were its own case start sharing the
-                                             same arrow, duplicating the label -- worse on every
-                                             subsequent pass (`-> default -> default -> ...`). Fixed by
-                                             advancing the scan index to the found arrow's position
-                                             once a case is recorded. (b) `MiscRuleCore.needsSpaceBetween`
-                                             only special-cased a Kotlin annotation's `@` as tight
-                                             against the following identifier; Java annotations
-                                             (`@NonNull String id`) fell through to the generic
-                                             "insert a space" default, rendering `@ NonNull` -- not
-                                             valid Java. Fixed by extending the existing Kotlin-only
-                                             condition to also cover `lang.isJava` (Java has no other
-                                             bare-`@` use to disambiguate against, unlike Kotlin's
-                                             `return@label`/`this@Label`, so it's unconditionally safe
-                                             there). A third bug found in the same session
-                                             (`MiscRuleCore.alignCommentSeparators`'s separator-character
-                                             detection false-positiving on ordinary prose) was NOT
-                                             fixed -- it re-opens a previously user-resolved design
-                                             decision (RDD_KEY_50) rather than being a plain
-                                             implementation bug, so it's recorded in
-                                             `STATE_C_CPP_JAVA.md`'s Known Gaps instead of guessed at
-                                             here. See `STATE_C_CPP_JAVA.md`'s jenkinsci/jenkins
-                                             dogfood entry for the full narrative.
+  real_code_regressions_113_inp/out.java  -- Java, jenkinsci/jenkins real-code dogfood: 2 bugs fixed.
+                                             (a) `JavaSpecificRule.findArrowCases`'s brace-depth-0 scan
+                                             never skipped past a case's own found arrow, so multi-value
+                                             labels like `case null, default ->` got re-matched and
+                                             duplicated worse each pass; fixed by advancing the scan
+                                             index past the found arrow. (b) `MiscRuleCore
+                                             .needsSpaceBetween` only special-cased Kotlin's `@` as
+                                             tight against the next identifier, so Java annotations
+                                             rendered `@ NonNull`; extended to `lang.isJava`. A third
+                                             bug (`alignCommentSeparators` false-positiving on ordinary
+                                             prose) was NOT fixed -- re-opens the user-resolved
+                                             RDD_KEY_50 design decision rather than being a plain
+                                             implementation bug; see `STATE_C_CPP_JAVA.md`'s
+                                             jenkinsci/jenkins dogfood entry (accepted as a permanent
+                                             known limitation, also noted in `README.md`).
 
 How Tests Are Run
 -----------------

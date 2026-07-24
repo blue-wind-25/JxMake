@@ -725,9 +725,10 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       (correct) implementation.
 - [ ] Real-code testing pass per `STATE_COMMON.md`'s methodology against
       `STYLE_DATA_FORMATS.md`'s listed test-fixture repos per sub-format.
-      Status: JSON/JSON5 complete (4/4 repos); CSS complete (4/4 repos); XML
-      3/4 (`apache/maven`, `w3c/svgwg`, `apache/ant` done; `jenkinsci/jenkins`
-      not started); **YAML: all 4 originally-planned repos DONE, plus both
+      Status: JSON/JSON5 complete (4/4 repos); CSS complete (4/4 repos); **XML
+      4/4 repos done, DONE** (`apache/maven`, `w3c/svgwg`, `apache/ant`,
+      `jenkinsci/jenkins` all done — XML Test-Fixture Repos list fully
+      complete); **YAML: all 4 originally-planned repos DONE, plus both
       later-added repos, list now fully complete** (`kubernetes/kubernetes`,
       `docker/compose`, `ansible/ansible`, `actions/starter-workflows`,
       `prometheus/prometheus`, `home-assistant/core` all done — see per-repo
@@ -750,8 +751,8 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       end-to-end: forward pass, round2, idempotency diff, `html_sc.js`
       syntax-check, and `html_content_diff.py` content-preservation all
       clean); `web-platform-tests/
-      wpt` not started). Overall item stays unchecked pending the remaining
-      repos above (XML) and `web-platform-tests/wpt`.
+      wpt` not started). Overall item stays unchecked pending only
+      `web-platform-tests/wpt` (HTML5) now that XML is fully done.
 
       **Shared methodology note (applies to every run below, not restated per
       repo):** each run clones fresh (or reuses a prior-session checkout under
@@ -844,7 +845,7 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
         baseline. Manual spot-check confirmed only re-indentation/
         colon-alignment, no content loss. Zero bugs found.
 
-      **XML (3/4 repos done):**
+      **XML (4/4 repos done, DONE):**
       - `apache/maven`: 3158 files found, above sampling threshold — sampled
         398 files (all 90 top-level/module `pom.xml`, every 10th of 1882
         `test/resources` `pom.xml` = 189, every 10th of 1186 non-pom `.xml`
@@ -902,7 +903,38 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
         (`junit-frames.xsl` etc., deeply nested `<xsl:template>`/
         `<xsl:for-each>`/HTML-in-XSLT), and the 2 `.xsd` schema files all
         exercised with no corruption beyond expected comment normalization.
-        `jenkinsci/jenkins` remains not-started.
+      - `jenkinsci/jenkins`: 131 files found (below the "several hundred+"
+        sampling threshold, full set processed: 9 `pom.xml`, 58 `config.xml`
+        test fixtures, 8 `build.xml`, plus assorted other `.xml` across
+        `core`, `test`, `war`, `cli`, `bom`, `websocket`, `.idea`, `.mvn`,
+        `src`). Baseline `xml_sc.js`: 130/131 pass — 1 excluded,
+        `core/src/test/resources/hudson/util/
+        Digester2Security2147TestData.xml`, a deliberately-crafted XXE/
+        entity-expansion security-test fixture with no root element
+        (expected pre-existing invalid, same posture as prior repos'
+        deliberately-invalid fixtures). **In-scope corpus: 130 files.**
+        Forward 130/130, idempotency (`diff -rq round1 round2`) 130/130
+        clean, syntax-check of round1 output 130/130 matching baseline
+        exactly (no new failures). Content-preservation
+        (`xml_content_diff.py`): 14/130 flagged — 11 files with 72 total
+        mismatches, all confirmed case-insensitive-equal
+        comment-capitalization diffs (expected `normalize-comment-start-
+        case=on` behavior, same precedent as `apache/maven`/`w3c/svgwg`/
+        `apache/ant`), zero structural/attribute-order/text/CDATA
+        mismatches; plus 3 files (`config_1_0_with_special_chars.xml`,
+        `config_1_1_with_special_chars.xml`,
+        `XMLFileTest/silentlyMigrateConfigsTest/config.xml`) where
+        `xml_content_diff.py` itself can't parse the original with stdlib
+        `xml.dom.minidom` (embedded control characters lenient `xmldom`
+        tolerates but `minidom` rejects) — a content-diff tool limitation,
+        not a formatter bug; all three still passed `xml_sc.js` baseline/
+        round1 and the forward/idempotency checks cleanly. **Zero bugs
+        found.** Maven POM dependency-management blocks, Ant-style
+        `build.xml`, XStream test-fixture data, Windows-service descriptor
+        XML, and checkstyle config all exercised with no corruption beyond
+        expected comment normalization. XML Test-Fixture Repos list now
+        fully complete (4/4: `apache/maven`, `w3c/svgwg`, `apache/ant`,
+        `jenkinsci/jenkins` all done).
 
       **TOML (2/4 repos done):**
       - `rust-lang/cargo`: 672 files, full set processed (below sampling

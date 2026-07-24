@@ -611,4 +611,176 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       exact regression found. `make test`: 129/129 forward + 129/129
       idempotency after the fixture addition.
 
-      `python/cpython`, `django/django`, `psf/black` — still not started.
+      **`psf/black` — IN PROGRESS (dogfood run, bugs found, NOT fixed this
+      session — deferred to a future session per explicit scope limit).**
+      Fresh clone (`/tmp/black`, no existing checkout found in `/tmp`/
+      scratchpad), 338 `.py` files (`src/`, `tests/` incl. `tests/data/`'s
+      own curated formatting-edge-case corpus, `scripts/`). No Python3
+      syntax-checker beyond `python3.12 -m py_compile` and this job's own
+      `python_ast_diff.py` (both already documented above) — no separate
+      "syntax_checker" tool needed beyond those two.
+
+      **Forward pass (round1): one crash, 337/338 files formatted.**
+      `./tests/data/cases/pep_701.py` throws
+      `java.lang.IndexOutOfBoundsException` from
+      `ScopePipelineIndent.processField` (via `processFString` /
+      `applyFStringSpacing`), caught per-file (batch continued, did not
+      abort the whole run). **Minimal repro:** a single-line file containing
+      only `f"{1}\{{"` (an f-string whose field is followed by a literal
+      escaped-brace `\{{` sequence) reproduces the crash standalone —
+      `IndexOutOfBoundsException: Index: 9, Size: 9` in that minimal case,
+      `Index: 1625, Size: 1625` in the full `pep_701.py` file. Root cause not
+      investigated beyond the stack trace (per this session's
+      documentation-only scope) — likely `processField`'s bracket/index scan
+      walks past the token list's end when a field is immediately followed
+      by an escaped `{{`/`}}` pair rather than plain literal text or another
+      field.
+
+      **Round2 (idempotency, run over the 337 successfully-formatted round1
+      files): zero crashes, but 3/337 files differ from round1 — two
+      distinct non-idempotency bugs:**
+
+      1. **§7/§8 ordering non-idempotency (case colon alignment).** A
+         `match`/`case` block that is still block-form (`case Point():` /
+         body on the next line) is correctly skipped by §7's colon-alignment
+         (all-or-nothing, block-form present) on round1; §8 then joins each
+         case's single-statement body onto the header line
+         (`case Point(): print(...)`) later in the same pass. On round2, §7
+         now sees the already-compact form left by round1's own §8 join and
+         *this* time applies column alignment across the group, padding
+         extra spaces before `:` that were never present in round1's output.
+         Minimal repro (3 files affected in the corpus:
+         `tests/data/cases/pattern_matching_simple.py`,
+         `tests/data/line_ranges_formatted/pattern_matching.py`):
+         ```python
+         match x:
+             case Point():
+                 print("Somewhere else")
+             case _:
+                 print("Not a point")
+         ```
+         Round1 output: `case Point(): print("Somewhere else")` /
+         `case _: print("Not a point")` (unaligned, §7 skipped due to
+         block-form input). Round2 re-formats round1's own output and
+         produces `case _      : print("Not a point")` (colon-aligned) —
+         differs from round1, non-idempotent.
+
+      2. **§6 multi-physical-line type-hint gap violated + unbounded
+         trailing-whitespace growth (separate bug, same file:
+         `tests/data/cases/pep604_union_types_line_breaks.py`).**
+         §6's own documented gap says a parameter whose type hint spans
+         multiple physical lines (e.g. a `|`-union type broken across lines)
+         should leave the *whole signature* untouched, but
+         `trySignatureGroup`/`classifySignatureParam` instead treats each
+         continuation `| Type` line as if it were its own parameter,
+         producing alignment padding it shouldn't attempt at all — and the
+         trailing-whitespace padding after each continuation line's
+         (nonexistent) `:`/`=` column **grows by more spaces on every
+         successive round, never converging** (confirmed 3 rounds:
+         width increases round1→round2→round3, did not stabilize). Minimal
+         repro:
+         ```python
+         def foo(
+             i: int,
+             x: Loooooooooooooooooooooooong
+             | Looooooooooooooooong
+             | Looooooooooooooooooooong
+             | Looooooong,
+         ):
+             pass
+         ```
+         Round1 pads `| Looooooooooooooooong` with trailing spaces; round2
+         re-pads with *more* trailing spaces than round1; round3 more still.
+         This is worse than ordinary non-idempotency (a stable wrong answer)
+         — it's unbounded growth, confirmed to not stabilize within 3
+         rounds.
+
+      **`python3.12 -m py_compile` on all 337 round1 files: clean except one
+      pre-existing (not formatter-induced) failure** —
+      `tests/data/cases/trailing_comma_optional_parens3.py` fails
+      `SyntaxError: 'return' outside function` on **both** the unmodified
+      original and the round1 output (verified identically against the raw
+      clone) — this is one of black's own intentionally-invalid test
+      fixtures, not a formatter bug.
+
+      **`python_ast_diff.py` on all 337 round1 files: 22 mismatches
+      reported, triaged as follows:**
+      - **13 are the already-documented §3 import-reorder false-positive
+        shape** (`tests/optional.py`, `tests/test_docs.py`,
+        `scripts/generate_schema.py`, `src/black/files.py`,
+        `src/black/nodes.py`, `src/black/parsing.py`, `src/black/lines.py`,
+        `src/black/__init__.py`, `src/blib2to3/pgen2/pgen.py`,
+        `src/blib2to3/pgen2/parse.py` reordering `alias(name=...)` import
+        entries; `tests/data/cases/import_spacing.py` reordering plain
+        imports) — not re-verified tuple-by-tuple this session (pattern
+        matches the `pallets/flask` run's already-established false
+        positive exactly: reordered `ast.alias`/import nodes, same names).
+      - **8 are `rc=2` (parse failure on one side)** — all in
+        `tests/data/cases/`/`tests/data/miscellaneous/` fixture files that
+        are themselves deliberately either syntactically invalid
+        (`pattern_matching_invalid.py`, `invalid_header.py`,
+        `python2_detection.py`) or use syntax newer than what stdlib
+        `ast`/`python3.12` accepts (`python315.py`, `pep_572_do_not_remove_
+        parens.py`, `remove_except_types_parens.py`, `pep_750.py`,
+        `type_param_defaults.py`, `async_as_identifier.py`) — expected,
+        pre-existing parse limitations of the checker/interpreter version,
+        not formatter corruption (not independently re-verified per-file
+        against the original also failing to parse, given the session's
+        time budget — flagged here for a future session to confirm each one
+        the same way `trailing_comma_optional_parens3.py` was confirmed
+        above, rather than assumed).
+      - **2 are genuine content-corruption bugs, both in `ScopePipelineIndent
+        .applyFStringSpacing`'s `addBraceTrim` (§5), both distinct from the
+        pep_701.py crash above:**
+        - **(a) A field immediately followed by a nested `{` (e.g. a
+          set/dict comprehension as the field's own expression) gets its
+          field-close brace fused with the literal `{{` that follows,
+          turning a real expression field into an escaped-literal-brace
+          run.** Minimal repro (`tests/data/cases/fstring.py`, line 8/22):
+          ```python
+          f"space between opening braces: { {a for a in (1, 2, 3)}}"
+          ```
+          formats to:
+          ```python
+          f"space between opening braces: {{a for a in (1, 2, 3)}}"
+          ```
+          — `{{` is an escaped literal `{`, not a field open, so the
+          set-comprehension expression is silently deleted from the
+          program's semantics (this is not merely a spacing change; the
+          `ast.dump` shows the `FormattedValue`/set-comprehension node is
+          gone entirely, replaced by literal string text). Root cause not
+          fixed this session; likely `addBraceTrim` trims the gap after the
+          field's opening `{` without checking whether the immediately
+          preceding character sequence would make the result ambiguous with
+          an escaped `{{`.
+        - **(b) Self-documenting f-string fields (the `{expr=}` debug
+          syntax) have their leading gap trimmed even though the exact
+          source text of `expr` (including its original whitespace) is
+          supposed to be reproduced verbatim in the runtime output** for a
+          `=`-suffixed field. Minimal repro
+          (`tests/data/cases/preview_long_strings.py`, line 327):
+          ```python
+          log.info(f'Skipping: {  longer_name   =  :  .3f }')
+          ```
+          formats to:
+          ```python
+          log.info(f'Skipping: {longer_name   =  :  .3f }')
+          ```
+          — trims the gap right after `{`, which changes the verbatim text
+          that Python prints before `=` at runtime for a self-documenting
+          field (a real behavior change, not just cosmetic). §5's
+          `addBraceTrim` has no carve-out for detecting a trailing `=`
+          debug specifier before deciding to trim the opening gap.
+
+      **Summary: 1 crash (pep_701.py, per-file caught, does not abort
+      batch), 2 non-idempotency bugs (§7/§8 join-then-align ordering; §6
+      unbounded-growth trailing whitespace on multi-line union-type hints),
+      2 content-corruption bugs (both in §5's `addBraceTrim` — nested-brace
+      field fusion deletes an expression; self-documenting `{expr=}` fields
+      lose verbatim leading whitespace). All five are documented here only;
+      none fixed this session per explicit task scope — a future session
+      should fix each, add permanent `real_code_regressions_*` fixtures per
+      `STATE_COMMON.md`'s convention, and only then consider re-running the
+      full `psf/black` corpus to confirm.**
+
+      `python/cpython`, `django/django` — still not started.

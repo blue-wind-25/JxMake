@@ -51,16 +51,14 @@ clean:
 # ── GRU Pool A/Pool B training-data extraction (STATE_AI.md "Training-set
 #    acquisition, verification, fixing") ─────────────────────────────────────
 #
-# Pool A (keyword-ambiguity): compiles and runs tools/gru/ExtractPoolA.java
-# against a comment corpus extracted by tools/gru/extract_comments.py, keeping
-# only comments the real CommentClassifier ABSTAINs on due to
-# hasLeadingKeywordMatch (excludes NonLatinScriptGate ABSTAINs -- those are a
-# different, non-keyword-ambiguity signal, see STATE_AI.md item 9's
-# TTGO_VGA32_Lite/RobotCoding investigation).
+# Pool A (keyword-ambiguity): compiles and runs `tools/gru/ExtractPoolA.java` against a comment corpus
+# extracted by `tools/gru/extract_comments.py`, keeping only comments the real CommentClassifier ABSTAINs
+# on due to `hasLeadingKeywordMatch` (excludes NonLatinScriptGate ABSTAINs -- those are a different,
+# non-keyword-ambiguity signal, see STATE_AI.md item 9's TTGO_VGA32_Lite/RobotCoding investigation).
 #
-# Pool B (period-ambiguity): runs tools/gru/extract_pool_b.py's RDD_EXT_15
-# grep-based recall-favoring filter directly over the same corpus format --
-# not derived from CommentClassifier at all, a separate ambiguity class.
+# Pool B (period-ambiguity): runs tools/gru/extract_pool_b.py's RDD_EXT_15 grep-based recall-favoring
+# filter directly over the same corpus format -- not derived from CommentClassifier at all, a separate
+# ambiguity class.
 #
 # Usage:
 #   python3 tools/gru/extract_comments.py <root-dir> [<root-dir> ...] --out /tmp/comments.txt
@@ -92,10 +90,9 @@ gru-extract-pool-b:
 
 # ── GRU ABSTAIN-rate measurement (STATE_AI.md Step 3 open item 9) ───────────
 #
-# Compiles and runs tools/gru/CommentAbstainTally.java against a comment
-# corpus extracted by tools/gru/extract_comments.py, tallying the real
-# rule-based CommentClassifier's YES/NO/ABSTAIN counts. This is item 9's
-# measurement step -- not a decision, an actual run against real comments.
+# Compiles and runs tools/gru/CommentAbstainTally.java against a comment corpus extracted by
+# `tools/gru/extract_comments.py`, tallying the real rule-based CommentClassifier's YES/NO/ABSTAIN counts.
+# This is item 9's  measurement step -- not a decision, an actual run against real comments.
 #
 # Usage:
 #   python3 tools/gru/extract_comments.py <root-dir> [<root-dir> ...] --out /tmp/comments.txt
@@ -115,25 +112,19 @@ gru-measure-abstain-rate: $(JAR_FILE)
 
 # ── GRU trainer target ───────────────────────────────────────────────────────
 #
-# Compiles and runs tools/gru/GruTrainer.java (a non-shipped, outside-src/
-# training entry point per STATE_AI.md), writing a scalar-architecture-
-# constants-only weights file to $(BUILD_DIR)/gru/weights.json. The real
-# training loop remains blocked on STATE_AI.md open items 3/4/9/10; see
-# GruTrainer's own javadoc. Uses tools/gru/sample_examples.txt, a
-# placeholder/dummy labeled-examples file (no real labeled dataset exists
+# Compiles and runs tools/gru/GruTrainer.java (a non-shipped, outside-src/training entry point per
+# STATE_AI.md), writing a scalar-architecture- constants-only weights file to `$(BUILD_DIR)/gru/weights.json`.
+# The real training loop remains blocked on STATE_AI.md open items 3/4/9/10; see GruTrainer's own javadoc.
+# Uses tools/gru/sample_examples.txt, a placeholder/dummy labeled-examples file (no real labeled dataset exists
 # yet), just to satisfy GruTrainer's positional-arg validation.
 #
-# Config.DEFAULT_GRU_WEIGHTS_PATH is empty by default -- GruAbstainResolver
-# derives the weights-file location from the running program's own
-# directory instead (the jar's parent dir when run via -jar, or $(CLASS_DIR)
-# itself for a dev/test run against classes -- see
-# GruAbstainResolver.programDirectory()/WEIGHTS_FILENAME). So after writing
-# the build-artifact weights file, this target also copies it into
-# $(CLASS_DIR) under that expected filename, so `make test`/dev runs against
-# $(CLASS_DIR) can find it. The commented-out `cp` below mirrors the
-# similarly-commented-out `@cp $(JAR_FILE) .` above: when that jar-copy line
-# is enabled (e.g. for the top-level dist_build/jxmake_dist packaging step,
-# see apps/code-formatter/ in that tree), enable this one alongside it so
+# Config.DEFAULT_GRU_WEIGHTS_PATH is empty by default -- GruAbstainResolver derives the weights-file location
+# from the running program's own directory instead (the jar's parent dir when run via -jar, or $(CLASS_DIR)
+# itself for a dev/test run against classes -- see GruAbstainResolver.programDirectory()/WEIGHTS_FILENAME).
+# So after writing the build-artifact weights file, this target also copies it into $(CLASS_DIR) under that expected
+# filename, so `make test`/dev runs against $(CLASS_DIR) can find it. The commented-out `cp` below mirrors the
+# similarly-commented-out `@cp $(JAR_FILE) .` above: when that jar-copy line is enabled (e.g. for the top-level
+# dist_build/jxmake_dist packaging step, see apps/code-formatter/ in that tree), enable this one alongside it so
 # the weights file ships next to the jar the same way.
 #
 GRU_WEIGHTS_FILENAME = code-formatter-ai-assist-weights.json
@@ -325,9 +316,19 @@ INP_FILES += real_code_regressions_89_inp.ts
 INP_FILES += real_code_regressions_90_inp.ts
 INP_FILES += real_code_regressions_91_inp.xsl
 INP_FILES += real_code_regressions_92_inp.xsd
+INP_FILES += real_code_regressions_93_inp.ts
+INP_FILES += real_code_regressions_94_inp.js
 INP_FILES += real_code_regressions_95_inp.java
-
+INP_FILES += real_code_regressions_96_inp.ts
+INP_FILES += real_code_regressions_97_inp.ts
+INP_FILES += real_code_regressions_98_inp.ts
+INP_FILES += real_code_regressions_99_inp.ts
+INP_FILES += real_code_regressions_100_inp.ts
+INP_FILES += real_code_regressions_101_inp.ts
+INP_FILES += real_code_regressions_102_inp.ts
 INP_FILES += real_code_regressions_103_inp.html
+INP_FILES += real_code_regressions_104_inp.html
+
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 
 # clear && git status && echo && svn stat && echo
@@ -335,7 +336,7 @@ REF_FILES := $(subst _inp,_out,$(INP_FILES))
 # svn add util/CodingStyle.md/formatter/test/real_code_regressions*
 # svn commit -m 'Follow GIT changes' && git push && echo && git status && echo && svn stat && echo
 
-# clear && uptime && echo && sensors && free -h && echo
+# clear && uptime && echo && sensors && free -h && echo && df -h && echo
 # svn update && svn cleanups
 
 # make test

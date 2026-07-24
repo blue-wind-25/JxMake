@@ -102,6 +102,7 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_191 | `STYLE_DATA_FORMATS.md` §5/§6 (YAML/TOML formatting rules, drafted by user request): YAML mapping colons column-align matching JSON/CSS (§1.1/§3.1); sequence items indent one level deeper than their parent mapping key; flow-style collections preserved as written unless they'd overflow `line-length`, in which case converted to block style (one-directional, never block→flow); `indent-size` reuses the global default (4), no YAML-specific override, but local fixtures should exercise `indent-size=2` via an in-file `#% JXM_CFMT_CFG` directive; `indent-style` is explicitly ignored/inapplicable for YAML since the spec forbids tab indentation. TOML drafted with standard high-confidence conventions (no user question needed): `=` alignment reuses STYLE.md §5/§6's assignment shape directly; table/array-of-table headers get no added indentation for their keys (nesting is via dotted header names, matching real-world tooling like `taplo`/`cargo fmt`); inline tables are always single-line per the TOML v1.0 grammar itself, not a style choice. |
 | RDD_KEY_192 | YAML/TOML real-logic implementation: line-based recursive-descent parser for YAML, flat single-pass line-scanner for TOML, independent `#%` frozen-span/comment-normalization logic (no `TokenizerCore.markFrozenSpans`/`FormatterSimpleBraced.capitalizeCommentStart` reuse); migrated out of `Lang.SCAFFOLD_ONLY_LANGUAGES` into `Lang.SUPPORTED_LANGUAGES`; all 8 fixtures pass `make test`; two YAML bugs (same-indent sequence-child silent truncation, untrimmed key breaking idempotency) and one TOML bug (multi-line array continuation breaking idempotency) found and fixed; one fixture-authoring error found and corrected. |
 | RDD_KEY_193 | XML real-logic implementation: character-cursor recursive-descent parser (no natural line boundary in tag grammar, no `TokenizerCore` reuse); independent `<!--%`-based frozen-span/comment-normalization logic; `InFileConfig` extended for `<!--% JXM_CFMT_CFG ... -->`; migrated `xml` out of `Lang.SCAFFOLD_ONLY_LANGUAGES` into `Lang.SUPPORTED_LANGUAGES` (HTML5 stays scaffold-only); unlike YAML/TOML, XML's rule constructor takes `indentStyle` (§2.1 has no ignored-setting exception); wrap-shape judgment call (closing `>` attached to last attribute line); one bug found+fixed (childless-tag overflow wrap never triggered); all 4 fixtures (`xml_combined`/`xml_comments`) pass `make test`, 202/202 total (originally shipped as a mismatched `xml_core` pair, later corrected). |
+| RDD_KEY_198 | HTML5 `<ruby>` implied-end-tag support: small, extensible `XmlSpecificRule.OPAQUE_IMPLIED_END_TAG_ELEMENTS` name set (currently just `ruby`) reusing the existing `<script>`/`<style>`/`<pre>` opaque-verbatim-span pattern -- scans from the element's own opening `<` to its own MATCHING `</tag>` (nested same-name depth tracked) and captures the whole span (incl. `<rb>`/`<rt>`/`<rp>`/`<rtc>` children and the outer tags themselves) byte-for-byte verbatim as a new `NodeType.OPAQUE` node; no per-element implied-closing-trigger logic built. Fixture `test/real_code_regressions_104_{inp,out}.html`; `make test` 153/153, zero regressions. |
 
 ---
 
@@ -493,36 +494,24 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   only, does not affect structural output, and does not block moving on to
   other HTML5 candidates.
 
-- **HTML5 optional/implied end tags (`<rb>`/`<rt>`/`<rp>`/`<rtc>` and the
-  wider spec class -- `<li>`/`<p>`/`<td>`/`<tr>`/`<option>`/etc.) are not
-  handled at all -- how much of this should the parser support?** Found
-  during the `alexandersandberg/html5-elements-tester` HTML5 dogfood
-  spot-check (2026-07-24): `index.html` line 379,
-  `<ruby><rb>旧<rb>金<rb>山<rt>jiù<rt>jīn<rt>shān<rtc>San
-  Francisco</ruby>`, deliberately exercises HTML5's optional-end-tag
-  ruby markup (`<rb>`/`<rt>`/`<rtc>` each implicitly close at the next
-  sibling start tag or the enclosing `</ruby>`, per the HTML5 tree-
-  construction algorithm -- none of them ever gets an explicit closing tag
-  in valid, spec-conformant markup). `XmlSpecificRule.parseElement`
-  currently has no notion of implied end tags at all for non-void,
-  non-raw-text elements -- `n.children = parseNodes(true)` always expects an
-  explicit `</tag>` next, so it throws `XmlParseException("expected closing
-  tag </rtc> near: ...")` (round1 fails outright, forward pass never
-  completes, no output produced). This is a real, substantial HTML5 tree-
-  construction spec feature (the full optional-end-tag element list is much
-  larger than just the ruby family -- `<li>`, `<dt>`/`<dd>`, `<p>` before
-  certain following elements, `<thead>`/`<tbody>`/`<tfoot>`, `<tr>`,
-  `<td>`/`<th>`, `<option>`/`<optgroup>`, `<colgroup>`, `<caption>` all have
-  their own distinct implied-closing trigger rules), not a narrow one-line
-  fix -- and `STYLE_DATA_FORMATS.md` §4 doesn't specify whether/how much of
-  it the formatter should support (full spec-accurate tree construction vs.
-  a narrow allow-list just for the ruby family vs. leaving well-formed-only
-  HTML5 as an explicit scope boundary and treating omitted end tags as an
-  input requirement, same posture void elements already get). Given the
-  size/scope-decision nature of this gap, no code change made pending a
-  scope decision. Blocks completing the
-  `alexandersandberg/html5-elements-tester` dogfood run -- see its
-  Checklist entry below (marked partial/blocked on this file, not done).
+- **HTML5 optional/implied end tags -- RESOLVED (RDD_KEY_198, user,
+  2026-07-24).** Rather than the full per-element-family spec feature, a
+  small, extensible `XmlSpecificRule.OPAQUE_IMPLIED_END_TAG_ELEMENTS` name
+  set (currently just `ruby`) reuses the existing `<script>`/`<style>`/
+  `<pre>` opaque-verbatim-span pattern: the whole element, from its own
+  opening `<` through its own MATCHING `</tag>` (nested same-name
+  opens/closes tracked), is captured byte-for-byte verbatim as a new
+  `NodeType.OPAQUE` node -- no interior parsing, so `<rb>`/`<rt>`/`<rp>`/
+  `<rtc>` children are never touched. Extending to other implied-end-tag
+  families (`<li>`/`<p>`/`<td>`/`<tr>`/`<option>`/etc.) later is adding a
+  name to the set, not new logic. Full narrative in `RDD_LOG.md`
+  `RDD_KEY_198`. This unblocked the specific `XmlParseException` the
+  `alexandersandberg/html5-elements-tester` dogfood spot-check found, but a
+  separate, unrelated pre-existing bug (`parseAttr` requires a quoted
+  attribute value; the same file has an unquoted `size=5` on a `<select>`,
+  line 718) still blocks that file's full end-to-end dogfood run -- see its
+  Checklist entry below (still marked partial, now blocked on the
+  unquoted-attribute-value gap instead).
 
 ## Checklist
 
@@ -718,12 +707,15 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       and dropped — no real HTML5 corpus in any, see Open Questions
       resolution; of the three added replacements, `WordPress/wordpress-
       develop` done (1 bug found+fixed, 1 open question raised — see below),
-      `alexandersandberg/html5-elements-tester` BLOCKED (parser has no
-      HTML5 optional/implied-end-tag support at all, forward pass fails
-      outright — separate open question, see below); `web-platform-tests/
+      `alexandersandberg/html5-elements-tester` STILL BLOCKED (its
+      `<ruby>`/implied-end-tag `XmlParseException` fixed per RDD_KEY_198,
+      but forward pass now fails on a separate, unrelated pre-existing bug —
+      an unquoted attribute value, `size=5` on a `<select>`, line 718,
+      which `parseAttr` requires to be quoted; out of scope for RDD_KEY_198,
+      not yet fixed); `web-platform-tests/
       wpt` not started). Overall item stays unchecked pending the remaining
-      repos above (XML), `web-platform-tests/wpt`, and resolution of both
-      open questions.
+      repos above (XML), `web-platform-tests/wpt`, and the unquoted-
+      attribute-value gap.
 
       **Shared methodology note (applies to every run below, not restated per
       repo):** each run clones fresh (or reuses a prior-session checkout under

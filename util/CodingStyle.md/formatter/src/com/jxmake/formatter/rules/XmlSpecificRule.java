@@ -35,7 +35,7 @@ public final class XmlSpecificRule {
         }
     }
 
-    private enum NodeType { PI, DOCTYPE, COMMENT, ELEMENT, TEXT, CDATA, FROZEN, RAW }
+    private enum NodeType { PI, DOCTYPE, COMMENT, ELEMENT, TEXT, CDATA, FROZEN, RAW, OPAQUE }
 
     /** HTML5 void elements (never a closing tag; any self-closing `/` is normalized away),
      *  per STYLE_DATA_FORMATS.md §4.1. */
@@ -48,6 +48,18 @@ public final class XmlSpecificRule {
     private static final java.util.Set<String> JS_SCRIPT_TYPES = new java.util.HashSet<>(java.util.Arrays.asList(
             "text/javascript", "application/javascript", "application/ecmascript",
             "text/ecmascript", "module"));
+
+    /** HTML5 elements whose children rely on the spec's implied-end-tag tree-construction rule
+     *  (e.g. `<rb>`/`<rt>`/`<rp>`/`<rtc>` inside `<ruby>` never carry an explicit closing tag in
+     *  valid markup) -- rather than modeling the full per-element-family implied-closing-trigger
+     *  spec (a large feature, RDD_KEY_198), each name here is instead scanned as one opaque,
+     *  byte-for-byte-verbatim span from its opening tag to its own MATCHING closing tag (nested
+     *  same-name opens/closes tracked), reusing the same "don't parse the interior, just find the
+     *  matching close" pattern {@link #finishRawTextElement}/{@link #finishRawElement} already use
+     *  for `<script>`/`<style>`/`<pre>`. Extend by adding a name here only -- no other code change
+     *  needed for a simple case; do not add per-element implied-closing-trigger logic. */
+    private static final java.util.Set<String> OPAQUE_IMPLIED_END_TAG_ELEMENTS = new java.util.HashSet<>(
+            java.util.Arrays.asList("ruby"));
 
     private static final class Node {
         NodeType type;
@@ -322,6 +334,9 @@ public final class XmlSpecificRule {
         n.tagName = s.substring(nameStart, pos);
         final String lowerTag = n.tagName.toLowerCase(java.util.Locale.ROOT);
         final boolean isVoid = lang.isHtml5 && VOID_ELEMENTS.contains(lowerTag);
+        if (lang.isHtml5 && OPAQUE_IMPLIED_END_TAG_ELEMENTS.contains(lowerTag)) {
+            return parseOpaqueImpliedEndTagElement(nameStart - 1, n.tagName, lowerTag);
+        }
         while (true) {
             skipWs();
             if (eof()) {
@@ -394,6 +409,94 @@ public final class XmlSpecificRule {
     private static int indexOfIgnoreCase(final String haystack, final String needleLower, final int from) {
         final String lower = haystack.toLowerCase(java.util.Locale.ROOT);
         return lower.indexOf(needleLower, from);
+    }
+
+    /** Captures an {@link #OPAQUE_IMPLIED_END_TAG_ELEMENTS} element (e.g. `<ruby>`) as one
+     *  byte-for-byte-verbatim span, from its own opening `<` through its own MATCHING `</tag>`
+     *  (correctly tracking nested same-name opens/closes so an inner `<ruby>` doesn't fool the
+     *  matching logic into stopping early) -- no interior parsing at all, so implied-end-tag
+     *  children (`<rb>`/`<rt>`/`<rp>`/`<rtc>`, or any further nesting) are never touched. */
+    private Node parseOpaqueImpliedEndTagElement(final int tagStart, final String tagName, final String lowerTag) {
+        final int openTagEnd = findTagEnd(tagStart);
+        if (openTagEnd < 0) {
+            throw new XmlParseException("unterminated tag <" + tagName);
+        }
+        final String openTok = "<" + lowerTag;
+        final String closeTok = "</" + lowerTag;
+        int depth = 1;
+        int scan = openTagEnd + 1;
+        int closeStart = -1;
+        while (depth > 0) {
+            final int nextOpen = indexOfTagBoundary(s, openTok, scan);
+            final int nextClose = indexOfTagBoundary(s, closeTok, scan);
+            if (nextClose < 0) {
+                throw new XmlParseException("expected closing tag </" + tagName + ">");
+            }
+            if (nextOpen >= 0 && nextOpen < nextClose) {
+                depth++;
+                final int innerOpenEnd = findTagEnd(nextOpen);
+                scan = innerOpenEnd >= 0 ? innerOpenEnd + 1 : nextOpen + openTok.length();
+            } else {
+                depth--;
+                if (depth == 0) {
+                    closeStart = nextClose;
+                }
+                scan = nextClose + closeTok.length();
+            }
+        }
+        final int closeTagEnd = findTagEnd(closeStart);
+        if (closeTagEnd < 0) {
+            throw new XmlParseException("unterminated closing tag </" + tagName + ">");
+        }
+        final Node n = new Node();
+        n.type = NodeType.OPAQUE;
+        n.raw = s.substring(tagStart, closeTagEnd + 1);
+        pos = closeTagEnd + 1;
+        return n;
+    }
+
+    /** Scans forward from `start` (pointing at a tag's `<`) to its terminating `>`, skipping over
+     *  any `>` that occurs inside a quoted attribute value. Returns -1 if unterminated. */
+    private int findTagEnd(final int start) {
+        boolean inQuote = false;
+        char quoteChar = 0;
+        for (int i = start; i < s.length(); i++) {
+            final char c = s.charAt(i);
+            if (inQuote) {
+                if (c == quoteChar) {
+                    inQuote = false;
+                }
+            } else if (c == '"' || c == '\'') {
+                inQuote = true;
+                quoteChar = c;
+            } else if (c == '>') {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Case-insensitive search for `tokenLower` (e.g. `"<ruby"`/`"</ruby"`) in `haystack` starting
+     *  at `from`, requiring a tag-boundary character (whitespace, `>`, `/`, or end-of-string)
+     *  immediately after the match so `"<ruby"` doesn't false-match inside `"<rubytag"`. */
+    private static int indexOfTagBoundary(final String haystack, final String tokenLower, final int from) {
+        final String lower = haystack.toLowerCase(java.util.Locale.ROOT);
+        int idx = from;
+        while (true) {
+            idx = lower.indexOf(tokenLower, idx);
+            if (idx < 0) {
+                return -1;
+            }
+            final int after = idx + tokenLower.length();
+            if (after >= haystack.length()) {
+                return idx;
+            }
+            final char c = haystack.charAt(after);
+            if (Character.isWhitespace(c) || c == '>' || c == '/') {
+                return idx;
+            }
+            idx = after + 1;
+        }
     }
 
     private String parseAttr() {
@@ -478,6 +581,9 @@ public final class XmlSpecificRule {
             case RAW:
                 out.append(indent(depth)).append('<').append(n.tagName).append(attrsInline(n.attrs))
                         .append('>').append(n.raw).append("</").append(n.tagName).append(">\n");
+                return;
+            case OPAQUE:
+                out.append(indent(depth)).append(n.raw).append('\n');
                 return;
             case ELEMENT:
                 renderElement(n, depth, out);

@@ -1780,6 +1780,25 @@ Real-code regressions:
                                              jenkinsci/jenkins dogfood entry (accepted as a permanent
                                              known limitation, also noted in `README.md`).
 
+  real_code_regressions_114_inp/out.py    -- Python3, psf/black real-code dogfood: crash fix.
+                                             `TokenizerIndent.emitFString`'s backslash-escape handling
+                                             blindly skipped 2 characters (backslash + next char)
+                                             whenever the next char was `{`/`}`, which broke a
+                                             following `{{`/`}}` doubled-brace-escape pair apart --
+                                             `f"{1}\{{"` left a lone, never-closed `{` field open,
+                                             which `ScopePipelineIndent.processField` then walked past
+                                             the token list's end on (IndexOutOfBoundsException).
+                                             Confirmed against real CPython semantics (`f"\{y}"` opens
+                                             a genuine field for `y`; `f"{1}\{{"` evaluates to `'1\{'`
+                                             via backslash-then-doubled-brace, no dangling field) that
+                                             the backslash must consume only itself before `{`/`}`,
+                                             not the brace too -- fixed by skipping just 1 char in that
+                                             case so the brace is re-evaluated fresh on the next
+                                             iteration. Identity-pass fixture (output byte-identical to
+                                             input) since no other rule in scope touches either line;
+                                             the point of this fixture is the crash, not a rendering
+                                             change. See `STATE_PYTHON3.md`'s `psf/black` dogfood entry.
+
 How Tests Are Run
 -----------------
 

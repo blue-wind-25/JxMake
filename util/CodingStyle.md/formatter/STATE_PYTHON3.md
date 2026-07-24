@@ -620,21 +620,52 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       `python_ast_diff.py` (both already documented above) — no separate
       "syntax_checker" tool needed beyond those two.
 
-      **Forward pass (round1): one crash, 337/338 files formatted.**
-      `./tests/data/cases/pep_701.py` throws
+      **Forward pass (round1): one crash, 337/338 files formatted.
+      FIXED same session (user explicitly requested the crash specifically
+      be fixed, narrowing this one item out of this session's otherwise
+      documentation-only scope — the other four bugs below remain
+      unfixed/deferred).** `./tests/data/cases/pep_701.py` threw
       `java.lang.IndexOutOfBoundsException` from
       `ScopePipelineIndent.processField` (via `processFString` /
       `applyFStringSpacing`), caught per-file (batch continued, did not
       abort the whole run). **Minimal repro:** a single-line file containing
       only `f"{1}\{{"` (an f-string whose field is followed by a literal
-      escaped-brace `\{{` sequence) reproduces the crash standalone —
+      escaped-brace `\{{` sequence) reproduced the crash standalone —
       `IndexOutOfBoundsException: Index: 9, Size: 9` in that minimal case,
-      `Index: 1625, Size: 1625` in the full `pep_701.py` file. Root cause not
-      investigated beyond the stack trace (per this session's
-      documentation-only scope) — likely `processField`'s bracket/index scan
-      walks past the token list's end when a field is immediately followed
-      by an escaped `{{`/`}}` pair rather than plain literal text or another
-      field.
+      `Index: 1625, Size: 1625` in the full `pep_701.py` file.
+
+      **Root cause and fix:** `TokenizerIndent.emitFString`'s backslash-escape
+      handling unconditionally skipped 2 characters (backslash + whatever
+      followed) any time it saw a backslash, including when the next
+      character was `{`/`}`. For `f"{1}\{{"`, after the `{1}` field closed,
+      the scanner hit `\{{` (backslash, then a doubled `{{` meant to be one
+      literal-escaped brace): the old code consumed the backslash together
+      with the *first* `{` of that pair as one "escaped" unit, leaving the
+      *second* `{` orphaned — it no longer had its doubling partner, so it
+      was misread as a genuine field-open with no matching `}` before the
+      string ended, and `processField`'s scan then walked off the end of
+      the token list. Verified against real CPython semantics first (not
+      guessed): `y = 3; f"\{y}"` evaluates to `'\3'` — i.e. `{y}` **is** a
+      real field, backslash does not swallow it — while `f"{1}\{{"`
+      evaluates to `'1\{'` (field `{1}`, then a literal `\` followed by a
+      doubled-brace-escaped `{`, no dangling field). Fixed by only skipping
+      the backslash itself (1 char, not 2) when the following character is
+      `{` or `}`, so that character is re-evaluated fresh on the next loop
+      iteration — either as a new field-open or as one half of a
+      `{{`/`}}` doubled-brace escape — while every other backslash-escape
+      case (e.g. `\"`, `\\`, `\n`) keeps the original 2-char skip. Verified:
+      the minimal repro and the full `pep_701.py` both format without
+      crashing post-fix; `make test` 163/163 forward + 163/163 idempotency
+      (up from 162/162 — new fixture added, zero regressions elsewhere).
+      New permanent fixture: `test/real_code_regressions_114_{inp,out}.py`
+      (identity-pass pair — output is byte-identical to input, since no
+      other in-scope rule touches either line; the fixture's purpose is
+      proving the crash is gone, not a rendering change), registered in the
+      Makefile's `INP_FILES` and `test/README.txt`.
+
+      Root cause investigation for the *other* four bugs below was not
+      performed beyond the stack trace/observed symptom (per this session's
+      documentation-only scope for everything except this one crash).
 
       **Round2 (idempotency, run over the 337 successfully-formatted round1
       files): zero crashes, but 3/337 files differ from round1 — two
@@ -773,14 +804,19 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
           debug specifier before deciding to trim the opening gap.
 
       **Summary: 1 crash (pep_701.py, per-file caught, does not abort
-      batch), 2 non-idempotency bugs (§7/§8 join-then-align ordering; §6
-      unbounded-growth trailing whitespace on multi-line union-type hints),
-      2 content-corruption bugs (both in §5's `addBraceTrim` — nested-brace
-      field fusion deletes an expression; self-documenting `{expr=}` fields
-      lose verbatim leading whitespace). All five are documented here only;
-      none fixed this session per explicit task scope — a future session
-      should fix each, add permanent `real_code_regressions_*` fixtures per
-      `STATE_COMMON.md`'s convention, and only then consider re-running the
-      full `psf/black` corpus to confirm.**
+      batch) — FIXED this session (backslash-escape/doubled-brace fix in
+      `TokenizerIndent.emitFString`, fixture `real_code_regressions_114`,
+      `make test` 163/163). 2 non-idempotency bugs (§7/§8 join-then-align
+      ordering; §6 unbounded-growth trailing whitespace on multi-line
+      union-type hints), 2 content-corruption bugs (both in §5's
+      `addBraceTrim` — nested-brace field fusion deletes an expression;
+      self-documenting `{expr=}` fields lose verbatim leading whitespace) —
+      these four remain documented-only, NOT fixed this session, per the
+      original task's explicit scope limit (only the crash was pulled
+      in-scope, by explicit user request mid-session). A future session
+      should fix each of the remaining four, add permanent
+      `real_code_regressions_*` fixtures per `STATE_COMMON.md`'s convention,
+      and only then consider re-running the full `psf/black` corpus to
+      confirm.**
 
       `python/cpython`, `django/django` — still not started.

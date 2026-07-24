@@ -340,6 +340,17 @@ public class TokenizerIndent extends TokenizerCore {
         while (pos < length) {
             final char c = source.charAt(pos);
             if (c == '\\' && pos + 1 < length) {
+                final char next = source.charAt(pos + 1);
+                if (next == '{' || next == '}') {
+                    // Do NOT swallow the brace with the backslash -- backslash has no escape
+                    // interaction with `{`/`}` in Python f-strings (confirmed against CPython:
+                    // f"\{y}" opens a real field for `y`, and f"{1}\{{" produces "1\{" via a
+                    // separate doubled-brace escape). Consume only the backslash itself so the
+                    // following brace is re-evaluated fresh (either as a field open or as half of
+                    // a `{{`/`}}` doubled-brace escape) on the next iteration.
+                    pos += 1;
+                    continue;
+                }
                 pos += 2;
                 continue;
             }

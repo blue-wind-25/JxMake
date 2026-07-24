@@ -752,6 +752,21 @@ RDD_KEY_88.
   pre-existing pathological input shape (a single line thousands of characters long) rather than
   a common real-world pattern, so triage priority is low. Left open, no fixture; revisit if a
   similar shape recurs in a future candidate.
+  **Follow-up attempt, same session:** built a minimal repro mirroring the exact shape --
+  `.stream().filter(...).map( plugin -> { ...; if (...) jsonObject.put(...) ;` followed by a raw
+  embedded newline mid-lambda then `else jsonObject.put(...) ; return jsonObject ; } ).collect(
+  toList() )` -- and it formatted identically and idempotently across two rounds; no divergence
+  reproduced at this smaller scale. The instability appears to require either the real file's
+  full ~2500-character single physical line, or cumulative state from the preceding
+  `.sorted(...)`/`.limit(...)` chain segments above it (possibly a running-width/indent
+  computation that only diverges once several chain links and a genuinely enormous line are
+  combined) -- neither of which a hand-built analog captured. **Recommendation: leave open, do
+  not chase further.** Affects exactly 1 file across the full 1929-file corpus, sitting on
+  already-pathological hand-mangled input (a multi-statement lambda body hand-jammed onto one
+  physical line, not a shape any formatter run would itself produce); reproducing it precisely
+  would require bisecting the actual full-length line directly, a materially bigger time
+  investment than its impact justifies. Revisit only if a similar shape turns up in a future
+  dogfood candidate, ideally with more than one occurrence to justify the investigation cost.
 
 ## Known Gaps — Fixed
 

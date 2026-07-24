@@ -191,6 +191,44 @@ corrupted comment (recapitalized *and* reworded, not just cased) — flagged
 `present in formatted, missing from original` for both. All six cases (3
 pairs × 2 extensions) behaved as expected. 208 lines.
 
+**Two further tolerances added, post-`lodash/lodash` dogfood (see that
+pass's write-up below for the false-positive classes that motivated them):**
+
+1. **`normalize-comment-end-period` tolerance** — `stripCommentDelims` now
+   calls a new `stripSoleTrailingPeriod(t)` (strips one trailing `.`
+   immediately before trailing whitespace/the closing delimiter, leaving a
+   trailing `..`/`...` or any non-trailing `.` alone) before the existing
+   whitespace-normalize + lowercase, mirroring `MiscRuleCore`'s
+   `stripSoleTrailingPeriod`/`stripSoleTrailingPeriodAcrossLines` formatter
+   behavior.
+2. **Single-statement block unwrapping (STYLE.md §10)** — `canonicalize`'s
+   `walk` now special-cases `ts.isBlock(n) && n.statements.length === 1`:
+   it recurses directly into that one statement and skips the `{`/`}`
+   tokens, so `if (x) foo();` and `if (x) { foo(); }` (and the same shape
+   under `while`/`for`/`do`/`else`/etc. — the check is generic over any
+   `Block`, not `if`-specific) produce identical canonical token streams.
+   A block with 0 or 2+ statements is walked normally (braces included), so
+   a genuinely added/removed statement, or a different single statement,
+   is still caught by the existing token comparison.
+
+**Third false-positive class found and fixed while re-verifying against
+`lodash/lodash` post-fix (see that pass's write-up):** `canonicalize`'s
+generic child-walk was also pulling in `/** ... */` JSDoc comment text
+directly — the TS compiler parses a JSDoc-style block comment as a real
+AST child of its following declaration (`ts.isJSDoc`) even with no `@`
+tags, unlike an ordinary `//`/`/* */` comment, so that same trailing-period
+text was reaching the statement-canonicalization path raw, bypassing
+`collectComments`'s period-stripping/lowercasing entirely and still
+getting flagged. Fixed by skipping `ts.isJSDoc(n)` nodes in `canonicalize`'s
+walk — they're already covered by `collectComments` (which recovers
+comments from raw source ranges, independent of AST attachment).
+
+Re-verified against all six original hand-crafted good/bad pairs (still
+correct — see the `lodash/lodash` write-up below for the full command
+list) plus two new hand-crafted pairs per extension (trailing-period
+comment tolerance; `if`/`while` brace-omission tolerance) — all pass as
+expected, both `.js` and `.ts`.
+
 ---
 
 ## Test Fixtures (Local)
@@ -920,6 +958,50 @@ scope for a targeted JS/TS-job fix without its own dedicated session). No
 full corpus re-run is needed beyond what's documented above — baseline,
 round1, round1↔round2 idempotency (26/27 clean, 1 known-issue recurrence),
 and content-preservation are all accounted for.
+
+**Checker subsequently improved, corpus re-verified (follow-up session):**
+`js_ts_content_diff.js` gained tolerance for both false-positive classes
+above (trailing-period comment stripping; single-statement block brace
+omission for any control-flow construct) — see "Dogfood Output Validation"
+above for the fix detail, plus a third false-positive class (JSDoc-as-
+AST-child double-counting a comment's raw, un-period-stripped text) found
+and fixed while re-verifying against this same corpus. Re-running
+`js_ts_content_diff.js` across all 27 files (original vs. the same
+`/tmp/round1-lodash` round1 output already on disk from this pass) after
+all three fixes: **22/27 clean** (up from the original 17/27 MISMATCH,
+i.e. 10/27 clean). The remaining 5 decompose into two categories, both
+confirmed by direct token-level inspection, neither a new checker gap of
+the same shape as the three already fixed:
+
+- **3 files** (`lib/fp/build-doc.js`, `lib/fp/build-modules.js`,
+  `lib/main/build-modules.js`) — a fourth, distinct, still-unfixed checker
+  false-positive class: bare single-param arrow functions gaining
+  parens (`chunk => ...` becomes `(chunk) => ...`), i.e.
+  `enforceArrowFunctionParameterParens` (STYLE_JS_TS.md §6, already-
+  documented, intentional, non-lossy formatter behavior) isn't yet
+  tolerated by `canonicalize`'s token comparison. Confirmed via direct
+  opcode diff of the canonicalized token streams — the only change in each
+  flagged statement is the added `(`/`)` around a single arrow parameter.
+  Left unfixed — out of scope for this task's two specified tolerances;
+  candidate for a future checker update.
+- **2 files** (`perf/perf.js`, `test/test.js`) — **not a checker false
+  positive: a genuine, real formatter defect**, unrelated to this task.
+  Confirmed via direct source inspection (`perf/perf.js:213` original vs.
+  its round1 output): a standalone post-increment expression statement
+  (`index++;`, `count++;`) is rewritten to pre-increment (`++index;`,
+  `++count;`), and the enclosing `for(`/`if(` also loses its space after
+  the keyword, in both `onComplete`-style handlers. This is a real content
+  change the checker is correctly catching, not a tool defect — flagged
+  here as a newly-found, not-yet-root-caused formatter bug for a future
+  session, out of scope for this checker-focused task to fix.
+
+Verification commands/pairs used for the checker fix itself (six hand-
+crafted good/bad pairs, `.js`+`.ts`, exercising the two new tolerances plus
+re-confirming dropped-statement and corrupted-comment detection still
+works) are in `/tmp/claude-1000/.../scratchpad` from this session; not
+promoted to permanent `test/` fixtures since `js_ts_content_diff.js` is a
+dogfood-validation tool, not part of the formatter's own `make test`
+corpus.
 
 ### Known false positives (no source change needed, fixture-only)
 

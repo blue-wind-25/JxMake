@@ -71,10 +71,36 @@ function parse(source, fileName) {
 
 /** Leaf-token canonicalization: every terminal token's text (identifiers,
  *  keywords, literals, punctuation), whitespace collapsed -- comments are
- *  never tree nodes so they never appear here regardless. */
+ *  never tree nodes so they never appear here regardless.
+ *
+ *  A `Block` ({ ... }) containing exactly one statement is canonicalized
+ *  identically to that single statement unwrapped (the `{`/`}` tokens are
+ *  simply skipped in that specific shape) -- STYLE.md Sec.10 lets the
+ *  formatter legitimately render a single-statement block with or without
+ *  braces (`if (x) foo();` vs `if (x) { foo(); }`), in either direction,
+ *  for any control-flow construct (if/else/for/while/do/etc., not just
+ *  `if`), so both shapes must produce the same canonical token stream.
+ *  A block with zero or 2+ statements is walked normally (braces included)
+ *  -- only the exact one-statement shape is unwrapped, so a genuinely
+ *  added/removed statement, or a different single statement, is still
+ *  caught by the ordinary token-level comparison below. */
 function canonicalize(node) {
   const parts = [];
   (function walk(n) {
+    if (ts.isBlock(n) && n.statements.length === 1) {
+      walk(n.statements[0]);
+      return;
+    }
+    // A `/** ... */` JSDoc comment is parsed by the TS compiler as a real
+    // AST child of its following declaration (even with no @tags), unlike
+    // an ordinary `//`/`/* */` comment. Skip it here -- it's already
+    // covered by collectComments() (which works off raw source ranges,
+    // independent of AST attachment), so including its raw text here too
+    // would both double-count it and bypass that path's period-stripping/
+    // case-normalization tolerance, false-flagging exactly the same
+    // intentional transformations this canonicalization is meant to
+    // tolerate.
+    if (ts.isJSDoc(n)) return;
     const kids = n.getChildren();
     if (kids.length === 0) {
       const t = n.getText();
@@ -135,12 +161,27 @@ function collectComments(sourceFile, sourceText) {
   return out;
 }
 
+/** Strips a single trailing `.` immediately before the comment's closing
+ *  delimiter/end (after outer delimiters are already stripped), mirroring
+ *  `normalize-comment-end-period`'s `stripSoleTrailingPeriod` formatter
+ *  behavior (MiscRuleCore.java) so an intentional period-strip isn't
+ *  flagged as a content change. Only the very last `.` is affected -- a
+ *  mid-sentence period, or a trailing ellipsis (`...`), is left alone. */
+function stripSoleTrailingPeriod(t) {
+  const trimmed = t.replace(/\s+$/, '');
+  if (trimmed.endsWith('.') && !trimmed.endsWith('..')) {
+    return trimmed.slice(0, -1);
+  }
+  return trimmed;
+}
+
 function stripCommentDelims(text) {
   let t = text.trim();
   if (t.startsWith('///')) t = t.slice(3);
   else if (t.startsWith('//')) t = t.slice(2);
   else if (t.startsWith('/**')) t = t.slice(3, Math.max(3, t.length - 2));
   else if (t.startsWith('/*')) t = t.slice(2, Math.max(2, t.length - 2));
+  t = stripSoleTrailingPeriod(t);
   return normalizeWhitespace(t).toLowerCase();
 }
 

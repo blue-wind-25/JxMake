@@ -1712,6 +1712,16 @@ Real-code regressions:
                                              following statement onto the same line. Fixed by adding
                                              `typeof` to `GENERIC_SAFE_KEYWORDS`.
 
+  real_code_regressions_108_inp/out.html  -- HTML5, `<option>` implied-closing-trigger support
+                                             (RDD_KEY_200). Covers an explicitly-closed `<option>`
+                                             (regression guard on the pre-existing common case) plus
+                                             a `<datalist>` with bare `<option value="...">` tags
+                                             relying on HTML5's implied-end-tag rule (closed by a
+                                             sibling `<option>`/`<optgroup>` start, or by the
+                                             parent's own closing tag), the same shape that blocked
+                                             the `alexandersandberg/html5-elements-tester` dogfood
+                                             run.
+
 How Tests Are Run
 -----------------
 

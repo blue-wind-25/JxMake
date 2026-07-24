@@ -61,6 +61,20 @@ public final class XmlSpecificRule {
     private static final java.util.Set<String> OPAQUE_IMPLIED_END_TAG_ELEMENTS = new java.util.HashSet<>(
             java.util.Arrays.asList("ruby"));
 
+    /** General, reusable "implied-closing trigger" table: an element name registered here is parsed
+     *  as a REAL node (attributes/children/normal rendering, unlike {@link #OPAQUE_IMPLIED_END_TAG_ELEMENTS}'
+     *  whole-span opaque capture) whose children stop -- implying an unwritten closing tag -- as soon
+     *  as one of the mapped sibling start-tag names begins, in addition to the existing "parent's own
+     *  closing tag also ends me" behavior every element already gets via {@code parseNodes}'s
+     *  {@code stopAtCloseTag}. Populate with one entry per element only once real dogfood input needs
+     *  it -- currently only `option` (closes on a sibling `<option>`/`<optgroup>` start, or when its
+     *  parent `<select>`/`<datalist>`/`<optgroup>` closes). Do NOT add `li`/`td`/`tr`/`p`/etc.
+     *  speculatively -- see STATE_DATA_FORMATS.md's Open Questions/RDD_LOG.md for the rationale. */
+    private static final java.util.Map<String, java.util.Set<String>> IMPLIED_CLOSE_TRIGGERS = new java.util.HashMap<>();
+    static {
+        IMPLIED_CLOSE_TRIGGERS.put("option", new java.util.HashSet<>(java.util.Arrays.asList("option", "optgroup")));
+    }
+
     private static final class Node {
         NodeType type;
         String raw;              // PI / DOCTYPE / CDATA / TEXT: verbatim content
@@ -176,6 +190,13 @@ public final class XmlSpecificRule {
     }
 
     private List<Node> parseNodes(final boolean stopAtCloseTag) {
+        return parseNodes(stopAtCloseTag, null);
+    }
+
+    /** @param impliedCloseTriggers when non-null, children stop being consumed (implying the
+     *  currently-open element is closed, with no explicit closing tag) as soon as upcoming input is a
+     *  start tag whose name is in this set -- see {@link #IMPLIED_CLOSE_TRIGGERS}. */
+    private List<Node> parseNodes(final boolean stopAtCloseTag, final java.util.Set<String> impliedCloseTriggers) {
         final List<Node> nodes = new ArrayList<>();
         while (true) {
             skipWs();
@@ -185,11 +206,29 @@ public final class XmlSpecificRule {
             if (stopAtCloseTag && startsWith("</")) {
                 break;
             }
+            if (impliedCloseTriggers != null && startsWithTriggerTag(impliedCloseTriggers)) {
+                break;
+            }
             final Node node = parseSingleNode();
             attachTrailingCommentIfAny(node);
             nodes.add(node);
         }
         return nodes;
+    }
+
+    /** True if the cursor is positioned at a start tag (not a closing tag) whose lowercased name is
+     *  in {@code triggers}. Used by {@link #IMPLIED_CLOSE_TRIGGERS}. */
+    private boolean startsWithTriggerTag(final java.util.Set<String> triggers) {
+        if (!startsWith("<") || startsWith("</")) {
+            return false;
+        }
+        int i = pos + 1;
+        final int nameStart = i;
+        while (i < s.length() && !Character.isWhitespace(s.charAt(i)) && s.charAt(i) != '/' && s.charAt(i) != '>') {
+            i++;
+        }
+        final String tag = s.substring(nameStart, i).toLowerCase(java.util.Locale.ROOT);
+        return triggers.contains(tag);
     }
 
     private void attachTrailingCommentIfAny(final Node node) {
@@ -366,16 +405,25 @@ public final class XmlSpecificRule {
         if (lang.isHtml5 && "pre".equals(lowerTag)) {
             return finishRawElement(n, "</pre>");
         }
-        n.children = parseNodes(true);
+        final java.util.Set<String> impliedTriggers = lang.isHtml5 ? IMPLIED_CLOSE_TRIGGERS.get(lowerTag) : null;
+        n.children = parseNodes(true, impliedTriggers);
         final String closeTok = "</" + n.tagName + ">";
+        final int beforeTrailingWs = pos;
         skipInlineWs();
-        if (!startsWith(closeTok) && !startsWith("</" + n.tagName + " ")) {
-            throw new XmlParseException("expected closing tag " + closeTok + " near: "
-                    + s.substring(pos, Math.min(s.length(), pos + 40)));
+        if (startsWith(closeTok) || startsWith("</" + n.tagName + " ")) {
+            final int gt = s.indexOf('>', pos);
+            pos = gt + 1;
+            return n;
         }
-        final int gt = s.indexOf('>', pos);
-        pos = gt + 1;
-        return n;
+        if (impliedTriggers != null) {
+            // Implied close (RDD_KEY registered in IMPLIED_CLOSE_TRIGGERS): either an upcoming
+            // sibling trigger tag or the parent's own closing tag ended this element's children --
+            // no explicit closing tag to consume, don't swallow the inline whitespace we peeked past.
+            pos = beforeTrailingWs;
+            return n;
+        }
+        throw new XmlParseException("expected closing tag " + closeTok + " near: "
+                + s.substring(pos, Math.min(s.length(), pos + 40)));
     }
 
     /** `<pre>` content is opaque like CDATA (RDD_KEY_185) -- capture verbatim through the literal

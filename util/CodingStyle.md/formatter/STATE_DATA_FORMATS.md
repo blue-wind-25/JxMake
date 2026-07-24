@@ -104,6 +104,7 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_193 | XML real-logic implementation: character-cursor recursive-descent parser (no natural line boundary in tag grammar, no `TokenizerCore` reuse); independent `<!--%`-based frozen-span/comment-normalization logic; `InFileConfig` extended for `<!--% JXM_CFMT_CFG ... -->`; migrated `xml` out of `Lang.SCAFFOLD_ONLY_LANGUAGES` into `Lang.SUPPORTED_LANGUAGES` (HTML5 stays scaffold-only); unlike YAML/TOML, XML's rule constructor takes `indentStyle` (§2.1 has no ignored-setting exception); wrap-shape judgment call (closing `>` attached to last attribute line); one bug found+fixed (childless-tag overflow wrap never triggered); all 4 fixtures (`xml_combined`/`xml_comments`) pass `make test`, 202/202 total (originally shipped as a mismatched `xml_core` pair, later corrected). |
 | RDD_KEY_198 | HTML5 `<ruby>` implied-end-tag support: small, extensible `XmlSpecificRule.OPAQUE_IMPLIED_END_TAG_ELEMENTS` name set (currently just `ruby`) reusing the existing `<script>`/`<style>`/`<pre>` opaque-verbatim-span pattern -- scans from the element's own opening `<` to its own MATCHING `</tag>` (nested same-name depth tracked) and captures the whole span (incl. `<rb>`/`<rt>`/`<rp>`/`<rtc>` children and the outer tags themselves) byte-for-byte verbatim as a new `NodeType.OPAQUE` node; no per-element implied-closing-trigger logic built. Fixture `test/real_code_regressions_104_{inp,out}.html`; `make test` 153/153, zero regressions. |
 | RDD_KEY_199 | HTML5 unquoted attribute value support: `XmlSpecificRule.parseAttr`'s `lang.isHtml5` branch now accepts an unquoted value per the HTML5 spec grammar (no whitespace/`"`/`'`/`=`/`<`/`>`/backtick) instead of requiring `"`/`'`; preserved unquoted on output, no forced normalization to double-quoted (consistent with the codebase's existing "preserve as written" quote-style posture elsewhere); plain XML unchanged, still requires quotes. Fixture `test/real_code_regressions_106_{inp,out}.html`; `make test` 155/155, zero regressions. Unblocked the `alexandersandberg/html5-elements-tester` dogfood run past line 718, but it now hits a distinct, unrelated blocker at line 759 (bare `<option>` tags relying on HTML5's implied-end-tag rule, not yet in `OPAQUE_IMPLIED_END_TAG_ELEMENTS`) -- see HTML5 checklist entry. |
+| RDD_KEY_200 | HTML5 `<option>` implied-closing-trigger support: new, general, reusable `XmlSpecificRule.IMPLIED_CLOSE_TRIGGERS` (`Map<String, Set<String>>`, element name -> sibling start-tag names that implicitly close it), distinct from `OPAQUE_IMPLIED_END_TAG_ELEMENTS` -- a registered element is still parsed as a REAL node (attributes/children/normal rendering), only the "when do children stop" decision changes; only `parseNodes`/`parseElement` were touched, no per-element control-flow. Registered only `option` -> `{option, optgroup}` today. `parseNodes` gained an optional trigger-set parameter that also breaks its loop on an upcoming (non-closing) start tag matching the set; `parseElement` still consumes an explicit `</tag>` when present (regression-safe), otherwise treats the element as implicitly closed with no explicit tag consumed when a trigger set is registered (covering both the sibling-trigger case and the pre-existing parent-close-via-`stopAtCloseTag` case, reused rather than reinvented) -- otherwise the pre-existing hard `XmlParseException` is unchanged. Fixture `test/real_code_regressions_108_{inp,out}.html` (explicit-close regression guard + `<datalist>`/`<optgroup>` implied-close cases). `make test` 157/157, zero regressions. This was the `alexandersandberg/html5-elements-tester` dogfood run's third and final blocker -- the full 42KB file now completes end-to-end (forward pass, round2, idempotency diff, `html_sc.js` syntax-check, `html_content_diff.py` content-preservation all clean); dogfood run for this candidate is DONE. |
 
 ---
 
@@ -534,6 +535,17 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   out beyond `ruby`. Not fixed (out of scope for this fix); see the HTML5
   checklist entry below for current status.
 
+  **RESOLVED (RDD_KEY_200, user, 2026-07-24).** Rather than extending
+  `OPAQUE_IMPLIED_END_TAG_ELEMENTS` (which would make `<option>` fully opaque
+  and stop reformatting it even in its common explicitly-closed case) or
+  building the full per-element-family spec feature, a small, general,
+  reusable `XmlSpecificRule.IMPLIED_CLOSE_TRIGGERS` table was added and
+  populated with only `option` -> `{option, optgroup}`. `<option>` continues
+  to be parsed as a real node in both the explicitly-closed and implied-close
+  cases. This was the `alexandersandberg/html5-elements-tester` file's third
+  and final blocker -- the full file now completes end-to-end. See the
+  Resolved Design Decisions table and HTML5 checklist entry below.
+
 ## Checklist
 
 - [x] **Implement JSON/JSON5 (§1).** DONE. `JsonTokenizer` (extends
@@ -728,19 +740,18 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       and dropped — no real HTML5 corpus in any, see Open Questions
       resolution; of the three added replacements, `WordPress/wordpress-
       develop` done (1 bug found+fixed, 1 open question raised — see below),
-      `alexandersandberg/html5-elements-tester` STILL BLOCKED (its
+      `alexandersandberg/html5-elements-tester` DONE (its
       `<ruby>`/implied-end-tag `XmlParseException` fixed per RDD_KEY_198, its
-      unquoted-attribute-value `XmlParseException` (`size=5` on a `<select>`,
-      line 718) fixed per RDD_KEY_199, but forward pass now fails further
-      along on a third, distinct, unrelated pre-existing bug — a `<datalist>`
-      at line 759 containing bare `<option value="...">` tags with no
-      closing `</option>` at all, relying on HTML5's implied-end-tag rule for
-      `<option>`, which `XmlSpecificRule.OPAQUE_IMPLIED_END_TAG_ELEMENTS`
-      does not (yet) include — out of scope for RDD_KEY_199, not fixed);
-      `web-platform-tests/
+      unquoted-attribute-value `XmlParseException` fixed per RDD_KEY_199, and
+      its third, distinct blocker — a `<datalist>` at line 759 containing
+      bare `<option value="...">` tags relying on HTML5's implied-end-tag
+      rule for `<option>` — fixed per RDD_KEY_200's new
+      `IMPLIED_CLOSE_TRIGGERS` mechanism; the full 42KB file now completes
+      end-to-end: forward pass, round2, idempotency diff, `html_sc.js`
+      syntax-check, and `html_content_diff.py` content-preservation all
+      clean); `web-platform-tests/
       wpt` not started). Overall item stays unchecked pending the remaining
-      repos above (XML), `web-platform-tests/wpt`, and the `<option>`
-      implied-end-tag gap.
+      repos above (XML) and `web-platform-tests/wpt`.
 
       **Shared methodology note (applies to every run below, not restated per
       repo):** each run clones fresh (or reuses a prior-session checkout under
@@ -1190,8 +1201,10 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
         started.
       - `alexandersandberg/html5-elements-tester`: single 42KB `index.html`
         file, attempted as a one-file spot-check (not a corpus, per the
-        candidate note). **BLOCKED, not done.** Forward pass fails outright
-        (round1 never completes, no output produced):
+        candidate note). **DONE** (as of RDD_KEY_200 -- three sequential
+        blockers found and fixed across three sessions, see below). Original
+        state at this point in the narrative: forward pass failed outright
+        (round1 never completed, no output produced):
         `XmlSpecificRule.parseElement` has no support at all for HTML5's
         optional/implied end tags, and this file deliberately exercises
         them (`<ruby><rb>旧<rb>金<rb>山<rt>jiù<rt>jīn<rt>shān<rtc>San
@@ -1203,8 +1216,30 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
         family, not a narrow fix, and unspecified in `STYLE_DATA_FORMATS.md`
         §4), this is recorded as an open design question rather than guessed
         at -- see Open Questions ("HTML5 optional/implied end tags" above).
-        No code change made; this file cannot be dogfooded further until
-        that question is resolved.
+        No code change made at that point; this file could not be dogfooded
+        further until that question was resolved.
+
+        RDD_KEY_198 (`<ruby>` opaque-implied-end-tag support) unblocked the
+        forward pass past line 379, but it then hit a second, distinct
+        blocker at line 718's `<select ... size=5>` -- `parseAttr` requiring
+        a quoted attribute value, fixed by RDD_KEY_199. That unblocked
+        forward progress past line 718, but a third, distinct blocker
+        surfaced at line 759: a `<datalist>` with bare `<option
+        value="...">` tags relying on HTML5's implied-end-tag rule for
+        `<option>`, fixed by RDD_KEY_200's new
+        `XmlSpecificRule.IMPLIED_CLOSE_TRIGGERS` mechanism (unlike `<ruby>`,
+        `<option>` is parsed as a real node, not opaque). With all three
+        fixed, a fresh full run of this file was performed: forward pass now
+        completes end-to-end (round1 produces output for the whole 42KB
+        file, no exception); round2 (reformatting round1's output) diffs
+        empty against round1 (`diff -rq`, idempotent); `html_sc.js`
+        syntax-check clean on both the original and round1 output; and
+        `html_content_diff.py` reports full content preservation (element
+        structure, attributes, text, comments, DOCTYPE all preserved --
+        spot-checked both the explicitly-closed and implied-closed
+        `<option>`s render as real, correctly-indented, correctly-closed
+        nodes, not opaque/verbatim spans). **This completes the
+        `alexandersandberg/html5-elements-tester` dogfood spot-check.**
 
       **HTML5 (1/4 repos done, first HTML5 dogfood run):**
       - `h5bp/html5-boilerplate`: 4 files (`dist/index.html`, `dist/404.html`,

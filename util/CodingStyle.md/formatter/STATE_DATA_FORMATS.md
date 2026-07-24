@@ -493,6 +493,37 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   only, does not affect structural output, and does not block moving on to
   other HTML5 candidates.
 
+- **HTML5 optional/implied end tags (`<rb>`/`<rt>`/`<rp>`/`<rtc>` and the
+  wider spec class -- `<li>`/`<p>`/`<td>`/`<tr>`/`<option>`/etc.) are not
+  handled at all -- how much of this should the parser support?** Found
+  during the `alexandersandberg/html5-elements-tester` HTML5 dogfood
+  spot-check (2026-07-24): `index.html` line 379,
+  `<ruby><rb>旧<rb>金<rb>山<rt>jiù<rt>jīn<rt>shān<rtc>San
+  Francisco</ruby>`, deliberately exercises HTML5's optional-end-tag
+  ruby markup (`<rb>`/`<rt>`/`<rtc>` each implicitly close at the next
+  sibling start tag or the enclosing `</ruby>`, per the HTML5 tree-
+  construction algorithm -- none of them ever gets an explicit closing tag
+  in valid, spec-conformant markup). `XmlSpecificRule.parseElement`
+  currently has no notion of implied end tags at all for non-void,
+  non-raw-text elements -- `n.children = parseNodes(true)` always expects an
+  explicit `</tag>` next, so it throws `XmlParseException("expected closing
+  tag </rtc> near: ...")` (round1 fails outright, forward pass never
+  completes, no output produced). This is a real, substantial HTML5 tree-
+  construction spec feature (the full optional-end-tag element list is much
+  larger than just the ruby family -- `<li>`, `<dt>`/`<dd>`, `<p>` before
+  certain following elements, `<thead>`/`<tbody>`/`<tfoot>`, `<tr>`,
+  `<td>`/`<th>`, `<option>`/`<optgroup>`, `<colgroup>`, `<caption>` all have
+  their own distinct implied-closing trigger rules), not a narrow one-line
+  fix -- and `STYLE_DATA_FORMATS.md` §4 doesn't specify whether/how much of
+  it the formatter should support (full spec-accurate tree construction vs.
+  a narrow allow-list just for the ruby family vs. leaving well-formed-only
+  HTML5 as an explicit scope boundary and treating omitted end tags as an
+  input requirement, same posture void elements already get). Given the
+  size/scope-decision nature of this gap, no code change made pending a
+  scope decision. Blocks completing the
+  `alexandersandberg/html5-elements-tester` dogfood run -- see its
+  Checklist entry below (marked partial/blocked on this file, not done).
+
 ## Checklist
 
 - [x] **Implement JSON/JSON5 (§1).** DONE. `JsonTokenizer` (extends
@@ -680,15 +711,19 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       `prometheus/prometheus`, `home-assistant/core` all done — see per-repo
       entries below); **TOML 4/4, DONE** (`rust-lang/cargo`,
       `python-poetry/poetry`, `pola-rs/polars`, `toml-lang/toml` all done —
-      TOML Test-Fixture Repos list now fully complete); HTML5 3/4-candidate-list
+      TOML Test-Fixture Repos list now fully complete); HTML5
+      2-of-4-candidate-list, one candidate blocked
       (`h5bp/html5-boilerplate` done; `twbs/bootstrap` docs site,
       `mdn/content`, `whatwg/html`, `kangax/html-minifier` all investigated
       and dropped — no real HTML5 corpus in any, see Open Questions
       resolution; of the three added replacements, `WordPress/wordpress-
-      develop` done (1 bug found+fixed, 1 open question raised — see below)
-      and `alexandersandberg/html5-elements-tester` done (zero bugs);
-      `web-platform-tests/wpt` not started). Overall item stays unchecked
-      pending the remaining repos above (XML) and `web-platform-tests/wpt`.
+      develop` done (1 bug found+fixed, 1 open question raised — see below),
+      `alexandersandberg/html5-elements-tester` BLOCKED (parser has no
+      HTML5 optional/implied-end-tag support at all, forward pass fails
+      outright — separate open question, see below); `web-platform-tests/
+      wpt` not started). Overall item stays unchecked pending the remaining
+      repos above (XML), `web-platform-tests/wpt`, and resolution of both
+      open questions.
 
       **Shared methodology note (applies to every run below, not restated per
       repo):** each run clones fresh (or reuses a prior-session checkout under
@@ -1239,18 +1274,25 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
         further comment-text-mismatch diffs found on this run are a genuine
         open design question, not fixed** -- see Open Questions
         ("WordPress magic-comment capitalization" below); no code change
-        made for those pending resolution. `alexandersandberg/
-        html5-elements-tester` remains not started for this session's queue;
-        `web-platform-tests/wpt` not started.
+        made for those pending resolution. `web-platform-tests/wpt` not
+        started.
       - `alexandersandberg/html5-elements-tester`: single 42KB `index.html`
-        file, formatted as a one-file spot-check (not a corpus, per the
-        candidate note). Forward 1/1 clean. Idempotency (`diff round1
-        round2`) clean. Baseline and round1 `html_sc.js`: both clean (0
-        errors). Content-preservation (`html_content_diff.py`) clean --
-        DOCTYPE, element/attribute order, text, and comment content all
-        preserved across the file's broad HTML5 tag-breadth exercise
-        (forms, tables, media, semantic sectioning elements, etc.). **Zero
-        bugs found.**
+        file, attempted as a one-file spot-check (not a corpus, per the
+        candidate note). **BLOCKED, not done.** Forward pass fails outright
+        (round1 never completes, no output produced):
+        `XmlSpecificRule.parseElement` has no support at all for HTML5's
+        optional/implied end tags, and this file deliberately exercises
+        them (`<ruby><rb>旧<rb>金<rb>山<rt>jiù<rt>jīn<rt>shān<rtc>San
+        Francisco</ruby>` at line 379 -- `<rb>`/`<rt>`/`<rtc>` never get
+        explicit closing tags in valid ruby markup, they implicitly close at
+        the next sibling or `</ruby>`). Given the size/scope-decision nature
+        of implementing implied-end-tag support (a real HTML5 tree-
+        construction feature covering many more elements than just the ruby
+        family, not a narrow fix, and unspecified in `STYLE_DATA_FORMATS.md`
+        §4), this is recorded as an open design question rather than guessed
+        at -- see Open Questions ("HTML5 optional/implied end tags" above).
+        No code change made; this file cannot be dogfooded further until
+        that question is resolved.
 
       **HTML5 (1/4 repos done, first HTML5 dogfood run):**
       - `h5bp/html5-boilerplate`: 4 files (`dist/index.html`, `dist/404.html`,

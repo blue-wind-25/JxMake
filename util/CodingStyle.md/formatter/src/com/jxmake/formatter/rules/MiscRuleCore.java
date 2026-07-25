@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Set;
 
 /**
  * Family-agnostic base for {@link MiscRuleCurly} (and, in the future, {@code MiscRuleIndent}/
@@ -1467,6 +1468,53 @@ protected static final class SepMatch {
         }
         return new SepMatch(tokenIndex, label, content.charAt(sepPos), rest);
     }
+    /** Lowercase short function/prose words whose presence as a whole word in a label/rest
+     *  fragment signals ordinary English sentence structure rather than a short code-like label
+     *  (see {@link #looksCodeLike}). Deliberately small and common -- these are words that show
+     *  up constantly in prose but essentially never inside a §15-style aligned label/value
+     *  fragment (e.g. `Comment A`, `10`, `nested`). */
+    private static final Set<String> PROSE_STOPWORDS = new HashSet<>(Arrays.asList(
+            "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
+            "to", "of", "in", "on", "if", "that", "this", "these", "those",
+            "can", "used", "use", "with", "for", "and", "or", "but", "not",
+            "it", "as", "by", "from", "one", "which", "quoted", "correctly"));
+
+    /**
+     * Direction-(2) heuristic for the RDD_KEY_50/RDD_KEY_201 false-positive (see
+     * STATE_C_CPP_JAVA.md "Known Gaps" -- ordinary English prose incidentally containing one
+     * space-flanked punctuation character was getting mistaken for a genuine §15 separator
+     * label). A fragment (either a candidate line's {@code label} or its {@code rest}) "looks
+     * code-like" -- i.e. plausibly a short §15 label/value, not a prose clause -- iff ALL of:
+     * <ul>
+     *   <li>it splits into at most 4 whitespace-separated words (a real sentence clause almost
+     *       always runs longer; genuine labels like `Comment BB` or values like `10` do not),
+     *   <li>it is at most 24 characters long (long fragments read as prose even at low word
+     *       count), and
+     *   <li>none of its words, compared case-insensitively, is one of {@link #PROSE_STOPWORDS}
+     *       (common short function words -- "the", "is", "can", "used", etc. -- that appear
+     *       constantly in sentence continuations but essentially never in a short code label).
+     * </ul>
+     * Both the label and the rest of a candidate line must pass for that line to remain eligible
+     * for a separator-alignment run; a failing line is treated exactly like a non-qualifying line
+     * (breaks the run, same "doesn't match, breaks the group" posture as everywhere else in this
+     * file) rather than being merged into or corrupting the group.
+     */
+    protected static boolean looksCodeLike(final String fragment) {
+        final String[] words = fragment.trim().split("\\s+");
+        if (words.length > 4 || fragment.length() > 24) {
+            return false;
+        }
+        for (final String w : words) {
+            // A single letter (e.g. the `A`/`BB` suffix in `Comment A`/`Comment BB`) is never
+            // itself meant as the stopword "a" -- only match stopwords that are at least 2
+            // characters, so a short identifier-like label isn't mistaken for the article "a".
+            if (w.length() >= 2 && PROSE_STOPWORDS.contains(w.toLowerCase(java.util.Locale.ROOT))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /**
      * STYLE.md §15 separator alignment (resolved -- see STATE.md "§15 separator alignment"):
      * pads the label portion of trailing `//` comments so a shared separator character lines up
@@ -1487,7 +1535,14 @@ protected static final class SepMatch {
         int lineStart = 0;
         for (int i = 0; i <= tokens.size(); i++) {
             if (i == tokens.size() || tokens.get(i).type == TokenType.NEWLINE) {
-                perLine.add(findTrailingSeparatorComment(tokens, lineStart, i));
+                SepMatch m = findTrailingSeparatorComment(tokens, lineStart, i);
+                if (m != null && (!looksCodeLike(m.label) || !looksCodeLike(m.rest))) {
+                    // Prose fragment (see #looksCodeLike) -- not a genuine §15 label/value pair;
+                    // treat exactly like a non-qualifying line so it breaks any run instead of
+                    // being merged into or corrupting one.
+                    m = null;
+                }
+                perLine.add(m);
                 lineStart = i + 1;
             }
         }

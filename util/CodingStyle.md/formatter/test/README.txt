@@ -2031,6 +2031,35 @@ Real-code regressions:
                                              `applyAssignmentsPass`'s width computation, left open,
                                              see `STATE_C_CPP_JAVA.md`'s "Known Gaps -- Open".
 
+  real_code_regressions_123_inp/out.hpp   -- C++, `alignCommentSeparators` false-positive fix
+                                             (RDD_KEY_50/RDD_KEY_201 follow-up, jenkinsci/jenkins
+                                             `IdStrategy.java`-style repro): two physically
+                                             adjacent trailing `//` comments that each merely
+                                             happen to contain one incidental punctuation
+                                             character flanked by spaces (`// The @ can be used in
+                                             local-part if quoted correctly` / `// => the last @ is
+                                             the one used to separate the domain and local-part`)
+                                             were wrongly treated as a genuine STYLE.md §15
+                                             separator-alignment pair and padded, corrupting the
+                                             comment and going non-idempotent. Fixed by
+                                             `MiscRuleCore.looksCodeLike`, a structural
+                                             code-likeness check applied to each candidate line's
+                                             parsed label/rest before it's allowed into a
+                                             separator-alignment run: a fragment must have at most
+                                             4 whitespace-separated words, be at most 24 characters,
+                                             and contain no whole word (case-insensitively, ignoring
+                                             single-letter words) from a small common-English-
+                                             stopword list (the/is/can/used/to/of/in/if/that/etc.);
+                                             failing either check on label or rest makes that line
+                                             non-qualifying, breaking the run exactly like a blank
+                                             line or non-matching separator does elsewhere in this
+                                             rule. This fixture also includes a genuine 2-line
+                                             separator-alignment pair (`// Count : 1` / `//
+                                             GrandTotal : 22`) in the same file to prove the fix
+                                             doesn't regress real STYLE.md §15 alignment -- it still
+                                             gets padded (`Count      : 1` / `GrandTotal : 22`).
+                                             See `STATE_C_CPP_JAVA.md`.
+
 How Tests Are Run
 -----------------
 

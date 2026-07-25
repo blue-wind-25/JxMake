@@ -148,6 +148,7 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_172 | Local `src/jxm` dogfood: `JavaSpecificRule.isSingleLineBody`'s fits-under-limit prediction omitted the line's leading indentation and any trailing same-line `//` comment, both of which `MiscRule.enforceCallLineBreaking`'s own fit-check counts -- caused a K&R-vs-Allman flip-flop when indent+comment alone pushed an otherwise-fitting one-liner over the limit. Fixed by including both, whitespace-collapsed the same way `collapseToOneLine` does. |
 | RDD_KEY_178 | Local `src/jxm` dogfood: two related bugs in `MiscRule`'s STYLE.md §8 multi-line parameter-list renderer (`render` and its near-duplicate multi-line-declaration renderer) around a standalone `//` banner comment used as a section divider between parameter groups (found in `SWDFlashLoader.Specifier`'s constructor and `STM32QSPI.newQSPICmd`). (1) A leading `//` line comment was inlined as a text prefix on the same physical output line as the following parameter's type+name, silently swallowing that parameter's declaration (and, once re-tokenized, the next one too) into the comment -- compile-breaking. Fixed by emitting a leading `//` line comment on its own separate line; a self-terminating `/* ... */` block comment still inlines as before. (2) The shared column-width used to align type/name (`typeColWidth`, from `maxTypeLen`) is computed only over params with no leading comment at all, so a param preceded by a line comment -- excluded from that computation -- could have a `typeText` as long as or longer than `typeColWidth`, making `padRight` a no-op and merging type+name with zero space (`InstModeinstMode`) on the next reformat. Fixed by never padding to less than `typeText.length() + 1`. |
 | RDD_KEY_201 | `alignCommentSeparators` false-positive narrowing attempt, reverted -- tried a fixed allowlist (`—:–|~`) instead of RDD_KEY_50's "any non-alphanumeric char"; backfired (157/162, was 162/162) by disabling the old rule's incidental 2+-candidate disqualifier that had been protecting `:`-heavy prose comments; fully reverted, 162/162 restored; design question remains open (see "Known Gaps -- Open"). |
+| RDD_KEY_202 | `alignCommentSeparators` false-positive -- FIXED via `MiscRuleCore.looksCodeLike`, a structural code-likeness check (word count/length/stopword list) on each candidate line's label/rest; see "Known Gaps -- Fixed" for full detail. |
 
 ---
 
@@ -759,56 +760,6 @@ RDD_KEY_88.
   padding-width computation and how it treats a group member that itself spans multiple physical
   lines.
 
-- **`alignCommentSeparators` false-positives on ordinary English prose** — found in
-  `jenkinsci/jenkins` real-code testing (item 25 below, session IN PROGRESS). Root-caused via a
-  minimal repro (`/tmp` scratch, not committed): `MiscRuleCore.parseSeparatorComment`'s
-  RDD_KEY_50-resolved rule — *any* single non-alphanumeric character flanked by a literal space
-  on both sides in a trailing `//` comment qualifies as a "separator" to align across a run of
-  adjacent qualifying comment lines — is far too permissive for real-world text. Two physically
-  adjacent comments that each merely happen to contain one incidental punctuation character
-  surrounded by spaces (e.g. `// The @ can be used in local-part...` immediately followed by
-  `// => the last @ is the one used to separate...`) get treated as a genuine separator-alignment
-  group and padded, even though neither is an intentional aligned-table comment in STYLE.md
-  §15's sense (`int[] x = {...}; // single-level — pad`-style). Confirmed with `jenkins/core/src/
-  main/java/jenkins/model/IdStrategy.java`'s `keyFor(@NonNull String id)`: round1 already inserts
-  9 extra spaces before the `'@'` char-literal mention inside the first comment (widening that
-  line well past `line-length`), and the padding grows further on round2 (non-idempotent), with a
-  knock-on effect of `enforceCallLineBreaking` then wrapping the now-overflowing statement across
-  multiple lines it wouldn't otherwise need. This is NOT a plain implementation bug fixable
-  without re-litigating design: RDD_KEY_50 is an explicit prior user decision ("any single
-  non-alphanumeric character... flanked by a literal space" — deliberately broader than just
-  `—`/`:`), so narrowing the qualifying-character set (e.g. to a fixed allowlist, or requiring
-  the same separator across 3+ lines instead of 2, or requiring the label/rest to look like
-  actual aligned code rather than prose) is a design question for the user, not a bug fix to
-  just make unilaterally. Left open pending user input; no fixture registered (nothing was
-  fixed). Reproduce with:
-  ```java
-  int index = id.lastIndexOf('@'); // The @ can be used in local-part if quoted correctly
-  // => the last @ is the one used to separate the domain and local-part
-  ```
-  **Attempted and reverted** (same session, after explicit user go-ahead to "fix one by one"):
-  tried narrowing `SEPARATOR_ALIGNMENT_CHARS` to a fixed allowlist (`—:–|~`, matching STYLE.md
-  §15's own worked-example characters) instead of "any non-alphanumeric char". This backfired:
-  `make test` dropped from 162/162 to 157/162, newly failing 5 pre-existing Kotlin fixtures
-  (`real_code_regressions_{21,24,25,26,30}`) whose multi-line doc-comment blocks discuss `:` in
-  prose (e.g. "...a genuine `:` actually follows it before the brace..."). Root cause of the
-  backfire: the *original* broad rule's "2+ qualifying candidates on one line disqualifies the
-  whole comment" check was incidentally protecting these blocks — each prose line contains
-  several *other* non-alphanumeric-flanked-by-space characters too (under the old broad
-  definition), so they always had 2+ candidates and never qualified as a separator pair.
-  Narrowing the charset to just `—:–|~` removed those other candidates from consideration, so
-  now only the lone `:` remains per line, and these blocks wrongly pass as genuine separator
-  pairs and get corrupted (extra padding, followed by a downstream comment-reflow/capitalization
-  pass mangling the text) — i.e. narrowing the character set does not fix the false-positive
-  problem in general, it just relocates which punctuation mark triggers it, and can make
-  *previously-safe* real files newly unsafe by disabling the accidental multi-candidate
-  disqualifier they depended on. Reverted in full (`git checkout` on
-  `MiscRuleCore.java`); `make test` back to 162/162. Still open: any real fix needs either (a) a
-  much stronger "does this actually look like an aligned-table comment" heuristic (not just
-  character-set narrowing), or (b) requiring 3+ consecutive qualifying lines instead of 2, or
-  (c) some other structural signal — not attempted this session. Left as a design question for
-  the user, per RDD_KEY_50's original status.
-
 - **Extremely long pre-existing single-physical-line statement wraps differently each round** —
   found in `jenkinsci/jenkins` (item 25 below, session IN PROGRESS), `hudson/PluginManager.java`
   around its `getPluginPage`/JSON-serialization lambda: the *original* source already has an
@@ -900,6 +851,39 @@ before/after detail available via `git log`/`git show`.
   back to plain-call rendering for that entry. Verified against the real STL tree
   (`mutex.hpp`/`shared_mutex.hpp`, both idempotent and free of the corruption) and `make test`
   169/169. Fixture: `real_code_regressions_121`.
+
+- **`alignCommentSeparators` false-positives on ordinary English prose** — FIXED (third attempt;
+  RDD_KEY_201's two prior attempts — fixed-character-set narrowing, then a 3+-consecutive-line
+  threshold — were each tried and reverted, see RDD_KEY_201 and this section's own prior history
+  via `git log`). Root cause was RDD_KEY_50's original rule (*any* single non-alphanumeric
+  character flanked by a literal space in a trailing `//` comment qualifies as a separator) being
+  purely lexical, with no way to distinguish a genuine short §15 label/value pair (`// Comment A :
+  10`) from two lines of ordinary English prose that each merely happen to contain one incidental
+  punctuation character surrounded by spaces (`// The @ can be used in local-part if quoted
+  correctly` / `// => the last @ is the one used to separate the domain and local-part`, found in
+  `jenkinsci/jenkins`'s `IdStrategy.java`). Fixed by adding `MiscRuleCore.looksCodeLike(String)`, a
+  structural code-likeness check applied to each candidate line's parsed `label` and `rest`
+  (`SepMatch`) before the line is allowed to extend or start a separator-alignment run: a fragment
+  must (a) split into at most 4 whitespace-separated words, (b) be at most 24 characters long, and
+  (c) contain no whole word — compared case-insensitively, single-letter words exempted so an
+  identifier-like label such as the `A`/`BB` in `Comment A`/`Comment BB` is never mistaken for the
+  article "a" — matching a small common-English-stopword list (`PROSE_STOPWORDS`: a/an/the/is/
+  are/was/were/be/been/being/to/of/in/on/if/that/this/these/those/can/used/use/with/for/and/or/
+  but/not/it/as/by/from/one/which/quoted/correctly). A line whose label or rest fails either check
+  is treated exactly like a non-qualifying line (breaks the run, same "doesn't match, breaks the
+  group" posture used everywhere else in this rule) rather than being merged into or corrupting a
+  group. Verified: `make test` 172/172 forward + idempotency (up from the clean 171/171 baseline,
+  including `hpp_core_inp.hpp`'s pre-existing legitimate 2-line §15 case — `// Comment A : 10` /
+  `// Comment BB : 20` — still correctly padded, which is exactly the case the two prior reverted
+  attempts each broke in a different way). New permanent fixture `real_code_regressions_123`
+  combines the jenkins-style prose repro (now left untouched and idempotent) with a genuine 2-line
+  separator-alignment pair (`// Count : 1` / `// GrandTotal : 22`, still correctly padded) in one
+  file, proving the fix resolves the false positive without regressing the legitimate case. Also
+  hand-stress-tested beyond the fixture (not committed, `/tmp` scratch): a solo 2-3-word prose
+  comment with no stopword hit but over the 4-word/24-char cap correctly stays unaligned; a
+  legitimate pair with longer-but-still-code-like labels (`GrandTotal`) still aligns and pads
+  correctly. No local jenkins/microsoft-STL checkout was reachable this session to spot-check
+  further real-world corpora beyond the unit suite and these constructed fixtures.
 
 - **`ScopePipelineCore.trailingIndent` sweeping a same-line leading comment into a declaration/
   assignment group's per-line indent** — FIXED (partial fix for "Declaration-alignment

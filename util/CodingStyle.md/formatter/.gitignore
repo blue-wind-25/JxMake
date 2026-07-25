@@ -1,2 +1,4 @@
 target/
 *.jar
+tools/verifiers/*.class
+tools/verifiers/__pycache__/

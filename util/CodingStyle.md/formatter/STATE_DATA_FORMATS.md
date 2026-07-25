@@ -326,7 +326,17 @@ Checklist for current per-language status):
   supplement, not a flagship run); `alexandersandberg/html5-elements-tester`
   (a single 42KB `index.html` exercising many HTML5 elements — good
   breadth-of-tag smoke test, but one file, not a corpus; treat as a quick
-  spot-check, not a full dogfood session).
+  spot-check, not a full dogfood session). `apache/ant`'s `manual/` directory
+  added (user, 2026-07-26) as a light supplement — verified via `gh api
+  .../git/trees/master?recursive=true` to contain 226 real, committed
+  `.html` files (hand-authored static docs pages, not build-generated
+  output), distinct from the `.xml`/`.xsd`/`.xsl` files this same repo
+  already contributed to the XML dogfood run above (that run did not touch
+  `manual/`). Good complement to the existing list's two extremes (clean
+  modern boilerplate vs. WPT's deliberately adversarial conformance
+  fixtures) — real, slightly-imperfect hand-written legacy-style HTML.
+  Reuse the checkout already cloned for the XML session rather than
+  re-cloning. Not yet run (queued).
 - **YAML:** `kubernetes/kubernetes` (manifests/Helm-adjacent config, heavy real-world
   nesting/anchors), `docker/compose` (compose-file corpus), `ansible/ansible`
   (playbooks — heavy on lists-of-maps, block scalars), `actions/starter-workflows`

@@ -149,6 +149,7 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_178 | Local `src/jxm` dogfood: two related bugs in `MiscRule`'s STYLE.md §8 multi-line parameter-list renderer (`render` and its near-duplicate multi-line-declaration renderer) around a standalone `//` banner comment used as a section divider between parameter groups (found in `SWDFlashLoader.Specifier`'s constructor and `STM32QSPI.newQSPICmd`). (1) A leading `//` line comment was inlined as a text prefix on the same physical output line as the following parameter's type+name, silently swallowing that parameter's declaration (and, once re-tokenized, the next one too) into the comment -- compile-breaking. Fixed by emitting a leading `//` line comment on its own separate line; a self-terminating `/* ... */` block comment still inlines as before. (2) The shared column-width used to align type/name (`typeColWidth`, from `maxTypeLen`) is computed only over params with no leading comment at all, so a param preceded by a line comment -- excluded from that computation -- could have a `typeText` as long as or longer than `typeColWidth`, making `padRight` a no-op and merging type+name with zero space (`InstModeinstMode`) on the next reformat. Fixed by never padding to less than `typeText.length() + 1`. |
 | RDD_KEY_201 | `alignCommentSeparators` false-positive narrowing attempt, reverted -- tried a fixed allowlist (`—:–|~`) instead of RDD_KEY_50's "any non-alphanumeric char"; backfired (157/162, was 162/162) by disabling the old rule's incidental 2+-candidate disqualifier that had been protecting `:`-heavy prose comments; fully reverted, 162/162 restored; design question remains open (see "Known Gaps -- Open"). |
 | RDD_KEY_202 | `alignCommentSeparators` false-positive -- FIXED via `MiscRuleCore.looksCodeLike`, a structural code-likeness check (word count/length/stopword list) on each candidate line's label/rest; see "Known Gaps -- Fixed" for full detail. |
+| RDD_KEY_203 | `GetterSetterRuleCurly.parseOneLinerMember`'s breakable-width pre-check gated only on `isDefinition`, `filesystem.hpp` `recursive_directory_iterator` assignment-alignment shape -- FIXED via a new `hasBreakableParams` check alongside the existing `hasBreakableCall` check; see "Known Gaps -- Fixed" for full detail. |
 
 ---
 
@@ -730,36 +731,6 @@ RDD_KEY_88.
   raw-source-derived delta), same regression risk against the current passing test suite for a
   narrow real-world shape. Left open alongside the entry above; no fixture (nothing was fixed).
 
-- **Declaration-alignment column-padding non-idempotency, `filesystem.hpp`
-  `recursive_directory_iterator` assignment-alignment shape** — ACCEPTED, not fixed. The
-  `ranges.hpp`/`_Range` shape of this gap (a same-line leading comment on a declaration group's
-  first member getting duplicated onto siblings, changing padding width between rounds) is now
-  FIXED — see "Known Gaps -- Fixed"'s `ScopePipelineCore.trailingIndent` entry below. A second,
-  distinct non-idempotency shape remains, found in the same `microsoft/STL` real-code testing
-  session in `filesystem.hpp`:
-  ```cpp
-  recursive_directory_iterator(
-      const recursive_directory_iterator&
-  ) noexcept = default; // Strengthened
-  recursive_directory_iterator(recursive_directory_iterator&&) noexcept      = default;
-  ~recursive_directory_iterator() noexcept                                   = default;
-  ```
-  is round1's output; round2 removes the padding before both `= default;` occurrences entirely.
-  This is in `applyAssignmentsPass`/`MiscRuleCore`'s `=`-column alignment grid (a different
-  mechanism from the `trailingIndent` comment-duplication bug just fixed), triggered when one
-  member of the assignment-alignment group (the first constructor overload here) itself wraps
-  across multiple physical lines due to its own signature being too long — the group's own
-  `maxNameLen`/padding-width computation apparently measures that member's contribution
-  differently once it's already wrapped (round2's input) versus when it's still one raw physical
-  line (round1's fresh input). Not root-caused to the exact line/method this session — left open
-  per this task's own explicit allowance to leave Bug 3 open if a full root cause isn't found with
-  reasonable effort; the `trailingIndent` mechanism was the confirmed cause of the originally-
-  reported `ranges.hpp`/`_Range` symptom and is fixed, but this is evidently a second, independent
-  contributor to the same general gap title. No fixture for this remaining shape (nothing further
-  was fixed here); revisit if this recurs, starting from `MiscRuleCore`'s assignment-group
-  padding-width computation and how it treats a group member that itself spans multiple physical
-  lines.
-
 - **Extremely long pre-existing single-physical-line statement wraps differently each round** —
   found in `jenkinsci/jenkins` (item 25 below, session IN PROGRESS), `hudson/PluginManager.java`
   around its `getPluginPage`/JSON-serialization lambda: the *original* source already has an
@@ -885,10 +856,47 @@ before/after detail available via `git log`/`git show`.
   correctly. No local jenkins/microsoft-STL checkout was reachable this session to spot-check
   further real-world corpora beyond the unit suite and these constructed fixtures.
 
+- **`GetterSetterRuleCurly.parseOneLinerMember`'s breakable-width pre-check gated only on
+  `isDefinition`, `filesystem.hpp` `recursive_directory_iterator` assignment-alignment shape** —
+  FIXED (the second, independent shape of "Declaration-alignment column-padding non-idempotency"
+  left open after the `ranges.hpp`/`_Range` `trailingIndent` fix below). Repro (fixture 124): a
+  class with a zero-arg default ctor, a long copy-ctor declaration whose own too-long, non-empty
+  parameter list is later wrapped across multiple physical lines by `enforceCallLineBreaking`
+  (RDD_KEY_86), a move-ctor declaration, and a destructor, all `= default;` pure-specifier
+  one-liners:
+  ```cpp
+  recursive_directory_iterator(
+      const recursive_directory_iterator&
+  ) noexcept = default; // Strengthened
+  recursive_directory_iterator(recursive_directory_iterator&&) noexcept      = default;
+  ~recursive_directory_iterator() noexcept                                   = default;
+  ```
+  is round1's output; round2 removed the padding before both `= default;` occurrences entirely
+  (non-idempotent). Root cause: `GetterSetterRuleCurly.parseOneLinerMember` already has a
+  pre-check (documented in that method's own class-level doc comment) that excludes a member from
+  its group when its predicted rendered width exceeds `lineLengthLimit` -- added so grouping/
+  padding is decided consistently whether a member is still one raw physical line (fresh format)
+  or already wrapped by `enforceCallLineBreaking` (reformat of that fresh output) -- but the check
+  was gated with `isDefinition && hasBreakableCall(...)`, covering only definitions with a
+  breakable call in their body. A non-definition member (plain declaration or pure-specifier
+  `= 0`/`= delete`/`= default`) has no body, but its own `(params)` list is exactly the shape
+  `enforceCallLineBreaking` may wrap, so it had the identical divergence risk and was left
+  unchecked: on a fresh format the long copy-ctor declaration is still one raw physical line and
+  wrongly joins the group, its full un-wrapped width setting the `=` column; on a reformat of that
+  fresh output the now-wrapped copy-ctor no longer parses as a one-liner and is excluded,
+  narrowing the group and shrinking the `=` column. Fixed by adding
+  `hasBreakableParams = !isDefinition && paramsFrom < paramsTo` alongside the existing
+  `hasBreakableCall` check, so a too-long declaration's own parameter list excludes it from the
+  group on the first pass too. Verified via a minimal repro (fixture 124): round1 == round2, and
+  the surviving group (move-ctor + destructor) aligns its `=` column consistently in both rounds
+  (`awk`-verified same column index 75 in both). `make test`: 172/172 forward + 172/172
+  idempotency, zero regressions. No local `microsoft/STL` checkout was reachable this session to
+  spot-check the real `filesystem.hpp` file directly; verified via the constructed fixture only.
+  See RDD_KEY_203.
+
 - **`ScopePipelineCore.trailingIndent` sweeping a same-line leading comment into a declaration/
   assignment group's per-line indent** — FIXED (partial fix for "Declaration-alignment
-  column-padding non-idempotency", `ranges.hpp`/`_Range` shape only -- see "Known Gaps -- Open"
-  for the still-open `filesystem.hpp` assignment-alignment shape of the same gap title). Found in
+  column-padding non-idempotency", `ranges.hpp`/`_Range` shape only). Found in
   `microsoft/STL` real-code testing (item 26 above, `ranges.hpp`'s `chunk_view`/etc. classes): a
   same-line leading comment on a declaration group's first member (e.g.
   `/* [[no_unique_address]] */ _Vw _Range;` immediately followed by un-commented

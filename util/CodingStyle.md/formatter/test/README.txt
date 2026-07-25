@@ -2060,6 +2060,35 @@ Real-code regressions:
                                              gets padded (`Count      : 1` / `GrandTotal : 22`).
                                              See `STATE_C_CPP_JAVA.md`.
 
+  real_code_regressions_124_inp/out.hpp   -- C++, `filesystem.hpp` `recursive_directory_iterator`
+                                             assignment-alignment column-padding non-idempotency
+                                             (the second, distinct shape of the gap noted above,
+                                             left open after fixture 122/123's session): a class
+                                             with a zero-arg default ctor, a long copy-ctor
+                                             declaration whose own too-long, non-empty parameter
+                                             list is later wrapped across multiple physical lines
+                                             by `enforceCallLineBreaking` (RDD_KEY_86), a move-ctor
+                                             declaration, and a destructor -- all `= default;`
+                                             pure-specifier one-liners. On a fresh format the
+                                             long copy-ctor is still one raw physical line, so it
+                                             wrongly joins the group and its full un-wrapped width
+                                             sets the `=` column; on a reformat of that fresh
+                                             output, the now-wrapped copy-ctor no longer parses as
+                                             a one-liner and is excluded, narrowing the group and
+                                             shrinking the `=` column -- non-idempotent. Root cause:
+                                             `GetterSetterRuleCurly.parseOneLinerMember`'s existing
+                                             pre-check (added for the `isDefinition`/body-call case,
+                                             per that method's own class-level doc comment) was
+                                             gated only on `isDefinition`, leaving non-definition
+                                             (plain declaration / pure-specifier) members with a
+                                             breakable, non-empty parameter list unchecked. Fixed by
+                                             adding a `hasBreakableParams` check
+                                             (`!isDefinition && paramsFrom < paramsTo`) alongside the
+                                             existing `hasBreakableCall` check, so a too-long
+                                             declaration's own parameter list excludes it from the
+                                             group on the first pass too, consistently with how it's
+                                             excluded on a reformat. See `STATE_C_CPP_JAVA.md`.
+
 How Tests Are Run
 -----------------
 

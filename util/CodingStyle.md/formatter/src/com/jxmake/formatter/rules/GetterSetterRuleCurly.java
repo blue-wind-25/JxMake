@@ -693,7 +693,24 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
         // regardless of line length, so the check must not apply to them, or legitimately long
         // column-aligned one-liners (e.g. verbose template-qualified C++ names) would be wrongly
         // excluded.
-        if (isDefinition && hasBreakableCall(tokens, bodyFrom, bodyTo)) {
+        //
+        // A non-definition member (plain declaration or pure-specifier `= 0`/`= delete`/
+        // `= default`) has no body to inspect, but its own `(params)` list is exactly the shape
+        // `enforceCallLineBreaking` may wrap later (RDD_KEY_86's "IDENTIFIER ( ... )" detection,
+        // gated only on the call/decl not being followed by `{`) whenever it doesn't fit -- same
+        // divergence risk as the definition case just above, just triggered by the member's own
+        // parameter list instead of a call inside its body. Found via `microsoft/STL`'s
+        // `filesystem.hpp` `recursive_directory_iterator` (a long copy-constructor declaration
+        // whose own too-long, non-empty parameter list contributed its full un-wrapped width to
+        // this group's alignment column on a fresh format, since at this point in the pipeline it
+        // is still one raw physical line and so still passed the `hasNewlineBetween` check above --
+        // but was excluded from the group entirely on a reformat of that fresh format's own output,
+        // where `enforceCallLineBreaking` had already wrapped it across multiple physical lines,
+        // narrowing the group and its alignment column between rounds). A zero-arg `name()` is
+        // never broken by that pass (mirroring `hasBreakableCall`'s own doc comment), so only a
+        // non-empty parameter list needs this check.
+        final boolean hasBreakableParams = !isDefinition && paramsFrom < paramsTo;
+        if ((isDefinition && hasBreakableCall(tokens, bodyFrom, bodyTo)) || hasBreakableParams) {
             final int estimatedColumn = nestDepth * indentWidth;
             final int estimatedWidth = estimatedColumn + cellText(tokens, firstSig, to).length();
             if (estimatedWidth > lineLengthLimit) {

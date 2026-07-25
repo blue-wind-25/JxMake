@@ -849,14 +849,36 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         if (firstSig < 0) {
             return;
         }
-        final Replacement openGap = normalizeGap(tokens, openIdx + 1, firstSig, "");
-        if (openGap != null) {
-            out.add(openGap);
+        final int lastSig = prevSignificant(tokens, exprEnd - 1, openIdx);
+        // Self-documenting `{expr=}` debug field: a bare trailing `=` (the tokenizer only ever
+        // emits a lone 1-char `=` OP token for this -- `==`/`!=`/`<=`/`>=`/`:=`/`+=` etc. are all
+        // their own distinct multi-char OP tokens per TokenizerIndent#MULTI_CHAR_OPS, so text-
+        // equality with "=" alone can't be confused with a comparison/augmented-assignment/walrus
+        // operator) as the LAST significant token of the expression means Python's runtime must
+        // reproduce `expr`'s exact original source text -- including its own surrounding
+        // whitespace -- verbatim in the debug output. Skip this pass's own gap-trimming entirely
+        // for such a field rather than only skipping part of it.
+        final boolean debugSpecifier = lastSig >= 0
+                && tokens.get(lastSig).type == TokenType.OP
+                && "=".equals(tokens.get(lastSig).text);
+        if (!debugSpecifier) {
+            // Trimming the gap after `{` to zero-width is unsafe when the very next significant
+            // character is itself a literal `{` (e.g. a nested dict/set-comprehension field,
+            // `f"{ {a for a in (1, 2, 3)}}"`) -- an outer field-open `{` immediately followed by a
+            // literal `{` with nothing between them renders as `{{`, which Python's f-string
+            // grammar parses as an ESCAPED literal `{` rather than two brace-opens, silently
+            // deleting the nested expression from the program's semantics. Normalize to exactly one
+            // space instead of zero in that shape so the two braces can never fuse.
+            final boolean nextIsOpenBrace = tokens.get(firstSig).type == TokenType.PUNCT
+                    && "{".equals(tokens.get(firstSig).text);
+            final Replacement openGap = normalizeGap(tokens, openIdx + 1, firstSig, nextIsOpenBrace ? " " : "");
+            if (openGap != null) {
+                out.add(openGap);
+            }
         }
-        if (!trimClose) {
+        if (!trimClose || debugSpecifier) {
             return;
         }
-        final int lastSig = prevSignificant(tokens, exprEnd - 1, openIdx);
         final Replacement closeGap = normalizeGap(tokens, lastSig + 1, exprEnd, "");
         if (closeGap != null) {
             out.add(closeGap);

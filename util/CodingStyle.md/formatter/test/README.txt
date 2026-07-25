@@ -1848,6 +1848,39 @@ Real-code regressions:
                                              input, converges to a true no-op instead of growing).
                                              See `STATE_PYTHON3.md`'s `psf/black` dogfood entry.
 
+  real_code_regressions_117_inp/out.py    -- Python3, psf/black real-code dogfood: two §5
+                                             `addBraceTrim` content-corruption fixes, combined into
+                                             one fixture (both live in the same method). (a) A
+                                             field immediately followed by a nested `{` (e.g. a
+                                             set-comprehension field, `f"{ {a for a in (1, 2,
+                                             3)}}"`) had its own open-gap trim collapse the field's
+                                             `{` and the nested `{` together into a literal `{{`,
+                                             which Python's f-string grammar parses as an ESCAPED
+                                             brace rather than two field-opens -- silently deleting
+                                             the whole set-comprehension expression from the
+                                             program's semantics (confirmed via `ast.dump`: the
+                                             `FormattedValue` node vanished entirely). Fixed:
+                                             `addBraceTrim` normalizes the open gap to exactly one
+                                             space (instead of zero) whenever the next significant
+                                             token is itself a literal `{`, so the two braces can
+                                             never fuse. (b) A self-documenting `{expr=}` debug
+                                             field (e.g. `f'{  longer_name   =  :  .3f }'`) had its
+                                             leading gap trimmed even though Python's runtime must
+                                             reproduce `expr`'s exact original whitespace verbatim
+                                             for a `=`-suffixed field -- a real behavior change, not
+                                             cosmetic. Fixed: `addBraceTrim` now detects a bare
+                                             trailing `=` (the tokenizer only ever emits a lone
+                                             1-char `=` OP token for this; `==`/`!=`/`<=`/`>=`/`:=`/
+                                             `+=` etc. are all distinct multi-char OP tokens, so
+                                             there's no risk of confusing a comparison/augmented-
+                                             assignment/walrus operator for the debug specifier) as
+                                             the expression's own last significant token and skips
+                                             all gap-trimming for that field entirely when found.
+                                             Both verified via `python_ast_diff.py` (structurally
+                                             identical) and idempotency; identity-pass fixture
+                                             (output byte-identical to input). See
+                                             `STATE_PYTHON3.md`'s `psf/black` dogfood entry.
+
 How Tests Are Run
 -----------------
 

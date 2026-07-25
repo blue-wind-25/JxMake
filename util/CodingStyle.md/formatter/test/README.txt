@@ -1987,6 +1987,50 @@ Real-code regressions:
                                              free of the corruption after the fix). See
                                              `STATE_C_CPP_JAVA.md`.
 
+  real_code_regressions_122_inp/out.hpp   -- C++, microsoft/STL real-code dogfood: a
+                                             declaration-alignment group whose first member has a
+                                             same-line leading comment (STL's own
+                                             `/* [[no_unique_address]] */ _Vw _Range;` immediately
+                                             followed by un-commented `range_difference_t<_Vw>
+                                             _Count;`/`_Remainder = 0;` siblings in the same
+                                             group) got that comment silently duplicated onto
+                                             every sibling line one round later, and the group's
+                                             own column-padding width changed between rounds
+                                             (non-idempotent) -- root cause of the previously-open
+                                             "declaration-alignment column-padding non-idempotency"
+                                             gap (`ranges.hpp`'s `_Range` field, `algorithm.hpp`,
+                                             `filesystem.hpp`). Root cause:
+                                             `ScopePipelineCore.trailingIndent` returns "the text
+                                             after a leading gap's last `\n`" as the line's
+                                             indentation with no check that it's actually pure
+                                             whitespace -- when the gap ends in a same-line leading
+                                             comment before the first declaration (comment on the
+                                             same physical line as the type, not its own line),
+                                             that comment text got swept into `indent`, which
+                                             `applyDeclarationsPass`/`applyAssignmentsPass`/
+                                             `applyOversizedAggregateInitClosingBracePass` all then
+                                             use as the join separator between *every* line in the
+                                             group -- silently duplicating the first member's
+                                             comment onto every sibling line, and changing the raw
+                                             leading gap's character count (hence the idempotent-
+                                             strip heuristic's behavior) between rounds. Fixed by
+                                             truncating `trailingIndent`'s result at the first
+                                             non-space/non-tab character, so only genuine
+                                             indentation (never a same-line leading comment) is
+                                             used as the per-line join separator. Verified against
+                                             the real microsoft/STL tree (`ranges.hpp`, all 4
+                                             affected `_Range` occurrences now idempotent and
+                                             comment-duplication-free). **Note:** a second,
+                                             distinct non-idempotency shape was also found in
+                                             `filesystem.hpp`'s `recursive_directory_iterator`
+                                             assignment-alignment group (an `= default;` column's
+                                             padding width differs between rounds when a sibling
+                                             group member's own constructor signature wraps across
+                                             multiple physical lines) -- NOT investigated or fixed
+                                             this session; a different mechanism in
+                                             `applyAssignmentsPass`'s width computation, left open,
+                                             see `STATE_C_CPP_JAVA.md`'s "Known Gaps -- Open".
+
 How Tests Are Run
 -----------------
 

@@ -597,18 +597,23 @@ on the noted commits/fixtures)
      originally-diffing files: down to 11. Fixtures: `real_code_regressions_118` (bug a),
      `real_code_regressions_119` (bug b).
 
-     **3 additional gaps found this session; 2 fixed in a follow-up session, 1 left open**
-     (the 1 still open is documented in "Known Gaps -- Open" below; session originally closed as
-     DONE with all 3 accepted, same disposition precedent as jenkins item 25/javaparser item 16,
-     then revisited): a deeper, related bug where a long constructor signature's own parameter-wrap
-     logic gets misapplied to its immediately-following member-initializer-list entry (mutex.hpp,
-     shared_mutex.hpp, filesystem.cpp) -- **fixed in a follow-up session**, see "Known Gaps --
-     Fixed"; a macro-then-statement line-merge instability
+     **3 additional gaps found this session; 2 fixed outright in a follow-up session, the 3rd
+     partially fixed** (its `ranges.hpp`/`_Range` shape is fixed; a second, distinct shape of the
+     same gap title found in `filesystem.hpp` remains open -- documented in "Known Gaps -- Open"
+     below; session originally closed as DONE with all 3 accepted, same disposition precedent as
+     jenkins item 25/javaparser item 16, then revisited): a deeper, related bug where a long
+     constructor signature's own parameter-wrap logic gets misapplied to its immediately-following
+     member-initializer-list entry (mutex.hpp, shared_mutex.hpp, filesystem.cpp) -- **fixed in a
+     follow-up session**, see "Known Gaps -- Fixed"; a macro-then-statement line-merge instability
      (`_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK`-style macros glued onto a following `if(...)` on
      one pass and not the other -- istream.hpp, stacktrace.hpp, xlocale.hpp) -- **fixed in a
      follow-up session**, see "Known Gaps -- Fixed"; and a recurrence of the already-documented
      "declaration-alignment column-padding non-idempotency" gap (algorithm.hpp, filesystem.hpp,
-     ranges.hpp's `_Range` field) -- still open. `clang++ -std=c++23 -stdlib=libc++ -fsyntax-only`
+     ranges.hpp's `_Range` field) -- **the `ranges.hpp`/`_Range` shape fixed in a follow-up session**
+     (root cause: `ScopePipelineCore.trailingIndent` sweeping a same-line leading comment into the
+     group's per-line indent, see "Known Gaps -- Fixed"), but `filesystem.hpp`'s
+     `recursive_directory_iterator` assignment-alignment shape is a distinct mechanism and remains
+     open, see "Known Gaps -- Open". `clang++ -std=c++23 -stdlib=libc++ -fsyntax-only`
      not attempted against STL's real headers -- STL is Microsoft's own internal `std::`
      implementation with heavy MSVC-specific intrinsics/`__declspec`/`_STL_INTERNAL_*` macro
      dependencies that don't compile standalone under any other toolchain without STL's own build
@@ -724,25 +729,35 @@ RDD_KEY_88.
   raw-source-derived delta), same regression risk against the current passing test suite for a
   narrow real-world shape. Left open alongside the entry above; no fixture (nothing was fixed).
 
-- **Declaration-alignment column-padding non-idempotency** — ACCEPTED, not fixed. Found in local
-  `src/com`/`src/org` real-code testing (candidate 24 above): 5 of 173 files still differed
-  between round1 and round2 after both idempotency bugs in that entry were fixed. Not
-  investigated further to a root cause — left open rather than risk conflicting with a
-  concurrent JS/TS-job session's own in-flight edits to the same shared `MiscRuleCurly.java`/
-  `BlockStructureRule.java` files at the time this was found. Symptom shape (from a first-pass
-  read of the diffs, not confirmed via debug prints): a `=`/type/name-alignment grid's own
-  column-padding width recomputed differently once a prior pass's output already contains that
-  padding, the same general "a pass's own generated formatting isn't a stable fixed point for a
-  later measurement/decision in the same pipeline" architectural family as the two entries
-  above, just in the declaration-alignment grid machinery instead of switch-case reindent or
-  the declarations pass. No fixture (nothing was fixed); revisit once a broader pattern of
-  impact emerges or the concurrent session's own edits to these files have landed and settled.
-
-  **Recurrence:** `microsoft/STL` real-code testing (item 26 above) hit the same shape in
-  `algorithm.hpp`/`filesystem.hpp`/`ranges.hpp` (e.g. `ranges.hpp`'s `/* [[no_unique_address]] */
-  _Vw _Range;` field padding-width changing between rounds). Not investigated further this
-  session either, for the same reason as above (no root cause chase, left open). Still no
-  fixture; still no confirmed root cause.
+- **Declaration-alignment column-padding non-idempotency, `filesystem.hpp`
+  `recursive_directory_iterator` assignment-alignment shape** — ACCEPTED, not fixed. The
+  `ranges.hpp`/`_Range` shape of this gap (a same-line leading comment on a declaration group's
+  first member getting duplicated onto siblings, changing padding width between rounds) is now
+  FIXED — see "Known Gaps -- Fixed"'s `ScopePipelineCore.trailingIndent` entry below. A second,
+  distinct non-idempotency shape remains, found in the same `microsoft/STL` real-code testing
+  session in `filesystem.hpp`:
+  ```cpp
+  recursive_directory_iterator(
+      const recursive_directory_iterator&
+  ) noexcept = default; // Strengthened
+  recursive_directory_iterator(recursive_directory_iterator&&) noexcept      = default;
+  ~recursive_directory_iterator() noexcept                                   = default;
+  ```
+  is round1's output; round2 removes the padding before both `= default;` occurrences entirely.
+  This is in `applyAssignmentsPass`/`MiscRuleCore`'s `=`-column alignment grid (a different
+  mechanism from the `trailingIndent` comment-duplication bug just fixed), triggered when one
+  member of the assignment-alignment group (the first constructor overload here) itself wraps
+  across multiple physical lines due to its own signature being too long — the group's own
+  `maxNameLen`/padding-width computation apparently measures that member's contribution
+  differently once it's already wrapped (round2's input) versus when it's still one raw physical
+  line (round1's fresh input). Not root-caused to the exact line/method this session — left open
+  per this task's own explicit allowance to leave Bug 3 open if a full root cause isn't found with
+  reasonable effort; the `trailingIndent` mechanism was the confirmed cause of the originally-
+  reported `ranges.hpp`/`_Range` symptom and is fixed, but this is evidently a second, independent
+  contributor to the same general gap title. No fixture for this remaining shape (nothing further
+  was fixed here); revisit if this recurs, starting from `MiscRuleCore`'s assignment-group
+  padding-width computation and how it treats a group member that itself spans multiple physical
+  lines.
 
 - **`alignCommentSeparators` false-positives on ordinary English prose** — found in
   `jenkinsci/jenkins` real-code testing (item 25 below, session IN PROGRESS). Root-caused via a
@@ -885,6 +900,27 @@ before/after detail available via `git log`/`git show`.
   back to plain-call rendering for that entry. Verified against the real STL tree
   (`mutex.hpp`/`shared_mutex.hpp`, both idempotent and free of the corruption) and `make test`
   169/169. Fixture: `real_code_regressions_121`.
+
+- **`ScopePipelineCore.trailingIndent` sweeping a same-line leading comment into a declaration/
+  assignment group's per-line indent** — FIXED (partial fix for "Declaration-alignment
+  column-padding non-idempotency", `ranges.hpp`/`_Range` shape only -- see "Known Gaps -- Open"
+  for the still-open `filesystem.hpp` assignment-alignment shape of the same gap title). Found in
+  `microsoft/STL` real-code testing (item 26 above, `ranges.hpp`'s `chunk_view`/etc. classes): a
+  same-line leading comment on a declaration group's first member (e.g.
+  `/* [[no_unique_address]] */ _Vw _Range;` immediately followed by un-commented
+  `range_difference_t<_Vw> _Count;`/`_Remainder = 0;` siblings in the same group) got silently
+  duplicated onto every sibling line one round later, and the group's own column-padding width
+  changed between rounds. Root cause: `trailingIndent(gap)` returns "the text after the gap's
+  last `\n`" as-is with no check that it's pure whitespace; when the gap ends in a same-line
+  leading comment before the first declaration, that comment text was swept into `indent`, which
+  `applyDeclarationsPass`/`applyAssignmentsPass`/`applyOversizedAggregateInitClosingBracePass` all
+  use as the join separator between every line in the group -- duplicating the comment onto every
+  sibling line, and changing the raw leading gap's character count (hence the idempotent-strip
+  heuristic's behavior) between rounds. Fixed by truncating `trailingIndent`'s result at the
+  first non-space/non-tab character, so only genuine indentation is ever used as the per-line
+  join separator. Verified against the real STL tree (`ranges.hpp`, all 4 affected occurrences
+  now idempotent and comment-duplication-free) and `make test` 170/170. Fixture:
+  `real_code_regressions_122`.
 
 ---
 

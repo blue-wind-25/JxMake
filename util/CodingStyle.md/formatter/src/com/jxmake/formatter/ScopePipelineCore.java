@@ -107,10 +107,29 @@ public abstract class ScopePipelineCore {
     }
 
     /** The indentation of the line a leading gap ends on -- the text after its last `\n`, or the
-     *  whole gap if it contains none. */
+     *  whole gap if it contains none. Truncated at the first non-space/non-tab character: a gap
+     *  can legitimately contain a same-line leading comment before the first declaration in a
+     *  group (e.g. STL's `/* [[no_unique_address]] *&#47; _Vw _Range;`), and that comment text is
+     *  not real indentation -- callers use this value both to compute the group's own visual
+     *  `leadingGap` (comment included, correctly, via the separate `rawLeadingGap` string) *and*
+     *  as the per-line join separator between every sibling declaration/assignment in the same
+     *  group. Without truncation, a same-line leading comment on just the *first* member leaked
+     *  into that join separator and got silently duplicated onto every subsequent sibling line --
+     *  found via `microsoft/STL` real-code testing (`ranges.hpp`'s `/* [[no_unique_address]] *&#47;
+     *  _Vw _Range;` immediately followed by un-commented `_Count`/`_Remainder` siblings in the same
+     *  alignment group), and the root cause of the "declaration-alignment column-padding
+     *  non-idempotency" gap (the duplicated-vs-not-yet-duplicated comment changes the raw leading
+     *  gap's character count between rounds, in turn changing whether `applyDeclarationsPass`'s
+     *  own idempotent-strip heuristic treats it as pre-existing padding). */
     protected String trailingIndent(final String gap) {
         final int nl = gap.lastIndexOf('\n');
-        return nl >= 0 ? gap.substring(nl + 1) : gap;
+        final String afterNewline = nl >= 0 ? gap.substring(nl + 1) : gap;
+        int end = 0;
+        while (end < afterNewline.length()
+                && (afterNewline.charAt(end) == ' ' || afterNewline.charAt(end) == '\t')) {
+            end++;
+        }
+        return afterNewline.substring(0, end);
     }
 
     /** Count of leading `' '` characters in {@code s} (0 if it doesn't start with one). */

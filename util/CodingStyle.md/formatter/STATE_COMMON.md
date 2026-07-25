@@ -130,6 +130,20 @@ faster):
    same error count as the unmodified original (no new, formatter-induced
    errors).
 
+Use `tools/syntax_checker` to syntax check.
+
+If there are many errors, work in batch, store the rest in the corresponding
+state file.
+
+**Do NOT use `git stash`.** Back up any files you need to preserve to a
+temporary location, revert your changes for testing, and restore the
+backed-up files if needed. This avoids leaving work hidden in a stash that
+may be forgotten after context compaction or an interrupted session (a prior
+session left several dangling stash commits this way — cleaned up via `git
+fsck --unreachable` + `git gc --prune=now` once confirmed superseded by
+already-committed work). **The system Git does NOT support worktree** — do
+not suggest or use `git worktree` as an alternative either.
+
 **DONE — `--preserve-tree` + `--root DIR` fix `--out DIR` basename-flattening
 collisions.** `Main.java` gained two new CLI flags: `--preserve-tree`
 (boolean) and `--root DIR` (String). When both are given alongside `--out

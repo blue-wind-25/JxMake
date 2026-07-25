@@ -1822,6 +1822,32 @@ Real-code regressions:
                                              unpadded, overlapping join. See `STATE_PYTHON3.md`'s
                                              `psf/black` dogfood entry.
 
+  real_code_regressions_116_inp/out.py    -- Python3, psf/black real-code dogfood: §6 multi-
+                                             physical-line type-hint gap fix. A `def` parameter
+                                             whose type hint spans multiple physical lines via a
+                                             `|`-union broken across lines with no enclosing
+                                             bracket (e.g. `x: Type1\n| Type2,`) was previously
+                                             misclassified: `trySignatureGroup`'s NEWLINE-delimited
+                                             segmentation only folds a multi-line param back into
+                                             one segment when a nested bracket keeps it open, so
+                                             each `| TypeN` continuation line became its own bogus
+                                             "parameter" segment, and `classifySignatureParam`
+                                             padded a nonexistent `:`/`=` column with trailing
+                                             whitespace that grew unbounded on every format round
+                                             (round1 -> round2 -> round3 never converged) instead
+                                             of leaving the whole signature untouched, as this
+                                             method's own gap has always documented it should.
+                                             Fixed: `classifySignatureParam` now rejects (returns
+                                             null, leaving the whole signature untouched) any
+                                             segment whose first significant token isn't a valid
+                                             parameter start (an identifier, or `*`/`**`/`/`) --
+                                             a leading `|` (or any other binary operator) means the
+                                             segment is really the previous parameter's own
+                                             continuation line, not a parameter of its own.
+                                             Identity-pass fixture (output byte-identical to
+                                             input, converges to a true no-op instead of growing).
+                                             See `STATE_PYTHON3.md`'s `psf/black` dogfood entry.
+
 How Tests Are Run
 -----------------
 

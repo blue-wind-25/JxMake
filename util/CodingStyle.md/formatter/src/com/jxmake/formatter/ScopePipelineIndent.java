@@ -1015,6 +1015,21 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         if (nameStart < 0) {
             return null;
         }
+        // A genuine parameter always starts with its own name (an identifier), or one of the
+        // positional/keyword-only-marker/star-unpacking tokens (`*`, `**`, `/`). Anything else --
+        // e.g. `|` -- means this "segment" isn't actually its own parameter at all: it's really the
+        // continuation of the PREVIOUS segment's own type hint, wrapped onto its own physical line
+        // with no enclosing bracket to fold it back into one segment (unlike the nested-bracket case
+        // already handled above via the embedded-NEWLINE check). Reject it so the whole signature is
+        // left untouched, per this class's own documented multi-physical-line-type-hint gap, instead
+        // of misclassifying the continuation as a bogus parameter of its own.
+        final Token startTok = tokens.get(nameStart);
+        final boolean validParamStart = startTok.type == TokenType.IDENTIFIER
+                || (startTok.type == TokenType.OP
+                        && ("*".equals(startTok.text) || "**".equals(startTok.text) || "/".equals(startTok.text)));
+        if (!validParamStart) {
+            return null;
+        }
         int lastSig = -1;
         for (int k = segEnd - 1; k >= segStart; k--) {
             if (!isGapToken(tokens.get(k))) {

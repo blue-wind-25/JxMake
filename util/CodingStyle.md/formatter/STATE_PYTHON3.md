@@ -837,9 +837,29 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       `real_code_regressions_115_{inp,out}.py`. `make test`: 164/164
       forward + 164/164 idempotency.
 
-      The remaining 2 non-idempotency/content-corruption bugs (§6
-      unbounded-growth trailing whitespace on multi-line union-type hints;
-      §5 `addBraceTrim`'s nested-brace field fusion and `{expr=}` verbatim-
+      **§6 multi-physical-line type-hint gap violated + unbounded
+      trailing-whitespace growth — FIXED (follow-up session).**
+      `ScopePipelineIndent.trySignatureGroup`'s NEWLINE-delimited
+      segmentation only folds a multi-line parameter back into one segment
+      when a nested bracket keeps `localDepth` > 0 across the continuation
+      -- a `|`-union type hint wrapped across lines with NO enclosing
+      bracket (`x: Type1\n| Type2,`) has each `| TypeN` continuation land
+      as its own separate top-level-NEWLINE-delimited segment instead.
+      `classifySignatureParam` now rejects any segment whose first
+      significant token isn't a valid parameter start (`IDENTIFIER`, or
+      `OP` text `*`/`**`/`/`) — a leading `|` (or any other binary
+      operator) means the segment is really the previous parameter's own
+      wrapped continuation, not a parameter of its own; rejecting it makes
+      `trySignatureGroup` return `null`, leaving the whole signature
+      untouched exactly per this method's own pre-existing documented gap.
+      Verified: the minimal repro (`def foo(i: int, x: Long\n| Long\n|
+      Long,):`) now converges to a true no-op (byte-identical across 3
+      successive rounds) instead of growing trailing whitespace each
+      round. Fixture `real_code_regressions_116_{inp,out}.py` (identity-
+      pass). `make test`: 165/165 forward + 165/165 idempotency.
+
+      The remaining 2 content-corruption bugs (both in §5's
+      `addBraceTrim` — nested-brace field fusion and `{expr=}` verbatim-
       whitespace loss) are addressed below.
 
       `python/cpython`, `django/django` — still not started.

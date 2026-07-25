@@ -34,7 +34,7 @@ Be careful not to lose important information, especially the `**Tools/compiler u
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_114_inp/out.py`
-    to   `...`
+    to   `real_code_regressions_115_inp/out.py`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`

@@ -1090,18 +1090,41 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      *  block is read as-already-written, never decided here, same posture as §6's signature-grouping
      *  toward an already-broken-out parameter list). */
     private static final class CaseLine {
+        final int headerStart;
         final int patternStart;
         final int patternEnd;
         final int colonIdx;
         final boolean compact;
+        /** True when this line is block-form as originally written (compact == false) but qualifies
+         *  for §8's single-statement-body join -- see {@link #tryQualifyJoinBody}. Used so §7's
+         *  all-or-nothing alignment decision is made against the shape the line WILL have after §8's
+         *  join runs in this same pass, instead of the shape it currently has -- fixes the §7/§8
+         *  join-then-align ordering non-idempotency (round1 leaves an unaligned block-form group
+         *  alone, §8 joins it, and a naive round2 would then see already-compact input and align it,
+         *  producing output that differs from round1's). */
+        final boolean virtualJoin;
+        final int bodyContentStart;
+        final int bodyContentEnd;
 
-        CaseLine(final int patternStart, final int patternEnd, final int colonIdx, final boolean compact) {
+        CaseLine(final int headerStart, final int patternStart, final int patternEnd, final int colonIdx,
+                final boolean compact, final boolean virtualJoin, final int bodyContentStart,
+                final int bodyContentEnd) {
+            this.headerStart = headerStart;
             this.patternStart = patternStart;
             this.patternEnd = patternEnd;
             this.colonIdx = colonIdx;
             this.compact = compact;
+            this.virtualJoin = virtualJoin;
+            this.bodyContentStart = bodyContentStart;
+            this.bodyContentEnd = bodyContentEnd;
         }
     }
+
+    /** Headers (by {@code RawLine.start}) whose §8 join was already performed -- with colon-alignment
+     *  padding baked in -- by {@link #flushCaseGroup} this pass; {@link #applySingleStatementBody}
+     *  consults this to avoid emitting a second, overlapping, unpadded join replacement for the same
+     *  header. Cleared and repopulated at the start of every {@link #applyCaseColonAlignment} call. */
+    private final Set<Integer> caseJoinAlignedHeaders = new HashSet<>();
 
     /** Classifies each {@code rawLines} entry as a §7 {@code case} header or not, groups
      *  contiguous same-depth {@code case} lines (a blank line, a comment-only line, a depth change,
@@ -1110,14 +1133,23 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      *  when every member in it is already in compact one-line form; a group containing even one
      *  block-body {@code case} gets no alignment at all, not even for its own compact members. */
     private List<Replacement> applyCaseColonAlignment(final List<Token> tokens, final List<RawLine> rawLines) {
+        caseJoinAlignedHeaders.clear();
         final List<Replacement> replacements = new ArrayList<>();
         List<CaseLine> group = new ArrayList<>();
         int groupDepth = -1;
-        for (final RawLine line : rawLines) {
-            final CaseLine c = classifyCaseLine(tokens, line);
+        for (int i = 0; i < rawLines.size(); i++) {
+            final RawLine line = rawLines.get(i);
+            final CaseLine c = classifyCaseLine(tokens, rawLines, i);
             if (c != null && (group.isEmpty() || line.depth == groupDepth)) {
                 group.add(c);
                 groupDepth = line.depth;
+                // A virtualJoin case's own body line (the next RawLine, one depth deeper) is already
+                // accounted for by this CaseLine -- skip it here so it doesn't classify as null and
+                // spuriously break the group, which would otherwise defeat contiguous-group alignment
+                // for every block-form case (each would land in its own singleton group).
+                if (c.virtualJoin) {
+                    i++;
+                }
                 continue;
             }
             flushCaseGroup(tokens, group, replacements);
@@ -1125,6 +1157,9 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             if (c != null) {
                 group.add(c);
                 groupDepth = line.depth;
+                if (c.virtualJoin) {
+                    i++;
+                }
             } else {
                 groupDepth = -1;
             }
@@ -1139,7 +1174,8 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      *  TokenType.KEYWORD}. Rejects (returns {@code null}) a multi-physical-line {@code case} header
      *  (a wrapped pattern spanning a bracket/backslash continuation) -- same "documented gap, not a
      *  guess" precedent as every prior §2-§6 slice -- and any line with no top-level `:` at all. */
-    private CaseLine classifyCaseLine(final List<Token> tokens, final RawLine line) {
+    private CaseLine classifyCaseLine(final List<Token> tokens, final List<RawLine> rawLines, final int lineIdx) {
+        final RawLine line = rawLines.get(lineIdx);
         if (line.multiPhysicalLine) {
             return null;
         }
@@ -1179,7 +1215,59 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                 break;
             }
         }
-        return new CaseLine(patternStart, patternEnd, colonIdx, compact);
+        boolean virtualJoin = false;
+        int bodyContentStart = -1;
+        int bodyContentEnd = -1;
+        if (!compact) {
+            final int[] body = tryQualifyJoinBody(tokens, rawLines, lineIdx, line);
+            if (body != null) {
+                final String headerPrefix = verbatimLineText(tokens, line.start, patternEnd);
+                final String bodyText = verbatimLineText(tokens, body[0], body[1]);
+                final String joined = headerPrefix + ": " + bodyText;
+                if (physicalLineLength(joined) <= lineLength) {
+                    virtualJoin = true;
+                    bodyContentStart = body[0];
+                    bodyContentEnd = body[1];
+                }
+            }
+        }
+        return new CaseLine(line.start, patternStart, patternEnd, colonIdx, compact, virtualJoin,
+                bodyContentStart, bodyContentEnd);
+    }
+
+    /** Returns {@code [bodyContentStart, bodyContentEnd)} for the single-statement body that would
+     *  qualify for §8's join at header index {@code headerIdx}, or {@code null} if no such join
+     *  qualifies -- mirrors {@link #applySingleStatementBody}'s own per-header qualification checks
+     *  exactly (structural checks only; the joined-line length budget is each caller's own concern,
+     *  since §7's caller needs to add its own alignment padding to that length before checking it). */
+    private int[] tryQualifyJoinBody(final List<Token> tokens, final List<RawLine> rawLines, final int headerIdx,
+            final RawLine header) {
+        if (headerIdx + 1 >= rawLines.size()) {
+            return null;
+        }
+        final RawLine body = rawLines.get(headerIdx + 1);
+        if (body.multiPhysicalLine || body.depth != header.depth + 1) {
+            return null;
+        }
+        final int bodyContentStart = nextSignificant(tokens, body.contentStart, body.end);
+        if (bodyContentStart < 0) {
+            return null; // blank line -- not a real statement
+        }
+        if (tokens.get(bodyContentStart).type == TokenType.COMMENT_LINE
+                || tokens.get(bodyContentStart).type == TokenType.COMMENT_BLOCK) {
+            return null; // comment-only line -- not a real statement
+        }
+        if (headerIdx + 2 < rawLines.size() && rawLines.get(headerIdx + 2).depth == body.depth) {
+            return null; // a sibling line (second statement, or trailing blank/comment) remains
+        }
+        final int bodyContentEnd = trimEndIdx(tokens, bodyContentStart, body.end);
+        if (containsComment(tokens, bodyContentEnd, body.end)) {
+            return null; // body carries its own trailing comment -- conservative skip
+        }
+        if (bodyOpensNewBlock(tokens, bodyContentStart, bodyContentEnd)) {
+            return null;
+        }
+        return new int[] {bodyContentStart, bodyContentEnd};
     }
 
     /** Emits one {@link Replacement} per compact group member, padding the gap between its own
@@ -1194,20 +1282,45 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             return;
         }
         for (final CaseLine c : group) {
-            if (!c.compact) {
-                return; // all-or-nothing: one block-body case abandons alignment for the whole group
+            // all-or-nothing: a case that is neither already-compact nor §8-join-eligible (a
+            // genuine block-body member -- e.g. a multi-statement body, an overflowing join, or a
+            // body that itself opens a nested block) abandons alignment for the whole group.
+            if (!c.compact && !c.virtualJoin) {
+                return;
             }
         }
         int maxLen = 0;
         for (final CaseLine c : group) {
             maxLen = Math.max(maxLen, verbatimLineText(tokens, c.patternStart, c.patternEnd).length());
         }
+        // Verify every virtualJoin member's own padded joined line still fits before committing --
+        // padding can push a line that fit unpadded (§8's own check) past the limit once aligned.
+        for (final CaseLine c : group) {
+            if (!c.virtualJoin) {
+                continue;
+            }
+            final int len = verbatimLineText(tokens, c.patternStart, c.patternEnd).length();
+            final String headerPrefix = verbatimLineText(tokens, c.headerStart, c.patternEnd);
+            final String bodyText = verbatimLineText(tokens, c.bodyContentStart, c.bodyContentEnd);
+            final String joined = headerPrefix + padRightSpaces(maxLen - len) + ": " + bodyText;
+            if (physicalLineLength(joined) > lineLength) {
+                return; // padding pushed a virtual join over the line-length budget -- abandon the group
+            }
+        }
         for (final CaseLine c : group) {
             final int len = verbatimLineText(tokens, c.patternStart, c.patternEnd).length();
             final String desired = padRightSpaces(maxLen - len);
-            final Replacement gap = normalizeGap(tokens, c.patternEnd, c.colonIdx, desired);
-            if (gap != null) {
-                replacements.add(gap);
+            if (c.virtualJoin) {
+                final String headerPrefix = verbatimLineText(tokens, c.headerStart, c.patternEnd);
+                final String bodyText = verbatimLineText(tokens, c.bodyContentStart, c.bodyContentEnd);
+                final String joined = headerPrefix + desired + ": " + bodyText;
+                replacements.add(new Replacement(c.headerStart, c.bodyContentEnd, joined));
+                caseJoinAlignedHeaders.add(c.headerStart);
+            } else {
+                final Replacement gap = normalizeGap(tokens, c.patternEnd, c.colonIdx, desired);
+                if (gap != null) {
+                    replacements.add(gap);
+                }
             }
         }
     }
@@ -1268,35 +1381,22 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final List<Replacement> replacements = new ArrayList<>();
         for (int i = 0; i < rawLines.size(); i++) {
             final RawLine header = rawLines.get(i);
-            final int colonIdx = classifySingleStatementHeaderColon(tokens, header);
+            // A `case` header already joined-with-alignment-padding by §7's flushCaseGroup this same
+            // pass (see caseJoinAlignedHeaders' javadoc) must not also get a second, unpadded,
+            // overlapping join here.
+            if (caseJoinAlignedHeaders.contains(header.start)) {
+                continue;
+            }
+            final int colonIdx = classifySingleStatementHeaderColon(tokens, rawLines, i);
             if (colonIdx < 0) {
                 continue;
             }
-            if (i + 1 >= rawLines.size()) {
+            final int[] body = tryQualifyJoinBody(tokens, rawLines, i, header);
+            if (body == null) {
                 continue;
             }
-            final RawLine body = rawLines.get(i + 1);
-            if (body.multiPhysicalLine || body.depth != header.depth + 1) {
-                continue;
-            }
-            final int bodyContentStart = nextSignificant(tokens, body.contentStart, body.end);
-            if (bodyContentStart < 0) {
-                continue; // blank line -- not a real statement
-            }
-            if (tokens.get(bodyContentStart).type == TokenType.COMMENT_LINE
-                    || tokens.get(bodyContentStart).type == TokenType.COMMENT_BLOCK) {
-                continue; // comment-only line -- not a real statement
-            }
-            if (i + 2 < rawLines.size() && rawLines.get(i + 2).depth == body.depth) {
-                continue; // a sibling line (second statement, or trailing blank/comment) remains
-            }
-            final int bodyContentEnd = trimEndIdx(tokens, bodyContentStart, body.end);
-            if (containsComment(tokens, bodyContentEnd, body.end)) {
-                continue; // body carries its own trailing comment -- conservative skip
-            }
-            if (bodyOpensNewBlock(tokens, bodyContentStart, bodyContentEnd)) {
-                continue;
-            }
+            final int bodyContentStart = body[0];
+            final int bodyContentEnd = body[1];
             final String headerText = verbatimLineText(tokens, header.start, colonIdx + 1);
             final String bodyText = verbatimLineText(tokens, bodyContentStart, bodyContentEnd);
             final String joined = headerText + " " + bodyText;
@@ -1333,7 +1433,9 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      *  qualifying keywords, multi-physical-line, or no depth-0 `:` found). Delegates to {@link
      *  #classifyCaseLine} for the {@code case} soft keyword (reusing §7's own header-colon/compact
      *  detection rather than re-deriving it); handles `if`/`elif`/`else`/`while`/`for` directly. */
-    private int classifySingleStatementHeaderColon(final List<Token> tokens, final RawLine line) {
+    private int classifySingleStatementHeaderColon(final List<Token> tokens, final List<RawLine> rawLines,
+            final int lineIdx) {
+        final RawLine line = rawLines.get(lineIdx);
         if (line.multiPhysicalLine) {
             return -1;
         }
@@ -1343,7 +1445,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         }
         final Token kw = tokens.get(kwIdx);
         if (kw.type == TokenType.IDENTIFIER && "case".equals(kw.text)) {
-            final CaseLine c = classifyCaseLine(tokens, line);
+            final CaseLine c = classifyCaseLine(tokens, rawLines, lineIdx);
             return c != null && !c.compact ? c.colonIdx : -1;
         }
         if (kw.type != TokenType.KEYWORD || !SINGLE_STMT_HEADER_KEYWORDS.contains(kw.text)) {

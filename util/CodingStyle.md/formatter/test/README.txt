@@ -1799,6 +1799,29 @@ Real-code regressions:
                                              the point of this fixture is the crash, not a rendering
                                              change. See `STATE_PYTHON3.md`'s `psf/black` dogfood entry.
 
+  real_code_regressions_115_inp/out.py    -- Python3, psf/black real-code dogfood: §7/§8
+                                             join-then-align ordering non-idempotency fix. A
+                                             block-form `match`/`case` group (body on its own
+                                             indented line) is correctly skipped by §7's colon
+                                             alignment on the forward pass (not yet compact) --
+                                             §8 then joins each case's single-statement body onto
+                                             its header line later in the same pass. Previously,
+                                             a second format pass over that already-joined output
+                                             then saw compact `case` lines for the first time and
+                                             applied colon-column alignment padding that was never
+                                             present in the first pass's own output (non-idempotent).
+                                             Fixed in `ScopePipelineIndent`: §7's `classifyCaseLine`
+                                             now predicts whether a block-form case will qualify for
+                                             §8's join (new `tryQualifyJoinBody`, shared with
+                                             `applySingleStatementBody`) and, if so, treats it as
+                                             effectively compact for grouping/alignment purposes,
+                                             emitting the join with correct padding already baked in
+                                             (`flushCaseGroup`) instead of leaving it to a later round;
+                                             `applySingleStatementBody` skips any header §7 already
+                                             joined (`caseJoinAlignedHeaders`) to avoid a duplicate,
+                                             unpadded, overlapping join. See `STATE_PYTHON3.md`'s
+                                             `psf/black` dogfood entry.
+
 How Tests Are Run
 -----------------
 

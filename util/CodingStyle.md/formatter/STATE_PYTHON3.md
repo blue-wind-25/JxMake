@@ -804,19 +804,42 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
           debug specifier before deciding to trim the opening gap.
 
       **Summary: 1 crash (pep_701.py, per-file caught, does not abort
-      batch) — FIXED this session (backslash-escape/doubled-brace fix in
+      batch) — FIXED (backslash-escape/doubled-brace fix in
       `TokenizerIndent.emitFString`, fixture `real_code_regressions_114`,
       `make test` 163/163). 2 non-idempotency bugs (§7/§8 join-then-align
       ordering; §6 unbounded-growth trailing whitespace on multi-line
       union-type hints), 2 content-corruption bugs (both in §5's
       `addBraceTrim` — nested-brace field fusion deletes an expression;
-      self-documenting `{expr=}` fields lose verbatim leading whitespace) —
-      these four remain documented-only, NOT fixed this session, per the
-      original task's explicit scope limit (only the crash was pulled
-      in-scope, by explicit user request mid-session). A future session
-      should fix each of the remaining four, add permanent
-      `real_code_regressions_*` fixtures per `STATE_COMMON.md`'s convention,
-      and only then consider re-running the full `psf/black` corpus to
-      confirm.**
+      self-documenting `{expr=}` fields lose verbatim leading whitespace).**
+
+      **§7/§8 join-then-align ordering non-idempotency — FIXED (follow-up
+      session).** `ScopePipelineIndent.classifyCaseLine` now predicts (new
+      `tryQualifyJoinBody`, shared with `applySingleStatementBody`) whether
+      a block-form `case` will qualify for §8's join within the same pass;
+      if so it's treated as effectively compact for §7's grouping/
+      all-or-nothing decision and `flushCaseGroup` emits the join with
+      correct `:`-column padding already baked in (one combined
+      `Replacement` spanning header through body), rather than leaving the
+      join unpadded for a later round to (wrongly) pad on its own.
+      `applyCaseColonAlignment`'s grouping loop also had to skip each
+      virtualJoin case's own body `RawLine` (one depth deeper) when
+      scanning for contiguous case headers — without that, the intervening
+      body line's own `null` classification prematurely broke every
+      block-form group into singletons, silently defeating multi-case
+      alignment. `applySingleStatementBody` skips any header already
+      handled by §7 (new `caseJoinAlignedHeaders` set) to avoid a duplicate,
+      unpadded, overlapping join replacement. If §7's own padding would
+      push a virtualJoin member's joined line past `line-length`, the whole
+      group's alignment is abandoned (falls back to §8's own plain,
+      unpadded join) rather than overflowing. Verified: the minimal repro
+      (`match x: case Point(): ... case _: ...`) now produces the same
+      aligned output on round1 as round2 (`diff` empty). Fixture
+      `real_code_regressions_115_{inp,out}.py`. `make test`: 164/164
+      forward + 164/164 idempotency.
+
+      The remaining 2 non-idempotency/content-corruption bugs (§6
+      unbounded-growth trailing whitespace on multi-line union-type hints;
+      §5 `addBraceTrim`'s nested-brace field fusion and `{expr=}` verbatim-
+      whitespace loss) are addressed below.
 
       `python/cpython`, `django/django` — still not started.

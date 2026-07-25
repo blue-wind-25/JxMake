@@ -341,6 +341,8 @@ INP_FILES += real_code_regressions_114_inp.py
 INP_FILES += real_code_regressions_115_inp.py
 INP_FILES += real_code_regressions_116_inp.py
 INP_FILES += real_code_regressions_117_inp.py
+INP_FILES += real_code_regressions_118_inp.hpp
+INP_FILES += real_code_regressions_119_inp.hpp
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

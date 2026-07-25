@@ -1496,23 +1496,35 @@ private boolean isFunctionBodyQualifier(final Token t) {
     private String collapseToOneLine(final List<Token> tokens, final int fromInclusive, final int toInclusive) {
         final StringBuilder sb = new StringBuilder();
         final List<Token> gap = new ArrayList<>();
+        Token prevSignificant = null;
         for (int i = fromInclusive; i <= toInclusive; i++) {
             final Token t = tokens.get(i);
             if (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE) {
                 gap.add(t);
                 continue;
             }
-            flushCollapseGap(sb, gap);
+            flushCollapseGap(sb, gap, prevSignificant, t);
             gap.clear();
             sb.append(t.text);
+            prevSignificant = t;
         }
-        flushCollapseGap(sb, gap);
+        flushCollapseGap(sb, gap, prevSignificant, null);
         return sb.toString().trim();
     }
     /** Helper for {@link #collapseToOneLine}: appends a gap of consecutive WHITESPACE/NEWLINE
      *  tokens either verbatim (pure horizontal whitespace, no NEWLINE in it) or as a single space
-     *  (a NEWLINE present, same "joined multi-line run becomes one space" rule as before). */
-    private void flushCollapseGap(final StringBuilder sb, final List<Token> gap) {
+     *  (a NEWLINE present, same "joined multi-line run becomes one space" rule as before) --
+     *  unless the gap sits at a tight `.`/`->` member-access join (either side), in which case no
+     *  space is inserted regardless of how the original line broke. Without this, a wrapped
+     *  member-access expression whose line happened to break right at the `.`/`->` (e.g. C++'s
+     *  `_Other.\n_Owns`, found via microsoft/STL real-code testing on `unique_lock`'s copy
+     *  constructor once its enclosing initializer-list line was long enough to wrap and then
+     *  collapse back) corrupted the expression into `_Other. _Owns` on the round that re-collapsed
+     *  it -- same tight-join corruption already fixed once in {@link #collapseTokensToOneLine} for
+     *  JS/TS's `.`/`?.` (nestjs/nest real-code testing), just never mirrored here for C++'s
+     *  `.`/`->` case since collapseToOneLine has its own independent implementation. */
+    private void flushCollapseGap(final StringBuilder sb, final List<Token> gap, final Token prevSignificant,
+            final Token nextSignificant) {
         if (gap.isEmpty()) {
             return;
         }
@@ -1524,7 +1536,9 @@ private boolean isFunctionBodyQualifier(final Token t) {
             }
         }
         if (hasNewline) {
-            if (sb.length() > 0 && sb.charAt(sb.length() - 1) != ' ') {
+            final boolean tightJoin = (prevSignificant != null && (isOp(prevSignificant, ".") || isOp(prevSignificant, "->")))
+                    || (nextSignificant != null && (isOp(nextSignificant, ".") || isOp(nextSignificant, "->")));
+            if (!tightJoin && sb.length() > 0 && sb.charAt(sb.length() - 1) != ' ') {
                 sb.append(' ');
             }
         } else {

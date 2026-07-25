@@ -398,7 +398,14 @@ public final class Main {
         } else {
             targetEnding = "\n";
         }
-        return "\n".equals(targetEnding) ? formatted : formatted.replace("\n", targetEnding);
+        // The internal formatting pipeline is not guaranteed to have stripped every original
+        // '\r' -- e.g. an untouched WHITESPACE token from CRLF-original input can carry its '\r'
+        // straight through to the output unmodified while a rewritten line nearby does not, which
+        // left mixed line endings in the output (and made the result unstable across formatting
+        // passes) whenever a "lf"/"crlf" target ending was requested. Normalize to a clean LF-only
+        // baseline first so every target ending is derived from a consistent starting point.
+        final String normalized = formatted.replace("\r\n", "\n").replace("\r", "\n");
+        return "\n".equals(targetEnding) ? normalized : normalized.replace("\n", targetEnding);
     }
 
     private static String detectDominantLineEnding(final String text) {

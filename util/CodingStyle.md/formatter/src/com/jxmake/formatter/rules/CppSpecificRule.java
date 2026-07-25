@@ -1322,17 +1322,38 @@ public class CppSpecificRule {
      *  against {@link #lineLengthLimit} without actually committing to it. */
     private String collapseToOneLine(final List<Token> tokens, final int fromInclusive, final int toInclusive) {
         final StringBuilder sb = new StringBuilder();
+        Token prevSignificant = null;
         for (int i = fromInclusive; i <= toInclusive; i++) {
             final Token t = tokens.get(i);
             if (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE) {
-                if (sb.length() > 0 && sb.charAt(sb.length() - 1) != ' ') {
+                // A wrapped member-access `.`/`->` is tight against both sides -- when the
+                // original line happened to break right at that token, unconditionally inserting
+                // a space here corrupted the expression (e.g. `_Other.\n_Owns` -> `_Other. _Owns`,
+                // found via microsoft/STL real-code testing). Same fix as
+                // MiscRuleCurly.collapseToOneLine's own identical gap.
+                final Token next = i + 1 <= toInclusive ? nextSignificantForCollapse(tokens, i, toInclusive) : null;
+                final boolean tightJoin = (prevSignificant != null && (isOp(prevSignificant, ".") || isOp(prevSignificant, "->")))
+                        || (next != null && (isOp(next, ".") || isOp(next, "->")));
+                if (!tightJoin && sb.length() > 0 && sb.charAt(sb.length() - 1) != ' ') {
                     sb.append(' ');
                 }
                 continue;
             }
             sb.append(t.text);
+            prevSignificant = t;
         }
         return sb.toString().trim();
+    }
+    /** Helper for {@link #collapseToOneLine}: finds the next non-WHITESPACE/NEWLINE token at or
+     *  after {@code fromExclusive + 1}, up to {@code toInclusive}, or {@code null} if none. */
+    private Token nextSignificantForCollapse(final List<Token> tokens, final int fromExclusive, final int toInclusive) {
+        for (int j = fromExclusive + 1; j <= toInclusive; j++) {
+            final Token t = tokens.get(j);
+            if (t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) {
+                return t;
+            }
+        }
+        return null;
     }
 
     /**

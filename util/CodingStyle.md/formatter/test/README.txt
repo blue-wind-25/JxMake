@@ -1881,6 +1881,48 @@ Real-code regressions:
                                              (output byte-identical to input). See
                                              `STATE_PYTHON3.md`'s `psf/black` dogfood entry.
 
+  real_code_regressions_118_inp/out.hpp   -- C++, microsoft/STL real-code dogfood: `Main.
+                                             applyLineEndings` idempotency fix. The tokenizer
+                                             preserves a CRLF-original file's own `\r` characters
+                                             verbatim inside any WHITESPACE token that a given pass
+                                             never rewrites, so `line-endings = lf` (default)'s
+                                             "already lf, no change needed" fast path left stray
+                                             `\r` characters in place on every untouched line while
+                                             rewritten lines came out `\r`-free -- a mixed-ending
+                                             result that then differed again on a second pass once a
+                                             *different* set of lines got touched (round1 != round2).
+                                             Fixed: `applyLineEndings` now always normalizes to a
+                                             clean LF-only baseline (`\r\n` -> `\n`, lone `\r` -> `\n`)
+                                             before applying whichever target ending the config
+                                             actually asks for. Verified against the real
+                                             microsoft/STL tree: fixed 99 of 110 idempotency-diffing
+                                             files in that candidate. See `STATE_C_CPP_JAVA.md`.
+
+  real_code_regressions_119_inp/out.hpp   -- C++, microsoft/STL real-code dogfood: two duplicated
+                                             `collapseToOneLine`/`flushCollapseGap` implementations
+                                             (`MiscRuleCurly.java`, `CppSpecificRule.java`) joined a
+                                             multi-line run back onto one line by unconditionally
+                                             inserting a single space wherever the original had a
+                                             newline, with no tight-join awareness at all -- so a
+                                             wrapped member-access/`->` expression whose line had
+                                             happened to break right at the `.`/`->` (e.g. a
+                                             constructor's member-initializer-list argument,
+                                             `other.\n    _Outer`) came back corrupted as `other. _Outer`
+                                             once re-collapsed. The sibling `collapseTokensToOneLine`
+                                             already had this exact guard for JS/TS's `.`/`?.` (from
+                                             an earlier nestjs/nest fix) but it was never mirrored
+                                             into either `collapseToOneLine`. Fixed: both now track
+                                             the previous/next significant token around each
+                                             whitespace/newline run and suppress the forced space
+                                             when either side is a `.`/`->`. Verified against the
+                                             real microsoft/STL tree (`ranges.hpp`'s wrapped
+                                             constructor-initializer-list arguments). A related,
+                                             deeper bug in the same area (a long constructor
+                                             signature's own parameter-wrap logic misapplied to its
+                                             immediately-following member-initializer-list entry) was
+                                             found but not fixed -- see `STATE_C_CPP_JAVA.md`'s
+                                             "Known Gaps -- Open".
+
 How Tests Are Run
 -----------------
 

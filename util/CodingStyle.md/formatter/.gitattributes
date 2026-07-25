@@ -1,0 +1,5 @@
+# real_code_regressions_118_inp.hpp deliberately contains CRLF line endings (reproduces a
+# CRLF-original-input idempotency bug found via microsoft/STL real-code testing, see
+# STATE_C_CPP_JAVA.md item 26 / test/README.txt) -- must not be normalized by git on
+# checkout/commit, or the fixture stops testing what it's meant to test.
+test/real_code_regressions_118_inp.hpp -text

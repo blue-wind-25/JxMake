@@ -34,7 +34,7 @@ Be careful not to lose important information, especially the `**Tools/compiler u
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_114_inp/out.py`
-    to   `real_code_regressions_115_inp/out.py`
+    to   `real_code_regressions_124_inp/out.hpp`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -61,36 +61,32 @@ for reproducing bugs and mini/small tests (not the cloned repositories) them and
 ----------------------------------------------------------------------------------------------------
 
 Continue with the dogfood test (search in `/tmp` first, clone the repo if not found):
-...
+    ...
 When fixing bugs, only reformat and re-syntax-checking the affected files; reformatting and
 re-syntax-checking already correct files are a waste of time. Only after all bugs are fixed is
 a full reformat and re-syntax-checking test allowed. Try reformat with `indent-size = 2` if the
-idempotency test failed. Use `tools/syntax_checker` to syntax check. Use one sub-agent as needed,
-the sub-agent can launch up to one more research sub-sub-agent). If there are many errors, work
-in batch, store the rest in the corresponding state file. Do NOT use `git stash`. Back up any
-files you need to preserve to a temporary location, revert your changes for testing, and restore
-the backed-up files if needed. This avoids leaving work hidden in a stash that may be forgotten
-after context compaction or an interrupted session.
+idempotency test failed. Use one sub-agent as needed, the sub-agent can launch up to one more
+research sub-sub-agent).
 
-Start with the dogfood test for:
-...
+Continue with the dogfood test for:
+    ...
 If there are many errors, work in batch, store the rest in the corresponding state file.
 
 
 
 C/C++:
-    [ 6] `github.com/microsoft/STL`    [~350 kLOC of effective C/C++ code]
-    [ X]`github.com/gcc-mirror/gcc`    [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
-    [ X]`github.com/llvm/llvm-project` [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
+    [X] `github.com/gcc-mirror/gcc`    [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
+    [X] `github.com/llvm/llvm-project` [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
 
 C++26:
 
-Java: KNOWN GAP - `jenkinsci/jenkins`/`IN PROGRESS` - PENDING
-    [ 7] `github.com/apache/ant`
-    [ 9] `github.com/openrewrite/rewrite` [~700 kLOC of effective Java code]
+Java:
+    [1] `github.com/apache/ant`          [~260 kLOC of effective Java code]
+    [3] `github.com/openrewrite/rewrite` [~711 kLOC of effective Java code]
+    [X] `**Extremely long pre-existing single-physical-line statement wraps differently each round**`
 
 Kotlin:
-    [13] `github.com/JetBrains/kotlin` [HUGE, ~3000 kLOC of effective Kotlin code]
+    [7] `github.com/JetBrains/kotlin` [HUGE, ~3000 kLOC of effective Kotlin code]
 
 JSON:
 JSON5:
@@ -98,19 +94,21 @@ CSS:
 YAML:
 TOML:
 XML:
-HTML5: `**TODO -- adoption agency, foster-parenting, ...`
+HTML5:
+    [0] `github.com/apache/ant`
+    [X] `**TODO -- adoption agency, foster-parenting, ...`
 
-JS: `**TODO (low priority, not currently queued):** teach ...`
-    [ X] `github.com/nodejs/node` [TOO MASSIVE, mixed-style JS core + tooling]
+JS:
+    [X] `github.com/nodejs/node`          [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
+    [X] `**TODO (low priority, not currently queued):** teach `js_ts_content_diff.js` ...`
 
 TS:
-    [10] `github.com/angular/angular`      [HUGE, idiomatic, decorator-heavy real TS]
-    [11] `github.com/microsoft/TypeScript` [HUGE, the compiler itself; canonical, heavily-typed real TS at scale]
+    [4] `github.com/angular/angular`      [ ~895 kLOC of effective TypeScript code]
+    [6] `github.com/microsoft/TypeScript` [~1490 kLOC of effective TypeScript code]
 
 Python3:
-    [ #] `github.com/psf/black`      [a formatter itself; its own tests/data corpus may be directly reusable]
-    [ 8] `github.com/django/django`  [large real-world Python, heavy decorator/class-based-pattern density]
-    [12] `github.com/python/cpython` [HUGE, densereference implementation's own stdlib; large, disciplined, real-world]
+    [2] `github.com/django/django`  [~455 kLOC of effective Python code]
+    [5] `github.com/python/cpython` [~980 kLOC of effective Python code]
 
 
 
@@ -119,11 +117,7 @@ Continue with the dogfood test (in parallel; search in `/tmp` first, clone the r
 When fixing bugs, only reformat and re-syntax-checking the affected files; reformatting and
 re-syntax-checking already correct files are a waste of time. Only after all bugs are fixed is
 a full reformat and re-syntax-checking test allowed. Try reformat with `indent-size = 2` if the
-idempotency test failed. Use `tools/syntax_checker` to syntax check. Do NOT use `git stash`. 
-Back up any files you need to preserve to a temporary location, revert your changes for testing,
-and restore the backed-up files if needed. This avoids leaving work hidden in a stash that may
-be forgotten after context compaction or an interrupted session. The system Git does NOT support
-worktree.
+idempotency test failed.
 
 ####################################################################################################
 ####################################################################################################

@@ -352,6 +352,8 @@ INP_FILES += real_code_regressions_124_inp.hpp
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 
 # clear && git status && echo && svn stat && echo
+# git fsck --unreachable --no-reflogs
+
 # svn add util/CodingStyle.md/formatter/test/*
 # svn add util/CodingStyle.md/formatter/test/real_code_regressions*
 # svn commit -m 'Follow GIT changes' && git push && echo && git status && echo && svn stat && echo

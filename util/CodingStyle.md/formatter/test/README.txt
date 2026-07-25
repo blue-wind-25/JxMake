@@ -1923,6 +1923,38 @@ Real-code regressions:
                                              found but not fixed -- see `STATE_C_CPP_JAVA.md`'s
                                              "Known Gaps -- Open".
 
+  real_code_regressions_120_inp/out.hpp   -- C++, microsoft/STL real-code dogfood: a bare
+                                             macro-invocation-as-statement (STL's own
+                                             `_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK` -- an
+                                             IDENTIFIER used exactly like an opening brace, no
+                                             trailing `;`, on its own physical line) immediately
+                                             followed by an `if (...) { ... }` that
+                                             `collapseSingleExpressionBlocks` flattens to a
+                                             semicolon-terminated one-liner glued onto the macro's
+                                             own line one round later. Root cause:
+                                             `DeclarationAlignmentRuleCurly.parseDeclaration`
+                                             already rejected a collapsed-to-one-line control
+                                             statement (`if (...) stmt;`) from being misparsed as a
+                                             bogus declaration, but only by checking the merged
+                                             statement's very first token -- `splitStatements` has
+                                             no terminator to split on right after the bare macro
+                                             identifier, so it and the following `if` end up as one
+                                             merged "statement" whose first token is the macro
+                                             IDENTIFIER, not `if`, so the existing guard never
+                                             fired. The combined token run then misparsed as a
+                                             `Type name = init;` declarator and got rendered back
+                                             onto one physical line, gluing the macro and the `if`
+                                             together -- reproduces only on a second formatting
+                                             pass (round1's source still has the `if`'s body
+                                             braced, which the existing guard already rejects).
+                                             Fixed by widening the guard to a depth-tracked scan
+                                             of the whole merged statement for a top-level
+                                             `if`/`while`/`for`/`switch`/`do`/`else` keyword, not
+                                             just the first token. Verified against the real
+                                             microsoft/STL tree (`istream.hpp`/`stacktrace.hpp`/
+                                             `xlocale.hpp`, all three idempotent after the fix).
+                                             See `STATE_C_CPP_JAVA.md`.
+
 How Tests Are Run
 -----------------
 

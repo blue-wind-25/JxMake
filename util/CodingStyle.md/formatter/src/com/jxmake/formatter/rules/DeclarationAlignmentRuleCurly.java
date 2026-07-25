@@ -648,6 +648,38 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                         || "do".equals(body.get(0).text) || "else".equals(body.get(0).text))) {
             return null;
         }
+        // Same shape as the guard just above, but for a bare macro-invocation-as-statement
+        // (e.g. STL's `_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK` -- an IDENTIFIER used exactly
+        // like an opening brace/statement, no trailing `;`, sitting on its own physical line)
+        // immediately followed by a collapsed-to-one-line control statement. `splitStatements`
+        // has no terminator to split on after the bare macro identifier, so it and the
+        // following `if (...) stmt;` end up as one merged "statement" here -- `body.get(0)` is
+        // then the macro IDENTIFIER, not the `if` keyword itself, so the check just above never
+        // fires. Left unguarded, the combined token run misparses as a bogus `Type name = init;`
+        // declarator (the macro identifier plus the condition become "type", the assignment's
+        // LHS becomes "name") and gets rendered back as one physical line by `render(group)`,
+        // gluing the macro and the following statement together -- reproduces on a *second*
+        // formatting pass only (round1's source still has the `if`'s body braced, which the
+        // guard above already rejects; only once `collapseSingleExpressionBlocks` has already
+        // flattened it to a semicolon-terminated one-liner does this merged-statement shape
+        // arise), found via `microsoft/STL` real-code-testing (`istream.hpp`/`stacktrace.hpp`/
+        // `xlocale.hpp`). Scan the rest of `body` (depth-tracked, same as the bitfield `:` scan
+        // below, so an `if`/`while`/etc. legitimately nested inside a lambda/brace-init
+        // initializer at depth > 0 is not falsely rejected) for one of these keywords at the
+        // top level and bail the same way if found.
+        int cfDepth = 0;
+        for (int cfI = 1; cfI < body.size(); cfI++) {
+            final Token cfT = body.get(cfI);
+            if (isPunct(cfT, "(") || isPunct(cfT, "[") || isPunct(cfT, "{")) {
+                cfDepth++;
+            } else if (isPunct(cfT, ")") || isPunct(cfT, "]") || isPunct(cfT, "}")) {
+                cfDepth--;
+            } else if (cfDepth == 0 && cfT.type == TokenType.KEYWORD
+                    && ("if".equals(cfT.text) || "while".equals(cfT.text) || "for".equals(cfT.text)
+                            || "switch".equals(cfT.text) || "do".equals(cfT.text) || "else".equals(cfT.text))) {
+                return null;
+            }
+        }
 
         int i = 0;
         List<Token> templatePrefix = Collections.emptyList();

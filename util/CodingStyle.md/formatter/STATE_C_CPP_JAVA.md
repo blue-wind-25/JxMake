@@ -597,21 +597,23 @@ on the noted commits/fixtures)
      originally-diffing files: down to 11. Fixtures: `real_code_regressions_118` (bug a),
      `real_code_regressions_119` (bug b).
 
-     **3 additional gaps found, left open** (documented in "Known Gaps -- Open" below; session
-     closed as DONE with these accepted, same disposition precedent as jenkins item 25/javaparser
-     item 16): a deeper, related bug where a long constructor signature's own parameter-wrap logic
-     gets misapplied to its immediately-following member-initializer-list entry (mutex.hpp,
-     shared_mutex.hpp, filesystem.cpp); a macro-then-statement line-merge instability
+     **3 additional gaps found this session; 1 fixed in a follow-up session, 2 left open**
+     (the 2 still open are documented in "Known Gaps -- Open" below; session originally closed as
+     DONE with all 3 accepted, same disposition precedent as jenkins item 25/javaparser item 16,
+     then revisited): a deeper, related bug where a long constructor signature's own parameter-wrap
+     logic gets misapplied to its immediately-following member-initializer-list entry (mutex.hpp,
+     shared_mutex.hpp, filesystem.cpp) -- still open; a macro-then-statement line-merge instability
      (`_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK`-style macros glued onto a following `if(...)` on
-     one pass and not the other -- istream.hpp, stacktrace.hpp, xlocale.hpp); and a recurrence of
-     the already-documented "declaration-alignment column-padding non-idempotency" gap
-     (algorithm.hpp, filesystem.hpp, ranges.hpp's `_Range` field). `clang++ -std=c++23
-     -stdlib=libc++ -fsyntax-only` not attempted against STL's real headers -- STL is Microsoft's
-     own internal `std::` implementation with heavy MSVC-specific intrinsics/`__declspec`/
-     `_STL_INTERNAL_*` macro dependencies that don't compile standalone under any other toolchain
-     without STL's own build harness (CMake + MSVC-specific defines); full-tree idempotency (with
-     the two fixes above) is the load-bearing validation here, same fallback posture this task's
-     own instructions anticipated for this exact candidate.
+     one pass and not the other -- istream.hpp, stacktrace.hpp, xlocale.hpp) -- **fixed in a
+     follow-up session**, see "Known Gaps -- Fixed"; and a recurrence of the already-documented
+     "declaration-alignment column-padding non-idempotency" gap (algorithm.hpp, filesystem.hpp,
+     ranges.hpp's `_Range` field) -- still open. `clang++ -std=c++23 -stdlib=libc++ -fsyntax-only`
+     not attempted against STL's real headers -- STL is Microsoft's own internal `std::`
+     implementation with heavy MSVC-specific intrinsics/`__declspec`/`_STL_INTERNAL_*` macro
+     dependencies that don't compile standalone under any other toolchain without STL's own build
+     harness (CMake + MSVC-specific defines); full-tree idempotency (with the fixes above) is the
+     load-bearing validation here, same fallback posture this task's own instructions anticipated
+     for this exact candidate.
 
 **Not started dogfood / real-code testing**
 (3) `github.com/llvm/llvm-project` — LLVM/Clang monorepo; enormous, likely only a
@@ -848,21 +850,6 @@ RDD_KEY_88.
   long constructor signature immediately followed by a member-initializer list containing a
   member-access argument. No fixture (nothing was fixed).
 
-- **Macro-then-statement line-merge instability across formatting rounds** — found in
-  `microsoft/STL` real-code testing (item 26 above, `istream.hpp`/`stacktrace.hpp`/`xlocale.hpp`),
-  NOT fixed. STL's own `_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK`-style bare macro invocations
-  (no trailing `;`, used exactly like an opening brace/statement) sit on their own physical line
-  in the original source, immediately followed by a same-line `if (...) ...;` statement --
-  round1 keeps them on separate lines, round2 glues the macro invocation and the following `if`
-  onto one physical line (`_TRY_IO_BEGIN if( _Traits::eq_int_type(...`). Not root-caused this
-  session -- likely the same general "call/declaration line-breaking fits-check isn't a stable
-  fixed point once a prior pass's own output changes what 'fits' means" architectural family as
-  the two already-open switch-case/declaration-padding gaps above, just triggered by a bare
-  macro-as-statement shape rather than a real function call or declaration. 3 files affected
-  across this 289-file candidate. Left open; revisit if this shape recurs in a future candidate,
-  ideally with a smaller/more isolable repro than these files' full real context. No fixture
-  (nothing was fixed).
-
 ## Known Gaps — Fixed
 
 Previously-recorded low-priority gaps, now resolved. One-line summaries only — full
@@ -893,6 +880,21 @@ before/after detail available via `git log`/`git show`.
   from the preserved leading gap. Fixed by walking forward past any leading directive run
   before computing the signature's real first token. Fixture:
   `test/java_preprocessor_method_inp/out.java`.
+- **Macro-then-statement line-merge instability across formatting rounds** — FIXED. Found in
+  `microsoft/STL` real-code testing (item 26 above, `istream.hpp`/`stacktrace.hpp`/`xlocale.hpp`):
+  a bare macro-invocation-as-statement (`_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK`, no trailing
+  `;`, own physical line) immediately followed by an `if (...) { ... }` that
+  `collapseSingleExpressionBlocks` flattens to a one-liner on the next round -- glued onto the
+  macro's line one round later. Root cause:
+  `DeclarationAlignmentRuleCurly.parseDeclaration`'s existing collapsed-control-statement guard
+  only checked the merged statement's first token; `splitStatements` merges the macro identifier
+  and the following `if (...) stmt;` into one "statement" (no terminator after the bare macro),
+  so that first token is the macro IDENTIFIER, not `if`, and the guard never fired -- the whole
+  run then misparsed as a bogus `Type name = init;` declarator and rendered back onto one line.
+  Fixed by widening the guard to a depth-tracked scan of the entire merged statement for a
+  top-level `if`/`while`/`for`/`switch`/`do`/`else` keyword, not just the first token. Verified
+  against the real STL tree (all 3 affected files now idempotent) and `make test` 169/169.
+  Fixture: `real_code_regressions_120`.
 
 ---
 

@@ -426,8 +426,19 @@ public final class Main {
     private static String delegateToServer(final int port, final Path path, final String language,
             final String content, final boolean formatOff) throws IOException {
         final String encodedPath = URLEncoder.encode(path.toAbsolutePath().toString(), "UTF-8");
-        final URL url = new URL("http://localhost:" + port + "/format?path=" + encodedPath + "&lang=" + language
-                + (formatOff ? "&format-off=true" : ""));
+        final StringBuilder query = new StringBuilder("path=").append(encodedPath).append("&lang=").append(language);
+        if (formatOff) {
+            query.append("&format-off=true");
+        }
+        // Forward this CLI process's own env-var overrides (tier 3) so the server's per-request
+        // resolution reflects the invoking user's current shell environment rather than
+        // whatever the server's own process inherited whenever it was originally started (see
+        // Config.clientEnvOverrides()'s doc comment).
+        for (final Map.Entry<String, String> entry : Config.clientEnvOverrides().entrySet()) {
+            query.append('&').append(entry.getKey()).append('=')
+                    .append(URLEncoder.encode(entry.getValue(), "UTF-8"));
+        }
+        final URL url = new URL("http://localhost:" + port + "/format?" + query);
         final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("POST");
         connection.setDoOutput(true);

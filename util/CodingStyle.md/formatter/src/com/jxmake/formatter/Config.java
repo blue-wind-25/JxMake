@@ -198,6 +198,20 @@ public final class Config {
         return ALL_KEYS_SET.contains(key);
     }
 
+    /**
+     * Returns the calling process's own {@code JXMAKE_CODE_FORMATTER_*} environment-variable
+     * overrides (tier 3 of the precedence chain, see README.md's "Configuration" section).
+     * Exposed publicly so a CLI client delegating a format request to a long-running server
+     * (see {@code Main.delegateToServer}) can forward its own, currently-live env snapshot as
+     * inline query-param overrides. Without this, the server would resolve tier 3 purely from
+     * its own process environment -- frozen at whenever the server was originally started --
+     * which can silently go stale relative to the CLI-invoking user's current shell environment
+     * for a persistent, long-running server.
+     */
+    public static Map<String, String> clientEnvOverrides() {
+        return collectEnvVars();
+    }
+
     public static Config resolve(final Path targetFile, final Map<String, String> cliOverrides) {
         return resolve(targetFile, cliOverrides, null);
     }

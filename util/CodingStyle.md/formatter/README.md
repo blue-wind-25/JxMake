@@ -200,6 +200,20 @@ precedence (later sources override earlier ones):
 6. CLI flags / server request's inline query-param config
 7. A file's own `JXM_CFMT_CFG` directive (see [In-file config overrides](#in-file-config-overrides)) — always wins
 
+**Server mode note on tiers 2/3:** server mode is `localhost`-only (see "Server Wire Protocol"
+below) — the server process reads its own `~/.config/jxmake-code-formatter/config` (tier 2) and
+its own process environment (tier 3), not the CLI-invoking client's. For tier 2 this is
+transparent as long as client and server run as the same OS user on the same machine (the
+intended, and only supported, deployment shape), since the server re-reads that file fresh from
+disk on every request. Tier 3 is different: a JVM's environment variables are fixed at process
+start, so a long-running server's env-var tier can go stale relative to the client's *current*
+shell environment if the client's env changed after the server was launched. To avoid this, the
+bundled CLI's `delegateToServer` path forwards its own live `JXMAKE_CODE_FORMATTER_*` env-var
+snapshot to the server as inline query-param overrides (tier 6) on every delegated request, so
+the effective result matches what a fresh standalone run in the client's own environment would
+have produced, regardless of how long the server has been running or what it originally started
+with.
+
 ### Config file format
 
 ```properties

@@ -104,7 +104,7 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_193 | XML real-logic implementation: character-cursor recursive-descent parser (no natural line boundary in tag grammar, no `TokenizerCore` reuse); independent `<!--%`-based frozen-span/comment-normalization logic; `InFileConfig` extended for `<!--% JXM_CFMT_CFG ... -->`; migrated `xml` out of `Lang.SCAFFOLD_ONLY_LANGUAGES` into `Lang.SUPPORTED_LANGUAGES` (HTML5 stays scaffold-only); unlike YAML/TOML, XML's rule constructor takes `indentStyle` (§2.1 has no ignored-setting exception); wrap-shape judgment call (closing `>` attached to last attribute line); one bug found+fixed (childless-tag overflow wrap never triggered); all 4 fixtures (`xml_combined`/`xml_comments`) pass `make test`, 202/202 total (originally shipped as a mismatched `xml_core` pair, later corrected). |
 | RDD_KEY_198 | HTML5 `<ruby>` implied-end-tag support: small, extensible `XmlSpecificRule.OPAQUE_IMPLIED_END_TAG_ELEMENTS` name set (currently just `ruby`) reusing the existing `<script>`/`<style>`/`<pre>` opaque-verbatim-span pattern -- scans from the element's own opening `<` to its own MATCHING `</tag>` (nested same-name depth tracked) and captures the whole span (incl. `<rb>`/`<rt>`/`<rp>`/`<rtc>` children and the outer tags themselves) byte-for-byte verbatim as a new `NodeType.OPAQUE` node; no per-element implied-closing-trigger logic built. Fixture `test/real_code_regressions_104_{inp,out}.html`; `make test` 153/153, zero regressions. |
 | RDD_KEY_199 | HTML5 unquoted attribute value support: `XmlSpecificRule.parseAttr`'s `lang.isHtml5` branch now accepts an unquoted value per the HTML5 spec grammar (no whitespace/`"`/`'`/`=`/`<`/`>`/backtick) instead of requiring `"`/`'`; preserved unquoted on output, no forced normalization to double-quoted (consistent with the codebase's existing "preserve as written" quote-style posture elsewhere); plain XML unchanged, still requires quotes. Fixture `test/real_code_regressions_106_{inp,out}.html`; `make test` 155/155, zero regressions. Unblocked the `alexandersandberg/html5-elements-tester` dogfood run past line 718, but it now hits a distinct, unrelated blocker at line 759 (bare `<option>` tags relying on HTML5's implied-end-tag rule, not yet in `OPAQUE_IMPLIED_END_TAG_ELEMENTS`) -- see HTML5 checklist entry. |
-| RDD_KEY_200 | HTML5 `<option>` implied-closing-trigger support: new, general, reusable `XmlSpecificRule.IMPLIED_CLOSE_TRIGGERS` (`Map<String, Set<String>>`, element name -> sibling start-tag names that implicitly close it), distinct from `OPAQUE_IMPLIED_END_TAG_ELEMENTS` -- a registered element is still parsed as a REAL node (attributes/children/normal rendering), only the "when do children stop" decision changes; only `parseNodes`/`parseElement` were touched, no per-element control-flow. Registered only `option` -> `{option, optgroup}` today. `parseNodes` gained an optional trigger-set parameter that also breaks its loop on an upcoming (non-closing) start tag matching the set; `parseElement` still consumes an explicit `</tag>` when present (regression-safe), otherwise treats the element as implicitly closed with no explicit tag consumed when a trigger set is registered (covering both the sibling-trigger case and the pre-existing parent-close-via-`stopAtCloseTag` case, reused rather than reinvented) -- otherwise the pre-existing hard `XmlParseException` is unchanged. Fixture `test/real_code_regressions_108_{inp,out}.html` (explicit-close regression guard + `<datalist>`/`<optgroup>` implied-close cases). `make test` 157/157, zero regressions. This was the `alexandersandberg/html5-elements-tester` dogfood run's third and final blocker -- the full 42KB file now completes end-to-end (forward pass, round2, idempotency diff, `html_sc.js` syntax-check, `html_content_diff.py` content-preservation all clean); dogfood run for this candidate is DONE. |
+| RDD_KEY_200 | HTML5 `<option>` implied-closing-trigger support: new, general, reusable `XmlSpecificRule.IMPLIED_CLOSE_TRIGGERS` (`Map<String, Set<String>>`, element name -> sibling start-tag names that implicitly close it), distinct from `OPAQUE_IMPLIED_END_TAG_ELEMENTS` -- a registered element is still parsed as a REAL node (attributes/children/normal rendering), only the "when do children stop" decision changes; only `parseNodes`/`parseElement` were touched, no per-element control-flow. Registered only `option` -> `{option, optgroup}` today. `parseNodes` gained an optional trigger-set parameter that also breaks its loop on an upcoming (non-closing) start tag matching the set; `parseElement` still consumes an explicit `</tag>` when present (regression-safe), otherwise treats the element as implicitly closed with no explicit tag consumed when a trigger set is registered (covering both the sibling-trigger case and the pre-existing parent-close-via-`stopAtCloseTag` case, reused rather than reinvented) -- otherwise the pre-existing hard `XmlParseException` is unchanged. Fixture `test/real_code_regressions_108_{inp,out}.html` (explicit-close regression guard + `<datalist>`/`<optgroup>` implied-close cases). `make test` 157/157, zero regressions. This was the `alexandersandberg/html5-elements-tester` dogfood run's third and final blocker -- the full 42KB file now completes end-to-end (forward pass, round2, idempotency diff, `html_syntax_check.js` syntax-check, `html_content_diff.py` content-preservation all clean); dogfood run for this candidate is DONE. |
 
 ---
 
@@ -137,25 +137,25 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 For the still-open real-code-testing pass (see Checklist), "did the
 formatter corrupt the file" is checked by feeding formatted output through a
 real, independent third-party parser per format — same principle as
-`java_sc`/`kotlin_sc` (parse-only, no semantic/schema validation, prints
+`java_syntax_check`/`kotlin_syntax_check` (parse-only, no semantic/schema validation, prints
 `line:col: message` on error, exit 1 if any file has errors, exit 0
 otherwise). Six Node.js scripts, one per format, live in
-`tools/syntax_checker/` (committed, licensed project tooling; `java_sc`/
-`kotlin_sc` remain outside the repo, unrelated to this campaign, at
+`tools/verifiers/` (committed, licensed project tooling; `java_syntax_check`/
+`kotlin_syntax_check` remain outside the repo, unrelated to this campaign, at
 `~/Projects/JxMake/0_excluded_directory/personal/SyntaxChecker/`):
 
-- `json_sc.js` — built-in `JSON.parse` (plain `.json` only)
-- `json5_sc.js` — `json5` package
-- `yaml_sc.js` — `js-yaml`, `loadAll()` so multi-document streams are fully
+- `json_syntax_check.js` — built-in `JSON.parse` (plain `.json` only)
+- `json5_syntax_check.js` — `json5` package
+- `yaml_syntax_check.js` — `js-yaml`, `loadAll()` so multi-document streams are fully
   checked
-- `toml_sc.js` — `smol-toml`
-- `css_sc.js` — `postcss` (**not** `css-tree`: css-tree's parser is
+- `toml_syntax_check.js` — `smol-toml`
+- `css_syntax_check.js` — `postcss` (**not** `css-tree`: css-tree's parser is
   deliberately tolerant and silently auto-closes an unclosed `{ ... }` block
   at EOF instead of reporting a parse error — confirmed by direct testing,
   a hand-crafted `body { color: red` with no closing brace produced zero
   `onParseError` calls. `postcss.parse()` throws a `CssSyntaxError` with
   line/column for the same input, so it's used instead.)
-- `xml_sc.js` — `@xmldom/xmldom`. Its default `onError` handler only logs
+- `xml_syntax_check.js` — `@xmldom/xmldom`. Its default `onError` handler only logs
   warnings/`error`-level problems and does not throw, so a custom `onError`
   is wired in to capture those; but `fatalError`-level problems (e.g.
   mismatched tags) throw a `ParseError` regardless of `onError`, so
@@ -163,10 +163,10 @@ otherwise). Six Node.js scripts, one per format, live in
   `onError` already having recorded the same fatalError).
 
 **`xml_content_diff.py`** — a content-preservation checker for XML,
-complementing `xml_sc.js` (which only proves "still parses", same
+complementing `xml_syntax_check.js` (which only proves "still parses", same
 `css_content_diff.py` precedent). Parses both original and formatted files
 with stdlib `xml.dom.minidom` (no extra package dependency, unlike
-`xml_sc.js`) and walks both DOMs in parallel, comparing (skipping
+`xml_syntax_check.js`) and walks both DOMs in parallel, comparing (skipping
 pure-whitespace text nodes so pure re-indentation is never flagged):
 (1) element names and attribute name+value pairs, **in order** (XML
 attribute order is spec-preserved per `STYLE_DATA_FORMATS.md` SS2.2, so
@@ -185,17 +185,17 @@ real dogfood use — both caught correctly. Written and first used during the
 `apache/maven` XML dogfood session (see Checklist); reusable as-is for the
 remaining XML test-fixture repos (`apache/ant`, `jenkinsci/jenkins`,
 `w3c/svgwg`). Usage: `python3 xml_content_diff.py <original.xml>
-<formatted.xml>` (stdlib only, no `npm install` needed, unlike the `*_sc.js`
+<formatted.xml>` (stdlib only, no `npm install` needed, unlike the `*_syntax_check.js`
 scripts).
 
 **`toml_content_diff.py`** — a content-preservation checker for TOML,
-complementing `toml_sc.js` (which only proves "still parses", same
+complementing `toml_syntax_check.js` (which only proves "still parses", same
 `css_content_diff.py`/`xml_content_diff.py` precedent). This system's Python
 is 3.6 (no stdlib `tomllib`, 3.11+ only) with no `toml`/`tomli` package
 installed, so instead of parsing directly in Python it shells out to a small
 inline Node.js helper (embedded as a string in the script, run via `node -e
 ... -- <path>`) that uses the already-installed `smol-toml` package (same one
-`toml_sc.js` uses) to parse each file to JSON, then compares the two
+`toml_syntax_check.js` uses) to parse each file to JSON, then compares the two
 resulting Python data structures (`dict`/`list`/scalar) for deep equality —
 same principle a direct `tomllib` comparison would give, just relayed through
 JSON as the interchange format. Note: `node -e <script> -- <path>` puts
@@ -210,16 +210,16 @@ use — both caught correctly. Written and first used during the
 the remaining TOML test-fixture repos (`python-poetry/poetry`,
 `pola-rs/polars`, `toml-lang/toml`). Usage: `python3 toml_content_diff.py
 <original.toml> <formatted.toml>` — needs the same `LD_LIBRARY_PATH`/
-`NODE_PATH`/`PATH` env as `toml_sc.js` (see below), unlike `xml_content_diff.py`
+`NODE_PATH`/`PATH` env as `toml_syntax_check.js` (see below), unlike `xml_content_diff.py`
 which is stdlib-only.
 
 **`yaml_content_diff.py`** — a content-preservation checker for YAML,
-complementing `yaml_sc.js` (which only proves "still parses", same
+complementing `yaml_syntax_check.js` (which only proves "still parses", same
 `css_content_diff.py`/`xml_content_diff.py`/`toml_content_diff.py`
 precedent). PyYAML is installed on this system, so unlike
 `toml_content_diff.py` it parses directly in Python: `yaml.safe_load_all`
 on both original and formatted files (multi-document-stream aware, same
-`loadAll()` reasoning as `yaml_sc.js`), then compares the resulting
+`loadAll()` reasoning as `yaml_syntax_check.js`), then compares the resulting
 per-document Python data structures (`dict`/`list`/scalar) for deep
 equality. Exit 0 if all documents' parsed structures match (a lightweight,
 best-effort `#`-comment-line scan is also run and any textual difference
@@ -233,25 +233,25 @@ silently changed) before being trusted for real dogfood use — both caught
 correctly. Written and first used during the `kubernetes/kubernetes` YAML
 dogfood session (see Checklist); this is also the check that caught a real
 bug (a plain block-scalar sequence item silently truncated to an empty
-string) that `yaml_sc.js` alone missed, since the truncated output was
+string) that `yaml_syntax_check.js` alone missed, since the truncated output was
 still syntactically valid YAML. Usage: `python3 yaml_content_diff.py
 <original.yaml> <formatted.yaml>` (needs `pip3 install --user pyyaml` if
 not already present; no Node/env vars needed, unlike `toml_content_diff.py`).
 
-`html_sc.js` (`parse5`, `onParseError`) also exists for HTML5, but per-spec
+`html_syntax_check.js` (`parse5`, `onParseError`) also exists for HTML5, but per-spec
 HTML5 parsing is deliberately error-tolerant (e.g. auto-closes mismatched
 tags rather than failing), so it only catches the narrow set of conditions
 the spec defines as parse errors, not general malformed-markup the way the
 XML checker does — documented as a caveat directly in the script.
 
 **`html_content_diff.py`** — a content-preservation checker for HTML5,
-complementing `html_sc.js` (which only proves "still parses per HTML5's
+complementing `html_syntax_check.js` (which only proves "still parses per HTML5's
 error-tolerant grammar", an even weaker signal than the other formats'
 syntax checkers per that caveat, making this check even more essential
 here). Python's stdlib can't parse real-world HTML5 (not XML-well-formed —
 void elements, optional closing tags), so like `toml_content_diff.py` it
 shells out to a small inline Node.js helper using the already-installed
-`parse5` package (same one `html_sc.js` uses) to parse each file into a
+`parse5` package (same one `html_syntax_check.js` uses) to parse each file into a
 simplified JSON tree, then walks both trees in parallel comparing element
 tag names/structure, attribute name+value pairs in order, whitespace-
 normalized text content, comment content, and the DOCTYPE declaration.
@@ -267,13 +267,13 @@ pairs (a dropped attribute, a corrupted comment) before being trusted for
 real dogfood use — all three cases caught correctly. Written and first used
 during the `h5bp/html5-boilerplate` HTML5 dogfood session (see Checklist).
 Usage: `python3 html_content_diff.py <original.html> <formatted.html>` —
-needs the same `LD_LIBRARY_PATH`/`NODE_PATH`/`PATH` env as `html_sc.js`.
+needs the same `LD_LIBRARY_PATH`/`NODE_PATH`/`PATH` env as `html_syntax_check.js`.
 
 **`css_content_diff.py`** — a content-preservation checker, complementing
-`css_sc.js` (which only proves "still parses", not "still means the same
+`css_syntax_check.js` (which only proves "still parses", not "still means the same
 thing" — the twbs/bootstrap rtlcss directive-comment corruption bug,
 fixture `real_code_regressions_69`, produced still-valid CSS and would not
-have been caught by `css_sc.js` alone). Takes `<original.css>
+have been caught by `css_syntax_check.js` alone). Takes `<original.css>
 <formatted.css>`, checks: (1) every `/* ... */` comment's whitespace-
 normalized text is byte-identical between the two files, in order; (2) the
 comment-stripped, colon/whitespace-normalized token stream is identical
@@ -285,10 +285,10 @@ per distinct prefixed-property string. Exit 0 if all four checks pass, exit
 (positive case + a deliberately-mutated-comment negative case) during the
 `necolas/normalize.css` dogfood session below; first used as an ad hoc
 inline Python snippet during the `twbs/bootstrap` session, now promoted to a
-permanent, reusable script alongside the other `*_sc.js` checkers. No new
+permanent, reusable script alongside the other `*_syntax_check.js` checkers. No new
 package dependency (stdlib `re` only).
 
-All six `*_sc.js` syntax checkers were verified against hand-crafted good/bad pairs (malformed
+All six `*_syntax_check.js` syntax checkers were verified against hand-crafted good/bad pairs (malformed
 trailing comma, unclosed brace, mismatched tag, etc.) before being trusted
 for real dogfood use; each caught its bad case and passed its good case.
 
@@ -337,7 +337,7 @@ Checklist for current per-language status):
   fixtures) — real, slightly-imperfect hand-written legacy-style HTML.
   Reuse the checkout already cloned for the XML session rather than
   re-cloning. **Run (2026-07-26): 226/226 files forward-pass, round2
-  idempotency diff empty, syntax-check (`html_sc.js`) 0/226 failures.
+  idempotency diff empty, syntax-check (`html_syntax_check.js`) 0/226 failures.
   Content-preservation check (`html_content_diff.py`) found 2 real bugs,
   both fixed and covered by new fixture `real_code_regressions_125`:
   (1) `<p>` missing from `IMPLIED_CLOSE_TRIGGERS` — an unclosed `<p>`
@@ -935,7 +935,7 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       bare `<option value="...">` tags relying on HTML5's implied-end-tag
       rule for `<option>` — fixed per RDD_KEY_200's new
       `IMPLIED_CLOSE_TRIGGERS` mechanism; the full 42KB file now completes
-      end-to-end: forward pass, round2, idempotency diff, `html_sc.js`
+      end-to-end: forward pass, round2, idempotency diff, `html_syntax_check.js`
       syntax-check, and `html_content_diff.py` content-preservation all
       clean), and `web-platform-tests/wpt` DONE (scoped to `html/syntax/`,
       416 files, 4 bugs found+fixed — see per-repo entry below). This
@@ -961,7 +961,7 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       **CSS (4/4 done):** `twbs/bootstrap` (31 in-scope `.css`, rest `.scss`)
       — 1 bug: rtlcss directive comments (`/* rtl:begin:ignore */`) were
       capitalized to `/* Rtl:... */`, breaking rtlcss but still valid CSS
-      (`css_sc.js` missed it); fixed via `isSingleTokenDirective` (skip
+      (`css_syntax_check.js` missed it); fixed via `isSingleTokenDirective` (skip
       capitalization when a comment's first-line body is one whitespace-free
       `:`/`-`-containing token). Fixture `real_code_regressions_69`, commit
       `8f5f597`. Final 31/31 clean. `necolas/normalize.css` (1 file) — zero
@@ -1133,7 +1133,7 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       real-code-testing pass across all six sub-formats.**
       `apache/ant`'s `manual/` directory (226 files, added later as a light
       supplement, run 2026-07-26): forward pass, round2, and idempotency
-      diff all 226/226 clean; syntax-check (`html_sc.js`) 0/226 failures.
+      diff all 226/226 clean; syntax-check (`html_syntax_check.js`) 0/226 failures.
       Content-preservation found 2 real bugs, both fixed: `<p>` missing
       from `IMPLIED_CLOSE_TRIGGERS` causing a spurious duplicate `</p>`
       after an unclosed `<p>` (RDD_KEY_204), and a same-line trailing

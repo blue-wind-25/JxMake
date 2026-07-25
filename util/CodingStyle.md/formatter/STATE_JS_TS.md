@@ -133,7 +133,7 @@ scoped packages already under `~/mynpm/lib/node_modules`).
 modeled on `java_content_diff.java`/`kotlin_content_diff.java` (same
 reasoning, applied via the TypeScript compiler API instead of javac/PSI).
 One script handles both `.js` and `.ts` — `ts.createSourceFile` parses
-plain JS fine, same idiom every other Node-based `*_sc.js`/`*_content_diff.py`
+plain JS fine, same idiom every other Node-based `*_syntax_check.js`/`*_content_diff.py`
 tool in this repo uses (see `STATE_DATA_FORMATS.md`'s `css_content_diff.py`/
 `xml_content_diff.py` write-ups for the established pattern this follows).
 Parses both original and formatted files to a real AST and compares:
@@ -178,7 +178,7 @@ otherwise, 2 on usage error. No build step — plain `.js`, run directly:
 export LD_LIBRARY_PATH=/opt/gcc-7.5.0/lib64:/opt/gcc-7.5.0/lib:/opt/isl-0.16.1/lib
 export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules:~/mynpm/node_modules
 export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
-node tools/syntax_checker/js_ts_content_diff.js <original.(js|ts)> <formatted.(js|ts)>
+node tools/verifiers/js_ts_content_diff.js <original.(js|ts)> <formatted.(js|ts)>
 ```
 
 Verified against hand-crafted pairs for both extensions before being

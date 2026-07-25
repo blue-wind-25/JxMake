@@ -144,17 +144,17 @@ or:
 
 ## Dogfood Tooling
 
-`python_ast_diff.py` — content-preservation checker for real-code testing,
+`python_content_diff.py` — content-preservation checker for real-code testing,
 modeled on `STATE_DATA_FORMATS.md`'s `*_content_diff.py` scripts (own
 equivalent here, not that job's file, since Python has a real parser in its
-own stdlib). Lives in `tools/syntax_checker/python_ast_diff.py` (committed,
+own stdlib). Lives in `tools/verifiers/python_content_diff.py` (committed,
 licensed project tooling, alongside the other jobs' checkers). Parses both
 original and formatted files with stdlib `ast` and compares
 `ast.dump(tree, include_attributes=False)` for structural equality
 (position attributes stripped since formatting legitimately changes those).
 Exit 0 if identical, 1 with a first-mismatch line printed if not, 2 if
 either file fails to parse. Usage:
-`python3 python_ast_diff.py <original.py> <formatted.py>`.
+`python3 python_content_diff.py <original.py> <formatted.py>`.
 
 **Known false-positive shape, triage manually, do not treat as a bug
 without checking:** §3's import-sort pass legitimately reorders `from X
@@ -562,7 +562,7 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       source uses the walrus operator and `from __future__ import
       annotations`, both post-3.6 syntax, so python3.6 falsely reports
       syntax errors unrelated to the formatter); AST-diff (new
-      `python_ast_diff.py`, see below) clean on all 83 files **after manual
+      `python_content_diff.py`, see below) clean on all 83 files **after manual
       triage of 9 initial reports** — every one of those 9 was the §3
       import-sort pass legitimately reordering `from X import name` sibling
       statements (verified by comparing each file's own set of imported
@@ -572,7 +572,7 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       indentation/scoping corruption) found. `make test`: 128/128 forward +
       128/128 idempotency after the final fixture additions.
 
-      New tool: `python_ast_diff.py` (see "Dogfood Tooling" below).
+      New tool: `python_content_diff.py` (see "Dogfood Tooling" below).
 
       **`pallets/click` — DONE.** 78 `.py` files processed (fresh clone,
       `/tmp/click`; no existing checkout found in `/tmp`/scratchpad from a
@@ -614,7 +614,7 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       **`psf/black` — DONE.** Fresh clone (`/tmp/black`), 338 `.py` files
       (`src/`, `tests/` incl. `tests/data/`'s curated formatting-edge-case
       corpus, `scripts/`). No dedicated syntax-checker tool beyond
-      `python3.12 -m py_compile` and this job's own `python_ast_diff.py`.
+      `python3.12 -m py_compile` and this job's own `python_content_diff.py`.
 
       **Forward pass: 1 crash (337/338 formatted) — FIXED.**
       `tests/data/cases/pep_701.py` threw `IndexOutOfBoundsException` from
@@ -679,7 +679,7 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       function` on both the unmodified original and round1 output — a
       deliberately-invalid black test fixture, not a formatter bug).
 
-      **`python_ast_diff.py` on all 337 round1 files: 22 mismatches** — 13
+      **`python_content_diff.py` on all 337 round1 files: 22 mismatches** — 13
       are the already-documented §3 import-reorder false positive (same
       shape as the `pallets/flask` run's; not re-verified tuple-by-tuple
       this session); 8 are `rc=2` parse failures on fixture files that are
@@ -708,7 +708,7 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
         misfire) as the field's own last significant token and skips all
         gap-trimming for that field.
 
-      Both verified via `python_ast_diff.py` (structurally identical to
+      Both verified via `python_content_diff.py` (structurally identical to
       originals) and 2-round idempotency (true no-ops). Combined into one
       fixture, `real_code_regressions_117_{inp,out}.py` (identity-pass,
       both bugs live in the same method). `make test`: 166/166 forward +

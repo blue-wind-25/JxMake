@@ -447,7 +447,7 @@ Question here since real implementation hasn't started.
       (idempotent), zero crashes on either pass. Compilation not attempted
       (same `g++ 4.8.5`/`clang++ 3.7.1` too-old limitation as `wrocpp`/
       `simdjson`); idempotency + manual inspection used as fallback (no C++
-      `syntax_checker` entry exists — that tool only covers data-format/
+      `verifiers` entry exists — that tool only covers data-format/
       Java/Kotlin). Manually spot-checked every `^^`/`[: :]` occurrence in
       round1 output: all 12 distinct `^^operand` forms stay tight as
       designed; `[: slots[index] :]` (nested-bracket interior) renders

@@ -327,20 +327,20 @@ still available via `git log`/`git show` on the noted commits/fixtures.
     format with `#line` directives stripped first (they legitimately shift with line-count
     changes); plain `gcc -E`/`cpp` does NOT work as a substitute (hard-errors on real `##`
     token-pasting tricks)
-(6) `java_sc` — AST-based syntax-only checker. Used when a full javac is not wanted/needed
+(6) `java_syntax_check` — AST-based syntax-only checker. Used when a full javac is not wanted/needed
     (dependency problem) — catches parse errors only, weaker confidence than (4) (no semantic/type
     checking). Build/run commands:
 ```bash
 JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
-cd util/CodingStyle.md/formatter/tools/syntax_checker
-"$JDK/bin/javac" java_sc.java
-"$JDK/bin/java" java_sc <file.java> [file2.java ...]
+cd util/CodingStyle.md/formatter/tools/verifiers
+"$JDK/bin/javac" java_syntax_check.java
+"$JDK/bin/java" java_syntax_check <file.java> [file2.java ...]
 ```
 
 **Dogfood Output Validation — `java_content_diff`.** A content-preservation
-checker for Java, complementing `java_sc` (which only proves "still
+checker for Java, complementing `java_syntax_check` (which only proves "still
 parses", same `css_content_diff.py`/`xml_content_diff.py` precedent from
-`STATE_DATA_FORMATS.md`). Reuses `java_sc`'s `JavacTask.parse()`
+`STATE_DATA_FORMATS.md`). Reuses `java_syntax_check`'s `JavacTask.parse()`
 infrastructure (no new dependency) but keeps the `CompilationUnitTree`
 instead of only scanning diagnostics. Since this formatter *intentionally*
 reorders/transforms some Java content (`java-import-order` sorting,
@@ -368,7 +368,7 @@ Exit 0 if content is preserved, 1 with a description of each mismatch
 otherwise, 2 if either file fails to parse. Build/run:
 ```bash
 JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
-cd util/CodingStyle.md/formatter/tools/syntax_checker
+cd util/CodingStyle.md/formatter/tools/verifiers
 "$JDK/bin/javac" java_content_diff.java
 "$JDK/bin/java" java_content_diff <original.java> <formatted.java>
 ```
@@ -484,7 +484,7 @@ on the noted commits/fixtures)
      occurrence of the existing accepted switch-case-reindent architectural gap, in
      `tool/JSONEncoderLite.java` — see "Known Gaps — Open"). Verified: full round1/round2
      idempotency over the whole tree (clean except the one accepted gap); every `.java.in`
-     run through `pcpp_java` in-place, `java_sc` over both real and pcpp-generated `.java` (32
+     run through `pcpp_java` in-place, `java_syntax_check` over both real and pcpp-generated `.java` (32
      pre-existing "SYNTAX ERRORS FOUND" results, all traced to a pre-existing U+200B
      zero-width-space character already present in the pristine original source, not
      formatter-introduced); `make test` 90/90 forward + 90/90 idempotency (up from 88/88).
@@ -520,8 +520,8 @@ on the noted commits/fixtures)
      `make test` 145/145 forward + 145/145 idempotency; `javac` compile-check (100 pre-existing
      errors, all inside the untouched `jxm/` sibling tree pulled in transitively by
      `com.intellectualsites.http`'s real `jxm.*` imports, identical baseline vs. round1, zero
-     inside `com`/`org`); `java_sc` 173/173 clean, identical baseline vs. round1. All
-     round1/round2/compile/`java_sc` validation run out-of-place (`--out` to scratch dirs) — the
+     inside `com`/`org`); `java_syntax_check` 173/173 clean, identical baseline vs. round1. All
+     round1/round2/compile/`java_syntax_check` validation run out-of-place (`--out` to scratch dirs) — the
      real vendored `src/com`/`src/org` tree itself was never modified. Fixture:
      `real_code_regressions_95`.
 
@@ -529,7 +529,7 @@ on the noted commits/fixtures)
      `test`/`war`/`websocket`, plain Java, no PCPP involved). Reused the checkout already cloned
      under this session's scratchpad dir by a prior XML-focused dogfood session on the same repo
      (see `STATE_DATA_FORMATS.md` for that unrelated write-up) rather than re-cloning. Baseline
-     `java_sc` over all 1929 files: 0 pre-existing syntax errors. Full-tree round1 (one batch
+     `java_syntax_check` over all 1929 files: 0 pre-existing syntax errors. Full-tree round1 (one batch
      `--preserve-tree --root <clone> --out <dir>` invocation): all 1929 files formatted cleanly.
      3 distinct bugs found; 2 fixed this session, 1 left open (plus a possibly-4th, very-low-
      priority pathological-input case) — see "Known Gaps — Open" for the 2 left open. Fixed:
@@ -557,7 +557,7 @@ on the noted commits/fixtures)
      (`PluginManager.java`) hits a low-priority pre-existing-pathological-single-line-statement
      wrap instability (also "Known Gaps — Open"). `javac` compile pass not attempted (Jenkins'
      own Maven build has heavy external dependency resolution not worth the setup cost per this
-     task's own guidance; `java_sc` + idempotency are the load-bearing checks here).
+     task's own guidance; `java_syntax_check` + idempotency are the load-bearing checks here).
      `java_content_diff` spot-checked on a handful of round1 files including `IdStrategy.java`
      and `PluginManager.java` (the two files with non-idempotency): content preserved in all
      cases (only whitespace/reordering-class differences, no dropped/changed declarations).
@@ -628,7 +628,7 @@ on the noted commits/fixtures)
 (9) `github.com/apache/ant` — large, mature legacy Java build tool; older/pre-Java-8-idioms-
     heavy authorial style, distinct from items (6)/(8)/(24)'s more modern conventions (may
     exercise more tabs/older brace-and-wrap conventions). Queue behind item (8). Plain `.java`,
-    no PCPP involved — same round1/round2 + `java_sc` methodology as item (24). (NOT STARTED)
+    no PCPP involved — same round1/round2 + `java_syntax_check` methodology as item (24). (NOT STARTED)
 
 Priority order for the C/C++ queue unless the user redirects: `llvm-project` →
 `gcc-mirror` (`mp11`/`lexy`/`stdexec`/`range-v3`/`boost-ext/ut`/`microsoft/proxy`/`STL` already DONE —

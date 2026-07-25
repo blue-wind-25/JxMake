@@ -479,10 +479,10 @@ export PATH=/opt/openjdk-21_linux-x64_bin/jdk-21/bin:$PATH
 ends by `exec bash`-ing into an interactive session — source only its
 `export`/`cd` lines for a scripted run.)
 
-**Lightweight PSI-based syntax-only checker (`kotlin_sc`) — viable, distinct
+**Lightweight PSI-based syntax-only checker (`kotlin_syntax_check`) — viable, distinct
 from the rejected full-compilation recipe above.** The rejected K2JVMCompiler
 note is about a bare classpath doing a *full compile*, which can't resolve
-`android.*`/AndroidX imports without Gradle's dependency graph. `kotlin_sc`
+`android.*`/AndroidX imports without Gradle's dependency graph. `kotlin_syntax_check`
 is lighter: parses a `.kt` file to a PSI/AST via
 `KotlinCoreEnvironment`/`KtPsiFactory` and reports `PsiErrorElement` nodes
 (parse errors) — no semantic/type checking, never resolves `android.*`
@@ -491,8 +491,8 @@ standalone Java program; every needed class is bundled in the single shaded
 `~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib/kotlin-compiler.jar` (confirmed via
 `unzip -l`, no separate intellij-core/trove4j jars needed).
 
-Tool location: `util/CodingStyle.md/formatter/tools/syntax_checker/`
-(`kotlin_sc.java` + compiled `kotlin_sc.class`; committed, licensed project
+Tool location: `util/CodingStyle.md/formatter/tools/verifiers/`
+(`kotlin_syntax_check.java` + compiled `kotlin_syntax_check.class`; committed, licensed project
 tooling, alongside the other jobs' syntax checkers).
 
 Build/run (JDK 21, matches this compiler's class file version 52 = Java 8
@@ -501,9 +501,9 @@ target, runs fine on 21):
 ```bash
 JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
 KLIB=~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib
-cd util/CodingStyle.md/formatter/tools/syntax_checker
-"$JDK/bin/javac" -cp "$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_sc.java
-"$JDK/bin/java" -cp ".:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_sc <file.kt> [file2.kt ...]
+cd util/CodingStyle.md/formatter/tools/verifiers
+"$JDK/bin/javac" -cp "$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_syntax_check.java
+"$JDK/bin/java" -cp ".:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_syntax_check <file.kt> [file2.kt ...]
 ```
 
 Exits 0 and prints "OK: no syntax errors" when clean; exits 1 and prints each
@@ -513,7 +513,7 @@ and a deliberately corrupted copy with injected stray `}}}` (correctly
 reports the right errors at the right offsets).
 
 **Recommended use going forward:** for a quick syntax/parse sanity check on
-formatter output, run `kotlin_sc` first — near-instant versus a full Gradle
+formatter output, run `kotlin_syntax_check` first — near-instant versus a full Gradle
 build. It does NOT replace `./gradlew compileDebugKotlin` for real
 dogfood/compile-check testing (no semantic checking, no unresolved-reference
 detection) — keep using the Gradle recipe for that. Treat it as a fast
@@ -526,9 +526,9 @@ header) — same precedent as the `indent-size = 2` config-wiring no-op
 exception noted there.
 
 **Dogfood Output Validation — `kotlin_content_diff`.** A content-preservation
-checker for Kotlin, complementing `kotlin_sc` (which only proves "still
+checker for Kotlin, complementing `kotlin_syntax_check` (which only proves "still
 parses", same `java_content_diff`/`css_content_diff.py`/`xml_content_diff.py`
-precedent). Reuses `kotlin_sc`'s `KotlinCoreEnvironment`/`KtPsiFactory`
+precedent). Reuses `kotlin_syntax_check`'s `KotlinCoreEnvironment`/`KtPsiFactory`
 infrastructure (no new dependency), modeled directly on `java_content_diff`'s
 design split by content family (`kotlin-import-order` sorting,
 declaration-alignment whitespace, `normalize-comment-start-case` are all
@@ -563,11 +563,11 @@ reachable only through `ASTNode.getChildren(null)`, never through the
 PSI-level children array). Switching both the canonicalization walk and
 comment collection to ASTNode traversal fixed it.
 
-Build/run (same classpath as `kotlin_sc`):
+Build/run (same classpath as `kotlin_syntax_check`):
 ```bash
 JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
 KLIB=~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib
-cd util/CodingStyle.md/formatter/tools/syntax_checker
+cd util/CodingStyle.md/formatter/tools/verifiers
 "$JDK/bin/javac" -cp "$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_content_diff.java
 "$JDK/bin/java" -cp ".:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_content_diff <original.kt> <formatted.kt>
 ```
@@ -598,7 +598,7 @@ Cannot resolve AndroidX or a multi-module Gradle project's own dependencies
 the original checkout). Used for Android/Gradle candidates needing the real
 SDK/AndroidX dependency graph (`gui_frontend_android`).
 
-(3) `kotlin_sc` — PSI-based syntax-only checker, build/run commands above.
+(3) `kotlin_syntax_check` — PSI-based syntax-only checker, build/run commands above.
 Used when a full Gradle build is not wanted/needed (`kotlinx.coroutines`, per
 explicit user request) — catches parse errors only, weaker confidence than (2)
 (no semantic/type checking).
@@ -673,7 +673,7 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
    plus a sibling bug in its paired bare `else` arm). Fixtures
    `test/real_code_regressions_59`–`_64`. Verified: a fresh full-scope
    63-file reformat is round1/round2 byte-identical (`diff -rq` empty);
-   `kotlin_sc` reports 0 syntax errors across all 63 files (started at 5
+   `kotlin_syntax_check` reports 0 syntax errors across all 63 files (started at 5
    before RDD_KEY_171-173, 1 after RDD_KEY_173, 0 after RDD_KEY_176);
    `make test` 88/88 clean, zero regressions throughout.
 

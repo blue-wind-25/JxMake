@@ -130,7 +130,7 @@ faster):
    same error count as the unmodified original (no new, formatter-induced
    errors).
 
-Use `tools/syntax_checker` to syntax check.
+Use `tools/verifiers` to syntax check.
 
 If there are many errors, work in batch, store the rest in the corresponding
 state file.

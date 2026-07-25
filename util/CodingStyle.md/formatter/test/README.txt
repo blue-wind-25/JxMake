@@ -1015,7 +1015,7 @@ Real-code regressions:
                                              Verified: minimal repro, full `make test`.
 
   real_code_regressions_60_inp/out.kt     -- Kotlin, arrow-kt/arrow real-code testing (found via
-                                             `kotlin_sc` compile-checking round1's output, not
+                                             `kotlin_syntax_check` compile-checking round1's output, not
                                              round1/round2 diffing): `BlockStructureRule
                                              .isKotlinSingleStatementBody` let a braced `if` body
                                              whose sole statement was a `val`/`var` declaration
@@ -1027,7 +1027,7 @@ Real-code regressions:
                                              Verified: minimal repro, full `make test`.
 
   real_code_regressions_61_inp/out.kt     -- Kotlin, arrow-kt/arrow real-code testing (also found
-                                             via `kotlin_sc`): `MiscRule.needsSpaceBetween` had no
+                                             via `kotlin_syntax_check`): `MiscRule.needsSpaceBetween` had no
                                              tight-after case for a Kotlin annotation's `@` when it
                                              shares its source line with the function signature
                                              (rendered through `MiscRule.renderTokens`'s shared join
@@ -1068,7 +1068,7 @@ Real-code regressions:
                                              compile error. Fixed by reusing
                                              `containsMultilineNestedBrace` as a bail-out guard.
                                              Found in `Either.kt`'s `zipOrAccumulate`. Verified:
-                                             `kotlin_sc` on `Either.kt` (18 errors -> 0), full `make
+                                             `kotlin_syntax_check` on `Either.kt` (18 errors -> 0), full `make
                                              test`.
 
   real_code_regressions_64_inp/out.kt     -- Kotlin, arrow-kt/arrow real-code testing: RDD_KEY_177,
@@ -1859,7 +1859,7 @@ Real-code regressions:
                                              tokenize as distinct multi-char OPs, so no risk of
                                              confusion) as the expression's last significant token
                                              and skips gap-trimming entirely for that field. Both
-                                             verified via `python_ast_diff.py` (structurally
+                                             verified via `python_content_diff.py` (structurally
                                              identical) and idempotency; identity-pass fixture.
                                              See `STATE_PYTHON3.md`'s `psf/black` dogfood entry.
 

@@ -7,7 +7,7 @@
 """
 css_content_diff.py — CSS content-preservation checker.
 
-Complements css_sc.js (postcss-based syntax check: "is it still valid CSS?").
+Complements css_syntax_check.js (postcss-based syntax check: "is it still valid CSS?").
 This script instead asks "did the formatter change any *meaning*?" by
 comparing an original CSS file against a formatted version of it:
 

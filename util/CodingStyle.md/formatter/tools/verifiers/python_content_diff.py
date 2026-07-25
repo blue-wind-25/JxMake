@@ -5,7 +5,7 @@
 # See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
 
 """
-python_ast_diff.py - content-preservation checker for Python, modeled on
+python_content_diff.py - content-preservation checker for Python, modeled on
 toml_content_diff.py / xml_content_diff.py / yaml_content_diff.py.
 
 Unlike those, Python has a real parser in its own stdlib (`ast`), so this
@@ -21,7 +21,7 @@ an indentation-based scoping change, since Python's indentation IS its
 scoping, per STATE_PYTHON3.md).
 
 Usage:
-    python3 python_ast_diff.py <original.py> <formatted.py>
+    python3 python_content_diff.py <original.py> <formatted.py>
 
 Exit 0 if the two ASTs are structurally identical (content preserved), 1 if
 they differ (prints a highlighted description of the first mismatch), 2 if
@@ -49,7 +49,7 @@ def dump(tree):
 
 def main():
     if len(sys.argv) != 3:
-        sys.stderr.write("usage: python_ast_diff.py <original.py> <formatted.py>\n")
+        sys.stderr.write("usage: python_content_diff.py <original.py> <formatted.py>\n")
         sys.exit(2)
 
     orig_path, fmt_path = sys.argv[1], sys.argv[2]

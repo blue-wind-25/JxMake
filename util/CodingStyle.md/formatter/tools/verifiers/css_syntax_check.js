@@ -16,30 +16,35 @@
 
 'use strict';
 
-// Lightweight JSON5 syntax checker.
+// Lightweight CSS syntax checker.
 //
-// Parses a .json5 source file with the `json5` package and reports
-// syntax errors (line/column come from json5's own error object).
-// This does NOT do any schema/semantic validation.
+// Parses a .css source file with `postcss` and reports syntax errors.
+// (An earlier version of this script used `css-tree`, but its parser is
+// deliberately tolerant -- it silently auto-closes an unclosed `{ ... }`
+// block at EOF instead of reporting a parse error, so real corruption like
+// a missing closing brace went undetected. `postcss` throws a
+// `CssSyntaxError` with line/column for that case, so it's used instead.)
+// This does NOT do any semantic validation (unknown properties/values are
+// not checked).
 //
 // Install (once node/npm work):
-//     npm install --prefix ~/mynpm json5
+//     npm install --prefix ~/mynpm postcss
 //
 // Run:
-//     export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules
+//     export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules:~/mynpm/node_modules
 //     export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
-//     node json5_sc.js <file.json5> [file2.json5 ...]
+//     node css_syntax_check.js <file.css> [file2.css ...]
 
 const fs = require('fs');
-const JSON5 = require('json5');
+const postcss = require('postcss');
 
 function hasSyntaxError(source) {
     try {
-        JSON5.parse(source);
+        postcss.parse(source);
         return false;
     } catch (e) {
-        if (typeof e.lineNumber === 'number') {
-            console.log(`${e.lineNumber}:${e.columnNumber}: ${e.message}`);
+        if (e.name === 'CssSyntaxError') {
+            console.log(`${e.line}:${e.column}: ${e.reason}`);
         } else {
             console.log(e.message);
         }
@@ -50,7 +55,7 @@ function hasSyntaxError(source) {
 function main() {
     const args = process.argv.slice(2);
     if (args.length < 1) {
-        console.error('Usage: json5_sc.js <file.json5> [file2.json5 ...]');
+        console.error('Usage: css_syntax_check.js <file.css> [file2.css ...]');
         process.exit(2);
     }
 

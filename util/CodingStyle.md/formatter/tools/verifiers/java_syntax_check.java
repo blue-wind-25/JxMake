@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake build system and is distributed under the Apache License, Version 2.0.
+ * See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
+ */
+
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -22,12 +29,12 @@ import com.sun.source.util.JavacTask;
  *
  * Build:
  *     JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
- *     $JDK/bin/javac java_sc.java
+ *     $JDK/bin/javac java_syntax_check.java
  *
  * Run:
- *     $JDK/bin/java java_sc <file.java> [file2.java ...]
+ *     $JDK/bin/java java_syntax_check <file.java> [file2.java ...]
  */
-public class java_sc {
+public class java_syntax_check {
 
     static class SourceFile extends SimpleJavaFileObject {
         private final String source;
@@ -100,7 +107,7 @@ public class java_sc {
     public static void main(String[] args) throws Exception {
 
         if (args.length < 1) {
-            System.err.println("Usage: java_sc <file.java> [file2.java ...]");
+            System.err.println("Usage: java_syntax_check <file.java> [file2.java ...]");
             System.exit(2);
         }
 

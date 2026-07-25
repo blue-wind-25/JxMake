@@ -18,7 +18,7 @@ css_content_diff.py / xml_content_diff.py.
 
 Python 3.6 on this system has no stdlib `tomllib` (3.11+ only) and no `toml`/
 `tomli` package installed, so this script shells out to a tiny Node.js helper
-that uses the `smol-toml` package (already installed for toml_sc.js) to parse
+that uses the `smol-toml` package (already installed for toml_syntax_check.js) to parse
 each file to JSON, then compares the resulting Python data structures for
 deep equality (dict/list/scalar), the same principle as tomllib-based
 comparison would give.
@@ -26,7 +26,7 @@ comparison would give.
 Usage:
     python3 toml_content_diff.py <original.toml> <formatted.toml>
 
-Requires the same LD_LIBRARY_PATH/NODE_PATH/PATH env as toml_sc.js (see
+Requires the same LD_LIBRARY_PATH/NODE_PATH/PATH env as toml_syntax_check.js (see
 STATE_DATA_FORMATS.md's "Dogfood Output Validation" section).
 
 Exit 0 if parsed data structures match (content preserved), 1 otherwise with

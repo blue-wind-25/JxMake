@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake build system and is distributed under the Apache License, Version 2.0.
+ * See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
+ */
+
 import java.util.ArrayList;
 import java.util.List;
 import com.intellij.lang.ASTNode;
@@ -16,7 +23,7 @@ import org.jetbrains.kotlin.psi.KtPsiFactory;
 
 /**
  * Content-preservation checker for Kotlin, modeled on java_content_diff.java
- * (same reasoning applied to `kotlin_sc`'s PSI/AST infrastructure --
+ * (same reasoning applied to `kotlin_syntax_check`'s PSI/AST infrastructure --
  * KotlinCoreEnvironment/KtPsiFactory, no new dependency).
  *
  * Unlike javac's Tree.toString(), IntelliJ PSI is a lossless concrete syntax
@@ -49,7 +56,7 @@ import org.jetbrains.kotlin.psi.KtPsiFactory;
  *     (normalize-comment-start-case), so it must not be flagged, but a
  *     dropped/corrupted comment still is.
  *
- * Build (JDK 21, same classpath as kotlin_sc.java):
+ * Build (JDK 21, same classpath as kotlin_syntax_check.java):
  *     JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
  *     KLIB=~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib
  *     $JDK/bin/javac -cp "$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_content_diff.java

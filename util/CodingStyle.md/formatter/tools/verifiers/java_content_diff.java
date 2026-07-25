@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake build system and is distributed under the Apache License, Version 2.0.
+ * See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
+ */
+
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -17,7 +24,7 @@ import com.sun.source.util.JavacTask;
 
 /**
  * Content-preservation checker for Java, modeled on css_content_diff.py /
- * xml_content_diff.py / python_ast_diff.py, reusing java_sc's javac-AST
+ * xml_content_diff.py / python_content_diff.py, reusing java_syntax_check's javac-AST
  * parsing infrastructure (JavacTask.parse(), no semantic/type checking).
  *
  * Unlike a naive text/token diff, this formatter *intentionally* reorders

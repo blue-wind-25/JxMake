@@ -24,7 +24,7 @@
 // Run:
 //     export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules
 //     export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
-//     node json_sc.js <file.json> [file2.json ...]
+//     node json_syntax_check.js <file.json> [file2.json ...]
 
 const fs = require('fs');
 
@@ -61,7 +61,7 @@ function hasSyntaxError(source) {
 function main() {
     const args = process.argv.slice(2);
     if (args.length < 1) {
-        console.error('Usage: json_sc.js <file.json> [file2.json ...]');
+        console.error('Usage: json_syntax_check.js <file.json> [file2.json ...]');
         process.exit(2);
     }
 

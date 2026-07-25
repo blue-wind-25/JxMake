@@ -1,3 +1,10 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake build system and is distributed under the Apache License, Version 2.0.
+ * See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
+ */
+
 import java.util.Collection;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.psi.PsiErrorElement;
@@ -23,12 +30,12 @@ import org.jetbrains.kotlin.psi.KtPsiFactory;
  * Build:
  *     JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
  *     KLIB=~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib
- *     $JDK/bin/javac -cp "$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_sc.java
+ *     $JDK/bin/javac -cp "$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_syntax_check.java
  *
  * Run:
- *     $JDK/bin/java -cp ".:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_sc <file.kt> [file2.kt ...]
+ *     $JDK/bin/java -cp ".:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_syntax_check <file.kt> [file2.kt ...]
  */
-public class kotlin_sc {
+public class kotlin_syntax_check {
 
     public static boolean hasSyntaxError(String source) {
         KotlinCoreEnvironment env =
@@ -60,7 +67,7 @@ public class kotlin_sc {
 
     public static void main(String[] args) throws Exception {
         if (args.length < 1) {
-            System.err.println("Usage: kotlin_sc <file.kt> [file2.kt ...]");
+            System.err.println("Usage: kotlin_syntax_check <file.kt> [file2.kt ...]");
             System.exit(2);
         }
 

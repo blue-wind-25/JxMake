@@ -7,11 +7,11 @@
 """
 xml_content_diff.py -- XML content-preservation checker.
 
-Complements xml_sc.js (@xmldom/xmldom-based syntax check: "does it still
+Complements xml_syntax_check.js (@xmldom/xmldom-based syntax check: "does it still
 parse?"). This script instead asks "did the formatter change any *meaning*?"
 by comparing an original XML file against a formatted version of it, walking
 both DOMs in parallel (stdlib xml.dom.minidom -- no extra package
-dependency, unlike the Node-based *_sc.js scripts) and comparing:
+dependency, unlike the Node-based *_syntax_check.js scripts) and comparing:
 
   1. Element names, in document order (tree shape/tag names unchanged).
   2. Attribute name+value pairs per element, IN ORDER (XML attribute order

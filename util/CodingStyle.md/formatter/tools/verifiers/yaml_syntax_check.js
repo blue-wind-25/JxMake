@@ -16,30 +16,30 @@
 
 'use strict';
 
-// Lightweight TOML syntax checker.
+// Lightweight YAML syntax checker.
 //
-// Parses a .toml source file with `smol-toml` and reports syntax
-// errors (line/column come from the parser's own error object).
-// This does NOT do any schema/semantic validation.
+// Parses a .yaml/.yml source file with `js-yaml` and reports syntax
+// errors. Uses loadAll() so multi-document files (separated by `---`)
+// are fully checked. This does NOT do any schema/semantic validation.
 //
 // Install (once node/npm work):
-//     npm install --prefix ~/mynpm smol-toml
+//     npm install --prefix ~/mynpm js-yaml
 //
 // Run:
 //     export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules
 //     export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
-//     node toml_sc.js <file.toml> [file2.toml ...]
+//     node yaml_syntax_check.js <file.yaml> [file2.yaml ...]
 
 const fs = require('fs');
-const TOML = require('smol-toml');
+const yaml = require('js-yaml');
 
 function hasSyntaxError(source) {
     try {
-        TOML.parse(source);
+        yaml.loadAll(source);
         return false;
     } catch (e) {
-        if (e.line != null) {
-            console.log(`${e.line}:${e.column}: ${e.message}`);
+        if (e.mark) {
+            console.log(`${e.mark.line + 1}:${e.mark.column + 1}: ${e.reason}`);
         } else {
             console.log(e.message);
         }
@@ -50,7 +50,7 @@ function hasSyntaxError(source) {
 function main() {
     const args = process.argv.slice(2);
     if (args.length < 1) {
-        console.error('Usage: toml_sc.js <file.toml> [file2.toml ...]');
+        console.error('Usage: yaml_syntax_check.js <file.yaml> [file2.yaml ...]');
         process.exit(2);
     }
 

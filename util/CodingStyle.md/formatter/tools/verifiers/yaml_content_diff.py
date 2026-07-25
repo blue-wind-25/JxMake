@@ -9,7 +9,7 @@ yaml_content_diff.py -- content-preservation checker for YAML dogfood testing.
 
 Parses both an original and a formatted YAML file with PyYAML's
 `yaml.safe_load_all` (multi-document stream aware, same reasoning as
-`yaml_sc.js`'s `loadAll()`) and compares the resulting Python data structures
+`yaml_syntax_check.js`'s `loadAll()`) and compares the resulting Python data structures
 (dict/list/scalar) document-by-document for equality. This proves keys,
 values, and structure were not altered by formatting -- it does NOT catch
 comment-only changes (comment normalization is a separate, lighter-weight

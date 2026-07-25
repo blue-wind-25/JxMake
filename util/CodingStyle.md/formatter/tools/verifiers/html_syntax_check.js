@@ -16,57 +16,52 @@
 
 'use strict';
 
-// Lightweight XML syntax checker.
+// Lightweight HTML5 syntax checker.
 //
-// Parses a .xml source file with `@xmldom/xmldom` and reports syntax
-// errors. xmldom's default onError handler only logs warnings/errors to
-// the console and does not throw for `error`-level problems, so a custom
-// onError is wired in to capture those too; `fatalError`-level problems
-// (e.g. mismatched tags) throw a ParseError regardless of onError, so
-// that path is also caught. This does NOT validate against a DTD/XSD
-// schema.
+// Parses a .html source file with `parse5` (a spec-compliant WHATWG
+// HTML5 parser) and reports parse errors via its onParseError callback.
+//
+// IMPORTANT CAVEAT: per the HTML5 spec, the parser is deliberately
+// error-tolerant (e.g. it silently auto-closes mismatched tags rather
+// than failing) so this will NOT catch most "malformed" HTML the way
+// an XML parser catches malformed XML -- it only reports the specific
+// set of conditions the spec defines as parse errors. Treat "OK" here
+// as "a browser can render this without an ambiguous/undefined DOM",
+// not "the markup is well-formed" in the XML sense.
 //
 // Install (once node/npm work):
-//     npm install --prefix ~/mynpm @xmldom/xmldom
+//     npm install --prefix ~/mynpm parse5
 //
 // Run:
 //     export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules
 //     export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
-//     node xml_sc.js <file.xml> [file2.xml ...]
+//     node html_syntax_check.js <file.html> [file2.html ...]
 
 const fs = require('fs');
-const { DOMParser } = require('@xmldom/xmldom');
+const parse5 = require('parse5');
 
 function hasSyntaxError(source) {
-    const messages = [];
+    const errors = [];
 
-    const parser = new DOMParser({
-        onError: (level, msg) => {
-            messages.push(`${level}: ${msg}`);
+    parse5.parse(source, {
+        sourceCodeLocationInfo: true,
+        onParseError: (error) => {
+            errors.push(error);
         }
     });
 
-    try {
-        parser.parseFromString(source, 'text/xml');
-    } catch (e) {
-        // A fatalError is reported via onError above AND thrown -- only
-        // record it here if onError didn't already capture it.
-        if (messages.length === 0) {
-            messages.push(e.message || String(e));
-        }
+    for (const e of errors) {
+        const loc = e.startLine != null ? `${e.startLine}:${e.startCol}: ` : '';
+        console.log(`${loc}${e.code}`);
     }
 
-    for (const m of messages) {
-        console.log(m);
-    }
-
-    return messages.length > 0;
+    return errors.length > 0;
 }
 
 function main() {
     const args = process.argv.slice(2);
     if (args.length < 1) {
-        console.error('Usage: xml_sc.js <file.xml> [file2.xml ...]');
+        console.error('Usage: html_syntax_check.js <file.html> [file2.html ...]');
         process.exit(2);
     }
 

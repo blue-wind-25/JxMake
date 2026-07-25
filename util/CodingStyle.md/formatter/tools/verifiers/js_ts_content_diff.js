@@ -1,10 +1,16 @@
 #!/usr/bin/env node
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake build system and is distributed under the Apache License, Version 2.0.
+ * See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
+ */
 /**
  * Content-preservation checker for JS/TS, modeled on java_content_diff.java
  * and kotlin_content_diff.java (same reasoning, applied via the TypeScript
  * compiler API instead of javac/PSI). One script handles both `.js` and
  * `.ts` -- ts.createSourceFile parses plain JS just fine, same idiom used
- * by every other Node-based *_sc.js/*_content_diff.py tool in this repo.
+ * by every other Node-based *_syntax_check.js/*_content_diff.py tool in this repo.
  *
  * Gotcha (same shape as the Kotlin PSI one): TypeScript's AST does NOT
  * attach comments as tree nodes -- node.getChildren() never yields them.

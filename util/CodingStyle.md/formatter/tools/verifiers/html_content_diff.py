@@ -16,7 +16,7 @@
 html_content_diff.py -- content-preservation checker for HTML5, modeled on
 xml_content_diff.py / css_content_diff.py / toml_content_diff.py.
 
-Complements html_sc.js (parse5-based syntax check: "does it still parse
+Complements html_syntax_check.js (parse5-based syntax check: "does it still parse
 per the HTML5 spec's error-tolerant grammar?"). This script instead asks
 "did the formatter change any *meaning*?" by parsing both the original and
 formatted HTML5 file with parse5 (via a small inline Node.js helper, since
@@ -40,7 +40,7 @@ dispatches that content to the JS/TS and CSS pipelines respectively, which
 may reformat it (whitespace, quote style, etc.). Instead, for script/style
 elements this script only checks that the element itself still exists at
 the same tree position with the same attributes; the body's *meaning* is
-presumed covered by html_sc.js (which re-parses the whole file, including
+presumed covered by html_syntax_check.js (which re-parses the whole file, including
 tokenizing script/style raw text) and, for style bodies, by CSS's own
 content-preservation guarantees (css_content_diff.py) when applicable.
 Node-type mismatches at the same tree position are reported as a
@@ -49,7 +49,7 @@ structural mismatch.
 Usage:
     python3 html_content_diff.py <original.html> <formatted.html>
 
-Requires the same LD_LIBRARY_PATH/NODE_PATH/PATH env as html_sc.js (parse5
+Requires the same LD_LIBRARY_PATH/NODE_PATH/PATH env as html_syntax_check.js (parse5
 must be installed via `npm install --prefix ~/mynpm parse5`).
 
 Exit 0 if all checks pass (content preserved), 1 otherwise with a

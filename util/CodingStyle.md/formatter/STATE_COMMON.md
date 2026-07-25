@@ -220,22 +220,20 @@ test-server` Makefile target and documented in `README.md`'s Server Wire
 Protocol section. No follow-up work remains; the bundled CLI exposing
 inline config via its own flags is optional, not required.
 
-**Follow-up — client env-var forwarding on delegation (DONE).** User raised a design question:
-in server mode, tiers 2 (`~/.config/...`)/3 (env vars) of the precedence chain are resolved by
-the *server* process, not the CLI client — is that inconsistent when the client is the one
-holding the actual source-of-truth environment? Investigated: tier 2 is fine as long as
-client/server run as the same user on the same machine (the only supported deployment shape,
-`localhost`-only); tier 3 is a real staleness risk for a long-running server, since a JVM's env
-is fixed at its own process start and can drift from the client's *current* shell env. Fixed by
-adding `Config.clientEnvOverrides()` (public wrapper around the existing private
-`collectEnvVars()`) and having `Main.delegateToServer` forward its own live
-`JXMAKE_CODE_FORMATTER_*` snapshot as inline query-param overrides on every delegated request —
-verified with a manual smoke test (`JXMAKE_CODE_FORMATTER_LINE_LENGTH` override changes a
-delegated request's wrap decision identically to a standalone run in the same env). `README.md`'s
-Configuration section gained a "Server mode note on tiers 2/3" paragraph documenting this.
-`make test` 169/169 forward + 169/169 idempotency, `make test-server` all PASS, zero regressions
-(no config-key surface change, no wire-protocol shape change — same accepted-query-param
-mechanism, just a new client-side sender).
+**Follow-up — client env-var forwarding on delegation (DONE).** Design question: in server mode,
+tiers 2 (`~/.config/...`)/3 (env vars) of the precedence chain are resolved by the *server*
+process, not the client — inconsistent since the client holds the source-of-truth environment.
+Tier 2 is fine (client/server always run as the same user on the same `localhost`-only machine);
+tier 3 is a real staleness risk for a long-running server, since a JVM's env is fixed at process
+start and can drift from the client's current shell env. Fixed by adding
+`Config.clientEnvOverrides()` (public wrapper around the existing private `collectEnvVars()`) and
+having `Main.delegateToServer` forward its own live `JXMAKE_CODE_FORMATTER_*` snapshot as inline
+query-param overrides on every delegated request — verified via manual smoke test
+(`JXMAKE_CODE_FORMATTER_LINE_LENGTH` override changes a delegated request's wrap decision
+identically to a standalone run). `README.md`'s Configuration section gained a "Server mode note
+on tiers 2/3" paragraph. `make test` 169/169 forward + 169/169 idempotency, `make test-server` all
+PASS, zero regressions (no config-key or wire-protocol shape change, just a new client-side
+sender).
 
 ---
 

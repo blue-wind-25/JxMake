@@ -570,58 +570,46 @@ on the noted commits/fixtures)
 
 (26) **DONE (with documented open gaps)** — `github.com/microsoft/STL` (Microsoft's `std::`
      implementation). Full `stl/inc/` + `stl/src/` tree tested (289 files, ~9MB): 127 extensionless
-     headers (`<vector>`, `<string>`, etc., confirmed real C++ and copied to `.hpp` first per this
-     job's own convention), plus `stl/inc/experimental`'s 3 extensionless headers, plus 21 `.h` +
-     22 `.hpp` + 112 `.cpp` + 4 `.hpp` already carrying an extension. Excluded (not real host C++
-     for this harness): `inc/modules/*.ixx` (C++20 module interface units, a different grammar
-     entirely), one stray `.json`, 2 `.asm`, 1 `.src`. Full-tree round1 (one batch
-     `--preserve-tree --root DIR --out DIR` invocation): all 289 files formatted with no crashes.
-     Full-tree round1/round2 idempotency: 110/289 files differed initially.
+     headers (`<vector>`, `<string>`, etc., confirmed real C++, copied to `.hpp` first per this
+     job's convention) + `stl/inc/experimental`'s 3 extensionless headers + 21 `.h` + 22 `.hpp` +
+     112 `.cpp` + 4 `.hpp` already carrying an extension. Excluded: `inc/modules/*.ixx` (C++20
+     module interface units, different grammar), 1 stray `.json`, 2 `.asm`, 1 `.src`. Full-tree
+     round1 (batch `--preserve-tree --root DIR --out DIR`): all 289 formatted, no crashes.
+     Round1/round2 idempotency: 110/289 files differed initially. `clang++ -std=c++23
+     -stdlib=libc++ -fsyntax-only` not attempted — STL is Microsoft's internal `std::` impl with
+     heavy MSVC-specific intrinsics/`__declspec`/`_STL_INTERNAL_*` macros that don't compile
+     standalone under any other toolchain without STL's own CMake+MSVC build harness; full-tree
+     idempotency is the load-bearing validation here (anticipated fallback posture for this
+     candidate).
 
-     2 bugs found and fixed this session: (a) `Main.applyLineEndings`'s default (`line-endings =
-     lf`) fast path assumed the internally-formatted string already contained no `\r` and skipped
-     any explicit stripping -- false whenever the *original* input was CRLF, since the tokenizer
-     preserves a `\r` verbatim inside any WHITESPACE token a given pass doesn't rewrite, so
-     untouched lines kept their original `\r` while rewritten lines came out `\r`-free, a mixed
-     result that differed again on a second pass once a different set of lines got touched. Fixed
-     by always normalizing to a clean LF-only baseline (`\r\n`/lone `\r` -> `\n`) before applying
-     whichever target ending is actually requested. This one fix alone resolved 99 of the 110
-     idempotency-diffing files (STL's `stl/` tree is CRLF-authored throughout). (b) Two duplicated
+     2 bugs found and fixed: (a) `Main.applyLineEndings`'s default (`line-endings = lf`) fast path
+     assumed the formatted string already had no `\r` and skipped explicit stripping — false when
+     the *original* input was CRLF, since the tokenizer preserves `\r` verbatim inside any
+     WHITESPACE token a pass doesn't rewrite, so untouched lines kept `\r` while rewritten lines
+     didn't, producing a mixed result that kept differing each round. Fixed by always normalizing
+     to a clean LF-only baseline before applying the requested target ending. Alone resolved 99 of
+     the 110 diffing files (STL's tree is CRLF-authored throughout). (b) Two duplicated
      `collapseToOneLine`/`flushCollapseGap` implementations (`MiscRuleCurly.java`,
-     `CppSpecificRule.java`) unconditionally inserted a single space when rejoining a
-     newline-spanning gap, with no tight-join awareness -- so a wrapped member-access/`->`
-     expression whose line broke right at the `.`/`->` (e.g. a constructor's member-initializer-
-     list argument) came back corrupted (`other. _Outer`) once re-collapsed. Sibling
-     `collapseTokensToOneLine` already carried this exact guard for JS/TS's `.`/`?.` (an earlier
-     nestjs/nest fix) but it was never mirrored into either `collapseToOneLine`; fixed by adding
-     the same previous/next-significant-token tight-join check to both. Verified via `make test`
-     168/168 forward + 168/168 idempotency (up from 166/166) and a targeted re-run of the 110
-     originally-diffing files: down to 11. Fixtures: `real_code_regressions_118` (bug a),
-     `real_code_regressions_119` (bug b).
+     `CppSpecificRule.java`) unconditionally inserted a space when rejoining a newline-spanning
+     gap, with no tight-join awareness, so a wrapped `.`/`->` expression (e.g. a constructor's
+     member-initializer-list argument) broken right at the `.`/`->` came back corrupted
+     (`other. _Outer`) once re-collapsed. Sibling `collapseTokensToOneLine` already had this guard
+     for JS/TS's `.`/`?.` but it was never mirrored into `collapseToOneLine`; fixed by adding the
+     same previous/next-significant-token tight-join check to both. `make test` 168/168
+     forward+idempotency (up from 166/166); targeted re-run of the 110 originally-diffing files:
+     down to 11. Fixtures: `real_code_regressions_118` (a), `real_code_regressions_119` (b).
 
-     **3 additional gaps found this session; 2 fixed outright in a follow-up session, the 3rd
-     partially fixed** (its `ranges.hpp`/`_Range` shape is fixed; a second, distinct shape of the
-     same gap title found in `filesystem.hpp` remains open -- documented in "Known Gaps -- Open"
-     below; session originally closed as DONE with all 3 accepted, same disposition precedent as
-     jenkins item 25/javaparser item 16, then revisited): a deeper, related bug where a long
-     constructor signature's own parameter-wrap logic gets misapplied to its immediately-following
-     member-initializer-list entry (mutex.hpp, shared_mutex.hpp, filesystem.cpp) -- **fixed in a
-     follow-up session**, see "Known Gaps -- Fixed"; a macro-then-statement line-merge instability
-     (`_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK`-style macros glued onto a following `if(...)` on
-     one pass and not the other -- istream.hpp, stacktrace.hpp, xlocale.hpp) -- **fixed in a
-     follow-up session**, see "Known Gaps -- Fixed"; and a recurrence of the already-documented
-     "declaration-alignment column-padding non-idempotency" gap (algorithm.hpp, filesystem.hpp,
-     ranges.hpp's `_Range` field) -- **the `ranges.hpp`/`_Range` shape fixed in a follow-up session**
-     (root cause: `ScopePipelineCore.trailingIndent` sweeping a same-line leading comment into the
-     group's per-line indent, see "Known Gaps -- Fixed"), but `filesystem.hpp`'s
-     `recursive_directory_iterator` assignment-alignment shape is a distinct mechanism and remains
-     open, see "Known Gaps -- Open". `clang++ -std=c++23 -stdlib=libc++ -fsyntax-only`
-     not attempted against STL's real headers -- STL is Microsoft's own internal `std::`
-     implementation with heavy MSVC-specific intrinsics/`__declspec`/`_STL_INTERNAL_*` macro
-     dependencies that don't compile standalone under any other toolchain without STL's own build
-     harness (CMake + MSVC-specific defines); full-tree idempotency (with the fixes above) is the
-     load-bearing validation here, same fallback posture this task's own instructions anticipated
-     for this exact candidate.
+     3 additional gaps found; all now fixed except one distinct shape left open. Fixed in
+     follow-up sessions (see "Known Gaps — Fixed" for each): a long constructor signature's
+     parameter-wrap logic misapplied to its own following member-initializer-list entry
+     (mutex.hpp, shared_mutex.hpp, filesystem.cpp); a macro-then-statement line-merge instability
+     (`_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK`-style macros glued to a following `if(...)` —
+     istream.hpp, stacktrace.hpp, xlocale.hpp); a recurrence of "declaration-alignment
+     column-padding non-idempotency" — the `ranges.hpp`/`_Range` shape (root cause:
+     `ScopePipelineCore.trailingIndent` sweeping a same-line leading comment into the group's
+     per-line indent) is fixed, but `filesystem.hpp`'s `recursive_directory_iterator`
+     assignment-alignment shape is a distinct mechanism, separately fixed — see "Known Gaps —
+     Fixed" (also algorithm.hpp).
 
 **Not started dogfood / real-code testing**
 (3) `github.com/llvm/llvm-project` — LLVM/Clang monorepo; enormous, likely only a
@@ -789,130 +777,90 @@ before/after detail available via `git log`/`git show`.
   before computing the signature's real first token. Fixture:
   `test/java_preprocessor_method_inp/out.java`.
 - **Macro-then-statement line-merge instability across formatting rounds** — FIXED. Found in
-  `microsoft/STL` real-code testing (item 26 above, `istream.hpp`/`stacktrace.hpp`/`xlocale.hpp`):
-  a bare macro-invocation-as-statement (`_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK`, no trailing
-  `;`, own physical line) immediately followed by an `if (...) { ... }` that
-  `collapseSingleExpressionBlocks` flattens to a one-liner on the next round -- glued onto the
-  macro's line one round later. Root cause:
-  `DeclarationAlignmentRuleCurly.parseDeclaration`'s existing collapsed-control-statement guard
-  only checked the merged statement's first token; `splitStatements` merges the macro identifier
-  and the following `if (...) stmt;` into one "statement" (no terminator after the bare macro),
-  so that first token is the macro IDENTIFIER, not `if`, and the guard never fired -- the whole
-  run then misparsed as a bogus `Type name = init;` declarator and rendered back onto one line.
-  Fixed by widening the guard to a depth-tracked scan of the entire merged statement for a
-  top-level `if`/`while`/`for`/`switch`/`do`/`else` keyword, not just the first token. Verified
-  against the real STL tree (all 3 affected files now idempotent) and `make test` 169/169.
-  Fixture: `real_code_regressions_120`.
+  `microsoft/STL` (item 26, `istream.hpp`/`stacktrace.hpp`/`xlocale.hpp`): a bare
+  macro-invocation-as-statement (`_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK`, no trailing `;`, own
+  physical line) followed by an `if (...) { ... }` that `collapseSingleExpressionBlocks` flattens
+  to a one-liner gets glued onto the macro's line one round later. Root cause:
+  `splitStatements` merges the macro identifier and the following `if (...) stmt;` into one
+  "statement" (no terminator after the bare macro), so `DeclarationAlignmentRuleCurly
+  .parseDeclaration`'s collapsed-control-statement guard — which only checked the merged
+  statement's first token — saw the macro IDENTIFIER instead of `if` and never fired,
+  misparsing the run as a bogus `Type name = init;` declarator. Fixed by widening the guard to a
+  depth-tracked scan of the whole merged statement for a top-level `if`/`while`/`for`/`switch`/
+  `do`/`else` keyword. Verified against the real STL tree (all 3 files now idempotent), `make
+  test` 169/169. Fixture: `real_code_regressions_120`.
 
 - **Wrapped constructor signature's parameter-render logic misapplied to its own following
-  member-initializer-list entry** — FIXED. Found in `microsoft/STL` real-code testing (item 26
-  above, `mutex.hpp`/`shared_mutex.hpp`/`filesystem.cpp`): a wrapped constructor signature
-  (`unique_lock(unique_lock&& _Other) noexcept : _Pmtx(_Other._Pmtx), _Owns(_Other._Owns) {}`)
-  corrupted `_Other._Pmtx` into `_Other. _Pmtx` -- a forward-pass bug, wrong on round1, not just
-  an idempotency issue. Root cause: `MiscRuleCurly.enforceCallLineBreaking` treats
-  `_Pmtx(_Other._Pmtx)` as an "IDENTIFIER (" call candidate and hands it to `parseSignature`,
-  whose `parseParam` slices the single argument `_Other._Pmtx` as if it were a `Type name`
-  declarator pair (`typeTokens=[_Other, .]`, `name=_Pmtx]`, since the last token is a bare
-  IDENTIFIER and everything before it is non-empty) -- `parseSignature` then succeeds, making
-  `sigForRender` non-null and routing the entry through the declaration-style renderer
-  (type/name column-split via `padRight`) instead of the tight-join-`.`/`->`-aware plain-call
-  renderer, inserting a space after the `.`. Fixed by a narrow guard in `parseParam`: reject the
-  param (return null) if its parsed `typeTokens` run ends in a `.`/`->` tight-join operator, since
-  that can never be a real C++ type -- this fails the whole signature parse and correctly falls
-  back to plain-call rendering for that entry. Verified against the real STL tree
-  (`mutex.hpp`/`shared_mutex.hpp`, both idempotent and free of the corruption) and `make test`
-  169/169. Fixture: `real_code_regressions_121`.
+  member-initializer-list entry** — FIXED. Found in `microsoft/STL` (item 26,
+  `mutex.hpp`/`shared_mutex.hpp`/`filesystem.cpp`): a wrapped constructor signature corrupted
+  `_Other._Pmtx` into `_Other. _Pmtx` — a forward-pass bug, wrong on round1. Root cause:
+  `MiscRuleCurly.enforceCallLineBreaking` treats `_Pmtx(_Other._Pmtx)` as an "IDENTIFIER ("
+  call candidate and hands it to `parseSignature`, whose `parseParam` mis-slices the single
+  argument `_Other._Pmtx` as a `Type name` declarator pair (last token is a bare IDENTIFIER, so
+  it looks like a valid name) — `sigForRender` then routes it through the declaration-style
+  column-split renderer instead of the tight-join-`.`/`->`-aware plain-call renderer, inserting a
+  space after the `.`. Fixed: `parseParam` now rejects (returns null) any param whose parsed
+  `typeTokens` run ends in a `.`/`->` tight-join operator (never a real C++ type), falling back
+  to plain-call rendering. Verified against the real STL tree (`mutex.hpp`/`shared_mutex.hpp`,
+  idempotent and corruption-free), `make test` 169/169. Fixture: `real_code_regressions_121`.
 
 - **`alignCommentSeparators` false-positives on ordinary English prose** — FIXED (third attempt;
   RDD_KEY_201's two prior attempts — fixed-character-set narrowing, then a 3+-consecutive-line
-  threshold — were each tried and reverted, see RDD_KEY_201 and this section's own prior history
-  via `git log`). Root cause was RDD_KEY_50's original rule (*any* single non-alphanumeric
-  character flanked by a literal space in a trailing `//` comment qualifies as a separator) being
-  purely lexical, with no way to distinguish a genuine short §15 label/value pair (`// Comment A :
-  10`) from two lines of ordinary English prose that each merely happen to contain one incidental
+  threshold — were each tried and reverted; see RDD_KEY_201). Root cause: RDD_KEY_50's original
+  rule (*any* single non-alphanumeric character flanked by a literal space in a trailing `//`
+  comment qualifies as a separator) is purely lexical, unable to distinguish a genuine short §15
+  label/value pair (`// Comment A : 10`) from ordinary English prose incidentally containing one
   punctuation character surrounded by spaces (`// The @ can be used in local-part if quoted
-  correctly` / `// => the last @ is the one used to separate the domain and local-part`, found in
-  `jenkinsci/jenkins`'s `IdStrategy.java`). Fixed by adding `MiscRuleCore.looksCodeLike(String)`, a
-  structural code-likeness check applied to each candidate line's parsed `label` and `rest`
-  (`SepMatch`) before the line is allowed to extend or start a separator-alignment run: a fragment
-  must (a) split into at most 4 whitespace-separated words, (b) be at most 24 characters long, and
-  (c) contain no whole word — compared case-insensitively, single-letter words exempted so an
-  identifier-like label such as the `A`/`BB` in `Comment A`/`Comment BB` is never mistaken for the
-  article "a" — matching a small common-English-stopword list (`PROSE_STOPWORDS`: a/an/the/is/
-  are/was/were/be/been/being/to/of/in/on/if/that/this/these/those/can/used/use/with/for/and/or/
-  but/not/it/as/by/from/one/which/quoted/correctly). A line whose label or rest fails either check
-  is treated exactly like a non-qualifying line (breaks the run, same "doesn't match, breaks the
-  group" posture used everywhere else in this rule) rather than being merged into or corrupting a
-  group. Verified: `make test` 172/172 forward + idempotency (up from the clean 171/171 baseline,
-  including `hpp_core_inp.hpp`'s pre-existing legitimate 2-line §15 case — `// Comment A : 10` /
-  `// Comment BB : 20` — still correctly padded, which is exactly the case the two prior reverted
-  attempts each broke in a different way). New permanent fixture `real_code_regressions_123`
-  combines the jenkins-style prose repro (now left untouched and idempotent) with a genuine 2-line
-  separator-alignment pair (`// Count : 1` / `// GrandTotal : 22`, still correctly padded) in one
-  file, proving the fix resolves the false positive without regressing the legitimate case. Also
-  hand-stress-tested beyond the fixture (not committed, `/tmp` scratch): a solo 2-3-word prose
-  comment with no stopword hit but over the 4-word/24-char cap correctly stays unaligned; a
-  legitimate pair with longer-but-still-code-like labels (`GrandTotal`) still aligns and pads
-  correctly. No local jenkins/microsoft-STL checkout was reachable this session to spot-check
-  further real-world corpora beyond the unit suite and these constructed fixtures.
+  correctly`, found in `jenkinsci/jenkins`'s `IdStrategy.java`). Fixed by adding
+  `MiscRuleCore.looksCodeLike(String)`, applied to each candidate line's parsed `label`/`rest`
+  (`SepMatch`) before it may extend/start a separator-alignment run: a fragment must (a) split
+  into at most 4 whitespace-separated words, (b) be at most 24 characters, (c) contain no whole
+  word matching a stopword list (`PROSE_STOPWORDS`, case-insensitive, single-letter words
+  exempted so labels like `A`/`BB` aren't mistaken for the article "a"). A failing line breaks
+  the run like any other non-qualifying line. Verified: `make test` 172/172 forward+idempotency
+  (up from 171/171), including `hpp_core_inp.hpp`'s legitimate 2-line §15 case still correctly
+  padded (the case both prior reverted attempts broke). Fixture `real_code_regressions_123`
+  combines the jenkins-style prose repro (untouched/idempotent) with a genuine 2-line separator
+  pair (still padded) in one file. Also hand-stress-tested (not committed): a solo prose comment
+  over the 4-word/24-char cap stays unaligned; a legitimate pair with longer code-like labels
+  still aligns. No local jenkins/STL checkout was reachable to spot-check further real-world
+  corpora beyond the unit suite and constructed fixtures.
 
 - **`GetterSetterRuleCurly.parseOneLinerMember`'s breakable-width pre-check gated only on
-  `isDefinition`, `filesystem.hpp` `recursive_directory_iterator` assignment-alignment shape** —
-  FIXED (the second, independent shape of "Declaration-alignment column-padding non-idempotency"
-  left open after the `ranges.hpp`/`_Range` `trailingIndent` fix below). Repro (fixture 124): a
-  class with a zero-arg default ctor, a long copy-ctor declaration whose own too-long, non-empty
-  parameter list is later wrapped across multiple physical lines by `enforceCallLineBreaking`
-  (RDD_KEY_86), a move-ctor declaration, and a destructor, all `= default;` pure-specifier
-  one-liners:
-  ```cpp
-  recursive_directory_iterator(
-      const recursive_directory_iterator&
-  ) noexcept = default; // Strengthened
-  recursive_directory_iterator(recursive_directory_iterator&&) noexcept      = default;
-  ~recursive_directory_iterator() noexcept                                   = default;
-  ```
-  is round1's output; round2 removed the padding before both `= default;` occurrences entirely
-  (non-idempotent). Root cause: `GetterSetterRuleCurly.parseOneLinerMember` already has a
-  pre-check (documented in that method's own class-level doc comment) that excludes a member from
-  its group when its predicted rendered width exceeds `lineLengthLimit` -- added so grouping/
-  padding is decided consistently whether a member is still one raw physical line (fresh format)
-  or already wrapped by `enforceCallLineBreaking` (reformat of that fresh output) -- but the check
-  was gated with `isDefinition && hasBreakableCall(...)`, covering only definitions with a
-  breakable call in their body. A non-definition member (plain declaration or pure-specifier
-  `= 0`/`= delete`/`= default`) has no body, but its own `(params)` list is exactly the shape
-  `enforceCallLineBreaking` may wrap, so it had the identical divergence risk and was left
-  unchecked: on a fresh format the long copy-ctor declaration is still one raw physical line and
-  wrongly joins the group, its full un-wrapped width setting the `=` column; on a reformat of that
-  fresh output the now-wrapped copy-ctor no longer parses as a one-liner and is excluded,
-  narrowing the group and shrinking the `=` column. Fixed by adding
-  `hasBreakableParams = !isDefinition && paramsFrom < paramsTo` alongside the existing
-  `hasBreakableCall` check, so a too-long declaration's own parameter list excludes it from the
-  group on the first pass too. Verified via a minimal repro (fixture 124): round1 == round2, and
-  the surviving group (move-ctor + destructor) aligns its `=` column consistently in both rounds
-  (`awk`-verified same column index 75 in both). `make test`: 172/172 forward + 172/172
-  idempotency, zero regressions. No local `microsoft/STL` checkout was reachable this session to
-  spot-check the real `filesystem.hpp` file directly; verified via the constructed fixture only.
-  See RDD_KEY_203.
+  `isDefinition`** (`filesystem.hpp` `recursive_directory_iterator` assignment-alignment shape)
+  — FIXED (second, independent shape of "Declaration-alignment column-padding non-idempotency",
+  after the `ranges.hpp`/`_Range` `trailingIndent` fix below). Repro (fixture 124): a class with
+  a zero-arg default ctor, a long copy-ctor declaration whose too-long parameter list is later
+  wrapped by `enforceCallLineBreaking` (RDD_KEY_86), a move-ctor, and a destructor, all
+  `= default;` one-liners — round1 pads the `=` column across all 3 remaining one-liners; round2
+  drops the padding entirely (non-idempotent). Root cause: `parseOneLinerMember`'s pre-check
+  (excludes a member from its group when predicted rendered width exceeds `lineLengthLimit`, so
+  grouping is consistent whether a member is still one raw line or already wrapped) was gated
+  `isDefinition && hasBreakableCall(...)` — covering only definitions with a breakable call body.
+  A non-definition member's own `(params)` list is exactly the shape `enforceCallLineBreaking`
+  may wrap too, so it had the same divergence risk unchecked: on a fresh format the long
+  un-wrapped copy-ctor wrongly joins the group and sets the `=` column; on reformat the now-wrapped
+  copy-ctor no longer parses as a one-liner and is excluded, shrinking the column. Fixed by
+  adding `hasBreakableParams = !isDefinition && paramsFrom < paramsTo` alongside
+  `hasBreakableCall`. Verified via fixture 124: round1 == round2, surviving group (move-ctor +
+  destructor) aligns `=` at the same column (75) in both rounds. `make test` 172/172
+  forward+idempotency. No local `microsoft/STL` checkout reachable; verified via constructed
+  fixture only. See RDD_KEY_203.
 
 - **`ScopePipelineCore.trailingIndent` sweeping a same-line leading comment into a declaration/
   assignment group's per-line indent** — FIXED (partial fix for "Declaration-alignment
-  column-padding non-idempotency", `ranges.hpp`/`_Range` shape only). Found in
-  `microsoft/STL` real-code testing (item 26 above, `ranges.hpp`'s `chunk_view`/etc. classes): a
-  same-line leading comment on a declaration group's first member (e.g.
-  `/* [[no_unique_address]] */ _Vw _Range;` immediately followed by un-commented
-  `range_difference_t<_Vw> _Count;`/`_Remainder = 0;` siblings in the same group) got silently
-  duplicated onto every sibling line one round later, and the group's own column-padding width
-  changed between rounds. Root cause: `trailingIndent(gap)` returns "the text after the gap's
-  last `\n`" as-is with no check that it's pure whitespace; when the gap ends in a same-line
-  leading comment before the first declaration, that comment text was swept into `indent`, which
-  `applyDeclarationsPass`/`applyAssignmentsPass`/`applyOversizedAggregateInitClosingBracePass` all
-  use as the join separator between every line in the group -- duplicating the comment onto every
-  sibling line, and changing the raw leading gap's character count (hence the idempotent-strip
-  heuristic's behavior) between rounds. Fixed by truncating `trailingIndent`'s result at the
-  first non-space/non-tab character, so only genuine indentation is ever used as the per-line
-  join separator. Verified against the real STL tree (`ranges.hpp`, all 4 affected occurrences
-  now idempotent and comment-duplication-free) and `make test` 170/170. Fixture:
-  `real_code_regressions_122`.
+  column-padding non-idempotency", `ranges.hpp`/`_Range` shape only). Found in `microsoft/STL`
+  (item 26, `ranges.hpp`'s `chunk_view`/etc.): a same-line leading comment on a group's first
+  member (e.g. `/* [[no_unique_address]] */ _Vw _Range;` followed by un-commented siblings in
+  the same group) got duplicated onto every sibling line one round later, with the group's
+  column-padding width also changing between rounds. Root cause: `trailingIndent(gap)` returns
+  the text after the gap's last `\n` as-is with no check that it's pure whitespace; when the gap
+  ends in a same-line leading comment, that text was swept into `indent`, which
+  `applyDeclarationsPass`/`applyAssignmentsPass`/`applyOversizedAggregateInitClosingBracePass`
+  all use as the per-line join separator — duplicating the comment onto every sibling line.
+  Fixed by truncating `trailingIndent`'s result at the first non-space/non-tab character.
+  Verified against the real STL tree (`ranges.hpp`, all 4 occurrences now idempotent and
+  comment-duplication-free), `make test` 170/170. Fixture: `real_code_regressions_122`.
 
 ---
 

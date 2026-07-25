@@ -685,34 +685,24 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   current checklist item; flagged here as a scoped future job, per
   `STATE_COMMON.md`'s ambiguity/open-question convention.
 
-  **Follow-up investigation (2026-07-26): user asked whether implicit
-  `<body>` insertion alone (the narrowest of the four above) could be
-  pulled out and implemented standalone, without the shared foundation,
-  since it seemed "easy and shouldn't cause regression."** Checked directly
-  against `XmlSpecificRule.java` (not just this file's prose) via a
-  sub-agent. Findings: `<html>`/`<head>`/`<body>` get exactly one special
-  case today -- `IMPLIED_CLOSE_TRIGGERS`'s `head`->`{body}` entry, which
-  implicitly closes `</head>` when `<body>` is literally seen in the
-  source. There is no other special-casing; these tags otherwise parse as
-  ordinary elements via `parseElement`. The actual gap this TODO item
-  covers is the opposite case -- a document with **no** `<body>` start tag
-  written anywhere -- which per-spec requires *fabricating* a tag absent
-  from the source. That would be the first tag-synthesis code path
-  anywhere in this formatter; every existing rule in the data-formats job
-  is preserve-as-written (attribute order, quoting, CDATA, etc.).
-  Synthesizing correctly also requires knowing whether a body has already
-  been implicitly opened earlier in the document (to avoid double-
-  insertion), which means threading extra state across recursive
-  `parseNodes`/`parseElement` calls -- a lightweight version of the same
-  open-elements-stack the grouped job already calls out, not an escape
-  from it. Conclusion: **the grouped framing holds up under direct code
-  inspection** -- this item is not separable or low-risk on its own,
-  contrary to the initial "easy, no regression" framing. Note: today's
-  status quo without any fix (`RDD_KEY_185` -- bare top-level content
-  reindents as an ordinary sibling at whatever depth the unwrapped source
-  nesting implies) already doesn't corrupt output; it just isn't
-  spec-faithful tag synthesis. Decision: not implementing standalone;
-  stays folded into the grouped future job above, landing order unchanged.
+  **Investigation (2026-07-26): can implicit `<body>` insertion be pulled
+  out of the grouped job and implemented standalone?** No. Checked directly
+  against `XmlSpecificRule.java`: `<html>`/`<head>`/`<body>` get exactly one
+  special case today (`IMPLIED_CLOSE_TRIGGERS`'s `head`->`{body}`, closing
+  `</head>` when `<body>` is literally seen); otherwise they parse as
+  ordinary elements. This TODO item is the opposite case — a document with
+  **no** `<body>` start tag anywhere — which requires *fabricating* a tag
+  absent from the source, the first tag-synthesis path in a formatter
+  whose every existing rule is preserve-as-written. Correct synthesis also
+  needs to know whether a body was already implicitly opened earlier (to
+  avoid double-insertion), i.e. threading state across recursive
+  `parseNodes`/`parseElement` calls — a lightweight version of the same
+  open-elements-stack the grouped job already requires, not an escape from
+  it. Decision: not separable/low-risk standalone; stays folded into the
+  grouped future job, landing order unchanged. Status quo without any fix
+  (`RDD_KEY_185`: bare top-level content reindents as an ordinary sibling
+  at whatever depth the source implies) doesn't corrupt output, just isn't
+  spec-faithful tag synthesis.
 
 ## Checklist
 

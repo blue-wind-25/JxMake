@@ -1781,179 +1781,147 @@ Real-code regressions:
                                              known limitation, also noted in `README.md`).
 
   real_code_regressions_114_inp/out.py    -- Python3, psf/black real-code dogfood: crash fix.
-                                             `TokenizerIndent.emitFString`'s backslash-escape handling
-                                             blindly skipped 2 characters (backslash + next char)
-                                             whenever the next char was `{`/`}`, which broke a
-                                             following `{{`/`}}` doubled-brace-escape pair apart --
-                                             `f"{1}\{{"` left a lone, never-closed `{` field open,
-                                             which `ScopePipelineIndent.processField` then walked past
+                                             `TokenizerIndent.emitFString`'s backslash-escape
+                                             handling always skipped 2 chars (backslash + next)
+                                             even when next was `{`/`}`, breaking a following
+                                             `{{`/`}}` doubled-brace escape apart -- `f"{1}\{{"`
+                                             left a lone, never-closed `{` field open, which
+                                             `ScopePipelineIndent.processField` then walked past
                                              the token list's end on (IndexOutOfBoundsException).
-                                             Confirmed against real CPython semantics (`f"\{y}"` opens
-                                             a genuine field for `y`; `f"{1}\{{"` evaluates to `'1\{'`
-                                             via backslash-then-doubled-brace, no dangling field) that
-                                             the backslash must consume only itself before `{`/`}`,
-                                             not the brace too -- fixed by skipping just 1 char in that
-                                             case so the brace is re-evaluated fresh on the next
-                                             iteration. Identity-pass fixture (output byte-identical to
-                                             input) since no other rule in scope touches either line;
-                                             the point of this fixture is the crash, not a rendering
-                                             change. See `STATE_PYTHON3.md`'s `psf/black` dogfood entry.
+                                             Confirmed against real CPython semantics (`f"\{y}"`
+                                             opens a real field; `f"{1}\{{"` evaluates to `'1\{'`,
+                                             no dangling field): the backslash must consume only
+                                             itself before `{`/`}`. Fixed by skipping just 1 char
+                                             in that case so the brace is re-evaluated fresh next
+                                             iteration. Identity-pass fixture (proves the crash is
+                                             gone, not a rendering change). See `STATE_PYTHON3.md`'s
+                                             `psf/black` dogfood entry.
 
   real_code_regressions_115_inp/out.py    -- Python3, psf/black real-code dogfood: §7/§8
                                              join-then-align ordering non-idempotency fix. A
-                                             block-form `match`/`case` group (body on its own
-                                             indented line) is correctly skipped by §7's colon
-                                             alignment on the forward pass (not yet compact) --
-                                             §8 then joins each case's single-statement body onto
-                                             its header line later in the same pass. Previously,
-                                             a second format pass over that already-joined output
-                                             then saw compact `case` lines for the first time and
-                                             applied colon-column alignment padding that was never
-                                             present in the first pass's own output (non-idempotent).
+                                             block-form `match`/`case` group is correctly skipped
+                                             by §7's colon alignment on the forward pass (not yet
+                                             compact); §8 then joins each case's single-statement
+                                             body onto its header line later in the same pass. A
+                                             second pass previously saw the now-compact `case`
+                                             lines for the first time and applied colon-column
+                                             padding never present in the first pass's output.
                                              Fixed in `ScopePipelineIndent`: §7's `classifyCaseLine`
-                                             now predicts whether a block-form case will qualify for
-                                             §8's join (new `tryQualifyJoinBody`, shared with
-                                             `applySingleStatementBody`) and, if so, treats it as
-                                             effectively compact for grouping/alignment purposes,
-                                             emitting the join with correct padding already baked in
-                                             (`flushCaseGroup`) instead of leaving it to a later round;
+                                             now predicts (new `tryQualifyJoinBody`, shared with
+                                             `applySingleStatementBody`) whether a block-form case
+                                             will qualify for §8's join, treating it as effectively
+                                             compact for grouping/alignment so `flushCaseGroup`
+                                             bakes correct padding in immediately;
                                              `applySingleStatementBody` skips any header §7 already
-                                             joined (`caseJoinAlignedHeaders`) to avoid a duplicate,
-                                             unpadded, overlapping join. See `STATE_PYTHON3.md`'s
-                                             `psf/black` dogfood entry.
+                                             joined (`caseJoinAlignedHeaders`) to avoid a duplicate
+                                             join. See `STATE_PYTHON3.md`'s `psf/black` dogfood entry.
 
   real_code_regressions_116_inp/out.py    -- Python3, psf/black real-code dogfood: §6 multi-
                                              physical-line type-hint gap fix. A `def` parameter
-                                             whose type hint spans multiple physical lines via a
-                                             `|`-union broken across lines with no enclosing
-                                             bracket (e.g. `x: Type1\n| Type2,`) was previously
+                                             whose type hint spans lines via a `|`-union with no
+                                             enclosing bracket (`x: Type1\n| Type2,`) was
                                              misclassified: `trySignatureGroup`'s NEWLINE-delimited
                                              segmentation only folds a multi-line param back into
-                                             one segment when a nested bracket keeps it open, so
-                                             each `| TypeN` continuation line became its own bogus
-                                             "parameter" segment, and `classifySignatureParam`
-                                             padded a nonexistent `:`/`=` column with trailing
-                                             whitespace that grew unbounded on every format round
-                                             (round1 -> round2 -> round3 never converged) instead
-                                             of leaving the whole signature untouched, as this
-                                             method's own gap has always documented it should.
-                                             Fixed: `classifySignatureParam` now rejects (returns
-                                             null, leaving the whole signature untouched) any
-                                             segment whose first significant token isn't a valid
-                                             parameter start (an identifier, or `*`/`**`/`/`) --
-                                             a leading `|` (or any other binary operator) means the
-                                             segment is really the previous parameter's own
-                                             continuation line, not a parameter of its own.
-                                             Identity-pass fixture (output byte-identical to
-                                             input, converges to a true no-op instead of growing).
+                                             one segment when a nested bracket stays open, so each
+                                             `| TypeN` continuation became its own bogus parameter,
+                                             and `classifySignatureParam` padded a nonexistent
+                                             `:`/`=` column with whitespace that grew unbounded
+                                             every round instead of leaving the whole signature
+                                             untouched (this method's documented gap). Fixed:
+                                             `classifySignatureParam` now rejects (returns null) any
+                                             segment whose first token isn't a valid parameter start
+                                             (identifier, or `*`/`**`/`/`) -- a leading `|` means
+                                             it's a continuation, not a parameter. Identity-pass
+                                             fixture (converges to a true no-op instead of growing).
                                              See `STATE_PYTHON3.md`'s `psf/black` dogfood entry.
 
   real_code_regressions_117_inp/out.py    -- Python3, psf/black real-code dogfood: two §5
-                                             `addBraceTrim` content-corruption fixes, combined into
-                                             one fixture (both live in the same method). (a) A
-                                             field immediately followed by a nested `{` (e.g. a
-                                             set-comprehension field, `f"{ {a for a in (1, 2,
-                                             3)}}"`) had its own open-gap trim collapse the field's
-                                             `{` and the nested `{` together into a literal `{{`,
-                                             which Python's f-string grammar parses as an ESCAPED
-                                             brace rather than two field-opens -- silently deleting
-                                             the whole set-comprehension expression from the
-                                             program's semantics (confirmed via `ast.dump`: the
-                                             `FormattedValue` node vanished entirely). Fixed:
-                                             `addBraceTrim` normalizes the open gap to exactly one
-                                             space (instead of zero) whenever the next significant
-                                             token is itself a literal `{`, so the two braces can
-                                             never fuse. (b) A self-documenting `{expr=}` debug
-                                             field (e.g. `f'{  longer_name   =  :  .3f }'`) had its
-                                             leading gap trimmed even though Python's runtime must
-                                             reproduce `expr`'s exact original whitespace verbatim
-                                             for a `=`-suffixed field -- a real behavior change, not
+                                             `addBraceTrim` content-corruption fixes, combined
+                                             (both live in the same method). (a) A field
+                                             immediately followed by a nested `{` (e.g.
+                                             `f"{ {a for a in (1, 2, 3)}}"`) had its open-gap trim
+                                             collapse the field's `{` and the nested `{` into a
+                                             literal `{{`, which Python's f-string grammar parses
+                                             as an ESCAPED brace rather than two field-opens --
+                                             silently deleting the whole comprehension expression
+                                             (confirmed via `ast.dump`: the `FormattedValue` node
+                                             vanished). Fixed: `addBraceTrim` normalizes the open
+                                             gap to one space (not zero) whenever the next
+                                             significant token is itself a literal `{`. (b) A
+                                             self-documenting `{expr=}` debug field (e.g.
+                                             `f'{  longer_name   =  :  .3f }'`) had its leading gap
+                                             trimmed even though Python's runtime must reproduce
+                                             `expr`'s exact original whitespace verbatim for a
+                                             `=`-suffixed field -- a real behavior change, not
                                              cosmetic. Fixed: `addBraceTrim` now detects a bare
-                                             trailing `=` (the tokenizer only ever emits a lone
-                                             1-char `=` OP token for this; `==`/`!=`/`<=`/`>=`/`:=`/
-                                             `+=` etc. are all distinct multi-char OP tokens, so
-                                             there's no risk of confusing a comparison/augmented-
-                                             assignment/walrus operator for the debug specifier) as
-                                             the expression's own last significant token and skips
-                                             all gap-trimming for that field entirely when found.
-                                             Both verified via `python_ast_diff.py` (structurally
-                                             identical) and idempotency; identity-pass fixture
-                                             (output byte-identical to input). See
-                                             `STATE_PYTHON3.md`'s `psf/black` dogfood entry.
+                                             trailing `=` (a lone 1-char OP token; all
+                                             comparison/augmented-assignment/walrus operators
+                                             tokenize as distinct multi-char OPs, so no risk of
+                                             confusion) as the expression's last significant token
+                                             and skips gap-trimming entirely for that field. Both
+                                             verified via `python_ast_diff.py` (structurally
+                                             identical) and idempotency; identity-pass fixture.
+                                             See `STATE_PYTHON3.md`'s `psf/black` dogfood entry.
 
   real_code_regressions_118_inp/out.hpp   -- C++, microsoft/STL real-code dogfood: `Main.
                                              applyLineEndings` idempotency fix. The tokenizer
-                                             preserves a CRLF-original file's own `\r` characters
-                                             verbatim inside any WHITESPACE token that a given pass
-                                             never rewrites, so `line-endings = lf` (default)'s
-                                             "already lf, no change needed" fast path left stray
-                                             `\r` characters in place on every untouched line while
-                                             rewritten lines came out `\r`-free -- a mixed-ending
-                                             result that then differed again on a second pass once a
-                                             *different* set of lines got touched (round1 != round2).
+                                             preserves a CRLF-original file's own `\r` verbatim
+                                             inside any WHITESPACE token a pass doesn't rewrite, so
+                                             `line-endings = lf` (default)'s "already lf" fast path
+                                             left stray `\r` in untouched lines while rewritten
+                                             lines came out `\r`-free -- a mixed result that then
+                                             differed again on a second pass (round1 != round2).
                                              Fixed: `applyLineEndings` now always normalizes to a
-                                             clean LF-only baseline (`\r\n` -> `\n`, lone `\r` -> `\n`)
-                                             before applying whichever target ending the config
-                                             actually asks for. Verified against the real
-                                             microsoft/STL tree: fixed 99 of 110 idempotency-diffing
-                                             files in that candidate. See `STATE_C_CPP_JAVA.md`.
+                                             clean LF-only baseline before applying the requested
+                                             target ending. Verified against the real microsoft/STL
+                                             tree: fixed 99 of 110 idempotency-diffing files in that
+                                             candidate. See `STATE_C_CPP_JAVA.md`.
 
   real_code_regressions_119_inp/out.hpp   -- C++, microsoft/STL real-code dogfood: two duplicated
                                              `collapseToOneLine`/`flushCollapseGap` implementations
                                              (`MiscRuleCurly.java`, `CppSpecificRule.java`) joined a
                                              multi-line run back onto one line by unconditionally
-                                             inserting a single space wherever the original had a
-                                             newline, with no tight-join awareness at all -- so a
-                                             wrapped member-access/`->` expression whose line had
-                                             happened to break right at the `.`/`->` (e.g. a
-                                             constructor's member-initializer-list argument,
-                                             `other.\n    _Outer`) came back corrupted as `other. _Outer`
-                                             once re-collapsed. The sibling `collapseTokensToOneLine`
-                                             already had this exact guard for JS/TS's `.`/`?.` (from
-                                             an earlier nestjs/nest fix) but it was never mirrored
-                                             into either `collapseToOneLine`. Fixed: both now track
-                                             the previous/next significant token around each
+                                             inserting a space wherever the original had a newline,
+                                             with no tight-join awareness -- so a wrapped
+                                             member-access/`->` expression broken right at the
+                                             `.`/`->` (e.g. a constructor's member-initializer-list
+                                             argument, `other.\n    _Outer`) came back corrupted as
+                                             `other. _Outer` once re-collapsed. Sibling
+                                             `collapseTokensToOneLine` already had this guard for
+                                             JS/TS's `.`/`?.` (an earlier nestjs/nest fix) but it
+                                             was never mirrored here. Fixed: both now track the
+                                             previous/next significant token around each
                                              whitespace/newline run and suppress the forced space
-                                             when either side is a `.`/`->`. Verified against the
-                                             real microsoft/STL tree (`ranges.hpp`'s wrapped
+                                             when either side is `.`/`->`. Verified against the real
+                                             microsoft/STL tree (`ranges.hpp`'s wrapped
                                              constructor-initializer-list arguments). A related,
                                              deeper bug in the same area (a long constructor
-                                             signature's own parameter-wrap logic misapplied to its
-                                             immediately-following member-initializer-list entry) was
-                                             found but not fixed -- see `STATE_C_CPP_JAVA.md`'s
-                                             "Known Gaps -- Open".
+                                             signature's parameter-wrap logic misapplied to its
+                                             following member-initializer-list entry) was found and
+                                             later fixed separately -- see fixture 121.
 
   real_code_regressions_120_inp/out.hpp   -- C++, microsoft/STL real-code dogfood: a bare
                                              macro-invocation-as-statement (STL's own
-                                             `_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK` -- an
-                                             IDENTIFIER used exactly like an opening brace, no
-                                             trailing `;`, on its own physical line) immediately
-                                             followed by an `if (...) { ... }` that
+                                             `_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK`, no
+                                             trailing `;`, own physical line) immediately followed
+                                             by an `if (...) { ... }` that
                                              `collapseSingleExpressionBlocks` flattens to a
-                                             semicolon-terminated one-liner glued onto the macro's
-                                             own line one round later. Root cause:
-                                             `DeclarationAlignmentRuleCurly.parseDeclaration`
-                                             already rejected a collapsed-to-one-line control
-                                             statement (`if (...) stmt;`) from being misparsed as a
-                                             bogus declaration, but only by checking the merged
-                                             statement's very first token -- `splitStatements` has
-                                             no terminator to split on right after the bare macro
-                                             identifier, so it and the following `if` end up as one
-                                             merged "statement" whose first token is the macro
-                                             IDENTIFIER, not `if`, so the existing guard never
-                                             fired. The combined token run then misparsed as a
-                                             `Type name = init;` declarator and got rendered back
-                                             onto one physical line, gluing the macro and the `if`
-                                             together -- reproduces only on a second formatting
-                                             pass (round1's source still has the `if`'s body
-                                             braced, which the existing guard already rejects).
-                                             Fixed by widening the guard to a depth-tracked scan
-                                             of the whole merged statement for a top-level
-                                             `if`/`while`/`for`/`switch`/`do`/`else` keyword, not
-                                             just the first token. Verified against the real
+                                             one-liner gets glued onto the macro's own line one
+                                             round later. Root cause: `splitStatements` merges the
+                                             macro identifier and the following `if (...) stmt;`
+                                             into one "statement" (no terminator after the bare
+                                             macro), so `DeclarationAlignmentRuleCurly
+                                             .parseDeclaration`'s collapsed-control-statement guard
+                                             -- which only checked the merged statement's first
+                                             token -- saw the macro IDENTIFIER instead of `if` and
+                                             never fired, misparsing the run as a bogus
+                                             `Type name = init;` declarator. Fixed by widening the
+                                             guard to a depth-tracked scan of the whole merged
+                                             statement for a top-level `if`/`while`/`for`/`switch`/
+                                             `do`/`else` keyword. Verified against the real
                                              microsoft/STL tree (`istream.hpp`/`stacktrace.hpp`/
-                                             `xlocale.hpp`, all three idempotent after the fix).
-                                             See `STATE_C_CPP_JAVA.md`.
+                                             `xlocale.hpp`, all idempotent after the fix). See
+                                             `STATE_C_CPP_JAVA.md`.
 
   real_code_regressions_121_inp/out.hpp   -- C++, microsoft/STL real-code dogfood: a wrapped
                                              constructor signature (STL's own
@@ -1961,133 +1929,102 @@ Real-code regressions:
                                              _Pmtx(_Other._Pmtx), _Owns(_Other._Owns) {}`) whose
                                              own parameter-wrap logic got misapplied to the
                                              immediately-following member-initializer-list entry,
-                                             corrupting `_Other._Pmtx` into `_Other. _Pmtx` --
-                                             a forward-pass bug, wrong on the very first format,
-                                             not just an idempotency issue. Root cause:
-                                             `MiscRuleCurly.enforceCallLineBreaking` treats
+                                             corrupting `_Other._Pmtx` into `_Other. _Pmtx` -- a
+                                             forward-pass bug, wrong on the very first format. Root
+                                             cause: `MiscRuleCurly.enforceCallLineBreaking` treats
                                              `_Pmtx(_Other._Pmtx)` as an "IDENTIFIER (" call
                                              candidate and hands it to `parseSignature`, whose
-                                             `parseParam` slices the single argument
-                                             `_Other._Pmtx` as if it were a `Type name` declarator
-                                             pair (`typeTokens=[_Other, .]`, `name=_Pmtx`) since
-                                             the last token is a bare IDENTIFIER and everything
-                                             before it is non-empty -- `parseSignature` then
-                                             succeeds, making `sigForRender` non-null, which routes
-                                             the entry through the declaration-style renderer
-                                             (type/name column-split via `padRight`) instead of
-                                             the tight-join-`.`/`->`-aware plain-call renderer,
-                                             inserting a space after the `.`. Fixed by a narrow
-                                             guard in `parseParam`: if the parsed `typeTokens` run
-                                             ends in a `.`/`->` tight-join operator, it can never be
-                                             a real C++ type, so reject the param (return null),
-                                             which fails the whole signature parse and correctly
-                                             falls back to plain-call rendering for that entry.
-                                             Verified against the real microsoft/STL tree
-                                             (`mutex.hpp`/`shared_mutex.hpp`, both idempotent and
-                                             free of the corruption after the fix). See
-                                             `STATE_C_CPP_JAVA.md`.
+                                             `parseParam` mis-slices the single argument as a
+                                             `Type name` declarator pair (last token is a bare
+                                             IDENTIFIER) -- `sigForRender` then routes it through the
+                                             declaration-style column-split renderer instead of the
+                                             tight-join-`.`/`->`-aware plain-call renderer,
+                                             inserting a space after the `.`. Fixed: `parseParam`
+                                             now rejects (returns null) any param whose parsed
+                                             `typeTokens` run ends in a `.`/`->` tight-join operator
+                                             (never a real C++ type), falling back to plain-call
+                                             rendering. Verified against the real microsoft/STL tree
+                                             (`mutex.hpp`/`shared_mutex.hpp`, idempotent and
+                                             corruption-free after the fix). See `STATE_C_CPP_JAVA.md`.
 
   real_code_regressions_122_inp/out.hpp   -- C++, microsoft/STL real-code dogfood: a
                                              declaration-alignment group whose first member has a
                                              same-line leading comment (STL's own
-                                             `/* [[no_unique_address]] */ _Vw _Range;` immediately
-                                             followed by un-commented `range_difference_t<_Vw>
-                                             _Count;`/`_Remainder = 0;` siblings in the same
-                                             group) got that comment silently duplicated onto
-                                             every sibling line one round later, and the group's
-                                             own column-padding width changed between rounds
-                                             (non-idempotent) -- root cause of the previously-open
-                                             "declaration-alignment column-padding non-idempotency"
-                                             gap (`ranges.hpp`'s `_Range` field, `algorithm.hpp`,
-                                             `filesystem.hpp`). Root cause:
-                                             `ScopePipelineCore.trailingIndent` returns "the text
-                                             after a leading gap's last `\n`" as the line's
-                                             indentation with no check that it's actually pure
-                                             whitespace -- when the gap ends in a same-line leading
-                                             comment before the first declaration (comment on the
-                                             same physical line as the type, not its own line),
-                                             that comment text got swept into `indent`, which
-                                             `applyDeclarationsPass`/`applyAssignmentsPass`/
-                                             `applyOversizedAggregateInitClosingBracePass` all then
-                                             use as the join separator between *every* line in the
-                                             group -- silently duplicating the first member's
-                                             comment onto every sibling line, and changing the raw
-                                             leading gap's character count (hence the idempotent-
-                                             strip heuristic's behavior) between rounds. Fixed by
-                                             truncating `trailingIndent`'s result at the first
-                                             non-space/non-tab character, so only genuine
-                                             indentation (never a same-line leading comment) is
-                                             used as the per-line join separator. Verified against
-                                             the real microsoft/STL tree (`ranges.hpp`, all 4
-                                             affected `_Range` occurrences now idempotent and
-                                             comment-duplication-free). **Note:** a second,
-                                             distinct non-idempotency shape was also found in
-                                             `filesystem.hpp`'s `recursive_directory_iterator`
-                                             assignment-alignment group (an `= default;` column's
-                                             padding width differs between rounds when a sibling
-                                             group member's own constructor signature wraps across
-                                             multiple physical lines) -- NOT investigated or fixed
-                                             this session; a different mechanism in
-                                             `applyAssignmentsPass`'s width computation, left open,
-                                             see `STATE_C_CPP_JAVA.md`'s "Known Gaps -- Open".
+                                             `/* [[no_unique_address]] */ _Vw _Range;` followed by
+                                             un-commented siblings in the same group) got that
+                                             comment silently duplicated onto every sibling line one
+                                             round later, with the group's column-padding width also
+                                             changing between rounds -- root cause of the
+                                             previously-open "declaration-alignment column-padding
+                                             non-idempotency" gap (`ranges.hpp`'s `_Range` field,
+                                             `algorithm.hpp`, `filesystem.hpp`). Root cause:
+                                             `ScopePipelineCore.trailingIndent` returns the text
+                                             after a leading gap's last `\n` as the line's
+                                             indentation with no check that it's pure whitespace --
+                                             when the gap ends in a same-line leading comment before
+                                             the first declaration, that text got swept into
+                                             `indent`, which `applyDeclarationsPass`/
+                                             `applyAssignmentsPass`/
+                                             `applyOversizedAggregateInitClosingBracePass` all use
+                                             as the per-line join separator, duplicating the comment
+                                             onto every sibling line. Fixed by truncating
+                                             `trailingIndent`'s result at the first non-space/
+                                             non-tab character. Verified against the real
+                                             microsoft/STL tree (`ranges.hpp`, all 4 affected
+                                             `_Range` occurrences now idempotent and
+                                             comment-duplication-free). **Note:** a second, distinct
+                                             shape of the same gap (`filesystem.hpp`'s
+                                             `recursive_directory_iterator` assignment-alignment
+                                             group) was found in the same session -- see fixture 124
+                                             for that fix.
 
   real_code_regressions_123_inp/out.hpp   -- C++, `alignCommentSeparators` false-positive fix
                                              (RDD_KEY_50/RDD_KEY_201 follow-up, jenkinsci/jenkins
-                                             `IdStrategy.java`-style repro): two physically
-                                             adjacent trailing `//` comments that each merely
-                                             happen to contain one incidental punctuation
-                                             character flanked by spaces (`// The @ can be used in
-                                             local-part if quoted correctly` / `// => the last @ is
-                                             the one used to separate the domain and local-part`)
-                                             were wrongly treated as a genuine STYLE.md §15
-                                             separator-alignment pair and padded, corrupting the
-                                             comment and going non-idempotent. Fixed by
-                                             `MiscRuleCore.looksCodeLike`, a structural
-                                             code-likeness check applied to each candidate line's
-                                             parsed label/rest before it's allowed into a
-                                             separator-alignment run: a fragment must have at most
-                                             4 whitespace-separated words, be at most 24 characters,
-                                             and contain no whole word (case-insensitively, ignoring
-                                             single-letter words) from a small common-English-
-                                             stopword list (the/is/can/used/to/of/in/if/that/etc.);
-                                             failing either check on label or rest makes that line
-                                             non-qualifying, breaking the run exactly like a blank
-                                             line or non-matching separator does elsewhere in this
-                                             rule. This fixture also includes a genuine 2-line
-                                             separator-alignment pair (`// Count : 1` / `//
-                                             GrandTotal : 22`) in the same file to prove the fix
-                                             doesn't regress real STYLE.md §15 alignment -- it still
-                                             gets padded (`Count      : 1` / `GrandTotal : 22`).
+                                             `IdStrategy.java`-style repro): two adjacent trailing
+                                             `//` comments that each merely happen to contain one
+                                             incidental punctuation character flanked by spaces
+                                             (`// The @ can be used in local-part if quoted
+                                             correctly` / `// => the last @ is the one used to
+                                             separate the domain and local-part`) were wrongly
+                                             treated as a genuine STYLE.md §15 separator-alignment
+                                             pair and padded, corrupting the comment and going
+                                             non-idempotent. Fixed by `MiscRuleCore.looksCodeLike`,
+                                             a structural code-likeness check applied to each
+                                             candidate line's parsed label/rest before it's allowed
+                                             into a separator-alignment run: a fragment must have at
+                                             most 4 whitespace-separated words, be at most 24
+                                             characters, and contain no whole word (case-
+                                             insensitively, single-letter words exempted) from a
+                                             small common-English-stopword list; failing either
+                                             check breaks the run like any non-qualifying line. This
+                                             fixture also includes a genuine 2-line separator-
+                                             alignment pair (`// Count : 1` / `// GrandTotal : 22`)
+                                             to prove the fix doesn't regress real §15 alignment --
+                                             still padded (`Count      : 1` / `GrandTotal : 22`).
                                              See `STATE_C_CPP_JAVA.md`.
 
   real_code_regressions_124_inp/out.hpp   -- C++, `filesystem.hpp` `recursive_directory_iterator`
                                              assignment-alignment column-padding non-idempotency
-                                             (the second, distinct shape of the gap noted above,
-                                             left open after fixture 122/123's session): a class
-                                             with a zero-arg default ctor, a long copy-ctor
-                                             declaration whose own too-long, non-empty parameter
-                                             list is later wrapped across multiple physical lines
-                                             by `enforceCallLineBreaking` (RDD_KEY_86), a move-ctor
-                                             declaration, and a destructor -- all `= default;`
-                                             pure-specifier one-liners. On a fresh format the
-                                             long copy-ctor is still one raw physical line, so it
-                                             wrongly joins the group and its full un-wrapped width
-                                             sets the `=` column; on a reformat of that fresh
-                                             output, the now-wrapped copy-ctor no longer parses as
-                                             a one-liner and is excluded, narrowing the group and
-                                             shrinking the `=` column -- non-idempotent. Root cause:
+                                             (the second, distinct shape of fixture 122's gap): a
+                                             class with a zero-arg default ctor, a long copy-ctor
+                                             declaration whose too-long parameter list is later
+                                             wrapped across multiple physical lines by
+                                             `enforceCallLineBreaking` (RDD_KEY_86), a move-ctor,
+                                             and a destructor -- all `= default;` one-liners. On a
+                                             fresh format the long copy-ctor is still one raw line
+                                             and wrongly joins the group, its full width setting the
+                                             `=` column; on reformat the now-wrapped copy-ctor no
+                                             longer parses as a one-liner and is excluded, shrinking
+                                             the column -- non-idempotent. Root cause:
                                              `GetterSetterRuleCurly.parseOneLinerMember`'s existing
-                                             pre-check (added for the `isDefinition`/body-call case,
-                                             per that method's own class-level doc comment) was
-                                             gated only on `isDefinition`, leaving non-definition
-                                             (plain declaration / pure-specifier) members with a
-                                             breakable, non-empty parameter list unchecked. Fixed by
-                                             adding a `hasBreakableParams` check
-                                             (`!isDefinition && paramsFrom < paramsTo`) alongside the
-                                             existing `hasBreakableCall` check, so a too-long
-                                             declaration's own parameter list excludes it from the
-                                             group on the first pass too, consistently with how it's
-                                             excluded on a reformat. See `STATE_C_CPP_JAVA.md`.
+                                             breakable-width pre-check was gated only on
+                                             `isDefinition`, leaving non-definition (plain
+                                             declaration/pure-specifier) members with a breakable,
+                                             non-empty parameter list unchecked. Fixed by adding a
+                                             `hasBreakableParams` check
+                                             (`!isDefinition && paramsFrom < paramsTo`) alongside
+                                             the existing `hasBreakableCall` check. See
+                                             `STATE_C_CPP_JAVA.md`.
 
 How Tests Are Run
 -----------------

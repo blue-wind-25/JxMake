@@ -611,291 +611,117 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       exact regression found. `make test`: 129/129 forward + 129/129
       idempotency after the fixture addition.
 
-      **`psf/black` — IN PROGRESS (dogfood run, bugs found, NOT fixed this
-      session — deferred to a future session per explicit scope limit).**
-      Fresh clone (`/tmp/black`, no existing checkout found in `/tmp`/
-      scratchpad), 338 `.py` files (`src/`, `tests/` incl. `tests/data/`'s
-      own curated formatting-edge-case corpus, `scripts/`). No Python3
-      syntax-checker beyond `python3.12 -m py_compile` and this job's own
-      `python_ast_diff.py` (both already documented above) — no separate
-      "syntax_checker" tool needed beyond those two.
+      **`psf/black` — DONE.** Fresh clone (`/tmp/black`), 338 `.py` files
+      (`src/`, `tests/` incl. `tests/data/`'s curated formatting-edge-case
+      corpus, `scripts/`). No dedicated syntax-checker tool beyond
+      `python3.12 -m py_compile` and this job's own `python_ast_diff.py`.
 
-      **Forward pass (round1): one crash, 337/338 files formatted.
-      FIXED same session (user explicitly requested the crash specifically
-      be fixed, narrowing this one item out of this session's otherwise
-      documentation-only scope — the other four bugs below remain
-      unfixed/deferred).** `./tests/data/cases/pep_701.py` threw
-      `java.lang.IndexOutOfBoundsException` from
-      `ScopePipelineIndent.processField` (via `processFString` /
-      `applyFStringSpacing`), caught per-file (batch continued, did not
-      abort the whole run). **Minimal repro:** a single-line file containing
-      only `f"{1}\{{"` (an f-string whose field is followed by a literal
-      escaped-brace `\{{` sequence) reproduced the crash standalone —
-      `IndexOutOfBoundsException: Index: 9, Size: 9` in that minimal case,
-      `Index: 1625, Size: 1625` in the full `pep_701.py` file.
+      **Forward pass: 1 crash (337/338 formatted) — FIXED.**
+      `tests/data/cases/pep_701.py` threw `IndexOutOfBoundsException` from
+      `ScopePipelineIndent.processField`/`applyFStringSpacing`. Minimal
+      repro: `f"{1}\{{"`. Root cause: `TokenizerIndent.emitFString`'s
+      backslash-escape handling always skipped 2 chars (backslash + next),
+      including when next was `{`/`}`, orphaning the second `{` of a
+      doubled-brace escape right after a field close, so `processField`
+      scanned off the end of the token list. Verified against real CPython
+      semantics first (`f"\{y}"` → real field; `f"{1}\{{"` → `'1\{'`, no
+      dangling field). Fixed: only skip the backslash itself (1 char) when
+      followed by `{`/`}`, so that char is re-evaluated fresh as a new
+      field-open or brace-escape half; other escapes (`\"`, `\\`, `\n`)
+      unchanged. `make test` 163/163 forward + 163/163 idempotency (up
+      from 162/162). Fixture: `real_code_regressions_114_{inp,out}.py`
+      (identity-pass — proves the crash is gone, not a rendering change).
 
-      **Root cause and fix:** `TokenizerIndent.emitFString`'s backslash-escape
-      handling unconditionally skipped 2 characters (backslash + whatever
-      followed) any time it saw a backslash, including when the next
-      character was `{`/`}`. For `f"{1}\{{"`, after the `{1}` field closed,
-      the scanner hit `\{{` (backslash, then a doubled `{{` meant to be one
-      literal-escaped brace): the old code consumed the backslash together
-      with the *first* `{` of that pair as one "escaped" unit, leaving the
-      *second* `{` orphaned — it no longer had its doubling partner, so it
-      was misread as a genuine field-open with no matching `}` before the
-      string ended, and `processField`'s scan then walked off the end of
-      the token list. Verified against real CPython semantics first (not
-      guessed): `y = 3; f"\{y}"` evaluates to `'\3'` — i.e. `{y}` **is** a
-      real field, backslash does not swallow it — while `f"{1}\{{"`
-      evaluates to `'1\{'` (field `{1}`, then a literal `\` followed by a
-      doubled-brace-escaped `{`, no dangling field). Fixed by only skipping
-      the backslash itself (1 char, not 2) when the following character is
-      `{` or `}`, so that character is re-evaluated fresh on the next loop
-      iteration — either as a new field-open or as one half of a
-      `{{`/`}}` doubled-brace escape — while every other backslash-escape
-      case (e.g. `\"`, `\\`, `\n`) keeps the original 2-char skip. Verified:
-      the minimal repro and the full `pep_701.py` both format without
-      crashing post-fix; `make test` 163/163 forward + 163/163 idempotency
-      (up from 162/162 — new fixture added, zero regressions elsewhere).
-      New permanent fixture: `test/real_code_regressions_114_{inp,out}.py`
-      (identity-pass pair — output is byte-identical to input, since no
-      other in-scope rule touches either line; the fixture's purpose is
-      proving the crash is gone, not a rendering change), registered in the
-      Makefile's `INP_FILES` and `test/README.txt`.
+      **Round2 idempotency (337 files): 3/337 differed — 2 bugs, both
+      fixed in a follow-up session:**
 
-      Root cause investigation for the *other* four bugs below was not
-      performed beyond the stack trace/observed symptom (per this session's
-      documentation-only scope for everything except this one crash).
+      1. **§7/§8 join-then-align ordering.** Block-form `match`/`case`
+         skips §7's colon-alignment on round1 (block-form present), then
+         §8 joins each case's single-statement body onto its header line;
+         round2 sees the now-compact form and applies column alignment
+         round1 never had. Affected: `tests/data/cases/
+         pattern_matching_simple.py`, `tests/data/line_ranges_formatted/
+         pattern_matching.py`. FIXED: `ScopePipelineIndent.classifyCaseLine`
+         gained `tryQualifyJoinBody` to predict within the same pass
+         whether a case will qualify for §8's join, so `flushCaseGroup`
+         bakes correct `:`-column padding into one combined `Replacement`
+         up front instead of leaving it for a later round to (wrongly) pad.
+         `applyCaseColonAlignment`'s grouping loop must skip each
+         virtualJoin case's own body `RawLine` when scanning for
+         contiguous headers (else its `null` classification prematurely
+         broke groups into singletons). `applySingleStatementBody` skips
+         headers already handled by §7 (`caseJoinAlignedHeaders`) to avoid
+         a duplicate, unpadded replacement. If §7's padding would push a
+         joined line past `line-length`, the whole group falls back to
+         §8's plain unpadded join. Fixture
+         `real_code_regressions_115_{inp,out}.py`. `make test`: 164/164
+         forward + 164/164 idempotency.
 
-      **Round2 (idempotency, run over the 337 successfully-formatted round1
-      files): zero crashes, but 3/337 files differ from round1 — two
-      distinct non-idempotency bugs:**
+      2. **§6 multi-line union-type-hint gap violated + unbounded
+         trailing-whitespace growth.** `tests/data/cases/
+         pep604_union_types_line_breaks.py`: a `|`-union type wrapped
+         across lines with no enclosing bracket has each `| TypeN`
+         continuation misclassified as its own top-level parameter (§6's
+         fold-back only triggers when a nested bracket keeps `localDepth`
+         > 0 across the continuation) — padding on the phantom `:`/`=`
+         column then grows every round, confirmed non-convergent over 3
+         rounds. FIXED: `classifySignatureParam` now rejects any segment
+         whose first token isn't a valid parameter start (`IDENTIFIER`, or
+         `*`/`**`/`/`); a leading `|` means it's a continuation, not a
+         parameter, so `trySignatureGroup` returns null and the whole
+         signature is left untouched per §6's own documented gap. Fixture
+         `real_code_regressions_116_{inp,out}.py` (identity-pass). `make
+         test`: 165/165 forward + 165/165 idempotency.
 
-      1. **§7/§8 ordering non-idempotency (case colon alignment).** A
-         `match`/`case` block that is still block-form (`case Point():` /
-         body on the next line) is correctly skipped by §7's colon-alignment
-         (all-or-nothing, block-form present) on round1; §8 then joins each
-         case's single-statement body onto the header line
-         (`case Point(): print(...)`) later in the same pass. On round2, §7
-         now sees the already-compact form left by round1's own §8 join and
-         *this* time applies column alignment across the group, padding
-         extra spaces before `:` that were never present in round1's output.
-         Minimal repro (3 files affected in the corpus:
-         `tests/data/cases/pattern_matching_simple.py`,
-         `tests/data/line_ranges_formatted/pattern_matching.py`):
-         ```python
-         match x:
-             case Point():
-                 print("Somewhere else")
-             case _:
-                 print("Not a point")
-         ```
-         Round1 output: `case Point(): print("Somewhere else")` /
-         `case _: print("Not a point")` (unaligned, §7 skipped due to
-         block-form input). Round2 re-formats round1's own output and
-         produces `case _      : print("Not a point")` (colon-aligned) —
-         differs from round1, non-idempotent.
+      **`python3.12 -m py_compile` on all 337 round1 files:** clean except
+      one pre-existing failure, `tests/data/cases/
+      trailing_comma_optional_parens3.py` (`SyntaxError: 'return' outside
+      function` on both the unmodified original and round1 output — a
+      deliberately-invalid black test fixture, not a formatter bug).
 
-      2. **§6 multi-physical-line type-hint gap violated + unbounded
-         trailing-whitespace growth (separate bug, same file:
-         `tests/data/cases/pep604_union_types_line_breaks.py`).**
-         §6's own documented gap says a parameter whose type hint spans
-         multiple physical lines (e.g. a `|`-union type broken across lines)
-         should leave the *whole signature* untouched, but
-         `trySignatureGroup`/`classifySignatureParam` instead treats each
-         continuation `| Type` line as if it were its own parameter,
-         producing alignment padding it shouldn't attempt at all — and the
-         trailing-whitespace padding after each continuation line's
-         (nonexistent) `:`/`=` column **grows by more spaces on every
-         successive round, never converging** (confirmed 3 rounds:
-         width increases round1→round2→round3, did not stabilize). Minimal
-         repro:
-         ```python
-         def foo(
-             i: int,
-             x: Loooooooooooooooooooooooong
-             | Looooooooooooooooong
-             | Looooooooooooooooooooong
-             | Looooooong,
-         ):
-             pass
-         ```
-         Round1 pads `| Looooooooooooooooong` with trailing spaces; round2
-         re-pads with *more* trailing spaces than round1; round3 more still.
-         This is worse than ordinary non-idempotency (a stable wrong answer)
-         — it's unbounded growth, confirmed to not stabilize within 3
-         rounds.
+      **`python_ast_diff.py` on all 337 round1 files: 22 mismatches** — 13
+      are the already-documented §3 import-reorder false positive (same
+      shape as the `pallets/flask` run's; not re-verified tuple-by-tuple
+      this session); 8 are `rc=2` parse failures on fixture files that are
+      themselves deliberately invalid or use post-3.12 syntax (expected,
+      not independently re-confirmed per-file this session — flagged for a
+      future session to do so the same way `trailing_comma_optional_
+      parens3.py` was confirmed above); **2 are genuine content-corruption
+      bugs, both in `ScopePipelineIndent.applyFStringSpacing`'s
+      `addBraceTrim` (§5) — FIXED (follow-up session):**
+      - **(a) Nested-brace field fusion.** A field immediately followed by
+        a nested `{` (e.g. a set/dict comprehension as the field's own
+        expression, `f"{ {a for a in (1, 2, 3)}}"`) had its close-gap
+        trimmed to zero, fusing with the following literal `{{` into an
+        escaped-brace run and silently deleting the nested expression
+        (`ast.dump` confirmed the node is gone, not just a spacing change).
+        Repro: `tests/data/cases/fstring.py` line 8. Fixed: `addBraceTrim`
+        now normalizes that gap to exactly one space whenever the next
+        significant token's text is `{`, so the two braces can never fuse.
+      - **(b) Self-documenting `{expr=}` debug fields.** The leading gap
+        was trimmed even though Python reproduces `expr`'s exact original
+        whitespace verbatim at runtime for a `=`-suffixed field. Repro:
+        `tests/data/cases/preview_long_strings.py` line 327. Fixed:
+        `addBraceTrim` now detects a bare trailing `=` (a lone 1-char `=`
+        OP token — every comparison/augmented-assignment/walrus operator
+        tokenizes as its own distinct multi-char OP token, so this can't
+        misfire) as the field's own last significant token and skips all
+        gap-trimming for that field.
 
-      **`python3.12 -m py_compile` on all 337 round1 files: clean except one
-      pre-existing (not formatter-induced) failure** —
-      `tests/data/cases/trailing_comma_optional_parens3.py` fails
-      `SyntaxError: 'return' outside function` on **both** the unmodified
-      original and the round1 output (verified identically against the raw
-      clone) — this is one of black's own intentionally-invalid test
-      fixtures, not a formatter bug.
+      Both verified via `python_ast_diff.py` (structurally identical to
+      originals) and 2-round idempotency (true no-ops). Combined into one
+      fixture, `real_code_regressions_117_{inp,out}.py` (identity-pass,
+      both bugs live in the same method). `make test`: 166/166 forward +
+      166/166 idempotency.
 
-      **`python_ast_diff.py` on all 337 round1 files: 22 mismatches
-      reported, triaged as follows:**
-      - **13 are the already-documented §3 import-reorder false-positive
-        shape** (`tests/optional.py`, `tests/test_docs.py`,
-        `scripts/generate_schema.py`, `src/black/files.py`,
-        `src/black/nodes.py`, `src/black/parsing.py`, `src/black/lines.py`,
-        `src/black/__init__.py`, `src/blib2to3/pgen2/pgen.py`,
-        `src/blib2to3/pgen2/parse.py` reordering `alias(name=...)` import
-        entries; `tests/data/cases/import_spacing.py` reordering plain
-        imports) — not re-verified tuple-by-tuple this session (pattern
-        matches the `pallets/flask` run's already-established false
-        positive exactly: reordered `ast.alias`/import nodes, same names).
-      - **8 are `rc=2` (parse failure on one side)** — all in
-        `tests/data/cases/`/`tests/data/miscellaneous/` fixture files that
-        are themselves deliberately either syntactically invalid
-        (`pattern_matching_invalid.py`, `invalid_header.py`,
-        `python2_detection.py`) or use syntax newer than what stdlib
-        `ast`/`python3.12` accepts (`python315.py`, `pep_572_do_not_remove_
-        parens.py`, `remove_except_types_parens.py`, `pep_750.py`,
-        `type_param_defaults.py`, `async_as_identifier.py`) — expected,
-        pre-existing parse limitations of the checker/interpreter version,
-        not formatter corruption (not independently re-verified per-file
-        against the original also failing to parse, given the session's
-        time budget — flagged here for a future session to confirm each one
-        the same way `trailing_comma_optional_parens3.py` was confirmed
-        above, rather than assumed).
-      - **2 are genuine content-corruption bugs, both in `ScopePipelineIndent
-        .applyFStringSpacing`'s `addBraceTrim` (§5), both distinct from the
-        pep_701.py crash above:**
-        - **(a) A field immediately followed by a nested `{` (e.g. a
-          set/dict comprehension as the field's own expression) gets its
-          field-close brace fused with the literal `{{` that follows,
-          turning a real expression field into an escaped-literal-brace
-          run.** Minimal repro (`tests/data/cases/fstring.py`, line 8/22):
-          ```python
-          f"space between opening braces: { {a for a in (1, 2, 3)}}"
-          ```
-          formats to:
-          ```python
-          f"space between opening braces: {{a for a in (1, 2, 3)}}"
-          ```
-          — `{{` is an escaped literal `{`, not a field open, so the
-          set-comprehension expression is silently deleted from the
-          program's semantics (this is not merely a spacing change; the
-          `ast.dump` shows the `FormattedValue`/set-comprehension node is
-          gone entirely, replaced by literal string text). Root cause not
-          fixed this session; likely `addBraceTrim` trims the gap after the
-          field's opening `{` without checking whether the immediately
-          preceding character sequence would make the result ambiguous with
-          an escaped `{{`.
-        - **(b) Self-documenting f-string fields (the `{expr=}` debug
-          syntax) have their leading gap trimmed even though the exact
-          source text of `expr` (including its original whitespace) is
-          supposed to be reproduced verbatim in the runtime output** for a
-          `=`-suffixed field. Minimal repro
-          (`tests/data/cases/preview_long_strings.py`, line 327):
-          ```python
-          log.info(f'Skipping: {  longer_name   =  :  .3f }')
-          ```
-          formats to:
-          ```python
-          log.info(f'Skipping: {longer_name   =  :  .3f }')
-          ```
-          — trims the gap right after `{`, which changes the verbatim text
-          that Python prints before `=` at runtime for a self-documenting
-          field (a real behavior change, not just cosmetic). §5's
-          `addBraceTrim` has no carve-out for detecting a trailing `=`
-          debug specifier before deciding to trim the opening gap.
-
-      **Summary: 1 crash (pep_701.py, per-file caught, does not abort
-      batch) — FIXED (backslash-escape/doubled-brace fix in
-      `TokenizerIndent.emitFString`, fixture `real_code_regressions_114`,
-      `make test` 163/163). 2 non-idempotency bugs (§7/§8 join-then-align
-      ordering; §6 unbounded-growth trailing whitespace on multi-line
-      union-type hints), 2 content-corruption bugs (both in §5's
-      `addBraceTrim` — nested-brace field fusion deletes an expression;
-      self-documenting `{expr=}` fields lose verbatim leading whitespace).**
-
-      **§7/§8 join-then-align ordering non-idempotency — FIXED (follow-up
-      session).** `ScopePipelineIndent.classifyCaseLine` now predicts (new
-      `tryQualifyJoinBody`, shared with `applySingleStatementBody`) whether
-      a block-form `case` will qualify for §8's join within the same pass;
-      if so it's treated as effectively compact for §7's grouping/
-      all-or-nothing decision and `flushCaseGroup` emits the join with
-      correct `:`-column padding already baked in (one combined
-      `Replacement` spanning header through body), rather than leaving the
-      join unpadded for a later round to (wrongly) pad on its own.
-      `applyCaseColonAlignment`'s grouping loop also had to skip each
-      virtualJoin case's own body `RawLine` (one depth deeper) when
-      scanning for contiguous case headers — without that, the intervening
-      body line's own `null` classification prematurely broke every
-      block-form group into singletons, silently defeating multi-case
-      alignment. `applySingleStatementBody` skips any header already
-      handled by §7 (new `caseJoinAlignedHeaders` set) to avoid a duplicate,
-      unpadded, overlapping join replacement. If §7's own padding would
-      push a virtualJoin member's joined line past `line-length`, the whole
-      group's alignment is abandoned (falls back to §8's own plain,
-      unpadded join) rather than overflowing. Verified: the minimal repro
-      (`match x: case Point(): ... case _: ...`) now produces the same
-      aligned output on round1 as round2 (`diff` empty). Fixture
-      `real_code_regressions_115_{inp,out}.py`. `make test`: 164/164
-      forward + 164/164 idempotency.
-
-      **§6 multi-physical-line type-hint gap violated + unbounded
-      trailing-whitespace growth — FIXED (follow-up session).**
-      `ScopePipelineIndent.trySignatureGroup`'s NEWLINE-delimited
-      segmentation only folds a multi-line parameter back into one segment
-      when a nested bracket keeps `localDepth` > 0 across the continuation
-      -- a `|`-union type hint wrapped across lines with NO enclosing
-      bracket (`x: Type1\n| Type2,`) has each `| TypeN` continuation land
-      as its own separate top-level-NEWLINE-delimited segment instead.
-      `classifySignatureParam` now rejects any segment whose first
-      significant token isn't a valid parameter start (`IDENTIFIER`, or
-      `OP` text `*`/`**`/`/`) — a leading `|` (or any other binary
-      operator) means the segment is really the previous parameter's own
-      wrapped continuation, not a parameter of its own; rejecting it makes
-      `trySignatureGroup` return `null`, leaving the whole signature
-      untouched exactly per this method's own pre-existing documented gap.
-      Verified: the minimal repro (`def foo(i: int, x: Long\n| Long\n|
-      Long,):`) now converges to a true no-op (byte-identical across 3
-      successive rounds) instead of growing trailing whitespace each
-      round. Fixture `real_code_regressions_116_{inp,out}.py` (identity-
-      pass). `make test`: 165/165 forward + 165/165 idempotency.
-
-      **Both §5 `addBraceTrim` content-corruption bugs — FIXED (follow-up
-      session).** (a) Nested-brace field fusion: trimming the gap right
-      after a field's own `{` to zero-width is unsafe whenever the next
-      significant token is itself a literal `{` (e.g. a set/dict-
-      comprehension field, `f"{ {a for a in (1, 2, 3)}}"`) — an outer
-      field-open `{` immediately followed by a literal `{` with nothing
-      between renders as `{{`, which Python's f-string grammar parses as
-      an ESCAPED brace, not two field-opens, silently deleting the nested
-      expression. Fixed: `addBraceTrim` now normalizes that gap to exactly
-      one space instead of zero whenever the next significant token's
-      text is `{`, so the two braces can never fuse. (b) Self-documenting
-      `{expr=}` debug fields: the leading gap was trimmed even though
-      Python's runtime must reproduce `expr`'s exact original whitespace
-      verbatim for a `=`-suffixed field. Fixed: `addBraceTrim` now detects
-      a bare trailing `=` (a lone 1-char `=` OP token — every comparison/
-      augmented-assignment/walrus operator tokenizes as its own distinct
-      multi-char OP token, so text-equality with `"="` alone can't
-      misfire on those) as the expression's own last significant token
-      and skips all gap-trimming for that field when found. Both verified
-      via `python_ast_diff.py` (structurally identical to the originals)
-      and 2-round idempotency (true no-ops). Combined into one fixture,
-      `real_code_regressions_117_{inp,out}.py` (identity-pass, both bugs
-      live in the same method). `make test`: 166/166 forward + 166/166
-      idempotency.
-
-      **All four remaining `psf/black` dogfood bugs are now fixed.** A
-      full `psf/black` corpus re-run (per this file's own prior note that
-      one should follow once all four land) was deliberately deferred this
-      session — the corpus is 338 files and a full round1+round2+
-      py_compile+AST-diff pass already took substantial wall-clock time
-      the first time; each of the four fixes was independently verified
-      against its own exact minimal repro (matching the corpus file/line
-      the bug was originally found at) plus AST-diff/idempotency, and
-      `make test`'s full local fixture suite stayed green throughout with
-      no regressions, which is judged sufficient confidence for now per
-      the "don't be a time sink" precedent already set for the `click`
-      job's own full-suite run in this same file. A future session may
-      still re-run the full `psf/black` corpus if further confidence is
-      wanted.
+      **All four `psf/black` dogfood bugs are now fixed.** A full corpus
+      re-run was deliberately deferred (338 files, already-substantial
+      wall-clock cost on the first pass) — each fix was independently
+      verified against its own exact minimal repro plus AST-diff/
+      idempotency, and `make test`'s full suite stayed green throughout
+      with no regressions, judged sufficient confidence for now per the
+      same "don't be a time sink" precedent as `click`'s own full-suite
+      decision. A future session may still re-run the full corpus if
+      further confidence is wanted.
 
       `python/cpython`, `django/django` — still not started.

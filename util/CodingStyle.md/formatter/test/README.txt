@@ -2026,6 +2026,26 @@ Real-code regressions:
                                              the existing `hasBreakableCall` check. See
                                              `STATE_C_CPP_JAVA.md`.
 
+  real_code_regressions_125_inp/out.html  -- HTML5, `apache/ant` `manual/` dogfood, 2 bugs in one
+                                             fixture: (1) a `<p>` with no explicit `</p>` before a
+                                             following block-level sibling (`<h3>`) made the parser
+                                             swallow the rest of the document as that `<p>`'s
+                                             children until the first unrelated closing tag anywhere
+                                             downstream, producing a spurious duplicate `</p>` at
+                                             EOF -- fixed by registering `p` in
+                                             `XmlSpecificRule.IMPLIED_CLOSE_TRIGGERS` with the
+                                             HTML5 spec's fixed "close a p element" trigger-tag list
+                                             (RDD_KEY_204). (2) a same-line trailing comment
+                                             immediately after a `<td>`'s sole text child (e.g.
+                                             `<td>text<!-- c --></td>`) was silently dropped -- the
+                                             comment was correctly attached as the text node's
+                                             `trailingComment`, but two separate render paths never
+                                             consulted it: the `TEXT` case in `renderNode`, and
+                                             `renderElement`'s "sole content child" inline fast path
+                                             (which reads `onlyChild.raw` directly, bypassing
+                                             `renderNode`) -- both fixed (RDD_KEY_205). See
+                                             `STATE_DATA_FORMATS.md`.
+
 How Tests Are Run
 -----------------
 

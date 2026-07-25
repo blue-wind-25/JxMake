@@ -135,14 +135,26 @@ public final class XmlSpecificRule {
      *  closing tag also ends me" behavior every element already gets via {@code parseNodes}'s
      *  {@code stopAtCloseTag}. Populate with one entry per element only once real dogfood input needs
      *  it -- currently `option` (closes on a sibling `<option>`/`<optgroup>` start, or when its
-     *  parent `<select>`/`<datalist>`/`<optgroup>` closes) and `head` (closes on a sibling `<body>`
-     *  start, confirmed via real WPT dogfood input, `meta-inhead-insertion-mode.html`). Do NOT add
-     *  `li`/`td`/`tr`/`p`/etc. speculatively -- see STATE_DATA_FORMATS.md's Open Questions/
-     *  RDD_LOG.md for the rationale. */
+     *  parent `<select>`/`<datalist>`/`<optgroup>` closes), `head` (closes on a sibling `<body>`
+     *  start, confirmed via real WPT dogfood input, `meta-inhead-insertion-mode.html`), and `p`
+     *  (RDD_KEY_204 -- closes on any of the HTML5 spec's fixed "close a p element" trigger-tag
+     *  list, confirmed via real `apache/ant` `manual/` dogfood input: a `<p>...` paragraph with no
+     *  explicit `</p>` before a following `<h3>` caused the parser to swallow the rest of the
+     *  document as that `<p>`'s children until the first unrelated closing tag anywhere downstream,
+     *  producing a spurious duplicate `</p>` at the very end). Do NOT add `li`/`td`/`tr`/etc.
+     *  speculatively without similar real dogfood evidence -- see STATE_DATA_FORMATS.md's Open
+     *  Questions/RDD_LOG.md for the rationale. */
     private static final java.util.Map<String, java.util.Set<String>> IMPLIED_CLOSE_TRIGGERS = new java.util.HashMap<>();
     static {
         IMPLIED_CLOSE_TRIGGERS.put("option", new java.util.HashSet<>(java.util.Arrays.asList("option", "optgroup")));
         IMPLIED_CLOSE_TRIGGERS.put("head", new java.util.HashSet<>(java.util.Arrays.asList("body")));
+        // HTML5 spec's fixed "close a p element" trigger-tag list (the set of start tags that
+        // implicitly close an open <p> with no explicit </p>).
+        IMPLIED_CLOSE_TRIGGERS.put("p", new java.util.HashSet<>(java.util.Arrays.asList(
+                "address", "article", "aside", "blockquote", "details", "div", "dl", "fieldset",
+                "figcaption", "figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6",
+                "header", "hgroup", "hr", "main", "menu", "nav", "ol", "p", "pre", "section",
+                "table", "ul")));
     }
 
     private static final class Node {
@@ -813,7 +825,7 @@ public final class XmlSpecificRule {
                 out.append(indent(depth)).append(n.raw).append('\n');
                 return;
             case TEXT:
-                out.append(indent(depth)).append(n.raw).append('\n');
+                appendWithTrailing(out, indent(depth) + n.raw, n.trailingComment);
                 return;
             case FROZEN:
                 for (final String line : n.frozenLines) {
@@ -864,7 +876,13 @@ public final class XmlSpecificRule {
         }
         final Node onlyChild = soleContentChild(n.children);
         if (onlyChild != null && (onlyChild.type == NodeType.TEXT || onlyChild.type == NodeType.CDATA)) {
-            final String inline = indent(depth) + openTightNoAngle + ">" + onlyChild.raw + "</" + n.tagName + ">";
+            // `onlyChild` may itself carry a same-line trailing comment (e.g. `<td>text<!-- c
+            // --></td>`) -- this inline fast path bypasses renderNode(onlyChild), so that comment
+            // must be spliced in here too or it's silently dropped (found via apache/ant dogfood).
+            final String childSuffix = onlyChild.trailingComment != null
+                    ? " <!-- " + onlyChild.trailingComment + " -->" : "";
+            final String inline = indent(depth) + openTightNoAngle + ">" + onlyChild.raw + childSuffix
+                    + "</" + n.tagName + ">";
             appendWithTrailing(out, inline, n.trailingComment);
             return;
         }

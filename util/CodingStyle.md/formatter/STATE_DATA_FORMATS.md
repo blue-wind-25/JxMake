@@ -336,7 +336,24 @@ Checklist for current per-language status):
   modern boilerplate vs. WPT's deliberately adversarial conformance
   fixtures) — real, slightly-imperfect hand-written legacy-style HTML.
   Reuse the checkout already cloned for the XML session rather than
-  re-cloning. Not yet run (queued).
+  re-cloning. **Run (2026-07-26): 226/226 files forward-pass, round2
+  idempotency diff empty, syntax-check (`html_sc.js`) 0/226 failures.
+  Content-preservation check (`html_content_diff.py`) found 2 real bugs,
+  both fixed and covered by new fixture `real_code_regressions_125`:
+  (1) `<p>` missing from `IMPLIED_CLOSE_TRIGGERS` — an unclosed `<p>`
+  followed by a sibling block like `<h3>` produced a spurious duplicate
+  `</p>`; fixed by adding the HTML5 spec's fixed "close a p element"
+  trigger-tag list for `p` (RDD_KEY_204). (2) a same-line trailing HTML
+  comment inside a `<td>` (or any sole-text-child element) was silently
+  dropped — `renderNode`'s `TEXT` case and `renderElement`'s
+  sole-content-child inline fast path didn't route through
+  `appendWithTrailing`, so `node.trailingComment` was never emitted;
+  fixed both render paths (RDD_KEY_205). After both fixes, re-running
+  content-diff leaves 5 files with mismatches: 4 are the accepted
+  comment-capitalization-only artifact (`normalize-comment-start-case=on`,
+  same non-bug pattern as `real_code_regressions_69`) — `Tasks/antlr.html`,
+  `Tasks/imageio.html`, `Tasks/attrib.html`, `Tasks/image.html`. The 5th,
+  `running.html`, has a genuine unfixed gap — see Known Gaps below.**
 - **YAML:** `kubernetes/kubernetes` (manifests/Helm-adjacent config, heavy real-world
   nesting/anchors), `docker/compose` (compose-file corpus), `ansible/ansible`
   (playbooks — heavy on lists-of-maps, block scalars), `actions/starter-workflows`
@@ -703,6 +720,19 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   (`RDD_KEY_185`: bare top-level content reindents as an ordinary sibling
   at whatever depth the source implies) doesn't corrupt output, just isn't
   spec-faithful tag synthesis.
+
+  **Known gap found (2026-07-26, `apache/ant` `manual/` dogfood run):**
+  `manual/running.html` loses one `<p>` in content-diff (82 vs 81 body
+  children; source lines ~508-513). Root cause: an orphan `</p>` with no
+  matching open `<p>` sits directly against bare top-level text with no
+  wrapping tag at all — a different, deeper malformed-markup shape than
+  the ordinary unclosed-`<p>`-before-a-sibling-block case RDD_KEY_204
+  fixed (that fix does not cover this). Affects 1 of 226 files in the
+  corpus; deferred rather than fixed this session — falls under the same
+  "deep tree-construction gaps" bucket documented just above (no
+  open-elements-stack / insertion-mode tracking yet), not a new standalone
+  gap. Not blocking; revisit alongside the grouped future tree-construction
+  job.
 
 ## Checklist
 
@@ -1101,3 +1131,17 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       "HTML5 deep tree-construction edge cases" Open Question below. **This
       completes the HTML5 Test-Fixture Repos list and the overall
       real-code-testing pass across all six sub-formats.**
+      `apache/ant`'s `manual/` directory (226 files, added later as a light
+      supplement, run 2026-07-26): forward pass, round2, and idempotency
+      diff all 226/226 clean; syntax-check (`html_sc.js`) 0/226 failures.
+      Content-preservation found 2 real bugs, both fixed: `<p>` missing
+      from `IMPLIED_CLOSE_TRIGGERS` causing a spurious duplicate `</p>`
+      after an unclosed `<p>` (RDD_KEY_204), and a same-line trailing
+      comment inside a sole-text-child element (e.g. `<td>`) silently
+      dropped because `renderNode`'s `TEXT` case and `renderElement`'s
+      sole-content-child inline fast path skipped `appendWithTrailing`
+      (RDD_KEY_205). Fixture `real_code_regressions_125`. Final re-run:
+      221/226 clean, 4 comment-capitalization-only (accepted non-bug
+      artifact), 1 genuine unfixed gap (`running.html`, orphan `</p>`
+      against bare top-level text — see "deep tree-construction gaps"
+      Open Question above).

@@ -447,21 +447,6 @@ third-party client only needs to speak this HTTP protocol, not link against the 
   for a project's source root and no `tsconfig.json`/bundler-config resolution logic. This
   is a known, accepted simplification (RDD_KEY_195) — no source-root config key is planned.
 
-- **Java/Kotlin comment-separator alignment (§15) can false-positive on ordinary prose that
-  incidentally matches its recognition shape.** `alignCommentSeparators` treats a run of 2+
-  adjacent trailing `//` comments as a separator-alignment group when each comment contains
-  exactly one non-alphanumeric character flanked by spaces on both sides (RDD_KEY_50's
-  deliberately broad, user-chosen recognition rule). Ordinary prose can coincidentally
-  satisfy this shape (e.g. `// The @ can be used...` next to `// => the last @ is...`),
-  causing the formatter to pad spaces mid-comment to "align" the coincidental character —
-  not idempotent, and can push a line over `line-length`. Found during the
-  `jenkinsci/jenkins` Java dogfood session; a follow-up attempt to narrow the qualifying-
-  character set to a fixed allowlist was tried and reverted (it broke existing Kotlin
-  doc-comment fixtures that rely on the current rule's "2+ qualifying candidates
-  disqualifies" behavior to stay unrecognized — see `RDD_KEY_201`). No fix is currently
-  planned; narrowing this rule safely needs a new design decision, not just a smaller
-  character set. Affects roughly 1 file per ~2000 real-world files tested so far.
-
 ---
 
 ## License

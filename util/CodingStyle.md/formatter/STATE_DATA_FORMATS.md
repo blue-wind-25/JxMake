@@ -134,163 +134,82 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 
 ## Dogfood Output Validation (syntax checkers)
 
-For the still-open real-code-testing pass (see Checklist), "did the
-formatter corrupt the file" is checked by feeding formatted output through a
-real, independent third-party parser per format — same principle as
-`java_syntax_check`/`kotlin_syntax_check` (parse-only, no semantic/schema validation, prints
-`line:col: message` on error, exit 1 if any file has errors, exit 0
-otherwise). Six Node.js scripts, one per format, live in
-`tools/verifiers/` (committed, licensed project tooling; `java_syntax_check`/
-`kotlin_syntax_check` remain outside the repo, unrelated to this campaign, at
-`~/Projects/JxMake/0_excluded_directory/personal/SyntaxChecker/`):
+"Did the formatter corrupt the file" (real-code-testing pass, see Checklist)
+is checked two ways per format, both in `tools/verifiers/` (committed,
+licensed project tooling; `java_syntax_check`/`kotlin_syntax_check` remain
+outside the repo at `~/Projects/JxMake/0_excluded_directory/personal/
+SyntaxChecker/`, unrelated to this campaign):
 
-- `json_syntax_check.js` — built-in `JSON.parse` (plain `.json` only)
-- `json5_syntax_check.js` — `json5` package
-- `yaml_syntax_check.js` — `js-yaml`, `loadAll()` so multi-document streams are fully
-  checked
-- `toml_syntax_check.js` — `smol-toml`
-- `css_syntax_check.js` — `postcss` (**not** `css-tree`: css-tree's parser is
-  deliberately tolerant and silently auto-closes an unclosed `{ ... }` block
-  at EOF instead of reporting a parse error — confirmed by direct testing,
-  a hand-crafted `body { color: red` with no closing brace produced zero
-  `onParseError` calls. `postcss.parse()` throws a `CssSyntaxError` with
-  line/column for the same input, so it's used instead.)
-- `xml_syntax_check.js` — `@xmldom/xmldom`. Its default `onError` handler only logs
-  warnings/`error`-level problems and does not throw, so a custom `onError`
-  is wired in to capture those; but `fatalError`-level problems (e.g.
-  mismatched tags) throw a `ParseError` regardless of `onError`, so
-  `parseFromString` is also wrapped in try/catch (deduped against
-  `onError` already having recorded the same fatalError).
+**Syntax checkers** (six Node.js scripts, parse-only, `line:col: message` on
+error, exit 1 if any file errors, else exit 0) — `json_syntax_check.js`
+(`JSON.parse`, plain `.json` only), `json5_syntax_check.js` (`json5`),
+`yaml_syntax_check.js` (`js-yaml`, `loadAll()` for multi-doc streams),
+`toml_syntax_check.js` (`smol-toml`), `css_syntax_check.js` (`postcss`, NOT
+`css-tree` — css-tree silently auto-closes an unclosed `{` at EOF instead of
+erroring, confirmed by direct testing; `postcss.parse()` throws
+`CssSyntaxError` with line/column instead), `xml_syntax_check.js`
+(`@xmldom/xmldom`, custom `onError` to capture warnings the default handler
+only logs, plus try/catch around `parseFromString` since `fatalError`
+throws regardless of `onError`). `html_syntax_check.js` (`parse5`,
+`onParseError`) also exists for HTML5 but is a weaker signal — HTML5
+parsing is spec-mandated error-tolerant (auto-closes mismatched tags), so
+it only catches the narrow set of spec-defined parse errors, not general
+malformed markup the way the XML checker does (documented as a caveat in
+the script). All six verified against hand-crafted good/bad pairs
+(malformed trailing comma, unclosed brace, mismatched tag, etc.) before
+trusted for dogfood use.
 
-**`xml_content_diff.py`** — a content-preservation checker for XML,
-complementing `xml_syntax_check.js` (which only proves "still parses", same
-`css_content_diff.py` precedent). Parses both original and formatted files
-with stdlib `xml.dom.minidom` (no extra package dependency, unlike
-`xml_syntax_check.js`) and walks both DOMs in parallel, comparing (skipping
-pure-whitespace text nodes so pure re-indentation is never flagged):
-(1) element names and attribute name+value pairs, **in order** (XML
-attribute order is spec-preserved per `STYLE_DATA_FORMATS.md` SS2.2, so
-reordering is a real bug here, unlike most other formats); (2) text-node
-content, whitespace-normalized; (3) comment text, whitespace-normalized —
-this is the check that would have caught CSS's `twbs/bootstrap`
-rtlcss-directive comment-corruption bug had it been an XML/HTML bug, since a
-corrupted comment is often still syntactically valid; (4) CDATA content,
-byte-identical (no whitespace normalization — CDATA is opaque/verbatim).
-Node-type mismatches at the same tree position are reported as a structural
-mismatch. Exit 0/1, description of every mismatch on mismatch, exit 2 if the
-original itself doesn't parse (not applicable). Verified against a
-hand-crafted good pair (whitespace-only reformat) and a deliberately-mutated
-bad pair (attribute reorder + comment text change) before being trusted for
-real dogfood use — both caught correctly. Written and first used during the
-`apache/maven` XML dogfood session (see Checklist); reusable as-is for the
-remaining XML test-fixture repos (`apache/ant`, `jenkinsci/jenkins`,
-`w3c/svgwg`). Usage: `python3 xml_content_diff.py <original.xml>
-<formatted.xml>` (stdlib only, no `npm install` needed, unlike the `*_syntax_check.js`
-scripts).
+**Content-preservation checkers** (Python, complementing the syntax
+checkers — proves "still means the same thing," not just "still parses";
+motivated by the CSS `twbs/bootstrap` rtlcss-comment corruption bug,
+fixture `real_code_regressions_69`, which was still valid CSS and would
+have slipped past `css_syntax_check.js` alone). Each verified against a
+hand-crafted good pair (whitespace-only reformat) plus deliberately-mutated
+bad pair(s) before trusted for dogfood use; each caught its bad case:
 
-**`toml_content_diff.py`** — a content-preservation checker for TOML,
-complementing `toml_syntax_check.js` (which only proves "still parses", same
-`css_content_diff.py`/`xml_content_diff.py` precedent). This system's Python
-is 3.6 (no stdlib `tomllib`, 3.11+ only) with no `toml`/`tomli` package
-installed, so instead of parsing directly in Python it shells out to a small
-inline Node.js helper (embedded as a string in the script, run via `node -e
-... -- <path>`) that uses the already-installed `smol-toml` package (same one
-`toml_syntax_check.js` uses) to parse each file to JSON, then compares the two
-resulting Python data structures (`dict`/`list`/scalar) for deep equality —
-same principle a direct `tomllib` comparison would give, just relayed through
-JSON as the interchange format. Note: `node -e <script> -- <path>` puts
-`<path>` at `process.argv[1]`, not `argv[2]` (no script-file slot is filled
-when using `-e`) — a gotcha hit and fixed during this script's own
-verification. Exit 0 if parsed structures match, 1 with a diff of both
-parsed structures otherwise, 2 if either file fails to parse as TOML at all.
-Verified against a hand-crafted good pair (whitespace/alignment-only reformat)
-and a bad pair (a scalar value changed) before being trusted for real dogfood
-use — both caught correctly. Written and first used during the
-`rust-lang/cargo` TOML dogfood session (see Checklist); reusable as-is for
-the remaining TOML test-fixture repos (`python-poetry/poetry`,
-`pola-rs/polars`, `toml-lang/toml`). Usage: `python3 toml_content_diff.py
-<original.toml> <formatted.toml>` — needs the same `LD_LIBRARY_PATH`/
-`NODE_PATH`/`PATH` env as `toml_syntax_check.js` (see below), unlike `xml_content_diff.py`
-which is stdlib-only.
+- `css_content_diff.py` — stdlib `re` only. Checks: comment text
+  byte-identical in order; comment-stripped/colon-normalized token stream
+  identical (no property/value/selector added/removed/reordered);
+  `!important` count matches; vendor-prefixed property counts match per
+  distinct prefixed string. First used ad hoc during `twbs/bootstrap`,
+  promoted to a permanent script during `necolas/normalize.css`.
+- `xml_content_diff.py` — stdlib `xml.dom.minidom` (no extra dependency).
+  Walks both DOMs in parallel (skipping pure-whitespace text nodes):
+  element names + attribute name/value pairs **in order** (XML preserves
+  attribute order per `STYLE_DATA_FORMATS.md` §2.2, so reordering is a real
+  bug here); text-node content whitespace-normalized; comment text
+  whitespace-normalized; CDATA content byte-identical. Node-type mismatch
+  at the same tree position = structural mismatch. Written during
+  `apache/maven`.
+- `toml_content_diff.py` — this system's Python (3.6) has no stdlib
+  `tomllib`/`toml`/`tomli`, so it shells out to an inline Node helper (`node
+  -e ... -- <path>`, note `<path>` lands at `argv[1]` not `argv[2]` with
+  `-e` — a gotcha hit during verification) using `smol-toml` to parse to
+  JSON, then deep-compares the resulting Python structures. Written during
+  `rust-lang/cargo`. Needs the same `LD_LIBRARY_PATH`/`NODE_PATH`/`PATH` env
+  as the `*_syntax_check.js` scripts (unlike the stdlib-only Python
+  checkers).
+- `yaml_content_diff.py` — PyYAML is installed, so parses directly via
+  `yaml.safe_load_all` (multi-doc aware) on both files and deep-compares.
+  A best-effort `#`-comment-line scan reports textual diffs as
+  informational-only (comment normalization is non-structural). Written
+  during `kubernetes/kubernetes`; this is the check that caught a real bug
+  (a block-scalar sequence item silently truncated) that
+  `yaml_syntax_check.js` alone missed since the truncated output was still
+  valid YAML.
+- `html_content_diff.py` — stdlib can't parse real-world HTML5 (not
+  XML-well-formed), so shells out to an inline Node helper using `parse5`
+  into a simplified JSON tree, walked in parallel comparing tag
+  names/structure, attribute pairs in order, whitespace-normalized text,
+  comments, and DOCTYPE. `<script>`/`<style>` bodies deliberately NOT
+  byte-compared (legitimately dispatched to JS/TS/CSS pipelines which may
+  reformat them) — only checked for surviving at the same tree position
+  with the same attributes and a non-empty body. Written during
+  `h5bp/html5-boilerplate`.
 
-**`yaml_content_diff.py`** — a content-preservation checker for YAML,
-complementing `yaml_syntax_check.js` (which only proves "still parses", same
-`css_content_diff.py`/`xml_content_diff.py`/`toml_content_diff.py`
-precedent). PyYAML is installed on this system, so unlike
-`toml_content_diff.py` it parses directly in Python: `yaml.safe_load_all`
-on both original and formatted files (multi-document-stream aware, same
-`loadAll()` reasoning as `yaml_syntax_check.js`), then compares the resulting
-per-document Python data structures (`dict`/`list`/scalar) for deep
-equality. Exit 0 if all documents' parsed structures match (a lightweight,
-best-effort `#`-comment-line scan is also run and any textual difference
-reported as informational-only, since comment normalization is a separate,
-non-structural concern), exit 1 with a description of the mismatch
-otherwise, exit 2 if either file fails to parse as YAML at all (not
-applicable to a real dogfood run where both files are already
-syntax-checked separately). Verified against a hand-crafted good pair
-(whitespace-only reformat, same comment) and a bad pair (a scalar value
-silently changed) before being trusted for real dogfood use — both caught
-correctly. Written and first used during the `kubernetes/kubernetes` YAML
-dogfood session (see Checklist); this is also the check that caught a real
-bug (a plain block-scalar sequence item silently truncated to an empty
-string) that `yaml_syntax_check.js` alone missed, since the truncated output was
-still syntactically valid YAML. Usage: `python3 yaml_content_diff.py
-<original.yaml> <formatted.yaml>` (needs `pip3 install --user pyyaml` if
-not already present; no Node/env vars needed, unlike `toml_content_diff.py`).
-
-`html_syntax_check.js` (`parse5`, `onParseError`) also exists for HTML5, but per-spec
-HTML5 parsing is deliberately error-tolerant (e.g. auto-closes mismatched
-tags rather than failing), so it only catches the narrow set of conditions
-the spec defines as parse errors, not general malformed-markup the way the
-XML checker does — documented as a caveat directly in the script.
-
-**`html_content_diff.py`** — a content-preservation checker for HTML5,
-complementing `html_syntax_check.js` (which only proves "still parses per HTML5's
-error-tolerant grammar", an even weaker signal than the other formats'
-syntax checkers per that caveat, making this check even more essential
-here). Python's stdlib can't parse real-world HTML5 (not XML-well-formed —
-void elements, optional closing tags), so like `toml_content_diff.py` it
-shells out to a small inline Node.js helper using the already-installed
-`parse5` package (same one `html_syntax_check.js` uses) to parse each file into a
-simplified JSON tree, then walks both trees in parallel comparing element
-tag names/structure, attribute name+value pairs in order, whitespace-
-normalized text content, comment content, and the DOCTYPE declaration.
-`<script>`/`<style>` element bodies are deliberately NOT compared
-byte-for-byte (the formatter legitimately dispatches their content to the
-JS/TS and CSS pipelines, which may reformat it) — only that the element
-itself survives at the same tree position with the same attributes and a
-non-empty body (proving the content wasn't silently dropped), the same
-"structural HTML must be exactly preserved, embedded content just needs its
-own pipeline's guarantees" split the task's methodology calls for. Verified
-against a hand-crafted good pair (whitespace-only reformat) and two bad
-pairs (a dropped attribute, a corrupted comment) before being trusted for
-real dogfood use — all three cases caught correctly. Written and first used
-during the `h5bp/html5-boilerplate` HTML5 dogfood session (see Checklist).
-Usage: `python3 html_content_diff.py <original.html> <formatted.html>` —
-needs the same `LD_LIBRARY_PATH`/`NODE_PATH`/`PATH` env as `html_syntax_check.js`.
-
-**`css_content_diff.py`** — a content-preservation checker, complementing
-`css_syntax_check.js` (which only proves "still parses", not "still means the same
-thing" — the twbs/bootstrap rtlcss directive-comment corruption bug,
-fixture `real_code_regressions_69`, produced still-valid CSS and would not
-have been caught by `css_syntax_check.js` alone). Takes `<original.css>
-<formatted.css>`, checks: (1) every `/* ... */` comment's whitespace-
-normalized text is byte-identical between the two files, in order; (2) the
-comment-stripped, colon/whitespace-normalized token stream is identical
-(proves no property/value/selector was added/removed/reordered); (3)
-`!important` occurrence count matches; (4) vendor-prefixed
-(`-webkit-`/`-moz-`/`-ms-`/`-o-`) property occurrence counts match exactly
-per distinct prefixed-property string. Exit 0 if all four checks pass, exit
-1 with a description of each mismatch otherwise. Written and verified
-(positive case + a deliberately-mutated-comment negative case) during the
-`necolas/normalize.css` dogfood session below; first used as an ad hoc
-inline Python snippet during the `twbs/bootstrap` session, now promoted to a
-permanent, reusable script alongside the other `*_syntax_check.js` checkers. No new
-package dependency (stdlib `re` only).
-
-All six `*_syntax_check.js` syntax checkers were verified against hand-crafted good/bad pairs (malformed
-trailing comma, unclosed brace, mismatched tag, etc.) before being trusted
-for real dogfood use; each caught its bad case and passed its good case.
+Exit codes: 0 = match, 1 = mismatch (description printed), 2 = a file
+doesn't parse at all (n/a in practice — files are syntax-checked first).
+Usage is uniform: `python3 <script> <original> <formatted>`.
 
 Requires the same `LD_LIBRARY_PATH`/`NODE_PATH`/`PATH` env as
 `STATE_JS_TS.md`'s "Tools/compiler used" section (same `node` binary, same
@@ -433,306 +352,139 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
 
 ## Open Questions
 
-- **`twbs/bootstrap` docs-site HTML dogfood candidate no longer exists in the
-  current repo — how to proceed?** Investigated a fresh-enough checkout
-  (`main`, shallow clone reused from the prior CSS dogfood session, HEAD at a
-  dependabot commit dated 2026-07-22) looking for the docs-site HTML this
-  candidate was picked for (many inline `<script>`/`<style>` blocks alongside
-  component markup, to exercise `XmlSpecificRule.renderScriptOrStyle`). Found
-  **zero** `.html` files anywhere under `site/` — the docs site has migrated
-  to Astro + MDX (`site/src/content/docs/**/*.mdx`, `site/src/pages/**/*.astro`);
-  there is no committed HTML source for the docs pages at all in this
-  snapshot (they're presumably generated at build time, not checked in). A
-  full-tree search found only 14 `.html` files total in the entire repo, all
-  under `js/tests/visual/**` and `js/tests/integration/index.html` — JS
-  component test pages, not docs-site content, and out of the task's declared
-  scope ("do not touch compiled JS/CSS or component source unless incidentally
-  alongside the docs HTML"). Options not decided: (a) substitute the
-  `js/tests/visual`/`integration` HTML corpus anyway despite it not being
-  "docs site" HTML, (b) mark `twbs/bootstrap` (docs site) as not-applicable/
-  skipped in the HTML5 Test-Fixture Repos list and rely on the other three
-  (`mdn/content`, `whatwg/html`, already-done `h5bp/html5-boilerplate`), (c)
-  try an older commit/release tag of `twbs/bootstrap` from before the Astro
-  migration (last version with Jekyll-rendered docs HTML actually committed)
-  to get a real docs-site HTML corpus. No changes made to
-  `XmlSpecificRule.java` or any fixture pending this decision.
+- **HTML5 Test-Fixture Repos winnowing (all resolved, user, 2026-07-24).**
+  `twbs/bootstrap` docs site: verified via checkout that its docs migrated to
+  Astro/MDX with zero committed `.html` under `site/` (only unrelated JS
+  component-test HTML elsewhere, out of scope) — dropped from the list
+  (option b: rely on other candidates, not worth substituting the unrelated
+  corpus). `mdn/content`: entirely Markdown, no `.html` anywhere — dropped.
+  `whatwg/html`: a single Nim-macro-syntax `source` file, not real HTML5 —
+  dropped. `kangax/html-minifier`'s `tests/` dir: all `.js` unit tests with
+  inline HTML strings, not real `.html` files — dropped. Lesson: verify
+  actual file contents via `gh api` before proposing a candidate by
+  name/reputation alone — docs sites/spec repos/minifier test suites have
+  repeatedly turned out to store HTML as Markdown/MDX/macro-source/JS-string
+  literals instead of real `.html`. Three replacement candidates were later
+  added and are recorded in Test-Fixture Repos/Checklist above
+  (`web-platform-tests/wpt`, `WordPress/wordpress-develop`,
+  `alexandersandberg/html5-elements-tester`).
 
-  **Resolved (user, 2026-07-24): option (b).** `twbs/bootstrap` (docs site)
-  dropped from the HTML5 Test-Fixture Repos list — its docs site no longer
-  ships committed HTML (Astro/MDX now), so there's no real docs-HTML corpus
-  left to dogfood against, and substituting its unrelated JS component test
-  pages (option a) wasn't worth diluting the point of the candidate.
-
-- **`mdn/content` and `whatwg/html` also turned out to have no real HTML5
-  corpus — both dropped (user, 2026-07-24).** Verified via `gh api`:
-  `mdn/content` is entirely Markdown (`files/en-us/**/*.md` with frontmatter,
-  no `.html` anywhere in the docs tree — content is rendered to HTML only at
-  publish time, not checked in). `whatwg/html` is a single 7.9MB `source`
-  file with no `.html` extension, written in a custom Nim-preprocessed macro
-  syntax (not valid standalone HTML5) — the repo's only real `.html` is a
-  single tiny `404.html` plus two small `demos/canvas`/`demos/workers` dirs,
-  not enough for a meaningful corpus. A third candidate suggested in the same
-  session, `kangax/html-minifier` (its `tests/` dir, hoped to contain many
-  real hand-authored edge-case `.html` fixture files), was also checked and
-  is actually all `.js` unit tests with inline HTML template strings, not
-  real `.html` files — also dropped. **HTML5 Test-Fixture Repos list is now
-  down to just `h5bp/html5-boilerplate` (done); no replacement candidates
-  queued.** Next session (or the user) needs to find a real hand-authored or
-  build-committed static HTML5 site corpus before HTML5 dogfooding can
-  continue past what's already done — repos that look promising by name
-  (docs sites, spec repos, minifier test suites) have repeatedly turned out
-  to store their HTML as Markdown/MDX/custom-macro-source/JS-string-literals
-  instead of real `.html` files; verify actual file contents via `gh api`
-  before proposing a candidate, not just repo purpose/reputation.
-
----
-
-- **WordPress magic-comment capitalization — should HTML/XML comment-start
-  normalization skip "directive-shaped" comments the way CSS's
-  `isSingleTokenDirective` already does, and if so, what shape qualifies?**
-  Found during the `WordPress/wordpress-develop` HTML5 dogfood session
-  (2026-07-24): `normalize-comment-start-case=on`'s `normComment` in
+- **WordPress magic-comment capitalization — open design tradeoff, not
+  fixed.** Found during the `WordPress/wordpress-develop` HTML5 dogfood
+  session (2026-07-24): `normalize-comment-start-case=on`'s `normComment` in
   `XmlSpecificRule.java` unconditionally capitalizes any lowercase-starting
-  comment, with no directive-shape exclusion at all (unlike
-  `FormatterSimpleBraced`'s CSS-specific `isSingleTokenDirective`, added for
-  the `twbs/bootstrap` rtlcss-comment bug, `real_code_regressions_69`). Two
-  WordPress fixtures (`tests/phpunit/data/blocks/fixtures/core__more.server
-  .html`, `core__nextpage.server.html`, plus `do-blocks-expected.html`) use
-  `<!--more-->` and `<!--nextpage-->` — WordPress core's own literal,
-  case-sensitive(-ish) content-splitting magic comments (`get_extended()`,
-  block "next page" splitting), not prose — which the formatter silently
-  rewrites to `<!--More-->`/`<!--Nextpage-->`. Unlike the CSS precedent, a
-  straight reuse of `isSingleTokenDirective`'s exact rule (single
-  whitespace-free token containing `:` or `-`) would NOT catch this case —
-  `more`/`nextpage` contain neither character, so the existing "directive
-  shape" heuristic doesn't generalize as-is. Whether HTML/XML should adopt a
-  broader "any single lowercase word with no interior whitespace, regardless
-  of `:`/`-` content" exclusion (risking under-capitalizing genuine short
-  one-word prose comments like `<!--fixme-->` or `<!--todo-->`, which
-  arguably *should* still get capitalized) or some other rule
-  (allow-list of known magic-comment strings? scope the exclusion to HTML5
-  only, not XML?) is a real design tradeoff not specified anywhere in
-  `STYLE_DATA_FORMATS.md` §4. No code change made to `normComment` pending
-  this decision — leaving the current blanket-capitalization behavior as-is
-  (same posture as CSS had before its own precedent bug was found). Not
-  blocking: the HTML5 `WordPress/wordpress-develop` dogfood run otherwise
-  completed and is recorded as done in the Checklist below; this is a
-  content-correctness caveat on that run's comment-normalization output
-  only, does not affect structural output, and does not block moving on to
-  other HTML5 candidates.
+  comment, with no directive-shape exclusion (unlike CSS's
+  `isSingleTokenDirective`, added for `real_code_regressions_69`).
+  WordPress's own literal magic comments `<!--more-->`/`<!--nextpage-->`
+  (content-splitting directives, not prose) get silently rewritten to
+  `<!--More-->`/`<!--Nextpage-->`. A straight reuse of
+  `isSingleTokenDirective`'s rule (single token containing `:`/`-`) would
+  NOT catch this — `more`/`nextpage` contain neither character. Whether
+  HTML/XML should adopt a broader "any single lowercase word, no interior
+  whitespace" exclusion (risks under-capitalizing genuine one-word prose
+  comments like `<!--fixme-->`), an allow-list, or an HTML5-only scope is an
+  unresolved design tradeoff not specified in `STYLE_DATA_FORMATS.md` §4. No
+  code change made pending a decision. Not blocking — content-correctness
+  caveat only on the otherwise-complete `WordPress/wordpress-develop` run.
 
-- **HTML5 optional/implied end tags -- RESOLVED (RDD_KEY_198, user,
-  2026-07-24).** Rather than the full per-element-family spec feature, a
-  small, extensible `XmlSpecificRule.OPAQUE_IMPLIED_END_TAG_ELEMENTS` name
-  set (currently just `ruby`) reuses the existing `<script>`/`<style>`/
-  `<pre>` opaque-verbatim-span pattern: the whole element, from its own
-  opening `<` through its own MATCHING `</tag>` (nested same-name
-  opens/closes tracked), is captured byte-for-byte verbatim as a new
-  `NodeType.OPAQUE` node -- no interior parsing, so `<rb>`/`<rt>`/`<rp>`/
-  `<rtc>` children are never touched. Extending to other implied-end-tag
-  families (`<li>`/`<p>`/`<td>`/`<tr>`/`<option>`/etc.) later is adding a
-  name to the set, not new logic. Full narrative in `RDD_LOG.md`
-  `RDD_KEY_198`. This unblocked the specific `XmlParseException` the
-  `alexandersandberg/html5-elements-tester` dogfood spot-check found, but a
-  separate, unrelated pre-existing bug (`parseAttr` requires a quoted
-  attribute value; the same file has an unquoted `size=5` on a `<select>`,
-  line 718) still blocks that file's full end-to-end dogfood run -- see its
-  Checklist entry below (still marked partial, now blocked on the
-  unquoted-attribute-value gap instead).
+- **HTML5 optional/implied end tags — RESOLVED in stages, all closing the
+  same investigation thread (RDD_KEY_198/199/200; `alexandersandberg/
+  html5-elements-tester` dogfood, 3 sequential blockers, user decisions
+  2026-07-24).** (1) RDD_KEY_198: `<ruby>` implied-end-tag support via
+  `XmlSpecificRule.OPAQUE_IMPLIED_END_TAG_ELEMENTS`, a small extensible name
+  set (currently just `ruby`) reusing the existing `<script>`/`<style>`/
+  `<pre>` opaque-verbatim-span capture pattern (whole element through its
+  own matching `</tag>`, `NodeType.OPAQUE`, no interior parsing). Unblocked
+  the file's first `XmlParseException`; hit a second, unrelated blocker
+  (unquoted `<select size=5>`, line 718). (2) RDD_KEY_199: `parseAttr`'s
+  `lang.isHtml5` branch accepts unquoted attribute values per spec grammar,
+  preserved unquoted on output (matches the codebase's existing "preserve
+  quote style as written" posture; plain XML still requires quotes).
+  Fixture `test/real_code_regressions_106_{inp,out}.html`, `make test`
+  155/155. Unblocked past line 718; hit a third blocker at line 759 (bare
+  `<option value="...">` under `<datalist>`, relying on implied-end-tag
+  closing). (3) RDD_KEY_200: rather than extending
+  `OPAQUE_IMPLIED_END_TAG_ELEMENTS` (would stop reformatting `<option>`'s
+  common explicitly-closed case) or building the full per-element-family
+  spec feature, added a small general `XmlSpecificRule
+  .IMPLIED_CLOSE_TRIGGERS` table (element name -> sibling start-tag names
+  that implicitly close it), populated with only `option` -> `{option,
+  optgroup}`; `<option>` still parses as a real node in both the
+  explicit-close and implied-close cases. This was the file's third and
+  final blocker — it now completes end-to-end (forward pass, round2,
+  idempotency, `html_syntax_check.js`, `html_content_diff.py` all clean).
 
-- **HTML5 unquoted attribute values -- RESOLVED (RDD_KEY_199).** `parseAttr`'s
-  `lang.isHtml5` branch now accepts an unquoted attribute value per the HTML5
-  spec grammar and preserves it unquoted on output (no forced double-quote
-  normalization -- `STYLE_DATA_FORMATS.md` says nothing about attribute
-  quote-style normalization, and the codebase's existing quoted-value
-  behavior already preserves whichever quote character was written verbatim,
-  so unquoted-stays-unquoted follows the same "preserve as written" posture,
-  not a new convention). Plain XML unchanged (still requires quotes -- no
-  such grammar exists in the XML spec). Fixture
-  `test/real_code_regressions_106_{inp,out}.html`; `make test` 155/155, zero
-  regressions. Unblocked the `alexandersandberg/html5-elements-tester`
-  forward pass past line 718's `<select size=5>`, but it now hits a new,
-  distinct, unrelated blocker at line 759: a `<datalist>` containing bare
-  `<option value="...">` tags with no closing `</option>` at all, relying on
-  HTML5's implied-end-tag rule for `<option>` (closed by the next sibling
-  `<option>` or the parent's close) -- the same open-ended
-  implied-end-tag-family gap RDD_KEY_198 named but deliberately did not build
-  out beyond `ruby`. Not fixed (out of scope for this fix); see the HTML5
-  checklist entry below for current status.
-
-  **RESOLVED (RDD_KEY_200, user, 2026-07-24).** Rather than extending
-  `OPAQUE_IMPLIED_END_TAG_ELEMENTS` (which would make `<option>` fully opaque
-  and stop reformatting it even in its common explicitly-closed case) or
-  building the full per-element-family spec feature, a small, general,
-  reusable `XmlSpecificRule.IMPLIED_CLOSE_TRIGGERS` table was added and
-  populated with only `option` -> `{option, optgroup}`. `<option>` continues
-  to be parsed as a real node in both the explicitly-closed and implied-close
-  cases. This was the `alexandersandberg/html5-elements-tester` file's third
-  and final blocker -- the full file now completes end-to-end. See the
-  Resolved Design Decisions table and HTML5 checklist entry below.
-
-- **HTML5 deep tree-construction edge cases (adoption agency, foreign-content
-  foster-parenting, tag-name case-folding [since fixed separately, see
-  below], implicit `<body>` start-tag insertion) -- NOT fixed except
-  tag-name case-folding, same "genuinely too large a scope, don't force
-  it" posture as the earlier general implied-end-tag question for the
-  remaining three.** Found
-  during the final
-  `web-platform-tests/wpt` (`html/syntax/`) dogfood run: after the 4 bugs
-  fixed that session (EOF-implied-close, `<image>`->`<img>` rewrite,
-  `<head>`/`<body>` implied-close-trigger, `<xmp>` raw-text), 9 of the 386
-  in-scope files still failed the forward pass. Following user review of
-  that write-up, a follow-up pass (`real_code_regressions_110`) generalized
-  the crash-avoidance posture: (1) the single hardcoded
-  `"image".equals(...)` check was turned into a `TAG_NAME_REWRITES` map
-  (still just the one entry -- no other spec tag-name rewrite is known to
-  be needed, but any future one is now a one-line addition); (2) the
-  `parseElement`-level tolerant-close fallback was broadened from
-  EOF-only to *any* mismatched/unrecognized closing tag, and a matching
-  fallback was added at the sole top-level `parseNodes(stopAtCloseTag=
-  false)` call site in `format()`, so a stray closing tag with no matching
-  open element anywhere in the document -- e.g. a made-up `<bogus>` tag
-  that's never explicitly closed -- is now silently discarded rather than
-  crashing, even when it bubbles all the way up to the document root. This
-  confirmed-fixed 3 of the original 9 files (both "bogus"-tag-mismatch
-  cases, `charset/after-bogus.html` and `after-bogus-after-1kb.html`, and
-  the `&`-named fragment tag case, `serializing-html-fragments/
-  serializing.html`) and, via a synthetic MathML repro
-  (`<math><mtext></math></div>`), the same fix also silently resolves the
-  `parsing/math-parse03.html`-shaped case (stray closing tag after a
-  case-mismatched/foreign-content element). Real network access to
-  re-fetch the original WPT files was not available this session to
-  re-confirm the exact remaining file count against the live corpus, so
-  the following are catalogued as still-open by category rather than
-  re-verified 1:1: foster-parenting-driven tree reshaping
-  (`parsing/foreign_content_009.html`, `_010.html` -- may no longer crash
-  per the same stray-closing-tag fix, but the *resulting tree shape* is
-  still not spec-accurate, since foster-parenting itself is not
-  implemented); misnested `<form>` reconstruction inside `<template>`
-  (`parsing/misnested-form-in-template.html`); an *implicit `<body>` start
-  tag* -- content appearing directly after an implicitly-closed `<head>`
-  with no `<body>` start tag ever written at all
-  (`parsing/meta-inhead-insertion-mode.html`) -- the spec's separate
-  "optional start tag" insertion behavior, distinct from the `<head>`/
-  `<body>` implied-**close**-trigger already fixed. Implementing
-  foster-parenting/case-folding/implicit-start-tag insertion properly
-  remains adoption-agency/foster-parenting-scale tree-construction work --
-  flagged here for a future pass rather than forced now. Does not block:
-  `web-platform-tests/wpt` is otherwise recorded DONE below (this is a
-  scope caveat on that run, not a blocking defect), and no other candidate
-  in the HTML5 Test-Fixture Repos list is affected.
-
-  **A separate, genuinely distinct crash site -- FIXED
-  (`real_code_regressions_111`).** Raw-text elements (`<script>`/`<style>`/
-  `<pre>`/`<xmp>`) previously threw `"expected closing tag </script>"` etc.
-  from `finishRawElement`/`finishRawTextElement` when a raw-text element's
-  literal closing tag never appears at all before real end-of-input
-  (confirmed via a synthetic `<svg><script>...</s>` repro; this is the
-  likely shape of the WPT `parsing/unclosed-svg-script.html` fixture, not
-  re-verified against the live corpus since no network access was
-  available). Unlike the deep tree-construction gaps above, this was a
-  narrow, low-risk fix consistent with the same EOF-tolerance principle
-  `parseElement` already applies to ordinary elements: both helpers (only
-  ever called on the `lang.isHtml5` path) now capture whatever remains
-  verbatim through EOF instead of throwing. `make test`: 160/160 forward +
-  idempotency, zero regressions. This was the last crash site found while
-  investigating this Open Question -- all HTML5 parsing paths reachable
-  from real WPT dogfood input are now crash-free; only the tree-shape
-  accuracy of the deep tree-construction gaps above remains open.
-
-  **Tag-name case-folding (item 3 of the 4 deep tree-construction gaps
-  above) -- DONE, fixed separately as a small, standalone item**
-  (`real_code_regressions_112`, commit `10b20cf`, user, 2026-07-25). New
+- **HTML5 deep tree-construction edge cases — mostly deferred as a grouped
+  future job; one item (tag-name case-folding) fixed standalone.** Found
+  during the `web-platform-tests/wpt` (`html/syntax/`) dogfood run: after 4
+  bugs fixed that session (EOF-implied-close; `<image>`->`<img>` rewrite;
+  `<head>`/`<body>` implied-close-trigger; `<xmp>` raw-text), 9/386 in-scope
+  files still failed. A follow-up (`real_code_regressions_110`, user
+  review) generalized the fix: the single `<image>` check became a reusable
+  `TAG_NAME_REWRITES` map, and `parseElement`'s tolerant-close fallback
+  (plus the top-level `parseNodes(stopAtCloseTag=false)` call site) was
+  broadened from EOF-only to any mismatched/unrecognized closing tag, so a
+  stray closing tag with no matching open element (e.g. a made-up
+  `<bogus>`) is discarded rather than crashing — fixed 3 of the 9 residual
+  files, plus (via a synthetic MathML repro) the same shape as
+  `parsing/math-parse03.html`. No network access was available to
+  re-confirm exact residual counts against the live WPT corpus, so
+  remaining gaps are catalogued by category, not re-verified 1:1:
+  foster-parenting-driven tree reshaping (`foreign_content_009/010.html` —
+  may no longer crash, but resulting tree shape isn't spec-accurate since
+  foster-parenting isn't implemented); misnested `<form>` reconstruction
+  inside `<template>`; implicit `<body>` start-tag insertion (content after
+  an implicitly-closed `<head>` with no `<body>` start tag ever written —
+  distinct from the already-fixed `<head>`/`<body>` implied-**close**
+  trigger). A separate, distinct crash site was found and FIXED
+  (`real_code_regressions_111`): raw-text elements (`<script>`/`<style>`/
+  `<pre>`/`<xmp>`) whose literal closing tag never appears before EOF now
+  capture whatever remains verbatim instead of throwing (same
+  EOF-tolerance principle `parseElement` already applies elsewhere).
+  `make test`: 160/160. All HTML5 parsing paths reachable from real WPT
+  input are now crash-free; only tree-shape accuracy of the deep gaps
+  remains open. **Tag-name case-folding — DONE, fixed standalone**
+  (`real_code_regressions_112`, commit `10b20cf`, user, 2026-07-25): new
   `XmlSpecificRule.SVG_TAG_NAME_CASE_FIXUP` map holds the spec's full
   "Adjust SVG tag names" table (`altglyph`->`altGlyph`,
   `lineargradient`->`linearGradient`, `fegaussianblur`->`feGaussianBlur`,
-  `foreignobject`->`foreignObject`, etc. -- the well-known, spec-stable
-  full list), gated the *opposite* way from the existing single-entry
-  `TAG_NAME_REWRITES` map: `svgDepth > 0` (inside real SVG foreign content)
-  instead of `TAG_NAME_REWRITES`'s `svgDepth == 0` (outside it), since the
-  two conditions are mutually exclusive and folding both cases into one map
-  would have been wrong. Fixture proves the gate works both directions: SVG
-  -nested lowercase-source elements are rewritten to spec mixed-case, and a
-  same-named `<foreignobject>` used as plain HTML content outside any
-  `<svg>` is left untouched. Applying the fixup surfaced a real latent bug
-  in `parseElement`'s closing-tag match, fixed in the same commit: once
-  `n.tagName` is case-rewritten, the old literal-case `closeTok` built from
-  it no longer matches the source's own (differently-cased) closing tag,
-  silently mis-parsing the element as unclosed via the existing
-  tolerant-close fallback and corrupting the tree. Fixed with a new
-  case-insensitive closing-tag check, `startsWithCloseTagIgnoreCase`,
-  applied only on the `lang.isHtml5` path (other languages keep the
-  exact-case check, since they never rewrite tag names). No dependency on
-  the insertion-mode/open-elements-stack foundation the other three deep
-  tree-construction gaps need. MathML's small attribute-only case-fixup
-  (`definitionurl`->`definitionURL`) was intentionally left open -- this
-  parser has no MathML-depth-equivalent tracking today (only `svgDepth`),
-  and building one from scratch was judged scope creep beyond this
-  standalone fix; revisit only if/when MathML foreign content gets its own
-  tracking (e.g. as part of the grouped future job below, if it ever
-  touches MathML). `make test`: 161/161 forward + idempotency, zero
-  regressions.
-
-  **TODO -- adoption agency, foster-parenting, implicit `<body>`
-  insertion, and misnested `<form>`-in-`<template>` (items 1/2/4/5 above)
-  are grouped as one future multi-session job, not four separate fixes**
-  (user-reviewed sizing, 2026-07-25). All four ultimately need the same
-  prerequisite the current recursive-descent `XmlSpecificRule` parser
-  doesn't have: an explicit open-elements-stack + HTML5 insertion-mode
-  state machine (currently "what insertion mode / what's open" is implicit
-  in the Java call stack, not an inspectable structure) -- building that
-  foundation is the dominant cost, comparable in size/risk to
-  `STATE_COMMON.md`'s "general scope-depth reindentation" Architectural
-  TODO (its own riskiest-change precedent). Once the foundation exists,
-  each algorithm on top is a smaller incremental add. Recommended landing
-  order once undertaken: **implicit `<body>` insertion first** (narrowest,
-  self-contained -- auto-open `<body>` if content appears with none
-  written), then **foster-parenting** (needed before foreign-content trees
-  are shape-accurate), then **misnested `<form>`-in-`<template>`**
-  (template-scoped, narrow once insertion modes exist), then **adoption
-  agency last** (the spec's own most notoriously fiddly algorithm --
-  attempt only once the foundation has proven solid on the other three).
-  Real-world impact is low in the meantime: every actual dogfood corpus run
-  so far (`h5bp/html5-boilerplate`, `WordPress/wordpress-develop`,
-  `alexandersandberg/html5-elements-tester`, `web-platform-tests/wpt`
-  `html/syntax/`) formatted cleanly with zero structural loss -- these four
-  gaps only bite on the kind of deliberately pathological
-  misnesting/foreign-content edge cases WPT's own conformance fixtures are
-  built to exercise, not on markup anyone hand-writes. Not blocking any
-  current checklist item; flagged here as a scoped future job, per
-  `STATE_COMMON.md`'s ambiguity/open-question convention.
-
-  **Investigation (2026-07-26): can implicit `<body>` insertion be pulled
-  out of the grouped job and implemented standalone?** No. Checked directly
-  against `XmlSpecificRule.java`: `<html>`/`<head>`/`<body>` get exactly one
-  special case today (`IMPLIED_CLOSE_TRIGGERS`'s `head`->`{body}`, closing
-  `</head>` when `<body>` is literally seen); otherwise they parse as
-  ordinary elements. This TODO item is the opposite case — a document with
-  **no** `<body>` start tag anywhere — which requires *fabricating* a tag
-  absent from the source, the first tag-synthesis path in a formatter
-  whose every existing rule is preserve-as-written. Correct synthesis also
-  needs to know whether a body was already implicitly opened earlier (to
-  avoid double-insertion), i.e. threading state across recursive
-  `parseNodes`/`parseElement` calls — a lightweight version of the same
-  open-elements-stack the grouped job already requires, not an escape from
-  it. Decision: not separable/low-risk standalone; stays folded into the
-  grouped future job, landing order unchanged. Status quo without any fix
-  (`RDD_KEY_185`: bare top-level content reindents as an ordinary sibling
-  at whatever depth the source implies) doesn't corrupt output, just isn't
-  spec-faithful tag synthesis.
-
+  `foreignobject`->`foreignObject`, etc.), gated on `svgDepth > 0` (the
+  opposite condition from `TAG_NAME_REWRITES`'s `svgDepth == 0`, mutually
+  exclusive so not folded into one map). Surfaced a latent bug in
+  `parseElement`'s closing-tag match (rewritten `tagName` no longer matched
+  the source's differently-cased closing tag), fixed via a new
+  case-insensitive `startsWithCloseTagIgnoreCase`, HTML5-gated only.
+  MathML's `definitionurl`->`definitionURL` fixup intentionally left open —
+  no MathML-depth tracking exists (only `svgDepth`); revisit only if MathML
+  foreign content gets its own tracking. `make test`: 161/161.
+  **Remaining TODO — adoption agency, foster-parenting, implicit `<body>`
+  insertion, misnested `<form>`-in-`<template>` grouped as one future
+  multi-session job** (user-reviewed sizing, 2026-07-25): all four need the
+  same prerequisite (an explicit open-elements-stack + HTML5 insertion-mode
+  state machine — currently implicit in the Java call stack), comparable in
+  size/risk to `STATE_COMMON.md`'s "general scope-depth reindentation"
+  Architectural TODO. Recommended landing order once undertaken: implicit
+  `<body>` insertion first (narrowest/self-contained), then
+  foster-parenting, then misnested `<form>`-in-`<template>`, then adoption
+  agency last (spec's most fiddly algorithm). Real-world impact is low
+  meanwhile — every dogfood corpus run so far formatted cleanly with zero
+  structural loss; these gaps only bite on WPT's deliberately pathological
+  conformance fixtures. **Investigation (2026-07-26): can implicit `<body>`
+  insertion be pulled out standalone? No** — it requires fabricating a tag
+  absent from the source (the first tag-synthesis path in an otherwise
+  preserve-as-written formatter) and threading state across recursive
+  `parseNodes`/`parseElement` calls to avoid double-insertion — a
+  lightweight version of the same open-elements-stack the grouped job
+  already needs, not an escape from it. Stays folded into the grouped job.
+  Status quo (`RDD_KEY_185`: bare top-level content reindents as an
+  ordinary sibling) doesn't corrupt output, just isn't spec-faithful.
   **Known gap found (2026-07-26, `apache/ant` `manual/` dogfood run):**
   `manual/running.html` loses one `<p>` in content-diff (82 vs 81 body
-  children; source lines ~508-513). Root cause: an orphan `</p>` with no
-  matching open `<p>` sits directly against bare top-level text with no
-  wrapping tag at all — a different, deeper malformed-markup shape than
-  the ordinary unclosed-`<p>`-before-a-sibling-block case RDD_KEY_204
-  fixed (that fix does not cover this). Affects 1 of 226 files in the
-  corpus; deferred rather than fixed this session — falls under the same
-  "deep tree-construction gaps" bucket documented just above (no
-  open-elements-stack / insertion-mode tracking yet), not a new standalone
-  gap. Not blocking; revisit alongside the grouped future tree-construction
-  job.
+  children, source lines ~508-513) — an orphan `</p>` with no matching open
+  `<p>` sitting directly against bare top-level text with no wrapping tag,
+  a deeper malformed-markup shape than RDD_KEY_204's fix covers. Affects
+  1/226 files; deferred, falls under the same deep tree-construction
+  bucket, not a new standalone gap.
 
 ## Checklist
 

@@ -597,12 +597,13 @@ on the noted commits/fixtures)
      originally-diffing files: down to 11. Fixtures: `real_code_regressions_118` (bug a),
      `real_code_regressions_119` (bug b).
 
-     **3 additional gaps found this session; 1 fixed in a follow-up session, 2 left open**
-     (the 2 still open are documented in "Known Gaps -- Open" below; session originally closed as
+     **3 additional gaps found this session; 2 fixed in a follow-up session, 1 left open**
+     (the 1 still open is documented in "Known Gaps -- Open" below; session originally closed as
      DONE with all 3 accepted, same disposition precedent as jenkins item 25/javaparser item 16,
      then revisited): a deeper, related bug where a long constructor signature's own parameter-wrap
      logic gets misapplied to its immediately-following member-initializer-list entry (mutex.hpp,
-     shared_mutex.hpp, filesystem.cpp) -- still open; a macro-then-statement line-merge instability
+     shared_mutex.hpp, filesystem.cpp) -- **fixed in a follow-up session**, see "Known Gaps --
+     Fixed"; a macro-then-statement line-merge instability
      (`_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK`-style macros glued onto a following `if(...)` on
      one pass and not the other -- istream.hpp, stacktrace.hpp, xlocale.hpp) -- **fixed in a
      follow-up session**, see "Known Gaps -- Fixed"; and a recurrence of the already-documented
@@ -820,36 +821,6 @@ RDD_KEY_88.
   investment than its impact justifies. Revisit only if a similar shape turns up in a future
   dogfood candidate, ideally with more than one occurrence to justify the investigation cost.
 
-- **Wrapped constructor signature's parameter-render logic misapplied to its own following
-  member-initializer-list entry** — found in `microsoft/STL` real-code testing (item 26 above,
-  `mutex.hpp`/`shared_mutex.hpp`/`filesystem.cpp`), NOT fixed. Minimal repro (not committed as a
-  fixture -- reproduces the corruption directly on round1, a forward-pass bug, not just an
-  idempotency one):
-  ```cpp
-  _NODISCARD_LOCK unique_lock(unique_lock&& _Other) noexcept : _Pmtx(_Other._Pmtx), _Owns(_Other._Owns) {
-  ```
-  When the whole line (constructor name + params + `noexcept` + the *entire* trailing
-  member-initializer-list) is too long to fit and needs wrapping, the parameter list gets the
-  usual declaration-style one-per-line/dropped/preserve-groups treatment -- but whatever routes
-  the *first* member-initializer-list entry (`_Pmtx(_Other._Pmtx)`) into rendering ends up
-  reusing that same declaration-style renderer's type/name column-split model (`typeCell =
-  padRight(typeText, ...)` in `renderOnePerLine`/`renderDeclarationPreserveGroups`) instead of the
-  plain-call renderer (`collapseTokensToOneLine`, correctly `.`/`->`-tight-join-aware per this
-  session's other fix). That renderer splits a param into "type" + "name" at its last identifier
-  with no concept of a `.`/`->` member-access join, so `_Other._Pmtx` gets misread as type
-  `_Other.` (dot included) + name `_Pmtx`, and the column-padding space lands right after the dot:
-  `_Other. _Pmtx`. Confirmed the *second* initializer-list entry (`_Owns(_Other._Owns)`) is
-  unaffected when the whole thing fits on its own one line -- only an entry that itself needs to
-  participate in (or immediately follows) the signature's own wrap decision is exposed. Not
-  root-caused to the exact call site that classifies this entry as `sigForRender != null`
-  (declaration-style) rather than routing it through the call-style renderers, which would need
-  tracing `enforceCallLineBreaking`'s declaration-vs-call classification specifically for a
-  trailing member-initializer-list clause attached to an already-wrapped constructor signature --
-  the same architecturally tricky area RDD_KEY_86 already flags for this call/declaration
-  line-breaking split. Left open; revisit if this shape recurs in a future C++ candidate with a
-  long constructor signature immediately followed by a member-initializer list containing a
-  member-access argument. No fixture (nothing was fixed).
-
 ## Known Gaps — Fixed
 
 Previously-recorded low-priority gaps, now resolved. One-line summaries only — full
@@ -895,6 +866,25 @@ before/after detail available via `git log`/`git show`.
   top-level `if`/`while`/`for`/`switch`/`do`/`else` keyword, not just the first token. Verified
   against the real STL tree (all 3 affected files now idempotent) and `make test` 169/169.
   Fixture: `real_code_regressions_120`.
+
+- **Wrapped constructor signature's parameter-render logic misapplied to its own following
+  member-initializer-list entry** — FIXED. Found in `microsoft/STL` real-code testing (item 26
+  above, `mutex.hpp`/`shared_mutex.hpp`/`filesystem.cpp`): a wrapped constructor signature
+  (`unique_lock(unique_lock&& _Other) noexcept : _Pmtx(_Other._Pmtx), _Owns(_Other._Owns) {}`)
+  corrupted `_Other._Pmtx` into `_Other. _Pmtx` -- a forward-pass bug, wrong on round1, not just
+  an idempotency issue. Root cause: `MiscRuleCurly.enforceCallLineBreaking` treats
+  `_Pmtx(_Other._Pmtx)` as an "IDENTIFIER (" call candidate and hands it to `parseSignature`,
+  whose `parseParam` slices the single argument `_Other._Pmtx` as if it were a `Type name`
+  declarator pair (`typeTokens=[_Other, .]`, `name=_Pmtx]`, since the last token is a bare
+  IDENTIFIER and everything before it is non-empty) -- `parseSignature` then succeeds, making
+  `sigForRender` non-null and routing the entry through the declaration-style renderer
+  (type/name column-split via `padRight`) instead of the tight-join-`.`/`->`-aware plain-call
+  renderer, inserting a space after the `.`. Fixed by a narrow guard in `parseParam`: reject the
+  param (return null) if its parsed `typeTokens` run ends in a `.`/`->` tight-join operator, since
+  that can never be a real C++ type -- this fails the whole signature parse and correctly falls
+  back to plain-call rendering for that entry. Verified against the real STL tree
+  (`mutex.hpp`/`shared_mutex.hpp`, both idempotent and free of the corruption) and `make test`
+  169/169. Fixture: `real_code_regressions_121`.
 
 ---
 

@@ -441,6 +441,17 @@ protected List<List<Token>> splitTopLevelCommas(final List<Token> tokens) {
         if (typeTokens.isEmpty()) {
             return null;
         }
+        // A real C++ type/qualifier run never ends in a tight-join member-access operator --
+        // if it does, this "param" is actually a member-access expression (e.g. a member-
+        // initializer-list entry like `_Pmtx(_Other._Pmtx)`, where `_Other._Pmtx` gets sliced
+        // here as if it were a `Type name` pair: typeTokens=[_Other, .], name=_Pmtx) that only
+        // *looks* like a declarator to this parser. Reject it so the whole signature parse
+        // fails and the caller falls back to plain-call rendering (tight-join-`.`/`->`-aware)
+        // instead of corrupting the expression by inserting a space after the `.`/`->`.
+        final Token lastTypeTok = typeTokens.get(typeTokens.size() - 1);
+        if (isOp(lastTypeTok, ".") || isOp(lastTypeTok, "->")) {
+            return null;
+        }
         return new Param(typeTokens, name, sizeTokens, comment, leadingComment);
     }
     /**

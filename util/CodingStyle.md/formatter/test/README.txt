@@ -1955,6 +1955,38 @@ Real-code regressions:
                                              `xlocale.hpp`, all three idempotent after the fix).
                                              See `STATE_C_CPP_JAVA.md`.
 
+  real_code_regressions_121_inp/out.hpp   -- C++, microsoft/STL real-code dogfood: a wrapped
+                                             constructor signature (STL's own
+                                             `unique_lock(unique_lock&& _Other) noexcept :
+                                             _Pmtx(_Other._Pmtx), _Owns(_Other._Owns) {}`) whose
+                                             own parameter-wrap logic got misapplied to the
+                                             immediately-following member-initializer-list entry,
+                                             corrupting `_Other._Pmtx` into `_Other. _Pmtx` --
+                                             a forward-pass bug, wrong on the very first format,
+                                             not just an idempotency issue. Root cause:
+                                             `MiscRuleCurly.enforceCallLineBreaking` treats
+                                             `_Pmtx(_Other._Pmtx)` as an "IDENTIFIER (" call
+                                             candidate and hands it to `parseSignature`, whose
+                                             `parseParam` slices the single argument
+                                             `_Other._Pmtx` as if it were a `Type name` declarator
+                                             pair (`typeTokens=[_Other, .]`, `name=_Pmtx`) since
+                                             the last token is a bare IDENTIFIER and everything
+                                             before it is non-empty -- `parseSignature` then
+                                             succeeds, making `sigForRender` non-null, which routes
+                                             the entry through the declaration-style renderer
+                                             (type/name column-split via `padRight`) instead of
+                                             the tight-join-`.`/`->`-aware plain-call renderer,
+                                             inserting a space after the `.`. Fixed by a narrow
+                                             guard in `parseParam`: if the parsed `typeTokens` run
+                                             ends in a `.`/`->` tight-join operator, it can never be
+                                             a real C++ type, so reject the param (return null),
+                                             which fails the whole signature parse and correctly
+                                             falls back to plain-call rendering for that entry.
+                                             Verified against the real microsoft/STL tree
+                                             (`mutex.hpp`/`shared_mutex.hpp`, both idempotent and
+                                             free of the corruption after the fix). See
+                                             `STATE_C_CPP_JAVA.md`.
+
 How Tests Are Run
 -----------------
 

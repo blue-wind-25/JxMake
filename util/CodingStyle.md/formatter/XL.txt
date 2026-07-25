@@ -67,7 +67,10 @@ re-syntax-checking already correct files are a waste of time. Only after all bug
 a full reformat and re-syntax-checking test allowed. Try reformat with `indent-size = 2` if the
 idempotency test failed. Use `tools/syntax_checker` to syntax check. Use one sub-agent as needed,
 the sub-agent can launch up to one more research sub-sub-agent). If there are many errors, work
-in batch, store the rest in the corresponding state file.
+in batch, store the rest in the corresponding state file. Do NOT use `git stash`. Back up any
+files you need to preserve to a temporary location, revert your changes for testing, and restore
+the backed-up files if needed. This avoids leaving work hidden in a stash that may be forgotten
+after context compaction or an interrupted session.
 
 Start with the dogfood test for:
 ...
@@ -116,7 +119,11 @@ Continue with the dogfood test (in parallel; search in `/tmp` first, clone the r
 When fixing bugs, only reformat and re-syntax-checking the affected files; reformatting and
 re-syntax-checking already correct files are a waste of time. Only after all bugs are fixed is
 a full reformat and re-syntax-checking test allowed. Try reformat with `indent-size = 2` if the
-idempotency test failed. Use `tools/syntax_checker` to syntax check. No worktree, the GIT is old.
+idempotency test failed. Use `tools/syntax_checker` to syntax check. Do NOT use `git stash`. 
+Back up any files you need to preserve to a temporary location, revert your changes for testing,
+and restore the backed-up files if needed. This avoids leaving work hidden in a stash that may
+be forgotten after context compaction or an interrupted session. The system Git does NOT support
+worktree.
 
 ####################################################################################################
 ####################################################################################################

@@ -629,8 +629,8 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       solely §3's import-sort reordering — zero true AST-shape mismatches
       remaining after the one fix above.
 
-      **`python/cpython` — dogfood run DONE, categorized; clusters 1-3
-      FIXED, cluster 4 (idempotency-only) NOT YET FIXED.**
+      **`python/cpython` — dogfood run DONE, categorized; clusters 1-4
+      FIXED (all clusters resolved).**
       Fresh shallow clone `/tmp/cpython` (`--depth 1`), 2343 `.py` files,
       batched per top-level subdir (`Doc`/`Lib`/`Mac`/`Misc`/`Modules`/
       `Parser`/`PC`/`PCbuild`/`Platforms`/`Programs`/`Tools`) through
@@ -767,8 +767,8 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
          confirmed identical on the unformatted original). Fixture:
          `real_code_regressions_138`. `make test`: 187/187 forward +
          187/187 idempotency.
-      4. **[IDEMPOTENCY] §4/§5 decorator-call bracket-padding leaks into a
-         nested f-string field's own braces** (1 file:
+      4. **[IDEMPOTENCY][FIXED] §4/§5 decorator-call bracket-padding leaks
+         into a nested f-string field's own braces** (1 file:
          `Lib/test/test_ctypes/test_generated_structs.py` lines 278, 284).
          `@register(f'Struct331_{signedness}{n}', set_name=True)` (no
          internal spaces in the original) gets the f-string field
@@ -779,17 +779,27 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
          valid Python). Same bug class already fixed for `pallets/click`
          (fixture `real_code_regressions_80` — `applyBracketPadding`
          couldn't distinguish an f-string field's own `{`/`}` from a real
-         dict/set literal), but that fix was scoped to the decorator's own
-         **top-level** call arguments; here the f-string is a call
-         argument **one level deeper** inside the decorator call, where
-         the existing FSTRING_START/MIDDLE-adjacency guard evidently isn't
-         reached. Likely **narrow** — apply the same guard one level
-         deeper in `applyBracketPadding`'s recursive descent into
-         call-argument lists. Lowest priority of the four: narrowest
-         trigger (f-string literal as a decorator-call argument),
-         cosmetic-only impact observed.
+         dict/set literal). **FIXED**: root cause was **not** nesting
+         depth as originally guessed (the f-string here is a direct
+         top-level call argument, same as the click case) — it was field
+         **adjacency**. `{signedness}{n}` has no literal text between the
+         two fields, and `TokenizerIndent.emitFString` (mirroring
+         CPython's own FSTRING_START/MIDDLE/END scheme) only emits an
+         FSTRING_MIDDLE token when there's at least one literal character
+         to hold, so the second field's opening `{` ends up directly
+         preceded by the first field's closing `}` (plain PUNCT) instead
+         of FSTRING_START/FSTRING_MIDDLE — `applyBracketPadding`'s
+         adjacency guard only checked for those two types, missing this
+         case. Fixed by tracking the previous f-string field's close
+         position across `applyBracketPadding`'s loop iterations and also
+         treating a `{` immediately following it as another field open.
+         Verified via minimal repro (`@register(f'Struct331_
+         {signedness}{n}', set_name=True)` inside a nested `for`/`for`,
+         idempotent after the fix) and the real
+         `Lib/test/test_ctypes/test_generated_structs.py` (idempotent,
+         `python3.12 -m py_compile`-clean). Fixture:
+         `real_code_regressions_139`. `make test`: 188/188 forward +
+         188/188 idempotency.
 
-      Next free fixture number unaffected (no fixtures added yet — none of
-      the four clusters above has been fixed). Full corpus re-run deferred
-      until fixes land, same pattern as every prior dogfood entry in this
-      file.
+      All four clusters now fixed; full corpus re-run deferred until
+      requested, same pattern as every prior dogfood entry in this file.

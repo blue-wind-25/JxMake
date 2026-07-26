@@ -572,6 +572,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     private void applyBracketPadding(final List<Token> tokens, final int from, final int to,
             final List<Replacement> out) {
         int i = from;
+        int lastFStringFieldClose = -1;
         while (i < to) {
             final Token t = tokens.get(i);
             if (t.type == TokenType.PUNCT && isOpenBracketText(t.text)) {
@@ -590,10 +591,17 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                 // which applyFStringSpacing's own unconditional open-gap trim then silently undid on
                 // a second formatting pass, a non-idempotency bug; skip the whole field's content
                 // entirely here rather than just the outer pair, since nothing downstream in this
-                // recursive descent should touch it either).
+                // recursive descent should touch it either). Two adjacent fields with no literal
+                // text between them (e.g. `f'{a}{b}'`, real find: `@register(f'Struct331_
+                // {signedness}{n}', set_name=True)` in cpython's test_generated_structs.py) emit no
+                // FSTRING_MIDDLE between the first field's closing `}` and the second field's
+                // opening `{`, so the adjacency check alone misses the second field -- also treat a
+                // `{` immediately following a just-closed f-string field's `}` as another field open.
                 if ("{".equals(t.text) && i > from) {
                     final TokenType prevType = tokens.get(i - 1).type;
-                    if (prevType == TokenType.FSTRING_START || prevType == TokenType.FSTRING_MIDDLE) {
+                    if (prevType == TokenType.FSTRING_START || prevType == TokenType.FSTRING_MIDDLE
+                            || i - 1 == lastFStringFieldClose) {
+                        lastFStringFieldClose = close;
                         i = close + 1;
                         continue;
                     }

@@ -2330,6 +2330,32 @@ Real-code regressions:
                                              forward + 187/187 idempotency. See `STATE_PYTHON3.md`'s
                                              `python/cpython` entry.
 
+  real_code_regressions_139_inp/out.py    -- Python, `python/cpython`
+                                             dogfood (`Lib/test/test_ctypes/test_generated_structs.py`
+                                             lines 278/284, idempotency cluster 4):
+                                             `@register(f'Struct331_{signedness}{n}', set_name=True)`
+                                             -- two adjacent f-string fields with no literal text
+                                             between them (`{signedness}{n}`) -- got its second
+                                             field's `{`/`}` loose-padded to `{ n }` on round1 as an
+                                             ordinary dict/set literal, since `applyBracketPadding`'s
+                                             f-string-field guard only recognized a field-open `{`
+                                             immediately preceded by FSTRING_START/FSTRING_MIDDLE,
+                                             and CPython's own FSTRING_MIDDLE emission (mirrored by
+                                             this tokenizer) skips that token entirely when the
+                                             literal text between two fields is empty, leaving the
+                                             second field's `{` preceded by the first field's closing
+                                             `}` (plain PUNCT) instead. Round2's `applyFStringSpacing`
+                                             then trimmed the field back to `{n}` but left the outer
+                                             decorator-call paren padding untouched -- non-idempotent.
+                                             Same bug class as the already-fixed `pallets/click` case
+                                             (fixture `real_code_regressions_80`), but triggered by
+                                             field adjacency rather than nesting depth. Fixed by
+                                             tracking the previous f-string field's close position in
+                                             `applyBracketPadding`'s loop and also treating a `{`
+                                             immediately following it as another field open. `make
+                                             test`: 188/188 forward + 188/188 idempotency. See
+                                             `STATE_PYTHON3.md`'s `python/cpython` entry.
+
 How Tests Are Run
 -----------------
 

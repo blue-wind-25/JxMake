@@ -1080,6 +1080,18 @@ protected boolean needsSpaceBetween(final Token prev, final Token cur, final Set
                 || templateOpens.contains(prev)) {
             return false;
         }
+        // A prefix `++`/`--` immediately followed by an identifier (`++i`, `--count`) is only ever
+        // seen in prefix position here -- postfix usage pairs the operator *after* the identifier
+        // (`i++`), never before -- so this join is always tight, never spaced. Without this, a
+        // general re-render of a for-header/statement through this shared join point (independent
+        // of `MiscRuleCurly.enforcePreIncrement`'s own swap-render path, which already renders it
+        // tight) falls through to the generic "space by default" rule and produces `++ i`. Found via
+        // openrewrite/rewrite dogfood idempotency testing (round2 re-render of an already-prefix-
+        // converted `for(...; ++i)` header lost the tight join `enforcePreIncrement` had produced on
+        // round1).
+        if (isIncrementOp(prev) && cur.type == TokenType.IDENTIFIER) {
+            return false;
+        }
         // An annotation's `@` (e.g. `@RaiseDSL public inline fun ...`, Java's `@NonNull String
         // id`) is tight against the identifier that follows it -- without this, an annotation
         // that shares its source line with a signature/parameter (so it becomes part of

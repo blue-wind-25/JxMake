@@ -464,9 +464,19 @@ on the noted commits/fixtures)
        branch: new `findBracelessStatementEnd` helper copies the branch through verbatim, then
        `appendChainNewlineBeforeElse` still runs. Verified via minimal repro + all 8 affected
        files + `make test`. Fixture: `real_code_regressions_129`.
-     4 clusters still open, not yet investigated past initial characterization — see "Known Gaps
-     — Open" for each one's repro files/shape/root-cause hypothesis; next free fixture number 130.
-     `make test` after both fixes: 178/178 forward + 178/178 idempotency, zero regressions.
+     3 clusters still open, not yet investigated past initial characterization — see "Known Gaps
+     — Open" for each one's repro files/shape/root-cause hypothesis; next free fixture number 131.
+     - Cluster 3 (`rewrite-core/.../AdaptiveRadixTreeTest.java`, pre-increment spacing regression)
+       — fixed. Root cause: a prefix `++`/`--` immediately followed by an identifier (`++i`) has no
+       tight-join case in either `MiscRuleCore.needsSpaceBetween` or its documented duplicate
+       `DeclarationAlignmentRuleCore.needsSpaceBetween` — `MiscRuleCurly.enforcePreIncrement`'s own
+       swap-render path produces the tight join on a fresh format (round1: `i++` → `++i`), but once
+       already in prefix form, `collectForIncrementSpans`'s identifier-first shape no longer matches
+       so the swap doesn't re-fire, and once the enclosing lambda body collapses onto one line, the
+       `for`-header gets re-rendered through the shared join point, which falls through to the
+       generic space-by-default rule (`++ i`). Fixed by adding the tight-join case to both methods.
+       Verified via minimal repro + `make test`. Fixture: `real_code_regressions_130`.
+     `make test` after all three fixes: 179/179 forward + 179/179 idempotency, zero regressions.
      Full-tree round1/round2 re-run + `javac` compile-check deferred until all 6 clusters are
      resolved (per this candidate's own methodology) — NOT yet run.
 (18) Local `VMA-GIT/anemonesoft/` (82 `.java`) — 1 bug: `renderCallCandidate` swallowed a
@@ -684,18 +694,11 @@ RDD_KEY_88.
 
 ## Known Gaps — Open
 
-- **`openrewrite/rewrite` dogfood (entry 17) — 4 clusters still open.** Next free fixture
-  number: 130. Each cluster below is a real, confirmed-differing (round1 != round2) file group
+- **`openrewrite/rewrite` dogfood (entry 17) — 3 clusters still open.** Next free fixture
+  number: 131. Each cluster below is a real, confirmed-differing (round1 != round2) file group
   from the full-tree idempotency diff; none has been root-caused yet beyond what's noted.
-
-  - **Cluster 3 — pre-increment spacing regression**: `rewrite-core/src/test/java/org/
-    openrewrite/internal/AdaptiveRadixTreeTest.java`. `++i` in round1 becomes `++ i` in round2.
-    Not yet investigated past confirming the diff. Lead: `RDD_KEY_42`
-    (`MiscRule.enforcePreIncrement`'s two finders, `collectBareStatementSpans`/
-    `collectForIncrementSpans`, both require `noBlockerBetween` with zero comment/NEWLINE tokens
-    between identifier and operator) — check whether a NEWLINE lands between `++` and `i` on one
-    round but not the other, from an earlier pass's line-wrapping decision differing between
-    rounds (same family as clusters 1/2). No root-cause hypothesis formed beyond this lead.
+  (Cluster 3 — pre-increment spacing regression — is fixed; see entry 17's own narrative and
+  fixture `real_code_regressions_130`.)
 
   - **Cluster 4 — trailing end-of-line comment column alignment drift**: 5 files, same bug,
     `rewrite-java-{8,11,17,21,25}/.../ReloadableJava*ParserVisitor.java`. Trailing `//` comment

@@ -2118,6 +2118,26 @@ Real-code regressions:
                                              `appendChainNewlineBeforeElse` afterward. See
                                              `STATE_C_CPP_JAVA.md`'s `openrewrite/rewrite` entry.
 
+  real_code_regressions_130_inp/out.java  -- Java, `openrewrite/rewrite` dogfood
+                                             (`rewrite-core`'s `AdaptiveRadixTreeTest.java`, cluster 3):
+                                             a `for(...; ++i)` header's pre-increment stays tight
+                                             (`++i`) on a fresh format but gains a stray space (`++ i`)
+                                             on a reformat, once the enclosing lambda body has been
+                                             collapsed onto one line and its `for`-header re-rendered
+                                             through the shared tight-attachment join point. Root cause:
+                                             neither `MiscRuleCore.needsSpaceBetween` nor its documented
+                                             duplicate `DeclarationAlignmentRuleCore.needsSpaceBetween`
+                                             had a case for a prefix `++`/`--` immediately followed by
+                                             an identifier -- `MiscRuleCurly.enforcePreIncrement`'s own
+                                             swap-render path already produces the tight join on a fresh
+                                             format, but once the text is already in prefix form,
+                                             `collectForIncrementSpans` no longer detects it as a swap
+                                             candidate (its identifier-first shape no longer matches),
+                                             so a later general re-render of the collapsed one-line
+                                             lambda falls through to the generic space-by-default rule.
+                                             Fixed by adding a tight-join case to both methods. See
+                                             `STATE_C_CPP_JAVA.md`'s `openrewrite/rewrite` entry.
+
 How Tests Are Run
 -----------------
 

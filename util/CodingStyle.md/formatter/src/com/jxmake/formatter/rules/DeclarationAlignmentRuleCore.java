@@ -278,6 +278,17 @@ public abstract class DeclarationAlignmentRuleCore {
         if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isOp(prev, ".") || isOp(prev, "->") || isPunct(prev, "[") || isPunct(prev, "(")) {
             return false;
         }
+        // A prefix `++`/`--` immediately followed by an identifier (`++i`, `--count`) only ever
+        // occurs in prefix position at this join (postfix pairs the operator *after* the
+        // identifier, `i++`, never before) -- always tight, no space. Mirrors the same fix in
+        // `MiscRuleCore.needsSpaceBetween` (this method is a documented duplicate of its
+        // tight-attachment rules); found via the same openrewrite/rewrite dogfood idempotency case
+        // (a `for(...; ++i)` header's increment clause re-rendered through this join point on
+        // round2 lost the tight join `MiscRuleCurly.enforcePreIncrement`'s swap-render path had
+        // produced on round1).
+        if ((isOp(prev, "++") || isOp(prev, "--")) && cur.type == TokenType.IDENTIFIER) {
+            return false;
+        }
         // JS/TS spread/rest `...` is always tight against what follows it (`...rest`,
         // `...items`) -- STYLE_JS_TS.md §3, enforced file-wide by
         // JsTsSpecificRule.enforceSpreadRestSpacing, which runs long after this class's own

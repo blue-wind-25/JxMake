@@ -712,11 +712,28 @@ RDD_KEY_88.
   (Clusters 3 and 4 are fixed; see entry 17's own narrative and fixtures
   `real_code_regressions_130`/`_131`.)
 
-  - **Cluster 5 — alignment-group padding collapse**: `rewrite-kotlin/.../K.java`. A `return
-    (T)(...)` cast padded with many spaces collapses to a single space on round2. Not yet
-    investigated — no minimal repro. Hypothesis: whichever alignment-group pass decides how many
-    members share a padding column groups this `return` with different neighbors on round2 than
-    round1 (unconfirmed).
+  - **Cluster 5 — alignment-group padding collapse**: `rewrite-kotlin/.../K.java`, the
+    `ExpressionStatement.withType` method (source line 1029: `return (T) (newExpression ==
+    expression ? this : newExpression);`, immediately after a `ExpressionStatement newExpression =
+    withExpression(...);` declaration with a blank line between them in round1's output). Confirmed
+    NOT reproducible from `ExpressionStatement`'s own class body in isolation (lines 982-1037 wrapped
+    standalone in a stub `class M { ... }`: no padding, idempotent both rounds) -- reproduction
+    requires the *whole* preceding file content back to line 1 (`head -1037` of the real file, brace-
+    balanced with trailing `}`s, still shows the bug; smaller prefixes N=100/300/600/900 don't). This
+    means whatever pass pads/misrenders this `return` depends on sibling nested-class content earlier
+    in the same outer `interface K` body, not on `ExpressionStatement`'s own class alone. Confirmed
+    NOT `MiscRuleCore.parseAssignment`/`groupAssignments` (the `return` keyword's next token `(` fails
+    every scan-state branch there, returning null unconditionally regardless of context). Leading
+    hypothesis, not yet confirmed: `GetterSetterRuleCurly`'s one-liner-member grouping explicitly
+    "needs to see inside `{ }`" (its own class javadoc) to find one-liner getter/setter members
+    nested inside a class body -- worth checking whether its scan crosses nested-class boundaries (or
+    otherwise picks up unrelated sibling `return (J2) withExpression(...);` one-liner members
+    elsewhere in the file) when deciding this `return`'s padding, rather than correctly excluding
+    `withType`'s 2-statement body via its own documented `hasNewlineBetween` check. No minimal repro
+    found yet despite the above narrowing; next step is bisecting within the 900-1037 range (not
+    just whole-prefix doubling) to find the smallest triggering content, then reading
+    `GetterSetterRuleCurly.parseOneLinerMember`/`groupOneLiners`'s exact scan-boundary logic against
+    it.
 
   - **Cluster 6 — closing-brace indentation drift**: `rewrite-python/.../Autodetect.java`. A `}`
     closing brace's indentation column differs by a few spaces between rounds. Not yet

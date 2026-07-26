@@ -839,7 +839,7 @@ a standalone/unused-value expression. Both are cosmetic gaps in the
 checker's tolerance list, not formatter defects, so this only reduces
 future dogfood-session triage noise — not urgent, do whenever convenient.
 
-### `angular/angular` dogfood pass — categorized; clusters 1-3 FIXED, cluster 4 PARTIALLY FIXED (2 of 3+ root causes), cluster 5 NOT YET FIXED (accepted gap, no action planned)
+### `angular/angular` dogfood pass — categorized; clusters 1-3 FIXED, cluster 4 PARTIALLY FIXED (3 of 4 known root causes; #3 attempted and reverted, see below), cluster 5 NOT YET FIXED (accepted gap, no action planned)
 
 Repo: `/tmp/angular`, shallow clone (`--depth 1`), HEAD `5ad8231`
 (2026-07-24). Scope: 5394 `.ts` files (`.d.ts`/`.tsx` excluded, no
@@ -1039,9 +1039,9 @@ estimated difficulty):
    `hover.ts`, `format_number.ts`) and 2 **still broken**, each via its
    own further distinct root cause (now diagnosed, not yet fixed):
 
-   - **Root cause #3 (not yet fixed) — braceless-else body never
-     re-validated after brace-collapse/alignment**
-     (`common/src/i18n/format_date.ts:519`,
+   - **Root cause #3 (attempted, REVERTED — too many regressions) —
+     braceless-else body never re-validated after brace-collapse/
+     alignment** (`common/src/i18n/format_date.ts:519`,
      `if(offset === 0) return 'Z'; else return (...)`):
      `collapseSingleExpressionBlocks` strips the `if`/`else` braces
      (Phase 0), before `enforceCallLineBreaking` runs (Phase 1) —
@@ -1059,13 +1059,25 @@ estimated difficulty):
      fresh format therefore commits a too-long braceless-else line that
      no pass re-validates; a reformat of that output re-runs
      `enforceCallLineBreaking` on the now-already-joined line and wraps
-     it, which is where the two rounds diverge. Real fix needs either
-     the complexity-wrap pass to also handle braceless-else bodies, or
-     one more `enforceCallLineBreaking`/complexity-wrap re-run inserted
-     after `collapseSingleExpressionBlocks` joins the branch — deferred,
-     not attempted yet (touches shared else-chain code used by every
-     curly language).
-   - **Root cause #4 (not yet fixed) — trailing same-line comment
+     it, which is where the two rounds diverge.
+
+     **Tried**: refuse to collapse (`tryCollapse` in
+     `BlockStructureRule.java`) whenever the joined one-line result
+     would exceed `lineLengthLimit`, leaving the original braces in
+     place instead — same conservative "refuse and leave braced" shape
+     as this method's existing comment/object-literal guards.
+     **Reverted**: the naive width check has no way to know
+     `enforceCallLineBreaking` will still wrap a call *inside* the
+     joined body afterward and make it fit, so it wrongly re-braced
+     every braceless if/else whose body merely *contains* a wrappable
+     call — broke 5 existing fixtures/dogfood cases outright
+     (`java_combined`, `real_code_regressions_57`, `_81`, `_93`, this
+     job's own `_141`). A real fix needs the guard to account for
+     downstream wrapping potential (e.g. run the same complexity-wrap/
+     call-wrap logic against the joined candidate before deciding
+     whether it truly can't fit), not just a raw length check — bigger
+     lift than attempted here, deferred.
+   - **Root cause #4 [FIXED] — trailing same-line comment
      inconsistently counted in the collapse fits-check**
      (`common/upgrade/src/location_shim.ts:461`,
      `this.$$absUrl = this.getServerBase() + this.$$url.slice(1); //
@@ -1079,19 +1091,45 @@ estimated difficulty):
      reformatting that output re-measures the collapse candidate and
      this time does **not** count the comment (72 chars without it,
      fits) — collapses back to one line. Whether the trailing comment
-     counts toward the fits-check depends on whether the call was
+     counts toward the fits-check depended on whether the call was
      already wrapped in the input, not on the statement's actual final
-     width — non-idempotent. Real fix needs the fits-check to measure
-     trailing-comment width consistently regardless of prior wrap
-     state — deferred, not attempted yet (touches comment-handling
-     shared by every curly language, not just JS/TS).
+     width — non-idempotent. **Fixed** by adding
+     `appendRangeCollapsingTrailingCommentGap` (`MiscRuleCurly.java`,
+     next to `appendRange`): a whitespace run immediately before a
+     trailing line comment is collapsed to a single space for
+     measurement purposes only (never rendered into actual output),
+     since that gap is comment-column alignment padding whose width
+     depends on physical sibling layout and shouldn't be counted as
+     real structural width either way. Used only in the JS/TS tight-
+     candidate fits-check's `suffix` computation (the one branch that
+     exhibited this bug); the sibling non-newline `wholeLineRest`
+     branch wasn't touched since it wasn't shown to need it. Verified
+     against the real `location_shim.ts` file and a minimal repro; full
+     `make test` re-run confirmed no regressions. Fixture:
+     `real_code_regressions_142`. `make test`: 191/191 forward +
+     191/191 idempotency.
+
+     **Separate, still-open observation found while building this
+     fixture**: a 3-sibling variant of the repro (all three
+     `this.$$foo = ...` assignments in one `=`-alignment group, as in
+     the real file) still isn't self-stable on the *very first* format
+     — `format(inp)` commits the sibling-group's wide comment-column
+     padding onto the newly-wrapped call's trailing-comment line, but
+     `format(format(inp))` re-collapses that padding to a single space
+     (the wrapped statement is no longer read as part of the aligned
+     group). This did **not** reproduce against the actual
+     `location_shim.ts` file (confirmed idempotent), so root cause #4's
+     fix is complete for that file; fixture 142 was deliberately kept
+     to a single, sibling-free statement to avoid tripping this
+     separate quirk. Not investigated further — flag if a future
+     dogfood run finds a real file where it does manifest.
 
    `compiler-cli/src/ngtsc/core/{compiler,host}.ts` and
    `devtools/.../split.component.ts` were not re-checked (missing from
    this `/tmp/angular` checkout at re-check time). This entry stays
-   open until root causes #3 and #4 are fixed and a full re-run across
-   all ~23 originally-cited files confirms full resolution, or further
-   causes are found.
+   open until root cause #3 is fixed and a full re-run across all ~23
+   originally-cited files confirms full resolution, or further causes
+   are found.
 5. **[IDEMPOTENCY] Reindentation on internally-inconsistent source
    (accepted gap, third confirming recurrence, no new action)** — 3
    files: `packages/benchpress/test/metric/user_metric_spec.ts:88`,

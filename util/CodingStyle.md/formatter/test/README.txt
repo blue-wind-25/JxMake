@@ -2404,6 +2404,35 @@ Real-code regressions:
                                              test`: 190/190 forward + 190/190 idempotency. See
                                              `STATE_JS_TS.md`'s cluster 4 entry.
 
+  real_code_regressions_142_inp/out.ts     -- TS, `angular/angular` dogfood
+                                             (`packages/common/upgrade/src/location_shim.ts:461`,
+                                             idempotency cluster 4, root cause #4 of 4): the JS/TS
+                                             tight-candidate fits-check in
+                                             `enforceCallLineBreaking` counted a trailing same-line
+                                             comment's width toward the collapse candidate's length
+                                             on a fresh format (call and comment still on one source
+                                             line), but did not count it on a reformat of
+                                             already-wrapped output (comment moved to its own line
+                                             after the call's closing `)`) -- whether the comment
+                                             counted depended on prior wrap state, not the
+                                             statement's actual final width, flipping the fits-check
+                                             inconsistently. Fixed by adding
+                                             `appendRangeCollapsingTrailingCommentGap` next to
+                                             `appendRange` in `MiscRuleCurly.java`: a whitespace run
+                                             immediately before a trailing line comment collapses to
+                                             a single space for measurement purposes only (never
+                                             rendered into actual output) -- that gap is
+                                             comment-column alignment padding, not real structural
+                                             width, and shouldn't be counted differently depending on
+                                             wrap state either way. Verified against the real
+                                             `location_shim.ts` file and a minimal repro; `make
+                                             test`: 191/191 forward + 191/191 idempotency. A separate,
+                                             not-yet-fixed root cause (#3, braceless-else bodies never
+                                             re-validated after brace-collapse) remains open -- an
+                                             attempted fix for it was tried and reverted after
+                                             breaking 5 existing fixtures/dogfood cases. See
+                                             `STATE_JS_TS.md`'s cluster 4 entry for both.
+
 How Tests Are Run
 -----------------
 

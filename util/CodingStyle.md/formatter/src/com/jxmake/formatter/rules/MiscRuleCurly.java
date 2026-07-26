@@ -1163,7 +1163,7 @@ public static final class Signature {
                     final StringBuilder prefix = new StringBuilder();
                     appendRange(prefix, tokens, lineStartIndex(tokens, nameIdx), openIdx);
                     final StringBuilder suffix = new StringBuilder();
-                    appendRange(suffix, tokens, closeIdx + 1, effectiveLineEndIndex(tokens, closeIdx));
+                    appendRangeCollapsingTrailingCommentGap(suffix, tokens, closeIdx + 1, effectiveLineEndIndex(tokens, closeIdx));
                     final int candidateLen = expandedIndentWidth(baseIndent) + prefix.length() + candidate.length() + suffix.length();
                     if (candidateLen <= lineLengthLimit) {
                         return candidate;
@@ -1501,6 +1501,35 @@ public static final class Signature {
             final int toExclusive) {
         for (int i = fromInclusive; i < toExclusive; i++) {
             out.append(tokens.get(i).text);
+        }
+    }
+    /** Same as {@link #appendRange}, except a whitespace run immediately preceding a trailing
+     *  line comment is collapsed to a single space for measurement purposes. That gap is
+     *  comment-column alignment padding, whose width depends on the physical layout of sibling
+     *  statements (e.g. a declaration-alignment grid) and can differ between a fresh single-line
+     *  call and a reformat of that same call's own already-wrapped output -- counting it verbatim
+     *  made this fits-check flip inconsistently between the two (found via angular/angular
+     *  real-code testing, `location_shim.ts`'s `composeUrls`: `this.$$absUrl = ...slice(1); //
+     *  comment`, non-idempotent without this). Used only for measurement, never rendered into
+     *  actual output. */
+    private void appendRangeCollapsingTrailingCommentGap(final StringBuilder out, final List<Token> tokens,
+            final int fromInclusive, final int toExclusive) {
+        int i = fromInclusive;
+        while (i < toExclusive) {
+            final Token t = tokens.get(i);
+            if (t.type == TokenType.WHITESPACE) {
+                int j = i;
+                while (j < toExclusive && tokens.get(j).type == TokenType.WHITESPACE) {
+                    j++;
+                }
+                if (j < toExclusive && tokens.get(j).type == TokenType.COMMENT_LINE) {
+                    out.append(' ');
+                    i = j;
+                    continue;
+                }
+            }
+            out.append(t.text);
+            i++;
         }
     }
     /** Renders {@code tokens[fromInclusive, toInclusive]} verbatim except every whitespace/newline

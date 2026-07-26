@@ -2241,6 +2241,33 @@ Real-code regressions:
                                              idempotency. See `STATE_JS_TS.md`'s `angular/angular`
                                              entry.
 
+  real_code_regressions_135_inp/out.ts    -- TS, `angular/angular` dogfood
+                                             (`testability.ts:243`, critical cluster 2): a legacy
+                                             angle-bracket cast (`<WaitCallback>{...}`) had a bogus
+                                             `;` injected right before the object literal's own
+                                             closing `}` (`updateCb: updateCb;});`). Root cause:
+                                             the cast's `<Type>` is never reclassified to
+                                             ANGLE_BRACKET_OPEN/CLOSE by
+                                             `TokenizerCurly.reclassifyAngleBrackets` (which only
+                                             tracks a `<` preceded by an IDENTIFIER, i.e. a generic
+                                             clause -- a cast's `<` instead follows an
+                                             expression-start token like `(`), so the object literal
+                                             right after the cast fell through
+                                             `JsTsSpecificRule.classifyBraces`'s default-false case,
+                                             got misclassified as a statement-body brace, and had
+                                             its depth reset to 0 mid-expression -- triggering
+                                             `enforceSemicolonInsertion` to insert a bogus `;`
+                                             before what it thought was the statement's own closing
+                                             `}`. Fixed by adding `isLegacyCastBrace`, which
+                                             recognizes a `{` immediately preceded by a plain OP
+                                             `>` whose matching plain OP `<` sits before a
+                                             (optionally dotted) type name that itself follows a
+                                             value-starting token, and treating that `{` as a
+                                             value/pattern brace like the rest of `classifyBraces`'s
+                                             `isValue` disjuncts. `make test`: 184/184 forward +
+                                             184/184 idempotency. See `STATE_JS_TS.md`'s
+                                             `angular/angular` entry.
+
 How Tests Are Run
 -----------------
 

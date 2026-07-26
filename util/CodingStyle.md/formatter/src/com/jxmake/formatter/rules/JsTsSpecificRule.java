@@ -419,7 +419,19 @@ public final class JsTsSpecificRule {
                                             // body -- same distinction Checkpoint 5 already made for the
                                             // array-bracket form via MiscRuleCore.needsSpaceBetween.
                                             || "const".equals(prev.text) || "let".equals(prev.text)
-                                            || "var".equals(prev.text))));
+                                            || "var".equals(prev.text)))
+                            // TS legacy angle-bracket cast (`<WaitCallback>{...}`, angular/angular
+                            // dogfood, `testability.ts`'s `push(<WaitCallback>{doneCb: ...})`): the
+                            // cast's own `<Type>` is never reclassified to ANGLE_BRACKET_OPEN/CLOSE
+                            // by TokenizerCurly.reclassifyAngleBrackets, since that pass only tracks a
+                            // `<` preceded by an IDENTIFIER (a generic clause) -- a cast's `<` instead
+                            // follows an expression-start token (`(`, `,`, `=`, `return`, ...), so it's
+                            // left as a plain OP token pair. Without recognizing this shape here too,
+                            // the object literal right after the cast fell through to the default-false
+                            // case below, got misclassified as a statement-body brace, and had its
+                            // depth reset to 0 mid-expression -- corrupting the object literal's own
+                            // last member with a bogus inserted `;` right before its closing `}`.
+                            || isLegacyCastBrace(tokens, openIdx));
             outResetDepth.put(openIdx, !isValue || isArrowBody);
             outNeedsSemicolon.put(openIdx, isValue);
         }
@@ -2471,6 +2483,52 @@ public final class JsTsSpecificRule {
      *  KEYWORD. Excludes non-object type aliases (`type Status = "a" | "b";`, no brace at all) and
      *  ordinary `=`-preceded object-literal initializers (`const obj = { ... };`, whose enclosing
      *  statement starts with `const`/`let`/`var`, never `type`) by construction. */
+    /** True iff the `{` at {@code braceIdx} is immediately preceded by a TS legacy angle-bracket
+     *  cast (`<Type>{...}`, e.g. `push(<WaitCallback>{doneCb: cb})`) -- i.e. a plain OP `>` whose
+     *  matching plain OP `<` sits directly before a single (optionally dotted) type name, and that
+     *  `<` itself follows a value-starting token (`(`, `,`, `=`, `return`, etc.). Such a `<...>`
+     *  is never reclassified to ANGLE_BRACKET_OPEN/CLOSE by
+     *  {@code TokenizerCurly.reclassifyAngleBrackets}, which only tracks a `<` preceded by an
+     *  IDENTIFIER (a generic clause) -- so it's still a plain OP pair by the time this runs. */
+    private boolean isLegacyCastBrace(final List<Token> tokens, final int braceIdx) {
+        final int closeAngleIdx = prevSignificantIndex(tokens, braceIdx - 1);
+        if (closeAngleIdx < 0 || !isOp(tokens.get(closeAngleIdx), ">")) {
+            return false;
+        }
+        int cursor = prevSignificantIndex(tokens, closeAngleIdx - 1);
+        if (cursor < 0 || tokens.get(cursor).type != TokenType.IDENTIFIER) {
+            return false;
+        }
+        // Walk back over a dotted type name (`<Foo.Bar>`), same chain-walk shape as the arrow-
+        // parameter dotted-type bail-out above.
+        while (true) {
+            final int dotIdx = prevSignificantIndex(tokens, cursor - 1);
+            if (dotIdx < 0 || !isOp(tokens.get(dotIdx), ".")) {
+                break;
+            }
+            final int identIdx = prevSignificantIndex(tokens, dotIdx - 1);
+            if (identIdx < 0 || tokens.get(identIdx).type != TokenType.IDENTIFIER) {
+                break;
+            }
+            cursor = identIdx;
+        }
+        final int openAngleIdx = prevSignificantIndex(tokens, cursor - 1);
+        if (openAngleIdx < 0 || !isOp(tokens.get(openAngleIdx), "<")) {
+            return false;
+        }
+        final int beforeOpenIdx = prevSignificantIndex(tokens, openAngleIdx - 1);
+        if (beforeOpenIdx < 0) {
+            return true; // cast at the very start of the token stream
+        }
+        final Token beforeOpen = tokens.get(beforeOpenIdx);
+        return isPunct(beforeOpen, "(") || isPunct(beforeOpen, "[") || isPunct(beforeOpen, ",")
+                || isOp(beforeOpen, "=") || isOp(beforeOpen, ":") || isOp(beforeOpen, "??")
+                || isOp(beforeOpen, "||") || isOp(beforeOpen, "&&") || isOp(beforeOpen, "?")
+                || (beforeOpen.type == TokenType.KEYWORD
+                        && ("return".equals(beforeOpen.text) || "yield".equals(beforeOpen.text)
+                                || "throw".equals(beforeOpen.text)));
+    }
+
     private boolean isTypeAliasObjectBrace(final List<Token> tokens, final int braceIdx) {
         final int prevIdx = prevSignificantIndex(tokens, braceIdx - 1);
         if (prevIdx < 0 || !isOp(tokens.get(prevIdx), "=")) {

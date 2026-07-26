@@ -839,7 +839,7 @@ a standalone/unused-value expression. Both are cosmetic gaps in the
 checker's tolerance list, not formatter defects, so this only reduces
 future dogfood-session triage noise — not urgent, do whenever convenient.
 
-### `angular/angular` dogfood pass — categorized; cluster 1 FIXED, clusters 2-5 NOT YET FIXED
+### `angular/angular` dogfood pass — categorized; clusters 1-2 FIXED, clusters 3-5 NOT YET FIXED
 
 Repo: `/tmp/angular`, shallow clone (`--depth 1`), HEAD `5ad8231`
 (2026-07-24). Scope: 5394 `.ts` files (`.d.ts`/`.tsx` excluded, no
@@ -903,7 +903,7 @@ estimated difficulty):
    corruption remains in any of them. Fixture:
    `real_code_regressions_134`. `make test`: 183/183 forward + 183/183
    idempotency.
-2. **[CRITICAL] Old-style angle-bracket cast (`<Type>{...}`) misparsed as
+2. **[CRITICAL] [FIXED] Old-style angle-bracket cast (`<Type>{...}`) misparsed as
    a generic, injecting a bogus `;` inside the following object literal**
    — 1 confirmed file: `packages/core/src/testability/testability.ts:229`:
    `push(<WaitCallback>{doneCb: cb, timeoutId: timeoutId, updateCb:
@@ -920,6 +920,26 @@ estimated difficulty):
    recognize `<Ident>` immediately followed by `{`/an expression (not
    `(`) as a cast, same class of fix as the earlier `vuejs/core`
    `symbol`/`bigint`/`|`-in-generic-clause bugs.
+
+   **FIXED**: root cause was actually one level downstream of the
+   `TokenizerCurly.reclassifyAngleBrackets` guess above -- that pass
+   correctly leaves a cast's `<`/`>` as plain OP tokens (it only tracks a
+   `<` preceded by IDENTIFIER, i.e. a generic clause; a cast's `<` follows
+   an expression-start token like `(` instead), but nothing downstream
+   ever recognized this plain-OP `<Type>` shape as a cast either, so the
+   object literal right after it fell through
+   `JsTsSpecificRule.classifyBraces`'s default-false `isValue` case and
+   got depth-reset as if it were a statement body, triggering
+   `enforceSemicolonInsertion` to inject a bogus `;` before the literal's
+   own closing `}`. Fixed with a new `isLegacyCastBrace` helper: a `{`
+   immediately preceded by a plain `>` whose matching plain `<` sits
+   before a (optionally dotted) type name that itself follows a
+   value-starting token (`(`, `,`, `=`, `return`, ...) is now treated as
+   a value/pattern brace, same as every other `isValue` disjunct.
+   Verified against the real `testability.ts:243` line from the
+   `/tmp/angular` checkout (no corruption remains) plus a minimal repro.
+   Fixture: `real_code_regressions_135`. `make test`: 184/184 forward +
+   184/184 idempotency.
 3. **[CRITICAL] Multi-line generic return-type clause loses its closing
    `>`, spilling a bogus `;` into the type** — 1 confirmed file:
    `packages/private/testing/src/utils.ts:103-105`: `async function

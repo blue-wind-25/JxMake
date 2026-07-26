@@ -360,6 +360,7 @@ INP_FILES += real_code_regressions_131_inp.java
 INP_FILES += real_code_regressions_132_inp.java
 INP_FILES += real_code_regressions_133_inp.py
 INP_FILES += real_code_regressions_134_inp.ts
+INP_FILES += real_code_regressions_135_inp.ts
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

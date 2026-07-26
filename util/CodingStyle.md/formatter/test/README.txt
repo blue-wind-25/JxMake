@@ -2268,6 +2268,26 @@ Real-code regressions:
                                              184/184 idempotency. See `STATE_JS_TS.md`'s
                                              `angular/angular` entry.
 
+  real_code_regressions_136_inp/out.ts    -- TS, `angular/angular` dogfood
+                                             (`private/testing/src/utils.ts:102-105`, critical
+                                             cluster 3): a multi-line generic return-type clause
+                                             (`Promise<\n  (typeof import('...'))['default'] |
+                                             null\n>`) got a bogus `;` inserted at the end of the
+                                             line containing the `typeof import(...)` type-query
+                                             clause. Root cause: TS's dynamic-import type-query
+                                             operand (`import(...)` used as a type operand, not the
+                                             dynamic-import expression) is a KEYWORD token not in
+                                             `TokenizerCurly.GENERIC_SAFE_KEYWORDS` -- so it
+                                             invalidated the whole enclosing `<...>` tracking before
+                                             the matching `>` was reached, leaving it a plain OP
+                                             token instead of ANGLE_BRACKET_OPEN/CLOSE and defeating
+                                             `JsTsSpecificRule.enforceSemicolonInsertion`'s depth
+                                             tracking (same class of gap as the earlier `keyof`/
+                                             `is`/`infer`/`typeof`/etc. fixes in the same set).
+                                             Fixed by adding `"import"` to `GENERIC_SAFE_KEYWORDS`.
+                                             `make test`: 185/185 forward + 185/185 idempotency.
+                                             See `STATE_JS_TS.md`'s `angular/angular` entry.
+
 How Tests Are Run
 -----------------
 

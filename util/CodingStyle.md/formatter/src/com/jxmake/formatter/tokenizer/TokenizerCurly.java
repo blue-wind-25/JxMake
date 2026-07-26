@@ -150,8 +150,14 @@ public class TokenizerCurly extends TokenizerCore {
             // invalidated the whole `<...>` tracking before the matching `>` was reached, in one
             // case producing a bogus `;` before the closing `>` and in the other leaving the `>`
             // a plain OP token that then defeated statement-boundary detection entirely, merging
-            // the following statement onto the same line.
-            "keyof", "is", "infer", "asserts", "readonly", "unique", "as", "satisfies", "typeof");
+            // the following statement onto the same line. `import` (angular/angular dogfood,
+            // `utils.ts`'s `Promise<\n  (typeof import('...'))['default'] | null\n>`) is the same
+            // gap again: TS's dynamic-import type query (`import('module-name')` used as a type
+            // operand, not the dynamic-import expression) appearing inside a multi-line generic
+            // clause invalidated the whole `<...>` tracking before the matching `>` was reached,
+            // producing a bogus `;` at the end of the line containing the import-type clause.
+            "keyof", "is", "infer", "asserts", "readonly", "unique", "as", "satisfies", "typeof",
+            "import");
 
     // C++ cast keywords: `static_cast<T>(...)` etc. are tokenized as KEYWORD (not IDENTIFIER),
     // so the generic `<` after an IDENTIFIER check in reclassifyAngleBrackets() misses them

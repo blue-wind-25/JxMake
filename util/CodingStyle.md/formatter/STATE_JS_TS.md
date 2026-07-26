@@ -839,7 +839,7 @@ a standalone/unused-value expression. Both are cosmetic gaps in the
 checker's tolerance list, not formatter defects, so this only reduces
 future dogfood-session triage noise — not urgent, do whenever convenient.
 
-### `angular/angular` dogfood pass — categorized; clusters 1-2 FIXED, clusters 3-5 NOT YET FIXED
+### `angular/angular` dogfood pass — categorized; clusters 1-3 FIXED, clusters 4-5 NOT YET FIXED
 
 Repo: `/tmp/angular`, shallow clone (`--depth 1`), HEAD `5ad8231`
 (2026-07-24). Scope: 5394 `.ts` files (`.d.ts`/`.tsx` excluded, no
@@ -940,7 +940,7 @@ estimated difficulty):
    `/tmp/angular` checkout (no corruption remains) plus a minimal repro.
    Fixture: `real_code_regressions_135`. `make test`: 184/184 forward +
    184/184 idempotency.
-3. **[CRITICAL] Multi-line generic return-type clause loses its closing
+3. **[CRITICAL] [FIXED] Multi-line generic return-type clause loses its closing
    `>`, spilling a bogus `;` into the type** — 1 confirmed file:
    `packages/private/testing/src/utils.ts:103-105`: `async function
    loadDominoOrNull(): Promise<\n  (typeof import(...))['default'] |
@@ -953,6 +953,21 @@ estimated difficulty):
    very low incidence (uncommon shape) — narrow-to-moderate difficulty,
    same triage pattern as the existing `GENERIC_SAFE_KEYWORDS` fix list
    (needs debug-print localization of the exact token losing tracking).
+
+   **FIXED**: root cause confirmed exactly as guessed — bisected down to
+   TS's dynamic-import type-query operand (`import(...)` used as a type
+   operand inside the generic clause, not the dynamic-import expression
+   itself): `import` is a KEYWORD token not present in
+   `TokenizerCurly.GENERIC_SAFE_KEYWORDS`, so it invalidated the whole
+   enclosing `<...>` tracking before the matching `>` was reached, the
+   same class of gap the `keyof`/`is`/`infer`/`asserts`/`readonly`/
+   `unique`/`as`/`satisfies`/`typeof` entries in that same set already
+   fixed for their own respective type-operator keywords. Fixed by adding
+   `"import"` to `GENERIC_SAFE_KEYWORDS`. Verified against the real
+   `utils.ts:102-105` line from the `/tmp/angular` checkout (no
+   corruption remains) plus a minimal repro, confirmed idempotent.
+   Fixture: `real_code_regressions_136`. `make test`: 185/185 forward +
+   185/185 idempotency.
 4. **[IDEMPOTENCY] Call-wrap/collapse vs. alignment-padding fits-check
    ordering** — dominant idempotency cluster, **~23 of 29 files**:
    `packages/router/src/create_router_state.ts:27`,

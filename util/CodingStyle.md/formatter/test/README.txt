@@ -2308,6 +2308,28 @@ Real-code regressions:
                                              forward + 186/186 idempotency. See `STATE_PYTHON3.md`'s
                                              `python/cpython` entry.
 
+  real_code_regressions_138_inp/out.py    -- Python, `python/cpython`
+                                             dogfood (`Lib/turtle.py`'s `match param.kind` block,
+                                             idempotency cluster 3): a run of block-form `case`
+                                             members inside one `match` -- each individually
+                                             §8-joined to one line by this same pass -- had their
+                                             `:`-column alignment abandoned on round1 (one member,
+                                             `case _:`, needs enough padding to match a much longer
+                                             sibling pattern that its own padded+joined line would
+                                             overflow `line-length`, so §7 correctly abandons
+                                             alignment for the whole group, leaving each member
+                                             individually joined-but-unaligned by §8), but a naive
+                                             round2 saw the now-already-compact members and aligned
+                                             them anyway -- `flushCaseGroup`'s pre-commit
+                                             length-budget check only covered `virtualJoin`
+                                             members, not already-compact ones, so the same
+                                             over-length padding round1 correctly rejected got
+                                             applied on round2. Fixed by extending that check to
+                                             cover every group member uniformly, whether via a
+                                             virtual join or already compact. `make test`: 187/187
+                                             forward + 187/187 idempotency. See `STATE_PYTHON3.md`'s
+                                             `python/cpython` entry.
+
 How Tests Are Run
 -----------------
 

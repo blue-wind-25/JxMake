@@ -629,8 +629,8 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       solely §3's import-sort reordering — zero true AST-shape mismatches
       remaining after the one fix above.
 
-      **`python/cpython` — dogfood run DONE, categorized; clusters 1-2
-      FIXED, clusters 3-4 (idempotency-only) NOT YET FIXED.**
+      **`python/cpython` — dogfood run DONE, categorized; clusters 1-3
+      FIXED, cluster 4 (idempotency-only) NOT YET FIXED.**
       Fresh shallow clone `/tmp/cpython` (`--depth 1`), 2343 `.py` files,
       batched per top-level subdir (`Doc`/`Lib`/`Mac`/`Misc`/`Modules`/
       `Parser`/`PC`/`PCbuild`/`Platforms`/`Programs`/`Tools`) through
@@ -722,7 +722,7 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
          (config-insensitive, as expected). Fixture:
          `real_code_regressions_137`. `make test`: 186/186 forward +
          186/186 idempotency.
-      3. **[IDEMPOTENCY] §7/§8 join-then-align ordering, recurrence
+      3. **[IDEMPOTENCY] [FIXED] §7/§8 join-then-align ordering, recurrence
          adjacent to a preceding block-form `case`** (2 files:
          `Lib/turtle.py` ~line 3930, `Lib/typing.py` ~line 2974). A run of
          already-compact `case X: stmt` lines stays unpadded on round1
@@ -738,6 +738,35 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
          Likely a **narrow extension** of the existing fix
          (`classifyCaseLine`/`flushCaseGroup`/`applyCaseColonAlignment`),
          not a new mechanism.
+
+         **FIXED**: root cause was actually one step removed from the
+         initial "preceding block-form `case (...)`" guess -- the
+         preceding block-form header correctly breaks the group boundary
+         (`classifyCaseLine` already returns `null` for it, since it's
+         `multiPhysicalLine`) and has no bearing on the bug. The real
+         cause: every member AFTER it (`VAR_POSITIONAL`/`KEYWORD_ONLY`/
+         `VAR_KEYWORD`/`_`) is itself `virtualJoin`-eligible (each is
+         block-form-as-written with a one-statement body), and `case _:`'s
+         very short pattern needs enough padding to match its much longer
+         `VAR_POSITIONAL`-length sibling that the padded+joined line
+         overflows `line-length` -- correctly making round1's `§7`
+         abandon alignment for the whole group (all-or-nothing), leaving
+         `§8` to join each member individually, unaligned. A naive round2
+         then saw those now-already-compact members and realigned them,
+         because `flushCaseGroup`'s pre-commit length-budget check only
+         ever examined `virtualJoin` members, never already-compact ones
+         -- so the very over-length padding round1 correctly rejected got
+         silently applied on round2. Fixed by extending that check
+         uniformly to every group member regardless of shape (added a
+         `lineEnd` field to `CaseLine` so a compact member's own
+         post-alignment full-line length can be computed the same way a
+         virtualJoin member's already was). Verified against both cited
+         files directly from the `/tmp/cpython` checkout (idempotent,
+         `python3.12 -m py_compile`-clean save for `typing.py`'s
+         pre-existing unrelated `lazy import` syntax-experiment error,
+         confirmed identical on the unformatted original). Fixture:
+         `real_code_regressions_138`. `make test`: 187/187 forward +
+         187/187 idempotency.
       4. **[IDEMPOTENCY] §4/§5 decorator-call bracket-padding leaks into a
          nested f-string field's own braces** (1 file:
          `Lib/test/test_ctypes/test_generated_structs.py` lines 278, 284).

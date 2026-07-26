@@ -1142,10 +1142,14 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final boolean virtualJoin;
         final int bodyContentStart;
         final int bodyContentEnd;
+        /** The line's own physical end (only meaningful/used for a {@code compact} member's own
+         *  post-alignment length check in {@link #flushCaseGroup} -- a {@code virtualJoin} member
+         *  uses {@code bodyContentEnd} for that same purpose instead). */
+        final int lineEnd;
 
         CaseLine(final int headerStart, final int patternStart, final int patternEnd, final int colonIdx,
                 final boolean compact, final boolean virtualJoin, final int bodyContentStart,
-                final int bodyContentEnd) {
+                final int bodyContentEnd, final int lineEnd) {
             this.headerStart = headerStart;
             this.patternStart = patternStart;
             this.patternEnd = patternEnd;
@@ -1154,6 +1158,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             this.virtualJoin = virtualJoin;
             this.bodyContentStart = bodyContentStart;
             this.bodyContentEnd = bodyContentEnd;
+            this.lineEnd = lineEnd;
         }
     }
 
@@ -1276,7 +1281,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             }
         }
         return new CaseLine(line.start, patternStart, patternEnd, colonIdx, compact, virtualJoin,
-                bodyContentStart, bodyContentEnd);
+                bodyContentStart, bodyContentEnd, line.end);
     }
 
     /** Returns {@code [bodyContentStart, bodyContentEnd)} for the single-statement body that would
@@ -1337,18 +1342,35 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         for (final CaseLine c : group) {
             maxLen = Math.max(maxLen, verbatimLineText(tokens, c.patternStart, c.patternEnd).length());
         }
-        // Verify every virtualJoin member's own padded joined line still fits before committing --
-        // padding can push a line that fit unpadded (§8's own check) past the limit once aligned.
+        // Verify every member's own padded line still fits before committing -- padding can push a
+        // line that fit unpadded past the limit once aligned, for a virtualJoin member (padding
+        // combined with the newly-joined body content) exactly as much as for an already-compact
+        // one (padding alone, widening an existing one-line `case X: stmt`). Checking only
+        // virtualJoin members here let a group whose alignment gets abandoned this round (because
+        // one virtualJoin member's padded+joined line would overflow) still have every member
+        // individually joined by §8 afterwards -- on the NEXT round, with every member now already
+        // compact, this same group would pass this check without the equivalent length guard,
+        // silently applying padding this round abandoned, i.e. non-idempotent (cpython dogfood,
+        // `Lib/turtle.py`'s `match param.kind` block: a `case _:` member's own short pattern needs
+        // ~31 columns of padding to match a `VAR_POSITIONAL`-length sibling, which alone pushes its
+        // line over the budget -- round1 correctly abandons the group's alignment (leaving §8's own
+        // per-header join unaligned), but a naive round2 saw only already-compact members and
+        // aligned them anyway, reproducing this exact bug on round2's own output).
         for (final CaseLine c : group) {
-            if (!c.virtualJoin) {
-                continue;
-            }
             final int len = verbatimLineText(tokens, c.patternStart, c.patternEnd).length();
-            final String headerPrefix = verbatimLineText(tokens, c.headerStart, c.patternEnd);
-            final String bodyText = verbatimLineText(tokens, c.bodyContentStart, c.bodyContentEnd);
-            final String joined = headerPrefix + padRightSpaces(maxLen - len) + ": " + bodyText;
+            final String padding = padRightSpaces(maxLen - len);
+            final String joined;
+            if (c.virtualJoin) {
+                final String headerPrefix = verbatimLineText(tokens, c.headerStart, c.patternEnd);
+                final String bodyText = verbatimLineText(tokens, c.bodyContentStart, c.bodyContentEnd);
+                joined = headerPrefix + padding + ": " + bodyText;
+            } else {
+                final String headerPrefix = verbatimLineText(tokens, c.headerStart, c.patternEnd);
+                final String rest = verbatimLineText(tokens, c.colonIdx, c.lineEnd);
+                joined = headerPrefix + padding + rest;
+            }
             if (physicalLineLength(joined) > lineLength) {
-                return; // padding pushed a virtual join over the line-length budget -- abandon the group
+                return; // padding pushed this member over the line-length budget -- abandon the group
             }
         }
         for (final CaseLine c : group) {

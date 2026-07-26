@@ -432,13 +432,37 @@ public class TokenizerIndent extends TokenizerCore {
      *  opaque" -- a literal spec string, not code, preserved exactly as written). Brace-balances
      *  to find the field's true closing `}` (a format spec may itself contain a nested `{expr}`
      *  replacement field per Python grammar), but does NOT recursively sub-tokenize that nested
-     *  field -- a documented limitation of this slice, consistent with the class javadoc. */
+     *  field -- a documented limitation of this slice, consistent with the class javadoc.
+     *
+     *  <p>Inside a nested replacement field (`depth > 0`), a quote character starts a real Python
+     *  string literal (e.g. `f'{2:{"{"}>10}'`'s nested field is the expression `"{"`) whose own
+     *  `{`/`}` content is NOT format-spec/field-boundary syntax -- counting it as such
+     *  desynchronizes {@code depth} (the quoted `{` looks like an extra nesting level, so the
+     *  nested field's own real closing `}` immediately after gets consumed as merely *reducing*
+     *  that phantom depth instead of closing the nested field, and the search for this whole
+     *  spec's true closing `}` then runs past the actual field end into the rest of the source
+     *  file looking for a `}` it will never legitimately find at depth 0). Left uncorrected, this
+     *  produces a single {@code FSTRING_FORMAT_SPEC} token spanning to EOF with no proper
+     *  {@code FSTRING_END} ever emitted for this string, which crashes
+     *  {@code ScopePipelineIndent.processField} downstream with an {@code IndexOutOfBoundsException}
+     *  once it runs off the end of the token list still looking for the field's closing `}`
+     *  (found via `python/cpython`'s `Lib/test/test_fstring.py`,
+     *  `test_format_specifier_expressions`'s `f'{2:{"{"}>10}'`-shaped cases). Fixed by skipping
+     *  quoted string content verbatim (respecting `\`-escapes and triple-quotes, mirroring {@link
+     *  #emitSimpleString}/{@link #emitTripleQuotedString}'s own scanning) whenever a quote is seen
+     *  at {@code depth > 0}, so its embedded braces never reach the depth counter. At
+     *  {@code depth == 0} a quote is just literal format-spec text (not Python syntax), so no
+     *  special handling is needed there. */
     private Token emitFStringFormatSpec() {
         final int start = pos;
         pos++; // ':'
         int depth = 0;
         while (pos < length) {
             final char c = source.charAt(pos);
+            if (depth > 0 && (c == '\'' || c == '"')) {
+                skipNestedStringLiteral(c);
+                continue;
+            }
             if (c == '{') {
                 depth++;
                 pos++;
@@ -454,6 +478,34 @@ public class TokenizerIndent extends TokenizerCore {
         }
         return new Token(TokenType.FSTRING_FORMAT_SPEC, source.substring(start, pos), braceDepth,
                 parenDepth, null);
+    }
+
+    /** Advances {@code pos} past a quoted string literal (triple- or single-quoted, `\`-escapes
+     *  honored) found while brace-counting inside a nested replacement field in {@link
+     *  #emitFStringFormatSpec} -- does not emit a token, since the format spec stays one opaque
+     *  token overall; only its internal brace-counting needs to see past the string's content. */
+    private void skipNestedStringLiteral(final char quote) {
+        final boolean triple = peek(1) == quote && peek(2) == quote;
+        pos += triple ? 3 : 1;
+        while (pos < length) {
+            final char c = source.charAt(pos);
+            if (c == '\\' && pos + 1 < length) {
+                pos += 2;
+                continue;
+            }
+            if (triple) {
+                if (c == quote && peek(1) == quote && peek(2) == quote) {
+                    pos += 3;
+                    return;
+                }
+            } else if (c == quote) {
+                pos++;
+                return;
+            } else if (c == '\r' || c == '\n') {
+                return; // unterminated on this line -- stop, don't swallow the newline
+            }
+            pos++;
+        }
     }
 
     private Token emitPunct(final char c) {

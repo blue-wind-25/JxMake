@@ -629,7 +629,8 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       solely §3's import-sort reordering — zero true AST-shape mismatches
       remaining after the one fix above.
 
-      **`python/cpython` — dogfood run DONE, categorized, NOT YET FIXED.**
+      **`python/cpython` — dogfood run DONE, categorized; cluster 1 (the
+      crash) FIXED, clusters 2-4 (idempotency-only) NOT YET FIXED.**
       Fresh shallow clone `/tmp/cpython` (`--depth 1`), 2343 `.py` files,
       batched per top-level subdir (`Doc`/`Lib`/`Mac`/`Misc`/`Modules`/
       `Parser`/`PC`/`PCbuild`/`Platforms`/`Programs`/`Tools`) through
@@ -648,25 +649,43 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       **most-valuable-to-fix first** (value = criticality weighed against
       estimated difficulty):
 
-      1. **[CRITICAL] f-string nested-format-spec crash**
+      1. **[CRITICAL] f-string nested-format-spec crash — FIXED.**
          (`IndexOutOfBoundsException`, `ScopePipelineIndent.processField`
-         line ~802) — `Lib/test/test_fstring.py` crashes outright (whole
-         file skipped, no output at all) on nested-replacement-field
-         format specs (`f'{value:{width:{0}}.{precision:1}}'`,
-         `f'{1:{name}}'`, lines 520/541/658/828/839-849/1177/1467). Root
-         cause: the already-known, already-documented tokenizer gap above
-         ("a nested replacement field *within* a format spec is not
-         recursively sub-tokenized") — `processField`'s brace-depth
-         bookkeeping loses track of the true closing `}` and its `while
-         (true)` loop walks off the end of the token list. **Highest
-         priority**: it's a hard crash on ordinary, common CPython syntax,
-         not just a wrong-output bug. A narrow bound-check band-aid
-         (detect the closing `}` not found before EOF and leave the whole
-         f-string untouched, converting the crash into a no-op) would be
-         cheap; the full fix (recursive sub-tokenization of a format
-         spec's own replacement fields in `TokenizerIndent.emitFString`/
-         `emitFStringField`) is architecturally more involved but was
-         already flagged as a known deferred gap, not a new discovery.
+         line ~802) — `Lib/test/test_fstring.py` crashed outright (whole
+         file skipped, no output at all) on cases like
+         `f'{2:{"{"}>10}'`/`f'{3:{"}"}>10}'`/
+         `f'{10:#{3 != {4:5} and width}x}'` (`test_format_specifier_
+         expressions`). **Actual root cause was narrower than the initial
+         triage guess** — not the general "nested replacement field inside
+         a format spec isn't recursively sub-tokenized" gap (that
+         remains a real, separate, still-open limitation), but specifically:
+         `TokenizerIndent.emitFStringFormatSpec`'s brace-depth counter
+         scanned raw characters without skipping quoted-string content, so
+         a literal `{`/`}` *inside a nested field's own string-literal
+         expression* (e.g. the `"{"` in `{2:{"{"}>10}`) miscounted nesting
+         depth — the nested field's real closing `}` then only decremented
+         the phantom depth instead of closing it, so the scan for the
+         whole spec's true closing `}` ran past the actual field end,
+         producing a single `FSTRING_FORMAT_SPEC` token spanning to EOF
+         with no `FSTRING_END` ever emitted, which is what crashed
+         `processField` downstream. **Fixed:** added
+         `skipNestedStringLiteral` — skips a quoted string's content
+         (`\`-escapes, triple-quotes honored, mirroring
+         `emitSimpleString`/`emitTripleQuotedString`'s own scanning)
+         whenever a quote is seen at `depth > 0` inside
+         `emitFStringFormatSpec`'s brace counter, so embedded braces in a
+         nested field's string literal never reach the depth count; at
+         `depth == 0` a quote is just literal format-spec text (not Python
+         syntax) so needs no special handling. Verified against all 5
+         crashing minimal cases plus the two multi-level-nesting cases
+         from `Lib/test/test_fstring.py` (all now format without crashing,
+         round1==round2, valid Python per `python3.12 -m py_compile` —
+         the file's one remaining `py_compile` error, `Sorry: ValueError:
+         field 'value' is required for Constant`, reproduces identically
+         on the unformatted original, a pre-existing `python3.12`/AST-tool
+         quirk unrelated to this fix). Fixture
+         `real_code_regressions_133_{inp,out}.py`. `make test`: 182/182
+         forward + 182/182 idempotency, zero regressions.
       2. **[IDEMPOTENCY] §3 import-sort: same-module multi-statement group
          order unstable on first pass** (16 files: `Lib/random.py` lines
          53-56 confirmed as the clean minimal case — four separate `from

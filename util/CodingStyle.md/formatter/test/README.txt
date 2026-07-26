@@ -2188,6 +2188,36 @@ Real-code regressions:
                                              passes now agree. See `STATE_C_CPP_JAVA.md`'s
                                              `openrewrite/rewrite` entry.
 
+  real_code_regressions_133_inp/out.py    -- Python, `python/cpython`
+                                             dogfood (`Lib/test/test_fstring.py`,
+                                             `test_format_specifier_expressions`-shaped cases):
+                                             a nested replacement field inside an f-string's
+                                             format spec whose own expression is a quoted string
+                                             literal containing a `{`/`}` character (e.g.
+                                             `f'{2:{"{"}>10}'`) crashed the formatter outright
+                                             with an `IndexOutOfBoundsException`. Root cause:
+                                             `TokenizerIndent.emitFStringFormatSpec`'s brace-depth
+                                             counter scanned raw characters without skipping
+                                             quoted-string content, so the literal `{`/`}` inside
+                                             the nested field's own string expression miscounted
+                                             nesting depth -- the nested field's real closing `}`
+                                             then only decremented the phantom depth instead of
+                                             closing it, and the scan for the whole format spec's
+                                             true closing `}` ran past the actual field end,
+                                             producing a single `FSTRING_FORMAT_SPEC` token
+                                             spanning to EOF with no `FSTRING_END` ever emitted --
+                                             `ScopePipelineIndent.processField` then walked off the
+                                             end of the token list looking for the field's closing
+                                             `}`. Fixed by adding `skipNestedStringLiteral`, which
+                                             skips a quoted string's content (escapes/triple-quotes
+                                             honored, mirroring `emitSimpleString`/
+                                             `emitTripleQuotedString`) whenever a quote is seen at
+                                             `depth > 0` inside `emitFStringFormatSpec`'s brace
+                                             counter, so its embedded braces never reach the depth
+                                             count. `make test`: 182/182 forward + 182/182
+                                             idempotency. See `STATE_PYTHON3.md`'s `python/cpython`
+                                             entry.
+
 How Tests Are Run
 -----------------
 

@@ -29,7 +29,10 @@ import sys
 
 DEFAULT_VOCAB = os.path.join(os.path.dirname(__file__), "explicit_vocab.txt")
 DEFAULT_STATE = os.path.join(os.path.dirname(__file__), ".gen_synthetic_state.json")
-DEFAULT_LANGS = ["c", "cpp", "java", "python", "js"]
+DEFAULT_LANGS = ["c", "cpp", "java", "kotlin", "js", "ts", "python"]
+
+# git add .gen_synthetic_state.json ../sp_gemini.txt && git commit -S -m 'Synthetic training data generation result'
+# cat .gen_synthetic_state.json && ./gen_synthetic_prompt.py
 
 PROMPT_TEMPLATE = """Generate exactly {total} lines of training data. Output ONLY the lines, no header, no explanation, no markdown formatting/backticks.
 
@@ -52,7 +55,6 @@ Pool B ({n} lines) -- trailing-period ambiguity, targetWordIndex = index of the 
 Vary sentence length (3-12 words). No two lines may share the same sentence structure.
 Print Pool A lines first, then Pool B lines, in the order described above.
 """
-
 
 def load_vocab(path):
     words = []
@@ -105,7 +107,7 @@ def main():
     ap = argparse.ArgumentParser(description="Generate the rotating synthetic-data prompt.")
     ap.add_argument("--vocab", default=DEFAULT_VOCAB, help="path to explicit_vocab.txt")
     ap.add_argument("--state", default=DEFAULT_STATE, help="path to state json file")
-    ap.add_argument("--words-per-batch", type=int, default=20,
+    ap.add_argument("--words-per-batch", type=int, default=100,
                      help="number of Pool A words to pull this run (also used as Pool B line count)")
     ap.add_argument("--langs", nargs="+", default=DEFAULT_LANGS, help="languages to rotate across")
     ap.add_argument("--reset", action="store_true", help="reset state back to index 0 before running")

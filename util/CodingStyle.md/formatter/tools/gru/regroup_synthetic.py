@@ -14,11 +14,11 @@ fine as long as each line has at least 3 whitespace-separated fields before
 the comment text.
 
 Classification rule:
-    targetWordIndex == 0                          -> Pool A
-    targetWordIndex == index of the LAST token     -> Pool B
-    (single-token comment satisfies both -> Pool A, noted in unresolved
+    targetWordIndex == 0                       -> Pool A
+    targetWordIndex == index of the LAST token -> Pool B
+    (single-token comment satisfies both       -> Pool A, noted in unresolved
      only if it ALSO fails other checks)
-    anything else / malformed                      -> unresolved
+    anything else / malformed                  -> unresolved
 
 Usage:
     python3 regroup_synthetic.py --input pasted.txt --outdir ./out

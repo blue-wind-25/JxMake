@@ -32,6 +32,20 @@ for reproducing bugs and mini/small tests (not the cloned repositories) them and
 
 
 
+1. Copy the formatter's own Java source files to `/tmp/fmt_ref`. Apply round1 and round2 dogfood
+   test to it. Fix any bug before continuing.
+2. If all is good, build the round2 Java source files into a JAR, use it to run the forward and
+   idempotency test fixtures listed in the Makefile. Fix any bug before continuing.
+3. Use the round2's JAR to format `/tmp/fmt_ref` to round1b and round2b. If all is good, all files
+   from round1 should be identical to round1b and all files from round2 should be identical to round2b.
+4. If all is good, copy the formatted source files from round1 back to the formatter's own Java
+   source files. This will override the formatter's source with the formatted source files. Perform
+   spot checking as needed.
+5. Rebuild the formatter with the newly formatted source files and run `make test` again.
+6. If all is good, the formatter has successfully formatted itself.
+
+
+
 Compact (use one sub-agent) all newly touched `STATE_*.md`.
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.
@@ -85,7 +99,7 @@ Start with the dogfood test (search in `/tmp` first, clone the repo if not found
 Do NOT perform any bug fix yet, instead categorize and note the bugs inside
 `....md` into two categories:
     1. Critical bugs that cause formatter error/crash and output file corruption (syntax
-       error, unwanted content change).
+       error, unwanted content change, etc.).
     2. Idempotency bugs only. Try reformat with `indent-size = 2` if the idempotency test
        failed.
 For each category, cluster the bugs based on the types/appearance. Sort the clusters based on
@@ -93,6 +107,7 @@ the estimated criticality/the value of fixing the bug and the estimated difficul
 Sort the clusters from the most valuable to the least valuable to fix based on the above
 criteria. Write and commit the state files, then ask me which clusters to fix first.
 Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
+Write also your short report (which you print to the CLI console) to `/tmp/REP.txt`.
 
 Start with the dogfood test (in sequence)  (search in `/tmp` first, clone the repo if not found):
    ... : ... (the repo is quite large, you may want to checkout the *... files only)
@@ -100,7 +115,7 @@ Start with the dogfood test (in sequence)  (search in `/tmp` first, clone the re
 Do NOT perform any bug fix yet, instead categorize and note the bugs inside
 `....md` and `....md` into two categories:
     1. Critical bugs that cause formatter error/crash and output file corruption (syntax
-       error, unwanted content change).
+       error, unwanted content change, etc.).
     2. Idempotency bugs only. Try reformat with `indent-size = 2` if the idempotency test
        failed.
 For each category, cluster the bugs based on the types/appearance. Sort the clusters based on
@@ -120,24 +135,70 @@ Use one sub-agent as needed, the sub-agent can launch up to one more research su
 
 
 
-Start with the dogfood test (in sequence) (search in `/tmp` first, clone the repo if not found):
-    Python3 : `github.com/python/cpython` (the repo is quite large, you may want to checkout the *.py files only)
-    TS : `github.com/angular/angular` (the repo is quite large, you may want to checkout the *.ts files only)
-Do NOT perform any bug fix yet, instead categorize and note the bugs inside
-`STATE_PYTHON3.md` and `STATE_JS_TS.md` into two categories:
-    1. Critical bugs that cause formatter error/crash and output file corruption (syntax
-       error, unwanted content change).
-    2. Idempotency bugs only. Try reformat with `indent-size = 2` if the idempotency test
-       failed.
-For each category, cluster the bugs based on the types/appearance. Sort the clusters based on
-the estimated criticality/the value of fixing the bug and the estimated difficulty (weigh them).
-Sort the clusters from the most valuable to the least valuable to fix based on the above
-criteria. Write and commit the state files, then ask me which clusters to fix first.
-Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
-Write also your short report (which you print to the CLI console) to `/tmp/REP.txt`.
+Dogfood test report — python/cpython (Python3)
 
-[#] `github.com/python/cpython`  [~980 kLOC of effective Python code]
-[#] `github.com/angular/angular` [~895 kLOC of effective TypeScript code]
+1. [CRITICAL] f-string nested-format-spec crash (IndexOutOfBoundsException,
+   ScopePipelineIndent.processField). Crashes Lib/test/test_fstring.py
+   outright on f'{value:{width:{0}}.{precision:1}}'-style nesting. Known,
+   previously-documented tokenizer gap. Cheap band-aid available (bound-
+   check + leave f-string untouched); full fix (recursive format-spec
+   sub-tokenization) is architecturally bigger but already understood.
+   HIGHEST PRIORITY — it's a hard crash on ordinary CPython syntax.
+
+2. [IDEMPOTENCY] Import-sort inter-statement group order unstable on first
+   pass when a group has multiple `from X import ...` lines for the same
+   X (16 files, e.g. Lib/random.py). Self-corrects after 1 reformat.
+   Root cause likely a stale comparator key (MiscRuleIndent.PyImport
+   .compareTo) — probably a narrow, one-comparator-key fix. Not
+   indent-size-sensitive. Medium value, low difficulty.
+
+3. [IDEMPOTENCY] §7/§8 case-join/align ordering recurrence next to a
+   preceding block-form `case (...)` (2 files: turtle.py, typing.py).
+   Second occurrence of an already-fixed bug class (real_code_regressions
+   _115) — likely a narrow extension of the existing fix. Not
+   indent-size-sensitive. Low-medium value, low difficulty.
+
+4. [IDEMPOTENCY] Decorator-call bracket padding leaks into a nested
+   f-string field's own braces, one level deeper than the already-fixed
+   pallets/click case (1 file). Likely narrow (apply the existing guard
+   one level deeper). Lowest value of the four, low difficulty.
+
+Dogfood test report — angular/angular (JS/TS)
+
+1. [CRITICAL] Dotted/qualified type-predicate or return-type before `=>`
+   gets its last segment wrapped in a spurious paren pair (~40 of 46
+   broken files) — e.g. `ts.server.PluginModule =>` becomes
+   `ts.server.(PluginModule) =>`. JsTsSpecificRule
+   .enforceArrowFunctionParameterParens's existing is/typeof/keyof
+   bail-out doesn't cover a multi-segment dotted path. Very common shape,
+   silent corruption that still looks plausible. Likely a narrow
+   extension (walk back past the whole dotted chain first).
+   HIGHEST PRIORITY — dominant cluster, common shape, narrow fix.
+
+2. [CRITICAL] Old-style angle-bracket cast `<Type>{...}` misparsed as a
+   generic, injecting a bogus `;` inside the object literal (1 file).
+   TokenizerCurly.reclassifyAngleBrackets doesn't recognize `<Ident>`
+   immediately followed by `{` as a cast. High criticality, low
+   incidence, moderate difficulty.
+
+3. [CRITICAL] Multi-line generic return-type clause loses its closing `>`,
+   spilling a bogus `;` into the type (1 file, `Promise<(typeof
+   import(...))['default'] | null>`-shaped). Same family as existing
+   GENERIC_SAFE_KEYWORDS bugs. High criticality, very low incidence,
+   narrow-to-moderate difficulty.
+
+4. [IDEMPOTENCY] Call-wrap/collapse vs. alignment-padding fits-check
+   ordering (~23 of 29 idempotency files — the dominant idempotency
+   cluster). Confirms an already-documented, previously-thought-rare bug
+   (scripts/release.js / real_code_regressions_85/_102) is actually broad
+   and high-frequency. Medium criticality, architecturally nontrivial
+   (cross-pass-ordering fix) — worth escalating priority given confirmed
+   frequency despite the difficulty.
+
+5. [IDEMPOTENCY] Reindentation on internally-inconsistent source (3 files)
+   — third confirming recurrence of an already-ACCEPTED, deliberately-
+   deferred architectural gap (STATE_COMMON.md's "General scope-depth
+   reindentation"). No new action needed. Lowest priority.
 
 
 

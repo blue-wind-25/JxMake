@@ -440,59 +440,50 @@ on the noted commits/fixtures)
      out of 1997). `javac` compile-check not run (gated on fully-clean idempotency); accepted as
      Finished with this caveat per user decision — see `README.md`'s "Known Limitations".
 (17) HUGE `openrewrite/rewrite` (3373 `.java` files) — IN PROGRESS, not DONE. Full-tree forward
-     pass (default config) had 0 errors; round1/round2 idempotency diff found 34 differing files,
-     pre-characterized into 6 clusters. 4 fixed and verified so far:
-     - Cluster 1 (~20 files, mostly ANTLR-generated grammar/parser files across rewrite-json/
-       -yaml/-hcl/-docker/-java/-maven/-protobuf/-toml/-xml, incl. `tree/J.java`) — 2 sub-bugs
-       sharing one root-cause shape (a fits-in-`line-length` prediction made before a later
+     pass (default config): 0 errors. Round1/round2 idempotency: 34 differing files, characterized
+     into 6 clusters, 5 fixed so far:
+     - Cluster 1 (~20 files, mostly ANTLR-generated grammar/parser files, incl. `tree/J.java`) — 2
+       sub-bugs, one root-cause shape (a fits-in-`line-length` prediction made before a later
        width-growing pass ran): (a) `JavaSpecificRule.isSingleLineBody` measured a tab-indented
-       one-liner's leading indent via raw `String.length()` instead of expanded width — fixed via
-       new `expandedIndentWidth` helper. (b) `enforceInitializerBraceSpacing` ran in Phase 4,
-       after `enforceCallLineBreaking` had already decided not to wrap — fixed by pulling a
-       second call forward to run right before `enforceCallLineBreaking`. Verified via minimal
-       repro + all 18 affected files + `make test`. Fixture: `real_code_regressions_128`.
+       one-liner's leading indent via raw `String.length()` not expanded width — fixed via new
+       `expandedIndentWidth` helper. (b) `enforceInitializerBraceSpacing` ran in Phase 4, after
+       `enforceCallLineBreaking` had already decided not to wrap — fixed by pulling a second call
+       forward to run right before it. Verified: minimal repro + all 18 affected files + `make
+       test`. Fixture: `real_code_regressions_128`.
      - Cluster 2 (8 files: dense single-line lambda/if-else bodies re-split differently across
-       passes — rewrite-benchmarks/-core/-gradle(x2)/-hcl/-java/-kotlin/-java-test) — confirmed a
-       genuinely distinct root cause from cluster 1 despite the superficial resemblance. Root
-       cause: `BlockStructureRule.collapseSingleExpressionBlocks`'s per-branch newline before a
-       chain's next `else` (`appendChainNewlineBeforeElse`) was only ever inserted as a side
-       effect of that same pass collapsing a *braced* if/else-if body to braceless; an
-       already-braceless body (fed round1's own output on round2) left no brace to re-collapse,
-       so no newline was re-inserted, and `ScopePipelineCurly`'s declaration/assignment-RHS pass
-       (always joins an initializer back onto one line) then fused the whole chain. Fixed by
-       adding a C/C++/Java sibling of the existing Kotlin "already-braceless multi-line body"
-       branch: new `findBracelessStatementEnd` helper copies the branch through verbatim, then
-       `appendChainNewlineBeforeElse` still runs. Verified via minimal repro + all 8 affected
-       files + `make test`. Fixture: `real_code_regressions_129`.
-     - Cluster 3 (`rewrite-core/.../AdaptiveRadixTreeTest.java`, pre-increment spacing regression)
-       — fixed. Root cause: a prefix `++`/`--` immediately followed by an identifier (`++i`) has no
-       tight-join case in either `MiscRuleCore.needsSpaceBetween` or its documented duplicate
-       `DeclarationAlignmentRuleCore.needsSpaceBetween` — `MiscRuleCurly.enforcePreIncrement`'s own
-       swap-render path produces the tight join on a fresh format (round1: `i++` → `++i`), but once
-       already in prefix form, `collectForIncrementSpans`'s identifier-first shape no longer matches
-       so the swap doesn't re-fire, and once the enclosing lambda body collapses onto one line, the
-       `for`-header gets re-rendered through the shared join point, which falls through to the
-       generic space-by-default rule (`++ i`). Fixed by adding the tight-join case to both methods.
-       Verified via minimal repro + `make test`. Fixture: `real_code_regressions_130`.
+       passes) — distinct root cause from cluster 1 despite resemblance:
+       `BlockStructureRule.collapseSingleExpressionBlocks`'s per-branch newline before a chain's
+       next `else` (`appendChainNewlineBeforeElse`) was only inserted as a side effect of collapsing
+       a *braced* if/else-if to braceless; an already-braceless body (round1's own output fed back
+       in) left no brace to re-collapse, so no newline was reinserted, and the declaration/
+       assignment-RHS pass fused the whole chain. Fixed by adding a C/C++/Java sibling of Kotlin's
+       "already-braceless multi-line body" branch: new `findBracelessStatementEnd` helper copies the
+       branch verbatim, then `appendChainNewlineBeforeElse` still runs. Verified: minimal repro + all
+       8 files + `make test`. Fixture: `real_code_regressions_129`.
+     - Cluster 3 (`rewrite-core/.../AdaptiveRadixTreeTest.java`, pre-increment spacing regression) —
+       fixed. A prefix `++`/`--` immediately followed by an identifier has no tight-join case in
+       either `MiscRuleCore.needsSpaceBetween` or its duplicate
+       `DeclarationAlignmentRuleCore.needsSpaceBetween` — `enforcePreIncrement`'s swap-render
+       produces the tight join on a fresh format (`i++` → `++i`), but once already prefix-form,
+       `collectForIncrementSpans` no longer matches, and once the lambda body collapses, the
+       `for`-header re-renders through the shared join point, falling to the generic
+       space-by-default rule (`++ i`). Fixed by adding the tight-join case to both methods. Verified:
+       minimal repro + `make test`. Fixture: `real_code_regressions_130`.
      - Cluster 4 (`rewrite-java-{8,11,17,21,25}/.../ReloadableJava*ParserVisitor.java`, trailing
-       end-of-line comment column alignment drift) — fixed. Root cause:
-       `MiscRuleCore.parseAssignment`'s verbatim fallback (a value with more than one embedded
-       newline, or a single newline `classifyMultiLineBreak` doesn't recognize) returns an ordinary
-       non-`multiLine` `Assignment` whose `valueTokens` still contains the embedded `NEWLINE`
-       tokens — `MiscRuleCore.render` fed that row's `joinVerbatim` text straight into `ColumnGrid`,
-       whose plain `String.length()` column-width computation counted every character across the
-       whole wrapped call, not just its first line, corrupting the whole group's comment/value
-       column width, non-idempotently (that verbatim text's own length can shift slightly between
-       passes). Fixed by adding `valueSpansMultipleLines` and excluding any such row from the grid
-       the same way `a.multiLine` rows already are, rendering it directly instead. Verified via
-       minimal repro + all 5 affected files + `make test`. Fixture: `real_code_regressions_131`.
-     1 cluster still open (5), not yet root-caused past initial characterization — see "Known Gaps
-     — Open" for its repro files/shape/root-cause hypothesis; next free fixture number 133.
-     Cluster 6 (closing-brace indentation drift on a still-K&R `else`/`catch`/`finally`) is fixed —
-     see `ScopePipelineCurly.findParentIndent` and fixture `real_code_regressions_132`.
-     `make test` after all four fixes: 180/180 forward + 180/180 idempotency, zero regressions.
-     Full-tree round1/round2 re-run + `javac` compile-check deferred until all 6 clusters are
-     resolved (per this candidate's own methodology) — NOT yet run.
+       end-of-line comment column alignment drift) — fixed. `MiscRuleCore.parseAssignment`'s
+       verbatim fallback returns a non-`multiLine` `Assignment` whose `valueTokens` still contains
+       embedded `NEWLINE`s — `render` fed that row's `joinVerbatim` text into `ColumnGrid`, whose
+       plain `String.length()` counted every char across the whole wrapped call, corrupting the
+       group's comment/value column width non-idempotently. Fixed by adding
+       `valueSpansMultipleLines`, excluding such rows from the grid like `a.multiLine` rows,
+       rendering directly instead. Verified: minimal repro + all 5 files + `make test`. Fixture:
+       `real_code_regressions_131`.
+     - Cluster 6 (closing-brace indentation drift on a still-K&R `else`/`catch`/`finally`) — fixed,
+       see `ScopePipelineCurly.findParentIndent`. Fixture: `real_code_regressions_132`.
+     1 cluster still open (5) — see "Known Gaps — Open" for repro/shape/hypothesis; next free
+     fixture number 133. `make test` after all fixes: 180/180 forward + 180/180 idempotency, zero
+     regressions. Full-tree round1/round2 re-run + `javac` compile-check deferred until all 6
+     clusters resolve — NOT yet run.
 (18) Local `VMA-GIT/anemonesoft/` (82 `.java`) — 1 bug: `renderCallCandidate` swallowed a
      multi-line brace-bodied trailing argument (brace depth not tracked). Verified (4).
      Fixture: `real_code_regressions_29`.

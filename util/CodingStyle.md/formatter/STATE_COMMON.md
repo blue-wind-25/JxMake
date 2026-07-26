@@ -145,37 +145,23 @@ already-committed work). **The system Git does NOT support worktree** — do
 not suggest or use `git worktree` as an alternative either.
 
 **DONE — `--preserve-tree` + `--root DIR` fix `--out DIR` basename-flattening
-collisions.** `Main.java` gained two new CLI flags: `--preserve-tree`
-(boolean) and `--root DIR` (String). When both are given alongside `--out
-DIR`, each input file's output path is computed as
+collisions.** `Main.java`'s two new CLI flags: `--preserve-tree` (boolean),
+`--root DIR` (String). With both given alongside `--out DIR`, output path =
 `outDir.resolve(rootDir.relativize(inputPath))` (`Main.processFile`'s
 `OUT_DIR` case), preserving subdirectory structure instead of the previous
-`Paths.get(outDir).resolve(path.getFileName())` basename-only flattening —
-two input files with the same basename in different source directories no
-longer collide. Validation (usage error, exit 2, via `usageError`):
-`--preserve-tree` requires `--out DIR`; `--preserve-tree` requires `--root
-DIR`; `--root DIR` given without `--preserve-tree` is also a usage error. An
-input file that doesn't resolve under `--root DIR` is a per-file
-`IOException`, surfaced the same way every other per-file processing error
-already is (caught in `run()`'s per-file loop, printed, contributes to a
-non-zero overall exit code). Fully opt-in and backward-compatible — omitting
-`--preserve-tree` leaves the original flattening behavior byte-for-byte
-unchanged. `README.md`'s Output modes section documents both new flags.
-`make test` 78/78 forward + 78/78 idempotency, no regressions. Manually
-smoke-tested: preserve-tree avoids collision on duplicate basenames across
-subdirectories; flattening still collides as before when `--preserve-tree`
-is omitted (regression check); all three new validation errors exit 2; a
-file outside `--root DIR` surfaces as a per-file error.
+basename-only flattening. Validation (exit 2 via `usageError`):
+`--preserve-tree` requires both `--out DIR` and `--root DIR`; `--root DIR`
+without `--preserve-tree` is also a usage error. A file not under `--root
+DIR` is a per-file `IOException` (same handling as any other per-file
+error). Fully opt-in/backward-compatible. `make test` 78/78 forward + 78/78
+idempotency.
 
 **Invoke the formatter JAR once per batch, not once per file.** `Main.run()`
-accepts any number of positional file-path arguments and formats them all in
-one JVM process (each file independently resolves its own
-`.jxmake-code-formatter` boundary via `Config.resolve`, so mixing files from
-different directories in one invocation is safe). Looping
-`code-formatter.sh <file>` per file re-pays JVM startup for every single
-file, which dominates wall-clock time on a large candidate tree. Instead
-collect the file list first (e.g. `find <dir> -name '*.hpp' -o -name
-'*.cpp'`) and pass it to one invocation, e.g.:
+accepts any number of positional file-path arguments in one JVM process
+(each file independently resolves its own `.jxmake-code-formatter` boundary,
+so mixing directories in one invocation is safe). Looping per-file re-pays
+JVM startup each time, dominating wall-clock time on a large tree. Collect
+the file list first and pass it to one invocation, e.g.:
 
 ```bash
 find <candidate-dir> \( -name '*.hpp' -o -name '*.cpp' -o -name '*.h' \) -print0 \
@@ -342,76 +328,60 @@ design) are resolved and implemented as described above. Full narrative:
 ## Class Refactor (curly/indent/tags split) — DONE
 
 **Purpose:** `TokenizerCore`, `Formatter`, `ScopePipeline`,
-`DeclarationAlignmentRule`, `GetterSetterRule`, `MiscRule` contained only
-curly-brace-family (C/C++/Java/Kotlin) logic. Before Python3/data-format/
-JS-TS jobs land real logic, each was split into a slim `*Core` base plus
-family siblings (`*Curly`, and skeletons for `*Indent`/`*Tags`), so each
-future job gets a clean landing file instead of adding to already-large,
-already-entangled classes. Mechanical rename/move only — no behavior change;
-every method's existing internal branching (including Kotlin-vs-C/C++/Java
-checks) moved unchanged into whichever sibling it landed in.
+`DeclarationAlignmentRule`, `GetterSetterRule`, `MiscRule` held only
+curly-brace-family (C/C++/Java/Kotlin) logic. Ahead of Python3/data-format/
+JS-TS jobs landing real logic, each was split into a slim `*Core` base plus
+family siblings (`*Curly`, and skeletons for `*Indent`/`*Tags`) so each
+future job gets a clean landing file. Mechanical rename/move only, no
+behavior change — internal branching (incl. Kotlin-vs-C/C++/Java checks)
+moved unchanged into whichever sibling it landed in.
 
 **Scoping:** `DeclarationAlignmentRule`/`GetterSetterRule` got
-**Core+Curly(+Indent skeleton)** only, no `Tags` sibling — XML/HTML have no
+Core+Curly(+Indent skeleton) only, no `Tags` — XML/HTML have no
 declaration/getter-setter concept. `TokenizerCore`/`Formatter`/
-`ScopePipeline`/`MiscRule` got the full **Core+Curly+Indent+Tags** 4-way
-split. `ComplexityPaddingEvaluator.java` was not split (extend in place when
-a new job needs it). `Lang.java` gained `isCurly`/`isIndentBased`/
-`isTagBased` family predicates first, since everything else depends on them.
+`ScopePipeline`/`MiscRule` got the full Core+Curly+Indent+Tags split.
+`ComplexityPaddingEvaluator.java` not split (extend in place when needed).
+`Lang.java` gained `isCurly`/`isIndentBased`/`isTagBased` predicates first.
 `FormatterCore.forLanguage(String)` is the static dispatcher factory (picks
-`FormatterCurly`/`Indent`/`Tags` by family), so `Main.java`/`ServerMode.java`
-never need their own if/else on language.
+`Curly`/`Indent`/`Tags` by family) — `Main.java`/`ServerMode.java` need no
+if/else on language.
 
-**Key plan deviations** (the original plan's literal per-method Core/Curly
-assignment didn't always compile as written — when a "Core" method called a
-"Curly" one, the callee moved to Core alongside its caller instead):
+**Plan deviations** (when a "Core" method called a "Curly" one, the callee
+moved to Core alongside its caller instead):
 - `DeclarationAlignmentRule`: `renderTokens`/`renderInitTokens`/
   `needsSpaceBetween`/`isTightToken`/`isCStyleCastClose` (+
-  `CONTROL_FLOW_KEYWORDS`) all kept together in Core.
-- `MiscRule`: `needsSpaceBetween`/`isTightToken` moved to Core (Core's
-  `renderTokens` calls `needsSpaceBetween` directly); `capitalizeFirstLetter`/
-  `isCommentNoCapitalizeWord` (+ `COMMENT_NO_CAPITALIZE_C/CPP/JAVA`
-  constants) moved to Core (three Core comment-formatting methods call them
-  directly); `renderTokens`/`templateAngleTokens` kept in Core (also used by
-  Core's `parseAssignment`); generic scan helpers (`matchParenForward`/
-  `Backward`, `nextSignificantIndex`/`prevSignificantIndex`, `anyFrozen`,
-  `significantOnly`/`significantWithComments`) kept in Core. Conversely,
-  `splitTopLevelCommas` moved to Curly despite its generic name — used
-  exclusively by Curly's Signature/call-rendering methods.
+  `CONTROL_FLOW_KEYWORDS`) kept together in Core.
+- `MiscRule`: `needsSpaceBetween`/`isTightToken`, `capitalizeFirstLetter`/
+  `isCommentNoCapitalizeWord` (+ `COMMENT_NO_CAPITALIZE_C/CPP/JAVA`),
+  `renderTokens`/`templateAngleTokens`, and generic scan helpers
+  (`matchParenForward/Backward`, `next/prevSignificantIndex`, `anyFrozen`,
+  `significantOnly`/`significantWithComments`) all kept in Core (each has a
+  Core caller). `splitTopLevelCommas` moved to Curly despite its generic
+  name — used only by Curly's signature/call-rendering methods.
 - `KotlinDeclarationAlignmentRule`/`KotlinGetterSetterRule`/
-  `KotlinSignatureRule` all ended up extending the `*Curly` sibling (not
-  `Core`), since they reuse protected members that only make sense together
-  on the Curly side.
+  `KotlinSignatureRule` extend `*Curly` (not `Core`) — they reuse
+  Curly-side protected members.
 
-**Reusable technical gotchas** (apply to future similar splits):
-- A Python script that masks out `//`/`/* */`/string/char-literal spans
-  before brace-counting was used to mechanically extract method bodies into
-  Core vs Curly files (byte-identical, not hand-retyped) — proven reliable
-  across all four splits; scale to the target file's marker-list size
-  (MiscRule's needed 113 markers for its 3353-line source).
-- An inherited static nested class must be imported via its actual
-  declaring class's canonical name, not the subclass — e.g.
-  `GetterSetterRuleCore.Member`, `MiscRuleCore.Assignment`, not
-  `GetterSetterRuleCurly.Member`/`MiscRuleCurly.Assignment` — javac rejects
-  the subclass form ("import requires canonical name") even though plain
-  code references to the subclass name work fine via inheritance.
-- Bulk `private`→`protected` visibility fixes are needed wherever a Core
-  method (originally private) is now called from a Curly sibling.
-- `git rm` (not plain `rm` + `git add`) is required to stage a working-tree
-  deletion on this system's old git version.
-- Watch for extraction scripts starting a method-boundary marker
-  mid-declaration and silently dropping a `public static`/`private static`
-  modifier prefix — verify each extracted nested class's modifiers against
-  the original.
+**Reusable gotchas for future similar splits:**
+- A Python script masking `//`/`/* */`/string/char-literal spans before
+  brace-counting mechanically extracted method bodies into Core vs Curly
+  files (byte-identical); scale marker count to file size (MiscRule needed
+  113 markers for 3353 lines).
+- An inherited static nested class must be imported via its declaring
+  class's canonical name, not the subclass (e.g. `MiscRuleCore.Assignment`
+  not `MiscRuleCurly.Assignment`) — javac rejects the subclass import form.
+- Bulk `private`→`protected` fixes needed wherever a Core method is now
+  called from a Curly sibling.
+- `git rm` (not `rm` + `git add`) needed to stage a deletion on this
+  system's old git version.
+- Watch for extraction scripts starting a marker mid-declaration and
+  dropping a `public/private static` modifier prefix — verify each
+  extracted nested class's modifiers against the original.
 
-**Result:** every file group (Lang.java, Tokenizer, Formatter, ScopePipeline,
-DeclarationAlignmentRule, GetterSetterRule, MiscRule) landed as its own
-checkpoint commit, `make test` green (90/90 forward + 90/90 idempotency,
-zero regressions) after each. `STATE_C_CPP_JAVA.md`/`STATE_KOTLIN.md`'s own
-file/class references were updated to the new `*Curly` names (commit
-`9cce1a5`). Full regression re-run confirmed zero behavior change. All
-stale pre-refactor class-name mentions in comments/javadoc were later swept
-and fixed (commit `949b7a9`).
+**Result:** every file group landed as its own checkpoint commit, `make
+test` green (90/90 forward + 90/90 idempotency) after each. Job-file
+class-name references updated to `*Curly` (commit `9cce1a5`); stale
+pre-refactor class-name mentions swept later (commit `949b7a9`).
 
 ---
 
@@ -419,94 +389,68 @@ and fixed (commit `949b7a9`).
 
 ### General scope-depth reindentation (not started — high risk, read before attempting)
 
-**Current state, confirmed by direct testing (C++26 session):** this
-formatter does not reindent ordinary body statements from scratch. A
-flush-left/unindented function body passes through untouched except for
-specific recognized rewrites (brace placement, spacing, alignment) —
-original whitespace is preserved by default; only a few narrow passes
-(`SwitchRule.applyNonInlineCaseIndent`, `ScopePipeline.applyDeclarationsPass`)
-actively reindent anything, and even those apply one **relative delta**
-computed from a single reference line to a whole block, not an absolute
-target derived from actual brace-nesting depth. `STATE_C_CPP_JAVA.md`'s
-"Known Gaps — Open" section already documents two real bugs from exactly
-this shape (`ASTParser.java` in `javaparser/javaparser`; local
-`tool/JSONEncoderLite.java`) — both non-idempotent re-indentation on
-internally-inconsistent source, both explicitly ACCEPTED-not-fixed because
-the real fix ("derive each line's absolute target from structural depth
-rather than a raw-source delta") was judged nontrivial with real regression
-risk, for a narrow real-world shape.
+**Current state** (confirmed by direct testing, C++26 session): the formatter
+does not reindent ordinary body statements from scratch — original
+whitespace is preserved except for specific recognized rewrites (brace
+placement, spacing, alignment). Only `SwitchRule.applyNonInlineCaseIndent`
+and `ScopePipeline.applyDeclarationsPass` reindent anything, and both apply
+one **relative delta** from a single reference line, not an absolute target
+derived from brace-nesting depth. `STATE_C_CPP_JAVA.md`'s "Known Gaps — Open"
+documents two real bugs from this shape (`ASTParser.java` in
+`javaparser/javaparser`; local `tool/JSONEncoderLite.java`) — non-idempotent
+reindentation on internally-inconsistent source, both ACCEPTED-not-fixed:
+the real fix (derive each line's absolute target from structural depth, not
+a raw-source delta) is nontrivial with real regression risk for a narrow
+shape.
 
-**Why a *general* version (reindenting every line, not just switch-case/
-declarations) is substantially harder and more dangerous than those two
-narrow passes:**
-- **Blast radius inversion.** The current model's invariant is "don't touch
-  indentation unless a specific, well-understood construct requires it" —
-  that's *why* every real-code-testing bug found so far (see this file's
-  "Finished dogfood" list of ~20+ external repos) has been narrow, isolated
-  to one construct in one file. A general reindent pass makes every line in
-  every file a candidate for a wrong result, not just lines matching a
-  specific recognized shape — the same bug class currently rare (1 file out
-  of ~2000 in the `javaparser` candidate) would become the default risk
-  surface for the entire test corpus.
+**Why a *general* version (every line, not just switch-case/declarations) is
+much harder/riskier than those two narrow passes:**
+- **Blast radius inversion.** Current invariant: don't touch indentation
+  unless a specific construct requires it — why every real-code bug found so
+  far (~20+ external repos, "Finished dogfood" list) has been narrow/
+  isolated. A general pass makes every line in every file a candidate for a
+  wrong result (currently rare, 1/~2000 files in `javaparser`) — would
+  become the default risk surface for the whole corpus.
 - **Continuation vs. block depth is a second axis, not a free extension.**
-  Brace/paren/bracket nesting depth alone is not enough — a wrapped
-  multi-line expression, chained method call, multi-line initializer, or
-  continuation line inside an unfinished statement each have their own
-  established continuation-indent conventions (see STYLE.md §2's
-  line-break alignment rules) that don't reduce to "one level per enclosing
-  `{`". Any real implementation has to merge two different indent models
-  (structural block depth + statement-continuation alignment) without them
-  fighting — exactly the mechanism the two existing narrow passes get
+  Brace/paren/bracket depth alone isn't enough — wrapped expressions,
+  chained calls, multi-line initializers each have their own
+  continuation-indent conventions (STYLE.md §2) that don't reduce to "one
+  level per `{`". Any real implementation must merge two indent models
+  without them fighting — exactly what the two existing narrow passes get
   subtly wrong today.
-- **Content that must never be touched.** Raw string literals/multi-line
-  string content, block-comment interior lines (their own alignment
-  convention, not block-depth), preprocessor directives (traditionally
-  column-0 regardless of brace depth, with their own continuation rules),
-  and anything `frozen` all need to be excluded from whatever general
-  mechanism is built — each has already been a real bug source in this
-  codebase's history (see e.g. the backslash-continued preprocessor
-  corruption bug and raw-string-literal tokenizer gap in the "Finished
-  dogfood" list) under the *current*, much narrower set of passes; a
-  general pass multiplies the number of places these exclusions must be
-  re-applied correctly.
-- **Ordering interacts with every other pass.** Brace-placement (Allman
-  conversion), line-wrapping (`enforceCallLineBreaking`), and switch-case
-  handling all run at specific points in `FormatterCurly`'s phase ordering
-  specifically because their outputs affect what "correct" indentation even
-  is afterward (see the `formatNonInlineSwitches`/`enforceCallLineBreaking`
-  ordering bug in the "Finished dogfood" list, fixture `_56`). A general
-  reindent pass would need to run late enough that every line-count/brace-
-  placement decision is already final, but a bug in that ordering
-  assumption silently produces plausible-looking-but-wrong output rather
-  than an obvious crash — hard to catch by inspection.
+- **Content that must never be touched.** Raw string literals, block-comment
+  interior lines, preprocessor directives (column-0 regardless of depth,
+  own continuation rules), and `frozen` spans all need exclusion — each has
+  already been a real bug source (backslash-continued preprocessor
+  corruption, raw-string tokenizer gap, "Finished dogfood" list) under the
+  current narrower passes; a general pass multiplies where these exclusions
+  must be reapplied.
+- **Ordering interacts with every other pass.** Brace-placement (Allman),
+  line-wrapping (`enforceCallLineBreaking`), switch-case handling all run at
+  specific `FormatterCurly` phase points because their output affects what
+  "correct" indentation even is afterward (see the
+  `formatNonInlineSwitches`/`enforceCallLineBreaking` ordering bug, fixture
+  `_56`). A general reindent pass needs to run after every line-count/brace
+  decision is final; an ordering bug here produces plausible-looking-wrong
+  output, not a crash — hard to catch by inspection.
 
-**If this is ever attempted:**
-- Treat it as its own dedicated multi-session job with its own `STATE_*.md`
-  (do not fold it into an existing job's file), given the size and risk.
-  Likely touches `ScopePipelineCurly.java` primarily, potentially
-  subsuming/replacing `SwitchRule.applyNonInlineCaseIndent`'s
-  relative-delta logic (which would actually retire the two open "Known
-  Gaps" above as a side effect, since an absolute-depth-derived target
-  doesn't have the reference-line-dependence that causes those bugs).
-- `make test`'s 101/101 fixture corpus is a floor, not a substitute, for
-  validation here. Those fixtures were authored/tuned under the current
-  indentation-preserving model, so passing them only proves "didn't break
-  the specific lines those fixtures already exercise" — it does not
-  exercise the vastly larger space of "ordinary body statement lines that
-  were never reindented before and now are." Re-running real-code testing
-  per this file's "Real-code testing methodology" against at least the
-  historical candidates that already surfaced switch-case/declarations
-  indent bugs (`javaparser/javaparser`, local `tool/JSONEncoderLite.java`
-  dogfood, `serge-sans-paille/frozen`) is necessary, and re-running against
-  a fresh, previously-untested large real-world corpus (idempotency-checked
-  full-tree, not just `--out DIR`) is strongly advisable given the
-  blast-radius argument above — a clean `make test` run alone would not
-  have caught either of the two currently-open gaps, since neither was
-  found via the permanent fixture suite (both came from one-off
-  real-code-testing sessions).
+**If ever attempted:**
+- Treat as its own dedicated multi-session job with its own `STATE_*.md` —
+  do not fold into an existing job's file. Likely touches
+  `ScopePipelineCurly.java` primarily, potentially subsuming/replacing
+  `SwitchRule.applyNonInlineCaseIndent`'s relative-delta logic (would retire
+  the two open Known Gaps above as a side effect).
+- `make test`'s fixture corpus is a floor, not a substitute, for validation
+  — fixtures were tuned under the current indentation-preserving model, so
+  passing them only proves "didn't break already-exercised lines," not the
+  much larger space of newly-reindented ordinary lines. Re-run real-code
+  testing against at least `javaparser/javaparser`, local
+  `tool/JSONEncoderLite.java`, `serge-sans-paille/frozen` (where the
+  existing indent bugs surfaced), plus a fresh untested large corpus
+  (full-tree idempotency, not `--out DIR`) — neither open gap was caught by
+  `make test` alone, both came from one-off real-code-testing sessions.
 - Expect this to be the single riskiest change ever made to this
-  formatter's core; budget for it accordingly rather than treating it as
-  an incremental fix.
+  formatter's core; budget accordingly, not as an incremental fix.
 
 ### Project refactoring/cleanup pass (not started — schedule after angular/cpython dogfood)
 
@@ -535,3 +479,44 @@ than immediately starting the next >1000 kLOC candidate. Candidate scope:
 This is intentionally scoped as housekeeping, not a rewrite — do not let it
 grow into an attempt at the "General scope-depth reindentation" item above;
 that stays its own separate, dedicated, much riskier future job.
+
+### Formatter self-formatting (dogfood-and-adopt) process
+
+A dedicated procedure for actually reformatting the formatter's own Java
+source tree (`src/`) with itself and adopting the result — distinct from
+the routine dogfood *testing* already described elsewhere in this file
+(which only checks compile-cleanliness/idempotency/declaration-count
+against a temporary formatted copy and never touches the real `src/`
+tree). Run this only when explicitly asked; do not run it as a byproduct
+of an unrelated task.
+
+1. Copy the formatter's own Java source files (`src/`) to `/tmp/fmt_ref`.
+   Apply a round1 format (fresh) and a round2 format (format round1's
+   output again) to that copy — the same forward-then-idempotency
+   dogfood methodology used elsewhere. Fix any bug before continuing;
+   do not proceed past a failing round1/round2 diff.
+2. Once round1/round2 is clean, build the round2 Java source files into
+   a JAR (a separate build from the formatter's currently-committed
+   `target/code-formatter-1.00.jar` — do not overwrite the real build
+   output with this trial JAR). Use that JAR to run the forward and
+   idempotency test fixtures listed in the Makefile's `INP_FILES`. Fix
+   any bug before continuing.
+3. Use that same round2 JAR to format the *original* (unformatted)
+   `/tmp/fmt_ref` copy again, producing round1b and round2b. If
+   everything is consistent, round1 must be byte-identical to round1b,
+   and round2 byte-identical to round2b — this confirms that rebuilding
+   the formatter from its own freshly-formatted source doesn't change
+   its own formatting behavior (a fixed point, not just idempotent
+   output). Fix any bug before continuing.
+4. Once all of the above holds, copy the formatted source files from
+   round1 (round1 and round2 should already be identical at this point,
+   per step 1's own exit condition, so either is equivalent) back over
+   the formatter's real `src/` tree, overwriting the currently-committed
+   source with the formatted version. Spot-check a sample of changed
+   files for correctness before proceeding.
+5. Rebuild the formatter from this newly-adopted `src/` and run
+   `make test` again against the real build.
+6. If `make test` is clean, the formatter has successfully formatted
+   itself and the change is ready for the normal commit workflow (see
+   this file's own commit-workflow section above) — do not skip that
+   workflow just because this is a self-referential change.

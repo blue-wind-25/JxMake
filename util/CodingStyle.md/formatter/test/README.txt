@@ -2069,369 +2069,307 @@ Real-code regressions:
                                              comment. See `STATE_PYTHON3.md`'s `django/django` entry.
 
   real_code_regressions_128_inp/out.java  -- Java, `openrewrite/rewrite` dogfood, 2 bugs sharing one
-                                             root-cause shape (a fits-in-`line-length` prediction made
-                                             before a later width-growing pass ran, so it agreed with
-                                             reality on a fresh format but not on a reformat of
-                                             already-formatted output): (a)
-                                             `JavaSpecificRule.isSingleLineBody`'s overflow prediction
-                                             measured a tab-indented one-liner's leading indent via
-                                             raw `String.length()` instead of expanded width, so a
-                                             one-liner whose true width only exceeds `line-length`
-                                             once tabs expand wrongly predicted "fits" and stayed K&R
-                                             on round1, then flipped to Allman on round2 once
-                                             `enforceCallLineBreaking` had already wrapped it -- fixed
-                                             with a local `expandedIndentWidth` helper (same formula
-                                             as `MiscRuleCore`'s). (b)
-                                             `enforceInitializerBraceSpacing`'s Phase-4 `{ x }`
-                                             padding ran after `enforceCallLineBreaking` had already
-                                             decided not to wrap, so an annotation argument just under
-                                             `line-length` grew past it once padded, wrapping only on
-                                             round2 -- fixed by pulling a second
-                                             `enforceInitializerBraceSpacing` call forward to run
-                                             right before `enforceCallLineBreaking` (same pull-forward
-                                             pattern as `enforceComplexityPadding`/
-                                             `enforceAttributeAndSpliceBracketPadding`), leaving the
-                                             original Phase 4 call in place too. See
-                                             `STATE_C_CPP_JAVA.md`'s `openrewrite/rewrite` entry.
+                                             root-cause shape (fits-prediction made before a later
+                                             width-growing pass, correct fresh but wrong on reformat):
+                                             (a) `JavaSpecificRule.isSingleLineBody` measured a
+                                             tab-indented one-liner's indent via raw `String.length()`
+                                             instead of expanded width, wrongly predicting "fits" and
+                                             staying K&R on round1, flipping to Allman on round2 after
+                                             `enforceCallLineBreaking` wrapped it -- fixed with local
+                                             `expandedIndentWidth` helper (same formula as
+                                             `MiscRuleCore`'s). (b) `enforceInitializerBraceSpacing`'s
+                                             Phase-4 `{ x }` padding ran after `enforceCallLineBreaking`
+                                             had already decided not to wrap, so a near-limit annotation
+                                             argument grew past `line-length` once padded, wrapping only
+                                             on round2 -- fixed by pulling a second
+                                             `enforceInitializerBraceSpacing` call forward to run right
+                                             before `enforceCallLineBreaking` (same pull-forward pattern
+                                             as `enforceComplexityPadding`/
+                                             `enforceAttributeAndSpliceBracketPadding`), original Phase 4
+                                             call left in place too. See `STATE_C_CPP_JAVA.md`'s
+                                             `openrewrite/rewrite` entry.
 
   real_code_regressions_129_inp/out.java  -- Java, `openrewrite/rewrite` dogfood
-                                             (`rewrite-benchmarks`'s `MethodMatcherBenchmark.java` and
-                                             7 siblings): a `.map(name -> { ... if/else-if chain ... })`
-                                             lambda's branches render on their own lines on a fresh
-                                             format but fully fuse onto one line on a reformat -- a
-                                             genuine non-fixed-point flap, distinct from _128's
-                                             fits-prediction-before-a-later-pass shape despite looking
-                                             similar. Root cause:
+                                             (`rewrite-benchmarks/MethodMatcherBenchmark.java` + 7
+                                             siblings): a `.map(name -> { if/else-if chain })` lambda's
+                                             branches render on own lines fresh but fully fuse on
+                                             reformat -- genuine non-fixed-point flap, distinct from
+                                             _128's shape. Root cause:
                                              `BlockStructureRule.collapseSingleExpressionBlocks`'s
                                              per-branch newline before a chain's next `else`
-                                             (`appendChainNewlineBeforeElse`) was only ever inserted as
-                                             a side effect of collapsing a *braced* if/else-if body; an
-                                             already-braceless body (as fed on round2) left no brace to
-                                             re-collapse, so no newline was re-inserted, and
-                                             `ScopePipelineCurly`'s declaration/assignment-RHS pass
-                                             (always joins an initializer back onto one line) then
-                                             fused the whole chain. Fixed by adding a C/C++/Java
-                                             sibling of the existing Kotlin "already-braceless
-                                             multi-line body" branch: `matchControlBlock` now copies a
-                                             braceless if/else-if body through verbatim (new
-                                             `findBracelessStatementEnd` helper) and still invokes
-                                             `appendChainNewlineBeforeElse` afterward. See
+                                             (`appendChainNewlineBeforeElse`) was only inserted as a
+                                             side effect of collapsing a *braced* if/else-if body; an
+                                             already-braceless body (round2 input) left no brace to
+                                             re-collapse, so no newline re-inserted, and
+                                             `ScopePipelineCurly`'s decl/assignment-RHS pass fused the
+                                             whole chain. Fixed by adding a C/C++/Java sibling of the
+                                             existing Kotlin "already-braceless multi-line body" branch:
+                                             `matchControlBlock` now copies a braceless if/else-if body
+                                             through verbatim (new `findBracelessStatementEnd` helper)
+                                             and still invokes `appendChainNewlineBeforeElse` after. See
                                              `STATE_C_CPP_JAVA.md`'s `openrewrite/rewrite` entry.
 
   real_code_regressions_130_inp/out.java  -- Java, `openrewrite/rewrite` dogfood
-                                             (`rewrite-core`'s `AdaptiveRadixTreeTest.java`, cluster 3):
-                                             a `for(...; ++i)` header's pre-increment stays tight
-                                             (`++i`) on a fresh format but gains a stray space (`++ i`)
-                                             on a reformat, once the enclosing lambda body has been
-                                             collapsed onto one line and its `for`-header re-rendered
-                                             through the shared tight-attachment join point. Root cause:
-                                             neither `MiscRuleCore.needsSpaceBetween` nor its documented
-                                             duplicate `DeclarationAlignmentRuleCore.needsSpaceBetween`
-                                             had a case for a prefix `++`/`--` immediately followed by
-                                             an identifier -- `MiscRuleCurly.enforcePreIncrement`'s own
-                                             swap-render path already produces the tight join on a fresh
-                                             format, but once the text is already in prefix form,
-                                             `collectForIncrementSpans` no longer detects it as a swap
-                                             candidate (its identifier-first shape no longer matches),
-                                             so a later general re-render of the collapsed one-line
-                                             lambda falls through to the generic space-by-default rule.
+                                             (`rewrite-core/AdaptiveRadixTreeTest.java`, cluster 3): a
+                                             `for(...; ++i)` header's pre-increment stays tight (`++i`)
+                                             fresh but gains a stray space (`++ i`) on reformat, once the
+                                             enclosing lambda body collapses onto one line and the
+                                             `for`-header re-renders through the shared tight-attachment
+                                             join point. Root cause: neither `MiscRuleCore.
+                                             needsSpaceBetween` nor its duplicate
+                                             `DeclarationAlignmentRuleCore.needsSpaceBetween` had a case
+                                             for prefix `++`/`--` immediately followed by an identifier
+                                             -- `MiscRuleCurly.enforcePreIncrement`'s swap-render path
+                                             produces the tight join fresh, but once text is already
+                                             prefix form, `collectForIncrementSpans` no longer detects it
+                                             as a swap candidate, so the collapsed one-line lambda's
+                                             later re-render falls through to generic space-by-default.
                                              Fixed by adding a tight-join case to both methods. See
                                              `STATE_C_CPP_JAVA.md`'s `openrewrite/rewrite` entry.
 
   real_code_regressions_131_inp/out.java  -- Java, `openrewrite/rewrite` dogfood
                                              (`rewrite-java-{8,11,17,21,25}`'s
-                                             `ReloadableJava*ParserVisitor.java`, cluster 4): a
-                                             trailing `//` comment's column, in an assignment-
-                                             alignment group that also contains a multi-line-call
-                                             right-hand side spanning more than STYLE.md §6's
-                                             supported single-newline shape, drifts by a few spaces
-                                             between a fresh format and a reformat. Root cause:
-                                             `MiscRuleCore.parseAssignment`'s verbatim fallback (for
-                                             a value with more than one embedded newline, or a single
-                                             newline `classifyMultiLineBreak` doesn't recognize)
+                                             `ReloadableJava*ParserVisitor.java`, cluster 4): a trailing
+                                             `//` comment's column, in an assignment-alignment group
+                                             whose RHS spans more than STYLE.md §6's supported
+                                             single-newline shape, drifts between fresh format and
+                                             reformat. Root cause: `MiscRuleCore.parseAssignment`'s
+                                             verbatim fallback (value with >1 embedded newline, or a
+                                             single newline `classifyMultiLineBreak` doesn't recognize)
                                              returns an ordinary non-`multiLine` `Assignment` whose
-                                             `valueTokens` still contains the embedded `NEWLINE`
-                                             tokens -- `MiscRuleCore.render` then fed that row's
-                                             `joinVerbatim` text straight into `ColumnGrid`, whose
-                                             plain `String.length()` column-width computation counted
-                                             every character across the whole wrapped call, not just
-                                             its first line, corrupting the whole group's
-                                             comment/value column width -- and non-idempotently,
-                                             since that verbatim text's own length can shift slightly
-                                             between passes. Fixed by adding
-                                             `valueSpansMultipleLines` and excluding any such row from
-                                             the grid the same way `a.multiLine` rows already are,
-                                             rendering it directly instead. See
-                                             `STATE_C_CPP_JAVA.md`'s `openrewrite/rewrite` entry.
+                                             `valueTokens` still holds embedded `NEWLINE`s --
+                                             `MiscRuleCore.render` fed that row's `joinVerbatim` text
+                                             straight into `ColumnGrid`, whose `String.length()`
+                                             column-width computation counted the whole wrapped call,
+                                             not just its first line, corrupting the group's column
+                                             width non-idempotently (verbatim text length can shift
+                                             between passes). Fixed by adding `valueSpansMultipleLines`
+                                             and excluding such rows from the grid the same way
+                                             `a.multiLine` rows already are, rendering directly instead.
+                                             See `STATE_C_CPP_JAVA.md`'s `openrewrite/rewrite` entry.
 
   real_code_regressions_132_inp/out.java  -- Java, `openrewrite/rewrite` dogfood
                                              (`rewrite-python/.../Autodetect.java`'s
                                              `visitCollectionLiteral`, cluster 6): a still-K&R
-                                             `} else if (...) {` block's closing `}` drifted
-                                             indentation between a fresh format and a reformat.
-                                             Root cause: `ScopePipelineCurly.findParentIndent`
-                                             returned null (indent "unknown") for an `else`/
-                                             `catch`/`finally` keyword still sharing its physical
+                                             `} else if (...) {` block's closing `}` drifted indentation
+                                             between fresh format and reformat. Root cause:
+                                             `ScopePipelineCurly.findParentIndent` returned null for an
+                                             `else`/`catch`/`finally` keyword still sharing its physical
                                              line with the preceding block's closing `}` (pre-
-                                             `placeElseOnOwnLine`), so `processScope`'s trailing-
-                                             gap force-reindent was skipped on a fresh format,
-                                             leaving the raw source's closing brace untouched --
-                                             but on a reformat, the keyword now sits on its own
-                                             Allman line, so `findParentIndent` DOES return a real
-                                             indent and the force-reindent fires, non-idempotently
-                                             moving the same `}`. Fixed by deriving the indent from
-                                             the preceding `}`'s own physical line (via
-                                             `braceLineIndent`) whenever an else/catch/finally
-                                             keyword directly follows a `}` -- by C-family grammar
-                                             that `}` is always at the same nesting depth the
-                                             keyword belongs at once placed on its own line, so both
-                                             passes now agree. See `STATE_C_CPP_JAVA.md`'s
+                                             `placeElseOnOwnLine`), so `processScope`'s trailing-gap
+                                             force-reindent was skipped fresh, leaving the closing brace
+                                             untouched -- but on reformat the keyword sits on its own
+                                             Allman line, so `findParentIndent` returns a real indent and
+                                             the force-reindent fires non-idempotently. Fixed by deriving
+                                             the indent from the preceding `}`'s own physical line (via
+                                             `braceLineIndent`) whenever an else/catch/finally keyword
+                                             directly follows a `}` -- that `}` is always at the nesting
+                                             depth the keyword belongs at once on its own line, so both
+                                             passes agree. See `STATE_C_CPP_JAVA.md`'s
                                              `openrewrite/rewrite` entry.
 
-  real_code_regressions_133_inp/out.py    -- Python, `python/cpython`
-                                             dogfood (`Lib/test/test_fstring.py`,
-                                             `test_format_specifier_expressions`-shaped cases):
-                                             a nested replacement field inside an f-string's
-                                             format spec whose own expression is a quoted string
-                                             literal containing a `{`/`}` character (e.g.
-                                             `f'{2:{"{"}>10}'`) crashed the formatter outright
-                                             with an `IndexOutOfBoundsException`. Root cause:
+  real_code_regressions_133_inp/out.py    -- Python, `python/cpython` dogfood
+                                             (`Lib/test/test_fstring.py`,
+                                             `test_format_specifier_expressions`-shaped cases): a nested
+                                             replacement field inside an f-string format spec whose own
+                                             expression is a quoted string containing `{`/`}` (e.g.
+                                             `f'{2:{"{"}>10}'`) crashed with an
+                                             `IndexOutOfBoundsException`. Root cause:
                                              `TokenizerIndent.emitFStringFormatSpec`'s brace-depth
                                              counter scanned raw characters without skipping
-                                             quoted-string content, so the literal `{`/`}` inside
-                                             the nested field's own string expression miscounted
-                                             nesting depth -- the nested field's real closing `}`
-                                             then only decremented the phantom depth instead of
-                                             closing it, and the scan for the whole format spec's
-                                             true closing `}` ran past the actual field end,
-                                             producing a single `FSTRING_FORMAT_SPEC` token
-                                             spanning to EOF with no `FSTRING_END` ever emitted --
-                                             `ScopePipelineIndent.processField` then walked off the
-                                             end of the token list looking for the field's closing
-                                             `}`. Fixed by adding `skipNestedStringLiteral`, which
-                                             skips a quoted string's content (escapes/triple-quotes
-                                             honored, mirroring `emitSimpleString`/
-                                             `emitTripleQuotedString`) whenever a quote is seen at
-                                             `depth > 0` inside `emitFStringFormatSpec`'s brace
-                                             counter, so its embedded braces never reach the depth
-                                             count. `make test`: 182/182 forward + 182/182
-                                             idempotency. See `STATE_PYTHON3.md`'s `python/cpython`
-                                             entry.
+                                             quoted-string content, so the literal `{`/`}` inside the
+                                             nested field's string expression miscounted depth -- the
+                                             nested field's real closing `}` only decremented the
+                                             phantom depth, and the scan for the format spec's true
+                                             closing `}` ran past the field end, producing a single
+                                             `FSTRING_FORMAT_SPEC` token spanning to EOF with no
+                                             `FSTRING_END` -- `ScopePipelineIndent.processField` then
+                                             walked off the end of the token list. Fixed by adding
+                                             `skipNestedStringLiteral` (skips quoted-string content,
+                                             escapes/triple-quotes honored, mirroring
+                                             `emitSimpleString`/`emitTripleQuotedString`) whenever a
+                                             quote is seen at `depth > 0` inside the brace counter.
+                                             `make test`: 182/182 forward + 182/182 idempotency. See
+                                             `STATE_PYTHON3.md`'s `python/cpython` entry.
 
   real_code_regressions_134_inp/out.ts    -- TS, `angular/angular` dogfood
                                              (`override_rename_ts_plugin.ts`/`template_target.ts`/
                                              `checker.ts`, critical cluster 1): an arrow function's
                                              dotted/qualified return type or type predicate
                                              (`ts.server.PluginModule =>`, `node is tss.Node =>`,
-                                             `diag is ts.Diagnostic =>`) had its last segment
-                                             wrapped in a spurious paren pair, producing invalid TS
+                                             `diag is ts.Diagnostic =>`) had its last segment wrapped in
+                                             a spurious paren pair, producing invalid TS
                                              (`ts.server.(PluginModule) =>`). Root cause:
                                              `JsTsSpecificRule.enforceArrowFunctionParameterParens`'s
                                              bail-out (added for a single-segment `vuejs/core` case)
                                              checked only the token immediately preceding the
-                                             arrow-parameter identifier for `:`/`is`/`typeof`/
-                                             `keyof`, so it missed a multi-segment dotted chain
-                                             where that immediate predecessor is a `.` instead of
-                                             the keyword/`:` itself. Fixed by walking backward over
-                                             any number of `IDENTIFIER '.'` pairs first, so the
-                                             bail-out check lands on what precedes the WHOLE chain's
-                                             first segment rather than just its tail. Bare
-                                             single-param arrows (`n => n + 1`) still correctly get
-                                             wrapped. `make test`: 183/183 forward + 183/183
-                                             idempotency. See `STATE_JS_TS.md`'s `angular/angular`
-                                             entry.
+                                             arrow-parameter identifier for `:`/`is`/`typeof`/`keyof`,
+                                             missing a multi-segment dotted chain where that predecessor
+                                             is a `.` instead. Fixed by walking backward over any number
+                                             of `IDENTIFIER '.'` pairs first, so the check lands on what
+                                             precedes the WHOLE chain's first segment. Bare single-param
+                                             arrows (`n => n + 1`) still correctly wrapped. `make test`:
+                                             183/183 forward + 183/183 idempotency. See
+                                             `STATE_JS_TS.md`'s `angular/angular` entry.
 
-  real_code_regressions_135_inp/out.ts    -- TS, `angular/angular` dogfood
-                                             (`testability.ts:243`, critical cluster 2): a legacy
-                                             angle-bracket cast (`<WaitCallback>{...}`) had a bogus
-                                             `;` injected right before the object literal's own
-                                             closing `}` (`updateCb: updateCb;});`). Root cause:
-                                             the cast's `<Type>` is never reclassified to
-                                             ANGLE_BRACKET_OPEN/CLOSE by
-                                             `TokenizerCurly.reclassifyAngleBrackets` (which only
-                                             tracks a `<` preceded by an IDENTIFIER, i.e. a generic
-                                             clause -- a cast's `<` instead follows an
-                                             expression-start token like `(`), so the object literal
-                                             right after the cast fell through
+  real_code_regressions_135_inp/out.ts    -- TS, `angular/angular` dogfood (`testability.ts:243`,
+                                             critical cluster 2): a legacy angle-bracket cast
+                                             (`<WaitCallback>{...}`) had a bogus `;` injected right
+                                             before the object literal's own closing `}`
+                                             (`updateCb: updateCb;});`). Root cause: the cast's `<Type>`
+                                             is never reclassified to ANGLE_BRACKET_OPEN/CLOSE by
+                                             `TokenizerCurly.reclassifyAngleBrackets` (tracks only a `<`
+                                             preceded by an IDENTIFIER, i.e. a generic clause -- a
+                                             cast's `<` instead follows an expression-start token like
+                                             `(`), so the object literal after the cast fell through
                                              `JsTsSpecificRule.classifyBraces`'s default-false case,
-                                             got misclassified as a statement-body brace, and had
-                                             its depth reset to 0 mid-expression -- triggering
-                                             `enforceSemicolonInsertion` to insert a bogus `;`
-                                             before what it thought was the statement's own closing
-                                             `}`. Fixed by adding `isLegacyCastBrace`, which
-                                             recognizes a `{` immediately preceded by a plain OP
-                                             `>` whose matching plain OP `<` sits before a
-                                             (optionally dotted) type name that itself follows a
-                                             value-starting token, and treating that `{` as a
-                                             value/pattern brace like the rest of `classifyBraces`'s
-                                             `isValue` disjuncts. `make test`: 184/184 forward +
-                                             184/184 idempotency. See `STATE_JS_TS.md`'s
-                                             `angular/angular` entry.
+                                             misclassified as a statement-body brace with depth reset to
+                                             0 mid-expression -- triggering `enforceSemicolonInsertion`
+                                             to insert a bogus `;`. Fixed by adding `isLegacyCastBrace`,
+                                             recognizing a `{` immediately preceded by a plain OP `>`
+                                             whose matching `<` sits before a (optionally dotted) type
+                                             name following a value-starting token, treated as a
+                                             value/pattern brace among `classifyBraces`'s `isValue`
+                                             disjuncts. `make test`: 184/184 forward + 184/184
+                                             idempotency. See `STATE_JS_TS.md`'s `angular/angular` entry.
 
   real_code_regressions_136_inp/out.ts    -- TS, `angular/angular` dogfood
                                              (`private/testing/src/utils.ts:102-105`, critical
                                              cluster 3): a multi-line generic return-type clause
                                              (`Promise<\n  (typeof import('...'))['default'] |
-                                             null\n>`) got a bogus `;` inserted at the end of the
-                                             line containing the `typeof import(...)` type-query
-                                             clause. Root cause: TS's dynamic-import type-query
-                                             operand (`import(...)` used as a type operand, not the
-                                             dynamic-import expression) is a KEYWORD token not in
-                                             `TokenizerCurly.GENERIC_SAFE_KEYWORDS` -- so it
-                                             invalidated the whole enclosing `<...>` tracking before
-                                             the matching `>` was reached, leaving it a plain OP
-                                             token instead of ANGLE_BRACKET_OPEN/CLOSE and defeating
+                                             null\n>`) got a bogus `;` inserted at the end of the line
+                                             containing the `typeof import(...)` type-query clause. Root
+                                             cause: TS's dynamic-import type-query operand
+                                             (`import(...)` as a type operand) is a KEYWORD token not in
+                                             `TokenizerCurly.GENERIC_SAFE_KEYWORDS` -- invalidating the
+                                             whole enclosing `<...>` tracking before the matching `>`,
+                                             leaving it a plain OP token and defeating
                                              `JsTsSpecificRule.enforceSemicolonInsertion`'s depth
-                                             tracking (same class of gap as the earlier `keyof`/
-                                             `is`/`infer`/`typeof`/etc. fixes in the same set).
-                                             Fixed by adding `"import"` to `GENERIC_SAFE_KEYWORDS`.
-                                             `make test`: 185/185 forward + 185/185 idempotency.
-                                             See `STATE_JS_TS.md`'s `angular/angular` entry.
+                                             tracking (same gap class as the earlier `keyof`/`is`/
+                                             `infer`/`typeof` fixes in this set). Fixed by adding
+                                             `"import"` to `GENERIC_SAFE_KEYWORDS`. `make test`:
+                                             185/185 forward + 185/185 idempotency. See
+                                             `STATE_JS_TS.md`'s `angular/angular` entry.
 
-  real_code_regressions_137_inp/out.py    -- Python, `python/cpython`
-                                             dogfood (`Lib/random.py:53-56`, idempotency cluster
-                                             2): a group of four `from math import ...` statements
-                                             for the same module didn't fully alphabetize their
-                                             inter-statement order on a fresh format (each
-                                             statement's own within-clause name order WAS already
-                                             correct); a second format of the output self-corrected
-                                             it. Root cause: `MiscRuleIndent.PyImport.compareTo`
-                                             compared its `names` list element-by-element in
-                                             as-parsed (pre-within-clause-sort) source order --
-                                             only after a round-trip (once the emitted text's names
-                                             were already alphabetized and re-parsed) did `names`
-                                             happen to match the sorted form the comparator needed.
-                                             Fixed by sorting a copy of each side's `names` before
-                                             comparing, matching §3.1 point 3's "sort by the first
-                                             imported name" read as "the first name after
-                                             within-clause alphabetization." `make test`: 186/186
-                                             forward + 186/186 idempotency. See `STATE_PYTHON3.md`'s
+  real_code_regressions_137_inp/out.py    -- Python, `python/cpython` dogfood (`Lib/random.py:53-56`,
+                                             idempotency cluster 2): four `from math import ...`
+                                             statements for the same module didn't fully alphabetize
+                                             inter-statement order fresh (within-clause order was
+                                             already correct); a second format self-corrected it. Root
+                                             cause: `MiscRuleIndent.PyImport.compareTo` compared its
+                                             `names` list element-by-element in as-parsed
+                                             (pre-within-clause-sort) order -- only after a round-trip
+                                             did `names` happen to match the sorted form needed. Fixed
+                                             by sorting a copy of each side's `names` before comparing,
+                                             matching §3.1 point 3's "sort by first imported name" read
+                                             as "first name after within-clause alphabetization." `make
+                                             test`: 186/186 forward + 186/186 idempotency. See
+                                             `STATE_PYTHON3.md`'s `python/cpython` entry.
+
+  real_code_regressions_138_inp/out.py    -- Python, `python/cpython` dogfood (`Lib/turtle.py`'s
+                                             `match param.kind` block, idempotency cluster 3): a run of
+                                             block-form `case` members (each individually §8-joined to
+                                             one line) had `:`-column alignment abandoned round1 (one
+                                             member, `case _:`, needs padding to match a longer sibling
+                                             that would overflow `line-length` if padded+joined, so §7
+                                             correctly abandons alignment, leaving each member
+                                             joined-but-unaligned by §8), but round2 saw the now-compact
+                                             members and aligned them anyway. Root cause:
+                                             `flushCaseGroup`'s pre-commit length-budget check only
+                                             covered `virtualJoin` members, not already-compact ones, so
+                                             the over-length padding round1 correctly rejected got
+                                             applied round2. Fixed by extending the check to cover every
+                                             group member uniformly. `make test`: 187/187 forward +
+                                             187/187 idempotency. See `STATE_PYTHON3.md`'s
                                              `python/cpython` entry.
 
-  real_code_regressions_138_inp/out.py    -- Python, `python/cpython`
-                                             dogfood (`Lib/turtle.py`'s `match param.kind` block,
-                                             idempotency cluster 3): a run of block-form `case`
-                                             members inside one `match` -- each individually
-                                             §8-joined to one line by this same pass -- had their
-                                             `:`-column alignment abandoned on round1 (one member,
-                                             `case _:`, needs enough padding to match a much longer
-                                             sibling pattern that its own padded+joined line would
-                                             overflow `line-length`, so §7 correctly abandons
-                                             alignment for the whole group, leaving each member
-                                             individually joined-but-unaligned by §8), but a naive
-                                             round2 saw the now-already-compact members and aligned
-                                             them anyway -- `flushCaseGroup`'s pre-commit
-                                             length-budget check only covered `virtualJoin`
-                                             members, not already-compact ones, so the same
-                                             over-length padding round1 correctly rejected got
-                                             applied on round2. Fixed by extending that check to
-                                             cover every group member uniformly, whether via a
-                                             virtual join or already compact. `make test`: 187/187
-                                             forward + 187/187 idempotency. See `STATE_PYTHON3.md`'s
-                                             `python/cpython` entry.
-
-  real_code_regressions_139_inp/out.py    -- Python, `python/cpython`
-                                             dogfood (`Lib/test/test_ctypes/test_generated_structs.py`
+  real_code_regressions_139_inp/out.py    -- Python, `python/cpython` dogfood
+                                             (`Lib/test/test_ctypes/test_generated_structs.py`
                                              lines 278/284, idempotency cluster 4):
                                              `@register(f'Struct331_{signedness}{n}', set_name=True)`
                                              -- two adjacent f-string fields with no literal text
-                                             between them (`{signedness}{n}`) -- got its second
-                                             field's `{`/`}` loose-padded to `{ n }` on round1 as an
-                                             ordinary dict/set literal, since `applyBracketPadding`'s
-                                             f-string-field guard only recognized a field-open `{`
-                                             immediately preceded by FSTRING_START/FSTRING_MIDDLE,
-                                             and CPython's own FSTRING_MIDDLE emission (mirrored by
-                                             this tokenizer) skips that token entirely when the
-                                             literal text between two fields is empty, leaving the
+                                             between them -- got its second field's `{`/`}`
+                                             loose-padded to `{ n }` round1 as an ordinary dict/set
+                                             literal, since `applyBracketPadding`'s f-string-field guard
+                                             only recognized a field-open `{` immediately preceded by
+                                             FSTRING_START/FSTRING_MIDDLE, and CPython's own
+                                             FSTRING_MIDDLE emission (mirrored here) skips that token
+                                             when literal text between two fields is empty, leaving the
                                              second field's `{` preceded by the first field's closing
                                              `}` (plain PUNCT) instead. Round2's `applyFStringSpacing`
                                              then trimmed the field back to `{n}` but left the outer
                                              decorator-call paren padding untouched -- non-idempotent.
-                                             Same bug class as the already-fixed `pallets/click` case
-                                             (fixture `real_code_regressions_80`), but triggered by
-                                             field adjacency rather than nesting depth. Fixed by
-                                             tracking the previous f-string field's close position in
-                                             `applyBracketPadding`'s loop and also treating a `{`
-                                             immediately following it as another field open. `make
-                                             test`: 188/188 forward + 188/188 idempotency. See
-                                             `STATE_PYTHON3.md`'s `python/cpython` entry.
+                                             Same bug class as already-fixed `pallets/click` case
+                                             (fixture `real_code_regressions_80`), triggered by field
+                                             adjacency rather than nesting depth. Fixed by tracking the
+                                             previous f-string field's close position in
+                                             `applyBracketPadding`'s loop and treating a `{` immediately
+                                             following it as another field open. `make test`: 188/188
+                                             forward + 188/188 idempotency. See `STATE_PYTHON3.md`'s
+                                             `python/cpython` entry.
 
   real_code_regressions_140_inp/out.ts     -- TS, `angular/angular` dogfood
                                              (`packages/router/src/create_router_state.ts:27`,
                                              idempotency cluster 4, root cause #1 of 2):
-                                             `enforceCallLineBreaking`'s single-line-collapse
-                                             candidate (`renderCallDropped`/`renderCallOnePerLine`)
-                                             measured a call's width via `splitTopLevelCommas`,
-                                             which -- unlike its sibling `groupByOriginalLine` --
-                                             does not drop a dangling trailing empty group from a
-                                             trailing comma before the closing `)`. A multi-line
-                                             call with a trailing comma on its last argument (this
-                                             codebase's own style) measured one comma+space wider on
-                                             a fresh format than on a reformat of already-formatted
-                                             output (which never emits a trailing comma), flipping
-                                             the fits-check right at the boundary -- non-idempotent.
-                                             Fixed by adding the same dangling-trailing-empty-group
-                                             drop already used elsewhere in the file to both
-                                             `renderCallDropped` and `renderCallOnePerLine`. See
-                                             `STATE_JS_TS.md`'s cluster 4 entry.
+                                             `enforceCallLineBreaking`'s single-line-collapse candidate
+                                             (`renderCallDropped`/`renderCallOnePerLine`) measured a
+                                             call's width via `splitTopLevelCommas`, which -- unlike
+                                             sibling `groupByOriginalLine` -- does not drop a dangling
+                                             trailing empty group from a trailing comma before `)`. A
+                                             multi-line call with a trailing comma on its last argument
+                                             measured one comma+space wider fresh than on reformat
+                                             (which never emits a trailing comma), flipping the
+                                             fits-check at the boundary -- non-idempotent. Fixed by
+                                             adding the same dangling-trailing-empty-group drop already
+                                             used elsewhere to both `renderCallDropped` and
+                                             `renderCallOnePerLine`. See `STATE_JS_TS.md`'s cluster 4
+                                             entry.
 
   real_code_regressions_141_inp/out.ts     -- TS, `angular/angular` dogfood
                                              (`packages/core/src/render3/node_selector_matcher.ts:155`,
                                              idempotency cluster 4, root cause #2 of 2):
-                                             `enforceCallLineBreaking`'s fits-check for a call
-                                             embedded in an `if (...)` condition measured the line
-                                             including the keyword-to-paren gap (`if (`, one extra
-                                             character) on a fresh format, since
-                                             `enforceKeywordSpacing` (which collapses it to `if(`)
-                                             originally ran only in Phase 4, after this fits-check.
-                                             A reformat of already-Phase-4-processed output saw the
-                                             gap already collapsed, one character narrower -- enough
-                                             to flip a candidate sitting exactly at the line-length
-                                             boundary between "wraps" and "fits" depending purely on
-                                             whether the input was freshly formatted or already
-                                             formatted. Fixed by pulling `enforceKeywordSpacing`
-                                             forward to run immediately before the first
-                                             `enforceCallLineBreaking` call in
-                                             `FormatterCurly.formatOne`, same "measurement must see
-                                             final width" pattern already used for
-                                             `enforceComplexityPadding`/
+                                             `enforceCallLineBreaking`'s fits-check for a call embedded
+                                             in an `if (...)` condition measured the line including the
+                                             keyword-to-paren gap (`if (`) fresh, since
+                                             `enforceKeywordSpacing` (collapses to `if(`) originally ran
+                                             only in Phase 4, after this fits-check. Reformat of
+                                             already-Phase-4-processed output saw the gap already
+                                             collapsed, one character narrower -- enough to flip a
+                                             candidate sitting exactly at the line-length boundary.
+                                             Fixed by pulling `enforceKeywordSpacing` forward to run
+                                             immediately before the first `enforceCallLineBreaking` call
+                                             in `FormatterCurly.formatOne`, same "measurement must see
+                                             final width" pattern as `enforceComplexityPadding`/
                                              `enforceAttributeAndSpliceBracketPadding`/
-                                             `enforceInitializerBraceSpacing`; the original Phase 4
-                                             call is left in place too. This pull-forward applies to
-                                             all curly-brace languages (C/C++/Java/Kotlin/JS/TS), not
-                                             just JS/TS, since `enforceKeywordSpacing` is shared --
-                                             full `make test` re-run confirmed no regressions. `make
-                                             test`: 190/190 forward + 190/190 idempotency. See
+                                             `enforceInitializerBraceSpacing`; original Phase 4 call left
+                                             in place too. Applies to all curly-brace languages
+                                             (C/C++/Java/Kotlin/JS/TS) since `enforceKeywordSpacing` is
+                                             shared -- full `make test` re-run confirmed no regressions.
+                                             `make test`: 190/190 forward + 190/190 idempotency. See
                                              `STATE_JS_TS.md`'s cluster 4 entry.
 
   real_code_regressions_142_inp/out.ts     -- TS, `angular/angular` dogfood
                                              (`packages/common/upgrade/src/location_shim.ts:461`,
                                              idempotency cluster 4, root cause #4 of 4): the JS/TS
-                                             tight-candidate fits-check in
-                                             `enforceCallLineBreaking` counted a trailing same-line
-                                             comment's width toward the collapse candidate's length
-                                             on a fresh format (call and comment still on one source
-                                             line), but did not count it on a reformat of
-                                             already-wrapped output (comment moved to its own line
-                                             after the call's closing `)`) -- whether the comment
-                                             counted depended on prior wrap state, not the
-                                             statement's actual final width, flipping the fits-check
-                                             inconsistently. Fixed by adding
+                                             tight-candidate fits-check in `enforceCallLineBreaking`
+                                             counted a trailing same-line comment's width toward the
+                                             collapse candidate's length fresh (call+comment on one
+                                             source line), but not on reformat (comment moved to its own
+                                             line after `)`) -- whether the comment counted depended on
+                                             prior wrap state, not actual final width. Fixed by adding
                                              `appendRangeCollapsingTrailingCommentGap` next to
                                              `appendRange` in `MiscRuleCurly.java`: a whitespace run
-                                             immediately before a trailing line comment collapses to
-                                             a single space for measurement purposes only (never
-                                             rendered into actual output) -- that gap is
-                                             comment-column alignment padding, not real structural
-                                             width, and shouldn't be counted differently depending on
-                                             wrap state either way. Verified against the real
-                                             `location_shim.ts` file and a minimal repro; `make
-                                             test`: 191/191 forward + 191/191 idempotency. A separate,
+                                             immediately before a trailing line comment collapses to a
+                                             single space for measurement only (never rendered) -- that
+                                             gap is comment-column alignment padding, not real
+                                             structural width. Verified against the real
+                                             `location_shim.ts` file and a minimal repro; `make test`:
+                                             191/191 forward + 191/191 idempotency. A separate,
                                              not-yet-fixed root cause (#3, braceless-else bodies never
                                              re-validated after brace-collapse) remains open -- an
-                                             attempted fix for it was tried and reverted after
-                                             breaking 5 existing fixtures/dogfood cases. See
-                                             `STATE_JS_TS.md`'s cluster 4 entry for both.
+                                             attempted fix was tried and reverted after breaking 5
+                                             existing fixtures/dogfood cases. See `STATE_JS_TS.md`'s
+                                             cluster 4 entry for both.
 
 How Tests Are Run
 -----------------

@@ -83,7 +83,7 @@ public class MiscRuleCurly extends MiscRuleCore {
         collectForIncrementSpans(tokens, spans);
         return renderWithSwappedSpans(tokens, spans);
     }
-private void collectBareStatementSpans(final List<Token> tokens, final Map<Integer, Integer> spans) {
+    private void collectBareStatementSpans(final List<Token> tokens, final Map<Integer, Integer> spans) {
         final int n = tokens.size();
         int depth = 0;
         Token lastSignificant = null;
@@ -110,7 +110,7 @@ private void collectBareStatementSpans(final List<Token> tokens, final Map<Integ
             lastSignificant = t;
         }
     }
-private void collectForIncrementSpans(final List<Token> tokens, final Map<Integer, Integer> spans) {
+    private void collectForIncrementSpans(final List<Token> tokens, final Map<Integer, Integer> spans) {
         final int n = tokens.size();
 
         for (int i = 0; i < n; i++) {
@@ -161,7 +161,7 @@ private void collectForIncrementSpans(final List<Token> tokens, final Map<Intege
             spans.put(incrStart, opIdx);
         }
     }
-private String renderWithSwappedSpans(final List<Token> tokens, final Map<Integer, Integer> spans) {
+    private String renderWithSwappedSpans(final List<Token> tokens, final Map<Integer, Integer> spans) {
         final StringBuilder out = new StringBuilder();
         final int n = tokens.size();
         int i = 0;
@@ -301,7 +301,7 @@ public static final class Signature {
         }
         return new Signature(leadTokens, name, params, false);
     }
-protected List<List<Token>> splitTopLevelCommas(final List<Token> tokens) {
+    protected List<List<Token>> splitTopLevelCommas(final List<Token> tokens) {
         final List<List<Token>> parts = new ArrayList<>();
         List<Token> current = new ArrayList<>();
         int depth = 0;
@@ -581,7 +581,7 @@ protected List<List<Token>> splitTopLevelCommas(final List<Token> tokens) {
         lines.add(indentText(indentLevel, indentStyle) + ")");
         return lines;
     }
-private String renderParamsInline(final Signature sig) {
+    private String renderParamsInline(final Signature sig) {
         if (sig.params.isEmpty()) {
             return sig.explicitVoidParam ? "void" : "";
         }
@@ -599,7 +599,7 @@ private String renderParamsInline(final Signature sig) {
         }
         return sb.toString();
     }
-private static final class FuncFrame {
+    private static final class FuncFrame {
         final boolean isFunctionBody;
         final boolean multiLine;
         boolean sawContent;
@@ -695,7 +695,7 @@ private static final class FuncFrame {
         }
         return out.toString();
     }
-private boolean shouldForceBlankBeforeReturn(final List<Token> tokens, final int idx,
+    private boolean shouldForceBlankBeforeReturn(final List<Token> tokens, final int idx,
             final Deque<FuncFrame> stack) {
         final Token t = tokens.get(idx);
         if (t.type != TokenType.KEYWORD || !"return".equals(t.text) || stack.isEmpty() || t.frozen) {
@@ -744,7 +744,7 @@ private boolean shouldForceBlankBeforeReturn(final List<Token> tokens, final int
             }
         }
     }
-private void appendGapWithForcedBlank(final StringBuilder out, final List<Token> gap, final long newlineCount) {
+    private void appendGapWithForcedBlank(final StringBuilder out, final List<Token> gap, final long newlineCount) {
         if (newlineCount >= 2) {
             for (final Token g : gap) {
                 out.append(g.text);
@@ -777,7 +777,7 @@ private void appendGapWithForcedBlank(final StringBuilder out, final List<Token>
         return kwIdx >= 0 && tokens.get(kwIdx).type == TokenType.KEYWORD
                 && TIGHT_PAREN_KEYWORDS.contains(tokens.get(kwIdx).text);
     }
-private boolean isFunctionBodyBrace(final List<Token> tokens, final int braceIdx) {
+    private boolean isFunctionBodyBrace(final List<Token> tokens, final int braceIdx) {
         // Skip a `throws ExceptionType, ExceptionType...` clause, if present.
         int closeParen = skipThrowsClauseBackward(tokens, prevSignificantIndex(tokens, braceIdx - 1));
         // Skip post-paren qualifiers (const, volatile, noexcept, override, final, throws).
@@ -878,7 +878,7 @@ private boolean isFunctionBodyBrace(final List<Token> tokens, final int braceIdx
         }
         return -1;
     }
-private boolean isFunctionBodyQualifier(final Token t) {
+    private boolean isFunctionBodyQualifier(final Token t) {
         if (t.type != TokenType.KEYWORD) {
             return false;
         }
@@ -1650,7 +1650,7 @@ private boolean isFunctionBodyQualifier(final Token t) {
         }
         return false;
     }
-private int effectiveLineEndIndex(final List<Token> tokens, final int idx) {
+    private int effectiveLineEndIndex(final List<Token> tokens, final int idx) {
         int i = idx;
         int depth = 0;
         while (i < tokens.size()) {

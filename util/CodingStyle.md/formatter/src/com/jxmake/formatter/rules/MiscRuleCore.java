@@ -76,12 +76,12 @@ public abstract class MiscRuleCore {
 
     public static final int DEFAULT_LINE_LENGTH_LIMIT = 100;
 
-protected static final Set<String> COMMENT_NO_CAPITALIZE_C = setOf(
+    protected static final Set<String> COMMENT_NO_CAPITALIZE_C = setOf(
             "auto", "break", "case", "char", "const", "continue", "default", "do", "double",
             "else", "enum", "extern", "float", "for", "goto", "if", "inline", "int", "long",
             "register", "restrict", "return", "short", "signed", "sizeof", "static", "struct",
             "switch", "typedef", "union", "unsigned", "void", "volatile", "while");
-protected static final Set<String> COMMENT_NO_CAPITALIZE_CPP = setOf(
+    protected static final Set<String> COMMENT_NO_CAPITALIZE_CPP = setOf(
             "alignas", "alignof", "asm", "bool", "catch", "char16_t", "char32_t", "class",
             "co_await", "co_return", "co_yield", "concept", "consteval", "constexpr", "constinit",
             "const_cast", "decltype", "delete", "dynamic_cast", "explicit", "export", "false",
@@ -89,7 +89,7 @@ protected static final Set<String> COMMENT_NO_CAPITALIZE_CPP = setOf(
             "override", "private", "protected", "public", "reinterpret_cast", "requires",
             "static_assert", "static_cast", "template", "this", "thread_local", "throw", "true",
             "try", "typeid", "typename", "using", "virtual", "wchar_t");
-protected static final Set<String> COMMENT_NO_CAPITALIZE_JAVA = setOf(
+    protected static final Set<String> COMMENT_NO_CAPITALIZE_JAVA = setOf(
             "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class",
             "const", "continue", "default", "do", "else", "enum", "extends", "final", "finally",
             "for", "goto", "if", "implements", "import", "instanceof", "interface", "native",
@@ -98,7 +98,7 @@ protected static final Set<String> COMMENT_NO_CAPITALIZE_JAVA = setOf(
             "throws", "transient", "try", "var", "void", "volatile", "while", "yield", "null",
             "true", "false");
 
-protected static final Set<String> TIGHT_PAREN_KEYWORDS =
+    protected static final Set<String> TIGHT_PAREN_KEYWORDS =
             setOf("if", "while", "for", "switch", "catch", "when");
     /**
      * Converts every line's leading indentation run to the requested style, per STYLE.md §1's
@@ -137,7 +137,7 @@ protected static final Set<String> TIGHT_PAREN_KEYWORDS =
         }
         return out.toString();
     }
-protected String renderIndent(final String original, final String indentStyle) {
+    protected String renderIndent(final String original, final String indentStyle) {
         final int width = expandedIndentWidth(original);
         if (width % indentWidth != 0) {
             return original;
@@ -222,7 +222,7 @@ protected String renderIndent(final String original, final String indentStyle) {
         }
         return out.toString();
     }
-protected static final ComplexityPaddingEvaluator COMPLEXITY_EVALUATOR = new ComplexityPaddingEvaluator();
+    protected static final ComplexityPaddingEvaluator COMPLEXITY_EVALUATOR = new ComplexityPaddingEvaluator();
     /**
      * Pads or tightens every `(...)` and `[...]` in the token stream per STYLE.md §3.1: exactly
      * one space just inside both delimiters when {@link ComplexityPaddingEvaluator#isLoose} reports
@@ -332,7 +332,7 @@ protected static final ComplexityPaddingEvaluator COMPLEXITY_EVALUATOR = new Com
         }
         return out.toString();
     }
-protected boolean isFunctionDefFollower(final Token t) {
+    protected boolean isFunctionDefFollower(final Token t) {
         if (isPunct(t, "{") || isOp(t, "->")) {
             return true;
         }
@@ -343,7 +343,7 @@ protected boolean isFunctionDefFollower(final Token t) {
         }
         return false;
     }
-protected int matchBracketForward(final List<Token> tokens, final int openIdx) {
+    protected int matchBracketForward(final List<Token> tokens, final int openIdx) {
         int depth = 0;
         for (int i = openIdx; i < tokens.size(); i++) {
             if (isPunct(tokens.get(i), "[")) {
@@ -514,13 +514,13 @@ int matchParenForward(final List<Token> tokens, final int openIdx) {
         }
         return -1;
     }
-protected boolean isStatementBoundary(final Token t) {
+    protected boolean isStatementBoundary(final Token t) {
         return t == null || isPunct(t, ";") || isPunct(t, "{") || isPunct(t, "}");
     }
-protected boolean isIncrementOp(final Token t) {
+    protected boolean isIncrementOp(final Token t) {
         return t.type == TokenType.OP && ("++".equals(t.text) || "--".equals(t.text));
     }
-protected boolean noBlockerBetween(final List<Token> tokens, final int fromExclusive, final int toExclusive) {
+    protected boolean noBlockerBetween(final List<Token> tokens, final int fromExclusive, final int toExclusive) {
         for (int i = fromExclusive + 1; i < toExclusive; i++) {
             if (isCommentOrNewline(tokens.get(i))) {
                 return false;
@@ -528,14 +528,14 @@ protected boolean noBlockerBetween(final List<Token> tokens, final int fromExclu
         }
         return true;
     }
-protected int nextSignificantIndex(final List<Token> tokens, final int from) {
+    protected int nextSignificantIndex(final List<Token> tokens, final int from) {
         int i = from;
         while (i < tokens.size() && isGapToken(tokens.get(i))) {
             i++;
         }
         return i < tokens.size() ? i : -1;
     }
-protected static final Set<String> ASSIGNMENT_OPS = setOf(
+    protected static final Set<String> ASSIGNMENT_OPS = setOf(
             "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=");
 public static final class Assignment {
         public final Token target;
@@ -724,7 +724,7 @@ public static final class Assignment {
         }
         return Arrays.asList(line1, line2.toString());
     }
-protected boolean valueSpansMultipleLines(final List<Token> tokens) {
+    protected boolean valueSpansMultipleLines(final List<Token> tokens) {
         for (final Token t : tokens) {
             if (t.type == TokenType.NEWLINE) {
                 return true;
@@ -732,24 +732,24 @@ protected boolean valueSpansMultipleLines(final List<Token> tokens) {
         }
         return false;
     }
-protected String assignOpPrefix(final Token operator) {
+    protected String assignOpPrefix(final Token operator) {
         return operator.text.substring(0, operator.text.length() - 1);
     }
-protected String joinVerbatim(final List<Token> tokens) {
+    protected String joinVerbatim(final List<Token> tokens) {
         final StringBuilder sb = new StringBuilder();
         for (final Token t : tokens) {
             sb.append(t.text);
         }
         return sb.toString();
     }
-protected static String padRight(final String s, final int width) {
+    protected static String padRight(final String s, final int width) {
         final StringBuilder sb = new StringBuilder(s);
         while (sb.length() < width) {
             sb.append(' ');
         }
         return sb.toString();
     }
-protected static String padLeft(final String s, final int width) {
+    protected static String padLeft(final String s, final int width) {
         final StringBuilder sb = new StringBuilder();
         while (sb.length() + s.length() < width) {
             sb.append(' ');
@@ -934,7 +934,7 @@ protected static String padLeft(final String s, final int width) {
         }
         return null;
     }
-protected int findTopLevelSemicolon(final List<Token> tokens, final int from) {
+    protected int findTopLevelSemicolon(final List<Token> tokens, final int from) {
         int depth = 0;
         for (int i = from; i < tokens.size(); i++) {
             final Token t = tokens.get(i);
@@ -948,7 +948,7 @@ protected int findTopLevelSemicolon(final List<Token> tokens, final int from) {
         }
         return -1;
     }
-protected Token findTrailingAssignComment(final List<Token> stmt) {
+    protected Token findTrailingAssignComment(final List<Token> stmt) {
         for (int k = stmt.size() - 1; k >= 0; k--) {
             final Token t = stmt.get(k);
             if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
@@ -1010,7 +1010,7 @@ protected Token findTrailingAssignComment(final List<Token> stmt) {
         }
         return statements;
     }
-protected int pullTrailingSameLine(final List<Token> tokens, final List<Token> current, final int from) {
+    protected int pullTrailingSameLine(final List<Token> tokens, final List<Token> current, final int from) {
         int idx = from;
         final int n = tokens.size();
         while (idx < n) {
@@ -1071,7 +1071,7 @@ protected int pullTrailingSameLine(final List<Token> tokens, final List<Token> c
      *  comparison operator. Populates the identity sets of every open/close `<`/`>` token
      *  belonging to such a clause (depth-matched on the raw `<`/`>` OP tokens themselves) so the
      *  caller can treat them as tight without touching the tokens' actual type. */
-protected boolean needsSpaceBetween(final Token prev, final Token cur, final Set<Token> templateOpens,
+    protected boolean needsSpaceBetween(final Token prev, final Token cur, final Set<Token> templateOpens,
             final Set<Token> templateCloses) {
         // Kotlin's `fun <T> foo(...)` generic-function type-parameter clause is the one shape
         // where an ANGLE_BRACKET_OPEN is *not* tight against what precedes it -- every other
@@ -1136,7 +1136,7 @@ protected boolean needsSpaceBetween(final Token prev, final Token cur, final Set
         }
         return true;
     }
-protected boolean isTightToken(final Token t) {
+    protected boolean isTightToken(final Token t) {
         if (t.type == TokenType.ANGLE_BRACKET_OPEN || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
             return true;
         }
@@ -1184,7 +1184,7 @@ protected boolean isTightToken(final Token t) {
             }
         }
     }
-protected List<Token> significantOnly(final List<Token> stmt) {
+    protected List<Token> significantOnly(final List<Token> stmt) {
         final List<Token> sig = new ArrayList<>();
         for (final Token t : stmt) {
             if (!isGapToken(t)) {
@@ -1205,14 +1205,14 @@ protected List<Token> significantOnly(final List<Token> stmt) {
         }
         return sig;
     }
-protected int prevSignificantIndex(final List<Token> tokens, final int from) {
+    protected int prevSignificantIndex(final List<Token> tokens, final int from) {
         int i = from;
         while (i >= 0 && isGapToken(tokens.get(i))) {
             i--;
         }
         return i;
     }
-protected int matchParenBackward(final List<Token> tokens, final int closeIdx) {
+    protected int matchParenBackward(final List<Token> tokens, final int closeIdx) {
         int depth = 0;
         for (int i = closeIdx; i >= 0; i--) {
             if (isPunct(tokens.get(i), ")")) {
@@ -1458,7 +1458,7 @@ protected int matchParenBackward(final List<Token> tokens, final int closeIdx) {
         }
         return q < 0 || tokens.get(q).type == TokenType.NEWLINE;
     }
-protected static final class SepMatch {
+    protected static final class SepMatch {
         final int tokenIndex;
         final String label;
         final char sep;
@@ -1726,7 +1726,7 @@ protected static final class SepMatch {
         }
         return rest;
     }
-protected String trimTrailing(final String s) {
+    protected String trimTrailing(final String s) {
         int end = s.length();
         while (end > 0 && Character.isWhitespace(s.charAt(end - 1))) {
             end--;
@@ -1773,7 +1773,7 @@ protected String trimTrailing(final String s) {
         }
         return (i < 0 || tokens.get(i).type == TokenType.NEWLINE) ? indent.toString() : "";
     }
-protected String capitalizeFirstLetter(final String content) {
+    protected String capitalizeFirstLetter(final String content) {
         if (!normalizeCommentStartCase) {
             return content;
         }
@@ -1819,7 +1819,7 @@ protected String capitalizeFirstLetter(final String content) {
         return COMMENT_NO_CAPITALIZE_C.contains(word);
     }
 
-protected String applyCommentTextRules(final String content) {
+    protected String applyCommentTextRules(final String content) {
         return stripSoleTrailingPeriod(capitalizeFirstLetter(content));
     }
     /** RDD_KEY_94/STATE_COMMENT_GRAMMAR.md's classifier-backed decision path -- only consulted
@@ -1865,7 +1865,7 @@ protected String applyCommentTextRules(final String content) {
         // comment converge over two formatter passes instead of one (idempotency bug).
         return trimTrailing(content.substring(0, end - 1)) + content.substring(end);
     }
-protected boolean isCommentOrNewline(final Token t) {
+    protected boolean isCommentOrNewline(final Token t) {
         return t.type == TokenType.NEWLINE || t.type == TokenType.COMMENT_LINE
                 || t.type == TokenType.COMMENT_BLOCK;
     }

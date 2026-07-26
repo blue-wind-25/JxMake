@@ -78,7 +78,7 @@ for reproducing bugs and mini/small tests (not the cloned repositories) them and
 ----------------------------------------------------------------------------------------------------
 
 Start with the dogfood test (search in `/tmp` first, clone the repo if not found):
-    ...
+    ... : ...
 Try reformat with `indent-size = 2` if the idempotency test failed.
 When fixing bugs, only reformat and re-syntax-checking the affected files to not waste of time.
 Only after all bugs are fixed is a full reformat and re-syntax-checking test allowed.
@@ -86,7 +86,7 @@ If there are many errors, work in batch.
 Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
 
 Start with the dogfood test (search in `/tmp` first, clone the repo if not found):
-   ...
+   ... : ... (the repo is quite large, you may want to checkout the *... files only)
 Do NOT perform any bug fix yet, instead categorize and note the bugs inside
 `....md` into two categories:
     1. Critical bugs that cause formatter error/crash and output file corruption (syntax
@@ -100,8 +100,8 @@ criteria. Write and commit the state files, then ask me which clusters to fix fi
 Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
 
 Start with the dogfood test (in sequence)  (search in `/tmp` first, clone the repo if not found):
-   ...
-   ...
+   ... : ... (the repo is quite large, you may want to checkout the *... files only)
+   ... : ... (the repo is quite large, you may want to checkout the *... files only)
 Do NOT perform any bug fix yet, instead categorize and note the bugs inside
 `....md` and `....md` into two categories:
     1. Critical bugs that cause formatter error/crash and output file corruption (syntax
@@ -115,7 +115,7 @@ criteria. Write and commit the state files, then ask me which clusters to fix fi
 Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
 
 Continue with the dogfood test (search in `/tmp` first, clone the repo if not found):
-    ...: `...` (clusters ...)
+    ... : ... `...` (clusters ...-...)
 Try reformat with `indent-size = 2` if the idempotency test failed.
 When fixing bugs, only reformat and re-syntax-checking the affected files to not waste of time.
 Only after all bugs are fixed is a full reformat and re-syntax-checking test allowed.
@@ -123,18 +123,10 @@ If there are many errors, work in batch. Commit after each batch.
 Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
 
 
-
-Continue with the dogfood test (search in `/tmp` first, clone the repo if not found):
-    Java `github.com/openrewrite/rewrite` (clusters 3-6)
-Try reformat with `indent-size = 2` if the idempotency test failed.
-When fixing bugs, only reformat and re-syntax-checking the affected files to not waste of time.
-Only after all bugs are fixed is a full reformat and re-syntax-checking test allowed.
-If there are many errors, work in batch. Commit after each batch.
-Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
 
 Start with the dogfood test (in sequence) (search in `/tmp` first, clone the repo if not found):
-    Python3: `github.com/python/cpython`
-    TS: `github.com/angular/angular`
+    Python3 : `github.com/python/cpython` (the repo is quite large, you may want to checkout the *.py files only)
+    TS : `github.com/angular/angular` (the repo is quite large, you may want to checkout the *.ts files only)
 Do NOT perform any bug fix yet, instead categorize and note the bugs inside
 `STATE_PYTHON3.md` and `STATE_JS_TS.md` into two categories:
     1. Critical bugs that cause formatter error/crash and output file corruption (syntax
@@ -156,7 +148,6 @@ C/C++:
 C++26:
 
 Java:
-    [#] `github.com/openrewrite/rewrite` [~711 kLOC of effective Java code]
     [X] `**Extremely long pre-existing single-physical-line statement wraps differently each round**`
 
 Kotlin:

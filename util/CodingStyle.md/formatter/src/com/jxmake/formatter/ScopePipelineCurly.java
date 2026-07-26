@@ -491,10 +491,26 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             }
             // The anchor is not the first significant token on its own physical line (e.g. a
             // still-K&R `} else {`, before Formatter's later placeElseOnOwnLine pass converts it
-            // to Allman) -- there's no well-defined frame indent to derive here yet; scanning
-            // further back would cross into a PRECEDING statement/block's own text (as happened
-            // here, once returning a string that included a stray `}`). Signal "unknown" so the
-            // caller leaves the closing-brace gap untouched instead.
+            // to Allman). Scanning further back would generally cross into a PRECEDING
+            // statement/block's own text -- EXCEPT when that immediately preceding token is
+            // itself a `}`: by C-family grammar, an `else`/`catch`/`finally` can only ever
+            // directly follow the closing brace of the construct it attaches to (`if { ... }
+            // else`, `try { ... } catch`), so that `}` sits at exactly the same nesting depth
+            // this keyword belongs at once placed on its own line. Deriving the indent from that
+            // brace's own physical line (rather than giving up) keeps this span's closing-brace
+            // force-reindent (processScope's trailing-gap logic below) consistent between a
+            // fresh K&R-input format and a reformat of that same output once
+            // placeElseOnOwnLine has already moved the keyword onto its own Allman line --
+            // previously these two passes disagreed (returning null pre-Allman, a real indent
+            // post-Allman), corrupting only the closing `}`'s placement non-idempotently while
+            // the body's own statements stayed put (found via `openrewrite/rewrite`'s
+            // `rewrite-python/.../Autodetect.java`, the `visitCollectionLiteral` `else if`
+            // closing-brace drift).
+            if (isPunct(tok, "}") && tokens.get(anchor).type == TokenType.KEYWORD
+                    && ("else".equals(tokens.get(anchor).text) || "catch".equals(tokens.get(anchor).text)
+                            || "finally".equals(tokens.get(anchor).text))) {
+                return braceLineIndent(tokens, j);
+            }
             if (!isGapToken(tok)) {
                 return null;
             }

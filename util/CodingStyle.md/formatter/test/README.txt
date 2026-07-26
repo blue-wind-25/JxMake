@@ -2164,6 +2164,30 @@ Real-code regressions:
                                              rendering it directly instead. See
                                              `STATE_C_CPP_JAVA.md`'s `openrewrite/rewrite` entry.
 
+  real_code_regressions_132_inp/out.java  -- Java, `openrewrite/rewrite` dogfood
+                                             (`rewrite-python/.../Autodetect.java`'s
+                                             `visitCollectionLiteral`, cluster 6): a still-K&R
+                                             `} else if (...) {` block's closing `}` drifted
+                                             indentation between a fresh format and a reformat.
+                                             Root cause: `ScopePipelineCurly.findParentIndent`
+                                             returned null (indent "unknown") for an `else`/
+                                             `catch`/`finally` keyword still sharing its physical
+                                             line with the preceding block's closing `}` (pre-
+                                             `placeElseOnOwnLine`), so `processScope`'s trailing-
+                                             gap force-reindent was skipped on a fresh format,
+                                             leaving the raw source's closing brace untouched --
+                                             but on a reformat, the keyword now sits on its own
+                                             Allman line, so `findParentIndent` DOES return a real
+                                             indent and the force-reindent fires, non-idempotently
+                                             moving the same `}`. Fixed by deriving the indent from
+                                             the preceding `}`'s own physical line (via
+                                             `braceLineIndent`) whenever an else/catch/finally
+                                             keyword directly follows a `}` -- by C-family grammar
+                                             that `}` is always at the same nesting depth the
+                                             keyword belongs at once placed on its own line, so both
+                                             passes now agree. See `STATE_C_CPP_JAVA.md`'s
+                                             `openrewrite/rewrite` entry.
+
 How Tests Are Run
 -----------------
 

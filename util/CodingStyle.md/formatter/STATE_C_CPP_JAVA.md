@@ -486,8 +486,10 @@ on the noted commits/fixtures)
        passes). Fixed by adding `valueSpansMultipleLines` and excluding any such row from the grid
        the same way `a.multiLine` rows already are, rendering it directly instead. Verified via
        minimal repro + all 5 affected files + `make test`. Fixture: `real_code_regressions_131`.
-     2 clusters still open, not yet investigated past initial characterization — see "Known Gaps
-     — Open" for each one's repro files/shape/root-cause hypothesis; next free fixture number 132.
+     1 cluster still open (5), not yet root-caused past initial characterization — see "Known Gaps
+     — Open" for its repro files/shape/root-cause hypothesis; next free fixture number 133.
+     Cluster 6 (closing-brace indentation drift on a still-K&R `else`/`catch`/`finally`) is fixed —
+     see `ScopePipelineCurly.findParentIndent` and fixture `real_code_regressions_132`.
      `make test` after all four fixes: 180/180 forward + 180/180 idempotency, zero regressions.
      Full-tree round1/round2 re-run + `javac` compile-check deferred until all 6 clusters are
      resolved (per this candidate's own methodology) — NOT yet run.
@@ -706,11 +708,11 @@ RDD_KEY_88.
 
 ## Known Gaps — Open
 
-- **`openrewrite/rewrite` dogfood (entry 17) — 2 clusters still open.** Next free fixture
-  number: 132. Each cluster below is a real, confirmed-differing (round1 != round2) file group
+- **`openrewrite/rewrite` dogfood (entry 17) — 1 cluster still open.** Next free fixture
+  number: 133. Each cluster below is a real, confirmed-differing (round1 != round2) file group
   from the full-tree idempotency diff; none has been root-caused yet beyond what's noted.
-  (Clusters 3 and 4 are fixed; see entry 17's own narrative and fixtures
-  `real_code_regressions_130`/`_131`.)
+  (Clusters 3, 4, and 6 are fixed; see entry 17's own narrative and fixtures
+  `real_code_regressions_130`/`_131`/`_132`.)
 
   - **Cluster 5 — alignment-group padding collapse**: `rewrite-kotlin/.../K.java`, the
     `ExpressionStatement.withType` method (source line 1029: `return (T) (newExpression ==
@@ -734,10 +736,6 @@ RDD_KEY_88.
     just whole-prefix doubling) to find the smallest triggering content, then reading
     `GetterSetterRuleCurly.parseOneLinerMember`/`groupOneLiners`'s exact scan-boundary logic against
     it.
-
-  - **Cluster 6 — closing-brace indentation drift**: `rewrite-python/.../Autodetect.java`. A `}`
-    closing brace's indentation column differs by a few spaces between rounds. Not yet
-    investigated — no minimal repro.
 
   Full-tree round1/round2 re-run (reusing existing `round1`/`round2` scratchpad dirs, regenerating
   only what changes) plus the `javac`/`tools/verifiers` compile-check are both still pending,

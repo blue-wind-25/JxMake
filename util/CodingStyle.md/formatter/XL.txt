@@ -91,6 +91,15 @@ Continue with the dogfood test for:
     ...
 If there are many errors, work in batch, store the rest in the corresponding state file.
 
+Perform the dogfood tests (in sequence) for:
+    Python3: `github.com/python/cpython`
+    TS: `github.com/angular/angular`      
+But do NOT perform any bug fix yet, instead categorize and note the bugs inside `STATE_PYTHON3.md` and `STATE_JS_TS.md` into:
+    1. Real bugs that cause formatter error/crash and output file corruption (syntax error, unwanted content change).
+    2. Idempotency bugs only.
+Inside each category, cluster the bugs based on the types/apperance. Sort the clusters based on the estimated criticality/the value of fixing the bug and the estimated difficulty (weigh them). Sort from the most valuable to the least valuable. Write and commit the state files, then ask me which clusters to fix first.
+
+
 
 
 C/C++:

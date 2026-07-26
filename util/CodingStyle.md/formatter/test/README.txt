@@ -2057,6 +2057,25 @@ Real-code regressions:
                                              whenever the body's first token is `final`/`const`.
                                              See `STATE_C_CPP_JAVA.md`.
 
+  real_code_regressions_127_inp/out.py    -- Python3, `django/django` real-code dogfood: a §8
+                                             single-statement-body `match`/`case` header carrying
+                                             its own trailing comment (e.g. `case Sequence():  #
+                                             str and bytes were already handled.`) qualified for
+                                             joining with its body line, but the join's `headerText`
+                                             only spanned up to the header's own `:`, silently
+                                             deleting the comment -- real content loss, not just a
+                                             non-idempotency symptom (surfaced as one in `diff -rq
+                                             round1 round2` since round2 no longer had the comment
+                                             to drop). Fixed in `ScopePipelineIndent`:
+                                             `classifySingleStatementHeaderColon`'s `if`/`elif`/
+                                             `while`/`for` loop and `classifyCaseLine`'s own
+                                             compact/`virtualJoin` computation both now bail
+                                             (never qualify for the join) whenever a trailing
+                                             comment follows the header's `:`, mirroring the
+                                             existing conservative skip already applied to a body
+                                             statement's own trailing comment. See
+                                             `STATE_PYTHON3.md`'s `django/django` dogfood entry.
+
 How Tests Are Run
 -----------------
 

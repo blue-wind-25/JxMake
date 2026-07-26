@@ -1245,9 +1245,12 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             return null;
         }
         boolean compact = false;
+        boolean headerHasTrailingComment = false;
         for (int k = colonIdx + 1; k < line.end; k++) {
             final Token t = tokens.get(k);
-            if (!isGapToken(t) && t.type != TokenType.COMMENT_LINE) {
+            if (t.type == TokenType.COMMENT_LINE) {
+                headerHasTrailingComment = true;
+            } else if (!isGapToken(t)) {
                 compact = true;
                 break;
             }
@@ -1255,7 +1258,11 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         boolean virtualJoin = false;
         int bodyContentStart = -1;
         int bodyContentEnd = -1;
-        if (!compact) {
+        // A block-form header carrying its own trailing comment must never virtual-join --
+        // headerPrefix below stops at patternEnd (before the colon/comment), so joining would
+        // silently drop that comment (real content loss, not just reformatting; same fix as
+        // classifySingleStatementHeaderColon's own header-trailing-comment bail).
+        if (!compact && !headerHasTrailingComment) {
             final int[] body = tryQualifyJoinBody(tokens, rawLines, lineIdx, line);
             if (body != null) {
                 final String headerPrefix = verbatimLineText(tokens, line.start, patternEnd);
@@ -1483,7 +1490,11 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final Token kw = tokens.get(kwIdx);
         if (kw.type == TokenType.IDENTIFIER && "case".equals(kw.text)) {
             final CaseLine c = classifyCaseLine(tokens, rawLines, lineIdx);
-            return c != null && !c.compact ? c.colonIdx : -1;
+            // Only route through applySingleStatementBody's own generic join when
+            // classifyCaseLine already confirmed a safe virtualJoin (which itself bails on a
+            // header trailing comment) -- otherwise applySingleStatementBody's headerText would
+            // stop at colonIdx + 1 and silently drop that comment.
+            return c != null && !c.compact && c.virtualJoin ? c.colonIdx : -1;
         }
         if (kw.type != TokenType.KEYWORD || !SINGLE_STMT_HEADER_KEYWORDS.contains(kw.text)) {
             return -1;
@@ -1509,7 +1520,14 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         }
         for (int k = colonIdx + 1; k < line.end; k++) {
             final Token t = tokens.get(k);
-            if (!isGapToken(t) && t.type != TokenType.COMMENT_LINE) {
+            if (t.type == TokenType.COMMENT_LINE) {
+                // A header trailing comment would otherwise be silently dropped by
+                // applySingleStatementBody's headerText (which only takes tokens through
+                // colonIdx + 1) -- conservatively bail rather than lose it, mirroring the
+                // existing containsComment-based skip already applied to body statements.
+                return -1;
+            }
+            if (!isGapToken(t)) {
                 return -1; // already compact (something besides a trailing comment follows `:`)
             }
         }

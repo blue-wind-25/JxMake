@@ -2,6 +2,7 @@
 
 Read `STATE_COMMON.md` first (shared commit/ambiguity/testing conventions).
 `STATE_C_CPP_JAVA.md`/`STATE_KOTLIN.md` are NOT required reading for this job.
+Dogfood corpus status: see `STATE_DOGFOOD.md`.
 
 ---
 

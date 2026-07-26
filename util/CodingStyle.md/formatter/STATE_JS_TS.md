@@ -2,6 +2,7 @@
 
 Read `STATE_COMMON.md` first (shared commit/ambiguity/testing conventions).
 `STATE_C_CPP_JAVA.md`/`STATE_KOTLIN.md` are not required reading for this job.
+Dogfood corpus status: see `STATE_DOGFOOD.md`.
 
 Full historical narrative (root-cause writeups) lives in `git log` for this
 directory, not duplicated here — this file tracks current state only.

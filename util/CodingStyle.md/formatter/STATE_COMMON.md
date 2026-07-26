@@ -17,6 +17,11 @@ convention below).
 modifying. Do NOT read other source files unless a specific checklist item
 or ambiguity requires it.
 
+**Dogfood corpus status**: `STATE_DOGFOOD.md` is the cross-job master index
+of every dogfood corpus run/planned/rejected (done/partial-fix/not-started/
+unsuitable). Check it before re-running a dogfood pass, and update its row
+whenever a job's own state file gains, finishes, or rejects one.
+
 ---
 
 ## RDD_LOG.md lookup convention
@@ -464,6 +469,7 @@ than immediately starting the next >1000 kLOC candidate. Candidate scope:
   `STATE_PYTHON3.md`, etc.) for ACCEPTED-not-fixed items that may now be
   cheaper to actually fix given everything learned since — do not treat
   "accepted" as permanent without re-checking.
+- Check for unused file that contains only boilerplate code and never used.
 - Check for duplicated helper logic that accreted independently across the
   `*Curly`/`*Indent`/`*Tags` class split (see this file's "Class Refactor"
   section) now that several jobs (Python3, JS/TS, data formats) have each

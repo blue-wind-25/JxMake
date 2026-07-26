@@ -2,6 +2,7 @@
 
 Read `STATE_COMMON.md` first — shared commit/ambiguity/testing conventions this file
 assumes. `STATE_KOTLIN.md` is a separate job's file, not required reading here.
+Dogfood corpus status: see `STATE_DOGFOOD.md`.
 
 ---
 

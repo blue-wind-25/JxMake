@@ -6,6 +6,7 @@ permanently NOT FEASIBLE and is reference-only — no active work there. Step 3
 (the GRU comment-classifier abstain resolution) is the active tracked job per
 `CLAUDE.md`'s job table (`com.jxmake.formatter.classifier.gru`) and follows
 the same `STATE_COMMON.md` process conventions as every other job.
+(No dogfood corpus for this job — see `STATE_DOGFOOD.md`'s note.)
 
 - **Step 2** (argument-layout / getter-setter-grouping) — **NOT FEASIBLE**. No
   tractable grouping-intent signal exists for the JAR to hand an LLM, at any

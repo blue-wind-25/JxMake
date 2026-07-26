@@ -3,6 +3,7 @@
 Read `STATE_COMMON.md` first — it has the shared commit/ambiguity/testing
 conventions this file assumes. `STATE_C_CPP_JAVA.md` (the other job's file)
 is NOT required reading for this one — only `STATE_COMMON.md` is.
+Dogfood corpus status: see `STATE_DOGFOOD.md`.
 
 ---
 

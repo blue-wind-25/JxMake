@@ -724,4 +724,60 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       decision. A future session may still re-run the full corpus if
       further confidence is wanted.
 
-      `python/cpython`, `django/django` — still not started.
+      **`django/django` — DONE.** Reused existing checkout at `/tmp/django`
+      (2927 `.py` files, full tree, no exclusions — `django/`, `tests/`,
+      `docs/` etc.). Batch-formatted in one `xargs` invocation each round
+      (`--preserve-tree --root /tmp/django --out <scratch>/round1`, then
+      `--root <scratch>/round1 --out <scratch>/round2`). Zero crashes on the
+      forward pass.
+
+      **One real bug found and fixed, via non-idempotency
+      (`diff -rq round1 round2`), but actually content corruption on the
+      forward pass itself (idempotency was just how it surfaced):**
+      `django/utils/json.py`'s `case Sequence():  # str and bytes were
+      already handled.` — a §8 single-statement-body `match`/`case` header
+      carrying its own trailing comment still qualified for the join (only
+      a *body* trailing comment was guarded against, not a *header* one).
+      `applySingleStatementBody`'s `headerText` construction
+      (`verbatimLineText(tokens, header.start, colonIdx + 1)`) stops at the
+      header's own `:`, so the comment was silently deleted on the forward
+      pass (round1 already lost it, not just round2) — genuine data loss,
+      not merely a rendering choice. Root cause: `classifySingleStatement
+      HeaderColon`'s `if`/`elif`/`while`/`for` loop and `classifyCaseLine`'s
+      own compact/`virtualJoin` computation both explicitly *permitted* a
+      trailing `COMMENT_LINE` after the header colon to still count as
+      qualifying (only text besides a trailing comment disqualified), with
+      no corresponding "don't lose it" step at join time. Fixed:
+      `classifySingleStatementHeaderColon` now returns `-1` immediately on
+      any header trailing comment; `classifyCaseLine` tracks
+      `headerHasTrailingComment` separately from `compact` and never sets
+      `virtualJoin` when it's true; `classifySingleStatementHeaderColon`'s
+      own `case` delegation now additionally requires `c.virtualJoin` (not
+      just `!c.compact`) before returning a joinable `colonIdx`, since only
+      `virtualJoin` encodes the "no header comment" guarantee. Both changes
+      mirror the join's existing conservative posture for a *body*
+      statement's own trailing comment (`containsComment` in
+      `tryQualifyJoinBody`) — same treatment, just on the header side, which
+      had been missed. Fixture `real_code_regressions_127_{inp,out}.py`
+      (reproduces both the header-with-comment block-form-preserved case
+      and an adjacent comment-free header still correctly joining, so the
+      fixture also guards against a regression that disables joining
+      entirely). `make test`: 176/176 forward + 176/176 idempotency.
+
+      **Final numbers (after the fix, full 2927-file corpus, freshly
+      re-run):** forward pass zero crashes; `diff -rq round1 round2`
+      **empty** (clean idempotency, 2927/2927); `python3.12 -m py_compile`
+      on all 2927 round1 files: exactly one syntax error,
+      `tests/test_runner_apps/tagged/tests_syntax_error.py` (`invalid
+      decimal literal` on line 11) — present identically on the unmodified
+      original (a deliberately-invalid test fixture within django's own
+      test suite, not a formatter-induced error); zero new errors.
+      `python_content_diff.py` across all 2927 files: 1 `rc=2` (the same
+      deliberately-invalid fixture, expected parse failure on both sides)
+      and 41 `rc=1` AST-diff mismatches, all 41 confirmed via the
+      documented triage method (comparing each file's own set of imported
+      `(module, name, asname)` tuples pre/post format) to be solely §3's
+      import-sort reordering — zero true AST-shape mismatches, zero
+      remaining content-corruption findings after the one fix above.
+
+      `python/cpython` — still not started.

@@ -8,8 +8,6 @@ as the primary method of bug diagnosis or regression checking. After the fix is 
 `make test`, remove all debug prints and then commit the files you have modified (ignore files you
 have not modified). If unsure ask me.
 
-Fix the above XXX bugs first, ignore the other parts of the diff for now.
-
 ####################################################################################################
 ####################################################################################################
 ####################################################################################################
@@ -79,31 +77,75 @@ for reproducing bugs and mini/small tests (not the cloned repositories) them and
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 
+Start with the dogfood test (search in `/tmp` first, clone the repo if not found):
+    ...
+Try reformat with `indent-size = 2` if the idempotency test failed.
+When fixing bugs, only reformat and re-syntax-checking the affected files to not waste of time.
+Only after all bugs are fixed is a full reformat and re-syntax-checking test allowed.
+If there are many errors, work in batch.
+Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
+
+Start with the dogfood test (search in `/tmp` first, clone the repo if not found):
+   ...
+Do NOT perform any bug fix yet, instead categorize and note the bugs inside
+`....md` into two categories:
+    1. Critical bugs that cause formatter error/crash and output file corruption (syntax
+       error, unwanted content change).
+    2. Idempotency bugs only. Try reformat with `indent-size = 2` if the idempotency test
+       failed.
+For each category, cluster the bugs based on the types/appearance. Sort the clusters based on
+the estimated criticality/the value of fixing the bug and the estimated difficulty (weigh them).
+Sort the clusters from the most valuable to the least valuable to fix based on the above
+criteria. Write and commit the state files, then ask me which clusters to fix first.
+Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
+
+Start with the dogfood test (in sequence)  (search in `/tmp` first, clone the repo if not found):
+   ...
+   ...
+Do NOT perform any bug fix yet, instead categorize and note the bugs inside
+`....md` and `....md` into two categories:
+    1. Critical bugs that cause formatter error/crash and output file corruption (syntax
+       error, unwanted content change).
+    2. Idempotency bugs only. Try reformat with `indent-size = 2` if the idempotency test
+       failed.
+For each category, cluster the bugs based on the types/appearance. Sort the clusters based on
+the estimated criticality/the value of fixing the bug and the estimated difficulty (weigh them).
+Sort the clusters from the most valuable to the least valuable to fix based on the above
+criteria. Write and commit the state files, then ask me which clusters to fix first.
+Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
+
+Continue with the dogfood test (search in `/tmp` first, clone the repo if not found):
+    ...: `...` (clusters ...)
+Try reformat with `indent-size = 2` if the idempotency test failed.
+When fixing bugs, only reformat and re-syntax-checking the affected files to not waste of time.
+Only after all bugs are fixed is a full reformat and re-syntax-checking test allowed.
+If there are many errors, work in batch. Commit after each batch.
+Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
+
+
+
 Continue with the dogfood test (search in `/tmp` first, clone the repo if not found):
     Java `github.com/openrewrite/rewrite` (clusters 3-6)
-When fixing bugs, only reformat and re-syntax-checking the affected files; reformatting and
-re-syntax-checking already correct files are a waste of time. Only after all bugs are fixed is
-a full reformat and re-syntax-checking test allowed. Try reformat with `indent-size = 2` if the
-idempotency test failed. If there are many errors, work in batch. Use one sub-agent as needed,
-the sub-agent can launch up to one more research sub-sub-agent.
+Try reformat with `indent-size = 2` if the idempotency test failed.
+When fixing bugs, only reformat and re-syntax-checking the affected files to not waste of time.
+Only after all bugs are fixed is a full reformat and re-syntax-checking test allowed.
+If there are many errors, work in batch. Commit after each batch.
+Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
 
-Continue with the dogfood test for:
-    ...
-If there are many errors, work in batch, store the rest in the corresponding state file.
-
-Perform the dogfood tests (in sequence) for:
+Start with the dogfood test (in sequence) (search in `/tmp` first, clone the repo if not found):
     Python3: `github.com/python/cpython`
-    TS: `github.com/angular/angular`      
-But do NOT perform any bug fix yet, instead categorize and note the bugs inside
-`STATE_PYTHON3.md` and `STATE_JS_TS.md` into:
-    1. Real bugs that cause formatter error/crash and output file corruption (syntax
+    TS: `github.com/angular/angular`
+Do NOT perform any bug fix yet, instead categorize and note the bugs inside
+`STATE_PYTHON3.md` and `STATE_JS_TS.md` into two categories:
+    1. Critical bugs that cause formatter error/crash and output file corruption (syntax
        error, unwanted content change).
-    2. Idempotency bugs only. Try reformat with `indent-size = 2` if the idempotency
-       test failed.
-Inside each category, cluster the bugs based on the types/apperance. Sort the clusters
-based on the estimated criticality/the value of fixing the bug and the estimated
-difficulty (weigh them). Sort from the most valuable to the least valuable. Write and
-commit the state files, then ask me which clusters to fix first.
+    2. Idempotency bugs only. Try reformat with `indent-size = 2` if the idempotency test
+       failed.
+For each category, cluster the bugs based on the types/appearance. Sort the clusters based on
+the estimated criticality/the value of fixing the bug and the estimated difficulty (weigh them).
+Sort the clusters from the most valuable to the least valuable to fix based on the above
+criteria. Write and commit the state files, then ask me which clusters to fix first.
+Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
 
 
 
@@ -140,15 +182,6 @@ TS:
 
 Python3:
     [1] `github.com/python/cpython` [~980 kLOC of effective Python code]
-
-
-
-Continue with the dogfood test (in parallel; search in `/tmp` first, clone the repo if not found):
-...
-When fixing bugs, only reformat and re-syntax-checking the affected files; reformatting and
-re-syntax-checking already correct files are a waste of time. Only after all bugs are fixed is
-a full reformat and re-syntax-checking test allowed. Try reformat with `indent-size = 2` if the
-idempotency test failed.
 
 ####################################################################################################
 ####################################################################################################

@@ -629,8 +629,8 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       solely §3's import-sort reordering — zero true AST-shape mismatches
       remaining after the one fix above.
 
-      **`python/cpython` — dogfood run DONE, categorized; cluster 1 (the
-      crash) FIXED, clusters 2-4 (idempotency-only) NOT YET FIXED.**
+      **`python/cpython` — dogfood run DONE, categorized; clusters 1-2
+      FIXED, clusters 3-4 (idempotency-only) NOT YET FIXED.**
       Fresh shallow clone `/tmp/cpython` (`--depth 1`), 2343 `.py` files,
       batched per top-level subdir (`Doc`/`Lib`/`Mac`/`Misc`/`Modules`/
       `Parser`/`PC`/`PCbuild`/`Platforms`/`Programs`/`Tools`) through
@@ -686,7 +686,7 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
          quirk unrelated to this fix). Fixture
          `real_code_regressions_133_{inp,out}.py`. `make test`: 182/182
          forward + 182/182 idempotency, zero regressions.
-      2. **[IDEMPOTENCY] §3 import-sort: same-module multi-statement group
+      2. **[IDEMPOTENCY] [FIXED] §3 import-sort: same-module multi-statement group
          order unstable on first pass** (16 files: `Lib/random.py` lines
          53-56 confirmed as the clean minimal case — four separate `from
          math import ...` statements; also `Lib/ssl.py`, `statistics.py`,
@@ -707,6 +707,21 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
          Likely a **narrow, one-comparator-key fix**: sort `names` (or use
          the already-sorted rendered form) before using it as the
          group-order comparator key, rather than after.
+
+         **FIXED**: root cause confirmed exactly as guessed.
+         `PyImport.compareTo` now sorts a copy of each side's `names`
+         before the element-by-element comparison (leaving `names` itself
+         untouched, in source order, for `sortedNameUnits`'s own separate
+         within-clause-rebuild use) — matches §3.1 point 3's "sort by the
+         first imported name" read as "the first name after within-clause
+         alphabetization," so a same-module multi-statement group now
+         sorts correctly on the very first pass instead of needing a
+         round-trip. Verified against `Lib/random.py:53-56` directly from
+         the `/tmp/cpython` checkout (correctly ordered and idempotent on
+         the first format) plus a minimal repro at `indent-size=2` too
+         (config-insensitive, as expected). Fixture:
+         `real_code_regressions_137`. `make test`: 186/186 forward +
+         186/186 idempotency.
       3. **[IDEMPOTENCY] §7/§8 join-then-align ordering, recurrence
          adjacent to a preceding block-form `case`** (2 files:
          `Lib/turtle.py` ~line 3930, `Lib/typing.py` ~line 2974). A run of

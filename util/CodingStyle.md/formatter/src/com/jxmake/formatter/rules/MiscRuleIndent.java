@@ -11,6 +11,7 @@ import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -130,14 +131,27 @@ public final class MiscRuleIndent extends MiscRuleCore {
             if (c != 0) {
                 return c;
             }
-            final int n = Math.min(names.size(), other.names.size());
+            // §3.1 point 3 sorts by "the first imported name" -- that means the first name
+            // *after* within-clause alphabetization (§3.1's own worked example's `from os import
+            // path, sep` is itself name-sorted), not the as-parsed source order `names` holds.
+            // Comparing on a sorted copy here (rather than `names` itself, which stays in source
+            // order for `sortedNameUnits`'s own separate within-clause-rebuild use) means a group
+            // with multiple `from X import ...` statements for the same `X` sorts correctly on
+            // the very first pass, instead of only after a round-trip re-parses the
+            // now-alphabetized rendered text (cpython dogfood, `Lib/random.py`'s four `from math
+            // import ...` statements).
+            final List<String> sortedNames = new ArrayList<>(names);
+            Collections.sort(sortedNames);
+            final List<String> otherSortedNames = new ArrayList<>(other.names);
+            Collections.sort(otherSortedNames);
+            final int n = Math.min(sortedNames.size(), otherSortedNames.size());
             for (int i = 0; i < n; i++) {
-                c = names.get(i).compareTo(other.names.get(i));
+                c = sortedNames.get(i).compareTo(otherSortedNames.get(i));
                 if (c != 0) {
                     return c;
                 }
             }
-            return Integer.compare(names.size(), other.names.size());
+            return Integer.compare(sortedNames.size(), otherSortedNames.size());
         }
     }
 

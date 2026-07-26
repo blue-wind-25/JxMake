@@ -2288,6 +2288,26 @@ Real-code regressions:
                                              `make test`: 185/185 forward + 185/185 idempotency.
                                              See `STATE_JS_TS.md`'s `angular/angular` entry.
 
+  real_code_regressions_137_inp/out.py    -- Python, `python/cpython`
+                                             dogfood (`Lib/random.py:53-56`, idempotency cluster
+                                             2): a group of four `from math import ...` statements
+                                             for the same module didn't fully alphabetize their
+                                             inter-statement order on a fresh format (each
+                                             statement's own within-clause name order WAS already
+                                             correct); a second format of the output self-corrected
+                                             it. Root cause: `MiscRuleIndent.PyImport.compareTo`
+                                             compared its `names` list element-by-element in
+                                             as-parsed (pre-within-clause-sort) source order --
+                                             only after a round-trip (once the emitted text's names
+                                             were already alphabetized and re-parsed) did `names`
+                                             happen to match the sorted form the comparator needed.
+                                             Fixed by sorting a copy of each side's `names` before
+                                             comparing, matching §3.1 point 3's "sort by the first
+                                             imported name" read as "the first name after
+                                             within-clause alphabetization." `make test`: 186/186
+                                             forward + 186/186 idempotency. See `STATE_PYTHON3.md`'s
+                                             `python/cpython` entry.
+
 How Tests Are Run
 -----------------
 

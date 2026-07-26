@@ -262,242 +262,169 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       with §2/§6/§7).
 - [x] §2–9 rule-by-rule (each its own checkpoint commit):
 
-      **§2 (Assignment Alignment).** Fixed a real tokenizer gap found while
+      **§2 (Assignment Alignment).** Fixed a tokenizer gap found while
       implementing this: `TokenizerIndent.emitOperator` only consumed one
       char, so compound-assignment operators (`+=` etc.) came out as
-      multiple tokens — invisible to earlier work but fatal to §2's
-      grouping. Fixed via a new `MULTI_CHAR_OPS` array (mirrors
-      `TokenizerCurly`'s). New `MiscRuleIndent.PyAssignment`/
-      `renderPyGroup` (padded `name (op)= value`, no trailing-comment
-      column alignment — not called for in STYLE_PYTHON3.md §2) plus
+      multiple tokens, invisible earlier but fatal to §2's grouping — fixed
+      via new `MULTI_CHAR_OPS` array (mirrors `TokenizerCurly`'s). New
+      `MiscRuleIndent.PyAssignment`/`renderPyGroup` (padded `name (op)=
+      value`, no trailing-comment alignment per STYLE_PYTHON3.md §2) plus
       `ScopePipelineIndent.applyAssignmentAlignment`, a from-scratch
-      NEWLINE/INDENT/DEDENT-aware logical-line splitter. Groups break on
+      NEWLINE/INDENT/DEDENT-aware logical-line splitter; groups break on
       blank line, comment, depth change, or unrecognized statement.
-      Replacements cover only the `target...value` span, leaving
-      indentation/comments untouched. **Gap: multi-line RHS (bracket or
-      backslash continuation) is never classified as a candidate** and is
-      left completely untouched; bare-IDENTIFIER-target-only restriction
-      matches the C-family's own (`self.x = 1`/tuple-assignment correctly
-      excluded). Verified via 5-case smoke test + full `make test`
-      (114/114, zero regressions; `python3` still scaffold-only).
+      **Gap:** multi-line RHS (bracket/backslash continuation) never a
+      candidate; bare-IDENTIFIER-target-only (matches C-family's own
+      exclusion of `self.x = 1`/tuple-assignment). Verified via 5-case
+      smoke test + full `make test` (114/114, zero regressions).
 
       **§3 (Import Ordering).** New `MiscRuleIndent.PyImport` (`Kind` enum
-      `FUTURE < IMPORT < FROM`, sort key = kind then module name then
-      per-name comparison) plus `ScopePipelineIndent.applyImportSort`,
-      reusing a generalized shared `RawLine`/`splitRawLines` (now shared
-      with §2). Groups break on blank line, comment, depth change, or any
+      `FUTURE < IMPORT < FROM`) plus `ScopePipelineIndent.applyImportSort`,
+      reusing a generalized shared `RawLine`/`splitRawLines` (shared with
+      §2). Groups break on blank line, comment, depth change, or any
       non-import statement. **Discovered mid-implementation:** §3.1's own
-      worked example requires within-clause name sorting too (not just
-      inter-statement order) — `flushImportGroup` independently rebuilds a
-      `FROM` import's own name-list span when out of order, even in an
-      otherwise-unchanged/singleton group. **Gaps:** any multi-physical-line
-      import (bracket/backslash continuation) is left untouched;
-      parenthesized `from X import (...)` is rejected entirely (even
-      single-physical-line); multi-module `import a, b` on one line is
+      worked example requires within-clause name sorting too —
+      `flushImportGroup` rebuilds a `FROM` import's own name-list span when
+      out of order, even in an otherwise-unchanged/singleton group.
+      **Gaps:** multi-physical-line import untouched; parenthesized
+      `from X import (...)` rejected entirely; multi-module `import a, b`
       rejected/deferred (only single-module `import a.b.c[ as alias]`
       recognized). Verified via 6-case smoke test + full `make test`
       (114/114, zero regressions).
 
       **§4 (Decorators).** New `ScopePipelineIndent.applyDecoratorSpacing`
       + helpers (`applyBracketPadding`/`classifyLoose`/`isOpenBracketText`/
-      `matchBracket`/`prevSignificant`/`normalizeGap`) — no new
-      `MiscRuleIndent` method needed. For each single-physical-line `@`
-      line: whitespace between `@` and the next token collapsed to zero
-      (tight bind, resolves the "stray-space" ambiguity as "any whitespace
-      removed"); every `(`/`[`/`{` pair anywhere in the decorator's own
-      expression (recursively) gets its immediate delimiter gap normalized
-      per `PythonBracketComplexityEvaluator`'s loose/tight verdict —
-      delimiter-gap-only, content spacing untouched. A bare decorator
-      (`@dataclass`, `@x.setter`) never enters bracket-padding, so
-      `@property`/`@x.setter` get no special treatment, per §4's "no
-      special getter/setter alignment" text. Multi-physical-line decorators
-      are completely skipped. **Gap: decorator-call overflow/line-wrapping
-      is not implemented** — no general line-length-based call-argument-
-      wrapping mechanism exists anywhere in this codebase yet (the
-      C-family's `enforceCallLineBreaking` is Curly-only, not ported).
-      One real bug found+fixed during verification: `normalizeGap`'s first
-      draft treated `from == to` (already-tight, no existing whitespace) as
-      always a no-op, which wrongly skipped the loose case's needed
+      `matchBracket`/`prevSignificant`/`normalizeGap`). For each
+      single-physical-line `@` line: gap between `@` and the next token
+      collapsed to zero; every `(`/`[`/`{` pair in the decorator's own
+      expression (recursively) gets its delimiter gap normalized per
+      `PythonBracketComplexityEvaluator`'s loose/tight verdict. A bare
+      decorator (`@dataclass`, `@x.setter`) never enters bracket-padding,
+      so `@property`/`@x.setter` get no special treatment. Multi-physical-
+      line decorators completely skipped. **Gap: decorator-call overflow/
+      line-wrapping not implemented** — no general line-length-based
+      call-argument-wrapping mechanism exists anywhere yet (C-family's
+      `enforceCallLineBreaking` is Curly-only, not ported). One bug fixed
+      during verification: `normalizeGap` wrongly no-op'd on
+      already-tight `from == to`, skipping the loose case's needed
       zero-width insertion; fixed to only guard on `from > to`. Verified
       via 7-case smoke test + full `make test` (114/114, zero regressions).
 
       **§5 (F-Strings).** New `ScopePipelineIndent.applyFStringSpacing` +
       helpers (`processFString`/`processField`/`isFStringConversion`/
       `addBraceTrim`/`isCloseBracketText`) — operates over the full token
-      stream, not per-`RawLine`. Confirmed first that
-      `TokenizerIndent.emitFStringField`'s `{...}` content already
-      tokenizes as ordinary expression tokens. `processField` tracks local
-      bracket depth (mirrors the tokenizer's own field-scan depth) and
-      recurses into nested f-strings. `addBraceTrim` unconditionally trims
-      the gap after `{`; trims the gap before the close ONLY when there's
-      no `!conversion`/format-spec tail — discovered via the worked example
-      `f"{value !r}"`, which requires that boundary gap be left alone when
-      a conversion/spec follows (first draft trimmed it unconditionally and
-      failed this case). **Gap: internal expression re-spacing (e.g.
-      `f"{x  +  1}"` → `f"{x + 1}"`) is out of scope** — the only inherited
-      token-joining primitive (`MiscRuleCore#renderTokens`/
-      `needsSpaceBetween`) is a C-family declarator-spacing helper that
-      would wrongly collapse Python's `*` multiplication and has no notion
-      of `**`/`//`/`:=`/`and`/`or`/`not`/comprehension `for`/`if`; building
-      a general primitive was judged out of §5's narrow scope. **Also
-      discovered:** when an f-string sits inside a span another pass (e.g.
-      §2's assignment RHS) already fully replaces, that pass's wider,
-      earlier-`start` replacement wins and this pass's own narrower one for
-      that occurrence is silently dropped (not corrupted) — confirmed via a
-      dedicated smoke case; an f-string NOT nested in another pass's span
-      trims normally. Verified via 8-case smoke test + full `make test`
+      stream, not per-`RawLine`. `processField` tracks local bracket depth
+      and recurses into nested f-strings. `addBraceTrim` unconditionally
+      trims the gap after `{`; trims the gap before the close ONLY when no
+      `!conversion`/format-spec tail follows (`f"{value !r}"` must keep
+      that gap). **Gap: internal expression re-spacing (`f"{x  +  1}"` →
+      `f"{x + 1}"`) out of scope** — the only inherited token-joining
+      primitive (`MiscRuleCore#renderTokens`/`needsSpaceBetween`) is a
+      C-family declarator-spacing helper that would wrongly collapse
+      Python's `*` multiplication and has no notion of `**`/`//`/`:=`/
+      `and`/`or`/`not`/comprehension `for`/`if`. **Also discovered:** when
+      an f-string sits inside a span another pass (e.g. §2's assignment
+      RHS) already fully replaces, that pass's wider, earlier-`start`
+      replacement wins and this pass's narrower one is silently dropped,
+      not corrupted. Verified via 8-case smoke test + full `make test`
       (114/114, zero regressions).
 
-      **§6 (Function Signature Wrapping) — alignment-only slice.**
-      Confirmed first that the inline-vs-one-per-line *decision* has no
-      home anywhere in `*Indent`/`*Curly` (same gap §4 found for decorator
-      overflow — the C-family's `enforceCallLineBreaking` is Curly-only).
-      New `MiscRuleIndent.PyParam` (name/type/default token triples,
-      trailing-comma flag) + `renderPySignatureGroup` (name column padded
-      to widest; `=` column padded only across params that have BOTH a
-      type hint and a default — a typed-but-defaultless param's type is
-      never padded, per the worked example). A param with no type hint
-      skips the `:` segment entirely (read literally as "omitted", not
-      fake-padded) — a documented partial-row shape, not a bug. New
+      **§6 (Function Signature Wrapping) — alignment-only slice.** The
+      inline-vs-one-per-line *decision* has no home anywhere in
+      `*Indent`/`*Curly` (same gap as §4's decorator overflow). New
+      `MiscRuleIndent.PyParam` (name/type/default triples, trailing-comma
+      flag) + `renderPySignatureGroup` (name column padded to widest; `=`
+      column padded only across params with BOTH a type hint and a
+      default). A param with no type hint skips the `:` segment entirely
+      (documented partial-row shape, not a bug). New
       `ScopePipelineIndent.applySignatureAlignment`/`trySignatureGroup`/
-      `classifySignatureParam`/`trimEndIdx` — the first pass to target a
-      `multiPhysicalLine` `RawLine` deliberately: requires the `def`'s
-      parameter list to already be one-parameter-per-line (`(` alone on
-      its line, `)` alone on its line, every line between exactly one
-      param); any deviation (inline first param, multiple params per line,
-      per-param trailing comment, a param itself spanning multiple lines)
-      returns null and leaves the *whole* signature untouched.
-      `classifySignatureParam`'s `:`/`=` search tracks local bracket depth
-      so a nested type hint like `List[Dict[str, int]]` is handled
-      correctly. Return-type arrow is untouched by construction (nothing
-      after the closing `)` is scanned). **Gap: the inline-vs-one-per-line
-      decision itself is not implemented** (blocked on the same missing
-      general wrap-decision infra as §4). **Also excluded, mirroring
-      §2-§5's precedent:** inline first parameter sharing `(`'s line;
-      multiple params on one physical line inside an otherwise-broken
-      signature; per-parameter trailing comments; a parameter whose default
-      or type hint itself spans multiple physical lines — each causes the
-      whole signature to be left untouched. Verified via 5-case smoke test
-      + full `make test` (114/114, zero regressions).
+      `classifySignatureParam`/`trimEndIdx` — requires the `def`'s
+      parameter list already one-parameter-per-line; any deviation (inline
+      first param, multiple params per line, per-param trailing comment, a
+      param spanning multiple lines) returns null and leaves the *whole*
+      signature untouched. `classifySignatureParam`'s `:`/`=` search
+      tracks local bracket depth so nested type hints (`List[Dict[str,
+      int]]`) work correctly. Return-type arrow untouched by construction.
+      **Gap: inline-vs-one-per-line decision not implemented** (blocked on
+      same missing wrap-decision infra as §4). Verified via 5-case smoke
+      test + full `make test` (114/114, zero regressions).
 
       **§8 (Single-Statement Bodies) — a join operation** (unlike §2-§7,
       which never join/split lines). Read `BlockStructureRule
       .collapseSingleExpressionBlocks`/`isSingleStatementBody` (STYLE.md
       §10, the C-family precedent) first. `ScopePipelineIndent` gained a
       `lineLength` constructor param (new `Config.DEFAULT_LINE_LENGTH =
-      100` constant) plus `applySingleStatementBody`/
+      100`) plus `applySingleStatementBody`/
       `classifySingleStatementHeaderColon`/`bodyOpensNewBlock`/
-      `physicalLineLength`/`containsComment` and a
-      `SINGLE_STMT_HEADER_KEYWORDS` set (`if`/`elif`/`else`/`while`/`for`;
+      `physicalLineLength`/`containsComment` and
+      `SINGLE_STMT_HEADER_KEYWORDS` (`if`/`elif`/`else`/`while`/`for`;
       `case` delegates to §7's `classifyCaseLine`; `def`/`class`/`try`/
-      `except`/`finally`/`with` are never members, satisfying §8's "never
-      applies" list by construction). A header qualifies only when single
-      physical line, first token a qualifying keyword, and genuinely
-      block-form (already-compact lines like `if x: return y` are left
-      alone). The body line must exist one depth deeper, be single-line,
-      non-blank/non-comment, have no trailing comment, and not itself open
-      a further nested block (`bodyOpensNewBlock`); the line after the
-      body must sit at a shallower depth (else the block held >1
-      statement, and the join is skipped). Replacement spans
-      `[header.start, bodyContentEnd)`, deliberately excluding the body's
-      own trailing NEWLINE (an earlier draft that included it corrupted
-      output, caught by the first smoke case). Overflow leaves the block
-      form untouched. **Ambiguity resolved conservatively:** a body
-      containing `lambda` (which has its own non-block-opening `:`) is
-      conservatively always treated as "opens a new block" (never joined),
-      since lambda-parameter-aware depth tracking wasn't built. **A nested
-      compound statement's own header still independently gets its own
-      join opportunity** — e.g. `if x:\n if y:\n  return 1` becomes
-      `if x:\n if y: return 1`, not left fully untouched (discovered while
-      writing the smoke test, not a bug). Verified via a 17-case smoke test
-      (block-form joins, `if`/`elif`/`else` chains, `match`/`case`,
-      overflow staying block, `def`/`class`/`try`/`with` never joining,
-      nested-compound interaction, lambda-body skip, idempotency) + full
-      `make test` (114/114, zero regressions). **Gaps:** header/body
-      spanning multiple physical lines never a candidate; a body with its
-      own trailing comment conservatively skipped; never expands an
-      already-compact line back to block form (no such rule in the style
-      doc); no `;`-chaining is ever produced. **Discovered interaction**
-      (same posture as §5's own documented one): if this pass's join spans
-      a sub-range another pass would also replace (e.g. §2 on the body
-      statement), this pass's wider, earlier replacement wins and the
-      inner one is silently dropped, not corrupted — not independently
-      re-verified this slice since §5 already established the render-merge
-      behavior is safe.
+      `except`/`finally`/`with` never members, satisfying §8's "never
+      applies" list). A header qualifies only when single physical line,
+      first token a qualifying keyword, genuinely block-form. Body line
+      must be one depth deeper, single-line, non-blank/non-comment, no
+      trailing comment, not itself open a further nested block; the
+      following line must sit at a shallower depth. Replacement spans
+      `[header.start, bodyContentEnd)`, excluding the body's own trailing
+      NEWLINE. Overflow leaves block form untouched. **Ambiguity resolved
+      conservatively:** a body containing `lambda` is always treated as
+      "opens a new block" (never joined), since lambda-aware depth
+      tracking wasn't built. **A nested compound statement's own header
+      still independently gets its own join opportunity** (e.g. `if x:\n
+      if y:\n  return 1` → `if x:\n if y: return 1`). Verified via a
+      17-case smoke test + full `make test` (114/114, zero regressions).
+      **Gaps:** header/body spanning multiple physical lines never a
+      candidate; body with own trailing comment conservatively skipped;
+      never expands an already-compact line back to block form; no
+      `;`-chaining ever produced. Same cross-pass render-merge safety
+      as §5's documented interaction, not independently re-verified.
 
       **§7 (Structural Pattern Matching) — `:` column alignment-only
       slice.** New `ScopePipelineIndent.CaseLine`/
-      `applyCaseColonAlignment`/`classifyCaseLine`/`flushCaseGroup` — no
-      new `MiscRuleIndent` method needed, reuses §4-§6's `normalizeGap`/
-      `verbatimLineText`/`isOpenBracketText`/`isCloseBracketText`/
-      `trimEndIdx`. `classifyCaseLine` checks literal text `"case"` (a
-      context-sensitive soft keyword tokenized as plain `IDENTIFIER`). The
-      header `:` is found via a bracket-depth-0 scan after `case`, correctly
-      skipping a mapping pattern's own `{"action": action}` colon and
+      `applyCaseColonAlignment`/`classifyCaseLine`/`flushCaseGroup` —
+      reuses §4-§6's `normalizeGap`/`verbatimLineText`/`isOpenBracketText`/
+      `isCloseBracketText`/`trimEndIdx`. `classifyCaseLine` checks literal
+      text `"case"` (a context-sensitive soft keyword tokenized as plain
+      `IDENTIFIER`). The header `:` is found via a bracket-depth-0 scan
+      after `case`, correctly skipping a mapping pattern's own colon and
       including any guard clause. `compact` reflects the body's existing
-      same-line-vs-block shape as written (never decided). Grouping mirrors
-      §2/§3 (contiguous same-depth `case` lines, broken by blank/comment/
-      depth-change/non-case statement, including the enclosing `match`
-      header). **All-or-nothing** per §7: `flushCaseGroup` emits zero
-      replacements for the whole group if any member is block-form. For an
-      all-compact group, only the gap immediately before `:` is padded to
-      align the column. **Verified as pre-existing gaps, not newly
-      introduced:** or-pattern `|` and guard-clause spacing both rely on
-      the same "no general expression-respacing pass" gap §5 already
-      documented; wildcard `_` needs no special handling (ordinary
-      identifier); deconstruction/sequence/mapping pattern content is not
-      repadded via `PythonBracketComplexityEvaluator` (it exists but isn't
-      wired into case-pattern rendering, unlike §4's decorator wiring) —
-      not treated as a new gap since narrowing to `:`-alignment-only was
-      this checkpoint's pre-agreed scope. **Point 8 (closing-comment
-      mechanism) confirmed absent, not guessed** — grepped the whole tree;
-      every hit is Curly-family/JS-TS-Tags-adjacent, zero Python3 support;
-      building it from scratch was out of scope. Verified via 8-case smoke
-      test (block/compact worked examples, varying-width alignment,
-      mixed-form all-or-nothing abandonment, or-pattern/guard survival,
-      wildcard, idempotency) + full `make test` (114/114, zero
-      regressions).
+      shape as written (never decided). Grouping mirrors §2/§3.
+      **All-or-nothing** per §7: `flushCaseGroup` emits zero replacements
+      for the whole group if any member is block-form; for an all-compact
+      group, only the gap before `:` is padded. **Verified as pre-existing
+      gaps, not new:** or-pattern `|`/guard-clause spacing rely on the
+      same "no general expression-respacing" gap §5 documented;
+      deconstruction/sequence/mapping pattern content not repadded via
+      `PythonBracketComplexityEvaluator` (exists but not wired into
+      case-pattern rendering) — narrowing to `:`-alignment-only was this
+      checkpoint's pre-agreed scope. **Closing-comment mechanism confirmed
+      absent, not guessed** — grepped the whole tree, zero Python3
+      support, building it was out of scope. Verified via 8-case smoke
+      test + full `make test` (114/114, zero regressions).
 
       **§9 (Control Flow Blank Lines) — last §2-9 sub-item, checklist item
       now complete.** New `ScopePipelineIndent.ControlFlowFrame`/
       `applyControlFlowBlankLines`/`isDefHeaderLine`/`previousContentLine`/
       `isUnconditionalExitLine`/`insertBlankLineBefore`. §9.1 ported
-      faithfully from `MiscRuleCurly#insertBlankLineBeforeReturn`: inserts
-      a blank line before a `return` that's the first token of its logical
-      line, when the innermost enclosing frame is a function body (tracked
-      via a depth-keyed `ControlFlowFrame` stack) that has already seen a
-      statement — does NOT verify `return` is the body's textually final
-      statement (a faithful port; the C-family reference doesn't either).
-      §8's compact-form carve-out needs no special case (a compact line's
-      first token is the header keyword, never `return`).
-      **§9.2 could not be ported — no C-family mechanism exists to port,
-      discovered via required pre-implementation grep.** The nominal
-      reference, `BlockStructureRule.placeElseOnOwnLine`, only ever
-      *preserves* existing blank-line state, never adds one on last-
-      statement-content; implemented directly from STYLE_PYTHON3.md §9.2's
-      own unambiguous text instead: inserts a blank line before any
-      `elif`/`else` whose nearest preceding non-blank/non-comment logical
-      line (walking back past intervening blank/comment lines, `depth`-
-      agnostic) has `return`/`break`/`continue` (never `raise`, matching
-      the C-family list's own omission) as its first token. Both halves
-      only ever ADD a missing blank line, never remove one (verified: a
-      2-blank gap stays 2). A comment-only line immediately preceding a
-      qualifying `return`/`elif`/`else` is conservatively left untouched
-      (no worked example to guess a relocation from). **Gaps:** a
-      multi-physical-line `def` header is never recognized as function-
-      body-opening (same posture as §6's own multi-physical-line gaps);
-      semicolon-chained statements (`x = 1; return y`) never recognized by
-      either half; a §8-compact preceding block ending in `return`/`break`/
-      `continue` is never recognized by §9.2 (same by-construction reason
-      as §9.1's own compact exclusion — not independently re-verified this
-      slice, documented rather than guessed); `try`/`except`/`finally`
-      blank-line placement entirely out of scope (§9.2's text names only
-      `elif`/`else`). Verified via a 14-case smoke test (both worked
-      examples, missing-blank insertion, nested-return non-qualification,
-      §8 compact interaction, `raise`-exclusion, each of return/break/
-      continue triggering §9.2 including a nested-depth case, idempotency,
-      never-remove posture, comment-adjacency skip) + full `make test`
-      (114/114 forward + idempotency, zero regressions).
+      faithfully from `MiscRuleCurly#insertBlankLineBeforeReturn`: blank
+      line before a `return` that's the first token of its logical line,
+      when the innermost enclosing frame is a function body that has
+      already seen a statement (does NOT verify `return` is the body's
+      textually final statement, matching the C-family reference).
+      **§9.2 could not be ported — no C-family mechanism exists to port**
+      (`BlockStructureRule.placeElseOnOwnLine` only ever *preserves*
+      blank-line state); implemented directly from STYLE_PYTHON3.md §9.2's
+      text: blank line before any `elif`/`else` whose nearest preceding
+      non-blank/non-comment logical line has `return`/`break`/`continue`
+      (never `raise`) as its first token. Both halves only ever ADD a
+      missing blank line, never remove one. A comment-only line
+      immediately preceding a qualifying line is conservatively left
+      untouched. **Gaps:** multi-physical-line `def` header never
+      recognized as function-body-opening; semicolon-chained statements
+      never recognized by either half; a §8-compact preceding block ending
+      in return/break/continue never recognized by §9.2; `try`/`except`/
+      `finally` blank-line placement entirely out of scope. Verified via a
+      14-case smoke test + full `make test` (114/114 forward + idempotency,
+      zero regressions).
 
 - [x] Local test fixtures authored and registered: `py_combined_inp/out.py`
       and `py_comments_inp/out.py` in `test/`, documented in
@@ -518,266 +445,188 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       `STYLE_PYTHON3.md`'s listed test-fixture repos (`python/cpython`,
       `pallets/flask`, `django/django`, `psf/black`, `pallets/click`).
       **`pallets/flask` — DONE (first Python3 dogfood run).** 83 `.py` files
-      processed (24 `src/flask/`, 41 `tests/`, 18 `examples/`/`docs/` — the
-      full tree, no exclusions needed; "not large" confirmed, 3.5M total).
-      Zero crashes on the forward pass.
+      (24 `src/flask/`, 41 `tests/`, 18 `examples/`/`docs/`, full tree, no
+      exclusions). Zero crashes on forward pass.
 
-      **Four real bugs found and fixed, all via non-idempotency
-      (`diff -r round1 round2`), none via `py_compile`/AST-diff (both came
-      back clean once the four fixes landed — see below):**
+      **Four real bugs found via non-idempotency (`diff -r round1 round2`),
+      none via `py_compile`/AST-diff (both clean once fixed):**
       1. `ScopePipelineIndent.render`'s replacement-merge loop advanced its
-         cursor `r` only on an exact `start == i` match; two legitimately
-         overlapping token-range replacements (§8's single-statement-body
-         join and §2's own trivial assignment-alignment group for the same
+         cursor `r` only on exact `start == i`; two legitimately
+         overlapping replacements (§8 join + §2 alignment on the same
          nested statement) left a stale entry that permanently stalled `r`,
-         silently dropping every later replacement in the entire file — a
-         single nested nullary-effect assignment group inside a
-         `while`/`try` block could disable all downstream assignment-
-         alignment padding. Fixed by skipping stale entries instead of
-         stalling. Fixture `real_code_regressions_78_{inp,out}.py`.
-      2. §6 `trySignatureGroup` split a signature's interior into parameter
-         segments on raw `NEWLINE` tokens only, not bracket-depth-aware — a
-         parameter's type hint spanning multiple physical lines via a
-         still-open nested bracket had its continuation lines misclassified
-         as bogus parameters instead of triggering the documented "leave
-         whole signature untouched" gap, producing non-convergent trailing
-         whitespace across idempotency rounds. Fixed by only splitting at
-         depth-0 `NEWLINE`s and rejecting any segment with an embedded one.
-      3. §9.2's blank-line-before-`elif`/`else` zero-width insertion and
-         §8's single-statement join could both start at the same token
-         index; the stable sort left the zero-width entry second, so §8's
-         wider replacement jumped over it, silently dropping the blank line
-         — a forward-pass bug, not just idempotency (confirmed present on
-         `debughelpers.py`'s round1 already). Fixed by sorting equal-`start`
-         replacements with zero-width entries first. Bugs 2+3 combined into
-         fixture `real_code_regressions_79_{inp,out}.py`.
+         silently dropping every later replacement in the file. Fixed by
+         skipping stale entries instead of stalling. Fixture
+         `real_code_regressions_78_{inp,out}.py`.
+      2. §6 `trySignatureGroup` split params on raw `NEWLINE` only, not
+         bracket-depth-aware — a type hint spanning multiple physical
+         lines via a still-open nested bracket was misclassified as bogus
+         parameters instead of triggering the "leave whole signature
+         untouched" gap, producing non-convergent trailing whitespace.
+         Fixed by only splitting at depth-0 `NEWLINE`s.
+      3. §9.2's zero-width blank-line insertion and §8's join could both
+         start at the same token index; stable sort left the zero-width
+         entry second, so §8's wider replacement jumped over it, silently
+         dropping the blank line (a forward-pass bug, not just
+         idempotency). Fixed by sorting equal-`start` zero-width entries
+         first. Bugs 2+3 combined into fixture
+         `real_code_regressions_79_{inp,out}.py`.
 
-      **Final numbers (after all four fixes, full 83-file corpus,
-      re-cloned-fresh directories to avoid a `/tmp/round1`-name collision
-      with a concurrently-running JS/TS dogfood session — always use a
-      dedicated scratchpad subdir, never the bare name other jobs also
-      use):** forward pass zero crashes; `diff -r round1 round2` **empty**
-      (clean idempotency, 83/83); `python3.12 -m py_compile` clean on all 83
-      round1 files (python3.6 is NOT viable for this repo — flask's own
-      source uses the walrus operator and `from __future__ import
-      annotations`, both post-3.6 syntax, so python3.6 falsely reports
-      syntax errors unrelated to the formatter); AST-diff (new
-      `python_content_diff.py`, see below) clean on all 83 files **after manual
-      triage of 9 initial reports** — every one of those 9 was the §3
-      import-sort pass legitimately reordering `from X import name` sibling
-      statements (verified by comparing each file's own set of imported
-      `(module, name, asname)` tuples pre/post format — identical sets, only
-      statement order differs, which is §3's documented, intentional
-      behavior), not corruption; zero true AST-shape mismatches (i.e. zero
-      indentation/scoping corruption) found. `make test`: 128/128 forward +
-      128/128 idempotency after the final fixture additions.
+      **Final numbers (after all four fixes, full 83-file corpus):**
+      zero crashes; `diff -r round1 round2` empty (83/83); `python3.12 -m
+      py_compile` clean on all 83 (python3.6 NOT viable — flask uses
+      walrus/`from __future__ import annotations`, post-3.6 syntax); new
+      `python_content_diff.py` (see "Dogfood Tooling" below) clean on all
+      83 after manually triaging 9 initial reports, all §3 import-reorder
+      false positives (verified via each file's `(module, name, asname)`
+      tuple set being unchanged) — zero true AST-shape mismatches. `make
+      test`: 128/128 forward + 128/128 idempotency.
 
-      New tool: `python_content_diff.py` (see "Dogfood Tooling" below).
+      **`pallets/click` — DONE.** 78 `.py` files (fresh clone `/tmp/click`).
+      Zero crashes on forward pass.
 
-      **`pallets/click` — DONE.** 78 `.py` files processed (fresh clone,
-      `/tmp/click`; no existing checkout found in `/tmp`/scratchpad from a
-      prior session). Zero crashes on the forward pass.
-
-      **One real bug found and fixed, via non-idempotency
-      (`diff -rq round1 round2`):** `ScopePipelineIndent
-      .applyBracketPadding` (§4's decorator recursive bracket-padding)
-      couldn't distinguish an f-string field's own `{`/`}` (plain PUNCT,
-      same token shape as a dict/set literal brace) from an actual dict/set
-      literal, padding an f-string field nested in a decorator's lambda
-      default argument as an always-loose brace pair — found in
-      `tests/test_basic.py`'s `@click.custom_version_option(lambda ctx:
-      f"{ctx.info_name} 1.0")`, which became `f"{ ctx.info_name }"` on the
-      forward pass; §5's own f-string spacing pass then trimmed that gap
-      back on the *next* round, so the bug only surfaced as
-      non-idempotency. Fixed by skipping a `{`/`}` pair in
-      `applyBracketPadding` whenever `{` is immediately preceded by
+      **One bug found via non-idempotency:** `ScopePipelineIndent
+      .applyBracketPadding` (§4) couldn't distinguish an f-string field's
+      own `{`/`}` from an actual dict/set literal, padding an f-string
+      nested in a decorator's lambda default arg (`tests/test_basic.py`'s
+      `@click.custom_version_option(lambda ctx: f"{ctx.info_name} 1.0")` →
+      `f"{ ctx.info_name }"` on forward pass; §5 trimmed it back next
+      round, so it only surfaced as non-idempotency). Fixed by skipping a
+      `{`/`}` pair whenever `{` is immediately preceded by
       `FSTRING_START`/`FSTRING_MIDDLE`. Fixture
       `real_code_regressions_80_{inp,out}.py`.
 
-      **Final numbers:** forward pass zero crashes; `diff -rq round1 round2`
-      **empty** (clean idempotency, 78/78) after the fix; `python3.12 -m
-      py_compile` clean on all 78 round1 files (same as the 78 unmodified
-      originals — zero new syntax errors); semantic sanity check beyond
-      syntax: the formatted package imports cleanly
-      (`PYTHONPATH=.../src python3.12 -c "import click"`, prints version
-      `8.4.0` with only click's own unrelated deprecation warning), and a
-      representative slice of click's own pytest suite run against the
-      formatted package (`tests/test_basic.py` — the exact file the bug was
-      found in — plus `test_arguments.py`/`test_options.py`) passed 857/857;
-      the full `tests/` run was not completed (timed out past 120s on what
-      looks like an interactive/terminal-waiting test, unrelated to this
-      job's formatting output) and was not chased further per the "don't be
-      a time sink" guidance — the targeted subset already exercises the
-      exact regression found. `make test`: 129/129 forward + 129/129
-      idempotency after the fixture addition.
+      **Final numbers:** zero crashes; idempotency empty (78/78) after fix;
+      `python3.12 -m py_compile` clean (same as 78 unmodified originals);
+      formatted package imports cleanly (`import click`, version `8.4.0`);
+      a representative pytest subset (`test_basic.py` — where the bug was
+      found — plus `test_arguments.py`/`test_options.py`) passed 857/857
+      (full `tests/` run not completed, timed out on an unrelated
+      interactive test, not chased further). `make test`: 129/129 forward
+      + 129/129 idempotency.
 
       **`psf/black` — DONE.** Fresh clone (`/tmp/black`), 338 `.py` files
-      (`src/`, `tests/` incl. `tests/data/`'s curated formatting-edge-case
-      corpus, `scripts/`). No dedicated syntax-checker tool beyond
-      `python3.12 -m py_compile` and this job's own `python_content_diff.py`.
+      (`src/`, `tests/` incl. `tests/data/`'s curated edge-case corpus,
+      `scripts/`).
 
-      **Forward pass: 1 crash (337/338 formatted) — FIXED.**
+      **Forward pass: 1 crash (337/338) — FIXED.**
       `tests/data/cases/pep_701.py` threw `IndexOutOfBoundsException` from
       `ScopePipelineIndent.processField`/`applyFStringSpacing`. Minimal
       repro: `f"{1}\{{"`. Root cause: `TokenizerIndent.emitFString`'s
-      backslash-escape handling always skipped 2 chars (backslash + next),
-      including when next was `{`/`}`, orphaning the second `{` of a
-      doubled-brace escape right after a field close, so `processField`
-      scanned off the end of the token list. Verified against real CPython
-      semantics first (`f"\{y}"` → real field; `f"{1}\{{"` → `'1\{'`, no
-      dangling field). Fixed: only skip the backslash itself (1 char) when
-      followed by `{`/`}`, so that char is re-evaluated fresh as a new
-      field-open or brace-escape half; other escapes (`\"`, `\\`, `\n`)
-      unchanged. `make test` 163/163 forward + 163/163 idempotency (up
-      from 162/162). Fixture: `real_code_regressions_114_{inp,out}.py`
-      (identity-pass — proves the crash is gone, not a rendering change).
+      backslash-escape handling always skipped 2 chars even when next was
+      `{`/`}`, orphaning the second `{` of a doubled-brace escape right
+      after a field close. Verified against real CPython semantics
+      (`f"\{y}"` → real field; `f"{1}\{{"` → `'1\{'`, no dangling field).
+      Fixed: only skip the backslash itself when followed by `{`/`}`, so
+      that char is re-evaluated fresh. `make test` 163/163 forward +
+      163/163 idempotency. Fixture: `real_code_regressions_114_{inp,out}.py`
+      (identity-pass).
 
       **Round2 idempotency (337 files): 3/337 differed — 2 bugs, both
       fixed in a follow-up session:**
-
       1. **§7/§8 join-then-align ordering.** Block-form `match`/`case`
-         skips §7's colon-alignment on round1 (block-form present), then
-         §8 joins each case's single-statement body onto its header line;
-         round2 sees the now-compact form and applies column alignment
-         round1 never had. Affected: `tests/data/cases/
-         pattern_matching_simple.py`, `tests/data/line_ranges_formatted/
-         pattern_matching.py`. FIXED: `ScopePipelineIndent.classifyCaseLine`
-         gained `tryQualifyJoinBody` to predict within the same pass
-         whether a case will qualify for §8's join, so `flushCaseGroup`
-         bakes correct `:`-column padding into one combined `Replacement`
-         up front instead of leaving it for a later round to (wrongly) pad.
-         `applyCaseColonAlignment`'s grouping loop must skip each
-         virtualJoin case's own body `RawLine` when scanning for
-         contiguous headers (else its `null` classification prematurely
-         broke groups into singletons). `applySingleStatementBody` skips
-         headers already handled by §7 (`caseJoinAlignedHeaders`) to avoid
-         a duplicate, unpadded replacement. If §7's padding would push a
-         joined line past `line-length`, the whole group falls back to
-         §8's plain unpadded join. Fixture
-         `real_code_regressions_115_{inp,out}.py`. `make test`: 164/164
-         forward + 164/164 idempotency.
-
+         skips §7's colon-alignment on round1, then §8 joins each case
+         body onto its header; round2 sees the now-compact form and
+         applies column alignment round1 never had. Affected:
+         `tests/data/cases/pattern_matching_simple.py`,
+         `tests/data/line_ranges_formatted/pattern_matching.py`. FIXED:
+         `classifyCaseLine` gained `tryQualifyJoinBody` to predict within
+         the same pass whether a case will qualify for §8's join, so
+         `flushCaseGroup` bakes correct `:`-column padding up front;
+         `applyCaseColonAlignment`'s grouping must skip each virtualJoin
+         case's own body line; `applySingleStatementBody` skips headers
+         already handled by §7; if §7's padding would push past
+         `line-length`, the group falls back to §8's plain unpadded join.
+         Fixture `real_code_regressions_115_{inp,out}.py`. `make test`:
+         164/164 forward + 164/164 idempotency.
       2. **§6 multi-line union-type-hint gap violated + unbounded
          trailing-whitespace growth.** `tests/data/cases/
          pep604_union_types_line_breaks.py`: a `|`-union type wrapped
-         across lines with no enclosing bracket has each `| TypeN`
-         continuation misclassified as its own top-level parameter (§6's
-         fold-back only triggers when a nested bracket keeps `localDepth`
-         > 0 across the continuation) — padding on the phantom `:`/`=`
-         column then grows every round, confirmed non-convergent over 3
-         rounds. FIXED: `classifySignatureParam` now rejects any segment
-         whose first token isn't a valid parameter start (`IDENTIFIER`, or
-         `*`/`**`/`/`); a leading `|` means it's a continuation, not a
-         parameter, so `trySignatureGroup` returns null and the whole
-         signature is left untouched per §6's own documented gap. Fixture
-         `real_code_regressions_116_{inp,out}.py` (identity-pass). `make
-         test`: 165/165 forward + 165/165 idempotency.
+         across lines with no enclosing bracket had each `| TypeN`
+         continuation misclassified as its own parameter, growing padding
+         every round (confirmed non-convergent over 3 rounds). FIXED:
+         `classifySignatureParam` now rejects any segment whose first
+         token isn't a valid parameter start (`IDENTIFIER`, or
+         `*`/`**`/`/`); a leading `|` means continuation not parameter, so
+         the whole signature is left untouched per §6's documented gap.
+         Fixture `real_code_regressions_116_{inp,out}.py` (identity-pass).
+         `make test`: 165/165 forward + 165/165 idempotency.
 
       **`python3.12 -m py_compile` on all 337 round1 files:** clean except
-      one pre-existing failure, `tests/data/cases/
-      trailing_comma_optional_parens3.py` (`SyntaxError: 'return' outside
-      function` on both the unmodified original and round1 output — a
-      deliberately-invalid black test fixture, not a formatter bug).
+      one pre-existing failure (`tests/data/cases/
+      trailing_comma_optional_parens3.py`, present identically on the
+      unmodified original — a deliberately-invalid black test fixture).
 
-      **`python_content_diff.py` on all 337 round1 files: 22 mismatches** — 13
-      are the already-documented §3 import-reorder false positive (same
-      shape as the `pallets/flask` run's; not re-verified tuple-by-tuple
-      this session); 8 are `rc=2` parse failures on fixture files that are
-      themselves deliberately invalid or use post-3.12 syntax (expected,
-      not independently re-confirmed per-file this session — flagged for a
-      future session to do so the same way `trailing_comma_optional_
-      parens3.py` was confirmed above); **2 are genuine content-corruption
-      bugs, both in `ScopePipelineIndent.applyFStringSpacing`'s
-      `addBraceTrim` (§5) — FIXED (follow-up session):**
-      - **(a) Nested-brace field fusion.** A field immediately followed by
-        a nested `{` (e.g. a set/dict comprehension as the field's own
-        expression, `f"{ {a for a in (1, 2, 3)}}"`) had its close-gap
-        trimmed to zero, fusing with the following literal `{{` into an
-        escaped-brace run and silently deleting the nested expression
-        (`ast.dump` confirmed the node is gone, not just a spacing change).
-        Repro: `tests/data/cases/fstring.py` line 8. Fixed: `addBraceTrim`
-        now normalizes that gap to exactly one space whenever the next
-        significant token's text is `{`, so the two braces can never fuse.
+      **`python_content_diff.py` on all 337 round1 files: 22 mismatches** —
+      13 are the §3 import-reorder false positive; 8 are `rc=2` parse
+      failures on deliberately-invalid/post-3.12-syntax fixtures (expected,
+      not re-confirmed per-file); **2 are genuine content-corruption bugs,
+      both in `applyFStringSpacing`'s `addBraceTrim` (§5) — FIXED
+      (follow-up session):**
+      - **(a) Nested-brace field fusion.** A field followed by a nested
+        `{` (e.g. `f"{ {a for a in (1, 2, 3)}}"`) had its close-gap trimmed
+        to zero, fusing with the following literal `{{` and silently
+        deleting the nested expression (`ast.dump` confirmed the node is
+        gone). Repro: `tests/data/cases/fstring.py` line 8. Fixed:
+        `addBraceTrim` normalizes that gap to exactly one space whenever
+        the next significant token's text is `{`.
       - **(b) Self-documenting `{expr=}` debug fields.** The leading gap
         was trimmed even though Python reproduces `expr`'s exact original
         whitespace verbatim at runtime for a `=`-suffixed field. Repro:
         `tests/data/cases/preview_long_strings.py` line 327. Fixed:
-        `addBraceTrim` now detects a bare trailing `=` (a lone 1-char `=`
-        OP token — every comparison/augmented-assignment/walrus operator
-        tokenizes as its own distinct multi-char OP token, so this can't
-        misfire) as the field's own last significant token and skips all
-        gap-trimming for that field.
+        `addBraceTrim` detects a bare trailing `=` OP token as the field's
+        last significant token and skips all gap-trimming for that field.
 
-      Both verified via `python_content_diff.py` (structurally identical to
-      originals) and 2-round idempotency (true no-ops). Combined into one
-      fixture, `real_code_regressions_117_{inp,out}.py` (identity-pass,
-      both bugs live in the same method). `make test`: 166/166 forward +
-      166/166 idempotency.
+      Both verified via `python_content_diff.py` and 2-round idempotency.
+      Combined into `real_code_regressions_117_{inp,out}.py`
+      (identity-pass, both bugs live in the same method). `make test`:
+      166/166 forward + 166/166 idempotency.
 
-      **All four `psf/black` dogfood bugs are now fixed.** A full corpus
-      re-run was deliberately deferred (338 files, already-substantial
-      wall-clock cost on the first pass) — each fix was independently
-      verified against its own exact minimal repro plus AST-diff/
-      idempotency, and `make test`'s full suite stayed green throughout
-      with no regressions, judged sufficient confidence for now per the
-      same "don't be a time sink" precedent as `click`'s own full-suite
-      decision. A future session may still re-run the full corpus if
-      further confidence is wanted.
+      **All four `psf/black` bugs now fixed;** a full 338-file corpus
+      re-run was deliberately deferred (each fix independently verified
+      against its own repro plus AST-diff/idempotency; `make test` stayed
+      green throughout) — a future session may still re-run the full
+      corpus for further confidence.
 
       **`django/django` — DONE.** Reused existing checkout at `/tmp/django`
-      (2927 `.py` files, full tree, no exclusions — `django/`, `tests/`,
-      `docs/` etc.). Batch-formatted in one `xargs` invocation each round
-      (`--preserve-tree --root /tmp/django --out <scratch>/round1`, then
-      `--root <scratch>/round1 --out <scratch>/round2`). Zero crashes on the
-      forward pass.
+      (2927 `.py` files, full tree). Batch-formatted in one `xargs`
+      invocation per round (`--preserve-tree --root /tmp/django --out
+      <scratch>/round1`, then `--root <scratch>/round1 --out
+      <scratch>/round2`). Zero crashes on forward pass.
 
-      **One real bug found and fixed, via non-idempotency
-      (`diff -rq round1 round2`), but actually content corruption on the
-      forward pass itself (idempotency was just how it surfaced):**
-      `django/utils/json.py`'s `case Sequence():  # str and bytes were
-      already handled.` — a §8 single-statement-body `match`/`case` header
-      carrying its own trailing comment still qualified for the join (only
-      a *body* trailing comment was guarded against, not a *header* one).
-      `applySingleStatementBody`'s `headerText` construction
-      (`verbatimLineText(tokens, header.start, colonIdx + 1)`) stops at the
-      header's own `:`, so the comment was silently deleted on the forward
-      pass (round1 already lost it, not just round2) — genuine data loss,
-      not merely a rendering choice. Root cause: `classifySingleStatement
-      HeaderColon`'s `if`/`elif`/`while`/`for` loop and `classifyCaseLine`'s
-      own compact/`virtualJoin` computation both explicitly *permitted* a
-      trailing `COMMENT_LINE` after the header colon to still count as
-      qualifying (only text besides a trailing comment disqualified), with
-      no corresponding "don't lose it" step at join time. Fixed:
+      **One bug found via non-idempotency, but actual content corruption on
+      the forward pass itself:** `django/utils/json.py`'s `case
+      Sequence():  # str and bytes were already handled.` — a §8
+      single-statement-body `match`/`case` header carrying its own
+      trailing comment still qualified for the join (only a *body*
+      trailing comment was guarded against, not a *header* one).
+      `applySingleStatementBody`'s `headerText` construction stops at the
+      header's own `:`, silently deleting the comment on the forward pass
+      itself (genuine data loss). Root cause:
+      `classifySingleStatementHeaderColon`'s loop and `classifyCaseLine`'s
+      compact/`virtualJoin` computation both explicitly permitted a
+      trailing comment after the header colon to still qualify, with no
+      corresponding "don't lose it" step at join time. Fixed:
       `classifySingleStatementHeaderColon` now returns `-1` immediately on
       any header trailing comment; `classifyCaseLine` tracks
       `headerHasTrailingComment` separately from `compact` and never sets
-      `virtualJoin` when it's true; `classifySingleStatementHeaderColon`'s
-      own `case` delegation now additionally requires `c.virtualJoin` (not
-      just `!c.compact`) before returning a joinable `colonIdx`, since only
-      `virtualJoin` encodes the "no header comment" guarantee. Both changes
-      mirror the join's existing conservative posture for a *body*
-      statement's own trailing comment (`containsComment` in
-      `tryQualifyJoinBody`) — same treatment, just on the header side, which
-      had been missed. Fixture `real_code_regressions_127_{inp,out}.py`
-      (reproduces both the header-with-comment block-form-preserved case
-      and an adjacent comment-free header still correctly joining, so the
-      fixture also guards against a regression that disables joining
-      entirely). `make test`: 176/176 forward + 176/176 idempotency.
+      `virtualJoin` when true; the `case` delegation now additionally
+      requires `c.virtualJoin` before returning a joinable `colonIdx` —
+      mirrors the join's existing conservative posture for a *body*
+      trailing comment (`containsComment` in `tryQualifyJoinBody`), just
+      applied on the header side where it had been missed. Fixture
+      `real_code_regressions_127_{inp,out}.py` (also guards against
+      disabling joining entirely). `make test`: 176/176 forward + 176/176
+      idempotency.
 
       **Final numbers (after the fix, full 2927-file corpus, freshly
-      re-run):** forward pass zero crashes; `diff -rq round1 round2`
-      **empty** (clean idempotency, 2927/2927); `python3.12 -m py_compile`
-      on all 2927 round1 files: exactly one syntax error,
-      `tests/test_runner_apps/tagged/tests_syntax_error.py` (`invalid
-      decimal literal` on line 11) — present identically on the unmodified
-      original (a deliberately-invalid test fixture within django's own
-      test suite, not a formatter-induced error); zero new errors.
-      `python_content_diff.py` across all 2927 files: 1 `rc=2` (the same
-      deliberately-invalid fixture, expected parse failure on both sides)
-      and 41 `rc=1` AST-diff mismatches, all 41 confirmed via the
-      documented triage method (comparing each file's own set of imported
-      `(module, name, asname)` tuples pre/post format) to be solely §3's
-      import-sort reordering — zero true AST-shape mismatches, zero
-      remaining content-corruption findings after the one fix above.
+      re-run):** zero crashes; idempotency empty (2927/2927);
+      `python3.12 -m py_compile`: exactly one syntax error
+      (`tests/test_runner_apps/tagged/tests_syntax_error.py`, present
+      identically on the unmodified original — deliberately-invalid test
+      fixture, not formatter-induced); `python_content_diff.py`: 1 `rc=2`
+      (same deliberately-invalid fixture) and 41 `rc=1` AST-diff
+      mismatches, all confirmed via the documented triage method to be
+      solely §3's import-sort reordering — zero true AST-shape mismatches
+      remaining after the one fix above.
 
       `python/cpython` — still not started.

@@ -2026,127 +2026,97 @@ Real-code regressions:
                                              the existing `hasBreakableCall` check. See
                                              `STATE_C_CPP_JAVA.md`.
 
-  real_code_regressions_125_inp/out.html  -- HTML5, `apache/ant` `manual/` dogfood, 2 bugs in one
-                                             fixture: (1) a `<p>` with no explicit `</p>` before a
-                                             following block-level sibling (`<h3>`) made the parser
-                                             swallow the rest of the document as that `<p>`'s
-                                             children until the first unrelated closing tag anywhere
-                                             downstream, producing a spurious duplicate `</p>` at
+  real_code_regressions_125_inp/out.html  -- HTML5, `apache/ant` `manual/` dogfood, 2 bugs: (1) a
+                                             `<p>` with no explicit `</p>` before a following
+                                             block-level sibling (`<h3>`) swallowed the rest of the
+                                             document as its children until an unrelated downstream
+                                             closing tag, producing a spurious duplicate `</p>` at
                                              EOF -- fixed by registering `p` in
-                                             `XmlSpecificRule.IMPLIED_CLOSE_TRIGGERS` with the
-                                             HTML5 spec's fixed "close a p element" trigger-tag list
-                                             (RDD_KEY_204). (2) a same-line trailing comment
-                                             immediately after a `<td>`'s sole text child (e.g.
-                                             `<td>text<!-- c --></td>`) was silently dropped -- the
-                                             comment was correctly attached as the text node's
-                                             `trailingComment`, but two separate render paths never
-                                             consulted it: the `TEXT` case in `renderNode`, and
-                                             `renderElement`'s "sole content child" inline fast path
-                                             (which reads `onlyChild.raw` directly, bypassing
-                                             `renderNode`) -- both fixed (RDD_KEY_205). See
-                                             `STATE_DATA_FORMATS.md`.
+                                             `XmlSpecificRule.IMPLIED_CLOSE_TRIGGERS` per the HTML5
+                                             spec's "close a p element" trigger-tag list
+                                             (RDD_KEY_204). (2) a same-line trailing comment after a
+                                             `<td>`'s sole text child (e.g. `<td>text<!-- c --></td>`)
+                                             was silently dropped -- attached correctly as the text
+                                             node's `trailingComment`, but two render paths
+                                             (`renderNode`'s `TEXT` case, and `renderElement`'s
+                                             "sole content child" fast path reading `onlyChild.raw`
+                                             directly) never consulted it; both fixed (RDD_KEY_205).
+                                             See `STATE_DATA_FORMATS.md`.
 
   real_code_regressions_126_inp/out.java  -- Java, `apache/ant` `src/` dogfood: a braced
                                              single-statement `if` body that is itself a local
                                              variable declaration (`final boolean ignored =
                                              f.setWritable(true);`) was collapsed to a braceless
-                                             `if`, which javac rejects ("variable declaration not
-                                             allowed here") since a declaration is not a legal
-                                             braceless if/while/for body -- fixed by refusing
+                                             `if`, which javac rejects (a declaration is not a legal
+                                             braceless if/while/for body) -- fixed by refusing
                                              collapse in `BlockStructureRule.isSingleStatementBody`
                                              whenever the body's first token is `final`/`const`.
                                              See `STATE_C_CPP_JAVA.md`.
 
   real_code_regressions_127_inp/out.py    -- Python3, `django/django` real-code dogfood: a §8
-                                             single-statement-body `match`/`case` header carrying
-                                             its own trailing comment (e.g. `case Sequence():  #
-                                             str and bytes were already handled.`) qualified for
-                                             joining with its body line, but the join's `headerText`
-                                             only spanned up to the header's own `:`, silently
-                                             deleting the comment -- real content loss, not just a
-                                             non-idempotency symptom (surfaced as one in `diff -rq
-                                             round1 round2` since round2 no longer had the comment
-                                             to drop). Fixed in `ScopePipelineIndent`:
-                                             `classifySingleStatementHeaderColon`'s `if`/`elif`/
-                                             `while`/`for` loop and `classifyCaseLine`'s own
-                                             compact/`virtualJoin` computation both now bail
-                                             (never qualify for the join) whenever a trailing
-                                             comment follows the header's `:`, mirroring the
-                                             existing conservative skip already applied to a body
-                                             statement's own trailing comment. See
-                                             `STATE_PYTHON3.md`'s `django/django` dogfood entry.
+                                             single-statement-body `match`/`case` header with its own
+                                             trailing comment (e.g. `case Sequence():  # str and
+                                             bytes were already handled.`) qualified for joining with
+                                             its body line, but the join's `headerText` only spanned
+                                             up to the header's `:`, silently deleting the comment --
+                                             real content loss (surfaced via `diff -rq round1 round2`
+                                             since round2 no longer had the comment to drop). Fixed
+                                             in `ScopePipelineIndent`:
+                                             `classifySingleStatementHeaderColon` and
+                                             `classifyCaseLine` both now bail from the join whenever a
+                                             trailing comment follows the header's `:`, mirroring the
+                                             existing skip for a body statement's own trailing
+                                             comment. See `STATE_PYTHON3.md`'s `django/django` entry.
 
-  real_code_regressions_128_inp/out.java  -- Java, `openrewrite/rewrite` dogfood, 2 bugs sharing
-                                             one root-cause shape (a fits-in-`line-length`
-                                             prediction made before a later width-growing pass ran,
-                                             so it agreed with reality on a fresh format but not on
-                                             a reformat of already-formatted output): (a)
-                                             `JavaSpecificRule.isSingleLineBody`'s overflow
-                                             prediction measured a tab-indented one-liner's leading
-                                             indent via raw `String.length()` (1 char per tab)
-                                             instead of its expanded post-conversion width, so a
-                                             one-liner method whose true width only exceeds
-                                             `line-length` once its 2-tab indent expands to 8 spaces
-                                             wrongly predicted "fits" and stayed K&R on round1, then
-                                             correctly predicted "too long" once round1's own
-                                             `enforceCallLineBreaking` pass had already wrapped the
-                                             body across multiple physical lines, flipping to Allman
-                                             on round2 -- fixed by adding a local
-                                             `expandedIndentWidth` helper (same tab-expansion
-                                             formula as `MiscRuleCore`'s) and using it in the width
-                                             check. (b) `enforceInitializerBraceSpacing`'s loose
-                                             `{ x }` initializer-brace padding ran in Phase 4, after
-                                             `enforceCallLineBreaking` had already measured/decided
-                                             not to wrap, so an annotation argument like
-                                             `@RequiredArgsConstructor(onConstructor_ =
-                                             {@JsonCreator(...)})` sitting just under `line-length`
-                                             stayed one line on round1, but grew past the limit once
-                                             its `{...}` was padded to `{ ... }` with no further
-                                             re-check, wrapping on round2 -- fixed by pulling a
-                                             second `enforceInitializerBraceSpacing` call forward to
-                                             run right before `enforceCallLineBreaking` (same
-                                             pull-forward pattern already used for
-                                             `enforceComplexityPadding`/
+  real_code_regressions_128_inp/out.java  -- Java, `openrewrite/rewrite` dogfood, 2 bugs sharing one
+                                             root-cause shape (a fits-in-`line-length` prediction made
+                                             before a later width-growing pass ran, so it agreed with
+                                             reality on a fresh format but not on a reformat of
+                                             already-formatted output): (a)
+                                             `JavaSpecificRule.isSingleLineBody`'s overflow prediction
+                                             measured a tab-indented one-liner's leading indent via
+                                             raw `String.length()` instead of expanded width, so a
+                                             one-liner whose true width only exceeds `line-length`
+                                             once tabs expand wrongly predicted "fits" and stayed K&R
+                                             on round1, then flipped to Allman on round2 once
+                                             `enforceCallLineBreaking` had already wrapped it -- fixed
+                                             with a local `expandedIndentWidth` helper (same formula
+                                             as `MiscRuleCore`'s). (b)
+                                             `enforceInitializerBraceSpacing`'s Phase-4 `{ x }`
+                                             padding ran after `enforceCallLineBreaking` had already
+                                             decided not to wrap, so an annotation argument just under
+                                             `line-length` grew past it once padded, wrapping only on
+                                             round2 -- fixed by pulling a second
+                                             `enforceInitializerBraceSpacing` call forward to run
+                                             right before `enforceCallLineBreaking` (same pull-forward
+                                             pattern as `enforceComplexityPadding`/
                                              `enforceAttributeAndSpliceBracketPadding`), leaving the
                                              original Phase 4 call in place too. See
-                                             `STATE_C_CPP_JAVA.md`'s `openrewrite/rewrite` dogfood
-                                             entry.
+                                             `STATE_C_CPP_JAVA.md`'s `openrewrite/rewrite` entry.
 
   real_code_regressions_129_inp/out.java  -- Java, `openrewrite/rewrite` dogfood
-                                             (`rewrite-benchmarks`'s `MethodMatcherBenchmark.java`
-                                             and 7 sibling files), a `.map(name -> { ... if/else-if
-                                             chain ... })` lambda body whose `if`/`else if`/`else`
-                                             branches render on their own lines on a fresh format but
-                                             fully join onto one giant physical line on a reformat of
-                                             that same output -- a genuine non-fixed-point flap, not
-                                             the same root cause as `real_code_regressions_128`'s
-                                             fits-prediction-before-a-later-pass shape despite the
-                                             superficial resemblance. Root cause:
+                                             (`rewrite-benchmarks`'s `MethodMatcherBenchmark.java` and
+                                             7 siblings): a `.map(name -> { ... if/else-if chain ... })`
+                                             lambda's branches render on their own lines on a fresh
+                                             format but fully fuse onto one line on a reformat -- a
+                                             genuine non-fixed-point flap, distinct from _128's
+                                             fits-prediction-before-a-later-pass shape despite looking
+                                             similar. Root cause:
                                              `BlockStructureRule.collapseSingleExpressionBlocks`'s
-                                             per-branch newline before a chain's next `else` is only
-                                             ever inserted as a side effect of that same pass
-                                             collapsing a braced `if`/`else if` body to braceless
-                                             (`appendChainNewlineBeforeElse`, called right after
-                                             `tryCollapse`); once a body arrives already braceless
-                                             (as it does on a second pass, fed round1's own already-
-                                             collapsed output), there was no brace left to re-collapse
-                                             and thus no newline re-inserted, and
+                                             per-branch newline before a chain's next `else`
+                                             (`appendChainNewlineBeforeElse`) was only ever inserted as
+                                             a side effect of collapsing a *braced* if/else-if body; an
+                                             already-braceless body (as fed on round2) left no brace to
+                                             re-collapse, so no newline was re-inserted, and
                                              `ScopePipelineCurly`'s declaration/assignment-RHS pass
-                                             (which has no multi-line-render path and always joins a
-                                             declaration's whole initializer back onto one line) had
-                                             already erased whatever newlines the previous round's
-                                             output had, leaving the whole chain fused. Fixed by
-                                             adding a C/C++/Java sibling of the already-existing
-                                             Kotlin "already-braceless multi-line body" branch: when
-                                             `matchControlBlock` finds a braceless `if`/`else if`
-                                             body, the branch's own text is now copied through
-                                             verbatim (new `findBracelessStatementEnd` helper locates
-                                             its top-level terminating `;`) and
-                                             `appendChainNewlineBeforeElse` is still invoked
-                                             afterward, so the per-branch newline survives a second
-                                             format pass the same way it's produced on the first. See
-                                             `STATE_C_CPP_JAVA.md`'s `openrewrite/rewrite` dogfood
-                                             entry.
+                                             (always joins an initializer back onto one line) then
+                                             fused the whole chain. Fixed by adding a C/C++/Java
+                                             sibling of the existing Kotlin "already-braceless
+                                             multi-line body" branch: `matchControlBlock` now copies a
+                                             braceless if/else-if body through verbatim (new
+                                             `findBracelessStatementEnd` helper) and still invokes
+                                             `appendChainNewlineBeforeElse` afterward. See
+                                             `STATE_C_CPP_JAVA.md`'s `openrewrite/rewrite` entry.
 
 How Tests Are Run
 -----------------

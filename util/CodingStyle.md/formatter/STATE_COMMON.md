@@ -507,3 +507,31 @@ narrow passes:**
 - Expect this to be the single riskiest change ever made to this
   formatter's core; budget for it accordingly rather than treating it as
   an incremental fix.
+
+### Project refactoring/cleanup pass (not started — schedule after angular/cpython dogfood)
+
+After `angular/angular` and `python/cpython` dogfood runs (the last
+remaining "cheap-ish" novel-shape corpora before the rest of each job's
+test-fixture-repo list crosses ~1000 kLOC and real-code-testing cycle time
+grows substantially), consider a dedicated cleanup pass across jobs rather
+than immediately starting the next >1000 kLOC candidate. Candidate scope:
+
+- Sweep each job's "Known Gaps" sections (`STATE_C_CPP_JAVA.md`,
+  `STATE_PYTHON3.md`, etc.) for ACCEPTED-not-fixed items that may now be
+  cheaper to actually fix given everything learned since — do not treat
+  "accepted" as permanent without re-checking.
+- Check for duplicated helper logic that accreted independently across the
+  `*Curly`/`*Indent`/`*Tags` class split (see this file's "Class Refactor"
+  section) now that several jobs (Python3, JS/TS, data formats) have each
+  landed real logic in their own `*Indent`/`*Tags` classes — some of what
+  was written bespoke per-job may now warrant promotion to a shared
+  helper, the same way `TokenizerCurly`'s `MULTI_CHAR_OPS` pattern was
+  independently re-derived per job.
+- Re-read each job's STATE_*.md for stale/contradictory notes now that
+  compaction passes have happened (e.g. 2026-07-26's compaction of
+  `STATE_C_CPP_JAVA.md`/`STATE_PYTHON3.md`/`test/README.txt`) — verify
+  compacted prose didn't silently drop a still-relevant caveat.
+
+This is intentionally scoped as housekeeping, not a rewrite — do not let it
+grow into an attempt at the "General scope-depth reindentation" item above;
+that stays its own separate, dedicated, much riskier future job.

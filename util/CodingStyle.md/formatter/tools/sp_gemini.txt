@@ -1,0 +1,81 @@
+cpp YES 0 auto parts arrive quickly
+c NO 0 break statements exit loops early
+java YES 0 case numbers differ
+python NO 0 char buffers safely store raw bytes
+js YES 0 const bindings always stay strictly fixed
+cpp NO 0 continue skips iterations
+c YES 0 default settings apply here
+java NO 0 do loops run at least once
+python NO 0 double vision sometimes hurts badly
+js NO 0 else branches catch fallback faults
+cpp YES 0 enum constants map unique values
+c NO 0 extern linkage successfully resolves external symbols
+java YES 0 float precision remains quite limited
+python NO 0 for loops efficiently iterate sequences
+js NO 0 goto jumps often feel messy
+cpp NO 0 if branches check boolean conditions
+c YES 0 inline functions greatly boost execution speed
+java YES 0 int storage securely holds integer numbers
+python YES 0 long strings consume excessive memory
+js NO 0 register hints significantly improve runtime performance
+c YES 3 check the build log.
+cpp NO 2 process data etc.
+java YES 4 run all unit tests today.
+python NO 3 check technical footnotes viz.
+js YES 5 parse incoming json payload completely now.
+cpp NO 2 handle errors etc.
+c YES 5 configure environment variables before starting execution.
+java NO 2 consult manual vol.
+python YES 5 download required packages very quickly now.
+js NO 2 review items etc.
+cpp YES 6 compile source code safely without any errors.
+c NO 2 check references cf.
+java YES 6 deploy application to production server safely today.
+python NO 2 update records etc.
+js YES 5 fetch remote data sources asynchronously now.
+cpp NO 2 see section cf.
+c YES 4 write comprehensive unit tests daily.
+java NO 2 read chapter approx.
+python YES 6 analyze performance metrics across all modules thoroughly.
+js NO 2 open issues etc.
+
+c YES 0 restrict input data
+cpp NO 0 return zero on success
+java YES 0 short helper functions
+python NO 0 signed integers overflow easily
+js YES 0 sizeof checks buffer length
+c NO 0 static variables persist across calls
+cpp YES 0 struct defines object layout
+java NO 0 switch handles multiple states
+python YES 0 typedef aliases simplify types
+js NO 0 union types share memory
+c YES 0 unsigned integers track indices
+cpp NO 0 void functions return nothing
+java YES 0 volatile variables prevent caching
+python NO 0 while loops run infinitely
+js YES 0 alignas ensures memory alignment
+c NO 0 alignof queries data alignment
+cpp YES 0 asm blocks execute fast
+java NO 0 bool variables store flags
+python YES 0 catch blocks handle errors
+js NO 0 char16_t types hold characters
+c YES 2 check status now.
+cpp NO 4 parse items like list etc.
+java YES 3 fetch all active records.
+python NO 4 compare method A vs. B
+js YES 4 clear cache before next run.
+c NO 4 load modules e.g. math here
+cpp YES 5 build project targets with maximum optimization.
+java NO 5 use fast hashing i.e. md5 hashes
+python YES 6 read configuration parameters from local storage files.
+js NO 6 set timeout limit approx. ten seconds
+c YES 7 validate user input fields before database submission steps.
+cpp NO 7 check diagram fig. two for details
+java YES 8 execute automated test suites across multiple virtual environments.
+python NO 8 set timer duration min. five units
+js YES 9 initialize secure network sockets for encrypted client communications properly.
+c NO 9 reach capacity limit max. ten items
+cpp YES 10 allocate dynamic memory pools for high performance graphics rendering pipelines safely.
+java NO 10 read publication vol. three for background
+python YES 11 export compiled binary artifacts to centralized remote deployment servers immediately.
+js NO 11 store backup files misc. data types securely

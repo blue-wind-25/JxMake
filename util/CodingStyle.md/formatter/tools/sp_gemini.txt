@@ -1,396 +1,495 @@
-c YES 0 auto is a car in english
-cpp NO 0 auto x = 5
-char YES 0 char means a character in text
-const NO 0 const int x = 10
-continue YES 0 continue the great journey
-double NO 0 double val = 3.14
-enum YES 0 enum is a list of items
-float NO 0 float x = 2.5f
-goto YES 0 goto the nearest store
-inline NO 0 inline functions are fast
-long YES 0 long walks are relaxing
-register YES 0 register your account today
-return YES 0 return to the castle
-signed YES 0 signed documents are valid
-static NO 0 static int count = 0
-switch YES 0 switch off the lights
-union YES 0 union makes us stronger
-unsigned NO 0 unsigned int x = 5
-volatile NO 0 volatile markets change fast
-alignas YES 0 alignas is a strange word
-asm NO 0 asm volatile block
-catch YES 0 catch the falling star
-char32_t NO 0 char32_t c = u32'a'
-co_await YES 0 co_await the async task
-concept YES 0 concept of time is vast
-constexpr NO 0 constexpr int square = 4
-const_cast YES 0 const_cast changes mutability
-break NO 0 break the glass here
-case YES 0 case closed forever
-const YES 0 const value cannot change
-continue NO 0 continue; loop next
-default YES 0 default settings applied here
-do NO 0 do { x++; } while(x);
-double YES 0 double precision floating point
-else NO 0 else { return 0; }
-extern NO 0 extern int global_var;
-for NO 0 for (int i = 0; i < 10; i++)
-if NO 0 if (x > 0) {
-int NO 0 int main() { return 0; }
-register NO 0 register int reg_var;
-restrict NO 0 int *restrict ptr;
-short NO 0 short buffer overflow risk
-sizeof NO 0 sizeof(int) returns 4
-struct NO 0 struct Point { int x; };
-switch NO 0 switch (val) { case 1: }
-typedef NO 0 typedef unsigned int uint;
-unsigned YES 0 unsigned numbers are positive
-void NO 0 void function() {}
-while NO 0 while (true) { break; }
-alignof NO 0 alignof(double) gives alignment
-class NO 0 class MyClass { public: };
-js YES 2 please check etc.
-js NO 3 call the function vs. method
-ts YES 4 read chapter i.e. page
-ts NO 5 measure using app prox. vs. web
-python YES 4 review notes w/o ref.
-python NO 3 meet on a.m. today
-c YES 5 study physics etc. often
-c NO 4 test case vs. control group
-cpp YES 3 see appendix a.m.
-cpp NO 5 run python script e.g. test
-java YES 4 check manual i.e. section
-java NO 6 match regex pattern vs. literal
-kotlin YES 5 read instructions cf. manual
-kotlin NO 3 process data etc. stream
-js YES 4 review policy w/o ref.
-js NO 5 consult doctor dr. smith
-ts YES 6 check calendar on app approx. noon
-ts NO 3 update list etc. now
-python YES 4 check history i.e. records
-python NO 5 compare design vs. implementation
-c YES 3 read article etc.
-c NO 4 evaluate theory vs. practice
-cpp YES 5 follow instructions cf. guidelines
-cpp NO 4 check schedule a.m. slot
-java YES 6 examine sample data e.g. logs
-java NO 3 update status etc.
-kotlin YES 4 read chapter i.e. notes
-kotlin NO 5 analyze results vs. expectations
-js YES 5 review report w/o ref. today
-js NO 4 check calendar a.m. daily
-ts YES 6 check database entries e.g. users
-ts NO 3 process orders etc.
-python YES 4 read manual i.e. docs
-python NO 5 compare method vs. theory
-c YES 6 review document summary etc. thoroughly
-c NO 4 analyze data vs. theory
-cpp YES 5 check references cf. chapter
-cpp NO 3 update system etc.
-java YES 4 read guide i.e. rules
-java NO 5 test approach vs. alternative
-kotlin YES 6 check system logs e.g. errors
-kotlin NO 4 process queue etc. fast
-js YES 4 review text w/o ref.
-js NO 5 compare result vs. expectation
-ts YES 5 check calendar entries approx. noon
-ts NO 3 update files etc.
-python YES 4 read document i.e. file
-python NO 5 analyze performance vs. cost
+c YES 0 auto variable declaration format
+cpp NO 0 break statement in loop
+java YES 0 case closed by judge
+kotlin NO 0 char literal definition
+js YES 0 const value assignment
+ts NO 0 continue loop iteration
+python YES 0 default parameter value
+c NO 0 do while loop start
+cpp YES 0 double check the lock
+java NO 0 else branch condition
+kotlin YES 0 enum constant listing
+js NO 0 extern function declaration
+ts YES 0 float type precision
+python NO 0 for loop range iterator
+c YES 0 goto meeting room early
+cpp NO 0 if condition evaluation
+java YES 0 inline edit the text
+kotlin NO 0 int value calculation
+js YES 0 long journey ahead today
+ts NO 0 register user account now
+python YES 0 restrict access to files
+c NO 0 return statement exit value
+cpp YES 0 short break time now
+java NO 0 signed integer type definition
+kotlin YES 0 sizeof memory block size
+js NO 0 static class member method
+ts YES 0 struct data layout definition
+python NO 0 switch statement branch selector
+c YES 0 typedef alias name definition
+cpp NO 0 union data structure type
+java YES 0 unsigned number counter value
+kotlin NO 0 void function return type
+js YES 0 volatile memory storage flag
+ts NO 0 while loop iteration block
+python YES 0 alignas memory alignment specifier
+c NO 0 alignof type alignment value
+cpp YES 0 asm inline assembly block
+java NO 0 bool truth value check
+kotlin YES 0 catch exception error block
+js NO 0 char16_t unicode character type
+ts YES 0 char32_t unicode character type
+python YES 0 class object blueprint definition
+c NO 0 co_await asynchronous operation yield
+cpp YES 0 co_return coroutine return value
+java NO 0 co_yield coroutine value emission
+kotlin YES 0 concept template constraint definition
+js NO 0 consteval immediate function execution
+ts YES 0 constexpr compile time expression
+python YES 0 constinit constant initialization rule
+c NO 0 const_cast type qualifier removal
+cpp YES 0 decltype expression type deduction
+java NO 0 delete memory pointer reference
+kotlin YES 0 dynamic_cast safe downcasting operation
+js NO 0 explicit conversion constructor rule
+ts YES 0 export module member definition
+python YES 0 false boolean truth value
+c NO 0 final class inheritance blocker
+cpp YES 0 friend class permission grantor
+java NO 0 mutable member variable modifier
+kotlin YES 0 namespace scope container block
+js NO 0 new object instantiation operator
+ts NO 0 noexcept exception guarantee specifier
+python YES 0 nullptr null pointer literal value
+c NO 0 operator overloading function signature
+cpp YES 0 override virtual function marker
+java NO 0 private access modifier scope
+kotlin YES 0 protected member visibility level
+js NO 0 public interface visibility keyword
+ts NO 0 reinterpret_cast low level type cast
+python YES 0 requires template constraint clause
+c NO 0 static_assert compile time check condition
+cpp YES 0 static_cast standard type conversion
+java YES 0 template generic programming blueprint
+kotlin NO 0 this current object reference
+js YES 0 thread_local storage duration specifier
+ts NO 0 throw exception error object
+python YES 0 true boolean truth value
+c NO 0 try exception handling block
+cpp YES 0 typeid runtime type information
+java NO 0 typename dependent type specifier
+kotlin YES 0 using namespace directive statement
+js NO 0 virtual polymorphic function dispatch
+ts YES 0 wchar_t wide character type
+python NO 0 abstract class inheritance base
+c YES 0 assert condition holds true
+cpp NO 0 boolean flag state indicator
+java YES 0 byte size data storage
+kotlin NO 0 extends parent class reference
+js YES 0 finally cleanup block execution
+ts NO 0 implements interface contract rule
+python YES 0 import module package dependency
+c NO 0 instanceof type check operator
+cpp YES 0 interface abstract method contract
+java NO 0 native code integration method
+kotlin YES 0 package namespace folder group
+js NO 0 permits allowed subclass list
+ts YES 0 record immutable data carrier
+python NO 0 sealed restricted inheritance class
+c YES 0 strictfp floating point modifier
+cpp NO 0 super parent class accessor
+c YES 4 Please submit the report today.
+cpp NO 3 Check config files vs. templates.
+java YES 4 The quick brown fox jumps.
+kotlin NO 3 Review chapter i.e. section two.
+js YES 5 Always write clean and readable code.
+ts NO 3 See reference manual etc. for details.
+python YES 4 Data science is growing very fast.
+c NO 3 Contact support dept. for assistance.
+cpp YES 5 Tomorrow brings a brand new start.
+java NO 3 Read article vol. 4 for info.
+kotlin YES 4 Programming languages evolve over time.
+js NO 3 Check local time vs. UTC.
+ts YES 5 Expert developers write robust software systems.
+python NO 3 Install package etc. before building.
+c YES 6 Beautiful flowers bloom in the spring.
+cpp NO 3 Review section i.e. clause b.
+java YES 6 Morning coffee tastes exceptionally good today.
+kotlin NO 3 Update software version no. 5.
+js YES 4 Technology changes the world daily.
+ts NO 3 Consult dictionary viz. glossary terms.
+python YES 7 Reading books expands our creative mindset.
+c NO 3 Meeting scheduled approx. at noon.
+cpp YES 8 Success comes to those who work hard.
+java NO 3 Check building blvd. for directions.
+kotlin YES 5 Simple solutions often work the best.
+js NO 3 Read chapter fig. 2 carefully.
+ts YES 6 Careful planning prevents poor project execution.
+python NO 3 Deliver package c/o local office.
+c YES 7 Wisdom is gained through hard life experience.
+cpp NO 3 Examine sample doc. before submission.
+java YES 8 Creativity allows us to solve complex problems.
+kotlin NO 3 Review company policy reg. vacations.
+js YES 9 Effective communication builds strong team relationships.
+ts NO 3 Contact author prof. Smith today.
+python YES 10 Consistent daily practice leads to true mastery.
+c NO 3 Check temperature max. limit now.
+cpp YES 11 Hidden talents emerge when faced with challenges.
+java NO 3 Review page min. requirements first.
+kotlin YES 6 Passion drives innovation in every field.
+js NO 3 Send letter via mr. Jones.
+ts YES 7 Curiosity opens doors to endless learning opportunities.
+python NO 3 Check status msg. for errors.
+c YES 8 Harmony brings peace to our daily lives.
+cpp NO 3 Review account bal. before shopping.
+java YES 9 Knowledge empowers individuals to shape their futures.
+kotlin NO 3 Read report op. cit. section.
+js YES 10 Patience helps us overcome difficult obstacles gracefully.
+ts NO 3 Check file sys. integrity now.
+python YES 11 Courage enables us to face unknown fears.
+c NO 3 Read novel pnt. edition closely.
+cpp YES 4 Good habits build character.
+java NO 3 Check database tbl. structure.
+kotlin YES 5 Honesty remains the best policy.
+js NO 3 Review memo temp. guidelines.
+ts YES 6 Strong foundations ensure lasting structural stability.
+python NO 3 Check system vs. network.
+c YES 7 Clear objectives guide our daily efforts.
+cpp NO 3 Read book vol. one.
+java YES 8 Positive attitudes transform challenging situations into opportunities.
+kotlin NO 3 Check list etc. online.
+js YES 9 Modern technology connects people across vast distances.
+ts NO 3 Read note cf. appendix.
+python YES 10 Intelligent design optimizes resource allocation and efficiency.
+c NO 3 Check metric fig. specs.
+cpp YES 11 Adaptive strategies ensure survival in changing markets.
+java NO 3 Read article viz. notes.
+kotlin YES 6 Healthy lifestyles promote longevity and happiness.
+js NO 3 Check data tab. layout.
+ts YES 7 Collaborative teamwork achieves extraordinary project goals.
+python NO 3 Read source op. cit.
+c YES 8 Peaceful environments foster deep creative thinking.
+cpp NO 3 Check manual sec. four.
+java YES 9 Focused attention yields remarkable academic and professional results.
+kotlin NO 3 Read journal no. two.
+js YES 10 Balanced diets provide essential nutrients for human bodies.
+ts NO 3 Check guide ed. three.
+python YES 11 Structured routines increase daily personal productivity levels.
+c NO 3 Read letter p. five.
+cpp YES 4 Swift actions matter.
+java NO 3 Check figure pl. six.
+kotlin YES 5 Calm waters run quite deep.
+js NO 3 Read chapter pp. ten.
+ts YES 6 Great leaders inspire others through action.
+python NO 3 Check schema rpt. seven.
+c YES 7 True friends stand by your side.
+cpp NO 3 Read section sec. eight.
+java YES 8 Wise choices shape our destiny over time.
+kotlin NO 3 Check table tab. nine.
+js YES 9 Kind words warm hearts on cold days.
+ts NO 3 Read index idx. ten.
+python YES 10 Bright futures await those who plan ahead.
+c NO 3 Check appendix app. one.
+cpp YES 11 Fresh ideas breathe life into old projects.
+java NO 3 Read supplement sup. two.
 
-c YES 0 decltype is used for type deduction
-cpp NO 0 delete ptr;
-cpp YES 0 dynamic_cast safely downcasts pointers
-cpp NO 0 explicit class MyClass;
-js YES 0 export default function main
-cpp NO 0 false alarm in the logic
-cpp YES 0 final modifier prevents inheritance
-cpp NO 0 friend class AnotherClass;
-cpp YES 0 mutable allows modification in const methods
-cpp NO 0 namespace std {
-cpp YES 0 new features improve performance
-cpp NO 0 noexcept throw specification
-cpp YES 0 nullptr represents null pointer
-cpp NO 0 operator overloading is powerful
-cpp YES 0 override keyword ensures correct signature
-cpp NO 0 private section of the class
-cpp YES 0 protected members are accessible in subclasses
-cpp NO 0 public API documentation
-cpp YES 0 reinterpret_cast handles low level casting
-cpp YES 0 requires clause constrains templates
-cpp YES 0 static_assert checks compile time conditions
-cpp YES 0 static_cast performs standard type conversion
-cpp YES 0 template metaprogramming can be complex
-cpp YES 0 this pointer refers to current object
-cpp YES 0 thread_local storage duration specifier
-cpp YES 0 throw an exception on error
-cpp YES 0 true condition verified successfully
-cpp YES 0 try block catches exceptions
-cpp YES 0 typeid operator returns type information
-cpp YES 0 typename keyword disambiguates dependent types
-cpp YES 0 using declarations bring names into scope
-cpp YES 0 virtual functions enable polymorphism
-cpp YES 0 wchar_t handles wide characters
-java YES 0 abstract class definition
-java NO 0 assert x > 0;
-java YES 0 boolean flag indicates status
-java NO 0 byte buffer = data[0];
-java YES 0 extends keyword denotes inheritance
-java NO 0 finally block always executes
-java YES 0 implements interface contract
-java NO 0 import statements load packages
-java YES 0 instanceof checks object type
-java YES 0 interface defines method signatures
-java YES 0 native methods use JNI
-java YES 0 package declaration organizes classes
-java YES 0 permits clause restricts sealed classes
-java YES 0 record components define immutable data
-java YES 0 sealed classes control hierarchy
-java YES 0 strictfp ensures floating point consistency
-java YES 0 super refers to parent class
-python YES 3 The quick brown fox jumps over the lazy dog.
-python NO 3 Check items such as apples, oranges, etc.
-python YES 4 Please review the document by Friday afternoon.
-python NO 4 The meeting starts at 2 p.m. sharp today.
-python YES 5 We plan to release the new version next week.
-python NO 5 The company CEO, i.e., Jane Doe, approved it.
-python YES 6 All team members must submit their weekly reports.
-python NO 6 Dr. Smith will lead the upcoming research project.
-python YES 7 Effective communication is essential for successful project management.
-python NO 7 Prof. Johnson published a paper on artificial intelligence.
-python YES 8 Developers should write comprehensive tests before pushing code changes.
-python NO 8 Please read chapters 1 through 5, etc., carefully.
-python YES 3 Data analysis reveals interesting user behavior patterns.
-python NO 3 The package arrived via FedEx, vs. UPS.
-python YES 4 Clean code makes maintenance significantly easier over time.
-python NO 4 The conference runs from Jan. to Mar. this year.
-python YES 5 Automated testing prevents regressions in production environments.
-python NO 5 Contact support via email, phone, etc., anytime.
-python YES 6 Good architecture separates concerns across different software layers.
-python NO 6 Mr. Davis reviewed the architecture proposal thoroughly.
-python YES 7 Performance optimization requires careful profiling of critical code paths.
-python NO 7 Mrs. Vance manages the regional software engineering team.
-python YES 8 Continuous integration pipelines catch bugs early in development cycles.
-python NO 8 Review the metrics in Fig. 3 for details.
-python YES 3 Modern web applications demand high responsiveness.
-python NO 3 Access files via FTP vs. SFTP protocols.
-python YES 4 Secure coding practices protect user data effectively.
-python NO 4 Visit our office at 123 Main St. downtown.
-python YES 5 Scalable systems handle heavy traffic loads seamlessly.
-python NO 5 Package delivered by UPS vs. DHL today.
-python YES 6 Version control systems facilitate collaborative software development.
-python NO 6 Submit your tax forms by Apr. 15.
-python YES 7 Effective documentation bridges the gap between teams.
-python NO 7 The recipe calls for 2 tbsp. of sugar.
-python YES 8 Automated deployment pipelines reduce human error during releases.
-python NO 8 Read the notes in Vol. 2 for background.
-python YES 3 Robust error handling improves user experience.
-python NO 3 Compare metrics using avg. response time.
-python YES 4 Efficient algorithms reduce computational resource consumption.
-python NO 4 Meet us at 456 Elm Ave. this evening.
-python YES 5 Clear requirements lead to successful project delivery.
-python NO 5 Check the temperature in deg. Celsius.
-python YES 6 Comprehensive testing ensures high software quality standards.
-python NO 6 Review the schedule on p. 10.
-python YES 7 Proper configuration settings prevent unexpected application failures.
-python NO 7 The report cites data from approx. 50 sources.
-python YES 8 Strategic technical debt management keeps codebases healthy.
-python NO 8 Deliver the cargo to Pier no. 4.
-
-c YES 0 synchronized is a keyword in this context
-cpp NO 0 throws an exception when the pointer is null
-java YES 0 transient fields are not serialized by default
-kotlin NO 0 var count: Int = 0
-js YES 0 yield the next value from the generator
-ts NO 0 null check required before property access
-python YES 0 as the name suggests this handles imports
-c YES 0 fun times were had by all developers
-cpp NO 0 in range loops require container support
-java YES 0 is this the correct object reference
-kotlin NO 0 object Singleton instance creation
-js YES 0 typealias creates a custom name for a type
-ts NO 0 typeof operator returns a string description
-python YES 0 val represents an immutable value container
-c YES 0 when should we trigger this event handler
-cpp NO 0 debugger breakpoint hit at line forty
-java YES 0 function declarations must include a return type
-kotlin NO 0 with context we can access implicit receivers
-js YES 0 let bindings are block scoped variables
-ts NO 0 async functions always return a promise
-python YES 0 await expression pauses execution until resolved
-c YES 0 of course we need proper error handling
-cpp NO 0 get property value from the configuration map
-java YES 0 set value method updates internal state
-kotlin NO 0 type definitions help catch errors early
-js YES 0 readonly modifier prevents property reassignment
-ts NO 0 asserts condition ensures type narrowing
-python YES 0 keyof operator extracts object keys
-c YES 0 infer keyword helps deduce conditional types
-cpp NO 0 module declaration defines an internal namespace
-java YES 0 declare external bindings for ambient types
-kotlin NO 0 never type represents unreachable code
-js YES 0 unknown is the type safe counterpart to any
-ts NO 0 satisfies operator validates expression types
-python YES 0 False represents the boolean zero value
-c YES 0 None indicates the absence of a value
-cpp NO 0 True represents the boolean one value
-java YES 0 and logical operator evaluates both operands
-kotlin NO 0 def keyword defines a function in python
-js YES 0 del statement removes an object reference
-ts NO 0 elif handles alternative conditional branches
-python YES 0 except catches exceptions in try blocks
-c YES 0 from module import specific functions
-cpp NO 0 global keyword declares module level variables
-java YES 0 lambda expressions provide inline functions
-kotlin NO 0 nonlocal binds to enclosing scope variables
-js YES 0 not logical negation operator
-ts NO 0 or logical disjunction operator
-python YES 0 pass does nothing when executed
-c YES 0 raise triggers an explicit exception
-cpp NO 0 yes we should implement this feature
-java YES 0 no further action is required here
-kotlin NO 0 nan represents not a number value
-js YES 0 inf represents positive infinity
-ts NO 0 the quick brown fox jumps over lazy dogs
-python YES 0 to be or not to be that is the question
-c YES 0 a journey of a thousand miles begins with steps
-cpp NO 0 be careful when modifying legacy codebases
-java YES 0 that configuration file needs updating
-kotlin NO 0 This module handles network requests efficiently
-js YES 0 file size exceeds the recommended limit
-ts NO 0 data structures should be chosen wisely
-python YES 0 The algorithm runs in linear time
-c YES 0 use descriptive names for all variables
-cpp NO 0 param description is missing from docstring
-java YES 0 it works on my local machine perfectly
-kotlin NO 0 on error fallback to default behavior
-js YES 0 by default logging is enabled globally
-ts NO 0 library installation requires internet access
-python YES 0 C language provides low level control
-c YES 0 value should be within valid range
-cpp NO 0 bytes objects store raw binary data
-java YES 0 an unexpected error occurred during startup
-kotlin NO 0 Copyright notice must remain intact
-js YES 0 are you sure you want to proceed
-ts NO 0 used memory should be freed promptly
-python YES 0 time complexity matters for large datasets
-c YES 0 will release a new patch tomorrow
-cpp NO 0 USB connection lost during data transfer
-java YES 0 s command substitutes text in editor
-kotlin NO 0 eCxx exception handling mechanism
-js YES 0 any type disables type checking
-ts NO 0 at least one item must be selected
-python YES 0 all tests passed successfully without errors
-c YES 0 c programming requires manual memory management
-cpp NO 0 device driver failed to load properly
-java YES 0 number formatting depends on locale settings
-kotlin NO 0 buffer overflow vulnerability detected in parser
-js YES 0 software engineering principles apply universally
-ts NO 0 A major version update brings breaking changes
-python YES 0 can we optimize this query further
-c YES 0 should we refactor this legacy module
-cpp NO 0 brief overview of the architecture
-java YES 0 ref parameter allows passing by reference
-kotlin NO 0 see documentation for configuration options
-js YES 0 details are provided in the appendix
-ts NO 0 macro expansion occurs during pre-processing
-python YES 0 part of the codebase is untested
-c YES 0 length of the array is fixed
-cpp NO 0 code review completed with minor feedback
-java YES 3 This is a test sentence.
-kotlin NO 3 See Fig. 4 for more details.
-js YES 5 Please check the output e.g. logs.
-ts YES 4 Dr. Smith reviewed the code.
-python YES 6 We support various formats like csv etc.
-c YES 4 Vol. 2 contains advanced topics.
-cpp YES 3 Prof. Johnson led the project.
-java YES 5 St. Louis is a major hub.
-kotlin YES 4 Inc. provided the funding.
-js YES 3 Corp. policy requires approval.
-ts YES 4 Ltd. operates globally.
-python YES 3 Gen. Patton commanded the army.
-c YES 4 Capt. Smith steered the ship.
-cpp YES 3 Sen. Davis proposed the bill.
-java YES 4 Rep. Jones voted in favor.
-kotlin YES 3 Gov. Baker signed the law.
-js YES 4 Rev. Green gave the sermon.
-ts YES 3 Hon. Judge presided over court.
-python YES 4 Fr. Thomas performed the mass.
-c YES 3 Br. Luke wrote the letter.
-cpp YES 3 Sr. Maria helped the poor.
-java YES 4 Jr. developer joined the team.
-kotlin YES 3 Sr. partner led the deal.
-js YES 5 Min. wage increased this year.
-ts YES 4 Max. capacity reached its limit.
-python YES 5 Misc. items were placed here.
-c YES 4 Approx. ten minutes remain now.
-cpp YES 5 Dept. manager approved the budget.
-java YES 4 Div. results showed steady growth.
-kotlin YES 4 Sect. 3 covers safety rules.
-js YES 5 Univ. research funded the project.
-ts YES 4 Coll. courses start in autumn.
-python YES 4 Assocs. met to discuss strategy.
-c YES 4 Bros. built the engine successfully.
-cpp YES 4 Co. expanded its market reach.
-java YES 4 Blvd. traffic was quite heavy.
-kotlin YES 4 Ave. trees bloomed in spring.
-js YES 4 Rd. construction caused delays.
-ts YES 4 St. construction finished on schedule.
-python YES 4 Mt. Everest is very tall.
-c YES 4 Ft. Wayne hosted the event.
-cpp YES 4 Sq. footage increased by half.
-java YES 5 Jan. weather was unusually cold.
-kotlin YES 5 Feb. brings shorter days here.
-js YES 5 Mar. winds blew fiercely outside.
-ts YES 5 Apr. showers bring May flowers.
-python YES 5 Jun. days are very long.
-c YES 5 Jul. celebrations lit the sky.
-cpp YES 5 Aug. heat peaked on Tuesday.
-java YES 5 Sep. marks the autumn equinox.
-kotlin YES 5 Oct. brings colorful fall foliage.
-js YES 5 Nov. nights grow chilly fast.
-ts YES 5 Dec. holidays approach very quickly.
-python YES 5 Mon. meetings start at nine.
-c YES 5 Tue. afternoon brought heavy rain.
-cpp YES 5 Wed. schedules look quite busy.
-java YES 5 Thu. reports are due soon.
-kotlin YES 5 Fri. evening brings much relief.
-js YES 5 Sat. mornings are quiet here.
-ts YES 5 Sun. afternoons invite relaxing walks.
-python YES 5 U.S. markets opened up higher.
-c YES 5 U.K. policy shifted on energy.
-cpp YES 5 E.U. regulations protect user privacy.
-java YES 5 N.Y. office handles financial transactions.
-kotlin YES 5 L.A. traffic is notoriously bad.
-js YES 5 D.C. politicians debated the bill.
-ts YES 5 Ph.D. students must publish papers.
-python YES 5 M.D. degrees require clinical hours.
-c YES 5 B.A. programs emphasize broad learning.
-cpp YES 5 B.S. degrees focus on science.
-java YES 5 M.A. thesis took six months.
-kotlin YES 5 M.S. graduates find good jobs.
-js YES 5 R.I.P. to our old server.
-ts YES 5 P.S. do not forget milk.
-python YES 5 A.M. classes are difficult early.
-c YES 5 P.M. traffic jams are terrible.
-cpp YES 5 A.D. history spans many centuries.
-java YES 5 B.C. eras preceded the calendar.
-kotlin YES 5 e.g. examples clarify complex rules.
-js YES 5 i.e. that is another way.
-ts YES 5 vs. competing products lack features.
-python YES 5 cf. previous studies for details.
-c YES 5 viz. namely the core components.
-cpp YES 5 et al. contributed to research.
-java YES 5 op. cit. refers to literature.
-kotlin YES 5 loc. cit. indicates same place.
-js YES 5 ibid. means in the same.
-ts YES 5 passim indicates frequent occurrence.
-python YES 5 q.v. points to further reading.
-c YES 5 v.s. represents legal case names.
-cpp YES 5 p.s. adds a final note.
-java YES 5 a.m. hours are quite peaceful.
-kotlin YES 5 p.m. hours bring evening calm.
-js YES 5 c.f. compare with other data.
-ts YES 5 fwd. messages should be checked.
-python YES 5 tel. numbers must be valid.
-c YES 5 fax. numbers are rarely used.
+c YES 0 synchronized lock acquisition failed on the main thread
+cpp NO 0 synchronized (mutex) { lock(); }
+java YES 0 throws declaration requires a valid exception type here
+kotlin NO 0 throws IOException
+js YES 1 transient state should be saved before closing
+ts NO 1 transient private static final long serialVersionUID
+python YES 2 var is not supported in this strict mode scope
+c NO 2 var i = 0;
+cpp YES 3 yield execution back to the caller routine
+java NO 3 yield();
+kotlin YES 4 null pointer exception thrown during startup
+js NO 4 null == undefined
+ts YES 5 as expected the operation completed successfully
+python NO 5 as x:
+c YES 6 fun times were had by all developers involved
+cpp NO 6 fun main(args: Array) { }
+java YES 7 in this case we need a larger buffer
+kotlin NO 7 in 0..10
+js YES 8 is this the correct way to handle errors
+ts NO 8 isNaN(value)
+python YES 9 object oriented programming principles apply here
+c NO 9 object obj = new object();
+cpp YES 10 typealias helps simplify complex generic signatures
+java NO 10 typealias Score = Int
+kotlin YES 11 typeof operator returns a string describing the type
+js NO 11 typeof x === "number"
+ts YES 12 val keyword declares an immutable local variable
+python NO 12 val x = 10
+c YES 13 when the process completes notify the listener
+cpp NO 13 when (x) { 1 -> print("one") }
+java YES 14 debugger statement should be removed before production
+kotlin NO 14 debugger;
+js YES 15 function definition must include a valid return type
+ts NO 15 function foo() {}
+python YES 16 with statement ensures proper resource management
+c NO 16 with (obj) { foo(); }
+cpp YES 17 let keyword introduces block scoped bindings
+java NO 17 let x = 5;
+kotlin YES 18 async operations require proper error handling
+js NO 18 async function test() {}
+ts YES 19 await expression pauses execution until settled
+python NO 19 await fetchData();
+c YES 20 of course we need to test all edge cases
+cpp NO 20 for (let x of arr) {}
+java YES 21 get method retrieves the stored property value
+kotlin NO 21 get() = field
+js YES 22 set property updates the internal state variable
+ts NO 22 set(value) { _val = value; }
+python YES 23 type definition specifies the data structure shape
+c NO 23 type Point = { x: number, y: number };
+cpp YES 24 readonly modifier prevents modification after initialization
+java NO 24 readonly prop: string;
+kotlin YES 25 asserts condition must evaluate to true
+js NO 25 asserts condition;
+ts YES 26 keyof operator produces a union type of keys
+python NO 26 keyof User
+c YES 27 infer keyword extracts type variables conditionally
+cpp NO 27 infer R
+java YES 28 module declaration wraps related components together
+kotlin NO 28 module name {}
+js YES 29 declare keyword introduces ambient definitions
+ts NO 29 declare var foo: any;
+python YES 30 never type represents a state that should not exist
+c NO 30 never x;
+cpp YES 31 unknown type is the type safe counterpart to any
+java NO 31 unknown val;
+kotlin YES 32 satisfies operator validates subtype relationships
+js NO 32 obj satisfies Config;
+ts YES 33 False flag indicates an error state
+python NO 33 False == 0
+c YES 34 None value means no result was found
+cpp NO 34 None
+java YES 35 True condition enables the feature flag
+kotlin NO 35 True == 1
+js YES 36 and operator combines multiple boolean expressions
+ts NO 36 x and y
+python YES 37 def statement defines a new function
+c NO 37 def foo():
+cpp YES 38 del instruction removes an object reference
+java NO 38 del x
+kotlin YES 39 elif branch handles alternative conditions
+js NO 39 elif x > 0:
+ts YES 40 except block catches raised exceptions
+python NO 40 except Exception as e:
+c YES 41 from module import specific functions
+cpp NO 41 from math import sqrt
+java YES 42 global keyword declares a global variable
+kotlin NO 42 global x
+js YES 43 lambda expression creates an anonymous function
+ts NO 43 lambda x: x + 1
+python YES 44 nonlocal keyword references enclosing scope variables
+c NO 44 nonlocal x
+cpp YES 45 not operator negates a boolean condition
+java NO 45 not found
+kotlin YES 46 or operator returns true if any condition holds
+js NO 46 x or y
+ts YES 47 pass statement acts as a placeholder
+python NO 47 pass
+c YES 48 raise statement triggers an exception manually
+cpp NO 48 raise ValueError
+java YES 49 yes vote confirms the configuration change
+kotlin NO 49 yes = true
+js YES 50 no action needed for this event
+ts NO 50 no = false
+python YES 51 nan value represents undefined mathematical results
+c NO 51 nan float
+cpp YES 52 inf value represents positive infinity
+java NO 52 inf = float('inf')
+kotlin YES 53 the quick brown fox jumps over lazy dogs
+js YES 53 the result is valid
+ts YES 54 to be or not to be that is the question
+python NO 54 to index 10
+c YES 55 a simple test case for verification
+cpp NO 55 a = 5
+java YES 56 be careful with memory leaks here
+kotlin NO 56 be true
+js YES 57 that was a great implementation
+ts NO 57 that.x = 10
+python YES 58 This module handles user authentication flows
+c NO 58 This pointer
+cpp YES 59 file parsing failed due to syntax errors
+java NO 59 file.read()
+kotlin YES 60 data structures must be optimized for speed
+js NO 60 data.json
+ts YES 61 The application started successfully today
+python NO 61 The object
+c YES 62 use secure connections for all network traffic
+cpp NO 62 use namespace std;
+java YES 63 param description should be concise and clear
+kotlin NO 63 param x int
+js YES 64 it works as expected in production
+ts NO 64 it('should pass', () => {})
+python YES 65 on error resume next policy applied
+c NO 65 onclick()
+cpp YES 66 by default this setting is enabled
+java NO 66 by ref
+kotlin YES 67 library version must be updated regularly
+js NO 67 library.init()
+ts YES 68 C language bindings require careful memory management
+python NO 68 C style
+c YES 69 value cannot be null or empty
+cpp NO 69 value = 100
+java YES 70 bytes transferred successfully over the socket
+kotlin NO 70 bytes[] buffer
+js YES 71 an unexpected error occurred during execution
+ts NO 71 an int
+python YES 72 Copyright notice must be included in source files
+c NO 72 Copyright 2026
+cpp YES 73 are you sure you want to proceed
+java NO 73 are valid
+kotlin YES 74 used resources should be released promptly
+js NO 74 used = true
+ts YES 75 time elapsed exceeds the configured limit
+python NO 75 time.sleep(1)
+c YES 76 will execute the callback when ready
+cpp NO 77 USB device connected successfully
+java NO 77 USB port
+kotlin YES 78 s expression evaluation completed
+js NO 78 s.length
+ts YES 79 eCxx exception handling wrapper
+python NO 79 eCxx error
+c YES 80 any input is accepted here
+cpp NO 80 any type
+java YES 81 at least one item is required
+kotlin NO 81 at index 0
+js YES 82 all tests passed without any errors
+ts NO 82 all rights reserved
+python YES 83 c compiler flags need updating
+c NO 83 c style
+cpp YES 84 device driver initialization failed
+java NO 84 device ID
+kotlin YES 85 number of items exceeds limit
+js NO 85 number type
+ts YES 86 buffer overflow detected in module
+python NO 86 buffer size
+c YES 87 software engineering best practices apply
+cpp NO 87 software version
+java YES 88 A valid license key is required
+kotlin NO 88 A constant
+js YES 89 can execute remote commands safely
+ts NO 89 can be null
+python YES 90 should return zero on success
+c NO 90 should be
+cpp YES 91 brief description of the function
+java NO 91 brief summary
+kotlin YES 92 refactoring improves code readability
+js NO 92 ref variable
+ts YES 93 see documentation for more details
+python NO 93 see section
+c YES 94 details are available online
+cpp NO 94 details page
+java YES 95 macro expansion produced valid code
+kotlin NO 95 macro definition
+js YES 96 part of the core library
+ts NO 96 part 2
+python YES 97 length of the array is zero
+c NO 97 length property
+cpp YES 98 code quality must be maintained
+java NO 98 code block
+kotlin YES 14 text processing requires careful token handling.
+js YES 17 network requests may fail intermittently vs. timeout errors.
+ts YES 20 database queries should be optimized for performance.
+python YES 15 operating systems manage hardware resources efficiently etc.
+c YES 11 software development lifecycle involves multiple phases e.g. planning.
+cpp YES 16 machine learning models require clean training data approx.
+java YES 19 object oriented design patterns improve code maintainability vs. procedural.
+kotlin YES 13 cybersecurity measures protect sensitive user information etc.
+js YES 18 cloud computing platforms offer scalable infrastructure e.g. AWS.
+ts YES 21 version control systems track changes over time approx.
+python YES 12 automated testing ensures software reliability vs. manual checks.
+c YES 16 continuous integration pipelines speed up deployment e.g. Jenkins.
+cpp YES 14 web development frameworks simplify user interface creation etc.
+java YES 18 data science workflows involve heavy statistical analysis approx.
+kotlin YES 15 mobile application development requires responsive design vs. fixed layouts.
+js YES 13 API design guidelines promote consistency and ease of use e.g. REST.
+ts YES 17 blockchain technology ensures decentralized transaction verification approx.
+python YES 14 artificial intelligence research advances rapidly vs. traditional programming.
+c YES 16 quantum computing introduces novel computational paradigms e.g. qubits.
+cpp YES 19 distributed systems architecture handles massive traffic loads etc.
+java YES 12 game development engines render graphics in real time approx.
+kotlin YES 15 embedded systems programming interacts directly with hardware components.
+js YES 18 network security protocols safeguard data integrity vs. breaches.
+ts YES 16 database management systems organize large datasets efficiently e.g. SQL.
+python YES 13 software architecture patterns guide system design approx.
+c YES 15 user experience design focuses on intuitive interfaces etc.
+cpp YES 17 information technology infrastructure supports business operations e.g. servers.
+java YES 14 modern web browsers execute complex scripts quickly approx.
+kotlin YES 16 digital signal processing algorithms filter noisy inputs.
+js YES 13 computer graphics rendering creates realistic 3D scenes etc.
+ts YES 18 parallel processing techniques accelerate heavy computational tasks approx.
+python YES 15 enterprise resource planning software integrates business processes.
+c YES 14 serverless computing reduces operational overhead e.g. AWS Lambda.
+cpp YES 17 microservices architecture enables independent service deployment etc.
+java YES 16 natural language processing models understand human speech approx.
+kotlin YES 13 computer vision algorithms detect objects in images.
+js YES 15 information security policies prevent unauthorized access etc.
+ts YES 18 high performance computing clusters solve complex scientific problems.
+python YES 14 open source software benefits from community contributions approx.
+c YES 16 big data analytics platforms process massive information streams.
+cpp YES 17 firmware updates enhance device performance and security e.g. patches.
+java YES 15 software testing methodologies ensure bug free releases etc.
+kotlin YES 18 virtual reality environments provide immersive user experiences approx.
+js YES 14 internet of things devices collect environmental sensor data.
+ts YES 16 augmented reality applications overlay digital content onto reality.
+python YES 17 IT service management frameworks streamline organizational workflows.
+c YES 13 project management tools track task completion etc.
+cpp YES 15 electronic design automation software helps create integrated circuits.
+java YES 18 relational database management systems enforce strict schema constraints.
+kotlin YES 14 containerization technologies simplify application deployment workflows.
+js YES 16 enterprise software solutions meet complex business requirements.
+ts YES 13 scientific computing libraries perform advanced mathematical calculations.
+python YES 17 web scraping tools extract structured information from websites.
+c YES 15 graphic design applications manipulate raster and vector images.
+cpp YES 18 telecommunication networks transmit voice and data globally.
+java YES 14 financial technology platforms automate trading and payment systems.
+kotlin YES 16 health informatics systems manage patient medical records securely.
+js YES 13 e-commerce platforms handle online transactions efficiently.
+ts YES 17 geographic information systems analyze spatial and geographic data.
+python YES 15 educational technology software enhances remote learning experiences.
+c YES 14 game physics engines simulate realistic movement dynamics.
+cpp YES 16 digital forensics tools investigate cyber crimes and breaches.
+java YES 18 customer relationship management platforms track sales pipelines.
+kotlin YES 13 content management systems simplify website publishing tasks.
+js YES 15 media streaming services deliver audio and video content.
+ts YES 17 automated manufacturing systems control industrial assembly lines.
+python YES 14 energy management systems optimize power grid consumption.
+c YES 16 aerospace engineering software simulates flight trajectory parameters.
+cpp YES 13 traffic control systems monitor urban vehicle flow.
+java YES 15 agricultural technology tools monitor crop health conditions.
+kotlin YES 18 meteorological forecasting models predict severe weather patterns.
+js YES 14 marine navigation systems plot safe maritime routes.
+ts YES 16 railway signaling systems ensure safe train operations.
+python YES 17 architectural design software creates detailed building blueprints.
+c YES 13 acoustic engineering programs analyze sound wave propagation.
+cpp YES 15 bioinformatics software sequences DNA and protein structures.
+java YES 18 particle physics detectors record subatomic collision events.
+kotlin YES 14 astronomy software maps celestial coordinates accurately.
+js YES 16 seismological monitoring networks detect underground earth tremors.
+ts YES 13 robotics control software programs autonomous movement.
+python YES 17 renewable energy monitors track solar panel output efficiency.
+c YES 15 water treatment plants monitor chemical purification processes.
+cpp YES 18 waste management systems optimize recycling collection routes.
+java YES 14 smart home automation hubs control household appliances.
+kotlin YES 16 wearable health trackers monitor vital signs continuously.
+js YES 13 drone delivery systems navigate flight paths automatically.
+ts YES 17 automated teller machines process cash withdrawals securely.
+python YES 15 electronic voting systems record ballot choices safely.
+c YES 14 parking management systems track lot occupancy status.
+cpp YES 16 biometric security scanners verify user identity traits.
+java YES 18 automated parking garages optimize vehicle storage space.
+kotlin YES 13 smart grid networks balance power distribution loads.
+js YES 15 digital signage networks update displayed content remotely.
+ts YES 17 traffic light controllers optimize intersection signal timings.
+python YES 14 automated toll booths collect highway transit fees.
+c YES 16 public transit trackers provide real-time arrival estimates.
+cpp YES 13 elevator control systems manage floor dispatching.
+java YES 15 fire alarm systems detect smoke and trigger alerts.
+kotlin YES 18 security camera networks monitor facility perimeters constantly.
+js YES 14 building ventilation systems regulate indoor air quality.
+ts YES 16 automated irrigation systems water crops based on moisture.

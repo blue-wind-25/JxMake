@@ -34,7 +34,7 @@ Be careful not to lose important information, especially the `**Tools/compiler u
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_125_inp/out.html`
-    to   `...`
+    to   `real_code_regressions_127_inp/out.py`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -56,6 +56,12 @@ I have run `make test` and all test passed.
 `/tmp` contains many undeleted artifacts from this and previous sessions, can you find the one used
 for reproducing bugs and mini/small tests (not the cloned repositories) them and maybe delete them?
 
+Use one agent to inspect GRU work:
+    `tools/gru/gen_synthetic_prompt.py`
+    `tools/gru/.gen_synthetic_state.json`
+    `tools/gru/regroup_synthetic.py` and the partial
+and the partial output file `tools/sp_gemini.txt`. Check if the scripts and output are as expected.
+
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
@@ -66,7 +72,7 @@ When fixing bugs, only reformat and re-syntax-checking the affected files; refor
 re-syntax-checking already correct files are a waste of time. Only after all bugs are fixed is
 a full reformat and re-syntax-checking test allowed. Try reformat with `indent-size = 2` if the
 idempotency test failed. Use one sub-agent as needed, the sub-agent can launch up to one more
-research sub-sub-agent).
+research sub-sub-agent.
 
 Continue with the dogfood test for:
     ...
@@ -81,7 +87,6 @@ C/C++:
 C++26:
 
 Java:
-    [1] `github.com/apache/ant`          [~260 kLOC of effective Java code]
     [3] `github.com/openrewrite/rewrite` [~711 kLOC of effective Java code]
     [X] `**Extremely long pre-existing single-physical-line statement wraps differently each round**`
 
@@ -107,7 +112,7 @@ TS:
     [6] `github.com/microsoft/TypeScript` [~1490 kLOC of effective TypeScript code]
 
 Python3:
-    [2] `github.com/django/django`  [~455 kLOC of effective Python code]
+    [*] `github.com/django/django`  [~455 kLOC of effective Python code]
     [5] `github.com/python/cpython` [~980 kLOC of effective Python code]
 
 

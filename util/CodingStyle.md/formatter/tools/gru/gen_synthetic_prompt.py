@@ -33,7 +33,7 @@ DEFAULT_REQUESTED_WORDS = os.path.join(os.path.dirname(__file__), ".gen_syntheti
 DEFAULT_LANGS = ["c", "cpp", "java", "kotlin", "js", "ts", "python"]
 
 # git add .gen_synthetic_state.json ../sp_gemini.txt && git commit -S -m 'Synthetic training data generation result'
-# cat .gen_synthetic_state.json && ./gen_synthetic_prompt.py
+# clear && cat .gen_synthetic_state.json && ./gen_synthetic_prompt.py
 
 PROMPT_TEMPLATE = """Generate exactly {total} lines of training data. Output ONLY the lines, no header, no explanation, no markdown formatting/backticks.
 

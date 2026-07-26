@@ -355,6 +355,7 @@ INP_FILES += real_code_regressions_125_inp.html
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 
 # clear && git status && echo && svn stat && echo
+# git stash list
 # git fsck --unreachable --no-reflogs
 
 # svn add util/CodingStyle.md/formatter/test/*

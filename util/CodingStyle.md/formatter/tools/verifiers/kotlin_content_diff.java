@@ -44,17 +44,17 @@ import org.jetbrains.kotlin.psi.KtPsiFactory;
  * This formatter *intentionally* reorders/transforms some Kotlin content
  * (kotlin-import-order sorting, declaration-alignment whitespace,
  * normalize-comment-start-case), so:
- *   - imports are compared as a MULTISET (kotlin-import-order legitimately
- *     reorders/sorts them)
- *   - every other top-level declaration is compared IN ORDER, via the
- *     leaf-token canonicalization above (drops whitespace/comments, keeps
- *     identifiers/literals/structure)
- *   - comments (both line/block comments via PsiComment and KDoc blocks,
- *     dropped by the canonicalization above) are extracted separately and
- *     compared as a MULTISET, whitespace-normalized AND case-normalized
- *     (lowercased) -- a case-only change is expected
- *     (normalize-comment-start-case), so it must not be flagged, but a
- *     dropped/corrupted comment still is.
+ *     - imports are compared as a MULTISET (kotlin-import-order legitimately
+ *       reorders/sorts them)
+ *     - every other top-level declaration is compared IN ORDER, via the
+ *       leaf-token canonicalization above (drops whitespace/comments, keeps
+ *       identifiers/literals/structure)
+ *     - comments (both line/block comments via PsiComment and KDoc blocks,
+ *       dropped by the canonicalization above) are extracted separately and
+ *       compared as a MULTISET, whitespace-normalized AND case-normalized
+ *       (lowercased) -- a case-only change is expected
+ *       (normalize-comment-start-case), so it must not be flagged, but a
+ *       dropped/corrupted comment still is.
  *
  * Build (JDK 21, same classpath as kotlin_syntax_check.java):
  *     JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
@@ -62,8 +62,7 @@ import org.jetbrains.kotlin.psi.KtPsiFactory;
  *     $JDK/bin/javac -cp "$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_content_diff.java
  *
  * Run:
- *     $JDK/bin/java -cp ".:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" \
- *         kotlin_content_diff <original.kt> <formatted.kt>
+ *     $JDK/bin/java -cp ".:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_content_diff <original.kt> <formatted.kt>
  *
  * Exit 0 if content is preserved, 1 with a description of each mismatch
  * otherwise.

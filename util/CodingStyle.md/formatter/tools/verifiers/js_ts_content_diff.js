@@ -25,15 +25,15 @@
  * This formatter *intentionally* reorders/reformats some JS/TS content
  * (js-import-order sorting, declaration-alignment column padding,
  * normalize-comment-start-case), so:
- *   - the import-statement block is compared as a MULTISET (js-import-order
- *     legitimately reorders/sorts them)
- *   - every other top-level statement/declaration is compared IN ORDER, via
- *     a leaf-token canonicalization (identifiers/literals/keywords/
- *     punctuation joined with single spaces, whitespace collapsed)
- *   - comments are extracted separately (see above) and compared as a
- *     MULTISET, whitespace-normalized AND case-normalized (lowercased) --
- *     a case-only change is expected (normalize-comment-start-case) and
- *     must not be flagged, but a dropped/corrupted comment still is
+ *     - the import-statement block is compared as a MULTISET (js-import-order
+ *       legitimately reorders/sorts them)
+ *     - every other top-level statement/declaration is compared IN ORDER, via
+ *       a leaf-token canonicalization (identifiers/literals/keywords/
+ *       punctuation joined with single spaces, whitespace collapsed)
+ *     - comments are extracted separately (see above) and compared as a
+ *       MULTISET, whitespace-normalized AND case-normalized (lowercased) --
+ *       a case-only change is expected (normalize-comment-start-case) and
+ *       must not be flagged, but a dropped/corrupted comment still is
  *
  * NOTE: `typescript@7` (the new native tsgo-based rewrite) does NOT expose
  * createSourceFile/getLeadingCommentRanges -- only typescript@5.x's classic

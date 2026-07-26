@@ -46,8 +46,8 @@ $(JAR_FILE): $(SOURCES) | $(CLASS_DIR)
 
 clean:
 	@rm -rvf $(BUILD_DIR)
-	@rm -vf tools/verifiers/*.class
 	@rm -rvf tools/verifiers/__pycache__
+	@rm -vf  tools/verifiers/*.class
 
 
 # ── GRU Pool A/Pool B training-data extraction (STATE_AI.md "Training-set

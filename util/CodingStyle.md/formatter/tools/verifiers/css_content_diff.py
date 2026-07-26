@@ -11,24 +11,24 @@ Complements css_syntax_check.js (postcss-based syntax check: "is it still valid 
 This script instead asks "did the formatter change any *meaning*?" by
 comparing an original CSS file against a formatted version of it:
 
-  1. Extracts every /* ... */ comment from each file (whitespace-normalized)
-     and diffs them pairwise, in order. Comment text/wording/case/punctuation
-     must be byte-identical after whitespace normalization — only
-     re-indentation/re-wrapping is allowed. This is the check that would have
-     caught the twbs/bootstrap rtlcss directive-comment corruption bug
-     (fixture real_code_regressions_69) that a pure syntax check could not,
-     since the corrupted comment was still syntactically valid CSS.
-  2. Strips all comments, then normalizes all whitespace (including around
-     ':') and diffs the remaining token stream. This must be identical too —
-     it proves no property/value/selector was added, removed, or reordered
-     (colon-spacing/indentation-width differences are expected style changes
-     and are normalized away before this comparison, not treated as bugs).
-  3. Counts and compares '!important' occurrences (must match exactly — a
-     silently dropped '!important' would not show up in a normal diff view
-     as dramatically and is a specific known risk).
-  4. Counts and compares vendor-prefixed properties (-webkit-/-moz-/-ms-/-o-),
-     by exact matched (prefix, property-name) pairs — catches a prefix being
-     altered or dropped even if the unprefixed property name is unchanged.
+    1. Extracts every /* ... */ comment from each file (whitespace-normalized)
+       and diffs them pairwise, in order. Comment text/wording/case/punctuation
+       must be byte-identical after whitespace normalization — only
+       re-indentation/re-wrapping is allowed. This is the check that would have
+       caught the twbs/bootstrap rtlcss directive-comment corruption bug
+       (fixture real_code_regressions_69) that a pure syntax check could not,
+       since the corrupted comment was still syntactically valid CSS.
+    2. Strips all comments, then normalizes all whitespace (including around
+       ':') and diffs the remaining token stream. This must be identical too —
+       it proves no property/value/selector was added, removed, or reordered
+       (colon-spacing/indentation-width differences are expected style changes
+       and are normalized away before this comparison, not treated as bugs).
+    3. Counts and compares '!important' occurrences (must match exactly — a
+       silently dropped '!important' would not show up in a normal diff view
+       as dramatically and is a specific known risk).
+    4. Counts and compares vendor-prefixed properties (-webkit-/-moz-/-ms-/-o-),
+       by exact matched (prefix, property-name) pairs — catches a prefix being
+       altered or dropped even if the unprefixed property name is unchanged.
 
 Usage:
     python3 css_content_diff.py <original.css> <formatted.css>

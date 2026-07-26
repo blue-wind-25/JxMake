@@ -30,19 +30,19 @@ import com.sun.source.util.JavacTask;
  * Unlike a naive text/token diff, this formatter *intentionally* reorders
  * import statements (java-import-order) and recapitalizes comment text
  * (normalize-comment-start-case), so:
- *   - imports are compared as a MULTISET (sorted, order-independent)
- *   - every other top-level type declaration is compared IN ORDER, via
- *     javac's own pretty-printer (Tree.toString()), whitespace-normalized --
- *     this canonicalizes away pure reindentation/alignment-padding
- *     differences while still catching a dropped/added declaration, a
- *     renamed identifier, or a changed literal value, since the pretty
- *     printer encodes structure/identifiers/literals but not original
- *     whitespace.
- *   - comments (dropped by the pretty printer, extracted separately via a
- *     raw-text scan that skips string/char literals) are compared as a
- *     MULTISET, whitespace-normalized AND case-normalized (lowercased) --
- *     a case-only change is expected (normalize-comment-start-case), so it
- *     must not be flagged, but a dropped/corrupted comment still is.
+ *     - imports are compared as a MULTISET (sorted, order-independent)
+ *     - every other top-level type declaration is compared IN ORDER, via
+ *       javac's own pretty-printer (Tree.toString()), whitespace-normalized --
+ *       this canonicalizes away pure reindentation/alignment-padding
+ *       differences while still catching a dropped/added declaration, a
+ *       renamed identifier, or a changed literal value, since the pretty
+ *       printer encodes structure/identifiers/literals but not original
+ *       whitespace.
+ *     - comments (dropped by the pretty printer, extracted separately via a
+ *       raw-text scan that skips string/char literals) are compared as a
+ *       MULTISET, whitespace-normalized AND case-normalized (lowercased) --
+ *       a case-only change is expected (normalize-comment-start-case), so it
+ *       must not be flagged, but a dropped/corrupted comment still is.
  *
  * Build:
  *     JDK=/opt/openjdk-21_linux-x64_bin/jdk-21

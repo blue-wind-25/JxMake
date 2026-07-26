@@ -95,11 +95,11 @@ YAML:
 TOML:
 XML:
 HTML5:
-    [*] `github.com/apache/ant`
     [X] `**TODO -- adoption agency, foster-parenting, ...`
+    [X] `**Known gap found (2026-07-26, `apache/ant` `manual/` dogfood run):**`
 
 JS:
-    [X] `github.com/nodejs/node`          [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
+    [X] `github.com/nodejs/node` [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
     [X] `**TODO (low priority, not currently queued):** teach `js_ts_content_diff.js` ...`
 
 TS:
@@ -118,27 +118,6 @@ When fixing bugs, only reformat and re-syntax-checking the affected files; refor
 re-syntax-checking already correct files are a waste of time. Only after all bugs are fixed is
 a full reformat and re-syntax-checking test allowed. Try reformat with `indent-size = 2` if the
 idempotency test failed.
-
-
-
-Read first and execute these in the most efficient order:
-
-The tool name `*_content_diff*` does not match with tools names `*_sc.*`.
-Either rename the former or the latter. Update the comments inside the source file too.
-
-Some of the tool source code files may not have proper (C) block:
-```
-Copyright (C) 2022-2026 Aloysius Indrayanto
-
-This file is part of the JxMake build system and is distributed under the Apache License, Version 2.0.
-See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
-```
-Add the block.
-
-The dir name `syntax_checker` is not actually correct because it also hold content-diff tools.
-Find a proper name for it and rename it.
-
-Update `STATE*.md` to reflect the all renaming.
 
 ####################################################################################################
 ####################################################################################################

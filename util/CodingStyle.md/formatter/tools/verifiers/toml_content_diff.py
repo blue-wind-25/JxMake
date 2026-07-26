@@ -8,9 +8,9 @@
 # with the following env vars set (Node.js + its packages are installed under
 # these non-default locations, not the system paths):
 #
-#   export LD_LIBRARY_PATH=/opt/gcc-7.5.0/lib64:/opt/gcc-7.5.0/lib:/opt/isl-0.16.1/lib
-#   export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules:~/mynpm/node_modules
-#   export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
+#     export LD_LIBRARY_PATH=/opt/gcc-7.5.0/lib64:/opt/gcc-7.5.0/lib:/opt/isl-0.16.1/lib
+#     export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules:~/mynpm/node_modules
+#     export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
 
 """
 toml_content_diff.py - content-preservation checker for TOML, modeled on

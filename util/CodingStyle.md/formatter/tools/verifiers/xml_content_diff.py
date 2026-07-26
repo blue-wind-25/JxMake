@@ -13,20 +13,20 @@ by comparing an original XML file against a formatted version of it, walking
 both DOMs in parallel (stdlib xml.dom.minidom -- no extra package
 dependency, unlike the Node-based *_syntax_check.js scripts) and comparing:
 
-  1. Element names, in document order (tree shape/tag names unchanged).
-  2. Attribute name+value pairs per element, IN ORDER (XML attribute order
-     is spec-preserved per STYLE_DATA_FORMATS.md SS2.2 -- reordering, even if
-     harmless to most consumers, is a real content-preservation bug here).
-  3. Text-node content, whitespace-normalized (collapse runs of whitespace
-     to a single space, strip leading/trailing) -- re-indentation/re-wrap is
-     an expected style change, but the actual words/characters must survive.
-  4. Comment text, whitespace-normalized same as text nodes -- this is the
-     check that would have caught CSS's twbs/bootstrap rtlcss-directive
-     comment-corruption bug (fixture real_code_regressions_69) had it been
-     an XML/HTML bug instead: a corrupted comment is often still perfectly
-     valid XML syntax, so a pure syntax check alone would not catch it.
-  5. CDATA section content, byte-identical (no whitespace normalization --
-     CDATA is defined to be opaque/verbatim).
+    1. Element names, in document order (tree shape/tag names unchanged).
+    2. Attribute name+value pairs per element, IN ORDER (XML attribute order
+       is spec-preserved per STYLE_DATA_FORMATS.md SS2.2 -- reordering, even if
+       harmless to most consumers, is a real content-preservation bug here).
+    3. Text-node content, whitespace-normalized (collapse runs of whitespace
+       to a single space, strip leading/trailing) -- re-indentation/re-wrap is
+       an expected style change, but the actual words/characters must survive.
+    4. Comment text, whitespace-normalized same as text nodes -- this is the
+       check that would have caught CSS's twbs/bootstrap rtlcss-directive
+       comment-corruption bug (fixture real_code_regressions_69) had it been
+       an XML/HTML bug instead: a corrupted comment is often still perfectly
+       valid XML syntax, so a pure syntax check alone would not catch it.
+    5. CDATA section content, byte-identical (no whitespace normalization --
+       CDATA is defined to be opaque/verbatim).
 
 Node-type mismatches (e.g. an element where the original had a comment) at
 the same tree position are reported as a structural mismatch.

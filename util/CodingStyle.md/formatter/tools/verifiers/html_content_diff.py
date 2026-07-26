@@ -8,9 +8,9 @@
 # run it with the following env vars set (Node.js + its packages are installed
 # under these non-default locations, not the system paths):
 #
-#   export LD_LIBRARY_PATH=/opt/gcc-7.5.0/lib64:/opt/gcc-7.5.0/lib:/opt/isl-0.16.1/lib
-#   export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules:~/mynpm/node_modules
-#   export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
+#     export LD_LIBRARY_PATH=/opt/gcc-7.5.0/lib64:/opt/gcc-7.5.0/lib:/opt/isl-0.16.1/lib
+#     export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules:~/mynpm/node_modules
+#     export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
 
 """
 html_content_diff.py -- content-preservation checker for HTML5, modeled on
@@ -24,15 +24,15 @@ this is Python-side tooling comparing output of a Node parser -- same
 shell-out pattern as toml_content_diff.py uses for smol-toml) and walking
 both trees in parallel, comparing:
 
-  1. Element tag names and tree structure (tree walk, skipping pure-
-     whitespace-only text nodes so re-indentation is never flagged).
-  2. Attribute name+value pairs per element, IN ORDER.
-  3. Whitespace-normalized text content (words/characters must survive;
-     reflow/re-indentation is expected).
-  4. Comment content, whitespace-normalized -- this is the check that
-     would catch a CSS/XML-style comment-corruption bug in HTML too, since
-     a corrupted comment usually stays syntactically valid.
-  5. The DOCTYPE declaration (name/publicId/systemId).
+    1. Element tag names and tree structure (tree walk, skipping pure-
+       whitespace-only text nodes so re-indentation is never flagged).
+    2. Attribute name+value pairs per element, IN ORDER.
+    3. Whitespace-normalized text content (words/characters must survive;
+       reflow/re-indentation is expected).
+    4. Comment content, whitespace-normalized -- this is the check that
+       would catch a CSS/XML-style comment-corruption bug in HTML too, since
+       a corrupted comment usually stays syntactically valid.
+    5. The DOCTYPE declaration (name/publicId/systemId).
 
 IMPORTANTLY: the RAW, byte-identical text content of <script>/<style>
 element bodies is NOT compared directly -- the formatter legitimately

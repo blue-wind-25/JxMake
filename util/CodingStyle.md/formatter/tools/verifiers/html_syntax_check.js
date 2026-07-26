@@ -5,14 +5,6 @@
  * This file is part of the JxMake build system and is distributed under the Apache License, Version 2.0.
  * See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
  */
-/*
- * Run this script with the following env vars set (Node.js + its packages are
- * installed under these non-default locations, not the system paths):
- *
- *   export LD_LIBRARY_PATH=/opt/gcc-7.5.0/lib64:/opt/gcc-7.5.0/lib:/opt/isl-0.16.1/lib
- *   export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules:~/mynpm/node_modules
- *   export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
- */
 
 'use strict';
 
@@ -33,7 +25,8 @@
 //     npm install --prefix ~/mynpm parse5
 //
 // Run:
-//     export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules
+//     export LD_LIBRARY_PATH=/opt/gcc-7.5.0/lib64:/opt/gcc-7.5.0/lib:/opt/isl-0.16.1/lib
+//     export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules:~/mynpm/node_modules
 //     export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
 //     node html_syntax_check.js <file.html> [file2.html ...]
 

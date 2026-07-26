@@ -1036,18 +1036,62 @@ estimated difficulty):
    A spot-check re-run against 8 of the originally-cited files after both
    fixes found 6 now idempotent (`create_router_state.ts`,
    `node_selector_matcher.ts`, `ingest.ts`, `locale_plugin.ts`,
-   `hover.ts`, `format_number.ts`) and 2 **still broken** via at least one
-   further, distinct, not-yet-diagnosed root cause:
-   `common/src/i18n/format_date.ts:519` (a call argument list wraps on
-   round2 but not round1 despite unchanged surrounding text — not yet
-   investigated) and `common/upgrade/src/location_shim.ts:461` (a
-   trailing line comment after a wrapped call collapses back to one line
-   on round2 — not yet investigated). `compiler-cli/src/ngtsc/core/
-   {compiler,host}.ts` and `devtools/.../split.component.ts` were not
-   re-checked (missing from this `/tmp/angular` checkout at re-check
-   time). Remaining root cause(s) not yet diagnosed — this entry stays
-   open until a full re-run across all ~23 originally-cited files
-   confirms full resolution or further causes are found and fixed.
+   `hover.ts`, `format_number.ts`) and 2 **still broken**, each via its
+   own further distinct root cause (now diagnosed, not yet fixed):
+
+   - **Root cause #3 (not yet fixed) — braceless-else body never
+     re-validated after brace-collapse/alignment**
+     (`common/src/i18n/format_date.ts:519`,
+     `if(offset === 0) return 'Z'; else return (...)`):
+     `collapseSingleExpressionBlocks` strips the `if`/`else` braces
+     (Phase 0), before `enforceCallLineBreaking` runs (Phase 1) —
+     but the braced source form (still present when the earlier,
+     analogous branch a few lines up gets formatted) uses a `+`-chain
+     complexity-wrap (one operand per line), not a call-wrap, to fit;
+     that expression-wrap doesn't get applied to a now-braceless `else`
+     body, so the joined single line is left over the limit.
+     `alignBracelessElseIfChain` (last pass, Phase 5-ish) then pads the
+     branch to align its column with its `if` sibling regardless —
+     its own comment already documents this as an intentional escape
+     hatch ("if the branch's own natural width already exceeds the
+     limit... padding it further changes nothing", `BlockStructureRule.
+     java` ~line 2801-2819) rather than a bug in that pass itself. A
+     fresh format therefore commits a too-long braceless-else line that
+     no pass re-validates; a reformat of that output re-runs
+     `enforceCallLineBreaking` on the now-already-joined line and wraps
+     it, which is where the two rounds diverge. Real fix needs either
+     the complexity-wrap pass to also handle braceless-else bodies, or
+     one more `enforceCallLineBreaking`/complexity-wrap re-run inserted
+     after `collapseSingleExpressionBlocks` joins the branch — deferred,
+     not attempted yet (touches shared else-chain code used by every
+     curly language).
+   - **Root cause #4 (not yet fixed) — trailing same-line comment
+     inconsistently counted in the collapse fits-check**
+     (`common/upgrade/src/location_shim.ts:461`,
+     `this.$$absUrl = this.getServerBase() + this.$$url.slice(1); //
+     remove '/' from front of URL`, reproduced with a minimal repro):
+     on a fresh format, the call is still on its original single
+     source line together with the trailing line comment, and the
+     fits-check counts the comment's width toward the candidate length
+     (104 chars incl. comment > the 100 limit once `=`-alignment
+     padding widens the assignment column) — wraps. Once wrapped, the
+     comment moves after the call's closing `)` on its own padded line;
+     reformatting that output re-measures the collapse candidate and
+     this time does **not** count the comment (72 chars without it,
+     fits) — collapses back to one line. Whether the trailing comment
+     counts toward the fits-check depends on whether the call was
+     already wrapped in the input, not on the statement's actual final
+     width — non-idempotent. Real fix needs the fits-check to measure
+     trailing-comment width consistently regardless of prior wrap
+     state — deferred, not attempted yet (touches comment-handling
+     shared by every curly language, not just JS/TS).
+
+   `compiler-cli/src/ngtsc/core/{compiler,host}.ts` and
+   `devtools/.../split.component.ts` were not re-checked (missing from
+   this `/tmp/angular` checkout at re-check time). This entry stays
+   open until root causes #3 and #4 are fixed and a full re-run across
+   all ~23 originally-cited files confirms full resolution, or further
+   causes are found.
 5. **[IDEMPOTENCY] Reindentation on internally-inconsistent source
    (accepted gap, third confirming recurrence, no new action)** — 3
    files: `packages/benchpress/test/metric/user_metric_spec.ts:88`,

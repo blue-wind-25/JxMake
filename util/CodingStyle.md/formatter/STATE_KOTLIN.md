@@ -157,52 +157,44 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 addition must be additive and must not change existing token lexing.
 Re-run the full test suite after this step, before Step 1.
 
-- [x] Surveyed style docs for tokens not already lexed. Added to
-      `MULTI_CHAR_OPS`: `?.`, `?:`, `!!`, `..<`, `..` (longest-prefix-first:
-      `..<` before `..`, same rule as existing `...`/`->*` ordering). `->`
-      reused as-is for lambda/function-type/`when` arrow. `@` in labeled
-      jumps needs no new operator entry (falls to `emitOperator`'s
-      single-char fallback; spacing is Step 3's concern).
-      **Bug found/fixed:** `emitNumber()` unconditionally consumed every
-      `.`, so `1..10` lexed as one bogus `NUMBER` (and `1..<10` as
-      `NUMBER "1.."` + `OP "<"` + `NUMBER "10"`) instead of `NUMBER "1"` +
-      range `OP`. Fixed by stopping number consumption when a `.` is
-      followed by another `.` — safe for all four languages. Verified via
-      `TokenizerCore` dump and `make test` (25/25 unaffected).
-- [x] Added Kotlin keyword set `KEYWORDS_KOTLIN`, parallel to
-      `KEYWORDS_JAVA`/`KEYWORDS_CPP` — hard keywords plus modifier/soft
-      keywords, unconditionally reserved (same simplification as Java's
+- [x] Added to `MULTI_CHAR_OPS`: `?.`, `?:`, `!!`, `..<`, `..`
+      (longest-prefix-first, same rule as `...`/`->*`). `->` reused as-is;
+      `@` in labeled jumps needs no new entry (falls to `emitOperator`'s
+      fallback, spacing is Step 3's concern). **Bug found/fixed:**
+      `emitNumber()` consumed every `.` unconditionally, so `1..10` lexed as
+      one bogus `NUMBER`; fixed by stopping consumption when a `.` is
+      followed by another `.`. Verified via `TokenizerCore` dump, `make test`
+      25/25 unaffected.
+- [x] Added Kotlin keyword set `KEYWORDS_KOTLIN` (hard + modifier/soft
+      keywords, unconditionally reserved, same simplification as Java's
       `var`/`record`).
 - [x] Added `NAMED_CONSTRUCT_KOTLIN` = `class`, `object`, `interface`,
-      `enum`, `init`. Deliberately did not special-case `companion
-      object`/`enum class` or verify `computeConstructName()`'s lookback per
-      shape yet — that's Step 1's job.
-- [x] Re-ran full C/C++/Java suite: **25/25 pass, zero regressions** (24
-      pre-existing + `real_code_regressions_13`, added same session before
-      this Kotlin work started).
-- [x] **Follow-up (Step 1 §13 cross-check):** added `"in"`/`"out"` to
-      `GENERIC_SAFE_KEYWORDS` so `reclassifyAngleBrackets` recognizes
+      `enum`, `init`. `companion object`/`enum class` special-casing and
+      `computeConstructName()` lookback per shape deferred to Step 1.
+- [x] Re-ran full C/C++/Java suite: **25/25 pass, zero regressions**.
+- [x] **Follow-up (§13 cross-check):** added `"in"`/`"out"` to
+      `GENERIC_SAFE_KEYWORDS` so `reclassifyAngleBrackets` treats
       declaration-site variance (`Box<out T>`, `Comparable<in T>`) as a
-      generic pair not a comparison. No-op for C/C++/Java. `make test`
-      32/32 before/after. RDD_KEY_113.
-- [x] **Follow-up (Step 1 §19 cross-check):** added Kotlin-only
-      interpolation-aware string scan (`skipKotlinString`/
-      `skipKotlinInterpolationBlock`/`skipKotlinChar`) inside `emitString()`,
-      gated `lang.isKotlin` — shared naive scan-to-next-`"` misread a nested
-      string inside `${...}` (`"${foo("x")}"`) as three tokens instead of
-      one (confirmed via harness). Depth-tracks `${...}`'s own `{`/`}`
-      nesting, recurses for nested string/char literals arbitrarily deep.
-      Non-Kotlin scan untouched. `make test` 32/32 before/after. RDD_KEY_116.
-- [x] **Follow-up (row 19.1, investigated on explicit request):** added
-      Kotlin-only raw-string support (`isKotlinRawStringOpener`/
-      `emitKotlinRawString`/`skipKotlinRawString`), checked before the
-      plain-`"` and C/C++ raw-string-prefix branches. Naive path was badly
-      broken: `"""..."""` mis-lexed into multiple STRING/IDENTIFIER tokens,
-      multi-line ones leaked a spurious `NEWLINE`. No backslash-escape
-      processing (literal `\` by design); terminates greedily at first
-      `"""`, matching the real compiler. `skipKotlinInterpolationBlock`
-      extended for nested raw strings inside interpolation. Non-Kotlin paths
-      untouched. `make test` 32/32 before/after. RDD_KEY_117.
+      generic pair not a comparison. No-op for C/C++/Java. `make test` 32/32
+      before/after. RDD_KEY_113.
+- [x] **Follow-up (§19 cross-check):** added Kotlin-only interpolation-aware
+      string scan (`skipKotlinString`/`skipKotlinInterpolationBlock`/
+      `skipKotlinChar`) inside `emitString()`, gated `lang.isKotlin` — the
+      shared naive scan-to-next-`"` misread a nested string inside `${...}`
+      (`"${foo("x")}"`) as three tokens instead of one. Depth-tracks
+      `${...}`'s own `{`/`}` nesting, recurses for nested literals
+      arbitrarily deep. Non-Kotlin scan untouched. `make test` 32/32
+      before/after. RDD_KEY_116.
+- [x] **Follow-up (row 19.1, investigated on request):** added Kotlin-only
+      raw-string support (`isKotlinRawStringOpener`/`emitKotlinRawString`/
+      `skipKotlinRawString`), checked before the plain-`"` and C/C++
+      raw-string-prefix branches. Naive path mis-lexed `"""..."""` into
+      multiple STRING/IDENTIFIER tokens and leaked a spurious `NEWLINE` on
+      multi-line ones. No backslash-escape processing (literal `\` by
+      design); terminates greedily at first `"""`, matching the real
+      compiler. `skipKotlinInterpolationBlock` extended for nested raw
+      strings inside interpolation. Non-Kotlin paths untouched. `make test`
+      32/32 before/after. RDD_KEY_117.
 
 ### Step 1 — Scoping Pass (mirrors `JavaSpecificRule.java`'s own scoping, RDD_KEY_59)
 
@@ -372,49 +364,46 @@ one-line summary each:
 
 1. [x] Missing blank line/closing comment on `class`/`enum class` with a
    primary constructor. RDD_KEY_119 (tokenizer, Kotlin-gated).
-2. [x] `for(...) { stmt }` not collapsing to one line (no `;` to count).
-   RDD_KEY_120.
-3. [x] `when(status) { ... }` squished/mis-indented — root cause was
-   `KotlinDeclarationAlignmentRule.parseKotlinDeclaration` stripping newlines
-   from a multi-line block-expression initializer. RDD_KEY_121.
-4. [x] `fun test(): int` — not a formatter bug, a fixture typo (`int`→`Int`),
-   fixed directly by the user.
-5. Lines 88-90 (`val result`/`val result` + run-together statements) —
-   reported as fixture ambiguity, not touched; later fixed by the user
-   directly (`result1`/`result2` rename).
-6. [x] Apparent double-indentation of a body's first `val`/`var` — not a
-   formatter bug, a stray leftover `/tmp/kt_test/.jxmake-code-formatter`
-   (`indent-size=8`) test-harness artifact. RDD_KEY_122 fixed a real, separate
-   bug found in the same area (`set(value) { ... }` accessor closing-brace
-   indentation).
+2. [x] `for(...) { stmt }` not collapsing (no `;` to count). RDD_KEY_120.
+3. [x] `when(status) { ... }` squished/mis-indented — `KotlinDeclarationAlignmentRule.
+   parseKotlinDeclaration` stripped newlines from a multi-line
+   block-expression initializer. RDD_KEY_121.
+4. [x] `fun test(): int` — fixture typo (`int`→`Int`), fixed by the user, not
+   a formatter bug.
+5. Lines 88-90 (`val result`/`val result` run-together) — fixture ambiguity,
+   later fixed by the user (`result1`/`result2` rename), not touched here.
+6. [x] Apparent double-indentation of a body's first `val`/`var` — stray
+   leftover `/tmp/kt_test/.jxmake-code-formatter` (`indent-size=8`)
+   test-harness artifact, not a bug. RDD_KEY_122 fixed a real separate bug
+   in the same area (`set(value) { ... }` accessor closing-brace indent).
 7. [x] `val safe = ...` spacing/alignment near the `when` fix — two parts:
    missing space in `.let{ }` (RDD_KEY_123, Kotlin-gated
    `DeclarationAlignmentRule.needsSpaceBetween`), and column-alignment with
    the following `val (a, b) = ...` destructuring line (RDD_KEY_126 —
-   reverses RDD_KEY_107's "never merged" decision per user request, C++
-   structured-bindings precedent).
+   reverses RDD_KEY_107's "never merged" decision, C++ structured-bindings
+   precedent).
 8. [x] `if(...) return@X` / `if(...) expr` braceless collapse not firing.
-   RDD_KEY_124 (main case), RDD_KEY_127 (bare `else` collapse),
-   RDD_KEY_128 (collapsed `else` body column-padding, new standalone
-   `KotlinSpecificRule.alignBracelessElseWithIf` pass).
+   RDD_KEY_124 (main case), RDD_KEY_127 (bare `else` collapse), RDD_KEY_128
+   (collapsed `else` body column-padding, new `KotlinSpecificRule.
+   alignBracelessElseWithIf` pass).
 9. [x] Explicit-return-type functions (`fun foo(...): Int { ... }`) missing
    STYLE.md §9's blank-line-before-`return`. RDD_KEY_125
    (`MiscRule.isFunctionBodyBrace` didn't recognize Kotlin's `: ReturnType`
-   shape; also fixed an unrelated C++ `->`-scan ordering bug it surfaced).
+   shape; also surfaced/fixed an unrelated C++ `->`-scan ordering bug).
 
 **Step 4 known-bugs punch list** (against `test/kt_comments_inp.kt` /
 `kt_comments_out.kt`) — all resolved. Full narrative in `RDD_LOG.md`
 RDD_KEY_131; one-line summary each:
 
 1. [x] Missing blank line before a `when` branch led by its own standalone
-   comment (`// Success case` right after `when(status) {`).
-   `KotlinSpecificRule.ensureBlankLineInGap` bailed out on any comment
-   anywhere in the gap; replaced with `SwitchRule`'s comment-anchored version.
-2. [x] Missing blank line before a `return` directly preceded by its own
-   standalone leading comment. Kotlin-only carve-out in
-   `MiscRule.insertBlankLineBeforeReturn` (`appendGapWithForcedBlankAfterLastComment`)
-   — confirmed Java's own accepted fixture wants the opposite, so this is
-   gated `lang.isKotlin`, not a shared-class change.
+   comment (`// Success case` after `when(status) {`).
+   `KotlinSpecificRule.ensureBlankLineInGap` bailed on any comment anywhere
+   in the gap; replaced with `SwitchRule`'s comment-anchored version.
+2. [x] Missing blank line before a `return` preceded by its own standalone
+   leading comment. Kotlin-only carve-out in `MiscRule.
+   insertBlankLineBeforeReturn` (`appendGapWithForcedBlankAfterLastComment`)
+   — Java's accepted fixture wants the opposite, so gated `lang.isKotlin`,
+   not a shared-class change.
 3. [x] Leading blank line inside a function/lambda body not stripped when
    the first statement isn't a `val`/`var` declaration. New
    `KotlinSpecificRule.stripLeadingBlankBeforeNonDeclarationStatement`,
@@ -423,11 +412,10 @@ RDD_KEY_131; one-line summary each:
    class Widget` comment. Root cause: `BlockStructureRule.addClosingComments`
    and `insertNamedConstructBlankLines` both scanned the *entire* block span
    for any frozen (JXM_CFMT_DIS/ENA) token instead of just the boundary gap
-   being rewritten — an unrelated frozen region nested deep inside
-   `findFirstX` suppressed the outer class's own blank line/comment. Shared-
-   class fix; also fixed a latent identical bug in
-   `test/java_format_toggle_out.java` (updated that reference fixture to add
-   its own previously-missing blank line + `} // class FormatToggle`).
+   being rewritten — an unrelated frozen region nested inside `findFirstX`
+   suppressed the outer class's own blank line/comment. Shared-class fix;
+   also fixed a latent identical bug in `test/java_format_toggle_out.java`
+   (added its own previously-missing blank line + `} // class FormatToggle`).
 
 ### Step 5 — Dogfood / Real-Code Testing
 
@@ -448,17 +436,15 @@ regression-watching / further polish, not a known-broken state. See
 `kotlin-compiler-embeddable` + `kotlin-stdlib` classpath cannot syntax-check
 an Android/AndroidX candidate: every file under
 `gui_frontend_android/app/src/main/java/*.kt` imports `android.*`/AndroidX
-APIs, only resolvable via the project's own Gradle build — a bare classpath
-would fail on nearly every file. Use the project's Gradle wrapper (tool (2)
-below) for any Android/Gradle candidate.
+APIs, only resolvable via the project's own Gradle build. Use the project's
+Gradle wrapper (tool (2) below) for any Android/Gradle candidate.
 
 For `gui_frontend_android`: copy once into a **persistent** location —
-`~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD` — rather than `/tmp`, so
-it survives reboots. Never write to
-`~/Projects/RobotCoding/gui_frontend_android` itself (read-only); always
-re-verify a fix against the true pristine originals there, not just the
-dogfood copy (a stale dogfood copy can hold already-formatted, pre-fix
-output from an earlier session and falsely look fixed/unfixed).
+`~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD` — not `/tmp`, so it
+survives reboots. Never write to `~/Projects/RobotCoding/gui_frontend_android`
+itself (read-only); always re-verify a fix against the true pristine
+originals there, not just the dogfood copy (a stale copy can hold
+already-formatted, pre-fix output and falsely look fixed/unfixed).
 
 **One-time setup after the copy:** edit `gradle.properties` in the dogfood
 copy so `project.buildDir=build` (plain relative value — the original points
@@ -614,7 +600,7 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
    call, `@Annotation`-vs-label false positive, `when`-arm `else ->`
    mismatched by braceless-`else` collapse, two unrelated bugs in one
    statement). Final: `BUILD SUCCESSFUL`, zero errors (2 pre-existing
-   unrelated deprecation warnings only). Verified via tool (2).
+   unrelated deprecation warnings). Verified via tool (2).
 2. **`github.com/square/okio`** — core bugs fixed, config `indent-size=2`
    (matches okio's own `.editorconfig`; RDD_KEY_145 confirmed default
    `indent-size=4` produces spurious diffs, not a bug). Fixed: RDD_KEY_146

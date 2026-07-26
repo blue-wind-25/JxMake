@@ -611,6 +611,34 @@ on the noted commits/fixtures)
      assignment-alignment shape is a distinct mechanism, separately fixed — see "Known Gaps —
      Fixed" (also algorithm.hpp).
 
+(27) **DONE** — `github.com/apache/ant` `src/` tree (item 9). Plain `.java`, no PCPP. 1337 files
+     (`src/main` + `src/tests`). Full-tree round1/round2 (`--preserve-tree --root DIR --out DIR`):
+     `java_syntax_check` baseline 1337/1337 clean (0 pre-existing errors, incl. the intentionally
+     malformed `tests/antunit/taskdefs/javac-dir/bad-src/Bad.java` fixture, which fails identically
+     in both baseline and round1). 1 bug found and fixed: `BlockStructureRule.tryCollapse`'s §10
+     braceless-body collapse had no check for the body being a local variable declaration --
+     `FileUtils.java`'s `if (!f.canWrite() && ON_WINDOWS) { final boolean ignored =
+     f.setWritable(true); }` collapsed to a braceless `if` whose sole body is a bare declaration,
+     which javac rejects ("variable declaration not allowed here") since a declaration is not a
+     legal braceless if/while/for body in C/C++/Java. Fixed by refusing collapse in
+     `isSingleStatementBody` whenever the body's first significant token is `final`/`const`.
+     Verified: round1 syntax-check back to 1337/1337 clean (post-fix) modulo the one
+     pre-existing-bad fixture. Fixture: `real_code_regressions_126`. Full `javac`/self-bootstrap
+     compile not attempted (would require Ant's own multi-step bootstrap build, not just `javac
+     -d`); `java_syntax_check` + idempotency are the load-bearing checks here, per this job's own
+     documented fallback posture for that tool.
+
+     2 idempotency diffs remain, both the same already-documented, ACCEPTED "Non-idempotent ...
+     re-indent on internally-inconsistent generated source" gap (see "Known Gaps — Open"; that
+     entry's root-cause narrative is switch-case-specific but the underlying pattern --
+     internally-inconsistent original indentation defeating a relative-delta reindent pass --
+     recurs here on plain `if`/`else` bodies too): `JikesOutputParser.java` (an `else` misindented
+     relative to its `if`) and `PathTest.java` (a closing `}` at column 9 instead of the
+     surrounding block's column 8). Both pre-date this session (present in the original repo
+     source, not introduced by formatting) and fall under the same "general scope-depth
+     reindentation not started" architectural bucket in `STATE_COMMON.md` -- not a new standalone
+     gap, no fixture added (would be indistinguishable from that already-tracked class).
+
 **Not started dogfood / real-code testing**
 (3) `github.com/llvm/llvm-project` — LLVM/Clang monorepo; enormous, likely only a
     partial/targeted subtree run is practical (e.g. `clang/lib/Format/` or
@@ -625,11 +653,6 @@ on the noted commits/fixtures)
     priority given size, pick up once smaller candidates are exhausted. Likely some
     annotation-processor-generated/Lombok-style code (`AI_PREAMBLE`-adjacent gaps). Would
     verify with (4). (NOT STARTED)
-(9) `github.com/apache/ant` — large, mature legacy Java build tool; older/pre-Java-8-idioms-
-    heavy authorial style, distinct from items (6)/(8)/(24)'s more modern conventions (may
-    exercise more tabs/older brace-and-wrap conventions). Queue behind item (8). Plain `.java`,
-    no PCPP involved — same round1/round2 + `java_syntax_check` methodology as item (24). (NOT STARTED)
-
 Priority order for the C/C++ queue unless the user redirects: `llvm-project` →
 `gcc-mirror` (`mp11`/`lexy`/`stdexec`/`range-v3`/`boost-ext/ut`/`microsoft/proxy`/`STL` already DONE —
 `mp11` was smallest/narrowest, `lexy` next for operator-overloading/concepts/CRTP/dense

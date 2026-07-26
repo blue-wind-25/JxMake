@@ -2046,6 +2046,17 @@ Real-code regressions:
                                              `renderNode`) -- both fixed (RDD_KEY_205). See
                                              `STATE_DATA_FORMATS.md`.
 
+  real_code_regressions_126_inp/out.java  -- Java, `apache/ant` `src/` dogfood: a braced
+                                             single-statement `if` body that is itself a local
+                                             variable declaration (`final boolean ignored =
+                                             f.setWritable(true);`) was collapsed to a braceless
+                                             `if`, which javac rejects ("variable declaration not
+                                             allowed here") since a declaration is not a legal
+                                             braceless if/while/for body -- fixed by refusing
+                                             collapse in `BlockStructureRule.isSingleStatementBody`
+                                             whenever the body's first token is `final`/`const`.
+                                             See `STATE_C_CPP_JAVA.md`.
+
 How Tests Are Run
 -----------------
 

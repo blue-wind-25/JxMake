@@ -529,6 +529,17 @@ public class BlockStructureRule {
         if (sig.isEmpty()) {
             return false;
         }
+        // A local variable declaration ("final boolean ignored = ...;"/"const auto x = ...;")
+        // is not a legal braceless if/while/for body in C/C++/Java -- only an *expression*
+        // statement, `;`, or a nested compound statement/keyword-statement qualifies there.
+        // `final`/`const` as the leading token is an unambiguous declaration signal (found via
+        // real-code testing, apache/ant's FileUtils.java: `if (!f.canWrite() && ON_WINDOWS) {
+        // final boolean ignored = f.setWritable(true); }` collapsed to a braceless `if` whose
+        // body is a bare declaration -- javac rejects it with "variable declaration not allowed
+        // here"). Refuse collapse rather than emit invalid code.
+        if ("final".equals(sig.get(0).text) || "const".equals(sig.get(0).text)) {
+            return false;
+        }
 
         int semiCount = 0;
         int semiIdx = -1;

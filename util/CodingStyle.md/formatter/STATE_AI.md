@@ -430,11 +430,22 @@ clearly-labeled source, not silently merged into the real combined corpus.
   prints a self-contained copy/paste prompt (RDD_EXT_20/21 schema spelled
   out inline, no file upload needed) requesting Pool A + Pool B lines for
   the next unused slice of the vocab. `--words-per-batch` is configurable
-  (default 20, producing `2 * words_per_batch` total lines). State
-  (`next_index` into the vocab) persists in `.gen_synthetic_state.json`
-  next to the script, so consecutive daily runs walk forward through the
-  3500-word vocab instead of repeating words; wraps back to index 0 once
-  exhausted. `--reset` restarts from 0.
+  (default **100**, producing `2 * words_per_batch` total lines — raised
+  from an earlier default of 20). State (`next_index` into the vocab)
+  persists in `.gen_synthetic_state.json` next to the script, so
+  consecutive daily runs walk forward through the 3500-word vocab instead
+  of repeating words; wraps back to index 0 once exhausted. `--reset`
+  restarts from 0. Each run also appends its actual `word_slice` (the
+  words really requested that run, one per line) to a persistent,
+  append-only sidecar, `--requested-words` (default
+  `.gen_synthetic_requested_words.txt` next to the script) — this happens
+  as soon as the slice is computed, independent of whether the printed
+  prompt is ever actually pasted to a chat LLM. Pass an empty string to
+  skip writing it.
+  **Known behavior, not a bug:** a chat LLM (observed with Gemini) may
+  silently skip a requested word it doesn't recognize as a real language
+  keyword rather than emitting a line for it — expected, and the reason
+  `regroup_synthetic.py`'s `--expected-words` check below exists.
 - `tools/gru/regroup_synthetic.py` — takes one pasted-in file containing
   scattered Pool A/B lines (e.g. concatenated output from multiple chat
   responses/models) and splits it into `pool_a.tsv` / `pool_b.tsv` /
@@ -453,6 +464,34 @@ clearly-labeled source, not silently merged into the real combined corpus.
   source, so a meaningful fraction of real Pool B lines are expected to
   land in `unresolved.tsv` rather than being auto/mis-classified — this
   is intentional, not a bug to fix by loosening the match.
+  **Pool A leading-word cross-check (added after a real-data review of
+  `sp_gemini.txt` found a chat LLM drifting into unprompted, unrelated
+  filler sentences once it ran past its requested word list — still
+  well-formed `targetWordIndex == 0` lines, just not answering the actual
+  word that was asked for):** for `idx == 0` candidates, the leading
+  word (trailing punctuation stripped) is checked against two optional
+  sources, either of which can be disabled with an empty string:
+  - `--expected-words` (default the `gen_synthetic_prompt.py` sidecar
+    above) — the tight check: rejects any leading word that was never
+    actually requested by any run. Preferred once the sidecar exists.
+  - `--vocab` (default `explicit_vocab.txt`) — a looser fallback that
+    only catches outright garbage (e.g. a leading token like
+    `sizeof(int)` with code glued on with no space), since the vocab
+    also legitimately contains ordinary English words (`the`, `a`,
+    `to`, `on`, `by`, …) that are valid Pool A entries in general but
+    may not be the specific word a given batch asked for.
+  A line failing either enabled check goes to `unresolved.tsv`, never
+  silently dropped, same as every other unresolved case.
+  **`sp_gemini.txt` predates the sidecar mechanism** (its
+  `.gen_synthetic_state.json`/`.gen_synthetic_requested_words.txt` history
+  wasn't tracked when it was generated) — do not try to reconstruct its
+  request history by replaying `gen_synthetic_prompt.py`
+  from a reset state, since the file's actual batch boundaries don't
+  cleanly match any single `--words-per-batch` value and a replay would
+  very likely diverge from what was actually sent to the LLM, silently
+  mis-filtering good lines. Treat `sp_gemini.txt` as vocab-only-checked
+  legacy data; `--expected-words` becomes fully reliable only for batches
+  generated after this mechanism was added.
 
 ---
 

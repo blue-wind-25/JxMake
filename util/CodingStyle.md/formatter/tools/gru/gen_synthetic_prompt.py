@@ -29,6 +29,7 @@ import sys
 
 DEFAULT_VOCAB = os.path.join(os.path.dirname(__file__), "explicit_vocab.txt")
 DEFAULT_STATE = os.path.join(os.path.dirname(__file__), ".gen_synthetic_state.json")
+DEFAULT_REQUESTED_WORDS = os.path.join(os.path.dirname(__file__), ".gen_synthetic_requested_words.txt")
 DEFAULT_LANGS = ["c", "cpp", "java", "kotlin", "js", "ts", "python"]
 
 # git add .gen_synthetic_state.json ../sp_gemini.txt && git commit -S -m 'Synthetic training data generation result'
@@ -83,6 +84,18 @@ def save_state(path, next_index):
         f.write("\n")
 
 
+def append_requested_words(path, word_slice):
+    """Append this run's Pool A word_slice to a persistent, ever-growing
+    sidecar file (one word per line, duplicates allowed) so a downstream
+    regroup_synthetic.py --expected-words pass can tell 'a real word this
+    tool ever requested' apart from a chat LLM's unprompted filler drift,
+    without needing to track per-run sidecar files across concatenated
+    pastes -- see STATE_AI.md's synthetic-augmentation tooling notes."""
+    with open(path, "a", encoding="utf-8") as f:
+        for w in word_slice:
+            f.write(w + "\n")
+
+
 def take_slice(words, start, count):
     """Return `count` words starting at `start`, wrapping around the list.
     Returns (slice_words, wrapped_bool, new_next_index)."""
@@ -107,6 +120,10 @@ def main():
     ap = argparse.ArgumentParser(description="Generate the rotating synthetic-data prompt.")
     ap.add_argument("--vocab", default=DEFAULT_VOCAB, help="path to explicit_vocab.txt")
     ap.add_argument("--state", default=DEFAULT_STATE, help="path to state json file")
+    ap.add_argument("--requested-words", default=DEFAULT_REQUESTED_WORDS,
+                     help="path to the persistent, append-only sidecar file this run's Pool A "
+                          "word slice gets appended to, for regroup_synthetic.py --expected-words; "
+                          "pass an empty string to skip writing it")
     ap.add_argument("--words-per-batch", type=int, default=100,
                      help="number of Pool A words to pull this run (also used as Pool B line count)")
     ap.add_argument("--langs", nargs="+", default=DEFAULT_LANGS, help="languages to rotate across")
@@ -128,6 +145,8 @@ def main():
 
     word_slice, wrapped, new_next = take_slice(words, start, args.words_per_batch)
     save_state(args.state, new_next)
+    if args.requested_words:
+        append_requested_words(args.requested_words, word_slice)
 
     prompt = PROMPT_TEMPLATE.format(
         total=2 * len(word_slice),
@@ -140,6 +159,8 @@ def main():
     print("# vocab words {}-{} of {} (wrapped: {})".format(
         start, start + len(word_slice) - 1, len(words), wrapped), file=sys.stderr)
     print("# next run will start at index {}".format(new_next), file=sys.stderr)
+    if args.requested_words:
+        print("# appended {} words to {}".format(len(word_slice), args.requested_words), file=sys.stderr)
 
     print(prompt)
 

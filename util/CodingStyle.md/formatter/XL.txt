@@ -56,13 +56,13 @@ Compact (use one sub-agent) `STATE_COMMON.md`, `STATE_C_CPP_JAVA.md` and `STATE_
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.
 
-Compact (use one sub-agent) `STATE_C_CPP_JAVA.md` and `STATE_PYTHON3.md`
+Compact (use one sub-agent) `STATE_C_CPP_JAVA.md`, `STATE_JS_TS.md`, and `STATE_PYTHON3.md`
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_130_inp/out.javal`
-    to   `...`
+    from `real_code_regressions_130_inp/out.java`
+    to   `real_code_regressions_131_inp/out.java`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`

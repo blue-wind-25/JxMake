@@ -1420,12 +1420,7 @@ private boolean isFunctionBodyQualifier(final Token t) {
     /** True iff any token in {@code [fromExclusive, toExclusive)} is a {@code NEWLINE} -- the
      *  multi-line-source detection signal for {@link #renderCallCandidate}'s Option 2 branch. */
     private boolean containsNewline(final List<Token> tokens) {
-        for (final Token t : tokens) {
-            if (t.type == TokenType.NEWLINE) {
-                return true;
-            }
-        }
-        return false;
+        return valueSpansMultipleLines(tokens);
     }
     /** Same signal as {@link #containsNewline}, but only counts a {@code NEWLINE} strictly
      *  between this argument's own first and last significant tokens -- i.e. a genuinely

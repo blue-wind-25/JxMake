@@ -441,7 +441,7 @@ on the noted commits/fixtures)
      Finished with this caveat per user decision — see `README.md`'s "Known Limitations".
 (17) HUGE `openrewrite/rewrite` (3373 `.java` files) — IN PROGRESS, not DONE. Full-tree forward
      pass (default config) had 0 errors; round1/round2 idempotency diff found 34 differing files,
-     pre-characterized into 6 clusters. 2 fixed and verified so far:
+     pre-characterized into 6 clusters. 4 fixed and verified so far:
      - Cluster 1 (~20 files, mostly ANTLR-generated grammar/parser files across rewrite-json/
        -yaml/-hcl/-docker/-java/-maven/-protobuf/-toml/-xml, incl. `tree/J.java`) — 2 sub-bugs
        sharing one root-cause shape (a fits-in-`line-length` prediction made before a later
@@ -464,8 +464,6 @@ on the noted commits/fixtures)
        branch: new `findBracelessStatementEnd` helper copies the branch through verbatim, then
        `appendChainNewlineBeforeElse` still runs. Verified via minimal repro + all 8 affected
        files + `make test`. Fixture: `real_code_regressions_129`.
-     3 clusters still open, not yet investigated past initial characterization — see "Known Gaps
-     — Open" for each one's repro files/shape/root-cause hypothesis; next free fixture number 131.
      - Cluster 3 (`rewrite-core/.../AdaptiveRadixTreeTest.java`, pre-increment spacing regression)
        — fixed. Root cause: a prefix `++`/`--` immediately followed by an identifier (`++i`) has no
        tight-join case in either `MiscRuleCore.needsSpaceBetween` or its documented duplicate
@@ -476,7 +474,21 @@ on the noted commits/fixtures)
        `for`-header gets re-rendered through the shared join point, which falls through to the
        generic space-by-default rule (`++ i`). Fixed by adding the tight-join case to both methods.
        Verified via minimal repro + `make test`. Fixture: `real_code_regressions_130`.
-     `make test` after all three fixes: 179/179 forward + 179/179 idempotency, zero regressions.
+     - Cluster 4 (`rewrite-java-{8,11,17,21,25}/.../ReloadableJava*ParserVisitor.java`, trailing
+       end-of-line comment column alignment drift) — fixed. Root cause:
+       `MiscRuleCore.parseAssignment`'s verbatim fallback (a value with more than one embedded
+       newline, or a single newline `classifyMultiLineBreak` doesn't recognize) returns an ordinary
+       non-`multiLine` `Assignment` whose `valueTokens` still contains the embedded `NEWLINE`
+       tokens — `MiscRuleCore.render` fed that row's `joinVerbatim` text straight into `ColumnGrid`,
+       whose plain `String.length()` column-width computation counted every character across the
+       whole wrapped call, not just its first line, corrupting the whole group's comment/value
+       column width, non-idempotently (that verbatim text's own length can shift slightly between
+       passes). Fixed by adding `valueSpansMultipleLines` and excluding any such row from the grid
+       the same way `a.multiLine` rows already are, rendering it directly instead. Verified via
+       minimal repro + all 5 affected files + `make test`. Fixture: `real_code_regressions_131`.
+     2 clusters still open, not yet investigated past initial characterization — see "Known Gaps
+     — Open" for each one's repro files/shape/root-cause hypothesis; next free fixture number 132.
+     `make test` after all four fixes: 180/180 forward + 180/180 idempotency, zero regressions.
      Full-tree round1/round2 re-run + `javac` compile-check deferred until all 6 clusters are
      resolved (per this candidate's own methodology) — NOT yet run.
 (18) Local `VMA-GIT/anemonesoft/` (82 `.java`) — 1 bug: `renderCallCandidate` swallowed a
@@ -694,19 +706,11 @@ RDD_KEY_88.
 
 ## Known Gaps — Open
 
-- **`openrewrite/rewrite` dogfood (entry 17) — 3 clusters still open.** Next free fixture
-  number: 131. Each cluster below is a real, confirmed-differing (round1 != round2) file group
+- **`openrewrite/rewrite` dogfood (entry 17) — 2 clusters still open.** Next free fixture
+  number: 132. Each cluster below is a real, confirmed-differing (round1 != round2) file group
   from the full-tree idempotency diff; none has been root-caused yet beyond what's noted.
-  (Cluster 3 — pre-increment spacing regression — is fixed; see entry 17's own narrative and
-  fixture `real_code_regressions_130`.)
-
-  - **Cluster 4 — trailing end-of-line comment column alignment drift**: 5 files, same bug,
-    `rewrite-java-{8,11,17,21,25}/.../ReloadableJava*ParserVisitor.java`. Trailing `//` comment
-    column differs between rounds. Not yet investigated — no minimal repro, no pass identified.
-    Likely candidate: whatever pass column-aligns trailing same-line comments
-    (`alignCommentSeparators` or a `MiscRuleCore`/`MiscRuleCurly` sibling) computing its column
-    from a line width that itself changes between rounds (same "measured-before-a-later-width-
-    changing-pass" family as clusters 1/2, unconfirmed).
+  (Clusters 3 and 4 are fixed; see entry 17's own narrative and fixtures
+  `real_code_regressions_130`/`_131`.)
 
   - **Cluster 5 — alignment-group padding collapse**: `rewrite-kotlin/.../K.java`. A `return
     (T)(...)` cast padded with many spaces collapses to a single space on round2. Not yet

@@ -2138,6 +2138,32 @@ Real-code regressions:
                                              Fixed by adding a tight-join case to both methods. See
                                              `STATE_C_CPP_JAVA.md`'s `openrewrite/rewrite` entry.
 
+  real_code_regressions_131_inp/out.java  -- Java, `openrewrite/rewrite` dogfood
+                                             (`rewrite-java-{8,11,17,21,25}`'s
+                                             `ReloadableJava*ParserVisitor.java`, cluster 4): a
+                                             trailing `//` comment's column, in an assignment-
+                                             alignment group that also contains a multi-line-call
+                                             right-hand side spanning more than STYLE.md §6's
+                                             supported single-newline shape, drifts by a few spaces
+                                             between a fresh format and a reformat. Root cause:
+                                             `MiscRuleCore.parseAssignment`'s verbatim fallback (for
+                                             a value with more than one embedded newline, or a single
+                                             newline `classifyMultiLineBreak` doesn't recognize)
+                                             returns an ordinary non-`multiLine` `Assignment` whose
+                                             `valueTokens` still contains the embedded `NEWLINE`
+                                             tokens -- `MiscRuleCore.render` then fed that row's
+                                             `joinVerbatim` text straight into `ColumnGrid`, whose
+                                             plain `String.length()` column-width computation counted
+                                             every character across the whole wrapped call, not just
+                                             its first line, corrupting the whole group's
+                                             comment/value column width -- and non-idempotently,
+                                             since that verbatim text's own length can shift slightly
+                                             between passes. Fixed by adding
+                                             `valueSpansMultipleLines` and excluding any such row from
+                                             the grid the same way `a.multiLine` rows already are,
+                                             rendering it directly instead. See
+                                             `STATE_C_CPP_JAVA.md`'s `openrewrite/rewrite` entry.
+
 How Tests Are Run
 -----------------
 

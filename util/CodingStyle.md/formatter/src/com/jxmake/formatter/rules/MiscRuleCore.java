@@ -652,7 +652,7 @@ public static final class Assignment {
 
         final ColumnGrid grid = new ColumnGrid();
         for (final Assignment a : group) {
-            if (a.multiLine) {
+            if (a.multiLine || valueSpansMultipleLines(a.valueTokens)) {
                 continue;
             }
             final String lhs = padRight(a.lhsText, maxNameLen)
@@ -672,6 +672,23 @@ public static final class Assignment {
         for (final Assignment a : group) {
             if (a.multiLine) {
                 lines.addAll(renderMultiLine(a, maxNameLen, maxPrefixLen, lhsWidth));
+            } else if (valueSpansMultipleLines(a.valueTokens)) {
+                // `parseAssignment`'s verbatim fallback (more than STYLE.md §6's supported
+                // single-newline multi-line shape, e.g. a call whose args already wrap across many
+                // lines from a prior `enforceCallLineBreaking` pass): this row's value cell would
+                // span multiple physical lines, so `String.length()` on its joined text would count
+                // every character across the whole wrapped call, not just the first line's width --
+                // corrupting the whole group's comment/value column width (and non-idempotent,
+                // since that verbatim text's own length can shift slightly between passes). Render
+                // it directly, outside the grid, same as `a.multiLine`'s own carve-out.
+                final String lhs = padRight(a.lhsText, maxNameLen)
+                        + padLeft(assignOpPrefix(a.operator), maxPrefixLen) + "=";
+                final StringBuilder line = new StringBuilder(lhs).append(' ')
+                        .append(joinVerbatim(a.valueTokens)).append(';');
+                if (a.trailingComment != null) {
+                    line.append(' ').append(a.trailingComment.text);
+                }
+                lines.add(line.toString());
             } else {
                 lines.add(String.join(" ", flushed.get(flushIdx)));
                 flushIdx++;
@@ -706,6 +723,14 @@ public static final class Assignment {
             line2.append(' ').append(a.trailingComment.text);
         }
         return Arrays.asList(line1, line2.toString());
+    }
+protected boolean valueSpansMultipleLines(final List<Token> tokens) {
+        for (final Token t : tokens) {
+            if (t.type == TokenType.NEWLINE) {
+                return true;
+            }
+        }
+        return false;
     }
 protected String assignOpPrefix(final Token operator) {
         return operator.text.substring(0, operator.text.length() - 1);

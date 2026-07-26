@@ -222,6 +222,20 @@ public final class FormatterCurly extends FormatterCore {
         // Phase 4 call further down is left in place too (idempotent, still needed for braces
         // introduced/exposed by later passes).
         text = miscRule.enforceInitializerBraceSpacing(tokenizer.apply(text));
+        // Same "measurement must see the final width" reasoning as the three passes above, in the
+        // opposite direction: enforceKeywordSpacing collapses a control-flow keyword's gap before
+        // its own `(` (`if (` -> `if(`) down to zero width, originally Phase 4 only. A fresh format
+        // still has the gap when enforceCallLineBreaking's fits-check runs here, one character
+        // wider than a reformat of already-formatted output (gap already collapsed from the
+        // previous pass) -- exactly enough to flip a candidate sitting right at the boundary
+        // between "fits" and "doesn't fit" depending purely on whether this is a fresh format or a
+        // reformat, non-idempotent (found via angular/angular real-code testing,
+        // `packages/core/src/render3/node_selector_matcher.ts`'s `if (nodeAttrs === null ||
+        // !isCssClassMatching(...))` -- 101 chars with the gap present, wrapped; 100 once
+        // collapsed, fits). Pulled forward from Phase 4, same shape as the other three; the
+        // original Phase 4 call further down is left in place too (idempotent, still needed for
+        // gaps introduced/exposed by later passes).
+        text = miscRule.enforceKeywordSpacing(tokenizer.apply(text));
         text = miscRule.enforceCallLineBreaking(tokenizer.apply(text));
         // enforceCallLineBreaking can turn a one-liner function body into a multi-line one (an
         // overlong call inside it gets wrapped across lines) -- but enforceFunctionDefinitionAllman

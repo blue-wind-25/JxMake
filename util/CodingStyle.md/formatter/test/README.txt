@@ -2356,6 +2356,54 @@ Real-code regressions:
                                              test`: 188/188 forward + 188/188 idempotency. See
                                              `STATE_PYTHON3.md`'s `python/cpython` entry.
 
+  real_code_regressions_140_inp/out.ts     -- TS, `angular/angular` dogfood
+                                             (`packages/router/src/create_router_state.ts:27`,
+                                             idempotency cluster 4, root cause #1 of 2):
+                                             `enforceCallLineBreaking`'s single-line-collapse
+                                             candidate (`renderCallDropped`/`renderCallOnePerLine`)
+                                             measured a call's width via `splitTopLevelCommas`,
+                                             which -- unlike its sibling `groupByOriginalLine` --
+                                             does not drop a dangling trailing empty group from a
+                                             trailing comma before the closing `)`. A multi-line
+                                             call with a trailing comma on its last argument (this
+                                             codebase's own style) measured one comma+space wider on
+                                             a fresh format than on a reformat of already-formatted
+                                             output (which never emits a trailing comma), flipping
+                                             the fits-check right at the boundary -- non-idempotent.
+                                             Fixed by adding the same dangling-trailing-empty-group
+                                             drop already used elsewhere in the file to both
+                                             `renderCallDropped` and `renderCallOnePerLine`. See
+                                             `STATE_JS_TS.md`'s cluster 4 entry.
+
+  real_code_regressions_141_inp/out.ts     -- TS, `angular/angular` dogfood
+                                             (`packages/core/src/render3/node_selector_matcher.ts:155`,
+                                             idempotency cluster 4, root cause #2 of 2):
+                                             `enforceCallLineBreaking`'s fits-check for a call
+                                             embedded in an `if (...)` condition measured the line
+                                             including the keyword-to-paren gap (`if (`, one extra
+                                             character) on a fresh format, since
+                                             `enforceKeywordSpacing` (which collapses it to `if(`)
+                                             originally ran only in Phase 4, after this fits-check.
+                                             A reformat of already-Phase-4-processed output saw the
+                                             gap already collapsed, one character narrower -- enough
+                                             to flip a candidate sitting exactly at the line-length
+                                             boundary between "wraps" and "fits" depending purely on
+                                             whether the input was freshly formatted or already
+                                             formatted. Fixed by pulling `enforceKeywordSpacing`
+                                             forward to run immediately before the first
+                                             `enforceCallLineBreaking` call in
+                                             `FormatterCurly.formatOne`, same "measurement must see
+                                             final width" pattern already used for
+                                             `enforceComplexityPadding`/
+                                             `enforceAttributeAndSpliceBracketPadding`/
+                                             `enforceInitializerBraceSpacing`; the original Phase 4
+                                             call is left in place too. This pull-forward applies to
+                                             all curly-brace languages (C/C++/Java/Kotlin/JS/TS), not
+                                             just JS/TS, since `enforceKeywordSpacing` is shared --
+                                             full `make test` re-run confirmed no regressions. `make
+                                             test`: 190/190 forward + 190/190 idempotency. See
+                                             `STATE_JS_TS.md`'s cluster 4 entry.
+
 How Tests Are Run
 -----------------
 

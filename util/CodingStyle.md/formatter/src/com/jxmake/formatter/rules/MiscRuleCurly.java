@@ -1296,6 +1296,18 @@ public static final class Signature {
      *  falls back to {@link #renderCallOnePerLine}) if the line doesn't fit. */
     private List<String> renderCallDropped(final List<Token> paramsSlice, final String baseIndent) {
         final List<List<Token>> args = splitTopLevelCommas(paramsSlice);
+        // Drop a dangling trailing empty group (a trailing comma before `)` with nothing after
+        // it -- e.g. this codebase's own multi-line call style, `foo(\n  a,\n  b,\n);` --
+        // splitTopLevelCommas (unlike groupByOriginalLine) doesn't drop it itself. Without this,
+        // a source call with a trailing comma measured 2 chars ("`, `") wider here than the same
+        // call once reformatted (renderCallOnePerLine/renderCallPreserveGroups never emit a
+        // trailing comma on the last argument), so this fits-check could reject on a fresh format
+        // but accept on a reformat of already-formatted output at the exact same width --
+        // non-idempotent (found via angular/angular real-code testing,
+        // `packages/router/src/create_router_state.ts`'s `createNode(...)` call).
+        while (!args.isEmpty() && significantOnly(args.get(args.size() - 1)).isEmpty()) {
+            args.remove(args.size() - 1);
+        }
         final StringBuilder argsText = new StringBuilder();
         for (int i = 0; i < args.size(); i++) {
             if (i > 0) {
@@ -1316,6 +1328,12 @@ public static final class Signature {
      *  {@link #renderCallDropped}. */
     private List<String> renderCallOnePerLine(final List<Token> paramsSlice, final String baseIndent) {
         final List<List<Token>> args = splitTopLevelCommas(paramsSlice);
+        // Same dangling-trailing-empty-group drop as renderCallDropped -- without it, a source
+        // call with a trailing comma renders a stray blank final line here (an empty last group
+        // from splitTopLevelCommas).
+        while (!args.isEmpty() && significantOnly(args.get(args.size() - 1)).isEmpty()) {
+            args.remove(args.size() - 1);
+        }
         final String argIndent = baseIndent + indentUnit;
 
         final List<String> lines = new ArrayList<>();

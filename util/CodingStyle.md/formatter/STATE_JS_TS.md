@@ -839,7 +839,7 @@ a standalone/unused-value expression. Both are cosmetic gaps in the
 checker's tolerance list, not formatter defects, so this only reduces
 future dogfood-session triage noise — not urgent, do whenever convenient.
 
-### `angular/angular` dogfood pass — categorized; clusters 1-3 FIXED, clusters 4-5 NOT YET FIXED
+### `angular/angular` dogfood pass — categorized; clusters 1-3 FIXED, cluster 4 PARTIALLY FIXED (2 of 3+ root causes), cluster 5 NOT YET FIXED (accepted gap, no action planned)
 
 Repo: `/tmp/angular`, shallow clone (`--depth 1`), HEAD `5ad8231`
 (2026-07-24). Scope: 5394 `.ts` files (`.d.ts`/`.tsx` excluded, no
@@ -968,7 +968,7 @@ estimated difficulty):
    corruption remains) plus a minimal repro, confirmed idempotent.
    Fixture: `real_code_regressions_136`. `make test`: 185/185 forward +
    185/185 idempotency.
-4. **[IDEMPOTENCY] Call-wrap/collapse vs. alignment-padding fits-check
+4. **[PARTIALLY FIXED] Call-wrap/collapse vs. alignment-padding fits-check
    ordering** — dominant idempotency cluster, **~23 of 29 files**:
    `packages/router/src/create_router_state.ts:27`,
    `packages/core/src/render3/node_selector_matcher.ts:155`,
@@ -993,14 +993,61 @@ estimated difficulty):
    files — `create_router_state.ts` avoids the flip at indent-size=2
    (boundary shifted), `node_selector_matcher.ts` reproduces identically
    (config-insensitive, confirming it's a pure ordering bug not a
-   config-boundary artifact). Medium criticality (always syntax-valid,
-   but genuinely non-deterministic output is a real `--check`-CI concern
-   given the frequency) — architecturally nontrivial (real fix needs the
-   fits-check to run after alignment padding, or padding to account for a
-   fits-check-collapsed call at the boundary — a cross-pass-ordering fix,
-   already flagged out-of-scope-without-dedicated-follow-up above). Worth
-   escalating priority given the now-confirmed frequency, despite the
-   difficulty.
+   config-boundary artifact).
+
+   Two of the (at least three) distinct root causes behind this cluster
+   are now **FIXED**:
+
+   - **Root cause #1 — trailing-comma dangling-empty-group** (confirmed
+     via `create_router_state.ts:27`): `renderCallDropped` and
+     `renderCallOnePerLine` measured/rendered a call's argument list via
+     `splitTopLevelCommas`, which — unlike its sibling
+     `groupByOriginalLine` — does not drop a dangling trailing empty
+     group produced by a trailing comma before the closing `)` (this
+     codebase's own multi-line call style, `foo(\n  a,\n  b,\n);`). A
+     fresh format (source has the trailing comma) measured 2 characters
+     wider than a reformat of already-formatted output (the formatter's
+     own renders never emit a trailing comma), flipping the fits-check
+     exactly at the boundary. Fixed by adding the same
+     dangling-trailing-empty-group drop already used elsewhere in the
+     file to both methods. Fixture: `real_code_regressions_140`.
+   - **Root cause #2 — `if (`/`if(` keyword-spacing pipeline ordering**
+     (confirmed via `node_selector_matcher.ts:155` and
+     `locale_plugin.ts:42`): `enforceCallLineBreaking`'s fits-check for a
+     call embedded in an `if (...)` condition measured the line
+     including the keyword-to-paren gap, since `enforceKeywordSpacing`
+     (which collapses `if (` to `if(`) originally ran only in Phase 4,
+     after this fits-check — one character narrower on a reformat than
+     on a fresh format, flipping the fits-check at the boundary (debug
+     prints confirmed the exact 101-vs-100-char split against the real
+     file). Fixed by pulling `enforceKeywordSpacing` forward to run
+     immediately before the first `enforceCallLineBreaking` call in
+     `FormatterCurly.formatOne`, same "measurement must see final width"
+     pattern already used for `enforceComplexityPadding`/
+     `enforceAttributeAndSpliceBracketPadding`/
+     `enforceInitializerBraceSpacing` above; the original Phase 4 call is
+     left in place too. This pull-forward applies to all curly-brace
+     languages (C/C++/Java/Kotlin/JS/TS), not just JS/TS, since
+     `enforceKeywordSpacing` is a shared `MiscRuleCore` method — full
+     `make test` re-run confirmed no regressions. Fixture:
+     `real_code_regressions_141`. `make test` after both fixes:
+     190/190 forward + 190/190 idempotency.
+
+   A spot-check re-run against 8 of the originally-cited files after both
+   fixes found 6 now idempotent (`create_router_state.ts`,
+   `node_selector_matcher.ts`, `ingest.ts`, `locale_plugin.ts`,
+   `hover.ts`, `format_number.ts`) and 2 **still broken** via at least one
+   further, distinct, not-yet-diagnosed root cause:
+   `common/src/i18n/format_date.ts:519` (a call argument list wraps on
+   round2 but not round1 despite unchanged surrounding text — not yet
+   investigated) and `common/upgrade/src/location_shim.ts:461` (a
+   trailing line comment after a wrapped call collapses back to one line
+   on round2 — not yet investigated). `compiler-cli/src/ngtsc/core/
+   {compiler,host}.ts` and `devtools/.../split.component.ts` were not
+   re-checked (missing from this `/tmp/angular` checkout at re-check
+   time). Remaining root cause(s) not yet diagnosed — this entry stays
+   open until a full re-run across all ~23 originally-cited files
+   confirms full resolution or further causes are found and fixed.
 5. **[IDEMPOTENCY] Reindentation on internally-inconsistent source
    (accepted gap, third confirming recurrence, no new action)** — 3
    files: `packages/benchpress/test/metric/user_metric_spec.ts:88`,

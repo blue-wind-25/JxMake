@@ -2218,6 +2218,29 @@ Real-code regressions:
                                              idempotency. See `STATE_PYTHON3.md`'s `python/cpython`
                                              entry.
 
+  real_code_regressions_134_inp/out.ts    -- TS, `angular/angular` dogfood
+                                             (`override_rename_ts_plugin.ts`/`template_target.ts`/
+                                             `checker.ts`, critical cluster 1): an arrow function's
+                                             dotted/qualified return type or type predicate
+                                             (`ts.server.PluginModule =>`, `node is tss.Node =>`,
+                                             `diag is ts.Diagnostic =>`) had its last segment
+                                             wrapped in a spurious paren pair, producing invalid TS
+                                             (`ts.server.(PluginModule) =>`). Root cause:
+                                             `JsTsSpecificRule.enforceArrowFunctionParameterParens`'s
+                                             bail-out (added for a single-segment `vuejs/core` case)
+                                             checked only the token immediately preceding the
+                                             arrow-parameter identifier for `:`/`is`/`typeof`/
+                                             `keyof`, so it missed a multi-segment dotted chain
+                                             where that immediate predecessor is a `.` instead of
+                                             the keyword/`:` itself. Fixed by walking backward over
+                                             any number of `IDENTIFIER '.'` pairs first, so the
+                                             bail-out check lands on what precedes the WHOLE chain's
+                                             first segment rather than just its tail. Bare
+                                             single-param arrows (`n => n + 1`) still correctly get
+                                             wrapped. `make test`: 183/183 forward + 183/183
+                                             idempotency. See `STATE_JS_TS.md`'s `angular/angular`
+                                             entry.
+
 How Tests Are Run
 -----------------
 

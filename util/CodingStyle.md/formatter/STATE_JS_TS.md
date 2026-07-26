@@ -839,7 +839,7 @@ a standalone/unused-value expression. Both are cosmetic gaps in the
 checker's tolerance list, not formatter defects, so this only reduces
 future dogfood-session triage noise — not urgent, do whenever convenient.
 
-### `angular/angular` dogfood pass — categorized, NOT YET FIXED
+### `angular/angular` dogfood pass — categorized; cluster 1 FIXED, clusters 2-5 NOT YET FIXED
 
 Repo: `/tmp/angular`, shallow clone (`--depth 1`), HEAD `5ad8231`
 (2026-07-24). Scope: 5394 `.ts` files (`.d.ts`/`.tsx` excluded, no
@@ -859,7 +859,7 @@ No fixes attempted yet — clusters below are triage only, sorted
 **most-valuable-to-fix first** (value = criticality weighed against
 estimated difficulty):
 
-1. **[CRITICAL] Dotted/qualified type-predicate or return-type before
+1. **[CRITICAL] [FIXED] Dotted/qualified type-predicate or return-type before
    `=>` gets its last segment wrapped in a spurious paren pair** — the
    dominant corruption cluster, **~40 of the 46 broken files**. E.g.
    `packages/language-service/override_rename_ts_plugin.ts:29`: `(): ts
@@ -887,6 +887,22 @@ estimated difficulty):
    extension** of the existing bail-out list: walk backward past a full
    dotted-name chain (skip `IDENTIFIER '.'` pairs) before checking the
    bail-out keyword, rather than a new mechanism.
+
+   **FIXED**: root cause confirmed exactly as guessed above.
+   `enforceArrowFunctionParameterParens` now walks backward over any
+   number of `IDENTIFIER '.'` pairs before `prevIdx` to find the dotted
+   chain's own first segment (`anchorIdx`), then applies the existing
+   `:`/`is`/`typeof`/`keyof` bail-out check against what precedes THAT,
+   instead of checking only the single token immediately before the
+   chain's last segment. Verified against a hand-written repro covering
+   all three real shapes above plus a bare single-param arrow (still
+   correctly wrapped), and directly against the three real angular files
+   cited above (`override_rename_ts_plugin.ts`, `template_target.ts`,
+   `checker.ts`) reformatted from the existing `/tmp/angular` checkout —
+   no `ts.server.(PluginModule)`/`tss.(Node)`/`ts.(Diagnostic)`
+   corruption remains in any of them. Fixture:
+   `real_code_regressions_134`. `make test`: 183/183 forward + 183/183
+   idempotency.
 2. **[CRITICAL] Old-style angle-bracket cast (`<Type>{...}`) misparsed as
    a generic, injecting a bogus `;` inside the following object literal**
    — 1 confirmed file: `packages/core/src/testability/testability.ts:229`:

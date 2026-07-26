@@ -1333,7 +1333,30 @@ public final class JsTsSpecificRule {
             // legally precede a bare arrow parameter (that shape requires parens on the
             // parameter, not a type operator), so their presence right before the identifier
             // means it's still part of the return type, same conclusion as the `:`/`is` cases.
-            final int prevPrevIdx = prevSignificantIndex(tokens, prevIdx - 1);
+            //
+            // A dotted/qualified return type or type predicate (`ts.server.PluginModule =>`,
+            // `tss.Node =>`, `node is ts.Diagnostic =>`) has `prev` as merely the LAST segment
+            // of a `.`-chain, not directly preceded by `:`/`is`/`typeof`/`keyof` -- its immediate
+            // predecessor is a `.` instead. Without walking back over the whole chain first, this
+            // check missed that case and wrapped just the tail segment (`ts.server.(PluginModule)
+            // =>`), a real TS parse error -- found via `angular/angular` dogfood tsc parse-check,
+            // `override_rename_ts_plugin.ts`/`template_target.ts`/`checker.ts`. Walk back over any
+            // number of `IDENTIFIER '.'` pairs first so `anchorIdx` lands on the chain's own first
+            // segment before checking what precedes THAT for the same `:`/`is`/`typeof`/`keyof`
+            // markers.
+            int anchorIdx = prevIdx;
+            while (true) {
+                final int dotIdx = prevSignificantIndex(tokens, anchorIdx - 1);
+                if (dotIdx < 0 || !isOp(tokens.get(dotIdx), ".")) {
+                    break;
+                }
+                final int identIdx = prevSignificantIndex(tokens, dotIdx - 1);
+                if (identIdx < 0 || tokens.get(identIdx).type != TokenType.IDENTIFIER) {
+                    break;
+                }
+                anchorIdx = identIdx;
+            }
+            final int prevPrevIdx = prevSignificantIndex(tokens, anchorIdx - 1);
             if (prevPrevIdx >= 0) {
                 final Token prevPrev = tokens.get(prevPrevIdx);
                 if (isOp(prevPrev, ":") || (prevPrev.type == TokenType.KEYWORD

@@ -61,8 +61,8 @@ Be careful not to lose important information, especially the `**Tools/compiler u
 `indent-size` exception, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_130_inp/out.java`
-    to   `real_code_regressions_131_inp/out.java`
+    from `real_code_regressions_128_inp/out.java`
+    to   `real_code_regressions_132_inp/out.java`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -108,6 +108,7 @@ the estimated criticality/the value of fixing the bug and the estimated difficul
 Sort the clusters from the most valuable to the least valuable to fix based on the above
 criteria. Write and commit the state files, then ask me which clusters to fix first.
 Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
+Write also your short report (which you print to the CLI console) to `/tmp/REP.txt`.
 
 Continue with the dogfood test (search in `/tmp` first, clone the repo if not found):
     ... : ... `...` (clusters ...-...)
@@ -133,20 +134,23 @@ the estimated criticality/the value of fixing the bug and the estimated difficul
 Sort the clusters from the most valuable to the least valuable to fix based on the above
 criteria. Write and commit the state files, then ask me which clusters to fix first.
 Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
+Write also your short report (which you print to the CLI console) to `/tmp/REP.txt`.
+
+[#] `github.com/python/cpython`  [~980 kLOC of effective Python code]
+[#] `github.com/angular/angular` [~895 kLOC of effective TypeScript code]
 
 
 
 C/C++:
     [X] `github.com/gcc-mirror/gcc`    [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
     [X] `github.com/llvm/llvm-project` [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
-
 C++26:
-
 Java:
+    [X] `**Cluster 5 — alignment-group padding collapse**: `rewrite-kotlin/.../K.java`
     [X] `**Extremely long pre-existing single-physical-line statement wraps differently each round**`
 
 Kotlin:
-    [3] `github.com/JetBrains/kotlin` [HUGE, ~3000 kLOC of effective Kotlin code]
+    [1] `github.com/JetBrains/kotlin` [HUGE, ~3000 kLOC of effective Kotlin code]
 
 JSON:
 JSON5:
@@ -163,11 +167,9 @@ JS:
     [X] `**TODO (low priority, not currently queued):** teach `js_ts_content_diff.js` ...`
 
 TS:
-    [2] `github.com/angular/angular`      [ ~895 kLOC of effective TypeScript code]
-    [4] `github.com/microsoft/TypeScript` [~1490 kLOC of effective TypeScript code]
+    [2] `github.com/microsoft/TypeScript` [~1490 kLOC of effective TypeScript code]
 
 Python3:
-    [1] `github.com/python/cpython` [~980 kLOC of effective Python code]
 
 ####################################################################################################
 ####################################################################################################

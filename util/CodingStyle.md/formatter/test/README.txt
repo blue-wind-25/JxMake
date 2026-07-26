@@ -2112,6 +2112,42 @@ Real-code regressions:
                                              `STATE_C_CPP_JAVA.md`'s `openrewrite/rewrite` dogfood
                                              entry.
 
+  real_code_regressions_129_inp/out.java  -- Java, `openrewrite/rewrite` dogfood
+                                             (`rewrite-benchmarks`'s `MethodMatcherBenchmark.java`
+                                             and 7 sibling files), a `.map(name -> { ... if/else-if
+                                             chain ... })` lambda body whose `if`/`else if`/`else`
+                                             branches render on their own lines on a fresh format but
+                                             fully join onto one giant physical line on a reformat of
+                                             that same output -- a genuine non-fixed-point flap, not
+                                             the same root cause as `real_code_regressions_128`'s
+                                             fits-prediction-before-a-later-pass shape despite the
+                                             superficial resemblance. Root cause:
+                                             `BlockStructureRule.collapseSingleExpressionBlocks`'s
+                                             per-branch newline before a chain's next `else` is only
+                                             ever inserted as a side effect of that same pass
+                                             collapsing a braced `if`/`else if` body to braceless
+                                             (`appendChainNewlineBeforeElse`, called right after
+                                             `tryCollapse`); once a body arrives already braceless
+                                             (as it does on a second pass, fed round1's own already-
+                                             collapsed output), there was no brace left to re-collapse
+                                             and thus no newline re-inserted, and
+                                             `ScopePipelineCurly`'s declaration/assignment-RHS pass
+                                             (which has no multi-line-render path and always joins a
+                                             declaration's whole initializer back onto one line) had
+                                             already erased whatever newlines the previous round's
+                                             output had, leaving the whole chain fused. Fixed by
+                                             adding a C/C++/Java sibling of the already-existing
+                                             Kotlin "already-braceless multi-line body" branch: when
+                                             `matchControlBlock` finds a braceless `if`/`else if`
+                                             body, the branch's own text is now copied through
+                                             verbatim (new `findBracelessStatementEnd` helper locates
+                                             its top-level terminating `;`) and
+                                             `appendChainNewlineBeforeElse` is still invoked
+                                             afterward, so the per-branch newline survives a second
+                                             format pass the same way it's produced on the first. See
+                                             `STATE_C_CPP_JAVA.md`'s `openrewrite/rewrite` dogfood
+                                             entry.
+
 How Tests Are Run
 -----------------
 

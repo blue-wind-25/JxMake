@@ -230,6 +230,41 @@ public class BlockStructureRule {
                             continue;
                         }
                     }
+                } else if (block != null && block.openBraceIndex < 0 && !lang.isKotlin) {
+                    // C/C++/Java sibling of the Kotlin branch just above, but for the opposite
+                    // reason: unlike Kotlin, a C/C++/Java braceless body normally is only ever
+                    // produced BY this same pass collapsing an originally-braced one (see that
+                    // branch's own comment) -- except on a *second* format pass over this pass's
+                    // own prior output, where the body arrives already braceless. The forced
+                    // newline this pass inserts before a following `else` (via
+                    // appendChainNewlineBeforeElse, on the braced-collapse path above) is what
+                    // gives an `if`/`else if`/`else` chain its one-branch-per-line shape; nothing
+                    // else in the pipeline re-inserts it. On a fresh (still-braced) round, that
+                    // insertion happens naturally as a side effect of the collapse above. On a
+                    // reformat-of-already-collapsed round, `ScopePipelineCurly`'s declaration/
+                    // assignment-RHS pass (which has no multi-line-render path and always joins a
+                    // declaration's whole initializer back onto one physical line) runs before
+                    // this pass and erases those forced newlines again -- with no brace left for
+                    // this pass to re-collapse and re-split, the whole chain then stays joined
+                    // onto one line, a genuine non-fixed-point flap (found via dogfood-testing
+                    // openrewrite/rewrite's MethodMatcherBenchmark.java: a `.map(name -> { ...
+                    // if/else-if chain ... })` lambda body rendered with each branch on its own
+                    // line on a fresh format, but fully joined onto one giant line on a reformat
+                    // of that same output). Fixed the same way as the Kotlin branch above: leave
+                    // the already-formatted body's own text untouched (verbatim, not re-rendered
+                    // via `renderInline`, since it is already exactly one line with no interior
+                    // newlines to flatten), but still force the newline before a following `else`.
+                    if (!anyFrozen(tokens, i, block.closeParenIndex + 1)) {
+                        final int bodyEnd = findBracelessStatementEnd(tokens, block.closeParenIndex + 1, n);
+                        if (bodyEnd >= 0 && !anyFrozen(tokens, block.closeParenIndex + 1, bodyEnd)) {
+                            for (final Token bt : tokens.subList(i, bodyEnd)) {
+                                out.append(bt.text);
+                            }
+                            i = appendChainNewlineBeforeElse(tokens, bodyEnd, n, out,
+                                    mostRecentLineIndent(tokens, i));
+                            continue;
+                        }
+                    }
                 }
             } else if (t.type == TokenType.KEYWORD && "else".equals(t.text) && lang.isKotlin
                     && kotlinParenDepth == 0 && pendingKotlinExprBodyElse) {
@@ -492,6 +527,35 @@ public class BlockStructureRule {
             return tokens.get(wsIdx).text;
         }
         return "";
+    }
+
+    /**
+     * Scans forward from {@code start} (the token right after an already-braceless `if`/
+     * `else if`/`for`/`while`'s condition-closing `)`) for the top-level (depth-0 in `(`/`[`/`{`)
+     * terminating `;` of its single-statement body, returning the index just past it, or -1 if
+     * none is found before {@code n} or a `{` is encountered (meaning this is not actually a
+     * simple single-statement braceless body -- caller leaves the input untouched rather than
+     * guess). See the C/C++/Java already-braceless branch in
+     * {@link #collapseSingleExpressionBlocks} for why this is needed at all.
+     */
+    private int findBracelessStatementEnd(final List<Token> tokens, final int start, final int n) {
+        int depth = 0;
+        for (int k = start; k < n; k++) {
+            final Token t = tokens.get(k);
+            if (isPunct(t, "(") || isPunct(t, "[")) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]")) {
+                depth--;
+                if (depth < 0) {
+                    return -1;
+                }
+            } else if (isPunct(t, "{") || isPunct(t, "}")) {
+                return -1;
+            } else if (depth == 0 && isPunct(t, ";")) {
+                return k + 1;
+            }
+        }
+        return -1;
     }
 
     /**

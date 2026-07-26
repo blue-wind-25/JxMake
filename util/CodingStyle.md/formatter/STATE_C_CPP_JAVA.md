@@ -443,7 +443,51 @@ on the noted commits/fixtures)
      file out of 1997 affected). Full-tree round1/round2 clean except that file; `javac`
      compile-check not run (gated on fully-clean idempotency) — accepted as Finished with this
      documented caveat per user decision. See `README.md`'s "Known Limitations" section.
-(17) HUGE `openrewrite/rewrite` — see "Not started" below (queued, not started).
+(17) HUGE `openrewrite/rewrite` (3373 `.java` files) — IN PROGRESS, not DONE. Full-tree
+     forward pass (default config, no `.jxmake-code-formatter` override) had 0 errors; full-tree
+     round1/round2 idempotency diff found 34 differing files, pre-characterized into 6 clusters.
+     2 clusters fixed and verified so far:
+     - Cluster 1 (~20 files, mostly ANTLR-generated grammar/parser files: rewrite-json/
+       rewrite-yaml/rewrite-hcl `JsonPathParser.java`/`*BaseVisitor.java`, rewrite-docker
+       `DockerParser(.java/BaseVisitor.java)`, rewrite-java `AnnotationSignatureParser.java`,
+       rewrite-maven `VersionRangeParser(.java/BaseVisitor.java)`, rewrite-protobuf
+       `Protobuf2Parser(.java/BaseVisitor.java)`, rewrite-toml `TomlParser(.java/
+       BaseVisitor.java)`, rewrite-xml `XMLParserBaseVisitor.java`/`XPathParserBaseVisitor.java`,
+       rewrite-java `tree/J.java`) — 2 sub-bugs sharing one root-cause shape (a fits-in-
+       `line-length` prediction made before a later width-growing pass ran): (a)
+       `JavaSpecificRule.isSingleLineBody` measured a tab-indented one-liner's leading indent via
+       raw `String.length()` instead of its expanded post-conversion width — fixed via a new
+       local `expandedIndentWidth` helper. (b) `enforceInitializerBraceSpacing` ran in Phase 4,
+       after `enforceCallLineBreaking` had already measured/decided not to wrap — fixed by
+       pulling a second `enforceInitializerBraceSpacing` call forward to run right before
+       `enforceCallLineBreaking`. Verified via minimal repro + full re-run of all 18 affected
+       files + `make test`. Fixture: `real_code_regressions_128`.
+     - Cluster 2 (dense single-line lambda/if-else bodies re-split differently across passes:
+       rewrite-benchmarks `MethodMatcherBenchmark.java`, rewrite-core `RemoteFile.java`,
+       rewrite-gradle `ChangeDependency.java`/`DependencyConstraintToRule.java`, rewrite-hcl
+       `format/BracketsVisitor.java`, rewrite-java `internal/rpc/JavaReceiver.java`,
+       rewrite-kotlin `AddImport.java`, rewrite-java-test `JavaTemplateTest5Test.java`) —
+       confirmed a genuinely distinct root cause from cluster 1, despite the superficial
+       resemblance both were pre-characterized under. Root cause:
+       `BlockStructureRule.collapseSingleExpressionBlocks`'s per-branch newline before a chain's
+       next `else` was only ever inserted as a side effect of that same pass collapsing a braced
+       `if`/`else if` body to braceless (`appendChainNewlineBeforeElse`, called right after
+       `tryCollapse`); once a body arrives already braceless (fed round1's own already-collapsed
+       output on round2), there was no brace left to re-collapse and thus no newline
+       re-inserted, and `ScopePipelineCurly`'s declaration/assignment-RHS pass (no multi-line-
+       render path, always joins a declaration's whole initializer back onto one line) had
+       already erased whatever newlines the previous round's output had, fusing the whole chain
+       onto one line. Fixed by adding a C/C++/Java sibling of the already-existing Kotlin
+       "already-braceless multi-line body" branch in `collapseSingleExpressionBlocks`: a new
+       `findBracelessStatementEnd` helper locates the branch's own top-level terminating `;`, the
+       branch text is copied through verbatim, and `appendChainNewlineBeforeElse` is still
+       invoked afterward. Verified via minimal repro + all 8 affected files (idempotent, 0
+       forward errors) + `make test`. Fixture: `real_code_regressions_129`.
+     4 clusters still open, not yet investigated past initial characterization — see "Known Gaps
+     — Open" below for each one's repro files/shape/root-cause hypothesis and the next free
+     fixture number (130). `make test` after both fixes: 178/178 forward + 178/178 idempotency,
+     zero regressions. Full-tree round1/round2 re-run + `javac` compile-check deferred until all
+     6 clusters are resolved (per this candidate's own methodology) — NOT yet run.
 (18) Local `VMA-GIT/anemonesoft/` (82 `.java`) — 1 bug: `renderCallCandidate` swallowed a
      multi-line brace-bodied trailing argument (brace depth not tracked). Verified (4).
      Fixture: `real_code_regressions_29`.
@@ -649,10 +693,6 @@ on the noted commits/fixtures)
     modern-C++ surface than its size suggests — lowest priority of the four for
     modern-feature testing specifically. Try to exercise C++23 features specifically. Would
     verify with (2)/(3). (NOT STARTED)
-(6) HUGE `github.com/openrewrite/rewrite` — large multi-module AST-rewrite engine; low
-    priority given size, pick up once smaller candidates are exhausted. Likely some
-    annotation-processor-generated/Lombok-style code (`AI_PREAMBLE`-adjacent gaps). Would
-    verify with (4). (NOT STARTED)
 Priority order for the C/C++ queue unless the user redirects: `llvm-project` →
 `gcc-mirror` (`mp11`/`lexy`/`stdexec`/`range-v3`/`boost-ext/ut`/`microsoft/proxy`/`STL` already DONE —
 `mp11` was smallest/narrowest, `lexy` next for operator-overloading/concepts/CRTP/dense
@@ -703,6 +743,46 @@ RDD_KEY_88.
 ---
 
 ## Known Gaps — Open
+
+- **`openrewrite/rewrite` dogfood (entry 17) — 4 clusters still open.** Next free fixture
+  number: 130. Each cluster below is a real, confirmed-differing (round1 != round2) file group
+  from the full-tree idempotency diff; none has been root-caused yet beyond what's noted.
+
+  - **Cluster 3 — pre-increment spacing regression**: `rewrite-core/src/test/java/org/
+    openrewrite/internal/AdaptiveRadixTreeTest.java`. `++i` in round1 becomes `++ i` in round2
+    (a space inserted into what should be a tight pre-increment). Not yet investigated past
+    confirming the diff. Likely relevant: `RDD_KEY_42` (`MiscRule.enforcePreIncrement`'s design —
+    two finders, `collectBareStatementSpans` and `collectForIncrementSpans`, both requiring
+    `noBlockerBetween` with zero comment/NEWLINE tokens between identifier and operator) — check
+    whether round1's token shape around this `++i` differs from round2's in a way that trips one
+    of those blocker checks (e.g. a NEWLINE landing between `++` and `i` on one round but not the
+    other, from an earlier pass's line-wrapping decision differing between rounds the same way
+    clusters 1/2 above did). Root-cause hypothesis: not yet formed beyond this lead.
+
+  - **Cluster 4 — trailing end-of-line comment column alignment drift**: 5 files, same bug,
+    `rewrite-java-{8,11,17,21,25}/.../ReloadableJava*ParserVisitor.java`. Trailing `//` comment
+    column position differs between round1 and round2. Not yet investigated at all — no minimal
+    repro extracted yet, no pass identified. Likely candidate: whatever pass column-aligns
+    trailing same-line comments (`alignCommentSeparators` or a sibling in `MiscRuleCore`/
+    `MiscRuleCurly`) computing its alignment column from a line width that itself changes between
+    rounds (same general "measured-before-a-later-width-changing-pass" bug family as clusters
+    1/2, but not confirmed).
+
+  - **Cluster 5 — alignment-group padding collapse**: `rewrite-kotlin/.../K.java`. A `return
+    (T)(...)` cast expression padded with many spaces (part of some alignment group) collapses to
+    a single space on round2. Not yet investigated at all — no minimal repro extracted yet. Likely
+    candidate: whichever alignment-group pass decides how many members share a padding column;
+    hypothesis is it groups this `return` with different neighbors on round2 than round1 (e.g.
+    because round1's own padding changed a neighbor's measured width), but unconfirmed.
+
+  - **Cluster 6 — closing-brace indentation drift**: `rewrite-python/.../Autodetect.java`. A `}`
+    closing brace's indentation column differs by a few spaces between round1 and round2. Not yet
+    investigated at all — no minimal repro extracted yet.
+
+  Full-tree round1/round2 re-run (reusing existing `round1`/`round2` scratchpad dirs, regenerating
+  only what changes) plus the `javac`/`tools/verifiers` compile-check are both still pending,
+  deferred until all 6 clusters are resolved per this candidate's own methodology (see entry (17)
+  above for the 2 already-fixed clusters and their fixtures).
 
 - **Non-idempotent switch-case re-indent on internally-inconsistent generated source**
   (`SwitchRule.applyNonInlineCaseIndent`) — ACCEPTED, not fixed. Found in `javaparser/javaparser`

@@ -207,6 +207,21 @@ public final class FormatterCurly extends FormatterCore {
         if (lang.isCpp) {
             text = cppRule.enforceAttributeAndSpliceBracketPadding(tokenizer.apply(text));
         }
+        // Same "measurement must see the final width" reasoning as enforceComplexityPadding/
+        // enforceAttributeAndSpliceBracketPadding above: enforceInitializerBraceSpacing's loose
+        // `{ x }` initializer-brace padding (STYLE.md §3.3) can push a line right at the boundary
+        // past LINE_LENGTH_LIMIT with no further re-check if it only ran later (originally Phase 4,
+        // after enforceCallLineBreaking already measured/decided not to wrap) -- a fresh format
+        // sees the pre-padding width and stays one line, while a reformat of already-formatted
+        // output (padding already baked in) sees the post-padding width and wraps, a genuine
+        // idempotency bug (found via real-world testing, openrewrite/rewrite's `J.java`
+        // `@RequiredArgsConstructor(onConstructor_ = {@JsonCreator(...)})` annotation argument,
+        // whose `{@JsonCreator(...)}` grows past the limit once padded to `{ @JsonCreator(...) }`).
+        // Pulled forward from Phase 4 to run right before enforceCallLineBreaking, same fix shape
+        // as enforceComplexityPadding/enforceAttributeAndSpliceBracketPadding above; the original
+        // Phase 4 call further down is left in place too (idempotent, still needed for braces
+        // introduced/exposed by later passes).
+        text = miscRule.enforceInitializerBraceSpacing(tokenizer.apply(text));
         text = miscRule.enforceCallLineBreaking(tokenizer.apply(text));
         // enforceCallLineBreaking can turn a one-liner function body into a multi-line one (an
         // overlong call inside it gets wrapped across lines) -- but enforceFunctionDefinitionAllman

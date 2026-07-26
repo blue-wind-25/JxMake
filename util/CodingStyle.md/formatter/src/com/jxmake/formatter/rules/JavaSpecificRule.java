@@ -43,6 +43,7 @@ public class JavaSpecificRule {
             Arrays.asList("java", "com", "org", "other", "local", "static"));
 
     private final int lineLengthLimit;
+    private final int indentWidth;
     /** Fallback one-indent-level unit when it can't be derived from the class/interface's own
      *  body indentation -- built from the configured `indent-size` (see the constructor), not a
      *  hardcoded literal, same bug class as `SwitchRule.deriveUnit`'s own former fallback. */
@@ -58,11 +59,26 @@ public class JavaSpecificRule {
 
     public JavaSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth) {
         this.lineLengthLimit = lineLengthLimit;
+        this.indentWidth = indentWidth;
         final StringBuilder sb = new StringBuilder();
         for (int i = 0; i < indentWidth; i++) {
             sb.append(' ');
         }
         this.defaultIndentUnit = sb.toString();
+    }
+
+    /** Same tab-expansion rule as {@code MiscRuleCore.expandedIndentWidth} (kept here as a
+     *  copy since this class doesn't extend {@code MiscRuleCore}): a raw-source indent string
+     *  still containing literal tabs must have each tab expanded to the configured
+     *  {@code indent-size}, not measured via {@code String.length()} (1 char per tab), or a
+     *  tab-indented one-liner's true post-conversion width is undercounted -- the same bug class
+     *  documented at {@code MiscRuleCore.expandedIndentWidth}. */
+    private int expandedIndentWidth(final String original) {
+        int width = 0;
+        for (int i = 0; i < original.length(); i++) {
+            width += (original.charAt(i) == '\t') ? (indentWidth - (width % indentWidth)) : 1;
+        }
+        return width;
     }
 
     /**
@@ -254,7 +270,7 @@ public class JavaSpecificRule {
             // just the significant-token span starting at `lineStart` (which is the first
             // *significant* token, excluding leading whitespace). Omitting it undercounted every
             // indented one-liner's width by its indent depth.
-            int width = lineIndent(tokens, lineStart).length();
+            int width = expandedIndentWidth(lineIndent(tokens, lineStart));
             boolean lastWasSpace = false;
             for (int k = lineStart; k <= lineEnd; k++) {
                 final Token t = tokens.get(k);

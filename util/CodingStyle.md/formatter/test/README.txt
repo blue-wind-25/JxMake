@@ -2076,6 +2076,42 @@ Real-code regressions:
                                              statement's own trailing comment. See
                                              `STATE_PYTHON3.md`'s `django/django` dogfood entry.
 
+  real_code_regressions_128_inp/out.java  -- Java, `openrewrite/rewrite` dogfood, 2 bugs sharing
+                                             one root-cause shape (a fits-in-`line-length`
+                                             prediction made before a later width-growing pass ran,
+                                             so it agreed with reality on a fresh format but not on
+                                             a reformat of already-formatted output): (a)
+                                             `JavaSpecificRule.isSingleLineBody`'s overflow
+                                             prediction measured a tab-indented one-liner's leading
+                                             indent via raw `String.length()` (1 char per tab)
+                                             instead of its expanded post-conversion width, so a
+                                             one-liner method whose true width only exceeds
+                                             `line-length` once its 2-tab indent expands to 8 spaces
+                                             wrongly predicted "fits" and stayed K&R on round1, then
+                                             correctly predicted "too long" once round1's own
+                                             `enforceCallLineBreaking` pass had already wrapped the
+                                             body across multiple physical lines, flipping to Allman
+                                             on round2 -- fixed by adding a local
+                                             `expandedIndentWidth` helper (same tab-expansion
+                                             formula as `MiscRuleCore`'s) and using it in the width
+                                             check. (b) `enforceInitializerBraceSpacing`'s loose
+                                             `{ x }` initializer-brace padding ran in Phase 4, after
+                                             `enforceCallLineBreaking` had already measured/decided
+                                             not to wrap, so an annotation argument like
+                                             `@RequiredArgsConstructor(onConstructor_ =
+                                             {@JsonCreator(...)})` sitting just under `line-length`
+                                             stayed one line on round1, but grew past the limit once
+                                             its `{...}` was padded to `{ ... }` with no further
+                                             re-check, wrapping on round2 -- fixed by pulling a
+                                             second `enforceInitializerBraceSpacing` call forward to
+                                             run right before `enforceCallLineBreaking` (same
+                                             pull-forward pattern already used for
+                                             `enforceComplexityPadding`/
+                                             `enforceAttributeAndSpliceBracketPadding`), leaving the
+                                             original Phase 4 call in place too. See
+                                             `STATE_C_CPP_JAVA.md`'s `openrewrite/rewrite` dogfood
+                                             entry.
+
 How Tests Are Run
 -----------------
 

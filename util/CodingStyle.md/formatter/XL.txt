@@ -1,6 +1,12 @@
-Use debug prints and `make test` rather than relying only on static analysis to reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes.
+Use debug prints and `make test` rather than relying only on static analysis to reduce quota usage
+and prevent regressions on `(PASS)` tests and previous bug fixes.
 
-To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis as the primary method of bug diagnosis or regression checking. After the fix is verified with `make test`, remove all debug prints and then commit the files you have modified (ignore files you have not modified). If unsure ask me.
+To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer
+evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug
+prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis
+as the primary method of bug diagnosis or regression checking. After the fix is verified with
+`make test`, remove all debug prints and then commit the files you have modified (ignore files you
+have not modified). If unsure ask me.
 
 Fix the above XXX bugs first, ignore the other parts of the diff for now.
 
@@ -8,15 +14,19 @@ Fix the above XXX bugs first, ignore the other parts of the diff for now.
 ####################################################################################################
 ####################################################################################################
 
+Compact (use one sub-agent) all newly touched `STATE_*.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
+
+Compact (use one sub-agent) `STATE_CPP26.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
+
 Compact (use one sub-agent) `STATE_DATA_FORMATS.md`.
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.
 
 Compact (use one sub-agent) `STATE_JS_TS.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
-Compact (use one sub-agent) `STATE_CPP26.md`.
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.
 
@@ -28,13 +38,13 @@ Compact (use one sub-agent) `STATE_COMMON.md`, `STATE_C_CPP_JAVA.md` and `STATE_
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.
 
-Compact (use one sub-agent) all newly touched `STATE_*.md`.
+Compact (use one sub-agent) `STATE_C_CPP_JAVA.md` and `STATE_PYTHON3.md`
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_125_inp/out.html`
-    to   `real_code_regressions_127_inp/out.py`
+    to   `real_code_regressions_129_inp/out.java`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -51,13 +61,6 @@ Adjust active vs scaffold-only as needed. Also ensure jsx and tsx are after js a
 
 
 
-I have run `make test` and all test passed.
-
-`/tmp` contains many undeleted artifacts from this and previous sessions, can you find the one used
-for reproducing bugs and mini/small tests (not the cloned repositories) them and maybe delete them?
-
-
-
 Use one sub-agent to inspect the GRU work:
     `tools/gru/gen_synthetic_prompt.py`
     `tools/gru/.gen_synthetic_state.json`
@@ -65,17 +68,24 @@ Use one sub-agent to inspect the GRU work:
     `tools/gru/regroup_synthetic.py`
 and the partial output file `tools/sp_gemini.txt`. Check if the scripts and output are as expected.
 
+
+
+I have run `make test` and all test passed.
+
+`/tmp` contains many undeleted artifacts from this and previous sessions, can you find the one used
+for reproducing bugs and mini/small tests (not the cloned repositories) them and maybe delete them?
+
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 
 Continue with the dogfood test (search in `/tmp` first, clone the repo if not found):
-    ...
+    Java `github.com/openrewrite/rewrite` (clusters 3-6)
 When fixing bugs, only reformat and re-syntax-checking the affected files; reformatting and
 re-syntax-checking already correct files are a waste of time. Only after all bugs are fixed is
 a full reformat and re-syntax-checking test allowed. Try reformat with `indent-size = 2` if the
-idempotency test failed. Use one sub-agent as needed, the sub-agent can launch up to one more
-research sub-sub-agent.
+idempotency test failed. If there are many errors, work in batch. Use one sub-agent as needed,
+the sub-agent can launch up to one more research sub-sub-agent.
 
 Continue with the dogfood test for:
     ...
@@ -90,11 +100,11 @@ C/C++:
 C++26:
 
 Java:
-    [*] `github.com/openrewrite/rewrite` [~711 kLOC of effective Java code]
+    [#] `github.com/openrewrite/rewrite` [~711 kLOC of effective Java code]
     [X] `**Extremely long pre-existing single-physical-line statement wraps differently each round**`
 
 Kotlin:
-    [7] `github.com/JetBrains/kotlin` [HUGE, ~3000 kLOC of effective Kotlin code]
+    [3] `github.com/JetBrains/kotlin` [HUGE, ~3000 kLOC of effective Kotlin code]
 
 JSON:
 JSON5:
@@ -111,11 +121,11 @@ JS:
     [X] `**TODO (low priority, not currently queued):** teach `js_ts_content_diff.js` ...`
 
 TS:
-    [4] `github.com/angular/angular`      [ ~895 kLOC of effective TypeScript code]
-    [6] `github.com/microsoft/TypeScript` [~1490 kLOC of effective TypeScript code]
+    [2] `github.com/angular/angular`      [ ~895 kLOC of effective TypeScript code]
+    [4] `github.com/microsoft/TypeScript` [~1490 kLOC of effective TypeScript code]
 
 Python3:
-    [5] `github.com/python/cpython` [~980 kLOC of effective Python code]
+    [1] `github.com/python/cpython` [~980 kLOC of effective Python code]
 
 
 

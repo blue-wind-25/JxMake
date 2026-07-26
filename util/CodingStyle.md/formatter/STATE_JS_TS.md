@@ -839,6 +839,139 @@ a standalone/unused-value expression. Both are cosmetic gaps in the
 checker's tolerance list, not formatter defects, so this only reduces
 future dogfood-session triage noise — not urgent, do whenever convenient.
 
+### `angular/angular` dogfood pass — categorized, NOT YET FIXED
+
+Repo: `/tmp/angular`, shallow clone (`--depth 1`), HEAD `5ad8231`
+(2026-07-24). Scope: 5394 `.ts` files (`.d.ts`/`.tsx` excluded, no
+`node_modules`/vendored code present in the shallow clone) across
+`packages/`, `adev/`, `devtools/`, `integration/`, `modules/`,
+`vscode-ng-language-service/`, `dev-app/`, `tools/`. Formatted in 8
+batches (one per top-level dir) via `--preserve-tree --root /tmp/angular
+--out <scratch>/round1`, then round2 the same way. Syntax-validity check:
+TS compiler-API parse-only (no type-check).
+
+Stats: 0 crashes / 5394 files; 29 idempotency mismatches; parse-check
+baseline (unformatted originals) 0/5394 errors, round1 output **46/5394**
+files with parse errors (339 diagnostic lines) — i.e. 46 formatter-induced
+syntax corruptions, a real Category-1 finding despite zero hard crashes.
+
+No fixes attempted yet — clusters below are triage only, sorted
+**most-valuable-to-fix first** (value = criticality weighed against
+estimated difficulty):
+
+1. **[CRITICAL] Dotted/qualified type-predicate or return-type before
+   `=>` gets its last segment wrapped in a spurious paren pair** — the
+   dominant corruption cluster, **~40 of the 46 broken files**. E.g.
+   `packages/language-service/override_rename_ts_plugin.ts:29`: `(): ts
+   .server.PluginModule =>` → `(): ts.server.(PluginModule) =>`;
+   `packages/language-service/src/template_target.ts:429`: `node is tss
+   .Node =>` → `node is tss.(Node) =>`;
+   `packages/compiler-cli/src/ngtsc/typecheck/src/checker.ts:690,724`:
+   `diag is ts.Diagnostic =>` → `diag is ts.(Diagnostic) =>`; also
+   `inheritance_graph.ts`, `util.ts` (annotations/common), `navigations.ts`,
+   and ~35 more. Root cause guess:
+   `JsTsSpecificRule.enforceArrowFunctionParameterParens` (STYLE_JS_TS.md
+   §6's "wrap bare single arrow param" rule) scans backward from `=>` for
+   a single bare identifier and wraps it, without checking whether that
+   identifier is actually the tail of a preceding **dotted**
+   type-predicate/return-type annotation rather than the arrow's own
+   parameter. The existing bail-out already special-cases `is`/`typeof`/
+   `keyof` as `prevPrev` (from the `vuejs/core` session), but a
+   multi-segment dotted path (`ts.server.X`, `tss.X`) isn't covered — the
+   immediate `prevPrev` is `.`, not a whitelisted keyword. **Highest
+   priority**: very common shape in real TS (typed-predicate/dotted-
+   return-type arrow callbacks, e.g. `.filter(x is T)`/plugin-factory
+   patterns), produces silently-invalid output that still *looks*
+   plausible (parenthesized identifier) — would slip past casual review,
+   only caught here via compiler parse-check. Likely a **narrow
+   extension** of the existing bail-out list: walk backward past a full
+   dotted-name chain (skip `IDENTIFIER '.'` pairs) before checking the
+   bail-out keyword, rather than a new mechanism.
+2. **[CRITICAL] Old-style angle-bracket cast (`<Type>{...}`) misparsed as
+   a generic, injecting a bogus `;` inside the following object literal**
+   — 1 confirmed file: `packages/core/src/testability/testability.ts:229`:
+   `push(<WaitCallback>{doneCb: cb, timeoutId: timeoutId, updateCb:
+   updateCb});` → `...updateCb: updateCb;});` (spurious `;` before the
+   closing `}`, breaks the call). Root cause guess:
+   `TokenizerCurly.reclassifyAngleBrackets` misclassifies `<WaitCallback>`
+   (legacy TS cast syntax, still valid outside `.tsx`) as an opening
+   generic bracket rather than a cast, desyncing brace/statement tracking
+   inside the following `{...}` object literal and triggering
+   `enforceSemicolonInsertion` to insert a bogus `;` at what it thinks is
+   a statement boundary. High criticality (silent, semantics-changing
+   corruption) but low incidence (legacy cast syntax is rare in modern
+   TS) — moderate difficulty: the angle-bracket classifier needs to
+   recognize `<Ident>` immediately followed by `{`/an expression (not
+   `(`) as a cast, same class of fix as the earlier `vuejs/core`
+   `symbol`/`bigint`/`|`-in-generic-clause bugs.
+3. **[CRITICAL] Multi-line generic return-type clause loses its closing
+   `>`, spilling a bogus `;` into the type** — 1 confirmed file:
+   `packages/private/testing/src/utils.ts:103-105`: `async function
+   loadDominoOrNull(): Promise<\n  (typeof import(...))['default'] |
+   null\n> {` produces a `'>' expected` parse error on round1 output.
+   Root cause guess: same family as the existing `real_code_regressions_
+   105`/`_107` "ASI reaching into a multi-line generic clause" bugs —
+   likely a token combination (`typeof import(...)`, indexed-access
+   `['default']`, union with `null`) inside the generic not yet covered
+   by `GENERIC_SAFE_KEYWORDS`/the depth tracker. High criticality but
+   very low incidence (uncommon shape) — narrow-to-moderate difficulty,
+   same triage pattern as the existing `GENERIC_SAFE_KEYWORDS` fix list
+   (needs debug-print localization of the exact token losing tracking).
+4. **[IDEMPOTENCY] Call-wrap/collapse vs. alignment-padding fits-check
+   ordering** — dominant idempotency cluster, **~23 of 29 files**:
+   `packages/router/src/create_router_state.ts:27`,
+   `packages/core/src/render3/node_selector_matcher.ts:155`,
+   `packages/compiler/src/template/pipeline/src/ingest.ts:814`,
+   `packages/localize/tools/src/translate/source_files/locale_plugin.ts:42`,
+   `vscode-ng-language-service/server/src/handlers/hover.ts:58`, plus ~18
+   more (`compiler-cli/src/ngtsc/core/{compiler,host}.ts`, `schematics/*`,
+   `common/src/i18n/format_{date,number}.ts`,
+   `common/upgrade/src/location_shim.ts`,
+   `devtools/.../split.component.ts`,
+   `animations/browser/test/.../web_animations_player_spec.ts`,
+   `adev/.../app.ts`). A call's argument list wraps multi-line on one
+   round and collapses on the other (or a class-field/const-declaration
+   initializer wraps, disturbing its alignment-grid siblings' column
+   widths) — the already-documented "Known open issues" `scripts/
+   release.js`/`real_code_regressions_85`/`_102` fits-check family above:
+   `enforceCallLineBreaking`'s single-argument fits-check measures the
+   candidate line's length **before** declaration-alignment/complexity-
+   padding finish adjusting column widths, flip-flopping every round. This
+   run **confirms it's broad and high-frequency**, not a rare edge case —
+   23/29 idempotency files is the majority. `indent-size=2`: tested 2
+   files — `create_router_state.ts` avoids the flip at indent-size=2
+   (boundary shifted), `node_selector_matcher.ts` reproduces identically
+   (config-insensitive, confirming it's a pure ordering bug not a
+   config-boundary artifact). Medium criticality (always syntax-valid,
+   but genuinely non-deterministic output is a real `--check`-CI concern
+   given the frequency) — architecturally nontrivial (real fix needs the
+   fits-check to run after alignment padding, or padding to account for a
+   fits-check-collapsed call at the boundary — a cross-pass-ordering fix,
+   already flagged out-of-scope-without-dedicated-follow-up above). Worth
+   escalating priority given the now-confirmed frequency, despite the
+   difficulty.
+5. **[IDEMPOTENCY] Reindentation on internally-inconsistent source
+   (accepted gap, third confirming recurrence, no new action)** — 3
+   files: `packages/benchpress/test/metric/user_metric_spec.ts:88`,
+   `packages/compiler/src/template/pipeline/src/emit.ts:104`,
+   `packages/core/src/render3/i18n/i18n_parse.ts:520` — a lone closing
+   `}`'s indent (2 vs 4 spaces) differs between rounds because the
+   *original* source itself has genuinely inconsistent brace indentation
+   (mixed 2-/4-space blocks in the same function) and this formatter's
+   indentation model is relative-delta-from-one-reference-line, not
+   absolute-depth-derived — the exact, already-ACCEPTED-not-fixed
+   architectural gap documented in `STATE_COMMON.md`'s "General
+   scope-depth reindentation" section (prior confirmed instances:
+   `javaparser`'s `ASTParser.java`, local `JSONEncoderLite.java`). Lowest
+   priority: low criticality (only affects already-inconsistently-indented
+   source), architecturally hard (explicitly scoped as its own future
+   dedicated high-risk job in `STATE_COMMON.md` — do not attempt
+   piecemeal).
+
+Next free fixture number unaffected (no fixtures added yet — none of the
+five clusters above has been fixed). Full corpus re-run deferred until
+fixes land, same pattern as `vuejs/core`/`lodash/lodash` above.
+
 ### Known false positives (no source change needed, fixture-only)
 
 - A spurious-looking blank line after a class's opening `{` in older `.js`

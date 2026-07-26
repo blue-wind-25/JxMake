@@ -629,4 +629,104 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       solely §3's import-sort reordering — zero true AST-shape mismatches
       remaining after the one fix above.
 
-      `python/cpython` — still not started.
+      **`python/cpython` — dogfood run DONE, categorized, NOT YET FIXED.**
+      Fresh shallow clone `/tmp/cpython` (`--depth 1`), 2343 `.py` files,
+      batched per top-level subdir (`Doc`/`Lib`/`Mac`/`Misc`/`Modules`/
+      `Parser`/`PC`/`PCbuild`/`Platforms`/`Programs`/`Tools`) through
+      `--preserve-tree --root /tmp/cpython --out <scratch>/round1`, then
+      round2 from round1's output. `python3.12 -m py_compile` used as the
+      compile-check (python3.6 not viable against modern cpython syntax).
+
+      Stats: 1 crash / 2343 files; 19 idempotency mismatches; `py_compile`
+      errors identical before/after (1 in both — `Lib/traceback.py:21`'s
+      `lazy import _colorize`, a pre-existing not-yet-standard-Python
+      syntax experiment in cpython's own dev tree, present identically in
+      the unformatted original — not formatter-induced). Zero new syntax
+      errors introduced by formatting.
+
+      No fixes attempted yet — clusters below are triage only, sorted
+      **most-valuable-to-fix first** (value = criticality weighed against
+      estimated difficulty):
+
+      1. **[CRITICAL] f-string nested-format-spec crash**
+         (`IndexOutOfBoundsException`, `ScopePipelineIndent.processField`
+         line ~802) — `Lib/test/test_fstring.py` crashes outright (whole
+         file skipped, no output at all) on nested-replacement-field
+         format specs (`f'{value:{width:{0}}.{precision:1}}'`,
+         `f'{1:{name}}'`, lines 520/541/658/828/839-849/1177/1467). Root
+         cause: the already-known, already-documented tokenizer gap above
+         ("a nested replacement field *within* a format spec is not
+         recursively sub-tokenized") — `processField`'s brace-depth
+         bookkeeping loses track of the true closing `}` and its `while
+         (true)` loop walks off the end of the token list. **Highest
+         priority**: it's a hard crash on ordinary, common CPython syntax,
+         not just a wrong-output bug. A narrow bound-check band-aid
+         (detect the closing `}` not found before EOF and leave the whole
+         f-string untouched, converting the crash into a no-op) would be
+         cheap; the full fix (recursive sub-tokenization of a format
+         spec's own replacement fields in `TokenizerIndent.emitFString`/
+         `emitFStringField`) is architecturally more involved but was
+         already flagged as a known deferred gap, not a new discovery.
+      2. **[IDEMPOTENCY] §3 import-sort: same-module multi-statement group
+         order unstable on first pass** (16 files: `Lib/random.py` lines
+         53-56 confirmed as the clean minimal case — four separate `from
+         math import ...` statements; also `Lib/ssl.py`, `statistics.py`,
+         `typing.py`, `turtle.py`, `xml/sax/expatreader.py`,
+         `ctypes/__init__.py`, and 9 `Lib/test/*`/`idlelib`/`Mac/Tools`
+         files). Round1 doesn't fully alphabetize inter-statement order
+         when one group has multiple `from X import ...` lines for the
+         *same* `X` (each statement's own within-clause name sort IS
+         already correct); round2 (reformatting round1's output)
+         self-corrects. Root cause guess: `MiscRuleIndent.PyImport
+         .compareTo` (line ~124) is keyed on `this.names`/`other.names`,
+         populated from the as-parsed (pre within-clause-sort) name order
+         at `applyImportSort`/`flushImportGroup`'s construction site —
+         only after one round-trip (names already alphabetized in the
+         emitted text) does re-parsing yield a `PyImport.names` matching
+         the final sorted form. Reproduced identically at
+         `indent-size=2` (not indent-sensitive — pure sort-key bug).
+         Likely a **narrow, one-comparator-key fix**: sort `names` (or use
+         the already-sorted rendered form) before using it as the
+         group-order comparator key, rather than after.
+      3. **[IDEMPOTENCY] §7/§8 join-then-align ordering, recurrence
+         adjacent to a preceding block-form `case`** (2 files:
+         `Lib/turtle.py` ~line 3930, `Lib/typing.py` ~line 2974). A run of
+         already-compact `case X: stmt` lines stays unpadded on round1
+         (matching the original's own unaligned form) but gets `:`-column-
+         aligned on round2 — both valid Python, cosmetic-only. This is a
+         second occurrence of the bug class already fixed once for
+         `psf/black` (fixture `real_code_regressions_115`,
+         `classifyCaseLine`'s `tryQualifyJoinBody`); the new trigger in
+         both files is a **preceding multi-physical-line block-form `case
+         (...)`** immediately before the compact run, which the existing
+         fix's group-boundary computation doesn't appear to fully cover.
+         Reproduced identically at `indent-size=2` (not indent-sensitive).
+         Likely a **narrow extension** of the existing fix
+         (`classifyCaseLine`/`flushCaseGroup`/`applyCaseColonAlignment`),
+         not a new mechanism.
+      4. **[IDEMPOTENCY] §4/§5 decorator-call bracket-padding leaks into a
+         nested f-string field's own braces** (1 file:
+         `Lib/test/test_ctypes/test_generated_structs.py` lines 278, 284).
+         `@register(f'Struct331_{signedness}{n}', set_name=True)` (no
+         internal spaces in the original) gets the f-string field
+         loose-padded to `{ n }` on round1 alongside the outer call parens
+         (`@register( f'...', set_name=True )`); round2's §5
+         `addBraceTrim` then trims the f-string field back to `{n}` but
+         leaves the outer paren padding — non-idempotent (both rounds stay
+         valid Python). Same bug class already fixed for `pallets/click`
+         (fixture `real_code_regressions_80` — `applyBracketPadding`
+         couldn't distinguish an f-string field's own `{`/`}` from a real
+         dict/set literal), but that fix was scoped to the decorator's own
+         **top-level** call arguments; here the f-string is a call
+         argument **one level deeper** inside the decorator call, where
+         the existing FSTRING_START/MIDDLE-adjacency guard evidently isn't
+         reached. Likely **narrow** — apply the same guard one level
+         deeper in `applyBracketPadding`'s recursive descent into
+         call-argument lists. Lowest priority of the four: narrowest
+         trigger (f-string literal as a decorator-call argument),
+         cosmetic-only impact observed.
+
+      Next free fixture number unaffected (no fixtures added yet — none of
+      the four clusters above has been fixed). Full corpus re-run deferred
+      until fixes land, same pattern as every prior dogfood entry in this
+      file.

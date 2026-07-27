@@ -2474,6 +2474,31 @@ Real-code regressions:
                                              regressions. See `STATE_JS_TS.md`'s Dogfood: microsoft/
                                              TypeScript section, category 1 cluster #4.
 
+  real_code_regressions_148_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood (category 1
+                                             cluster C5): a `when (subject) { ... }` whose subject
+                                             expression is long enough to be line-wrapped by the
+                                             earlier structural pass (`enforceCallLineBreaking`)
+                                             before `KotlinSpecificRule.formatWhenExpressions` runs
+                                             in Phase 3. The subject-capture code
+                                             (`literalSlice(tokens, j + 1, closeParen)`) preserved
+                                             the raw token text verbatim, including any NEWLINE
+                                             tokens now embedded in the already-wrapped subject
+                                             span, so the resulting `// when <subject>` closing
+                                             comment carried literal newlines -- corrupting the file,
+                                             since everything after the first embedded newline
+                                             landed as bare, un-commented code following the closing
+                                             `}` instead of staying inside the comment. Root cause:
+                                             `KotlinSpecificRule.formatWhenExpressions`
+                                             (`src/com/jxmake/formatter/rules/KotlinSpecificRule.java`).
+                                             Fixed by collapsing any run of whitespace (including
+                                             newlines) in the captured subject text down to a single
+                                             space, so the closing comment always stays on one
+                                             physical line. `make test`: 196/196 forward + 196/196
+                                             idempotency, zero regressions. See `STATE_KOTLIN.md`'s
+                                             Dogfood: JetBrains/kotlin section, cluster C5 (also
+                                             confirmed cluster C4 was a miscategorized instance of
+                                             this same bug).
+
 How Tests Are Run
 -----------------
 

@@ -115,7 +115,18 @@ public class KotlinSpecificRule {
                 if (closeParen < 0) {
                     continue;
                 }
-                subject = literalSlice(tokens, j + 1, closeParen).trim();
+                // RDD_KEY_175-class pipeline-ordering interaction: this pass runs in Phase 3,
+                // after Phase 1's structural line-wrap (enforceCallLineBreaking) may already have
+                // split a long `when (...)` subject across several physical lines. literalSlice
+                // preserves raw token text verbatim, including any NEWLINE tokens now embedded in
+                // the subject span, so a wrapped subject's captured text carried literal newlines
+                // straight into the `// when <subject>` closing comment -- corrupting the file,
+                // since everything after the first embedded newline lands as bare, un-commented
+                // code following the closing `}` instead of staying inside the comment. Collapse
+                // any run of whitespace (including newlines) to a single space so the resulting
+                // closing comment always stays on one physical line, matching how a subject that
+                // never wrapped would already render.
+                subject = literalSlice(tokens, j + 1, closeParen).trim().replaceAll("\\s+", " ");
                 j = nextSignificantIndex(tokens, closeParen + 1);
             }
             if (j < 0 || !isPunct(tokens.get(j), "{")) {

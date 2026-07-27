@@ -252,6 +252,11 @@ AI_PREAMBLE_FULL.md §15):
 genuinely sentence-ending trailing period is left in place (expected:
 stripped).
 
+**2026-07-28 cleanup-pass re-assessment:** no trained weights ship yet
+(`GruClassifier.classify` still unconditionally abstains without
+`hasTrainedWeights()`, per "Remaining blocked open items" below), so this
+is still not tractable mechanically — unchanged from prior assessment.
+
 Distinguishing a mid-word/mid-token dot (file extensions, `e.g.`, `i.e.`,
 `v1.0`, single-letter abbreviations) from a true sentence-ending dot is a
 natural-language judgment call — no tractable mechanical heuristic exists.

@@ -436,6 +436,10 @@ Question here since real implementation hasn't started.
       Open Question (no ambiguity within this job's own rule set) — documented
       for whoever next touches `Lang.infer`'s `.h`-handling.
 
+      **2026-07-28 cleanup-pass re-assessment:** `Lang.infer`'s `.h`->`"c"`
+      mapping is unchanged, still a pre-existing C/C++/Java-job design
+      decision, not this job's territory — no action taken.
+
 - [x] Real-code testing pass against `ryanjk5.github.io/posts/rjk-duck` (blog
       post, not a repo) done this session. No local copy found under `/tmp`;
       fetched via WebFetch, extracted all 26 C++ code samples into one file
@@ -467,6 +471,10 @@ Question here since real implementation hasn't started.
       ambiguity within this job's own rule set); documented for whoever next
       touches that method, same posture as the `simdjson` session's
       `.h`-vs-`.hpp` finding.
+
+      **2026-07-28 cleanup-pass re-assessment:** `MiscRuleCurly.
+      enforceCallLineBreaking`'s lambda-body collapse behavior is unchanged
+      since — still C/C++/Java-job territory, no action taken here.
 
       No fixtures added (no in-scope bug found). Completes the
       `ryanjk5.github.io/posts/rjk-duck` entry in "Test Fixtures (External,

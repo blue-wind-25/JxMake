@@ -667,6 +667,13 @@ single-declarator colon path.
   `SwitchRule` case-grid vs. generic call-wrap-fits-check ordering gap.
   Still not fixed (shared C/C++/Java-owned `SwitchRule` logic, deliberately
   left to a future session).
+
+  **2026-07-28 cleanup-pass re-assessment:** re-checked against
+  `STATE_C_CPP_JAVA.md`'s "Known Gaps" section — no fix landed there since
+  either, and the root cause (case-label-fallthrough collapse/alignment vs.
+  a generic call-wrap fits-check ordering gap) is a `SwitchRule` change,
+  same risk class as the reindentation architectural gap this cleanup pass
+  is scoped to avoid touching. Not cheaper now; still deferred.
 - **Single-declarator colon spacing**: `const x: number = 1;` renders as
   `const x : number = 1;` (space inserted before the colon) at plain top
   level with no function-type involved. Root cause:
@@ -677,6 +684,14 @@ single-declarator colon path.
   case. Spacing-only, no tsc error; confirmed widespread via `grep -rn
   "const [a-zA-Z_]* : "`. Left unaddressed; not blocking `vuejs/core` DONE
   status (pre-existing gap, not a regression from this session's fixes).
+
+  **2026-07-28 cleanup-pass re-assessment:** looked cheap at first glance
+  (spacing-only, one rule), but the actual fix requires reconciling two
+  independent spacing decisions (`classifyTypeColons`'s vs. the
+  declaration-alignment rule's) for the single-declarator case without
+  disturbing the multi-declarator grid path that already depends on the
+  alignment rule's spacing — not the "clearly low-risk, well-scoped" bar
+  this pass requires. Left as a re-assessment note, not attempted.
 
 ### `lodash/lodash` dogfood pass — DONE
 
@@ -917,6 +932,12 @@ estimated difficulty):
      `_81`, `_93`, `_141`). Real fix needs the guard to account for
      downstream wrapping potential (run the same wrap logic against the
      joined candidate before deciding it can't fit) — bigger lift, deferred.
+
+     **2026-07-28 cleanup-pass re-assessment:** still the same bigger lift —
+     the real fix needs `tryCollapse` to simulate `enforceCallLineBreaking`'s
+     wrap decision on the joined candidate before deciding collapsibility,
+     the kind of two-pass lookahead that caused the naive attempt's 5-fixture
+     regression. Not attempted again this pass.
    - **Root cause #4 [FIXED] — trailing same-line comment inconsistently
      counted in the collapse fits-check** (`common/upgrade/src/
      location_shim.ts:461`, `this.$$absUrl = this.getServerBase() +
@@ -971,6 +992,10 @@ estimated difficulty):
    source), architecturally hard (explicitly scoped as its own future
    dedicated high-risk job in `STATE_COMMON.md` — do not attempt
    piecemeal).
+
+   **2026-07-28 cleanup-pass re-assessment:** unchanged — still the same
+   cross-job architectural gap tracked centrally in `STATE_COMMON.md`,
+   explicitly out of scope for this housekeeping pass.
 
 Next free fixture number unaffected (no fixtures added yet — none of the
 five clusters above has been fixed). Full corpus re-run deferred until

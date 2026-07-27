@@ -734,6 +734,10 @@ RDD_KEY_88.
   deferred until all 6 clusters are resolved per this candidate's own methodology (see entry (17)
   above for the 2 already-fixed clusters and their fixtures).
 
+  **2026-07-28 cleanup-pass re-assessment:** still not root-caused, so not "accepted" in the
+  ACCEPTED-not-fixed sense — genuinely mid-investigation. Nothing learned in the meantime makes
+  the next step (bisecting 900-1037) cheaper; leaving as-is, no action taken this pass.
+
 - **Non-idempotent switch-case re-indent on internally-inconsistent generated source**
   (`SwitchRule.applyNonInlineCaseIndent`) — ACCEPTED, not fixed. Found in `javaparser/javaparser`
   (15b/16 above): `ASTParser.java`, a JavaCC-generated parser (~5500 lines), has one
@@ -759,6 +763,14 @@ RDD_KEY_88.
   above, triggered via the declarations pass instead of switch-case reindent. Same disposition:
   ACCEPTED, not fixed, single occurrence. No fixture.
 
+  **2026-07-28 cleanup-pass re-assessment:** re-checked, still not cheaper to fix. Both
+  occurrences (and the `angular/angular`/`stephenberry/glaze` recurrences logged in
+  `STATE_JS_TS.md`/`STATE_CPP26.md`) are the same architectural gap as `STATE_COMMON.md`'s
+  "General scope-depth reindentation" item, which that file explicitly scopes as its own future
+  dedicated high-risk job — a real fix means deriving every line's indent from structural depth
+  instead of a single relative delta, exactly the change this cleanup pass is instructed not to
+  attempt piecemeal. Remains ACCEPTED, not fixed.
+
 - **Extremely long pre-existing single-physical-line statement wraps differently each round** —
   found in `jenkinsci/jenkins` (item 25), `hudson/PluginManager.java`'s `getPluginPage`/JSON-
   serialization lambda: the *original* source has an entire multi-statement lambda body crammed
@@ -777,6 +789,10 @@ RDD_KEY_88.
   already-pathological hand-mangled input; reproducing precisely would require bisecting the real
   line, a bigger investment than its impact justifies. Revisit only if a similar shape recurs
   elsewhere.
+
+  **2026-07-28 cleanup-pass re-assessment:** no similar shape has recurred since, and nothing in
+  the intervening JS/TS/Python3/data-formats work touches `enforceCallLineBreaking`'s fits-check
+  in a way that would make this cheaper to chase. Leaving open per the existing recommendation.
 
 ## Known Gaps — Fixed
 

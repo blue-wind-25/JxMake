@@ -305,6 +305,21 @@ public abstract class DeclarationAlignmentRuleCore {
         if ((lang.isJs || lang.isTs) && isOp(prev, "...")) {
             return false;
         }
+        // An annotation's `@` immediately preceding an expression-position annotation (Kotlin's
+        // `val lambda = @JsNoLifting { ... }`, an annotation directly ahead of a lambda/call
+        // rather than a declaration/param-target) is tight against the identifier that follows
+        // it, same as MiscRuleCore.needsSpaceBetween's declaration-site/param-target `@` rule --
+        // that method is never reached here because a declaration initializer's tokens (e.g. a
+        // `val`'s `= @JsNoLifting { ... }` RHS) render through this class's own
+        // renderTokens/renderInitTokens, a separate duplicate of the tight-attachment rules (see
+        // this method's other duplicated cases above). Without this, the generic
+        // OPERATOR-gets-a-leading-space default below inserted a space here, corrupting
+        // `@JsNoLifting` into `@ JsNoLifting` -- a Kotlin parse error found via
+        // JetBrains/kotlin dogfood testing (`libraries/stdlib/js/runtime/reflectRuntime.kt`'s
+        // `val lambda = @JsNoLifting { throwUnsupportedOperationException(...) }`).
+        if (lang.isKotlin && isOp(prev, "@")) {
+            return false;
+        }
         return true;
     }
 

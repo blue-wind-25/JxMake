@@ -2499,6 +2499,27 @@ Real-code regressions:
                                              confirmed cluster C4 was a miscategorized instance of
                                              this same bug).
 
+  real_code_regressions_149_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood (category 1
+                                             cluster C2): an annotation directly preceding an
+                                             expression (`val lambda = @JsNoLifting { ... }`)
+                                             got a spurious space after `@`
+                                             (`@ JsNoLifting`), a parse error. Root cause:
+                                             `DeclarationAlignmentRuleCore.needsSpaceBetween`
+                                             (`src/com/jxmake/formatter/rules/
+                                             DeclarationAlignmentRuleCore.java`) is a separate
+                                             duplicate of `MiscRuleCore.needsSpaceBetween`'s
+                                             tight-attachment rules, used to render a
+                                             declaration's initializer tokens (e.g. a `val`'s
+                                             RHS) -- it lacked the `@`-tight rule
+                                             `MiscRuleCore` already had for declaration-site/
+                                             param-target annotations, so an expression-position
+                                             annotation reaching this join point fell through to
+                                             the generic spaced default. Fixed by adding the same
+                                             `lang.isKotlin && isOp(prev, "@")` tight rule to this
+                                             method. `make test`: 197/197 forward + 197/197
+                                             idempotency, zero regressions. See `STATE_KOTLIN.md`'s
+                                             Dogfood: JetBrains/kotlin section, cluster C2.
+
 How Tests Are Run
 -----------------
 

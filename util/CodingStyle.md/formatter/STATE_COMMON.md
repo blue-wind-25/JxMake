@@ -388,6 +388,21 @@ test` green (90/90 forward + 90/90 idempotency) after each. Job-file
 class-name references updated to `*Curly` (commit `9cce1a5`); stale
 pre-refactor class-name mentions swept later (commit `949b7a9`).
 
+**2026-07-28 cleanup-pass follow-up:** swept every `*Curly`/`*Indent`/
+`*Tags` sibling for helpers independently re-derived per job (the scenario
+this section's own text flagged as a risk). Found one genuinely
+byte-identical case fitting the "clearly mechanical, low-risk" bar:
+`TokenizerCurly` and `TokenizerIndent` had each defined their own private
+`setOf(String...)` (build a `Set<String>` from varargs) — both already
+extend `TokenizerCore`, so it was promoted there as `protected static` and
+both duplicates deleted (commit follows). Left three other same-named
+`setOf` copies alone (`DeclarationAlignmentRuleCore`, `MiscRuleCore`,
+`BlockStructureRule`, `KeywordAmbiguityGate`) — those live in unrelated
+class hierarchies with no common ancestor short of introducing a brand-new
+shared utility class touched by many unrelated files, a bigger and riskier
+move than this housekeeping pass's mechanical-promotion bar. No other
+duplicated helper found worth promoting this pass.
+
 ---
 
 ## Architectural TODOs
@@ -457,7 +472,7 @@ much harder/riskier than those two narrow passes:**
 - Expect this to be the single riskiest change ever made to this
   formatter's core; budget accordingly, not as an incremental fix.
 
-### Project refactoring/cleanup pass (not started — schedule after angular/cpython dogfood)
+### Project refactoring/cleanup pass
 
 After `angular/angular` and `python/cpython` dogfood runs (the last
 remaining "cheap-ish" novel-shape corpora before the rest of each job's
@@ -481,6 +496,8 @@ than immediately starting the next >1000 kLOC candidate. Candidate scope:
   compaction passes have happened (e.g. 2026-07-26's compaction of
   `STATE_C_CPP_JAVA.md`/`STATE_PYTHON3.md`/`test/README.txt`) — verify
   compacted prose didn't silently drop a still-relevant caveat.
+- Update and fix `CLAUDE.md`, `README.md`, `../README.txt`,
+  `../AI_PREAMBLE_FULL.md`, and `../AI_PREAMBLE_AESTHETIC.md`.
 
 This is intentionally scoped as housekeeping, not a rewrite — do not let it
 grow into an attempt at the "General scope-depth reindentation" item above;

@@ -7,7 +7,10 @@
 
 package com.jxmake.formatter.tokenizer;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Slim, language-family-agnostic base for every tokenizer sibling ({@link TokenizerCurly} for
@@ -102,6 +105,14 @@ public class TokenizerCore {
             return t != null && (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE
                     || t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK);
         }
+    }
+
+    /** Small keyword/operator-set-literal builder -- previously re-implemented byte-identically
+     *  in both {@link TokenizerCurly} and {@link TokenizerIndent} (and independently in a few
+     *  {@code rules} package classes outside this hierarchy); promoted here during the
+     *  2026-07-28 cleanup pass since both tokenizer siblings shared this exact base already. */
+    protected static Set<String> setOf(final String... words) {
+        return new HashSet<>(Arrays.asList(words));
     }
 
     private static final java.util.regex.Pattern FORMAT_DIS_MARKER = java.util.regex.Pattern.compile(

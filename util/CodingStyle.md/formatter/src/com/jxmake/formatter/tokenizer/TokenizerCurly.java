@@ -25,10 +25,6 @@ import java.util.Set;
  */
 public class TokenizerCurly extends TokenizerCore {
 
-    private static Set<String> setOf(final String... words) {
-        return new HashSet<>(Arrays.asList(words));
-    }
-
     private static final Set<String> KEYWORDS_C = setOf(
             "auto", "break", "case", "char", "const", "continue", "default", "do", "double",
             "else", "enum", "extern", "float", "for", "goto", "if", "inline", "int", "long",

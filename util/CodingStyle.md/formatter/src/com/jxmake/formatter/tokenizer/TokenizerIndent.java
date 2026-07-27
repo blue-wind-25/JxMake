@@ -11,9 +11,7 @@ import com.jxmake.formatter.Lang;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Deque;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -40,10 +38,6 @@ import java.util.Set;
  * NOT itself recursively sub-tokenized -- a known, documented limitation of this slice).
  */
 public class TokenizerIndent extends TokenizerCore {
-
-    private static Set<String> setOf(final String... words) {
-        return new HashSet<>(Arrays.asList(words));
-    }
 
     // STYLE_PYTHON3.md targets latest Python 3 (3.15+); includes soft keywords `match`/`case`/
     // `_`/`type` is deliberately excluded here -- those are context-sensitive identifiers, not

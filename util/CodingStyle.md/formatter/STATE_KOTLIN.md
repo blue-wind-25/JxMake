@@ -680,151 +680,106 @@ introduced.
 
 ## Dogfood: JetBrains/kotlin (categorization pass, not yet fixed)
 
-**Status: categorized only, per explicit instruction — no bugs fixed this
-pass.** Checkout: fresh clone (no prior `/tmp` checkout found), `.kt`-only
-tarball extraction from `codeload.github.com/JetBrains/kotlin/tar.gz/refs/heads/master`
-into `/tmp/jb_kotlin_kt/kotlin-master` (full git clone skipped — tarball +
-`tar --wildcards '*.kt'` avoids downloading/extracting the non-Kotlin
-majority of this huge repo). File selection: all `*.kt` under the tarball
-root, excluding `*/testData/*` (46815 files — compiler test fixtures, many
-deliberately invalid/edge-case snippets, out of scope per task instructions),
-`*/build/*`, `*/resources/*`, and anything with `generated` in its name —
-**16268 files, 128 MB, ~113.6k lines** selected (list: `/tmp/kt_filelist.txt`).
-Formatted in one batched invocation each via `--preserve-tree --root
-/tmp/jb_kotlin_kt/kotlin-master --out /tmp/round1` (round1, ~5m48s) then
-`--root /tmp/round1 --out /tmp/round2` (round2, ~5m17s) — both single JAR
-invocations per STATE_COMMON's batching guidance, zero exceptions/crashes in
-either invocation's own stderr/stdout. Verified via `kotlin_syntax_check`
-(round1 only, batched, ~1m14s) and `diff -rq round1 round2` for idempotency.
+**Status:** several clusters found and fixed since the original categorization
+pass; C6b-C6k remain open. Checkout: `/tmp/jb_kotlin_kt/kotlin-master`
+(fresh `.kt`-only tarball extraction from
+`codeload.github.com/JetBrains/kotlin/tar.gz/refs/heads/master` — no prior
+`/tmp` checkout existed; full git clone skipped in favor of
+`tar --wildcards '*.kt'` to avoid the non-Kotlin majority of this huge repo)
+— reuse this checkout, do not re-clone. Scope: all `*.kt` under the tarball
+root excluding `*/testData/*` (compiler test fixtures, out of scope),
+`*/build/*`, `*/resources/*`, anything with `generated` in its name —
+16268 files, 128 MB, ~113.6k lines (`/tmp/kt_filelist.txt`).
 
-**Results:** 220/16268 files (1.4%) fail `kotlin_syntax_check` on round1
-(Category 1 — real parse errors, i.e. corruption). 425/16268 files (2.6%)
-differ round1-vs-round2 (Category 2 candidates); 81 of those overlap with the
-220 syntax-error files (expected — a corrupt file often also fails to reach a
-fixed point), leaving **344 files that are idempotency-only** (valid,
-non-corrupting round1, but round2 differs). One additional Category 1 bug
-(comment/declaration content fusion, C1 below) was found incidentally while
-sampling idempotency diffs, not by the syntax checker — it produces
-syntactically valid output so `kotlin_syntax_check` cannot see it; likely
-under-counted here (a `kotlin_content_diff` pass would find its true extent,
-not run this pass per the task's scope of "syntax verifier only").
+**Tools/compiler used:** same as this file's general "Tools/compiler used"
+section above — JDK `/opt/openjdk-21_linux-x64_bin/jdk-21`, Kotlin compiler
+`~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib`, `kotlin_syntax_check` (compile
+once with javac against `kotlin-compiler.jar:kotlin-stdlib.jar`, then run
+against files — see that section for the exact commands). Formatted via
+`--preserve-tree --root <src> --out <dir>` single-JAR-invocation batching
+per STATE_COMMON's methodology (round1 then round2 off round1's output),
+verified via `kotlin_syntax_check` (round1) and `diff -rq round1 round2`
+(idempotency). No `indent-size` override needed — all findings reproduce at
+default config.
 
-No fixes were made. `/tmp/round1`, `/tmp/round2`, `/tmp/round1_syntax.log`,
-`/tmp/idempotency_diff.txt`, `/tmp/kt_filelist.txt` retained for a future
-fixing session (not committed — `/tmp` only, per convention).
+**Original results:** 220/16268 files (1.4%) failed `kotlin_syntax_check` on
+round1 (Category 1 — real parse errors/corruption). 425/16268 (2.6%)
+differed round1-vs-round2 (Category 2 candidates); 81 overlapped with the
+220, leaving 344 idempotency-only files. One additional Category 1 bug (C1,
+comment/declaration fusion) was found incidentally while sampling
+idempotency diffs, not by the syntax checker (produces valid-but-wrong
+output) — likely under-counted.
 
-### Category 1 — Critical (crash/corruption), 220+ files
+### Category 1 — Critical (crash/corruption)
 
-| Cluster | Est. files | Repro | Notes |
+| Cluster | Files | Root cause / Fix | Fixture |
 |---|---|---|---|
-| **C1. Comment swallows following declaration parameter** — **FIXED (2026-07-28):** | 1 confirmed (likely more, uncounted) | `build-common/src/.../IncrementalCompilationContext.kt` | An own-line comment immediately preceding a constructor parameter (`// docs\n    val pathConverterForSourceFiles: FileToPathConverter = ...,`) gets fused onto the comment's physical line, silently deleting the parameter from the visible/parseable declaration list (still "valid Kotlin" — a giant comment line — so `kotlin_syntax_check` can't catch it; only found by manually diffing an idempotency case). **Highest-severity finding this pass**: silent semantic data loss, not just a cosmetic/crash bug. **Root cause:** `KotlinSignatureRule.parseKotlinSignature`'s comma-split post-processing unconditionally moved any comment token starting the next param's slice onto the end of the previous param (meant only for a genuine same-line trailing comment like `val x: Int, // note`), with no check for whether the comment actually started a fresh source line — losing that distinction because `significantWithComments` strips NEWLINE tokens before the comma split runs. **Fix:** new `findLineStartComments` (comment preceded by a NEWLINE) excludes such tokens from the move; a stricter `findStandaloneComments` (also followed by a NEWLINE, i.e. shares no line with anything) drives a new `KotlinParam.leadingCommentOwnLine` flag, so `render`/`renderWithTail` emit a standalone leading comment as its own preceding output line instead of fusing it as a same-line prefix — a genuine same-line leading comment (`/* Nullable */ x: Int?`) keeps its prior same-line rendering; both `render`/`renderWithTail`'s inline-single-line shortcuts now also bail whenever any param carries a leading comment. Fixture `test/real_code_regressions_144_{inp,out}.kt`. `make test`: 192/192 → 193/193 forward + 193/193 idempotency, zero regressions. Re-verified against the original real file (`IncrementalCompilationContext.kt`): every `val`/comment pair now renders on separate lines, no fusion. **Separately observed, not fixed (out of this fix's scope):** every `: Type` in this same file's diff also gained a spurious space before the colon (`val x : Int` instead of `val x: Int`) — a distinct, likely pre-existing spacing regression unrelated to C1's root cause; not investigated further here. |
-| **C2. `@Annotation` at expression position gets spurious space after `@`** — **FIXED (2026-07-28):** | ~22 | `libraries/stdlib/js/runtime/reflectRuntime.kt`: `val lambda = @JsNoLifting { throwUnsupportedOperationException(...) }` → `@ JsNoLifting { ... }` (`Expected annotation identifier after '@'`) | **Root cause:** `MiscRuleCore.needsSpaceBetween` already had a tight rule for `@` immediately before an identifier (built for declaration-site/param-target annotations), but a `val`'s initializer tokens (e.g. this shape's `= @JsNoLifting { ... }` RHS) render through a *separate* duplicate implementation, `DeclarationAlignmentRuleCore.needsSpaceBetween` (each rule class keeps its own small token-joining helpers, per this file's existing pattern), which never had the same `@`-tight case — so an annotation reaching this join point fell through to the generic spaced default. **Fix:** added the same `lang.isKotlin && isOp(prev, "@")` → tight (no space) case to `DeclarationAlignmentRuleCore.needsSpaceBetween`, mirroring `MiscRuleCore`'s existing rule. Fixture `test/real_code_regressions_149_{inp,out}.kt`. `make test`: 197/197 → 198/198 forward + 198/198 idempotency, zero regressions. Re-verified against the original real file (`reflectRuntime.kt`): `@JsNoLifting` renders tight, `kotlin_syntax_check` (JDK 21 + `~/xsdk/kotlin-compiler-2.4.0`) reports no syntax errors. |
-| **C3. Multi-statement lambda/block body fused onto one line, no `;` separators** — **FIXED (2026-07-28):** | ~70+ (largest crash cluster) | `libraries/stdlib/jdk7/test/PathRecursiveFunctionsTest.kt`: a 3-statement `onError = { source, _, exception ->` named-argument lambda body collapsed to `... exception -> assertIs<...>(exception) conflictingFiles.add(...) OnErrorResult.SKIP_SUBTREE }` (missing separators, `Unexpected tokens`) | Same general family as previously-fixed RDD_KEY_134/RDD_KEY_157/RDD_KEY_176 (`containsMultilineNestedBrace`-style bail-outs), but this exact shape wasn't covered — root cause was one level upstream of that guard family. **Root cause:** `MiscRuleCurly.renderCallCandidate`'s per-argument multi-line-brace-body bail loop (the guard meant to catch exactly this shape) computed its candidate top-level arguments via `splitTopLevelCommas`, which tracks paren/bracket/angle depth only, never brace (`{`/`}`) depth — so a named-argument lambda's own parameter-list commas (`source, target, exception`) were misread as top-level *call*-argument separators, shattering the one multi-statement brace-bodied argument into several unrelated parts. None of those shattered parts still looked like "a brace-bodied argument with an internal newline" to the bail loop, so the bail never fired and the body fell through to `renderCallPreserveGroups`'s no-brace-depth-aware line grouping, which fuses whatever ends up sharing one "row" with no separator. **Fix:** new `MiscRuleCurly.splitTopLevelCommasBraceAware` (identical to `splitTopLevelCommas` but also depth-tracks `{`/`}`), used *only* to recompute the bail loop's candidate arguments — not for the `topLevelArgs.size() <= 1` check or any rendering path, so every already-passing call-argument shape (including the C++ `real_code_regressions_1` brace-init-list case) is unchanged. Fixture `test/real_code_regressions_146_{inp,out}.kt`. `make test`: 194/194 → 195/195 forward + 195/195 idempotency, zero regressions. Re-verified against the original real file (`PathRecursiveFunctionsTest.kt`): every `onError = { ... }` named-argument lambda now renders with its statements on separate lines, `kotlin_syntax_check` reports 0 errors; also sanity-checked against two other files with the same shape (`AbstractJavaModulesIntegrationTest.kt`, `firBuiltinSymbolProviders.kt`) — both clean, confirming the fix generalizes beyond the one trigger file. Full 16268-file corpus re-run not attempted this session (out of scope per task instructions). |
-| **C4. Multi-line-condition `if(...)` + braced single-statement body collapsed into malformed one-liner** | ~44 | `compiler/daemon/daemon-client/.../KotlinCompilerClient.kt`: `if (\n startDaemon(...)\n) {\n reportingTargets.report(...)\n}` → `if( startDaemon(...) ) reportingTargets.report(...)` — no separating token, `Expecting an element` | `collapseBracelessBody`/its siblings apparently don't check whether the `if`'s own *condition* spans multiple lines before merging a braced single-statement body into a "braceless" one-liner. **INVESTIGATED (2026-07-28), does not reproduce as described — see Open Questions.** |
-| **C5. `when` subject-expression line-wrap vs. closing-comment ordering** — **FIXED (2026-07-28):** | ~15-20 | `core/compiler.common/.../EventOccurrencesRange.kt`: `when (min(left, 2) to min(right, 3)) {` (single physical line originally) ends up as `} // when min(\n    left, 2\n) to min(\n    right, 3\n)` — the subject expression's tail tokens end up orphaned *after* the closing brace | **Root cause:** not the `formatWhenExpressions`/`addClosingComments` *ordering* itself (that ordering, fixed by RDD_KEY_175, is already correct — `formatWhenExpressions` already runs ahead of `addClosingComments` in `FormatterCurly`'s Phase 3). The real bug is one phase earlier: `formatWhenExpressions` runs in Phase 3, *after* Phase 1's structural line-wrap (`enforceCallLineBreaking`) may already have split a long `when (...)` subject across several physical lines. `KotlinSpecificRule.formatWhenExpressions`'s subject capture (`literalSlice(tokens, j + 1, closeParen)`) preserved the raw token text verbatim, including any NEWLINE tokens now embedded in the already-wrapped subject span — so the resulting `// when <subject>` closing comment carried literal newlines, and everything after the first embedded newline landed as bare, un-commented code following the closing `}` instead of staying inside the comment. Same general "a wrap pass and the closing-comment/subject-capture logic disagree about where the subject expression ends" bug class as RDD_KEY_175, but the concrete mechanism this time is a stale single-line assumption in subject-text capture, not phase ordering. **Fix:** collapse any run of whitespace (including newlines) in the captured `subject` string down to a single space (`.replaceAll("\\s+", " ")` after the existing `.trim()`), so the closing comment always renders on one physical line regardless of whether the subject itself got wrapped upstream. Fixture `test/real_code_regressions_148_{inp,out}.kt`. `make test`: 196/196 → 197/197 forward + 197/197 idempotency, zero regressions. Re-verified against both real trigger files: `EventOccurrencesRange.kt`'s corruption is gone and the file is fully syntax-clean (`kotlin_syntax_check`, JDK 21 + `~/xsdk/kotlin-compiler-2.4.0`); both files also confirmed round1/round2 byte-identical (idempotent). See Open Questions below for the C4 relationship this fix also resolved. |
-| **C6. Misc uninvestigated parse-error shapes** — broken into sub-clusters (2026-07-28 fixing session) | 114 confirmed still-failing after C1-C5 (re-measured by reformatting only the original 220-file failure list with the C1-C5-fixed JAR, isolating what's genuinely new — see sub-cluster rows below) | Various | Corpus re-established from `/tmp` round1/round1_syntax.log artifacts (reused, not re-cloned). 220 originally-failing files reformatted with the current JAR into `/tmp/round1b` → 106 now pass (fixed by C1-C5), 114 still fail (`/tmp/c6_failing.txt`) — this is C6's true current scope. |
-| **C6a. Typed `by`-delegate declaration's type-scan loop swallows the whole delegate expression** — **FIXED (2026-07-28):** | 42 of the 114 (re-verified: reformatting all 114 with the fix applied and re-running `kotlin_syntax_check` drops the failure count from 114 to 72) | `compiler/frontend/src/.../AnalyzerFacade.kt`'s `LazyModuleDependencies` class: `val x: Set<Y> by storageManager.createLazyValue { foo(bar).mapTo(HashSet<Y>()) { a(); b() } }` → entire delegate expression (including the nested multi-statement lambda body) flattened onto one line with no statement separators | **Root cause:** `KotlinDeclarationAlignmentRule.parseKotlinDeclaration`'s type-token scan loop (used by `groupAlignableDeclarations`, the live path — not the deprecated `groupPropertyDeclarations`) only terminated on `=`; a `by`-delegate declaration has no `=` at all, so the loop ran to the end of the statement, sweeping the entire delegate expression — including any multi-line, multi-statement trailing-lambda body — into `typeTokens`. `renderKotlinTokens` then flattened that onto one line via its plain space-joined render, fusing unrelated statements with no separator (`Unexpected tokens`). Confirmed by tracing which caller actually reaches this statement (`groupAlignableDeclarations`, not the deprecated grouping method) via a `JXM_DEBUG`-gated instrumented print, and by observing the `by` token's `TokenType` is `KEYWORD`, not `IDENTIFIER` (an initial fix attempt gated on `IDENTIFIER` silently never fired). **Fix:** the type-scan loop now bails (`return null`, "never guess" posture, same as its existing get/set bailout) on any top-level (bracket/paren/angle-depth-0) `by` keyword — `by`-delegate declarations are left out of the alignment group entirely and rendered verbatim, exactly like the existing untyped-`by`-delegate case (`val x by lazy { ... }`, already correctly handled via the pre-existing trailing-tokens check at the end of the method). Fixture `test/real_code_regressions_150_{inp,out}.kt`. `make test`: 198/198 → 198/198 forward + 198/198 idempotency, zero regressions (also corrected a related latent cosmetic defect this same sweep-in caused: `real_code_regressions_30_out.kt`'s single-line `val okioRoot: OkioRoot by lazy { ... }` fixture had locked in a spurious space before `:` from the same bug — its `typeTokens` included the full `by lazy {...}` tail, which the alignment renderer's spacing rules happened to space differently around `:` for a "wide" type cell; now bailed-and-verbatim, matching the original source's `okioRoot:` with no space — updated to match). Re-verified against the real trigger file (`AnalyzerFacade.kt`): `kotlin_syntax_check` reports zero errors. |
-| **C6b. Multi-dollar string-literal prefix (`$$`/`$$$`) gets a spurious space before the string** — categorized, not fixed | 12 | `compiler/util-io/test/.../ResolvablePropertiesTests.kt`: `"key2" to $$"$key1"` → `"key2" to $$ "$key1"` (`Expecting an element`) | Kotlin 2.4's multi-dollar string-interpolation prefix (`$$"..."`/`$$$"..."`, an operator-like token directly glued to the following string literal, no space) isn't recognized as a tight-binding pair by the spacing rule — falls through to the generic "insert a space between tokens" default, same shape as the already-fixed C2 (`@Annotation` tight-space) but for a different token pair. Likely a narrow, low-risk addition to the same tight-token table C2 extended. | **Value: high** (12 files, ~17% of the 70). **Difficulty: low** — same fix shape as the already-shipped C2 precedent. |
-| **C6c. Nullable callable reference `T?::member` corrupted to `T ?: :member`** — categorized, not fixed | 2 | `libraries/kotlin.test/.../AssertContentEqualsImpl.kt`: `Any?::toString` → `Any ?: :toString`; same shape repeated many times in `Assertions.kt` (`Expecting an element`) | The `?::` token run (nullable-type callable reference) is apparently being split as `?:` (elvis) + `:` instead of recognized as `?` + `::`, corrupting both spacing and meaning. Narrow tokenizer/spacing issue, only 2 files in this set but each has several occurrences (`Assertions.kt` alone repeats the shape ~15+ times), so the true blast radius across the full corpus is likely larger than 2 files. | **Value: high** (small file count here but high repeat-density per file, and likely undercounted corpus-wide). **Difficulty: low** — looks like a single tokenizer/spacing special case for `?::`. |
-| **C6d. `@Composable`-annotated function-type parens lose their required leading space** — categorized, not fixed | 6 | `plugins/compose/.../mock/Views.kt`: `block: @Composable (value: T) -> Unit` → `block: @Composable(value : T) -> Unit` (`Type expected`) | Mirror-image of C2: `@Composable (Params) -> Type` (an annotated function *type*, where the space before `(` is required — unlike an annotation-call/param-target site) is getting tightened by the same "no space after `@`" rule C2 relies on, which doesn't distinguish function-type position from call/param-target position. | **Value: high** (6 files, and Compose is a widely-used real-world Kotlin idiom). **Difficulty: low-medium** — needs a position check (function-type context vs. call/param-target) added alongside C2's existing rule, not a new rule from scratch. |
-| **C6e. Trailing-lambda multi-statement body fused when used as a boolean sub-expression** — categorized, not fixed | 6 | `core/reflection.jvm/.../KClassImpl.kt`: `result.all { val klass = it.classifier as? KClassImpl<*>` + next line `klass != null && ... }` fused onto one line with no statement separator inside an `if (...)` condition (`Expecting an element`) | Same general family as the already-fixed C3 (`MiscRuleCurly.splitTopLevelCommasBraceAware`/bail-loop), but for a trailing lambda (`.all { ... }`, `.any { ... }`, `.findOverridden { ... }`) that itself sits directly inside a larger boolean expression (`if (...)`, `&&`/`\|\|` chain) rather than as a named/positional call argument — a different code path than the one C3's fix touched. | **Value: high** (6 files, extends a well-understood, already-shipped precedent). **Difficulty: low-medium** — likely the same brace-aware bail-loop needs to also fire for this call shape. |
-| **C6f. Multi-line condition/call collapse swallows an embedded `//` line comment** — categorized, not fixed | ~20 (confirmed repro in several; likely overlaps with some of C6k) | `libraries/tools/.../ResolutionTesting.kt`: `setOf(\n    // The status is inferred ... painful\n    "org.gradle.status",\n)` → `setOf(// The status is inferred ... painful "org.gradle.status",),` — the `//` comment, once its surrounding multi-line construct is collapsed onto one physical line, swallows every token after it (including the closing `)`/`,`) into the comment, corrupting the parse. Same general shape confirmed in `FirOpenMemberChecker.kt`, `LlvmDeclarations.kt`, `EscapeAnalysis.kt`, `RangeToHandler.kt`, `PackagePartClassUtils.kt`, `ComplexExternalDeclarationsToTopLevelFunctionsLowering.kt`, and several more `Expecting ')'`/`Expecting an element` files in this set with a `//` comment inside the same statement. | Whatever line-collapsing pass (multi-line call/condition → single physical line) runs is not comment-aware — it never checks whether a `//` line comment sits inside the span being joined, so anything after that comment on the newly-joined line silently becomes part of the comment. **Severity note:** this is a silent-corruption shape in the same family as the original C1 (comment swallows following code) — not just a crash, an actual content-loss risk, since a shorter swallow could still parse "successfully" as valid-but-wrong Kotlin. | **Value: highest** (largest sub-cluster by file count — ~29% of the 70 — plus C1-grade severity). **Difficulty: medium-high** — the fix has to touch whichever pass(es) perform line-collapsing generally (not one call-site), and needs care to avoid regressing every currently-passing collapse case; recommend this be the next session's primary target, with further sub-clustering by which collapsing pass is responsible before implementing. |
-| **C6g. Backtick identifier containing a literal `(` breaks paren-depth tracking** — categorized, not fixed | 4 | `compiler/ir/ir.validation/test/.../IrValidatorTest.kt`: `` fun `warnings are reported and no exception is thrown if IrVerificationMode is WARNING (no debug info)`() { `` — the literal `(` inside the backtick-quoted test name is miscounted as a real opening paren, breaking the wrap/signature logic downstream (`Expecting function name or receiver type`) | Kotlin backtick identifiers can contain almost any character including `(`/`)`, but whichever paren-depth scan feeds the affected pass doesn't special-case backtick-quoted spans as opaque text the way it presumably already does for string/comment spans. | **Value: medium** (4 files, all test-name idioms — common in JetBrains/kotlin's own large test suite, so likely undercounted corpus-wide). **Difficulty: medium** — needs the same "opaque span" treatment already given to strings/comments extended to backtick identifiers, wherever that scan lives. |
-| **C6h. `Missing '}'` at EOF in Gradle-plugin functional/integration tests** — categorized, not fixed | 8 | `libraries/tools/kotlin-gradle-plugin-integration-tests/.../KmpPartiallyResolvedDependenciesCheckerIT.kt` and 7 similar `kotlin-gradle-plugin`/`kotlin-gradle-plugin-integration-tests` functional-test files — each ends with an unmatched trailing brace; the visible diff shows large stretches of the test body reordered/dropped well before EOF, not a simple tail truncation. | Not pinned down this pass — the corruption is far upstream of the reported EOF location (per-file diffs show substantial mid-file content differences), consistent with a `}` being consumed by one of the other collapse-family bugs above (most likely C6f's comment-swallow or a related collapse variant) rather than a distinct root cause of its own. Flagged as likely-not-independent rather than confirmed. | **Value: medium** (8 files, but likely folds into C6f's fix rather than needing its own). **Difficulty: unknown** — re-triage after C6f lands; may resolve for free. |
-| **C6i. Multiple interface member declarations fused without separators** — categorized, not fixed | 1 | `libraries/stdlib/js-ir-minimal-for-test/js-src/collectionsWithoutExportLogic.kt`: several one-line `actual override val x: T` interface members in sequence lose their line breaks and get fused (`clear(): Unit actual override val keys : MutableSet<K> actual override val values : ...`) with no separators (`Property getter or setter expected`) | Not investigated further — distinct from the lambda-body-fusion families above (no lambda/braces involved at all, purely a sequence of one-line member declarations), so likely its own separate root cause in whatever pass handles consecutive interface-member-declaration spacing/line-breaks. | **Value: low** (single file in this set). **Difficulty: unknown**, needs its own investigation. |
-| **C6j. Square-bracket destructuring lambda params `[x, y] ->` not recognized** — categorized, not fixed | 1 | `compiler/daemon/daemon-common/.../ClientUtils.kt`: `.filter { [file, port] -> port != null && filter(file, port) }` (a newer Kotlin destructuring-lambda-parameter syntax without parens) — corrupted (`Expecting ','`) | The lambda-parameter-list parser/renderer doesn't recognize `[a, b] ->` as a destructuring parameter list (likely reads the `[` as an indexing/array-literal token instead), corrupting the render. | **Value: low** (1 file here; a newer, less common Kotlin syntax feature, so low incidence expected generally). **Difficulty: medium** — needs new lambda-param-list syntax support, not just a spacing tweak. |
-| **C6k. Residual uninvestigated shapes** — categorized, not fixed | 10 | `diagnosticUtils.kt`, `KClassMembers.kt`, `TypeCommonizerTest.kt`, `ConeTypeRenderer.kt`, `JavaOverrideChecker.kt`, `LazyJavaClassMemberScope.kt`, `kmpTargets.kt`, `FirConflictsDeclarationChecker.kt`, `FirRequiresOptInOnExpectChecker.kt`, `GenerateMultifileFacades.kt` — all show `Expecting ')'`/`Expecting an element`-family errors around a multi-line call/condition, but none showed a clear, confidently-attributable shape (no `$$`, no `?::`, no `@Composable`, no backtick-paren, no unambiguous `//`-swallow) in a quick context read; may turn out to be more instances of C6f or C6e once that pass is fixed and this set is re-run, or may hide 1-2 more distinct root causes. | Left open per this task's same explicit allowance the original C6 row used ("if a sub-cluster looks like it needs deep new mechanism work... it's OK to leave it as a documented, still-open sub-cluster") — re-triage after C6e/C6f land, since several of these may resolve for free. | **Value: unknown pending re-triage. Difficulty: unknown.** |
+| **C1** — own-line comment before a constructor param gets fused onto the param, silently deleting it from the parseable declaration — **FIXED** | 1 confirmed, likely more | `KotlinSignatureRule.parseKotlinSignature`'s comma-split unconditionally moved any comment starting the next param's slice onto the previous param, not distinguishing a genuine same-line trailing comment from an own-line leading one (lost because `significantWithComments` strips NEWLINEs before the split). Fix: new `findLineStartComments`/`findStandaloneComments` + `KotlinParam.leadingCommentOwnLine` flag make `render`/`renderWithTail` emit a standalone leading comment on its own line instead of fusing it; same-line leading comments unaffected. | `real_code_regressions_144.kt`; `make test` 192→193/193 fwd+idem. |
+| **C2** — `@Annotation` at expression position (e.g. `= @JsNoLifting { ... }`) gets a spurious space after `@` — **FIXED** | ~22 | `DeclarationAlignmentRuleCore.needsSpaceBetween` (a separate duplicate of `MiscRuleCore`'s token-joiner) lacked the `@`-tight case `MiscRuleCore` already had for declaration-site annotations. Fix: added the same `lang.isKotlin && isOp(prev,"@")` tight case there. | `real_code_regressions_149.kt`; `make test` 197→198/198. |
+| **C3** — multi-statement named-argument lambda body fused onto one line, no separators — **FIXED** (largest crash cluster) | ~70+ | `MiscRuleCurly.renderCallCandidate`'s brace-body bail loop computed candidate args via `splitTopLevelCommas`, which tracks paren/bracket/angle depth but not brace depth — a lambda's own param-list commas were misread as call-argument separators, shattering the one bail-worthy argument so the bail never fired. Fix: new brace-depth-aware `splitTopLevelCommasBraceAware`, used only to recompute the bail loop's candidate args. | `real_code_regressions_146.kt`; `make test` 194→195/195. |
+| **C4** — multi-line-condition `if(...)` + braced body collapsed with no separator — **CLOSED, not a real bug**: investigated and does not reproduce; both collapse paths always join with a literal `" "` so this shape is impossible by construction. Confirmed miscategorized instance of C5 (see Open Questions) — folds into C5's count. | — | — | — |
+| **C5** — `when` subject-expression line-wrap vs. closing-comment ordering: an already-wrapped multi-line `when (...)` subject's embedded NEWLINEs leaked into the `// when <subject>` closing comment, orphaning trailing tokens after the closing `}` — **FIXED** | ~15-20 | `KotlinSpecificRule.formatWhenExpressions`'s subject capture preserved raw text verbatim including newlines left by Phase 1's `enforceCallLineBreaking` wrap. Fix: collapse whitespace runs in the captured subject to a single space. Also resolved C4 (see Open Questions). | `real_code_regressions_148.kt`; `make test` 196→197/197. |
+| **C6** — misc uninvestigated parse-error shapes, broken into sub-clusters below. 114 confirmed still-failing after C1-C5 (re-measured against the original 220-file list). | 114 | — | — |
+| **C6a** — typed `by`-delegate declaration's type-scan loop swallows the whole delegate expression (incl. multi-statement trailing lambda), flattening it with no separators — **FIXED** | 42 of 114 (114→72 after fix) | `KotlinDeclarationAlignmentRule.parseKotlinDeclaration`'s type-token scan only terminated on `=`; a `by`-delegate has no `=`, so the loop swept the entire delegate expression into `typeTokens`. Fix: bail (`return null`, "never guess") on any top-level `by` keyword, same posture as the existing get/set bailout — left verbatim like the untyped-`by` case. Also fixed a latent spacing defect this same bug caused in `real_code_regressions_30_out.kt`. | `real_code_regressions_150.kt`; `make test` 198/198 (no count change, fixed a corruption not a new pass). |
+| **C6b** — multi-dollar string prefix (`$$`/`$$$`) gets a spurious space before the string, e.g. `$$"$key1"` → `$$ "$key1"` — not fixed | 12 | Kotlin 2.4's `$$`/`$$$` interpolation prefix isn't in the tight-token table; mirrors already-shipped C2. | Value high, difficulty low (same fix shape as C2). |
+| **C6c** — nullable callable reference `T?::member` corrupted to `T ?: :member` (mis-split as elvis `?:` + `:` instead of `?` + `::`) — not fixed | 2 files, but high repeat-density per file (~15+ occurrences in `Assertions.kt`), likely undercounted corpus-wide | Narrow tokenizer/spacing issue for the `?::` token run. | Value high, difficulty low (single tokenizer/spacing special case). |
+| **C6d** — `@Composable`-annotated function-type parens lose their required leading space: `@Composable (Params) -> Type` tightened by C2's same rule, which doesn't distinguish function-type position from call/param-target position — not fixed | 6 | Mirror-image of C2. | Value high, difficulty low-medium (needs a position check added to C2's rule). |
+| **C6e** — trailing-lambda multi-statement body (`.all { ... }` etc.) fused when used as a boolean sub-expression inside `if(...)`/`&&`/`\|\|` — not fixed | 6 | Same family as C3 but a different code path (lambda as sub-expression, not call argument). | Value high, difficulty low-medium (likely same brace-aware bail loop needs to fire here too). |
+| **C6f** — multi-line collapse swallows an embedded `//` line comment, corrupting everything after it on the newly-joined line — not fixed (largest sub-cluster, C1-grade severity: silent content loss, not just a crash) | ~20, confirmed in several files, likely overlaps C6k | Whichever line-collapsing pass runs isn't comment-aware. | Value highest, difficulty medium-high — must touch the general collapsing pass(es) without regressing existing collapse cases; recommended as next session's primary target. |
+| **C6g** — backtick identifier containing a literal `(` (e.g. test-name idiom `` `... (no debug info)` ``) breaks paren-depth tracking downstream — not fixed | 4 | Backtick-quoted spans aren't treated as opaque text the way string/comment spans already are. | Value medium (likely undercounted — common JetBrains test idiom), difficulty medium (needs opaque-span treatment extended to backticks). |
+| **C6h** — `Missing '}'` at EOF in Gradle-plugin functional/integration tests — not fixed | 8 | Not pinned down; corruption is far upstream of the reported EOF, likely a symptom of C6f's comment-swallow or a related collapse variant rather than an independent cause. | Value medium, difficulty unknown — re-triage after C6f lands, may resolve for free. |
+| **C6i** — multiple one-line interface member declarations in sequence fused without separators — not fixed | 1 | Distinct from the lambda-fusion families (no lambda/braces involved); likely its own root cause in whatever pass handles consecutive member-declaration line breaks. | Value low, difficulty unknown, needs own investigation. |
+| **C6j** — square-bracket destructuring lambda params `[x, y] ->` (newer Kotlin syntax) not recognized, `[` misread as indexing/array-literal — not fixed | 1 | Needs new lambda-param-list syntax support. | Value low, difficulty medium. |
+| **C6k** — residual uninvestigated shapes (10 files: `diagnosticUtils.kt`, `KClassMembers.kt`, `TypeCommonizerTest.kt`, `ConeTypeRenderer.kt`, `JavaOverrideChecker.kt`, `LazyJavaClassMemberScope.kt`, `kmpTargets.kt`, `FirConflictsDeclarationChecker.kt`, `FirRequiresOptInOnExpectChecker.kt`, `GenerateMultifileFacades.kt`) — not fixed | 10 | `Expecting ')'`/`Expecting an element`-family errors around a multi-line call/condition, no confidently-attributable shape found; may be more C6e/C6f instances once those land, or hide 1-2 more distinct root causes. | Value/difficulty unknown pending re-triage. |
 
-**Ranked list, most-valuable-to-fix first** (2026-07-28 categorization pass; same weighting as the original C1-C6 ranking — file count and severity first, precedent-similarity as a difficulty tiebreaker):
-1. **C6f** — largest sub-cluster (~20 files) and C1-grade severity (silent comment-swallow content loss), despite being the hardest to implement safely.
-2. **C6b** — 12 files, cheapest fix shape (near-identical to the already-shipped C2 precedent).
-3. **C6e** — 6 files, extends the already-shipped C3 precedent to one more call shape.
-4. **C6d** — 6 files, mirrors C2's existing rule in the opposite direction.
-5. **C6h** — 8 files, but likely not independent of C6f; re-triage after C6f lands before scoping real effort here.
-6. **C6c** — only 2 files in this set but a narrow, cheap, high-confidence tokenizer fix with likely-undercounted corpus-wide impact.
-7. **C6g** — 4 files, medium difficulty (opaque-span handling for backtick identifiers).
-8. **C6k** — 10 files, value/difficulty both unknown until re-triaged (possibly resolves partly for free after C6e/C6f).
-9. **C6i** — 1 file, needs its own dedicated investigation, low count.
-10. **C6j** — 1 file, needs new syntax support for a niche/newer Kotlin feature, lowest priority.
+**Baseline check:** re-verified C6b-C6k's 70-file total against the raw
+`kotlin_syntax_check` failure list — 70/72 are confirmed genuine formatter
+bugs; the other 2/72 are a pre-existing BOM syntax-checker artifact
+(unrelated to the formatter), not formatter bugs — both excluded from the
+70 above.
 
-Total: 70 files across C6b-C6k (12+2+6+6+20+4+8+1+1+10=70), matching the confirmed genuine-bug scope from the prior session's baseline check. `/tmp/c6_remaining.txt`/`/tmp/round1c_syntax.log` (from the prior session) and `/tmp/c6_70.txt`/`/tmp/all_ctx.txt`/`/tmp/REP2.txt` (this session's working files) retained for a future fixing session. Full report: `/tmp/REP2.txt`.
+**Ranked, most-valuable-first (C6b-C6k):** C6f (largest + C1-grade severity,
+hardest) > C6b (12 files, cheapest — mirrors C2) > C6e (6 files, extends C3)
+> C6d (6 files, mirrors C2 in reverse) > C6h (8 files, likely folds into
+C6f — re-triage after) > C6c (2 files, narrow high-confidence tokenizer fix,
+likely undercounted) > C6g (4 files, medium) > C6k (10 files, unknown until
+re-triaged) > C6i (1 file) > C6j (1 file, niche newer syntax, lowest).
+Total 70 files across C6b-C6k. Working files retained in `/tmp` (not
+committed): `/tmp/c6_remaining.txt`, `/tmp/round1c_syntax.log`,
+`/tmp/c6_70.txt`, `/tmp/all_ctx.txt`, `/tmp/REP2.txt` (full report),
+`/tmp/round1`, `/tmp/round2`, `/tmp/round1_syntax.log`,
+`/tmp/idempotency_diff.txt`, `/tmp/kt_filelist.txt`.
 
-### Category 2 — Idempotency-only, 344 files
+### Category 2 — Idempotency-only, 344 files (none fixed)
 
-| Cluster | Est. files | Repro | Notes |
-|---|---|---|---|
-| **D1. Declaration/accessor column-alignment padding flap** | ~150-200 (largest idempotency cluster) | `analysis/light-classes-base/.../KotlinEnumSyntheticMethod.kt`: `override fun findDeepestSuperMethods()         : Array<PsiMethod> = ...` (round1, wide padding) vs. narrower padding (round2); also seen on plain `val`/`private val` groups (`analysis-api-fir/.../ConeTypePointer.kt`: `private val lookupTag              = coneType.lookupTag` → `private val lookupTag = coneType.lookupTag`) | Confirmed reproduces at **both default `indent-size=4` and `indent-size=2`** (retested `KotlinEnumSyntheticMethod.kt` standalone). Same general family as previously-fixed RDD_KEY_139/RDD_KEY_162 (group-width recompute instability) — likely another width-recompute path triggered by a sibling line's wrap/unwrap that those fixes didn't cover. |
-| **D2. Closing-brace indent drift across passes** | ~150+ | `kotlin-native/endorsedLibraries/kotlinx.cli/.../ArgumentValues.kt`: a nested block's `}` at one indent column in round1, a different column in round2 (verified independent of D1 — no accessor/`val` padding involved) | Confirmed reproduces at both default and `indent-size=2` (retested `ArgumentValues.kt` standalone). Likely another gap in the `effectiveSpanIndent`/anchor-scan family (RDD_KEY_159/RDD_KEY_161 precedent) not covered by those fixes. |
-| **D3. Multi-param lambda header wrap flap** | ~15-20 | `analysis/low-level-api-fir/.../LLKotlinStubBasedLibrarySymbolProvider.kt`: `createTypeAliasCache { declaration: KtClassLikeDeclaration, context -> ... }` (round1, one line) vs. round2 exploding each param onto its own line with a spurious space before `:` (`declaration : KtClassLikeDeclaration,`) | A lambda parameter list's own wrap decision isn't stable across passes — width recompute disagrees with itself. |
-| **D4. Minor adjacent-closing-brace spacing flap** | small (single digits) | `compiler/fir/fir-jvm/.../OptionalAnnotationClassesProvider.kt`: `) } }` (round1) vs. `)} }` (round2) | Cosmetic-only, lowest priority of the four. |
+| Cluster | Est. files | Notes |
+|---|---|---|
+| **D1.** Declaration/accessor column-alignment padding flap (round1 vs round2 disagree on padding width) | ~150-200, largest | Reproduces at both default and `indent-size=2`. Same family as fixed RDD_KEY_139/162 (group-width recompute instability) — likely another width-recompute path those fixes didn't cover. |
+| **D2.** Closing-brace indent drift across passes | ~150+ | Reproduces at both default and `indent-size=2`, independent of D1. Likely another gap in the `effectiveSpanIndent`/anchor-scan family (RDD_KEY_159/161 precedent). |
+| **D3.** Multi-param lambda header wrap flap (one line in round1, exploded with a spurious space before `:` in round2) | ~15-20 | Wrap decision isn't stable across passes. |
+| **D4.** Minor adjacent-closing-brace spacing flap (`) } }` vs `)} }`) | small | Cosmetic-only, lowest priority. |
 
-### Ranked list — all clusters, most-valuable-to-fix first
+**Overall ranking across all clusters:** C1 (severity, content-loss) > C3
+(largest crash cluster, precedented) > C4/C5 (see Open Questions — folded
+together) > D1 > D2 > C2 > C5 > D3 > C6 (now superseded by the C6a-C6k
+breakdown above) > D4.
 
-1. **C1** (comment-swallows-declaration content loss) — silent correctness bug, the only one in this pass that can delete real code invisibly; even at a low observed count, this ranks first purely on severity. Difficulty likely low-to-medium once root-caused (a param/signature-render pass eating the preceding comment's own line) — high value clearly outweighs the unknown-but-probably-modest difficulty.
-2. **C3** (multi-statement lambda/block fusion) — largest crash cluster (~70+ files) and a known bug family with 3 prior precedent fixes (RDD_KEY_134/157/176) to extend from — high value, medium difficulty (pattern-matching an existing guard's shape).
-3. **C4** (multi-line-condition if collapse) — second-largest crash cluster (~44 files), same "extend an existing bail-out guard" difficulty profile as C3.
-4. **D1** (declaration/accessor padding flap) — largest idempotency cluster (~150-200 files) with 2 prior precedent fixes (RDD_KEY_139/162); high value from sheer spread, medium difficulty.
-5. **D2** (closing-brace indent drift) — comparably large spread (~150+ files) with precedent (RDD_KEY_159/161); ranked just under D1 since it's cosmetic-only (no confusion risk for a reader, unlike misaligned columns which at least look "wrong" whereas indent drift is subtler) — same value/difficulty profile otherwise.
-6. **C2** (annotation-at-expression-position spacing) — moderate cluster (~22 files), real compile break, but a narrower/more self-contained fix (extend annotation-context detection to expression position) — high value, lower estimated difficulty than C3/C4.
-7. **C5** (when-subject wrap/closing-comment ordering) — moderate cluster (~15-20), real corruption, but pipeline-ordering bugs (per RDD_KEY_175's precedent) tend to need care to avoid regressing the fix they're ordered relative to — medium-high difficulty pulls it below C2.
-8. **D3** (lambda header wrap flap) — smaller cluster (~15-20), non-corrupting, moderate difficulty — ranked below the higher-spread/higher-severity items above it.
-9. **C6** (misc uninvestigated crash shapes) — potentially several distinct bugs bundled together; real value once split out, but undefined difficulty until root-caused, so ranked conservatively below better-understood clusters.
-10. **D4** (minor brace-spacing flap) — smallest, purely cosmetic, lowest value — last.
-
-**Recommended next step (not done this pass):** run `kotlin_content_diff`
-across the full 16268-file corpus before starting fixes — it would likely
-surface more instances of C1 (content loss undetectable by the syntax
-checker) and give a truer denominator for how many files are actually
-affected by that cluster.
+**Recommended next step (not done yet):** run `kotlin_content_diff` across
+the full 16268-file corpus before further C1-family fixes — it would
+surface more instances of silent content loss undetectable by the syntax
+checker and give a truer denominator.
 
 ## Open Questions
 
-- **C4 (multi-line-condition `if` collapse) does not reproduce — root
-  cause misattributed during categorization (2026-07-28 investigation).**
-  Both collapse paths that could produce this shape —
-  `BlockStructureRule.tryCollapse` (braced-body path, line ~473-476) and
-  `BlockStructureRule.collapseBracelessBody` (already-braceless path, line
-  ~871-873) — always join the rendered condition prefix and the rendered
-  body with an explicit literal `" "` (`return prefix + " " + body;` in
-  both places), so a missing separator between `)` and the body is not
-  possible by construction regardless of whether the condition itself
-  spanned multiple lines in the source. Verified three ways: (1) isolated
-  minimal repros of the exact `if (\n cond\n) {\n stmt\n}` shape (several
-  variants, increasingly matching the real file's nesting — bare, inside a
-  `when` branch, inside a `while(true)` + `when` combo matching
-  `connectAndLease`'s real structure) all produced syntactically valid
-  output per `kotlin_syntax_check` (JDK 21 +
-  `~/xsdk/kotlin-compiler-2.4.0`); (2) the real trigger file itself
-  (`compiler/daemon/daemon-client/.../KotlinCompilerClient.kt`, both
-  occurrences of the collapsed-if shape it contains, lines ~194-206 and
-  ~623-625 of the round1 output) syntax-checked clean once the file's
-  *actual* sole syntax error — a `// when val leaseSessionResult = ...`
-  closing-comment/multi-line-subject-expression ordering bug, the already
-  separately-catalogued **C5** cluster, lines ~172-174 of round1 output —
-  was manually patched out; (3) a corpus-wide grep across all 16268
-  formatted files for a literal zero-width `))word` join (the only way
-  this reported shape could actually manifest) found zero real instances
-  (one file matched but only inside string literals). Conclusion: the
-  file used as C4's repro was almost certainly miscategorized during the
-  original eyeball-only categorization pass — its real (and only) crash
-  cause is C5, not a distinct if-collapse bug. No fix was made (there is
-  nothing reproducible to fix, and adding a defensive guard against this
-  shape would only suppress *valid* collapses with no corresponding
-  benefit).
-
-  **RESOLVED (2026-07-28, C5 fix session):** C5 has now been fixed (see its
-  table entry above). Both real trigger files were re-verified against the
-  fixed JAR: `EventOccurrencesRange.kt` (C5's own repro) is fully
-  syntax-clean, and — directly answering this open question —
-  `KotlinCompilerClient.kt` (C4's original repro) is now **also fully
-  syntax-clean** (`kotlin_syntax_check`, zero errors), with no C4-shaped
-  `if`-collapse defect surfacing anywhere in that file once C5's root cause
-  was fixed. This confirms the investigation above: C4 was a miscategorized
-  instance of C5, not a distinct bug — there is no separate if-collapse
-  defect to fix. C4 is considered closed; its Category-1 table entry above
-  is left in place (not deleted) purely as a historical record of the
-  miscategorization, per the "leave as-is with this note" option this
-  question raised, rather than silently dropping a previously-tracked
-  cluster. The ~44-file estimate should be treated as folded into C5's
-  count, not as a still-open separate cluster, for any future ranking of
-  this table.
+- **C4 does not reproduce — was a miscategorized instance of C5, now
+  closed.** Both collapse paths (`BlockStructureRule.tryCollapse`,
+  `BlockStructureRule.collapseBracelessBody`) always join condition and body
+  with a literal `" "`, so a missing separator is impossible by
+  construction regardless of condition line-span. Verified via minimal
+  repros, the real trigger file (clean once C5's actual bug was patched
+  out), and a corpus-wide grep for the reported zero-width join (zero real
+  instances). **RESOLVED (C5 fix session):** re-verified against the fixed
+  JAR — C4's original repro file (`KotlinCompilerClient.kt`) is now fully
+  syntax-clean with no if-collapse defect. C4 is closed; its table entry is
+  kept only as a historical record of the miscategorization, and its
+  ~44-file estimate folds into C5's count for ranking purposes.

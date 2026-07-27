@@ -63,7 +63,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Java       | STATE_C_CPP_JAVA.md   | VMA-GIT/anemonesoft (local)                 | DONE                |                                           |
 | Kotlin     | STATE_KOTLIN.md       | arrow-kt/arrow                              | DONE                |                                           |
 | Kotlin     | STATE_KOTLIN.md       | gui_frontend_android                        | DONE                |                                           |
-| Kotlin     | STATE_KOTLIN.md       | JetBrains/kotlin                            | DONE - PARTIAL FIX  | categorized only, no fixes yet (16268 files, 220 crash + 344 idempotency-only, see STATE_KOTLIN.md) |
+| Kotlin     | STATE_KOTLIN.md       | JetBrains/kotlin                            | DONE - PARTIAL FIX  | 6 clusters fixed (C1,C2,C3,C5,C6a) + C4 closed-as-dup; ~9 sub-clusters open, see STATE_KOTLIN.md |
 | Kotlin     | STATE_KOTLIN.md       | kotlinx.coroutines                          | DONE                |                                           |
 | Kotlin     | STATE_KOTLIN.md       | square/kotlinpoet                           | DONE                |                                           |
 | Kotlin     | STATE_KOTLIN.md       | square/okio                                 | DONE                |                                           |
@@ -95,7 +95,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | JS         | STATE_JS_TS.md        | lodash/lodash                               | DONE                |                                           |
 | JS         | STATE_JS_TS.md        | nodejs/node                                 | NOT STARTED         | TOO MASSIVE                               |
 | TS         | STATE_JS_TS.md        | angular/angular                             | DONE - PARTIAL FIX  | cluster 4 #3 reverted; cluster 5 open     |
-| TS         | STATE_JS_TS.md        | microsoft/TypeScript                        | DONE - PARTIAL FIX  | categorized only, no fixes yet (src/ only, see note below) |
+| TS         | STATE_JS_TS.md        | microsoft/TypeScript                        | DONE - PARTIAL FIX  | 3/4 clusters fixed, #3 deferred (same root cause as angular cluster 4), see STATE_JS_TS.md |
 | TS         | STATE_JS_TS.md        | nestjs/nest                                 | DONE                |                                           |
 | TS         | STATE_JS_TS.md        | vuejs/core                                  | DONE - PARTIAL FIX  | switch-fallthrough idempotency bug open   |
 | Python3    | STATE_PYTHON3.md      | django/django                               | DONE                |                                           |
@@ -104,18 +104,15 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Python3    | STATE_PYTHON3.md      | psf/black                                   | DONE                |                                           |
 | Python3    | STATE_PYTHON3.md      | python/cpython                              | DONE                |                                           |
 
-**Note on `microsoft/TypeScript`'s status**: none of the legend statuses
-above exactly mean "bugs found and categorized into clusters, but zero
-fixes attempted yet" (that pass's explicit, deliberate scope — see
-`STATE_JS_TS.md`'s "Dogfood: microsoft/TypeScript (categorization pass, not
-yet fixed)" section for the full cluster list/ranking). `DONE - PARTIAL
-FIX` is the closest existing fit (bugs found, root cause open) even though
-here *no* root cause has a fix landed yet, unlike every other row using
-that status. Corpus scope: `src/` only (601 real `.ts` files, 379045
-lines) — `tests/cases/**` (20089 files, hand-authored compiler test
-fixtures including deliberately-invalid-syntax cases) and `tests/
-baselines/**` (auto-generated) were excluded as non-representative test
-fixtures, same exclusion class as other jobs' `built/`/`lib/` skips.
+**Note on `microsoft/TypeScript`'s status**: 3 of 4 found clusters have a
+landed fix; the 4th (call-wrap/collapse ordering) is deliberately deferred,
+not abandoned — see `STATE_JS_TS.md`'s "Dogfood: microsoft/TypeScript"
+section for the full cluster list/ranking. Corpus scope: `src/` only (601
+real `.ts` files, 379045 lines) — `tests/cases/**` (20089 files,
+hand-authored compiler test fixtures including deliberately-invalid-syntax
+cases) and `tests/baselines/**` (auto-generated) were excluded as
+non-representative test fixtures, same exclusion class as other jobs'
+`built/`/`lib/` skips.
 
 **AI (STATE_AI.md)**: N/A — this job's corpus concept is comment-text
 training/labeling data (Pool A/Pool B ABSTAIN measurement), not a

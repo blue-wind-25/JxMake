@@ -2371,183 +2371,92 @@ Real-code regressions:
                                              existing fixtures/dogfood cases. See `STATE_JS_TS.md`'s
                                              cluster 4 entry for both.
 
-  real_code_regressions_143_inp/out.ts     -- TS, `microsoft/TypeScript` dogfood (cluster 1): `||=`/
-                                             `&&=` were missing from `TokenizerCurly.MULTI_CHAR_OPS`
-                                             (only `??=` was present), so they silently split into two
-                                             tokens (`||` + `=`). Fixed by adding both entries ahead of
-                                             the pre-existing `&&`/`||` entries (longest-match-first
-                                             ordering). `make test`: 191/191 forward + 191/191
-                                             idempotency. See `STATE_JS_TS.md`'s dogfood section.
+  real_code_regressions_143_inp/out.ts     -- TS, `microsoft/TypeScript` dogfood cluster 1: `||=`/
+                                             `&&=` were missing from `TokenizerCurly.MULTI_CHAR_OPS`,
+                                             silently splitting into two tokens (`||` + `=`). Fixed by
+                                             adding both entries. `make test`: 191/191 forward +
+                                             191/191 idempotency. See `STATE_JS_TS.md`'s dogfood
+                                             section, cluster 1.
 
-  real_code_regressions_144_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood (cluster C1, silent
-                                             code deletion): an own-line comment (`//` line comment or
-                                             multi-line `/** ... */` KDoc) immediately preceding a
-                                             constructor/function parameter got fused onto the
-                                             comment's own rendered line, silently swallowing the `val`
-                                             declaration into the comment text -- still syntactically
-                                             valid Kotlin (a very long comment), so the parameter
-                                             vanished from compiled code without any parse error.
-                                             Root cause: `KotlinSignatureRule.parseKotlinSignature`'s
-                                             comma-split post-processing unconditionally moved any
-                                             comment token starting the next parameter's slice onto the
-                                             END of the previous parameter (meant for a genuine
-                                             same-line trailing comment, e.g. `val x: Int, // note`),
-                                             with no check for whether that comment actually started a
-                                             fresh source line. Fixed by tracking which comment tokens
-                                             begin a NEWLINE-separated line (`findLineStartComments`)
-                                             and excluding those from the move; a second, stricter
-                                             "fully standalone" set (`findStandaloneComments`, also
-                                             followed by a NEWLINE) drives a new `KotlinParam.
-                                             leadingCommentOwnLine` flag so `render`/`renderWithTail`
-                                             emit such a comment as its own preceding output line
-                                             instead of fusing it as a same-line prefix -- a genuine
-                                             same-line leading comment (`/* Nullable */ x: Int?`) keeps
-                                             its prior same-line rendering. `make test`: 192/192 forward
-                                             + 192/192 idempotency. See `STATE_KOTLIN.md`'s Dogfood:
+  real_code_regressions_144_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C1: an
+                                             own-line comment immediately preceding a constructor
+                                             parameter got fused onto the comment's line, silently
+                                             swallowing the parameter (valid-but-wrong Kotlin, no parse
+                                             error). Fixed in `KotlinSignatureRule.
+                                             parseKotlinSignature`. `make test`: 192/192 forward +
+                                             192/192 idempotency. See `STATE_KOTLIN.md`'s Dogfood:
                                              JetBrains/kotlin section, cluster C1.
 
-  real_code_regressions_145_inp/out.ts     -- JS/TS, `microsoft/TypeScript` dogfood (category 1
-                                             cluster #2): a union-type return-type/type-predicate
+  real_code_regressions_145_inp/out.ts     -- JS/TS, `microsoft/TypeScript` dogfood category 1
+                                             cluster #2: a union-type return-type/type-predicate
                                              before `=>` had its last bare-identifier segment wrapped
-                                             in a spurious paren pair (`... | (PropertyDeclaration) =>`),
-                                             a real TS parse error. Same root cause family and same
-                                             function (`enforceArrowFunctionParameterParens`) as the
-                                             already-fixed dotted-chain cluster (fixture 134), but the
-                                             existing anchor walk-back only walked back over
-                                             `IDENTIFIER '.'` pairs, not a leading `|` (union type
-                                             operator) and its left operand. Fixed by alternating the
-                                             dotted-chain walk-back with a union walk-back until neither
-                                             makes further progress, so chained unions (`A | B | C`) and
-                                             dotted union members both resolve to the true first anchor
-                                             before the `:`/`is`/`typeof`/`keyof` bail-out check. Covers
-                                             a type-predicate union (`declaration is A | B`), a
-                                             three-member union type-predicate, and a plain (non-
-                                             predicate) union return type in the same file. `make test`:
+                                             in a spurious paren pair, a real parse error -- same
+                                             function as the already-fixed dotted-chain fix (fixture
+                                             134) but the walk-back didn't cover a leading `|`. Fixed
+                                             in `enforceArrowFunctionParameterParens`. `make test`:
                                              193/193 forward + 193/193 idempotency. See
                                              `STATE_JS_TS.md`'s Dogfood: microsoft/TypeScript section,
                                              category 1 cluster #2.
 
-  real_code_regressions_146_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood (cluster C3, largest
+  real_code_regressions_146_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C3 (largest
                                              crash cluster, ~70+ files): a named-argument lambda body
-                                             with multiple statements, nested inside an already-wrapped
-                                             multi-line call (`copyToRecursively(dst, followLinks =
-                                             false, onError = { source, target, exception -> stmt1()
-                                             stmt2() stmt3() })`), got its statements fused onto one
-                                             physical line with no separating token -- invalid Kotlin
-                                             (`Unexpected tokens`). Root cause: `MiscRuleCurly.
-                                             renderCallCandidate`'s per-argument multi-line-brace-body
-                                             bail loop (the same guard family as RDD_KEY_134/157/176)
-                                             computed its candidate arguments via `splitTopLevelCommas`,
-                                             which tracks paren/bracket/angle depth only, not brace
-                                             depth -- so the lambda parameter list's own commas
-                                             (`source, target, exception`) were wrongly read as
-                                             top-level call-argument separators, shattering the one
-                                             multi-statement brace-bodied argument into several
-                                             unrelated parts, none of which still looked like "a
-                                             brace-bodied argument with an internal newline" to the
-                                             loop, so the bail never fired and the body fell through to
-                                             `renderCallPreserveGroups`'s no-separator fusion. Fixed by
-                                             a new brace-depth-aware `splitTopLevelCommasBraceAware`,
-                                             used only for this bail decision (never for rendering or
-                                             the size-<=1 check), so every other call-argument shape's
-                                             behavior is unchanged. `make test`: 194/194 forward + 194/194
-                                             idempotency before, 195/195 forward + 195/195 idempotency
-                                             after (fixture included). See `STATE_KOTLIN.md`'s Dogfood:
+                                             with multiple statements got fused onto one physical line
+                                             with no separators -- `splitTopLevelCommas` doesn't track
+                                             brace depth, so a lambda's own param-list commas were
+                                             misread as call-argument separators. Fixed via new
+                                             brace-depth-aware `splitTopLevelCommasBraceAware` in
+                                             `MiscRuleCurly`. `make test`: 195/195 forward + 195/195
+                                             idempotency. See `STATE_KOTLIN.md`'s Dogfood:
                                              JetBrains/kotlin section, cluster C3.
 
-  real_code_regressions_147_inp/out.ts     -- JS/TS, `microsoft/TypeScript` dogfood (category 1
-                                             cluster #4): a plain (non-template) double-quoted string
-                                             literal continued across CRLF-terminated source lines via
-                                             a trailing `\` before each line break got corrupted --
-                                             the tokenizer's `\` + next-char 2-char skip only consumed
-                                             the `\r` half of the `\r\n` pair, leaving the `\n` as the
-                                             very next character examined, which the loop's unescaped-
-                                             newline check then mistook for the string's end. Only
-                                             reproduces on CRLF source; the same shape on LF-only source
-                                             already worked. Root cause: `TokenizerCurly.emitString`
-                                             (`src/com/jxmake/formatter/tokenizer/TokenizerCurly.java`),
-                                             the non-Kotlin plain-string-literal scanning loop. Fixed by
-                                             special-casing a `\` immediately followed by `\r\n` to skip
-                                             all 3 characters as one escaped line-continuation unit,
-                                             instead of the generic 2-char backslash-escape skip.
-                                             `make test`: 195/195 forward + 195/195 idempotency, zero
-                                             regressions. See `STATE_JS_TS.md`'s Dogfood: microsoft/
-                                             TypeScript section, category 1 cluster #4.
+  real_code_regressions_147_inp/out.ts     -- JS/TS, `microsoft/TypeScript` dogfood category 1
+                                             cluster #4: a plain double-quoted string literal
+                                             continued across CRLF-terminated lines via a trailing `\`
+                                             got corrupted -- `TokenizerCurly.emitString`'s 2-char
+                                             backslash-escape skip only consumed the `\r` half of a
+                                             `\r\n` pair. Fixed by special-casing `\` + `\r\n` as a
+                                             3-char skip. Deliberately contains real CRLF bytes --
+                                             `.gitattributes` marks the `_inp.ts` file `-text` so git
+                                             doesn't normalize it. `make test`: 196/196 forward +
+                                             196/196 idempotency. See `STATE_JS_TS.md`'s Dogfood:
+                                             microsoft/TypeScript section, category 1 cluster #4.
 
-  real_code_regressions_148_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood (category 1
-                                             cluster C5): a `when (subject) { ... }` whose subject
-                                             expression is long enough to be line-wrapped by the
-                                             earlier structural pass (`enforceCallLineBreaking`)
-                                             before `KotlinSpecificRule.formatWhenExpressions` runs
-                                             in Phase 3. The subject-capture code
-                                             (`literalSlice(tokens, j + 1, closeParen)`) preserved
-                                             the raw token text verbatim, including any NEWLINE
-                                             tokens now embedded in the already-wrapped subject
-                                             span, so the resulting `// when <subject>` closing
-                                             comment carried literal newlines -- corrupting the file,
-                                             since everything after the first embedded newline
-                                             landed as bare, un-commented code following the closing
-                                             `}` instead of staying inside the comment. Root cause:
-                                             `KotlinSpecificRule.formatWhenExpressions`
-                                             (`src/com/jxmake/formatter/rules/KotlinSpecificRule.java`).
-                                             Fixed by collapsing any run of whitespace (including
-                                             newlines) in the captured subject text down to a single
-                                             space, so the closing comment always stays on one
-                                             physical line. `make test`: 196/196 forward + 196/196
-                                             idempotency, zero regressions. See `STATE_KOTLIN.md`'s
-                                             Dogfood: JetBrains/kotlin section, cluster C5 (also
-                                             confirmed cluster C4 was a miscategorized instance of
-                                             this same bug).
+  real_code_regressions_148_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C5: a `when
+                                             (subject) { ... }` whose subject got line-wrapped by an
+                                             earlier structural pass before `formatWhenExpressions`
+                                             ran, so the raw (newline-containing) subject text leaked
+                                             into the `// when <subject>` closing comment, corrupting
+                                             everything after it. Fixed by collapsing whitespace runs
+                                             in the captured subject to a single space in
+                                             `KotlinSpecificRule.formatWhenExpressions`. `make test`:
+                                             197/197 forward + 197/197 idempotency. See
+                                             `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
+                                             cluster C5 (also closed cluster C4 as a miscategorized
+                                             instance of this same bug).
 
-  real_code_regressions_149_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood (category 1
-                                             cluster C2): an annotation directly preceding an
-                                             expression (`val lambda = @JsNoLifting { ... }`)
-                                             got a spurious space after `@`
-                                             (`@ JsNoLifting`), a parse error. Root cause:
-                                             `DeclarationAlignmentRuleCore.needsSpaceBetween`
-                                             (`src/com/jxmake/formatter/rules/
-                                             DeclarationAlignmentRuleCore.java`) is a separate
-                                             duplicate of `MiscRuleCore.needsSpaceBetween`'s
-                                             tight-attachment rules, used to render a
-                                             declaration's initializer tokens (e.g. a `val`'s
-                                             RHS) -- it lacked the `@`-tight rule
-                                             `MiscRuleCore` already had for declaration-site/
-                                             param-target annotations, so an expression-position
-                                             annotation reaching this join point fell through to
-                                             the generic spaced default. Fixed by adding the same
-                                             `lang.isKotlin && isOp(prev, "@")` tight rule to this
-                                             method. `make test`: 197/197 forward + 197/197
-                                             idempotency, zero regressions. See `STATE_KOTLIN.md`'s
-                                             Dogfood: JetBrains/kotlin section, cluster C2.
+  real_code_regressions_149_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C2: an
+                                             annotation at expression position (`val lambda =
+                                             @JsNoLifting { ... }`) got a spurious space after `@` --
+                                             `DeclarationAlignmentRuleCore.needsSpaceBetween` (a
+                                             separate duplicate of `MiscRuleCore`'s tight-attachment
+                                             rules) lacked the `@`-tight case. Fixed by adding the same
+                                             rule there. `make test`: 198/198 forward + 198/198
+                                             idempotency. See `STATE_KOTLIN.md`'s Dogfood:
+                                             JetBrains/kotlin section, cluster C2.
 
-  real_code_regressions_150_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood (category 1
-                                             cluster C6, sub-cluster C6a): a typed `val`/`var`
-                                             property with a `by`-delegate initializer
-                                             (`val x: Type by someDelegate { ... }`) has no `=`
-                                             token at all, so
-                                             `KotlinDeclarationAlignmentRule.parseKotlinDeclaration`
-                                             (`src/com/jxmake/formatter/rules/
-                                             KotlinDeclarationAlignmentRule.java`)'s type-token
-                                             scan loop, which only stopped on `=`, ran to the end
-                                             of the statement -- sweeping the entire delegate
-                                             expression, including a multi-line multi-statement
-                                             trailing-lambda body, into `typeTokens`. The
-                                             alignment renderer then silently flattened that onto
-                                             one line, fusing unrelated statements together with
-                                             no separator and producing invalid Kotlin. Fixed by
-                                             bailing out (never guess) when a top-level `by`
-                                             keyword is seen while scanning the type tokens, same
-                                             posture as the method's existing get/set bailout --
-                                             `by`-delegate declarations are now left out of the
-                                             alignment group entirely and rendered verbatim.
-                                             `make test`: 198/198 forward + 198/198 idempotency,
-                                             zero regressions (also fixed a related latent
-                                             cosmetic bug in `real_code_regressions_30_out.kt`'s
-                                             `okioRoot` line, which previously locked in a
-                                             spurious space before `:` from this same sweep-in
-                                             behavior for a single-line `by lazy` delegate). See
-                                             `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin
-                                             section, cluster C6.
+  real_code_regressions_150_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6a: a typed
+                                             `by`-delegate declaration has no `=` token, so
+                                             `KotlinDeclarationAlignmentRule.parseKotlinDeclaration`'s
+                                             type-scan loop (which only stopped on `=`) swept the
+                                             entire delegate expression -- including a multi-statement
+                                             trailing lambda -- into `typeTokens`, which then got
+                                             flattened onto one line with no separators. Fixed by
+                                             bailing out (verbatim render) on a top-level `by` keyword,
+                                             same posture as the existing get/set bailout. `make test`:
+                                             198/198 forward + 198/198 idempotency (also fixed a
+                                             related latent spacing bug in
+                                             `real_code_regressions_30_out.kt`). See `STATE_KOTLIN.md`'s
+                                             Dogfood: JetBrains/kotlin section, cluster C6a.
 
 How Tests Are Run
 -----------------

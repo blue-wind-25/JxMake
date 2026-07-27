@@ -1054,6 +1054,13 @@ distinct root causes:
    same shape as the already-landed `??=` entry right next to it.
    **Ranks #1** — textbook high-value/near-zero-difficulty fix.
 
+   **FIXED (2026-07-28):** added `"&&="`/`"||="` to `MULTI_CHAR_OPS`
+   immediately before the pre-existing `"&&"`/`"||"` entries (longest-match-
+   first ordering, `emitOperator`'s loop tries entries in array order and
+   returns on first `startsWith` match). Fixture:
+   `test/real_code_regressions_143_{inp,out}.ts`. `make test`: 192/192
+   forward + 192/192 idempotency, zero regressions.
+
 2. **Union-type return-type/type-predicate before `=>` gets its last
    segment wrapped in a spurious paren pair** — 6 files (`checker.ts` x4,
    `services/mapCode.ts`, `services/symbolDisplay.ts`, `services/

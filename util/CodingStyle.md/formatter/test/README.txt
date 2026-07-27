@@ -2371,6 +2371,14 @@ Real-code regressions:
                                              existing fixtures/dogfood cases. See `STATE_JS_TS.md`'s
                                              cluster 4 entry for both.
 
+  real_code_regressions_143_inp/out.ts     -- TS, `microsoft/TypeScript` dogfood (cluster 1): `||=`/
+                                             `&&=` were missing from `TokenizerCurly.MULTI_CHAR_OPS`
+                                             (only `??=` was present), so they silently split into two
+                                             tokens (`||` + `=`). Fixed by adding both entries ahead of
+                                             the pre-existing `&&`/`||` entries (longest-match-first
+                                             ordering). `make test`: 191/191 forward + 191/191
+                                             idempotency. See `STATE_JS_TS.md`'s dogfood section.
+
 How Tests Are Run
 -----------------
 

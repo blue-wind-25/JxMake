@@ -187,7 +187,7 @@ public class TokenizerCurly extends TokenizerCore {
     // prefix of any pre-existing C/C++/Java/Kotlin entry (or vice versa), so purely additive.
     private static final String[] MULTI_CHAR_OPS = {
             "<<=", ">>>=", ">>=", "...", "->*", "..<",
-            "<=>", "::", "<<", ">>>", ">>", "<=", ">=", "===", "!==", "==", "!=", "&&", "||",
+            "<=>", "::", "<<", ">>>", ">>", "<=", ">=", "===", "!==", "==", "!=", "&&=", "||=", "&&", "||",
             "++", "--", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "->", ".*",
             "?.", "?:", "!!", "..",
             "[[", "]]", "^^", "[:", ":]",

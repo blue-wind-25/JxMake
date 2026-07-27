@@ -498,6 +498,14 @@ than immediately starting the next >1000 kLOC candidate. Candidate scope:
   compacted prose didn't silently drop a still-relevant caveat.
 - Update and fix `CLAUDE.md`, `README.md`, `../README.txt`,
   `../AI_PREAMBLE_FULL.md`, and `../AI_PREAMBLE_AESTHETIC.md`.
+  **2026-07-28: checked, none needed a fix.** All five already track
+  actual shipped code state (all six data formats + JS/TS + Python3 real,
+  JSX/TSX correctly still called out as out-of-scope, HTML5's `<script>`
+  dispatch correctly described as implemented in both `README.md` and
+  `../README.txt`). The one stale `<script>`-dispatch claim found this
+  pass was in `STATE_DATA_FORMATS.md`, not any of these five — already
+  fixed separately (see this section's own sibling entries above/commit
+  history). No doc edits made.
 
 This is intentionally scoped as housekeeping, not a rewrite — do not let it
 grow into an attempt at the "General scope-depth reindentation" item above;

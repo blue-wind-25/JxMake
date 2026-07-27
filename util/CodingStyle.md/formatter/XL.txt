@@ -123,25 +123,8 @@ Use one sub-agent as needed, the sub-agent can launch up to one more research su
 
 
 
-Starts with `### Project refactoring/cleanup pass` - `Check for unused file that contains only boilerplate code and never used.`
-
-
-
-Start with the dogfood test (in sequence) (search in `/tmp` first, clone the repo if not found):
-   Kotlin : `github.com/JetBrains/kotlin` (the repo is quite large, you may want to checkout the *.kt files only)
-   TS : `github.com/microsoft/TypeScript` (the repo is quite large, you may want to checkout the *.ts files only)
-Do NOT perform any bug fix yet, instead categorize and note the bugs inside
-`....md` and `....md` into two categories:
-    1. Critical bugs that cause formatter error/crash and output file corruption (syntax
-       error, unwanted content change, etc.).
-    2. Idempotency bugs only. Try reformat with `indent-size = 2` if the idempotency test
-       failed.
-For each category, cluster the bugs based on the types/appearance. Sort the clusters based on
-the estimated criticality/the value of fixing the bug and the estimated difficulty (weigh them).
-Sort the clusters from the most valuable to the least valuable to fix based on the above
-criteria. Write and commit the state files, then ask me which clusters to fix first.
-Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
-Write also your short report (which you print to the CLI console) to `/tmp/REP.txt`.
+`github.com/JetBrains/kotlin`
+`github.com/microsoft/TypeScript`
 
 
 

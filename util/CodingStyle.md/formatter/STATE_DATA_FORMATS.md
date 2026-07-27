@@ -442,9 +442,9 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   gets its own tracking. (2026-07-28 cleanup-pass re-assessment: still no
   MathML-depth tracking added since, and no dogfood corpus has hit this in
   practice — not cheaper to fix now, left as-is.) `make test`: 161/161.
-  **Remaining TODO — adoption
-  agency, foster-parenting, implicit `<body>` insertion, misnested
-  `<form>`-in-`<template>` grouped as one future multi-session job**
+  **Remaining TODO — adoption agency, foster-parenting, implicit `<body>`
+  insertion, misnested `<form>`-in-`<template>` grouped as one future
+  multi-session job**
   (user-reviewed sizing, 2026-07-25): all four need the same prerequisite
   (an explicit open-elements-stack + HTML5 insertion-mode state machine —
   currently implicit in the Java call stack), comparable in size/risk to

@@ -2379,6 +2379,33 @@ Real-code regressions:
                                              ordering). `make test`: 191/191 forward + 191/191
                                              idempotency. See `STATE_JS_TS.md`'s dogfood section.
 
+  real_code_regressions_144_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood (cluster C1, silent
+                                             code deletion): an own-line comment (`//` line comment or
+                                             multi-line `/** ... */` KDoc) immediately preceding a
+                                             constructor/function parameter got fused onto the
+                                             comment's own rendered line, silently swallowing the `val`
+                                             declaration into the comment text -- still syntactically
+                                             valid Kotlin (a very long comment), so the parameter
+                                             vanished from compiled code without any parse error.
+                                             Root cause: `KotlinSignatureRule.parseKotlinSignature`'s
+                                             comma-split post-processing unconditionally moved any
+                                             comment token starting the next parameter's slice onto the
+                                             END of the previous parameter (meant for a genuine
+                                             same-line trailing comment, e.g. `val x: Int, // note`),
+                                             with no check for whether that comment actually started a
+                                             fresh source line. Fixed by tracking which comment tokens
+                                             begin a NEWLINE-separated line (`findLineStartComments`)
+                                             and excluding those from the move; a second, stricter
+                                             "fully standalone" set (`findStandaloneComments`, also
+                                             followed by a NEWLINE) drives a new `KotlinParam.
+                                             leadingCommentOwnLine` flag so `render`/`renderWithTail`
+                                             emit such a comment as its own preceding output line
+                                             instead of fusing it as a same-line prefix -- a genuine
+                                             same-line leading comment (`/* Nullable */ x: Int?`) keeps
+                                             its prior same-line rendering. `make test`: 192/192 forward
+                                             + 192/192 idempotency. See `STATE_KOTLIN.md`'s Dogfood:
+                                             JetBrains/kotlin section, cluster C1.
+
 How Tests Are Run
 -----------------
 

@@ -58,15 +58,22 @@ public class KotlinSignatureRule extends MiscRuleCurly {
         public final List<Token> defaultTokens; // empty if none
         public final Token comment;
         public final Token leadingComment;
+        // True when leadingComment was on its own source line (a standalone `//` line comment or a
+        // `/** ... */` block/KDoc comment preceding the param on a separate physical line) rather
+        // than sharing the param's own line (e.g. `/* Nullable */ x: Int?`). Own-line comments must
+        // never be fused onto the same rendered output line as the param -- see RDD_LOG.md's C1 fix.
+        public final boolean leadingCommentOwnLine;
 
         KotlinParam(final List<Token> modifiers, final Token name, final List<Token> typeTokens,
-                final List<Token> defaultTokens, final Token comment, final Token leadingComment) {
+                final List<Token> defaultTokens, final Token comment, final Token leadingComment,
+                final boolean leadingCommentOwnLine) {
             this.modifiers = modifiers;
             this.name = name;
             this.typeTokens = typeTokens;
             this.defaultTokens = defaultTokens;
             this.comment = comment;
             this.leadingComment = leadingComment;
+            this.leadingCommentOwnLine = leadingCommentOwnLine;
         }
     }
 
@@ -103,6 +110,13 @@ public class KotlinSignatureRule extends MiscRuleCurly {
      * trailing tokens past the matched `)`, or if any parameter fails to parse.
      */
     public KotlinSignature parseKotlinSignature(final List<Token> sigTokens) {
+        // Identify every comment token that starts its own source line (nothing but whitespace
+        // between the preceding NEWLINE and it) -- needed below to tell an own-line leading
+        // comment for the NEXT param apart from a genuine same-line trailing comment for the
+        // PREVIOUS param, a distinction `significantWithComments` below discards by dropping
+        // NEWLINE tokens. See RDD_LOG.md's C1 fix.
+        final java.util.Set<Token> lineStartComments = findLineStartComments(sigTokens);
+        final java.util.Set<Token> standaloneComments = findStandaloneComments(sigTokens);
         final List<Token> sig = significantWithComments(sigTokens);
         int openParen = -1;
         int nameIdx = -1;
@@ -169,14 +183,15 @@ public class KotlinSignatureRule extends MiscRuleCurly {
         for (int i = 0; i < parts.size() - 1; i++) {
             final List<Token> next = parts.get(i + 1);
             if (!next.isEmpty() && (next.get(0).type == TokenType.COMMENT_LINE
-                    || next.get(0).type == TokenType.COMMENT_BLOCK)) {
+                    || next.get(0).type == TokenType.COMMENT_BLOCK)
+                    && !lineStartComments.contains(next.get(0))) {
                 parts.get(i).add(next.remove(0));
             }
         }
 
         final List<KotlinParam> params = new ArrayList<>();
         for (final List<Token> slice : parts) {
-            final KotlinParam p = parseKotlinParam(slice);
+            final KotlinParam p = parseKotlinParam(slice, standaloneComments);
             if (p == null) {
                 return null;
             }
@@ -185,10 +200,72 @@ public class KotlinSignatureRule extends MiscRuleCurly {
         return new KotlinSignature(leadTokens, name, params, trailingComma);
     }
 
+    /** Builds the identity set of comment tokens (line or block) in {@code raw} that begin their
+     *  own source line -- i.e. a NEWLINE (not just whitespace/nothing else) separates them from
+     *  the preceding token. Distinguishes "this comment is NOT glued to the end of the previous
+     *  param's line" (so it must never be folded into that param as a trailing same-line comment)
+     *  from a genuine same-line trailing comment (`val x: Int, // note`). See {@link
+     *  #findStandaloneComments} for the stricter "shares no line with anything" check used for the
+     *  render-time own-line decision. */
+    private java.util.Set<Token> findLineStartComments(final List<Token> raw) {
+        final java.util.Set<Token> result =
+                java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Token, Boolean>());
+        boolean atLineStart = true;
+        for (final Token t : raw) {
+            if (t.type == TokenType.NEWLINE) {
+                atLineStart = true;
+                continue;
+            }
+            if (t.type == TokenType.WHITESPACE) {
+                continue;
+            }
+            if (atLineStart && (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK)) {
+                result.add(t);
+            }
+            atLineStart = false;
+        }
+        return result;
+    }
+
+    /** Builds the identity set of comment tokens (line or block) in {@code raw} that stand
+     *  entirely alone on their own source line -- i.e. they both begin a fresh line (see {@link
+     *  #findLineStartComments}) AND are themselves followed by a NEWLINE (not just
+     *  whitespace) before the next significant token, so no code shares their physical line in
+     *  either direction. A line comment always satisfies the "followed by NEWLINE" half
+     *  (everything to end-of-line is part of it). A block comment does NOT satisfy it when code
+     *  immediately follows on the same line (e.g. an inline {@code Nullable}-style annotation
+     *  comment directly before a param) -- that shape keeps the existing same-line leading-comment
+     *  rendering; only a truly standalone comment (RDD_LOG.md's C1 shape) must render on its own
+     *  output line. */
+    private java.util.Set<Token> findStandaloneComments(final List<Token> raw) {
+        final java.util.Set<Token> lineStart = findLineStartComments(raw);
+        final java.util.Set<Token> result =
+                java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Token, Boolean>());
+        for (int i = 0; i < raw.size(); i++) {
+            final Token t = raw.get(i);
+            if (!lineStart.contains(t)) {
+                continue;
+            }
+            boolean followedByNewline = true;
+            for (int j = i + 1; j < raw.size(); j++) {
+                final TokenType jt = raw.get(j).type;
+                if (jt == TokenType.WHITESPACE) {
+                    continue;
+                }
+                followedByNewline = jt == TokenType.NEWLINE;
+                break;
+            }
+            if (followedByNewline) {
+                result.add(t);
+            }
+        }
+        return result;
+    }
+
     /** Parses one already-comma-split param slice as `[modifiers] name : type [= default]`,
      *  returning null for anything that doesn't match -- an annotation-prefixed param, a
      *  destructuring lambda param, or any other shape with no STYLE_KOTLIN.md §7 worked example. */
-    private KotlinParam parseKotlinParam(final List<Token> rawSlice) {
+    private KotlinParam parseKotlinParam(final List<Token> rawSlice, final java.util.Set<Token> ownLineComments) {
         if (rawSlice.isEmpty()) {
             return null;
         }
@@ -203,10 +280,12 @@ public class KotlinSignatureRule extends MiscRuleCurly {
             return null;
         }
         Token leadingComment = null;
+        boolean leadingCommentOwnLine = false;
         final Token first = slice.get(0);
         if (slice.size() > 1
                 && (first.type == TokenType.COMMENT_LINE || first.type == TokenType.COMMENT_BLOCK)) {
             leadingComment = first;
+            leadingCommentOwnLine = ownLineComments.contains(first);
             slice = slice.subList(1, slice.size());
         }
         if (slice.isEmpty()) {
@@ -257,7 +336,8 @@ public class KotlinSignatureRule extends MiscRuleCurly {
         if (i != slice.size()) {
             return null;
         }
-        return new KotlinParam(modifiers, name, typeTokens, defaultTokens, comment, leadingComment);
+        return new KotlinParam(modifiers, name, typeTokens, defaultTokens, comment, leadingComment,
+                leadingCommentOwnLine);
     }
 
     /**
@@ -278,6 +358,7 @@ public class KotlinSignatureRule extends MiscRuleCurly {
 
         int commentLen = 0;
         boolean hasLineComment = false;
+        boolean hasLeadingComment = false;
         for (final KotlinParam p : sig.params) {
             if (p.comment != null) {
                 commentLen += p.comment.text.length() + 1;
@@ -285,8 +366,14 @@ public class KotlinSignatureRule extends MiscRuleCurly {
                     hasLineComment = true;
                 }
             }
+            if (p.leadingComment != null) {
+                // An own-line leading comment MUST own its own rendered line, and even a same-line
+                // leading comment isn't handled by `renderParamsInline`'s single-line form -- never
+                // take the inline shortcut when any param carries one. See RDD_LOG.md's C1 fix.
+                hasLeadingComment = true;
+            }
         }
-        if (!hasLineComment
+        if (!hasLineComment && !hasLeadingComment
                 && (sig.params.isEmpty() || startColumn + inline.length() - commentLen <= lineLengthLimit)) {
             return Collections.singletonList(inline);
         }
@@ -322,9 +409,18 @@ public class KotlinSignatureRule extends MiscRuleCurly {
             if (p.comment != null) {
                 cells.add(p.comment.text);
             }
-            final String leadPrefix = p.leadingComment != null ? p.leadingComment.text + " " : "";
             if (p.leadingComment != null) {
-                soloLine[idx] = leadPrefix + trimTrailingSpaces(String.join(" ", cells));
+                // An own-line leading comment (standalone `//` line comment, or a `/** ... */`
+                // block/KDoc comment on its own source line) must render as its OWN preceding
+                // output line -- fusing it as a same-line prefix would either silently swallow the
+                // param into a `//` comment (deleting it from compiled code, RDD_LOG.md's C1) or
+                // mangle a multi-line KDoc's internal lines. A genuine same-line leading comment
+                // (e.g. `/* Nullable */ x: Int?`) keeps the prior same-line-prefix rendering.
+                if (p.leadingCommentOwnLine) {
+                    soloLine[idx] = trimTrailingSpaces(String.join(" ", cells));
+                } else {
+                    soloLine[idx] = p.leadingComment.text + " " + trimTrailingSpaces(String.join(" ", cells));
+                }
             } else {
                 grid.addRow(cells.toArray(new String[0]));
                 gridParamIdx.add(idx);
@@ -340,6 +436,10 @@ public class KotlinSignatureRule extends MiscRuleCurly {
             renderedLine[gridParamIdx.get(r)] = trimTrailingSpaces(String.join(" ", rows.get(r)));
         }
         for (int idx = 0; idx < sig.params.size(); idx++) {
+            final KotlinParam p = sig.params.get(idx);
+            if (p.leadingComment != null && p.leadingCommentOwnLine) {
+                lines.add(paramIndent + p.leadingComment.text);
+            }
             final String line = soloLine[idx] != null ? soloLine[idx] : renderedLine[idx];
             lines.add(paramIndent + line);
         }
@@ -455,6 +555,7 @@ public class KotlinSignatureRule extends MiscRuleCurly {
         final int startColumn = indentLevel * indentWidth;
 
         boolean hasLineComment = false;
+        boolean hasLeadingComment = false;
         int commentLen = 0;
         for (final KotlinParam p : sig.params) {
             if (p.comment != null) {
@@ -463,8 +564,11 @@ public class KotlinSignatureRule extends MiscRuleCurly {
                     hasLineComment = true;
                 }
             }
+            if (p.leadingComment != null) {
+                hasLeadingComment = true;
+            }
         }
-        if (!hasLineComment && startColumn + inline.length() - commentLen <= lineLengthLimit) {
+        if (!hasLineComment && !hasLeadingComment && startColumn + inline.length() - commentLen <= lineLengthLimit) {
             return Collections.singletonList(inline);
         }
 

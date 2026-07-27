@@ -208,6 +208,7 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
         if (i < sig.size() && isOp(sig.get(i), ":")) {
             i++;
             final int typeStart = i;
+            int typeDepth = 0;
             while (i < sig.size() && !isOp(sig.get(i), "=")) {
                 // A bare `get`/`set` keyword can never legally appear inside a type expression --
                 // its presence here means this "declaration" is actually a KotlinGetterSetterRule
@@ -220,6 +221,28 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
                 if (sig.get(i).type == TokenType.KEYWORD
                         && ("get".equals(sig.get(i).text) || "set".equals(sig.get(i).text))) {
                     return null;
+                }
+                // A top-level (not inside `<...>`/`(...)`/`[...]`) `by` keyword means this is a
+                // delegated property (`val x: Type by someDelegate { ... }`), which has no `=` at
+                // all -- without this check the loop above never terminates until end-of-statement,
+                // sweeping the entire delegate expression (including any multi-line, multi-
+                // statement brace body such as `by storageManager.createLazyValue { a(); b() }`)
+                // into `typeTokens`, which `renderKotlinTokens` then flattens onto one line via a
+                // plain space-joined render -- silently corrupting the delegate's internal
+                // structure and producing invalid Kotlin (found via JetBrains/kotlin dogfood
+                // testing, C6 cluster, `AnalyzerFacade.kt`'s `directExpectedByDependencies`/
+                // `allExpectedByDependencies` properties). Bail out (never guess) -- same posture
+                // as the get/set bailout just above; `by`-delegate declarations are left out of
+                // this alignment group entirely and rendered verbatim.
+                if (typeDepth == 0 && "by".equals(sig.get(i).text)) {
+                    return null;
+                }
+                if (isPunct(sig.get(i), "(") || isPunct(sig.get(i), "[")
+                        || sig.get(i).type == TokenType.ANGLE_BRACKET_OPEN) {
+                    typeDepth++;
+                } else if (isPunct(sig.get(i), ")") || isPunct(sig.get(i), "]")
+                        || sig.get(i).type == TokenType.ANGLE_BRACKET_CLOSE) {
+                    typeDepth--;
                 }
                 i++;
             }

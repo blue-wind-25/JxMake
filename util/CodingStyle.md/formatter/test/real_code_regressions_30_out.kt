@@ -21,7 +21,7 @@ val prefixIndex : Int = -1
 // A new hasTopLevelBlankLine guard that bails rather than merging across a real paragraph break.
 expect fun getEnv(name: String): String?
 
-val okioRoot : OkioRoot by lazy { OkioRoot.SYSTEM.workingDirectory }
+val okioRoot: OkioRoot by lazy { OkioRoot.SYSTEM.workingDirectory }
 
 // (3) BlockStructureRule's braceless single-statement if/while/for collapse (both the
 // Brace-removing tryCollapse and the already-braceless tryCollapseBraceless) rendered the

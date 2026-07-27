@@ -2520,6 +2520,35 @@ Real-code regressions:
                                              idempotency, zero regressions. See `STATE_KOTLIN.md`'s
                                              Dogfood: JetBrains/kotlin section, cluster C2.
 
+  real_code_regressions_150_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood (category 1
+                                             cluster C6, sub-cluster C6a): a typed `val`/`var`
+                                             property with a `by`-delegate initializer
+                                             (`val x: Type by someDelegate { ... }`) has no `=`
+                                             token at all, so
+                                             `KotlinDeclarationAlignmentRule.parseKotlinDeclaration`
+                                             (`src/com/jxmake/formatter/rules/
+                                             KotlinDeclarationAlignmentRule.java`)'s type-token
+                                             scan loop, which only stopped on `=`, ran to the end
+                                             of the statement -- sweeping the entire delegate
+                                             expression, including a multi-line multi-statement
+                                             trailing-lambda body, into `typeTokens`. The
+                                             alignment renderer then silently flattened that onto
+                                             one line, fusing unrelated statements together with
+                                             no separator and producing invalid Kotlin. Fixed by
+                                             bailing out (never guess) when a top-level `by`
+                                             keyword is seen while scanning the type tokens, same
+                                             posture as the method's existing get/set bailout --
+                                             `by`-delegate declarations are now left out of the
+                                             alignment group entirely and rendered verbatim.
+                                             `make test`: 198/198 forward + 198/198 idempotency,
+                                             zero regressions (also fixed a related latent
+                                             cosmetic bug in `real_code_regressions_30_out.kt`'s
+                                             `okioRoot` line, which previously locked in a
+                                             spurious space before `:` from this same sweep-in
+                                             behavior for a single-line `by lazy` delegate). See
+                                             `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin
+                                             section, cluster C6.
+
 How Tests Are Run
 -----------------
 

@@ -320,6 +320,35 @@ public static final class Signature {
         parts.add(current);
         return parts;
     }
+    /** Same split as {@link #splitTopLevelCommas}, but also tracks `{`/`}` depth (in addition to
+     *  paren/bracket/angle) so a comma inside a brace-bodied argument -- e.g. a lambda's own
+     *  parameter list, `{ source, target, exception -> ... }` -- is never mistaken for a top-level
+     *  argument separator. Deliberately a separate method rather than widening {@link
+     *  #splitTopLevelCommas} itself: that method's result also feeds {@link #parseSignature}/
+     *  {@link #renderCallDropped}/{@link #renderCallOnePerLine} rendering paths whose existing,
+     *  already-verified behavior for a C/C++/Java brace-init-list argument this fix must not risk
+     *  changing; this variant is used only where a brace-bodied argument's internal commas must
+     *  never split it apart, e.g. {@link #renderCallCandidate}'s per-argument multi-line-brace-body
+     *  bail check. */
+    private List<List<Token>> splitTopLevelCommasBraceAware(final List<Token> tokens) {
+        final List<List<Token>> parts = new ArrayList<>();
+        List<Token> current = new ArrayList<>();
+        int depth = 0;
+        for (final Token t : tokens) {
+            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth--;
+            } else if (depth == 0 && isPunct(t, ",")) {
+                parts.add(current);
+                current = new ArrayList<>();
+                continue;
+            }
+            current.add(t);
+        }
+        parts.add(current);
+        return parts;
+    }
     /** Splits {@code paramsSlice} into top-level (depth-0) comma-separated arguments -- exactly
      *  like {@link #splitTopLevelCommas}, but tracking paren/bracket/angle depth *cumulatively
      *  across the whole slice* rather than resetting it to 0 per original source line -- then
@@ -1203,7 +1232,25 @@ public static final class Signature {
             // saw on the first. `real_code_regressions_1` fixture's `combine(..., { ret,
             // level1(ret) })` call is unaffected by widening this bail -- that brace argument sits
             // wholly on one original physical line, so `containsNewline(arg)` is false for it.
-            for (final List<Token> arg : topLevelArgs) {
+            // `topLevelArgs` above (from `splitTopLevelCommas`, which tracks paren/bracket/angle
+            // depth only, not brace depth) is unsafe for this specific bail check when a
+            // named-argument lambda/block body itself contains a depth-0-looking comma -- e.g.
+            // Kotlin's `onError = { source, target, exception -> stmt1() stmt2() stmt3() }`: the
+            // lambda parameter list's own commas (`source, target, exception`) aren't wrapped in
+            // any paren/bracket, so `splitTopLevelCommas` wrongly treats them as top-level argument
+            // separators, shattering this one multi-statement brace-bodied argument into several
+            // unrelated parts -- none of which individually still looks like "a brace-bodied
+            // argument with an internal newline" to this loop, so the bail it exists to provide
+            // never fires and the multi-statement body falls through to `renderCallPreserveGroups`,
+            // which (per this same comment's paragraph above) fuses the separate statements onto
+            // one line with no separator -- invalid Kotlin (found via JetBrains/kotlin dogfood
+            // testing, `PathRecursiveFunctionsTest.kt`'s `onError = {...}` named-argument lambda
+            // nested inside an already-wrapped `copyToRecursively(...)` call). Recomputed here with
+            // a brace-depth-aware split (`splitTopLevelCommasBraceAware`), used only for this bail
+            // decision -- never for the `topLevelArgs.size() <= 1` check above or any rendering
+            // path below, so behavior for every already-passing shape (including this exact
+            // `real_code_regressions_1` C++ case) is unchanged.
+            for (final List<Token> arg : splitTopLevelCommasBraceAware(paramsSlice)) {
                 if (containsInternalNewline(arg) && containsBrace(arg)) {
                     return null;
                 }

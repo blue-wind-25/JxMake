@@ -2427,6 +2427,34 @@ Real-code regressions:
                                              `STATE_JS_TS.md`'s Dogfood: microsoft/TypeScript section,
                                              category 1 cluster #2.
 
+  real_code_regressions_146_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood (cluster C3, largest
+                                             crash cluster, ~70+ files): a named-argument lambda body
+                                             with multiple statements, nested inside an already-wrapped
+                                             multi-line call (`copyToRecursively(dst, followLinks =
+                                             false, onError = { source, target, exception -> stmt1()
+                                             stmt2() stmt3() })`), got its statements fused onto one
+                                             physical line with no separating token -- invalid Kotlin
+                                             (`Unexpected tokens`). Root cause: `MiscRuleCurly.
+                                             renderCallCandidate`'s per-argument multi-line-brace-body
+                                             bail loop (the same guard family as RDD_KEY_134/157/176)
+                                             computed its candidate arguments via `splitTopLevelCommas`,
+                                             which tracks paren/bracket/angle depth only, not brace
+                                             depth -- so the lambda parameter list's own commas
+                                             (`source, target, exception`) were wrongly read as
+                                             top-level call-argument separators, shattering the one
+                                             multi-statement brace-bodied argument into several
+                                             unrelated parts, none of which still looked like "a
+                                             brace-bodied argument with an internal newline" to the
+                                             loop, so the bail never fired and the body fell through to
+                                             `renderCallPreserveGroups`'s no-separator fusion. Fixed by
+                                             a new brace-depth-aware `splitTopLevelCommasBraceAware`,
+                                             used only for this bail decision (never for rendering or
+                                             the size-<=1 check), so every other call-argument shape's
+                                             behavior is unchanged. `make test`: 194/194 forward + 194/194
+                                             idempotency before, 195/195 forward + 195/195 idempotency
+                                             after (fixture included). See `STATE_KOTLIN.md`'s Dogfood:
+                                             JetBrains/kotlin section, cluster C3.
+
 How Tests Are Run
 -----------------
 

@@ -123,8 +123,163 @@ Use one sub-agent as needed, the sub-agent can launch up to one more research su
 
 
 
-`github.com/JetBrains/kotlin`
-`github.com/microsoft/TypeScript`
+JetBrains/kotlin
+====================
+CATEGORY 1 — Critical (crash/corruption)
+-----------------------------------------
+C1. Comment swallows following declaration parameter (1 confirmed, likely
+    more uncounted) — an own-line comment before a constructor param gets
+    fused onto the comment's line, silently deleting the param from visible
+    code. Still "valid Kotlin" (one giant comment line) so kotlin_syntax_check
+    can't see it. HIGHEST severity found this pass: silent data loss.
+    Example: build-common/.../IncrementalCompilationContext.kt.
+
+C2. `@Annotation` at expression position gets spurious space after `@`
+    (~22 files) — `@JsNoLifting { ... }` -> `@ JsNoLifting { ... }`,
+    "Expected annotation identifier after '@'". Existing annotation-spacing
+    logic only recognizes declaration/param-target shapes, not expression
+    position. Example: libraries/stdlib/js/runtime/reflectRuntime.kt.
+
+C3. Multi-statement lambda/block body fused onto one line, no `;` separators
+    (~70+ files, largest crash cluster) — e.g. a 3-statement named-argument
+    lambda body collapsed with no separating tokens ("Unexpected tokens").
+    Same family as prior fixes RDD_KEY_134/157/176 but this shape (named-arg
+    lambda nested in an already-wrapped call) isn't covered.
+    Example: libraries/stdlib/jdk7/test/PathRecursiveFunctionsTest.kt.
+
+C4. Multi-line-condition `if(...)` + braced single-statement body collapsed
+    into a malformed one-liner (~44 files, "Expecting an element") — the
+    if's own condition spans multiple lines but the collapse logic doesn't
+    check for that before merging.
+    Example: compiler/daemon/daemon-client/.../KotlinCompilerClient.kt.
+
+C5. `when` subject-expression line-wrap vs. closing-comment ordering bug
+    (~15-20 files) — subject expression's tail tokens end up orphaned after
+    the closing brace. Same pipeline-ordering bug class as RDD_KEY_175.
+    Example: core/compiler.common/.../EventOccurrencesRange.kt.
+
+C6. Misc uninvestigated parse-error shapes (~40-60 remaining files) — Missing
+    '}' at EOF, annotation+member-declaration combos, generic-argument edge
+    cases. Not individually root-caused this pass.
+
+CATEGORY 2 — Idempotency-only (344 files)
+-------------------------------------------
+D1. Declaration/accessor column-alignment padding flap (~150-200 files,
+    largest idempotency cluster) — group padding width differs round1 vs
+    round2 for overridden accessors and plain val/private-val groups.
+    Reproduces at BOTH default indent-size=4 and indent-size=2 (retested
+    standalone). Same family as RDD_KEY_139/162.
+    Example: analysis/light-classes-base/.../KotlinEnumSyntheticMethod.kt.
+
+D2. Closing-brace indent drift across passes (~150+ files) — a nested
+    block's `}` lands at a different column round1 vs round2, independent of
+    D1. Reproduces at both default and indent-size=2 (retested standalone).
+    Same family as RDD_KEY_159/161.
+    Example: kotlin-native/endorsedLibraries/kotlinx.cli/.../ArgumentValues.kt.
+
+D3. Multi-param lambda header wrap flap (~15-20 files) — a lambda param list
+    wraps to one-line-per-param with a spurious space before `:` on one pass,
+    collapses back on the other.
+    Example: analysis/low-level-api-fir/.../LLKotlinStubBasedLibrarySymbolProvider.kt.
+
+D4. Minor adjacent-closing-brace spacing flap (small, single digits) —
+    cosmetic only, e.g. `) } }` vs `)} }`.
+
+RANKED LIST (most valuable to fix first)
+-----------------------------------------
+1. C1 — silent content loss; unmatched severity even at low observed count.
+2. C3 — largest crash cluster, extends 3 existing precedent fixes.
+3. C4 — second-largest crash cluster, same "extend existing guard" profile.
+4. D1 — largest idempotency cluster, 2 precedent fixes exist.
+5. D2 — comparable spread to D1, cosmetic-only so ranked just under it.
+6. C2 — moderate crash cluster, narrow/self-contained fix.
+7. C5 — moderate crash cluster, but pipeline-ordering fixes are riskier.
+8. D3 — smaller idempotency cluster, non-corrupting.
+9. C6 — likely several distinct bugs, but undefined until root-caused.
+10. D4 — smallest, purely cosmetic, lowest value.
+
+
+
+microsoft/TypeScript
+====================
+
+CATEGORY 1 — CRITICAL (round1 itself corrupt/unsafe)
+------------------------------------------------------
+1. ||=/&&= compound-assignment operators not tokenized as one token.
+   1 file (checker.ts), 3 occurrences. TokenizerCurly.MULTI_CHAR_OPS has
+   "??=" but is missing "||=" and "&&=", even though JsTsSpecificRule.java
+   already references them as if pre-tokenized. Splits into "||" + "="
+   producing corrupted output:
+     const cache = (links.accessibleChainCache ||= new Map());
+   -> const cache = ( links.accessibleChainCache || = new Map() );
+   Value: HIGH (silent semantic corruption, common modern idiom).
+   Difficulty: TRIVIAL (2-string array addition, same shape as existing "??=").
+
+2. Union-type return-type/type-predicate before "=>" gets its last segment
+   wrapped in a spurious paren pair. 6 files (checker.ts x4, mapCode.ts,
+   symbolDisplay.ts, moveToFile.ts, addConvertToUnknownForNonOverlappingTypes.ts,
+   virtualFileSystemWithWatch.ts), ~9 occurrences.
+   SAME ROOT-CAUSE FAMILY as already-fixed angular/angular cluster 1
+   (enforceArrowFunctionParameterParens's dotted-chain walk-back fix) but a
+   DIFFERENT shape (union "|" operand, not a "." chain) that fix didn't cover:
+     (declaration): declaration is AccessorDeclaration | PropertyDeclaration =>
+   -> (declaration): declaration is AccessorDeclaration | (PropertyDeclaration) =>
+   Value: HIGH (real parse errors, idiomatic TS shape, 6/601 files here alone).
+   Difficulty: LOW-MEDIUM (direct extension of the already-shipped dotted-chain
+   walk-back in the same function/file).
+
+3. Backslash-newline continuation inside a plain (non-template) string
+   literal not honored, corrupting the rest of the string/statement.
+   2 files (incrementalParser.ts, colorization.ts).
+     const source = "class C {\
+         set Bar(bar:string) {}\
+     }\
+     var o2 = { set Foo(val:number) { } };";
+   -> mangled into broken statements, unterminated strings, stray tokens.
+   Not root-caused to the exact tokenizer line (categorization only, would
+   need deeper dive).
+   Value: MEDIUM (real corruption, but rare shape — decades-old test-harness
+   style, modern code uses template literals instead).
+   Difficulty: MEDIUM (tokenizer string-scan change, risk of regressing
+   ordinary escape handling).
+
+CATEGORY 2 — IDEMPOTENCY-ONLY (round1 valid, round2 differs)
+---------------------------------------------------------------
+28 of 30 idempotency-diff files (2 others are Category-1 files, already
+counted above) are ONE cluster, NOT new:
+
+- Call-wrap/collapse vs. alignment-padding fits-check ordering. Spot-checked
+  ~10 of the 28 files — every diff is a call wrapping/collapsing across
+  rounds, or a closing }/) moving lines, matching the already-documented
+  angular/angular dogfood cluster 4 (enforceCallLineBreaking's fits-check
+  measures width before declaration-alignment/keyword-spacing/complexity-
+  padding finish adjusting columns). Confirmed config-insensitive (retested
+  commandLineParser.ts with indent-size=2 override — identical diff shape).
+  CROSS-REFERENCE: same root cause as angular's still-open cluster 4, a
+  third confirming recurrence (28/601 here vs. 23/5394 in angular —
+  proportionally much denser, likely because this repo's style sits near
+  the 100-char line-length boundary often).
+  Value: HIGH (highest file-count impact found this pass).
+  Difficulty: same as angular's already-scoped remaining work — medium-high,
+  cross-pass-ordering fix; a naive guard attempt was already tried and
+  reverted there for causing 5-fixture regressions.
+
+
+
+Now, start with the dogfood test (search in `/tmp` first, clone the repo if not found):
+   JS : github.com/nodejs/node`  (the repo is MASSIVE, checkout the *.js files only)
+Do NOT perform any bug fix yet, instead categorize and note the bugs inside
+`....md` and `....md` into two categories:
+    1. Critical bugs that cause formatter error/crash and output file corruption (syntax
+       error, unwanted content change, etc.).
+    2. Idempotency bugs only. Try reformat with `indent-size = 2` if the idempotency test
+       failed.
+For each category, cluster the bugs based on the types/appearance. Sort the clusters based on
+the estimated criticality/the value of fixing the bug and the estimated difficulty (weigh them).
+Sort the clusters from the most valuable to the least valuable to fix based on the above
+criteria. Write and commit the state files, then ask me which clusters to fix first.
+Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
+Write also your short report (which you print to the CLI console) to `/tmp/REP_JS.txt`.
 
 
 
@@ -147,7 +302,7 @@ HTML5:
     [X] `**Remaining TODO — adoption agency, foster-parenting, implicit ...`
     [X] `**Known gap found (2026-07-26, `apache/ant` `manual/` dogfood run):**`
 JS:
-    [X] `github.com/nodejs/node` [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
+    [#] `github.com/nodejs/node` [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
     [X] `**TODO (low priority):** teach `js_ts_content_diff.js` ...`
 TS:
 Python3:

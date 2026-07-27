@@ -675,3 +675,79 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
 "In progress" detail) into "Finished dogfood / real-code testing", and add a
 new numbered entry to "Tools/compiler used" if a genuinely new tool is
 introduced.
+
+---
+
+## Dogfood: JetBrains/kotlin (categorization pass, not yet fixed)
+
+**Status: categorized only, per explicit instruction — no bugs fixed this
+pass.** Checkout: fresh clone (no prior `/tmp` checkout found), `.kt`-only
+tarball extraction from `codeload.github.com/JetBrains/kotlin/tar.gz/refs/heads/master`
+into `/tmp/jb_kotlin_kt/kotlin-master` (full git clone skipped — tarball +
+`tar --wildcards '*.kt'` avoids downloading/extracting the non-Kotlin
+majority of this huge repo). File selection: all `*.kt` under the tarball
+root, excluding `*/testData/*` (46815 files — compiler test fixtures, many
+deliberately invalid/edge-case snippets, out of scope per task instructions),
+`*/build/*`, `*/resources/*`, and anything with `generated` in its name —
+**16268 files, 128 MB, ~113.6k lines** selected (list: `/tmp/kt_filelist.txt`).
+Formatted in one batched invocation each via `--preserve-tree --root
+/tmp/jb_kotlin_kt/kotlin-master --out /tmp/round1` (round1, ~5m48s) then
+`--root /tmp/round1 --out /tmp/round2` (round2, ~5m17s) — both single JAR
+invocations per STATE_COMMON's batching guidance, zero exceptions/crashes in
+either invocation's own stderr/stdout. Verified via `kotlin_syntax_check`
+(round1 only, batched, ~1m14s) and `diff -rq round1 round2` for idempotency.
+
+**Results:** 220/16268 files (1.4%) fail `kotlin_syntax_check` on round1
+(Category 1 — real parse errors, i.e. corruption). 425/16268 files (2.6%)
+differ round1-vs-round2 (Category 2 candidates); 81 of those overlap with the
+220 syntax-error files (expected — a corrupt file often also fails to reach a
+fixed point), leaving **344 files that are idempotency-only** (valid,
+non-corrupting round1, but round2 differs). One additional Category 1 bug
+(comment/declaration content fusion, C1 below) was found incidentally while
+sampling idempotency diffs, not by the syntax checker — it produces
+syntactically valid output so `kotlin_syntax_check` cannot see it; likely
+under-counted here (a `kotlin_content_diff` pass would find its true extent,
+not run this pass per the task's scope of "syntax verifier only").
+
+No fixes were made. `/tmp/round1`, `/tmp/round2`, `/tmp/round1_syntax.log`,
+`/tmp/idempotency_diff.txt`, `/tmp/kt_filelist.txt` retained for a future
+fixing session (not committed — `/tmp` only, per convention).
+
+### Category 1 — Critical (crash/corruption), 220+ files
+
+| Cluster | Est. files | Repro | Notes |
+|---|---|---|---|
+| **C1. Comment swallows following declaration parameter** | 1 confirmed (likely more, uncounted) | `build-common/src/.../IncrementalCompilationContext.kt` | An own-line comment immediately preceding a constructor parameter (`// docs\n    val pathConverterForSourceFiles: FileToPathConverter = ...,`) gets fused onto the comment's physical line, silently deleting the parameter from the visible/parseable declaration list (still "valid Kotlin" — a giant comment line — so `kotlin_syntax_check` can't catch it; only found by manually diffing an idempotency case). **Highest-severity finding this pass**: silent semantic data loss, not just a cosmetic/crash bug. |
+| **C2. `@Annotation` at expression position gets spurious space after `@`** | ~22 | `libraries/stdlib/js/runtime/reflectRuntime.kt`: `val lambda = @JsNoLifting { throwUnsupportedOperationException(...) }` → `@ JsNoLifting { ... }` (`Expected annotation identifier after '@'`) | Existing annotation-spacing logic assumes declaration-site `@Foo class X`/param-target `@field:Foo val x` shapes; an annotation directly preceding an expression (lambda/call) isn't recognized and gets generic KEYWORD-style spacing instead. |
+| **C3. Multi-statement lambda/block body fused onto one line, no `;` separators** | ~70+ (largest crash cluster) | `libraries/stdlib/jdk7/test/PathRecursiveFunctionsTest.kt`: a 3-statement `onError = { source, _, exception ->` named-argument lambda body collapsed to `... exception -> assertIs<...>(exception) conflictingFiles.add(...) OnErrorResult.SKIP_SUBTREE }` (missing separators, `Unexpected tokens`) | Same general family as previously-fixed RDD_KEY_134/RDD_KEY_157/RDD_KEY_176 (`containsMultilineNestedBrace`-style bail-outs), but this exact shape — a named-argument lambda nested inside an already-wrapped multi-line call — isn't covered by the existing guards. |
+| **C4. Multi-line-condition `if(...)` + braced single-statement body collapsed into malformed one-liner** | ~44 | `compiler/daemon/daemon-client/.../KotlinCompilerClient.kt`: `if (\n startDaemon(...)\n) {\n reportingTargets.report(...)\n}` → `if( startDaemon(...) ) reportingTargets.report(...)` — no separating token, `Expecting an element` | `collapseBracelessBody`/its siblings apparently don't check whether the `if`'s own *condition* spans multiple lines before merging a braced single-statement body into a "braceless" one-liner. |
+| **C5. `when` subject-expression line-wrap vs. closing-comment ordering** | ~15-20 | `core/compiler.common/.../EventOccurrencesRange.kt`: `when (min(left, 2) to min(right, 3)) {` (single physical line originally) ends up as `} // when min(\n    left, 2\n) to min(\n    right, 3\n)` — the subject expression's tail tokens end up orphaned *after* the closing brace | Same general pipeline-ordering bug class as previously-fixed RDD_KEY_175 (`formatWhenExpressions` vs. `addClosingComments` ordering) — a wrap pass and the closing-comment/subject-capture logic disagree about where the subject expression ends. |
+| **C6. Misc uninvestigated parse-error shapes** | ~40-60 (remainder of the 220) | Various — `Missing '}'` at EOF (brace-count drift, possibly same root as C3/C4), annotation+member-declaration combos, generic-argument edge cases | Not individually root-caused this pass — categorization-only scope; would need per-shape investigation in a fixing session. |
+
+### Category 2 — Idempotency-only, 344 files
+
+| Cluster | Est. files | Repro | Notes |
+|---|---|---|---|
+| **D1. Declaration/accessor column-alignment padding flap** | ~150-200 (largest idempotency cluster) | `analysis/light-classes-base/.../KotlinEnumSyntheticMethod.kt`: `override fun findDeepestSuperMethods()         : Array<PsiMethod> = ...` (round1, wide padding) vs. narrower padding (round2); also seen on plain `val`/`private val` groups (`analysis-api-fir/.../ConeTypePointer.kt`: `private val lookupTag              = coneType.lookupTag` → `private val lookupTag = coneType.lookupTag`) | Confirmed reproduces at **both default `indent-size=4` and `indent-size=2`** (retested `KotlinEnumSyntheticMethod.kt` standalone). Same general family as previously-fixed RDD_KEY_139/RDD_KEY_162 (group-width recompute instability) — likely another width-recompute path triggered by a sibling line's wrap/unwrap that those fixes didn't cover. |
+| **D2. Closing-brace indent drift across passes** | ~150+ | `kotlin-native/endorsedLibraries/kotlinx.cli/.../ArgumentValues.kt`: a nested block's `}` at one indent column in round1, a different column in round2 (verified independent of D1 — no accessor/`val` padding involved) | Confirmed reproduces at both default and `indent-size=2` (retested `ArgumentValues.kt` standalone). Likely another gap in the `effectiveSpanIndent`/anchor-scan family (RDD_KEY_159/RDD_KEY_161 precedent) not covered by those fixes. |
+| **D3. Multi-param lambda header wrap flap** | ~15-20 | `analysis/low-level-api-fir/.../LLKotlinStubBasedLibrarySymbolProvider.kt`: `createTypeAliasCache { declaration: KtClassLikeDeclaration, context -> ... }` (round1, one line) vs. round2 exploding each param onto its own line with a spurious space before `:` (`declaration : KtClassLikeDeclaration,`) | A lambda parameter list's own wrap decision isn't stable across passes — width recompute disagrees with itself. |
+| **D4. Minor adjacent-closing-brace spacing flap** | small (single digits) | `compiler/fir/fir-jvm/.../OptionalAnnotationClassesProvider.kt`: `) } }` (round1) vs. `)} }` (round2) | Cosmetic-only, lowest priority of the four. |
+
+### Ranked list — all clusters, most-valuable-to-fix first
+
+1. **C1** (comment-swallows-declaration content loss) — silent correctness bug, the only one in this pass that can delete real code invisibly; even at a low observed count, this ranks first purely on severity. Difficulty likely low-to-medium once root-caused (a param/signature-render pass eating the preceding comment's own line) — high value clearly outweighs the unknown-but-probably-modest difficulty.
+2. **C3** (multi-statement lambda/block fusion) — largest crash cluster (~70+ files) and a known bug family with 3 prior precedent fixes (RDD_KEY_134/157/176) to extend from — high value, medium difficulty (pattern-matching an existing guard's shape).
+3. **C4** (multi-line-condition if collapse) — second-largest crash cluster (~44 files), same "extend an existing bail-out guard" difficulty profile as C3.
+4. **D1** (declaration/accessor padding flap) — largest idempotency cluster (~150-200 files) with 2 prior precedent fixes (RDD_KEY_139/162); high value from sheer spread, medium difficulty.
+5. **D2** (closing-brace indent drift) — comparably large spread (~150+ files) with precedent (RDD_KEY_159/161); ranked just under D1 since it's cosmetic-only (no confusion risk for a reader, unlike misaligned columns which at least look "wrong" whereas indent drift is subtler) — same value/difficulty profile otherwise.
+6. **C2** (annotation-at-expression-position spacing) — moderate cluster (~22 files), real compile break, but a narrower/more self-contained fix (extend annotation-context detection to expression position) — high value, lower estimated difficulty than C3/C4.
+7. **C5** (when-subject wrap/closing-comment ordering) — moderate cluster (~15-20), real corruption, but pipeline-ordering bugs (per RDD_KEY_175's precedent) tend to need care to avoid regressing the fix they're ordered relative to — medium-high difficulty pulls it below C2.
+8. **D3** (lambda header wrap flap) — smaller cluster (~15-20), non-corrupting, moderate difficulty — ranked below the higher-spread/higher-severity items above it.
+9. **C6** (misc uninvestigated crash shapes) — potentially several distinct bugs bundled together; real value once split out, but undefined difficulty until root-caused, so ranked conservatively below better-understood clusters.
+10. **D4** (minor brace-spacing flap) — smallest, purely cosmetic, lowest value — last.
+
+**Recommended next step (not done this pass):** run `kotlin_content_diff`
+across the full 16268-file corpus before starting fixes — it would likely
+surface more instances of C1 (content loss undetectable by the syntax
+checker) and give a truer denominator for how many files are actually
+affected by that cluster.

@@ -2458,6 +2458,16 @@ Real-code regressions:
                                              `real_code_regressions_30_out.kt`). See `STATE_KOTLIN.md`'s
                                              Dogfood: JetBrains/kotlin section, cluster C6a.
 
+  real_code_regressions_151_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6c: a
+                                             nullable-type callable reference (`Array<*>?::get`) was
+                                             mis-split by `TokenizerCurly`'s greedy `"?:"` elvis-operator
+                                             match into elvis `?:` + stray `:`. Fixed by bailing out of
+                                             the `"?:"` match when the source also has a third `:`
+                                             (`?::`), letting `?` and `::` tokenize separately. `make
+                                             test`: 199/199 forward + 199/199 idempotency. See
+                                             `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
+                                             cluster C6c.
+
 How Tests Are Run
 -----------------
 

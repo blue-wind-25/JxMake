@@ -1340,6 +1340,15 @@ public class TokenizerCurly extends TokenizerCore {
             if ("?:".equals(op) && !lang.isKotlin) {
                 continue;
             }
+            // "T?::member" (nullable-type callable reference, e.g. `Array<*>?::contentEquals`)
+            // is "?" (nullable-type marker) + "::" (callable reference), not elvis "?:" + ":".
+            // Without this guard the greedy "?:" match above fires first (its prefix matches),
+            // mis-splitting into elvis + a stray ":" token. Bail out of the "?:" match here so
+            // "?" falls through to the single-char branch below, leaving "::" to be matched
+            // whole on the next call.
+            if ("?:".equals(op) && source.startsWith("?::", pos)) {
+                continue;
+            }
             // "[[" / "]]" are C++11 attribute brackets (`[[nodiscard]]`, STYLE_CPP26.md §5 and
             // earlier) -- in TS a closing mapped-type indexed-access type immediately followed by
             // the mapped-type bracket's own close (`{ [K in T[number]]?: unknown }`) produces the

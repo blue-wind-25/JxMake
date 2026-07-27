@@ -1001,6 +1001,198 @@ Next free fixture number unaffected (no fixtures added yet — none of the
 five clusters above has been fixed). Full corpus re-run deferred until
 fixes land, same pattern as `vuejs/core`/`lodash/lodash` above.
 
+## Dogfood: microsoft/TypeScript (categorization pass, not yet fixed)
+
+Repo: `microsoft/TypeScript`, shallow clone (`--depth 1`), HEAD `cc5c6e2`
+(2026-07-28), `/tmp/ts-dogfood/TypeScript`. Full tree has 20798 `.ts` +
+333 `.tsx` (excluded, out of scope) + 1095 `.d.ts` files, but
+`tests/cases/**` (20089 files) is deliberately excluded — it's hand-authored
+*compiler test fixtures*, many containing intentionally-invalid syntax
+(`// @noEmit`-style directive comments, deliberate parse-error cases used to
+test the compiler's own diagnostics), the same "test fixtures/generated
+code" shape `STATE_COMMON.md` says to skip, not real source. `tests/
+baselines/**` (auto-generated expectation data) is excluded for the same
+reason the task called out. Corpus actually used: **`src/` only, 601 real
+`.ts` files (108 `.d.ts` excluded), 379045 lines** — this is the same
+compiler/services/server/harness/testRunner source tree previously listed
+as "huge, ~1490 kLOC" (that estimate presumably included `tests/`); `src/`
+alone is still a large, heavily-typed, real-world corpus.
+
+Batched via `--preserve-tree --root ... --out ...` (one invocation for
+round1, one for round2, ~601 files each, ~1m15s / ~52s wall-clock). Round1:
+**zero crashes, 601/601 files produced.** Syntax-checked via a throwaway
+TS-compiler-API parse-only script (no `js_ts_syntax_check.js` exists yet in
+`tools/verifiers`; modeled on the parse step already used for `angular/
+angular`'s dogfood pass) — baseline (unformatted) 0/601 parse errors.
+Round1→round2 idempotency: `diff -rq` found **30/601 files differing**.
+
+### Category 1 — Critical (round1 itself is corrupt/unsafe)
+
+Round1 parse-check: **8/601 files, 85 diagnostics** — all traceable to 3
+distinct root causes:
+
+1. **`||=`/`&&=` compound-assignment operators not tokenized as a single
+   token** — 1 file (`src/compiler/checker.ts`), 3 occurrences. Root cause
+   precisely identified (no subagent needed): `TokenizerCurly.
+   MULTI_CHAR_OPS` (`src/com/jxmake/formatter/tokenizer/TokenizerCurly.java`
+   ~line 188) lists `??=` but is missing both `||=` and `&&=`, even though
+   `JsTsSpecificRule.java` (lines ~72, ~93) already references `"&&="`/
+   `"||="` in spacing/precedence tables as if they tokenize as one token.
+   Without a `MULTI_CHAR_OPS` entry, `||=` splits into `||` then a separate
+   `=` token, which downstream spacing/padding logic then renders with a
+   spurious space and stray parens:
+   ```
+   // original
+   const cache = (links.accessibleChainCache ||= new Map());
+   // round1 output
+   const cache = ( links.accessibleChainCache || = new Map() );
+   ```
+   **Value: HIGH** (silent semantic corruption — `||=`/`&&=` are common
+   modern JS/TS idioms, e.g. lazy-init caches; this exact shape appears
+   3x in one file of a 601-file corpus, likely widespread elsewhere).
+   **Difficulty: TRIVIAL** — two-string addition to an existing array,
+   same shape as the already-landed `??=` entry right next to it.
+   **Ranks #1** — textbook high-value/near-zero-difficulty fix.
+
+2. **Union-type return-type/type-predicate before `=>` gets its last
+   segment wrapped in a spurious paren pair** — 6 files (`checker.ts` x4,
+   `services/mapCode.ts`, `services/symbolDisplay.ts`, `services/
+   refactors/moveToFile.ts`, `services/codefixes/
+   addConvertToUnknownForNonOverlappingTypes.ts`, `testRunner/unittests/
+   helpers/virtualFileSystemWithWatch.ts`), ~9 occurrences. **Same root
+   cause FAMILY, same function (`enforceArrowFunctionParameterParens`
+   in `JsTsSpecificRule.java`), as the already-fixed `angular/angular`
+   cluster 1 ("dotted/qualified type-predicate... gets its last segment
+   wrapped") — but a DIFFERENT shape that fix didn't cover.** The angular
+   fix (commit landing `real_code_regressions_134`) walks back over
+   `IDENTIFIER '.'` chains to find a dotted return-type's anchor before
+   checking the `:`/`is`/`typeof`/`keyof` bail-out list; it does not walk
+   back over a union `|` operator, so a union type whose last operand is a
+   bare identifier still gets wrapped:
+   ```
+   // original (services/symbolDisplay.ts:296)
+   (declaration): declaration is AccessorDeclaration | PropertyDeclaration =>
+   // round1 output
+   (declaration): declaration is AccessorDeclaration | (PropertyDeclaration) =>
+   ```
+   also reproduces for a plain (non-predicate) union return type
+   (`services/mapCode.ts`: `(block): block is Block | SourceFile =>` →
+   `... | (SourceFile) =>`) and inside a callback argument
+   (`checker.ts:39179`: `(p): p is PropertyAssignment | ShorthandPropertyAssignment =>`).
+   **Value: HIGH** (real parse errors, common shape — union return
+   types/predicates are idiomatic TS, hits 6/601 files here alone).
+   **Difficulty: LOW-MEDIUM** — same walk-back idea as the already-shipped
+   dotted-chain fix, just extended to also walk back over a leading `|`
+   (and its left operand) before the bail-out check; the existing fix's
+   code/tests are a direct template. **Ranks #2** — high value, low
+   difficulty, and a near-identical precedent already exists in the same
+   function.
+
+3. **Backslash-newline continuation inside a plain (non-template) string
+   literal not honored, corrupting the rest of the string/statement** — 2
+   files (`testRunner/unittests/incrementalParser.ts`, `testRunner/
+   unittests/services/colorization.ts`). Legal (if archaic) JS: a
+   double-quoted string literal spanning multiple source lines via a
+   trailing `\` before each newline:
+   ```
+   // original
+   const source = "class C {\
+       set Bar(bar:string) {}\
+   }\
+   var o2 = { set Foo(val:number) { } };";
+   ```
+   Round1 mangles this into multiple broken statements with unterminated
+   strings and stray tokens (`Unterminated string literal`, `Invalid
+   character`, `Declaration or statement expected`) — the tokenizer
+   appears to treat the trailing `\` + newline as ending the string rather
+   than escaping the newline. Not root-caused down to the exact
+   tokenizer line (would need a short subagent/deeper dive to pin the
+   exact `readToken` string-scanning branch) — categorization only per
+   task scope. **Value: MEDIUM** (real corruption, but this exact
+   multi-line-backslash-continuation-in-a-plain-string shape is rare in
+   idiomatic modern code — modern style uses template literals or
+   `+`-concatenation for multi-line strings; both hits here are decades-old
+   test-harness code, not typical application code). **Difficulty: MEDIUM**
+   (tokenizer string-scanning change, needs care not to regress ordinary
+   escape-sequence handling for `\n`/`\t`/`\\` etc.). **Ranks #5** — real
+   bug, but lower frequency/idiomaticity than #1/#2 and non-trivial to fix
+   safely.
+
+### Category 2 — Idempotency-only (round1 valid, round2 differs)
+
+**28 of the 30 idempotent-diff files are a single cluster, already tracked
+— NOT a new bug.** Spot-checked ~10 of the 28 (`compiler/builder.ts`,
+`compiler/commandLineParser.ts`, `compiler/emitter.ts`, `compiler/factory/
+nodeFactory.ts`, `testRunner/parallel/host.ts`, `typingsInstallerCore/
+typingsInstaller.ts`, `server/session.ts`, `services/completions.ts`,
+`services/jsDoc.ts`, `harness/client.ts`) — every diff is a call
+wrapped-multi-line on one round and collapsed-to-one-line on the other (or
+an object/call closer `}`/`)` moving to its own line), exactly the
+already-documented **"Call-wrap/collapse vs. alignment-padding fits-check
+ordering"** cluster from the `angular/angular` dogfood pass (this file's
+cluster 4, `enforceCallLineBreaking`'s single-argument fits-check measuring
+candidate width before declaration-alignment/keyword-spacing/complexity-
+padding finish adjusting column widths). Confirmed config-insensitive here
+too: `commandLineParser.ts` retested with `.jxmake-code-formatter`
+(`indent-size = 2`) reproduces the identical diff shape (`) };` → `)\n};`
+plus a re-collapsed `const optionMap = ...` alignment column), same as
+angular's `node_selector_matcher.ts` confirmation. **Cross-reference: this
+is the SAME root cause as `angular/angular`'s open cluster 4, not a new
+bug** — a third confirming recurrence at even larger scale (28/601 files
+here vs. 23/5394 in angular, proportionally ~30x denser, likely because
+this repo's line-length/wrapping style sits close to the 100-char boundary
+very often). Two of angular cluster 4's ≥4 root causes are already fixed
+(dangling-empty-group measurement, `if(`/`if (` keyword-spacing ordering);
+this run doesn't newly isolate which of the remaining root causes (#3
+braceless-else-body, or others) apply to these 28 files — out of scope to
+re-diagnose here, same underlying architectural fix needed either way.
+**Value: HIGH** (highest file-count impact of anything found this pass).
+**Difficulty:** inherits whatever the angular cluster 4 remaining work
+already estimated (medium-high — cross-pass-ordering fix, the naive
+`tryCollapse` guard attempt already reverted once for 5-fixture
+regressions). **Ranks #3** (tied consideration with #2, see ranked list
+below) — very high file-count value, but explicitly already scoped as a
+bigger, riskier lift than #1/#2.
+
+The remaining **2 of 30** idempotency files (`checker.ts`, `incrementalParser.ts`)
+are already accounted for under Category 1 above (their round1 output is
+actively corrupt, so their round1→round2 diff is a symptom of the same
+Category-1 bug, not an independent idempotency-only finding).
+
+### Ranked list (all clusters, most-valuable-to-fix first)
+
+1. **`||=`/`&&=` tokenizer gap** (Category 1) — trivial 2-string fix,
+   silent semantic corruption on a common modern-JS idiom. Highest
+   value/difficulty ratio of anything found.
+2. **Union-type-before-`=>` arrow-param spurious wrap** (Category 1) —
+   real parse errors on an idiomatic TS shape (union return
+   types/predicates), and the fix is a direct, low-risk extension of an
+   already-shipped near-identical fix (dotted-chain walk-back) in the same
+   function.
+3. **Call-wrap/collapse vs. alignment-padding fits-check ordering**
+   (Category 2) — by far the highest file-count (28/601 here, plus
+   23/5394 in angular, plus smaller recurrences elsewhere), but same
+   already-scoped medium-high-difficulty cross-pass-ordering fix as
+   angular's still-open cluster 4; ranked below #1/#2 purely on
+   difficulty, not value — whoever picks up angular cluster 4's remaining
+   work should treat this TS corpus as further confirming evidence, not a
+   separate task.
+4. **Backslash-newline-continued plain-string-literal corruption**
+   (Category 1) — real corruption, but affects only 2 files in an
+   old-style test-harness idiom rarely seen in modern code; needs its own
+   root-cause dive (not yet pinned to an exact tokenizer line) before a
+   fix estimate firms up.
+
+No fixture-only false positives were found this pass (unlike `lodash/
+lodash`'s comment-period/brace-omission content-diff false positives) —
+this pass used direct TS-compiler-API parse-checking and raw `diff`, not
+`js_ts_content_diff.js`, so that checker's known tolerances weren't
+exercised here.
+
+**Status: categorized, not fixed** (per this pass's explicit scope — see
+`STATE_DOGFOOD.md`'s row for the status-legend caveat). No source files
+under `src/` were modified.
+
 ### Known false positives (no source change needed, fixture-only)
 
 - A spurious-looking blank line after a class's opening `{` in older `.js`

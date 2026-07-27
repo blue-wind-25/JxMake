@@ -18,10 +18,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Family-agnostic base for {@link GetterSetterRuleCurly} (and, in the future,
- * {@code GetterSetterRuleIndent}) -- everything in this file used to live directly in
- * {@code GetterSetterRule} before the curly/indent class-refactor. No behavior change,
- * mechanical move only (see STATE_COMMON.md's Class Refactor section).
+ * Family-agnostic base for {@link GetterSetterRuleCurly} -- everything in this file used to live
+ * directly in {@code GetterSetterRule} before the curly/indent class-refactor. No behavior
+ * change, mechanical move only (see STATE_COMMON.md's Class Refactor section). An optional
+ * {@code GetterSetterRuleIndent} sibling was scaffolded for Python3's possible reuse but was never
+ * adopted (Python3 went bespoke instead) and was removed as unused during the 2026-07-28 cleanup
+ * pass -- see STATE_COMMON.md's "Project refactoring/cleanup pass".
  */
 public abstract class GetterSetterRuleCore {
 

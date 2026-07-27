@@ -21,10 +21,12 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Family-agnostic base for {@link DeclarationAlignmentRuleCurly} (and, in the future,
- * {@code DeclarationAlignmentRuleIndent}) -- everything in this file used to live directly in
- * {@code DeclarationAlignmentRule} before the curly/indent class-refactor. No behavior change,
- * mechanical move only (see STATE_COMMON.md's Class Refactor section).
+ * Family-agnostic base for {@link DeclarationAlignmentRuleCurly} -- everything in this file used
+ * to live directly in {@code DeclarationAlignmentRule} before the curly/indent class-refactor. No
+ * behavior change, mechanical move only (see STATE_COMMON.md's Class Refactor section). An
+ * optional {@code DeclarationAlignmentRuleIndent} sibling was scaffolded for Python3's possible
+ * reuse but was never adopted (Python3 went bespoke instead) and was removed as unused during the
+ * 2026-07-28 cleanup pass -- see STATE_COMMON.md's "Project refactoring/cleanup pass".
  */
 public abstract class DeclarationAlignmentRuleCore {
 

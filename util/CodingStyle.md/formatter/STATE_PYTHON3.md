@@ -178,13 +178,16 @@ landing spot — fill them in in place rather than creating new top-level
 classes.
 
 `DeclarationAlignmentRuleIndent`/`GetterSetterRuleIndent` skeletons also
-exist and are available if Python3's own alignment-grid work (§1 bracket
+existed and were available if Python3's own alignment-grid work (§1 bracket
 complexity feeding §2 assignment alignment, §6 signature wrapping, §7
-`match`/`case` compact-form alignment) turns out to overlap enough with the
-curly-family shape to reuse. This is optional reuse, not a requirement —
+`match`/`case` compact-form alignment) turned out to overlap enough with the
+curly-family shape to reuse. This was optional reuse, not a requirement —
 Python's `match`/`case`, indentation-as-scope, and bracket-complexity work
-may end up entirely bespoke inside the `*Indent` classes instead. Decide
-per-rule as each is implemented, not up front.
+ended up entirely bespoke inside the `*Indent` classes instead, so neither
+skeleton was ever instantiated. **Removed as dead scaffold code in the
+2026-07-28 cleanup pass** (STATE_COMMON.md's "Project refactoring/cleanup
+pass") — confirmed zero references anywhere in `src/`/`Makefile`/docs
+beyond the two files' own declarations before removal.
 
 Implementation order is unchanged by the refactor: tokenizer pass
 (indentation-as-load-bearing architecture decision) → statement/indentation

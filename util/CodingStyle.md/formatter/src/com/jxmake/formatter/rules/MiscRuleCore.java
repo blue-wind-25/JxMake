@@ -1091,6 +1091,17 @@ public static final class Assignment {
         if ((lang.isJs || lang.isTs) && isPunct(cur, "[") && prev.type == TokenType.KEYWORD) {
             return true;
         }
+        // Kotlin's newer square-bracket destructuring lambda-parameter-list syntax (`{ [x, y] ->
+        // x + y }`, e.g. `list.map { [x, y] -> ... }`) opens directly with `[` right after the
+        // lambda's own `{`. `isTightToken`'s `[`-is-always-tight rule below exists for
+        // indexing/subscript shapes (`a[i]`), where `[` always follows an identifier/closing
+        // bracket/paren, never a bare `{` -- Kotlin has no bracket array-literal syntax, so `{`
+        // directly followed by `[` is unambiguous: it can only be this destructuring param list,
+        // never an indexing expression. Scoped narrowly to "`{` immediately before `[`" so it
+        // can't affect any other `[` use (C6j).
+        if (lang.isKotlin && isPunct(cur, "[") && isPunct(prev, "{")) {
+            return true;
+        }
         if (isTightToken(cur) || templateCloses.contains(cur) || templateOpens.contains(cur)) {
             return false;
         }

@@ -238,6 +238,19 @@ public abstract class DeclarationAlignmentRuleCore {
      *  (its own {@code renderTokens} override, real-code testing against {@code square/okio}) --
      *  purely additive, no behavior change. */
     protected boolean needsSpaceBetween(final Token prev, final Token cur) {
+        // Kotlin's newer square-bracket destructuring lambda-parameter-list syntax (`{ [x, y] ->
+        // x + y }`) opens directly with `[` right after the lambda's own `{` -- e.g. a `val`
+        // initializer's trailing lambda (`val result = list.map { [x, y] -> x + y }`) renders
+        // through this class's own renderTokens/renderInitTokens, a separate duplicate of
+        // MiscRuleCore's tight-attachment rules (see this method's other duplicated cases below).
+        // `isTightToken`'s `[`-is-always-tight rule exists for indexing/subscript shapes (`a[i]`),
+        // where `[` always follows an identifier/closing bracket/paren, never a bare `{` --
+        // Kotlin has no bracket array-literal syntax, so `{` directly followed by `[` is
+        // unambiguous: it can only be this destructuring param list, never an indexing
+        // expression. Mirrors MiscRuleCore.needsSpaceBetween's identical carve-out (C6j).
+        if (lang.isKotlin && isPunct(cur, "[") && isPunct(prev, "{")) {
+            return true;
+        }
         if (isTightToken(cur)) {
             return false;
         }

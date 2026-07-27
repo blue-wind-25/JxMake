@@ -729,7 +729,7 @@ output) — likely under-counted.
 | **C6g** — backtick identifier containing a literal `(` (e.g. test-name idiom `` `... (no debug info)` ``) breaks paren-depth tracking downstream — not fixed | 4 | Backtick-quoted spans aren't treated as opaque text the way string/comment spans already are. | Value medium (likely undercounted — common JetBrains test idiom), difficulty medium (needs opaque-span treatment extended to backticks). |
 | **C6h** — `Missing '}'` at EOF in Gradle-plugin functional/integration tests — not fixed | 8 | Not pinned down; corruption is far upstream of the reported EOF, likely a symptom of C6f's comment-swallow or a related collapse variant rather than an independent cause. | Value medium, difficulty unknown — re-triage after C6f lands, may resolve for free. |
 | **C6i** — multiple one-line interface member declarations in sequence fused without separators — not fixed | 1 | Distinct from the lambda-fusion families (no lambda/braces involved); likely its own root cause in whatever pass handles consecutive member-declaration line breaks. | Value low, difficulty unknown, needs own investigation. |
-| **C6j** — square-bracket destructuring lambda params `[x, y] ->` (newer Kotlin syntax) not recognized, `[` misread as indexing/array-literal — not fixed | 1 | Needs new lambda-param-list syntax support. | Value low, difficulty medium. |
+| **C6j** — square-bracket destructuring lambda params `[x, y] ->` (newer Kotlin syntax) lost the space after `{` — **FIXED** | 1 | Not a tokenizer/parsing misread as originally suspected: `[x, y]` after `{` was tokenized fine, but both `MiscRuleCore.needsSpaceBetween`/`isTightToken` and their documented duplicate `DeclarationAlignmentRuleCore.needsSpaceBetween`/`isTightToken` treat `[` as always-tight (the C/C++/Java/general indexing-shape rule, `a[i]`), stripping the space `{ [x, y] -> ...` needs. Fix: narrow `lang.isKotlin && isPunct(cur, "[") && isPunct(prev, "{")` carve-out added to both duplicates' `needsSpaceBetween`, forcing the space — safe because Kotlin has no bracket array-literal syntax, so `{` directly followed by `[` is unambiguous (can only be this destructuring param list, never an indexing expression); no change to indexing/array-literal logic elsewhere. | `real_code_regressions_152.kt`; `make test` 200→201/201. |
 | **C6k** — residual uninvestigated shapes (10 files: `diagnosticUtils.kt`, `KClassMembers.kt`, `TypeCommonizerTest.kt`, `ConeTypeRenderer.kt`, `JavaOverrideChecker.kt`, `LazyJavaClassMemberScope.kt`, `kmpTargets.kt`, `FirConflictsDeclarationChecker.kt`, `FirRequiresOptInOnExpectChecker.kt`, `GenerateMultifileFacades.kt`) — not fixed | 10 | `Expecting ')'`/`Expecting an element`-family errors around a multi-line call/condition, no confidently-attributable shape found; may be more C6e/C6f instances once those land, or hide 1-2 more distinct root causes. | Value/difficulty unknown pending re-triage. |
 
 **Baseline check:** re-verified C6b-C6k's 70-file total against the raw
@@ -743,7 +743,8 @@ hardest) > C6b (12 files, cheapest — mirrors C2) > C6e (6 files, extends C3)
 > C6d (6 files, mirrors C2 in reverse) > C6h (8 files, likely folds into
 C6f — re-triage after) > C6c (2 files, narrow high-confidence tokenizer fix,
 likely undercounted, **now FIXED**) > C6g (4 files, medium) > C6k (10 files, unknown until
-re-triaged) > C6i (1 file) > C6j (1 file, niche newer syntax, lowest).
+re-triaged) > C6i (1 file) > C6j (1 file, niche newer syntax, lowest,
+**now FIXED**).
 Total 70 files across C6b-C6k. Working files retained in `/tmp` (not
 committed): `/tmp/c6_remaining.txt`, `/tmp/round1c_syntax.log`,
 `/tmp/c6_70.txt`, `/tmp/all_ctx.txt`, `/tmp/REP2.txt` (full report),

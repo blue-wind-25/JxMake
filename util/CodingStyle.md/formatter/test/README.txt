@@ -2468,6 +2468,18 @@ Real-code regressions:
                                              `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
                                              cluster C6c.
 
+  real_code_regressions_152_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6j: a
+                                             square-bracket destructuring lambda param list (`{ [x, y]
+                                             -> ... }`) lost its space after `{` because `isTightToken`
+                                             treats `[` as always-tight (an indexing-shape rule). Fixed
+                                             by a narrow `{` -directly-before-`[` carve-out in both
+                                             `MiscRuleCore.needsSpaceBetween` and
+                                             `DeclarationAlignmentRuleCore.needsSpaceBetween` (Kotlin
+                                             has no bracket array-literal syntax, so this join is
+                                             unambiguous). `make test`: 200/200 forward + 200/200
+                                             idempotency. See `STATE_KOTLIN.md`'s Dogfood:
+                                             JetBrains/kotlin section, cluster C6j.
+
 How Tests Are Run
 -----------------
 

@@ -370,6 +370,7 @@ INP_FILES += real_code_regressions_141_inp.ts
 INP_FILES += real_code_regressions_142_inp.ts
 INP_FILES += real_code_regressions_143_inp.ts
 INP_FILES += real_code_regressions_144_inp.kt
+INP_FILES += real_code_regressions_145_inp.ts
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

@@ -1095,6 +1095,22 @@ distinct root causes:
    difficulty, and a near-identical precedent already exists in the same
    function.
 
+   **FIXED (2026-07-28):** `enforceArrowFunctionParameterParens`'s existing
+   dotted-chain walk-back is now a loop that alternates the `IDENTIFIER '.'`
+   walk-back with a new `IDENTIFIER '|'` (union type operator) walk-back
+   until neither makes further progress, so `anchorIdx` lands on the true
+   first anchor of the return-type/type-predicate expression before the
+   `:`/`is`/`typeof`/`keyof` bail-out check — covering chained unions
+   (`A | B | C`) and dotted union members (`A | ts.B`), not just a single
+   `|`. Verified directly against the three real trigger files
+   (`services/symbolDisplay.ts`, `services/mapCode.ts`,
+   `compiler/checker.ts` under `/tmp/ts-dogfood/TypeScript`) — no spurious
+   parens remain around any union's last segment. Fixture:
+   `test/real_code_regressions_145_{inp,out}.ts` (type-predicate union,
+   three-member union type-predicate, and plain union return type, all in
+   one file). `make test`: 194/194 forward + 194/194 idempotency, zero
+   regressions.
+
 3. **Backslash-newline continuation inside a plain (non-template) string
    literal not honored, corrupting the rest of the string/statement** — 2
    files (`testRunner/unittests/incrementalParser.ts`, `testRunner/

@@ -2406,6 +2406,27 @@ Real-code regressions:
                                              + 192/192 idempotency. See `STATE_KOTLIN.md`'s Dogfood:
                                              JetBrains/kotlin section, cluster C1.
 
+  real_code_regressions_145_inp/out.ts     -- JS/TS, `microsoft/TypeScript` dogfood (category 1
+                                             cluster #2): a union-type return-type/type-predicate
+                                             before `=>` had its last bare-identifier segment wrapped
+                                             in a spurious paren pair (`... | (PropertyDeclaration) =>`),
+                                             a real TS parse error. Same root cause family and same
+                                             function (`enforceArrowFunctionParameterParens`) as the
+                                             already-fixed dotted-chain cluster (fixture 134), but the
+                                             existing anchor walk-back only walked back over
+                                             `IDENTIFIER '.'` pairs, not a leading `|` (union type
+                                             operator) and its left operand. Fixed by alternating the
+                                             dotted-chain walk-back with a union walk-back until neither
+                                             makes further progress, so chained unions (`A | B | C`) and
+                                             dotted union members both resolve to the true first anchor
+                                             before the `:`/`is`/`typeof`/`keyof` bail-out check. Covers
+                                             a type-predicate union (`declaration is A | B`), a
+                                             three-member union type-predicate, and a plain (non-
+                                             predicate) union return type in the same file. `make test`:
+                                             193/193 forward + 193/193 idempotency. See
+                                             `STATE_JS_TS.md`'s Dogfood: microsoft/TypeScript section,
+                                             category 1 cluster #2.
+
 How Tests Are Run
 -----------------
 

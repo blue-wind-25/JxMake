@@ -1356,17 +1356,43 @@ public final class JsTsSpecificRule {
             // number of `IDENTIFIER '.'` pairs first so `anchorIdx` lands on the chain's own first
             // segment before checking what precedes THAT for the same `:`/`is`/`typeof`/`keyof`
             // markers.
+            //
+            // A union return type/type-predicate whose last member is a bare identifier (`x is A |
+            // B =>`, `A | B | C =>`) has the same shape: `prev`/`anchorIdx` lands on `B`/`C`, but the
+            // real anchor to bail-out-check is whatever precedes the FIRST union member, past every
+            // `| operand` pair (and each operand may itself be a dotted chain, e.g. `x is A | ts.B
+            // =>`). Without walking back over `|` too, only the dotted-chain shape was covered --
+            // found via `microsoft/TypeScript` dogfood parse-check (`services/symbolDisplay.ts`:
+            // `declaration is AccessorDeclaration | PropertyDeclaration =>` ->
+            // `... | (PropertyDeclaration) =>`; also `services/mapCode.ts`, `compiler/checker.ts`).
+            // Alternate dotted-chain and union walk-backs until neither makes progress, so chained
+            // unions (`A | B | C`) and dotted union members both resolve to the true first anchor.
             int anchorIdx = prevIdx;
             while (true) {
-                final int dotIdx = prevSignificantIndex(tokens, anchorIdx - 1);
-                if (dotIdx < 0 || !isOp(tokens.get(dotIdx), ".")) {
+                boolean moved = false;
+                while (true) {
+                    final int dotIdx = prevSignificantIndex(tokens, anchorIdx - 1);
+                    if (dotIdx < 0 || !isOp(tokens.get(dotIdx), ".")) {
+                        break;
+                    }
+                    final int identIdx = prevSignificantIndex(tokens, dotIdx - 1);
+                    if (identIdx < 0 || tokens.get(identIdx).type != TokenType.IDENTIFIER) {
+                        break;
+                    }
+                    anchorIdx = identIdx;
+                    moved = true;
+                }
+                final int pipeIdx = prevSignificantIndex(tokens, anchorIdx - 1);
+                if (pipeIdx >= 0 && isOp(tokens.get(pipeIdx), "|")) {
+                    final int identIdx = prevSignificantIndex(tokens, pipeIdx - 1);
+                    if (identIdx >= 0 && tokens.get(identIdx).type == TokenType.IDENTIFIER) {
+                        anchorIdx = identIdx;
+                        moved = true;
+                    }
+                }
+                if (!moved) {
                     break;
                 }
-                final int identIdx = prevSignificantIndex(tokens, dotIdx - 1);
-                if (identIdx < 0 || tokens.get(identIdx).type != TokenType.IDENTIFIER) {
-                    break;
-                }
-                anchorIdx = identIdx;
             }
             final int prevPrevIdx = prevSignificantIndex(tokens, anchorIdx - 1);
             if (prevPrevIdx >= 0) {

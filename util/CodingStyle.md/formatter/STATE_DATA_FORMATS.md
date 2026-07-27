@@ -13,10 +13,13 @@ Tracks data/markup format support in the deterministic JAR formatter
 XML, CSS, HTML5, YAML, TOML). **All six are now DONE** — real
 tokenizer/parser/printer logic landed for each, `make test` green (see
 Checklist for per-format notes/deferred edge cases; RDD_KEY_190/191/192/193/
-194 for implementation history). Remaining gap: HTML5's `<script>` dispatch
-to JS/TS — real JS content must be wrapped in `//% JXM_CFMT_DIS`/`ENA` until
-`STATE_JS_TS.md`'s job lands a real JS/TS formatter (see that file's
-checklist and this file's HTML5 entry below).
+194 for implementation history). HTML5's `<script>` dispatch to JS/TS is
+also real now (commits `a3c5c81`/`7cca3a4`/`679fafb`, after `STATE_JS_TS.md`
+landed a real JS/TS formatter) — see `XmlSpecificRule.renderScriptOrStyle`
+and this file's HTML5 checklist entry below. (2026-07-28 cleanup-pass note:
+this paragraph and the two entries below previously described the dispatch
+as still-blocked/throwing; that was stale — the dispatch shipped a while
+ago, this note just hadn't been updated to match.)
 
 ---
 
@@ -326,15 +329,20 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   different, don't conflate" note was correct.
 - Implementation order (all complete): JSON/JSON5 → CSS → YAML/TOML → XML →
   HTML5 (HTML5 last, depended on CSS and, for one exception below, JS/TS).
-- **HTML-before-JS/TS contingency — resolved differently than planned:**
-  HTML5 landed (RDD_KEY_194) before `STATE_JS_TS.md` has a real JS/TS
-  formatter. Rather than the originally-planned silent opaque passthrough
-  for embedded `<script>` content, `renderScriptOrStyle` throws
-  `XmlParseException` for real (non-frozen) JS-type `<script>` content,
-  directing the caller to wrap it in `//% JXM_CFMT_DIS`/`//% JXM_CFMT_ENA`
-  instead — so real JS content is never silently mis-formatted-as-untouched.
-  See HTML5 checklist entry and `STATE_JS_TS.md`'s cross-job follow-up note
-  for what happens once JS/TS lands for real.
+- **HTML-before-JS/TS contingency — resolved differently than planned, then
+  superseded once JS/TS landed.** HTML5 landed (RDD_KEY_194) before
+  `STATE_JS_TS.md` had a real JS/TS formatter. At that time, rather than the
+  originally-planned silent opaque passthrough for embedded `<script>`
+  content, `renderScriptOrStyle` threw `XmlParseException` for real
+  (non-frozen) JS-type `<script>` content, directing the caller to wrap it
+  in `//% JXM_CFMT_DIS`/`//% JXM_CFMT_ENA` instead. **Superseded (commits
+  `a3c5c81`/`7cca3a4`/`679fafb`):** once `STATE_JS_TS.md` shipped a real
+  JS/TS formatter, `renderScriptOrStyle` was unblocked to actually dispatch
+  `<script>` content to `FormatterCore.forLanguage("js")` (CDATA
+  unwrap/rewrap, Config-threading fixed along the way) — the throw/freeze
+  behavior described above no longer applies except to non-JS-MIME
+  `type="..."` blocks or content already frozen via the directive pair.
+  See HTML5 checklist entry below for current behavior.
 
 ## Open Questions
 
@@ -431,7 +439,10 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   `startsWithCloseTagIgnoreCase`, HTML5-gated only. MathML's
   `definitionurl`->`definitionURL` fixup left open — no MathML-depth
   tracking exists (only `svgDepth`); revisit only if MathML foreign content
-  gets its own tracking. `make test`: 161/161. **Remaining TODO — adoption
+  gets its own tracking. (2026-07-28 cleanup-pass re-assessment: still no
+  MathML-depth tracking added since, and no dogfood corpus has hit this in
+  practice — not cheaper to fix now, left as-is.) `make test`: 161/161.
+  **Remaining TODO — adoption
   agency, foster-parenting, implicit `<body>` insertion, misnested
   `<form>`-in-`<template>` grouped as one future multi-session job**
   (user-reviewed sizing, 2026-07-25): all four need the same prerequisite
@@ -457,6 +468,12 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   `<p>`, sitting against bare top-level text with no wrapping tag, deeper
   than RDD_KEY_204's fix covers. Affects 1/226 files; deferred into the
   same bucket, not a new standalone gap.
+
+  **2026-07-28 cleanup-pass re-assessment:** still genuinely needs the
+  open-elements-stack prerequisite shared with the "adoption agency,
+  foster-parenting, implicit `<body>` insertion, misnested `<form>`"
+  future job below — nothing landed since that would let this one case be
+  peeled off cheaply on its own. Leaving folded into that bucket.
 
 ## Checklist
 
@@ -547,20 +564,26 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
       preserved byte-for-byte; `<script>`/`<style>` content captured as raw
       text via new `finishRawTextElement` helper. §4.2 dispatch: `<style>`
       splices to `CssSpecificRule.format` and back (fully real, CSS already
-      implemented). `<script>`: non-JS-MIME `type="..."` stays opaque; a
-      recognized JS-type block has no JS/TS formatter to dispatch to yet
-      (`STATE_JS_TS.md` still scaffold-only), so `renderScriptOrStyle`
-      throws `XmlParseException` directing the caller to freeze the block
-      instead of silently passing it through (refinement of the earlier
+      implemented). `<script>`: non-JS-MIME `type="..."` stays opaque; at
+      the time this entry was originally written, a recognized JS-type
+      block had no JS/TS formatter to dispatch to yet (`STATE_JS_TS.md` was
+      still scaffold-only), so `renderScriptOrStyle` threw
+      `XmlParseException` directing the caller to freeze the block instead
+      of silently passing it through (refinement of the earlier
       "HTML-before-JS/TS contingency" note, which had proposed silent
-      passthrough). Escape hatch: script-content-specific frozen-span
-      detector `isFrozenScriptContent`, recognizing a `//%
+      passthrough), with an escape hatch: script-content-specific
+      frozen-span detector `isFrozenScriptContent`, recognizing a `//%
       JXM_CFMT_DIS`/`//% JXM_CFMT_ENA` line pair anywhere in the raw content
       (not just the first line, to accommodate the CDATA-wrapped idiom's
-      literal `<![CDATA[` first line) — see `STATE_JS_TS.md`'s checklist
-      cross-job follow-up for what must happen when JS/TS lands (remove the
-      two local fixtures' directive-wrapping, wire a real dispatch call,
-      re-verify). Bug found+fixed (general, not HTML5-specific):
+      literal `<![CDATA[` first line). **Since superseded** (commits
+      `a3c5c81`/`7cca3a4`/`679fafb`, once `STATE_JS_TS.md` landed a real
+      JS/TS formatter): `renderScriptOrStyle` now actually dispatches a
+      recognized JS-type block to `FormatterCore.forLanguage("js")` and
+      splices the result back in (CDATA unwrap/rewrap and Config-threading
+      handled too); the throw-and-require-freeze behavior above is gone for
+      real JS content, `isFrozenScriptContent` remains only as an explicit
+      opt-out for content the user still wants left untouched. Bug
+      found+fixed (general, not HTML5-specific):
       self-closing/void elements never checked line length or wrapped
       attributes on overflow (RDD_KEY_193 gap) — fixed with the same
       fits-check + wrap branch used for non-self-closing tags.

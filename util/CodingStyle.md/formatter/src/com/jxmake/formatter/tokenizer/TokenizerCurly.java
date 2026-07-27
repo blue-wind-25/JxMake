@@ -949,7 +949,17 @@ public class TokenizerCurly extends TokenizerCore {
             while (pos < length) {
                 final char c = source.charAt(pos);
                 if (c == '\\' && pos + 1 < length) {
-                    pos += 2;
+                    // A backslash-escaped CRLF line continuation must consume both the `\r`
+                    // and the following `\n` as one escaped unit -- consuming only the `\r`
+                    // (as the generic 2-char skip below would) leaves the `\n` as the very
+                    // next character examined, which the `c == '\n'` check right below
+                    // mistakes for an unescaped newline terminating the string.
+                    if (source.charAt(pos + 1) == '\r' && pos + 2 < length
+                            && source.charAt(pos + 2) == '\n') {
+                        pos += 3;
+                    } else {
+                        pos += 2;
+                    }
                     continue;
                 }
                 if (c == '"') {

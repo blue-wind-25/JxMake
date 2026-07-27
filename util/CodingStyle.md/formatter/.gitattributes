@@ -3,3 +3,10 @@
 # STATE_C_CPP_JAVA.md item 26 / test/README.txt) -- must not be normalized by git on
 # checkout/commit, or the fixture stops testing what it's meant to test.
 test/real_code_regressions_118_inp.hpp -text
+
+# real_code_regressions_147_inp.ts deliberately contains CRLF line endings (reproduces a
+# CRLF-specific backslash-newline-continued plain-string-literal corruption bug found via
+# microsoft/TypeScript real-code testing, see STATE_JS_TS.md's Dogfood: microsoft/TypeScript
+# section, category 1 cluster #4 / test/README.txt) -- must not be normalized by git on
+# checkout/commit, or the fixture stops testing what it's meant to test.
+test/real_code_regressions_147_inp.ts -text

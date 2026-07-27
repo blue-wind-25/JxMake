@@ -1141,6 +1141,34 @@ distinct root causes:
    bug, but lower frequency/idiomaticity than #1/#2 and non-trivial to fix
    safely.
 
+   **FIXED (2026-07-28):** root-caused to `TokenizerCurly.emitString`
+   (`src/com/jxmake/formatter/tokenizer/TokenizerCurly.java`, the
+   non-Kotlin plain-string-literal scanning loop, ~line 943). Both trigger
+   files use CRLF line endings; the loop's generic backslash-escape
+   handling (`c == '\\' && pos + 1 < length` → `pos += 2`) only consumed
+   the backslash plus the `\r` half of a `\r\n` pair, leaving the `\n` as
+   the very next character examined on the following loop iteration — the
+   loop's separate unescaped-newline check (`c == '\n' || c == '\r'` →
+   break) then mistook that leftover `\n` for the string terminating
+   unescaped, corrupting everything after it. The same
+   backslash-newline-continued shape on LF-only source already worked
+   correctly (a bare `\` + `\n` is fully consumed by the existing 2-char
+   skip) — this was specifically a CRLF-splitting bug, not a general
+   line-continuation gap. Fixed by special-casing a `\` immediately
+   followed by `\r\n` to advance 3 characters (consuming the whole CRLF
+   pair as one escaped unit) instead of the generic 2-char skip; the
+   existing 2-char skip is unchanged for `\` + LF-only, `\` + bare CR, and
+   ordinary escapes (`\"`, `\\`, `\n` as two source chars, etc.). Verified
+   directly against both real trigger files
+   (`testRunner/unittests/incrementalParser.ts`,
+   `testRunner/unittests/services/colorization.ts` under
+   `/tmp/ts-dogfood/TypeScript`) — the backslash-continued string content
+   is now preserved byte-for-byte, no stray tokens or unterminated-string
+   corruption. Fixture: `test/real_code_regressions_147_{inp,out}.ts`
+   (minimal CRLF-line-continued plain string, LF-normalized on output per
+   default `line-endings=lf`). `make test`: 196/196 forward + 196/196
+   idempotency, zero regressions.
+
 ### Category 2 — Idempotency-only (round1 valid, round2 differs)
 
 **28 of the 30 idempotent-diff files are a single cluster, already tracked
@@ -1202,9 +1230,9 @@ Category-1 bug, not an independent idempotency-only finding).
    separate task.
 4. **Backslash-newline-continued plain-string-literal corruption**
    (Category 1) — real corruption, but affects only 2 files in an
-   old-style test-harness idiom rarely seen in modern code; needs its own
-   root-cause dive (not yet pinned to an exact tokenizer line) before a
-   fix estimate firms up.
+   old-style test-harness idiom rarely seen in modern code. **FIXED
+   (2026-07-28)** — see the full entry above (`TokenizerCurly.emitString`,
+   CRLF-specific backslash-escape 2-char-vs-3-char skip).
 
 No fixture-only false positives were found this pass (unlike `lodash/
 lodash`'s comment-period/brace-omission content-diff false positives) —

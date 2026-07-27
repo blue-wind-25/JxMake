@@ -2455,6 +2455,25 @@ Real-code regressions:
                                              after (fixture included). See `STATE_KOTLIN.md`'s Dogfood:
                                              JetBrains/kotlin section, cluster C3.
 
+  real_code_regressions_147_inp/out.ts     -- JS/TS, `microsoft/TypeScript` dogfood (category 1
+                                             cluster #4): a plain (non-template) double-quoted string
+                                             literal continued across CRLF-terminated source lines via
+                                             a trailing `\` before each line break got corrupted --
+                                             the tokenizer's `\` + next-char 2-char skip only consumed
+                                             the `\r` half of the `\r\n` pair, leaving the `\n` as the
+                                             very next character examined, which the loop's unescaped-
+                                             newline check then mistook for the string's end. Only
+                                             reproduces on CRLF source; the same shape on LF-only source
+                                             already worked. Root cause: `TokenizerCurly.emitString`
+                                             (`src/com/jxmake/formatter/tokenizer/TokenizerCurly.java`),
+                                             the non-Kotlin plain-string-literal scanning loop. Fixed by
+                                             special-casing a `\` immediately followed by `\r\n` to skip
+                                             all 3 characters as one escaped line-continuation unit,
+                                             instead of the generic 2-char backslash-escape skip.
+                                             `make test`: 195/195 forward + 195/195 idempotency, zero
+                                             regressions. See `STATE_JS_TS.md`'s Dogfood: microsoft/
+                                             TypeScript section, category 1 cluster #4.
+
 How Tests Are Run
 -----------------
 

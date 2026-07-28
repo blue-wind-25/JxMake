@@ -48,8 +48,18 @@ public class MiscRuleCurly extends MiscRuleCore {
     public MiscRuleCurly(final Lang lang, final boolean normalizeCommentStartCase,
             final boolean normalizeCommentEndPeriod, final boolean commentNormalizationClassifier,
             final int indentWidth, final int lineLengthLimit) {
+        this(lang, normalizeCommentStartCase, normalizeCommentEndPeriod, commentNormalizationClassifier,
+                false, "", indentWidth, lineLengthLimit);
+    }
+
+    /** Full constructor additionally taking the {@code gru-classifier}/{@code gru-weights-path}
+     *  config values (STATE_AI.md Step 3) -- see {@code MiscRuleCore}'s own full constructor. */
+    public MiscRuleCurly(final Lang lang, final boolean normalizeCommentStartCase,
+            final boolean normalizeCommentEndPeriod, final boolean commentNormalizationClassifier,
+            final boolean gruClassifier, final String gruWeightsPath,
+            final int indentWidth, final int lineLengthLimit) {
         super(lang, normalizeCommentStartCase, normalizeCommentEndPeriod, commentNormalizationClassifier,
-                indentWidth, lineLengthLimit);
+                gruClassifier, gruWeightsPath, indentWidth, lineLengthLimit);
     }
 
     /**

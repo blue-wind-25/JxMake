@@ -257,7 +257,7 @@ server-port                      = 17173
 line-endings                     = lf          # lf | crlf | preserve
 normalize-comment-start-case     = on          # on | off
 normalize-comment-end-period     = on          # on | off
-comment-normalization-classifier = off         # off | on
+comment-normalization-classifier = off         # off | on (tried on 2026-07-29, regressed 9 fixtures vs deterministic keyword list, see STATE_AI.md)
 closing-comment-min-lines        = 5
 format-macros                    = off         # off | on
 
@@ -286,7 +286,7 @@ python-import-sort               = on
 python-import-blank-lines        = 1
 
 # ── AI-assist (GRU) ───────────────────────────────────────────────────────────
-gru-classifier                   = off         # off | on (opt-in, no trained model ships yet)
+gru-classifier                   = on          # off | on (a real trained weights file now ships, see STATE_AI.md)
 gru-weights-path                 =             # empty = derive from program dir, see STATE_AI.md
 ```
 

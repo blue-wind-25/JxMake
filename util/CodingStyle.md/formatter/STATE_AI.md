@@ -94,7 +94,7 @@ Never externally logged — no `RDD_LOG.md` entry, no collision risk with
 | RDD_EXT_16 | Step 3 GRU training-data source policy: own dogfooded repos first (clearly owned/licensed), extend later with a vetted list of permissively-licensed (MIT/Apache-2.0/BSD-3-Clause) public repos once the pipeline is proven |
 | RDD_EXT_17 | Step 3 GRU evaluation target: 90% precision bar to resolve ABSTAIN→YES/NO; below the bar, GRU itself abstains. Starting number, revisit once real measurement exists |
 | RDD_EXT_18 | Step 3 GRU training hyperparameters (starting defaults): Adam, lr~1e-3, batch size 32 (superseded in practice — trainer uses batch size 1, see below), 20-50 epochs with early stopping on validation loss, dropout 0.2-0.3 |
-| RDD_EXT_19 | Step 3 Pool A/Pool B corpus storage: real extracted/labeled corpora and any derived real trained-weights artifacts are **never committed** — stay under `/tmp`/session scratchpad (or the user's own personal directory, `~/Projects/JxMake/0_excluded_directory/personal/GruArtifacts/`, when explicitly directed — see `tools/gru/README.txt`'s backup section for the exact commands). `tools/gru/sample_examples.txt` (checked in) holds only small, clearly-fake illustrative lines |
+| RDD_EXT_19 | Step 3 Pool A/Pool B corpus storage: real extracted/labeled corpora and any derived real trained-weights artifacts are **never committed** — stay under `/tmp`/session scratchpad (or the user's own personal directory, `~/Projects/JxMake/0_excluded_directory/personal/GruArtifacts/`, when explicitly directed — see `tools/gru/README.txt`'s backup section for the exact commands). `tools/gru/sample_examples.txt` (checked in) holds only small, clearly-fake illustrative lines. **Named exception**: see `RDD_KEY_217` in `RDD_LOG.md` (shared numbering) — `tools/gru/sample_default.txt` and `code-formatter-ai-assist-weights.json` are committed, user-directed, license-compatibility rationale; this exception does not extend to any other real corpus/weights artifact |
 | RDD_EXT_20 | Step 3 labeled-corpus schema: `<lang>\t<label:YES\|NO>\t<escaped-comment-text>` — label is binary ground truth (`ABSTAIN` is the GRU's own below-threshold behavior, never a ground-truth class) |
 | RDD_EXT_21 | Step 3 labeled-corpus schema extension: 4th column `targetWordIndex` — `<lang>\t<label:YES\|NO>\t<targetWordIndex>\t<escaped-comment-text>`. 0-based index (after `GruClassifier.tokenize`) of the ambiguous word the label is about: leading keyword for Pool A, last token for Pool B |
 | RDD_EXT_22 | The ~3.5k-word explicit vocab is a **permanent, checked-in** resource, not licensing-sensitive like real corpora/weights (RDD_EXT_19 doesn't apply): individual words/keywords aren't copyrightable subject matter (Feist v. Rural), and a word-frequency list reproduces no protected expression regardless of source corpus license. `tools/gru/explicit_vocab.txt` (3500 words: 154 keyword slots across every `Lang.java` language + 3346 frequency-derived common words) + generator `tools/gru/build_vocab.py`. Append-only once trained against — reordering/removing lines would shift embedding-row indices and corrupt existing weights files. `GruTrainer` loads it by default (`--vocab=` override) |
@@ -538,24 +538,190 @@ run data behind them.
 
 ## Next steps (as of the 16-source acquisition + 5-round cross-validation run)
 
-1. **Hand-label the 578 Pool A / 492 Pool B candidates** from
-   `~/Projects/JxMake/0_excluded_directory/personal/GruArtifacts/gru_corpus.tar.xz`
-   (extract it back under `/tmp` first) per RDD_EXT_20's schema — the one
-   step that can't be automated away.
-2. **Add the `targetWordIndex` column** to the newly labeled candidates via
-   `tools/gru/add_target_index.py` (RDD_EXT_21), same as the first batch.
-3. **Combine** the new labeled corpora with the existing 408-example set into
-   one larger combined file.
-4. **Retrain** against the grown corpus (`make gru-train`, or
-   `GruTrainer` directly) and **re-run `cross_validate.py`** against it to get
-   an updated, larger-sample precision/variance estimate, superseding the
-   current 92.40%/3.00% (408-example) figures above.
-5. **Back up** any new real corpus/weights artifacts worth keeping to
-   `~/Projects/JxMake/0_excluded_directory/personal/GruArtifacts/` per
-   `tools/gru/README.txt`'s backup section (never into the repo, per
-   RDD_EXT_19).
-6. Once precision on the grown corpus is judged good enough against
-   RDD_EXT_17's 90% bar, the resulting weights file becomes a candidate for
-   actual deployment (wiring a real weights file into
-   `GruAbstainResolver`'s `gru-weights-path` for a live run) — not yet
-   scoped in detail, revisit once step 4's numbers are in.
+**Status update (2026-07-29): superseded by this session's `gru-acquire-corpus`/
+auto-labeling/live-wiring work (see the dated section above) — marked
+per-item below rather than left as if still pending as originally written.**
+
+1. **Hand-label the 578 Pool A / 492 Pool B candidates** — **CANCELED
+   (superseded, not performed).** This session took a different path
+   (`GenerateSampleDefault.java` auto-labeling via the rule-based classifier)
+   to get a real default training corpus without hand-labeling. The 578/492
+   candidates themselves were never hand-labeled and still sit unlabeled in
+   the archived `gru_corpus.tar.xz`; hand-labeling them remains available as
+   a *future* option (it's the only source of real ground-truth `NO`
+   examples, since the auto-labeled path structurally cannot produce `NO` —
+   see the dated section above) but is no longer "the next step" by default.
+2. **Add the `targetWordIndex` column** to the newly labeled candidates —
+   **CANCELED (superseded, moot).** Moot as stated, since step 1 didn't
+   happen; `GenerateSampleDefault.java` emits its own `targetWordIndex`
+   column (always 0) directly as part of auto-labeling, so this exact tool
+   invocation is no longer needed for the default-corpus path either way.
+3. **Combine** the new labeled corpora with the existing 408-example set —
+   **CANCELED (superseded, not performed).** `sample_default.txt` (the new
+   170k-line auto-labeled corpus) was deliberately kept as its own separate
+   file, not merged with the 408-example hand-labeled corpus — different
+   provenance/label-quality tier, and RDD_KEY_217's commit exception applies
+   only to `sample_default.txt`, not the hand-labeled corpus.
+4. **Retrain** against the grown corpus and **re-run `cross_validate.py`** —
+   **MODIFIED.** A retrain did happen (`make gru-train`, this session,
+   producing `code-formatter-ai-assist-weights.json`), but against
+   `sample_default.txt` (the new auto-labeled corpus), not the "grown"
+   408-example-plus-hand-labeled-candidates corpus this step originally
+   meant. `cross_validate.py` was not re-run against it (would report ~0%
+   variance-of-precision-on-NO trivially, since the corpus has no `NO`
+   examples) — the 92.40%/3.00% (408-example) figures above are NOT
+   superseded by this retrain and remain the only real precision estimate
+   on record.
+5. **Back up** any new real corpus/weights artifacts to `GruArtifacts` —
+   **MODIFIED.** Superseded by RDD_KEY_217's narrower, different resolution:
+   instead of (or in addition to) a personal-directory backup, exactly
+   `tools/gru/sample_default.txt` and `code-formatter-ai-assist-weights.json`
+   are being committed straight into the repo, per explicit user direction —
+   see RDD_KEY_217 in `RDD_LOG.md`. This does not apply to any other
+   artifact (Pool A/B candidates, cross-validation working files, etc.),
+   which still follow the original personal-directory-backup guidance as-is.
+6. **Deploy** the weights file once precision clears RDD_EXT_17's 90% bar —
+   **MODIFIED / PARTIALLY DONE.** The wiring itself is done this session
+   (`GruAbstainResolver` is genuinely reachable from the live formatter via
+   `MiscRuleCore`), but it did NOT wait on a precision re-measurement against
+   a grown corpus as this step assumed — the shipped default weights file
+   is trained on the all-`YES` auto-labeled corpus, not a precision-vetted
+   grown one. It's also not active *by default* in practice:
+   `comment-normalization-classifier` (the prerequisite gate) had to be kept
+   `off` by default after it regressed 9 `make test` fixtures — see the dated
+   section above. So: reachable/wired = done; "deployed" in the sense of
+   active by default and precision-vetted against a bigger corpus = not done,
+   now blocked on classifier-accuracy work instead of corpus size.
+
+---
+
+## 2026-07-29 session: default auto-labeled corpus, live wiring, RDD_KEY_217
+
+### Why the GRU only ever returns YES/ABSTAIN in practice (never NO)
+
+Two independent causes, confirmed by reading the actual code:
+
+- `CommentClassifier.classify(CommentFeatureVector)` (the rule-based/"linear"
+  classifier that gates the GRU) is architecturally incapable of returning
+  `NO` — its decision tree only ever returns `YES` or `ABSTAIN` (RDD_KEY_96).
+  `GruAbstainResolver.resolve` only calls the GRU at all when the rule result
+  is `ABSTAIN`, so `NO` can only ever come from the GRU stage itself.
+- The GRU stage itself (`GruClassifier.classify`) genuinely can return `NO`
+  — but until this session it was never reached in the live formatter at
+  all (`gruClassifier` config defaulted off, no shipped weights file existed,
+  and — separately — the default training corpus turned out to be 100% `YES`
+  labels, see below), so empirically `NO` never appeared out of either stage.
+
+### New default-corpus auto-labeling pipeline (`gru-acquire-corpus`)
+
+Added `tools/gru/GenerateSampleDefault.java`: runs an acquired comment corpus
+through the real rule-based `CommentClassifier` (distant supervision/
+auto-labeling) to bootstrap `tools/gru/sample_default.txt` in RDD_EXT_20/21
+schema, skipping `ABSTAIN` comments, always `targetWordIndex=0`, with a
+provenance header. Wired into the `Makefile`: `make gru-acquire-corpus` now
+acquires the corpus, extracts Pool A/B (as before), and additionally runs
+this auto-labeling step, in-place `awk '!seen[$0]++'`-deduplicating the
+result (77,499 duplicate lines removed from a 172,285-comment/170,210-kept
+run — mostly repeated license-header/boilerplate text recurring across
+files of the same source repo). `make gru-train`'s `GRU_SAMPLE_EXAMPLES`
+default now points at `sample_default.txt` instead of the old placeholder
+`sample_examples.txt`; a new `GRU_TRAIN_ARGS` passthrough variable was added
+for hyperparameter overrides (e.g. `GRU_TRAIN_ARGS="--epochs=20 --patience=4"`).
+
+**Empirical confirmation of the "why no NO" finding**: the full-scale
+auto-labeled run produced 170,210 kept examples, **100% labeled `YES`** —
+directly demonstrating that bootstrapping training data from the rule-based
+classifier alone can only ever teach the GRU to imitate that classifier's
+own `YES`/abstain-collapsed-to-skip behavior, never `NO`. Answering the
+session's rhetorical question directly: **yes, a default weights file
+trained purely on this auto-labeled corpus is expected to behave similarly
+to the rule-based classifier** on the cases the rule-based classifier is
+already confident about, precisely because that classifier is the sole
+source of its labels. It should still generalize somewhat differently on
+truly ambiguous (rule-`ABSTAIN`) inputs, since those weren't excluded from
+the input corpus for lack of a label — they just never became `sample_default.txt`
+rows at all (only non-`ABSTAIN` rule verdicts get emitted). Getting real `NO`
+signal into the default corpus still requires either hand-labeled real `NO`
+examples (the existing Pool A/B hand-labeling path) or a different
+bootstrapping signal than "what does the current rule-based classifier say".
+
+### RDD_KEY_217 — named exception to RDD_EXT_19 for the default artifacts
+
+Per explicit user direction (license compatibility: sources are MIT/
+Apache-2.0/BSD-3-Clause, all compatible with the formatter's own license;
+provenance is traceable since the acquisition script recording each source
+lives in the repo; and the comment excerpts themselves are short quoted
+fragments, not "proper/significant code" in the copyright sense), logged
+**RDD_KEY_217** in `RDD_LOG.md` as a named, narrow exception: exactly
+`tools/gru/sample_default.txt` and `code-formatter-ai-assist-weights.json`
+are committed, unlike every other real corpus/weights artifact this job
+produces. RDD_EXT_19's general policy is **not** retracted for anything
+else — hand-labeled Pool A/B corpora, cross-validation working files, and
+any other derived artifact still stay under `/tmp`/personal-directory only.
+
+### `tools/gru/sample_examples.txt` bug fix
+
+Found and fixed 3 pre-existing `targetWordIndex` bugs in the small
+illustrative Pool B lines (cross-checked against `GruClassifier.tokenize`'s
+real output): `"extern C."` was pointing past the end of its 3-token
+tokenization (index 3, should be 2 — `GruTrainer` was silently skipping this
+line on every run rather than erroring); two other lines pointed at a
+mid-sentence comma/abbreviation-dot token instead of the real trailing
+period. Fixed in place with an explanatory dated comment in the file itself;
+verified via a live `GruTrainer` smoke run showing all 14 lines now usable
+(`trainExamples=12, validationExamples=2`) instead of one being silently
+dropped.
+
+### Live formatter wiring — `GruAbstainResolver` reachable from `MiscRuleCore`
+
+`MiscRuleCore.classifyComment` (the actual comment-normalization funnel used
+by `MiscRuleCurly`'s three call sites: sole-trailing-period stripping across
+lines, first-letter capitalization, and single-line trailing-period
+stripping) now calls `GruAbstainResolver.resolve(features, commentText,
+targetWordIndex, gruClassifier, gruWeightsPath)` instead of calling
+`CommentClassifier.classify` directly — the GRU stage is now genuinely
+reachable from the live formatting pipeline, not just offline tooling.
+`gruClassifier`/`gruWeightsPath` were threaded as new constructor parameters
+through `MiscRuleCore` → `MiscRuleCurly` → `ScopePipelineCurly` →
+`FormatterCurly` (all with backward-compatible delegating overloads, so no
+other caller needed to change). `Config.gruClassifier` now defaults to
+`true` (a real trained weights file — once training finishes — ships
+alongside the jar; `GruAbstainResolver` fails safe to `ABSTAIN` if the file
+is missing/unreadable regardless of this flag, so flipping it on is
+low-risk by itself).
+
+**Important finding — `comment-normalization-classifier` stays `off` by
+default.** This is the *other* gate in the chain (`MiscRuleCore` only calls
+`GruAbstainResolver` at all when `commentNormalizationClassifier` is true;
+`gruClassifier` alone is inert without it). Tried flipping both defaults to
+`true` together; `make test` regressed 9 fixtures (`c_comments`,
+`cpp_modern`, `cpp_combined`, `cpp_comments`, `java_core`, `java_combined`,
+`java_comments`, `real_code_regressions_22.kt`, `real_code_regressions_54.java`).
+Root cause: the rule-based classifier disagrees with the existing
+deterministic `isCommentNoCapitalizeWord` keyword list on common real-code
+cases — it incorrectly decided to capitalize comments starting with
+`consteval`, `static`, `while`, `do-while`, `var`, `this`, `const`,
+`explicit`, `public`, `switch`, etc., where the deterministic list correctly
+left them lowercase. **Reverted `commentNormalizationClassifier`'s default
+back to `false`** (restoring all-green `make test`); `gruClassifier` was
+left at its new `true` default since it's provably inert on its own. The
+rule-based classifier's accuracy on exactly this keyword-leading-comment
+case (`KeywordAmbiguityGate`'s core scenario) needs real improvement before
+`comment-normalization-classifier` can safely default on — this is now the
+concrete, test-backed blocker for actually making the GRU path active by
+default in the shipped formatter, as opposed to merely reachable when a user
+opts in via config.
+
+### Still outstanding
+
+- `tools/gru/README.txt`'s pipeline-order text still describes the old
+  manual archive-then-hand-label-only workflow; needs updating to describe
+  `gru-acquire-corpus`'s new auto-labeling step.
+- The background `make gru-train GRU_TRAIN_ARGS="--epochs=20 --patience=4"`
+  run against the (pre-dedup, 170,217-line) `sample_default.txt` was still
+  running as of this write-up; results not yet folded in here.
+- Improving `CommentClassifier`'s keyword-list accuracy (or otherwise
+  reconciling it with the deterministic heuristic) so
+  `comment-normalization-classifier` can default `on` without regressing
+  fixtures is now the concrete next step for actually activating the GRU
+  path by default, rather than leaving it real-but-opt-in.

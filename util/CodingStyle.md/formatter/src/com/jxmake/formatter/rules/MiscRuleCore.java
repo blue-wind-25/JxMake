@@ -8,9 +8,10 @@
 package com.jxmake.formatter.rules;
 
 import com.jxmake.formatter.Lang;
-import com.jxmake.formatter.classifier.CommentClassifier;
 import com.jxmake.formatter.classifier.CommentDecision;
 import com.jxmake.formatter.classifier.CommentFeatureExtractor;
+import com.jxmake.formatter.classifier.gru.GruAbstainResolver;
+import com.jxmake.formatter.classifier.gru.GruClassifier;
 import com.jxmake.formatter.evaluator.ComplexityPaddingEvaluator;
 import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
@@ -44,6 +45,8 @@ public abstract class MiscRuleCore {
     protected final boolean normalizeCommentStartCase;
     protected final boolean normalizeCommentEndPeriod;
     protected final boolean commentNormalizationClassifier;
+    protected final boolean gruClassifier;
+    protected final String gruWeightsPath;
     public final int indentWidth;
     public final int lineLengthLimit;
     protected final String indentUnit;
@@ -51,10 +54,24 @@ public abstract class MiscRuleCore {
     protected MiscRuleCore(final Lang lang, final boolean normalizeCommentStartCase,
             final boolean normalizeCommentEndPeriod, final boolean commentNormalizationClassifier,
             final int indentWidth, final int lineLengthLimit) {
+        this(lang, normalizeCommentStartCase, normalizeCommentEndPeriod, commentNormalizationClassifier,
+                false, "", indentWidth, lineLengthLimit);
+    }
+
+    /** Full constructor additionally taking the {@code gru-classifier}/{@code gru-weights-path}
+     *  config values (STATE_AI.md Step 3) -- see {@link #classifyComment(String, int)}. The
+     *  shorter constructor above defaults these to off/empty (no behavior change for any caller
+     *  that hasn't opted in yet, e.g. {@code MiscRuleIndent}/{@code MiscRuleTags}). */
+    protected MiscRuleCore(final Lang lang, final boolean normalizeCommentStartCase,
+            final boolean normalizeCommentEndPeriod, final boolean commentNormalizationClassifier,
+            final boolean gruClassifier, final String gruWeightsPath,
+            final int indentWidth, final int lineLengthLimit) {
         this.lang = lang;
         this.normalizeCommentStartCase = normalizeCommentStartCase;
         this.normalizeCommentEndPeriod = normalizeCommentEndPeriod;
         this.commentNormalizationClassifier = commentNormalizationClassifier;
+        this.gruClassifier = gruClassifier;
+        this.gruWeightsPath = gruWeightsPath == null ? "" : gruWeightsPath;
         this.indentWidth = indentWidth;
         this.lineLengthLimit = lineLengthLimit;
         final StringBuilder sb = new StringBuilder();
@@ -1851,9 +1868,11 @@ public static final class Assignment {
         if (!normalizeCommentEndPeriod || lines.isEmpty()) {
             return;
         }
-        if (commentNormalizationClassifier
-                && classifyComment(String.join("\n", lines)) != CommentDecision.YES) {
-            return;
+        if (commentNormalizationClassifier) {
+            final String joined = String.join("\n", lines);
+            if (classifyComment(joined, lastTokenIndex(joined)) != CommentDecision.YES) {
+                return;
+            }
         }
         int dotCount = 0;
         for (final String l : lines) {
@@ -1896,7 +1915,7 @@ public static final class Assignment {
             }
             if (Character.isLetter(c) && Character.isLowerCase(c)) {
                 if (commentNormalizationClassifier) {
-                    if (classifyComment(content) != CommentDecision.YES) {
+                    if (classifyComment(content, 0) != CommentDecision.YES) {
                         return content;
                     }
                     return content.substring(0, i) + Character.toUpperCase(c) + content.substring(i + 1);
@@ -1941,9 +1960,32 @@ public static final class Assignment {
      *  {@link CommentDecision#NO}) must behave exactly as if the relevant {@code
      *  normalize-comment-*} key were {@code off} for that one comment -- callers check
      *  {@code != CommentDecision.YES}, not {@code == CommentDecision.ABSTAIN}, so a future
-     *  NO-capable classifier doesn't silently start normalizing on NO. */
+     *  NO-capable classifier doesn't silently start normalizing on NO.
+     *
+     *  <p>Runs the rule-based classifier first; when it abstains and {@link #gruClassifier} is on,
+     *  falls through to {@link GruAbstainResolver#resolve} (STATE_AI.md Step 3) with
+     *  {@code targetWordIndex} pointing at the token the decision actually hinges on -- index 0
+     *  (leading word) for the capitalize-first-letter call site, last-token index for the
+     *  strip-trailing-period call sites, per {@link #classifyComment(String, int)}. */
     protected CommentDecision classifyComment(final String content) {
-        return CommentClassifier.classify(CommentFeatureExtractor.extract(content, lang));
+        return classifyComment(content, 0);
+    }
+
+    /** Same as {@link #classifyComment(String)}, but lets the caller specify which token index
+     *  (post {@link GruClassifier#tokenize}) the ambiguous decision is actually about, so the GRU
+     *  stage (when reached) looks at the right word. */
+    protected CommentDecision classifyComment(final String content, final int targetWordIndex) {
+        final com.jxmake.formatter.classifier.CommentFeatureVector features =
+                CommentFeatureExtractor.extract(content, lang);
+        return GruAbstainResolver.resolve(features, content, targetWordIndex, gruClassifier, gruWeightsPath);
+    }
+
+    /** Token index of the last token in {@code content} per {@link GruClassifier#tokenize}, or 0
+     *  if {@code content} tokenizes to nothing -- used as the strip-trailing-period call sites'
+     *  {@code targetWordIndex} (the ambiguous trailing dot is the last token). */
+    protected static int lastTokenIndex(final String content) {
+        final int size = GruClassifier.tokenize(content).size();
+        return size == 0 ? 0 : size - 1;
     }
     /** Strips the trailing `.` only when it is the sole `.` in `content` -- this also leaves an
      *  ellipsis (`...`) untouched for free, since an ellipsis's dot count is never exactly 1. */
@@ -1951,7 +1993,8 @@ public static final class Assignment {
         if (!normalizeCommentEndPeriod) {
             return content;
         }
-        if (commentNormalizationClassifier && classifyComment(content) != CommentDecision.YES) {
+        if (commentNormalizationClassifier
+                && classifyComment(content, lastTokenIndex(content)) != CommentDecision.YES) {
             return content;
         }
         int end = content.length();

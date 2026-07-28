@@ -31,8 +31,19 @@ cpp	YES	0	if ready
 java	NO	0	if not ready yet
 c	NO	0	for loop below here
 # A few Pool B (period-ambiguity) examples, per RDD_EXT_15's shape -- target
-# index is the last token (the trailing "." itself):
-c	NO	3	extern C.
-c	YES	5	the dot . here separates fields
-cpp	NO	4	supports JSON, YAML, etc.
-cpp	NO	3	uses a vs. b comparison
+# index is the last token (the trailing "." itself). These 4 targetWordIndex
+# values were previously wrong (cross-checked against the real
+# GruClassifier.tokenize output 2026-07-29: "extern C." tokenizes to 3 tokens
+# [extern, C, .] so its last index is 2, not the old 3 -- out of range, so
+# GruTrainer silently skipped it every run; "supports JSON, YAML, etc."/"uses
+# a vs. b comparison" pointed at a mid-sentence comma/abbreviation dot instead
+# of the actual last token, silently training on the wrong target word instead
+# of crashing). Fixed below; the "the dot . here separates fields" line was
+# also reworded so it genuinely ends in a period, matching what this pool is
+# supposed to illustrate (a stray non-sentence-ending dot earlier in the text,
+# with the real decision about the trailing one) instead of having no trailing
+# period at all.
+c	NO	2	extern C.
+c	YES	13	there is a dot . in front but the sentence truly ends here.
+cpp	NO	6	supports JSON, YAML, etc.
+cpp	NO	5	uses a vs. b comparison

@@ -12,13 +12,6 @@ have not modified). If unsure ask me.
 ####################################################################################################
 ####################################################################################################
 
-Use one sub-agent to inspect the GRU work:
-    `tools/gru/gen_synthetic_prompt.py`
-    `tools/gru/.gen_synthetic_state.json`
-    `tools/gru/.gen_synthetic_requested_words.txt`
-    `tools/gru/regroup_synthetic.py`
-and the partial output file `tools/sp_gemini.txt`. Check if the scripts and output are as expected.
-
 Update and fix `CLAUDE.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`,
 `../AI_PREAMBLE_AESTHETIC.md`, etc.
 Ensure the languange order in the documentations, help strings, etc. is:
@@ -38,7 +31,15 @@ Compact (use one sub-agent) all newly touched `STATE_*.md`.
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.
 
+Compact (use one sub-agent) `STATE_C_CPP_JAVA.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
+
 Compact (use one sub-agent) `STATE_CPP26.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
+
+Compact (use one sub-agent) `STATE_KOTLIN.md`.
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.
 
@@ -54,23 +55,14 @@ Compact (use one sub-agent) `STATE_PYTHON3.md`.
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.
 
-Compact (use one sub-agent) `STATE_COMMON.md`, `STATE_C_CPP_JAVA.md` and `STATE_KOTLIN.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
-Compact (use one sub-agent) `STATE_C_CPP_JAVA.md`, `STATE_JS_TS.md`, and `STATE_PYTHON3.md`
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
-Compact (use one sub-agent):
-    `STATE_KOTLIN.md`
+Compact (use one sub-agent) `STATE_COMMON.md`, `STATE_KOTLIN.md`, and `STATE_AI.md`
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, the active work diagnosis, clustering, etc.
 Then update `STATE_DOGFOOD.md` about the above dogfood state (keep `Note` short enough).
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_151_inp/out.kt`
-    to   `real_code_regressions_165_inp/out.kt`
+    from `real_code_regressions_166_inp/out.kt`
+    to   `real_code_regressions_169_inp/out.kt`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -131,12 +123,10 @@ Use one sub-agent as needed, the sub-agent can launch up to one more research su
 
 JetBrains/kotlin — Idempotency
 ------------------------------
-D2. Closing-brace indent drift across passes
-D1. Declaration/accessor column-alignment padding flap
+*D1. Declaration/accessor column-alignment padding flap
 D3. Multi-param lambda header wrap flap
-D4. Minor adjacent-closing-brace spacing flap
 
-Continue with JetBrains/kotlin idempotency bug D2 residual, tell the sub-agent:
+Continue with JetBrains/kotlin idempotency bug D3, tell the sub-agent:
     JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
     KLIB=~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib
     cd util/CodingStyle.md/formatter/tools/verifiers

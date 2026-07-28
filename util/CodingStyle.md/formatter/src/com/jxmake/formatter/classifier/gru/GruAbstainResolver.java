@@ -24,16 +24,15 @@ import java.security.CodeSource;
  *  "GRU implementation design" ({@code Rules -> high confidence / abstain -> bidirectional GRU
  *  classifier -> final decision}). This is purely additive plumbing -- it does not change
  *  {@link CommentClassifier#classify}'s pure rule-based signature/contract (that contract is a
- *  hard architectural constraint per that class's own javadoc), and it is not wired into
- *  {@code MiscRuleCore} (a separate, out-of-scope follow-up task).
+ *  hard architectural constraint per that class's own javadoc).
  *
- *  <p>Since {@link GruClassifier#classify} is currently a stub that unconditionally returns
- *  {@link CommentDecision#ABSTAIN} (see its javadoc), this resolver cannot yet produce any
- *  different final decision than calling {@link CommentClassifier#classify} alone would --
+ *  <p><b>Wired into {@code MiscRuleCore.classifyComment}</b> (both its capitalize-first-letter and
+ *  strip-trailing-period funnel points), gated behind the same {@code gru-classifier}/
+ *  {@code gru-weights-path} config keys this class already read before the wiring landed. If no
+ *  weights file is deployed ({@link GruClassifier#classify} fails safe per its own javadoc), this
+ *  resolver produces exactly the same result {@link CommentClassifier#classify} alone would --
  *  matching STATE_AI.md's hard constraint that this work is purely additive, no existing
- *  Tier-1/Tier-2 rule behavior may change. Once a real trained weights file and forward pass
- *  land, this is the one call site that will start seeing the GRU actually resolve some abstains,
- *  with no further plumbing changes needed. */
+ *  Tier-1/Tier-2 rule behavior may change when the feature is off or the weights file is absent. */
 public final class GruAbstainResolver {
 
     /** Filename of the GRU weights file expected in the "program directory" (see
@@ -79,15 +78,24 @@ public final class GruAbstainResolver {
      */
     public static CommentDecision resolve(final CommentFeatureVector features, final String commentText,
             final int targetWordIndex, final Config config) {
+        return resolve(features, commentText, targetWordIndex, config.isGruClassifier(), config.gruWeightsPath());
+    }
+
+    /** {@code Config}-free overload of {@link #resolve(CommentFeatureVector, String, int, Config)} for
+     *  callers (e.g. {@code MiscRuleCore}) that don't hold a full {@link Config} instance -- takes the
+     *  same two config values ({@code gru-classifier}, {@code gru-weights-path}) directly. Identical
+     *  behavior/fail-safe posture to the {@code Config}-based overload, which now just forwards here. */
+    public static CommentDecision resolve(final CommentFeatureVector features, final String commentText,
+            final int targetWordIndex, final boolean gruClassifierEnabled, final String gruWeightsPathConfig) {
         final CommentDecision ruleResult = CommentClassifier.classify(features);
         if (ruleResult != CommentDecision.ABSTAIN) {
             return ruleResult;
         }
-        if (!config.isGruClassifier()) {
+        if (!gruClassifierEnabled) {
             return CommentDecision.ABSTAIN;
         }
 
-        final Path weightsPath = resolveWeightsPath(config);
+        final Path weightsPath = resolveWeightsPath(gruWeightsPathConfig);
         if (weightsPath == null) {
             // Fail-safe: no explicit path configured and the program directory couldn't be
             // determined -- ABSTAIN, never blocks formatting.
@@ -104,15 +112,14 @@ public final class GruAbstainResolver {
         return gru.classify(commentText, targetWordIndex);
     }
 
-    /** Resolves the weights-file path to attempt loading: {@code config.gruWeightsPath()} if it
-     *  is explicitly set (non-empty), else derived as {@code programDirectory()/WEIGHTS_FILENAME}
-     *  when {@code gru-weights-path} is left at its default empty value. Returns {@code null} (a
+    /** Resolves the weights-file path to attempt loading: {@code gruWeightsPathConfig} if it is
+     *  explicitly set (non-empty), else derived as {@code programDirectory()/WEIGHTS_FILENAME} when
+     *  {@code gru-weights-path} is left at its default empty value. Returns {@code null} (a
      *  fail-safe "no path" result, handled by the caller as {@code ABSTAIN}) if no explicit path
      *  is configured and the program directory can't be determined either. */
-    private static Path resolveWeightsPath(final Config config) {
-        final String configured = config.gruWeightsPath();
-        if (configured != null && !configured.trim().isEmpty()) {
-            return Paths.get(configured);
+    private static Path resolveWeightsPath(final String gruWeightsPathConfig) {
+        if (gruWeightsPathConfig != null && !gruWeightsPathConfig.trim().isEmpty()) {
+            return Paths.get(gruWeightsPathConfig);
         }
         final Path programDir = programDirectory();
         if (programDir == null) {

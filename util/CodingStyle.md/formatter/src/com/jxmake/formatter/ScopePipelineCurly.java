@@ -93,6 +93,17 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod,
             final boolean commentNormalizationClassifier, final boolean formatOff,
             final int indentWidth, final int lineLengthLimit) {
+        this(lang, indentStyle, normalizeCommentStartCase, normalizeCommentEndPeriod,
+                commentNormalizationClassifier, false, "", formatOff, indentWidth, lineLengthLimit);
+    }
+
+    /** Full constructor additionally taking the {@code gru-classifier}/{@code gru-weights-path}
+     *  config values (STATE_AI.md Step 3) -- see {@code MiscRuleCore}'s own full constructor. */
+    public ScopePipelineCurly(final Lang lang, final String indentStyle,
+            final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod,
+            final boolean commentNormalizationClassifier, final boolean gruClassifier,
+            final String gruWeightsPath, final boolean formatOff,
+            final int indentWidth, final int lineLengthLimit) {
         super(indentWidth);
         this.lang = lang;
         this.indentStyle = indentStyle;
@@ -102,7 +113,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 ? new com.jxmake.formatter.rules.KotlinGetterSetterRule(lang, indentWidth, lineLengthLimit)
                 : new GetterSetterRuleCurly(lang, indentWidth, lineLengthLimit);
         this.miscRule = new MiscRuleCurly(lang, normalizeCommentStartCase, normalizeCommentEndPeriod,
-                commentNormalizationClassifier, indentWidth, lineLengthLimit);
+                commentNormalizationClassifier, gruClassifier, gruWeightsPath, indentWidth, lineLengthLimit);
         this.kotlinDeclarationRule = lang.isKotlin
                 ? new KotlinDeclarationAlignmentRule(lang, indentWidth, lineLengthLimit) : null;
         this.kotlinSignatureRule = lang.isKotlin
@@ -769,39 +780,6 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             replacements.add(new Replacement(firstSpan.start, lastTermEnd, text));
         }
         return splice(tokens, replacements);
-    }
-
-    /**
-     * RDD_KEY_219 -- Kotlin-only companion to {@link #applyGetterSetterPass}: renders {@code
-     * filtered} (the post-{@code excludeOutliers} survivors) as maximal CONTIGUOUS runs with
-     * respect to their positions in the original (pre-exclusion) {@code group}, instead of one
-     * flat shared-width group spanning the whole original group. Each run is rendered
-     * independently via {@code getterSetterRule.render}, matching the width a Kotlin re-format
-     * would naturally compute once an excluded member (sitting between two runs) has become
-     * genuinely multi-line and hard-breaks {@code groupOneLiners}'s own grouping at that point --
-     * see {@link #applyGetterSetterPass}'s doc comment for the full idempotency rationale.
-     */
-    private List<String> renderKotlinFilteredRuns(final List<Token> tokens, final List<Member> group,
-            final List<Member> filtered) {
-        final java.util.Set<Member> keep = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-        keep.addAll(filtered);
-        final List<String> result = new ArrayList<>();
-        int i = 0;
-        while (i < group.size()) {
-            if (!keep.contains(group.get(i))) {
-                i++;
-                continue;
-            }
-            final List<Member> run = new ArrayList<>();
-            int j = i;
-            while (j < group.size() && keep.contains(group.get(j))) {
-                run.add(group.get(j));
-                j++;
-            }
-            result.addAll(getterSetterRule.render(tokens, run));
-            i = j;
-        }
-        return result;
     }
 
     /** STYLE_KOTLIN.md §6/§12 -- Kotlin's `[modifiers] val|var name [: type] [= init]` grammar is
@@ -1477,6 +1455,39 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             }
         }
         return splice(tokens, replacements);
+    }
+
+    /**
+     * RDD_KEY_219 -- Kotlin-only companion to {@link #applyGetterSetterPass}: renders {@code
+     * filtered} (the post-{@code excludeOutliers} survivors) as maximal CONTIGUOUS runs with
+     * respect to their positions in the original (pre-exclusion) {@code group}, instead of one
+     * flat shared-width group spanning the whole original group. Each run is rendered
+     * independently via {@code getterSetterRule.render}, matching the width a Kotlin re-format
+     * would naturally compute once an excluded member (sitting between two runs) has become
+     * genuinely multi-line and hard-breaks {@code groupOneLiners}'s own grouping at that point --
+     * see {@link #applyGetterSetterPass}'s doc comment for the full idempotency rationale.
+     */
+    private List<String> renderKotlinFilteredRuns(final List<Token> tokens, final List<Member> group,
+            final List<Member> filtered) {
+        final java.util.Set<Member> keep = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        keep.addAll(filtered);
+        final List<String> result = new ArrayList<>();
+        int i = 0;
+        while (i < group.size()) {
+            if (!keep.contains(group.get(i))) {
+                i++;
+                continue;
+            }
+            final List<Member> run = new ArrayList<>();
+            int j = i;
+            while (j < group.size() && keep.contains(group.get(j))) {
+                run.add(group.get(j));
+                j++;
+            }
+            result.addAll(getterSetterRule.render(tokens, run));
+            i = j;
+        }
+        return result;
     }
 
     // ── Recursion driver ─────────────────────────────────────────────────────────

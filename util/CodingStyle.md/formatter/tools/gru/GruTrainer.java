@@ -38,6 +38,12 @@ import java.util.Set;
  *  split's cross-entropy loss (patience-based: stop once validation loss hasn't improved for
  *  {@code --patience} epochs, default 5).
  *
+ *  <p>Prints a start-of-run summary line, a mid-epoch progress line every {@code --progress-every}
+ *  training examples (default 1000, 0 disables -- added 2026-07-29 once a large, 90k+-example
+ *  auto-labeled corpus made a once-per-epoch-only log impractical to watch live), and a per-epoch
+ *  summary line (loss + wall-clock timing). All via plain {@code System.out.println}, which
+ *  auto-flushes on newline.
+ *
  *  <p>Labeled-examples file format (RDD_EXT_20/RDD_EXT_21): one example per line, tab-separated:
  *  {@code <lang>\t<label:YES|NO>\t<targetWordIndex>\t<escaped-comment-text>}. {@code label} is
  *  binary ground truth (ABSTAIN is the GRU's own below-threshold runtime behavior, never a
@@ -119,6 +125,12 @@ public final class GruTrainer {
         int maxEpochs = Integer.parseInt(hyperparameters.getOrDefault("epochs", "30"));
         int patience = Integer.parseInt(hyperparameters.getOrDefault("patience", "5"));
         long seed = Long.parseLong(hyperparameters.getOrDefault("seed", "42"));
+        // Progress reporting (2026-07-29): large auto-labeled corpora (100k+ examples) take long
+        // enough per epoch that a human watching the process needs mid-epoch feedback, not just a
+        // once-per-epoch line. --progress-every=N prints a running line every N training examples
+        // within the epoch (0 disables); default chosen so it fires a handful of times per epoch on
+        // a ~100k-example corpus without flooding the console on small corpora.
+        int progressEvery = Integer.parseInt(hyperparameters.getOrDefault("progress-every", "1000"));
 
         List<Example> examples;
         try {
@@ -162,21 +174,32 @@ public final class GruTrainer {
             train = examples;
         }
 
+        System.out.println("GruTrainer: starting -- vocabSize=" + explicitVocab.size()
+                + ", trainExamples=" + train.size() + ", validationExamples=" + validation.size()
+                + ", maxEpochs=" + maxEpochs + ", patience=" + patience + ", lr=" + learningRate);
+
         AdamState adam = new AdamState(weights);
         double bestValidationLoss = Double.POSITIVE_INFINITY;
         GruWeights bestWeights = weights;
         int epochsSinceImprovement = 0;
         int step = 0;
+        long trainingStartNanos = System.nanoTime();
 
         for (int epoch = 1; epoch <= maxEpochs; epoch++) {
             Collections.shuffle(train, random);
             double trainLoss = 0.0;
+            long epochStartNanos = System.nanoTime();
+            int examplesSeen = 0;
             for (Example example : train) {
                 List<String> tokens = GruClassifier.tokenize(example.text);
                 if (tokens.size() > GruClassifier.SEQUENCE_CAP) {
                     tokens = tokens.subList(0, GruClassifier.SEQUENCE_CAP);
                 }
+                examplesSeen++;
                 if (example.targetWordIndex < 0 || example.targetWordIndex >= tokens.size()) {
+                    if (progressEvery > 0 && examplesSeen % progressEvery == 0) {
+                        printProgress(epoch, examplesSeen, train.size(), trainLoss, epochStartNanos, trainingStartNanos);
+                    }
                     continue;
                 }
                 GruClassifier.ForwardCache cache = GruClassifier.forward(weights, vocabulary, tokens, example.targetWordIndex);
@@ -184,6 +207,9 @@ public final class GruTrainer {
                 GruClassifier.Gradients gradients = GruClassifier.backward(weights, cache, example.classIndex);
                 step++;
                 adam.apply(weights, gradients, learningRate, step);
+                if (progressEvery > 0 && examplesSeen % progressEvery == 0) {
+                    printProgress(epoch, examplesSeen, train.size(), trainLoss, epochStartNanos, trainingStartNanos);
+                }
             }
             trainLoss /= train.size();
 
@@ -201,8 +227,11 @@ public final class GruTrainer {
             }
             validationLoss /= validation.size();
 
+            double epochSeconds = (System.nanoTime() - epochStartNanos) / 1e9;
+            double totalSeconds = (System.nanoTime() - trainingStartNanos) / 1e9;
             System.out.println("GruTrainer: epoch " + epoch + " trainLoss=" + trainLoss
-                    + " validationLoss=" + validationLoss);
+                    + " validationLoss=" + validationLoss + " epochSeconds=" + String.format("%.1f", epochSeconds)
+                    + " totalElapsedSeconds=" + String.format("%.1f", totalSeconds));
 
             if (validationLoss < bestValidationLoss) {
                 bestValidationLoss = validationLoss;
@@ -231,6 +260,26 @@ public final class GruTrainer {
         System.out.println("GruTrainer: wrote trained weights file to " + weightsOut
                 + " (vocabSize=" + explicitVocab.size() + ", trainExamples=" + train.size()
                 + ", validationExamples=" + validation.size() + ", bestValidationLoss=" + bestValidationLoss + ")");
+    }
+
+    /** Mid-epoch progress line: examples-seen/total, running average train loss so far this epoch,
+     *  elapsed time this epoch, and a rough estimated-time-remaining for the epoch based on the
+     *  average per-example rate observed so far. Printed via {@code System.out.println}, which
+     *  auto-flushes on newline for the console/redirected-file stdout case this is meant for (a
+     *  human tailing the process's own manual invocation, per the 2026-07-29 request), so no
+     *  explicit {@code System.out.flush()} is needed. */
+    private static void printProgress(int epoch, int examplesSeen, int totalExamples, double lossSoFar,
+            long epochStartNanos, long trainingStartNanos) {
+        double elapsedSeconds = (System.nanoTime() - epochStartNanos) / 1e9;
+        double perExampleSeconds = elapsedSeconds / examplesSeen;
+        double etaSeconds = perExampleSeconds * (totalExamples - examplesSeen);
+        double totalElapsedSeconds = (System.nanoTime() - trainingStartNanos) / 1e9;
+        System.out.println("GruTrainer: epoch " + epoch + " progress " + examplesSeen + "/" + totalExamples
+                + " (" + String.format("%.1f", 100.0 * examplesSeen / totalExamples) + "%)"
+                + " avgTrainLoss=" + String.format("%.4f", lossSoFar / examplesSeen)
+                + " epochElapsedSeconds=" + String.format("%.1f", elapsedSeconds)
+                + " epochEtaSeconds=" + String.format("%.1f", etaSeconds)
+                + " totalElapsedSeconds=" + String.format("%.1f", totalElapsedSeconds));
     }
 
     private static final class Example {

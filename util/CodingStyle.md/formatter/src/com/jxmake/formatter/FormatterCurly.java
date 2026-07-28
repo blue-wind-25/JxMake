@@ -50,7 +50,7 @@ public final class FormatterCurly extends FormatterCore {
         final SwitchRule switchRule = new SwitchRule(lang, lineLengthLimit, indentWidth);
         final MiscRuleCurly miscRule = new MiscRuleCurly(lang, config.isNormalizeCommentStartCase(),
                 config.isNormalizeCommentEndPeriod(), config.isCommentNormalizationClassifier(),
-                indentWidth, lineLengthLimit);
+                config.isGruClassifier(), config.gruWeightsPath(), indentWidth, lineLengthLimit);
         final CppSpecificRule cppRule = isCOrCpp
                 ? new CppSpecificRule(lang, lineLengthLimit, indentWidth) : null;
         final JavaSpecificRule javaRule = lang.isJava
@@ -99,6 +99,7 @@ public final class FormatterCurly extends FormatterCore {
         }
         text = new ScopePipelineCurly(lang, config.indentStyle(), config.isNormalizeCommentStartCase(),
                 config.isNormalizeCommentEndPeriod(), config.isCommentNormalizationClassifier(),
+                config.isGruClassifier(), config.gruWeightsPath(),
                 formatOff, indentWidth, lineLengthLimit).process(text);
 
         // Phase 1: structural/brace passes.

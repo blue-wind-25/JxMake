@@ -68,6 +68,15 @@ public final class Config {
     private String lineEndings = "lf";
     private boolean normalizeCommentStartCase = true;
     private boolean normalizeCommentEndPeriod = true;
+    // Default off: this gates the rule-based comment-grammar classifier path (which the GRU stage
+    // sits behind on ABSTAIN, see gruClassifier below) instead of the purely-deterministic
+    // isCommentNoCapitalizeWord/dot-count heuristics. Tried flipping on 2026-07-29 alongside
+    // gruClassifier; make test regressed 9 fixtures (c/cpp/java _comments/_core/_combined +
+    // real_code_regressions_22/54) because the rule-based classifier disagrees with the
+    // deterministic no-capitalize keyword list on common cases (consteval/static/while/var/this/
+    // const/explicit/public/switch, etc.), incorrectly capitalizing them. Reverted to off pending
+    // classifier accuracy work -- see STATE_AI.md. gruClassifier is left on since it's inert
+    // (GruAbstainResolver is only ever reached from this gate) but flip both together once fixed.
     private boolean commentNormalizationClassifier = false;
     private boolean headerGuardRename = false;
     private List<String> javaImportOrder = Arrays.asList("java", "com", "org", "other", "local", "static");
@@ -84,10 +93,12 @@ public final class Config {
     private boolean jsImportSort = true;
     private int jsImportBlankLines = 1;
 
-    /** Step 3 GRU classifier gate (STATE_AI.md) -- opt-in, default off, since no trained model
-     *  ships yet. {@code GruAbstainResolver} reads this to decide whether to even attempt loading
-     *  a weights file; when off, no filesystem access is attempted at all. */
-    private boolean gruClassifier = false;
+    /** Step 3 GRU classifier gate (STATE_AI.md) -- default on now that a real trained weights file
+     *  (`code-formatter-ai-assist-weights.json`, trained on `tools/gru/sample_default.txt`) ships
+     *  alongside the jar/classes. {@code GruAbstainResolver} reads this to decide whether to even
+     *  attempt loading a weights file; when off (or when the file is missing/unreadable), no
+     *  filesystem access is attempted / the resolver fails safe to the rule-based result alone. */
+    private boolean gruClassifier = true;
     private String gruWeightsPath = DEFAULT_GRU_WEIGHTS_PATH;
 
     private Config() {

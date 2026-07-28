@@ -5,7 +5,9 @@ This directory holds the offline tooling for Step 3 (GRU comment-classifier
 abstain resolution) — see ../../STATE_AI.md for the full design/decision
 history. None of the tools here are shipped in the runtime JAR; they produce
 or consume training data and weights files under /tmp (RDD_EXT_19: real
-extracted/labeled corpora and trained weights are never committed).
+extracted/labeled corpora and trained weights are never committed) — with
+one named exception, `sample_default.txt` and
+`code-formatter-ai-assist-weights.json` (RDD_KEY_217, see Notes below).
 
 Run every command below from the formatter/ directory (same convention as
 `make`), unless noted otherwise.
@@ -24,6 +26,17 @@ Pipeline order
 
 Steps 1+3 for many sources at once, minus the labeling, are automated by
 acquire_corpus.sh.
+
+Quick default path (no hand-labeling): `make gru-acquire-corpus` acquires a
+corpus AND auto-labels it via GenerateSampleDefault.java (below) straight
+into tools/gru/sample_default.txt, deduplicated in place; `make gru-train`
+then trains code-formatter-ai-assist-weights.json from it by default. This
+auto-labeled path only ever produces YES/skip (never NO), since it bootstraps
+labels from the rule-based classifier itself, which cannot emit NO (see
+STATE_AI.md's "why the GRU only ever returns YES/ABSTAIN" note) — it exists
+to give the shipped weights file *some* real, license-clean, non-empty
+default training data, not to replace the hand-labeled Pool A/B path above,
+which remains the only source of real NO ground truth.
 
 Tools
 -----
@@ -158,6 +171,24 @@ acquire_corpus.sh
     Extend the SOURCES list by hand as new repos get vetted (license check
     first) — don't add unvetted sources.
 
+GenerateSampleDefault.java
+    Auto-labels a comments file (from extract_comments.py / acquire_corpus.sh)
+    by running each comment through the real rule-based CommentFeatureExtractor/
+    CommentClassifier pipeline (distant supervision): YES verdicts are kept
+    as RDD_EXT_20/21-schema rows (always targetWordIndex=0), ABSTAIN verdicts
+    are skipped, and a provenance header is written. CommentClassifier can
+    never emit NO (RDD_KEY_96), so this always produces an all-YES/skip
+    corpus — real NO ground truth still requires hand-labeling Pool A/B.
+    Wired into the Makefile rather than run directly:
+
+        make gru-acquire-corpus
+
+    which acquires + extracts Pool A/B (as before) and additionally runs this
+    auto-labeling step into tools/gru/sample_default.txt, then deduplicates
+    it in place (`awk '!seen[$0]++'` — real-world corpora accumulate many
+    exact-duplicate lines, mostly repeated license-header/boilerplate text
+    recurring across files of the same source repo).
+
 cross_validate.py
     Bounds the variance on a single held-out-split precision estimate via
     repeated Monte Carlo cross-validation: reshuffles a combined
@@ -232,7 +263,18 @@ Notes
   code (extracted comments, Pool A/B candidates, labeled corpora, trained
   weights files) is ever committed to the repo. Only the tools themselves,
   and the small fake-illustrative tools/gru/sample_examples.txt, are checked
-  in.
+  in. **Named exception (RDD_KEY_217)**: tools/gru/sample_default.txt (the
+  GenerateSampleDefault.java-auto-labeled default corpus) and
+  code-formatter-ai-assist-weights.json (the weights trained on it) are
+  committed — user-directed, on the rationale that acquire_corpus.sh's
+  SOURCES are all pre-vetted MIT/Apache-2.0/BSD-3-Clause (license-compatible
+  with this project), each comment's origin is traceable via that same
+  SOURCES list, and short comment excerpts relabeled as training data are not
+  the kind of substantial/significant expression copyright restrictions bind
+  on. This exception is narrow and does not extend to any other real
+  corpus/weights artifact (Pool A/B candidates, ad hoc training runs,
+  cross-validation working files, etc.) — those still follow RDD_EXT_19 as
+  written.
 - This system runs Python 3.6 — avoid post-3.6 stdlib features (e.g.
   subprocess.run(capture_output=True) needs 3.7+; use
   stdout=PIPE, stderr=PIPE, universal_newlines=True instead) in any new

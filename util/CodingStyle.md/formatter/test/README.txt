@@ -2693,6 +2693,43 @@ Real-code regressions:
                                              `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
                                              cluster C6k.
 
+  real_code_regressions_163_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6k, Shape
+                                             C6k-1 (multi-statement fusion), two independent root
+                                             causes combined in one fixture. (a)
+                                             `BlockStructureRule.isSingleStatementBody` routed Kotlin
+                                             through `isKotlinSingleStatementBody` only when
+                                             `semiCount != 1`, so a body like `if (tmp <= delta) {
+                                             _K += kappa; grisuRound(tmp, delta); return len }` --
+                                             two newline-delimited statements followed by one
+                                             `;`-terminated statement, exactly one `;` total -- took
+                                             the C/C++/Java `semiCount == 1` branch and was wrongly
+                                             collapsed to a single-statement body, deleting the
+                                             other two statements' braces/newlines. Fixed by always
+                                             routing Kotlin through `isKotlinSingleStatementBody`
+                                             regardless of `;` count, and teaching
+                                             `isKotlinSingleStatementBody` to also treat a depth-0
+                                             `;` as a statement boundary (not just NEWLINE), so
+                                             same-line `;`-separated statements (e.g.
+                                             `real_code_regressions_26_inp.kt`'s `{ redirected = i;
+                                             break }`) still correctly collapse. (b)
+                                             `KotlinSignatureRule.parseKotlinSignature` called
+                                             `significantWithComments` up front, discarding NEWLINE
+                                             tokens before any pass could see that a parameter's
+                                             trailing-lambda default value held multiple
+                                             newline-separated statements; `renderWithTail`'s
+                                             inline-fits shortcut then flattened the whole signature
+                                             onto one line, fusing the lambda body's statements.
+                                             Fixed by bailing out of `parseKotlinSignature` (`return
+                                             null`, leave the signature untouched) as soon as a new
+                                             `containsMultilineNestedBrace(sigTokens)` helper --
+                                             checking the raw pre-stripped token list for a `{...}`
+                                             block containing a depth-greater-than-0 NEWLINE -- finds one,
+                                             mirroring `BlockStructureRule`'s identically-named,
+                                             independently-kept helper. `make test`: 211/211 forward
+                                             + 211/211 idempotency (no count change). See
+                                             `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
+                                             cluster C6k.
+
 How Tests Are Run
 -----------------
 

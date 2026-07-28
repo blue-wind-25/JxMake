@@ -110,6 +110,26 @@ public class KotlinSignatureRule extends MiscRuleCurly {
      * trailing tokens past the matched `)`, or if any parameter fails to parse.
      */
     public KotlinSignature parseKotlinSignature(final List<Token> sigTokens) {
+        // C6k-1: a param's default value can itself be a multi-line trailing lambda whose body
+        // holds several statements (e.g. `expandedConeType: (FirTypeAlias) -> ConeClassLikeType? =
+        // { alias ->\n    alias.lazyResolveToPhase(...)\n    alias.expandedConeType\n}`, found via
+        // `JetBrains/kotlin` real-code testing, `TypeExpansionUtils.kt`/`TypeCommonizerTest.kt`).
+        // `significantWithComments` a few lines below unconditionally drops every NEWLINE token
+        // (needed elsewhere to tell an own-line leading comment apart from a same-line trailing
+        // one, see the comment on that call) -- so once `sig`/`paramsSlice`/each param's
+        // `defaultTokens` are built from its output, there is no NEWLINE information left at all
+        // to detect "this default value's braced body spans more than one statement" from (a
+        // `parseKotlinParam`-side `containsMultilineNestedBrace` guard on the already-stripped
+        // slice can never fire). Check the RAW `sigTokens` -- before any stripping -- for a
+        // `{...}` block spanning more than one physical line instead, and bail the whole signature
+        // ("never guess", same posture as `parseKotlinParam`'s own `containsLineComment` bail)
+        // right here, before that information is lost. `sigTokens` never includes the function's
+        // own body-opening brace (the caller stops at the parameter list's closing `)`), so the
+        // only braces reachable here belong to a param's own default value/annotation, never a
+        // legitimate reason to bail on an otherwise-fine signature.
+        if (containsMultilineNestedBrace(sigTokens)) {
+            return null;
+        }
         // Identify every comment token that starts its own source line (nothing but whitespace
         // between the preceding NEWLINE and it) -- needed below to tell an own-line leading
         // comment for the NEXT param apart from a genuine same-line trailing comment for the
@@ -651,6 +671,24 @@ public class KotlinSignatureRule extends MiscRuleCurly {
     private boolean containsLineComment(final List<Token> slice) {
         for (final Token t : slice) {
             if (t.type == TokenType.COMMENT_LINE) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** True iff {@code slice} contains a {@code {...}} block (brace-depth > 0 relative to
+     *  {@code slice} itself) with at least one NEWLINE inside it -- see the C6k-1 bail-out in
+     *  {@link #parseKotlinParam}. Mirrors {@code BlockStructureRule.containsMultilineNestedBrace}'s
+     *  identical-purpose helper in a structurally unrelated class hierarchy. */
+    private boolean containsMultilineNestedBrace(final List<Token> slice) {
+        int braceDepth = 0;
+        for (final Token t : slice) {
+            if (t.type == TokenType.PUNCT && "{".equals(t.text)) {
+                braceDepth++;
+            } else if (t.type == TokenType.PUNCT && "}".equals(t.text)) {
+                braceDepth--;
+            } else if (t.type == TokenType.NEWLINE && braceDepth > 0) {
                 return true;
             }
         }

@@ -633,7 +633,22 @@ public class BlockStructureRule {
                 semiIdx = k;
             }
         }
-        if (semiCount == 1) {
+        if (lang.isKotlin) {
+            // Kotlin has no mandatory statement-terminating `;` (STYLE_KOTLIN.md §1) -- a body can
+            // hold several newline-separated statements with an optional trailing `;` on only the
+            // last one (e.g. `_K += kappa\ngrisuRound(...)\nreturn len;`, found via
+            // `JetBrains/kotlin` real-code testing, `Number2String.kt`'s `grisuFastPath`): the
+            // C/C++/Java `semiCount == 1` fast path below wrongly treated that as a qualifying
+            // single statement (its own no-comment-after/no-comment-before checks say nothing about
+            // an earlier *un-terminated* statement boundary), so `tryCollapse` fused all three
+            // statements onto one physical line with no separators -- a real compile error. Route
+            // every Kotlin body through `isKotlinSingleStatementBody` instead, regardless of
+            // `semiCount`; it re-derives "exactly one top-level statement" from depth-0 NEWLINE
+            // boundaries, which is correct whether or not a trailing `;` happens to be present.
+            if (!isKotlinSingleStatementBody(contents)) {
+                return false;
+            }
+        } else if (semiCount == 1) {
             for (int k = semiIdx + 1; k < sig.size(); k++) {
                 final TokenType ty = sig.get(k).type;
                 if (ty != TokenType.COMMENT_LINE && ty != TokenType.COMMENT_BLOCK) {
@@ -645,18 +660,6 @@ public class BlockStructureRule {
                 if (ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK) {
                     return false;
                 }
-            }
-        } else if (semiCount == 0 && lang.isKotlin) {
-            // Kotlin has no mandatory statement-terminating `;` (STYLE_KOTLIN.md §1) -- a
-            // single-statement body here is delimited by newlines, not a `;`, so the `;`-counting
-            // logic above never applies. `isKotlinSingleStatementBody` re-derives "exactly one
-            // top-level statement" from newline boundaries instead (a depth-0 NEWLINE separates
-            // statements; a NEWLINE inside an unclosed `(`/`[`/`{` -- a multi-line call argument
-            // list -- does not). Bails conservatively (no collapse) if any comment token is
-            // present in the body, same "don't guess past a comment" posture as the `;`-based
-            // path's own comment checks above.
-            if (!isKotlinSingleStatementBody(contents)) {
-                return false;
             }
         } else {
             return false;
@@ -714,7 +717,7 @@ public class BlockStructureRule {
                     depth--;
                 }
             }
-            if (t.type == TokenType.NEWLINE && depth == 0) {
+            if ((t.type == TokenType.NEWLINE || isPunct(t, ";")) && depth == 0) {
                 if (sawContent) {
                     sawBoundaryAfterContent = true;
                 }

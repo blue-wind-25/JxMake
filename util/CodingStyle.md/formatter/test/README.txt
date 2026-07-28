@@ -2620,6 +2620,26 @@ Real-code regressions:
                                              See `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
                                              cluster C6b.
 
+  real_code_regressions_159_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6e: a
+                                             multi-statement trailing-lambda body (`.all { ... }`/
+                                             `.any { ... }`) used as a boolean sub-expression inside
+                                             an `if(...)` condition (directly, or combined with `&&`)
+                                             got fused with no separator when the enclosing `if`
+                                             qualified for single-statement-body collapse --
+                                             `BlockStructureRule.tryCollapse`/`tryCollapseBraceless`
+                                             render the condition via the comment/brace-unaware
+                                             `renderInline`, but neither had a guard against a nested
+                                             multi-line `{...}` block embedded in the *condition*
+                                             (only the *body* was guarded, via
+                                             `containsMultilineNestedBrace`). Same family as the
+                                             already-shipped C3, different code path (lambda as a
+                                             boolean sub-expression, not a call argument). Fixed by
+                                             reusing `containsMultilineNestedBrace` as a bail guard on
+                                             the condition slice in both methods. `make test`:
+                                             207/207 forward + 207/207 idempotency (no count change).
+                                             See `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
+                                             cluster C6e.
+
 How Tests Are Run
 -----------------
 

@@ -454,6 +454,26 @@ public class BlockStructureRule {
         if (containsLineComment(tokens.subList(kwIndex, block.closeParenIndex + 1))) {
             return null;
         }
+        // C6e: same hazard as this method's own condition-comment guard just above, but for a
+        // multi-statement trailing-lambda body used as a boolean sub-expression *inside* the
+        // condition itself (`.all { ... }`/`.any { ... }`/`.none { ... }` called directly in an
+        // `if(...)`/`&&`/`||` position, e.g. `if (result.all { val klass = ...; klass != null &&
+        // ... })`) -- structurally the same family as the already-fixed C3
+        // (`MiscRuleCurly.renderCallCandidate`'s brace-depth-aware bail), but reached via a
+        // different code path: C3 covers a lambda as a call's own *argument*; here the lambda is
+        // embedded as a sub-expression of the `if`'s condition, which this method renders via the
+        // condition-flattening `renderInline` call below, with no brace-depth awareness at all. Found
+        // via JetBrains/kotlin real-code testing (`KClassImpl.kt`'s
+        // `computeAllSupertypes`/`computeLegacySupertypes`: `if (result.all { val klass = ... klass
+        // != null && (...) }) { result += StandardKTypes.ANY }` fused the lambda's two statements
+        // onto one line with no separator, a compile error). Bail (leave the original, still-braced
+        // multi-line form untouched) whenever the condition itself contains a nested `{...}` block
+        // spanning more than one physical line -- reuses `containsMultilineNestedBrace`, the same
+        // helper `isKotlinSingleStatementBody`/`collapseBracelessBody` already use to guard the body
+        // side of this same collapse family.
+        if (containsMultilineNestedBrace(tokens.subList(kwIndex, block.closeParenIndex + 1))) {
+            return null;
+        }
         // Refuse to collapse when the body itself contains a `{`/`}` pair (an object literal or
         // similar brace-delimited expression, e.g. `if (x) foo.value = { a: 1, b: 2 };`) --
         // `renderInline` flattens the whole body (including that inner literal's own original
@@ -771,6 +791,14 @@ public class BlockStructureRule {
         // deep, well past this method's own `kwIndex..closeParenIndex` slice boundary but still
         // inside it). Bail (leave the input untouched) exactly like `tryCollapse` does.
         if (containsLineComment(tokens.subList(kwIndex, block.closeParenIndex + 1))) {
+            return null;
+        }
+        // C6e: sibling guard to `tryCollapse`'s own condition-embedded-multi-statement-lambda check
+        // (see that method's comment for the full mechanism/repro) -- a braceless `if(...)`'s
+        // condition can equally embed a multi-statement trailing lambda as a boolean sub-expression
+        // (`.all { ... }`/`.any { ... }` etc.), which `renderInline` below would flatten with no
+        // separator. Bail exactly like `tryCollapse` does.
+        if (containsMultilineNestedBrace(tokens.subList(kwIndex, block.closeParenIndex + 1))) {
             return null;
         }
         // Tighten `keyword (` -> `keyword(` here, at collapse time, rather than leaving it to a

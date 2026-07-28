@@ -1173,6 +1173,19 @@ public static final class Assignment {
         if ((lang.isKotlin || lang.isJava) && isOp(prev, "@")) {
             return false;
         }
+        // C6k-3: Kotlin's negated type-check/containment operators (`!is`, `!in`) are a single
+        // tight lexical unit -- no space between `!` and the keyword (unlike plain `a is B`,
+        // always spaced). The tokenizer still lexes `!` and `is`/`in` as two separate tokens, so
+        // without this check the generic KEYWORD-gets-a-leading-space default below inserted a
+        // space here, corrupting `!is`/`!in` into `! is`/`! in` -- a Kotlin parse error. This is
+        // `DeclarationAlignmentRuleCore.needsSpaceBetween`'s identical carve-out (RDD_KEY_144(A)),
+        // missing here -- found via `JetBrains/kotlin` dogfood testing (`ConeTypeRenderer.kt`'s
+        // `nullabilityMarker` default value, rendered through this class's own call/signature
+        // join point rather than the declaration-alignment one RDD_KEY_144 originally fixed).
+        if (lang.isKotlin && isOp(prev, "!") && cur.type == TokenType.KEYWORD
+                && ("is".equals(cur.text) || "in".equals(cur.text))) {
+            return false;
+        }
         // C6b: Kotlin 2.4's multi-dollar string interpolation prefix (`$$"..."`, `$$$"""..."""`)
         // is tokenized as a plain IDENTIFIER (the tokenizer's identifier-char check already treats
         // `$` as an identifier char, same as bare `$x` interpolation), immediately followed by the

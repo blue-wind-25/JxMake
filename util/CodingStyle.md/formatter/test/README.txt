@@ -2640,6 +2640,21 @@ Real-code regressions:
                                              See `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
                                              cluster C6e.
 
+  real_code_regressions_160_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6k, Shape
+                                             C6k-3: the `!is`/`!in` negated-operator carve-out
+                                             (RDD_KEY_144(A)) existed only in
+                                             `DeclarationAlignmentRuleCore.needsSpaceBetween`, not in
+                                             its documented duplicate `MiscRuleCore.needsSpaceBetween`
+                                             -- a function/constructor parameter's default value
+                                             (`nullabilityMarker: String = if (type !is
+                                             ConeFlexibleType) ...`) renders through the latter,
+                                             corrupting `!is` into `! is`, a parse error. Fixed by
+                                             adding the same carve-out to `MiscRuleCore.
+                                             needsSpaceBetween`. `make test`: 208/208 forward +
+                                             208/208 idempotency (no count change). See
+                                             `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
+                                             cluster C6k.
+
 How Tests Are Run
 -----------------
 

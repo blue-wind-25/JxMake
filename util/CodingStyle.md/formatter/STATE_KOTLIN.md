@@ -684,7 +684,14 @@ introduced.
 
 **Status:** several clusters found and fixed since the original categorization
 pass (most recently C6i, C6f/C6h fully, and now C6b/C6e); only C6k remains
-open.
+open. **2026-07-28 re-triage session: full fresh corpus re-run completed
+(see "2026-07-28 Re-triage" subsection below) — both Category 1 and
+Category 2 totals dropped dramatically versus the stale 220/344 baselines
+(now 8/16078 and 334/16078 respectively). C6k re-triaged: 8 of the original
+10 files resolved for free by the C6-series fixes; 2 still fail plus 6 new
+files surfaced in the fresh Category 1 list, sorted into 5 distinct shapes
+below. No fixes made this session — categorization/data-refresh only, per
+this session's own scoping.**
 Checkout: `/tmp/jb_kotlin_kt/kotlin-master`
 (fresh `.kt`-only tarball extraction from
 `codeload.github.com/JetBrains/kotlin/tar.gz/refs/heads/master` — no prior
@@ -706,13 +713,54 @@ verified via `kotlin_syntax_check` (round1) and `diff -rq round1 round2`
 (idempotency). No `indent-size` override needed — all findings reproduce at
 default config.
 
-**Original results:** 220/16268 files (1.4%) failed `kotlin_syntax_check` on
-round1 (Category 1 — real parse errors/corruption). 425/16268 (2.6%)
-differed round1-vs-round2 (Category 2 candidates); 81 overlapped with the
-220, leaving 344 idempotency-only files. One additional Category 1 bug (C1,
-comment/declaration fusion) was found incidentally while sampling
-idempotency diffs, not by the syntax checker (produces valid-but-wrong
-output) — likely under-counted.
+**Original results (stale, superseded below):** 220/16268 files (1.4%) failed
+`kotlin_syntax_check` on round1 (Category 1 — real parse errors/corruption).
+425/16268 (2.6%) differed round1-vs-round2 (Category 2 candidates); 81
+overlapped with the 220, leaving 344 idempotency-only files. One additional
+Category 1 bug (C1, comment/declaration fusion) was found incidentally while
+sampling idempotency diffs, not by the syntax checker (produces
+valid-but-wrong output) — likely under-counted.
+
+### 2026-07-28 Re-triage — fresh full-corpus numbers
+
+Reused the same checkout (`/tmp/jb_kotlin_kt/kotlin-master`, not re-cloned).
+Fresh filtered file count under the same exclude rules (`*/testData/*`,
+`*/build/*`, `*/resources/*`, `*generated*` in path) is **16078**, not the
+originally-recorded 16268 — the exclude filters are unchanged and the
+checkout wasn't touched, so the 190-file discrepancy is most likely a stale
+recount from the original session (never re-verified since), not a corpus
+change; not worth chasing further, treat 16078 as the current true
+denominator going forward.
+
+Batched `--preserve-tree --root <src> --out <dir>` reformat, one JAR
+invocation per top-level subdirectory (16 subdirs, ~324s wall-clock for
+round1, ~321s for round2), matching STATE_COMMON's batching guidance. No
+`indent-size` override — default config, matching the original run.
+
+- **Category 1 (parse errors), fresh: 8/16078 (0.05%)** — down from the
+  stale 220/16268 (1.4%). `kotlin_syntax_check` raw failures on round1: 10
+  files; 2 are the same pre-existing BOM syntax-checker artifact already
+  documented in the original pass's "Baseline check" note
+  (`JavaScriptLexerBase.kt`/`JavaScriptParserBase.kt`, both under
+  `js/js.parser/.../antlr/` — confirmed via `xxd` that the `EF BB BF` UTF-8
+  BOM is present identically in both the pristine original and the
+  formatter's output; the formatter correctly preserves it byte-for-byte,
+  the syntax checker's own BOM handling is what's at fault, not the
+  formatter), leaving 8 genuine formatter-caused failures. See "C6k
+  re-triage" below for the full list and shape breakdown.
+- **Category 2 (idempotency-only), fresh: 334/16078 (2.08%)** — down from
+  the stale 344/16268 (2.1%), essentially flat as a percentage despite all
+  the intervening C6-series fixes (those targeted Category 1
+  crash/corruption shapes, not the D1-D4 idempotency-flap families, so this
+  is expected, not a regression). `diff -rq round1 round2` — 334 files
+  differ. See "Category 2 fresh re-bucketing" below.
+
+Working files (not committed, `/tmp` only): `/tmp/kt_retriage_round1`,
+`/tmp/kt_retriage_round2`, `/tmp/round1_filelist.txt`,
+`/tmp/round1_syntax_full.log`, `/tmp/round1_cat1_files.txt`,
+`/tmp/c6k_fresh_errors.txt`, `/tmp/kt_retriage_idempotency_diff.txt`,
+`/tmp/idem_r1_files.txt`, `/tmp/idem_sample40.txt`,
+`/tmp/idem_sample40_diffs.txt`.
 
 ### Category 1 — Critical (crash/corruption)
 
@@ -734,7 +782,7 @@ output) — likely under-counted.
 | **C6h** — `Missing '}'` at EOF in Gradle-plugin functional/integration tests — **FIXED, folded into C6f, no independent cause** | 8 | Confirmed a symptom, not an independent cause, exactly as suspected: re-checked all 6 originally-affected files locatable in the corpus (`KmpPartiallyResolvedDependenciesCheckerIT.kt`, `ConfigurationsTest.kt`, `KT56143CinteropConfigurationAttributes.kt`, `SwiftExportUnitTests.kt`, `IrValidatorTest.kt`, `TestFederationFunctionalTest.kt` — the latter four were already independently fixed by C6g's backtick-tokenizer fix, per that row's own re-verification note) after C6f's two fixes above landed; all 6 now pass `kotlin_syntax_check` clean with no further changes needed. The reported "Missing `}` at EOF" was consistently far downstream of the real corruption site (a comment-swallow upstream absorbing a closing brace's own line into a `//` comment, exactly C6f's mechanism), never its own distinct bug. | No separate fixture — covered by C6f's `real_code_regressions_156.kt` fixes plus C6g's already-existing `real_code_regressions_154.kt`; re-verified directly against the real corpus files listed above via `kotlin_syntax_check`, no `make test` count change (no new formatting rule, just no-longer-corrupted pre-existing output). |
 | **C6i** — multiple one-line interface member declarations in sequence fused without separators — **FIXED** | 1 | Not the lambda-fusion families, and not `KotlinGetterSetterRule`/`KotlinSignatureRule`'s own one-liner-grouping logic either (neither's parser matches a body-less `fun name(): Type`/plain `val` interface member at all, so both correctly returned null/no-op). Actual root cause: `ScopePipelineCurly.applySignaturePass`'s Kotlin `: ReturnType` tail detection (the RDD_KEY_147/RDD_KEY_163 mechanism) finds the *last* top-level `)` in a named-scope span and, once a `:` immediately follows, only bailed on a *blank-line* run before the span's own `{` (RDD_KEY_147's guard) — not on an ordinary single NEWLINE. A headerless one-liner interface member with no body (`fun clear(): Unit`) immediately followed, next line, no blank line between, by an unrelated nested named construct's own opening brace (`interface MutableEntry<K, V> : ... {`) had its `)`/`:` wrongly matched as belonging to that later brace, swallowing the whole span into `parseFunctionTail`'s tail range and flattening it onto one line with no separators. Fixed by a new `hasTopLevelNewline` bail, gated to fire only when no depth-0 `=` is present in the same range (new `ScopePipelineCurly.hasTopLevelOperator` helper) — a genuine block-bodied `: ReturnType {` tail is always on one unbroken physical line, but the pre-existing legitimate expression-bodied-function-with-trailing-lambda-body shape (fixture `_33`, RDD_KEY_153) always has a depth-0 `=` in that range and must keep working; the `=`-guard distinguishes the two shapes. RDD_KEY_206. | `real_code_regressions_155.kt`; `make test` 203→204/204. Re-verified against the actual originally-affected file (`libraries/stdlib/js-ir-minimal-for-test/js-src/collectionsWithoutExportLogic.kt`'s `MutableMap` interface) via `kotlin_syntax_check`, clean. |
 | **C6j** — square-bracket destructuring lambda params `[x, y] ->` (newer Kotlin syntax) lost the space after `{` — **FIXED** | 1 | Not a tokenizer/parsing misread as originally suspected: `[x, y]` after `{` was tokenized fine, but both `MiscRuleCore.needsSpaceBetween`/`isTightToken` and their documented duplicate `DeclarationAlignmentRuleCore.needsSpaceBetween`/`isTightToken` treat `[` as always-tight (the C/C++/Java/general indexing-shape rule, `a[i]`), stripping the space `{ [x, y] -> ...` needs. Fix: narrow `lang.isKotlin && isPunct(cur, "[") && isPunct(prev, "{")` carve-out added to both duplicates' `needsSpaceBetween`, forcing the space — safe because Kotlin has no bracket array-literal syntax, so `{` directly followed by `[` is unambiguous (can only be this destructuring param list, never an indexing expression); no change to indexing/array-literal logic elsewhere. | `real_code_regressions_152.kt`; `make test` 200→201/201. |
-| **C6k** — residual uninvestigated shapes (10 files: `diagnosticUtils.kt`, `KClassMembers.kt`, `TypeCommonizerTest.kt`, `ConeTypeRenderer.kt`, `JavaOverrideChecker.kt`, `LazyJavaClassMemberScope.kt`, `kmpTargets.kt`, `FirConflictsDeclarationChecker.kt`, `FirRequiresOptInOnExpectChecker.kt`, `GenerateMultifileFacades.kt`) — not fixed | 10 | `Expecting ')'`/`Expecting an element`-family errors around a multi-line call/condition, no confidently-attributable shape found; may be more C6e/C6f instances once those land, or hide 1-2 more distinct root causes. | Value/difficulty unknown pending re-triage. |
+| **C6k** — **RE-TRIAGED 2026-07-28, not fixed this session.** Of the original 10 (`diagnosticUtils.kt`, `KClassMembers.kt`, `TypeCommonizerTest.kt`, `ConeTypeRenderer.kt`, `JavaOverrideChecker.kt`, `LazyJavaClassMemberScope.kt`, `kmpTargets.kt`, `FirConflictsDeclarationChecker.kt`, `FirRequiresOptInOnExpectChecker.kt`, `GenerateMultifileFacades.kt`), **8 are now clean** (resolved for free by intervening C6-series fixes, same pattern as C6h folding into C6f): `diagnosticUtils.kt`, `KClassMembers.kt`, `JavaOverrideChecker.kt`, `LazyJavaClassMemberScope.kt`, `kmpTargets.kt`, `FirConflictsDeclarationChecker.kt`, `FirRequiresOptInOnExpectChecker.kt`, `GenerateMultifileFacades.kt`. **2 still fail**: `TypeCommonizerTest.kt`, `ConeTypeRenderer.kt`. Fresh full-corpus Category 1 re-run also surfaced **6 new files** not in the original 10: `ClientUtils.kt`, `TypeExpansionUtils.kt`, `KtVisitorTest.kt`, `BenchmarksReport.kt`, `Number2String.kt`, `CompositionTests.kt`. Total still-open: **8 files**, sorted into 5 distinct shapes below (not one root cause). | 8 (was 10) | **Shape C6k-1** (multi-statement fusion, missing statement separator — same family as C3/C6e/C6f but a new code path each time): `TypeExpansionUtils.kt` (a function-parameter default-value lambda's multi-statement body fused with no `;`, e.g. `{ alias -> alias.lazyResolveToPhase(...) alias.expandedConeType }`), `Number2String.kt` (a braceless `if(...)` body fused with the *following* statement, no separator: `if(tmp <= delta) _K += kappa grisuRound(...) return len`), `TypeCommonizerTest.kt` (two adjacent `source(...)` calls, each with a triple-quoted-string argument, fused onto one line with no separator between calls). 3 files. **Shape C6k-2** (stray extra `"` injected right at a triple-quoted-string's closing-quote boundary, immediately followed by `.method()`/another string): `KtVisitorTest.kt` (`"""...."s3""" ".trimMargin()` — spurious `" "` inserted between the raw string's own close and the chained call), `BenchmarksReport.kt` (`"${version}""" "` — same shape, spurious trailing `" "` before the next line). 2 files, likely a raw-string-adjacent tokenizer/rendering edge distinct from RDD_KEY_117's already-fixed cases. **Shape C6k-3** (single file): `ConeTypeRenderer.kt` — `!is`/`!in` split into `! is`/`! in` (the exact RDD_KEY_144(A) shape) but inside a multi-line function signature's own default-*value* rendering (`nullabilityMarker : String = if(type ! is ConeFlexibleType ...)`), a code path RDD_KEY_144's original Kotlin-gated fix apparently didn't reach. **Shape C6k-4** (single file): `ClientUtils.kt` — `!!` not spaced before a following keyword (`port!!in COMPILE_DAEMON_PORTS_RANGE_START..<...` — should be `port!! in ...`); null-safety `!!` is correctly tight against its left operand but this join needs a space since `in` is a keyword, not an operator continuation. **Shape C6k-5** (single file): `CompositionTests.kt` — the C6d fix (`@Composable (Params) -> Type` needs a space before its function-type parens) doesn't fire for this exact shape when the annotated type is a *nullable* function-type used as a signature parameter's default-bearing type (`noinline default : @Composable( () -> Unit )? = { Text("Default") }`) — `@Composable(` stayed tight instead of gaining the space. None of the 5 shapes fixed this session — each needs its own source investigation and none obviously matches an already-fully-generalized existing fix (C6k-3/C6k-5 are *gaps* in already-fixed patterns, not brand new mechanisms, so likely cheap once someone reads the two responsible methods again — `MiscRuleCore`/`DeclarationAlignmentRuleCore`'s `!is`/`!in` fix and the C6d `@Annotation (...)` carve-out — but not attempted this session to keep this pass data-gathering/categorization only). |
 
 **Baseline check:** re-verified C6b-C6k's 70-file total against the raw
 `kotlin_syntax_check` failure list — 70/72 are confirmed genuine formatter
@@ -758,14 +806,30 @@ committed): `/tmp/c6_remaining.txt`, `/tmp/round1c_syntax.log`,
 `/tmp/round1`, `/tmp/round2`, `/tmp/round1_syntax.log`,
 `/tmp/idempotency_diff.txt`, `/tmp/kt_filelist.txt`.
 
-### Category 2 — Idempotency-only, 344 files (none fixed)
+### Category 2 — Idempotency-only, fresh count 334/16078 files (none fixed)
 
-| Cluster | Est. files | Notes |
-|---|---|---|
-| **D1.** Declaration/accessor column-alignment padding flap (round1 vs round2 disagree on padding width) | ~150-200, largest | Reproduces at both default and `indent-size=2`. Same family as fixed RDD_KEY_139/162 (group-width recompute instability) — likely another width-recompute path those fixes didn't cover. |
-| **D2.** Closing-brace indent drift across passes | ~150+ | Reproduces at both default and `indent-size=2`, independent of D1. Likely another gap in the `effectiveSpanIndent`/anchor-scan family (RDD_KEY_159/161 precedent). |
-| **D3.** Multi-param lambda header wrap flap (one line in round1, exploded with a spurious space before `:` in round2) | ~15-20 | Wrap decision isn't stable across passes. |
-| **D4.** Minor adjacent-closing-brace spacing flap (`) } }` vs `)} }`) | small | Cosmetic-only, lowest priority. |
+**2026-07-28 re-triage — fresh per-bucket counts.** Sampling methodology: 334
+total differing files (`diff -rq round1 round2` on the fresh full-corpus
+round1/round2 pair — see "2026-07-28 Re-triage" above), a uniform random
+40-file sample (`shuf -n 40`) manually diffed and bucketed by primary diff
+shape (a few files show more than one shape; classified by whichever
+dominates that file's diff). Estimates below are the sample's bucket
+proportion scaled to the full 334, **not** an exhaustive per-file
+classification of all 334 — treat as directional, not exact.
+
+| Cluster | Sample hits (of 40) | Est. files (scaled from sample) | Notes |
+|---|---|---|---|
+| **D2.** Closing-brace indent drift across passes | 22 | **~184, now the largest bucket** (was previously estimated ~150+, roughly flat) | Reproduces at default config (sample not re-tested at `indent-size=2` this session). Still likely the `effectiveSpanIndent`/anchor-scan family (RDD_KEY_159/161 precedent) — a `}` lands at a different column between round1 and round2 with no other content change on the line. |
+| **D1.** Declaration/accessor column-alignment padding flap (round1 vs round2 disagree on padding width) | 12 | **~100** (down from the previous ~150-200 estimate — some of the original estimate's share was likely re-attributed to D2 or fixed incidentally by RDD_KEY_162's later width-awareness fix) | Same family as fixed RDD_KEY_139/162 (group-width recompute instability) — likely another width-recompute path those fixes didn't cover; a `val`/`override fun` declaration's column padding differs by a few spaces between rounds, same line otherwise unchanged. |
+| **D3.** Multi-line-call/condition wrap-decision flap (one line in round1, exploded across multiple lines in round2, or vice versa) | 4 | **~33** (previous ~15-20 estimate for a narrower "multi-param lambda header" sub-shape; fresh sampling shows the wrap-flap bucket is broader than originally scoped — includes plain call-argument and `if(...)` condition wraps, not just lambda headers) | Wrap decision (`enforceCallLineBreaking`-family) isn't stable across passes — round1 and round2 make different one-line-vs-wrapped calls for the same logical content. |
+| **D4.** Minor adjacent-closing-brace spacing flap (`) }` vs `)}`) | 1 | **~8** | Cosmetic-only, lowest priority; matches the original description exactly (sample hit: `JsArgumentsImpl.kt`). |
+
+Sample total: 22+12+4+1 = 39 of 40 (the 40th file, `org.w3c.dom.kt`, showed
+both a D1 padding flap and a D3 wrap flap in the same diff — counted once
+under its dominant D1 shape above, so cluster hit-counts sum to 39/40 files
+but the file itself touches 2 buckets). No new bucket shape needed — all 40
+sampled files fit one of the 4 existing D1-D4 categories, none required a
+5th bucket.
 
 **Overall ranking across all clusters:** C1 (severity, content-loss) > C3
 (largest crash cluster, precedented) > C4/C5 (see Open Questions — folded
@@ -773,9 +837,15 @@ together) > D1 > D2 > C2 > C5 > D3 > C6 (now superseded by the C6a-C6k
 breakdown above) > D4.
 
 **Recommended next step (not done yet):** run `kotlin_content_diff` across
-the full 16268-file corpus before further C1-family fixes — it would
+the full 16078-file corpus before further C1-family fixes — it would
 surface more instances of silent content loss undetectable by the syntax
-checker and give a truer denominator.
+checker and give a truer denominator. **2026-07-28 status: with Category 1
+now down to 8 genuine files (5 distinct shapes, see C6k row) and Category 2
+at 334 files across the 4 established D1-D4 buckets (fresh per-bucket
+estimates above), this corpus is close to fully triaged — a good candidate
+for a dedicated future fix session covering C6k's 5 shapes (all
+categorized, none fixed) and, separately, a first attempt at any of D1-D4
+(still untouched, per this session's explicit no-Category-2-fixes scope).**
 
 ## Open Questions
 

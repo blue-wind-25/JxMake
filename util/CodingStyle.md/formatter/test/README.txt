@@ -2673,6 +2673,26 @@ Real-code regressions:
                                              count change). See `STATE_KOTLIN.md`'s Dogfood:
                                              JetBrains/kotlin section, cluster C6k.
 
+  real_code_regressions_162_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6k, Shape
+                                             C6k-5: the C6d fix (`@Composable (Params) -> Type`
+                                             needs a space before its function-type parens) didn't
+                                             fire for a *nullable* function type used as a
+                                             parameter's default-bearing type
+                                             (`@Composable( () -> Unit )?`) -- here the whole
+                                             nullable function type is wrapped in its own outer
+                                             parens, so the annotated paren's matching `)` is
+                                             followed by `?`, not `->` (the `->` sits inside, before
+                                             the close); `isAnnotationFunctionTypeParen`'s lookahead
+                                             only recognized `->` immediately after the close.
+                                             Fixed by also accepting a `?` there (unambiguous: an
+                                             annotation's own argument-list paren is never itself
+                                             followed by `?`) in both
+                                             `DeclarationAlignmentRuleCore`/`MiscRuleCore`'s
+                                             duplicate copies. `make test`: 210/210 forward +
+                                             210/210 idempotency (no count change). See
+                                             `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
+                                             cluster C6k.
+
 How Tests Are Run
 -----------------
 

@@ -1208,12 +1208,15 @@ public static final class Assignment {
     }
 
     /** True iff `tokens.get(parenIdx)` is `(` and it opens a function type's parameter list --
-     *  i.e. its matching `)` is followed (skipping whitespace/comments/newlines) by `->`. Used
-     *  only by C6d's annotation-vs-function-type disambiguation above; `tokens == null` (the
-     *  4-arg {@link #needsSpaceBetween} overload, no list available) conservatively returns
-     *  {@code false}, preserving pre-C6d behavior for any caller that can't supply a list. Exact
-     *  duplicate of `DeclarationAlignmentRuleCore.isAnnotationFunctionTypeParen` -- see that
-     *  method for the full rationale. */
+     *  i.e. its matching `)` is followed (skipping whitespace/comments/newlines) by `->`, OR by a
+     *  `?` (C6k-5: a nullable function type wraps the whole thing in its own parens,
+     *  `@Composable( () -> Unit )?` -- a bare `?` immediately after `@Identifier(...)` is
+     *  unambiguous evidence of this shape). Used only by C6d's annotation-vs-function-type
+     *  disambiguation above; `tokens == null` (the 4-arg {@link #needsSpaceBetween} overload, no
+     *  list available) conservatively returns {@code false}, preserving pre-C6d behavior for any
+     *  caller that can't supply a list. Exact duplicate of
+     *  `DeclarationAlignmentRuleCore.isAnnotationFunctionTypeParen` -- see that method for the
+     *  full rationale. */
     private boolean isAnnotationFunctionTypeParen(final List<Token> tokens, final int parenIdx) {
         if (tokens == null || parenIdx < 0 || parenIdx >= tokens.size()) {
             return false;
@@ -1240,7 +1243,7 @@ public static final class Assignment {
             if (isGapToken(t)) {
                 continue;
             }
-            return isOp(t, "->");
+            return isOp(t, "->") || isOp(t, "?");
         }
         return false;
     }

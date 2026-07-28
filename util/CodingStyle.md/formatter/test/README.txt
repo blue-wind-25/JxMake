@@ -2523,26 +2523,15 @@ Real-code regressions:
                                              JetBrains/kotlin section, cluster C6g.
 
   real_code_regressions_155_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6i: a
-                                             headerless one-liner interface member with no body
-                                             (`fun clear(): Unit`) immediately followed, on the very
-                                             next line with no blank line between, by an unrelated
-                                             named construct's own opening brace (a nested
-                                             `interface MutableEntry<K, V> : ... {`) had its `)`/`:`
-                                             wrongly matched by `ScopePipelineCurly.applySignaturePass`'s
-                                             Kotlin `: ReturnType` tail detection as belonging to that
-                                             later, unrelated brace -- the whole span from `clear()`'s
-                                             `)` through the interface's own name got swallowed into
-                                             `parseFunctionTail`'s tail range and flattened onto one
-                                             line with no separators, silently fusing the two
-                                             statements together. Fixed by a new
-                                             `hasTopLevelNewline` bail (only when no depth-0 `=` is
-                                             present in the candidate tail range, so the pre-existing
-                                             legitimate expression-bodied-function-with-trailing-
-                                             lambda-body shape, fixture `_33`/RDD_KEY_153, still works)
-                                             -- a genuine block-bodied `: ReturnType {` tail is always
-                                             on one unbroken physical line. `make test`: 203/203
-                                             forward + 203/203 idempotency. See `STATE_KOTLIN.md`'s
-                                             Dogfood: JetBrains/kotlin section, cluster C6i.
+                                             headerless one-liner interface member (`fun clear():
+                                             Unit`) directly followed by an unrelated named
+                                             construct's own brace got its `)`/`:` wrongly matched as
+                                             that brace's `: ReturnType` tail, fusing the two
+                                             statements onto one line. Fixed with a `hasTopLevelNewline`
+                                             bail in `ScopePipelineCurly.applySignaturePass`. `make
+                                             test`: 203/203 forward + 203/203 idempotency. RDD_KEY_206.
+                                             See `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
+                                             cluster C6i.
 
   real_code_regressions_156_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6f: two
                                              distinct multi-line-collapse passes that flattened an
@@ -2607,194 +2596,114 @@ Real-code regressions:
   real_code_regressions_158_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6b:
                                              Kotlin 2.4's multi-dollar string interpolation prefix
                                              (`$$"..."`, `$$$"""..."""`) got a spurious space before
-                                             the string it prefixes (`$$ "$key1"`). The tokenizer
-                                             already treats `$` as an identifier char, so `$$`/`$$$`
-                                             lexed as a plain IDENTIFIER token immediately followed by
-                                             the STRING token -- the generic identifier-then-string
-                                             spacing default inserted a space. Fixed by a new
-                                             `isDollarRun` carve-out (exact `"$$"`/`"$$$"` match) in
-                                             both `MiscRuleCore.needsSpaceBetween` and
+                                             the string it prefixes. Fixed with an `isDollarRun`
+                                             carve-out in `MiscRuleCore.needsSpaceBetween` and
                                              `DeclarationAlignmentRuleCore.needsSpaceBetween`, same
                                              fix shape as C2's `@`-tight carve-out. `make test`:
-                                             206/206 forward + 206/206 idempotency (no count change).
-                                             See `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
+                                             206/206 forward + 206/206 idempotency. RDD_KEY_207. See
+                                             `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
                                              cluster C6b.
 
   real_code_regressions_159_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6e: a
                                              multi-statement trailing-lambda body (`.all { ... }`/
                                              `.any { ... }`) used as a boolean sub-expression inside
-                                             an `if(...)` condition (directly, or combined with `&&`)
-                                             got fused with no separator when the enclosing `if`
-                                             qualified for single-statement-body collapse --
-                                             `BlockStructureRule.tryCollapse`/`tryCollapseBraceless`
-                                             render the condition via the comment/brace-unaware
-                                             `renderInline`, but neither had a guard against a nested
-                                             multi-line `{...}` block embedded in the *condition*
-                                             (only the *body* was guarded, via
-                                             `containsMultilineNestedBrace`). Same family as the
-                                             already-shipped C3, different code path (lambda as a
-                                             boolean sub-expression, not a call argument). Fixed by
-                                             reusing `containsMultilineNestedBrace` as a bail guard on
-                                             the condition slice in both methods. `make test`:
-                                             207/207 forward + 207/207 idempotency (no count change).
-                                             See `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
-                                             cluster C6e.
+                                             an `if(...)` condition got fused with no separator when
+                                             the `if` collapsed to single-statement form -- same
+                                             family as C3, but the condition (not just the body) was
+                                             unguarded. Fixed by reusing `containsMultilineNestedBrace`
+                                             as a bail guard on the condition slice in
+                                             `BlockStructureRule.tryCollapse`/`tryCollapseBraceless`.
+                                             `make test`: 207/207 forward + 207/207 idempotency.
+                                             RDD_KEY_208. See `STATE_KOTLIN.md`'s Dogfood:
+                                             JetBrains/kotlin section, cluster C6e.
 
   real_code_regressions_160_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6k, Shape
                                              C6k-3: the `!is`/`!in` negated-operator carve-out
                                              (RDD_KEY_144(A)) existed only in
-                                             `DeclarationAlignmentRuleCore.needsSpaceBetween`, not in
-                                             its documented duplicate `MiscRuleCore.needsSpaceBetween`
-                                             -- a function/constructor parameter's default value
-                                             (`nullabilityMarker: String = if (type !is
-                                             ConeFlexibleType) ...`) renders through the latter,
-                                             corrupting `!is` into `! is`, a parse error. Fixed by
-                                             adding the same carve-out to `MiscRuleCore.
-                                             needsSpaceBetween`. `make test`: 208/208 forward +
-                                             208/208 idempotency (no count change). See
-                                             `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
-                                             cluster C6k.
+                                             `DeclarationAlignmentRuleCore.needsSpaceBetween`, not its
+                                             documented duplicate `MiscRuleCore.needsSpaceBetween` --
+                                             a parameter default value renders through the latter,
+                                             corrupting `!is` into `! is`. Fixed by adding the same
+                                             carve-out there. `make test`: 208/208 forward + 208/208
+                                             idempotency. RDD_KEY_209. See `STATE_KOTLIN.md`'s
+                                             Dogfood: JetBrains/kotlin section, cluster C6k.
 
   real_code_regressions_161_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6k, Shape
                                              C6k-4: `KotlinSpecificRule.
                                              enforceNullSafetyOperatorSpacing`'s `!!` tightness
-                                             applied unconditionally to both sides -- correct on the
-                                             left (against its operand) but wrong on the right
-                                             whenever `!!` is followed by an ordinary keyword/
-                                             operator continuation (`port!! in range`, `x!! ?: y`)
-                                             rather than a postfix chain (`x!!.foo()`, `x!![0]`),
-                                             stripping a space the source already had and creating a
-                                             parse error (`port!!in ...`). Fixed by a new
+                                             applied unconditionally on the right, stripping a
+                                             required space before an ordinary keyword/operator
+                                             continuation (`port!! in range` -> `port!!in ...`, a
+                                             parse error) instead of only before a postfix chain
+                                             (`x!!.foo()`). Fixed with a new
                                              `isPostfixNullOpContinuation` check narrowing `!!`'s
-                                             right-side tightness to `.`/`[`/`(`/another `?.`/`!!`
-                                             only; `?.`'s own right side stays unconditionally tight
-                                             (a member name always follows directly, no ambiguity).
-                                             `make test`: 209/209 forward + 209/209 idempotency (no
-                                             count change). See `STATE_KOTLIN.md`'s Dogfood:
+                                             right-side tightness to `.`/`[`/`(`/`?.`/`!!` only.
+                                             `make test`: 209/209 forward + 209/209 idempotency.
+                                             RDD_KEY_210. See `STATE_KOTLIN.md`'s Dogfood:
                                              JetBrains/kotlin section, cluster C6k.
 
   real_code_regressions_162_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6k, Shape
-                                             C6k-5: the C6d fix (`@Composable (Params) -> Type`
-                                             needs a space before its function-type parens) didn't
-                                             fire for a *nullable* function type used as a
-                                             parameter's default-bearing type
-                                             (`@Composable( () -> Unit )?`) -- here the whole
-                                             nullable function type is wrapped in its own outer
-                                             parens, so the annotated paren's matching `)` is
-                                             followed by `?`, not `->` (the `->` sits inside, before
-                                             the close); `isAnnotationFunctionTypeParen`'s lookahead
-                                             only recognized `->` immediately after the close.
-                                             Fixed by also accepting a `?` there (unambiguous: an
-                                             annotation's own argument-list paren is never itself
-                                             followed by `?`) in both
-                                             `DeclarationAlignmentRuleCore`/`MiscRuleCore`'s
-                                             duplicate copies. `make test`: 210/210 forward +
-                                             210/210 idempotency (no count change). See
-                                             `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
-                                             cluster C6k.
+                                             C6k-5: the C6d fix (space before an annotated
+                                             function-type's parens) didn't fire for a *nullable*
+                                             function type (`@Composable( () -> Unit )?`), since its
+                                             outer paren's matching `)` is followed by `?`, not `->`,
+                                             and `isAnnotationFunctionTypeParen`'s lookahead only
+                                             recognized `->`. Fixed by also accepting `?` there, in
+                                             both `DeclarationAlignmentRuleCore`/`MiscRuleCore`
+                                             duplicate copies. `make test`: 210/210 forward + 210/210
+                                             idempotency. RDD_KEY_211. See `STATE_KOTLIN.md`'s
+                                             Dogfood: JetBrains/kotlin section, cluster C6k.
 
   real_code_regressions_163_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6k, Shape
                                              C6k-1 (multi-statement fusion), two independent root
-                                             causes combined in one fixture. (a)
-                                             `BlockStructureRule.isSingleStatementBody` routed Kotlin
-                                             through `isKotlinSingleStatementBody` only when
-                                             `semiCount != 1`, so a body like `if (tmp <= delta) {
-                                             _K += kappa; grisuRound(tmp, delta); return len }` --
-                                             two newline-delimited statements followed by one
-                                             `;`-terminated statement, exactly one `;` total -- took
-                                             the C/C++/Java `semiCount == 1` branch and was wrongly
-                                             collapsed to a single-statement body, deleting the
-                                             other two statements' braces/newlines. Fixed by always
-                                             routing Kotlin through `isKotlinSingleStatementBody`
-                                             regardless of `;` count, and teaching
-                                             `isKotlinSingleStatementBody` to also treat a depth-0
-                                             `;` as a statement boundary (not just NEWLINE), so
-                                             same-line `;`-separated statements (e.g.
-                                             `real_code_regressions_26_inp.kt`'s `{ redirected = i;
-                                             break }`) still correctly collapse. (b)
-                                             `KotlinSignatureRule.parseKotlinSignature` called
-                                             `significantWithComments` up front, discarding NEWLINE
-                                             tokens before any pass could see that a parameter's
-                                             trailing-lambda default value held multiple
-                                             newline-separated statements; `renderWithTail`'s
-                                             inline-fits shortcut then flattened the whole signature
-                                             onto one line, fusing the lambda body's statements.
-                                             Fixed by bailing out of `parseKotlinSignature` (`return
-                                             null`, leave the signature untouched) as soon as a new
-                                             `containsMultilineNestedBrace(sigTokens)` helper --
-                                             checking the raw pre-stripped token list for a `{...}`
-                                             block containing a depth-greater-than-0 NEWLINE -- finds one,
-                                             mirroring `BlockStructureRule`'s identically-named,
-                                             independently-kept helper. `make test`: 211/211 forward
-                                             + 211/211 idempotency (no count change). See
-                                             `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
-                                             cluster C6k.
+                                             causes in one fixture. (a)
+                                             `BlockStructureRule.isSingleStatementBody` routed
+                                             Kotlin through `isKotlinSingleStatementBody` only when
+                                             `semiCount != 1`, wrongly collapsing a body with two
+                                             newline-delimited statements plus one `;`-terminated
+                                             statement; fixed by always routing Kotlin through that
+                                             helper and teaching it to treat a depth-0 `;` as a
+                                             boundary too. (b) `KotlinSignatureRule.
+                                             parseKotlinSignature` discarded NEWLINE tokens up front,
+                                             letting `renderWithTail` flatten a multi-statement
+                                             trailing-lambda default value onto one line; fixed with
+                                             a `containsMultilineNestedBrace(sigTokens)` bail.
+                                             `make test`: 211/211 forward + 211/211 idempotency.
+                                             RDD_KEY_212. See `STATE_KOTLIN.md`'s Dogfood:
+                                             JetBrains/kotlin section, cluster C6k.
 
   real_code_regressions_164_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6k, Shape
-                                             C6k-2: a Kotlin raw (triple-quoted) string whose content
-                                             happens to end in its own literal `"` immediately before
-                                             the closing `"""` -- so the source has a run of 4 (or
-                                             more) contiguous quote characters right at the string's
-                                             end, e.g. `"""...s3""""` .trimMargin()`, meaning
-                                             4 quotes glued directly to the following method call
-                                             with no space. `TokenizerCurly.skipKotlinRawString`
-                                             (RDD_KEY_117) terminated the raw string greedily at the
-                                             *first* `"""` found in any such run, believing that
-                                             matched real Kotlin semantics; it does not. Verified via
-                                             `kotlin_syntax_check` that `kotlinc` actually accepts
-                                             `"""abc"""".trimMargin()` (4 trailing quotes) and
-                                             `"""abc""""".trimMargin()` (5 trailing quotes) with no
-                                             syntax error, which is only possible if the closing
-                                             delimiter is the *last* three quotes of the run, not the
-                                             first -- everything before that is string content.
-                                             Terminating at the first three left one (or more) stray
-                                             `"` characters as their own token(s) right before
-                                             `.trimMargin()`, and a later spacing pass inserted a
-                                             space before that stray quote, corrupting
-                                             `""""` into `""" "` -- a real content change, not just
-                                             misplaced whitespace. Fixed by extending
-                                             `skipKotlinRawString` through the *entire* contiguous
-                                             quote run once 3 or more are found, so the closing
-                                             position always lands after the whole run regardless of
-                                             its length. `make test`: 212/212 -> 213/213 forward +
-                                             idempotency, zero regressions. See
-                                             `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
-                                             cluster C6k.
+                                             C6k-2: a Kotlin raw (triple-quoted) string ending in its
+                                             own literal `"` right before the closing `"""` (e.g.
+                                             `"""...s3""""".trimMargin()`, a run of 4+ contiguous
+                                             quotes) had `TokenizerCurly.skipKotlinRawString`
+                                             (RDD_KEY_117) terminate greedily at the *first* `"""` in
+                                             the run instead of the last, leaving stray `"` token(s)
+                                             that a later spacing pass corrupted with an inserted
+                                             space. Fixed by extending `skipKotlinRawString` through
+                                             the entire contiguous quote run. `make test`: 212/212 ->
+                                             213/213 forward + idempotency, zero regressions.
+                                             RDD_KEY_213. See `STATE_KOTLIN.md`'s Dogfood:
+                                             JetBrains/kotlin section, cluster C6k.
 
   real_code_regressions_165_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood idempotency
-                                             cluster D2 (round1-vs-round2 closing-brace indent
+                                             cluster D2a (round1-vs-round2 closing-brace indent
                                              drift): a trailing-lambda call chained directly onto
-                                             the closing `}` of an immediately preceding braced
-                                             span (`addFunction { ... }.apply { ... }`).
+                                             the closing `}` of an immediately preceding braced span
+                                             (`addFunction { ... }.apply { ... }`) had
                                              `ScopePipelineCurly.processScope`'s
-                                             `effectiveSpanIndent` read the `.apply {` span's own
-                                             `braceIndent`/`spanIndent` off of its own physical
-                                             text, but that physical text (specifically the
-                                             immediately preceding span's own closing `}` column)
-                                             is not a stable fixed point across passes -- it can
-                                             legitimately reflow between round1 and round2 for
-                                             reasons unrelated to this span at all. New
-                                             `isChainedFluentCall` check (mirrors the existing
-                                             `isChainedCatchFinally` check just above it, same
-                                             "inherit the preceding span's already-resolved
-                                             `effectiveSpanIndent`" fix shape as RDD_KEY_158, just
-                                             generalized from `catch`/`finally` keywords to any
-                                             `.`/`?.` fluent-chain continuation) makes the `.apply
-                                             {` (or `.let`/`.also`/etc.) span inherit the preceding
-                                             span's own stable resolved indent instead of
-                                             re-deriving one from its own volatile physical text.
-                                             `_inp` is deliberately the un-wrapped, single-line
-                                             signature form (proving the forward pass produces the
-                                             stable shape); `_out` re-formatted through the
-                                             formatter again is byte-identical to itself (the
-                                             idempotency proof). Verified against the real corpus
-                                             file (`declarationBuilders.kt`) and a 334-file
-                                             corpus-wide re-run of the previously-known idempotency
-                                             flap list: 328/334 resolved by this one fix (up from
-                                             182/334, the D2 bucket alone). `make test`: 213/213 ->
-                                             214/214 forward + idempotency, zero regressions. See
-                                             `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
-                                             cluster D2.
+                                             `effectiveSpanIndent` re-derive the `.apply {` span's
+                                             indent from its own volatile physical text, which can
+                                             legitimately reflow between rounds. Fixed with a new
+                                             `isChainedFluentCall` check (generalizes the existing
+                                             `isChainedCatchFinally`/RDD_KEY_158 fix shape from
+                                             `catch`/`finally` to any `.`/`?.` fluent-chain
+                                             continuation), making such a span inherit the preceding
+                                             span's own stable resolved indent. Resolved 328/334 of
+                                             the corpus-wide known idempotency-flap list. `make
+                                             test`: 213/213 -> 214/214 forward + idempotency, zero
+                                             regressions. RDD_KEY_214. See `STATE_KOTLIN.md`'s
+                                             Dogfood: JetBrains/kotlin section, cluster D2a.
 
 How Tests Are Run
 -----------------

@@ -2730,6 +2730,37 @@ Real-code regressions:
                                              `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
                                              cluster C6k.
 
+  real_code_regressions_164_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6k, Shape
+                                             C6k-2: a Kotlin raw (triple-quoted) string whose content
+                                             happens to end in its own literal `"` immediately before
+                                             the closing `"""` -- so the source has a run of 4 (or
+                                             more) contiguous quote characters right at the string's
+                                             end, e.g. `"""...s3""""` .trimMargin()`, meaning
+                                             4 quotes glued directly to the following method call
+                                             with no space. `TokenizerCurly.skipKotlinRawString`
+                                             (RDD_KEY_117) terminated the raw string greedily at the
+                                             *first* `"""` found in any such run, believing that
+                                             matched real Kotlin semantics; it does not. Verified via
+                                             `kotlin_syntax_check` that `kotlinc` actually accepts
+                                             `"""abc"""".trimMargin()` (4 trailing quotes) and
+                                             `"""abc""""".trimMargin()` (5 trailing quotes) with no
+                                             syntax error, which is only possible if the closing
+                                             delimiter is the *last* three quotes of the run, not the
+                                             first -- everything before that is string content.
+                                             Terminating at the first three left one (or more) stray
+                                             `"` characters as their own token(s) right before
+                                             `.trimMargin()`, and a later spacing pass inserted a
+                                             space before that stray quote, corrupting
+                                             `""""` into `""" "` -- a real content change, not just
+                                             misplaced whitespace. Fixed by extending
+                                             `skipKotlinRawString` through the *entire* contiguous
+                                             quote run once 3 or more are found, so the closing
+                                             position always lands after the whole run regardless of
+                                             its length. `make test`: 212/212 -> 213/213 forward +
+                                             idempotency, zero regressions. See
+                                             `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
+                                             cluster C6k.
+
 How Tests Are Run
 -----------------
 

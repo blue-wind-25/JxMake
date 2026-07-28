@@ -842,12 +842,17 @@ public class TokenizerCurly extends TokenizerCore {
      *       char literal, `\` is a plain literal character inside a raw string (this is the whole
      *       point of the construct), so a lone trailing `\` right before the closing `"""` must
      *       not swallow the first delimiter quote the way an escape pair would elsewhere.</li>
-     *   <li>Termination is greedy on the *first* `"""` encountered, exactly matching the real
-     *       Kotlin compiler: a raw string is free to contain runs of one or two unescaped `"`
-     *       characters as plain content (e.g. `"""hello "world" end"""`), but the moment three
-     *       land in a row, that's the close -- even if a fourth immediately follows (a literal
-     *       trailing `"` right at the end needs `${'"'}` in real Kotlin source; this tokenizer
-     *       doesn't need to solve that, it only needs to match where the closing delimiter falls).</li>
+     *   <li>Termination matches the real Kotlin compiler's actual rule, confirmed against
+     *       `kotlin_syntax_check` (RDD_KEY_212, C6k-2): a raw string is free to contain runs of one
+     *       or two unescaped `"` characters as plain content (e.g. `"""hello "world" end"""`), and
+     *       when a run of *three or more* quotes is encountered, the closing delimiter is the
+     *       final three quotes of that whole run -- any earlier quotes in the same run are plain
+     *       content, not a premature close. E.g. four trailing quotes (`"""abc""""`) closes after
+     *       all four (content `abc"`, delimiter the last three), not after the first three the way
+     *       an earlier version of this method assumed -- that earlier "greedy on the first `"""`"
+     *       reading was simply wrong (verified: `kotlinc` accepts `"""abc"""".trimMargin()` with no
+     *       syntax error, which is only possible if the closing three quotes are the *last* three of
+     *       the run).</li>
      * </ul>
      * `${...}` interpolation is still recognized and depth-tracked via {@link
      * #skipKotlinInterpolationBlock} exactly as in {@link #skipKotlinString} -- interpolation
@@ -860,7 +865,14 @@ public class TokenizerCurly extends TokenizerCore {
         while (p < length) {
             final char c = source.charAt(p);
             if (c == '"' && p + 2 < length && source.charAt(p + 1) == '"' && source.charAt(p + 2) == '"') {
-                return p + 3;
+                // Found a run of >= 3 quotes; extend through the whole run -- the closing
+                // delimiter is the *last* three quotes of it, so any additional quotes beyond
+                // the first three are still part of the string, not a premature close.
+                int q = p;
+                while (q < length && source.charAt(q) == '"') {
+                    q++;
+                }
+                return q;
             }
             if (c == '$' && p + 1 < length && source.charAt(p + 1) == '{') {
                 p = skipKotlinInterpolationBlock(p + 2);

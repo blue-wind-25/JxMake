@@ -63,14 +63,14 @@ Be careful not to lose important information, especially the `**Tools/compiler u
 `indent-size` exception, etc.
 
 Compact (use one sub-agent):
-    `STATE_KOTLIN.md` (ONLY entries related to `JetBrains/kotlin` dogfood test)
+    `STATE_KOTLIN.md`
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, the active work diagnosis, clustering, etc.
-Then update `STATE_DOGFOOD.md` about the above two dogfood state (keep `Note` short enough).
+Then update `STATE_DOGFOOD.md` about the above dogfood state (keep `Note` short enough).
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_151_inp/out.kt`
-    to   `real_code_regressions_152_inp/out.kt`
+    to   `real_code_regressions_165_inp/out.kt`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -129,100 +129,23 @@ Use one sub-agent as needed, the sub-agent can launch up to one more research su
 
 
 
-JetBrains/kotlin — CRITICAL
----------------------------
-C6f. Multi-line condition/call collapse swallows an embedded // comment
-     (~20 files, largest sub-cluster) — whichever line-collapsing pass joins
-     a multi-line construct onto one physical line isn't comment-aware, so
-     everything after an interior // comment gets silently absorbed into the
-     comment, corrupting parens/braces downstream. Same severity class as the
-     original C1 (silent content loss), not just a crash.
-     Example: libraries/tools/.../ResolutionTesting.kt: `setOf(// comment
-     "org.gradle.status",),` — comment swallows the closing `)`.
-C6b. Multi-dollar string prefix ($$/$$$) gets spurious space before string
-     (12 files) — Kotlin 2.4's `$$"..."` interpolation prefix isn't in the
-     tight-token table, falls through to default spacing. Same fix shape as
-     the already-shipped C2 (@Annotation tight-space) precedent.
-     Example: compiler/util-io/test/.../ResolvablePropertiesTests.kt.
-C6e. Trailing-lambda multi-statement body fused as boolean sub-expression
-     (6 files) — same family as already-fixed C3, but for a trailing lambda
-     (.all{}/.any{}/.findOverridden{}) used directly inside an if/&&/||
-     expression rather than as a call argument — different code path than
-     C3's fix touched.
-     Example: core/reflection.jvm/.../KClassImpl.kt.
-C6d. @Composable-annotated function-type parens lose required leading space
-     (6 files) — mirror-image of C2: `@Composable (Params) -> Type` (function
-     type position, space required) gets tightened by C2's existing
-     no-space-after-@ rule, which doesn't distinguish this position from
-     call/param-target position.
-     Example: plugins/compose/.../mock/Views.kt.
-C6h. Missing '}' at EOF in Gradle-plugin functional/integration tests
-     (8 files) — not independently root-caused; diffs show substantial
-     mid-file corruption well before EOF, consistent with a `}` being
-     consumed by C6f's comment-swallow or a related collapse variant rather
-     than its own distinct cause. Re-triage after C6f lands.
-     Example: libraries/tools/.../KmpPartiallyResolvedDependenciesCheckerIT.kt.
-C6g. Backtick identifier containing literal `(` breaks paren-depth tracking
-     (4 files) — backtick-quoted test names like `` `test (with parens)` ``
-     aren't treated as opaque text the way strings/comments already are,
-     so the literal `(` inside is miscounted as a real opening paren.
-     Example: compiler/ir/ir.validation/test/.../IrValidatorTest.kt.
-C6k. Residual uninvestigated shapes (10 files) — Expecting ')'/Expecting an
-     element-family errors around a multi-line call/condition with no
-     confidently-attributable shape found in a quick context read (no $$,
-     no ?::, no @Composable, no backtick-paren, no unambiguous //-swallow).
-     May resolve partly for free once C6e/C6f are fixed and this set is
-     re-run. Files: diagnosticUtils.kt, KClassMembers.kt, TypeCommonizerTest.kt,
-     ConeTypeRenderer.kt, JavaOverrideChecker.kt, LazyJavaClassMemberScope.kt,
-     kmpTargets.kt, FirConflictsDeclarationChecker.kt,
-     FirRequiresOptInOnExpectChecker.kt, GenerateMultifileFacades.kt.
-C6i. Multiple interface member declarations fused without separators
-     (1 file) — sequence of one-line `actual override val x: T` members
-     loses line breaks between them; no lambda/braces involved, likely a
-     distinct root cause from the lambda-fusion families.
-     Example: libraries/stdlib/js-ir-minimal-for-test/.../collectionsWithoutExportLogic.kt.
-
-C6f C6b C6e C6d C6h C6g C6k C6i
-C6d C6g C6i
-
-Continue with Kotlin C6d, tell the sub-agent:
-    JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
-    KLIB=~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib
-    cd util/CodingStyle.md/formatter/tools/verifiers
-
 JetBrains/kotlin — Idempotency
 ------------------------------
-D1. Declaration/accessor column-alignment padding flap (~150-200 files,
-    largest idempotency cluster) — group padding width differs round1 vs
-    round2 for overridden accessors and plain val/private-val groups.
-    Reproduces at BOTH default indent-size=4 and indent-size=2 (retested
-    standalone). Same family as RDD_KEY_139/162.
-    Example: analysis/light-classes-base/.../KotlinEnumSyntheticMethod.kt.
+D2. Closing-brace indent drift across passes
+D1. Declaration/accessor column-alignment padding flap
+D3. Multi-param lambda header wrap flap
+D4. Minor adjacent-closing-brace spacing flap
 
-D2. Closing-brace indent drift across passes (~150+ files) — a nested
-    block's `}` lands at a different column round1 vs round2, independent of
-    D1. Reproduces at both default and indent-size=2 (retested standalone).
-    Same family as RDD_KEY_159/161.
-    Example: kotlin-native/endorsedLibraries/kotlinx.cli/.../ArgumentValues.kt.
-
-D3. Multi-param lambda header wrap flap (~15-20 files) — a lambda param list
-    wraps to one-line-per-param with a spurious space before `:` on one pass,
-    collapses back on the other.
-    Example: analysis/low-level-api-fir/.../LLKotlinStubBasedLibrarySymbolProvider.kt.
-
-D4. Minor adjacent-closing-brace spacing flap (small, single digits) —
-    cosmetic only, e.g. `) } }` vs `)} }`.
-
-Continue with Kotlin D1 and D2, tell the sub-agent:
+Continue with JetBrains/kotlin idempotency bug D2 residual, tell the sub-agent:
     JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
     KLIB=~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib
     cd util/CodingStyle.md/formatter/tools/verifiers
-For each bug, if the fix cause many regression, revert and defer.
+For each idempotency bug, if the fix cause many regression, revert and defer.
 
 
 
 Now, start with the dogfood test (search in `/tmp` first, clone the repo if not found):
-   JS : github.com/nodejs/node`  (the repo is MASSIVE, checkout the *.js files only)
+   JS : github.com/nodejs/node` (the repo is MASSIVE, checkout ONLY the *.js files)
 Do NOT perform any bug fix yet, instead categorize and note the bugs inside
 `....md` and `....md` into two categories:
     1. Critical bugs that cause formatter error/crash and output file corruption (syntax

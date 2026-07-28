@@ -531,7 +531,7 @@ of an unrelated task.
    `target/code-formatter-1.00.jar` — do not overwrite the real build
    output with this trial JAR). Use that JAR to run the forward and
    idempotency test fixtures listed in the Makefile's `INP_FILES`. Fix
-   any bug before continuing.
+   any bug before continuing. Create additional test fixtures if needed.
 3. Use that same round2 JAR to format the *original* (unformatted)
    `/tmp/fmt_ref` copy again, producing round1b and round2b. If
    everything is consistent, round1 must be byte-identical to round1b,

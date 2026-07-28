@@ -508,8 +508,17 @@ public class KotlinSignatureRule extends MiscRuleCurly {
 
     /** Parses the tokens following a signature's closing `)` -- everything up to (not including)
      *  the function's own body-opening `{` for a block-bodied function, or through the end of the
-     *  expression for an expression-bodied one. Returns null only if given no tokens to parse
-     *  (there is always at least a valid, possibly-empty {@link FunctionTail} otherwise). */
+     *  expression for an expression-bodied one. Returns null if given no tokens to parse (there is
+     *  always at least a valid, possibly-empty {@link FunctionTail} otherwise), or -- C6f shape
+     *  (3) -- if the expression-body slice contains a {@code COMMENT_LINE} anywhere (e.g. a run of
+     *  standalone `//` comment lines between the `=` and the real expression, as in
+     *  `AbstractNativeBlackBoxTest.kt`'s `buildJUnitDynamicNodes`). {@link #renderWithTail}'s tail
+     *  rendering flattens {@code exprTokens} via the comment-unaware {@code renderTokens} helper
+     *  (same mechanism as {@link #parseKotlinParam}'s already-fixed C6f shape (1)), which would fuse
+     *  every leading comment line plus the first line of the real expression onto one line, silently
+     *  swallowing content after the first embedded `//`. Same "never guess" bail as shapes (1)/(2):
+     *  the caller ({@code ScopePipelineCurly}) treats a null return like a null {@code KotlinSignature}
+     *  and leaves the whole span untouched. */
     public FunctionTail parseFunctionTail(final List<Token> tailTokens) {
         final List<Token> sig = significantWithComments(tailTokens);
         int i = 0;
@@ -528,6 +537,9 @@ public class KotlinSignatureRule extends MiscRuleCurly {
             hasEqual = true;
             i++;
             expr = new ArrayList<>(sig.subList(i, sig.size()));
+            if (containsLineComment(expr)) {
+                return null;
+            }
         }
         return new FunctionTail(returnType, expr, hasEqual);
     }

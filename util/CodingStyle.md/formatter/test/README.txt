@@ -2579,6 +2579,31 @@ Real-code regressions:
                                              `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
                                              cluster C6f.
 
+  real_code_regressions_157_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6f, third
+                                             and final shape: an expression-bodied function whose
+                                             `=` is followed by a run of standalone `//` comment
+                                             lines before the real expression body
+                                             (`AbstractNativeBlackBoxTest.kt`'s
+                                             `buildJUnitDynamicNodes`). `KotlinSignatureRule.
+                                             renderWithTail` renders the tail's expression tokens via
+                                             the comment-unaware `renderTokens` helper (same
+                                             mechanism as this cluster's already-fixed shape (1)),
+                                             fusing every leading comment line plus the first line of
+                                             the real expression onto one physical line. Fixed by a
+                                             new `containsLineComment` bail in
+                                             `KotlinSignatureRule.parseFunctionTail`, returning null
+                                             whenever the expression-body slice contains a
+                                             `COMMENT_LINE` -- `ScopePipelineCurly` already treats a
+                                             null tail like a null `KotlinSignature` and leaves the
+                                             whole span untouched, no caller change needed beyond
+                                             adding the null check. Verified against the real
+                                             `AbstractNativeBlackBoxTest.kt` via `kotlin_syntax_check`
+                                             (clean). `make test`: 205/205 forward + 205/205
+                                             idempotency (no count change -- corruption fix to
+                                             already-covered functionality, not a new formatting
+                                             rule). See `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin
+                                             section, cluster C6f.
+
 How Tests Are Run
 -----------------
 

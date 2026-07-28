@@ -1116,6 +1116,9 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                         : prevSignificantIndex(tokens, span.openBraceIdx);
                 final FunctionTail tail = kotlinSignatureRule.parseFunctionTail(
                         tokens.subList(closeParenIdx + 1, tailEnd + 1));
+                if (tail == null) {
+                    continue;
+                }
                 final List<String> kotlinLines =
                         kotlinSignatureRule.renderWithTail(kotlinSig, tail, depth, indentStyle);
                 final String kotlinLeadingGap = joinText(tokens, span.start, sigLeadStart);

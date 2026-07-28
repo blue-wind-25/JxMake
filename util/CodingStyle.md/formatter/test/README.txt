@@ -2502,6 +2502,26 @@ Real-code regressions:
                                              201/201 idempotency. See `STATE_KOTLIN.md`'s Dogfood:
                                              JetBrains/kotlin section, cluster C6d.
 
+  real_code_regressions_154_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6g: a
+                                             backtick-quoted identifier containing a literal `(`/`)`
+                                             (the common JetBrains test-name idiom, e.g.
+                                             `` fun `parses correctly (no debug info)`() ``) wasn't
+                                             recognized as an opaque span at all -- unlike JS/TS's
+                                             backtick-delimited template literal, no `c == '`'`
+                                             branch matched for Kotlin in `TokenizerCurly`'s dispatch
+                                             loop, so the backtick itself fell through to
+                                             `emitOperator()` and the identifier's interior was
+                                             re-tokenized character-by-character, with any embedded
+                                             `(`/`)` emitted as real bracket tokens that corrupted
+                                             downstream paren-depth tracking. Fixed by a new
+                                             `TokenizerCurly.emitKotlinBacktickIdentifier`, gated on
+                                             `lang.isKotlin`, mirroring `emitTemplateLiteral`'s
+                                             existing opaque-span treatment: the whole backtick span
+                                             (byte-for-byte) becomes a single `IDENTIFIER` token, no
+                                             interior re-tokenization. `make test`: 203/203 forward +
+                                             203/203 idempotency. See `STATE_KOTLIN.md`'s Dogfood:
+                                             JetBrains/kotlin section, cluster C6g.
+
 How Tests Are Run
 -----------------
 

@@ -321,6 +321,8 @@ public class TokenizerCurly extends TokenizerCore {
                 t = emitString();
             } else if (c == '`' && (lang.isJs || lang.isTs)) {
                 t = emitTemplateLiteral();
+            } else if (c == '`' && lang.isKotlin) {
+                t = emitKotlinBacktickIdentifier();
             } else if (c == '\'') {
                 t = emitChar();
             } else if (Character.isDigit(c) || (c == '.' && Character.isDigit(peek(1)))) {
@@ -1010,6 +1012,48 @@ public class TokenizerCurly extends TokenizerCore {
         syntaxError = true;
         return new Token(TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
                 null);
+    }
+
+    /**
+     * Kotlin backtick-quoted identifier (STYLE_KOTLIN.md, e.g. the JetBrains test-name idiom
+     * {@code fun `parses correctly (edge case)`() { ... }}). Gated on {@code lang.isKotlin} --
+     * no other family uses backtick-escaped identifiers. C6g fix: prior to this, a Kotlin
+     * backtick span wasn't recognized as opaque text at all (no {@code c == '`'} branch matched
+     * for Kotlin in the dispatch loop above, unlike JS/TS's template-literal branch just above
+     * this one), so the dispatch loop fell through to {@code emitOperator()} for the backtick
+     * itself and then re-tokenized the identifier's *interior* character-by-character -- any
+     * literal {@code (}/{@code )} embedded in the name (a common JetBrains test-name shape) was
+     * emitted as a real {@code emitOpenBracket}/{@code emitCloseBracket} token, corrupting
+     * every downstream paren-depth-tracking pass (signature-boundary detection, call/decl
+     * rendering, etc.) the same way an un-masked string/comment span historically has. Fix:
+     * treat the whole backtick span as a single opaque token here, the same way
+     * {@code emitTemplateLiteral} already does for JS/TS template literals just above -- content
+     * preserved byte-for-byte, no interior re-tokenization. Emitted as {@code IDENTIFIER} (not
+     * {@code STRING}) since semantically this *is* an identifier -- e.g. a bare backtick-quoted
+     * function name must still be recognized as the declaration's name token by callers that
+     * check {@code TokenType.IDENTIFIER}. Kotlin backtick identifiers are single-line (a bare
+     * newline is not legal inside one); an unterminated span (missing closing backtick before
+     * EOF/newline) sets {@code syntaxError} and returns whatever was scanned, same posture as
+     * {@code emitTemplateLiteral}'s own EOF fallback.
+     */
+    private Token emitKotlinBacktickIdentifier() {
+        final int start = pos;
+        pos++; // consume opening `
+        while (pos < length) {
+            final char c = source.charAt(pos);
+            if (c == '`') {
+                pos++;
+                return new Token(TokenType.IDENTIFIER, source.substring(start, pos), braceDepth,
+                        parenDepth, null);
+            }
+            if (c == '\n' || c == '\r') {
+                break;
+            }
+            pos++;
+        }
+        syntaxError = true;
+        return new Token(TokenType.IDENTIFIER, source.substring(start, pos), braceDepth,
+                parenDepth, null);
     }
 
     /**

@@ -62,7 +62,7 @@ Then update `STATE_DOGFOOD.md` about the above dogfood state (keep `Note` short 
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_166_inp/out.kt`
-    to   `real_code_regressions_169_inp/out.kt`
+    to   `real_code_regressions_170_inp/out.kt`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -123,14 +123,20 @@ Use one sub-agent as needed, the sub-agent can launch up to one more research su
 
 JetBrains/kotlin — Idempotency
 ------------------------------
-*D1. Declaration/accessor column-alignment padding flap
-D3. Multi-param lambda header wrap flap
-
 Continue with JetBrains/kotlin idempotency bug D3, tell the sub-agent:
     JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
     KLIB=~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib
     cd util/CodingStyle.md/formatter/tools/verifiers
-For each idempotency bug, if the fix cause many regression, revert and defer.
+Do NOT reformat the entire corpus, it is wasting time.
+
+
+Remove the per-parameter Math.pow() calls (highest priority).
+Switch from batch size 1 to batch size 32.
+Pre-tokenize the corpus once before training.
+Fix bestWeights = weights by making a deep copy of the weights.
+
+Profile forward vs backward vs Adam update to see where time is actually spent.
+
 
 
 

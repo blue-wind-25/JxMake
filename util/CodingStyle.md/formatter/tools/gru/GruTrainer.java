@@ -74,6 +74,11 @@ public final class GruTrainer {
     private static final int HIDDEN_SIZE = 224;
     private static final int DENSE_SIZE = 64;
     private static final double ABSTAIN_THRESHOLD = 0.5;
+    /** Global L2-norm gradient clipping threshold. Prevents exploding gradients in the
+     *  recurrent layers while leaving ordinary updates unchanged. A value around 5 is a
+     *  conventional starting point for GRU/LSTM training and can later become a
+     *  --clip=<value> hyperparameter if needed. */
+    private static final double GRADIENT_CLIP_NORM = 5.0;
     private static final String DEFAULT_VOCAB_PATH = "tools/gru/explicit_vocab.txt";
 
     public static void main(String[] args) {
@@ -205,6 +210,7 @@ public final class GruTrainer {
                 GruClassifier.ForwardCache cache = GruClassifier.forward(weights, vocabulary, tokens, example.targetWordIndex);
                 trainLoss += crossEntropyLoss(cache.logits, example.classIndex);
                 GruClassifier.Gradients gradients = GruClassifier.backward(weights, cache, example.classIndex);
+                clipGradients(gradients, GRADIENT_CLIP_NORM);
                 step++;
                 adam.apply(weights, gradients, learningRate, step);
                 if (progressEvery > 0 && examplesSeen % progressEvery == 0) {
@@ -451,6 +457,91 @@ public final class GruTrainer {
         return (random.nextDouble() * 2 - 1) * limit;
     }
 
+    /** Clips the entire gradient set to the specified global L2 norm. This is the
+     *  standard "global norm" clipping used by most GRU/LSTM implementations rather
+     *  than clipping each tensor independently, since it preserves the direction of
+     *  the update while only reducing its magnitude when necessary. */
+    private static void clipGradients(GruClassifier.Gradients gradients, double maxNorm) {
+        double sumSquares = 0.0;
+
+        for (double[] row : gradients.embeddingGrad.values()) {
+            for (double v : row) {
+                sumSquares += v * v;
+            }
+        }
+
+        sumSquares += sumSquares(gradients.forward);
+        sumSquares += sumSquares(gradients.backward);
+        sumSquares += sumSquares(gradients.denseW);
+        sumSquares += sumSquares(gradients.denseB);
+        sumSquares += sumSquares(gradients.outW);
+        sumSquares += sumSquares(gradients.outB);
+
+        double norm = Math.sqrt(sumSquares);
+        if (norm <= maxNorm || norm == 0.0) {
+            return;
+        }
+
+        double scale = maxNorm / norm;
+
+        for (double[] row : gradients.embeddingGrad.values()) {
+            scale(row, scale);
+        }
+
+        scale(gradients.forward, scale);
+        scale(gradients.backward, scale);
+        scale(gradients.denseW, scale);
+        scale(gradients.denseB, scale);
+        scale(gradients.outW, scale);
+        scale(gradients.outB, scale);
+    }
+
+    private static double sumSquares(GruWeights.DirectionWeights w) {
+        return sumSquares(w.Wz) + sumSquares(w.Wr) + sumSquares(w.Wh)
+                + sumSquares(w.Uz) + sumSquares(w.Ur) + sumSquares(w.Uh)
+                + sumSquares(w.bz) + sumSquares(w.br) + sumSquares(w.bh);
+    }
+
+    private static double sumSquares(double[][] m) {
+        double s = 0.0;
+        for (double[] row : m) {
+            s += sumSquares(row);
+        }
+        return s;
+    }
+
+    private static double sumSquares(double[] v) {
+        double s = 0.0;
+        for (double x : v) {
+            s += x * x;
+        }
+        return s;
+    }
+
+    private static void scale(GruWeights.DirectionWeights w, double factor) {
+        scale(w.Wz, factor);
+        scale(w.Wr, factor);
+        scale(w.Wh, factor);
+        scale(w.Uz, factor);
+        scale(w.Ur, factor);
+        scale(w.Uh, factor);
+        scale(w.bz, factor);
+        scale(w.br, factor);
+        scale(w.bh, factor);
+   }
+
+    private static void scale(double[][] m, double factor) {
+        for (double[] row : m) {
+            scale(row, factor);
+        }
+    }
+
+    private static void scale(double[] v, double factor) {
+        for (int i = 0; i < v.length; i++) {
+            v[i] *= factor;
+        }
+    }
+
     /** Adam optimizer state (first/second moment estimates), one pair of accumulator arrays per
      *  trained-weight array, mirroring {@link GruWeights}'s field layout exactly so each weight
      *  array's update can be applied in lockstep with its gradient. Embedding-row moments are kept
@@ -512,44 +603,69 @@ public final class GruTrainer {
         }
 
         void apply(GruWeights weights, GruClassifier.Gradients gradients, double lr, int step) {
+            double biasCorrection1 = 1.0 - Math.pow(BETA1, step);
+            double biasCorrection2 = 1.0 - Math.pow(BETA2, step);
+
             for (Map.Entry<Integer, double[]> entry : gradients.embeddingGrad.entrySet()) {
                 int row = entry.getKey();
-                update1D(weights.embeddings[row], entry.getValue(), embeddingM[row], embeddingV[row], lr, step);
+                update1D(weights.embeddings[row], entry.getValue(), embeddingM[row],
+                        embeddingV[row], lr, biasCorrection1, biasCorrection2);
             }
-            applyDirection(weights.forward, gradients.forward, forward, lr, step);
-            applyDirection(weights.backward, gradients.backward, backward, lr, step);
-            update2D(weights.denseW, gradients.denseW, denseWM, denseWV, lr, step);
-            update1D(weights.denseB, gradients.denseB, denseBM, denseBV, lr, step);
-            update2D(weights.outW, gradients.outW, outWM, outWV, lr, step);
-            update1D(weights.outB, gradients.outB, outBM, outBV, lr, step);
+            applyDirection(weights.forward, gradients.forward, forward, lr,
+                    biasCorrection1, biasCorrection2);
+            applyDirection(weights.backward, gradients.backward, backward, lr,
+                    biasCorrection1, biasCorrection2);
+            update2D(weights.denseW, gradients.denseW, denseWM, denseWV, lr,
+                    biasCorrection1, biasCorrection2);
+            update1D(weights.denseB, gradients.denseB, denseBM, denseBV, lr,
+                    biasCorrection1, biasCorrection2);
+            update2D(weights.outW, gradients.outW, outWM, outWV, lr,
+                    biasCorrection1, biasCorrection2);
+            update1D(weights.outB, gradients.outB, outBM, outBV, lr,
+                    biasCorrection1, biasCorrection2);
         }
 
         private void applyDirection(GruWeights.DirectionWeights weights, GruWeights.DirectionWeights gradients,
-                DirectionMoments moments, double lr, int step) {
-            update2D(weights.Wz, gradients.Wz, moments.WzM, moments.WzV, lr, step);
-            update2D(weights.Wr, gradients.Wr, moments.WrM, moments.WrV, lr, step);
-            update2D(weights.Wh, gradients.Wh, moments.WhM, moments.WhV, lr, step);
-            update2D(weights.Uz, gradients.Uz, moments.UzM, moments.UzV, lr, step);
-            update2D(weights.Ur, gradients.Ur, moments.UrM, moments.UrV, lr, step);
-            update2D(weights.Uh, gradients.Uh, moments.UhM, moments.UhV, lr, step);
-            update1D(weights.bz, gradients.bz, moments.bzM, moments.bzV, lr, step);
-            update1D(weights.br, gradients.br, moments.brM, moments.brV, lr, step);
-            update1D(weights.bh, gradients.bh, moments.bhM, moments.bhV, lr, step);
+                DirectionMoments moments, double lr,
+                double biasCorrection1, double biasCorrection2) {
+            update2D(weights.Wz, gradients.Wz, moments.WzM, moments.WzV, lr,
+                    biasCorrection1, biasCorrection2);
+            update2D(weights.Wr, gradients.Wr, moments.WrM, moments.WrV, lr,
+                    biasCorrection1, biasCorrection2);
+            update2D(weights.Wh, gradients.Wh, moments.WhM, moments.WhV, lr,
+                    biasCorrection1, biasCorrection2);
+            update2D(weights.Uz, gradients.Uz, moments.UzM, moments.UzV, lr,
+                    biasCorrection1, biasCorrection2);
+            update2D(weights.Ur, gradients.Ur, moments.UrM, moments.UrV, lr,
+                    biasCorrection1, biasCorrection2);
+            update2D(weights.Uh, gradients.Uh, moments.UhM, moments.UhV, lr,
+                    biasCorrection1, biasCorrection2);
+            update1D(weights.bz, gradients.bz, moments.bzM, moments.bzV, lr,
+                    biasCorrection1, biasCorrection2);
+            update1D(weights.br, gradients.br, moments.brM, moments.brV, lr,
+                    biasCorrection1, biasCorrection2);
+            update1D(weights.bh, gradients.bh, moments.bhM, moments.bhV, lr,
+                    biasCorrection1, biasCorrection2);
         }
 
-        private static void update1D(double[] param, double[] grad, double[] m, double[] v, double lr, int step) {
+        private static void update1D(double[] param, double[] grad,
+                double[] m, double[] v, double lr,
+                double biasCorrection1, double biasCorrection2) {
             for (int i = 0; i < param.length; i++) {
                 m[i] = BETA1 * m[i] + (1 - BETA1) * grad[i];
                 v[i] = BETA2 * v[i] + (1 - BETA2) * grad[i] * grad[i];
-                double mHat = m[i] / (1 - Math.pow(BETA1, step));
-                double vHat = v[i] / (1 - Math.pow(BETA2, step));
+                double mHat = m[i] / biasCorrection1;
+                double vHat = v[i] / biasCorrection2;
                 param[i] -= lr * mHat / (Math.sqrt(vHat) + EPSILON);
             }
         }
 
-        private static void update2D(double[][] param, double[][] grad, double[][] m, double[][] v, double lr, int step) {
+        private static void update2D(double[][] param, double[][] grad,
+                double[][] m, double[][] v, double lr,
+                double biasCorrection1, double biasCorrection2) {
             for (int i = 0; i < param.length; i++) {
-                update1D(param[i], grad[i], m[i], v[i], lr, step);
+                update1D(param[i], grad[i], m[i], v[i], lr,
+                        biasCorrection1, biasCorrection2);
             }
         }
     }

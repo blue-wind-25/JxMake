@@ -2797,157 +2797,79 @@ Real-code regressions:
                                               `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
                                               cluster D2a.
 
-  real_code_regressions_166_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood idempotency cluster
-                                              D2a residual (round1-vs-round2 drift in a Kotlin
-                                              generic `where`-clause's own indent): a `fun`/nested-
-                                              class chain 3+ levels deep, each level carrying its own
-                                              wrapped generic `where` clause, had
-                                              `KotlinSpecificRule.signatureLineIndent` anchor a
-                                              where-clause's base indent on the PHYSICAL LINE of the
-                                              boundary token (`;`/`}`/`{`) immediately preceding the
-                                              statement -- correct when that boundary sits alone on a
-                                              simple unwrapped line, but when the boundary token is
-                                              itself the tail end of an ANCESTOR construct's own
-                                              already-wrapped multi-line `where` clause, that line's
-                                              indent is whatever a prior pass happened to write there,
-                                              not a stable fixed point. Separately,
-                                              `ScopePipelineCurly.processScope`'s `effectiveSpanIndent`
-                                              selection had the same volatile-`braceIndent`-wins gap
-                                              for a `fun` with a wrapped `where` clause, since
-                                              RDD_KEY_159's `isNamedScope` carve-out never covers
-                                              `fun` (`NAMED_CONSTRUCT_KOTLIN` excludes it). Fixed
-                                              `signatureLineIndent` to derive the where-clause's base
-                                              indent from the TRUE statement's own (stable) header-
-                                              line indent minus one `indentUnit`, instead of the
-                                              volatile boundary-token line; and added
-                                              `ScopePipelineCurly.headerHasTopLevelWhereClause` to
-                                              force `spanIndent` (over `braceIndent`) whenever a
-                                              span's own header contains a depth-0 `where` keyword,
-                                              mirroring `isNamedScope`'s posture for `fun`. Together
-                                              these resolve the `TestStepBuilder.kt`/`common.kt`/
-                                              `KaBaseSymbolRelationProvider.kt`/`TopLevelPhases.kt`
-                                              where-clause-shaped share of RDD_KEY_214's own 6-file
-                                              D2a residual. `make test`: 214/214 -> 215/215 forward +
-                                              idempotency, zero regressions. RDD_KEY_215. See
-                                              `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
-                                              cluster D2a.
+  real_code_regressions_166_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood idempotency, D2a
+                                              residual: `KotlinSpecificRule.signatureLineIndent`
+                                              anchored a nested `where`-clause's indent on a
+                                              volatile boundary-token line when 3+ levels of
+                                              wrapped `where` clauses nested; and `isNamedScope`
+                                              never covered `fun`, so `where`-bearing functions hit
+                                              the same volatile-indent gap in `effectiveSpanIndent`.
+                                              Fixed by anchoring to the true statement's own stable
+                                              header-line indent, and adding
+                                              `headerHasTopLevelWhereClause` to force `spanIndent`
+                                              for `where`-bearing spans. `make test`: 214/214 ->
+                                              215/215. RDD_KEY_215. See `STATE_KOTLIN.md`'s
+                                              Dogfood: JetBrains/kotlin section, cluster D2a.
 
-  real_code_regressions_167_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood idempotency cluster
-                                              D2a residual (round1-vs-round2 closing-brace indent
-                                              drift on a boolean-operator-chained trailing-lambda
-                                              call): `ScopePipelineCurly.isChainedFluentCall`
-                                              (RDD_KEY_214) only recognized a trailing-lambda call
-                                              chained onto the immediately preceding span's own `}`
-                                              via a direct `.`/`?.` member-access -- a chain joined by
-                                              a boolean infix operator instead (`} || declarations.any
-                                              { ... }`, `isReferencedByNativeRuntime` in
-                                              `TopLevelPhases.kt`) fell through to the plain
-                                              `braceIndent`-vs-`spanIndent` comparison, which reads
-                                              the second `.any {`'s own physical-line indent -- not a
-                                              stable fixed point, since it depends on how the first
-                                              `.any { ... }`'s own closing `}` happens to render that
-                                              pass. Fixed by generalizing the chain-continuation
-                                              detection (`isChainedBooleanOp`) to also recognize
-                                              `||`/`&&` immediately following the preceding span's
-                                              `}`, inheriting `prevEffectiveSpanIndent` the same way
-                                              as the `.`/`?.` case. Resolves `TopLevelPhases.kt`'s
-                                              remaining (non-where-clause) line from RDD_KEY_214's
-                                              6-file D2a residual. `make test`: 215/215 -> 216/216
-                                              forward + idempotency, zero regressions. RDD_KEY_216.
-                                              See `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin
+  real_code_regressions_167_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood idempotency, D2a
+                                              residual: `isChainedFluentCall` only recognized
+                                              `.`/`?.`-joined trailing-lambda chains, not a
+                                              boolean-operator-joined one (`} || foo.any { ... }`),
+                                              so the indent fell back to a volatile physical-line
+                                              read. Fixed via new `isChainedBooleanOp`, inheriting
+                                              `prevEffectiveSpanIndent` like the `.`/`?.` case.
+                                              `make test`: 215/215 -> 216/216. RDD_KEY_216. See
+                                              `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin
                                               section, cluster D2a.
 
-  real_code_regressions_168_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood idempotency
-                                              cluster D4 (minor adjacent-closing-brace spacing
-                                              flap, `) }` vs `)}`): `BlockStructureRule.
-                                              collapseBracelessBody` (the already-braceless,
-                                              multi-line-body collapse path used when reformatting
-                                              a body a prior pass already stripped braces from)
-                                              located its enclosing scope's own terminating `}` at
-                                              depth 0 and correctly excluded that `}` token itself
-                                              from the rendered body, but the WHITESPACE token
-                                              immediately preceding it was included in `contents`
-                                              and then silently dropped by `renderInline` (which
-                                              never emits trailing whitespace) -- losing a
-                                              source-preserved single space between the body's last
-                                              token and the following `}` (e.g. `) }` collapsing to
-                                              `)}`) on a second format pass. `tryCollapse`'s sibling
-                                              braced-body path never has this loss, since it lets
-                                              the surrounding loop re-append that gap's whitespace
-                                              token verbatim instead of folding it into a render.
-                                              Fixed by checking whether the token right before the
-                                              enclosing `}` was WHITESPACE/NEWLINE and, if so,
-                                              re-appending a single trailing space. Reproduced
-                                              directly against `JsArgumentsImpl.kt` from the
-                                              `JetBrains/kotlin` dogfood corpus
-                                              (`compiler/build-tools/kotlin-build-tools-impl/gen/
-                                              org/jetbrains/kotlin/buildtools/internal/arguments/`).
-                                              `make test`: 216/216 forward + idempotency, zero
-                                              regressions (also required updating
-                                              `real_code_regressions_33_out.kt`'s own line 18 from
-                                              `)} as T` to `) } as T`, since that pre-existing
-                                              fixture's reference output had itself encoded this
-                                              same bug's output as "correct"). RDD_KEY_218. See
-                                              `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
-                                              cluster D4.
+  real_code_regressions_168_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood idempotency,
+                                              cluster D4 (`) }` vs `)}` spacing flap):
+                                              `BlockStructureRule.collapseBracelessBody` excluded
+                                              the enclosing `}` from its rendered body but left the
+                                              preceding WHITESPACE token in `contents`, which
+                                              `renderInline` then silently dropped (no trailing-
+                                              whitespace emission). Fixed by re-appending a single
+                                              trailing space when the token before the enclosing
+                                              `}` is WHITESPACE/NEWLINE. Also corrected
+                                              `real_code_regressions_33_out.kt` line 18 (`)} as T`
+                                              -> `) } as T`), which had encoded this same bug as
+                                              "correct". `make test`: 216/216, zero regressions.
+                                              RDD_KEY_218. See `STATE_KOTLIN.md`'s Dogfood:
+                                              JetBrains/kotlin section, cluster D4.
 
-  real_code_regressions_169_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood idempotency
-                                              cluster D1 (declaration/accessor column-alignment
-                                              padding flap): two independent root causes, both in
-                                              the group-width recompute instability family (RDD_KEY_
-                                              139/140/162). (1) `KotlinDeclarationAlignmentRule.
-                                              renderAlignedGroup` rendered all surviving (non-
-                                              excluded) rows of a `val`/`var` alignment group as one
-                                              flat shared-width grid even when an excluded (overflow,
-                                              brace-bodied-init) row sat in the MIDDLE of the group;
-                                              round1 aligned rows across that gap while round2 (once
-                                              the excluded row becomes genuinely multi-line and hard-
-                                              breaks parsing) naturally splits into independently-
-                                              narrower groups. Fixed by splitting surviving rows into
-                                              maximal contiguous runs and rendering each run
-                                              independently. (2) The analogous bug in
-                                              `ScopePipelineCurly.applyGetterSetterPass` (shared
-                                              Java/C++/Kotlin one-liner function/accessor grouping
-                                              driver) for Kotlin's own one-liner expression-bodied
-                                              function grouping; fixed with a new Kotlin-gated
-                                              `renderKotlinFilteredRuns` helper, leaving C/C++/Java's
-                                              existing flat-group behavior untouched. Reproduced
-                                              directly against `KlibMetadataVersionWriteExtension`-
-                                              adjacent code and `DummyJavaFileCodeStyleFacadeFactory`
-                                              from the `JetBrains/kotlin` dogfood corpus. RDD_KEY_219.
-                                              Partial fix only: a THIRD, distinct sub-shape of this
-                                              same bucket was found but explicitly not fixed here --
-                                              group-padding-induced overflow where the offending
-                                              member's own solo/raw width fits under the line-length
-                                              limit but the group's shared padding alone pushes it
-                                              over (unlike the two fixed cases, where the member's
-                                              own raw/estimated width already exceeded the limit
-                                              before any group padding). See `STATE_KOTLIN.md`'s
-                                              Dogfood: JetBrains/kotlin section, cluster D1.
+  real_code_regressions_169_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood idempotency,
+                                              cluster D1 (column-alignment padding flap): two
+                                              group-width recompute instability bugs (RDD_KEY_139/
+                                              140/162 family). `KotlinDeclarationAlignmentRule.
+                                              renderAlignedGroup` and the analogous
+                                              `ScopePipelineCurly.applyGetterSetterPass` one-liner
+                                              grouping both rendered surviving rows as one flat
+                                              shared-width grid even when an excluded row sat in
+                                              the middle, so round1/round2 disagreed on grouping
+                                              once that row hard-broke. Fixed by splitting
+                                              surviving rows into maximal contiguous runs rendered
+                                              independently (new Kotlin-gated
+                                              `renderKotlinFilteredRuns` for the getter/setter
+                                              case). RDD_KEY_219. Partial fix: a third sub-shape
+                                              (group-padding-induced overflow) found but left
+                                              unfixed here -- see `_170` below. See
+                                              `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin
+                                              section, cluster D1.
 
-  real_code_regressions_170_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood idempotency
-                                              cluster D1, third sub-shape (the one left unfixed by
-                                              RDD_KEY_219): group-padding-induced overflow in
-                                              `KotlinGetterSetterRule`'s one-liner function/accessor
-                                              grouping, where a member's own solo/raw width fits under
-                                              `lineLengthLimit` but the shared-column padding pushes it
-                                              over once rendered as part of the group. Pre-fix, this
-                                              silently triggered a later-phase call-argument wrap
-                                              (`MiscRule.enforceCallLineBreaking`) turning a member
-                                              that would fit on one line standalone into an ugly
-                                              multi-line form. Fixed by porting RDD_KEY_162's fixed-
-                                              point budget-exclusion loop (indent/lineLengthLimit-aware,
-                                              gated on `hasBreakableCall` since only a call-bodied
-                                              member can ever become genuinely multi-line via a later
-                                              wrap phase) into a new depth-aware 3-arg
-                                              `GetterSetterRuleCurly.render`/`KotlinGetterSetterRule.
-                                              render` override, threaded through
-                                              `ScopePipelineCurly.applyGetterSetterPass` /
-                                              `renderKotlinFilteredRuns`, reusing RDD_KEY_219's
-                                              contiguous-run rendering for survivors. Closes D1 fully
-                                              (all three sub-shapes now fixed). RDD_KEY_220. See
-                                              `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
-                                              cluster D1.
+  real_code_regressions_170_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood idempotency,
+                                              cluster D1's third sub-shape (left unfixed by
+                                              RDD_KEY_219): `KotlinGetterSetterRule`'s one-liner
+                                              grouping could push a member over `lineLengthLimit`
+                                              via shared-column padding alone (its own solo width
+                                              fit), silently triggering a later
+                                              `enforceCallLineBreaking` wrap. Fixed by porting
+                                              RDD_KEY_162's budget-exclusion loop into a new
+                                              depth-aware `render` override (gated on
+                                              `hasBreakableCall`), threaded through
+                                              `applyGetterSetterPass`/`renderKotlinFilteredRuns`.
+                                              Closes D1 fully (all three sub-shapes fixed).
+                                              RDD_KEY_220. See `STATE_KOTLIN.md`'s Dogfood:
+                                              JetBrains/kotlin section, cluster D1.
 
 How Tests Are Run
 -----------------

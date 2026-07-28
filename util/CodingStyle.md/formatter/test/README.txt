@@ -2480,6 +2480,28 @@ Real-code regressions:
                                              idempotency. See `STATE_KOTLIN.md`'s Dogfood:
                                              JetBrains/kotlin section, cluster C6j.
 
+  real_code_regressions_153_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6d: an
+                                             annotation directly ahead of a function-type literal
+                                             (`@Composable (Params) -> Type`, as a parameter type
+                                             or property type) lost its required space -- the
+                                             general call-tight rule (`IDENTIFIER` immediately
+                                             before `(` is always tight, correct for
+                                             `@Composable(x)`'s own annotation-argument-list shape)
+                                             fired first and wrongly tightened this case too, since
+                                             both shapes are `IDENTIFIER` then `(` at the same join.
+                                             Fixed by a new lookback+lookahead carve-out (is `prev`
+                                             itself an annotation name immediately preceded by `@`?
+                                             is its `(...)`'s matching `)` followed by `->`, i.e.
+                                             actually a function type?) added ahead of the general
+                                             rule in `DeclarationAlignmentRuleCore.needsSpaceBetween`
+                                             and `MiscRuleCore.needsSpaceBetween` (both gained a
+                                             `List<Token> tokens, int curIdx` overload for the
+                                             lookahead) and in `KotlinDeclarationAlignmentRule`'s
+                                             own `renderTokens` override (updated to pass the new
+                                             overload through). `make test`: 201/201 forward +
+                                             201/201 idempotency. See `STATE_KOTLIN.md`'s Dogfood:
+                                             JetBrains/kotlin section, cluster C6d.
+
 How Tests Are Run
 -----------------
 

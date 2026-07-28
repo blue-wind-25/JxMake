@@ -1054,8 +1054,9 @@ public static final class Assignment {
         templateAngleTokens(tokens, templateOpens, templateCloses);
         final StringBuilder sb = new StringBuilder();
         Token prev = null;
-        for (final Token t : tokens) {
-            if (prev != null && needsSpaceBetween(prev, t, templateOpens, templateCloses)) {
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
+            if (prev != null && needsSpaceBetween(prev, t, templateOpens, templateCloses, tokens, i)) {
                 sb.append(' ');
             }
             sb.append(t.text);
@@ -1073,6 +1074,17 @@ public static final class Assignment {
      *  caller can treat them as tight without touching the tokens' actual type. */
     protected boolean needsSpaceBetween(final Token prev, final Token cur, final Set<Token> templateOpens,
             final Set<Token> templateCloses) {
+        return needsSpaceBetween(prev, cur, templateOpens, templateCloses, null, -1);
+    }
+
+    /** Same as {@link #needsSpaceBetween(Token, Token, Set, Set)} but with the full token list +
+     *  current index available, needed only by the C6d function-type-position lookahead below
+     *  (mirrors `DeclarationAlignmentRuleCore`'s documented-duplicate overload of the same name --
+     *  see that class's own comment for the full rationale). Callers that can't supply a list
+     *  (e.g. `MiscRuleCurly`'s lead-token/name join, where `cur` is always an identifier, never
+     *  `(`) fall back to the 4-arg overload, which passes {@code tokens = null}. */
+    protected boolean needsSpaceBetween(final Token prev, final Token cur, final Set<Token> templateOpens,
+            final Set<Token> templateCloses, final List<Token> tokens, final int curIdx) {
         // Kotlin's `fun <T> foo(...)` generic-function type-parameter clause is the one shape
         // where an ANGLE_BRACKET_OPEN is *not* tight against what precedes it -- every other
         // opener (`Foo<T>`, `foo<T>(...)`) directly follows the identifier it qualifies, but this
@@ -1108,6 +1120,22 @@ public static final class Assignment {
         // A type keyword (`void`, `int`, ...) directly followed by `(` is a function-type's
         // return type inside a template argument (`std::function<void(int)>`) -- keywords can
         // never be called, so this is never a call-site space, only a tight function-type join.
+        // C6d: an annotation identifier directly ahead of a function-*type* literal's opening `(`
+        // (`@Composable (Params) -> Type`) needs a space -- mirror image of the tight
+        // declaration-site/param-target annotation case further below (`@NonNull String id`).
+        // Without this carve-out, the general call-tight rule right after (any `IDENTIFIER`
+        // immediately before `(` is a call/declaration paren, always tight) fires first and
+        // wrongly tightens this case too, since both shapes are `IDENTIFIER` then `(` at this
+        // join -- disambiguated only by lookback (is `prev` itself an annotation name, i.e.
+        // immediately preceded by `@`?) plus lookahead (is this specific `(...)` actually a
+        // function type, i.e. its matching `)` followed by `->`?) via
+        // `isAnnotationFunctionTypeParen`. Exact duplicate of
+        // `DeclarationAlignmentRuleCore.needsSpaceBetween`'s identical carve-out.
+        if (lang.isKotlin && isPunct(cur, "(") && prev.type == TokenType.IDENTIFIER
+                && tokens != null && curIdx >= 2 && isOp(tokens.get(curIdx - 2), "@")
+                && isAnnotationFunctionTypeParen(tokens, curIdx)) {
+            return true;
+        }
         if (isPunct(cur, "(") && (prev.type == TokenType.IDENTIFIER
                 || prev.type == TokenType.ANGLE_BRACKET_CLOSE || prev.type == TokenType.KEYWORD)) {
             return false;
@@ -1147,6 +1175,45 @@ public static final class Assignment {
         }
         return true;
     }
+
+    /** True iff `tokens.get(parenIdx)` is `(` and it opens a function type's parameter list --
+     *  i.e. its matching `)` is followed (skipping whitespace/comments/newlines) by `->`. Used
+     *  only by C6d's annotation-vs-function-type disambiguation above; `tokens == null` (the
+     *  4-arg {@link #needsSpaceBetween} overload, no list available) conservatively returns
+     *  {@code false}, preserving pre-C6d behavior for any caller that can't supply a list. Exact
+     *  duplicate of `DeclarationAlignmentRuleCore.isAnnotationFunctionTypeParen` -- see that
+     *  method for the full rationale. */
+    private boolean isAnnotationFunctionTypeParen(final List<Token> tokens, final int parenIdx) {
+        if (tokens == null || parenIdx < 0 || parenIdx >= tokens.size()) {
+            return false;
+        }
+        int depth = 0;
+        int closeIdx = -1;
+        for (int k = parenIdx; k < tokens.size(); k++) {
+            final Token t = tokens.get(k);
+            if (isPunct(t, "(")) {
+                depth++;
+            } else if (isPunct(t, ")")) {
+                depth--;
+                if (depth == 0) {
+                    closeIdx = k;
+                    break;
+                }
+            }
+        }
+        if (closeIdx < 0) {
+            return false;
+        }
+        for (int k = closeIdx + 1; k < tokens.size(); k++) {
+            final Token t = tokens.get(k);
+            if (isGapToken(t)) {
+                continue;
+            }
+            return isOp(t, "->");
+        }
+        return false;
+    }
+
     protected boolean isTightToken(final Token t) {
         if (t.type == TokenType.ANGLE_BRACKET_OPEN || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
             return true;

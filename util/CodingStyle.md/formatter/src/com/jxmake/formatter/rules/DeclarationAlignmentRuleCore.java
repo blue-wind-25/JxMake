@@ -74,9 +74,10 @@ public abstract class DeclarationAlignmentRuleCore {
         final java.util.Set<Token> jsObjectPropertyColons = (lang.isJs || lang.isTs)
                 ? computeJsObjectPropertyColons(tokens) : java.util.Collections.emptySet();
         Token prev = null;
-        for (final Token t : tokens) {
+        for (int i = 0; i < tokens.size(); i++) {
+            final Token t = tokens.get(i);
             if (prev != null) {
-                if (!jsObjectPropertyColons.contains(t) && needsSpaceBetween(prev, t)) {
+                if (!jsObjectPropertyColons.contains(t) && needsSpaceBetween(prev, t, tokens, i)) {
                     sb.append(' ');
                 }
             }
@@ -161,7 +162,7 @@ public abstract class DeclarationAlignmentRuleCore {
                     else {
                         sb.append(' '); // binary * or & in expression context
                     }
-                } else if (needsSpaceBetween(prev, t)) {
+                } else if (needsSpaceBetween(prev, t, tokens, i)) {
                     final Token prev2 = i > 1 ? tokens.get(i - 2) : null;
                     if (t.type == TokenType.IDENTIFIER && Token.isRepOp(prev, '*')
                         && (prev2 == null || prev2.type == TokenType.OP)
@@ -238,6 +239,16 @@ public abstract class DeclarationAlignmentRuleCore {
      *  (its own {@code renderTokens} override, real-code testing against {@code square/okio}) --
      *  purely additive, no behavior change. */
     protected boolean needsSpaceBetween(final Token prev, final Token cur) {
+        return needsSpaceBetween(prev, cur, null, -1);
+    }
+
+    /** Same as {@link #needsSpaceBetween(Token, Token)} but with the full token list + current
+     *  index available, needed only by the C6d function-type-position lookahead below (every
+     *  other rule in this method is a purely local prev/cur decision). Callers that can't supply
+     *  a list (none currently) fall back to the 2-arg overload, which passes {@code tokens = null}
+     *  -- {@link #isAnnotationFunctionTypeParen} treats a missing list as "not a function type",
+     *  preserving this method's pre-C6d tight-after-`@` behavior exactly. */
+    protected boolean needsSpaceBetween(final Token prev, final Token cur, final List<Token> tokens, final int curIdx) {
         // Kotlin's newer square-bracket destructuring lambda-parameter-list syntax (`{ [x, y] ->
         // x + y }`) opens directly with `[` right after the lambda's own `{` -- e.g. a `val`
         // initializer's trailing lambda (`val result = list.map { [x, y] -> x + y }`) renders
@@ -264,6 +275,21 @@ public abstract class DeclarationAlignmentRuleCore {
         if (lang.isKotlin && isOp(prev, "!") && cur.type == TokenType.KEYWORD
                 && ("is".equals(cur.text) || "in".equals(cur.text))) {
             return false;
+        }
+        // C6d: an annotation identifier directly ahead of a function-*type* literal's opening `(`
+        // (`@Composable (Params) -> Type`, as a parameter type or property type) needs a space --
+        // the mirror image of `@JsNoLifting { ... }`'s tight case further below. Without this
+        // carve-out, the general call-tight rule right after (any `IDENTIFIER` immediately before
+        // `(` is a call/declaration paren, always tight -- correct for `@Composable(x)`'s own
+        // annotation-argument-list shape) fires first and wrongly tightens this case too, since
+        // both shapes are `IDENTIFIER` then `(` at this join -- disambiguated only by lookback (is
+        // `prev` itself an annotation name, i.e. immediately preceded by `@`?) plus lookahead (is
+        // this specific `(...)` actually a function type, i.e. its matching `)` followed by
+        // `->`?) via `isAnnotationFunctionTypeParen`.
+        if (lang.isKotlin && isPunct(cur, "(") && prev.type == TokenType.IDENTIFIER
+                && tokens != null && curIdx >= 2 && isOp(tokens.get(curIdx - 2), "@")
+                && isAnnotationFunctionTypeParen(tokens, curIdx)) {
+            return true;
         }
         if (isPunct(cur, "(") && (prev.type == TokenType.IDENTIFIER
                 || prev.type == TokenType.ANGLE_BRACKET_CLOSE)) {
@@ -334,6 +360,42 @@ public abstract class DeclarationAlignmentRuleCore {
             return false;
         }
         return true;
+    }
+
+    /** True iff `tokens.get(parenIdx)` is `(` and it opens a function type's parameter list --
+     *  i.e. its matching `)` is followed (skipping whitespace/comments/newlines) by `->`. Used
+     *  only by C6d's annotation-vs-function-type disambiguation above; `tokens == null` (the
+     *  2-arg {@link #needsSpaceBetween} overload, no list available) conservatively returns
+     *  {@code false}, preserving pre-C6d behavior for any caller that can't supply a list. */
+    private boolean isAnnotationFunctionTypeParen(final List<Token> tokens, final int parenIdx) {
+        if (tokens == null || parenIdx < 0 || parenIdx >= tokens.size()) {
+            return false;
+        }
+        int depth = 0;
+        int closeIdx = -1;
+        for (int k = parenIdx; k < tokens.size(); k++) {
+            final Token t = tokens.get(k);
+            if (isPunct(t, "(")) {
+                depth++;
+            } else if (isPunct(t, ")")) {
+                depth--;
+                if (depth == 0) {
+                    closeIdx = k;
+                    break;
+                }
+            }
+        }
+        if (closeIdx < 0) {
+            return false;
+        }
+        for (int k = closeIdx + 1; k < tokens.size(); k++) {
+            final Token t = tokens.get(k);
+            if (isGapToken(t)) {
+                continue;
+            }
+            return isOp(t, "->");
+        }
+        return false;
     }
 
     protected boolean isTightToken(final Token t) {

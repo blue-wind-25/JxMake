@@ -470,7 +470,7 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
         Token prev = null;
         for (int i = 0; i < tokens.size(); i++) {
             final Token t = tokens.get(i);
-            if (prev != null && !isUnaryMinusOperand(tokens, i) && needsSpaceBetween(prev, t)) {
+            if (prev != null && !isUnaryMinusOperand(tokens, i) && needsSpaceBetween(prev, t, tokens, i)) {
                 sb.append(' ');
             }
             sb.append(t.text);

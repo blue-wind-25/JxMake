@@ -291,6 +291,19 @@ public class KotlinSignatureRule extends MiscRuleCurly {
         if (slice.isEmpty()) {
             return null;
         }
+        // C6f: a param's type/default-value tokens (e.g. a multi-line `= setOf(\n // comment\n
+        // "x",\n)` default) get flattened onto one physical output line by `renderTokens` inside
+        // a single grid cell (see `render`'s `cells.add("= " + renderTokens(p.defaultTokens) +
+        // comma)`), with no notion that a `//` line comment has no closing delimiter -- flattening
+        // silently swallows everything rendered after it (the rest of the default expression, the
+        // trailing comma, sibling params) into the comment's text, corrupting the output. Bail on
+        // the whole signature ("never guess past an unrecognized shape", same posture as this
+        // method's other `return null` cases) whenever an embedded COMMENT_LINE would be flattened
+        // this way -- same class of fix as `BlockStructureRule.containsLineComment`'s guard on
+        // `tryCollapse`, a structurally distinct pass hitting the same underlying hazard.
+        if (containsLineComment(slice)) {
+            return null;
+        }
 
         int i = 0;
         final List<Token> modifiers = new ArrayList<>();
@@ -615,6 +628,21 @@ public class KotlinSignatureRule extends MiscRuleCurly {
             return base;
         }
         return tailPart.startsWith(":") ? base + tailPart : base + " " + tailPart;
+    }
+
+    /** True iff any token in {@code slice} is a {@code COMMENT_LINE} -- see the C6f bail-out
+     *  in {@link #parseKotlinParam}. Mirrors {@code BlockStructureRule.containsLineComment}'s
+     *  identical-purpose helper in a structurally unrelated class hierarchy (no shared ancestor
+     *  short of a new cross-cutting utility, same "not worth promoting" reasoning as the other
+     *  independently-duplicated {@code setOf} helpers noted in STATE_COMMON.md's cleanup-pass
+     *  section). */
+    private boolean containsLineComment(final List<Token> slice) {
+        for (final Token t : slice) {
+            if (t.type == TokenType.COMMENT_LINE) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String trimTrailingSpaces(final String s) {

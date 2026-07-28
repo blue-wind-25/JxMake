@@ -753,6 +753,26 @@ public class BlockStructureRule {
 
     private String tryCollapseBraceless(final List<Token> tokens, final int kwIndex,
             final ControlBlock block, final int[] outBodyEnd) {
+        // C6f: same hazard as `tryCollapse`'s own condition-comment guard just above it in this
+        // file (see that guard's comment for the full mechanism) -- `renderInline` below flattens
+        // the condition's whitespace/newlines to single spaces with no notion that a `//` line
+        // comment consumes to end-of-line, so a condition containing one (e.g. a comment nested
+        // deep inside a trailing-lambda argument of a call within the condition, not just a
+        // top-level comment) silently swallows every token that follows it -- the rest of the
+        // condition, the closing `)`, and (via this method's own `prefix + " " + body` join in
+        // `collapseBracelessBody`) the entire braceless body too. `tryCollapse` picked this up via
+        // its own guard at line ~454, but `tryCollapseBraceless` -- structurally the sibling path
+        // for a braceless (non-`{}`) single-statement body -- never had the analogous check, so a
+        // condition-embedded comment reaching this method specifically was never caught. Found via
+        // JetBrains/kotlin real-code testing (`KClassMembers.kt`'s
+        // `isVisibleAsFunctionInCurrentClass`: `if (outer.any { ... inner.any { ... call(prop) {
+        // if (cond) x else { // comment\n// comment2\nstmt } } && (...) } }) return false` --the
+        // condition's own nested trailing-lambda body carries the comment, several call-levels
+        // deep, well past this method's own `kwIndex..closeParenIndex` slice boundary but still
+        // inside it). Bail (leave the input untouched) exactly like `tryCollapse` does.
+        if (containsLineComment(tokens.subList(kwIndex, block.closeParenIndex + 1))) {
+            return null;
+        }
         // Tighten `keyword (` -> `keyword(` here, at collapse time, rather than leaving it to a
         // later pass (MiscRuleCore's own tight-paren-keyword spacing fix). Left untightened, this
         // collapsed line is one character too wide right at the line-length boundary -- found via

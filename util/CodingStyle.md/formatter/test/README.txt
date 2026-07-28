@@ -2544,6 +2544,41 @@ Real-code regressions:
                                              forward + 203/203 idempotency. See `STATE_KOTLIN.md`'s
                                              Dogfood: JetBrains/kotlin section, cluster C6i.
 
+  real_code_regressions_156_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6f: two
+                                             distinct multi-line-collapse passes that flattened an
+                                             embedded `//` line comment onto the same physical line
+                                             as the code that followed it, silently swallowing that
+                                             code into the comment's text. (1)
+                                             `KotlinSignatureRule.parseKotlinParam`'s column-aligned
+                                             grid rendering of a function parameter's default value
+                                             flattened the value's tokens (including any embedded
+                                             `//` comment) via the comment-unaware `renderTokens`
+                                             helper -- fixed by a new `containsLineComment` bail in
+                                             `parseKotlinParam`, returning null (leave the whole
+                                             signature untouched) whenever a param's default-value
+                                             slice contains one. (2)
+                                             `BlockStructureRule.tryCollapseBraceless`'s
+                                             sibling-but-distinct condition-flattening path
+                                             (`renderInline`) had no comment guard at all, unlike its
+                                             braced-body sibling `tryCollapse` (which already guarded
+                                             its own condition render) -- a comment nested arbitrarily
+                                             deep inside the condition (e.g. inside a trailing-lambda
+                                             argument of a call within the condition) reached this
+                                             method's `renderInline(tokens.subList(kwIndex,
+                                             closeParenIndex+1))` call unguarded. Fixed by adding the
+                                             exact same `containsLineComment` bail `tryCollapse`
+                                             already had, to `tryCollapseBraceless` too. Both fixes
+                                             verified against the real `JetBrains/kotlin` corpus
+                                             (`ResolutionTesting.kt` and `KClassMembers.kt`
+                                             respectively) via `kotlin_syntax_check`; a 70-file
+                                             cross-cluster sample went from 22/70 to 40/70 syntax-clean
+                                             after both fixes (remaining failures are other, unrelated
+                                             C6-series clusters plus one further not-yet-fixed C6f
+                                             sub-shape -- see `STATE_KOTLIN.md`'s C6f row). `make
+                                             test`: 204/204 forward + 204/204 idempotency. See
+                                             `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
+                                             cluster C6f.
+
 How Tests Are Run
 -----------------
 

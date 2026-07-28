@@ -14,29 +14,32 @@ Run every command below from the formatter/ directory (same convention as
 
 Pipeline order
 --------------
-1. Extract raw comments from a source tree           -> extract_comments.py
-2. Measure the rule-based classifier's ABSTAIN rate  -> CommentAbstainTally.java
-3. Extract Pool A / Pool B ABSTAIN candidates        -> ExtractPoolA.java / extract_pool_b.py
-4. Hand-label each candidate (YES/NO)                -> manual, RDD_EXT_20 schema
-5. Add the targetWordIndex column                    -> add_target_index.py
-6. (Re)build the explicit vocab                      -> build_vocab.py
-7. Train                                             -> GruTrainer.java (make gru-train)
-8. Evaluate precision against a held-out set         -> GruEval.java
-9. Bound precision variance via repeated splits      -> cross_validate.py
+1. Extract raw comments from a source tree          -> extract_comments.py
+2. Measure the rule-based classifier's ABSTAIN rate -> CommentAbstainTally.java
+3. Extract Pool A / Pool B ABSTAIN candidates       -> ExtractPoolA.java / extract_pool_b.py
+4. Hand-label each candidate (YES/NO)               -> manual, RDD_EXT_20 schema
+5. Add the targetWordIndex column                   -> add_target_index.py
+6. (Re)build the explicit vocab                     -> build_vocab.py
+7. Train                                            -> GruTrainer.java (make gru-train)
+8. Evaluate precision against a held-out set        -> GruEval.java
+9. Bound precision variance via repeated splits     -> cross_validate.py
 
 Steps 1+3 for many sources at once, minus the labeling, are automated by
 acquire_corpus.sh.
 
-Quick default path (no hand-labeling): `make gru-acquire-corpus` acquires a
-corpus AND auto-labels it via GenerateSampleDefault.java (below) straight
-into tools/gru/sample_default.txt, deduplicated in place; `make gru-train`
-then trains code-formatter-ai-assist-weights.json from it by default. This
-auto-labeled path only ever produces YES/skip (never NO), since it bootstraps
-labels from the rule-based classifier itself, which cannot emit NO (see
-STATE_AI.md's "why the GRU only ever returns YES/ABSTAIN" note) — it exists
-to give the shipped weights file *some* real, license-clean, non-empty
-default training data, not to replace the hand-labeled Pool A/B path above,
-which remains the only source of real NO ground truth.
+Quick default path (replaces steps 2-6, no hand-labeling): `make
+gru-acquire-corpus` acquires a corpus (step 1, via acquire_corpus.sh) AND
+auto-labels it via GenerateSampleDefault.java (below) straight into
+tools/gru/sample_default.txt, deduplicated in place — bootstrapping labels
+from the rule-based CommentClassifier itself (distant supervision) instead
+of steps 2-6's ABSTAIN-tally/Pool-extraction/hand-labeling/vocab-build
+chain. `make gru-train` then runs step 7 against sample_default.txt by
+default. This auto-labeled path only ever produces YES/skip (never NO),
+since the rule-based classifier it bootstraps from cannot emit NO itself
+(see STATE_AI.md's "why the GRU only ever returns YES/ABSTAIN" note) — it
+exists to give the shipped weights file *some* real, license-clean,
+non-empty default training data, not to replace the hand-labeled Pool A/B
+path (steps 2-6), which remains the only source of real NO ground truth.
 
 Tools
 -----
@@ -80,8 +83,10 @@ Hand labeling (no tool — manual step)
     belong to an abbreviation/license block/non-sentence text (NO)?
 
     Practical steps:
-      1. Extract an acquire_corpus.sh archive back under /tmp if needed:
-             tar -xJf ~/Projects/JxMake/0_excluded_directory/personal/GruArtifacts/gru_corpus.tar.xz -C /tmp
+      1. Extract an acquire_corpus.sh archive back under /tmp if needed (from
+         wherever you archived it, per RDD_EXT_19's personal-directory
+         guidance):
+             tar -xJf <path-to-your-archived>/gru_corpus.tar.xz -C /tmp
       2. Open a pool_a_<source>.txt or pool_b_<source>.txt file. Each line
          starts as <lang>\t<text> (no label column yet).
       3. For each line, insert the label as the 2nd tab-separated field, so
@@ -235,47 +240,3 @@ regroup_synthetic.py
     caveat in STATE_AI.md before assuming unresolved lines are errors.
 
         python3 tools/gru/regroup_synthetic.py --input <pasted-file> --outdir <dir>
-
-Backing up real corpora / weights to GruArtifacts
---------------------------------------------------
-Per RDD_EXT_19, nothing under /tmp (extracted comments, Pool A/B candidates,
-labeled corpora, trained weights) is ever committed to the repo. If you want
-to keep a real acquisition run or a trained weights file around longer than
-/tmp survives, archive it into the user's personal (non-repo) directory,
-~/Projects/JxMake/0_excluded_directory/personal/GruArtifacts/ — never into
-the repo itself.
-
-    # a full acquire_corpus.sh output directory
-    tar -cJf ~/Projects/JxMake/0_excluded_directory/personal/GruArtifacts/gru_corpus_<date>.tar.xz \
-        -C /tmp gru_corpus
-
-    # a single trained weights file
-    cp /tmp/<weights-file>.json \
-        ~/Projects/JxMake/0_excluded_directory/personal/GruArtifacts/gru_trained_weights_<description>_<date>.json
-
-Suffix filenames with a date and/or a short description (example count,
-vocab version, etc.) so multiple backups don't collide or get confused with
-each other later.
-
-Notes
------
-- Per RDD_EXT_19, nothing this directory's tools produce from real source
-  code (extracted comments, Pool A/B candidates, labeled corpora, trained
-  weights files) is ever committed to the repo. Only the tools themselves,
-  and the small fake-illustrative tools/gru/sample_examples.txt, are checked
-  in. **Named exception (RDD_KEY_217)**: tools/gru/sample_default.txt (the
-  GenerateSampleDefault.java-auto-labeled default corpus) and
-  code-formatter-ai-assist-weights.json (the weights trained on it) are
-  committed — user-directed, on the rationale that acquire_corpus.sh's
-  SOURCES are all pre-vetted MIT/Apache-2.0/BSD-3-Clause (license-compatible
-  with this project), each comment's origin is traceable via that same
-  SOURCES list, and short comment excerpts relabeled as training data are not
-  the kind of substantial/significant expression copyright restrictions bind
-  on. This exception is narrow and does not extend to any other real
-  corpus/weights artifact (Pool A/B candidates, ad hoc training runs,
-  cross-validation working files, etc.) — those still follow RDD_EXT_19 as
-  written.
-- This system runs Python 3.6 — avoid post-3.6 stdlib features (e.g.
-  subprocess.run(capture_output=True) needs 3.7+; use
-  stdout=PIPE, stderr=PIPE, universal_newlines=True instead) in any new
-  script here.

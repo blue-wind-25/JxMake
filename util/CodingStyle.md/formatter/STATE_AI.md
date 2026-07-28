@@ -94,7 +94,7 @@ Never externally logged — no `RDD_LOG.md` entry, no collision risk with
 | RDD_EXT_16 | Step 3 GRU training-data source policy: own dogfooded repos first (clearly owned/licensed), extend later with a vetted list of permissively-licensed (MIT/Apache-2.0/BSD-3-Clause) public repos once the pipeline is proven |
 | RDD_EXT_17 | Step 3 GRU evaluation target: 90% precision bar to resolve ABSTAIN→YES/NO; below the bar, GRU itself abstains. Starting number, revisit once real measurement exists |
 | RDD_EXT_18 | Step 3 GRU training hyperparameters (starting defaults): Adam, lr~1e-3, batch size 32 (superseded in practice — trainer uses batch size 1, see below), 20-50 epochs with early stopping on validation loss, dropout 0.2-0.3 |
-| RDD_EXT_19 | Step 3 Pool A/Pool B corpus storage: real extracted/labeled corpora and any derived real trained-weights artifacts are **never committed** — stay under `/tmp`/session scratchpad (or the user's own personal directory, `~/Projects/JxMake/0_excluded_directory/personal/GruArtifacts/`, when explicitly directed — see `tools/gru/README.txt`'s backup section for the exact commands). `tools/gru/sample_examples.txt` (checked in) holds only small, clearly-fake illustrative lines. **Named exception**: see `RDD_KEY_217` in `RDD_LOG.md` (shared numbering) — `tools/gru/sample_default.txt` and `code-formatter-ai-assist-weights.json` are committed, user-directed, license-compatibility rationale; this exception does not extend to any other real corpus/weights artifact |
+| RDD_EXT_19 | Step 3 Pool A/Pool B corpus storage: real extracted/labeled corpora and any derived real trained-weights artifacts are **never committed** — stay under `/tmp`/session scratchpad (or the user's own personal directory, when explicitly directed — see `tools/gru/README.txt`'s backup section for the exact commands). `tools/gru/sample_examples.txt` (checked in) holds only small, clearly-fake illustrative lines. **Named exception**: see `RDD_KEY_217` in `RDD_LOG.md` (shared numbering) — `tools/gru/sample_default.txt` and `code-formatter-ai-assist-weights.json` are committed, user-directed, license-compatibility rationale; this exception does not extend to any other real corpus/weights artifact |
 | RDD_EXT_20 | Step 3 labeled-corpus schema: `<lang>\t<label:YES\|NO>\t<escaped-comment-text>` — label is binary ground truth (`ABSTAIN` is the GRU's own below-threshold behavior, never a ground-truth class) |
 | RDD_EXT_21 | Step 3 labeled-corpus schema extension: 4th column `targetWordIndex` — `<lang>\t<label:YES\|NO>\t<targetWordIndex>\t<escaped-comment-text>`. 0-based index (after `GruClassifier.tokenize`) of the ambiguous word the label is about: leading keyword for Pool A, last token for Pool B |
 | RDD_EXT_22 | The ~3.5k-word explicit vocab is a **permanent, checked-in** resource, not licensing-sensitive like real corpora/weights (RDD_EXT_19 doesn't apply): individual words/keywords aren't copyrightable subject matter (Feist v. Rural), and a word-frequency list reproduces no protected expression regardless of source corpus license. `tools/gru/explicit_vocab.txt` (3500 words: 154 keyword slots across every `Lang.java` language + 3346 frequency-derived common words) + generator `tools/gru/build_vocab.py`. Append-only once trained against — reordering/removing lines would shift embedding-row indices and corrupt existing weights files. `GruTrainer` loads it by default (`--vocab=` override) |
@@ -505,9 +505,8 @@ clearly-labeled source, not silently merged into the real combined corpus.
 ### acquire_corpus.sh run at full scale (16 sources)
 
 Run for real (not a smoke test) against all 16 configured sources, output to
-`/tmp/gru_corpus` (archived by the user to
-`0_excluded_directory/personal/GruArtifacts/gru_corpus.tar.xz`, per RDD_EXT_19
-— personal directory, not the repo): **172,285 comments total → 578 Pool A +
+`/tmp/gru_corpus` (archived by the user to their own personal directory, per
+RDD_EXT_19 — not the repo): **172,285 comments total → 578 Pool A +
 492 Pool B candidates**, roughly 3.5x the previous 167/241 hand-labeled batch.
 None of it is labeled yet — hand-labeling (RDD_EXT_20) remains the next
 manual step before any of it can be added to training.
@@ -572,7 +571,7 @@ per-item below rather than left as if still pending as originally written.**
    examples) — the 92.40%/3.00% (408-example) figures above are NOT
    superseded by this retrain and remain the only real precision estimate
    on record.
-5. **Back up** any new real corpus/weights artifacts to `GruArtifacts` —
+5. **Back up** any new real corpus/weights artifacts to the personal directory —
    **MODIFIED.** Superseded by RDD_KEY_217's narrower, different resolution:
    instead of (or in addition to) a personal-directory backup, exactly
    `tools/gru/sample_default.txt` and `code-formatter-ai-assist-weights.json`
@@ -714,12 +713,6 @@ opts in via config.
 
 ### Still outstanding
 
-- `tools/gru/README.txt`'s pipeline-order text still describes the old
-  manual archive-then-hand-label-only workflow; needs updating to describe
-  `gru-acquire-corpus`'s new auto-labeling step.
-- The background `make gru-train GRU_TRAIN_ARGS="--epochs=20 --patience=4"`
-  run against the (pre-dedup, 170,217-line) `sample_default.txt` was still
-  running as of this write-up; results not yet folded in here.
 - Improving `CommentClassifier`'s keyword-list accuracy (or otherwise
   reconciling it with the deterministic heuristic) so
   `comment-normalization-classifier` can default `on` without regressing

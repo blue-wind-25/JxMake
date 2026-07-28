@@ -1458,6 +1458,29 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                     && chainKwIdx >= 0 && chainKwIdx < current.size()
                     && current.get(chainKwIdx).type == TokenType.KEYWORD
                     && ("catch".equals(current.get(chainKwIdx).text) || "finally".equals(current.get(chainKwIdx).text));
+            // Kotlin-only, same "inherit the preceding span's already-resolved indent" posture as
+            // `isChainedCatchFinally` above, generalized to an ordinary fluent-chain continuation
+            // (`}.apply {`, `}?.let {`, etc, not just `catch`/`finally`). `braceIndent`/`spanIndent`
+            // are both read from THIS span's own physical text, but when this span's `{` opens a
+            // trailing-lambda call chained directly (`.`/`?.`, no gap) onto the IMMEDIATELY
+            // preceding span's own closing `}`, the preceding span's closing `}` is itself
+            // volatile -- which physical column it lands on can differ round-to-round for reasons
+            // unrelated to this span at all (e.g. RDD_KEY_159's named-scope fix, or simply this
+            // span's own indent affecting a later pass's rewrap of the closing text) -- so reading
+            // `braceIndent`/`spanIndent` off of it directly is not a stable fixed point. The
+            // preceding span's own ALREADY-RESOLVED `effectiveSpanIndent` (`prevEffectiveSpanIndent`)
+            // is a stable value computed the same way every pass regardless of how its own closing
+            // text physically renders, so anchoring on it here transitively stabilizes the whole
+            // chain (found via `JetBrains/kotlin`'s `declarationBuilders.kt`, `addFunction {
+            // ... }.apply { ... }` -- round1 read `}.apply {`'s own physical-line indent (volatile,
+            // 4sp), round2 re-read it as 0sp once the PREVIOUS span's own close text had reflowed).
+            final boolean isChainedFluentCall = !isChainedCatchFinally && lang.isKotlin
+                    && prevEffectiveSpanIndent != null
+                    && prevCloseBraceIdx >= 0
+                    && nextSignificantIndex(current, prevCloseBraceIdx) == chainKwIdx
+                    && chainKwIdx >= 0 && chainKwIdx < current.size()
+                    && current.get(chainKwIdx).type == TokenType.OP
+                    && (".".equals(current.get(chainKwIdx).text) || "?.".equals(current.get(chainKwIdx).text));
             // A NAMED construct (class/interface/object/fun) must always indent its body relative
             // to its own header's start column (`spanIndent`), never to the physical line its
             // `{` happens to land on. A named header can wrap across multiple lines for reasons
@@ -1474,7 +1497,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             // trailing-lambda bodies at the end of a fluent call chain, where the brace's own
             // physical line genuinely is the body's real anchor -- that shape is never
             // `isNamedScope`.
-            if (isChainedCatchFinally) {
+            if (isChainedCatchFinally || isChainedFluentCall) {
                 effectiveSpanIndent = prevEffectiveSpanIndent;
             } else if (braceIndent == null || isNamedScope) {
                 effectiveSpanIndent = spanIndent;

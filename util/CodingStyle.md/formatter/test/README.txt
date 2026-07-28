@@ -2761,6 +2761,41 @@ Real-code regressions:
                                              `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
                                              cluster C6k.
 
+  real_code_regressions_165_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood idempotency
+                                             cluster D2 (round1-vs-round2 closing-brace indent
+                                             drift): a trailing-lambda call chained directly onto
+                                             the closing `}` of an immediately preceding braced
+                                             span (`addFunction { ... }.apply { ... }`).
+                                             `ScopePipelineCurly.processScope`'s
+                                             `effectiveSpanIndent` read the `.apply {` span's own
+                                             `braceIndent`/`spanIndent` off of its own physical
+                                             text, but that physical text (specifically the
+                                             immediately preceding span's own closing `}` column)
+                                             is not a stable fixed point across passes -- it can
+                                             legitimately reflow between round1 and round2 for
+                                             reasons unrelated to this span at all. New
+                                             `isChainedFluentCall` check (mirrors the existing
+                                             `isChainedCatchFinally` check just above it, same
+                                             "inherit the preceding span's already-resolved
+                                             `effectiveSpanIndent`" fix shape as RDD_KEY_158, just
+                                             generalized from `catch`/`finally` keywords to any
+                                             `.`/`?.` fluent-chain continuation) makes the `.apply
+                                             {` (or `.let`/`.also`/etc.) span inherit the preceding
+                                             span's own stable resolved indent instead of
+                                             re-deriving one from its own volatile physical text.
+                                             `_inp` is deliberately the un-wrapped, single-line
+                                             signature form (proving the forward pass produces the
+                                             stable shape); `_out` re-formatted through the
+                                             formatter again is byte-identical to itself (the
+                                             idempotency proof). Verified against the real corpus
+                                             file (`declarationBuilders.kt`) and a 334-file
+                                             corpus-wide re-run of the previously-known idempotency
+                                             flap list: 328/334 resolved by this one fix (up from
+                                             182/334, the D2 bucket alone). `make test`: 213/213 ->
+                                             214/214 forward + idempotency, zero regressions. See
+                                             `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
+                                             cluster D2.
+
 How Tests Are Run
 -----------------
 

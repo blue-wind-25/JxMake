@@ -2522,6 +2522,28 @@ Real-code regressions:
                                              203/203 idempotency. See `STATE_KOTLIN.md`'s Dogfood:
                                              JetBrains/kotlin section, cluster C6g.
 
+  real_code_regressions_155_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6i: a
+                                             headerless one-liner interface member with no body
+                                             (`fun clear(): Unit`) immediately followed, on the very
+                                             next line with no blank line between, by an unrelated
+                                             named construct's own opening brace (a nested
+                                             `interface MutableEntry<K, V> : ... {`) had its `)`/`:`
+                                             wrongly matched by `ScopePipelineCurly.applySignaturePass`'s
+                                             Kotlin `: ReturnType` tail detection as belonging to that
+                                             later, unrelated brace -- the whole span from `clear()`'s
+                                             `)` through the interface's own name got swallowed into
+                                             `parseFunctionTail`'s tail range and flattened onto one
+                                             line with no separators, silently fusing the two
+                                             statements together. Fixed by a new
+                                             `hasTopLevelNewline` bail (only when no depth-0 `=` is
+                                             present in the candidate tail range, so the pre-existing
+                                             legitimate expression-bodied-function-with-trailing-
+                                             lambda-body shape, fixture `_33`/RDD_KEY_153, still works)
+                                             -- a genuine block-bodied `: ReturnType {` tail is always
+                                             on one unbroken physical line. `make test`: 203/203
+                                             forward + 203/203 idempotency. See `STATE_KOTLIN.md`'s
+                                             Dogfood: JetBrains/kotlin section, cluster C6i.
+
 How Tests Are Run
 -----------------
 

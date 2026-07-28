@@ -1003,6 +1003,32 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                         // statement boundary.
                         continue;
                     }
+                    if (!hasTopLevelOperator(tokens, afterParen, span.openBraceIdx, "=")
+                            && hasTopLevelNewline(tokens, afterParen, span.openBraceIdx)) {
+                        // C6i (JetBrains/kotlin dogfood): even with NO blank line, a genuine
+                        // `: ReturnType {` tail (no `=` -- a block-bodied function/constructor, not
+                        // an expression-bodied one) is always on one unbroken physical line -- it
+                        // never contains a NEWLINE of its own before `{`. Without this check, a
+                        // headerless one-liner interface member with no body (`fun clear(): Unit`)
+                        // immediately followed -- on the very next line, no blank line between -- by
+                        // an unrelated named construct's own opening brace (e.g. a nested
+                        // `interface Bar {`) had its `)`/`:` wrongly matched as this iteration's
+                        // `realCloseParen`/tail: the whole span from `clear()`'s `)` through the
+                        // interface's own name got swallowed into `parseFunctionTail`'s tail range
+                        // and flattened onto one line with no separators, silently fusing two
+                        // unrelated statements together
+                        // (`libraries/stdlib/js-ir-minimal-for-test/.../collectionsWithoutExportLogic.kt`'s
+                        // `MutableMap`). Bail rather than merge across a real statement boundary --
+                        // same posture as the blank-line check just above, just catching the
+                        // no-blank-line variant of the same "unrelated statement boundary" shape.
+                        // The `hasTopLevelOperator(..., "=")` guard keeps the pre-existing legitimate
+                        // case working: an expression-bodied function's `: ReturnType =` tail
+                        // legitimately continues onto a later physical line before reaching its own
+                        // trailing-lambda body's `{` (`fixture _33`, `TypeSpecHolder.kt`'s
+                        // `addTypes`) -- that shape always has a depth-0 `=` in this range, this
+                        // bug's shape never does.
+                        continue;
+                    }
                     kotlinTailEndIdx = closeParenIdx;
                     closeParenIdx = realCloseParen;
                 } else if (lang.isJava) {
@@ -1205,6 +1231,27 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             }
         }
         return found;
+    }
+
+    /** True iff a depth-0 (outside any `(`/`[`/`{`, relative to {@code from}) {@code OP} token
+     *  with text {@code opText} appears anywhere in {@code tokens[from, to)} -- used by {@code
+     *  applySignaturePass}'s Kotlin `: ReturnType` tail detection (C6i fix) to tell a genuine
+     *  expression-bodied function's `: ReturnType =` tail (legitimately allowed to continue onto a
+     *  later physical line before its own trailing-lambda body's `{`) apart from a block-bodied
+     *  `: ReturnType {` tail (which must never contain a NEWLINE of its own before `{`). */
+    private boolean hasTopLevelOperator(final List<Token> tokens, final int from, final int to, final String opText) {
+        int depth = 0;
+        for (int i = from; i < to; i++) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")) {
+                depth--;
+            } else if (depth == 0 && isOp(t, opText)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** True iff two consecutive {@code TokenType.NEWLINE} tokens (a blank source line) appear

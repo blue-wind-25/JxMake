@@ -1,17 +1,19 @@
 {
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '--- STATE_COMMON.md (re-injected after /compact) ---'; cat /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/STATE_COMMON.md"
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
-      "Bash(awk *)",
-      "Bash(cat *)",
-      "Bash(export *=*)",
-      "Bash(git add *)",
-      "Bash(git commit *)",
-      "Bash(git diff *)",
-      "Bash(git log *)",
-      "Bash(git stash *)",
-      "Bash(git status *)",
-      "Bash(grep *)",
-      "Bash(javac *)",
       "Bash(java -jar target/code-formatter-1.00.jar --help)",
       "Bash(java -jar /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/target/code-formatter-1.00.jar --help)",
       "Bash(java -jar target/code-formatter-1.00.jar /tmp/**)",
@@ -38,34 +40,9 @@
       "Bash(*=* java -jar /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/target/code-formatter-1.00.jar --standalone /tmp/**)",
       "Bash(*=* java -jar /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/target/code-formatter-1.00.jar --standalone --out /tmp/** *)",
       "Bash(*=* java -jar /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/target/code-formatter-1.00.jar --standalone --out * *)",
-      "Bash(jobs)",
-      "Bash(make *)",
-      "Bash(mkdir -p /tmp/**)",
-      "Bash(python3 *)",
-      "Bash(xargs ls -la *)",
       "Read(//home/aloysius/.config/jxmake-code-formatter/**)",
       "Read(//home/aloysius/Projects/JxMake/util/CodingStyle.md/**)",
-      "Read(//home/aloysius/xsdk/**)",
-      "Read(//opt/openjdk-21_linux-x64_bin/jdk-21/**)",
-      "Read(//tmp/**)",
-      "Edit(//tmp/**)"
-    ],
-    "deny": [
-      "Bash(find /)",
-      "Bash(find / *)",
-      "Bash(find /home/aloysius)",
-      "Bash(find /home/aloysius *)",
-      "Bash(gpg *)",
-      "Bash(*gpg*)",
-      "Bash(* /home/aloysius/.gnupg)",
-      "Bash(* /home/aloysius/.gnupg/**)",
-      "Bash(*.gnupg*)",
-      "Bash(*~/.gnupg*)",
-      "Bash(*.bashrc*)",
-      "Bash(*~/.bashrc*)",
-      "Read(//home/aloysius/.gnupg)",
-      "Read(//home/aloysius/.gnupg/**)",
-      "Read(//home/aloysius/.bashrc)"
+      "Read(//home/aloysius/xsdk/**)"
     ]
   }
 }

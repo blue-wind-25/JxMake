@@ -2797,6 +2797,66 @@ Real-code regressions:
                                               `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
                                               cluster D2a.
 
+  real_code_regressions_166_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood idempotency cluster
+                                              D2a residual (round1-vs-round2 drift in a Kotlin
+                                              generic `where`-clause's own indent): a `fun`/nested-
+                                              class chain 3+ levels deep, each level carrying its own
+                                              wrapped generic `where` clause, had
+                                              `KotlinSpecificRule.signatureLineIndent` anchor a
+                                              where-clause's base indent on the PHYSICAL LINE of the
+                                              boundary token (`;`/`}`/`{`) immediately preceding the
+                                              statement -- correct when that boundary sits alone on a
+                                              simple unwrapped line, but when the boundary token is
+                                              itself the tail end of an ANCESTOR construct's own
+                                              already-wrapped multi-line `where` clause, that line's
+                                              indent is whatever a prior pass happened to write there,
+                                              not a stable fixed point. Separately,
+                                              `ScopePipelineCurly.processScope`'s `effectiveSpanIndent`
+                                              selection had the same volatile-`braceIndent`-wins gap
+                                              for a `fun` with a wrapped `where` clause, since
+                                              RDD_KEY_159's `isNamedScope` carve-out never covers
+                                              `fun` (`NAMED_CONSTRUCT_KOTLIN` excludes it). Fixed
+                                              `signatureLineIndent` to derive the where-clause's base
+                                              indent from the TRUE statement's own (stable) header-
+                                              line indent minus one `indentUnit`, instead of the
+                                              volatile boundary-token line; and added
+                                              `ScopePipelineCurly.headerHasTopLevelWhereClause` to
+                                              force `spanIndent` (over `braceIndent`) whenever a
+                                              span's own header contains a depth-0 `where` keyword,
+                                              mirroring `isNamedScope`'s posture for `fun`. Together
+                                              these resolve the `TestStepBuilder.kt`/`common.kt`/
+                                              `KaBaseSymbolRelationProvider.kt`/`TopLevelPhases.kt`
+                                              where-clause-shaped share of RDD_KEY_214's own 6-file
+                                              D2a residual. `make test`: 214/214 -> 215/215 forward +
+                                              idempotency, zero regressions. RDD_KEY_215. See
+                                              `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
+                                              cluster D2a.
+
+  real_code_regressions_167_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood idempotency cluster
+                                              D2a residual (round1-vs-round2 closing-brace indent
+                                              drift on a boolean-operator-chained trailing-lambda
+                                              call): `ScopePipelineCurly.isChainedFluentCall`
+                                              (RDD_KEY_214) only recognized a trailing-lambda call
+                                              chained onto the immediately preceding span's own `}`
+                                              via a direct `.`/`?.` member-access -- a chain joined by
+                                              a boolean infix operator instead (`} || declarations.any
+                                              { ... }`, `isReferencedByNativeRuntime` in
+                                              `TopLevelPhases.kt`) fell through to the plain
+                                              `braceIndent`-vs-`spanIndent` comparison, which reads
+                                              the second `.any {`'s own physical-line indent -- not a
+                                              stable fixed point, since it depends on how the first
+                                              `.any { ... }`'s own closing `}` happens to render that
+                                              pass. Fixed by generalizing the chain-continuation
+                                              detection (`isChainedBooleanOp`) to also recognize
+                                              `||`/`&&` immediately following the preceding span's
+                                              `}`, inheriting `prevEffectiveSpanIndent` the same way
+                                              as the `.`/`?.` case. Resolves `TopLevelPhases.kt`'s
+                                              remaining (non-where-clause) line from RDD_KEY_214's
+                                              6-file D2a residual. `make test`: 215/215 -> 216/216
+                                              forward + idempotency, zero regressions. RDD_KEY_216.
+                                              See `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin
+                                              section, cluster D2a.
+
 How Tests Are Run
 -----------------
 

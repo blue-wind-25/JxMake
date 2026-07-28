@@ -1104,16 +1104,20 @@ public class KotlinSpecificRule {
                 break;
             }
         }
-        // When a boundary (`;`/`}`/`{`) was found, anchor on that boundary token's own line --
-        // matching the enclosing scope's indent, since the wrapped `where` should sit one level
-        // under the *enclosing scope*, not one level under the statement's own (already one-level
-        // deeper) line. When no boundary exists (statement starts at the very top of the file,
-        // stmtStart == 0), there is no boundary token to anchor on -- fall back to scanning from
-        // index 0 itself rather than -1, which would throw (index 0 is always safely in range for
-        // a non-empty token list).
-        final int scanFrom = stmtStart == 0 ? 0 : stmtStart - 1;
-        final int firstSig = nextSignificantIndex(tokens, scanFrom);
-        return lineIndent(tokens, firstSig < 0 ? idx : firstSig);
+        // The enclosing scope's indent is exactly one indentUnit less than the true statement's
+        // own header-line indent (indentation always increases by exactly one indentUnit per
+        // nesting level, an invariant the formatter maintains). Deriving it this way -- from the
+        // statement's own line, which is stable -- rather than by reading the physical line of the
+        // boundary token immediately preceding it (the previous approach) avoids a non-idempotency
+        // bug: when that boundary token is itself the tail end of an ANCESTOR construct's own
+        // already-wrapped multi-line `where` clause, its physical-line indent is whatever a prior
+        // formatting pass happened to write there, which is not guaranteed to stay stable across
+        // repeated formatting rounds (see RDD_KEY_215).
+        final int firstSig = nextSignificantIndex(tokens, stmtStart);
+        final String stmtIndent = lineIndent(tokens, firstSig < 0 ? idx : firstSig);
+        return stmtIndent.length() >= indentUnit.length()
+                ? stmtIndent.substring(indentUnit.length())
+                : "";
     }
 
     /** The index of the first significant token on the physical line containing {@code idx} --

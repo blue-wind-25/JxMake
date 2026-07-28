@@ -533,6 +533,52 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         return inheritedIndent;
     }
 
+    /** Kotlin-only: true if this span's own header (from its true statement start, not just
+     *  {@code span.start} -- a span can carry more than one leading statement, same caveat
+     *  {@code findParentIndent} itself documents) contains a depth-0 {@code where} keyword --
+     *  i.e. a generic {@code where} clause, which {@code KotlinSpecificRule.
+     *  enforceWhereClausePlacement} can wrap onto its own indented continuation line(s). Used by
+     *  {@code processScope} to force {@code spanIndent} over a volatile {@code braceIndent} for a
+     *  `fun` with a wrapped `where` clause, the same posture RDD_KEY_159 already gives
+     *  `isNamedScope` -- `NAMED_CONSTRUCT_KOTLIN` never includes `fun`, so that fix alone doesn't
+     *  cover this shape (RDD_KEY_214's own deferred 4-file residual). Depth tracked over
+     *  parens/brackets/reclassified generic angle brackets so a bound's own generic argument
+     *  (`Comparable<T>`) or the param list's own parens never falsely end the scan early. */
+    private boolean headerHasTopLevelWhereClause(final List<Token> tokens, final Span span) {
+        int depth = 0;
+        int stmtStart = span.start;
+        for (int i = span.openBraceIdx - 1; i >= span.start; i--) {
+            final Token tok = tokens.get(i);
+            if (isPunct(tok, ")") || isPunct(tok, "]") || tok.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth++;
+                continue;
+            }
+            if (isPunct(tok, "(") || isPunct(tok, "[") || tok.type == TokenType.ANGLE_BRACKET_OPEN) {
+                depth--;
+                continue;
+            }
+            if (depth > 0) {
+                continue;
+            }
+            if (isPunct(tok, ";") || isPunct(tok, "}")) {
+                stmtStart = i + 1;
+                break;
+            }
+        }
+        depth = 0;
+        for (int i = stmtStart; i < span.openBraceIdx; i++) {
+            final Token t = tokens.get(i);
+            if (isPunct(t, "(") || isPunct(t, "[") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                depth++;
+            } else if (isPunct(t, ")") || isPunct(t, "]") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                depth--;
+            } else if (depth == 0 && t.type == TokenType.KEYWORD && "where".equals(t.text)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Returns the leading whitespace of the physical line containing {@code idx} (typically an
      *  {@code openBraceIdx}), or {@code null} if no NEWLINE precedes it within {@code tokens}.
      *  Unlike {@link #findParentIndent}, which anchors on the STATEMENT's own start (skipping
@@ -1474,13 +1520,24 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             // chain (found via `JetBrains/kotlin`'s `declarationBuilders.kt`, `addFunction {
             // ... }.apply { ... }` -- round1 read `}.apply {`'s own physical-line indent (volatile,
             // 4sp), round2 re-read it as 0sp once the PREVIOUS span's own close text had reflowed).
+            // Also covers a trailing-lambda call chained onto the preceding span's `}` via a
+            // boolean infix operator (`||`/`&&`) rather than a direct `.`/`?.` member-access --
+            // e.g. `declarations.any { ... } || declarations.any { ... }` -- same volatile-anchor
+            // problem: the second `.any {`'s own physical line is not a stable fixed point because
+            // it depends on how the first `.any { ... }`'s own closing `}` happens to render this
+            // pass (found via `JetBrains/kotlin`'s `TopLevelPhases.kt`,
+            // `isReferencedByNativeRuntime`, RDD_KEY_215's own residual).
+            final boolean isChainedBooleanOp = chainKwIdx >= 0 && chainKwIdx < current.size()
+                    && current.get(chainKwIdx).type == TokenType.OP
+                    && ("||".equals(current.get(chainKwIdx).text) || "&&".equals(current.get(chainKwIdx).text));
             final boolean isChainedFluentCall = !isChainedCatchFinally && lang.isKotlin
                     && prevEffectiveSpanIndent != null
                     && prevCloseBraceIdx >= 0
                     && nextSignificantIndex(current, prevCloseBraceIdx) == chainKwIdx
                     && chainKwIdx >= 0 && chainKwIdx < current.size()
-                    && current.get(chainKwIdx).type == TokenType.OP
-                    && (".".equals(current.get(chainKwIdx).text) || "?.".equals(current.get(chainKwIdx).text));
+                    && (isChainedBooleanOp
+                            || (current.get(chainKwIdx).type == TokenType.OP
+                                    && (".".equals(current.get(chainKwIdx).text) || "?.".equals(current.get(chainKwIdx).text))));
             // A NAMED construct (class/interface/object/fun) must always indent its body relative
             // to its own header's start column (`spanIndent`), never to the physical line its
             // `{` happens to land on. A named header can wrap across multiple lines for reasons
@@ -1497,9 +1554,23 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             // trailing-lambda bodies at the end of a fluent call chain, where the brace's own
             // physical line genuinely is the body's real anchor -- that shape is never
             // `isNamedScope`.
+            //
+            // The same volatile-`braceIndent`-wins bug also hits a `fun` with a wrapped generic
+            // `where` clause (RDD_KEY_159's own fix only covers `isNamedScope`, which
+            // `NAMED_CONSTRUCT_KOTLIN` never includes `fun` in) -- e.g. `fun <T> f(...)\n    where
+            // T : X {` reformats fine on round1 (`spanIndent` anchors the fun's own header start),
+            // but on round2 `braceIndent` reads the now-wrapped `where` continuation line's own
+            // (deeper) indent and wins the `braceIndent.length() > spanIndent.length()` test below,
+            // pushing the whole body one level deeper each pass -- non-idempotent (found via
+            // `JetBrains/kotlin`'s `TestStepBuilder.kt`/`common.kt`/`KaBaseSymbolRelationProvider.kt`/
+            // `TopLevelPhases.kt`, RDD_KEY_214's own deferred residual). Fixed the same way as
+            // `isNamedScope`: detect a depth-0 `where` keyword anywhere in this span's own header
+            // (from the true statement start, not just `span.start`, mirroring `findParentIndent`'s
+            // own backward scan) and force `spanIndent` in that case too.
+            final boolean hasWhereClauseHeader = lang.isKotlin && headerHasTopLevelWhereClause(current, span);
             if (isChainedCatchFinally || isChainedFluentCall) {
                 effectiveSpanIndent = prevEffectiveSpanIndent;
-            } else if (braceIndent == null || isNamedScope) {
+            } else if (braceIndent == null || isNamedScope || hasWhereClauseHeader) {
                 effectiveSpanIndent = spanIndent;
             } else if (spanIndent == null || braceIndent.length() > spanIndent.length()) {
                 effectiveSpanIndent = braceIndent;

@@ -1438,7 +1438,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 continue;
             }
             final List<String> lines = lang.isKotlin
-                    ? renderKotlinFilteredRuns(tokens, group, filtered)
+                    ? renderKotlinFilteredRuns(tokens, group, filtered, depth)
                     : getterSetterRule.render(tokens, filtered);
             for (int i = 0; i < filtered.size(); i++) {
                 final Member m = filtered.get(i);
@@ -1466,9 +1466,15 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
      * would naturally compute once an excluded member (sitting between two runs) has become
      * genuinely multi-line and hard-breaks {@code groupOneLiners}'s own grouping at that point --
      * see {@link #applyGetterSetterPass}'s doc comment for the full idempotency rationale.
+     *
+     * <p>RDD_KEY_220: {@code depth} is threaded through to {@code getterSetterRule}'s own
+     * width-budget-aware {@code render(tokens, run, depth)} overload (a no-op for C/C++/Java,
+     * real budget-exclusion logic for {@link KotlinGetterSetterRule}), so a run's own members can
+     * additionally be excluded from THEIR shared column grid if group padding alone would push a
+     * member's rendered width past the line-length limit -- see that overload's own doc comment.
      */
     private List<String> renderKotlinFilteredRuns(final List<Token> tokens, final List<Member> group,
-            final List<Member> filtered) {
+            final List<Member> filtered, final int depth) {
         final java.util.Set<Member> keep = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         keep.addAll(filtered);
         final List<String> result = new ArrayList<>();
@@ -1484,7 +1490,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 run.add(group.get(j));
                 j++;
             }
-            result.addAll(getterSetterRule.render(tokens, run));
+            result.addAll(getterSetterRule.render(tokens, run, depth));
             i = j;
         }
         return result;

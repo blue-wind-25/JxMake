@@ -467,13 +467,118 @@ public class KotlinGetterSetterRule extends GetterSetterRuleCurly {
      * grid-aligned columns, plus a trailing (ragged) comment column when present -- the base
      * class's own {@code render} cannot be reused as-is since it hard-codes a `{ body };`
      * definition/declaration shape that doesn't exist in Kotlin's postfix-type, no-semicolon
-     * grammar.
+     * grammar. No width-budget awareness -- see {@link #render(List, List, int)} for that; this
+     * overload is kept for the base-class override contract and any caller that doesn't have a
+     * {@code depth} to pass (none currently outside this class).
      */
     @Override
     public List<String> render(final List<Token> tokens, final List<Member> group) {
         if (!group.isEmpty() && isAccessorMember(group.get(0))) {
-            return renderAccessorGroup(tokens, group);
+            return renderAccessorGroupRaw(tokens, group);
         }
+        return renderRaw(tokens, group);
+    }
+
+    /**
+     * RDD_KEY_220 -- width-budget-aware entry point, mirroring {@code KotlinDeclarationAlignmentRule
+     * .renderAlignedGroup(List, int)}'s own RDD_KEY_162 fix, ported to this class's one-liner
+     * grouping. {@code depth} is the group's scope depth (as passed to {@link #groupOneLiners});
+     * {@code depth * indentWidth} is the same estimated-column approximation
+     * {@link #parseKotlinOneLinerMember}'s own raw-length pre-check already uses.
+     *
+     * <p>Root cause fixed here: {@link #parseKotlinOneLinerMember}'s raw-length pre-check (and
+     * {@code excludeOutliers}'s width-ratio outlier test) only ever excludes a member whose OWN
+     * solo/raw width already overflows {@code lineLengthLimit} before any group padding is
+     * applied. A member whose own raw width fits comfortably but whose GROUP-PADDED width (once
+     * every row's columns are stretched to the group's widest member) overflows the limit was
+     * never excluded at all -- {@code render}/{@code renderAccessorGroupRaw} just flushed the
+     * grid regardless, and a later phase ({@code enforceCallLineBreaking}) would then wrap that
+     * member's now-too-long padded line, at which point a re-parse (via {@code splitKotlinMemberSpans}
+     * failing to recognize the now-multi-line span as a single-liner) treats it as a hard group
+     * boundary -- narrower, un-padded on round2 where round1 had padded it, an idempotency flap
+     * structurally identical to RDD_KEY_162's own `ChannelFlow.kt` bug, just never ported to this
+     * one-liner-function/accessor sibling. Fixed the same way: a fixed-point loop excluding any
+     * row from the shared column grid (rendered solo instead) whenever its group-aligned rendered
+     * width overflows the budget AND its body contains a breakable call ({@link #hasBreakableCall}
+     * -- the same gate {@link #parseKotlinOneLinerMember}'s own raw-length pre-check already uses,
+     * since only a body containing a call can ever be wrapped by {@code enforceCallLineBreaking}
+     * in the first place; a body with no call at all can never become multi-line no matter how
+     * long its padded line renders, so excluding it would only needlessly discard a sibling's
+     * legitimate alignment). Surviving rows are then rendered as maximal CONTIGUOUS runs (not one
+     * flat grid spanning the whole group), same RDD_KEY_219 rationale: a run adjacent to an
+     * excluded row was already going to lose its shared padding with the row on the far side once
+     * that excluded row wraps and hard-breaks the group on a re-format, so this pass must not
+     * pretend otherwise from the very first pass.
+     */
+    @Override
+    public List<String> render(final List<Token> tokens, final List<Member> group, final int depth) {
+        if (group.size() <= 1 || indentWidth <= 0) {
+            return render(tokens, group);
+        }
+        final boolean accessorShape = isAccessorMember(group.get(0));
+        final int indent = depth * indentWidth;
+
+        final boolean[] excluded = new boolean[group.size()];
+        while (true) {
+            final List<Integer> safeIndices = new ArrayList<>();
+            for (int i = 0; i < group.size(); i++) {
+                if (!excluded[i]) {
+                    safeIndices.add(i);
+                }
+            }
+            if (safeIndices.size() <= 1) {
+                break; // nothing left to budget-check against
+            }
+            final List<Member> safeRows = new ArrayList<>();
+            for (final int idx : safeIndices) {
+                safeRows.add(group.get(idx));
+            }
+            final List<String> safeLines = accessorShape
+                    ? renderAccessorGroupRaw(tokens, safeRows) : renderRaw(tokens, safeRows);
+
+            int overflowAt = -1;
+            for (int k = 0; k < safeRows.size(); k++) {
+                final Member m = safeRows.get(k);
+                if (!hasBreakableCall(tokens, m.bodyFrom, m.bodyTo)) {
+                    continue;
+                }
+                if (indent + safeLines.get(k).length() > lineLengthLimit) {
+                    overflowAt = safeIndices.get(k);
+                    break;
+                }
+            }
+            if (overflowAt < 0) {
+                break; // fixed point reached -- no remaining row overflows its budget
+            }
+            excluded[overflowAt] = true;
+        }
+
+        final List<String> result = new ArrayList<>(java.util.Collections.nCopies(group.size(), null));
+        int i = 0;
+        while (i < group.size()) {
+            if (excluded[i]) {
+                final List<Member> solo = java.util.Collections.singletonList(group.get(i));
+                result.set(i, (accessorShape ? renderAccessorGroupRaw(tokens, solo) : renderRaw(tokens, solo)).get(0));
+                i++;
+                continue;
+            }
+            int j = i;
+            final List<Member> runRows = new ArrayList<>();
+            while (j < group.size() && !excluded[j]) {
+                runRows.add(group.get(j));
+                j++;
+            }
+            final List<String> runLines = accessorShape
+                    ? renderAccessorGroupRaw(tokens, runRows) : renderRaw(tokens, runRows);
+            for (int k = 0; k < runLines.size(); k++) {
+                result.set(i + k, runLines.get(k));
+            }
+            i = j;
+        }
+        return result;
+    }
+
+    private List<String> renderRaw(final List<Token> tokens, final List<Member> group) {
         final ColumnGrid grid = new ColumnGrid();
         for (final Member m : group) {
             final List<String> cells = new ArrayList<>();
@@ -502,7 +607,7 @@ public class KotlinGetterSetterRule extends GetterSetterRuleCurly {
      * (declaration lead / name-or-call / colon-qualifier / tail) with a Kotlin-legal single-line
      * property+accessor rendering (e.g. {@code val x    : Int    get() = 1}).
      */
-    private List<String> renderAccessorGroup(final List<Token> tokens, final List<Member> group) {
+    private List<String> renderAccessorGroupRaw(final List<Token> tokens, final List<Member> group) {
         final ColumnGrid grid = new ColumnGrid();
         for (final Member m : group) {
             final List<String> cells = new ArrayList<>();

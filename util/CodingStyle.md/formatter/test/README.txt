@@ -2925,6 +2925,30 @@ Real-code regressions:
                                               before any group padding). See `STATE_KOTLIN.md`'s
                                               Dogfood: JetBrains/kotlin section, cluster D1.
 
+  real_code_regressions_170_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood idempotency
+                                              cluster D1, third sub-shape (the one left unfixed by
+                                              RDD_KEY_219): group-padding-induced overflow in
+                                              `KotlinGetterSetterRule`'s one-liner function/accessor
+                                              grouping, where a member's own solo/raw width fits under
+                                              `lineLengthLimit` but the shared-column padding pushes it
+                                              over once rendered as part of the group. Pre-fix, this
+                                              silently triggered a later-phase call-argument wrap
+                                              (`MiscRule.enforceCallLineBreaking`) turning a member
+                                              that would fit on one line standalone into an ugly
+                                              multi-line form. Fixed by porting RDD_KEY_162's fixed-
+                                              point budget-exclusion loop (indent/lineLengthLimit-aware,
+                                              gated on `hasBreakableCall` since only a call-bodied
+                                              member can ever become genuinely multi-line via a later
+                                              wrap phase) into a new depth-aware 3-arg
+                                              `GetterSetterRuleCurly.render`/`KotlinGetterSetterRule.
+                                              render` override, threaded through
+                                              `ScopePipelineCurly.applyGetterSetterPass` /
+                                              `renderKotlinFilteredRuns`, reusing RDD_KEY_219's
+                                              contiguous-run rendering for survivors. Closes D1 fully
+                                              (all three sub-shapes now fixed). RDD_KEY_220. See
+                                              `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
+                                              cluster D1.
+
 How Tests Are Run
 -----------------
 

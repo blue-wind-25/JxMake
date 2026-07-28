@@ -168,6 +168,19 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
      *       {@code = X;} aligns as the last column.
      * </ul>
      */
+    /**
+     * RDD_KEY_220 -- {@code depth}-aware overload, used by {@code ScopePipelineCurly
+     * .applyGetterSetterPass} (which knows the group's own scope depth). C/C++/Java have no
+     * equivalent of {@link KotlinGetterSetterRule}'s own width-budget-aware exclusion (no later
+     * phase re-wraps a one-liner accessor's own signature into genuine multi-line form for them
+     * the way Kotlin's call/param-list wrapping does), so this base-class default simply ignores
+     * {@code depth} and delegates to the plain two-arg {@link #render}; {@link
+     * KotlinGetterSetterRule} overrides this with its own RDD_KEY_220 budget-aware logic.
+     */
+    public List<String> render(final List<Token> tokens, final List<Member> group, final int depth) {
+        return render(tokens, group);
+    }
+
     public List<String> render(final List<Token> tokens, final List<Member> group) {
         final boolean isPureSpecifier = group.get(0).pureSpecifier != null;
         final boolean isDef = group.get(0).isDefinition;

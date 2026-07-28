@@ -474,7 +474,20 @@ public class KotlinSpecificRule {
 
             final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
                     || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
-            final boolean adjacentToTightOp = isTightNullOp(lastSignificant) || isTightNullOp(t);
+            // C6k-4: `!!` is tight against its left operand (`isTightNullOp(t)` below, when `t`
+            // itself is `?.`/`!!` -- i.e. the upcoming operator's own left side) always, but on its
+            // *right* side it must stay tight only when directly followed by a postfix
+            // continuation (`.`, `[`, `(`, or another `?.`/`!!` in a chain, e.g. `x!!.foo()`,
+            // `x!![0]`, `x!!()`) -- NOT before an ordinary keyword/identifier/operator continuing
+            // the surrounding expression (`port!! in range`, `x!! ?: y`), where the null-safety
+            // operator is simply the end of a sub-expression and normal spacing applies. `?.` has
+            // no such ambiguity (a member name always follows directly), so its right side stays
+            // unconditionally tight. Found via `JetBrains/kotlin` dogfood (`ClientUtils.kt`'s
+            // `assert(port!! in COMPILE_DAEMON_PORTS_RANGE_START..<...)`, where the space this
+            // pass is supposed to leave untouched was being dropped instead).
+            final boolean bangTightOnRight = isOp(lastSignificant, "!!") && isPostfixNullOpContinuation(t);
+            final boolean dotTightOnRight = isOp(lastSignificant, "?.");
+            final boolean adjacentToTightOp = isTightNullOp(t) || dotTightOnRight || bangTightOnRight;
             final boolean adjacentToElvis = !adjacentToTightOp && (isElvisOp(lastSignificant) || isElvisOp(t));
 
             if (gapBlocked || (!adjacentToTightOp && !adjacentToElvis)) {
@@ -499,6 +512,15 @@ public class KotlinSpecificRule {
 
     private boolean isTightNullOp(final Token t) {
         return t != null && (isOp(t, "?.") || isOp(t, "!!"));
+    }
+
+    /** True iff {@code t} is a token that legitimately continues tight against a preceding `!!`
+     *  (a postfix chain: `.`/`[`/`(`, or another `?.`/`!!`) -- used only by the C6k-4 fix in
+     *  {@link #enforceNullSafetyOperatorSpacing} to distinguish `x!!.foo()`/`x!![0]`/`x!!()` (stay
+     *  tight) from `x!! in y`/`x!! ?: y`/`x!! + y` (ordinary keyword/operator continuation, needs
+     *  its normal spacing, left untouched by this pass). */
+    private boolean isPostfixNullOpContinuation(final Token t) {
+        return t != null && (isPunct(t, ".") || isPunct(t, "[") || isPunct(t, "(") || isTightNullOp(t));
     }
 
     private boolean isElvisOp(final Token t) {

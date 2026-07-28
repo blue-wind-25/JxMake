@@ -2655,6 +2655,24 @@ Real-code regressions:
                                              `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
                                              cluster C6k.
 
+  real_code_regressions_161_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6k, Shape
+                                             C6k-4: `KotlinSpecificRule.
+                                             enforceNullSafetyOperatorSpacing`'s `!!` tightness
+                                             applied unconditionally to both sides -- correct on the
+                                             left (against its operand) but wrong on the right
+                                             whenever `!!` is followed by an ordinary keyword/
+                                             operator continuation (`port!! in range`, `x!! ?: y`)
+                                             rather than a postfix chain (`x!!.foo()`, `x!![0]`),
+                                             stripping a space the source already had and creating a
+                                             parse error (`port!!in ...`). Fixed by a new
+                                             `isPostfixNullOpContinuation` check narrowing `!!`'s
+                                             right-side tightness to `.`/`[`/`(`/another `?.`/`!!`
+                                             only; `?.`'s own right side stays unconditionally tight
+                                             (a member name always follows directly, no ambiguity).
+                                             `make test`: 209/209 forward + 209/209 idempotency (no
+                                             count change). See `STATE_KOTLIN.md`'s Dogfood:
+                                             JetBrains/kotlin section, cluster C6k.
+
 How Tests Are Run
 -----------------
 

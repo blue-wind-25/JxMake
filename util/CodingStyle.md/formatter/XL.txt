@@ -130,15 +130,6 @@ Continue with JetBrains/kotlin idempotency bug D3, tell the sub-agent:
 Do NOT reformat the entire corpus, it is wasting time.
 
 
-Remove the per-parameter Math.pow() calls (highest priority).
-Switch from batch size 1 to batch size 32.
-Pre-tokenize the corpus once before training.
-Fix bestWeights = weights by making a deep copy of the weights.
-
-Profile forward vs backward vs Adam update to see where time is actually spent.
-
-
-
 
 Now, start with the dogfood test (search in `/tmp` first, clone the repo if not found):
    JS : github.com/nodejs/node` (the repo is MASSIVE, checkout ONLY the *.js files)

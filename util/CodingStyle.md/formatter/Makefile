@@ -25,7 +25,7 @@ TEST_LOCK     = $(BUILD_DIR)/.test.lock
 
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
-.PHONY: all build jar clean gru-extract-pool-a gru-extract-pool-b gru-measure-abstain-rate gru-train test _test_serial bench test-server
+.PHONY: all build jar clean gru-acquire_corpus gru-extract-pool-a gru-extract-pool-b gru-measure-abstain-rate gru-train test _test_serial bench test-server
 
 all build jar:
 	@if $(MAKE) --no-print-directory -q $(JAR_FILE); then \
@@ -112,33 +112,64 @@ gru-measure-abstain-rate: $(JAR_FILE)
 	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) CommentAbstainTally $(GRU_ABSTAIN_INPUT)
 
 
+# ── GRU corpus acquisition + auto-labeling target ────────────────────────────
+#
+# Runs `tools/gru/acquire_corpus.sh` (extraction + Pool A/Pool B candidate extraction across every
+# configured source -- unchanged) into a scratch dir, concatenates every source's extracted comments
+# into one combined file, then compiles and runs `tools/gru/GenerateSampleDefault.java` over that
+# combined file: it feeds every comment through the real rule-based (linear) `CommentClassifier` and
+# keeps only the high-confidence (YES/NO) decisions, writing them in `GruTrainer`'s RDD_EXT_20/21
+# schema to `tools/gru/sample_default.txt`, with a header documenting provenance. Unlike the old
+# manual workflow, nothing here is archived to the personal GruArtifacts directory -- the
+# classifier-labeled `sample_default.txt` output is the artifact going forward.
+#
+# Finally deduplicates exact-duplicate lines in place (`awk '!seen[$0]++'`, preserving first-
+# occurrence order, including the header lines) -- verbatim-duplicate comments (license headers,
+# boilerplate) are common across many files of the same repo and would otherwise over-weight the
+# training set toward those exact strings.
+#
+# Usage:
+#     make gru-acquire_corpus [GRU_CORPUS_OUT_DIR=/tmp/gru_corpus]
+#
+GRU_CORPUS_OUT_DIR ?= /tmp/gru_corpus
+GRU_SAMPLE_DEFAULT  = $(GRU_TOOLS_DIR)/sample_default.txt
+
+gru-acquire_corpus: $(JAR_FILE)
+	@rm -rf $(GRU_CORPUS_OUT_DIR)
+	@$(GRU_TOOLS_DIR)/acquire_corpus.sh --out-dir $(GRU_CORPUS_OUT_DIR)
+	@cat $(GRU_CORPUS_OUT_DIR)/comments_*.txt > $(GRU_CORPUS_OUT_DIR)/comments_combined.txt
+	@mkdir -p $(GRU_TOOLS_CLASSES)
+	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/GenerateSampleDefault.java
+	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GenerateSampleDefault $(GRU_CORPUS_OUT_DIR)/comments_combined.txt $(GRU_SAMPLE_DEFAULT)
+	@awk '!seen[$$0]++' $(GRU_SAMPLE_DEFAULT) > $(GRU_SAMPLE_DEFAULT).dedup && mv $(GRU_SAMPLE_DEFAULT).dedup $(GRU_SAMPLE_DEFAULT)
+	@echo "gru-acquire_corpus: wrote $(GRU_SAMPLE_DEFAULT) ($(shell wc -l < $(GRU_SAMPLE_DEFAULT) 2>/dev/null || echo '?') line(s) after dedup)"
+
+
 # ── GRU trainer target ───────────────────────────────────────────────────────
 #
 # Compiles and runs `tools/gru/GruTrainer.java` (a non-shipped, outside-src/training entry point per
-# `STATE_AI.md`), writing a scalar-architecture- constants-only weights file to `$(BUILD_DIR)/gru/weights.json`.
-# The real training loop remains blocked on `STATE_AI.md` open items 3/4/9/10; see `GruTrainer`'s own javadoc.
-# Uses `tools/gru/sample_examples.txt`, a placeholder/dummy labeled-examples file (no real labeled dataset exists
-# yet), just to satisfy `GruTrainer`'s positional-arg validation.
+# `STATE_AI.md`), training against `tools/gru/sample_default.txt` (the classifier-auto-labeled corpus
+# `make gru-acquire_corpus` produces -- run that target first at least once) and writing a real
+# trained weights file to `$(BUILD_DIR)/gru/$(GRU_WEIGHTS_FILENAME)`.
 #
 # `Config.DEFAULT_GRU_WEIGHTS_PATH` is empty by default -- `GruAbstainResolver` derives the weights-file location
 # from the running program's own directory instead (the jar's parent dir when run via `-jar`, or `$(CLASS_DIR)`
 # itself for a dev/test run against classes -- see `GruAbstainResolver.programDirectory`/WEIGHTS_FILENAME).
 # So after writing the build-artifact weights file, this target also copies it into `$(CLASS_DIR)` under that
-# expected filename, so `make test`/developer runs against `$(CLASS_DIR)` can find it. The commented-out `cp` below
-# mirrors the similarly-commented-out `@cp $(JAR_FILE) .` above: when that jar-copy line is enabled (e.g. for
-# the top-level dist_build/jxmake_dist packaging step, see `apps/code-formatter/` in that tree), enable this one
-# alongside it so the weights file ships next to the jar the same way.
+# expected filename, so `make test`/developer runs against `$(CLASS_DIR)` can find it, and into the formatter
+# root (`code-formatter-ai-assist-weights.json`) so it can be committed alongside `sample_default.txt`.
 #
 GRU_WEIGHTS_FILENAME = code-formatter-ai-assist-weights.json
 GRU_WEIGHTS_OUT      = $(GRU_BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)
-GRU_SAMPLE_EXAMPLES  = $(GRU_TOOLS_DIR)/sample_examples.txt
+GRU_SAMPLE_EXAMPLES  = $(GRU_SAMPLE_DEFAULT)
+GRU_TRAIN_ARGS       ?=
 
 gru-train: $(JAR_FILE)
 	@mkdir -p $(GRU_TOOLS_CLASSES)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/GruTrainer.java
-	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT)
+	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT) $(GRU_TRAIN_ARGS)
 	@cp $(GRU_WEIGHTS_OUT) $(CLASS_DIR)
-#	@cp $(GRU_WEIGHTS_OUT) .
+	@cp $(GRU_WEIGHTS_OUT) .
 
 
 # ── Test target ───────────────────────────────────────────────────────────────
@@ -393,6 +424,7 @@ INP_FILES += real_code_regressions_164_inp.kt
 INP_FILES += real_code_regressions_165_inp.kt
 INP_FILES += real_code_regressions_166_inp.kt
 INP_FILES += real_code_regressions_167_inp.kt
+INP_FILES += real_code_regressions_168_inp.kt
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

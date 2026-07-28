@@ -2857,6 +2857,40 @@ Real-code regressions:
                                               See `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin
                                               section, cluster D2a.
 
+  real_code_regressions_168_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood idempotency
+                                              cluster D4 (minor adjacent-closing-brace spacing
+                                              flap, `) }` vs `)}`): `BlockStructureRule.
+                                              collapseBracelessBody` (the already-braceless,
+                                              multi-line-body collapse path used when reformatting
+                                              a body a prior pass already stripped braces from)
+                                              located its enclosing scope's own terminating `}` at
+                                              depth 0 and correctly excluded that `}` token itself
+                                              from the rendered body, but the WHITESPACE token
+                                              immediately preceding it was included in `contents`
+                                              and then silently dropped by `renderInline` (which
+                                              never emits trailing whitespace) -- losing a
+                                              source-preserved single space between the body's last
+                                              token and the following `}` (e.g. `) }` collapsing to
+                                              `)}`) on a second format pass. `tryCollapse`'s sibling
+                                              braced-body path never has this loss, since it lets
+                                              the surrounding loop re-append that gap's whitespace
+                                              token verbatim instead of folding it into a render.
+                                              Fixed by checking whether the token right before the
+                                              enclosing `}` was WHITESPACE/NEWLINE and, if so,
+                                              re-appending a single trailing space. Reproduced
+                                              directly against `JsArgumentsImpl.kt` from the
+                                              `JetBrains/kotlin` dogfood corpus
+                                              (`compiler/build-tools/kotlin-build-tools-impl/gen/
+                                              org/jetbrains/kotlin/buildtools/internal/arguments/`).
+                                              `make test`: 216/216 forward + idempotency, zero
+                                              regressions (also required updating
+                                              `real_code_regressions_33_out.kt`'s own line 18 from
+                                              `)} as T` to `) } as T`, since that pre-existing
+                                              fixture's reference output had itself encoded this
+                                              same bug's output as "correct"). RDD_KEY_218. See
+                                              `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
+                                              cluster D4.
+
 How Tests Are Run
 -----------------
 

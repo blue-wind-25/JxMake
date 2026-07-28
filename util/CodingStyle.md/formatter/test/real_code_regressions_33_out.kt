@@ -15,7 +15,7 @@ public interface TypeSpecHolder {
         typeSpecs: Iterable<TypeSpec>
     ): T = apply { for(typeSpec in typeSpecs) addType(
         typeSpec
-    )} as T
+    ) } as T
 
     } // interface Builder
 

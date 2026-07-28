@@ -157,6 +157,7 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_214 | `JetBrains/kotlin` dogfood Category 2 cluster **D2a** (chained-fluent-call closing-brace drift, 328 of 334 known idempotency-flap files) — **FIXED**: `ScopePipelineCurly`'s existing `isChainedCatchFinally` carve-out (RDD_KEY_158, inherit the preceding span's own already-resolved `effectiveSpanIndent` instead of re-deriving from volatile physical text) generalized from `catch`/`finally` keywords to any Kotlin `.`/`?.` fluent-chain continuation directly following a preceding span's own `}` (`}.apply {`, `}.also {`, etc) — new `isChainedFluentCall`. Fixture `_165`. |
 | RDD_KEY_215 | `JetBrains/kotlin` dogfood D2a residual, where-clause-shaped share (`TestStepBuilder.kt`/`common.kt`/`KaBaseSymbolRelationProvider.kt`/`TopLevelPhases.kt`) — **FIXED**: two causes. (a) `ScopePipelineCurly`'s `isNamedScope` carve-out (RDD_KEY_159) never covers `fun` — added `headerHasTopLevelWhereClause` + `hasWhereClauseHeader` condition to force `spanIndent` for a `fun` with its own wrapped `where` clause too. (b) `KotlinSpecificRule.signatureLineIndent` (RDD_KEY_164) anchored a where-clause's base indent on the volatile physical line of the immediately preceding boundary token — non-idempotent when that boundary is itself the tail of an ANCESTOR's own wrapped `where` clause; fixed by deriving base indent from the true statement's own stable header-line indent minus one `indentUnit`. Fixture `_166`. |
 | RDD_KEY_216 | `JetBrains/kotlin` dogfood D2a residual, `TopLevelPhases.kt`'s remaining line — **FIXED**: `isChainedFluentCall` (RDD_KEY_214) only recognized `.`/`?.` continuation after the preceding span's own `}`, not a boolean-infix-operator-joined chain (`} || declarations.any { ... }`) — widened with new `isChainedBooleanOp` (`||`/`&&`). Fixture `_167`. Closes 5 of RDD_KEY_214's 6-file D2a residual (all but `GenerateReleaseNotes.kt`/`TypeBridging.kt`, which direct diffing shows are ordinary D3 wrap-decision-flap instances, not a distinct D2a shape — misclassified by RDD_KEY_214's own text, left open under the separate D3 bucket). |
+| RDD_KEY_218 | `JetBrains/kotlin` dogfood cluster **D4** (minor adjacent-closing-brace spacing flap, sample hit `JsArgumentsImpl.kt`) — **FIXED, closes D4**: `BlockStructureRule.collapseBracelessBody` (the already-braceless multi-line-body collapse path exercised only on a reformat, once a prior pass had already stripped an enclosing `if`'s own braces) correctly excluded its enclosing scope's own terminating `}` from the rendered body but left the WHITESPACE token immediately preceding it inside `contents`, which `renderInline` then silently dropped (never emits trailing whitespace) — losing a source-preserved single space (`) }` → `)}`) on the second format pass; `tryCollapse`'s sibling braced-body path never has this loss since it lets the surrounding loop re-append a *different* piece of untouched whitespace verbatim instead of folding it into a render. Fixed by appending a trailing space when the token right before the enclosing `}` was WHITESPACE/NEWLINE. Also required correcting `real_code_regressions_33_out.kt` (a pre-existing fixture that had, by coincidence, already baked this same bug's buggy `)} as T` into its own recorded "expected" output — corrected to `) } as T`). Fixture `_168`. `make test` 216/216 forward + idempotency, zero regressions. |
 
 ---
 
@@ -680,13 +681,13 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
    originally queued as a last-resort/stress candidate (similar posture to
    `microsoft/STL`/`llvm-project` in the C++ list) but substantial work has
    since landed. Category 1 (parse errors/corruption) is fully closed.
-   Category 2 (idempotency) has bucket D2a fully closed (332/334 known-flap
-   files — RDD_KEY_214/215/216; the remaining 2 are ordinary D3 instances,
-   not a distinct D2a shape), and D1/D3/D4 still fully open (~334 files
-   total across all buckets, with D3 now confirmed to include at least
-   `GenerateReleaseNotes.kt`/`TypeBridging.kt` from D2a's own former
-   residual). Full diagnosis, tool commands, and per-cluster fix history:
-   see "Dogfood: JetBrains/kotlin" section below.
+   Category 2 (idempotency) has buckets D2a (332/334 known-flap files —
+   RDD_KEY_214/215/216; the remaining 2 are ordinary D3 instances, not a
+   distinct D2a shape) and D4 (~8 files — RDD_KEY_218) both fully closed;
+   D1/D3 still fully open (~334 files total across all buckets, with D3 now
+   confirmed to include at least `GenerateReleaseNotes.kt`/`TypeBridging.kt`
+   from D2a's own former residual). Full diagnosis, tool commands, and
+   per-cluster fix history: see "Dogfood: JetBrains/kotlin" section below.
 
 **When a test completes:** move/compact its entry from "Not started" (or its
 "In progress" detail) into "Finished dogfood / real-code testing", and add a
@@ -697,15 +698,16 @@ introduced.
 
 ## Dogfood: JetBrains/kotlin (categorization pass, not yet fixed)
 
-**Status (current, as of the D2a closure — RDD_KEY_214/215/216):** Category 1
+**Status (current, as of the D4 closure — RDD_KEY_218):** Category 1
 (parse errors/corruption) is **fully closed** — every C1-C6k cluster/shape
 fixed, 0 genuine formatter-caused failures remain (2 pre-existing BOM
 syntax-checker artifacts, unrelated to the formatter, are the only
 remaining `kotlin_syntax_check` hits). Category 2 (idempotency-only) is
-**partially closed**: D2a is now **fully closed** (332 of 334 known-flap
+**partially closed**: D2a is **fully closed** (332 of 334 known-flap
 files — the remaining 2, `GenerateReleaseNotes.kt`/`TypeBridging.kt`, were
 re-triaged and found to be ordinary D3 wrap-decision-flap instances, not a
-distinct D2a shape); D1/D3/D4 still fully open. See the "Category
+distinct D2a shape); D4 is now also **fully closed** (~8 files,
+RDD_KEY_218); D1/D3 still fully open. See the "Category
 1"/"Category 2" tables below for the current per-cluster/per-bucket
 breakdown.
 Checkout: `/tmp/jb_kotlin_kt/kotlin-master`
@@ -812,7 +814,7 @@ classification of all 334 — treat as directional, not exact.
 | **D2a.** Chained-fluent-call closing-brace drift (`}.apply {`, `}?.let {`, etc — a span's own `braceIndent`/`spanIndent` read off the volatile physical text of the PRECEDING span's own `}`) | 22 (of 40 D2 hits) | **332 of 334 known idempotency-flap files — FIXED** (RDD_KEY_214/215/216, fixtures `_165`/`_166`/`_167`) | Fix: generalized the existing `isChainedCatchFinally` carve-out (RDD_KEY_158) to any Kotlin `.`/`?.` fluent-chain continuation following a preceding span's own `}` — new `ScopePipelineCurly.isChainedFluentCall`, inherits the preceding span's already-resolved `prevEffectiveSpanIndent` instead of re-deriving from its volatile physical closing text. Root-caused against real corpus file `declarationBuilders.kt`. RDD_KEY_214's own 6-file residual has been fully triaged and closed for 5 of the 6 files: `TestStepBuilder.kt`/`common.kt`/`KaBaseSymbolRelationProvider.kt`/`TopLevelPhases.kt` were a `fun`-with-wrapped-`where`-clause `effectiveSpanIndent`/`signatureLineIndent` gap, not the "isNamedScope excluding fun" guess alone — fixed by RDD_KEY_215 (two causes: `ScopePipelineCurly.headerHasTopLevelWhereClause` + `KotlinSpecificRule.signatureLineIndent`'s boundary-line-anchoring rewrite); `TopLevelPhases.kt`'s one remaining line (a boolean-operator-chained `.any { } || .any { }`, not "unexplained brace drift") was fixed by RDD_KEY_216's `isChainedBooleanOp`. The last 2 files, `GenerateReleaseNotes.kt`/`TypeBridging.kt`, were misclassified by RDD_KEY_214's own text as "D2a-adjacent" — direct diffing shows they are ordinary instances of the separate, already-tracked D3 wrap-decision-flap bucket (a `joinToString`/`.also` call-argument wrap decision flapping between one-line and multi-line across rounds), not a distinct D2a shape at all; left open under D3 below, out of scope for D2a's own closure. `make test`: 214/214 → 215/215 → 216/216 forward + idempotency across both fixes, zero regressions. |
 | **D1.** Declaration/accessor column-alignment padding flap (round1 vs round2 disagree on padding width) | 12 | **~100** (down from the previous ~150-200 estimate — some of the original estimate's share was likely re-attributed to D2 or fixed incidentally by RDD_KEY_162's later width-awareness fix) | Same family as fixed RDD_KEY_139/162 (group-width recompute instability) — likely another width-recompute path those fixes didn't cover; a `val`/`override fun` declaration's column padding differs by a few spaces between rounds, same line otherwise unchanged. |
 | **D3.** Multi-line-call/condition wrap-decision flap (one line in round1, exploded across multiple lines in round2, or vice versa) | 4 | **~33** (previous ~15-20 estimate for a narrower "multi-param lambda header" sub-shape; fresh sampling shows the wrap-flap bucket is broader than originally scoped — includes plain call-argument and `if(...)` condition wraps, not just lambda headers) | Wrap decision (`enforceCallLineBreaking`-family) isn't stable across passes — round1 and round2 make different one-line-vs-wrapped calls for the same logical content. |
-| **D4.** Minor adjacent-closing-brace spacing flap (`) }` vs `)}`) | 1 | **~8** | Cosmetic-only, lowest priority; matches the original description exactly (sample hit: `JsArgumentsImpl.kt`). |
+| **D4.** Minor adjacent-closing-brace spacing flap (`) }` vs `)}`) | 1 | **~8 — FIXED** (RDD_KEY_218, fixture `_168`) | Root cause: `BlockStructureRule.collapseBracelessBody` dropped a source-preserved trailing space before an already-braceless body's enclosing `}` via `renderInline`'s no-trailing-whitespace behavior. Reproduced directly against `JsArgumentsImpl.kt`; also surfaced a latent instance of the same bug already baked into pre-existing fixture `real_code_regressions_33_out.kt`, corrected alongside. |
 
 Sample total: 22+12+4+1 = 39 of 40 (the 40th file, `org.w3c.dom.kt`, showed
 both a D1 padding flap and a D3 wrap flap in the same diff — counted once
@@ -823,10 +825,11 @@ sampled files fit one of the 4 existing D1-D4 categories, none required a
 
 **Current standing (see this file's top "Status" line for the summary):**
 Category 1 fully closed (all C1-C6k). Category 2: D2a fully closed
-(332/334, RDD_KEY_214/215/216 — see D2a row above); D1/D3/D4 fully
+(332/334, RDD_KEY_214/215/216 — see D2a row above); D4 now also fully
+closed (RDD_KEY_218, fixture `_168`, ~8 files); D1/D3 remain fully
 untouched (D3's known count now includes 2 files reclassified out of
 D2a's own former residual, `GenerateReleaseNotes.kt`/`TypeBridging.kt`) —
-good candidates for a dedicated future fix session, in roughly D1 > D3 > D4
+good candidates for a dedicated future fix session, in roughly D1 > D3
 priority order per their estimated file counts above.
 
 **Recommended next step (not done yet):** run `kotlin_content_diff` across

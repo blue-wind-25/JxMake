@@ -921,6 +921,23 @@ public class BlockStructureRule {
 
         final String body = renderInline(contents);
         outBodyEnd[0] = bodyEnd;
+        // D4 (JetBrains/kotlin dogfood): when this braceless body's own enclosing scope's real
+        // `}` immediately terminates it on the same physical line (the "}"-at-depth-0 break case
+        // above, `bodyEnd` pointing at that `}` token, not the NEWLINE-at-depth-0 case), `contents`
+        // -- and thus `renderInline`'s `body` -- ends at the last real body token; `renderInline`
+        // never emits *trailing* whitespace (see its own doc), so a source-preserved single space
+        // between the body's last token and that following `}` (e.g. `) }`) was silently dropped,
+        // producing `)}` -- a real round1-vs-round2 flap once a prior pass had already stripped an
+        // enclosing `if`'s own braces (this method's caller then reprocesses an
+        // already-braceless, already-multi-line body via this path instead of `tryCollapse`'s
+        // braced path, which never has this loss since it lets the outer loop re-append that
+        // untouched whitespace token verbatim rather than folding it into a render). Preserve it by
+        // re-appending a single space whenever the source actually had one there.
+        if (bodyEnd < n && isPunct(tokens.get(bodyEnd), "}") && bodyEnd > bodyStart
+                && (tokens.get(bodyEnd - 1).type == TokenType.WHITESPACE
+                        || tokens.get(bodyEnd - 1).type == TokenType.NEWLINE)) {
+            return prefix + " " + body + " ";
+        }
         return prefix + " " + body;
     }
 

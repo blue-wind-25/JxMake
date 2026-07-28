@@ -2604,6 +2604,22 @@ Real-code regressions:
                                              rule). See `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin
                                              section, cluster C6f.
 
+  real_code_regressions_158_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood cluster C6b:
+                                             Kotlin 2.4's multi-dollar string interpolation prefix
+                                             (`$$"..."`, `$$$"""..."""`) got a spurious space before
+                                             the string it prefixes (`$$ "$key1"`). The tokenizer
+                                             already treats `$` as an identifier char, so `$$`/`$$$`
+                                             lexed as a plain IDENTIFIER token immediately followed by
+                                             the STRING token -- the generic identifier-then-string
+                                             spacing default inserted a space. Fixed by a new
+                                             `isDollarRun` carve-out (exact `"$$"`/`"$$$"` match) in
+                                             both `MiscRuleCore.needsSpaceBetween` and
+                                             `DeclarationAlignmentRuleCore.needsSpaceBetween`, same
+                                             fix shape as C2's `@`-tight carve-out. `make test`:
+                                             206/206 forward + 206/206 idempotency (no count change).
+                                             See `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
+                                             cluster C6b.
+
 How Tests Are Run
 -----------------
 

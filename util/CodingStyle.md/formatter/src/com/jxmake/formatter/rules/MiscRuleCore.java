@@ -1173,7 +1173,25 @@ public static final class Assignment {
         if ((lang.isKotlin || lang.isJava) && isOp(prev, "@")) {
             return false;
         }
+        // C6b: Kotlin 2.4's multi-dollar string interpolation prefix (`$$"..."`, `$$$"""..."""`)
+        // is tokenized as a plain IDENTIFIER (the tokenizer's identifier-char check already treats
+        // `$` as an identifier char, same as bare `$x` interpolation), immediately followed by the
+        // STRING token it prefixes -- no gap allowed by the grammar. Without this, the generic
+        // default below inserts a space (`$$ "$key1"`), a Kotlin parse error. Exact duplicate of
+        // `DeclarationAlignmentRuleCore.needsSpaceBetween`'s identical carve-out.
+        if (lang.isKotlin && prev.type == TokenType.IDENTIFIER && isDollarRun(prev.text)
+                && cur.type == TokenType.STRING) {
+            return false;
+        }
         return true;
+    }
+
+    /** True iff {@code text} is exactly `"$$"` or `"$$$"` -- Kotlin 2.4's multi-dollar string
+     *  interpolation prefix (2 or 3 dollar signs, per the language spec; a single bare `$` has no
+     *  such meaning and is left alone). Used only by the C6b carve-out above. Exact duplicate of
+     *  `DeclarationAlignmentRuleCore.isDollarRun`. */
+    protected static boolean isDollarRun(final String text) {
+        return "$$".equals(text) || "$$$".equals(text);
     }
 
     /** True iff `tokens.get(parenIdx)` is `(` and it opens a function type's parameter list --

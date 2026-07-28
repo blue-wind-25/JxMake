@@ -936,25 +936,42 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
             excluded[overflowAt] = true;
         }
 
+        // RDD_KEY_219: render surviving (non-excluded) rows as maximal CONTIGUOUS runs, not as one
+        // flat shared-column grid spanning the whole original group. A row excluded above for
+        // budget overflow is exactly the shape (RDD_KEY_162's own hasBraceBodiedInit gate) that
+        // WILL become genuinely multi-line once a later phase (enforceCallLineBreaking) wraps it
+        // -- and splitKotlinStatements/parseKotlinDeclaration's own documented behavior (see this
+        // class's "A declaration whose initializer genuinely spans multiple physical lines"
+        // comment above) is to then fail to parse that now-multi-line statement and thereby BREAK
+        // the surrounding group in two at that point, on every subsequent re-format. If this pass
+        // instead kept the rows on either side of an excluded middle row aligned together in one
+        // grid (as a single "safeRows" list, the previous shape here), round1 would align them
+        // together but round2 -- seeing the excluded row as a genuine hard group boundary once
+        // wrapped -- would split them into separate single-row groups with no shared padding,
+        // producing exactly this bucket's flap (round1 wide padding vs round2 single-space).
+        // Rendering each contiguous run separately from the very first pass keeps both rounds
+        // identical: a run adjacent to an excluded row was already going to lose its grouping
+        // with the row on the far side once that row wraps, so this pass should never have
+        // pretended otherwise.
         final List<String> result = new ArrayList<>(java.util.Collections.nCopies(group.size(), null));
-        final List<Integer> safeIndices = new ArrayList<>();
-        for (int i = 0; i < group.size(); i++) {
-            if (!excluded[i]) {
-                safeIndices.add(i);
-            }
-        }
-        final List<Row> safeRows = new ArrayList<>();
-        for (final int idx : safeIndices) {
-            safeRows.add(group.get(idx));
-        }
-        final List<String> safeLines = renderAlignedGroupRaw(safeRows);
-        for (int k = 0; k < safeIndices.size(); k++) {
-            result.set(safeIndices.get(k), safeLines.get(k));
-        }
-        for (int i = 0; i < group.size(); i++) {
+        int i = 0;
+        while (i < group.size()) {
             if (excluded[i]) {
                 result.set(i, renderAlignedGroupRaw(java.util.Collections.singletonList(group.get(i))).get(0));
+                i++;
+                continue;
             }
+            int j = i;
+            final List<Row> runRows = new ArrayList<>();
+            while (j < group.size() && !excluded[j]) {
+                runRows.add(group.get(j));
+                j++;
+            }
+            final List<String> runLines = renderAlignedGroupRaw(runRows);
+            for (int k = 0; k < runLines.size(); k++) {
+                result.set(i + k, runLines.get(k));
+            }
+            i = j;
         }
         return result;
     }

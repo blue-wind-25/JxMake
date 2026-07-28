@@ -2891,6 +2891,40 @@ Real-code regressions:
                                               `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
                                               cluster D4.
 
+  real_code_regressions_169_inp/out.kt     -- Kotlin, `JetBrains/kotlin` dogfood idempotency
+                                              cluster D1 (declaration/accessor column-alignment
+                                              padding flap): two independent root causes, both in
+                                              the group-width recompute instability family (RDD_KEY_
+                                              139/140/162). (1) `KotlinDeclarationAlignmentRule.
+                                              renderAlignedGroup` rendered all surviving (non-
+                                              excluded) rows of a `val`/`var` alignment group as one
+                                              flat shared-width grid even when an excluded (overflow,
+                                              brace-bodied-init) row sat in the MIDDLE of the group;
+                                              round1 aligned rows across that gap while round2 (once
+                                              the excluded row becomes genuinely multi-line and hard-
+                                              breaks parsing) naturally splits into independently-
+                                              narrower groups. Fixed by splitting surviving rows into
+                                              maximal contiguous runs and rendering each run
+                                              independently. (2) The analogous bug in
+                                              `ScopePipelineCurly.applyGetterSetterPass` (shared
+                                              Java/C++/Kotlin one-liner function/accessor grouping
+                                              driver) for Kotlin's own one-liner expression-bodied
+                                              function grouping; fixed with a new Kotlin-gated
+                                              `renderKotlinFilteredRuns` helper, leaving C/C++/Java's
+                                              existing flat-group behavior untouched. Reproduced
+                                              directly against `KlibMetadataVersionWriteExtension`-
+                                              adjacent code and `DummyJavaFileCodeStyleFacadeFactory`
+                                              from the `JetBrains/kotlin` dogfood corpus. RDD_KEY_219.
+                                              Partial fix only: a THIRD, distinct sub-shape of this
+                                              same bucket was found but explicitly not fixed here --
+                                              group-padding-induced overflow where the offending
+                                              member's own solo/raw width fits under the line-length
+                                              limit but the group's shared padding alone pushes it
+                                              over (unlike the two fixed cases, where the member's
+                                              own raw/estimated width already exceeded the limit
+                                              before any group padding). See `STATE_KOTLIN.md`'s
+                                              Dogfood: JetBrains/kotlin section, cluster D1.
+
 How Tests Are Run
 -----------------
 

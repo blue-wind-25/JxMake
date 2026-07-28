@@ -771,6 +771,39 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         return splice(tokens, replacements);
     }
 
+    /**
+     * RDD_KEY_219 -- Kotlin-only companion to {@link #applyGetterSetterPass}: renders {@code
+     * filtered} (the post-{@code excludeOutliers} survivors) as maximal CONTIGUOUS runs with
+     * respect to their positions in the original (pre-exclusion) {@code group}, instead of one
+     * flat shared-width group spanning the whole original group. Each run is rendered
+     * independently via {@code getterSetterRule.render}, matching the width a Kotlin re-format
+     * would naturally compute once an excluded member (sitting between two runs) has become
+     * genuinely multi-line and hard-breaks {@code groupOneLiners}'s own grouping at that point --
+     * see {@link #applyGetterSetterPass}'s doc comment for the full idempotency rationale.
+     */
+    private List<String> renderKotlinFilteredRuns(final List<Token> tokens, final List<Member> group,
+            final List<Member> filtered) {
+        final java.util.Set<Member> keep = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        keep.addAll(filtered);
+        final List<String> result = new ArrayList<>();
+        int i = 0;
+        while (i < group.size()) {
+            if (!keep.contains(group.get(i))) {
+                i++;
+                continue;
+            }
+            final List<Member> run = new ArrayList<>();
+            int j = i;
+            while (j < group.size() && keep.contains(group.get(j))) {
+                run.add(group.get(j));
+                j++;
+            }
+            result.addAll(getterSetterRule.render(tokens, run));
+            i = j;
+        }
+        return result;
+    }
+
     /** STYLE_KOTLIN.md §6/§12 -- Kotlin's `[modifiers] val|var name [: type] [= init]` grammar is
      *  reversed relative to C/Java's `[modifiers] Type name [= init]`, so {@code
      *  KotlinDeclarationAlignmentRule} parses/renders it with its own {@code Row} model rather
@@ -1401,6 +1434,20 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
      * outlier in the middle of a run leaves the surviving members textually non-adjacent (see
      * STATE.md's checklist note on this). A group that drops below 2 members after exclusion is
      * skipped entirely, per {@code excludeOutliers}'s own contract.
+     *
+     * <p>RDD_KEY_219 (Kotlin only, see {@code renderKotlinFilteredRuns} below): for Kotlin, a
+     * member excluded here by {@code excludeOutliers}'s width-ratio test is exactly the shape
+     * that {@code KotlinGetterSetterRule.parseKotlinOneLinerMember} will fail to re-parse as a
+     * one-liner once a LATER phase ({@code KotlinSignatureRule}'s own param-list wrap) turns its
+     * padded line genuinely multi-line -- at which point {@code groupOneLiners} itself hard-breaks
+     * the group there on a re-format. Rendering the surviving members either side of that excluded
+     * member as one flat shared-width group (as this method still does for C/C++/Java below) is
+     * therefore not idempotent for Kotlin: round1 pads both sides to one shared width, round2 (once
+     * the excluded member is genuinely multi-line) sees two independently-narrower groups. C/C++/
+     * Java members never turn genuinely multi-line this way after this pass runs (no equivalent
+     * later phase re-wraps a one-liner accessor's own signature), so their existing flat-group
+     * behavior here is left untouched -- this fix is scoped to Kotlin only, see
+     * {@code renderKotlinFilteredRuns}.
      */
     private String applyGetterSetterPass(final List<Token> tokens, final int depth) {
         final List<List<Member>> groups = getterSetterRule.groupOneLiners(tokens, depth);
@@ -1412,7 +1459,9 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             if (filtered.isEmpty()) {
                 continue;
             }
-            final List<String> lines = getterSetterRule.render(tokens, filtered);
+            final List<String> lines = lang.isKotlin
+                    ? renderKotlinFilteredRuns(tokens, group, filtered)
+                    : getterSetterRule.render(tokens, filtered);
             for (int i = 0; i < filtered.size(); i++) {
                 final Member m = filtered.get(i);
                 final int startIdx = m.templatePrefixFrom != m.templatePrefixTo ? m.templatePrefixFrom : m.returnTypeFrom;

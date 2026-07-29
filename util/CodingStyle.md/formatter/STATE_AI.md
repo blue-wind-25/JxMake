@@ -757,3 +757,33 @@ I have attempted some of the above, please check and continue.
   `comment-normalization-classifier` can default `on` without regressing
   fixtures is now the concrete next step for actually activating the GRU
   path by default, rather than leaving it real-but-opt-in.
+
+### TODO — GruTrainer follow-ups (deferred, not yet scheduled)
+
+Discussed 2026-07-29; user chose to implement fallback-write-on-failure,
+a gradient-checking tool, and confusion-matrix/precision/recall/F1
+reporting immediately (see commit history for those). The rest were
+deferred to their own future design passes rather than bundled in, since
+each changes training numerics, output format, or runtime classifier
+behavior:
+
+- **Break/resume support.** Needs real checkpointing: weights + Adam
+  optimizer state (currently not serialized at all) + epoch/step position,
+  written at some cadence, plus a `--resume=<checkpoint>` flag. Bigger than
+  a quick add — deserves its own design pass.
+- **Mini-batch training (16-32).** Would accumulate/average gradients over
+  a batch before one Adam update, shrinking the serial-update bottleneck
+  identified in the multi-threading work — but changes training numerics,
+  so needs explicit sign-off as an intentional behavior change before
+  implementing.
+- **Dropout before dense layer.** Changes training numerics and needs a
+  train/eval-mode switch — dropout must be disabled at inference in
+  `GruClassifier` (the classifier used at format-time), not just during
+  training.
+- **Learning-rate warmup + cosine decay.** Replaces the current flat LR
+  with a schedule; needs new hyperparameters (warmup steps, decay shape)
+  and changes training numerics/output for any given corpus.
+- **Automatic abstain-threshold tuning.** Needs a labeled validation slice
+  and a chosen objective (max F1? fixed precision target?) to sweep
+  thresholds against; also touches the classifier's runtime abstain logic,
+  not just the trainer.

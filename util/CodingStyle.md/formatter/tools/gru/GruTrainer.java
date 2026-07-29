@@ -155,6 +155,14 @@ public final class GruTrainer {
             System.exit(2);
             return;
         }
+        // --check-gradients=N (absent by default): diagnostic-only mode, does not train. Picks one
+        // random example and N random entries from a representative sample of the weight arrays,
+        // compares GruClassifier.backward()'s analytic gradient for each against a numeric
+        // finite-difference estimate, and exits. Use this to sanity-check backward() before relying
+        // on it for further changes -- it never runs during normal training.
+        boolean checkGradients = hyperparameters.containsKey("check-gradients");
+        int checkGradientSamples = checkGradients
+                ? Integer.parseInt(hyperparameters.get("check-gradients")) : 0;
 
         List<Example> examples;
         try {
@@ -189,6 +197,11 @@ public final class GruTrainer {
 
         Random random = new Random(seed);
         GruWeights weights = randomInit(explicitVocab, vocabulary, random);
+
+        if (checkGradients) {
+            checkGradients(weights, vocabulary, examples, random, checkGradientSamples);
+            return;
+        }
 
         Collections.shuffle(examples, random);
         int validationCount = Math.max(1, examples.size() / 5);
@@ -286,18 +299,198 @@ public final class GruTrainer {
             }
         }
 
+        byte[] weightsBytes = bestWeightsJson.getBytes(StandardCharsets.UTF_8);
+        File actualWeightsOut = weightsOut;
         try {
-            Files.write(weightsOut.toPath(), bestWeightsJson.getBytes(StandardCharsets.UTF_8));
+            Files.write(weightsOut.toPath(), weightsBytes);
         } catch (IOException e) {
             System.err.println("GruTrainer: could not write output weights file " + args[1] + ": "
                     + e.getMessage());
+            // Training can take minutes to hours; losing the trained weights entirely because the
+            // final write failed (disk full, bad path, permissions) is far worse than writing them
+            // somewhere unintended, so fall back to a /tmp path and loudly announce it rather than
+            // exiting empty-handed.
+            File fallback = new File(System.getProperty("java.io.tmpdir"),
+                    "gru-weights-fallback-" + System.currentTimeMillis() + ".json");
+            try {
+                Files.write(fallback.toPath(), weightsBytes);
+                System.err.println("GruTrainer: wrote fallback copy of trained weights to " + fallback
+                        + " -- move it to a permanent location yourself, it will not be cleaned up"
+                        + " automatically, and rerun with a valid output path next time.");
+                actualWeightsOut = fallback;
+            } catch (IOException fallbackError) {
+                System.err.println("GruTrainer: fallback write to " + fallback + " also failed: "
+                        + fallbackError.getMessage() + " -- trained weights lost.");
+                System.exit(2);
+                return;
+            }
+            System.exit(1);
+            return;
+        }
+
+        System.out.println("GruTrainer: wrote trained weights file to " + actualWeightsOut
+                + " (vocabSize=" + explicitVocab.size() + ", trainExamples=" + train.size()
+                + ", validationExamples=" + validation.size() + ", bestValidationLoss=" + bestValidationLoss + ")");
+
+        printConfusionMatrix(actualWeightsOut, vocabulary, validation);
+    }
+
+    /** Reloads the just-written best-validation-loss weights file and reports a binary confusion
+     *  matrix (positive class = YES) plus precision/recall/F1 against the held-out validation split.
+     *  Ground truth is always YES or NO (ABSTAIN is never a training label -- see the class javadoc),
+     *  but the trained softmax has a third ABSTAIN output slot per {@link GruClassifier#CLASS_ORDER},
+     *  so a prediction landing on ABSTAIN is counted here as simply "not predicted YES". */
+    private static void printConfusionMatrix(File weightsFile, Vocabulary vocabulary, List<Example> validation) {
+        GruWeights bestWeights;
+        try {
+            bestWeights = GruWeights.load(weightsFile.toPath());
+        } catch (IOException e) {
+            System.err.println("GruTrainer: could not reload " + weightsFile
+                    + " to report confusion matrix: " + e.getMessage());
+            return;
+        }
+
+        int truePositive = 0, falsePositive = 0, trueNegative = 0, falseNegative = 0;
+        for (Example example : validation) {
+            if (example.targetWordIndex < 0 || example.targetWordIndex >= example.tokens.size()) {
+                continue;
+            }
+            GruClassifier.ForwardCache cache =
+                    GruClassifier.forward(bestWeights, vocabulary, example.tokens, example.targetWordIndex);
+            boolean predictedYes = argmax(cache.logits) == 0;
+            boolean actualYes = example.classIndex == 0;
+            if (predictedYes && actualYes) {
+                truePositive++;
+            } else if (predictedYes) {
+                falsePositive++;
+            } else if (actualYes) {
+                falseNegative++;
+            } else {
+                trueNegative++;
+            }
+        }
+
+        double precision = truePositive + falsePositive == 0 ? 0.0
+                : (double) truePositive / (truePositive + falsePositive);
+        double recall = truePositive + falseNegative == 0 ? 0.0
+                : (double) truePositive / (truePositive + falseNegative);
+        double f1 = precision + recall == 0 ? 0.0 : 2 * precision * recall / (precision + recall);
+
+        System.out.println("GruTrainer: validation confusion matrix (positive=YES) tp=" + truePositive
+                + " fp=" + falsePositive + " tn=" + trueNegative + " fn=" + falseNegative
+                + " precision=" + String.format("%.4f", precision)
+                + " recall=" + String.format("%.4f", recall)
+                + " f1=" + String.format("%.4f", f1));
+    }
+
+    private static int argmax(double[] values) {
+        int best = 0;
+        for (int i = 1; i < values.length; i++) {
+            if (values[i] > values[best]) {
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    /** Diagnostic-only gradient check (see {@code --check-gradients} in {@link #main}): picks one
+     *  random labeled example, runs forward+backward once to get {@link GruClassifier.Gradients},
+     *  then for a representative sample of weight arrays (dense layer, output layer, one direction's
+     *  Wz, and the embedding rows the example actually touches) perturbs each sampled entry by
+     *  +/-epsilon, recomputes the loss, and compares the resulting numeric derivative against
+     *  backward()'s analytic one. Never used during normal training -- exists purely to build
+     *  confidence in backward() before further changes rely on it. */
+    private static void checkGradients(GruWeights weights, Vocabulary vocabulary, List<Example> examples,
+            Random random, int samplesPerArray) {
+        Example example = examples.get(random.nextInt(examples.size()));
+        int attempts = 0;
+        while ((example.targetWordIndex < 0 || example.targetWordIndex >= example.tokens.size())
+                && attempts < examples.size()) {
+            example = examples.get(random.nextInt(examples.size()));
+            attempts++;
+        }
+        if (example.targetWordIndex < 0 || example.targetWordIndex >= example.tokens.size()) {
+            System.err.println("GruTrainer: no example with an in-range targetWordIndex found for gradient check");
             System.exit(2);
             return;
         }
 
-        System.out.println("GruTrainer: wrote trained weights file to " + weightsOut
-                + " (vocabSize=" + explicitVocab.size() + ", trainExamples=" + train.size()
-                + ", validationExamples=" + validation.size() + ", bestValidationLoss=" + bestValidationLoss + ")");
+        List<String> tokens = example.tokens;
+        int targetWordIndex = example.targetWordIndex;
+        int classIndex = example.classIndex;
+        GruClassifier.ForwardCache cache = GruClassifier.forward(weights, vocabulary, tokens, targetWordIndex);
+        GruClassifier.Gradients gradients = GruClassifier.backward(weights, cache, classIndex);
+
+        double epsilon = 1e-5;
+        System.out.println("GruTrainer: gradient check against example label=" + example.label
+                + " -- epsilon=" + epsilon + ", samplesPerArray=" + samplesPerArray);
+        double maxRelError = 0.0;
+        maxRelError = Math.max(maxRelError, checkArray2D("denseW", weights.denseW, gradients.denseW,
+                weights, vocabulary, tokens, targetWordIndex, classIndex, random, epsilon, samplesPerArray));
+        maxRelError = Math.max(maxRelError, checkArray1D("denseB", weights.denseB, gradients.denseB,
+                weights, vocabulary, tokens, targetWordIndex, classIndex, random, epsilon, samplesPerArray));
+        maxRelError = Math.max(maxRelError, checkArray2D("outW", weights.outW, gradients.outW,
+                weights, vocabulary, tokens, targetWordIndex, classIndex, random, epsilon, samplesPerArray));
+        maxRelError = Math.max(maxRelError, checkArray1D("outB", weights.outB, gradients.outB,
+                weights, vocabulary, tokens, targetWordIndex, classIndex, random, epsilon, samplesPerArray));
+        maxRelError = Math.max(maxRelError, checkArray2D("forward.Wz", weights.forward.Wz, gradients.forward.Wz,
+                weights, vocabulary, tokens, targetWordIndex, classIndex, random, epsilon, samplesPerArray));
+        for (Map.Entry<Integer, double[]> entry : gradients.embeddingGrad.entrySet()) {
+            int row = entry.getKey();
+            maxRelError = Math.max(maxRelError, checkArray1D("embeddings[" + row + "]", weights.embeddings[row],
+                    entry.getValue(), weights, vocabulary, tokens, targetWordIndex, classIndex, random, epsilon,
+                    samplesPerArray));
+        }
+
+        System.out.println("GruTrainer: gradient check complete -- maxRelativeError="
+                + String.format("%.6f", maxRelError) + (maxRelError < 1e-2 ? " (PASS)" : " (FAIL)"));
+        System.exit(maxRelError < 1e-2 ? 0 : 1);
+    }
+
+    private static double checkArray2D(String name, double[][] param, double[][] grad, GruWeights weights,
+            Vocabulary vocabulary, List<String> tokens, int targetWordIndex, int classIndex, Random random,
+            double epsilon, int samples) {
+        double maxRelError = 0.0;
+        for (int s = 0; s < samples; s++) {
+            int i = random.nextInt(param.length);
+            int j = random.nextInt(param[i].length);
+            double relError = checkOneEntry(name + "[" + i + "][" + j + "]", param[i], j, grad[i][j],
+                    weights, vocabulary, tokens, targetWordIndex, classIndex, epsilon);
+            maxRelError = Math.max(maxRelError, relError);
+        }
+        return maxRelError;
+    }
+
+    private static double checkArray1D(String name, double[] param, double[] grad, GruWeights weights,
+            Vocabulary vocabulary, List<String> tokens, int targetWordIndex, int classIndex, Random random,
+            double epsilon, int samples) {
+        double maxRelError = 0.0;
+        for (int s = 0; s < samples; s++) {
+            int i = random.nextInt(param.length);
+            double relError = checkOneEntry(name + "[" + i + "]", param, i, grad[i],
+                    weights, vocabulary, tokens, targetWordIndex, classIndex, epsilon);
+            maxRelError = Math.max(maxRelError, relError);
+        }
+        return maxRelError;
+    }
+
+    private static double checkOneEntry(String label, double[] param, int index, double analytic,
+            GruWeights weights, Vocabulary vocabulary, List<String> tokens, int targetWordIndex, int classIndex,
+            double epsilon) {
+        double original = param[index];
+        param[index] = original + epsilon;
+        double lossPlus = crossEntropyLoss(
+                GruClassifier.forward(weights, vocabulary, tokens, targetWordIndex).logits, classIndex);
+        param[index] = original - epsilon;
+        double lossMinus = crossEntropyLoss(
+                GruClassifier.forward(weights, vocabulary, tokens, targetWordIndex).logits, classIndex);
+        param[index] = original;
+
+        double numeric = (lossPlus - lossMinus) / (2 * epsilon);
+        double relError = Math.abs(numeric - analytic) / Math.max(1e-8, Math.abs(numeric) + Math.abs(analytic));
+        System.out.println("GruTrainer:   " + label + " analytic=" + String.format("%.6f", analytic)
+                + " numeric=" + String.format("%.6f", numeric) + " relError=" + String.format("%.6f", relError));
+        return relError;
     }
 
     /** One example's computed loss + gradients, or the outcome of skipping an out-of-range

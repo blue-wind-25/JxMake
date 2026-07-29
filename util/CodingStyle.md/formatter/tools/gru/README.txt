@@ -171,6 +171,34 @@ GruTrainer.java
     machine — pick a value that leaves some cores free if you want to keep
     using the machine for other things while training runs.
 
+    If the final weights write to <weights-file> fails (bad path, full
+    disk, permissions), the trainer does not discard the trained weights:
+    it falls back to writing them to a timestamped file under the system
+    temp directory (java.io.tmpdir) and prints that path loudly to stderr,
+    then still exits non-zero so the failure is visible to scripts/CI. The
+    fallback file is not cleaned up automatically — move it somewhere
+    permanent yourself.
+
+    After a successful write, it also reloads the just-written weights and
+    reports a binary confusion matrix (positive class = YES) against the
+    held-out validation split, plus precision/recall/F1:
+
+        GruTrainer: validation confusion matrix (positive=YES) tp=.. fp=.. tn=.. fn=.. precision=.. recall=.. f1=..
+
+    --check-gradients=N (absent by default, does not train when present):
+    diagnostic-only mode. Picks one random labeled example, runs
+    forward+backward once, then for N random entries in each of a
+    representative sample of weight arrays (dense layer, output layer, one
+    recurrent direction's Wz, and the embedding rows the example actually
+    touches) compares GruClassifier.backward()'s analytic gradient against
+    a numeric finite-difference estimate, printing each comparison and a
+    final maxRelativeError/PASS-FAIL summary (exit code reflects pass/fail).
+    Useful for building confidence in backward() before relying on it for
+    further changes; adds no runtime cost to normal training since it never
+    runs unless explicitly requested. Example:
+
+        java -cp target/classes:<gru-tools-classes> GruTrainer <labeled-file> <weights-file> --check-gradients=20
+
 GruEval.java
     Loads a trained weights file and reports precision/abstain-rate against
     an RDD_EXT_21-schema examples file (usually a held-out split the

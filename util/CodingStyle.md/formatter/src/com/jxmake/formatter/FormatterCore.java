@@ -15,40 +15,30 @@ package com.jxmake.formatter;
  * need their own if/else on language.
  */
 public abstract class FormatterCore {
+
     protected final Lang lang;
 
-    protected FormatterCore(final Lang lang) {
+    protected FormatterCore(final Lang lang)
+    {
         this.lang = lang;
     }
 
-    public abstract String formatOne(String content, String filePath, Config config, boolean formatOff);
+    public abstract String formatOne(
+        String content, String filePath, Config config, boolean formatOff
+    );
 
-    public static FormatterCore forLanguage(final String language) {
+    public static FormatterCore forLanguage(final String language)
+    {
         final Lang lang = new Lang(language);
-        if (lang.isJson || lang.isJson5) {
-            return new FormatterJson(lang);
-        }
-        if (lang.isCss) {
-            return new FormatterCss(lang);
-        }
-        if (lang.isYaml) {
-            return new FormatterYaml(lang);
-        }
-        if (lang.isToml) {
-            return new FormatterToml(lang);
-        }
-        if (lang.isXml || lang.isHtml5) {
-            return new FormatterXml(lang);
-        }
-        if (lang.isCurly) {
-            return new FormatterCurly(lang);
-        }
-        if (lang.isIndentBased) {
-            return new FormatterIndent(lang);
-        }
-        if (lang.isTagBased) {
-            return new FormatterTags(lang);
-        }
+        if(lang.isJson || lang.isJson5) return new FormatterJson(lang);
+        if(lang.isCss) return new FormatterCss(lang);
+        if(lang.isYaml) return new FormatterYaml(lang);
+        if(lang.isToml) return new FormatterToml(lang);
+        if(lang.isXml || lang.isHtml5) return new FormatterXml(lang);
+        if(lang.isCurly) return new FormatterCurly(lang);
+        if(lang.isIndentBased) return new FormatterIndent(lang);
+        if(lang.isTagBased) return new FormatterTags(lang);
         throw new UnsupportedOperationException("'" + language + "' has no formatter dispatch yet");
     }
-}
+
+} // class FormatterCore

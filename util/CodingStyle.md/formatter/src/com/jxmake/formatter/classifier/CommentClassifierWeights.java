@@ -7,19 +7,21 @@
 
 package com.jxmake.formatter.classifier;
 
-/** Weight constants for {@link CommentClassifier}'s scoring formula ({@code score = w*x + bias},
+/**
+ * Weight constants for {@link CommentClassifier}'s scoring formula ({@code score = w*x + bias},
  *  threshold compare). Derived per RDD_KEY_97 (frontier-model-assisted, offline, one-time) from
  *  the labeled example sets in {@code cwg/} -- see {@code cwg/weights.md} for the full derivation
  *  and per-example verification. Do not hand-tune or corpus-train these directly; extend the
  *  {@code cwg/} example sets and re-run {@code cwg/derive_weights.py}, per that file's "Extending
- *  this" section. */
+ *  this" section.
+ */
 public final class CommentClassifierWeights {
 
     // Main path (CommentClassifier.classify, no leading-keyword ambiguity): everything reaching
     // this point already cleared both gates, so a constant bias that always clears THRESHOLD
     // restores the pre-classifier deterministic "normalize" behavior for the non-ambiguous
     // majority case. See cwg/weights.md "Main path".
-    public static final double BIAS = 1.0;
+    public static final double BIAS      = 1.0;
     public static final double THRESHOLD = 0.0;
 
     // Keyword-ambiguity path (KeywordAmbiguityGate.resolveAmbiguousKeyword, stage 2). L2-regularized
@@ -33,13 +35,15 @@ public final class CommentClassifierWeights {
     // STATE_AI.md's 2026-07-30 section for the full analysis and the real fixture regressions
     // that motivated re-deriving these constants). KEYWORD_WEIGHT_ARROW covers a when/match-branch
     // shape (e.g. "is Foo -> handle(foo)") the other three features can't see on their own.
-    public static final double KEYWORD_BIAS = -0.20825;
-    public static final double KEYWORD_WEIGHT_PAREN = -2.28827;
-    public static final double KEYWORD_WEIGHT_ARROW = -1.51467;
-    public static final double KEYWORD_WEIGHT_SEMICOLON = -2.96142;
-    public static final double KEYWORD_WEIGHT_URL_OR_NUMBER = -0.51492;
-    public static final double KEYWORD_THRESHOLD = 0.0;
+    public static final double KEYWORD_BIAS                 = - 0.20825;
+    public static final double KEYWORD_WEIGHT_PAREN         = - 2.28827;
+    public static final double KEYWORD_WEIGHT_ARROW         = - 1.51467;
+    public static final double KEYWORD_WEIGHT_SEMICOLON     = - 2.96142;
+    public static final double KEYWORD_WEIGHT_URL_OR_NUMBER = - 0.51492;
+    public static final double KEYWORD_THRESHOLD            = 0.0;
 
-    private CommentClassifierWeights() {
+    private CommentClassifierWeights()
+    {
     }
-}
+
+} // class CommentClassifierWeights

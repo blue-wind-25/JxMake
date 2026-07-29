@@ -7,6 +7,18 @@
 
 package com.jxmake.formatter.rules;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Set;
+
 import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.classifier.CommentDecision;
 import com.jxmake.formatter.classifier.CommentFeatureExtractor;
@@ -21,18 +33,6 @@ import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Set;
-
 /**
  * Family-agnostic base for {@link MiscRuleCurly} (and, in the future, {@code MiscRuleIndent}/
  * {@code MiscRuleTags}) -- everything in this file used to live directly in {@code MiscRule}
@@ -41,82 +41,220 @@ import java.util.Set;
  */
 public abstract class MiscRuleCore {
 
-    protected final Lang lang;
+    protected final Lang    lang;
     protected final boolean normalizeCommentStartCase;
     protected final boolean normalizeCommentEndPeriod;
     protected final boolean commentNormalizationClassifier;
     protected final boolean gruClassifier;
-    protected final String gruWeightsPath;
-    public final int indentWidth;
-    public final int lineLengthLimit;
-    protected final String indentUnit;
+    protected final String  gruWeightsPath;
+    public    final int     indentWidth;
+    public    final int     lineLengthLimit;
+    protected final String  indentUnit;
 
-    protected MiscRuleCore(final Lang lang, final boolean normalizeCommentStartCase,
-            final boolean normalizeCommentEndPeriod, final boolean commentNormalizationClassifier,
-            final int indentWidth, final int lineLengthLimit) {
+    protected MiscRuleCore(
+        final Lang    lang,
+        final boolean normalizeCommentStartCase,
+        final boolean normalizeCommentEndPeriod,
+        final boolean commentNormalizationClassifier,
+        final int     indentWidth,
+        final int     lineLengthLimit
+    )
+    {
         this(lang, normalizeCommentStartCase, normalizeCommentEndPeriod, commentNormalizationClassifier,
                 false, "", indentWidth, lineLengthLimit);
     }
 
-    /** Full constructor additionally taking the {@code gru-classifier}/{@code gru-weights-path}
+    /**
+     * Full constructor additionally taking the {@code gru-classifier}/{@code gru-weights-path}
      *  config values (STATE_AI.md Step 3) -- see {@link #classifyComment(String, int)}. The
      *  shorter constructor above defaults these to off/empty (no behavior change for any caller
-     *  that hasn't opted in yet, e.g. {@code MiscRuleIndent}/{@code MiscRuleTags}). */
-    protected MiscRuleCore(final Lang lang, final boolean normalizeCommentStartCase,
-            final boolean normalizeCommentEndPeriod, final boolean commentNormalizationClassifier,
-            final boolean gruClassifier, final String gruWeightsPath,
-            final int indentWidth, final int lineLengthLimit) {
-        this.lang = lang;
-        this.normalizeCommentStartCase = normalizeCommentStartCase;
-        this.normalizeCommentEndPeriod = normalizeCommentEndPeriod;
+     *  that hasn't opted in yet, e.g. {@code MiscRuleIndent}/{@code MiscRuleTags}).
+     */
+    protected MiscRuleCore(
+        final Lang    lang,
+        final boolean normalizeCommentStartCase,
+        final boolean normalizeCommentEndPeriod,
+        final boolean commentNormalizationClassifier,
+        final boolean gruClassifier,
+        final String  gruWeightsPath,
+        final int     indentWidth,
+        final int     lineLengthLimit
+    )
+    {
+        this.lang                           = lang;
+        this.normalizeCommentStartCase      = normalizeCommentStartCase;
+        this.normalizeCommentEndPeriod      = normalizeCommentEndPeriod;
         this.commentNormalizationClassifier = commentNormalizationClassifier;
-        this.gruClassifier = gruClassifier;
-        this.gruWeightsPath = gruWeightsPath == null ? "" : gruWeightsPath;
-        this.indentWidth = indentWidth;
-        this.lineLengthLimit = lineLengthLimit;
+        this.gruClassifier                  = gruClassifier;
+        this.gruWeightsPath                 = gruWeightsPath == null ? "" : gruWeightsPath;
+        this.indentWidth                    = indentWidth;
+        this.lineLengthLimit                = lineLengthLimit;
         final StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < indentWidth; i++) {
-            sb.append(' ');
-        }
+        for(int i = 0; i < indentWidth; ++i) sb.append(' ');
         this.indentUnit = sb.toString();
     }
 
-    protected static Set<String> setOf(final String... words) {
-        return new HashSet<>(Arrays.asList(words));
+    protected static Set<String> setOf(final String... words)
+    {
+        return new HashSet<>( Arrays.asList(words) );
     }
 
     // ── §1 Indentation ───────────────────────────────────────────────────────────
-    /** Tab display size and spaces-per-level default, per STYLE.md §1 -- overridable via the
+    /**
+     * Tab display size and spaces-per-level default, per STYLE.md §1 -- overridable via the
      *  `indent-size` config key (see {@link #indentWidth}). Shared by any rule (this one or a
-     *  future one, e.g. §8's signature wrapping) that needs to *generate* new indentation. */
+     *  future one, e.g. §8's signature wrapping) that needs to *generate* new indentation.
+     */
     public static final int DEFAULT_INDENT_WIDTH = 4;
 
     public static final int DEFAULT_LINE_LENGTH_LIMIT = 100;
 
-    protected static final Set<String> COMMENT_NO_CAPITALIZE_C = setOf(
-            "auto", "break", "case", "char", "const", "continue", "default", "do", "double",
-            "else", "enum", "extern", "float", "for", "goto", "if", "inline", "int", "long",
-            "register", "restrict", "return", "short", "signed", "sizeof", "static", "struct",
-            "switch", "typedef", "union", "unsigned", "void", "volatile", "while");
-    protected static final Set<String> COMMENT_NO_CAPITALIZE_CPP = setOf(
-            "alignas", "alignof", "asm", "bool", "catch", "char16_t", "char32_t", "class",
-            "co_await", "co_return", "co_yield", "concept", "consteval", "constexpr", "constinit",
-            "const_cast", "decltype", "delete", "dynamic_cast", "explicit", "export", "false",
-            "final", "friend", "mutable", "namespace", "new", "noexcept", "nullptr", "operator",
-            "override", "private", "protected", "public", "reinterpret_cast", "requires",
-            "static_assert", "static_cast", "template", "this", "thread_local", "throw", "true",
-            "try", "typeid", "typename", "using", "virtual", "wchar_t");
+    protected static final Set<String> COMMENT_NO_CAPITALIZE_C    = setOf(
+        "auto",
+        "break",
+        "case",
+        "char",
+        "const",
+        "continue",
+        "default",
+        "do",
+        "double",
+        "else",
+        "enum",
+        "extern",
+        "float",
+        "for",
+        "goto",
+        "if",
+        "inline",
+        "int",
+        "long",
+        "register",
+        "restrict",
+        "return",
+        "short",
+        "signed",
+        "sizeof",
+        "static",
+        "struct",
+        "switch",
+        "typedef",
+        "union",
+        "unsigned",
+        "void",
+        "volatile",
+        "while"
+    );
+    protected static final Set<String> COMMENT_NO_CAPITALIZE_CPP  = setOf(
+        "alignas",
+        "alignof",
+        "asm",
+        "bool",
+        "catch",
+        "char16_t",
+        "char32_t",
+        "class",
+        "co_await",
+        "co_return",
+        "co_yield",
+        "concept",
+        "consteval",
+        "constexpr",
+        "constinit",
+        "const_cast",
+        "decltype",
+        "delete",
+        "dynamic_cast",
+        "explicit",
+        "export",
+        "false",
+        "final",
+        "friend",
+        "mutable",
+        "namespace",
+        "new",
+        "noexcept",
+        "nullptr",
+        "operator",
+        "override",
+        "private",
+        "protected",
+        "public",
+        "reinterpret_cast",
+        "requires",
+        "static_assert",
+        "static_cast",
+        "template",
+        "this",
+        "thread_local",
+        "throw",
+        "true",
+        "try",
+        "typeid",
+        "typename",
+        "using",
+        "virtual",
+        "wchar_t"
+    );
     protected static final Set<String> COMMENT_NO_CAPITALIZE_JAVA = setOf(
-            "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class",
-            "const", "continue", "default", "do", "else", "enum", "extends", "final", "finally",
-            "for", "goto", "if", "implements", "import", "instanceof", "interface", "native",
-            "new", "package", "permits", "private", "protected", "public", "record", "return",
-            "sealed", "static", "strictfp", "super", "switch", "synchronized", "this", "throw",
-            "throws", "transient", "try", "var", "void", "volatile", "while", "yield", "null",
-            "true", "false");
+        "abstract",
+        "assert",
+        "boolean",
+        "break",
+        "byte",
+        "case",
+        "catch",
+        "char",
+        "class",
+        "const",
+        "continue",
+        "default",
+        "do",
+        "else",
+        "enum",
+        "extends",
+        "final",
+        "finally",
+        "for",
+        "goto",
+        "if",
+        "implements",
+        "import",
+        "instanceof",
+        "interface",
+        "native",
+        "new",
+        "package",
+        "permits",
+        "private",
+        "protected",
+        "public",
+        "record",
+        "return",
+        "sealed",
+        "static",
+        "strictfp",
+        "super",
+        "switch",
+        "synchronized",
+        "this",
+        "throw",
+        "throws",
+        "transient",
+        "try",
+        "var",
+        "void",
+        "volatile",
+        "while",
+        "yield",
+        "null",
+        "true",
+        "false"
+    );
 
-    protected static final Set<String> TIGHT_PAREN_KEYWORDS =
-            setOf("if", "while", "for", "switch", "catch", "when");
+    protected static final Set<String> TIGHT_PAREN_KEYWORDS = setOf(
+        "if", "while", "for", "switch", "catch", "when"
+    );
     /**
      * Converts every line's leading indentation run to the requested style, per STYLE.md §1's
      * `indent-style = spaces | tabs` modes (resolved -- see "§1 indentation scope" in Resolved
@@ -131,37 +269,44 @@ public abstract class MiscRuleCore {
      * {@link #indentWidth} is irregular/malformed indentation and is left completely untouched
      * rather than guessed at.
      */
-    public String convertIndentation(final List<Token> tokens, final String indentStyle) {
-        if (!"spaces".equals(indentStyle) && !"tabs".equals(indentStyle)) {
-            throw new IllegalArgumentException("convertIndentation only handles spaces|tabs, got: " + indentStyle);
-        }
-        final StringBuilder out = new StringBuilder();
-        boolean atLineStart = true;
-        final int n = tokens.size();
-        int i = 0;
+    public String convertIndentation(final List<Token> tokens, final String indentStyle)
+    {
+        if( !"spaces".equals(
+            indentStyle
+        ) && !"tabs".equals(
+            indentStyle
+        ) ) throw new IllegalArgumentException(
+            "convertIndentation only handles spaces|tabs, got: " + indentStyle
+        );
+        final StringBuilder out         = new StringBuilder();
+              boolean       atLineStart = true;
+        final int           n           = tokens.size();
+              int           i           = 0;
 
-        while (i < n) {
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (atLineStart && t.type == TokenType.WHITESPACE && !t.frozen) {
-                out.append(renderIndent(t.text, indentStyle));
+            if(atLineStart && t.type == TokenType.WHITESPACE && !t.frozen) {
+                out.append( renderIndent(t.text, indentStyle) );
                 atLineStart = false;
-                i++;
+                ++i;
                 continue;
             }
             out.append(t.text);
             atLineStart = (t.type == TokenType.NEWLINE);
-            i++;
-        }
+            ++i;
+        } // while
+
         return out.toString();
     }
-    protected String renderIndent(final String original, final String indentStyle) {
+    protected String renderIndent(final String original, final String indentStyle)
+    {
         final int width = expandedIndentWidth(original);
-        if (width % indentWidth != 0) {
-            return original;
-        }
+        if(width % indentWidth != 0) return original;
+
         return indentText(width / indentWidth, indentStyle);
     }
-    /** Column width of a raw (not-yet-{@link #convertIndentation}-normalized) leading-whitespace
+    /**
+     * Column width of a raw (not-yet-{@link #convertIndentation}-normalized) leading-whitespace
      *  run, expanding each {@code '\t'} to the next {@link #indentWidth} tab stop the same way
      *  {@link #renderIndent} does -- unlike {@code original.length()}, which undercounts a tab as
      *  a single character. Any line-length fits-check that measures a physical line still
@@ -171,25 +316,30 @@ public abstract class MiscRuleCore {
      *  width would exceed {@code lineLengthLimit} can wrongly measure as fitting -- stable only on
      *  a second format pass, once the indent is already spaces from the start (found via real-code
      *  testing, local `src/com`/`src/org` dogfood -- `enforceCallLineBreaking`'s whole-line/
-     *  candidate fits-checks). */
-    protected int expandedIndentWidth(final String original) {
+     *  candidate fits-checks).
+     */
+    protected int expandedIndentWidth(final String original)
+    {
         int width = 0;
-        for (int i = 0; i < original.length(); i++) {
-            width += (original.charAt(i) == '\t') ? (indentWidth - (width % indentWidth)) : 1;
-        }
+        for( int i = 0; i < original.length(); ++i ) width += ( original.charAt(
+            i
+        ) == '\t' ) ? ( indentWidth - (width % indentWidth) ) : 1;
+
         return width;
     }
-    /** Renders `level` indent levels in the requested style -- shared by §1's line converter
+    /**
+     * Renders `level` indent levels in the requested style -- shared by §1's line converter
      *  above and §8's signature-wrapping below, which both need to *generate* brand-new
-     *  indentation (as opposed to converting indentation that already exists in source). */
-    protected String indentText(final int level, final String indentStyle) {
+     *  indentation (as opposed to converting indentation that already exists in source)
+     */
+    protected String indentText(final int level, final String indentStyle)
+    {
         final boolean tabs = "tabs".equals(indentStyle);
         final char unit = tabs ? '\t' : ' ';
-        final int count = tabs ? level : level * indentWidth;
-        final StringBuilder sb = new StringBuilder(count);
-        for (int i = 0; i < count; i++) {
-            sb.append(unit);
-        }
+        final int count = tabs ? level : level* indentWidth;
+        final StringBuilder      sb = new StringBuilder(count);
+        for(int i = 0; i < count; ++i) sb.append(unit);
+
         return sb.toString();
     }
     /**
@@ -204,39 +354,41 @@ public abstract class MiscRuleCore {
      * `isLoose` evaluation in `ComplexityPaddingEvaluator` -- wiring that evaluation into an
      * actual rewrite pass is separate, not-yet-assigned work.
      */
-    public String enforceKeywordSpacing(final List<Token> tokens) {
-        final StringBuilder out = new StringBuilder();
-        final List<Token> gap = new ArrayList<>();
-        Token lastSignificant = null;
-        final int n = tokens.size();
-        int i = 0;
+    public String enforceKeywordSpacing(final List<Token> tokens)
+    {
+        final StringBuilder out             = new StringBuilder();
+        final List<Token>   gap             = new ArrayList<>();
+              Token         lastSignificant = null;
+        final int           n               = tokens.size();
+              int           i               = 0;
 
-        while (i < n) {
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
+            if( isGapToken(t) ) {
                 gap.add(t);
-                i++;
+                ++i;
                 continue;
             }
 
-            final boolean collapse = isPunct(t, "(") && lastSignificant != null
-                    && lastSignificant.type == TokenType.KEYWORD
-                    && TIGHT_PAREN_KEYWORDS.contains(lastSignificant.text)
-                    && gap.stream().noneMatch(this::isCommentOrNewline)
-                    && !t.frozen && !lastSignificant.frozen && gap.stream().noneMatch(g -> g.frozen);
-            if (!collapse) {
-                for (final Token g : gap) {
-                    out.append(g.text);
-                }
+            final boolean collapse = isPunct(
+                t, "("
+            )&& lastSignificant != null&& lastSignificant.type == TokenType.KEYWORD&& TIGHT_PAREN_KEYWORDS.contains(
+                lastSignificant.text
+            )&& gap.stream().noneMatch(
+                this:: isCommentOrNewline
+            )&& ! t.frozen&& ! lastSignificant.frozen&& gap.stream().noneMatch(
+                g->g.frozen
+            );
+            if(!collapse) {
+                for(final Token g : gap) out.append(g.text);
             }
             gap.clear();
             out.append(t.text);
             lastSignificant = t;
-            i++;
-        }
-        for (final Token g : gap) {
-            out.append(g.text);
-        }
+            ++i;
+        } // while
+        for(final Token g : gap) out.append(g.text);
+
         return out.toString();
     }
     protected static final ComplexityPaddingEvaluator COMPLEXITY_EVALUATOR = new ComplexityPaddingEvaluator();
@@ -250,32 +402,32 @@ public abstract class MiscRuleCore {
      * `final`) is a function/method definition parameter list and is left untouched. A comment or
      * `NEWLINE` in a given side's own gap blocks the rewrite for that side only.
      */
-    public String enforceComplexityPadding(final List<Token> tokens) {
-        final Map<Integer, Boolean> looseByOpenIdx = new HashMap<>();
+    public String enforceComplexityPadding(final List<Token> tokens)
+    {
+        final Map<Integer, Boolean> looseByOpenIdx  = new HashMap<>();
         final Map<Integer, Boolean> looseByCloseIdx = new HashMap<>();
-        final int n = tokens.size();
+        final int                   n               = tokens.size();
 
-        for (int i = 0; i < n; i++) {
+        for(int i = 0; i < n; ++i) {
             final Token t = tokens.get(i);
-            if (isPunct(t, "(")) {
+            if( isPunct(t, "(") ) {
                 final int prevSigIdx = prevSignificantIndex(tokens, i - 1);
-                if (prevSigIdx >= 0 && tokens.get(prevSigIdx).type == TokenType.IDENTIFIER) {
+                if( prevSigIdx >= 0 && tokens.get(prevSigIdx).type == TokenType.IDENTIFIER ) {
                     final int closeIdx = matchParenForward(tokens, i);
-                    if (closeIdx < 0) {
-                        continue;
-                    }
+                    if(closeIdx < 0) continue;
                     final int afterCloseIdx = nextSignificantIndex(tokens, closeIdx + 1);
-                    if (afterCloseIdx >= 0 && isFunctionDefFollower(tokens.get(afterCloseIdx))) {
-                        continue;
-                    }
-                    final boolean loose = COMPLEXITY_EVALUATOR.isLoose(tokens.subList(i + 1, closeIdx));
+                    if( afterCloseIdx >= 0 && isFunctionDefFollower(
+                        tokens.get(afterCloseIdx)
+                    ) ) continue;
+                    final boolean loose = COMPLEXITY_EVALUATOR.isLoose(
+                        tokens.subList(i + 1, closeIdx)
+                    );
                     looseByOpenIdx.put(i, loose);
                     looseByCloseIdx.put(closeIdx, loose);
-                } else {
+                } // if
+                else {
                     final int closeIdx = matchParenForward(tokens, i);
-                    if (closeIdx < 0) {
-                        continue;
-                    }
+                    if(closeIdx < 0) continue;
                     // TS function-type parameter list (`type Foo = (...args: any[]) => void`,
                     // `const x: (...args: any[]) => void`, vuejs/core dogfood
                     // `e2eBrowserUtils.ts`): a standalone function type's own `(...)` is a
@@ -287,91 +439,108 @@ public abstract class MiscRuleCore {
                     // Recognized the same way `isFunctionDefFollower` recognizes a real
                     // signature: the matching `)` is immediately followed by `=>`.
                     final int afterCloseIdx = nextSignificantIndex(tokens, closeIdx + 1);
-                    if (lang.isTs && afterCloseIdx >= 0 && isOp(tokens.get(afterCloseIdx), "=>")) {
-                        continue;
-                    }
-                    final boolean loose = COMPLEXITY_EVALUATOR.isLoose(tokens.subList(i + 1, closeIdx));
+                    if( lang.isTs && afterCloseIdx >= 0 && isOp(
+                        tokens.get(afterCloseIdx), "=>"
+                    ) ) continue;
+                    final boolean loose = COMPLEXITY_EVALUATOR.isLoose(
+                        tokens.subList(i + 1, closeIdx)
+                    );
                     looseByOpenIdx.put(i, loose);
                     looseByCloseIdx.put(closeIdx, loose);
                 }
-            } else if (isPunct(t, "[")) {
+            } // if
+            else if( isPunct(t, "[") ) {
                 final int closeIdx = matchBracketForward(tokens, i);
-                if (closeIdx < 0) {
-                    continue;
-                }
-                final boolean loose = COMPLEXITY_EVALUATOR.isLoose(tokens.subList(i + 1, closeIdx));
+                if(closeIdx < 0) continue;
+                final boolean loose = COMPLEXITY_EVALUATOR.isLoose(
+                    tokens.subList(i + 1, closeIdx)
+                );
                 looseByOpenIdx.put(i, loose);
                 looseByCloseIdx.put(closeIdx, loose);
             }
-        }
+        } // for
 
-        final StringBuilder out = new StringBuilder();
-        final List<Token> gap = new ArrayList<>();
-        Token lastSignificant = null;
-        int lastSignificantIdx = -1;
-        int i = 0;
+        final StringBuilder out                = new StringBuilder();
+        final List<Token>   gap                = new ArrayList<>();
+              Token         lastSignificant    = null;
+              int           lastSignificantIdx = - 1;
+              int           i                  = 0;
 
-        while (i < n) {
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
+            if( isGapToken(t) ) {
                 gap.add(t);
-                i++;
+                ++i;
                 continue;
             }
 
-            final boolean lastIsOpen = isPunct(lastSignificant, "(") || isPunct(lastSignificant, "[");
+            final boolean lastIsOpen = isPunct(
+                lastSignificant, "("
+            ) || isPunct(
+                lastSignificant, "["
+            );
             final boolean curIsClose = isPunct(t, ")") || isPunct(t, "]");
             final Boolean afterOpen = lastIsOpen ? looseByOpenIdx.get(lastSignificantIdx) : null;
             final Boolean beforeClose = curIsClose ? looseByCloseIdx.get(i) : null;
-            final boolean gapHasBlocker = gap.stream().anyMatch(this::isCommentOrNewline)
-                    || t.frozen || (lastSignificant != null && lastSignificant.frozen)
-                    || gap.stream().anyMatch(g -> g.frozen);
+            final boolean gapHasBlocker = gap.stream().anyMatch(
+                this:: isCommentOrNewline
+            ) || t.frozen || (lastSignificant != null&& lastSignificant.frozen) || gap.stream().anyMatch(
+                g->g.frozen
+            );
 
-            if (!gapHasBlocker && (Boolean.TRUE.equals(afterOpen) || Boolean.TRUE.equals(beforeClose))) {
+            if( !gapHasBlocker && ( Boolean.TRUE.equals(
+                afterOpen
+            ) || Boolean.TRUE.equals(
+                beforeClose
+            ) ) ) {
                 out.append(' ');
                 gap.clear();
-            } else if (!gapHasBlocker && (Boolean.FALSE.equals(afterOpen) || Boolean.FALSE.equals(beforeClose))) {
+            }
+            else if( !gapHasBlocker && ( Boolean.FALSE.equals(
+                afterOpen
+            ) || Boolean.FALSE.equals(
+                beforeClose
+            ) ) ) {
                 gap.clear();
-            } else {
-                for (final Token g : gap) {
-                    out.append(g.text);
-                }
+            }
+            else {
+                for(final Token g : gap) out.append(g.text);
                 gap.clear();
             }
 
             out.append(t.text);
-            lastSignificant = t;
+            lastSignificant    = t;
             lastSignificantIdx = i;
-            i++;
-        }
-        for (final Token g : gap) {
-            out.append(g.text);
-        }
+            ++i;
+        } // while
+        for(final Token g : gap) out.append(g.text);
+
         return out.toString();
     }
-    protected boolean isFunctionDefFollower(final Token t) {
-        if (isPunct(t, "{") || isOp(t, "->")) {
-            return true;
-        }
-        if (t.type == TokenType.KEYWORD) {
+    protected boolean isFunctionDefFollower(final Token t)
+    {
+        if( isPunct(t, "{") || isOp(t, "->") ) return true;
+        if(t.type == TokenType.KEYWORD) {
             final String s = t.text;
             return "const".equals(s) || "override".equals(s) || "noexcept".equals(s)
                     || "throws".equals(s) || "final".equals(s);
         }
+
         return false;
     }
-    protected int matchBracketForward(final List<Token> tokens, final int openIdx) {
+    protected int matchBracketForward(final List<Token> tokens, final int openIdx)
+    {
         int depth = 0;
-        for (int i = openIdx; i < tokens.size(); i++) {
-            if (isPunct(tokens.get(i), "[")) {
-                depth++;
-            } else if (isPunct(tokens.get(i), "]")) {
-                depth--;
-                if (depth == 0) {
-                    return i;
-                }
+        for( int i = openIdx; i < tokens.size(); ++i ) {
+            if( isPunct( tokens.get(i), "[" ) ) {
+                ++depth;
             }
-        }
+            else if( isPunct( tokens.get(i), "]" ) ) {
+                --depth;
+                if(depth == 0) return i;
+            }
+        } // for
+
         return -1;
     }
     /**
@@ -393,9 +562,10 @@ public abstract class MiscRuleCore {
      * brace blocks the rewrite for that side, same conservative posture as the rest of this
      * file -- a genuinely multi-line initializer is left untouched.
      */
-    public String enforceInitializerBraceSpacing(final List<Token> tokens) {
-        final StringBuilder out = new StringBuilder();
-        final List<Token> gap = new ArrayList<>();
+    public String enforceInitializerBraceSpacing(final List<Token> tokens)
+    {
+        final StringBuilder  out       = new StringBuilder();
+        final List<Token>    gap       = new ArrayList<>();
         final Deque<Boolean> initStack = new ArrayDeque<>();
         // Parallel stack: true only for the frame directly opened by `=` (a fresh top-level
         // initializer), false for every other frame -- including a nested initializer frame
@@ -403,89 +573,88 @@ public abstract class MiscRuleCore {
         // (function/control-flow body) that happens to enclose an initializer. `initStack` alone
         // can't distinguish "outermost" this way since a non-initializer enclosing scope brace
         // (e.g. a function body) also occupies a stack slot, offsetting a naive depth count.
-        final Deque<Boolean> outermostStack = new ArrayDeque<>();
-        Token lastSignificant = null;
-        Token secondLastSignificant = null;
-        Token thirdLastSignificant = null;
-        final int n = tokens.size();
-        int i = 0;
+        final Deque<Boolean> outermostStack        = new ArrayDeque<>();
+              Token          lastSignificant       = null;
+              Token          secondLastSignificant = null;
+              Token          thirdLastSignificant  = null;
+        final int            n                     = tokens.size();
+              int            i                     = 0;
 
-        while (i < n) {
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
+            if( isGapToken(t) ) {
                 gap.add(t);
-                i++;
+                ++i;
                 continue;
             }
 
-            final boolean inInit = !initStack.isEmpty() && initStack.peek();
+            final boolean inInit = ! initStack.isEmpty()&& initStack.peek();
             // Inside-brace padding applies only at the outermost initializer level -- STYLE.md
             // §3.3's worked example pads only the outer pair of a nested brace-initializer
             // (`{ {1, 2}, {3, 4} }`), leaving inner element braces tight. Comma spacing, by
             // contrast, applies at every nesting level.
-            final boolean atOutermostInit = inInit && !outermostStack.isEmpty() && outermostStack.peek();
-            final boolean afterInitOpen = isPunct(lastSignificant, "{") && atOutermostInit;
-            final boolean beforeInitClose = isPunct(t, "}") && atOutermostInit;
-            final boolean beforeComma = isPunct(t, ",") && inInit;
-            final boolean afterComma = isPunct(lastSignificant, ",") && inInit;
-            final boolean gapHasBlocker = gap.stream().anyMatch(this::isCommentOrNewline)
-                    || t.frozen || (lastSignificant != null && lastSignificant.frozen)
-                    || gap.stream().anyMatch(g -> g.frozen);
+            final boolean atOutermostInit = inInit&& ! outermostStack.isEmpty()&& outermostStack.peek();
+            final boolean afterInitOpen   = isPunct(lastSignificant, "{")&& atOutermostInit;
+            final boolean beforeInitClose = isPunct(t, "}")&& atOutermostInit;
+            final boolean beforeComma     = isPunct(t, ",")&& inInit;
+            final boolean afterComma      = isPunct(lastSignificant, ",")&& inInit;
+            final boolean gapHasBlocker   = gap.stream().anyMatch(
+                this:: isCommentOrNewline
+            ) || t.frozen || (lastSignificant != null&& lastSignificant.frozen) || gap.stream().anyMatch(
+                g->g.frozen
+            );
 
-            if (((afterInitOpen && isPunct(t, "}")) || beforeComma) && !gapHasBlocker) {
+            if( ( ( afterInitOpen && isPunct(t, "}") ) || beforeComma ) && !gapHasBlocker ) {
                 gap.clear();
-            } else if ((afterInitOpen || beforeInitClose || afterComma) && !gapHasBlocker) {
+            }
+            else if( (afterInitOpen || beforeInitClose || afterComma) && !gapHasBlocker ) {
                 out.append(' ');
                 gap.clear();
-            } else {
-                for (final Token g : gap) {
-                    out.append(g.text);
-                }
+            }
+            else {
+                for(final Token g : gap) out.append(g.text);
                 gap.clear();
             }
 
-            if (isPunct(t, "{")) {
-                final boolean startsNewInit = isOp(lastSignificant, "=")
-                        || ((lang.isJs || lang.isTs) && isImportBraceHeaderKeyword(lastSignificant, secondLastSignificant))
-                        || ((lang.isJs || lang.isTs) && isPunct(lastSignificant, ",")
-                                && secondLastSignificant != null && secondLastSignificant.type == TokenType.IDENTIFIER
-                                && thirdLastSignificant != null && thirdLastSignificant.type == TokenType.KEYWORD
-                                && "import".equals(thirdLastSignificant.text))
-                        || ((lang.isJs || lang.isTs) && isPunct(lastSignificant, "("))
-                        // JS/TS object-destructuring declaration LHS (`const {id, name} = ...`):
-                        // this `{` directly follows a `const`/`let`/`var` keyword, not `=`/`(`/
-                        // import-brace like every other case above. STYLE_JS_TS.md §3 requires the
-                        // same `{ ... }` padding and comma spacing as any other brace-initializer,
-                        // but `JsTsDeclarationAlignmentRule.parseDeclaration` deliberately leaves a
-                        // destructuring-pattern LHS unparsed (RDD_KEY_182), so it never gets comma
-                        // spacing from that rule's own renderer either -- without this case, a
-                        // destructuring `{id,name,...rest}` pattern stayed comma-tight (found via
-                        // Checkpoint 21's local-fixture harness testing). Scoped to the keyword
-                        // immediately before `{` so it can't affect an ordinary block/control-flow
-                        // brace, which is never itself directly preceded by `const`/`let`/`var`.
-                        || ((lang.isJs || lang.isTs) && lastSignificant != null
-                                && lastSignificant.type == TokenType.KEYWORD
-                                && ("const".equals(lastSignificant.text) || "let".equals(lastSignificant.text)
-                                        || "var".equals(lastSignificant.text)));
-                final boolean isInit = startsNewInit
-                        || ((isPunct(lastSignificant, "{") || isPunct(lastSignificant, ","))
-                                && !initStack.isEmpty() && initStack.peek());
+            if( isPunct(t, "{") ) {
+                final boolean startsNewInit = isOp(
+                    lastSignificant, "="
+                ) || ( (lang.isJs || lang.isTs)&& isImportBraceHeaderKeyword(
+                    lastSignificant, secondLastSignificant
+                ) ) || ( (lang.isJs || lang.isTs)&& isPunct(
+                    lastSignificant, ","
+                )&& secondLastSignificant != null&& secondLastSignificant.type == TokenType.IDENTIFIER&& thirdLastSignificant != null&& thirdLastSignificant.type == TokenType.KEYWORD&& "import".equals(
+                    thirdLastSignificant.text
+                ) ) || ( (lang.isJs || lang.isTs)&& isPunct(
+                    lastSignificant, "("
+                ) ) || ( (lang.isJs || lang.isTs)&& lastSignificant != null&& lastSignificant.type == TokenType.KEYWORD&& ( "const".equals(
+                    lastSignificant.text
+                ) || "let".equals(
+                    lastSignificant.text
+                ) || "var".equals(
+                    lastSignificant.text
+                ) ) );
+                final boolean isInit        = startsNewInit || ( ( isPunct(
+                    lastSignificant, "{"
+                ) || isPunct(
+                    lastSignificant, ","
+                ) )&& ! initStack.isEmpty()&& initStack.peek() );
                 initStack.push(isInit);
                 outermostStack.push(startsNewInit);
-            } else if (isPunct(t, "}") && !initStack.isEmpty()) {
+            } // if
+            else if( isPunct(t, "}") && !initStack.isEmpty() ) {
                 initStack.pop();
                 outermostStack.pop();
             }
 
             out.append(t.text);
-            thirdLastSignificant = secondLastSignificant;
+            thirdLastSignificant  = secondLastSignificant;
             secondLastSignificant = lastSignificant;
-            lastSignificant = t;
-            i++;
-        }
-        for (final Token g : gap) {
-            out.append(g.text);
-        }
+            lastSignificant       = t;
+            ++i;
+        } // while
+        for(final Token g : gap) out.append(g.text);
+
         return out.toString();
     }
     /**
@@ -507,98 +676,131 @@ public abstract class MiscRuleCore {
      * since §2's semicolon-insertion concern only cares about the *first* `{` on a line for depth
      * purposes there, but §3.3 padding must recognize every named-list brace shape.
      */
-    private boolean isImportBraceHeaderKeyword(final Token lastSig, final Token secondLastSig) {
-        if (lastSig == null || lastSig.type != TokenType.KEYWORD) {
-            return false;
-        }
-        if ("import".equals(lastSig.text)) {
-            return true;
-        }
+    private boolean isImportBraceHeaderKeyword(final Token lastSig, final Token secondLastSig)
+    {
+        if(lastSig == null || lastSig.type != TokenType.KEYWORD) return false;
+        if( "import".equals(lastSig.text) ) return true;
+
         return "type".equals(lastSig.text) && secondLastSig != null
                 && secondLastSig.type == TokenType.KEYWORD && "import".equals(secondLastSig.text);
     }
-int matchParenForward(final List<Token> tokens, final int openIdx) {
+int matchParenForward(final List<Token> tokens, final int openIdx)
+{
         int depth = 0;
-        for (int i = openIdx; i < tokens.size(); i++) {
-            if (isPunct(tokens.get(i), "(")) {
-                depth++;
-            } else if (isPunct(tokens.get(i), ")")) {
-                depth--;
-                if (depth == 0) {
-                    return i;
-                }
+        for( int i = openIdx; i < tokens.size(); ++i ) {
+            if( isPunct( tokens.get(i), "(" ) ) {
+                ++depth;
             }
-        }
+            else if( isPunct( tokens.get(i), ")" ) ) {
+                --depth;
+                if(depth == 0) return i;
+            }
+        } // for
+
         return -1;
-    }
-    protected boolean isStatementBoundary(final Token t) {
+}
+    protected boolean isStatementBoundary(final Token t)
+    {
         return t == null || isPunct(t, ";") || isPunct(t, "{") || isPunct(t, "}");
     }
-    protected boolean isIncrementOp(final Token t) {
-        return t.type == TokenType.OP && ("++".equals(t.text) || "--".equals(t.text));
+    protected boolean isIncrementOp(final Token t)
+    {
+        return t.type == TokenType.OP && ( "++".equals(t.text) || "--".equals(t.text) );
     }
-    protected boolean noBlockerBetween(final List<Token> tokens, final int fromExclusive, final int toExclusive) {
-        for (int i = fromExclusive + 1; i < toExclusive; i++) {
-            if (isCommentOrNewline(tokens.get(i))) {
-                return false;
-            }
+    protected boolean noBlockerBetween(
+        final List<Token> tokens,
+        final int         fromExclusive,
+        final int         toExclusive
+    )
+    {
+        for(int i = fromExclusive + 1; i < toExclusive; ++i) {
+            if( isCommentOrNewline( tokens.get(i) ) ) return false;
         }
+
         return true;
     }
-    protected int nextSignificantIndex(final List<Token> tokens, final int from) {
+    protected int nextSignificantIndex(final List<Token> tokens, final int from)
+    {
         int i = from;
-        while (i < tokens.size() && isGapToken(tokens.get(i))) {
-            i++;
-        }
+        while( i < tokens.size() && isGapToken( tokens.get(i) ) ) i++;
+
         return i < tokens.size() ? i : -1;
     }
     protected static final Set<String> ASSIGNMENT_OPS = setOf(
-            "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=");
+        "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>="
+    );
 public static final class Assignment {
-        public final Token target;
-        public final String lhsText; // full rendered LHS (may span multiple tokens)
-        public final Token operator;
-        public final List<Token> valueTokens;
-        public final Token trailingComment; // nullable
-        public final boolean blankLineBefore;
-        public final boolean multiLine;
-        public final boolean breakBeforeOperator; // only meaningful when multiLine
-        public final List<Token> firstLineValueTokens; // only set when multiLine
-        public final List<Token> secondLineValueTokens; // only set when multiLine
 
-        private Assignment(final Token target, final String lhsText, final Token operator,
-                final List<Token> valueTokens, final Token trailingComment,
-                final boolean blankLineBefore, final boolean multiLine,
-                final boolean breakBeforeOperator, final List<Token> firstLineValueTokens,
-                final List<Token> secondLineValueTokens) {
-            this.target = target;
-            this.lhsText = lhsText;
-            this.operator = operator;
-            this.valueTokens = valueTokens;
-            this.trailingComment = trailingComment;
-            this.blankLineBefore = blankLineBefore;
-            this.multiLine = multiLine;
-            this.breakBeforeOperator = breakBeforeOperator;
-            this.firstLineValueTokens = firstLineValueTokens;
+        public final Token       target;
+        public final String      lhsText;               // Full rendered LHS (may span multiple tokens)
+        public final Token       operator;
+        public final List<Token> valueTokens;
+        public final Token       trailingComment;       // Nullable
+        public final boolean     blankLineBefore;
+        public final boolean     multiLine;
+        public final boolean     breakBeforeOperator;   // Only meaningful when multiLine
+        public final List<Token> firstLineValueTokens;  // Only set when multiLine
+        public final List<Token> secondLineValueTokens; // Only set when multiLine
+
+        private Assignment(
+            final Token       target,
+            final String      lhsText,
+            final Token       operator,
+            final List<Token> valueTokens,
+            final Token       trailingComment,
+            final boolean     blankLineBefore,
+            final boolean     multiLine,
+            final boolean     breakBeforeOperator,
+            final List<Token> firstLineValueTokens,
+            final List<Token> secondLineValueTokens
+        )
+        {
+            this.target                = target;
+            this.lhsText               = lhsText;
+            this.operator              = operator;
+            this.valueTokens           = valueTokens;
+            this.trailingComment       = trailingComment;
+            this.blankLineBefore       = blankLineBefore;
+            this.multiLine             = multiLine;
+            this.breakBeforeOperator   = breakBeforeOperator;
+            this.firstLineValueTokens  = firstLineValueTokens;
             this.secondLineValueTokens = secondLineValueTokens;
         }
 
-        static Assignment singleLine(final Token target, final String lhsText, final Token operator,
-                final List<Token> valueTokens, final Token trailingComment,
-                final boolean blankLineBefore) {
-            return new Assignment(target, lhsText, operator, valueTokens, trailingComment,
-                    blankLineBefore, false, false, null, null);
+        static Assignment singleLine(
+            final Token       target,
+            final String      lhsText,
+            final Token       operator,
+            final List<Token> valueTokens,
+            final Token       trailingComment,
+            final boolean     blankLineBefore
+        )
+        {
+            return new Assignment(
+                target, lhsText, operator, valueTokens, trailingComment,
+                blankLineBefore, false, false, null, null
+            );
         }
 
-        static Assignment multiLine(final Token target, final String lhsText, final Token operator,
-                final boolean breakBeforeOperator, final List<Token> firstLineValueTokens,
-                final List<Token> secondLineValueTokens, final Token trailingComment,
-                final boolean blankLineBefore) {
-            return new Assignment(target, lhsText, operator, null, trailingComment,
-                    blankLineBefore, true, breakBeforeOperator, firstLineValueTokens,
-                    secondLineValueTokens);
+        static Assignment multiLine(
+            final Token       target,
+            final String      lhsText,
+            final Token       operator,
+            final boolean     breakBeforeOperator,
+            final List<Token> firstLineValueTokens,
+            final List<Token> secondLineValueTokens,
+            final Token       trailingComment,
+            final boolean     blankLineBefore
+        )
+        {
+            return new Assignment(
+                target, lhsText, operator, null, trailingComment,
+                blankLineBefore, true, breakBeforeOperator, firstLineValueTokens,
+                secondLineValueTokens
+            );
         }
-    }
+
+} // class Assignment
     /**
      * Splits one scope's direct-content tokens (caller-extracted, no deeper-nested tokens --
      * same scoping contract as `DeclarationAlignmentRule.groupDeclarations`) into maximal runs of
@@ -610,30 +812,30 @@ public static final class Assignment {
      * itself," which {@link #render} achieves for free (group size 1 means both padding widths
      * just equal that one row's own widths).
      */
-    public List<List<Assignment>> groupAssignments(final List<Token> scopeTokens) {
-        final List<List<Token>> statements = splitAssignmentStatements(scopeTokens);
-        final List<List<Assignment>> groups = new ArrayList<>();
-        List<Assignment> current = new ArrayList<>();
+    public List<List<Assignment>> groupAssignments(final List<Token> scopeTokens)
+    {
+        final List<List<Token>>      statements = splitAssignmentStatements(scopeTokens);
+        final List<List<Assignment>> groups     = new ArrayList<>();
+              List<Assignment>       current    = new ArrayList<>();
 
-        for (final List<Token> stmt : statements) {
-            final boolean blankBefore = hasBlankLineBeforeStmt(stmt);
-            final Assignment a = parseAssignment(stmt, blankBefore);
-            if (a == null) {
-                if (!current.isEmpty()) {
+        for(final List<Token> stmt : statements) {
+            final boolean    blankBefore = hasBlankLineBeforeStmt(stmt);
+            final Assignment a           = parseAssignment(stmt, blankBefore);
+            if(a == null) {
+                if( !current.isEmpty() ) {
                     groups.add(current);
                     current = new ArrayList<>();
                 }
                 continue;
-            }
-            if (blankBefore && !current.isEmpty()) {
+            } // if
+            if( blankBefore && !current.isEmpty() ) {
                 groups.add(current);
                 current = new ArrayList<>();
             }
             current.add(a);
-        }
-        if (!current.isEmpty()) {
-            groups.add(current);
-        }
+        } // for
+        if( !current.isEmpty() ) groups.add(current);
+
         return groups;
     }
     /**
@@ -654,42 +856,43 @@ public static final class Assignment {
      * into the group's line order afterward; their own trailing comment (rare, undocumented by any
      * worked example) is appended directly after the second line's `;` rather than column-aligned.
      */
-    public List<String> render(final List<Assignment> group) {
-        int maxNameLen = 0;
+    public List<String> render(final List<Assignment> group)
+    {
+        int maxNameLen   = 0;
         int maxPrefixLen = 0;
-        for (final Assignment a : group) {
-            maxNameLen = Math.max(maxNameLen, a.lhsText.length());
-            maxPrefixLen = Math.max(maxPrefixLen, assignOpPrefix(a.operator).length());
+        for(final Assignment a : group) {
+            maxNameLen   = Math.max( maxNameLen, a.lhsText.length() );
+            maxPrefixLen = Math.max( maxPrefixLen, assignOpPrefix(a.operator).length() );
         }
         // +1 unconditionally -- even the group's widest operator still needs its own leading
         // space (verified against STYLE.md's worked example: maxPrefixLen=2 from ">>=" there,
         // but every row's rendered gap is 3, i.e. naturalMax+1, not naturalMax)
-        maxPrefixLen++;
+        ++maxPrefixLen;
         final int lhsWidth = maxNameLen + maxPrefixLen + 1; // +1 for "="
 
         final ColumnGrid grid = new ColumnGrid();
-        for (final Assignment a : group) {
-            if (a.multiLine || valueSpansMultipleLines(a.valueTokens)) {
-                continue;
-            }
-            final String lhs = padRight(a.lhsText, maxNameLen)
-                    + padLeft(assignOpPrefix(a.operator), maxPrefixLen) + "=";
+        for(final Assignment a : group) {
+            if( a.multiLine || valueSpansMultipleLines(a.valueTokens) ) continue;
+            final String       lhs   = padRight(
+                a.lhsText, maxNameLen
+            ) + padLeft(
+                assignOpPrefix(a.operator), maxPrefixLen
+            ) + "=";
             final List<String> cells = new ArrayList<>();
             cells.add(lhs);
-            cells.add(joinVerbatim(a.valueTokens) + ";");
-            if (a.trailingComment != null) {
-                cells.add(a.trailingComment.text);
-            }
-            grid.addRow(cells.toArray(new String[0]));
-        }
+            cells.add( joinVerbatim(a.valueTokens) + ";" );
+            if(a.trailingComment != null) cells.add(a.trailingComment.text);
+            grid.addRow( cells.toArray( new String[0] ) );
+        } // for
         final List<String[]> flushed = grid.flush();
 
-        final List<String> lines = new ArrayList<>();
-        int flushIdx = 0;
-        for (final Assignment a : group) {
-            if (a.multiLine) {
-                lines.addAll(renderMultiLine(a, maxNameLen, maxPrefixLen, lhsWidth));
-            } else if (valueSpansMultipleLines(a.valueTokens)) {
+        final List<String> lines    = new ArrayList<>();
+              int          flushIdx = 0;
+        for(final Assignment a : group) {
+            if(a.multiLine) {
+                lines.addAll( renderMultiLine(a, maxNameLen, maxPrefixLen, lhsWidth) );
+            }
+            else if( valueSpansMultipleLines(a.valueTokens) ) {
                 // `parseAssignment`'s verbatim fallback (more than STYLE.md §6's supported
                 // single-newline multi-line shape, e.g. a call whose args already wrap across many
                 // lines from a prior `enforceCallLineBreaking` pass): this row's value cell would
@@ -698,19 +901,29 @@ public static final class Assignment {
                 // corrupting the whole group's comment/value column width (and non-idempotent,
                 // since that verbatim text's own length can shift slightly between passes). Render
                 // it directly, outside the grid, same as `a.multiLine`'s own carve-out.
-                final String lhs = padRight(a.lhsText, maxNameLen)
-                        + padLeft(assignOpPrefix(a.operator), maxPrefixLen) + "=";
-                final StringBuilder line = new StringBuilder(lhs).append(' ')
-                        .append(joinVerbatim(a.valueTokens)).append(';');
-                if (a.trailingComment != null) {
-                    line.append(' ').append(a.trailingComment.text);
-                }
-                lines.add(line.toString());
-            } else {
-                lines.add(String.join(" ", flushed.get(flushIdx)));
-                flushIdx++;
+                final String        lhs  = padRight(
+                    a.lhsText, maxNameLen
+                ) + padLeft(
+                    assignOpPrefix(a.operator), maxPrefixLen
+                ) + "=";
+                final StringBuilder line = new StringBuilder(
+                    lhs
+                ).append(
+                    ' '
+                ).append(
+                    joinVerbatim(a.valueTokens)
+                ).append(
+                    ';'
+                );
+                if(a.trailingComment != null) line.append(' ').append(a.trailingComment.text);
+                lines.add( line.toString() );
             }
-        }
+            else {
+                lines.add( String.join( " ", flushed.get(flushIdx) ) );
+                ++flushIdx;
+            }
+        } // for
+
         return lines;
     }
     /**
@@ -727,51 +940,59 @@ public static final class Assignment {
      * unpadded name/operator length, so a multi-line row's continuation lines up correctly even
      * when other rows in the same group have longer names/operators.
      */
-    protected List<String> renderMultiLine(final Assignment a, final int maxNameLen,
-            final int maxPrefixLen, final int lhsWidth) {
-        final String lhs = padRight(a.lhsText, maxNameLen)
-                + padLeft(assignOpPrefix(a.operator), maxPrefixLen) + "=";
+    protected List<String> renderMultiLine(
+        final Assignment a,
+        final int        maxNameLen,
+        final int        maxPrefixLen,
+        final int        lhsWidth
+    )
+    {
+        final String lhs   = padRight(
+            a.lhsText, maxNameLen
+        ) + padLeft(
+            assignOpPrefix(a.operator), maxPrefixLen
+        ) + "=";
         final String line1 = lhs + " " + joinVerbatim(a.firstLineValueTokens);
 
         final int indentLen = a.breakBeforeOperator ? lhsWidth - 1 : lhsWidth + 1;
-        final StringBuilder line2 = new StringBuilder(padRight("", indentLen));
-        line2.append(joinVerbatim(a.secondLineValueTokens)).append(';');
-        if (a.trailingComment != null) {
-            line2.append(' ').append(a.trailingComment.text);
-        }
-        return Arrays.asList(line1, line2.toString());
+        final StringBuilder line2 = new StringBuilder( padRight("", indentLen) );
+        line2.append( joinVerbatim(a.secondLineValueTokens) ).append(';');
+        if(a.trailingComment != null) line2.append(' ').append(a.trailingComment.text);
+
+        return Arrays.asList( line1, line2.toString() );
     }
-    protected boolean valueSpansMultipleLines(final List<Token> tokens) {
-        for (final Token t : tokens) {
-            if (t.type == TokenType.NEWLINE) {
-                return true;
-            }
+    protected boolean valueSpansMultipleLines(final List<Token> tokens)
+    {
+        for(final Token t : tokens) {
+            if(t.type == TokenType.NEWLINE) return true;
         }
+
         return false;
     }
-    protected String assignOpPrefix(final Token operator) {
-        return operator.text.substring(0, operator.text.length() - 1);
+    protected String assignOpPrefix(final Token operator)
+    {
+        return operator.text.substring( 0, operator.text.length() - 1 );
     }
-    protected String joinVerbatim(final List<Token> tokens) {
+    protected String joinVerbatim(final List<Token> tokens)
+    {
         final StringBuilder sb = new StringBuilder();
-        for (final Token t : tokens) {
-            sb.append(t.text);
-        }
+        for(final Token t : tokens) sb.append(t.text);
+
         return sb.toString();
     }
-    protected static String padRight(final String s, final int width) {
+    protected static String padRight(final String s, final int width)
+    {
         final StringBuilder sb = new StringBuilder(s);
-        while (sb.length() < width) {
-            sb.append(' ');
-        }
+        while( sb.length() < width ) sb.append(' ');
+
         return sb.toString();
     }
-    protected static String padLeft(final String s, final int width) {
+    protected static String padLeft(final String s, final int width)
+    {
         final StringBuilder sb = new StringBuilder();
-        while (sb.length() + s.length() < width) {
-            sb.append(' ');
-        }
+        while( sb.length() + s.length() < width ) sb.append(' ');
         sb.append(s);
+
         return sb.toString();
     }
     /**
@@ -788,22 +1009,19 @@ public static final class Assignment {
      * operator, is accepted; two or more `NEWLINE`s, or a break point unrelated to an operator
      * (e.g. mid-operand), have no STYLE.md worked example and are left untouched.
      */
-    protected Assignment parseAssignment(final List<Token> stmt, final boolean blankBefore) {
+    protected Assignment parseAssignment(final List<Token> stmt, final boolean blankBefore)
+    {
         final int targetIdx = nextSignificantIndex(stmt, 0);
-        if (targetIdx < 0) {
-            return null;
-        }
+        if(targetIdx < 0) return null;
         final TokenType targetType = stmt.get(targetIdx).type;
-        if (targetType != TokenType.IDENTIFIER && targetType != TokenType.KEYWORD) {
-            return null;
-        }
+        if(targetType != TokenType.IDENTIFIER && targetType != TokenType.KEYWORD) return null;
         // `auto [a, b] = expr;` (a C++17 structured binding) starts with the `auto` keyword
         // followed by a `[` -- that's DeclarationAlignmentRule's shape, not an assignment to a
         // subscript of a variable literally named "auto". Left unrecognized here so the
         // declaration pass's rendering isn't re-parsed and re-collapsed by this pass.
-        if (targetType == TokenType.KEYWORD && "auto".equals(stmt.get(targetIdx).text)) {
-            return null;
-        }
+        if( targetType == TokenType.KEYWORD && "auto".equals(
+            stmt.get(targetIdx).text
+        ) ) return null;
         // Same shape, JS/TS side: `const [a, b, ...c] = expr;` (array-destructuring
         // declaration) starts with `const`/`let`/`var` followed by `[` -- that's
         // JsTsDeclarationAlignmentRule's shape, not an assignment to a subscript of a variable
@@ -814,92 +1032,83 @@ public static final class Assignment {
         // rendered and re-spliced the already-correctly-rendered pattern, corrupting `[first,
         // second, ...others]` into `[first, second,... others]` (object-destructuring `{...}`
         // patterns were never affected -- `{` isn't one of this scan's recognized LHS shapes).
-        if ((lang.isJs || lang.isTs) && targetType == TokenType.KEYWORD
-                && ("const".equals(stmt.get(targetIdx).text) || "let".equals(stmt.get(targetIdx).text)
-                        || "var".equals(stmt.get(targetIdx).text))) {
-            return null;
-        }
+        if( (lang.isJs || lang.isTs) && targetType == TokenType.KEYWORD && ( "const".equals(
+            stmt.get(targetIdx).text
+        ) || "let".equals(
+            stmt.get(targetIdx).text
+        ) || "var".equals(
+            stmt.get(targetIdx).text
+        ) ) ) return null;
         // Scan forward to find the assignment operator, allowing member-access chains
         // (obj.field, ptr->field) and subscript expressions (arr[i]) in the LHS.
         // State 0: after target/field, expecting op or member-access operator.
         // State 1: after . or ->, expecting the field-name IDENTIFIER.
         // State 2: inside [...] subscript (depth-tracked).
-        int opIdx = -1;
+        int opIdx     = - 1;
         int scanState = 0;
         int scanDepth = 0;
-        for (int k = targetIdx + 1; k < stmt.size(); k++) {
+        for( int k = targetIdx + 1; k < stmt.size(); ++k ) {
             final Token t = stmt.get(k);
-            if (isGapToken(t)) { continue; }
-            if (scanState == 2) {
-                if (isPunct(t, "[")) { scanDepth++; }
-                else if (isPunct(t, "]")) { scanDepth--; if (scanDepth == 0) { scanState = 0; } }
-                else if (isPunct(t, ";")) { return null; }
+            if( isGapToken(t) ) continue;
+            if(scanState == 2) {
+                if( isPunct(t, "[") )      { ++scanDepth; }
+                else if( isPunct(t, "]") ) { --scanDepth; if(scanDepth == 0) scanState = 0; }
+                else if( isPunct(t, ";") ) { return null; }
                 continue;
             }
-            if (scanState == 1) {
-                if (t.type != TokenType.IDENTIFIER) { return null; }
+            if(scanState == 1) {
+                if(t.type != TokenType.IDENTIFIER) return null;
                 scanState = 0;
                 continue;
             }
-            if (t.type == TokenType.OP && ASSIGNMENT_OPS.contains(t.text)) {
+            if( t.type == TokenType.OP && ASSIGNMENT_OPS.contains(t.text) ) {
                 opIdx = k;
                 break;
             }
-            if (isOp(t, ".") || isOp(t, "->")) { scanState = 1; continue; }
-            if (isPunct(t, "[")) { scanState = 2; scanDepth = 1; continue; }
+            if( isOp(t, ".") || isOp(t, "->") ) { scanState = 1; continue; }
+            if( isPunct(t, "[") ) { scanState = 2; scanDepth = 1; continue; }
             return null;
-        }
-        if (opIdx < 0) { return null; }
+        } // for
+        if(opIdx < 0) return null;
 
-        // Render the full LHS for alignment (handles single- and multi-token LHS).
+        // Render the full LHS for alignment (handles single- and multi-token LHS)
         final List<Token> lhsSigTokens = new ArrayList<>();
-        for (int k = targetIdx; k < opIdx; k++) {
+        for(int k = targetIdx; k < opIdx; ++k) {
             final Token t = stmt.get(k);
-            if (!isGapToken(t)) { lhsSigTokens.add(t); }
+            if( !isGapToken(t) ) lhsSigTokens.add(t);
         }
         final String lhsText = renderTokens(lhsSigTokens);
 
         final int valueFrom = nextSignificantIndex(stmt, opIdx + 1);
-        if (valueFrom < 0 || !noBlockerBetween(stmt, targetIdx, valueFrom)) {
-            return null;
-        }
+        if( valueFrom < 0 || !noBlockerBetween(stmt, targetIdx, valueFrom) ) return null;
         final int semiIdx = findTopLevelSemicolon(stmt, valueFrom);
-        if (semiIdx < 0) {
-            return null;
-        }
+        if(semiIdx < 0) return null;
         int valueTo = semiIdx;
-        while (valueTo > valueFrom && isGapToken(stmt.get(valueTo - 1))) {
-            valueTo--;
-        }
-        if (valueTo <= valueFrom) {
-            return null;
-        }
-        for (int i = semiIdx + 1; i < stmt.size(); i++) {
+        while( valueTo > valueFrom && isGapToken( stmt.get(valueTo - 1) ) ) valueTo--;
+        if(valueTo <= valueFrom) return null;
+        for( int i = semiIdx + 1; i < stmt.size(); ++i ) {
             final Token t = stmt.get(i);
-            if (t.type != TokenType.WHITESPACE && t.type != TokenType.COMMENT_LINE
-                    && t.type != TokenType.COMMENT_BLOCK) {
-                return null; // stray tokens after `;` -- not a clean single statement
-            }
+            if(t.type != TokenType.WHITESPACE && t.type != TokenType.COMMENT_LINE && t.type != TokenType.COMMENT_BLOCK) return null; // Stray tokens after `;` -- not a clean single statement
         }
 
         int newlineCount = 0;
-        int newlineIdx = -1;
-        for (int i = valueFrom; i < valueTo; i++) {
+        int newlineIdx   = - 1;
+        for(int i = valueFrom; i < valueTo; ++i) {
             final Token t = stmt.get(i);
-            if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
-                return null;
-            }
-            if (t.type == TokenType.NEWLINE) {
-                newlineCount++;
+            if(t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) return null;
+            if(t.type == TokenType.NEWLINE) {
+                ++newlineCount;
                 newlineIdx = i;
             }
-        }
+        } // for
         final Token trailingComment = findTrailingAssignComment(stmt);
-        if (newlineCount == 0) {
-            final List<Token> value = new ArrayList<>(stmt.subList(valueFrom, valueTo));
-            return Assignment.singleLine(stmt.get(targetIdx), lhsText, stmt.get(opIdx), value,
-                    trailingComment, blankBefore);
-        }
+        if(newlineCount == 0) {
+            final List<Token> value = new ArrayList<>( stmt.subList(valueFrom, valueTo) );
+            return Assignment.singleLine(
+                stmt.get(targetIdx), lhsText, stmt.get(opIdx), value,
+                trailingComment, blankBefore
+            );
+        } // if
 
         // STYLE.md §6's own "multi-line right-hand side" shape is exactly one newline, split at
         // an operator. Anything else here (more than one newline, or a single newline that isn't
@@ -910,28 +1119,37 @@ public static final class Assignment {
         // its own `lhsText` for width) rather than splitting the run into smaller subgroups, which
         // would otherwise make a fresh format and a reformat of that format's own already-wrapped
         // output disagree on group membership/padding (non-idempotent).
-        if (newlineCount == 1) {
+        if(newlineCount == 1) {
             int line1End = newlineIdx;
-            while (line1End > valueFrom && isGapToken(stmt.get(line1End - 1))) {
-                line1End--;
-            }
+            while( line1End > valueFrom && isGapToken( stmt.get(line1End - 1) ) ) line1End--;
             int line2Start = newlineIdx + 1;
-            while (line2Start < valueTo && isGapToken(stmt.get(line2Start))) {
-                line2Start++;
-            }
-            if (line1End > valueFrom && line2Start < valueTo) {
-                final List<Token> line1 = new ArrayList<>(stmt.subList(valueFrom, line1End));
-                final List<Token> line2 = new ArrayList<>(stmt.subList(line2Start, valueTo));
-                final Boolean breakBeforeOperator = classifyMultiLineBreak(line1, line2);
-                if (breakBeforeOperator != null) {
-                    return Assignment.multiLine(stmt.get(targetIdx), lhsText, stmt.get(opIdx),
-                            breakBeforeOperator, line1, line2, trailingComment, blankBefore);
-                }
-            }
-        }
-        final List<Token> value = new ArrayList<>(stmt.subList(valueFrom, valueTo));
-        return Assignment.singleLine(stmt.get(targetIdx), lhsText, stmt.get(opIdx), value,
-                trailingComment, blankBefore);
+            while( line2Start < valueTo && isGapToken( stmt.get(line2Start) ) ) line2Start++;
+            if(line1End > valueFrom && line2Start < valueTo) {
+                final List<Token> line1               = new ArrayList<>( stmt.subList(
+                    valueFrom, line1End
+                ) );
+                final List<Token> line2               = new ArrayList<>( stmt.subList(
+                    line2Start, valueTo
+                ) );
+                final Boolean     breakBeforeOperator = classifyMultiLineBreak(line1, line2);
+                if(breakBeforeOperator != null) return Assignment.multiLine(
+                    stmt.get(targetIdx),
+                    lhsText,
+                    stmt.get(opIdx),
+                    breakBeforeOperator,
+                    line1,
+                    line2,
+                    trailingComment,
+                    blankBefore
+                );
+            } // if
+        } // if
+        final List<Token> value = new ArrayList<>( stmt.subList(valueFrom, valueTo) );
+
+        return Assignment.singleLine(
+            stmt.get(targetIdx), lhsText, stmt.get(opIdx), value,
+            trailingComment, blankBefore
+        );
     }
     /**
      * Classifies a multi-line right-hand side's break point per STYLE.md §6: {@code true} if
@@ -942,39 +1160,33 @@ public static final class Assignment {
      * order so a (rare, ambiguous) break where both sides touch an operator resolves to the
      * "before" reading.
      */
-    protected Boolean classifyMultiLineBreak(final List<Token> line1, final List<Token> line2) {
-        if (line2.get(0).type == TokenType.OP) {
-            return Boolean.TRUE;
-        }
-        if (line1.get(line1.size() - 1).type == TokenType.OP) {
-            return Boolean.FALSE;
-        }
+    protected Boolean classifyMultiLineBreak(final List<Token> line1, final List<Token> line2)
+    {
+        if( line2.get(0).type == TokenType.OP ) return Boolean.TRUE;
+        if( line1.get( line1.size() - 1 ).type == TokenType.OP ) return Boolean.FALSE;
+
         return null;
     }
-    protected int findTopLevelSemicolon(final List<Token> tokens, final int from) {
+    protected int findTopLevelSemicolon(final List<Token> tokens, final int from)
+    {
         int depth = 0;
-        for (int i = from; i < tokens.size(); i++) {
+        for( int i = from; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")) {
-                depth++;
-            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")) {
-                depth--;
-            } else if (depth == 0 && isPunct(t, ";")) {
-                return i;
-            }
+            if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
+            else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
+            else if( depth == 0 && isPunct(t, ";") ) return i;
         }
+
         return -1;
     }
-    protected Token findTrailingAssignComment(final List<Token> stmt) {
-        for (int k = stmt.size() - 1; k >= 0; k--) {
+    protected Token findTrailingAssignComment(final List<Token> stmt)
+    {
+        for( int k = stmt.size() - 1; k >= 0; --k ) {
             final Token t = stmt.get(k);
-            if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
-                return t;
-            }
-            if (t.type != TokenType.WHITESPACE) {
-                break;
-            }
+            if(t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) return t;
+            if(t.type != TokenType.WHITESPACE) break;
         }
+
         return null;
     }
     /**
@@ -987,129 +1199,160 @@ public static final class Assignment {
      * A same-line trailing comment is pulled into the span it follows, same precedent as
      * `DeclarationAlignmentRule.splitStatements`.
      */
-    protected List<List<Token>> splitAssignmentStatements(final List<Token> scopeTokens) {
+    protected List<List<Token>> splitAssignmentStatements(final List<Token> scopeTokens)
+    {
         final List<List<Token>> statements = new ArrayList<>();
-        List<Token> current = new ArrayList<>();
-        final int n = scopeTokens.size();
-        int depth = 0;
-        int idx = 0;
+              List<Token>       current    = new ArrayList<>();
+        final int               n          = scopeTokens.size();
+              int               depth      = 0;
+              int               idx        = 0;
 
-        while (idx < n) {
+        while(idx < n) {
             final Token t = scopeTokens.get(idx);
             current.add(t);
-            idx++;
+            ++idx;
 
-            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")) {
-                depth++;
+            if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) {
+                ++depth;
                 continue;
             }
-            if (isPunct(t, ")") || isPunct(t, "]")) {
-                depth--;
+            if( isPunct(t, ")") || isPunct(t, "]") ) {
+                --depth;
                 continue;
             }
-            if (isPunct(t, "}")) {
-                depth--;
-                if (depth == 0) {
+            if( isPunct(t, "}") ) {
+                --depth;
+                if(depth == 0) {
                     idx = pullTrailingSameLine(scopeTokens, current, idx);
                     statements.add(current);
                     current = new ArrayList<>();
                 }
                 continue;
-            }
-            if (depth == 0 && isPunct(t, ";")) {
+            } // if
+            if( depth == 0 && isPunct(t, ";") ) {
                 idx = pullTrailingSameLine(scopeTokens, current, idx);
                 statements.add(current);
                 current = new ArrayList<>();
             }
-        }
-        if (!current.isEmpty()) {
-            statements.add(current);
-        }
+        } // while
+        if( !current.isEmpty() ) statements.add(current);
+
         return statements;
     }
-    protected int pullTrailingSameLine(final List<Token> tokens, final List<Token> current, final int from) {
-        int idx = from;
-        final int n = tokens.size();
-        while (idx < n) {
+    protected int pullTrailingSameLine(
+        final List<Token> tokens,
+        final List<Token> current,
+        final int         from
+    )
+    {
+          int idx = from;
+    final int n   = tokens.size();
+        while(idx < n) {
             final Token next = tokens.get(idx);
-            if (next.type == TokenType.WHITESPACE || next.type == TokenType.COMMENT_LINE
+            if(next.type == TokenType.WHITESPACE || next.type == TokenType.COMMENT_LINE
                     || next.type == TokenType.COMMENT_BLOCK) {
                 current.add(next);
-                idx++;
-            } else {
+                ++idx;
+            }
+            else {
                 break;
             }
-        }
+        } // while
+
         return idx;
     }
     /** Same blank-line-before detection as `DeclarationAlignmentRule.hasBlankLineBefore`. */
-    protected boolean hasBlankLineBeforeStmt(final List<Token> stmt) {
+    protected boolean hasBlankLineBeforeStmt(final List<Token> stmt)
+    {
         int newlineRun = 0;
-        for (final Token t : stmt) {
-            if (t.type == TokenType.NEWLINE) {
-                newlineRun++;
-                if (newlineRun >= 2) {
-                    return true;
-                }
-            } else if (t.type == TokenType.WHITESPACE) {
-                // ignore -- doesn't break or extend the newline run
-            } else if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
+        for(final Token t : stmt) {
+            if(t.type == TokenType.NEWLINE) {
+                ++newlineRun;
+                if(newlineRun >= 2) return true;
+            }
+            else if(t.type == TokenType.WHITESPACE) {
+                // Ignore -- doesn't break or extend the newline run
+            }
+            else if(t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
                 newlineRun = 0;
-            } else {
+            }
+            else {
                 break;
             }
-        }
+        } // for
+
         return false;
     }
-    /** Joins tokens into canonical spaced text -- exact copy of
+    /**
+     * Joins tokens into canonical spaced text -- exact copy of
      *  `DeclarationAlignmentRule.renderTokens`'s tight-attachment rules (`*`/`&`/`::`/generics/
      *  `[`/`]`/`,`), duplicated here rather than shared since neither class currently exposes
-     *  these as a shared utility (each rule class keeps its own small token-joining helpers). */
-    protected String renderTokens(final List<Token> tokens) {
-        final Set<Token> templateOpens = new HashSet<>();
+     *  these as a shared utility (each rule class keeps its own small token-joining helpers).
+     */
+    protected String renderTokens(final List<Token> tokens)
+    {
+        final Set<Token> templateOpens  = new HashSet<>();
         final Set<Token> templateCloses = new HashSet<>();
         templateAngleTokens(tokens, templateOpens, templateCloses);
-        final StringBuilder sb = new StringBuilder();
-        Token prev = null;
-        for (int i = 0; i < tokens.size(); i++) {
+        final StringBuilder sb   = new StringBuilder();
+              Token         prev = null;
+        for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (prev != null && needsSpaceBetween(prev, t, templateOpens, templateCloses, tokens, i)) {
-                sb.append(' ');
-            }
+            if( prev != null && needsSpaceBetween(
+                prev, t, templateOpens, templateCloses, tokens, i
+            ) ) sb.append(
+                ' '
+            );
             sb.append(t.text);
             prev = t;
-        }
+        } // for
+
         return sb.toString();
     }
-    /** A leading `template<...>` clause's `<`/`>` tokens are never reclassified to
+    /**
+     * A leading `template<...>` clause's `<`/`>` tokens are never reclassified to
      *  {@code ANGLE_BRACKET_OPEN}/{@code _CLOSE} by the tokenizer (it only arms on an
      *  identifier/cast-keyword before `<`, not the `template` keyword -- see
      *  `DeclarationAlignmentRule`'s own template-prefix handling for the same precedent), so
      *  {@link #needsSpaceBetween}/{@link #isTightToken} would otherwise space them like a
      *  comparison operator. Populates the identity sets of every open/close `<`/`>` token
      *  belonging to such a clause (depth-matched on the raw `<`/`>` OP tokens themselves) so the
-     *  caller can treat them as tight without touching the tokens' actual type. */
-    protected boolean needsSpaceBetween(final Token prev, final Token cur, final Set<Token> templateOpens,
-            final Set<Token> templateCloses) {
+     *  caller can treat them as tight without touching the tokens' actual type.
+     */
+    protected boolean needsSpaceBetween(
+        final Token      prev,
+        final Token      cur,
+        final Set<Token> templateOpens,
+        final Set<Token> templateCloses
+    )
+    {
         return needsSpaceBetween(prev, cur, templateOpens, templateCloses, null, -1);
     }
 
-    /** Same as {@link #needsSpaceBetween(Token, Token, Set, Set)} but with the full token list +
+    /**
+     * Same as {@link #needsSpaceBetween(Token, Token, Set, Set)} but with the full token list +
      *  current index available, needed only by the C6d function-type-position lookahead below
      *  (mirrors `DeclarationAlignmentRuleCore`'s documented-duplicate overload of the same name --
      *  see that class's own comment for the full rationale). Callers that can't supply a list
      *  (e.g. `MiscRuleCurly`'s lead-token/name join, where `cur` is always an identifier, never
-     *  `(`) fall back to the 4-arg overload, which passes {@code tokens = null}. */
-    protected boolean needsSpaceBetween(final Token prev, final Token cur, final Set<Token> templateOpens,
-            final Set<Token> templateCloses, final List<Token> tokens, final int curIdx) {
+     *  `(`) fall back to the 4-arg overload, which passes {@code tokens = null}.
+     */
+    protected boolean needsSpaceBetween(
+        final Token       prev,
+        final Token       cur,
+        final Set<Token>  templateOpens,
+        final Set<Token>  templateCloses,
+        final List<Token> tokens,
+        final int         curIdx
+    )
+    {
         // Kotlin's `fun <T> foo(...)` generic-function type-parameter clause is the one shape
         // where an ANGLE_BRACKET_OPEN is *not* tight against what precedes it -- every other
         // opener (`Foo<T>`, `foo<T>(...)`) directly follows the identifier it qualifies, but this
         // one follows the `fun` keyword itself and needs the normal keyword-then-clause space.
-        if (lang.isKotlin && cur.type == TokenType.ANGLE_BRACKET_OPEN
-                && prev.type == TokenType.KEYWORD && "fun".equals(prev.text)) {
-            return true;
-        }
+        if( lang.isKotlin && cur.type == TokenType.ANGLE_BRACKET_OPEN && prev.type == TokenType.KEYWORD && "fun".equals(
+            prev.text
+        ) ) return true;
         // JS/TS destructuring-declaration LHS (`const [first, second] = items`, `let { a, b } =
         // obj`): the opening `[`/`{` of the destructuring pattern directly follows a `const`/
         // `let`/`var` keyword. `isTightToken`'s `[`-is-always-tight rule below exists for
@@ -1117,9 +1360,9 @@ public static final class Assignment {
         // follows an identifier/closing-bracket, never a keyword -- so it wrongly collapses this
         // JS/TS shape's required keyword-then-pattern space too (`const[first, second]`). Scoped
         // narrowly to "keyword immediately before `[`" so it can't affect any other `[` use.
-        if ((lang.isJs || lang.isTs) && isPunct(cur, "[") && prev.type == TokenType.KEYWORD) {
-            return true;
-        }
+        if( (lang.isJs || lang.isTs) && isPunct(
+            cur, "["
+        ) && prev.type == TokenType.KEYWORD ) return true;
         // Kotlin's newer square-bracket destructuring lambda-parameter-list syntax (`{ [x, y] ->
         // x + y }`, e.g. `list.map { [x, y] -> ... }`) opens directly with `[` right after the
         // lambda's own `{`. `isTightToken`'s `[`-is-always-tight rule below exists for
@@ -1128,12 +1371,14 @@ public static final class Assignment {
         // directly followed by `[` is unambiguous: it can only be this destructuring param list,
         // never an indexing expression. Scoped narrowly to "`{` immediately before `[`" so it
         // can't affect any other `[` use (C6j).
-        if (lang.isKotlin && isPunct(cur, "[") && isPunct(prev, "{")) {
-            return true;
-        }
-        if (isTightToken(cur) || templateCloses.contains(cur) || templateOpens.contains(cur)) {
-            return false;
-        }
+        if( lang.isKotlin && isPunct(cur, "[") && isPunct(prev, "{") ) return true;
+        if( isTightToken(
+            cur
+        ) || templateCloses.contains(
+            cur
+        ) || templateOpens.contains(
+            cur
+        ) ) return false;
         // A type keyword (`void`, `int`, ...) directly followed by `(` is a function-type's
         // return type inside a template argument (`std::function<void(int)>`) -- keywords can
         // never be called, so this is never a call-site space, only a tight function-type join.
@@ -1148,19 +1393,29 @@ public static final class Assignment {
         // function type, i.e. its matching `)` followed by `->`?) via
         // `isAnnotationFunctionTypeParen`. Exact duplicate of
         // `DeclarationAlignmentRuleCore.needsSpaceBetween`'s identical carve-out.
-        if (lang.isKotlin && isPunct(cur, "(") && prev.type == TokenType.IDENTIFIER
-                && tokens != null && curIdx >= 2 && isOp(tokens.get(curIdx - 2), "@")
-                && isAnnotationFunctionTypeParen(tokens, curIdx)) {
-            return true;
-        }
-        if (isPunct(cur, "(") && (prev.type == TokenType.IDENTIFIER
-                || prev.type == TokenType.ANGLE_BRACKET_CLOSE || prev.type == TokenType.KEYWORD)) {
-            return false;
-        }
-        if (prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(prev, "::") || isOp(prev, ".") || isOp(prev, "->") || isPunct(prev, "[") || isPunct(prev, "(")
-                || templateOpens.contains(prev)) {
-            return false;
-        }
+        if( lang.isKotlin && isPunct(
+            cur, "("
+        ) && prev.type == TokenType.IDENTIFIER && tokens != null && curIdx >= 2 && isOp(
+            tokens.get(curIdx - 2), "@"
+        ) && isAnnotationFunctionTypeParen(
+            tokens, curIdx
+        ) ) return true;
+        if( isPunct(
+            cur, "("
+        ) && (prev.type == TokenType.IDENTIFIER || prev.type == TokenType.ANGLE_BRACKET_CLOSE || prev.type == TokenType.KEYWORD) ) return false;
+        if( prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(
+            prev, "::"
+        ) || isOp(
+            prev, "."
+        ) || isOp(
+            prev, "->"
+        ) || isPunct(
+            prev, "["
+        ) || isPunct(
+            prev, "("
+        ) || templateOpens.contains(
+            prev
+        ) ) return false;
         // A prefix `++`/`--` immediately followed by an identifier (`++i`, `--count`) is only ever
         // seen in prefix position here -- postfix usage pairs the operator *after* the identifier
         // (`i++`), never before -- so this join is always tight, never spaced. Without this, a
@@ -1170,9 +1425,7 @@ public static final class Assignment {
         // openrewrite/rewrite dogfood idempotency testing (round2 re-render of an already-prefix-
         // converted `for(...; ++i)` header lost the tight join `enforcePreIncrement` had produced on
         // round1).
-        if (isIncrementOp(prev) && cur.type == TokenType.IDENTIFIER) {
-            return false;
-        }
+        if( isIncrementOp(prev) && cur.type == TokenType.IDENTIFIER ) return false;
         // An annotation's `@` (e.g. `@RaiseDSL public inline fun ...`, Java's `@NonNull String
         // id`) is tight against the identifier that follows it -- without this, an annotation
         // that shares its source line with a signature/parameter (so it becomes part of
@@ -1187,9 +1440,7 @@ public static final class Assignment {
         // inline fun ... mapOrAccumulate`, confirmed a genuine kotlin_sc parse error, not just
         // cosmetic); Java case found via jenkinsci/jenkins real-code testing (`IdStrategy.java`'s
         // `keyFor(@NonNull String id)`).
-        if ((lang.isKotlin || lang.isJava) && isOp(prev, "@")) {
-            return false;
-        }
+        if( (lang.isKotlin || lang.isJava) && isOp(prev, "@") ) return false;
         // C6k-3: Kotlin's negated type-check/containment operators (`!is`, `!in`) are a single
         // tight lexical unit -- no space between `!` and the keyword (unlike plain `a is B`,
         // always spaced). The tokenizer still lexes `!` and `is`/`in` as two separate tokens, so
@@ -1199,32 +1450,39 @@ public static final class Assignment {
         // missing here -- found via `JetBrains/kotlin` dogfood testing (`ConeTypeRenderer.kt`'s
         // `nullabilityMarker` default value, rendered through this class's own call/signature
         // join point rather than the declaration-alignment one RDD_KEY_144 originally fixed).
-        if (lang.isKotlin && isOp(prev, "!") && cur.type == TokenType.KEYWORD
-                && ("is".equals(cur.text) || "in".equals(cur.text))) {
-            return false;
-        }
+        if( lang.isKotlin && isOp(
+            prev, "!"
+        ) && cur.type == TokenType.KEYWORD && ( "is".equals(
+            cur.text
+        ) || "in".equals(
+            cur.text
+        ) ) ) return false;
         // C6b: Kotlin 2.4's multi-dollar string interpolation prefix (`$$"..."`, `$$$"""..."""`)
         // is tokenized as a plain IDENTIFIER (the tokenizer's identifier-char check already treats
         // `$` as an identifier char, same as bare `$x` interpolation), immediately followed by the
         // STRING token it prefixes -- no gap allowed by the grammar. Without this, the generic
         // default below inserts a space (`$$ "$key1"`), a Kotlin parse error. Exact duplicate of
         // `DeclarationAlignmentRuleCore.needsSpaceBetween`'s identical carve-out.
-        if (lang.isKotlin && prev.type == TokenType.IDENTIFIER && isDollarRun(prev.text)
-                && cur.type == TokenType.STRING) {
-            return false;
-        }
+        if( lang.isKotlin && prev.type == TokenType.IDENTIFIER && isDollarRun(
+            prev.text
+        ) && cur.type == TokenType.STRING ) return false;
+
         return true;
     }
 
-    /** True iff {@code text} is exactly `"$$"` or `"$$$"` -- Kotlin 2.4's multi-dollar string
+    /**
+     * True iff {@code text} is exactly `"$$"` or `"$$$"` -- Kotlin 2.4's multi-dollar string
      *  interpolation prefix (2 or 3 dollar signs, per the language spec; a single bare `$` has no
      *  such meaning and is left alone). Used only by the C6b carve-out above. Exact duplicate of
-     *  `DeclarationAlignmentRuleCore.isDollarRun`. */
-    protected static boolean isDollarRun(final String text) {
+     *  `DeclarationAlignmentRuleCore.isDollarRun`.
+     */
+    protected static boolean isDollarRun(final String text)
+    {
         return "$$".equals(text) || "$$$".equals(text);
     }
 
-    /** True iff `tokens.get(parenIdx)` is `(` and it opens a function type's parameter list --
+    /**
+     * True iff `tokens.get(parenIdx)` is `(` and it opens a function type's parameter list --
      *  i.e. its matching `)` is followed (skipping whitespace/comments/newlines) by `->`, OR by a
      *  `?` (C6k-5: a nullable function type wraps the whole thing in its own parens,
      *  `@Composable( () -> Unit )?` -- a bare `?` immediately after `@Identifier(...)` is
@@ -1233,126 +1491,125 @@ public static final class Assignment {
      *  list available) conservatively returns {@code false}, preserving pre-C6d behavior for any
      *  caller that can't supply a list. Exact duplicate of
      *  `DeclarationAlignmentRuleCore.isAnnotationFunctionTypeParen` -- see that method for the
-     *  full rationale. */
-    private boolean isAnnotationFunctionTypeParen(final List<Token> tokens, final int parenIdx) {
-        if (tokens == null || parenIdx < 0 || parenIdx >= tokens.size()) {
-            return false;
-        }
-        int depth = 0;
-        int closeIdx = -1;
-        for (int k = parenIdx; k < tokens.size(); k++) {
+     *  full rationale.
+     */
+    private boolean isAnnotationFunctionTypeParen(final List<Token> tokens, final int parenIdx)
+    {
+        if( tokens == null || parenIdx < 0 || parenIdx >= tokens.size() ) return false;
+        int depth    = 0;
+        int closeIdx = - 1;
+        for( int k = parenIdx; k < tokens.size(); ++k ) {
             final Token t = tokens.get(k);
-            if (isPunct(t, "(")) {
-                depth++;
-            } else if (isPunct(t, ")")) {
-                depth--;
-                if (depth == 0) {
+            if( isPunct(t, "(") ) {
+                ++depth;
+            }
+            else if( isPunct(t, ")") ) {
+                --depth;
+                if(depth == 0) {
                     closeIdx = k;
                     break;
                 }
             }
-        }
-        if (closeIdx < 0) {
-            return false;
-        }
-        for (int k = closeIdx + 1; k < tokens.size(); k++) {
+        } // for
+        if(closeIdx < 0) return false;
+        for( int k = closeIdx + 1; k < tokens.size(); ++k ) {
             final Token t = tokens.get(k);
-            if (isGapToken(t)) {
-                continue;
-            }
+            if( isGapToken(t) ) continue;
             return isOp(t, "->") || isOp(t, "?");
         }
+
         return false;
     }
 
-    protected boolean isTightToken(final Token t) {
-        if (t.type == TokenType.ANGLE_BRACKET_OPEN || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
-            return true;
-        }
-        if (isPunct(t, ",") || isPunct(t, "[") || isPunct(t, "]") || isPunct(t, ")")) {
-            return true;
-        }
+    protected boolean isTightToken(final Token t)
+    {
+        if(t.type == TokenType.ANGLE_BRACKET_OPEN || t.type == TokenType.ANGLE_BRACKET_CLOSE) return true;
+        if( isPunct(t, ",") || isPunct(t, "[") || isPunct(t, "]") || isPunct(t, ")") ) return true;
         // `*`/`&` are C/C++ pointer/reference declarator sigils here (tight against the type
         // they modify, `int* p`) -- Kotlin has no such use of either symbol (its `*` is always
         // multiplication or the spread operator, its expressions never use bare `&`), so treating
         // them as tight there would wrongly collapse ordinary arithmetic spacing in any Kotlin
         // expression rendered through this shared join point (STYLE_KOTLIN.md §9's `= expr`
         // rendering surfaced this: `x * x` was joining as `x* x`).
-        if (!lang.isKotlin && (Token.isRepOp(t, '*') || Token.isRepOp(t, '&'))) {
-            return true;
-        }
+        if( !lang.isKotlin && ( Token.isRepOp(t, '*') || Token.isRepOp(t, '&') ) ) return true;
         // Kotlin's bare `?` only ever appears as a type's nullability suffix (`Type?`) -- its
         // other two `?`-led operators (`?.` safe call, `?:` elvis) are each their own multi-char
         // token, never plain `?`, and Kotlin has no C-style ternary `?` to confuse this with -- so
         // it is always tight against the preceding type token, unlike C/Java's ternary `?`.
-        if (lang.isKotlin && isOp(t, "?")) {
-            return true;
-        }
+        if( lang.isKotlin && isOp(t, "?") ) return true;
+
         return isOp(t, "...") || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
     }
 
-    protected void templateAngleTokens(final List<Token> tokens, final Set<Token> opens, final Set<Token> closes) {
-        for (int i = 0; i < tokens.size(); i++) {
+    protected void templateAngleTokens(
+        final List<Token> tokens,
+        final Set<Token>  opens,
+        final Set<Token>  closes
+    )
+    {
+        for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (t.type == TokenType.KEYWORD && "template".equals(t.text)
-                    && i + 1 < tokens.size() && isOp(tokens.get(i + 1), "<")) {
+            if( t.type == TokenType.KEYWORD && "template".equals(t.text)
+                    && i + 1 < tokens.size() && isOp( tokens.get(i + 1), "<" ) ) {
                 int depth = 0;
-                for (int j = i + 1; j < tokens.size(); j++) {
+                for( int j = i + 1; j < tokens.size(); ++j ) {
                     final Token u = tokens.get(j);
-                    if (isOp(u, "<")) {
-                        depth++;
+                    if( isOp(u, "<") ) {
+                        ++depth;
                         opens.add(u);
-                    } else if (isOp(u, ">")) {
-                        depth--;
-                        closes.add(u);
-                        if (depth == 0) {
-                            break;
-                        }
                     }
-                }
-            }
-        }
+                    else if( isOp(u, ">") ) {
+                        --depth;
+                        closes.add(u);
+                        if(depth == 0) break;
+                    }
+                } // for j
+            } // if
+        } // for i
     }
-    protected List<Token> significantOnly(final List<Token> stmt) {
+    protected List<Token> significantOnly(final List<Token> stmt)
+    {
         final List<Token> sig = new ArrayList<>();
-        for (final Token t : stmt) {
-            if (!isGapToken(t)) {
-                sig.add(t);
-            }
+        for(final Token t : stmt) {
+            if( !isGapToken(t) ) sig.add(t);
         }
+
         return sig;
     }
-    /** Like {@link #significantOnly}, but keeps comment tokens -- used by {@link #parseSignature}
+    /**
+     * Like {@link #significantOnly}, but keeps comment tokens -- used by {@link #parseSignature}
      *  so a parameter's inline block comment survives parsing instead of being silently dropped;
-     *  only whitespace/newlines are gap tokens here. */
-    protected List<Token> significantWithComments(final List<Token> stmt) {
+     *  only whitespace/newlines are gap tokens here
+     */
+    protected List<Token> significantWithComments(final List<Token> stmt)
+    {
         final List<Token> sig = new ArrayList<>();
-        for (final Token t : stmt) {
-            if (t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) {
-                sig.add(t);
-            }
+        for(final Token t : stmt) {
+            if(t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) sig.add(t);
         }
+
         return sig;
     }
-    protected int prevSignificantIndex(final List<Token> tokens, final int from) {
+    protected int prevSignificantIndex(final List<Token> tokens, final int from)
+    {
         int i = from;
-        while (i >= 0 && isGapToken(tokens.get(i))) {
-            i--;
-        }
+        while( i >= 0 && isGapToken( tokens.get(i) ) ) i--;
+
         return i;
     }
-    protected int matchParenBackward(final List<Token> tokens, final int closeIdx) {
+    protected int matchParenBackward(final List<Token> tokens, final int closeIdx)
+    {
         int depth = 0;
-        for (int i = closeIdx; i >= 0; i--) {
-            if (isPunct(tokens.get(i), ")")) {
-                depth++;
-            } else if (isPunct(tokens.get(i), "(")) {
-                depth--;
-                if (depth == 0) {
-                    return i;
-                }
+        for(int i = closeIdx; i >= 0; --i) {
+            if( isPunct( tokens.get(i), ")" ) ) {
+                ++depth;
             }
-        }
+            else if( isPunct( tokens.get(i), "(" ) ) {
+                --depth;
+                if(depth == 0) return i;
+            }
+        } // for
+
         return -1;
     }
     /**
@@ -1388,84 +1645,86 @@ public static final class Assignment {
      * et al., local `src/com`/`src/org` dogfood). Normalizing through {@link #renderIndent} here
      * up front makes the very first pass already correct.
      */
-    public String enforceCommentStyle(final List<Token> tokens, final String indentStyle) {
+    public String enforceCommentStyle(final List<Token> tokens, final String indentStyle)
+    {
         final Map<Integer, String> lineCommentContent = computeLineCommentGroups(tokens);
-        final StringBuilder out = new StringBuilder();
-        for (int i = 0; i < tokens.size(); i++) {
+        final StringBuilder        out                = new StringBuilder();
+        for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (t.frozen) {
-                out.append(t.text);
-            } else if (t.type == TokenType.COMMENT_LINE) {
-                final String content = lineCommentContent.get(i);
-                if (content == null) {
-                    out.append(t.text);
-                } else {
-                    out.append("//").append(content);
-                }
-            } else if (t.type == TokenType.COMMENT_BLOCK && !t.text.contains("\n") && !t.text.contains("\r")) {
-                final String inner = t.text.substring(2, t.text.length() - 2);
-                if ("FALL-THROUGH".equals(inner.trim())) {
-                    out.append(t.text);
-                } else {
-                    out.append("/*").append(applyCommentTextRules(inner)).append("*/");
-                }
-            } else if (t.type == TokenType.COMMENT_BLOCK) {
-                out.append(reformatMultiLineBlockComment(t.text, renderIndent(indentBefore(tokens, i), indentStyle)));
-            } else if (t.type == TokenType.PREPROCESSOR) {
-                out.append(capitalizePreprocessorTrailingComment(t.text));
-            } else {
+            if(t.frozen) {
                 out.append(t.text);
             }
-        }
+            else if(t.type == TokenType.COMMENT_LINE) {
+                final String content = lineCommentContent.get(i);
+                if(content == null) out.append(t.text);
+                else                out.append("//").append(content);
+            }
+            else if( t.type == TokenType.COMMENT_BLOCK && !t.text.contains(
+                "\n"
+            ) && !t.text.contains(
+                "\r"
+            ) ) {
+                final String inner = t.text.substring( 2, t.text.length() - 2 );
+                if( "FALL-THROUGH".equals( inner.trim() ) ) out.append(t.text);
+                else out.append("/*").append( applyCommentTextRules(inner) ).append("*/");
+            }
+            else if(t.type == TokenType.COMMENT_BLOCK) {
+                out.append(
+                    reformatMultiLineBlockComment( t.text, renderIndent( indentBefore(tokens, i), indentStyle ) )
+                );
+            }
+            else if(t.type == TokenType.PREPROCESSOR) {
+                out.append( capitalizePreprocessorTrailingComment(t.text) );
+            }
+            else {
+                out.append(t.text);
+            }
+        } // for
+
         return out.toString();
     }
-    /** A `#define NAME VALUE // comment` line is lexed as one opaque {@code PREPROCESSOR} token
+    /**
+     * A `#define NAME VALUE // comment` line is lexed as one opaque {@code PREPROCESSOR} token
      *  (see {@link com.jxmake.formatter.tokenizer.TokenizerCore.TokenType#PREPROCESSOR}'s own
      *  doc), so its trailing `//` comment never becomes a separate {@code COMMENT_LINE} token and
      *  is skipped by the loop above. Applies the same capitalization rule directly to the text
-     *  portion after a top-level (not inside a string/char literal) `//`, if any. */
-    protected String capitalizePreprocessorTrailingComment(final String text) {
+     *  portion after a top-level (not inside a string/char literal) `//`, if any.
+     */
+    protected String capitalizePreprocessorTrailingComment(final String text)
+    {
         final int idx = findTopLevelLineCommentStart(text);
-        if (idx < 0) {
-            return text;
-        }
+        if(idx < 0) return text;
         final String before = text.substring(0, idx);
-        final String inner = text.substring(idx + 2);
+        final String inner  = text.substring(idx + 2);
+
         return before + "//" + capitalizeFirstLetter(inner);
     }
     /** Index of a `//` sequence not nested inside a `"..."` or `'...'` literal, or -1 if none. */
-    protected int findTopLevelLineCommentStart(final String text) {
+    protected int findTopLevelLineCommentStart(final String text)
+    {
         boolean inString = false;
-        boolean inChar = false;
-        for (int i = 0; i < text.length() - 1; i++) {
+        boolean inChar   = false;
+        for( int i = 0; i < text.length() - 1; ++i ) {
             final char c = text.charAt(i);
-            if (inString) {
-                if (c == '\\') {
-                    i++;
-                } else if (c == '"') {
-                    inString = false;
-                }
+            if(inString) {
+                if(c == '\\')     i++;
+                else if(c == '"') inString = false;
                 continue;
             }
-            if (inChar) {
-                if (c == '\\') {
-                    i++;
-                } else if (c == '\'') {
-                    inChar = false;
-                }
+            if(inChar) {
+                if(c == '\\')      i++;
+                else if(c == '\'') inChar = false;
                 continue;
             }
-            if (c == '"') {
-                inString = true;
-            } else if (c == '\'') {
-                inChar = true;
-            } else if (c == '/' && text.charAt(i + 1) == '/') {
-                return i;
-            }
-        }
+            if(c == '"')                                     inString = true;
+            else if(c == '\'')                               inChar = true;
+            else if( c == '/' && text.charAt(i + 1) == '/' ) return i;
+        } // for
+
         return -1;
     }
-    /** Groups consecutive `//` line comments -- back to back with no blank line between -- into
+    /**
+     * Groups consecutive `//` line comments -- back to back with no blank line between -- into
      *  one §15 sentence-detection unit, the same way a multi-line `/* ... *&#47;` block comment
      *  already is: the trailing period is stripped only when it is the sole `.` across every line
      *  of the group, not just the last line alone. A closing-brace-label comment
@@ -1475,153 +1734,167 @@ public static final class Assignment {
      *  RDD_KEY_47 follow-up) but is never itself rewritten -- rendered verbatim, exactly as before.
      *  Returns each rewritable group member's already-capitalized, period-decided replacement
      *  content, keyed by its token index; a token absent from the map must be rendered verbatim by
-     *  the caller. */
-    protected Map<Integer, String> computeLineCommentGroups(final List<Token> tokens) {
+     *  the caller.
+     */
+    protected Map<Integer, String> computeLineCommentGroups(final List<Token> tokens)
+    {
         final Map<Integer, String> result = new HashMap<>();
-        int i = 0;
-        while (i < tokens.size()) {
+              int                  i      = 0;
+        while( i < tokens.size() ) {
             final Token t = tokens.get(i);
-            if (t.type == TokenType.COMMENT_LINE && isCommentChainLink(tokens, i)) {
+            if( t.type == TokenType.COMMENT_LINE && isCommentChainLink(tokens, i) ) {
                 final List<Integer> group = new ArrayList<>();
                 group.add(i);
                 int j = i;
                 int next;
-                while ((next = nextCommentChainLinkIfAdjacent(tokens, j)) >= 0) {
+                while( ( next = nextCommentChainLinkIfAdjacent(tokens, j) ) >= 0 ) {
                     group.add(next);
                     j = next;
                 }
                 final List<String> contents = new ArrayList<>();
-                for (final int idx : group) {
-                    contents.add(tokens.get(idx).text.substring(2));
-                }
+                for(final int idx : group) contents.add( tokens.get(idx).text.substring(2) );
                 final int lastIdx = group.size() - 1;
-                if (isCommentRewritable(tokens, group.get(lastIdx))) {
-                    stripSoleTrailingPeriodAcrossLines(contents);
-                }
-                if (isCommentRewritable(tokens, group.get(0))) {
-                    contents.set(0, capitalizeFirstLetter(contents.get(0)));
-                }
-                for (int k = 0; k < group.size(); k++) {
-                    if (isCommentRewritable(tokens, group.get(k))) {
-                        result.put(group.get(k), contents.get(k));
-                    }
-                }
+                if( isCommentRewritable(
+                    tokens, group.get(lastIdx)
+                ) ) stripSoleTrailingPeriodAcrossLines(
+                    contents
+                );
+                if( isCommentRewritable(
+                    tokens, group.get(0)
+                ) ) contents.set(
+                    0, capitalizeFirstLetter( contents.get(0) )
+                );
+                for( int k = 0; k < group.size(); ++k ) {
+                    if( isCommentRewritable(
+                        tokens, group.get(k)
+                    ) ) result.put(
+                        group.get(k), contents.get(k)
+                    );
+                } // for
                 i = j + 1;
-            } else {
-                i++;
+            } // if
+            else {
+                ++i;
             }
-        }
+        } // while
+
         return result;
     }
-    /** True iff the {@code COMMENT_LINE} token at {@code idx} extends a §15 sentence-detection
-     *  chain: any plain `//` comment that is not a closing-brace label. */
-    protected boolean isCommentChainLink(final List<Token> tokens, final int idx) {
+    /**
+     * True iff the {@code COMMENT_LINE} token at {@code idx} extends a §15 sentence-detection
+     *  chain: any plain `//` comment that is not a closing-brace label
+     */
+    protected boolean isCommentChainLink(final List<Token> tokens, final int idx)
+    {
         return !isClosingBraceLabelComment(tokens, idx);
     }
-    /** True iff the {@code COMMENT_LINE} token at {@code idx} may actually be rewritten (not a
-     *  separator-alignment label, handled instead by {@link #alignCommentSeparators}). */
-    protected boolean isCommentRewritable(final List<Token> tokens, final int idx) {
+    /**
+     * True iff the {@code COMMENT_LINE} token at {@code idx} may actually be rewritten (not a
+     *  separator-alignment label, handled instead by {@link #alignCommentSeparators})
+     */
+    protected boolean isCommentRewritable(final List<Token> tokens, final int idx)
+    {
         final Token t = tokens.get(idx);
+
         return parseSeparatorComment(t.text, idx) == null;
     }
-    /** True iff the {@code COMMENT_LINE} token at {@code idx} is alone on its physical line (only
+    /**
+     * True iff the {@code COMMENT_LINE} token at {@code idx} is alone on its physical line (only
      *  {@code WHITESPACE} between it and the start of the line or a preceding {@code NEWLINE}) --
      *  as opposed to a trailing end-of-line comment following real code on the same line. A
      *  trailing comment must never extend the §15 grouping chain onto a following line's own-line
      *  comment: the two are logically unrelated (one annotates a statement, the other starts a
      *  fresh prose block), even though nothing here stops a trailing comment from being grouped
-     *  on its own as a size-1 group and rewritten individually. */
-    protected boolean isStandaloneCommentLine(final List<Token> tokens, final int idx) {
+     *  on its own as a size-1 group and rewritten individually.
+     */
+    protected boolean isStandaloneCommentLine(final List<Token> tokens, final int idx)
+    {
         int p = idx - 1;
-        while (p >= 0 && tokens.get(p).type == TokenType.WHITESPACE) {
-            p--;
-        }
+        while( p >= 0 && tokens.get(p).type == TokenType.WHITESPACE ) p--;
+
         return p < 0 || tokens.get(p).type == TokenType.NEWLINE;
     }
-    /** If the token at {@code idx} is a `//` chain-link comment standing alone on its own physical
+    /**
+     * If the token at {@code idx} is a `//` chain-link comment standing alone on its own physical
      *  line, and it is followed -- after exactly one {@code NEWLINE} and only {@code WHITESPACE}
      *  otherwise (no blank line, no other token) -- by another chain-link `//` comment, returns
      *  that next comment's token index; otherwise returns -1. A trailing end-of-line comment (one
      *  following real code on its own line) never extends the chain onto the next line, even if
-     *  that next line is itself a standalone comment. */
-    protected int nextCommentChainLinkIfAdjacent(final List<Token> tokens, final int idx) {
-        if (!isStandaloneCommentLine(tokens, idx)) {
-            return -1;
-        }
-        int p = idx + 1;
+     *  that next line is itself a standalone comment.
+     */
+    protected int nextCommentChainLinkIfAdjacent(final List<Token> tokens, final int idx)
+    {
+        if( !isStandaloneCommentLine(tokens, idx) ) return -1;
+        int p            = idx + 1;
         int newlineCount = 0;
-        while (p < tokens.size()) {
+        while( p < tokens.size() ) {
             final TokenType type = tokens.get(p).type;
-            if (type == TokenType.WHITESPACE) {
-                p++;
-            } else if (type == TokenType.NEWLINE) {
-                newlineCount++;
-                if (newlineCount > 1) {
-                    return -1;
-                }
-                p++;
-            } else {
+            if(type == TokenType.WHITESPACE) {
+                ++p;
+            }
+            else if(type == TokenType.NEWLINE) {
+                ++newlineCount;
+                if(newlineCount > 1) return -1;
+                ++p;
+            }
+            else {
                 break;
             }
-        }
-        if (p >= tokens.size() || newlineCount != 1) {
-            return -1;
-        }
-        if (tokens.get(p).type == TokenType.COMMENT_LINE && isCommentChainLink(tokens, p)) {
-            return p;
-        }
+        } // while
+        if( p >= tokens.size() || newlineCount != 1 ) return -1;
+        if( tokens.get(
+            p
+        ).type == TokenType.COMMENT_LINE && isCommentChainLink(
+            tokens, p
+        ) ) return p;
+
         return -1;
     }
-    /** True iff the {@code COMMENT_LINE} token at {@code idx} is immediately preceded, on the
+    /**
+     * True iff the {@code COMMENT_LINE} token at {@code idx} is immediately preceded, on the
      *  same physical line (only {@code WHITESPACE} in between, no {@code NEWLINE}), by a `}` --
      *  optionally followed by a `;` (C/C++ `struct`/`class`/`enum`/`union` definitions) -- the
      *  exact shape {@code BlockStructureRule.addClosingComments} generates (STYLE.md §7's
      *  `// label` closing comments). Catches both freshly-generated and user-written instances of
      *  this shape alike, consistent with STYLE.md's own "labels/markers/closing-comments" framing
-     *  not distinguishing the two. */
-    protected boolean isClosingBraceLabelComment(final List<Token> tokens, final int idx) {
+     *  not distinguishing the two.
+     */
+    protected boolean isClosingBraceLabelComment(final List<Token> tokens, final int idx)
+    {
         int p = idx - 1;
-        while (p >= 0 && tokens.get(p).type == TokenType.WHITESPACE) {
-            p--;
+        while( p >= 0 && tokens.get(p).type == TokenType.WHITESPACE ) p--;
+        if(p < 0) return false;
+        if( isPunct( tokens.get(p), ";" ) ) {
+            --p;
+            while( p >= 0 && tokens.get(p).type == TokenType.WHITESPACE ) p--;
+            if(p < 0) return false;
         }
-        if (p < 0) {
-            return false;
-        }
-        if (isPunct(tokens.get(p), ";")) {
-            p--;
-            while (p >= 0 && tokens.get(p).type == TokenType.WHITESPACE) {
-                p--;
-            }
-            if (p < 0) {
-                return false;
-            }
-        }
-        if (!isPunct(tokens.get(p), "}")) {
-            return false;
-        }
+        if( !isPunct( tokens.get(p), "}" ) ) return false;
         // A generated/genuine closing-comment label only ever follows a `}` that sits alone on
         // its own line (STYLE.md §7's rendering); a `}` sharing its line with the rest of a
         // one-liner body (`{ return v_; }`) can never carry one, so a trailing comment there
         // (e.g. a one-liner getter's `// getter`) is just an ordinary comment.
         int q = p - 1;
-        while (q >= 0 && tokens.get(q).type == TokenType.WHITESPACE) {
-            q--;
-        }
+        while( q >= 0 && tokens.get(q).type == TokenType.WHITESPACE ) q--;
+
         return q < 0 || tokens.get(q).type == TokenType.NEWLINE;
     }
     protected static final class SepMatch {
-        final int tokenIndex;
+
+        final int    tokenIndex;
         final String label;
-        final char sep;
+        final char   sep;
         final String rest;
 
-        SepMatch(final int tokenIndex, final String label, final char sep, final String rest) {
+        SepMatch(final int tokenIndex, final String label, final char sep, final String rest)
+        {
             this.tokenIndex = tokenIndex;
-            this.label = label;
-            this.sep = sep;
-            this.rest = rest;
+            this.label      = label;
+            this.sep        = sep;
+            this.rest       = rest;
         }
-    }
+
+    } // class SepMatch
     /**
      * Resolved -- see STATE.md "§15 separator alignment": a trailing `//` comment qualifies as a
      * separator-alignment label iff its text (after `//`) contains exactly one character that is
@@ -1631,41 +1904,70 @@ public static final class Assignment {
      * is the label, everything after it (trimmed) is the rest. A comment with zero or 2+ such
      * candidates, or where label/rest would be empty, does not qualify and returns {@code null}.
      */
-    protected SepMatch parseSeparatorComment(final String commentText, final int tokenIndex) {
+    protected SepMatch parseSeparatorComment(final String commentText, final int tokenIndex)
+    {
         final String content = commentText.substring(2);
-        int sepPos = -1;
-        for (int i = 1; i < content.length() - 1; i++) {
+              int    sepPos  = - 1;
+        for( int i = 1; i < content.length() - 1; ++i ) {
             final char c = content.charAt(i);
-            if (Character.isWhitespace(c) || Character.isLetterOrDigit(c)) {
-                continue;
-            }
-            if (content.charAt(i - 1) == ' ' && content.charAt(i + 1) == ' ') {
-                if (sepPos != -1) {
-                    return null;
-                }
+            if( Character.isWhitespace(c) || Character.isLetterOrDigit(c) ) continue;
+            if( content.charAt(i - 1) == ' ' && content.charAt(i + 1) == ' ' ) {
+                if(sepPos != -1) return null;
                 sepPos = i;
             }
-        }
-        if (sepPos == -1) {
-            return null;
-        }
+        } // for
+        if(sepPos == -1) return null;
         final String label = content.substring(0, sepPos).trim();
-        final String rest = content.substring(sepPos + 1).trim();
-        if (label.isEmpty() || rest.isEmpty()) {
-            return null;
-        }
-        return new SepMatch(tokenIndex, label, content.charAt(sepPos), rest);
+        final String rest  = content.substring(sepPos + 1).trim();
+        if( label.isEmpty() || rest.isEmpty() ) return null;
+
+        return new SepMatch( tokenIndex, label, content.charAt(sepPos), rest );
     }
-    /** Lowercase short function/prose words whose presence as a whole word in a label/rest
+    /**
+     * Lowercase short function/prose words whose presence as a whole word in a label/rest
      *  fragment signals ordinary English sentence structure rather than a short code-like label
      *  (see {@link #looksCodeLike}). Deliberately small and common -- these are words that show
      *  up constantly in prose but essentially never inside a §15-style aligned label/value
-     *  fragment (e.g. `Comment A`, `10`, `nested`). */
-    private static final Set<String> PROSE_STOPWORDS = new HashSet<>(Arrays.asList(
-            "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
-            "to", "of", "in", "on", "if", "that", "this", "these", "those",
-            "can", "used", "use", "with", "for", "and", "or", "but", "not",
-            "it", "as", "by", "from", "one", "which", "quoted", "correctly"));
+     *  fragment (e.g. `Comment A`, `10`, `nested`).
+     */
+    private static final Set<String> PROSE_STOPWORDS = new HashSet<>( Arrays.asList(
+        "a",
+        "an",
+        "the",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "to",
+        "of",
+        "in",
+        "on",
+        "if",
+        "that",
+        "this",
+        "these",
+        "those",
+        "can",
+        "used",
+        "use",
+        "with",
+        "for",
+        "and",
+        "or",
+        "but",
+        "not",
+        "it",
+        "as",
+        "by",
+        "from",
+        "one",
+        "which",
+        "quoted",
+        "correctly"
+    ) );
 
     /**
      * Direction-(2) heuristic for the RDD_KEY_50/RDD_KEY_201 false-positive (see
@@ -1687,19 +1989,19 @@ public static final class Assignment {
      * (breaks the run, same "doesn't match, breaks the group" posture as everywhere else in this
      * file) rather than being merged into or corrupting the group.
      */
-    protected static boolean looksCodeLike(final String fragment) {
+    protected static boolean looksCodeLike(final String fragment)
+    {
         final String[] words = fragment.trim().split("\\s+");
-        if (words.length > 4 || fragment.length() > 24) {
-            return false;
-        }
-        for (final String w : words) {
+        if( words.length > 4 || fragment.length() > 24 ) return false;
+        for(final String w : words) {
             // A single letter (e.g. the `A`/`BB` suffix in `Comment A`/`Comment BB`) is never
             // itself meant as the stopword "a" -- only match stopwords that are at least 2
             // characters, so a short identifier-like label isn't mistaken for the article "a".
-            if (w.length() >= 2 && PROSE_STOPWORDS.contains(w.toLowerCase(java.util.Locale.ROOT))) {
-                return false;
-            }
-        }
+            if( w.length() >= 2 && PROSE_STOPWORDS.contains(
+                w.toLowerCase(java.util.Locale.ROOT)
+            ) ) return false;
+        } // for
+
         return true;
     }
 
@@ -1718,69 +2020,80 @@ public static final class Assignment {
      * a lone qualifying line is left byte-for-byte untouched, same minimum-group-size precedent as
      * §14's getter/setter grouping.
      */
-    public String alignCommentSeparators(final List<Token> tokens) {
-        final List<SepMatch> perLine = new ArrayList<>();
-        int lineStart = 0;
-        for (int i = 0; i <= tokens.size(); i++) {
-            if (i == tokens.size() || tokens.get(i).type == TokenType.NEWLINE) {
+    public String alignCommentSeparators(final List<Token> tokens)
+    {
+        final List<SepMatch> perLine   = new ArrayList<>();
+              int            lineStart = 0;
+        for( int i = 0; i <= tokens.size(); ++i ) {
+            if( i == tokens.size() || tokens.get(i).type == TokenType.NEWLINE ) {
                 SepMatch m = findTrailingSeparatorComment(tokens, lineStart, i);
-                if (m != null && (!looksCodeLike(m.label) || !looksCodeLike(m.rest))) {
+                if( m != null && ( !looksCodeLike(m.label) || !looksCodeLike(m.rest) ) ) {
                     // Prose fragment (see #looksCodeLike) -- not a genuine §15 label/value pair;
                     // treat exactly like a non-qualifying line so it breaks any run instead of
-                    // being merged into or corrupting one.
+                    // being merged into or corrupting one
                     m = null;
                 }
                 perLine.add(m);
                 lineStart = i + 1;
-            }
-        }
+            } // if
+        } // for
 
         final Map<Integer, String> rewrites = new HashMap<>();
-        int runStart = 0;
-        while (runStart < perLine.size()) {
-            if (perLine.get(runStart) == null) {
-                runStart++;
+              int                  runStart = 0;
+        while( runStart < perLine.size() ) {
+            if( perLine.get(runStart) == null ) {
+                ++runStart;
                 continue;
             }
             int runEnd = runStart + 1;
-            while (runEnd < perLine.size() && perLine.get(runEnd) != null
-                    && perLine.get(runEnd).sep == perLine.get(runStart).sep) {
-                runEnd++;
-            }
-            if (runEnd - runStart >= 2) {
+            while( runEnd < perLine.size() && perLine.get(
+                runEnd
+            ) != null && perLine.get(
+                runEnd
+            ).sep == perLine.get(
+                runStart
+            ).sep ) runEnd++;
+            if(runEnd - runStart >= 2) {
                 int maxLabelLen = 0;
-                for (int i = runStart; i < runEnd; i++) {
-                    maxLabelLen = Math.max(maxLabelLen, perLine.get(i).label.length());
-                }
-                for (int i = runStart; i < runEnd; i++) {
-                    final SepMatch m = perLine.get(i);
-                    final String newText = "// " + padRight(m.label, maxLabelLen) + " " + m.sep + " " + m.rest;
+                for(int i = runStart; i < runEnd; ++i) maxLabelLen = Math.max(
+                    maxLabelLen, perLine.get(i).label.length()
+                );
+                for(int i = runStart; i < runEnd; ++i) {
+                    final SepMatch m       = perLine.get(i);
+                    final String   newText = "// " + padRight(
+                        m.label, maxLabelLen
+                    ) + " " + m.sep + " " + m.rest;
                     rewrites.put(m.tokenIndex, newText);
-                }
-            }
+                } // for
+            } // if
             runStart = runEnd;
-        }
+        } // while
 
         final StringBuilder out = new StringBuilder();
-        for (int i = 0; i < tokens.size(); i++) {
+        for( int i = 0; i < tokens.size(); ++i ) {
             final String rewritten = rewrites.get(i);
-            out.append(rewritten != null ? rewritten : tokens.get(i).text);
+            out.append( rewritten != null ? rewritten : tokens.get(i).text );
         }
+
         return out.toString();
     }
-    /** The {@link SepMatch} for the line spanning {@code [from, to)}, or {@code null} if that
-     *  line's last significant token isn't a qualifying separator-alignment `//` comment. */
-    protected SepMatch findTrailingSeparatorComment(final List<Token> tokens, final int from, final int to) {
-        for (int i = to - 1; i >= from; i--) {
+    /**
+     * The {@link SepMatch} for the line spanning {@code [from, to)}, or {@code null} if that
+     *  line's last significant token isn't a qualifying separator-alignment `//` comment
+     */
+    protected SepMatch findTrailingSeparatorComment(
+        final List<Token> tokens,
+        final int         from,
+        final int         to
+    )
+    {
+        for(int i = to - 1; i >= from; --i) {
             final Token t = tokens.get(i);
-            if (t.type == TokenType.WHITESPACE) {
-                continue;
-            }
-            if (t.type != TokenType.COMMENT_LINE || t.frozen) {
-                return null;
-            }
+            if(t.type == TokenType.WHITESPACE) continue;
+            if(t.type != TokenType.COMMENT_LINE || t.frozen) return null;
             return parseSeparatorComment(t.text, i);
         }
+
         return null;
     }
     /**
@@ -1806,176 +2119,180 @@ public static final class Assignment {
      * sentence never ends in a period, even one that merely got wrapped onto multiple physical
      * lines" reading already established for `//` comments.
      */
-    protected String reformatMultiLineBlockComment(final String text, final String indent) {
-        final String[] rawLines = text.split("\r\n|\r|\n", -1);
-        final int n = rawLines.length;
-        for (int i = 1; i < n; i++) {
-            if (!stripLeadingWhitespace(rawLines[i]).startsWith("*")) {
-                return text;
-            }
+    protected String reformatMultiLineBlockComment(final String text, final String indent)
+    {
+        final String[] rawLines = text.split("\r\n|\r|\n", - 1);
+        final int      n        = rawLines.length;
+        for(int i = 1; i < n; ++i) {
+            if( !stripLeadingWhitespace( rawLines[i] ).startsWith("*") ) return text;
         }
 
         int openMarkerEnd = 2;
-        while (openMarkerEnd < rawLines[0].length() && rawLines[0].charAt(openMarkerEnd) == '*') {
-            openMarkerEnd++;
-        }
-        final String openMarker = rawLines[0].substring(0, openMarkerEnd);
+        while( openMarkerEnd < rawLines[0].length() && rawLines[0].charAt(
+            openMarkerEnd
+        ) == '*' ) openMarkerEnd++;
+        final String openMarker   = rawLines[0].substring(0, openMarkerEnd);
         final String firstContent = rawLines[0].substring(openMarkerEnd).trim();
 
-        final String lastStripped = stripLeadingWhitespace(rawLines[n - 1]);
+        final String lastStripped = stripLeadingWhitespace( rawLines[n - 1] );
         final String lastContent;
-        if ("*/".equals(lastStripped)) {
+        if( "*/".equals(lastStripped) ) {
             lastContent = "";
-        } else {
+        }
+        else {
             final String afterMarker = afterLeadingStarMarker(lastStripped);
-            if (!afterMarker.endsWith("*/")) {
-                return text;
-            }
-            lastContent = trimTrailing(afterMarker.substring(0, afterMarker.length() - 2));
+            if( !afterMarker.endsWith("*/") ) return text;
+            lastContent = trimTrailing( afterMarker.substring( 0, afterMarker.length() - 2 ) );
         }
 
         final List<String> contentLines = new ArrayList<>();
-        if (!firstContent.isEmpty()) {
-            contentLines.add(firstContent);
-        }
-        for (int i = 1; i < n - 1; i++) {
-            contentLines.add(trimTrailing(afterLeadingStarMarker(stripLeadingWhitespace(rawLines[i]))));
-        }
-        if (!lastContent.isEmpty()) {
-            contentLines.add(lastContent);
-        }
+        if( !firstContent.isEmpty() ) contentLines.add(firstContent);
+        for(int i = 1; i < n - 1; ++i) contentLines.add(
+            trimTrailing( afterLeadingStarMarker( stripLeadingWhitespace( rawLines[i] ) ) )
+        );
+        if( !lastContent.isEmpty() ) contentLines.add(lastContent);
 
-        if (!contentLines.isEmpty()) {
-            contentLines.set(0, capitalizeFirstLetter(contentLines.get(0)));
-        }
+        if( !contentLines.isEmpty() ) contentLines.set(
+            0, capitalizeFirstLetter( contentLines.get(0) )
+        );
         stripSoleTrailingPeriodAcrossLines(contentLines);
 
         final StringBuilder out = new StringBuilder(openMarker);
-        for (final String line : contentLines) {
+        for(final String line : contentLines) {
             out.append('\n').append(indent).append(" *");
-            if (!line.isEmpty()) {
-                out.append(' ').append(line);
-            }
+            if( !line.isEmpty() ) out.append(' ').append(line);
         }
         out.append('\n').append(indent).append(" */");
+
         return out.toString();
     }
-    /** Drops a line's leading whitespace, returning the remainder unchanged. */
-    protected String stripLeadingWhitespace(final String line) {
+    /** Drops a line's leading whitespace, returning the remainder unchanged */
+    protected String stripLeadingWhitespace(final String line)
+    {
         int i = 0;
-        while (i < line.length() && Character.isWhitespace(line.charAt(i))) {
-            i++;
-        }
+        while( i < line.length() && Character.isWhitespace( line.charAt(i) ) ) i++;
+
         return line.substring(i);
     }
-    /** Drops a leading `*` and at most one space immediately after it. Caller must have already
-     *  verified {@code wsStrippedLine} starts with `*`. */
-    protected String afterLeadingStarMarker(final String wsStrippedLine) {
+    /**
+     * Drops a leading `*` and at most one space immediately after it. Caller must have already
+     *  verified {@code wsStrippedLine} starts with `*`.
+     */
+    protected String afterLeadingStarMarker(final String wsStrippedLine)
+    {
         String rest = wsStrippedLine.substring(1);
-        if (rest.startsWith(" ")) {
-            rest = rest.substring(1);
-        }
+        if( rest.startsWith(" ") ) rest = rest.substring(1);
+
         return rest;
     }
-    protected String trimTrailing(final String s) {
+    protected String trimTrailing(final String s)
+    {
         int end = s.length();
-        while (end > 0 && Character.isWhitespace(s.charAt(end - 1))) {
-            end--;
-        }
+        while( end > 0 && Character.isWhitespace( s.charAt(end - 1) ) ) end--;
+
         return s.substring(0, end);
     }
-    /** Cross-line generalization of {@link #stripSoleTrailingPeriod}: strips the trailing `.` on
-     *  the last entry only when it is the sole `.` across every entry. */
-    protected void stripSoleTrailingPeriodAcrossLines(final List<String> lines) {
-        if (!normalizeCommentEndPeriod || lines.isEmpty()) {
-            return;
-        }
-        if (commentNormalizationClassifier) {
+    /**
+     * Cross-line generalization of {@link #stripSoleTrailingPeriod}: strips the trailing `.` on
+     *  the last entry only when it is the sole `.` across every entry.
+     */
+    protected void stripSoleTrailingPeriodAcrossLines(final List<String> lines)
+    {
+        if( !normalizeCommentEndPeriod || lines.isEmpty() ) return;
+        if(commentNormalizationClassifier) {
             final String joined = String.join("\n", lines);
-            if (classifyComment(joined, lastTokenIndex(joined)) != CommentDecision.YES) {
-                return;
-            }
+            if( classifyComment( joined, lastTokenIndex(joined) ) != CommentDecision.YES ) return;
         }
         int dotCount = 0;
-        for (final String l : lines) {
-            for (int i = 0; i < l.length(); i++) {
-                if (l.charAt(i) == '.') {
-                    dotCount++;
-                }
+        for(final String l : lines) {
+            for( int i = 0; i < l.length(); ++i ) {
+                if( l.charAt(i) == '.' ) dotCount++;
             }
         }
-        if (dotCount != 1) {
-            return;
-        }
-        final int lastIdx = lines.size() - 1;
-        final String last = lines.get(lastIdx);
-        if (last.isEmpty() || last.charAt(last.length() - 1) != '.') {
-            return;
-        }
-        // Same trailing-whitespace-before-the-period fix as `stripSoleTrailingPeriod`.
-        lines.set(lastIdx, trimTrailing(last.substring(0, last.length() - 1)));
+        if(dotCount != 1) return;
+        final int    lastIdx = lines.size() - 1;
+        final String last    = lines.get(lastIdx);
+        if( last.isEmpty() || last.charAt( last.length() - 1 ) != '.' ) return;
+        // Same trailing-whitespace-before-the-period fix as `stripSoleTrailingPeriod`
+        lines.set( lastIdx, trimTrailing( last.substring( 0, last.length() - 1 ) ) );
     }
-    /** The leading whitespace of the line containing the token at idx, or "" if it isn't first on
-     *  its line -- same precedent as `BlockStructureRule.indentBefore`. */
-    protected String indentBefore(final List<Token> tokens, final int idx) {
+    /**
+     * The leading whitespace of the line containing the token at idx, or "" if it isn't first on
+     *  its line -- same precedent as `BlockStructureRule.indentBefore`.
+     */
+    protected String indentBefore(final List<Token> tokens, final int idx)
+    {
         final StringBuilder indent = new StringBuilder();
-        int i = idx - 1;
-        while (i >= 0 && tokens.get(i).type == TokenType.WHITESPACE) {
-            indent.insert(0, tokens.get(i).text);
-            i--;
+              int           i      = idx - 1;
+        while( i >= 0 && tokens.get(i).type == TokenType.WHITESPACE ) {
+            indent.insert( 0, tokens.get(i).text );
+            --i;
         }
-        return (i < 0 || tokens.get(i).type == TokenType.NEWLINE) ? indent.toString() : "";
+
+        return ( i < 0 || tokens.get(i).type == TokenType.NEWLINE ) ? indent.toString() : "";
     }
-    protected String capitalizeFirstLetter(final String content) {
-        if (!normalizeCommentStartCase) {
-            return content;
-        }
-        for (int i = 0; i < content.length(); i++) {
+    protected String capitalizeFirstLetter(final String content)
+    {
+        if(!normalizeCommentStartCase) return content;
+        for( int i = 0; i < content.length(); ++i ) {
             final char c = content.charAt(i);
-            if (Character.isWhitespace(c)) {
-                continue;
-            }
-            if (Character.isLetter(c) && Character.isLowerCase(c)) {
-                if (commentNormalizationClassifier) {
-                    if (classifyComment(content, 0) != CommentDecision.YES) {
-                        return content;
-                    }
-                    return content.substring(0, i) + Character.toUpperCase(c) + content.substring(i + 1);
-                }
-                // Extract the first word to check whether it is a keyword.
+            if( Character.isWhitespace(c) ) continue;
+            if( Character.isLetter(c) && Character.isLowerCase(c) ) {
+                if(commentNormalizationClassifier) {
+                    if( classifyComment(content, 0) != CommentDecision.YES ) return content;
+                    return content.substring(
+                        0, i
+                    ) + Character.toUpperCase(
+                        c
+                    ) + content.substring(
+                        i + 1
+                    );
+                } // if
+                // Extract the first word to check whether it is a keyword
                 int end = i;
-                while (end < content.length()
-                        && (Character.isLetterOrDigit(content.charAt(end))
-                                || content.charAt(end) == '_')) {
-                    end++;
-                }
-                if (isCommentNoCapitalizeWord(content.substring(i, end))) {
-                    return content;
-                }
-                return content.substring(0, i) + Character.toUpperCase(c) + content.substring(i + 1);
-            }
+                while( end < content.length() && ( Character.isLetterOrDigit(
+                    content.charAt(end)
+                ) || content.charAt(
+                    end
+                ) == '_' ) ) end++;
+                if( isCommentNoCapitalizeWord( content.substring(i, end) ) ) return content;
+                return content.substring(
+                    0, i
+                ) + Character.toUpperCase(
+                    c
+                ) + content.substring(
+                    i + 1
+                );
+            } // if
             break;
-        }
+        } // for
+
         return content;
     }
-    /** True iff `word` is a keyword in the current file's language ({@link #lang}) that must
+    /**
+     * True iff `word` is a keyword in the current file's language ({@link #lang}) that must
      *  never be titlecased when it starts a comment sentence -- checked against the
      *  language-specific set only, so a C/C++-only keyword like `inline` never suppresses
-     *  capitalization in a Java comment, and vice versa. */
-    protected boolean isCommentNoCapitalizeWord(final String word) {
-        if (lang.isJava) {
-            return COMMENT_NO_CAPITALIZE_JAVA.contains(word);
-        }
-        if (lang.isCpp) {
-            return COMMENT_NO_CAPITALIZE_C.contains(word) || COMMENT_NO_CAPITALIZE_CPP.contains(word);
-        }
+     *  capitalization in a Java comment, and vice versa
+     */
+    protected boolean isCommentNoCapitalizeWord(final String word)
+    {
+        if(lang.isJava) return COMMENT_NO_CAPITALIZE_JAVA.contains(word);
+        if(lang.isCpp) return COMMENT_NO_CAPITALIZE_C.contains(
+            word
+        ) || COMMENT_NO_CAPITALIZE_CPP.contains(
+            word
+        );
+
         return COMMENT_NO_CAPITALIZE_C.contains(word);
     }
 
-    protected String applyCommentTextRules(final String content) {
-        return stripSoleTrailingPeriod(capitalizeFirstLetter(content));
+    protected String applyCommentTextRules(final String content)
+    {
+        return stripSoleTrailingPeriod( capitalizeFirstLetter(content) );
     }
-    /** RDD_KEY_94/STATE_COMMENT_GRAMMAR.md's classifier-backed decision path -- only consulted
+    /**
+     * RDD_KEY_94/STATE_COMMENT_GRAMMAR.md's classifier-backed decision path -- only consulted
      *  when {@link #commentNormalizationClassifier} is on, replacing the purely-deterministic
      *  {@link #isCommentNoCapitalizeWord}/dot-count logic for that one comment. Per the hard
      *  architectural constraint, {@link CommentDecision#ABSTAIN} (and, symmetrically here,
@@ -1988,73 +2305,87 @@ public static final class Assignment {
      *  falls through to {@link GruAbstainResolver#resolve} (STATE_AI.md Step 3) with
      *  {@code targetWordIndex} pointing at the token the decision actually hinges on -- index 0
      *  (leading word) for the capitalize-first-letter call site, last-token index for the
-     *  strip-trailing-period call sites, per {@link #classifyComment(String, int)}. */
-    protected CommentDecision classifyComment(final String content) {
+     *  strip-trailing-period call sites, per {@link #classifyComment(String, int)}.
+     */
+    protected CommentDecision classifyComment(final String content)
+    {
         return classifyComment(content, 0);
     }
 
-    /** Same as {@link #classifyComment(String)}, but lets the caller specify which token index
+    /**
+     * Same as {@link #classifyComment(String)}, but lets the caller specify which token index
      *  (post {@link GruClassifier#tokenize}) the ambiguous decision is actually about, so the GRU
-     *  stage (when reached) looks at the right word. */
-    protected CommentDecision classifyComment(final String content, final int targetWordIndex) {
+     *  stage (when reached) looks at the right word
+     */
+    protected CommentDecision classifyComment(final String content, final int targetWordIndex)
+    {
         final com.jxmake.formatter.classifier.CommentFeatureVector features =
-                CommentFeatureExtractor.extract(content, lang, TokenType.COMMENT_LINE, targetWordIndex);
-        return GruAbstainResolver.resolve(features, content, targetWordIndex, gruClassifier, gruWeightsPath);
+                CommentFeatureExtractor.extract(
+                    content, lang, TokenType.COMMENT_LINE, targetWordIndex
+                );
+
+        return GruAbstainResolver.resolve(
+            features, content, targetWordIndex, gruClassifier, gruWeightsPath
+        );
     }
 
-    /** Token index of the last token in {@code content} per {@link GruClassifier#tokenize}, or 0
+    /**
+     * Token index of the last token in {@code content} per {@link GruClassifier#tokenize}, or 0
      *  if {@code content} tokenizes to nothing -- used as the strip-trailing-period call sites'
-     *  {@code targetWordIndex} (the ambiguous trailing dot is the last token). */
-    protected static int lastTokenIndex(final String content) {
+     *  {@code targetWordIndex} (the ambiguous trailing dot is the last token)
+     */
+    protected static int lastTokenIndex(final String content)
+    {
         final int size = GruClassifier.tokenize(content).size();
+
         return size == 0 ? 0 : size - 1;
     }
-    /** Strips the trailing `.` only when it is the sole `.` in `content` -- this also leaves an
-     *  ellipsis (`...`) untouched for free, since an ellipsis's dot count is never exactly 1. */
-    protected String stripSoleTrailingPeriod(final String content) {
-        if (!normalizeCommentEndPeriod) {
-            return content;
-        }
-        if (commentNormalizationClassifier
-                && classifyComment(content, lastTokenIndex(content)) != CommentDecision.YES) {
-            return content;
-        }
+    /**
+     * Strips the trailing `.` only when it is the sole `.` in `content` -- this also leaves an
+     *  ellipsis (`...`) untouched for free, since an ellipsis's dot count is never exactly 1.
+     */
+    protected String stripSoleTrailingPeriod(final String content)
+    {
+        if(!normalizeCommentEndPeriod) return content;
+        if( commentNormalizationClassifier && classifyComment(
+            content, lastTokenIndex(content)
+        ) != CommentDecision.YES ) return content;
         int end = content.length();
-        while (end > 0 && Character.isWhitespace(content.charAt(end - 1))) {
-            end--;
-        }
-        if (end == 0 || content.charAt(end - 1) != '.') {
-            return content;
-        }
+        while( end > 0 && Character.isWhitespace( content.charAt(end - 1) ) ) end--;
+        if( end == 0 || content.charAt(end - 1) != '.' ) return content;
         int dotCount = 0;
-        for (int i = 0; i < content.length(); i++) {
-            if (content.charAt(i) == '.') {
-                dotCount++;
-            }
+        for( int i = 0; i < content.length(); ++i ) {
+            if( content.charAt(i) == '.' ) dotCount++;
         }
-        if (dotCount != 1) {
-            return content;
-        }
+        if(dotCount != 1) return content;
         // Also trim any whitespace that was between the last word and the period being
         // stripped (e.g. "...specified type ." -> "...specified type", not "...specified
         // type " with a stray trailing space) -- otherwise the trailing space survives this
         // pass and only gets caught by a later, unrelated trailing-whitespace pass, making the
         // comment converge over two formatter passes instead of one (idempotency bug).
-        return trimTrailing(content.substring(0, end - 1)) + content.substring(end);
+        return trimTrailing( content.substring(0, end - 1) ) + content.substring(end);
     }
-    protected boolean isCommentOrNewline(final Token t) {
+    protected boolean isCommentOrNewline(final Token t)
+    {
         return t.type == TokenType.NEWLINE || t.type == TokenType.COMMENT_LINE
                 || t.type == TokenType.COMMENT_BLOCK;
     }
-    /** {@code true} if any token in {@code [fromInclusive, toExclusive)} is frozen (RDD_KEY_90
+    /**
+     * {@code true} if any token in {@code [fromInclusive, toExclusive)} is frozen (RDD_KEY_90
      *  §A) -- used by structural/span-level passes to skip a whole candidate unit rather than try
-     *  to partially rewrite it. */
-    protected boolean anyFrozen(final List<Token> tokens, final int fromInclusive, final int toExclusive) {
-        for (int i = fromInclusive; i < toExclusive; i++) {
-            if (tokens.get(i).frozen) {
-                return true;
-            }
+     *  to partially rewrite it
+     */
+    protected boolean anyFrozen(
+        final List<Token> tokens,
+        final int         fromInclusive,
+        final int         toExclusive
+    )
+    {
+        for(int i = fromInclusive; i < toExclusive; ++i) {
+            if( tokens.get(i).frozen ) return true;
         }
+
         return false;
     }
-}
+
+} // class MiscRuleCore

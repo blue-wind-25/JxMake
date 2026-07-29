@@ -7,6 +7,8 @@
 
 package com.jxmake.formatter;
 
+import java.util.List;
+
 import com.jxmake.formatter.rules.BlockStructureRule;
 import com.jxmake.formatter.rules.CppSpecificRule;
 import com.jxmake.formatter.rules.JavaSpecificRule;
@@ -15,10 +17,8 @@ import com.jxmake.formatter.rules.KotlinSpecificRule;
 import com.jxmake.formatter.rules.MiscRuleCurly;
 import com.jxmake.formatter.rules.SwitchRule;
 import com.jxmake.formatter.tokenizer.TokenizerCore;
-import com.jxmake.formatter.tokenizer.TokenizerCurly;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
-
-import java.util.List;
+import com.jxmake.formatter.tokenizer.TokenizerCurly;
 
 /**
  * Curly-brace-family formatter (C/C++/Java/Kotlin) -- everything in this file used to live
@@ -27,15 +27,21 @@ import java.util.List;
  */
 public final class FormatterCurly extends FormatterCore {
 
-    public FormatterCurly(final Lang lang) {
+    public FormatterCurly(final Lang lang)
+    {
         super(lang);
     }
 
     @Override
-    public String formatOne(final String content, final String filePath, final Config config,
-            final boolean formatOff) {
+    public String formatOne(
+        final String  content,
+        final String  filePath,
+        final Config  config,
+        final boolean formatOff
+    )
+    {
         final TokenizerCurly tokenizerCore = new TokenizerCurly(lang);
-        final boolean isCOrCpp = lang.isCpp || lang.isC;
+        final boolean        isCOrCpp      = lang.isCpp || lang.isC;
 
         final java.util.function.Function<String, List<Token>> tokenizer = (final String s) -> {
             final List<Token> tokens = tokenizerCore.tokenize(s);
@@ -43,14 +49,24 @@ public final class FormatterCurly extends FormatterCore {
             return tokens;
         };
 
-        final int indentWidth = config.indentSize();
-        final int lineLengthLimit = config.lineLength();
-        final BlockStructureRule blockRule = new BlockStructureRule(lang, config.closingCommentMinLines(),
-                indentWidth, lineLengthLimit);
-        final SwitchRule switchRule = new SwitchRule(lang, lineLengthLimit, indentWidth);
-        final MiscRuleCurly miscRule = new MiscRuleCurly(lang, config.isNormalizeCommentStartCase(),
-                config.isNormalizeCommentEndPeriod(), config.isCommentNormalizationClassifier(),
-                config.isGruClassifier(), config.gruWeightsPath(), indentWidth, lineLengthLimit);
+        final int                indentWidth     = config.indentSize();
+        final int                lineLengthLimit = config.lineLength();
+        final BlockStructureRule blockRule       = new BlockStructureRule(
+            lang, config.closingCommentMinLines(), indentWidth, lineLengthLimit
+        );
+        final SwitchRule         switchRule      = new SwitchRule(
+            lang, lineLengthLimit, indentWidth
+        );
+        final MiscRuleCurly      miscRule        = new MiscRuleCurly(
+            lang,
+            config.isNormalizeCommentStartCase(),
+            config.isNormalizeCommentEndPeriod(),
+            config.isCommentNormalizationClassifier(),
+            config.isGruClassifier(),
+            config.gruWeightsPath(),
+            indentWidth,
+            lineLengthLimit
+        );
         final CppSpecificRule cppRule = isCOrCpp
                 ? new CppSpecificRule(lang, lineLengthLimit, indentWidth) : null;
         final JavaSpecificRule javaRule = lang.isJava
@@ -69,7 +85,7 @@ public final class FormatterCurly extends FormatterCore {
         // post-padding. enforceComplexityPadding is idempotent, so re-running it in Phase 1 after
         // Phase 0's own transformations (which can introduce new one-liner bodies) is still needed
         // and safe.
-        String text = miscRule.enforceComplexityPadding(tokenizer.apply(content));
+        String text = miscRule.enforceComplexityPadding( tokenizer.apply(content) );
         // Same reasoning applies to template angle-bracket spacing (e.g. `static_cast<T>` ->
         // `static_cast< T >` for a "loose" nested template arg): Phase 4's own
         // enforceTemplateAngleBracketSpacing call runs long after this Phase 0 column-width
@@ -79,10 +95,8 @@ public final class FormatterCurly extends FormatterCore {
         // STATE.md's `frozen`/`map.hpp` `key_comp()`/`value_comp()` bug). Pulled forward here,
         // same as enforceComplexityPadding above; the Phase 4 call stays too (idempotent, and
         // still needed for any angle brackets introduced by Phase 0-3's own transformations).
-        if (lang.isCpp) {
-            text = cppRule.enforceTemplateAngleBracketSpacing(tokenizer.apply(text));
-        }
-        if (lang.isJs || lang.isTs) {
+        if(lang.isCpp) text = cppRule.enforceTemplateAngleBracketSpacing( tokenizer.apply(text) );
+        if(lang.isJs || lang.isTs) {
             // STYLE_JS_TS.md §2: always insert explicit semicolons. Must run before
             // ScopePipelineCurly.process below -- its own §11 declaration-alignment-grid pass
             // (JsTsDeclarationAlignmentRule.parseDeclaration) requires a literal `;` token to
@@ -95,12 +109,14 @@ public final class FormatterCurly extends FormatterCore {
             // silently fell back to raw input when relying on ASI. Also still runs before
             // collapseSingleExpressionBlocks (now further down, inside Phase 1) for the original
             // reason recorded below.
-            text = jsTsRule.enforceSemicolonInsertion(tokenizer.apply(text));
-        }
-        text = new ScopePipelineCurly(lang, config.indentStyle(), config.isNormalizeCommentStartCase(),
-                config.isNormalizeCommentEndPeriod(), config.isCommentNormalizationClassifier(),
-                config.isGruClassifier(), config.gruWeightsPath(),
-                formatOff, indentWidth, lineLengthLimit).process(text);
+            text = jsTsRule.enforceSemicolonInsertion( tokenizer.apply(text) );
+        } // if
+        text = new ScopePipelineCurly(
+            lang, config.indentStyle(), config.isNormalizeCommentStartCase(),
+            config.isNormalizeCommentEndPeriod(), config.isCommentNormalizationClassifier(),
+            config.isGruClassifier(), config.gruWeightsPath(),
+            formatOff, indentWidth, lineLengthLimit
+        ).process(text);
 
         // Phase 1: structural/brace passes.
         // (STYLE_JS_TS.md §2 semicolon insertion itself now runs earlier, right before
@@ -112,59 +128,58 @@ public final class FormatterCurly extends FormatterCore {
         // logical statement, breaking idempotency (confirmed via a standalone harness: `if (x) {
         // doThing() }` stayed braced on round1 but collapsed to `if(x) doThing();` on round2 when
         // this ran after the collapse pass instead).
-        if (lang.isTs) {
+        if(lang.isTs) {
             // STYLE_JS_TS.md §12: TS enum bodies are always reflowed to one member per line
             // (regardless of original layout) with `=` column-alignment when explicit values are
             // present. Must run before collapseSingleExpressionBlocks/the general brace-style
             // passes below so those passes see the final, reflowed multi-line member list rather
             // than an original same-line member list.
-            text = jsTsRule.enforceEnumMemberFormatting(tokenizer.apply(text));
-            // STYLE_JS_TS.md §14: interface/object-shaped type-alias member `:` column alignment.
-            // Placed right after §12's enum-body reflow (same Phase-1 structural-rewrite rationale)
-            // so downstream brace-style/collapse passes see the final, column-aligned member list.
-            text = jsTsRule.enforceInterfaceTypeAliasMemberColonAlignment(tokenizer.apply(text));
-        }
-        text = blockRule.collapseSingleExpressionBlocks(tokenizer.apply(text));
-        text = blockRule.enforceKAndRBraceStyle(tokenizer.apply(text));
-        text = blockRule.enforceNamedConstructHeaderSpacing(tokenizer.apply(text));
-        text = blockRule.placeElseOnOwnLine(tokenizer.apply(text));
-        text = blockRule.placeCatchFinallyOnOwnLine(tokenizer.apply(text));
-        text = blockRule.insertNamedConstructBlankLines(tokenizer.apply(text));
-        if (isCOrCpp) {
-            text = cppRule.enforceFunctionDefinitionAllmanBraceStyle(tokenizer.apply(text));
-            text = cppRule.enforceEmptyParameterList(tokenizer.apply(text));
-            if (lang.isCpp) {
-                text = cppRule.enforceRequiresClausePlacement(tokenizer.apply(text));
-                text = cppRule.enforceContractClausePlacement(tokenizer.apply(text));
+            text = jsTsRule.enforceEnumMemberFormatting( tokenizer.apply(text) );
+            text = jsTsRule.enforceInterfaceTypeAliasMemberColonAlignment( tokenizer.apply(text) );
+        } // if
+        text = blockRule.collapseSingleExpressionBlocks( tokenizer.apply(text) );
+        text = blockRule.enforceKAndRBraceStyle( tokenizer.apply(text) );
+        text = blockRule.enforceNamedConstructHeaderSpacing( tokenizer.apply(text) );
+        text = blockRule.placeElseOnOwnLine( tokenizer.apply(text) );
+        text = blockRule.placeCatchFinallyOnOwnLine( tokenizer.apply(text) );
+        text = blockRule.insertNamedConstructBlankLines( tokenizer.apply(text) );
+        if(isCOrCpp) {
+            text = cppRule.enforceFunctionDefinitionAllmanBraceStyle( tokenizer.apply(text) );
+            text = cppRule.enforceEmptyParameterList( tokenizer.apply(text) );
+            if(lang.isCpp) {
+                text = cppRule.enforceRequiresClausePlacement( tokenizer.apply(text) );
+                text = cppRule.enforceContractClausePlacement( tokenizer.apply(text) );
             }
-        } else if (lang.isJava) {
-            text = javaRule.enforceMethodDefinitionAllmanBraceStyle(tokenizer.apply(text));
-            text = javaRule.enforcePermitsClauseLineBreaking(tokenizer.apply(text));
-            text = javaRule.separateEnumConstantListTerminator(tokenizer.apply(text));
-        } else if (lang.isKotlin) {
-            text = kotlinRule.enforceFunctionDefinitionAllmanBraceStyle(tokenizer.apply(text));
-            text = kotlinRule.separateEnumConstantListTerminator(tokenizer.apply(text));
-            // No mandatory `;` in Kotlin (STYLE_KOTLIN.md §1) -- strip optional trailing `;`
-            // right after this phase's own structural rewrites settle, same "run once brace/enum
-            // shape is final" reasoning as those two calls above.
-            text = kotlinRule.stripOptionalSemicolons(tokenizer.apply(text));
-            text = kotlinRule.stripLeadingBlankBeforeNonDeclarationStatement(tokenizer.apply(text));
-        } else if (lang.isJs || lang.isTs) {
+        } // if
+        else if(lang.isJava) {
+            text = javaRule.enforceMethodDefinitionAllmanBraceStyle( tokenizer.apply(text) );
+            text = javaRule.enforcePermitsClauseLineBreaking( tokenizer.apply(text) );
+            text = javaRule.separateEnumConstantListTerminator( tokenizer.apply(text) );
+        }
+        else if(lang.isKotlin) {
+            text = kotlinRule.enforceFunctionDefinitionAllmanBraceStyle( tokenizer.apply(text) );
+            text = kotlinRule.separateEnumConstantListTerminator( tokenizer.apply(text) );
+            text = kotlinRule.stripOptionalSemicolons( tokenizer.apply(text) );
+            text = kotlinRule.stripLeadingBlankBeforeNonDeclarationStatement(
+                tokenizer.apply(text)
+            );
+        }
+        else if(lang.isJs || lang.isTs) {
             // STYLE_JS_TS.md §5: named function declarations/class methods move their `{` to its
             // own line (Allman) -- arrow-function block bodies, empty bodies, and one-liner
             // (getter/setter-style) bodies stay K&R, excluded internally by the method itself.
-            text = jsTsRule.enforceMethodDefinitionAllmanBraceStyle(tokenizer.apply(text));
+            text = jsTsRule.enforceMethodDefinitionAllmanBraceStyle( tokenizer.apply(text) );
         }
-        if (lang.isJs || lang.isTs) {
+        if(lang.isJs || lang.isTs) {
             // STYLE_JS_TS.md §9's overflow cascade: drop an overlong inline decorator to its own
             // line before any width-driven pass below runs, so their "does it fit" checks see the
             // post-split shape on the very first format pass (same ordering reasoning as
             // enforceArrowFunctionParameterParens right below). The second cascade step (wrapping
             // the decorator's own overlong argument list) needs no call here -- it's already free
             // via enforceCallLineBreaking's generic "IDENTIFIER (" scan further down.
-            text = jsTsRule.enforceDecoratorOverflowCascade(tokenizer.apply(text));
-        }
-        if (lang.isJs || lang.isTs) {
+            text = jsTsRule.enforceDecoratorOverflowCascade( tokenizer.apply(text) );
+        } // if
+        if(lang.isJs || lang.isTs) {
             // STYLE_JS_TS.md §6: a bare single-parameter arrow (`n => ...`) always gets its
             // parameter wrapped in parens (`(n) => ...`). This must run before the
             // enforceComplexityPadding call right below (not down in Phase 4 with the rest of
@@ -176,9 +191,9 @@ public final class FormatterCurly extends FormatterCore {
             // (pre-insertion, stays tight) and a reformat of already-formatted output
             // (post-insertion, goes loose) disagree -- not idempotent. Found via real-world
             // testing (`arr.map(x => x * 2)` staying tight on format #1 but going loose on #2).
-            text = jsTsRule.enforceArrowFunctionParameterParens(tokenizer.apply(text));
-        }
-        // enforceCallLineBreaking's "does it fit in LINE_LENGTH_LIMIT" measurement must see
+            text = jsTsRule.enforceArrowFunctionParameterParens( tokenizer.apply(text) );
+        } // if
+        // EnforceCallLineBreaking's "does it fit in LINE_LENGTH_LIMIT" measurement must see
         // enforceComplexityPadding's loose `( x )` spacing already applied -- otherwise a line
         // right at the boundary can measure as "fits" here, then grow past the limit once padding
         // is added with no further re-check, only to (correctly, but inconsistently) get broken
@@ -191,7 +206,7 @@ public final class FormatterCurly extends FormatterCore {
         // reformat of already-formatted output). Found via real-world testing (tinyexpr-plusplus's
         // bitwise_rotate_right/left overloads and te_parser::list's while loop,
         // github.com/blake-madden/tinyexpr-plusplus).
-        text = miscRule.enforceComplexityPadding(tokenizer.apply(text));
+        text = miscRule.enforceComplexityPadding( tokenizer.apply(text) );
         // Same "measurement must see the final width" reasoning as enforceComplexityPadding just
         // above: enforceAttributeAndSpliceBracketPadding's loose `[: expr :]`/`[[ expr ]]` padding
         // can push a line right at the boundary past LINE_LENGTH_LIMIT with no further re-check if
@@ -205,9 +220,9 @@ public final class FormatterCurly extends FormatterCore {
         // shape as enforceComplexityPadding above; enforcePackIndexingSpacing/
         // enforceReflectionOperatorSpacing stay in Phase 4 since they only ever tighten (remove)
         // spacing, never grow a line's width, so they can't trigger this class of bug.
-        if (lang.isCpp) {
-            text = cppRule.enforceAttributeAndSpliceBracketPadding(tokenizer.apply(text));
-        }
+        if(lang.isCpp) text = cppRule.enforceAttributeAndSpliceBracketPadding(
+            tokenizer.apply(text)
+        );
         // Same "measurement must see the final width" reasoning as enforceComplexityPadding/
         // enforceAttributeAndSpliceBracketPadding above: enforceInitializerBraceSpacing's loose
         // `{ x }` initializer-brace padding (STYLE.md §3.3) can push a line right at the boundary
@@ -222,23 +237,10 @@ public final class FormatterCurly extends FormatterCore {
         // as enforceComplexityPadding/enforceAttributeAndSpliceBracketPadding above; the original
         // Phase 4 call further down is left in place too (idempotent, still needed for braces
         // introduced/exposed by later passes).
-        text = miscRule.enforceInitializerBraceSpacing(tokenizer.apply(text));
-        // Same "measurement must see the final width" reasoning as the three passes above, in the
-        // opposite direction: enforceKeywordSpacing collapses a control-flow keyword's gap before
-        // its own `(` (`if (` -> `if(`) down to zero width, originally Phase 4 only. A fresh format
-        // still has the gap when enforceCallLineBreaking's fits-check runs here, one character
-        // wider than a reformat of already-formatted output (gap already collapsed from the
-        // previous pass) -- exactly enough to flip a candidate sitting right at the boundary
-        // between "fits" and "doesn't fit" depending purely on whether this is a fresh format or a
-        // reformat, non-idempotent (found via angular/angular real-code testing,
-        // `packages/core/src/render3/node_selector_matcher.ts`'s `if (nodeAttrs === null ||
-        // !isCssClassMatching(...))` -- 101 chars with the gap present, wrapped; 100 once
-        // collapsed, fits). Pulled forward from Phase 4, same shape as the other three; the
-        // original Phase 4 call further down is left in place too (idempotent, still needed for
-        // gaps introduced/exposed by later passes).
-        text = miscRule.enforceKeywordSpacing(tokenizer.apply(text));
-        text = miscRule.enforceCallLineBreaking(tokenizer.apply(text));
-        // enforceCallLineBreaking can turn a one-liner function body into a multi-line one (an
+        text = miscRule.enforceInitializerBraceSpacing( tokenizer.apply(text) );
+        text = miscRule.enforceKeywordSpacing( tokenizer.apply(text) );
+        text = miscRule.enforceCallLineBreaking( tokenizer.apply(text) );
+        // EnforceCallLineBreaking can turn a one-liner function body into a multi-line one (an
         // overlong call inside it gets wrapped across lines) -- but enforceFunctionDefinitionAllman
         // BraceStyle already ran earlier, above, back when the body still looked like a one-liner,
         // and deliberately left its brace K&R per RDD_KEY_75 ("never Allman-convert a one-liner").
@@ -248,10 +250,10 @@ public final class FormatterCurly extends FormatterCore {
         // (see STATE.md's `frozen`/`set.hpp` `operator==`/`operator<`/`operator>` bug). Re-running
         // it here (idempotent: a no-op on anything already Allman, still-one-line, or otherwise
         // untouched) re-derives the brace placement against the now-final line count.
-        if (isCOrCpp) {
-            text = cppRule.enforceFunctionDefinitionAllmanBraceStyle(tokenizer.apply(text));
-        }
-        // enforceCallLineBreaking can join a call whose args originally spanned multiple lines
+        if(isCOrCpp) text = cppRule.enforceFunctionDefinitionAllmanBraceStyle(
+            tokenizer.apply(text)
+        );
+        // EnforceCallLineBreaking can join a call whose args originally spanned multiple lines
         // (each side's own gap blocked the pass above from touching its spacing, since a NEWLINE
         // in the gap suppresses the rewrite for that side) onto a single line, replacing the
         // newline with a plain single space with no complexity-padding awareness of its own. On a
@@ -260,52 +262,23 @@ public final class FormatterCurly extends FormatterCore {
         // second pass, once there's no longer a NEWLINE in the gap to block the rewrite. Re-running
         // enforceComplexityPadding here (idempotent, purely paren-local) re-tightens/loosens any
         // call whose layout enforceCallLineBreaking just finalized.
-        text = miscRule.enforceComplexityPadding(tokenizer.apply(text));
-        text = switchRule.formatNonInlineSwitches(tokenizer.apply(text));
-        // formatNonInlineSwitches reindents switch-case bodies one level deeper -- but
-        // enforceCallLineBreaking's own "does it fit in LINE_LENGTH_LIMIT" measurement, above,
-        // already ran against the pre-reindent (one-level-shallower) column, so a line right at the
-        // boundary can measure as "fits" there and stay on one line, only to render past the limit
-        // once the deeper switch-case indent is applied here -- with no further re-check. Stable
-        // only on a second format pass, once the input already has the deeper indent baked in from
-        // the start. Re-running enforceCallLineBreaking here (idempotent: a no-op on anything that
-        // already fits or is already wrapped) re-derives the fits-vs-wraps decision against the
-        // now-final column (see javaparser/javaparser's `CsmAttribute.java` bug).
-        text = miscRule.enforceCallLineBreaking(tokenizer.apply(text));
-        // Same "re-tightens/loosens whatever enforceCallLineBreaking just finalized" reasoning as
-        // the enforceComplexityPadding call directly above (232), needed again here because this
-        // second enforceCallLineBreaking pass (243) can itself collapse a candidate that the first
-        // pass (209) had wrapped multi-line -- e.g. a nested call whose own "does this whole
-        // physical line fit" fits-check (`effectiveLineEndIndex`) sees a much longer line on a
-        // fresh, not-yet-reflowed format (still fused to a sibling call's own not-yet-wrapped,
-        // still-on-one-physical-line body) than it does once that sibling has already been wrapped
-        // multi-line by an earlier pass -- so the same candidate correctly wraps on pass 209 (its
-        // own single-line rendering measures as "too long" only because of the unrelated
-        // not-yet-wrapped sibling fused onto the same physical line), gets left multi-line-but-
-        // unpadded by complexity-padding at 232 (a NEWLINE inside its own `(...)`, from that
-        // wrapping, blocks padding for a multi-line pair the same as any other), then collapses
-        // back to one line here at 243 once the now-already-wrapped sibling no longer inflates the
-        // fits-check -- but that collapse renders via the generic tight-by-default token join with
-        // no complexity-padding awareness of its own, discarding the loose `( x )` padding a nested
-        // `(`/`[` inside it (STYLE.md §3.1) requires. Stable only on a second format pass, once the
-        // sibling is already wrapped from the start and this candidate never needs the 209-then-243
-        // wrap-then-collapse round-trip at all (found via vuejs/core real-code testing,
-        // `componentPublicInstance.ts`'s `isReservedPrefix(key[0])` inside an `if` whose consequent
-        // is itself a multi-line `warn(...)` call).
-        text = miscRule.enforceComplexityPadding(tokenizer.apply(text));
-        text = miscRule.insertBlankLineBeforeReturn(tokenizer.apply(text));
+        text = miscRule.enforceComplexityPadding( tokenizer.apply(text) );
+        text = switchRule.formatNonInlineSwitches( tokenizer.apply(text) );
+        text = miscRule.enforceCallLineBreaking( tokenizer.apply(text) );
+        text = miscRule.enforceComplexityPadding( tokenizer.apply(text) );
+        text = miscRule.insertBlankLineBeforeReturn( tokenizer.apply(text) );
 
-        // Phase 2: comment-style normalization -- must precede Phase 3 (RDD_KEY_47).
-        text = miscRule.enforceCommentStyle(tokenizer.apply(text), config.indentStyle());
-        text = miscRule.alignCommentSeparators(tokenizer.apply(text));
+        // Phase 2: comment-style normalization -- must precede Phase 3 (RDD_KEY_47)
+        text = miscRule.enforceCommentStyle( tokenizer.apply(text), config.indentStyle() );
+        text = miscRule.alignCommentSeparators( tokenizer.apply(text) );
 
         // Phase 3: comment/marker-generating passes.
         // `alignInlineSwitches`/`markFallthrough` run before `addClosingComments` so the SWITCH
         // closing-comment line-count decision (STYLE.md §7) sees the switch body's final,
         // fully-compacted line count -- not its pre-alignment shape -- keeping the decision
         // (and thus idempotency) stable across repeated format passes.
-        text = switchRule.markFallthrough(tokenizer.apply(text));
-        text = switchRule.alignInlineSwitches(tokenizer.apply(text));
+        text = switchRule.markFallthrough( tokenizer.apply(text) );
+        text = switchRule.alignInlineSwitches( tokenizer.apply(text) );
         // Same reasoning as alignInlineSwitches/markFallthrough above, extended to Kotlin's own
         // `when` expression formatting: formatWhenExpressions can insert blank lines inside a
         // `when {}` body (STYLE_KOTLIN.md §4), expanding an enclosing `for`/`while` block's own
@@ -316,91 +289,87 @@ public final class FormatterCurly extends FormatterCore {
         // while` comment on round2 but not round1 -- a genuine idempotency bug, not just
         // cosmetic (found via arrow-kt/arrow's `Iterable.kt` `separateEither`, RDD_KEY_174). Moved
         // ahead of addClosingComments so its line-count decisions always see the final line count.
-        if (lang.isKotlin) {
-            text = kotlinRule.formatWhenExpressions(tokenizer.apply(text));
-        }
-        text = blockRule.addClosingComments(tokenizer.apply(text));
-        if (lang.isJava) {
-            text = javaRule.enforceSwitchExpressionArrowAlignment(tokenizer.apply(text));
-        }
+        if(lang.isKotlin) text = kotlinRule.formatWhenExpressions( tokenizer.apply(text) );
+        text = blockRule.addClosingComments( tokenizer.apply(text) );
+        if(lang.isJava) text = javaRule.enforceSwitchExpressionArrowAlignment(
+            tokenizer.apply(text)
+        );
 
-        // Phase 4: cosmetic spacing.
-        text = miscRule.enforceKeywordSpacing(tokenizer.apply(text));
-        text = miscRule.enforceInitializerBraceSpacing(tokenizer.apply(text));
-        text = miscRule.enforcePreIncrement(tokenizer.apply(text));
-        if (lang.isCpp) {
-            text = cppRule.enforceTemplateAngleBracketSpacing(tokenizer.apply(text));
-            text = cppRule.enforcePackIndexingSpacing(tokenizer.apply(text));
-            text = cppRule.enforceContractAssertSpacing(tokenizer.apply(text));
-            text = cppRule.enforceReflectionOperatorSpacing(tokenizer.apply(text));
+        // Phase 4: cosmetic spacing
+        text = miscRule.enforceKeywordSpacing( tokenizer.apply(text) );
+        text = miscRule.enforceInitializerBraceSpacing( tokenizer.apply(text) );
+        text = miscRule.enforcePreIncrement( tokenizer.apply(text) );
+        if(lang.isCpp) {
+            text = cppRule.enforceTemplateAngleBracketSpacing( tokenizer.apply(text) );
+            text = cppRule.enforcePackIndexingSpacing( tokenizer.apply(text) );
+            text = cppRule.enforceContractAssertSpacing( tokenizer.apply(text) );
+            text = cppRule.enforceReflectionOperatorSpacing( tokenizer.apply(text) );
         }
-        if (isCOrCpp && config.isFormatMacros()) {
-            text = cppRule.alignMacroDefinitions(tokenizer.apply(text));
-        }
-        if (lang.isKotlin) {
-            text = kotlinRule.enforceNullSafetyOperatorSpacing(tokenizer.apply(text));
-            text = kotlinRule.enforceRangeOperatorSpacing(tokenizer.apply(text));
-            text = kotlinRule.enforceLabeledJumpSpacing(tokenizer.apply(text));
-            text = kotlinRule.enforceArrowSpacing(tokenizer.apply(text));
-            text = kotlinRule.enforceAnnotationUseSiteTargetSpacing(tokenizer.apply(text));
-            text = kotlinRule.enforceWhereClausePlacement(tokenizer.apply(text));
-        }
-        if (lang.isJs || lang.isTs) {
+        if( isCOrCpp && config.isFormatMacros() ) text = cppRule.alignMacroDefinitions(
+            tokenizer.apply(text)
+        );
+        if(lang.isKotlin) {
+            text = kotlinRule.enforceNullSafetyOperatorSpacing( tokenizer.apply(text) );
+            text = kotlinRule.enforceRangeOperatorSpacing( tokenizer.apply(text) );
+            text = kotlinRule.enforceLabeledJumpSpacing( tokenizer.apply(text) );
+            text = kotlinRule.enforceArrowSpacing( tokenizer.apply(text) );
+            text = kotlinRule.enforceAnnotationUseSiteTargetSpacing( tokenizer.apply(text) );
+            text = kotlinRule.enforceWhereClausePlacement( tokenizer.apply(text) );
+        } // if
+        if(lang.isJs || lang.isTs) {
             // STYLE_JS_TS.md §3/§7: spread/rest `...` tight, `?.` tight, `??`/`??=` spaced --
             // same flat cosmetic-spacing treatment as Kotlin's analogous operators above.
-            text = jsTsRule.enforceSpreadRestSpacing(tokenizer.apply(text));
-            text = jsTsRule.enforceOptionalChainingSpacing(tokenizer.apply(text));
-            // STYLE_JS_TS.md §4: template literal `${...}` interpolation gets normal expression
-            // spacing -- the literal's own raw text otherwise stays byte-for-byte preserved.
-            text = jsTsRule.enforceTemplateLiteralInterpolationSpacing(tokenizer.apply(text));
-            // STYLE_JS_TS.md §6: `=>` is always spaced -- confirmed not already free from any
-            // generic pass (this codebase has no general from-scratch binary-operator respacing).
-            // (The other §6 item, always-parenthesized single-parameter arrows, is applied earlier
-            // in Phase 1 -- see the comment on that call for why it can't sit here.)
-            text = jsTsRule.enforceArrowSpacing(tokenizer.apply(text));
-            // STYLE_JS_TS.md §9: `@` binds tight to the decorator name, no space -- confirmed not
-            // already free from any generic pass (no existing tight-unary-prefix exception for
-            // `@`, unlike `!`/`~`).
-            text = jsTsRule.enforceDecoratorTightAtSpacing(tokenizer.apply(text));
-        }
-        if (lang.isTs) {
+            text = jsTsRule.enforceSpreadRestSpacing( tokenizer.apply(text) );
+            text = jsTsRule.enforceOptionalChainingSpacing( tokenizer.apply(text) );
+            text = jsTsRule.enforceTemplateLiteralInterpolationSpacing( tokenizer.apply(text) );
+            text = jsTsRule.enforceArrowSpacing( tokenizer.apply(text) );
+            text = jsTsRule.enforceDecoratorTightAtSpacing( tokenizer.apply(text) );
+        } // if
+        if(lang.isTs) {
             // STYLE_JS_TS.md §11: `: type` colon spacing (declarator/parameter/return-type),
             // TS-only -- JS has no type annotations.
-            text = jsTsRule.enforceTypeColonSpacing(tokenizer.apply(text));
-            // STYLE_JS_TS.md §11.1: union/intersection `|`/`&` ordinary binary-operator spacing.
-            text = jsTsRule.enforceUnionIntersectionSpacing(tokenizer.apply(text));
-            // STYLE_JS_TS.md §11.1: multi-line union/intersection continuation-line indent.
-            text = jsTsRule.enforceUnionTypeContinuationIndent(tokenizer.apply(text));
-            // STYLE_JS_TS.md §11.2: class-field/method modifier-keyword canonical ordering.
-            text = jsTsRule.reorderClassFieldModifiers(tokenizer.apply(text));
-            // STYLE_JS_TS.md §11.2: consecutive class-field declarations form an alignment grid.
-            text = jsTsRule.enforceClassFieldAlignmentGrid(tokenizer.apply(text));
-            // STYLE_JS_TS.md §13: generic type-argument list `,` spacing (`Map<string, number>`).
-            text = jsTsRule.enforceGenericArgumentCommaSpacing(tokenizer.apply(text));
-        }
+            text = jsTsRule.enforceTypeColonSpacing( tokenizer.apply(text) );
+            text = jsTsRule.enforceUnionIntersectionSpacing( tokenizer.apply(text) );
+            text = jsTsRule.enforceUnionTypeContinuationIndent( tokenizer.apply(text) );
+            text = jsTsRule.reorderClassFieldModifiers( tokenizer.apply(text) );
+            text = jsTsRule.enforceClassFieldAlignmentGrid( tokenizer.apply(text) );
+            text = jsTsRule.enforceGenericArgumentCommaSpacing( tokenizer.apply(text) );
+        } // if
         // Must run after every earlier paren-tightening/spacing pass has settled a braceless
         // collapsed `if(...) body` line's final rendered width -- see the method's own javadoc
         // for why an earlier collapse-time attempt was stale. Shared across all languages: C/C++/
         // Java grew their own opt-in braceless chain-collapse alongside Kotlin's.
-        text = blockRule.alignBracelessElseIfChain(tokenizer.apply(text));
+        text = blockRule.alignBracelessElseIfChain( tokenizer.apply(text) );
 
-        // Phase 5: file-header-level structure.
-        if (isCOrCpp) {
-            text = cppRule.enforceHeaderFileStructure(tokenizer.apply(text), filePath, config.isHeaderGuardRename());
-        } else if (lang.isJava) {
-            text = javaRule.enforceImportOrdering(tokenizer.apply(text), config.javaImportOrder(),
-                    config.isJavaImportSort(), config.javaImportDepth(), config.javaImportBlankLines());
-        } else if (lang.isKotlin) {
-            text = kotlinRule.enforceKotlinImportOrdering(tokenizer.apply(text), config.kotlinImportOrder(),
-                    config.isKotlinImportSort(), config.kotlinImportDepth(), config.kotlinImportBlankLines());
-        } else if (lang.isJs || lang.isTs) {
-            text = jsTsRule.enforceImportOrdering(tokenizer.apply(text), config.jsImportOrder(),
-                    config.isJsImportSort(), config.jsImportBlankLines());
+        // Phase 5: file-header-level structure
+        if(isCOrCpp) {
+            text = cppRule.enforceHeaderFileStructure(
+                tokenizer.apply(text), filePath, config.isHeaderGuardRename()
+            );
+        }
+        else if(lang.isJava) {
+            text = javaRule.enforceImportOrdering(
+                tokenizer.apply(text), config.javaImportOrder(),
+                config.isJavaImportSort(), config.javaImportDepth(), config.javaImportBlankLines()
+            );
+        }
+        else if(lang.isKotlin) {
+            text = kotlinRule.enforceKotlinImportOrdering(
+                tokenizer.apply(text), config.kotlinImportOrder(),
+                config.isKotlinImportSort(), config.kotlinImportDepth(), config.kotlinImportBlankLines()
+            );
+        }
+        else if(lang.isJs || lang.isTs) {
+            text = jsTsRule.enforceImportOrdering(
+                tokenizer.apply(text), config.jsImportOrder(),
+                config.isJsImportSort(), config.jsImportBlankLines()
+            );
         }
 
-        // Phase 6: final whitespace normalization, last.
-        text = miscRule.convertIndentation(tokenizer.apply(text), config.indentStyle());
+        // Phase 6: final whitespace normalization, last
+        text = miscRule.convertIndentation( tokenizer.apply(text), config.indentStyle() );
 
         return text;
     }
-}
+
+} // class FormatterCurly

@@ -17,18 +17,25 @@ import com.jxmake.formatter.rules.TomlSpecificRule;
  */
 public final class FormatterToml extends FormatterCore {
 
-    public FormatterToml(final Lang lang) {
+    public FormatterToml(final Lang lang)
+    {
         super(lang);
     }
 
     @Override
-    public String formatOne(final String content, final String filePath, final Config config,
-            final boolean formatOff) {
-        if (formatOff) {
-            return content;
-        }
-        final TomlSpecificRule rule = new TomlSpecificRule(lang, config.lineLength(), config.indentSize(),
-                config.isNormalizeCommentStartCase());
+    public String formatOne(
+        final String  content,
+        final String  filePath,
+        final Config  config,
+        final boolean formatOff
+    )
+    {
+        if(formatOff) return content;
+        final TomlSpecificRule rule = new TomlSpecificRule(
+            lang, config.lineLength(), config.indentSize(), config.isNormalizeCommentStartCase()
+        );
+
         return rule.format(content);
     }
-}
+
+} // class FormatterToml

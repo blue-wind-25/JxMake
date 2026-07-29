@@ -18,18 +18,25 @@ import com.jxmake.formatter.rules.YamlSpecificRule;
  */
 public final class FormatterYaml extends FormatterCore {
 
-    public FormatterYaml(final Lang lang) {
+    public FormatterYaml(final Lang lang)
+    {
         super(lang);
     }
 
     @Override
-    public String formatOne(final String content, final String filePath, final Config config,
-            final boolean formatOff) {
-        if (formatOff) {
-            return content;
-        }
-        final YamlSpecificRule rule = new YamlSpecificRule(lang, config.lineLength(), config.indentSize(),
-                config.isNormalizeCommentStartCase());
+    public String formatOne(
+        final String  content,
+        final String  filePath,
+        final Config  config,
+        final boolean formatOff
+    )
+    {
+        if(formatOff) return content;
+        final YamlSpecificRule rule = new YamlSpecificRule(
+            lang, config.lineLength(), config.indentSize(), config.isNormalizeCommentStartCase()
+        );
+
         return rule.format(content);
     }
-}
+
+} // class FormatterYaml

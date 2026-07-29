@@ -15,7 +15,7 @@ public class CppModifierPriority extends ModifierPriority {
     private static final Map<String, Integer> PRIORITY = new HashMap<>();
 
     static {
-        // typedef always leads any other specifier (C/C++ grammar requires it first).
+        // Typedef always leads any other specifier (C/C++ grammar requires it first)
         PRIORITY.put("typedef", 0);
         PRIORITY.put("static", 1);
         // constexpr/consteval/constinit share one column -- mutually exclusive, exactly one
@@ -27,14 +27,16 @@ public class CppModifierPriority extends ModifierPriority {
         PRIORITY.put("volatile", 3);
         PRIORITY.put("const", 4);
         // virtual/inline/explicit are function-declaration qualifiers; they share one column
-        // since they are mutually exclusive in practice (a single function is at most one).
+        // since they are mutually exclusive in practice (a single function is at most one)
         PRIORITY.put("virtual", 5);
         PRIORITY.put("inline", 5);
         PRIORITY.put("explicit", 5);
     }
 
     @Override
-    protected Map<String, Integer> priorityMap() {
+    protected Map<String, Integer> priorityMap()
+    {
         return PRIORITY;
     }
-}
+
+} // class CppModifierPriority

@@ -13,14 +13,17 @@ package com.jxmake.formatter;
  */
 public final class ScopePipelineTags extends ScopePipelineCore {
 
-    public ScopePipelineTags(final int indentWidth) {
+    public ScopePipelineTags(final int indentWidth)
+    {
         super(indentWidth);
     }
 
     @Override
-    public String process(final String source) {
+    public String process(final String source)
+    {
         throw new UnsupportedOperationException(
                 "tag-based scope pipeline is not yet implemented (scaffold only -- see "
                         + "STATE_DATA_FORMATS.md)");
     }
-}
+
+} // class ScopePipelineTags

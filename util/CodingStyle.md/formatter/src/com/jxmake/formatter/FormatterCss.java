@@ -18,18 +18,29 @@ import com.jxmake.formatter.rules.CssSpecificRule;
  */
 public final class FormatterCss extends FormatterSimpleBraced {
 
-    public FormatterCss(final Lang lang) {
+    public FormatterCss(final Lang lang)
+    {
         super(lang);
     }
 
     @Override
-    public String formatOne(final String content, final String filePath, final Config config,
-            final boolean formatOff) {
-        if (formatOff) {
-            return content;
-        }
-        final CssSpecificRule rule = new CssSpecificRule(lang, config.lineLength(),
-                config.indentSize(), config.indentStyle(), config.isNormalizeCommentStartCase());
+    public String formatOne(
+        final String  content,
+        final String  filePath,
+        final Config  config,
+        final boolean formatOff
+    )
+    {
+        if(formatOff) return content;
+        final CssSpecificRule rule = new CssSpecificRule(
+            lang,
+            config.lineLength(),
+            config.indentSize(),
+            config.indentStyle(),
+            config.isNormalizeCommentStartCase()
+        );
+
         return rule.format(content);
     }
-}
+
+} // class FormatterCss

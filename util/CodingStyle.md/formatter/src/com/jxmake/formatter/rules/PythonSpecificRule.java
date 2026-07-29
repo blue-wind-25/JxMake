@@ -19,20 +19,24 @@ import com.jxmake.formatter.Lang;
 public final class PythonSpecificRule {
 
     private final Lang lang;
-    private final int lineLengthLimit;
+    private final int  lineLengthLimit;
 
-    public PythonSpecificRule(final Lang lang) {
+    public PythonSpecificRule(final Lang lang)
+    {
         this(lang, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
     }
 
-    public PythonSpecificRule(final Lang lang, final int lineLengthLimit) {
+    public PythonSpecificRule(final Lang lang, final int lineLengthLimit)
+    {
         this(lang, lineLengthLimit, MiscRuleCurly.DEFAULT_INDENT_WIDTH);
     }
 
-    public PythonSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth) {
-        this.lang = lang;
+    public PythonSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth)
+    {
+        this.lang            = lang;
         this.lineLengthLimit = lineLengthLimit;
         throw new UnsupportedOperationException(
                 "PythonSpecificRule is not yet implemented -- see STATE_PYTHON3.md");
     }
-}
+
+} // class PythonSpecificRule

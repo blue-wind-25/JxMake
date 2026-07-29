@@ -21,16 +21,26 @@ package com.jxmake.formatter;
  */
 public final class FormatterIndent extends FormatterCore {
 
-    public FormatterIndent(final Lang lang) {
+    public FormatterIndent(final Lang lang)
+    {
         super(lang);
     }
 
     @Override
-    public String formatOne(final String content, final String filePath, final Config config,
-            final boolean formatOff) {
-        if (formatOff) {
-            return content;
-        }
-        return new ScopePipelineIndent(lang, config.indentSize(), config.lineLength()).process(content);
+    public String formatOne(
+        final String  content,
+        final String  filePath,
+        final Config  config,
+        final boolean formatOff
+    )
+    {
+        if(formatOff) return content;
+
+        return new ScopePipelineIndent(
+            lang, config.indentSize(), config.lineLength()
+        ).process(
+            content
+        );
     }
-}
+
+} // class FormatterIndent

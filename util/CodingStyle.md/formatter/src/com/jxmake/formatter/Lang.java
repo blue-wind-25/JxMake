@@ -28,7 +28,8 @@ import java.util.Locale;
  * friends. JSON/JSON5/YAML/TOML/CSS are none of the three.
  */
 public final class Lang {
-    public final String language;
+
+    public final String  language;
     public final boolean isC;
     public final boolean isCpp;
     public final boolean isJava;
@@ -48,39 +49,36 @@ public final class Lang {
     public final boolean isTagBased;
     public final boolean isSimpleBraced;
 
-    public Lang(final String language) {
-        this.language = language;
-        this.isC = "c".equals(language);
-        this.isCpp = "cpp".equals(language);
-        this.isJava = "java".equals(language);
-        this.isKotlin = "kotlin".equals(language);
-        this.isJson = "json".equals(language);
-        this.isJson5 = "json5".equals(language);
-        this.isYaml = "yaml".equals(language);
-        this.isToml = "toml".equals(language);
-        this.isXml = "xml".equals(language);
-        this.isCss = "css".equals(language);
-        this.isHtml5 = "html5".equals(language);
-        this.isJs = "js".equals(language);
-        this.isTs = "ts".equals(language);
-        this.isPython3 = "python3".equals(language);
-        this.isCurly = isC || isCpp || isJava || isKotlin || isJs || isTs;
-        this.isIndentBased = isPython3;
-        this.isTagBased = isXml || isHtml5;
-        // JSON/JSON5 + CSS: brace/bracket-delimited like the curly family, but no imperative
-        // control flow (no keywords, no preprocessor, no functions) -- share a distinct
-        // "SimpleBraced" family (`TokenizerSimpleBraced`/`FormatterSimpleBraced`) instead of either
-        // `*Curly` or the flat, indentation-only family reserved for YAML/TOML.
+    public Lang(final String language)
+    {
+        this.language       = language;
+        this.isC            = "c".equals(language);
+        this.isCpp          = "cpp".equals(language);
+        this.isJava         = "java".equals(language);
+        this.isKotlin       = "kotlin".equals(language);
+        this.isJson         = "json".equals(language);
+        this.isJson5        = "json5".equals(language);
+        this.isYaml         = "yaml".equals(language);
+        this.isToml         = "toml".equals(language);
+        this.isXml          = "xml".equals(language);
+        this.isCss          = "css".equals(language);
+        this.isHtml5        = "html5".equals(language);
+        this.isJs           = "js".equals(language);
+        this.isTs           = "ts".equals(language);
+        this.isPython3      = "python3".equals(language);
+        this.isCurly        = isC || isCpp || isJava || isKotlin || isJs || isTs;
+        this.isIndentBased  = isPython3;
+        this.isTagBased     = isXml || isHtml5;
         this.isSimpleBraced = isJson || isJson5 || isCss;
     }
 
-    /* When updating the supported language here, also update the language/extension list in:
+    /*
+     * When updating the supported language here, also update the language/extension list in:
      *    the {@link Lang} constructor above (isC/isCpp/isJava/isKotlin)
      *    the `--lang` validation in `Main.run()`
      *    `ServerMode.FormatHandler.handle()`
      */
-    public static final String SUPPORTED_LANGUAGES =
-            "c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3";
+    public static final String SUPPORTED_LANGUAGES = "c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3";
 
     /**
      * Scaffold-only languages: recognized by {@link #infer} and accepted by `--lang`/`lang=`, but
@@ -103,10 +101,10 @@ public final class Lang {
      * removed outright) since `Main.java`/`ServerMode.java` still reference it in usage/error text
      * for a future scaffold-only language to reuse.
      */
-    public static final String SCAFFOLD_ONLY_LANGUAGES =
-            "";
+    public static final String SCAFFOLD_ONLY_LANGUAGES = "";
 
-    public static boolean isSupported(final String language) {
+    public static boolean isSupported(final String language)
+    {
         return "c".equals(language) || "cpp".equals(language)
                 || "java".equals(language) || "kotlin".equals(language)
                 || "json".equals(language) || "json5".equals(language)
@@ -116,65 +114,67 @@ public final class Lang {
                 || "python3".equals(language);
     }
 
-    public static boolean isScaffoldOnly(final String language) {
+    public static boolean isScaffoldOnly(final String language)
+    {
         return false;
     }
 
-    /** {@code isSupported || isScaffoldOnly} -- every language recognized by this codebase at all. */
-    public static boolean isRecognized(final String language) {
+    /** {@code isSupported || isScaffoldOnly} -- every language recognized by this codebase at all */
+    public static boolean isRecognized(final String language)
+    {
         return isSupported(language) || isScaffoldOnly(language);
     }
 
-    public static String infer(final String path) {
+    public static String infer(final String path)
+    {
         final String lower = path.toLowerCase(Locale.ROOT);
-        if (lower.endsWith(".java")) {
-            return "java";
-        }
-        if (lower.endsWith(".c") || lower.endsWith(".h")) {
-            return "c";
-        }
-        if (lower.endsWith(".cc") || lower.endsWith(".cpp") || lower.endsWith(".cxx")
-                || lower.endsWith(".hh") || lower.endsWith(".hpp") || lower.endsWith(".hxx")) {
-            return "cpp";
-        }
-        if (lower.endsWith(".kt") || lower.endsWith(".kts")) {
-            return "kotlin";
-        }
-        if (lower.endsWith(".json5")) {
-            return "json5";
-        }
-        if (lower.endsWith(".json")) {
-            return "json";
-        }
-        if (lower.endsWith(".yaml") || lower.endsWith(".yml")) {
-            return "yaml";
-        }
-        if (lower.endsWith(".toml")) {
-            return "toml";
-        }
-        if (lower.endsWith(".xml") || lower.endsWith(".svg") || lower.endsWith(".xsd")
-                || lower.endsWith(".xsl")) {
-            return "xml";
-        }
-        if (lower.endsWith(".css")) {
-            return "css";
-        }
-        if (lower.endsWith(".html") || lower.endsWith(".htm")) {
-            return "html5";
-        }
+        if( lower.endsWith(".java") ) return "java";
+        if( lower.endsWith(".c") || lower.endsWith(".h") ) return "c";
+        if( lower.endsWith(
+            ".cc"
+        ) || lower.endsWith(
+            ".cpp"
+        ) || lower.endsWith(
+            ".cxx"
+        ) || lower.endsWith(
+            ".hh"
+        ) || lower.endsWith(
+            ".hpp"
+        ) || lower.endsWith(
+            ".hxx"
+        ) ) return "cpp";
+        if( lower.endsWith(".kt") || lower.endsWith(".kts") ) return "kotlin";
+        if( lower.endsWith(".json5") ) return "json5";
+        if( lower.endsWith(".json") ) return "json";
+        if( lower.endsWith(".yaml") || lower.endsWith(".yml") ) return "yaml";
+        if( lower.endsWith(".toml") ) return "toml";
+        if( lower.endsWith(
+            ".xml"
+        ) || lower.endsWith(
+            ".svg"
+        ) || lower.endsWith(
+            ".xsd"
+        ) || lower.endsWith(
+            ".xsl"
+        ) ) return "xml";
+        if( lower.endsWith(".css") ) return "css";
+        if( lower.endsWith(".html") || lower.endsWith(".htm") ) return "html5";
         // .jsx folds into "js" and .tsx into "ts" for detection/dispatch purposes this session --
         // JSX/TSX need their own future embedding-aware dispatcher (STATE_JS_TS.md Open Design
         // Questions), not a distinct Lang flag yet; both are scaffold-only either way.
-        if (lower.endsWith(".js") || lower.endsWith(".jsx") || lower.endsWith(".mjs")
-                || lower.endsWith(".cjs")) {
-            return "js";
-        }
-        if (lower.endsWith(".ts") || lower.endsWith(".tsx")) {
-            return "ts";
-        }
-        if (lower.endsWith(".py")) {
-            return "python3";
-        }
+        if( lower.endsWith(
+            ".js"
+        ) || lower.endsWith(
+            ".jsx"
+        ) || lower.endsWith(
+            ".mjs"
+        ) || lower.endsWith(
+            ".cjs"
+        ) ) return "js";
+        if( lower.endsWith(".ts") || lower.endsWith(".tsx") ) return "ts";
+        if( lower.endsWith(".py") ) return "python3";
+
         return null;
     }
-}
+
+} // class Lang

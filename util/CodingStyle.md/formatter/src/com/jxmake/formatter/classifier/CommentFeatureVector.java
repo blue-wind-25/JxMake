@@ -9,7 +9,8 @@ package com.jxmake.formatter.classifier;
 
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
-/** Feature vector extracted from a single comment for {@link CommentClassifier} scoring. Pure
+/**
+ * Feature vector extracted from a single comment for {@link CommentClassifier} scoring. Pure
  *  data -- extraction lives in {@link CommentFeatureExtractor}, scoring in
  *  {@link CommentClassifier}. See STATE_COMMENT_GRAMMAR.md's "Scope split" section for the
  *  feature list this is meant to hold.
@@ -19,35 +20,50 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
  *  this -- {@code capitalizeFirstLetter} and {@code stripSoleTrailingPeriod*} -- both hinge on
  *  a leading-word ambiguity; {@link #previousWord} and {@link #nextWord} are its within-comment
  *  neighbors, not surrounding code tokens, per the hard architectural constraint that the
- *  classifier only ever sees comment text). */
+ *  classifier only ever sees comment text).
+ */
 public final class CommentFeatureVector {
 
-    public final String targetWord;
-    public final String previousWord;
-    public final String nextWord;
-    public final boolean nextCharIsOpenParen;
-    public final boolean nextTokenIsArrow;
-    public final boolean containsSemicolon;
-    public final boolean containsUrlOrFilenameOrNumber;
+    public final String    targetWord;
+    public final String    previousWord;
+    public final String    nextWord;
+    public final boolean   nextCharIsOpenParen;
+    public final boolean   nextTokenIsArrow;
+    public final boolean   containsSemicolon;
+    public final boolean   containsUrlOrFilenameOrNumber;
     public final TokenType commentType;
-    public final boolean hasNonLatinScript;
-    public final boolean hasLeadingKeywordMatch;
-    public final boolean isDecorativeOnly;
+    public final boolean   hasNonLatinScript;
+    public final boolean   hasLeadingKeywordMatch;
+    public final boolean   isDecorativeOnly;
+    public final boolean   leadingWordFollowedBySlash;
 
-    public CommentFeatureVector(final String targetWord, final String previousWord, final String nextWord,
-            final boolean nextCharIsOpenParen, final boolean nextTokenIsArrow, final boolean containsSemicolon,
-            final boolean containsUrlOrFilenameOrNumber, final TokenType commentType,
-            final boolean hasNonLatinScript, final boolean hasLeadingKeywordMatch, final boolean isDecorativeOnly) {
-        this.targetWord = targetWord;
-        this.previousWord = previousWord;
-        this.nextWord = nextWord;
-        this.nextCharIsOpenParen = nextCharIsOpenParen;
-        this.nextTokenIsArrow = nextTokenIsArrow;
-        this.containsSemicolon = containsSemicolon;
+    public CommentFeatureVector(
+        final String    targetWord,
+        final String    previousWord,
+        final String    nextWord,
+        final boolean   nextCharIsOpenParen,
+        final boolean   nextTokenIsArrow,
+        final boolean   containsSemicolon,
+        final boolean   containsUrlOrFilenameOrNumber,
+        final TokenType commentType,
+        final boolean   hasNonLatinScript,
+        final boolean   hasLeadingKeywordMatch,
+        final boolean   isDecorativeOnly,
+        final boolean   leadingWordFollowedBySlash
+    )
+    {
+        this.targetWord                    = targetWord;
+        this.previousWord                  = previousWord;
+        this.nextWord                      = nextWord;
+        this.nextCharIsOpenParen           = nextCharIsOpenParen;
+        this.nextTokenIsArrow              = nextTokenIsArrow;
+        this.containsSemicolon             = containsSemicolon;
         this.containsUrlOrFilenameOrNumber = containsUrlOrFilenameOrNumber;
-        this.commentType = commentType;
-        this.hasNonLatinScript = hasNonLatinScript;
-        this.hasLeadingKeywordMatch = hasLeadingKeywordMatch;
-        this.isDecorativeOnly = isDecorativeOnly;
+        this.commentType                   = commentType;
+        this.hasNonLatinScript             = hasNonLatinScript;
+        this.hasLeadingKeywordMatch        = hasLeadingKeywordMatch;
+        this.isDecorativeOnly              = isDecorativeOnly;
+        this.leadingWordFollowedBySlash    = leadingWordFollowedBySlash;
     }
-}
+
+} // class CommentFeatureVector

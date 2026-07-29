@@ -7,9 +7,10 @@
 
 package com.jxmake.formatter.evaluator;
 
+import java.util.List;
+
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
-import java.util.List;
 
 public class ComplexityPaddingEvaluator {
 
@@ -28,71 +29,79 @@ public class ComplexityPaddingEvaluator {
      * `((Int) -> String, Boolean) -> Unit`) is STYLE_KOTLIN.md §17's own documented "Known gap"
      * and intentionally still falls back to the default (loose) behavior below.
      */
-    public boolean isLoose(final List<Token> contentTokens) {
+    public boolean isLoose(final List<Token> contentTokens)
+    {
         final int n = contentTokens.size();
-        for (int i = 0; i < n; i++) {
+        for(int i = 0; i < n; ++i) {
             final Token t = contentTokens.get(i);
-            if (t.type == TokenType.PUNCT && "(".equals(t.text)) {
-                if (isReceiverFunctionTypeParens(contentTokens, i)) {
+            if( t.type == TokenType.PUNCT && "(".equals(t.text) ) {
+                if( isReceiverFunctionTypeParens(contentTokens, i) ) {
                     final int closeIdx = matchParen(contentTokens, i);
-                    if (closeIdx >= 0) {
+                    if(closeIdx >= 0) {
                         i = closeIdx;
                         continue;
                     }
-                }
+                } // if
                 return true;
-            }
-            if (t.type == TokenType.PUNCT && "[".equals(t.text)) {
-                return true;
-            }
-        }
+            } // if
+            if( t.type == TokenType.PUNCT && "[".equals(t.text) ) return true;
+        } // for
+
         return false;
     }
 
-    private boolean isReceiverFunctionTypeParens(final List<Token> tokens, final int openIdx) {
+    private boolean isReceiverFunctionTypeParens(final List<Token> tokens, final int openIdx)
+    {
         final int prevIdx = prevSignificant(tokens, openIdx - 1);
-        if (prevIdx < 0 || tokens.get(prevIdx).type != TokenType.OP || !".".equals(tokens.get(prevIdx).text)) {
-            return false;
-        }
+        if( prevIdx < 0 || tokens.get(
+            prevIdx
+        ).type != TokenType.OP || !".".equals(
+            tokens.get(prevIdx).text
+        ) ) return false;
         final int closeIdx = matchParen(tokens, openIdx);
-        if (closeIdx < 0) {
-            return false;
-        }
+        if(closeIdx < 0) return false;
         final int nextIdx = nextSignificant(tokens, closeIdx + 1);
-        return nextIdx >= 0 && tokens.get(nextIdx).type == TokenType.OP && "->".equals(tokens.get(nextIdx).text);
+
+        return nextIdx >= 0 && tokens.get(
+            nextIdx
+        ).type == TokenType.OP && "->".equals(
+            tokens.get(nextIdx).text
+        );
     }
 
-    private int matchParen(final List<Token> tokens, final int openIdx) {
+    private int matchParen(final List<Token> tokens, final int openIdx)
+    {
         int depth = 0;
-        for (int i = openIdx; i < tokens.size(); i++) {
+        for( int i = openIdx; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (t.type == TokenType.PUNCT && "(".equals(t.text)) {
-                depth++;
-            } else if (t.type == TokenType.PUNCT && ")".equals(t.text)) {
-                depth--;
-                if (depth == 0) {
-                    return i;
-                }
+            if( t.type == TokenType.PUNCT && "(".equals(t.text) ) {
+                ++depth;
             }
-        }
+            else if( t.type == TokenType.PUNCT && ")".equals(t.text) ) {
+                --depth;
+                if(depth == 0) return i;
+            }
+        } // for
+
         return -1;
     }
 
-    private int prevSignificant(final List<Token> tokens, final int fromIdx) {
-        for (int i = fromIdx; i >= 0; i--) {
-            if (!Token.isGapToken(tokens.get(i))) {
-                return i;
-            }
+    private int prevSignificant(final List<Token> tokens, final int fromIdx)
+    {
+        for(int i = fromIdx; i >= 0; --i) {
+            if( !Token.isGapToken( tokens.get(i) ) ) return i;
         }
+
         return -1;
     }
 
-    private int nextSignificant(final List<Token> tokens, final int fromIdx) {
-        for (int i = fromIdx; i < tokens.size(); i++) {
-            if (!Token.isGapToken(tokens.get(i))) {
-                return i;
-            }
+    private int nextSignificant(final List<Token> tokens, final int fromIdx)
+    {
+        for( int i = fromIdx; i < tokens.size(); ++i ) {
+            if( !Token.isGapToken( tokens.get(i) ) ) return i;
         }
+
         return -1;
     }
-}
+
+} // class ComplexityPaddingEvaluator

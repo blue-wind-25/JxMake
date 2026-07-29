@@ -7,6 +7,10 @@
 
 package com.jxmake.formatter.rules;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
@@ -14,10 +18,6 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 /**
  * STYLE_KOTLIN.md §7: constructor/function parameter list line-breaking and column alignment
@@ -34,70 +34,93 @@ import java.util.List;
  */
 public class KotlinSignatureRule extends MiscRuleCurly {
 
-    private static final List<String> PARAM_MODIFIERS =
-            java.util.Arrays.asList("vararg", "crossinline", "noinline", "val", "var");
+    private static final List<String> PARAM_MODIFIERS = java.util.Arrays.asList(
+        "vararg", "crossinline", "noinline", "val", "var"
+    );
 
-    public KotlinSignatureRule(final Lang lang) {
+    public KotlinSignatureRule(final Lang lang)
+    {
         super(lang, false, false);
     }
 
-    public KotlinSignatureRule(final Lang lang, final int indentWidth, final int lineLengthLimit) {
+    public KotlinSignatureRule(final Lang lang, final int indentWidth, final int lineLengthLimit)
+    {
         super(lang, false, false, indentWidth, lineLengthLimit);
     }
 
-    /** One parsed `[modifiers] name : type [= default]` parameter. {@code typeTokens} is never
+    /**
+     * One parsed `[modifiers] name : type [= default]` parameter. {@code typeTokens} is never
      *  empty on a successfully parsed param -- Kotlin requires an explicit type on every
      *  function/constructor parameter, unlike a `val`/`var` property's optional inferred type
      *  (STYLE_KOTLIN.md §6) -- so {@link #parseKotlinParam} returns null (bailing the whole
      *  signature, same "never guess past an unrecognized shape" posture as {@code MiscRuleCore}'s own
-     *  {@code parseParam}) rather than modeling a missing type. */
+     *  {@code parseParam}) rather than modeling a missing type.
+     */
     public static final class KotlinParam {
+
         public final List<Token> modifiers;
-        public final Token name;
+        public final Token       name;
         public final List<Token> typeTokens;
-        public final List<Token> defaultTokens; // empty if none
-        public final Token comment;
-        public final Token leadingComment;
+        public final List<Token> defaultTokens;  // Empty if none
+        public final Token       comment;
+        public final Token       leadingComment;
         // True when leadingComment was on its own source line (a standalone `//` line comment or a
         // `/** ... */` block/KDoc comment preceding the param on a separate physical line) rather
         // than sharing the param's own line (e.g. `/* Nullable */ x: Int?`). Own-line comments must
         // never be fused onto the same rendered output line as the param -- see RDD_LOG.md's C1 fix.
         public final boolean leadingCommentOwnLine;
 
-        KotlinParam(final List<Token> modifiers, final Token name, final List<Token> typeTokens,
-                final List<Token> defaultTokens, final Token comment, final Token leadingComment,
-                final boolean leadingCommentOwnLine) {
-            this.modifiers = modifiers;
-            this.name = name;
-            this.typeTokens = typeTokens;
-            this.defaultTokens = defaultTokens;
-            this.comment = comment;
-            this.leadingComment = leadingComment;
+        KotlinParam(
+            final List<Token> modifiers,
+            final Token       name,
+            final List<Token> typeTokens,
+            final List<Token> defaultTokens,
+            final Token       comment,
+            final Token       leadingComment,
+            final boolean     leadingCommentOwnLine
+        )
+        {
+            this.modifiers             = modifiers;
+            this.name                  = name;
+            this.typeTokens            = typeTokens;
+            this.defaultTokens         = defaultTokens;
+            this.comment               = comment;
+            this.leadingComment        = leadingComment;
             this.leadingCommentOwnLine = leadingCommentOwnLine;
         }
-    }
 
-    /** One parsed signature: `leadTokens name ( params )`, `leadTokens` being every token before
+    } // class KotlinParam
+
+    /**
+     * One parsed signature: `leadTokens name ( params )`, `leadTokens` being every token before
      *  the name (`fun`, an optional `<T>` generic-parameter clause, an optional extension-function
      *  receiver type, modifiers) -- same "not split apart" posture as {@code MiscRuleCurly.Signature},
      *  since §7 has no per-row alignment across multiple signatures. {@code trailingComma} records
      *  whether the source's last parameter was itself followed by a comma before `)`, so
      *  {@link #render} can preserve it exactly as written (STYLE_KOTLIN.md §7.2 -- never added,
-     *  never removed). */
+     *  never removed).
+     */
     public static final class KotlinSignature {
-        public final List<Token> leadTokens;
-        public final Token name;
-        public final List<KotlinParam> params;
-        public final boolean trailingComma;
 
-        KotlinSignature(final List<Token> leadTokens, final Token name, final List<KotlinParam> params,
-                final boolean trailingComma) {
-            this.leadTokens = leadTokens;
-            this.name = name;
-            this.params = params;
+        public final List<Token>       leadTokens;
+        public final Token             name;
+        public final List<KotlinParam> params;
+        public final boolean           trailingComma;
+
+        KotlinSignature(
+            final List<Token>       leadTokens,
+            final Token             name,
+            final List<KotlinParam> params,
+            final boolean           trailingComma
+        )
+        {
+            this.leadTokens    = leadTokens;
+            this.name          = name;
+            this.params        = params;
             this.trailingComma = trailingComma;
         }
-    }
+
+    } // class KotlinSignature
 
     /**
      * Parses `sigTokens` -- already isolated by the caller, spanning from the first lead token
@@ -109,7 +132,8 @@ public class KotlinSignatureRule extends MiscRuleCurly {
      * exposes it as a standalone method. Returns null if the shape doesn't match, if there are
      * trailing tokens past the matched `)`, or if any parameter fails to parse.
      */
-    public KotlinSignature parseKotlinSignature(final List<Token> sigTokens) {
+    public KotlinSignature parseKotlinSignature(final List<Token> sigTokens)
+    {
         // C6k-1: a param's default value can itself be a multi-line trailing lambda whose body
         // holds several statements (e.g. `expandedConeType: (FirTypeAlias) -> ConeClassLikeType? =
         // { alias ->\n    alias.lazyResolveToPhase(...)\n    alias.expandedConeType\n}`, found via
@@ -127,9 +151,7 @@ public class KotlinSignatureRule extends MiscRuleCurly {
         // own body-opening brace (the caller stops at the parameter list's closing `)`), so the
         // only braces reachable here belong to a param's own default value/annotation, never a
         // legitimate reason to bail on an otherwise-fine signature.
-        if (containsMultilineNestedBrace(sigTokens)) {
-            return null;
-        }
+        if( containsMultilineNestedBrace(sigTokens) ) return null;
         // Identify every comment token that starts its own source line (nothing but whitespace
         // between the preceding NEWLINE and it) -- needed below to tell an own-line leading
         // comment for the NEXT param apart from a genuine same-line trailing comment for the
@@ -137,18 +159,20 @@ public class KotlinSignatureRule extends MiscRuleCurly {
         // NEWLINE tokens. See RDD_LOG.md's C1 fix.
         final java.util.Set<Token> lineStartComments = findLineStartComments(sigTokens);
         final java.util.Set<Token> standaloneComments = findStandaloneComments(sigTokens);
-        final List<Token> sig = significantWithComments(sigTokens);
-        int openParen = -1;
-        int nameIdx = -1;
-        int depth = 0;
-        for (int i = 0; i < sig.size(); i++) {
+        final List<Token> sig       = significantWithComments(sigTokens);
+              int         openParen = - 1;
+              int         nameIdx   = - 1;
+              int         depth     = 0;
+        for( int i = 0; i < sig.size(); ++i ) {
             final Token t = sig.get(i);
-            if (t.type == TokenType.ANGLE_BRACKET_OPEN) {
-                depth++;
-            } else if (t.type == TokenType.ANGLE_BRACKET_CLOSE) {
-                depth--;
-            } else if (depth == 0 && isPunct(t, "(") && i > 0
-                    && sig.get(i - 1).type == TokenType.IDENTIFIER) {
+            if(t.type == TokenType.ANGLE_BRACKET_OPEN) {
+                ++depth;
+            }
+            else if(t.type == TokenType.ANGLE_BRACKET_CLOSE) {
+                --depth;
+            }
+            else if( depth == 0 && isPunct(t, "(") && i > 0
+                    && sig.get(i - 1).type == TokenType.IDENTIFIER ) {
                 // The first `IDENTIFIER (` on the line is not always the real signature -- a
                 // leading `context(raise: Raise<Error>)` clause (Kotlin context receivers) is
                 // itself an `IDENTIFIER (...)` shape that can share the same physical line as the
@@ -165,89 +189,93 @@ public class KotlinSignatureRule extends MiscRuleCurly {
                 // bailing on the first non-matching candidate, skip past it and keep scanning for
                 // the real signature's own `(`.
                 final int candidateClose = matchParenForward(sig, i);
-                if (candidateClose == sig.size() - 1) {
+                if( candidateClose == sig.size() - 1 ) {
                     openParen = i;
-                    nameIdx = i - 1;
+                    nameIdx   = i - 1;
                     break;
                 }
-                if (candidateClose > i) {
-                    i = candidateClose;
-                }
+                if(candidateClose > i) i = candidateClose;
             }
-        }
-        if (openParen < 0) {
-            return null;
-        }
+        } // for
+        if(openParen < 0) return null;
         final int closeParen = matchParenForward(sig, openParen);
-        if (closeParen != sig.size() - 1) {
-            return null;
-        }
+        if( closeParen != sig.size() - 1 ) return null;
 
-        final List<Token> leadTokens = new ArrayList<>(sig.subList(0, nameIdx));
-        final Token name = sig.get(nameIdx);
+        final List<Token> leadTokens  = new ArrayList<>( sig.subList(0, nameIdx) );
+        final Token       name        = sig.get(nameIdx);
         final List<Token> paramsSlice = sig.subList(openParen + 1, closeParen);
 
-        if (paramsSlice.isEmpty()) {
-            return new KotlinSignature(leadTokens, name, new ArrayList<KotlinParam>(), false);
-        }
+        if( paramsSlice.isEmpty() ) return new KotlinSignature(
+            leadTokens, name, new ArrayList<KotlinParam>(), false
+        );
 
         final List<List<Token>> parts = splitTopLevelCommas(paramsSlice);
         // A trailing comma after the last param (`foo(x: Int,)`) leaves an empty final part from
         // the comma split above -- capture that as `trailingComma` before dropping it, so
         // STYLE_KOTLIN.md §7.2's "preserve exactly as written" can be honored on render.
         boolean trailingComma = false;
-        if (parts.size() > 1 && significantOnly(parts.get(parts.size() - 1)).isEmpty()) {
+        if( parts.size() > 1 && significantOnly( parts.get( parts.size() - 1 ) ).isEmpty() ) {
             trailingComma = true;
-            parts.remove(parts.size() - 1);
+            parts.remove( parts.size() - 1 );
         }
-        for (int i = 0; i < parts.size() - 1; i++) {
+        for( int i = 0; i < parts.size() - 1; ++i ) {
             final List<Token> next = parts.get(i + 1);
-            if (!next.isEmpty() && (next.get(0).type == TokenType.COMMENT_LINE
-                    || next.get(0).type == TokenType.COMMENT_BLOCK)
-                    && !lineStartComments.contains(next.get(0))) {
-                parts.get(i).add(next.remove(0));
-            }
-        }
+            if( !next.isEmpty() && ( next.get(
+                0
+            ).type == TokenType.COMMENT_LINE || next.get(
+                0
+            ).type == TokenType.COMMENT_BLOCK ) && !lineStartComments.contains(
+                next.get(0)
+            ) ) parts.get(
+                i
+            ).add(
+                next.remove(0)
+            );
+        } // for
 
         final List<KotlinParam> params = new ArrayList<>();
-        for (final List<Token> slice : parts) {
+        for(final List<Token> slice : parts) {
             final KotlinParam p = parseKotlinParam(slice, standaloneComments);
-            if (p == null) {
-                return null;
-            }
+            if(p == null) return null;
             params.add(p);
         }
+
         return new KotlinSignature(leadTokens, name, params, trailingComma);
     }
 
-    /** Builds the identity set of comment tokens (line or block) in {@code raw} that begin their
+    /**
+     * Builds the identity set of comment tokens (line or block) in {@code raw} that begin their
      *  own source line -- i.e. a NEWLINE (not just whitespace/nothing else) separates them from
      *  the preceding token. Distinguishes "this comment is NOT glued to the end of the previous
      *  param's line" (so it must never be folded into that param as a trailing same-line comment)
      *  from a genuine same-line trailing comment (`val x: Int, // note`). See {@link
      *  #findStandaloneComments} for the stricter "shares no line with anything" check used for the
-     *  render-time own-line decision. */
-    private java.util.Set<Token> findLineStartComments(final List<Token> raw) {
+     *  render-time own-line decision.
+     */
+    private java.util.Set<Token> findLineStartComments(final List<Token> raw)
+    {
         final java.util.Set<Token> result =
-                java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Token, Boolean>());
+                java.util.Collections.newSetFromMap(
+                    new java.util.IdentityHashMap<Token, Boolean>()
+                );
         boolean atLineStart = true;
-        for (final Token t : raw) {
-            if (t.type == TokenType.NEWLINE) {
+        for(final Token t : raw) {
+            if(t.type == TokenType.NEWLINE) {
                 atLineStart = true;
                 continue;
             }
-            if (t.type == TokenType.WHITESPACE) {
-                continue;
-            }
-            if (atLineStart && (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK)) {
-                result.add(t);
-            }
+            if(t.type == TokenType.WHITESPACE) continue;
+            if( atLineStart && (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) ) result.add(
+                t
+            );
             atLineStart = false;
-        }
+        } // for
+
         return result;
     }
 
-    /** Builds the identity set of comment tokens (line or block) in {@code raw} that stand
+    /**
+     * Builds the identity set of comment tokens (line or block) in {@code raw} that stand
      *  entirely alone on their own source line -- i.e. they both begin a fresh line (see {@link
      *  #findLineStartComments}) AND are themselves followed by a NEWLINE (not just
      *  whitespace) before the next significant token, so no code shares their physical line in
@@ -256,61 +284,60 @@ public class KotlinSignatureRule extends MiscRuleCurly {
      *  immediately follows on the same line (e.g. an inline {@code Nullable}-style annotation
      *  comment directly before a param) -- that shape keeps the existing same-line leading-comment
      *  rendering; only a truly standalone comment (RDD_LOG.md's C1 shape) must render on its own
-     *  output line. */
-    private java.util.Set<Token> findStandaloneComments(final List<Token> raw) {
+     *  output line.
+     */
+    private java.util.Set<Token> findStandaloneComments(final List<Token> raw)
+    {
         final java.util.Set<Token> lineStart = findLineStartComments(raw);
         final java.util.Set<Token> result =
-                java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Token, Boolean>());
-        for (int i = 0; i < raw.size(); i++) {
+                java.util.Collections.newSetFromMap(
+                    new java.util.IdentityHashMap<Token, Boolean>()
+                );
+        for( int i = 0; i < raw.size(); ++i ) {
             final Token t = raw.get(i);
-            if (!lineStart.contains(t)) {
-                continue;
-            }
+            if( !lineStart.contains(t) ) continue;
             boolean followedByNewline = true;
-            for (int j = i + 1; j < raw.size(); j++) {
+            for( int j = i + 1; j < raw.size(); ++j ) {
                 final TokenType jt = raw.get(j).type;
-                if (jt == TokenType.WHITESPACE) {
-                    continue;
-                }
+                if(jt == TokenType.WHITESPACE) continue;
                 followedByNewline = jt == TokenType.NEWLINE;
                 break;
             }
-            if (followedByNewline) {
-                result.add(t);
-            }
-        }
+            if(followedByNewline) result.add(t);
+        } // for i
+
         return result;
     }
 
-    /** Parses one already-comma-split param slice as `[modifiers] name : type [= default]`,
+    /**
+     * Parses one already-comma-split param slice as `[modifiers] name : type [= default]`,
      *  returning null for anything that doesn't match -- an annotation-prefixed param, a
-     *  destructuring lambda param, or any other shape with no STYLE_KOTLIN.md §7 worked example. */
-    private KotlinParam parseKotlinParam(final List<Token> rawSlice, final java.util.Set<Token> ownLineComments) {
-        if (rawSlice.isEmpty()) {
-            return null;
-        }
-        Token comment = null;
-        List<Token> slice = rawSlice;
-        final Token last = rawSlice.get(rawSlice.size() - 1);
-        if (last.type == TokenType.COMMENT_LINE || last.type == TokenType.COMMENT_BLOCK) {
+     *  destructuring lambda param, or any other shape with no STYLE_KOTLIN.md §7 worked example.
+     */
+    private KotlinParam parseKotlinParam(
+        final List<Token>          rawSlice,
+        final java.util.Set<Token> ownLineComments
+    )
+    {
+        if( rawSlice.isEmpty() ) return null;
+          Token       comment = null;
+          List<Token> slice   = rawSlice;
+    final Token       last    = rawSlice.get( rawSlice.size() - 1 );
+        if(last.type == TokenType.COMMENT_LINE || last.type == TokenType.COMMENT_BLOCK) {
             comment = last;
-            slice = rawSlice.subList(0, rawSlice.size() - 1);
+            slice   = rawSlice.subList( 0, rawSlice.size() - 1 );
         }
-        if (slice.isEmpty()) {
-            return null;
-        }
-        Token leadingComment = null;
-        boolean leadingCommentOwnLine = false;
-        final Token first = slice.get(0);
-        if (slice.size() > 1
-                && (first.type == TokenType.COMMENT_LINE || first.type == TokenType.COMMENT_BLOCK)) {
-            leadingComment = first;
+        if( slice.isEmpty() ) return null;
+          Token   leadingComment        = null;
+          boolean leadingCommentOwnLine = false;
+    final Token   first                 = slice.get(0);
+        if( slice.size() > 1
+                && (first.type == TokenType.COMMENT_LINE || first.type == TokenType.COMMENT_BLOCK) ) {
+            leadingComment        = first;
             leadingCommentOwnLine = ownLineComments.contains(first);
-            slice = slice.subList(1, slice.size());
+            slice                 = slice.subList( 1, slice.size() );
         }
-        if (slice.isEmpty()) {
-            return null;
-        }
+        if( slice.isEmpty() ) return null;
         // C6f: a param's type/default-value tokens (e.g. a multi-line `= setOf(\n // comment\n
         // "x",\n)` default) get flattened onto one physical output line by `renderTokens` inside
         // a single grid cell (see `render`'s `cells.add("= " + renderTokens(p.defaultTokens) +
@@ -321,56 +348,49 @@ public class KotlinSignatureRule extends MiscRuleCurly {
         // method's other `return null` cases) whenever an embedded COMMENT_LINE would be flattened
         // this way -- same class of fix as `BlockStructureRule.containsLineComment`'s guard on
         // `tryCollapse`, a structurally distinct pass hitting the same underlying hazard.
-        if (containsLineComment(slice)) {
-            return null;
+        if( containsLineComment(slice) ) return null;
+
+          int         i         = 0;
+    final List<Token> modifiers = new ArrayList<>();
+        while( i < slice.size() && slice.get(i).type == TokenType.IDENTIFIER
+                && PARAM_MODIFIERS.contains( slice.get(i).text )
+                && i + 1 < slice.size() && slice.get(i + 1).type == TokenType.IDENTIFIER ) {
+            modifiers.add( slice.get(i) );
+            ++i;
+        }
+        while( i < slice.size() && slice.get(i).type == TokenType.KEYWORD
+                && PARAM_MODIFIERS.contains( slice.get(i).text ) ) {
+            modifiers.add( slice.get(i) );
+            ++i;
         }
 
-        int i = 0;
-        final List<Token> modifiers = new ArrayList<>();
-        while (i < slice.size() && slice.get(i).type == TokenType.IDENTIFIER
-                && PARAM_MODIFIERS.contains(slice.get(i).text)
-                && i + 1 < slice.size() && slice.get(i + 1).type == TokenType.IDENTIFIER) {
-            modifiers.add(slice.get(i));
-            i++;
-        }
-        while (i < slice.size() && slice.get(i).type == TokenType.KEYWORD
-                && PARAM_MODIFIERS.contains(slice.get(i).text)) {
-            modifiers.add(slice.get(i));
-            i++;
-        }
-
-        if (i >= slice.size() || slice.get(i).type != TokenType.IDENTIFIER) {
-            return null;
-        }
+        if( i >= slice.size() || slice.get(i).type != TokenType.IDENTIFIER ) return null;
         final Token name = slice.get(i);
-        i++;
+        ++i;
 
-        if (i >= slice.size() || !isOp(slice.get(i), ":")) {
-            return null; // Kotlin requires an explicit type on every param -- never guess one
-        }
-        i++;
+        if( i >= slice.size() || !isOp(
+            slice.get(i), ":"
+        ) ) return null; // Kotlin requires an explicit type on every param -- never guess one
+        ++i;
 
         final int typeStart = i;
-        while (i < slice.size() && !isOp(slice.get(i), "=")) {
-            i++;
-        }
-        final List<Token> typeTokens = new ArrayList<>(slice.subList(typeStart, i));
-        if (typeTokens.isEmpty()) {
-            return null;
-        }
+        while( i < slice.size() && !isOp( slice.get(i), "=" ) ) i++;
+        final List<Token> typeTokens = new ArrayList<>( slice.subList(typeStart, i) );
+        if( typeTokens.isEmpty() ) return null;
 
         List<Token> defaultTokens = Collections.emptyList();
-        if (i < slice.size() && isOp(slice.get(i), "=")) {
-            i++;
-            defaultTokens = new ArrayList<>(slice.subList(i, slice.size()));
-            i = slice.size();
+        if( i < slice.size() && isOp( slice.get(i), "=" ) ) {
+            ++i;
+            defaultTokens = new ArrayList<>( slice.subList( i, slice.size() ) );
+            i             = slice.size();
         }
 
-        if (i != slice.size()) {
-            return null;
-        }
-        return new KotlinParam(modifiers, name, typeTokens, defaultTokens, comment, leadingComment,
-                leadingCommentOwnLine);
+        if( i != slice.size() ) return null;
+
+        return new KotlinParam(
+            modifiers, name, typeTokens, defaultTokens, comment, leadingComment,
+            leadingCommentOwnLine
+        );
     }
 
     /**
@@ -383,33 +403,37 @@ public class KotlinSignatureRule extends MiscRuleCurly {
      * `:`-column-detached-from-name spacing (`id    : Long,`) falls out of `ColumnGrid.flush()`'s
      * per-column padding plus a single-space join with no extra arithmetic needed.
      */
-    public List<String> render(final KotlinSignature sig, final int indentLevel, final String indentStyle) {
-        final String lead = renderTokens(sig.leadTokens);
-        final String head = (lead.isEmpty() || lead.endsWith(".") ? lead : lead + " ") + sig.name.text + "(";
-        final String inline = head + renderParamsInline(sig) + ")";
-        final int startColumn = indentLevel * indentWidth;
+    public List<String> render(
+        final KotlinSignature sig,
+        final int             indentLevel,
+        final String          indentStyle
+    )
+    {
+        final String lead        = renderTokens(sig.leadTokens);
+        final String head        = ( lead.isEmpty() || lead.endsWith(
+            "."
+        ) ? lead : lead + " " ) + sig.name.text + "(";
+        final String inline      = head + renderParamsInline(sig) + ")";
+        final int    startColumn = indentLevel * indentWidth;
 
-        int commentLen = 0;
-        boolean hasLineComment = false;
+        int     commentLen        = 0;
+        boolean hasLineComment    = false;
         boolean hasLeadingComment = false;
-        for (final KotlinParam p : sig.params) {
-            if (p.comment != null) {
+        for(final KotlinParam p : sig.params) {
+            if(p.comment != null) {
                 commentLen += p.comment.text.length() + 1;
-                if (p.comment.type == TokenType.COMMENT_LINE) {
-                    hasLineComment = true;
-                }
+                if(p.comment.type == TokenType.COMMENT_LINE) hasLineComment = true;
             }
-            if (p.leadingComment != null) {
+            if(p.leadingComment != null) {
                 // An own-line leading comment MUST own its own rendered line, and even a same-line
                 // leading comment isn't handled by `renderParamsInline`'s single-line form -- never
                 // take the inline shortcut when any param carries one. See RDD_LOG.md's C1 fix.
                 hasLeadingComment = true;
             }
-        }
-        if (!hasLineComment && !hasLeadingComment
-                && (sig.params.isEmpty() || startColumn + inline.length() - commentLen <= lineLengthLimit)) {
-            return Collections.singletonList(inline);
-        }
+        } // for
+        if( !hasLineComment && !hasLeadingComment && ( sig.params.isEmpty() || startColumn + inline.length() - commentLen <= lineLengthLimit ) ) return Collections.singletonList(
+            inline
+        );
 
         // A param carrying its own leading same-line comment (e.g. `/* Nullable */ x : Int?`) is
         // excluded from the shared ColumnGrid, same "exclude it from the group -- don't let it
@@ -417,12 +441,12 @@ public class KotlinSignatureRule extends MiscRuleCurly {
         // grid only sees each row's bare name cell, not the leading-comment prefix rendered ahead of
         // it, so including such a row would silently pad its sibling rows' name columns out to a
         // width that never actually lines up visually once the prefix is prepended.
-        final ColumnGrid grid = new ColumnGrid();
+        final ColumnGrid    grid         = new ColumnGrid();
         final List<Integer> gridParamIdx = new ArrayList<>();
-        final String[] soloLine = new String[sig.params.size()];
-        for (int idx = 0; idx < sig.params.size(); idx++) {
-            final KotlinParam p = sig.params.get(idx);
-            final boolean isLast = idx == sig.params.size() - 1;
+        final String[]      soloLine     = new String[ sig.params.size() ];
+        for( int idx = 0; idx < sig.params.size(); ++idx ) {
+            final KotlinParam p      = sig.params.get(idx);
+            final boolean     isLast = idx == sig.params.size() - 1;
             final String modPrefix = p.modifiers.isEmpty() ? "" : renderTokens(p.modifiers) + " ";
             final String comma = (!isLast || sig.trailingComma) ? "," : "";
             // The comma is never its own grid column -- appending it as a bare cell would make
@@ -433,100 +457,109 @@ public class KotlinSignatureRule extends MiscRuleCurly {
             // matches STYLE_KOTLIN.md §7's worked example (`val id    : Long,`, no gap before `,`).
             final List<String> cells = new ArrayList<>();
             cells.add(modPrefix + p.name.text);
-            if (p.defaultTokens.isEmpty()) {
-                cells.add(": " + renderTokens(p.typeTokens) + comma);
-            } else {
-                cells.add(": " + renderTokens(p.typeTokens));
-                cells.add("= " + renderTokens(p.defaultTokens) + comma);
+            if( p.defaultTokens.isEmpty() ) {
+                cells.add( ": " + renderTokens(p.typeTokens) + comma );
             }
-            if (p.comment != null) {
-                cells.add(p.comment.text);
+            else {
+                cells.add( ": " + renderTokens(p.typeTokens) );
+                cells.add( "= " + renderTokens(p.defaultTokens) + comma );
             }
-            if (p.leadingComment != null) {
+            if(p.comment != null) cells.add(p.comment.text);
+            if(p.leadingComment != null) {
                 // An own-line leading comment (standalone `//` line comment, or a `/** ... */`
                 // block/KDoc comment on its own source line) must render as its OWN preceding
                 // output line -- fusing it as a same-line prefix would either silently swallow the
                 // param into a `//` comment (deleting it from compiled code, RDD_LOG.md's C1) or
                 // mangle a multi-line KDoc's internal lines. A genuine same-line leading comment
                 // (e.g. `/* Nullable */ x: Int?`) keeps the prior same-line-prefix rendering.
-                if (p.leadingCommentOwnLine) {
-                    soloLine[idx] = trimTrailingSpaces(String.join(" ", cells));
-                } else {
-                    soloLine[idx] = p.leadingComment.text + " " + trimTrailingSpaces(String.join(" ", cells));
-                }
-            } else {
-                grid.addRow(cells.toArray(new String[0]));
+                if(p.leadingCommentOwnLine) soloLine[idx] = trimTrailingSpaces(
+                    String.join(" ", cells)
+                );
+                else soloLine[idx] = p.leadingComment.text + " " + trimTrailingSpaces(
+                    String.join(" ", cells)
+                );
+            } // if
+            else {
+                grid.addRow( cells.toArray( new String[0] ) );
                 gridParamIdx.add(idx);
             }
-        }
+        } // for
 
         final List<String> lines = new ArrayList<>();
         lines.add(head);
-        final String paramIndent = indentText(indentLevel + 1, indentStyle);
-        final List<String[]> rows = grid.flush();
-        final String[] renderedLine = new String[sig.params.size()];
-        for (int r = 0; r < rows.size(); r++) {
-            renderedLine[gridParamIdx.get(r)] = trimTrailingSpaces(String.join(" ", rows.get(r)));
-        }
-        for (int idx = 0; idx < sig.params.size(); idx++) {
+        final String         paramIndent  = indentText(indentLevel + 1, indentStyle);
+        final List<String[]> rows         = grid.flush();
+        final String[]       renderedLine = new String[ sig.params.size() ];
+        for( int r = 0; r < rows.size(); ++r ) renderedLine[ gridParamIdx.get(
+            r
+        ) ] = trimTrailingSpaces(
+            String.join( " ", rows.get(r) )
+        );
+        for( int idx = 0; idx < sig.params.size(); ++idx ) {
             final KotlinParam p = sig.params.get(idx);
-            if (p.leadingComment != null && p.leadingCommentOwnLine) {
-                lines.add(paramIndent + p.leadingComment.text);
-            }
+            if(p.leadingComment != null && p.leadingCommentOwnLine) lines.add(
+                paramIndent + p.leadingComment.text
+            );
             final String line = soloLine[idx] != null ? soloLine[idx] : renderedLine[idx];
             lines.add(paramIndent + line);
-        }
-        lines.add(indentText(indentLevel, indentStyle) + ")");
+        } // for
+        lines.add( indentText(indentLevel, indentStyle) + ")" );
+
         return lines;
     }
 
-    private String renderParamsInline(final KotlinSignature sig) {
-        if (sig.params.isEmpty()) {
-            return "";
-        }
+    private String renderParamsInline(final KotlinSignature sig)
+    {
+        if( sig.params.isEmpty() ) return "";
         final StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < sig.params.size(); i++) {
-            if (i > 0) {
-                sb.append(", ");
-            }
+        for( int i = 0; i < sig.params.size(); ++i ) {
+            if(i > 0) sb.append(", ");
             final KotlinParam p = sig.params.get(i);
-            if (!p.modifiers.isEmpty()) {
-                sb.append(renderTokens(p.modifiers)).append(' ');
-            }
-            sb.append(p.name.text).append(": ").append(renderTokens(p.typeTokens));
-            if (!p.defaultTokens.isEmpty()) {
-                sb.append(" = ").append(renderTokens(p.defaultTokens));
-            }
-            if (p.comment != null) {
-                sb.append(' ').append(p.comment.text);
-            }
-        }
-        if (sig.trailingComma) {
-            sb.append(','); // STYLE_KOTLIN.md §7.2 -- preserved exactly as written, even inline
-        }
+            if( !p.modifiers.isEmpty() ) sb.append( renderTokens(p.modifiers) ).append(' ');
+            sb.append(p.name.text).append(": ").append( renderTokens(p.typeTokens) );
+            if( !p.defaultTokens.isEmpty() ) sb.append(
+                " = "
+            ).append(
+                renderTokens(p.defaultTokens)
+            );
+            if(p.comment != null) sb.append(' ').append(p.comment.text);
+        } // for
+        if(sig.trailingComma) sb.append(
+            ','
+        ); // STYLE_KOTLIN.md §7.2 -- preserved exactly as written, even inline
         return sb.toString();
     }
 
-    /** STYLE_KOTLIN.md §9: everything after a function signature's parameter-list close paren --
+    /**
+     * STYLE_KOTLIN.md §9: everything after a function signature's parameter-list close paren --
      *  an optional `: ReturnType` and/or an optional expression body (`= expr`). Either or both may
      *  be empty/absent (a block-bodied function with an inferred return type has neither; one with
      *  an explicit return type but a `{ ... }` block body has {@code returnTypeTokens} only). The
      *  leading `:` and `=` themselves are stripped here (not carried in the token lists), matching
      *  {@link KotlinParam}'s own established convention of rendering its `: type`/`= default` cells
-     *  with an explicit literal prefix rather than keeping the operator token in the slice. */
+     *  with an explicit literal prefix rather than keeping the operator token in the slice.
+     */
     public static final class FunctionTail {
-        public final List<Token> returnTypeTokens; // empty if no explicit return type
-        public final List<Token> exprTokens; // empty if not expression-bodied
-        public final boolean hasEqual;
 
-        FunctionTail(final List<Token> returnTypeTokens, final List<Token> exprTokens, final boolean hasEqual) {
+        public final List<Token> returnTypeTokens; // Empty if no explicit return type
+        public final List<Token> exprTokens;       // Empty if not expression-bodied
+        public final boolean     hasEqual;
+
+        FunctionTail(
+            final List<Token> returnTypeTokens,
+            final List<Token> exprTokens,
+            final boolean     hasEqual
+        )
+        {
             this.returnTypeTokens = returnTypeTokens;
-            this.exprTokens = exprTokens;
-            this.hasEqual = hasEqual;
+            this.exprTokens       = exprTokens;
+            this.hasEqual         = hasEqual;
         }
-    }
 
-    /** Parses the tokens following a signature's closing `)` -- everything up to (not including)
+    } // class FunctionTail
+
+    /**
+     * Parses the tokens following a signature's closing `)` -- everything up to (not including)
      *  the function's own body-opening `{` for a block-bodied function, or through the end of the
      *  expression for an expression-bodied one. Returns null if given no tokens to parse (there is
      *  always at least a valid, possibly-empty {@link FunctionTail} otherwise), or -- C6f shape
@@ -538,29 +571,28 @@ public class KotlinSignatureRule extends MiscRuleCurly {
      *  every leading comment line plus the first line of the real expression onto one line, silently
      *  swallowing content after the first embedded `//`. Same "never guess" bail as shapes (1)/(2):
      *  the caller ({@code ScopePipelineCurly}) treats a null return like a null {@code KotlinSignature}
-     *  and leaves the whole span untouched. */
-    public FunctionTail parseFunctionTail(final List<Token> tailTokens) {
-        final List<Token> sig = significantWithComments(tailTokens);
-        int i = 0;
-        List<Token> returnType = Collections.emptyList();
-        if (i < sig.size() && isOp(sig.get(i), ":")) {
-            i++;
+     *  and leaves the whole span untouched.
+     */
+    public FunctionTail parseFunctionTail(final List<Token> tailTokens)
+    {
+        final List<Token> sig        = significantWithComments(tailTokens);
+              int         i          = 0;
+              List<Token> returnType = Collections.emptyList();
+        if( i < sig.size() && isOp( sig.get(i), ":" ) ) {
+            ++i;
             final int start = i;
-            while (i < sig.size() && !isOp(sig.get(i), "=")) {
-                i++;
-            }
-            returnType = new ArrayList<>(sig.subList(start, i));
+            while( i < sig.size() && !isOp( sig.get(i), "=" ) ) i++;
+            returnType = new ArrayList<>( sig.subList(start, i) );
         }
-        List<Token> expr = Collections.emptyList();
-        boolean hasEqual = false;
-        if (i < sig.size() && isOp(sig.get(i), "=")) {
+        List<Token> expr     = Collections.emptyList();
+        boolean     hasEqual = false;
+        if( i < sig.size() && isOp( sig.get(i), "=" ) ) {
             hasEqual = true;
-            i++;
-            expr = new ArrayList<>(sig.subList(i, sig.size()));
-            if (containsLineComment(expr)) {
-                return null;
-            }
+            ++i;
+            expr = new ArrayList<>( sig.subList( i, sig.size() ) );
+            if( containsLineComment(expr) ) return null;
         }
+
         return new FunctionTail(returnType, expr, hasEqual);
     }
 
@@ -578,10 +610,17 @@ public class KotlinSignatureRule extends MiscRuleCurly {
      * nothing left to wrap once tier 2 fails -- STYLE_KOTLIN.md §9 only documents the expression-
      * bodied case, so tier 3 is a no-op for that shape and the combined line is used as-is.
      */
-    public List<String> renderWithTail(final KotlinSignature sig, final FunctionTail tail,
-            final int indentLevel, final String indentStyle) {
-        final String returnTypeStr = tail.returnTypeTokens.isEmpty() ? "" : ": " + renderTokens(tail.returnTypeTokens);
-        // tail.exprTokens is empty when the `=` is immediately followed by a `{`-led construct
+    public List<String> renderWithTail(
+        final KotlinSignature sig,
+        final FunctionTail    tail,
+        final int             indentLevel,
+        final String          indentStyle
+    )
+    {
+        final String returnTypeStr = tail.returnTypeTokens.isEmpty() ? "" : ": " + renderTokens(
+            tail.returnTypeTokens
+        );
+        // Tail.exprTokens is empty when the `=` is immediately followed by a `{`-led construct
         // (e.g. a lambda literal body) that the tail parser deliberately doesn't consume, leaving
         // the remainder of the statement untouched downstream. In that case appending "= " (with
         // a trailing space baked in) double-spaces against the untouched remainder's own leading
@@ -590,116 +629,120 @@ public class KotlinSignatureRule extends MiscRuleCurly {
         // as-is, the trailing-space count would otherwise grow by one on every re-format
         // (non-idempotent). Only append the separating space when there is an actual rendered
         // expression to separate it from.
-        final String exprStr = tail.hasEqual ? (tail.exprTokens.isEmpty() ? "=" : "= " + renderTokens(tail.exprTokens)) : "";
-        final String tailStr = returnTypeStr.isEmpty() ? exprStr
-                : (exprStr.isEmpty() ? returnTypeStr : returnTypeStr + " " + exprStr);
+        final String exprStr = tail.hasEqual ? ( tail.exprTokens.isEmpty() ? "=" : "= " + renderTokens(
+            tail.exprTokens
+        ) ) : "";
+        final String tailStr = returnTypeStr.isEmpty() ? exprStr : ( exprStr.isEmpty() ? returnTypeStr : returnTypeStr + " " + exprStr );
 
-        final String lead = renderTokens(sig.leadTokens);
-        final String head = (lead.isEmpty() || lead.endsWith(".") ? lead : lead + " ") + sig.name.text + "(";
-        final String inline = appendTailPart(head + renderParamsInline(sig) + ")", tailStr);
-        final int startColumn = indentLevel * indentWidth;
+        final String lead        = renderTokens(sig.leadTokens);
+        final String head        = ( lead.isEmpty() || lead.endsWith(
+            "."
+        ) ? lead : lead + " " ) + sig.name.text + "(";
+        final String inline      = appendTailPart( head + renderParamsInline(sig) + ")", tailStr );
+        final int    startColumn = indentLevel * indentWidth;
 
-        boolean hasLineComment = false;
+        boolean hasLineComment    = false;
         boolean hasLeadingComment = false;
-        int commentLen = 0;
-        for (final KotlinParam p : sig.params) {
-            if (p.comment != null) {
+        int     commentLen        = 0;
+        for(final KotlinParam p : sig.params) {
+            if(p.comment != null) {
                 commentLen += p.comment.text.length() + 1;
-                if (p.comment.type == TokenType.COMMENT_LINE) {
-                    hasLineComment = true;
-                }
+                if(p.comment.type == TokenType.COMMENT_LINE) hasLineComment = true;
             }
-            if (p.leadingComment != null) {
-                hasLeadingComment = true;
-            }
-        }
-        if (!hasLineComment && !hasLeadingComment && startColumn + inline.length() - commentLen <= lineLengthLimit) {
-            return Collections.singletonList(inline);
-        }
+            if(p.leadingComment != null) hasLeadingComment = true;
+        } // for
+        if( !hasLineComment && !hasLeadingComment && startColumn + inline.length() - commentLen <= lineLengthLimit ) return Collections.singletonList(
+            inline
+        );
 
         final List<String> lines;
-        final String lastLine;
-        if (!sig.params.isEmpty()) {
-            // render() may itself decide the params-only inline form already fits (its own
+        final String       lastLine;
+        if( !sig.params.isEmpty() ) {
+            // Render() may itself decide the params-only inline form already fits (its own
             // bypass check has no knowledge of the tail this method is appending), returning an
             // immutable Collections.singletonList -- always re-wrap in a fresh mutable list since
             // this method may still need to rewrite that one line below.
-            lines = new ArrayList<>(render(sig, indentLevel, indentStyle));
-            lastLine = lines.get(lines.size() - 1);
-        } else {
+            lines    = new ArrayList<>( render(sig, indentLevel, indentStyle) );
+            lastLine = lines.get( lines.size() - 1 );
+        } // if
+        else {
             // Nothing to break in an empty parameter list -- the tail is the only thing that
-            // might still need to wrap (tier 3 below).
+            // might still need to wrap (tier 3 below)
             lastLine = head + ")";
-            lines = new ArrayList<>();
+            lines    = new ArrayList<>();
             lines.add(lastLine);
         }
 
-        if (tailStr.isEmpty()) {
-            return lines;
-        }
+        if( tailStr.isEmpty() ) return lines;
         final String combined = appendTailPart(lastLine, tailStr);
-        if (combined.length() <= lineLengthLimit || !tail.hasEqual) {
-            lines.set(lines.size() - 1, combined);
+        if( combined.length() <= lineLengthLimit || !tail.hasEqual ) {
+            lines.set( lines.size() - 1, combined );
             return lines;
         }
 
         final String closeLine = appendTailPart(lastLine, returnTypeStr) + " =";
-        lines.set(lines.size() - 1, closeLine);
-        lines.add(indentText(indentLevel + 1, indentStyle) + renderTokens(tail.exprTokens));
+        lines.set( lines.size() - 1, closeLine );
+        lines.add( indentText(indentLevel + 1, indentStyle) + renderTokens(tail.exprTokens) );
+
         return lines;
     }
 
-    /** Joins {@code tailPart} onto {@code base} with no space if it's a `: ReturnType` cell (its
+    /**
+     * Joins {@code tailPart} onto {@code base} with no space if it's a `: ReturnType` cell (its
      *  leading `:` is tight against the preceding `)`, matching every other STYLE_KOTLIN.md `:`
      *  placement in this file) or with one space if it's an `= expr` cell (a normal binary-operator
      *  spacing) -- distinguished by {@code tailPart}'s own leading character, since both shapes are
      *  passed through this same join point (inline, params-broken-but-tail-fits, and the
-     *  return-type-only half of the wrap-`=` case all share it). No-op if {@code tailPart} is empty. */
-    private String appendTailPart(final String base, final String tailPart) {
-        if (tailPart.isEmpty()) {
-            return base;
-        }
+     *  return-type-only half of the wrap-`=` case all share it). No-op if {@code tailPart} is empty.
+     */
+    private String appendTailPart(final String base, final String tailPart)
+    {
+        if( tailPart.isEmpty() ) return base;
+
         return tailPart.startsWith(":") ? base + tailPart : base + " " + tailPart;
     }
 
-    /** True iff any token in {@code slice} is a {@code COMMENT_LINE} -- see the C6f bail-out
+    /**
+     * True iff any token in {@code slice} is a {@code COMMENT_LINE} -- see the C6f bail-out
      *  in {@link #parseKotlinParam}. Mirrors {@code BlockStructureRule.containsLineComment}'s
      *  identical-purpose helper in a structurally unrelated class hierarchy (no shared ancestor
      *  short of a new cross-cutting utility, same "not worth promoting" reasoning as the other
      *  independently-duplicated {@code setOf} helpers noted in STATE_COMMON.md's cleanup-pass
-     *  section). */
-    private boolean containsLineComment(final List<Token> slice) {
-        for (final Token t : slice) {
-            if (t.type == TokenType.COMMENT_LINE) {
-                return true;
-            }
+     *  section).
+     */
+    private boolean containsLineComment(final List<Token> slice)
+    {
+        for(final Token t : slice) {
+            if(t.type == TokenType.COMMENT_LINE) return true;
         }
+
         return false;
     }
 
-    /** True iff {@code slice} contains a {@code {...}} block (brace-depth > 0 relative to
+    /**
+     * True iff {@code slice} contains a {@code {...}} block (brace-depth > 0 relative to
      *  {@code slice} itself) with at least one NEWLINE inside it -- see the C6k-1 bail-out in
      *  {@link #parseKotlinParam}. Mirrors {@code BlockStructureRule.containsMultilineNestedBrace}'s
-     *  identical-purpose helper in a structurally unrelated class hierarchy. */
-    private boolean containsMultilineNestedBrace(final List<Token> slice) {
+     *  identical-purpose helper in a structurally unrelated class hierarchy.
+     */
+    private boolean containsMultilineNestedBrace(final List<Token> slice)
+    {
         int braceDepth = 0;
-        for (final Token t : slice) {
-            if (t.type == TokenType.PUNCT && "{".equals(t.text)) {
-                braceDepth++;
-            } else if (t.type == TokenType.PUNCT && "}".equals(t.text)) {
-                braceDepth--;
-            } else if (t.type == TokenType.NEWLINE && braceDepth > 0) {
-                return true;
-            }
+        for(final Token t : slice) {
+            if( t.type == TokenType.PUNCT && "{".equals(t.text) )      braceDepth++;
+            else if( t.type == TokenType.PUNCT && "}".equals(t.text) ) braceDepth--;
+            else if(t.type == TokenType.NEWLINE && braceDepth > 0)     return true;
         }
+
         return false;
     }
 
-    private String trimTrailingSpaces(final String s) {
+    private String trimTrailingSpaces(final String s)
+    {
         int end = s.length();
-        while (end > 0 && s.charAt(end - 1) == ' ') {
-            end--;
-        }
+        while( end > 0 && s.charAt(end - 1) == ' ' ) end--;
+
         return s.substring(0, end);
     }
-}
+
+} // class KotlinSignatureRule

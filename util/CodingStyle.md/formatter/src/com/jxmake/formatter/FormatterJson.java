@@ -17,18 +17,29 @@ import com.jxmake.formatter.rules.JsonSpecificRule;
  */
 public final class FormatterJson extends FormatterSimpleBraced {
 
-    public FormatterJson(final Lang lang) {
+    public FormatterJson(final Lang lang)
+    {
         super(lang);
     }
 
     @Override
-    public String formatOne(final String content, final String filePath, final Config config,
-            final boolean formatOff) {
-        if (formatOff) {
-            return content;
-        }
-        final JsonSpecificRule rule = new JsonSpecificRule(lang, config.lineLength(),
-                config.indentSize(), config.indentStyle(), config.isNormalizeCommentStartCase());
+    public String formatOne(
+        final String  content,
+        final String  filePath,
+        final Config  config,
+        final boolean formatOff
+    )
+    {
+        if(formatOff) return content;
+        final JsonSpecificRule rule = new JsonSpecificRule(
+            lang,
+            config.lineLength(),
+            config.indentSize(),
+            config.indentStyle(),
+            config.isNormalizeCommentStartCase()
+        );
+
         return rule.format(content);
     }
-}
+
+} // class FormatterJson

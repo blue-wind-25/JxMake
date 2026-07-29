@@ -7,6 +7,15 @@
 
 package com.jxmake.formatter.rules;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
@@ -17,15 +26,6 @@ import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 /**
  * Kotlin-only STYLE_KOTLIN.md/STYLE_KOTLIN2.md sections flagged "(c)" in `STATE_KOTLIN.md`'s
  * Step 1 scoping table -- none of this is reusable from the shared rule classes. See that table
@@ -34,47 +34,55 @@ import java.util.Set;
 public class KotlinSpecificRule {
 
     private final Lang lang;
-    private final int lineLengthLimit;
+    private final int  lineLengthLimit;
 
-    /** One indentation level, used by {@link #enforceWhereClausePlacement} when wrapping a
+    /**
+     * One indentation level, used by {@link #enforceWhereClausePlacement} when wrapping a
      *  trailing `where` clause to its own line -- built from the configured `indent-size` (see
-     *  the constructor), not a hardcoded literal, same precedent as `CppSpecificRule.indentUnit`. */
+     *  the constructor), not a hardcoded literal, same precedent as `CppSpecificRule.indentUnit`.
+     */
     private final String indentUnit;
 
-    public KotlinSpecificRule(final Lang lang) {
+    public KotlinSpecificRule(final Lang lang)
+    {
         this(lang, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
     }
 
-    public KotlinSpecificRule(final Lang lang, final int lineLengthLimit) {
+    public KotlinSpecificRule(final Lang lang, final int lineLengthLimit)
+    {
         this(lang, lineLengthLimit, MiscRuleCurly.DEFAULT_INDENT_WIDTH);
     }
 
-    public KotlinSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth) {
-        this.lang = lang;
+    public KotlinSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth)
+    {
+        this.lang            = lang;
         this.lineLengthLimit = lineLengthLimit;
         final StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < indentWidth; i++) {
-            sb.append(' ');
-        }
+        for(int i = 0; i < indentWidth; ++i) sb.append(' ');
         this.indentUnit = sb.toString();
     }
 
     // ── §4 `when` expression ─────────────────────────────────────────────────────
-    /** One `EXPR -> body` / `else -> body` branch found directly (brace/paren depth 0 relative to
-     *  the `when`'s own `{`) inside a `when` body. */
+    /**
+     * One `EXPR -> body` / `else -> body` branch found directly (brace/paren depth 0 relative to
+     *  the `when`'s own `{`) inside a `when` body
+     */
     private static final class WhenBranch {
-        final int labelStart;
-        final int bodyStart;
-        final int bodyEnd; // inclusive, last significant token of the body
-        final String label; // raw "EXPR" / "else" text, whitespace-collapsed and trimmed
 
-        WhenBranch(final int labelStart, final int bodyStart, final int bodyEnd, final String label) {
+        final int    labelStart;
+        final int    bodyStart;
+        final int    bodyEnd;    // Inclusive, last significant token of the body
+        final String label;      // raw "EXPR" / "else" text, whitespace-collapsed and trimmed
+
+        WhenBranch(final int labelStart, final int bodyStart, final int bodyEnd, final String label)
+        {
             this.labelStart = labelStart;
-            this.bodyStart = bodyStart;
-            this.bodyEnd = bodyEnd;
-            this.label = label;
+            this.bodyStart  = bodyStart;
+            this.bodyEnd    = bodyEnd;
+            this.label      = label;
         }
-    }
+
+    } // class WhenBranch
 
     /**
      * STYLE_KOTLIN.md §4: for every `when [(subject)] { ... }`, ensures a blank line right after
@@ -96,25 +104,20 @@ public class KotlinSpecificRule {
      * STYLE_KOTLIN.md §4 example. A `when` that doesn't fit this shape (findWhenBranches returns
      * null) is left completely untouched, same conservative posture used throughout this codebase.
      */
-    public String formatWhenExpressions(final List<Token> tokens) {
-        final Map<Integer, String> overrides = new HashMap<>();
+    public String formatWhenExpressions(final List<Token> tokens)
+    {
+        final Map<Integer, String> overrides   = new HashMap<>();
         final Map<Integer, String> insertAfter = new HashMap<>();
 
-        for (int i = 0; i < tokens.size(); i++) {
+        for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (t.type != TokenType.KEYWORD || !"when".equals(t.text)) {
-                continue;
-            }
+            if( t.type != TokenType.KEYWORD || !"when".equals(t.text) ) continue;
             int j = nextSignificantIndex(tokens, i + 1);
-            if (j < 0) {
-                continue;
-            }
+            if(j < 0) continue;
             String subject = null;
-            if (isPunct(tokens.get(j), "(")) {
+            if( isPunct( tokens.get(j), "(" ) ) {
                 final int closeParen = matchParenForward(tokens, j);
-                if (closeParen < 0) {
-                    continue;
-                }
+                if(closeParen < 0) continue;
                 // RDD_KEY_175-class pipeline-ordering interaction: this pass runs in Phase 3,
                 // after Phase 1's structural line-wrap (enforceCallLineBreaking) may already have
                 // split a long `when (...)` subject across several physical lines. literalSlice
@@ -127,112 +130,106 @@ public class KotlinSpecificRule {
                 // closing comment always stays on one physical line, matching how a subject that
                 // never wrapped would already render.
                 subject = literalSlice(tokens, j + 1, closeParen).trim().replaceAll("\\s+", " ");
-                j = nextSignificantIndex(tokens, closeParen + 1);
-            }
-            if (j < 0 || !isPunct(tokens.get(j), "{")) {
-                continue;
-            }
-            final int openBrace = j;
+                j       = nextSignificantIndex(tokens, closeParen + 1);
+            } // if
+            if( j < 0 || !isPunct( tokens.get(j), "{" ) ) continue;
+            final int openBrace  = j;
             final int closeBrace = matchBraceForward(tokens, openBrace);
-            if (closeBrace < 0 || anyFrozen(tokens, openBrace, closeBrace + 1)) {
-                continue;
-            }
+            if( closeBrace < 0 || anyFrozen(tokens, openBrace, closeBrace + 1) ) continue;
 
             final List<WhenBranch> branches = findWhenBranches(tokens, openBrace, closeBrace);
-            if (branches == null || branches.isEmpty()) {
-                continue;
-            }
+            if( branches == null || branches.isEmpty() ) continue;
 
-            ensureBlankLineInGap(tokens, openBrace + 1, branches.get(0).labelStart, insertAfter);
-            final int lastBodyEnd = branches.get(branches.size() - 1).bodyEnd;
+            ensureBlankLineInGap( tokens, openBrace + 1, branches.get(0).labelStart, insertAfter );
+            final int lastBodyEnd = branches.get( branches.size() - 1 ).bodyEnd;
             ensureBlankLineInGap(tokens, lastBodyEnd + 1, closeBrace, insertAfter);
             applyClosingComment(tokens, closeBrace, subject, overrides);
             applyArrowAlignment(tokens, branches, overrides);
-        }
+        } // for
 
         return render(tokens, overrides, insertAfter);
     }
 
-    /** Finds every `when` branch in [openBrace+1, closeBrace), or {@code null} if the body
-     *  doesn't fit the required one-branch-per-line shape (see {@link #formatWhenExpressions}). */
-    private List<WhenBranch> findWhenBranches(final List<Token> tokens, final int openBrace,
-            final int closeBrace) {
+    /**
+     * Finds every `when` branch in [openBrace+1, closeBrace), or {@code null} if the body
+     *  doesn't fit the required one-branch-per-line shape (see {@link #formatWhenExpressions})
+     */
+    private List<WhenBranch> findWhenBranches(
+        final List<Token> tokens,
+        final int         openBrace,
+        final int         closeBrace
+    )
+    {
         final List<WhenBranch> branches = new ArrayList<>();
-        int pos = nextSignificantIndex(tokens, openBrace + 1);
-        while (pos >= 0 && pos < closeBrace) {
+              int              pos      = nextSignificantIndex(tokens, openBrace + 1);
+        while(pos >= 0 && pos < closeBrace) {
             final int arrowIdx = findTopLevelArrow(tokens, pos, closeBrace);
-            if (arrowIdx < 0) {
-                return null;
-            }
-            final String label = literalSlice(tokens, pos, arrowIdx).trim();
-            final int bodyStart = nextSignificantIndex(tokens, arrowIdx + 1);
-            if (bodyStart < 0 || bodyStart >= closeBrace) {
-                return null;
-            }
+            if(arrowIdx < 0) return null;
+            final String label     = literalSlice(tokens, pos, arrowIdx).trim();
+            final int    bodyStart = nextSignificantIndex(tokens, arrowIdx + 1);
+            if(bodyStart < 0 || bodyStart >= closeBrace) return null;
 
             final int bodyEnd;
-            int nextPos;
-            if (isPunct(tokens.get(bodyStart), "{")) {
+                  int nextPos;
+            if( isPunct( tokens.get(bodyStart), "{" ) ) {
                 final int bodyClose = matchBraceForward(tokens, bodyStart);
-                if (bodyClose < 0 || bodyClose > closeBrace) {
-                    return null;
-                }
+                if(bodyClose < 0 || bodyClose > closeBrace) return null;
                 bodyEnd = bodyClose;
                 nextPos = nextSignificantIndex(tokens, bodyClose + 1);
-            } else {
+            }
+            else {
                 final int nlIdx = findTopLevelNewline(tokens, bodyStart, closeBrace);
-                if (nlIdx < 0) {
+                if(nlIdx < 0) {
                     bodyEnd = lastSignificantIndex(tokens, bodyStart, closeBrace);
                     nextPos = closeBrace;
-                } else {
+                }
+                else {
                     bodyEnd = lastSignificantIndex(tokens, bodyStart, nlIdx);
                     nextPos = nextSignificantIndex(tokens, nlIdx + 1);
                 }
             }
-            branches.add(new WhenBranch(pos, bodyStart, bodyEnd, label));
-            if (nextPos < 0 || nextPos >= closeBrace) {
-                break;
-            }
+            branches.add( new WhenBranch(pos, bodyStart, bodyEnd, label) );
+            if(nextPos < 0 || nextPos >= closeBrace) break;
             pos = nextPos;
-        }
+        } // while
+
         return branches;
     }
 
-    /** The first top-level (paren/bracket/brace-depth 0 relative to `from`) `->` OP token in
+    /**
+     * The first top-level (paren/bracket/brace-depth 0 relative to `from`) `->` OP token in
      *  [from, limit), or -1 if none is found -- a nested `{`/`(` (e.g. a lambda inside the branch
-     *  condition) is skipped over so its own `->` is never mistaken for the branch's. */
-    private int findTopLevelArrow(final List<Token> tokens, final int from, final int limit) {
+     *  condition) is skipped over so its own `->` is never mistaken for the branch's.
+     */
+    private int findTopLevelArrow(final List<Token> tokens, final int from, final int limit)
+    {
         int depth = 0;
-        for (int i = from; i < limit; i++) {
+        for(int i = from; i < limit; ++i) {
             final Token t = tokens.get(i);
-            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")) {
-                depth++;
-            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")) {
-                depth--;
-            } else if (depth == 0 && isOp(t, "->")) {
-                return i;
-            }
+            if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
+            else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
+            else if( depth == 0 && isOp(t, "->") ) return i;
         }
+
         return -1;
     }
 
-    /** The first top-level NEWLINE token in [from, limit), or -1 if none is found. */
-    private int findTopLevelNewline(final List<Token> tokens, final int from, final int limit) {
+    /** The first top-level NEWLINE token in [from, limit), or -1 if none is found */
+    private int findTopLevelNewline(final List<Token> tokens, final int from, final int limit)
+    {
         int depth = 0;
-        for (int i = from; i < limit; i++) {
+        for(int i = from; i < limit; ++i) {
             final Token t = tokens.get(i);
-            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")) {
-                depth++;
-            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")) {
-                depth--;
-            } else if (depth == 0 && t.type == TokenType.NEWLINE) {
-                return i;
-            }
+            if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
+            else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
+            else if(depth == 0 && t.type == TokenType.NEWLINE) return i;
         }
+
         return -1;
     }
 
-    /** Guarantees the gap [fromIdx, toExclusive) contains a blank line, same comment-anchored
+    /**
+     * Guarantees the gap [fromIdx, toExclusive) contains a blank line, same comment-anchored
      *  mechanism as {@code SwitchRule.ensureBlankLineInGap} (RDD_KEY_129 revision -- the original
      *  version here bailed out entirely whenever any comment token appeared anywhere in the gap,
      *  which meant a `when` branch led by its own standalone comment (e.g. `// Success case`
@@ -243,204 +240,217 @@ public class KotlinSpecificRule {
      *  standalone comment that starts its own line is now treated as the anchor: the blank line
      *  is guaranteed in the sub-gap strictly before it, and the comment itself is left exactly
      *  where it is (never relocated). A comment trailing on the same line as what precedes it is
-     *  not treated as an anchor -- it belongs to that preceding content. */
-    private void ensureBlankLineInGap(final List<Token> tokens, final int fromIdx,
-            final int toExclusive, final Map<Integer, String> insertAfter) {
-        int firstCommentIdx = -1;
-        for (int i = fromIdx; i < toExclusive; i++) {
-            if (isComment(tokens.get(i)) && startsOwnLine(tokens, i, fromIdx - 1)) {
+     *  not treated as an anchor -- it belongs to that preceding content.
+     */
+    private void ensureBlankLineInGap(
+        final List<Token>          tokens,
+        final int                  fromIdx,
+        final int                  toExclusive,
+        final Map<Integer, String> insertAfter
+    )
+    {
+        int firstCommentIdx = - 1;
+        for(int i = fromIdx; i < toExclusive; ++i) {
+            if( isComment( tokens.get(i) ) && startsOwnLine(tokens, i, fromIdx - 1) ) {
                 firstCommentIdx = i;
                 break;
             }
         }
         final int scanEnd = firstCommentIdx < 0 ? toExclusive : firstCommentIdx;
-        int newlineCount = 0;
-        int firstNewlineIdx = -1;
-        for (int i = fromIdx; i < scanEnd; i++) {
-            if (tokens.get(i).type == TokenType.NEWLINE) {
-                newlineCount++;
-                if (firstNewlineIdx < 0) {
-                    firstNewlineIdx = i;
-                }
+              int                                 newlineCount    = 0;
+              int                                 firstNewlineIdx = - 1;
+        for(int i = fromIdx; i < scanEnd; ++i) {
+            if( tokens.get(i).type == TokenType.NEWLINE ) {
+                ++newlineCount;
+                if(firstNewlineIdx < 0) firstNewlineIdx = i;
             }
         }
-        if (newlineCount >= 2) {
-            return;
-        }
-        if (newlineCount == 0) {
-            insertAfter.merge(fromIdx - 1, "\n\n", String::concat);
-        } else {
-            insertAfter.merge(firstNewlineIdx, "\n", String::concat);
-        }
+        if(newlineCount >= 2) return;
+        if(newlineCount == 0) insertAfter.merge(fromIdx - 1, "\n\n", String::concat);
+        else                  insertAfter.merge(firstNewlineIdx, "\n", String::concat);
     }
 
-    /** True if the token at {@code idx} is the first thing on its own line: scanning backward
+    /**
+     * True if the token at {@code idx} is the first thing on its own line: scanning backward
      *  from it, only WHITESPACE is found before hitting a NEWLINE or {@code floor} (the last
      *  real-content token before the gap being searched, guaranteed non-whitespace/non-newline,
      *  so reaching it without a NEWLINE means {@code idx} is still on that content's own line).
      *  Same helper as {@code SwitchRule.startsOwnLine}, duplicated here since that class is not
-     *  shared infrastructure this file extends. */
-    private boolean startsOwnLine(final List<Token> tokens, final int idx, final int floor) {
-        for (int i = idx - 1; i >= floor; i--) {
+     *  shared infrastructure this file extends.
+     */
+    private boolean startsOwnLine(final List<Token> tokens, final int idx, final int floor)
+    {
+        for(int i = idx - 1; i >= floor; --i) {
             final Token t = tokens.get(i);
-            if (t.type == TokenType.NEWLINE) {
-                return true;
-            }
-            if (t.type != TokenType.WHITESPACE) {
-                return false;
-            }
+            if(t.type == TokenType.NEWLINE) return true;
+            if(t.type != TokenType.WHITESPACE) return false;
         }
+
         return false;
     }
 
-    /** Appends `// when subject` (or bare `// when` if {@code subject} is null/empty) after
+    /**
+     * Appends `// when subject` (or bare `// when` if {@code subject} is null/empty) after
      *  {@code closeBrace}, unless something other than whitespace already follows on the same
      *  line (existing content or a comment -- left alone rather than risking corruption/duplication,
-     *  same posture as {@code BlockStructureRule.addClosingComments}). */
-    private void applyClosingComment(final List<Token> tokens, final int closeBrace,
-            final String subject, final Map<Integer, String> overrides) {
+     *  same posture as {@code BlockStructureRule.addClosingComments}).
+     */
+    private void applyClosingComment(
+        final List<Token>          tokens,
+        final int                  closeBrace,
+        final String               subject,
+        final Map<Integer, String> overrides
+    )
+    {
         int i = closeBrace + 1;
-        while (i < tokens.size() && tokens.get(i).type == TokenType.WHITESPACE) {
-            i++;
-        }
-        if (i < tokens.size() && tokens.get(i).type != TokenType.NEWLINE) {
-            return;
-        }
-        if (tokens.get(closeBrace).frozen) {
-            return;
-        }
-        final String label = subject != null && !subject.isEmpty() ? "when " + subject : "when";
-        overrides.put(closeBrace, tokens.get(closeBrace).text + " // " + label);
+        while( i < tokens.size() && tokens.get(i).type == TokenType.WHITESPACE ) i++;
+        if( i < tokens.size() && tokens.get(i).type != TokenType.NEWLINE ) return;
+        if( tokens.get(closeBrace).frozen ) return;
+        final String label = subject != null&& ! subject.isEmpty() ? "when " + subject : "when";
+        overrides.put( closeBrace, tokens.get(closeBrace).text + " // " + label );
     }
 
-    /** Pads every branch's label to the widest in {@code branches} (trailing-cell trick, same
+    /**
+     * Pads every branch's label to the widest in {@code branches} (trailing-cell trick, same
      *  precedent as {@code SwitchRule.applyInlineAlignment}'s label cell) and rewrites only the
      *  label+arrow span -- body content from {@code bodyStart} onward is left untouched. Skips
      *  (leaves byte-for-byte untouched) any individual branch whose padded label would push its
      *  own same-line body content past {@code lineLengthLimit}, same predict-before-committing
-     *  posture as {@code JavaSpecificRule.applyArrowAlignment}. */
-    private void applyArrowAlignment(final List<Token> tokens, final List<WhenBranch> branches,
-            final Map<Integer, String> overrides) {
+     *  posture as {@code JavaSpecificRule.applyArrowAlignment}.
+     */
+    private void applyArrowAlignment(
+        final List<Token>          tokens,
+        final List<WhenBranch>     branches,
+        final Map<Integer, String> overrides
+    )
+    {
         final ColumnGrid grid = new ColumnGrid();
-        for (final WhenBranch b : branches) {
-            grid.addRow(new String[] {b.label + " ", ""});
+        for(final WhenBranch b : branches) {
+            grid.addRow( new String[] {b.label + " ", ""} );
         }
         final List<String[]> padded = grid.flush();
 
-        for (int i = 0; i < branches.size(); i++) {
-            final WhenBranch b = branches.get(i);
-            final String labelPart = padded.get(i)[0] + "-> ";
-            final int sameLineEnd = firstNewlineOrEnd(tokens, b.bodyStart, b.bodyEnd + 1);
-            final String bodySameLine = literalSlice(tokens, b.bodyStart, sameLineEnd);
-            final int indent = lineIndentWidth(tokens, b.labelStart);
-            if (indent + labelPart.length() + bodySameLine.length() > lineLengthLimit) {
-                continue;
-            }
+        for( int i = 0; i < branches.size(); ++i ) {
+            final WhenBranch b            = branches.get(i);
+            final String     labelPart    = padded.get(i)[0] + "-> ";
+            final int        sameLineEnd  = firstNewlineOrEnd(tokens, b.bodyStart, b.bodyEnd + 1);
+            final String     bodySameLine = literalSlice(tokens, b.bodyStart, sameLineEnd);
+            final int        indent       = lineIndentWidth(tokens, b.labelStart);
+            if( indent + labelPart.length() + bodySameLine.length() > lineLengthLimit ) continue;
             overrides.put(b.labelStart, labelPart);
-            for (int k = b.labelStart + 1; k < b.bodyStart; k++) {
-                overrides.put(k, "");
-            }
-        }
+            for(int k = b.labelStart + 1; k < b.bodyStart; ++k) overrides.put(k, "");
+        } // for
     }
 
-    /** The index of the first NEWLINE token in [from, limit), or {@code limit} if none is found. */
-    private int firstNewlineOrEnd(final List<Token> tokens, final int from, final int limit) {
-        for (int i = from; i < limit; i++) {
-            if (tokens.get(i).type == TokenType.NEWLINE) {
-                return i;
-            }
+    /** The index of the first NEWLINE token in [from, limit), or {@code limit} if none is found */
+    private int firstNewlineOrEnd(final List<Token> tokens, final int from, final int limit)
+    {
+        for(int i = from; i < limit; ++i) {
+            if( tokens.get(i).type == TokenType.NEWLINE ) return i;
         }
+
         return limit;
     }
 
-    /** Total text length of the run of WHITESPACE tokens immediately preceding {@code idx} --
+    /**
+     * Total text length of the run of WHITESPACE tokens immediately preceding {@code idx} --
      *  the leading indentation of {@code idx}'s own physical line (0 if {@code idx} isn't first
-     *  on its line). */
-    private int lineIndentWidth(final List<Token> tokens, final int idx) {
+     *  on its line)
+     */
+    private int lineIndentWidth(final List<Token> tokens, final int idx)
+    {
         int width = 0;
-        for (int i = idx - 1; i >= 0 && tokens.get(i).type == TokenType.WHITESPACE; i--) {
-            width += tokens.get(i).text.length();
-        }
+        for( int i = idx - 1; i >= 0 && tokens.get(
+            i
+        ).type == TokenType.WHITESPACE; --i ) width += tokens.get(
+            i
+        ).text.length();
+
         return width;
     }
 
-    /** Concatenates raw token text over [from, to), preserving whatever spacing already exists. */
-    private String literalSlice(final List<Token> tokens, final int from, final int to) {
+    /** Concatenates raw token text over [from, to), preserving whatever spacing already exists */
+    private String literalSlice(final List<Token> tokens, final int from, final int to)
+    {
         final StringBuilder sb = new StringBuilder();
-        for (int i = from; i < to; i++) {
-            sb.append(tokens.get(i).text);
-        }
+        for(int i = from; i < to; ++i) sb.append( tokens.get(i).text );
+
         return sb.toString();
     }
 
-    private int nextSignificantIndex(final List<Token> tokens, final int from) {
-        for (int i = from; i < tokens.size(); i++) {
-            if (!isGapToken(tokens.get(i))) {
-                return i;
-            }
+    private int nextSignificantIndex(final List<Token> tokens, final int from)
+    {
+        for( int i = from; i < tokens.size(); ++i ) {
+            if( !isGapToken( tokens.get(i) ) ) return i;
         }
+
         return -1;
     }
 
-    private int lastSignificantIndex(final List<Token> tokens, final int from, final int to) {
-        for (int i = to - 1; i >= from; i--) {
-            if (!isGapToken(tokens.get(i))) {
-                return i;
-            }
+    private int lastSignificantIndex(final List<Token> tokens, final int from, final int to)
+    {
+        for(int i = to - 1; i >= from; --i) {
+            if( !isGapToken( tokens.get(i) ) ) return i;
         }
+
         return from;
     }
 
-    private int matchParenForward(final List<Token> tokens, final int openIdx) {
-        int depth = 1;
-        int i = openIdx + 1;
-        final int n = tokens.size();
-        while (i < n && depth > 0) {
-            if (isPunct(tokens.get(i), "(")) {
-                depth++;
-            } else if (isPunct(tokens.get(i), ")")) {
-                depth--;
-            }
-            i++;
+    private int matchParenForward(final List<Token> tokens, final int openIdx)
+    {
+          int depth = 1;
+          int i     = openIdx + 1;
+    final int n     = tokens.size();
+        while(i < n && depth > 0) {
+            if( isPunct( tokens.get(i), "(" ) ) depth++;
+            else if( isPunct( tokens.get(i), ")" ) ) depth--;
+            ++i;
         }
+
         return depth == 0 ? i - 1 : -1;
     }
 
-    private int matchBraceForward(final List<Token> tokens, final int openIdx) {
-        int depth = 1;
-        int i = openIdx + 1;
-        final int n = tokens.size();
-        while (i < n && depth > 0) {
-            if (isPunct(tokens.get(i), "{")) {
-                depth++;
-            } else if (isPunct(tokens.get(i), "}")) {
-                depth--;
-            }
-            i++;
+    private int matchBraceForward(final List<Token> tokens, final int openIdx)
+    {
+          int depth = 1;
+          int i     = openIdx + 1;
+    final int n     = tokens.size();
+        while(i < n && depth > 0) {
+            if( isPunct( tokens.get(i), "{" ) )      depth++;
+            else if( isPunct( tokens.get(i), "}" ) ) depth--;
+            ++i;
         }
+
         return depth == 0 ? i - 1 : -1;
     }
 
-    private boolean anyFrozen(final List<Token> tokens, final int fromInclusive, final int toExclusive) {
-        for (int i = fromInclusive; i < toExclusive; i++) {
-            if (tokens.get(i).frozen) {
-                return true;
-            }
+    private boolean anyFrozen(
+        final List<Token> tokens,
+        final int         fromInclusive,
+        final int         toExclusive
+    )
+    {
+        for(int i = fromInclusive; i < toExclusive; ++i) {
+            if( tokens.get(i).frozen ) return true;
         }
+
         return false;
     }
 
-    private String render(final List<Token> tokens, final Map<Integer, String> overrides,
-            final Map<Integer, String> insertAfter) {
+    private String render(
+        final List<Token>          tokens,
+        final Map<Integer, String> overrides,
+        final Map<Integer, String> insertAfter
+    )
+    {
         final StringBuilder out = new StringBuilder();
-        for (int i = 0; i < tokens.size(); i++) {
+        for( int i = 0; i < tokens.size(); ++i ) {
             final String override = overrides.get(i);
-            out.append(override != null ? override : tokens.get(i).text);
+            out.append( override != null ? override : tokens.get(i).text );
             final String extra = insertAfter.get(i);
-            if (extra != null) {
-                out.append(extra);
-            }
+            if(extra != null) out.append(extra);
         }
+
         return out.toString();
     }
 
@@ -457,23 +467,25 @@ public class KotlinSpecificRule {
      * this codebase: a gap containing a comment, a NEWLINE, or a frozen token is left completely
      * untouched (never risk relocating a comment or reflowing a frozen/disabled span).
      */
-    public String enforceNullSafetyOperatorSpacing(final List<Token> tokens) {
-        final StringBuilder out = new StringBuilder();
-        final List<Token> gap = new ArrayList<>();
-        Token lastSignificant = null;
-        final int n = tokens.size();
-        int i = 0;
+    public String enforceNullSafetyOperatorSpacing(final List<Token> tokens)
+    {
+        final StringBuilder out             = new StringBuilder();
+        final List<Token>   gap             = new ArrayList<>();
+              Token         lastSignificant = null;
+        final int           n               = tokens.size();
+              int           i               = 0;
 
-        while (i < n) {
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
+            if( isGapToken(t) ) {
                 gap.add(t);
-                i++;
+                ++i;
                 continue;
             }
 
-            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
-                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean gapBlocked = gap.stream().anyMatch(
+                g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
+            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
             // C6k-4: `!!` is tight against its left operand (`isTightNullOp(t)` below, when `t`
             // itself is `?.`/`!!` -- i.e. the upcoming operator's own left side) always, but on its
             // *right* side it must stay tight only when directly followed by a postfix
@@ -485,45 +497,66 @@ public class KotlinSpecificRule {
             // unconditionally tight. Found via `JetBrains/kotlin` dogfood (`ClientUtils.kt`'s
             // `assert(port!! in COMPILE_DAEMON_PORTS_RANGE_START..<...)`, where the space this
             // pass is supposed to leave untouched was being dropped instead).
-            final boolean bangTightOnRight = isOp(lastSignificant, "!!") && isPostfixNullOpContinuation(t);
-            final boolean dotTightOnRight = isOp(lastSignificant, "?.");
-            final boolean adjacentToTightOp = isTightNullOp(t) || dotTightOnRight || bangTightOnRight;
-            final boolean adjacentToElvis = !adjacentToTightOp && (isElvisOp(lastSignificant) || isElvisOp(t));
+            final boolean bangTightOnRight  = isOp(
+                lastSignificant, "!!"
+            )&& isPostfixNullOpContinuation(
+                t
+            );
+            final boolean dotTightOnRight   = isOp(lastSignificant, "?.");
+            final boolean adjacentToTightOp = isTightNullOp(
+                t
+            ) || dotTightOnRight || bangTightOnRight;
+            final boolean adjacentToElvis   = ! adjacentToTightOp&& ( isElvisOp(
+                lastSignificant
+            ) || isElvisOp(
+                t
+            ) );
 
-            if (gapBlocked || (!adjacentToTightOp && !adjacentToElvis)) {
-                for (final Token g : gap) {
-                    out.append(g.text);
-                }
-            } else if (adjacentToElvis) {
+            if( gapBlocked || (!adjacentToTightOp && !adjacentToElvis) ) {
+                for(final Token g : gap) out.append(g.text);
+            }
+            else if(adjacentToElvis) {
                 out.append(' ');
             }
-            // adjacentToTightOp && !gapBlocked: gap dropped entirely, nothing appended.
+            // AdjacentToTightOp && !gapBlocked: gap dropped entirely, nothing appended
 
             gap.clear();
             out.append(t.text);
             lastSignificant = t;
-            i++;
-        }
-        for (final Token g : gap) {
-            out.append(g.text);
-        }
+            ++i;
+        } // while
+        for(final Token g : gap) out.append(g.text);
+
         return out.toString();
     }
 
-    private boolean isTightNullOp(final Token t) {
-        return t != null && (isOp(t, "?.") || isOp(t, "!!"));
+    private boolean isTightNullOp(final Token t)
+    {
+        return t != null && ( isOp(t, "?.") || isOp(t, "!!") );
     }
 
-    /** True iff {@code t} is a token that legitimately continues tight against a preceding `!!`
+    /**
+     * True iff {@code t} is a token that legitimately continues tight against a preceding `!!`
      *  (a postfix chain: `.`/`[`/`(`, or another `?.`/`!!`) -- used only by the C6k-4 fix in
      *  {@link #enforceNullSafetyOperatorSpacing} to distinguish `x!!.foo()`/`x!![0]`/`x!!()` (stay
      *  tight) from `x!! in y`/`x!! ?: y`/`x!! + y` (ordinary keyword/operator continuation, needs
-     *  its normal spacing, left untouched by this pass). */
-    private boolean isPostfixNullOpContinuation(final Token t) {
-        return t != null && (isPunct(t, ".") || isPunct(t, "[") || isPunct(t, "(") || isTightNullOp(t));
+     *  its normal spacing, left untouched by this pass).
+     */
+    private boolean isPostfixNullOpContinuation(final Token t)
+    {
+        return t != null && ( isPunct(
+            t, "."
+        ) || isPunct(
+            t, "["
+        ) || isPunct(
+            t, "("
+        ) || isTightNullOp(
+            t
+        ) );
     }
 
-    private boolean isElvisOp(final Token t) {
+    private boolean isElvisOp(final Token t)
+    {
         return t != null && isOp(t, "?:");
     }
 
@@ -542,55 +575,60 @@ public class KotlinSpecificRule {
      * other pass in this file: a gap containing a comment, a NEWLINE, or a frozen token is left
      * completely untouched.
      */
-    public String enforceRangeOperatorSpacing(final List<Token> tokens) {
-        final StringBuilder out = new StringBuilder();
-        final List<Token> gap = new ArrayList<>();
-        Token lastSignificant = null;
-        final int n = tokens.size();
-        int i = 0;
+    public String enforceRangeOperatorSpacing(final List<Token> tokens)
+    {
+        final StringBuilder out             = new StringBuilder();
+        final List<Token>   gap             = new ArrayList<>();
+              Token         lastSignificant = null;
+        final int           n               = tokens.size();
+              int           i               = 0;
 
-        while (i < n) {
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
+            if( isGapToken(t) ) {
                 gap.add(t);
-                i++;
+                ++i;
                 continue;
             }
 
-            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
-                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean gapBlocked        = gap.stream().anyMatch(
+                g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
+            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
             final boolean adjacentToRangeOp = isRangeOp(lastSignificant) || isRangeOp(t);
 
-            if (!gapBlocked && adjacentToRangeOp) {
-                // gap dropped entirely, nothing appended -- tight on both sides.
-            } else {
-                for (final Token g : gap) {
-                    out.append(g.text);
-                }
+            if(!gapBlocked && adjacentToRangeOp) {
+                // Gap dropped entirely, nothing appended -- tight on both sides
+            }
+            else {
+                for(final Token g : gap) out.append(g.text);
             }
 
             gap.clear();
             out.append(t.text);
             lastSignificant = t;
-            i++;
-        }
-        for (final Token g : gap) {
-            out.append(g.text);
-        }
+            ++i;
+        } // while
+        for(final Token g : gap) out.append(g.text);
+
         return out.toString();
     }
 
-    private boolean isRangeOp(final Token t) {
-        return t != null && (isOp(t, "..") || isOp(t, "..<"));
+    private boolean isRangeOp(final Token t)
+    {
+        return t != null && ( isOp(t, "..") || isOp(t, "..<") );
     }
 
     // ── §11 Labeled jumps ────────────────────────────────────────────────────────
-    /** Tracks progress through a `return@label`/`break@loop`/`continue@loop` jump, or a
-     *  `label@` declaration, as tokens are consumed left to right. */
+    /**
+     * Tracks progress through a `return@label`/`break@loop`/`continue@loop` jump, or a
+     *  `label@` declaration, as tokens are consumed left to right
+     */
     private enum JumpState {
+
         NONE, AFTER_JUMP_KEYWORD, AFTER_JUMP_AT, AFTER_JUMP_LABEL, AFTER_PLAIN_IDENT, AFTER_DECL_AT,
         AFTER_THIS_KEYWORD, AFTER_THIS_AT
-    }
+
+    } // enum JumpState
 
     /**
      * STYLE_KOTLIN.md §11: `return@label`/`break@loop`/`continue@loop` are tight around the `@`
@@ -606,67 +644,75 @@ public class KotlinSpecificRule {
      * never force a space onto a jump with no trailing value, where the gap is just the statement's
      * closing NEWLINE).
      */
-    public String enforceLabeledJumpSpacing(final List<Token> tokens) {
-        final StringBuilder out = new StringBuilder();
-        final List<Token> gap = new ArrayList<>();
-        JumpState state = JumpState.NONE;
-        Token lastSignificant = null;
-        final int n = tokens.size();
-        int i = 0;
+    public String enforceLabeledJumpSpacing(final List<Token> tokens)
+    {
+        final StringBuilder out             = new StringBuilder();
+        final List<Token>   gap             = new ArrayList<>();
+              JumpState     state           = JumpState.NONE;
+              Token         lastSignificant = null;
+        final int           n               = tokens.size();
+              int           i               = 0;
 
-        while (i < n) {
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
+            if( isGapToken(t) ) {
                 gap.add(t);
-                i++;
+                ++i;
                 continue;
             }
 
-            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
-                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
-            final boolean tightBeforeAt = isOp(t, "@")
-                    && (state == JumpState.AFTER_JUMP_KEYWORD || state == JumpState.AFTER_THIS_KEYWORD
-                            || (state == JumpState.AFTER_PLAIN_IDENT && isLoopLabelTarget(tokens, i + 1)));
-            final boolean tightAfterJumpAt = (state == JumpState.AFTER_JUMP_AT || state == JumpState.AFTER_THIS_AT)
-                    && t.type == TokenType.IDENTIFIER;
-            final boolean forceSpace = state == JumpState.AFTER_JUMP_LABEL || state == JumpState.AFTER_DECL_AT;
+            final boolean gapBlocked       = gap.stream().anyMatch(
+                g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
+            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
+            final boolean tightBeforeAt    = isOp(
+                t, "@"
+            )&& ( state == JumpState.AFTER_JUMP_KEYWORD || state == JumpState.AFTER_THIS_KEYWORD || ( state == JumpState.AFTER_PLAIN_IDENT&& isLoopLabelTarget(
+                tokens, i + 1
+            ) ) );
+            final boolean tightAfterJumpAt = (state == JumpState.AFTER_JUMP_AT || state == JumpState.AFTER_THIS_AT)&& t.type == TokenType.IDENTIFIER;
+            final boolean forceSpace       = state == JumpState.AFTER_JUMP_LABEL || state == JumpState.AFTER_DECL_AT;
 
-            if (gapBlocked) {
-                for (final Token g : gap) {
-                    out.append(g.text);
-                }
-            } else if (forceSpace) {
-                out.append(' ');
-            } else if (!tightBeforeAt && !tightAfterJumpAt) {
-                for (final Token g : gap) {
-                    out.append(g.text);
-                }
+            if(gapBlocked) {
+                for(final Token g : gap) out.append(g.text);
             }
-            // tightBeforeAt || tightAfterJumpAt, unblocked: gap dropped entirely.
+            else if(forceSpace) {
+                out.append(' ');
+            }
+            else if(!tightBeforeAt && !tightAfterJumpAt) {
+                for(final Token g : gap) out.append(g.text);
+            }
+            // TightBeforeAt || tightAfterJumpAt, unblocked: gap dropped entirely
 
             gap.clear();
             out.append(t.text);
 
-            if (t.type == TokenType.KEYWORD && isJumpKeyword(t.text)) {
+            if( t.type == TokenType.KEYWORD && isJumpKeyword(t.text) ) {
                 state = JumpState.AFTER_JUMP_KEYWORD;
-            } else if (t.type == TokenType.KEYWORD && "this".equals(t.text)) {
+            }
+            else if( t.type == TokenType.KEYWORD && "this".equals(t.text) ) {
                 // A qualified-this expression, `this@Label` -- unlike `return@label`/`break@loop`,
                 // there's no forced trailing space after the label (it's an expression operand, not
                 // a jump followed by a value or a declaration prefixing a loop), and the `@` is
-                // unambiguous here (a `this` keyword is never followed by an unrelated annotation).
+                // unambiguous here (a `this` keyword is never followed by an unrelated annotation)
                 state = JumpState.AFTER_THIS_KEYWORD;
-            } else if (state == JumpState.AFTER_JUMP_KEYWORD && isOp(t, "@") && !gapBlocked) {
+            }
+            else if( state == JumpState.AFTER_JUMP_KEYWORD && isOp(t, "@") && !gapBlocked ) {
                 state = JumpState.AFTER_JUMP_AT;
-            } else if (state == JumpState.AFTER_THIS_KEYWORD && isOp(t, "@") && !gapBlocked) {
+            }
+            else if( state == JumpState.AFTER_THIS_KEYWORD && isOp(t, "@") && !gapBlocked ) {
                 state = JumpState.AFTER_THIS_AT;
-            } else if (state == JumpState.AFTER_JUMP_AT && t.type == TokenType.IDENTIFIER) {
+            }
+            else if(state == JumpState.AFTER_JUMP_AT && t.type == TokenType.IDENTIFIER) {
                 state = JumpState.AFTER_JUMP_LABEL;
-            } else if (state == JumpState.AFTER_THIS_AT && t.type == TokenType.IDENTIFIER) {
+            }
+            else if(state == JumpState.AFTER_THIS_AT && t.type == TokenType.IDENTIFIER) {
                 state = JumpState.NONE;
-            } else if (t.type == TokenType.IDENTIFIER) {
+            }
+            else if(t.type == TokenType.IDENTIFIER) {
                 state = JumpState.AFTER_PLAIN_IDENT;
-            } else if (state == JumpState.AFTER_PLAIN_IDENT && isOp(t, "@") && !gapBlocked
-                    && isLoopLabelTarget(tokens, i + 1)) {
+            }
+            else if( state == JumpState.AFTER_PLAIN_IDENT && isOp(t, "@") && !gapBlocked
+                    && isLoopLabelTarget(tokens, i + 1) ) {
                 // Only a genuine `label@` declaration (identifier directly glued to `@`, no gap,
                 // AND actually prefixing a `for`/`while`/`do` loop -- the only constructs Kotlin
                 // labels can target) reaches here. An identifier merely followed by an unrelated
@@ -677,43 +723,48 @@ public class KotlinSpecificRule {
                 // very same line (e.g. `class Foo @JvmOverloads constructor(...)`, where
                 // `@JvmOverloads` is an annotation on the primary constructor, not a loop label).
                 state = JumpState.AFTER_DECL_AT;
-            } else {
+            }
+            else {
                 state = JumpState.NONE;
             }
 
             lastSignificant = t;
-            i++;
-        }
-        for (final Token g : gap) {
-            out.append(g.text);
-        }
+            ++i;
+        } // while
+        for(final Token g : gap) out.append(g.text);
+
         return out.toString();
     }
 
-    private boolean isJumpKeyword(final String text) {
+    private boolean isJumpKeyword(final String text)
+    {
         return "return".equals(text) || "break".equals(text) || "continue".equals(text);
     }
 
-    /** True iff the next significant token at or after {@code from} is `for`/`while`/`do`, or a
+    /**
+     * True iff the next significant token at or after {@code from} is `for`/`while`/`do`, or a
      *  `{` (a labeled lambda literal, e.g. `"123".let parse@ { ... }`) -- the only constructs a
      *  Kotlin label (`label@`) can prefix. Used by {@link #enforceLabeledJumpSpacing} to tell a
      *  genuine label declaration apart from an unrelated `@Annotation` that merely happens to sit
      *  right after some other identifier (a class name, an enum constant, etc.), which is never a
-     *  valid label target. */
-    private boolean isLoopLabelTarget(final List<Token> tokens, final int from) {
+     *  valid label target.
+     */
+    private boolean isLoopLabelTarget(final List<Token> tokens, final int from)
+    {
         int j = from;
-        while (j < tokens.size() && isGapToken(tokens.get(j))) {
-            j++;
-        }
-        if (j >= tokens.size()) {
-            return false;
-        }
+        while( j < tokens.size() && isGapToken( tokens.get(j) ) ) j++;
+        if( j >= tokens.size() ) return false;
         final Token next = tokens.get(j);
-        if (isPunct(next, "{")) {
-            return true;
-        }
+        if( isPunct(next, "{") ) return true;
+
         return next.type == TokenType.KEYWORD
-                && ("for".equals(next.text) || "while".equals(next.text) || "do".equals(next.text));
+                && ( "for".equals(
+                    next.text
+                ) || "while".equals(
+                    next.text
+                ) || "do".equals(
+                    next.text
+                ) );
     }
 
     // ── §17/§17.1 Function-type / lambda-parameter arrow spacing ────────────────
@@ -735,100 +786,96 @@ public class KotlinSpecificRule {
      * item.transform()\n}`, where forcing a space before the newline would introduce trailing
      * whitespace).
      */
-    public String enforceArrowSpacing(final List<Token> tokens) {
+    public String enforceArrowSpacing(final List<Token> tokens)
+    {
         final java.util.Set<Integer> whenArrows = collectWhenBranchArrowIndices(tokens);
-        final StringBuilder out = new StringBuilder();
-        final List<Token> gap = new ArrayList<>();
-        Token lastSignificant = null;
-        int lastSignificantIdx = -1;
-        final int n = tokens.size();
-        int i = 0;
+        final StringBuilder out                = new StringBuilder();
+        final List<Token>   gap                = new ArrayList<>();
+              Token         lastSignificant    = null;
+              int           lastSignificantIdx = - 1;
+        final int           n                  = tokens.size();
+              int           i                  = 0;
 
-        while (i < n) {
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
+            if( isGapToken(t) ) {
                 gap.add(t);
-                i++;
+                ++i;
                 continue;
             }
 
-            final boolean blocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
-                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
-            final boolean forceSpaceBefore = !blocked && isOp(t, "->") && !whenArrows.contains(i);
-            final boolean forceSpaceAfter = !blocked && lastSignificant != null && isOp(lastSignificant, "->")
-                    && !whenArrows.contains(lastSignificantIdx);
+            final boolean blocked          = gap.stream().anyMatch(
+                g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
+            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
+            final boolean forceSpaceBefore = ! blocked&& isOp(t, "->")&& ! whenArrows.contains(i);
+            final boolean forceSpaceAfter  = ! blocked&& lastSignificant != null&& isOp(
+                lastSignificant, "->"
+            )&& ! whenArrows.contains(
+                lastSignificantIdx
+            );
 
-            if (forceSpaceBefore || forceSpaceAfter) {
+            if(forceSpaceBefore || forceSpaceAfter) {
                 out.append(' ');
-            } else {
-                for (final Token g : gap) {
-                    out.append(g.text);
-                }
+            }
+            else {
+                for(final Token g : gap) out.append(g.text);
             }
 
             gap.clear();
             out.append(t.text);
-            lastSignificant = t;
+            lastSignificant    = t;
             lastSignificantIdx = i;
-            i++;
-        }
-        for (final Token g : gap) {
-            out.append(g.text);
-        }
+            ++i;
+        } // while
+        for(final Token g : gap) out.append(g.text);
+
         return out.toString();
     }
 
-    /** Every `when`-branch selector arrow's own token index, across every `when` block in
+    /**
+     * Every `when`-branch selector arrow's own token index, across every `when` block in
      *  {@code tokens} -- walks the same `when(...) { ... }` shape {@link #formatWhenExpressions}
      *  recognizes, so {@link #enforceArrowSpacing} can exclude exactly those arrows (already
-     *  owned by §4's column alignment) without duplicating that method's alignment logic. */
-    private java.util.Set<Integer> collectWhenBranchArrowIndices(final List<Token> tokens) {
+     *  owned by §4's column alignment) without duplicating that method's alignment logic.
+     */
+    private java.util.Set<Integer> collectWhenBranchArrowIndices(final List<Token> tokens)
+    {
         final java.util.Set<Integer> arrows = new java.util.HashSet<>();
-        for (int i = 0; i < tokens.size(); i++) {
+        for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (t.type != TokenType.KEYWORD || !"when".equals(t.text)) {
-                continue;
-            }
+            if( t.type != TokenType.KEYWORD || !"when".equals(t.text) ) continue;
             int j = nextSignificantIndex(tokens, i + 1);
-            if (j < 0) {
-                continue;
-            }
-            if (isPunct(tokens.get(j), "(")) {
+            if(j < 0) continue;
+            if( isPunct( tokens.get(j), "(" ) ) {
                 final int closeParen = matchParenForward(tokens, j);
-                if (closeParen < 0) {
-                    continue;
-                }
+                if(closeParen < 0) continue;
                 j = nextSignificantIndex(tokens, closeParen + 1);
             }
-            if (j < 0 || !isPunct(tokens.get(j), "{")) {
-                continue;
-            }
-            final int openBrace = j;
+            if( j < 0 || !isPunct( tokens.get(j), "{" ) ) continue;
+            final int openBrace  = j;
             final int closeBrace = matchBraceForward(tokens, openBrace);
-            if (closeBrace < 0) {
-                continue;
-            }
+            if(closeBrace < 0) continue;
             final List<WhenBranch> branches = findWhenBranches(tokens, openBrace, closeBrace);
-            if (branches == null) {
-                continue;
-            }
-            for (final WhenBranch b : branches) {
+            if(branches == null) continue;
+            for(final WhenBranch b : branches) {
                 final int arrowIdx = findTopLevelArrow(tokens, b.labelStart, b.bodyStart);
-                if (arrowIdx >= 0) {
-                    arrows.add(arrowIdx);
-                }
+                if(arrowIdx >= 0) arrows.add(arrowIdx);
             }
-        }
+        } // for i
+
         return arrows;
     }
 
     // ── §16 Annotation use-site targets ──────────────────────────────────────────
-    private static final java.util.Set<String> USE_SITE_TARGETS = new java.util.HashSet<>(java.util.Arrays.asList(
-            "file", "property", "field", "get", "set", "receiver", "param", "setparam", "delegate"));
+    private static final java.util.Set<String> USE_SITE_TARGETS = new java.util.HashSet<>( java.util.Arrays.asList(
+        "file", "property", "field", "get", "set", "receiver", "param", "setparam", "delegate"
+    ) );
 
     private enum UseSiteState {
+
         NONE, AFTER_AT, AFTER_TARGET, AFTER_COLON
-    }
+
+    } // enum UseSiteState
 
     /**
      * STYLE_KOTLIN.md §16: an annotation use-site target (`@field:`, `@get:`, `@param:`, `@set:`,
@@ -843,68 +890,71 @@ public class KotlinSpecificRule {
      * conservative bailout as every other pass in this file: any gap containing a comment, a
      * NEWLINE, or a frozen token is left untouched.
      */
-    public String enforceAnnotationUseSiteTargetSpacing(final List<Token> tokens) {
-        final StringBuilder out = new StringBuilder();
-        final List<Token> gap = new ArrayList<>();
-        UseSiteState state = UseSiteState.NONE;
-        Token lastSignificant = null;
-        final int n = tokens.size();
-        int i = 0;
+    public String enforceAnnotationUseSiteTargetSpacing(final List<Token> tokens)
+    {
+        final StringBuilder out             = new StringBuilder();
+        final List<Token>   gap             = new ArrayList<>();
+              UseSiteState  state           = UseSiteState.NONE;
+              Token         lastSignificant = null;
+        final int           n               = tokens.size();
+              int           i               = 0;
 
-        while (i < n) {
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
+            if( isGapToken(t) ) {
                 gap.add(t);
-                i++;
+                ++i;
                 continue;
             }
 
-            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
-                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
-            final boolean tightBeforeColon = state == UseSiteState.AFTER_TARGET && isOp(t, ":");
-            final boolean tightAfterColon = state == UseSiteState.AFTER_COLON;
+            final boolean gapBlocked       = gap.stream().anyMatch(
+                g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
+            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
+            final boolean tightBeforeColon = state == UseSiteState.AFTER_TARGET&& isOp(t, ":");
+            final boolean tightAfterColon  = state == UseSiteState.AFTER_COLON;
 
-            if (gapBlocked || (!tightBeforeColon && !tightAfterColon)) {
-                for (final Token g : gap) {
-                    out.append(g.text);
-                }
+            if( gapBlocked || (!tightBeforeColon && !tightAfterColon) ) {
+                for(final Token g : gap) out.append(g.text);
             }
-            // tightBeforeColon || tightAfterColon, unblocked: gap dropped entirely.
+            // TightBeforeColon || tightAfterColon, unblocked: gap dropped entirely
 
             gap.clear();
             out.append(t.text);
 
-            if (isOp(t, "@")) {
-                state = UseSiteState.AFTER_AT;
-            } else if (state == UseSiteState.AFTER_AT && USE_SITE_TARGETS.contains(t.text)) {
-                state = UseSiteState.AFTER_TARGET;
-            } else if (state == UseSiteState.AFTER_TARGET && isOp(t, ":")) {
-                state = UseSiteState.AFTER_COLON;
-            } else {
-                state = UseSiteState.NONE;
-            }
+            if( isOp(t, "@") ) state = UseSiteState.AFTER_AT;
+            else if( state == UseSiteState.AFTER_AT && USE_SITE_TARGETS.contains(
+                t.text
+            ) ) state = UseSiteState.AFTER_TARGET;
+            else if( state == UseSiteState.AFTER_TARGET && isOp(
+                t, ":"
+            ) ) state = UseSiteState.AFTER_COLON;
+            else state = UseSiteState.NONE;
 
             lastSignificant = t;
-            i++;
-        }
-        for (final Token g : gap) {
-            out.append(g.text);
-        }
+            ++i;
+        } // while
+        for(final Token g : gap) out.append(g.text);
+
         return out.toString();
     }
 
     // ── §14 Generic `where` clause ───────────────────────────────────────────────
-    /** One `TypeParam : Bound` entry of a `where` clause, found between two top-level commas
-     *  (or between `where` and the clause's own end for the first/only entry). */
+    /**
+     * One `TypeParam : Bound` entry of a `where` clause, found between two top-level commas
+     *  (or between `where` and the clause's own end for the first/only entry)
+     */
     private static final class WhereBound {
-        final int start;
-        final int end; // inclusive, last significant token of the bound
 
-        WhereBound(final int start, final int end) {
+        final int start;
+        final int end;   // Inclusive, last significant token of the bound
+
+        WhereBound(final int start, final int end)
+        {
             this.start = start;
-            this.end = end;
+            this.end   = end;
         }
-    }
+
+    } // class WhereBound
 
     /**
      * STYLE_KOTLIN.md §14: a trailing generic `where` clause (`fun <T> merge(...): T where T :
@@ -924,28 +974,21 @@ public class KotlinSpecificRule {
      * clause, or a frozen token, blocks the rewrite for that occurrence entirely, same
      * conservative posture as every other rule in this file.
      */
-    public String enforceWhereClausePlacement(final List<Token> tokens) {
-        final Map<Integer, String> overrides = new HashMap<>();
+    public String enforceWhereClausePlacement(final List<Token> tokens)
+    {
+        final Map<Integer, String> overrides   = new HashMap<>();
         final Map<Integer, String> insertAfter = new HashMap<>();
         final java.util.Set<Integer> suppressed = new java.util.HashSet<>();
 
-        for (int i = 0; i < tokens.size(); i++) {
+        for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (t.type != TokenType.KEYWORD || !"where".equals(t.text)) {
-                continue;
-            }
+            if( t.type != TokenType.KEYWORD || !"where".equals(t.text) ) continue;
             final int clauseEndIdx = findWhereClauseEnd(tokens, i);
-            if (clauseEndIdx < 0 || clauseEndIdx <= i + 1) {
-                continue;
-            }
-            if (anyFrozen(tokens, i, clauseEndIdx)) {
-                continue;
-            }
+            if(clauseEndIdx < 0 || clauseEndIdx <= i + 1) continue;
+            if( anyFrozen(tokens, i, clauseEndIdx) ) continue;
 
             final List<WhereBound> bounds = splitWhereBounds(tokens, i + 1, clauseEndIdx);
-            if (bounds.isEmpty() || hasCommentBetween(tokens, i, clauseEndIdx)) {
-                continue;
-            }
+            if( bounds.isEmpty() || hasCommentBetween(tokens, i, clauseEndIdx) ) continue;
 
             final int lineStartIdx = lineStartIndex(tokens, i);
             // Anchor on the true statement start's own line-leading indent, not `where`'s own
@@ -956,154 +999,158 @@ public class KotlinSpecificRule {
             // is itself just a continuation line, not the signature's true start. Same
             // "physical-line-anchored decision invalidated by a later pass" family as
             // RDD_KEY_136/152/158/159/160/161.
-            final String baseIndent = signatureLineIndent(tokens, i);
-            final String sigLine = collapseToOneLine(tokens, lineStartIdx, i - 1);
+            final String       baseIndent = signatureLineIndent(tokens, i);
+            final String       sigLine    = collapseToOneLine(tokens, lineStartIdx, i - 1);
             final List<String> boundTexts = new ArrayList<>();
-            for (final WhereBound b : bounds) {
-                boundTexts.add(literalSlice(tokens, b.start, b.end + 1).trim());
-            }
-            final String combined = baseIndent + sigLine + " where " + String.join(", ", boundTexts);
+            for(final WhereBound b : bounds) boundTexts.add(
+                literalSlice(tokens, b.start, b.end + 1).trim()
+            );
+            final String combined = baseIndent + sigLine + " where " + String.join(
+                ", ", boundTexts
+            );
 
-            if (combined.length() <= lineLengthLimit) {
-                continue; // already fits inline as-is -- leave byte-for-byte untouched
-            }
+            if( combined.length() <= lineLengthLimit ) continue; // Already fits inline as-is -- leave byte-for-byte untouched
 
             // Wrap: `where` onto its own line one indent level under the signature; each bound
-            // onto its own line, aligned under the first bound's start column.
+            // onto its own line, aligned under the first bound's start column
             final String whereIndent = baseIndent + indentUnit;
-            final String boundIndent = spaces(whereIndent.length() + "where ".length());
+            final String boundIndent = spaces( whereIndent.length() + "where ".length() );
 
             overrides.put(i, "\n" + whereIndent + "where");
-            for (int j = i - 1; j >= 0 && isGapToken(tokens.get(j)); j--) {
-                suppressed.add(j);
-            }
-            for (int j = i + 1; j < bounds.get(0).start; j++) {
-                suppressed.add(j);
-            }
-            for (int k = 0; k < bounds.size(); k++) {
+            for( int j = i - 1; j >= 0 && isGapToken( tokens.get(j) ); --j ) suppressed.add(j);
+            for( int j = i + 1; j < bounds.get(0).start; ++j ) suppressed.add(j);
+            for( int k = 0; k < bounds.size(); ++k ) {
                 final WhereBound b = bounds.get(k);
                 final String prefix = k == 0 ? " " : "\n" + boundIndent;
-                overrides.put(b.start, prefix + boundTexts.get(k));
-                for (int j = b.start + 1; j <= b.end; j++) {
-                    suppressed.add(j);
-                }
-                if (k < bounds.size() - 1) {
+                overrides.put( b.start, prefix + boundTexts.get(k) );
+                for(int j = b.start + 1; j <= b.end; ++j) suppressed.add(j);
+                if( k < bounds.size() - 1 ) {
                     final int commaIdx = nextSignificantIndex(tokens, b.end + 1);
                     overrides.put(commaIdx, ",");
                     final int nextStart = bounds.get(k + 1).start;
-                    for (int j = commaIdx + 1; j < nextStart; j++) {
-                        suppressed.add(j);
-                    }
+                    for(int j = commaIdx + 1; j < nextStart; ++j) suppressed.add(j);
                 }
                 // The gap after the last bound (up to clauseEndIdx, the `{`/`;`) is left
                 // untouched -- same "don't overwrite a newline an Allman-brace pass already
                 // placed there" posture as CppSpecificRule.enforceRequiresClausePlacement.
-            }
-        }
+            } // for k
+        } // for i
 
         return renderSuppressing(tokens, overrides, insertAfter, suppressed);
     }
 
-    /** The first `{`/`;` reached scanning forward from {@code whereIdx}, or -1 if neither is
+    /**
+     * The first `{`/`;` reached scanning forward from {@code whereIdx}, or -1 if neither is
      *  found -- the clause's own end (exclusive), per {@link #enforceWhereClausePlacement}'s doc
-     *  comment. */
-    private int findWhereClauseEnd(final List<Token> tokens, final int whereIdx) {
-        for (int i = whereIdx + 1; i < tokens.size(); i++) {
+     *  comment
+     */
+    private int findWhereClauseEnd(final List<Token> tokens, final int whereIdx)
+    {
+        for( int i = whereIdx + 1; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (isPunct(t, "{") || isPunct(t, ";")) {
-                return i;
-            }
+            if( isPunct(t, "{") || isPunct(t, ";") ) return i;
         }
+
         return -1;
     }
 
-    /** Splits [fromInclusive, toExclusive) into bounds at every top-level comma -- depth tracked
+    /**
+     * Splits [fromInclusive, toExclusive) into bounds at every top-level comma -- depth tracked
      *  over parens/brackets/braces and the tokenizer's own reclassified generic angle brackets
      *  (`ANGLE_BRACKET_OPEN`/`_CLOSE`), so a bound's own generic argument (`Comparable<T>`) is
-     *  never mistaken for a bound separator. */
-    private List<WhereBound> splitWhereBounds(final List<Token> tokens, final int fromInclusive,
-            final int toExclusive) {
-        final List<WhereBound> bounds = new ArrayList<>();
-        int depth = 0;
-        int start = nextSignificantIndex(tokens, fromInclusive);
-        int lastSig = -1;
-        for (int i = start; i >= 0 && i < toExclusive; i++) {
+     *  never mistaken for a bound separator
+     */
+    private List<WhereBound> splitWhereBounds(
+        final List<Token> tokens,
+        final int         fromInclusive,
+        final int         toExclusive
+    )
+    {
+        final List<WhereBound> bounds  = new ArrayList<>();
+              int              depth   = 0;
+              int              start   = nextSignificantIndex(tokens, fromInclusive);
+              int              lastSig = - 1;
+        for(int i = start; i >= 0 && i < toExclusive; ++i) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
-                continue;
+            if( isGapToken(t) ) continue;
+            if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")
+                    || t.type == TokenType.ANGLE_BRACKET_OPEN ) {
+                ++depth;
             }
-            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")
-                    || t.type == TokenType.ANGLE_BRACKET_OPEN) {
-                depth++;
-            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")
-                    || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
-                depth--;
-            } else if (depth == 0 && isPunct(t, ",")) {
-                if (lastSig < 0) {
-                    return Collections.emptyList();
-                }
-                bounds.add(new WhereBound(start, lastSig));
-                start = nextSignificantIndex(tokens, i + 1);
+            else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")
+                    || t.type == TokenType.ANGLE_BRACKET_CLOSE ) {
+                --depth;
+            }
+            else if( depth == 0 && isPunct(t, ",") ) {
+                if(lastSig < 0) return Collections.emptyList();
+                bounds.add( new WhereBound(start, lastSig) );
+                start   = nextSignificantIndex(tokens, i + 1);
                 lastSig = -1;
                 continue;
             }
             lastSig = i;
-        }
-        if (lastSig < 0 || start < 0) {
-            return Collections.emptyList();
-        }
-        bounds.add(new WhereBound(start, lastSig));
+        } // for
+        if(lastSig < 0 || start < 0) return Collections.emptyList();
+        bounds.add( new WhereBound(start, lastSig) );
+
         return bounds;
     }
 
-    /** True if a comment token lies anywhere in {@code (fromExclusive, toExclusive)} -- blocks
-     *  the rewrite entirely, same posture as {@code CppSpecificRule.hasCommentBetween}. */
-    private boolean hasCommentBetween(final List<Token> tokens, final int fromExclusive, final int toExclusive) {
-        for (int i = fromExclusive + 1; i < toExclusive; i++) {
-            if (isComment(tokens.get(i))) {
-                return true;
-            }
+    /**
+     * True if a comment token lies anywhere in {@code (fromExclusive, toExclusive)} -- blocks
+     *  the rewrite entirely, same posture as {@code CppSpecificRule.hasCommentBetween}.
+     */
+    private boolean hasCommentBetween(
+        final List<Token> tokens,
+        final int         fromExclusive,
+        final int         toExclusive
+    )
+    {
+        for(int i = fromExclusive + 1; i < toExclusive; ++i) {
+            if( isComment( tokens.get(i) ) ) return true;
         }
+
         return false;
     }
 
-    private String spaces(final int count) {
+    private String spaces(final int count)
+    {
         final StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < count; i++) {
-            sb.append(' ');
-        }
+        for(int i = 0; i < count; ++i) sb.append(' ');
+
         return sb.toString();
     }
 
-    /** Line-leading indent of the physical line where the multi-line construct governing
+    /**
+     * Line-leading indent of the physical line where the multi-line construct governing
      *  {@code idx} truly begins -- scans backward from {@code idx} tracking paren/bracket/angle
      *  depth, stopping at the nearest depth-0 {@code ;}/{@code }}/{@code {}, same "true statement
      *  start" posture as {@code ScopePipelineCurly.findParentIndent}. Distinct from
      *  {@link #lineStartIndex}/{@link #lineIndent}, which only back up to the immediately
      *  preceding physical line and can land on a continuation line of an already-wrapped
      *  multi-line header (e.g. a generic parameter list broken across several lines) instead of
-     *  the header's own true first line. */
-    private String signatureLineIndent(final List<Token> tokens, final int idx) {
-        int depth = 0;
+     *  the header's own true first line.
+     */
+    private String signatureLineIndent(final List<Token> tokens, final int idx)
+    {
+        int depth     = 0;
         int stmtStart = 0;
-        for (int i = idx - 1; i >= 0; i--) {
+        for(int i = idx - 1; i >= 0; --i) {
             final Token t = tokens.get(i);
-            if (t.type == TokenType.ANGLE_BRACKET_CLOSE || isPunct(t, ")") || isPunct(t, "]")) {
-                depth++;
+            if( t.type == TokenType.ANGLE_BRACKET_CLOSE || isPunct(t, ")") || isPunct(t, "]") ) {
+                ++depth;
                 continue;
             }
-            if (t.type == TokenType.ANGLE_BRACKET_OPEN || isPunct(t, "(") || isPunct(t, "[")) {
-                depth--;
+            if( t.type == TokenType.ANGLE_BRACKET_OPEN || isPunct(t, "(") || isPunct(t, "[") ) {
+                --depth;
                 continue;
             }
-            if (depth > 0) {
-                continue;
-            }
-            if (isPunct(t, ";") || isPunct(t, "}") || isPunct(t, "{")) {
+            if(depth > 0) continue;
+            if( isPunct(t, ";") || isPunct(t, "}") || isPunct(t, "{") ) {
                 stmtStart = i + 1;
                 break;
             }
-        }
+        } // for
         // The enclosing scope's indent is exactly one indentUnit less than the true statement's
         // own header-line indent (indentation always increases by exactly one indentUnit per
         // nesting level, an invariant the formatter maintains). Deriving it this way -- from the
@@ -1113,81 +1160,102 @@ public class KotlinSpecificRule {
         // already-wrapped multi-line `where` clause, its physical-line indent is whatever a prior
         // formatting pass happened to write there, which is not guaranteed to stay stable across
         // repeated formatting rounds (see RDD_KEY_215).
-        final int firstSig = nextSignificantIndex(tokens, stmtStart);
+        final int    firstSig   = nextSignificantIndex(tokens, stmtStart);
         final String stmtIndent = lineIndent(tokens, firstSig < 0 ? idx : firstSig);
+
         return stmtIndent.length() >= indentUnit.length()
-                ? stmtIndent.substring(indentUnit.length())
+                ? stmtIndent.substring( indentUnit.length() )
                 : "";
     }
 
-    /** The index of the first significant token on the physical line containing {@code idx} --
-     *  same purpose as {@code CppSpecificRule.lineStartIndex}. */
-    private int lineStartIndex(final List<Token> tokens, final int idx) {
-        int newlineIdx = -1;
-        for (int i = idx; i >= 0; i--) {
-            if (tokens.get(i).type == TokenType.NEWLINE) {
+    /**
+     * The index of the first significant token on the physical line containing {@code idx} --
+     *  same purpose as {@code CppSpecificRule.lineStartIndex}.
+     */
+    private int lineStartIndex(final List<Token> tokens, final int idx)
+    {
+        int newlineIdx = - 1;
+        for(int i = idx; i >= 0; --i) {
+            if( tokens.get(i).type == TokenType.NEWLINE ) {
                 newlineIdx = i;
                 break;
             }
         }
         final int firstSig = nextSignificantIndex(tokens, newlineIdx < 0 ? 0 : newlineIdx);
+
         return firstSig < 0 ? idx : firstSig;
     }
 
-    /** Line-leading whitespace of the physical line containing token {@code idx} -- "" if that
+    /**
+     * Line-leading whitespace of the physical line containing token {@code idx} -- "" if that
      *  line has no leading whitespace (column-0 start). Same purpose as
-     *  {@code CppSpecificRule.lineIndent}. */
-    private String lineIndent(final List<Token> tokens, final int idx) {
-        int newlineIdx = -1;
-        for (int i = idx; i >= 0; i--) {
-            if (tokens.get(i).type == TokenType.NEWLINE) {
+     *  {@code CppSpecificRule.lineIndent}.
+     */
+    private String lineIndent(final List<Token> tokens, final int idx)
+    {
+        int newlineIdx = - 1;
+        for(int i = idx; i >= 0; --i) {
+            if( tokens.get(i).type == TokenType.NEWLINE ) {
                 newlineIdx = i;
                 break;
             }
         }
         final int afterNewline = newlineIdx + 1;
-        if (afterNewline < tokens.size() && tokens.get(afterNewline).type == TokenType.WHITESPACE) {
-            return tokens.get(afterNewline).text;
-        }
+        if( afterNewline < tokens.size() && tokens.get(
+            afterNewline
+        ).type == TokenType.WHITESPACE ) return tokens.get(
+            afterNewline
+        ).text;
+
         return "";
     }
 
-    /** Renders {@code tokens[fromInclusive, toInclusive]} verbatim except every whitespace/newline
+    /**
+     * Renders {@code tokens[fromInclusive, toInclusive]} verbatim except every whitespace/newline
      *  run collapses to exactly one space -- used to measure a would-be single-line rendering
      *  against {@link #lineLengthLimit} without actually committing to it. Same purpose as
-     *  {@code CppSpecificRule.collapseToOneLine}. */
-    private String collapseToOneLine(final List<Token> tokens, final int fromInclusive, final int toInclusive) {
+     *  {@code CppSpecificRule.collapseToOneLine}.
+     */
+    private String collapseToOneLine(
+        final List<Token> tokens,
+        final int         fromInclusive,
+        final int         toInclusive
+    )
+    {
         final StringBuilder sb = new StringBuilder();
-        for (int i = fromInclusive; i <= toInclusive; i++) {
+        for(int i = fromInclusive; i <= toInclusive; ++i) {
             final Token t = tokens.get(i);
-            if (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE) {
-                if (sb.length() > 0 && sb.charAt(sb.length() - 1) != ' ') {
-                    sb.append(' ');
-                }
+            if(t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE) {
+                if( sb.length() > 0 && sb.charAt( sb.length() - 1 ) != ' ' ) sb.append(' ');
                 continue;
             }
             sb.append(t.text);
-        }
+        } // for
+
         return sb.toString().trim();
     }
 
-    /** Same as {@link #render} but drops any token index present in {@code suppressed} entirely
+    /**
+     * Same as {@link #render} but drops any token index present in {@code suppressed} entirely
      *  (used to elide a bound's interior gap tokens once its whole span has been replaced by a
-     *  single override at its start index). */
-    private String renderSuppressing(final List<Token> tokens, final Map<Integer, String> overrides,
-            final Map<Integer, String> insertAfter, final java.util.Set<Integer> suppressed) {
+     *  single override at its start index)
+     */
+    private String renderSuppressing(
+        final List<Token>            tokens,
+        final Map<Integer, String>   overrides,
+        final Map<Integer, String>   insertAfter,
+        final java.util.Set<Integer> suppressed
+    )
+    {
         final StringBuilder out = new StringBuilder();
-        for (int i = 0; i < tokens.size(); i++) {
-            if (suppressed.contains(i)) {
-                continue;
-            }
+        for( int i = 0; i < tokens.size(); ++i ) {
+            if( suppressed.contains(i) ) continue;
             final String override = overrides.get(i);
-            out.append(override != null ? override : tokens.get(i).text);
+            out.append( override != null ? override : tokens.get(i).text );
             final String extra = insertAfter.get(i);
-            if (extra != null) {
-                out.append(extra);
-            }
-        }
+            if(extra != null) out.append(extra);
+        } // for
+
         return out.toString();
     }
 
@@ -1210,216 +1278,220 @@ public class KotlinSpecificRule {
      * rewrite for that enum body entirely, same conservative posture as every other pass in this
      * file.
      */
-    public String separateEnumConstantListTerminator(final List<Token> rawTokens) {
-        final List<Token> tokens = relocateEnumTerminatorTrailingComments(rawTokens);
+    public String separateEnumConstantListTerminator(final List<Token> rawTokens)
+    {
+        final List<Token>          tokens      = relocateEnumTerminatorTrailingComments(rawTokens);
         final Map<Integer, String> terminators = findEnumConstantListTerminators(tokens);
-        if (terminators.isEmpty()) {
+        if( terminators.isEmpty() ) {
             final StringBuilder sb = new StringBuilder();
-            for (final Token t : tokens) {
-                sb.append(t.text);
-            }
+            for(final Token t : tokens) sb.append(t.text);
             return sb.toString();
         }
-        final StringBuilder out = new StringBuilder();
-        final List<Token> gap = new ArrayList<>();
-        int lastSignificant = -1;
-        for (int i = 0; i < tokens.size(); i++) {
+        final StringBuilder out             = new StringBuilder();
+        final List<Token>   gap             = new ArrayList<>();
+              int           lastSignificant = - 1;
+        for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
+            if( isGapToken(t) ) {
                 gap.add(t);
                 continue;
             }
-            final boolean thisIsTerminator = terminators.containsKey(i);
-            final boolean prevWasTerminator = lastSignificant >= 0 && terminators.containsKey(lastSignificant);
-            if (thisIsTerminator || prevWasTerminator) {
-                final String indent = thisIsTerminator ? terminators.get(i) : terminators.get(lastSignificant);
-                out.append(forceBlankLine(gap, indent));
-            } else {
-                for (final Token g : gap) {
-                    out.append(g.text);
-                }
+            final boolean thisIsTerminator  = terminators.containsKey(i);
+            final boolean prevWasTerminator = lastSignificant >= 0&& terminators.containsKey(
+                lastSignificant
+            );
+            if(thisIsTerminator || prevWasTerminator) {
+                final String indent = thisIsTerminator ? terminators.get(
+                    i
+                ) : terminators.get(
+                    lastSignificant
+                );
+                out.append( forceBlankLine(gap, indent) );
+            } // if
+            else {
+                for(final Token g : gap) out.append(g.text);
             }
             gap.clear();
             out.append(t.text);
             lastSignificant = i;
-        }
-        for (final Token g : gap) {
-            out.append(g.text);
-        }
+        } // for
+        for(final Token g : gap) out.append(g.text);
+
         return out.toString();
     }
 
-    /** Renders a gap that straddles the enum-list-terminating `;` as a forced blank line, without
+    /**
+     * Renders a gap that straddles the enum-list-terminating `;` as a forced blank line, without
      *  discarding any comment the original gap carried (e.g. a same-line trailing comment on the
      *  `;` itself, or a standalone comment on its own line before the next member/declaration) --
      *  the naive fixed "\n\n" + indent replacement used to silently drop both. A same-line trailing
      *  comment (anything before the gap's first {@code NEWLINE}) is preserved verbatim right after
      *  the terminator; everything from that first newline onward is preserved too, with only the
      *  run of blank newlines immediately following it collapsed down to exactly one forced blank
-     *  line (comments and their own surrounding newlines further into the gap are left untouched). */
-    private String forceBlankLine(final List<Token> gap, final String indent) {
+     *  line (comments and their own surrounding newlines further into the gap are left untouched).
+     */
+    private String forceBlankLine(final List<Token> gap, final String indent)
+    {
         boolean hasComment = false;
-        for (final Token g : gap) {
-            if (g.type == TokenType.COMMENT_LINE || g.type == TokenType.COMMENT_BLOCK) {
+        for(final Token g : gap) {
+            if(g.type == TokenType.COMMENT_LINE || g.type == TokenType.COMMENT_BLOCK) {
                 hasComment = true;
                 break;
             }
         }
-        if (!hasComment) {
-            return "\n\n" + indent;
-        }
+        if(!hasComment) return "\n\n" + indent;
         final StringBuilder sb = new StringBuilder();
-        int i = 0;
-        while (i < gap.size() && gap.get(i).type != TokenType.NEWLINE) {
-            sb.append(gap.get(i).text);
-            i++;
+              int           i  = 0;
+        while( i < gap.size() && gap.get(i).type != TokenType.NEWLINE ) {
+            sb.append( gap.get(i).text );
+            ++i;
         }
         sb.append('\n').append('\n');
-        if (i >= gap.size()) {
+        if( i >= gap.size() ) {
             // No newline followed the same-line part (e.g. a trailing comment right before the
             // terminator) -- nothing else in the gap supplies the next line's indentation.
             sb.append(indent);
             return sb.toString();
         }
-        i++;
-        while (i < gap.size() && gap.get(i).type == TokenType.NEWLINE) {
-            i++;
-        }
+        ++i;
+        while( i < gap.size() && gap.get(i).type == TokenType.NEWLINE ) i++;
         sb.append(indent);
-        if (i < gap.size() && gap.get(i).type == TokenType.WHITESPACE) {
-            // Skip one leading indentation token from the original gap -- we just supplied our own.
-            i++;
+        if( i < gap.size() && gap.get(i).type == TokenType.WHITESPACE ) {
+            // Skip one leading indentation token from the original gap -- we just supplied our own
+            ++i;
         }
-        while (i < gap.size()) {
-            sb.append(gap.get(i).text);
-            i++;
+        while( i < gap.size() ) {
+            sb.append( gap.get(i).text );
+            ++i;
         }
+
         return sb.toString();
     }
 
-    /** The mandatory `;` this method relocates onto its own line often carries a same-line
+    /**
+     * The mandatory `;` this method relocates onto its own line often carries a same-line
      *  trailing comment (`NOT_FOUND(404);   // missing`) that, textually, trails the `;` -- but
      *  semantically describes the entry before it, not the relocated `;` itself. Left in place, the
      *  forced blank-line rewrite below would either strand it awkwardly after the relocated `;` or
      *  (before this fix existed) silently drop it. This pass moves such a comment (and its single
      *  leading whitespace token, if any) back before the terminator, so it reads as the entry's own
      *  trailing comment once the `;` moves to its own line. Recomputes terminators after each move
-     *  since a move shifts every later token's index. */
-    private List<Token> relocateEnumTerminatorTrailingComments(final List<Token> tokensIn) {
+     *  since a move shifts every later token's index.
+     */
+    private List<Token> relocateEnumTerminatorTrailingComments(final List<Token> tokensIn)
+    {
         List<Token> tokens = tokensIn;
-        while (true) {
+        while(true) {
             final Map<Integer, String> terminators = findEnumConstantListTerminators(tokens);
-            Integer target = null;
-            for (final Integer p : terminators.keySet()) {
-                int scan = p + 1;
-                int wsIdx = -1;
-                if (scan < tokens.size() && tokens.get(scan).type == TokenType.WHITESPACE) {
+                  Integer              target      = null;
+            for( final Integer p : terminators.keySet() ) {
+                int scan  = p + 1;
+                int wsIdx = - 1;
+                if( scan < tokens.size() && tokens.get(scan).type == TokenType.WHITESPACE ) {
                     wsIdx = scan;
-                    scan++;
+                    ++scan;
                 }
-                if (scan < tokens.size() && (tokens.get(scan).type == TokenType.COMMENT_LINE
-                        || tokens.get(scan).type == TokenType.COMMENT_BLOCK)) {
+                if( scan < tokens.size() && ( tokens.get(scan).type == TokenType.COMMENT_LINE
+                        || tokens.get(scan).type == TokenType.COMMENT_BLOCK ) ) {
                     target = p;
                     break;
                 }
-            }
-            if (target == null) {
-                return tokens;
-            }
-            final int p = target;
-            int scan = p + 1;
-            int wsIdx = -1;
-            if (scan < tokens.size() && tokens.get(scan).type == TokenType.WHITESPACE) {
+            } // for
+            if(target == null) return tokens;
+            final int p     = target;
+                  int scan  = p + 1;
+                  int wsIdx = - 1;
+            if( scan < tokens.size() && tokens.get(scan).type == TokenType.WHITESPACE ) {
                 wsIdx = scan;
-                scan++;
+                ++scan;
             }
-            final int commentIdx = scan;
-            final List<Token> moved = new ArrayList<>();
-            if (wsIdx >= 0) {
+            final int         commentIdx = scan;
+            final List<Token> moved      = new ArrayList<>();
+            if(wsIdx >= 0) {
                 // The relocated `;` itself is dropped from this line entirely (moved onto its own
                 // line by the caller's forced-blank-line rewrite), so the comment's original
                 // same-line whitespace -- sized to align past `NOT_FOUND(404);` -- is now one
                 // character short of the same visual column past bare `NOT_FOUND(404)`. Pad it back
                 // out by the width of the terminator being removed.
                 final Token ws = tokens.get(wsIdx);
-                moved.add(new Token(ws.type, ws.text + " ", ws.braceDepth, ws.parenDepth, ws.name));
-            }
-            moved.add(tokens.get(commentIdx));
+                moved.add(
+                    new Token(ws.type, ws.text + " ", ws.braceDepth, ws.parenDepth, ws.name)
+                );
+            } // if
+            moved.add( tokens.get(commentIdx) );
             final List<Token> next = new ArrayList<>(tokens);
             next.remove(commentIdx);
-            if (wsIdx >= 0) {
-                next.remove(wsIdx);
-            }
+            if(wsIdx >= 0) next.remove(wsIdx);
             next.addAll(p, moved);
             tokens = next;
-        }
+        } // while
     }
 
-    /** Finds every Kotlin `enum class` body's entry-list-terminating `;` that has at least one
+    /**
+     * Finds every Kotlin `enum class` body's entry-list-terminating `;` that has at least one
      *  more member after it before the enum's own `}` -- keyed by token index, valued by the
-     *  indent string of the enum body's member lines (derived from its first member's own line). */
-    private Map<Integer, String> findEnumConstantListTerminators(final List<Token> tokens) {
+     *  indent string of the enum body's member lines (derived from its first member's own line)
+     */
+    private Map<Integer, String> findEnumConstantListTerminators(final List<Token> tokens)
+    {
         final Map<Integer, String> result = new HashMap<>();
-        for (int i = 0; i < tokens.size(); i++) {
-            if (!isPunct(tokens.get(i), "{") || !isEnumBodyBrace(tokens, i)) {
-                continue;
-            }
+        for( int i = 0; i < tokens.size(); ++i ) {
+            if( !isPunct( tokens.get(i), "{" ) || !isEnumBodyBrace(tokens, i) ) continue;
             final int closeBraceIdx = matchBraceForward(tokens, i);
-            if (closeBraceIdx < 0) {
-                continue;
-            }
+            if(closeBraceIdx < 0) continue;
             final int firstMember = nextSignificantIndex(tokens, i + 1);
-            if (firstMember < 0 || firstMember >= closeBraceIdx) {
-                continue;
-            }
+            if(firstMember < 0 || firstMember >= closeBraceIdx) continue;
             final String indent = lineIndent(tokens, firstMember);
-            int depth = 0;
-            for (int p = i + 1; p < closeBraceIdx; p++) {
+                  int    depth  = 0;
+            for(int p = i + 1; p < closeBraceIdx; ++p) {
                 final Token t = tokens.get(p);
-                if (isGapToken(t)) {
-                    continue;
+                if( isGapToken(t) ) continue;
+                if( isPunct(t, "(") || isPunct(t, "{") ) {
+                    ++depth;
                 }
-                if (isPunct(t, "(") || isPunct(t, "{")) {
-                    depth++;
-                } else if (isPunct(t, ")") || isPunct(t, "}")) {
-                    depth--;
-                } else if (depth == 0 && isPunct(t, ";")) {
+                else if( isPunct(t, ")") || isPunct(t, "}") ) {
+                    --depth;
+                }
+                else if( depth == 0 && isPunct(t, ";") ) {
                     final int next = nextSignificantIndex(tokens, p + 1);
-                    if (next >= 0 && next < closeBraceIdx && !anyFrozen(tokens, firstMember, closeBraceIdx)) {
-                        result.put(p, indent);
-                    }
+                    if( next >= 0 && next < closeBraceIdx && !anyFrozen(
+                        tokens, firstMember, closeBraceIdx
+                    ) ) result.put(
+                        p, indent
+                    );
                     break;
                 }
-            }
-        }
+            } // for p
+        } // for i
+
         return result;
     }
 
-    /** True iff the `{` at {@code braceIdx} opens a Kotlin `enum class` body -- scans backward
+    /**
+     * True iff the `{` at {@code braceIdx} opens a Kotlin `enum class` body -- scans backward
      *  past the enum's name and any supertype/generic-bound clause tokens until it finds the
      *  `enum` keyword, bailing out on an intervening `{`/`}`/`;` (a different construct entirely).
-     *  Same shape as {@code JavaSpecificRule.isEnumBodyBrace}. */
-    private boolean isEnumBodyBrace(final List<Token> tokens, final int braceIdx) {
+     *  Same shape as {@code JavaSpecificRule.isEnumBodyBrace}.
+     */
+    private boolean isEnumBodyBrace(final List<Token> tokens, final int braceIdx)
+    {
         int p = prevSignificantIndex(tokens, braceIdx - 1);
-        while (p >= 0) {
+        while(p >= 0) {
             final Token t = tokens.get(p);
-            if (t.type == TokenType.KEYWORD && "enum".equals(t.text)) {
-                return true;
-            }
-            if (isPunct(t, "{") || isPunct(t, "}") || isPunct(t, ";")) {
-                return false;
-            }
+            if( t.type == TokenType.KEYWORD && "enum".equals(t.text) ) return true;
+            if( isPunct(t, "{") || isPunct(t, "}") || isPunct(t, ";") ) return false;
             p = prevSignificantIndex(tokens, p - 1);
         }
+
         return false;
     }
 
-    private int prevSignificantIndex(final List<Token> tokens, final int from) {
-        for (int i = from; i >= 0; i--) {
-            if (!isGapToken(tokens.get(i))) {
-                return i;
-            }
+    private int prevSignificantIndex(final List<Token> tokens, final int from)
+    {
+        for(int i = from; i >= 0; --i) {
+            if( !isGapToken( tokens.get(i) ) ) return i;
         }
+
         return -1;
     }
 
@@ -1461,73 +1533,71 @@ public class KotlinSpecificRule {
      * of {@code MiscRuleCurly.enforceCallLineBreaking} exists yet; if one is added later, this method
      * may need the same idempotency refinement those two already carry.
      */
-    public String enforceFunctionDefinitionAllmanBraceStyle(final List<Token> tokens) {
+    public String enforceFunctionDefinitionAllmanBraceStyle(final List<Token> tokens)
+    {
         final Map<Integer, Integer> gapToBrace = new HashMap<>();
-        for (int i = 0; i < tokens.size(); i++) {
-            if (!isPunct(tokens.get(i), "{") || tokens.get(i).name != null) {
-                continue;
-            }
+        for( int i = 0; i < tokens.size(); ++i ) {
+            if( !isPunct( tokens.get(i), "{" ) || tokens.get(i).name != null ) continue;
             final int lastBeforeBrace = prevSignificantIndex(tokens, i - 1);
-            if (lastBeforeBrace < 0) {
-                continue;
-            }
+            if(lastBeforeBrace < 0) continue;
             final int closeParenIdx = findSignatureCloseParenBeforeBrace(tokens, lastBeforeBrace);
-            if (closeParenIdx < 0 || !isFunctionOrConstructorCloseParen(tokens, closeParenIdx)) {
-                continue;
-            }
-            if (hasNewlineOrCommentBetween(tokens, closeParenIdx, i)) {
-                continue;
-            }
-            if (anyFrozen(tokens, closeParenIdx, i + 1)) {
-                continue;
-            }
+            if( closeParenIdx < 0 || !isFunctionOrConstructorCloseParen(
+                tokens, closeParenIdx
+            ) ) continue;
+            if( hasNewlineOrCommentBetween(tokens, closeParenIdx, i) ) continue;
+            if( anyFrozen(tokens, closeParenIdx, i + 1) ) continue;
             final int closeBraceIdx = matchBraceForward(tokens, i);
-            if (closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx)) {
-                continue;
-            }
+            if( closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx) ) continue;
             gapToBrace.put(lastBeforeBrace + 1, i);
-        }
+        } // for
 
         final StringBuilder out = new StringBuilder();
-        int i = 0;
-        while (i < tokens.size()) {
+              int           i   = 0;
+        while( i < tokens.size() ) {
             final Integer braceIdx = gapToBrace.get(i);
-            if (braceIdx != null) {
-                out.append('\n').append(lineIndent(tokens, i - 1));
-                out.append(tokens.get(braceIdx).text);
+            if(braceIdx != null) {
+                out.append('\n').append( lineIndent(tokens, i - 1) );
+                out.append( tokens.get(braceIdx).text );
                 i = braceIdx + 1;
-            } else {
-                out.append(tokens.get(i).text);
-                i++;
             }
-        }
+            else {
+                out.append( tokens.get(i).text );
+                ++i;
+            }
+        } // while
+
         return out.toString();
     }
 
-    /** Given the last significant token before a candidate body `{`, returns the index of the
+    /**
+     * Given the last significant token before a candidate body `{`, returns the index of the
      *  signature's parameter-list `)` -- either {@code lastBeforeBrace} itself (no return type),
      *  or, if a `: ReturnType` sits between the `)` and the `{` (e.g. `fun f(): String {`), the
      *  `)` found by scanning back over the return-type span for a depth-0 `:`. Returns -1 for any
-     *  other shape (bail, not a candidate). */
-    private int findSignatureCloseParenBeforeBrace(final List<Token> tokens, final int lastBeforeBrace) {
-        if (isPunct(tokens.get(lastBeforeBrace), ")")) {
-            return lastBeforeBrace;
-        }
+     *  other shape (bail, not a candidate).
+     */
+    private int findSignatureCloseParenBeforeBrace(
+        final List<Token> tokens,
+        final int         lastBeforeBrace
+    )
+    {
+        if( isPunct( tokens.get(lastBeforeBrace), ")" ) ) return lastBeforeBrace;
         int depth = 0;
-        int i = lastBeforeBrace;
-        while (i >= 0) {
+        int i     = lastBeforeBrace;
+        while(i >= 0) {
             final Token t = tokens.get(i);
-            if (isAngleClose(t) || isPunct(t, ")") || isPunct(t, "]")) {
-                depth++;
-            } else if (isAngleOpen(t) || isPunct(t, "(") || isPunct(t, "[")) {
-                depth--;
-                if (depth < 0) {
-                    return -1;
-                }
-            } else if (depth == 0 && isOp(t, ":")) {
+            if( isAngleClose(t) || isPunct(t, ")") || isPunct(t, "]") ) {
+                ++depth;
+            }
+            else if( isAngleOpen(t) || isPunct(t, "(") || isPunct(t, "[") ) {
+                --depth;
+                if(depth < 0) return -1;
+            }
+            else if( depth == 0 && isOp(t, ":") ) {
                 final int before = prevSignificantIndex(tokens, i - 1);
-                return (before >= 0 && isPunct(tokens.get(before), ")")) ? before : -1;
-            } else if (depth == 0 && isOp(t, "=")) {
+                return ( before >= 0 && isPunct( tokens.get(before), ")" ) ) ? before : -1;
+            }
+            else if( depth == 0 && isOp(t, "=") ) {
                 // A depth-0 `=` before any `:` was found means this isn't a `: ReturnType` span
                 // at all -- it's an expression-bodied function's `= expr` tail (e.g. `fun f(): T =
                 // apply { ... } as T`), and the `{` under investigation belongs to some call inside
@@ -1540,117 +1610,128 @@ public class KotlinSpecificRule {
                 return -1;
             }
             i = prevSignificantIndex(tokens, i - 1);
-        }
+        } // while
+
         return -1;
     }
 
-    /** True iff the `)` at {@code closeParenIdx} is a function or secondary-constructor
+    /**
+     * True iff the `)` at {@code closeParenIdx} is a function or secondary-constructor
      *  definition's parameter-list close paren -- see {@link #enforceFunctionDefinitionAllmanBraceStyle}'s
-     *  own doc comment for the backward-scan shape and why it's deliberately conservative. */
-    private boolean isFunctionOrConstructorCloseParen(final List<Token> tokens, final int closeParenIdx) {
+     *  own doc comment for the backward-scan shape and why it's deliberately conservative
+     */
+    private boolean isFunctionOrConstructorCloseParen(
+        final List<Token> tokens,
+        final int         closeParenIdx
+    )
+    {
         final int openParenIdx = matchParenBackward(tokens, closeParenIdx);
-        if (openParenIdx < 0) {
-            return false;
-        }
+        if(openParenIdx < 0) return false;
         int p = prevSignificantIndex(tokens, openParenIdx - 1);
-        if (p < 0) {
-            return false;
-        }
-        if (tokens.get(p).type == TokenType.KEYWORD && "constructor".equals(tokens.get(p).text)) {
-            return true;
-        }
-        if (tokens.get(p).type != TokenType.IDENTIFIER) {
-            return false;
-        }
+        if(p < 0) return false;
+        if( tokens.get(
+            p
+        ).type == TokenType.KEYWORD && "constructor".equals(
+            tokens.get(p).text
+        ) ) return true;
+        if( tokens.get(p).type != TokenType.IDENTIFIER ) return false;
         int q = prevSignificantIndex(tokens, p - 1);
-        if (q >= 0 && isOp(tokens.get(q), ".")) {
+        if( q >= 0 && isOp( tokens.get(q), "." ) ) {
             // Extension-function receiver chain: `Type.` or `Type<Args>.` before the name.
             int r = prevSignificantIndex(tokens, q - 1);
-            if (r < 0) {
-                return false;
-            }
-            if (isAngleClose(tokens.get(r))) {
+            if(r < 0) return false;
+            if( isAngleClose( tokens.get(r) ) ) {
                 r = skipAngleBracketsBackward(tokens, r);
-                if (r < 0) {
-                    return false;
-                }
+                if(r < 0) return false;
                 r = prevSignificantIndex(tokens, r - 1);
-                if (r < 0) {
-                    return false;
-                }
+                if(r < 0) return false;
             }
-            if (tokens.get(r).type != TokenType.IDENTIFIER) {
-                return false;
-            }
+            if( tokens.get(r).type != TokenType.IDENTIFIER ) return false;
             q = prevSignificantIndex(tokens, r - 1);
-        }
-        if (q >= 0 && isAngleClose(tokens.get(q))) {
+        } // if
+        if( q >= 0 && isAngleClose( tokens.get(q) ) ) {
             // The function's own `<T>` type-parameter clause: `fun <T> ...`.
             q = skipAngleBracketsBackward(tokens, q);
-            if (q < 0) {
-                return false;
-            }
+            if(q < 0) return false;
             q = prevSignificantIndex(tokens, q - 1);
         }
-        return q >= 0 && tokens.get(q).type == TokenType.KEYWORD && "fun".equals(tokens.get(q).text);
+
+        return q >= 0 && tokens.get(
+            q
+        ).type == TokenType.KEYWORD && "fun".equals(
+            tokens.get(q).text
+        );
     }
 
-    /** True for either a reclassified {@code ANGLE_BRACKET_CLOSE} or a plain {@code OP(">")} --
+    /**
+     * True for either a reclassified {@code ANGLE_BRACKET_CLOSE} or a plain {@code OP(">")} --
      *  the tokenizer only reclassifies `<`/`>` into angle-bracket tokens in contexts it recognizes
      *  as generic-usage-like (e.g. `List<T>`); a function's own `<T>` type-parameter clause right
      *  after `fun` is not one of those contexts, so it stays plain `OP` tokens (confirmed via
-     *  harness). Both shapes mean the same thing here, so both are accepted. */
-    private boolean isAngleClose(final Token t) {
+     *  harness). Both shapes mean the same thing here, so both are accepted.
+     */
+    private boolean isAngleClose(final Token t)
+    {
         return t.type == TokenType.ANGLE_BRACKET_CLOSE || isOp(t, ">");
     }
 
-    private boolean isAngleOpen(final Token t) {
+    private boolean isAngleOpen(final Token t)
+    {
         return t.type == TokenType.ANGLE_BRACKET_OPEN || isOp(t, "<");
     }
 
-    /** Given the index of an angle-close token (real or plain `OP(">")`), returns the index of its
-     *  matching angle-open token, or -1 if unbalanced. */
-    private int skipAngleBracketsBackward(final List<Token> tokens, final int closeIdx) {
+    /**
+     * Given the index of an angle-close token (real or plain `OP(">")`), returns the index of its
+     *  matching angle-open token, or -1 if unbalanced
+     */
+    private int skipAngleBracketsBackward(final List<Token> tokens, final int closeIdx)
+    {
         int depth = 0;
-        for (int i = closeIdx; i >= 0; i--) {
-            if (isAngleClose(tokens.get(i))) {
-                depth++;
-            } else if (isAngleOpen(tokens.get(i))) {
-                depth--;
-                if (depth == 0) {
-                    return i;
-                }
+        for(int i = closeIdx; i >= 0; --i) {
+            if( isAngleClose( tokens.get(i) ) ) {
+                ++depth;
             }
-        }
+            else if( isAngleOpen( tokens.get(i) ) ) {
+                --depth;
+                if(depth == 0) return i;
+            }
+        } // for
+
         return -1;
     }
 
-    private int matchParenBackward(final List<Token> tokens, final int closeIdx) {
+    private int matchParenBackward(final List<Token> tokens, final int closeIdx)
+    {
         int depth = 0;
-        for (int i = closeIdx; i >= 0; i--) {
-            if (isPunct(tokens.get(i), ")")) {
-                depth++;
-            } else if (isPunct(tokens.get(i), "(")) {
-                depth--;
-                if (depth == 0) {
-                    return i;
-                }
+        for(int i = closeIdx; i >= 0; --i) {
+            if( isPunct( tokens.get(i), ")" ) ) {
+                ++depth;
             }
-        }
+            else if( isPunct( tokens.get(i), "(" ) ) {
+                --depth;
+                if(depth == 0) return i;
+            }
+        } // for
+
         return -1;
     }
 
-    private boolean hasNewlineOrCommentBetween(final List<Token> tokens, final int fromExclusive, final int toExclusive) {
-        for (int i = fromExclusive + 1; i < toExclusive; i++) {
+    private boolean hasNewlineOrCommentBetween(
+        final List<Token> tokens,
+        final int         fromExclusive,
+        final int         toExclusive
+    )
+    {
+        for(int i = fromExclusive + 1; i < toExclusive; ++i) {
             final TokenType type = tokens.get(i).type;
-            if (type == TokenType.NEWLINE || type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) {
-                return true;
-            }
+            if(type == TokenType.NEWLINE || type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) return true;
         }
+
         return false;
     }
 
-    /** True iff no {@code NEWLINE} appears between {@code braceIdx} and {@code closeBraceIdx}
+    /**
+     * True iff no {@code NEWLINE} appears between {@code braceIdx} and {@code closeBraceIdx}
      *  inclusive -- the whole `{ ... }` body sits on one physical line -- AND the body isn't
      *  predicted to be broken across lines later by {@code MiscRuleCurly.enforceCallLineBreaking}
      *  (Phase 1, later in the pipeline) anyway. Without that second condition, a fresh format
@@ -1662,54 +1743,55 @@ public class KotlinSpecificRule {
      *  sibling (RDD_KEY_140). The prediction only has to agree with
      *  {@code enforceCallLineBreaking}'s own verdict well enough to avoid flip-flopping: once
      *  this method predicts "too long" and goes Allman, the body only ever grows more lines
-     *  after that (never re-collapses), so every later pass keeps agreeing. */
-    private boolean isSingleLineBody(final List<Token> tokens, final int braceIdx, final int closeBraceIdx) {
-        for (int i = braceIdx; i <= closeBraceIdx; i++) {
-            if (tokens.get(i).type == TokenType.NEWLINE) {
-                return false;
-            }
+     *  after that (never re-collapses), so every later pass keeps agreeing.
+     */
+    private boolean isSingleLineBody(
+        final List<Token> tokens,
+        final int         braceIdx,
+        final int         closeBraceIdx
+    )
+    {
+        for(int i = braceIdx; i <= closeBraceIdx; ++i) {
+            if( tokens.get(i).type == TokenType.NEWLINE ) return false;
         }
-        if (hasBreakableCall(tokens, braceIdx, closeBraceIdx)) {
+        if( hasBreakableCall(tokens, braceIdx, closeBraceIdx) ) {
             final int lineStart = lineStartIndex(tokens, braceIdx);
-            int width = lineIndent(tokens, braceIdx).length();
-            for (int k = lineStart; k <= closeBraceIdx; k++) {
-                if (tokens.get(k).type == TokenType.WHITESPACE || tokens.get(k).type == TokenType.NEWLINE) {
-                    continue;
-                }
+                  int width     = lineIndent(tokens, braceIdx).length();
+            for(int k = lineStart; k <= closeBraceIdx; ++k) {
+                if( tokens.get(
+                    k
+                ).type == TokenType.WHITESPACE || tokens.get(
+                    k
+                ).type == TokenType.NEWLINE ) continue;
                 width += tokens.get(k).text.length() + 1;
-            }
-            if (width > lineLengthLimit) {
-                return false;
-            }
-        }
+            } // for
+            if(width > lineLengthLimit) return false;
+        } // if
+
         return true;
     }
 
-    /** True if {@code [from, to]} contains at least one {@code name(args)} call with a non-empty
+    /**
+     * True if {@code [from, to]} contains at least one {@code name(args)} call with a non-empty
      *  argument list -- the shape {@code MiscRuleCurly.enforceCallLineBreaking} may later break across
      *  lines if it doesn't fit (zero-arg calls are never broken, see that method's own doc
      *  comment). Duplicated from {@code JavaSpecificRule}/{@code GetterSetterRuleCurly}'s identical
      *  helper -- same "each rule class matches its own local conventions" precedent already used
-     *  across those classes. */
-    private boolean hasBreakableCall(final List<Token> tokens, final int from, final int to) {
-        for (int i = from; i <= to; i++) {
+     *  across those classes.
+     */
+    private boolean hasBreakableCall(final List<Token> tokens, final int from, final int to)
+    {
+        for(int i = from; i <= to; ++i) {
             final Token t = tokens.get(i);
-            if (t.type != TokenType.IDENTIFIER) {
-                continue;
-            }
+            if(t.type != TokenType.IDENTIFIER) continue;
             final int parenIdx = nextSignificantIndex(tokens, i + 1);
-            if (parenIdx < 0 || parenIdx > to || !isPunct(tokens.get(parenIdx), "(")) {
-                continue;
-            }
+            if( parenIdx < 0 || parenIdx > to || !isPunct( tokens.get(parenIdx), "(" ) ) continue;
             final int closeIdx = matchParenForward(tokens, parenIdx);
-            if (closeIdx < 0 || closeIdx > to) {
-                continue;
-            }
+            if(closeIdx < 0 || closeIdx > to) continue;
             final int argsFrom = nextSignificantIndex(tokens, parenIdx + 1);
-            if (argsFrom >= 0 && argsFrom < closeIdx) {
-                return true;
-            }
-        }
+            if(argsFrom >= 0 && argsFrom < closeIdx) return true;
+        } // for
+
         return false;
     }
 
@@ -1728,70 +1810,65 @@ public class KotlinSpecificRule {
      * line, per {@link #isTrailingSemicolon}. Any whitespace immediately preceding a stripped
      * `;` is removed along with it, so `foo() ;` doesn't leave a stray trailing space.
      */
-    public String stripOptionalSemicolons(final List<Token> tokens) {
+    public String stripOptionalSemicolons(final List<Token> tokens)
+    {
         final Map<Integer, String> enumTerminators = findEnumConstantListTerminators(tokens);
-        final Set<Integer> skip = new HashSet<>();
-        for (int i = 0; i < tokens.size(); i++) {
-            if (!isPunct(tokens.get(i), ";") || enumTerminators.containsKey(i)) {
-                continue;
-            }
-            if (anyFrozen(tokens, i, i + 1)) {
-                continue;
-            }
-            if (!isTrailingSemicolon(tokens, i)) {
-                continue;
-            }
+        final Set<Integer>         skip            = new HashSet<>();
+        for( int i = 0; i < tokens.size(); ++i ) {
+            if( !isPunct( tokens.get(i), ";" ) || enumTerminators.containsKey(i) ) continue;
+            if( anyFrozen(tokens, i, i + 1) ) continue;
+            if( !isTrailingSemicolon(tokens, i) ) continue;
             skip.add(i);
             int w = i - 1;
-            while (w >= 0 && tokens.get(w).type == TokenType.WHITESPACE) {
+            while( w >= 0 && tokens.get(w).type == TokenType.WHITESPACE ) {
                 skip.add(w);
-                w--;
+                --w;
             }
-        }
-        if (skip.isEmpty()) {
+        } // for
+        if( skip.isEmpty() ) {
             final StringBuilder sb = new StringBuilder();
-            for (final Token t : tokens) {
-                sb.append(t.text);
-            }
+            for(final Token t : tokens) sb.append(t.text);
             return sb.toString();
         }
         final StringBuilder out = new StringBuilder();
-        for (int i = 0; i < tokens.size(); i++) {
-            if (skip.contains(i)) {
-                continue;
-            }
-            out.append(tokens.get(i).text);
+        for( int i = 0; i < tokens.size(); ++i ) {
+            if( skip.contains(i) ) continue;
+            out.append( tokens.get(i).text );
         }
+
         return out.toString();
     }
 
-    /** True iff the `;` at {@code idx} is the last significant thing on its physical line --
+    /**
+     * True iff the `;` at {@code idx} is the last significant thing on its physical line --
      *  the next non-gap token (if any) starts on a later line, or there is none (end of file).
-     *  A trailing line/block comment after the `;` does not count as "another statement". */
-    private boolean isTrailingSemicolon(final List<Token> tokens, final int idx) {
-        for (int i = idx + 1; i < tokens.size(); i++) {
+     *  A trailing line/block comment after the `;` does not count as "another statement".
+     */
+    private boolean isTrailingSemicolon(final List<Token> tokens, final int idx)
+    {
+        for( int i = idx + 1; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (t.type == TokenType.NEWLINE) {
-                return true;
-            }
-            if (isGapToken(t)) {
-                continue;
-            }
+            if(t.type == TokenType.NEWLINE) return true;
+            if( isGapToken(t) ) continue;
             return false;
         }
+
         return true;
     }
 
-    /** The six fixed classification buckets every Kotlin import is sorted into, per
+    /**
+     * The six fixed classification buckets every Kotlin import is sorted into, per
      *  STYLE_KOTLIN.md §24. Mirrors {@code JavaSpecificRule.IMPORT_GROUP_KEYS}'s six-bucket
      *  shape, but swaps {@code static} for {@code kotlin} -- Kotlin has no {@code import static}
      *  keyword, so "this is a static import" isn't lexically detectable the way it is in Java (a
      *  companion-object-member or top-level-function import uses the exact same {@code import
      *  a.b.c} syntax as any other import). {@code groupOrder} passed into {@link
      *  #enforceKotlinImportOrdering} configures only the *emission order* of these always-the-same
-     *  six buckets, never which buckets exist -- so it must be a permutation of exactly this set. */
-    private static final Set<String> KOTLIN_IMPORT_GROUP_KEYS = new HashSet<>(
-            Arrays.asList("kotlin", "java", "android", "com", "org", "other", "local"));
+     *  six buckets, never which buckets exist -- so it must be a permutation of exactly this set.
+     */
+    private static final Set<String> KOTLIN_IMPORT_GROUP_KEYS = new HashSet<>( Arrays.asList(
+        "kotlin", "java", "android", "com", "org", "other", "local"
+    ) );
 
     /**
      * STYLE_KOTLIN.md §24: groups every top-level {@code import} statement into six fixed buckets
@@ -1826,123 +1903,126 @@ public class KotlinSpecificRule {
      *        content-shape judgment call, so an invalid value throws rather than silently dropping
      *        a bucket's imports
      */
-    public String enforceKotlinImportOrdering(final List<Token> tokens, final List<String> groupOrder,
-            final boolean sortAlphabetically, final int importDepth, final int blankLines) {
-        if (!new HashSet<>(groupOrder).equals(KOTLIN_IMPORT_GROUP_KEYS)
-                || groupOrder.size() != KOTLIN_IMPORT_GROUP_KEYS.size()) {
-            throw new IllegalArgumentException(
-                    "groupOrder must be a permutation of " + KOTLIN_IMPORT_GROUP_KEYS + ", got: " + groupOrder);
-        }
+    public String enforceKotlinImportOrdering(
+        final List<Token>  tokens,
+        final List<String> groupOrder,
+        final boolean      sortAlphabetically,
+        final int          importDepth,
+        final int          blankLines
+    )
+    {
+        if( !new HashSet<>(groupOrder).equals(
+            KOTLIN_IMPORT_GROUP_KEYS
+        ) || groupOrder.size() != KOTLIN_IMPORT_GROUP_KEYS.size() ) throw new IllegalArgumentException(
+            "groupOrder must be a permutation of " + KOTLIN_IMPORT_GROUP_KEYS + ", got: " + groupOrder
+        );
 
         final List<String> localPrefix = findLocalPackagePrefix(tokens, importDepth);
 
-        int depth = 0;
-        int firstImportIdx = -1;
-        int prevEndIdx = -1;
-        int lastEndIdx = -1;
-        boolean blocked = false;
-        final List<ParsedKotlinImport> imports = new ArrayList<>();
-        final int n = tokens.size();
-        int i = 0;
-        while (i < n) {
+          int                      depth          = 0;
+          int                      firstImportIdx = - 1;
+          int                      prevEndIdx     = - 1;
+          int                      lastEndIdx     = - 1;
+          boolean                  blocked        = false;
+    final List<ParsedKotlinImport> imports        = new ArrayList<>();
+    final int                      n              = tokens.size();
+          int                      i              = 0;
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isPunct(t, "{")) {
-                depth++;
-                i++;
+            if( isPunct(t, "{") ) {
+                ++depth;
+                ++i;
                 continue;
             }
-            if (isPunct(t, "}")) {
-                depth--;
-                i++;
+            if( isPunct(t, "}") ) {
+                --depth;
+                ++i;
                 continue;
             }
-            if (depth == 0 && t.type == TokenType.KEYWORD && "import".equals(t.text)) {
-                if (firstImportIdx < 0) {
+            if( depth == 0 && t.type == TokenType.KEYWORD && "import".equals(t.text) ) {
+                if(firstImportIdx < 0) {
                     firstImportIdx = i;
-                } else if (hasCommentBetween(tokens, prevEndIdx, i)) {
+                }
+                else if( hasCommentBetween(tokens, prevEndIdx, i) ) {
                     blocked = true;
                     break;
                 }
                 final ParsedKotlinImport parsed = parseKotlinImportStatement(tokens, i);
-                if (parsed == null) {
+                if(parsed == null) {
                     blocked = true;
                     break;
                 }
-                if (anyFrozen(tokens, i, parsed.endIdx + 1)) {
+                if( anyFrozen(tokens, i, parsed.endIdx + 1) ) {
                     blocked = true;
                     break;
                 }
                 imports.add(parsed);
                 prevEndIdx = parsed.endIdx;
                 lastEndIdx = parsed.endIdx;
-                i = parsed.endIdx + 1;
+                i          = parsed.endIdx + 1;
                 continue;
-            }
-            i++;
-        }
+            } // if
+            ++i;
+        } // while
 
-        if (blocked || imports.isEmpty()) {
-            return joinVerbatim(tokens);
-        }
+        if( blocked || imports.isEmpty() ) return joinVerbatim(tokens);
 
         final Map<String, List<ParsedKotlinImport>> buckets = new HashMap<>();
-        for (final String key : KOTLIN_IMPORT_GROUP_KEYS) {
-            buckets.put(key, new ArrayList<>());
-        }
-        for (final ParsedKotlinImport imp : imports) {
-            buckets.get(classifyKotlinImportGroup(imp, localPrefix)).add(imp);
-        }
-        if (sortAlphabetically) {
-            for (final List<ParsedKotlinImport> group : buckets.values()) {
-                group.sort((a, b) -> a.path.compareTo(b.path));
-            }
+        for(final String key : KOTLIN_IMPORT_GROUP_KEYS) buckets.put( key, new ArrayList<>() );
+        for(final ParsedKotlinImport imp : imports) buckets.get(
+            classifyKotlinImportGroup(imp, localPrefix)
+        ).add(
+            imp
+        );
+        if(sortAlphabetically) {
+            for( final List<ParsedKotlinImport> group : buckets.values() ) group.sort(
+                (a, b) -> a.path.compareTo(b.path)
+            );
         }
 
-        final StringBuilder body = new StringBuilder();
-        boolean emittedAnyGroup = false;
-        for (final String groupKey : groupOrder) {
+        final StringBuilder body            = new StringBuilder();
+              boolean       emittedAnyGroup = false;
+        for(final String groupKey : groupOrder) {
             final List<ParsedKotlinImport> members = buckets.get(groupKey);
-            if (members.isEmpty()) {
-                continue;
+            if( members.isEmpty() ) continue;
+            if(emittedAnyGroup) {
+                for(int b = 0; b < blankLines + 1; ++b) body.append('\n');
             }
-            if (emittedAnyGroup) {
-                for (int b = 0; b < blankLines + 1; b++) {
-                    body.append('\n');
-                }
-            }
-            for (int m = 0; m < members.size(); m++) {
-                if (m > 0) {
-                    body.append('\n');
-                }
+            for( int m = 0; m < members.size(); ++m ) {
+                if(m > 0) body.append('\n');
                 final ParsedKotlinImport imp = members.get(m);
                 body.append("import ").append(imp.path);
-                if (imp.alias != null) {
-                    body.append(" as ").append(imp.alias);
-                }
+                if(imp.alias != null) body.append(" as ").append(imp.alias);
             }
             emittedAnyGroup = true;
-        }
+        } // for groupKey
 
         final StringBuilder out = new StringBuilder();
         appendRange(out, tokens, 0, firstImportIdx);
         out.append(body);
         appendRange(out, tokens, lastEndIdx + 1, n);
+
         return out.toString();
     }
 
-    /** One successfully-parsed `import a.b.c[.*] [as Alias]` statement. {@code alias} is
-     *  {@code null} when no `as` clause is present. */
+    /**
+     * One successfully-parsed `import a.b.c[.*] [as Alias]` statement. {@code alias} is
+     *  {@code null} when no `as` clause is present.
+     */
     private static final class ParsedKotlinImport {
+
         final String path;
         final String alias;
-        final int endIdx;
+        final int    endIdx;
 
-        ParsedKotlinImport(final String path, final String alias, final int endIdx) {
-            this.path = path;
-            this.alias = alias;
+        ParsedKotlinImport(final String path, final String alias, final int endIdx)
+        {
+            this.path   = path;
+            this.alias  = alias;
             this.endIdx = endIdx;
         }
-    }
+
+    } // class ParsedKotlinImport
 
     /**
      * Parses one `import a.b.c[.*] [as Alias][;]` statement starting at the `import` keyword
@@ -1954,156 +2034,157 @@ public class KotlinSpecificRule {
      * at least one path token), or its alias IDENTIFIER is encountered before the statement ends.
      * Never guesses past an unrecognized import shape.
      */
-    private ParsedKotlinImport parseKotlinImportStatement(final List<Token> tokens, final int importIdx) {
-        boolean sawPathToken = false;
-        boolean sawAs = false;
-        String alias = null;
-        final StringBuilder path = new StringBuilder();
-        final int n = tokens.size();
-        int p = importIdx + 1;
-        int lastContentIdx = importIdx;
-        while (p < n) {
+    private ParsedKotlinImport parseKotlinImportStatement(
+        final List<Token> tokens,
+        final int         importIdx
+    )
+    {
+          boolean       sawPathToken   = false;
+          boolean       sawAs          = false;
+          String        alias          = null;
+    final StringBuilder path           = new StringBuilder();
+    final int           n              = tokens.size();
+          int           p              = importIdx + 1;
+          int           lastContentIdx = importIdx;
+        while(p < n) {
             final Token t = tokens.get(p);
-            if (t.type == TokenType.WHITESPACE) {
-                p++;
+            if(t.type == TokenType.WHITESPACE) {
+                ++p;
                 continue;
             }
-            if (t.type == TokenType.NEWLINE) {
+            if(t.type == TokenType.NEWLINE) break;
+            if( isComment(t) ) return null;
+            if( isPunct(t, ";") ) {
+                lastContentIdx = p;
+                ++p;
                 break;
             }
-            if (isComment(t)) {
-                return null;
-            }
-            if (isPunct(t, ";")) {
+            if( !sawAs && sawPathToken && t.type == TokenType.KEYWORD && "as".equals(t.text) ) {
+                sawAs          = true;
                 lastContentIdx = p;
-                p++;
-                break;
-            }
-            if (!sawAs && sawPathToken && t.type == TokenType.KEYWORD && "as".equals(t.text)) {
-                sawAs = true;
-                lastContentIdx = p;
-                p++;
+                ++p;
                 continue;
             }
-            if (sawAs && alias == null && t.type == TokenType.IDENTIFIER) {
-                alias = t.text;
+            if(sawAs && alias == null && t.type == TokenType.IDENTIFIER) {
+                alias          = t.text;
                 lastContentIdx = p;
-                p++;
+                ++p;
                 continue;
             }
-            if (!sawAs && (t.type == TokenType.IDENTIFIER || isPathOp(t))) {
+            if( !sawAs && ( t.type == TokenType.IDENTIFIER || isPathOp(t) ) ) {
                 path.append(t.text);
-                sawPathToken = true;
+                sawPathToken   = true;
                 lastContentIdx = p;
-                p++;
+                ++p;
                 continue;
-            }
+            } // if
             return null;
-        }
-        if (!sawPathToken || (sawAs && alias == null)) {
-            return null;
-        }
-        return new ParsedKotlinImport(path.toString(), alias, lastContentIdx);
+        } // while
+        if( !sawPathToken || (sawAs && alias == null) ) return null;
+
+        return new ParsedKotlinImport( path.toString(), alias, lastContentIdx );
     }
 
-    /** True iff {@code t} is an OP token consisting solely of `.`/`*` characters -- covers a plain
+    /**
+     * True iff {@code t} is an OP token consisting solely of `.`/`*` characters -- covers a plain
      *  `.` separator, a plain `*` wildcard, and {@code TokenizerCurly}'s combined `.*` multi-char
      *  pointer-to-member OP token (shared across all languages, so a wildcard import's trailing
      *  `.*` lexes as one combined OP token here too, same discovery as
-     *  {@code JavaSpecificRule.isPathOp}'s own doc comment). */
-    private boolean isPathOp(final Token t) {
-        if (t == null || t.type != TokenType.OP || t.text.isEmpty()) {
-            return false;
-        }
-        for (int i = 0; i < t.text.length(); i++) {
+     *  {@code JavaSpecificRule.isPathOp}'s own doc comment).
+     */
+    private boolean isPathOp(final Token t)
+    {
+        if( t == null || t.type != TokenType.OP || t.text.isEmpty() ) return false;
+        for( int i = 0; i < t.text.length(); ++i ) {
             final char c = t.text.charAt(i);
-            if (c != '.' && c != '*') {
-                return false;
-            }
+            if(c != '.' && c != '*') return false;
         }
+
         return true;
     }
 
-    /** Reads the first {@code package a.b.c} declaration in {@code tokens} (best-effort lookup,
+    /**
+     * Reads the first {@code package a.b.c} declaration in {@code tokens} (best-effort lookup,
      *  not a rewrite) and returns its top {@code importDepth} dot-components. Empty list if no
      *  `package` declaration exists. Kotlin's `package` statement, like `import`, is never
      *  `;`-terminated in practice -- this scan stops at whichever comes first, `;` or NEWLINE/EOF,
-     *  same posture as {@link #parseKotlinImportStatement}. */
-    private List<String> findLocalPackagePrefix(final List<Token> tokens, final int importDepth) {
-        for (int i = 0; i < tokens.size(); i++) {
+     *  same posture as {@link #parseKotlinImportStatement}.
+     */
+    private List<String> findLocalPackagePrefix(final List<Token> tokens, final int importDepth)
+    {
+        for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (t.type == TokenType.KEYWORD && "package".equals(t.text)) {
+            if( t.type == TokenType.KEYWORD && "package".equals(t.text) ) {
                 final List<String> components = new ArrayList<>();
-                int p = i + 1;
-                while (p < tokens.size() && tokens.get(p).type != TokenType.NEWLINE
-                        && !isPunct(tokens.get(p), ";")) {
-                    if (tokens.get(p).type == TokenType.IDENTIFIER) {
-                        components.add(tokens.get(p).text);
-                    }
-                    p++;
-                }
-                return components.subList(0, Math.min(importDepth, components.size()));
-            }
-        }
+                      int          p          = i + 1;
+                while( p < tokens.size() && tokens.get(p).type != TokenType.NEWLINE
+                        && !isPunct( tokens.get(p), ";" ) ) {
+                    if( tokens.get(
+                        p
+                    ).type == TokenType.IDENTIFIER ) components.add(
+                        tokens.get(p).text
+                    );
+                    ++p;
+                } // while
+                return components.subList( 0, Math.min( importDepth, components.size() ) );
+            } // if
+        } // for
+
         return Collections.emptyList();
     }
 
-    /** Classification priority: local &gt; kotlin &gt; java/javax &gt; org &gt; com &gt; other --
-     *  see {@link #KOTLIN_IMPORT_GROUP_KEYS}'s doc comment for why there is no `static` bucket. */
-    private String classifyKotlinImportGroup(final ParsedKotlinImport imp, final List<String> localPrefix) {
+    /**
+     * Classification priority: local &gt; kotlin &gt; java/javax &gt; org &gt; com &gt; other --
+     *  see {@link #KOTLIN_IMPORT_GROUP_KEYS}'s doc comment for why there is no `static` bucket
+     */
+    private String classifyKotlinImportGroup(
+        final ParsedKotlinImport imp,
+        final List<String>       localPrefix
+    )
+    {
         final String[] parts = imp.path.split("\\.");
-        if (!localPrefix.isEmpty() && matchesPrefix(parts, localPrefix)) {
-            return "local";
-        }
+        if( !localPrefix.isEmpty() && matchesPrefix(parts, localPrefix) ) return "local";
         final String first = parts.length > 0 ? parts[0] : "";
-        if ("kotlin".equals(first)) {
-            return "kotlin";
-        }
-        if ("java".equals(first) || "javax".equals(first)) {
-            return "java";
-        }
-        if ("android".equals(first)) {
-            return "android";
-        }
-        if ("com".equals(first)) {
-            return "com";
-        }
-        if ("org".equals(first)) {
-            return "org";
-        }
+        if( "kotlin".equals(first) ) return "kotlin";
+        if( "java".equals(first) || "javax".equals(first) ) return "java";
+        if( "android".equals(first) ) return "android";
+        if( "com".equals(first) ) return "com";
+        if( "org".equals(first) ) return "org";
+
         return "other";
     }
 
-    private boolean matchesPrefix(final String[] parts, final List<String> prefix) {
-        if (parts.length < prefix.size()) {
-            return false;
+    private boolean matchesPrefix(final String[] parts, final List<String> prefix)
+    {
+        if( parts.length < prefix.size() ) return false;
+        for( int i = 0; i < prefix.size(); ++i ) {
+            if( !parts[i].equals( prefix.get(i) ) ) return false;
         }
-        for (int i = 0; i < prefix.size(); i++) {
-            if (!parts[i].equals(prefix.get(i))) {
-                return false;
-            }
-        }
+
         return true;
     }
 
-    /** Appends the literal text of {@code tokens[fromInclusive, toExclusive)} verbatim. */
-    private void appendRange(final StringBuilder out, final List<Token> tokens, final int fromInclusive,
-            final int toExclusive) {
-        for (int i = fromInclusive; i < toExclusive; i++) {
-            out.append(tokens.get(i).text);
-        }
+    /** Appends the literal text of {@code tokens[fromInclusive, toExclusive)} verbatim */
+    private void appendRange(
+        final StringBuilder out,
+        final List<Token>   tokens,
+        final int           fromInclusive,
+        final int           toExclusive
+    )
+    {
+        for(int i = fromInclusive; i < toExclusive; ++i) out.append( tokens.get(i).text );
     }
 
-    private String joinVerbatim(final List<Token> tokens) {
+    private String joinVerbatim(final List<Token> tokens)
+    {
         final StringBuilder out = new StringBuilder();
-        for (final Token t : tokens) {
-            out.append(t.text);
-        }
+        for(final Token t : tokens) out.append(t.text);
+
         return out.toString();
     }
 
-    // alignBracelessElseIfChain moved to BlockStructureRule (now shared across all languages,
-    // once C/C++/Java grew their own opt-in braceless chain-collapse) -- see its javadoc there.
+    // AlignBracelessElseIfChain moved to BlockStructureRule (now shared across all languages,
+    // once C/C++/Java grew their own opt-in braceless chain-collapse) -- see its javadoc there
 
     // ── Leading blank line stripping in function/lambda bodies (found via kt_comments fixture) ──
     /**
@@ -2131,89 +2212,94 @@ public class KotlinSpecificRule {
      * <p>A gap containing a comment is left untouched (no established worked example for that
      * shape). A gap with exactly one newline (no blank to begin with) is a no-op by construction.
      */
-    public String stripLeadingBlankBeforeNonDeclarationStatement(final List<Token> tokens) {
+    public String stripLeadingBlankBeforeNonDeclarationStatement(final List<Token> tokens)
+    {
         final Set<Integer> stripFrom = new HashSet<>();
-        final int n = tokens.size();
-        for (int i = 0; i < n; i++) {
-            if (!isPunct(tokens.get(i), "{") || isControlFlowOrWhenOrNamedBrace(tokens, i)) {
-                continue;
-            }
+        final int          n         = tokens.size();
+        for(int i = 0; i < n; ++i) {
+            if( !isPunct(
+                tokens.get(i), "{"
+            ) || isControlFlowOrWhenOrNamedBrace(
+                tokens, i
+            ) ) continue;
             final int firstSig = nextSignificantIndex(tokens, i + 1);
-            if (firstSig < 0 || isPunct(tokens.get(firstSig), "}")) {
-                continue; // empty body
-            }
-            if (tokens.get(firstSig).type == TokenType.KEYWORD
-                    && ("val".equals(tokens.get(firstSig).text) || "var".equals(tokens.get(firstSig).text))) {
-                continue; // declaration-led -- keep any existing leading blank line
-            }
-            boolean hasComment = false;
-            int newlineCount = 0;
-            int firstNewlineIdx = -1;
-            for (int k = i + 1; k < firstSig; k++) {
+            if( firstSig < 0 || isPunct( tokens.get(firstSig), "}" ) ) continue; // Empty body
+            if( tokens.get(
+                firstSig
+            ).type == TokenType.KEYWORD && ( "val".equals(
+                tokens.get(firstSig).text
+            ) || "var".equals(
+                tokens.get(firstSig).text
+            ) ) ) continue; // Declaration-led -- keep any existing leading blank line
+            boolean hasComment      = false;
+            int     newlineCount    = 0;
+            int     firstNewlineIdx = - 1;
+            for(int k = i + 1; k < firstSig; ++k) {
                 final Token g = tokens.get(k);
-                if (isComment(g)) {
+                if( isComment(g) ) {
                     hasComment = true;
                     break;
                 }
-                if (g.type == TokenType.NEWLINE) {
-                    newlineCount++;
-                    if (firstNewlineIdx < 0) {
-                        firstNewlineIdx = k;
-                    }
+                if(g.type == TokenType.NEWLINE) {
+                    ++newlineCount;
+                    if(firstNewlineIdx < 0) firstNewlineIdx = k;
                 }
+            } // for k
+            if(hasComment || newlineCount < 2 || firstNewlineIdx < 0) continue;
+            // Collapse every NEWLINE in [i+1, firstSig) down to the single one at firstNewlineIdx
+            for(int k = firstNewlineIdx + 1; k < firstSig; ++k) {
+                if( tokens.get(k).type == TokenType.NEWLINE ) stripFrom.add(k);
             }
-            if (hasComment || newlineCount < 2 || firstNewlineIdx < 0) {
-                continue;
-            }
-            // Collapse every NEWLINE in [i+1, firstSig) down to the single one at firstNewlineIdx.
-            for (int k = firstNewlineIdx + 1; k < firstSig; k++) {
-                if (tokens.get(k).type == TokenType.NEWLINE) {
-                    stripFrom.add(k);
-                }
-            }
-        }
+        } // for i
 
         final StringBuilder out = new StringBuilder();
-        for (int i = 0; i < n; i++) {
-            if (!stripFrom.contains(i)) {
-                out.append(tokens.get(i).text);
-            }
+        for(int i = 0; i < n; ++i) {
+            if( !stripFrom.contains(i) ) out.append( tokens.get(i).text );
         }
+
         return out.toString();
     }
 
-    /** True if the `{` at {@code braceIdx} is a named-construct body (already handled elsewhere),
+    /**
+     * True if the `{` at {@code braceIdx} is a named-construct body (already handled elsewhere),
      *  a `when` body (own dedicated handling), or a control-flow body (`if`/`while`/`for`/
      *  `catch`/`do`/`try`/`else`/`finally`, per STYLE.md's "never add/remove blank lines inside a
-     *  control-flow block" rule) -- see {@link #stripLeadingBlankBeforeNonDeclarationStatement}. */
-    private boolean isControlFlowOrWhenOrNamedBrace(final List<Token> tokens, final int braceIdx) {
-        if (tokens.get(braceIdx).name != null) {
-            return true;
-        }
+     *  control-flow block" rule) -- see {@link #stripLeadingBlankBeforeNonDeclarationStatement}.
+     */
+    private boolean isControlFlowOrWhenOrNamedBrace(final List<Token> tokens, final int braceIdx)
+    {
+        if( tokens.get(braceIdx).name != null ) return true;
         final int prevSig = prevSignificantIndex(tokens, braceIdx - 1);
-        if (prevSig < 0) {
-            return true;
-        }
+        if(prevSig < 0) return true;
         final Token prev = tokens.get(prevSig);
-        if (prev.type == TokenType.KEYWORD
-                && ("else".equals(prev.text) || "try".equals(prev.text) || "do".equals(prev.text)
-                        || "finally".equals(prev.text) || "when".equals(prev.text))) {
-            return true;
-        }
-        if (isPunct(prev, ")")) {
+        if( prev.type == TokenType.KEYWORD && ( "else".equals(
+            prev.text
+        ) || "try".equals(
+            prev.text
+        ) || "do".equals(
+            prev.text
+        ) || "finally".equals(
+            prev.text
+        ) || "when".equals(
+            prev.text
+        ) ) ) return true;
+        if( isPunct(prev, ")") ) {
             final int openParen = matchParenBackward(tokens, prevSig);
-            if (openParen >= 0) {
+            if(openParen >= 0) {
                 final int kwIdx = prevSignificantIndex(tokens, openParen - 1);
-                if (kwIdx >= 0 && tokens.get(kwIdx).type == TokenType.KEYWORD
-                        && CONTROL_FLOW_PAREN_KEYWORDS.contains(tokens.get(kwIdx).text)) {
-                    return true;
-                }
-            }
-        }
+                if( kwIdx >= 0 && tokens.get(
+                    kwIdx
+                ).type == TokenType.KEYWORD && CONTROL_FLOW_PAREN_KEYWORDS.contains(
+                    tokens.get(kwIdx).text
+                ) ) return true;
+            } // if
+        } // if
+
         return false;
     }
 
-    private static final Set<String> CONTROL_FLOW_PAREN_KEYWORDS =
-            Collections.unmodifiableSet(new HashSet<>(
-                    Arrays.asList("if", "while", "for", "catch", "when", "switch")));
-}
+    private static final Set<String> CONTROL_FLOW_PAREN_KEYWORDS = Collections.unmodifiableSet(
+        new HashSet<>( Arrays.asList("if", "while", "for", "catch", "when", "switch") )
+    );
+
+} // class KotlinSpecificRule

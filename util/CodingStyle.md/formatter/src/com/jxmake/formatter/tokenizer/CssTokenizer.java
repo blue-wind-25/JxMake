@@ -23,85 +23,82 @@ public final class CssTokenizer extends TokenizerSimpleBraced {
 
     private static final String STRUCTURAL = "{}();:,&";
 
-    public List<Token> tokenize(final String src) {
+    public List<Token> tokenize(final String src)
+    {
         this.source = src;
-        this.pos = 0;
+        this.pos    = 0;
         this.length = src.length();
         final List<Token> tokens = new ArrayList<>();
 
-        while (pos < length) {
+        while(pos < length) {
             final char c = source.charAt(pos);
-            if (c == '\r' || c == '\n') {
-                tokens.add(emitNewline());
+            if(c == '\r' || c == '\n') {
+                tokens.add( emitNewline() );
                 continue;
             }
-            if (c == ' ' || c == '\t') {
-                tokens.add(emitWhitespace());
+            if(c == ' ' || c == '\t') {
+                tokens.add( emitWhitespace() );
                 continue;
             }
-            if (c == '/' && peek(1) == '*') {
-                tokens.add(emitBlockComment());
+            if( c == '/' && peek(1) == '*' ) {
+                tokens.add( emitBlockComment() );
                 continue;
             }
-            if (c == '"' || c == '\'') {
-                tokens.add(emitString(c));
+            if(c == '"' || c == '\'') {
+                tokens.add( emitString(c) );
                 continue;
             }
-            if (STRUCTURAL.indexOf(c) >= 0) {
-                tokens.add(new Token(TokenType.PUNCT, String.valueOf(c), 0, 0, null));
-                pos++;
+            if( STRUCTURAL.indexOf(c) >= 0 ) {
+                tokens.add( new Token( TokenType.PUNCT, String.valueOf(c), 0, 0, null ) );
+                ++pos;
                 continue;
             }
-            tokens.add(emitTextRun());
-        }
+            tokens.add( emitTextRun() );
+        } // while
+
         return tokens;
     }
 
-    private Token emitString(final char quote) {
+    private Token emitString(final char quote)
+    {
         final int start = pos;
-        pos++;
-        while (pos < length) {
+        ++pos;
+        while(pos < length) {
             final char c = source.charAt(pos);
-            if (c == '\\') {
-                pos++;
-                if (pos < length) {
-                    pos++;
-                }
+            if(c == '\\') {
+                ++pos;
+                if(pos < length) pos++;
                 continue;
             }
-            if (c == quote) {
-                pos++;
+            if(c == quote) {
+                ++pos;
                 break;
             }
-            if (c == '\n' || c == '\r') {
-                break; // unterminated string reaching a raw newline
-            }
-            pos++;
-        }
-        return new Token(TokenType.STRING, source.substring(start, pos), 0, 0, null);
+            if(c == '\n' || c == '\r') break; // Unterminated string reaching a raw newline
+            ++pos;
+        } // while
+
+        return new Token( TokenType.STRING, source.substring(start, pos), 0, 0, null );
     }
 
-    /** A run of any characters that are not whitespace, a comment start, a quote, or one of the
+    /**
+     * A run of any characters that are not whitespace, a comment start, a quote, or one of the
      *  structural punctuation characters -- covers selector fragments, property names, at-rule
-     *  keywords, and value text (numbers, units, hex colors, function names) uniformly. */
-    private Token emitTextRun() {
+     *  keywords, and value text (numbers, units, hex colors, function names) uniformly
+     */
+    private Token emitTextRun()
+    {
         final int start = pos;
-        while (pos < length) {
+        while(pos < length) {
             final char c = source.charAt(pos);
-            if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
-                break;
-            }
-            if (c == '/' && peek(1) == '*') {
-                break;
-            }
-            if (c == '"' || c == '\'') {
-                break;
-            }
-            if (STRUCTURAL.indexOf(c) >= 0) {
-                break;
-            }
-            pos++;
-        }
-        return new Token(TokenType.OP, source.substring(start, pos), 0, 0, null);
+            if(c == ' ' || c == '\t' || c == '\r' || c == '\n') break;
+            if( c == '/' && peek(1) == '*' ) break;
+            if(c == '"' || c == '\'') break;
+            if( STRUCTURAL.indexOf(c) >= 0 ) break;
+            ++pos;
+        } // while
+
+        return new Token( TokenType.OP, source.substring(start, pos), 0, 0, null );
     }
-}
+
+} // class CssTokenizer

@@ -7,6 +7,10 @@
 
 package com.jxmake.formatter.rules;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.grid.KotlinModifierPriority;
@@ -16,10 +20,6 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * STYLE_KOTLIN.md §6: variable/property declaration column alignment. Extends
@@ -43,41 +43,58 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
     // renderAlignedGroup's own doc comment).
     private final int indentWidth;
 
-    public KotlinDeclarationAlignmentRule(final Lang lang) {
+    public KotlinDeclarationAlignmentRule(final Lang lang)
+    {
         super(lang);
         this.indentWidth = 0;
     }
 
-    public KotlinDeclarationAlignmentRule(final Lang lang, final int lineLengthLimit) {
+    public KotlinDeclarationAlignmentRule(final Lang lang, final int lineLengthLimit)
+    {
         super(lang, lineLengthLimit);
         this.indentWidth = 0;
     }
 
-    /** RDD_KEY_162: indent-width-aware constructor, used by {@code ScopePipeline} so {@link
+    /**
+     * RDD_KEY_162: indent-width-aware constructor, used by {@code ScopePipeline} so {@link
      *  #renderAlignedGroup(List, int)} can estimate a group member's true rendered column and
-     *  refuse to pad another member wide enough to push it past {@code lineLengthLimit}. */
-    public KotlinDeclarationAlignmentRule(final Lang lang, final int indentWidth, final int lineLengthLimit) {
+     *  refuse to pad another member wide enough to push it past {@code lineLengthLimit}
+     */
+    public KotlinDeclarationAlignmentRule(
+        final Lang lang,
+        final int  indentWidth,
+        final int  lineLengthLimit
+    )
+    {
         super(lang, lineLengthLimit);
         this.indentWidth = indentWidth;
     }
 
-    /** One parsed `val`/`var` property or local-variable declaration. */
+    /** One parsed `val`/`var` property or local-variable declaration */
     public static final class KotlinDecl {
-        public final List<Token> modifiers; // includes the val/var keyword itself (shared slot 5)
-        public final Token name;
-        public final List<Token> typeTokens; // empty if the type is omitted (inferred)
-        public final List<Token> initTokens; // empty if there's no initializer
-        public final Token trailingComment; // nullable
 
-        KotlinDecl(final List<Token> modifiers, final Token name, final List<Token> typeTokens,
-                final List<Token> initTokens, final Token trailingComment) {
-            this.modifiers = modifiers;
-            this.name = name;
-            this.typeTokens = typeTokens;
-            this.initTokens = initTokens;
+        public final List<Token> modifiers;       // Includes the val/var keyword itself (shared slot 5)
+        public final Token       name;
+        public final List<Token> typeTokens;      // Empty if the type is omitted (inferred)
+        public final List<Token> initTokens;      // Empty if there's no initializer
+        public final Token       trailingComment; // Nullable
+
+        KotlinDecl(
+            final List<Token> modifiers,
+            final Token       name,
+            final List<Token> typeTokens,
+            final List<Token> initTokens,
+            final Token       trailingComment
+        )
+        {
+            this.modifiers       = modifiers;
+            this.name            = name;
+            this.typeTokens      = typeTokens;
+            this.initTokens      = initTokens;
             this.trailingComment = trailingComment;
         }
-    }
+
+    } // class KotlinDecl
 
     /**
      * Splits one scope's direct-content tokens into groups of consecutive `val`/`var`
@@ -90,30 +107,30 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      *     standalone by the merged pass; no longer called from {@code ScopePipeline} directly.
      */
     @Deprecated
-    public List<List<KotlinDecl>> groupPropertyDeclarations(final List<Token> scopeTokens) {
-        final List<List<Token>> statements = splitKotlinStatements(scopeTokens);
-        final List<List<KotlinDecl>> groups = new ArrayList<>();
-        List<KotlinDecl> current = new ArrayList<>();
+    public List<List<KotlinDecl>> groupPropertyDeclarations(final List<Token> scopeTokens)
+    {
+        final List<List<Token>>      statements = splitKotlinStatements(scopeTokens);
+        final List<List<KotlinDecl>> groups     = new ArrayList<>();
+              List<KotlinDecl>       current    = new ArrayList<>();
 
-        for (final List<Token> stmt : statements) {
+        for(final List<Token> stmt : statements) {
             final KotlinDecl decl = parseKotlinDeclaration(stmt);
-            if (decl == null) {
-                if (!current.isEmpty()) {
+            if(decl == null) {
+                if( !current.isEmpty() ) {
                     groups.add(current);
                     current = new ArrayList<>();
                 }
                 continue;
-            }
+            } // if
             final boolean breakBefore = hasBlankLineBefore(stmt) || hasCommentBefore(stmt);
-            if (breakBefore && !current.isEmpty()) {
+            if( breakBefore && !current.isEmpty() ) {
                 groups.add(current);
                 current = new ArrayList<>();
             }
             current.add(decl);
-        }
-        if (!current.isEmpty()) {
-            groups.add(current);
-        }
+        } // for
+        if( !current.isEmpty() ) groups.add(current);
+
         return groups;
     }
 
@@ -131,85 +148,80 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      * left out of any alignment group rather than mis-aligned -- never guess past an
      * unrecognized shape, same posture as the rest of this class.
      */
-    private List<List<Token>> splitKotlinStatements(final List<Token> scopeTokens) {
-        final List<List<Token>> statements = new ArrayList<>();
-        List<Token> current = new ArrayList<>();
-        int depth = 0;
-        boolean sawSignificant = false;
+    private List<List<Token>> splitKotlinStatements(final List<Token> scopeTokens)
+    {
+        final List<List<Token>> statements     = new ArrayList<>();
+              List<Token>       current        = new ArrayList<>();
+              int               depth          = 0;
+              boolean           sawSignificant = false;
 
-        for (final Token t : scopeTokens) {
-            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")) {
-                depth++;
+        for(final Token t : scopeTokens) {
+            if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) {
+                ++depth;
                 current.add(t);
                 sawSignificant = true;
                 continue;
             }
-            if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")) {
-                depth--;
+            if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) {
+                --depth;
                 current.add(t);
                 sawSignificant = true;
                 continue;
             }
-            if (depth == 0 && isPunct(t, ";")) {
+            if( depth == 0 && isPunct(t, ";") ) {
                 current.add(t);
                 statements.add(current);
-                current = new ArrayList<>();
+                current        = new ArrayList<>();
                 sawSignificant = false;
                 continue;
-            }
-            if (depth == 0 && t.type == TokenType.NEWLINE && sawSignificant) {
+            } // if
+            if(depth == 0 && t.type == TokenType.NEWLINE && sawSignificant) {
                 statements.add(current);
                 current = new ArrayList<>();
                 current.add(t); // this newline becomes the next statement's leading gap
                 sawSignificant = false;
                 continue;
-            }
+            } // if
             current.add(t);
-            if (!isGapToken(t)) {
-                sawSignificant = true;
-            }
-        }
-        if (!current.isEmpty()) {
-            statements.add(current);
-        }
+            if( !isGapToken(t) ) sawSignificant = true;
+        } // for
+        if( !current.isEmpty() ) statements.add(current);
+
         return statements;
     }
 
-    /** Parses one statement's tokens as `[modifiers] val|var name [: type] [= init]`, or
+    /**
+     * Parses one statement's tokens as `[modifiers] val|var name [: type] [= init]`, or
      *  returns null if it doesn't match this shape -- any other statement (a function call,
      *  control-flow, a function/class declaration, an annotation-prefixed property, etc.)
      *  breaks the group, same conservative "don't guess past an unrecognized shape" posture
-     *  used throughout this codebase, rather than the base class's much broader C/Java grammar. */
-    private KotlinDecl parseKotlinDeclaration(final List<Token> stmt) {
+     *  used throughout this codebase, rather than the base class's much broader C/Java grammar.
+     */
+    private KotlinDecl parseKotlinDeclaration(final List<Token> stmt)
+    {
         final List<Token> sig = significantOnly(stmt);
-        if (sig.isEmpty()) {
-            return null;
-        }
+        if( sig.isEmpty() ) return null;
 
-        int i = 0;
-        final List<Token> modifiers = new ArrayList<>();
-        while (i < sig.size() && isPlainModifier(sig.get(i))) {
-            modifiers.add(sig.get(i));
-            i++;
+          int         i         = 0;
+    final List<Token> modifiers = new ArrayList<>();
+        while( i < sig.size() && isPlainModifier( sig.get(i) ) ) {
+            modifiers.add( sig.get(i) );
+            ++i;
         }
-        if (i >= sig.size() || !isValOrVar(sig.get(i))) {
-            return null;
-        }
-        modifiers.add(sig.get(i)); // val/var itself -- KotlinModifierPriority's shared slot 5
-        i++;
+        if( i >= sig.size() || !isValOrVar( sig.get(i) ) ) return null;
+        modifiers.add( sig.get(i) ); // val/var itself -- KotlinModifierPriority's shared slot 5
+        ++i;
 
-        if (i >= sig.size() || sig.get(i).type != TokenType.IDENTIFIER) {
-            return null;
-        }
+        if( i >= sig.size() || sig.get(i).type != TokenType.IDENTIFIER ) return null;
         final Token name = sig.get(i);
-        i++;
+        ++i;
 
         List<Token> typeTokens = new ArrayList<>();
-        if (i < sig.size() && isOp(sig.get(i), ":")) {
-            i++;
+        if( i < sig.size() && isOp( sig.get(i), ":" ) ) {
+            ++i;
             final int typeStart = i;
-            int typeDepth = 0;
-            while (i < sig.size() && !isOp(sig.get(i), "=")) {
+                  int typeDepth = 0;
+            while( i < sig.size() && !isOp( sig.get(i), "=" ) ) {
                 // A bare `get`/`set` keyword can never legally appear inside a type expression --
                 // its presence here means this "declaration" is actually a KotlinGetterSetterRule
                 // §8 merged one-liner (`val x : Int get() = 1`, RDD_KEY_133) being re-parsed on a
@@ -218,10 +230,13 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
                 // AND cross-contaminate any sibling declaration's column width if grouped together
                 // (found via harness: an adjacent unrelated `var z : Int = 0` got its own type
                 // column padded out to match a wrongly-widened `Int get()` sibling).
-                if (sig.get(i).type == TokenType.KEYWORD
-                        && ("get".equals(sig.get(i).text) || "set".equals(sig.get(i).text))) {
-                    return null;
-                }
+                if( sig.get(
+                    i
+                ).type == TokenType.KEYWORD && ( "get".equals(
+                    sig.get(i).text
+                ) || "set".equals(
+                    sig.get(i).text
+                ) ) ) return null;
                 // A top-level (not inside `<...>`/`(...)`/`[...]`) `by` keyword means this is a
                 // delegated property (`val x: Type by someDelegate { ... }`), which has no `=` at
                 // all -- without this check the loop above never terminates until end-of-statement,
@@ -234,28 +249,33 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
                 // `allExpectedByDependencies` properties). Bail out (never guess) -- same posture
                 // as the get/set bailout just above; `by`-delegate declarations are left out of
                 // this alignment group entirely and rendered verbatim.
-                if (typeDepth == 0 && "by".equals(sig.get(i).text)) {
-                    return null;
-                }
-                if (isPunct(sig.get(i), "(") || isPunct(sig.get(i), "[")
-                        || sig.get(i).type == TokenType.ANGLE_BRACKET_OPEN) {
-                    typeDepth++;
-                } else if (isPunct(sig.get(i), ")") || isPunct(sig.get(i), "]")
-                        || sig.get(i).type == TokenType.ANGLE_BRACKET_CLOSE) {
-                    typeDepth--;
-                }
-                i++;
-            }
+                if( typeDepth == 0 && "by".equals( sig.get(i).text ) ) return null;
+                if( isPunct(
+                    sig.get(i), "("
+                ) || isPunct(
+                    sig.get(i), "["
+                ) || sig.get(
+                    i
+                ).type == TokenType.ANGLE_BRACKET_OPEN ) typeDepth++;
+                else if( isPunct(
+                    sig.get(i), ")"
+                ) || isPunct(
+                    sig.get(i), "]"
+                ) || sig.get(
+                    i
+                ).type == TokenType.ANGLE_BRACKET_CLOSE ) typeDepth--;
+                ++i;
+            } // while
             typeTokens = sig.subList(typeStart, i);
-        }
+        } // if
 
         List<Token> initTokens = new ArrayList<>();
-        if (i < sig.size() && isOp(sig.get(i), "=")) {
+        if( i < sig.size() && isOp( sig.get(i), "=" ) ) {
             final Token eqToken = sig.get(i);
-            i++;
-            initTokens = sig.subList(i, sig.size());
-            i = sig.size();
-            if (!initTokens.isEmpty() && spansMultipleLines(stmt, eqToken)) {
+            ++i;
+            initTokens = sig.subList( i, sig.size() );
+            i          = sig.size();
+            if( !initTokens.isEmpty() && spansMultipleLines(stmt, eqToken) ) {
                 // The initializer contains a source-level NEWLINE after `=` -- a multi-line
                 // block-expression initializer (`when(...) { ... }`, `if(...) { ... } else { ... }`,
                 // a multi-line lambda, etc.), not the short single-line init every §6 worked
@@ -270,8 +290,8 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
                 // verbatim) rather than guess how to re-flow an arbitrary block expression --same
                 // "never guess past an unrecognized shape" posture as this method's other bailouts.
                 return null;
-            }
-            if (hasCommentAfter(stmt, eqToken)) {
+            } // if
+            if( hasCommentAfter(stmt, eqToken) ) {
                 // An embedded comment inside the initializer expression (e.g. `x?.let { it + 1 }
                 // /* nullable */ ?: 0`) would otherwise be silently dropped: initTokens above is
                 // built from `sig` (significant-only, so comments are already stripped out of it)
@@ -279,16 +299,15 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
                 // than lose the comment -- same "never guess past an unrecognized shape" posture
                 // as the multi-line-initializer bailout just above.
                 return null;
-            }
-        }
+            } // if
+        } // if
 
-        if (i != sig.size()) {
-            return null; // trailing tokens this parser doesn't understand -- never guess
-        }
-        return new KotlinDecl(modifiers, name, typeTokens, initTokens, findTrailingComment(stmt));
+        if( i != sig.size() ) return null; // Trailing tokens this parser doesn't understand -- never guess
+        return new KotlinDecl( modifiers, name, typeTokens, initTokens, findTrailingComment(stmt) );
     }
 
-    /** True iff {@code stmt} (the declaration's raw, unfiltered token span) contains a
+    /**
+     * True iff {@code stmt} (the declaration's raw, unfiltered token span) contains a
      *  {@code COMMENT_LINE}/{@code COMMENT_BLOCK} token anywhere strictly between {@code
      *  afterToken} (found by identity, same approach as {@link #spansMultipleLines}) and {@code
      *  stmt}'s own last significant token -- i.e. an *embedded* comment inside the initializer
@@ -296,29 +315,26 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      *  drop. A trailing end-of-line comment (after the last significant token) is deliberately
      *  excluded -- that one is already carried separately via {@link #findTrailingComment} and
      *  rendered back, so flagging it here would needlessly break grouping for the common case of
-     *  a plain `val x = 1 // comment` declaration. */
-    private boolean hasCommentAfter(final List<Token> stmt, final Token afterToken) {
-        int lastSigIdx = -1;
-        for (int k = 0; k < stmt.size(); k++) {
-            if (!isGapToken(stmt.get(k))) {
-                lastSigIdx = k;
-            }
+     *  a plain `val x = 1 // comment` declaration.
+     */
+    private boolean hasCommentAfter(final List<Token> stmt, final Token afterToken)
+    {
+        int lastSigIdx = - 1;
+        for( int k = 0; k < stmt.size(); ++k ) {
+            if( !isGapToken( stmt.get(k) ) ) lastSigIdx = k;
         }
         boolean seen = false;
-        for (int k = 0; k < stmt.size(); k++) {
+        for( int k = 0; k < stmt.size(); ++k ) {
             final Token t = stmt.get(k);
-            if (seen && k < lastSigIdx
-                    && (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK)) {
-                return true;
-            }
-            if (t == afterToken) {
-                seen = true;
-            }
+            if( seen && k < lastSigIdx && (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) ) return true;
+            if(t == afterToken) seen = true;
         }
+
         return false;
     }
 
-    /** True iff {@code stmt} (the declaration's raw, unfiltered token span) contains a
+    /**
+     * True iff {@code stmt} (the declaration's raw, unfiltered token span) contains a
      *  {@code NEWLINE} token, anywhere after {@code afterToken} (found by identity, since
      *  {@code stmt} and the caller's filtered {@code sig}/{@code initTokens} share the same
      *  {@code Token} objects), that is either (a) inside a `{`...`}` brace body (brace depth > 0
@@ -341,37 +357,34 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      *  caught only via `make test` regressing the RDD_KEY_134 fixture (`real_code_regressions_17`)
      *  after adding the paren-depth carve-out alone, not reasoned out in advance; a single-line
      *  lambda (`x?.let { it + 1 } ?: 0`, `kt_combined_out.kt`) has no newline inside its braces at
-     *  all and so is correctly unaffected by either carve-out. */
-    private boolean spansMultipleLines(final List<Token> stmt, final Token afterToken) {
-        boolean seen = false;
-        int parenDepth = 0;
-        int braceDepth = 0;
-        for (final Token t : stmt) {
-            if (seen) {
-                if (isPunct(t, "(") || isPunct(t, "[")) {
-                    parenDepth++;
-                } else if (isPunct(t, ")") || isPunct(t, "]")) {
-                    parenDepth--;
-                } else if (isPunct(t, "{")) {
-                    braceDepth++;
-                } else if (isPunct(t, "}")) {
-                    braceDepth--;
-                } else if (t.type == TokenType.NEWLINE && (braceDepth > 0 || (parenDepth == 0 && braceDepth == 0))) {
-                    return true;
-                }
-            }
-            if (t == afterToken) {
-                seen = true;
-            }
-        }
+     *  all and so is correctly unaffected by either carve-out.
+     */
+    private boolean spansMultipleLines(final List<Token> stmt, final Token afterToken)
+    {
+        boolean seen       = false;
+        int     parenDepth = 0;
+        int     braceDepth = 0;
+        for(final Token t : stmt) {
+            if(seen) {
+                if( isPunct(t, "(") || isPunct(t, "[") ) parenDepth++;
+                else if( isPunct(t, ")") || isPunct(t, "]") ) parenDepth--;
+                else if( isPunct(t, "{") ) braceDepth++;
+                else if( isPunct(t, "}") ) braceDepth--;
+                else if( t.type == TokenType.NEWLINE && ( braceDepth > 0 || (parenDepth == 0 && braceDepth == 0) ) ) return true;
+            } // if
+            if(t == afterToken) seen = true;
+        } // for
+
         return false;
     }
 
-    private boolean isPlainModifier(final Token t) {
+    private boolean isPlainModifier(final Token t)
+    {
         return modifierPriority.isModifier(t.text) && !isValOrVar(t);
     }
 
-    private boolean isValOrVar(final Token t) {
+    private boolean isValOrVar(final Token t)
+    {
         return "val".equals(t.text) || "var".equals(t.text);
     }
 
@@ -386,55 +399,49 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      * column, is only emitted at all if some declaration in the group actually uses it -- same
      * "only emit active columns" precedent as the base class's {@code modifierActive} array.
      */
-    public List<String> renderPropertyGroup(final List<KotlinDecl> group) {
-        final int modifierColumns = modifierPriority.columnCount();
-        final boolean[] modifierActive = new boolean[modifierColumns];
-        boolean anyType = false;
-        boolean anyInit = false;
-        for (final KotlinDecl d : group) {
-            for (final Token m : d.modifiers) {
+    public List<String> renderPropertyGroup(final List<KotlinDecl> group)
+    {
+        final int       modifierColumns = modifierPriority.columnCount();
+        final boolean[] modifierActive  = new boolean[modifierColumns];
+              boolean   anyType         = false;
+              boolean   anyInit         = false;
+        for(final KotlinDecl d : group) {
+            for(final Token m : d.modifiers) {
                 final int rank = modifierPriority.priorityOf(m.text);
-                if (rank >= 0) {
-                    modifierActive[rank] = true;
-                }
+                if(rank >= 0) modifierActive[rank] = true;
             }
             anyType = anyType || !d.typeTokens.isEmpty();
             anyInit = anyInit || !d.initTokens.isEmpty();
-        }
+        } // for d
 
         final ColumnGrid grid = new ColumnGrid();
-        for (final KotlinDecl d : group) {
-            final List<String> cells = new ArrayList<>();
-            final String[] modCells = new String[modifierColumns];
+        for(final KotlinDecl d : group) {
+            final List<String> cells    = new ArrayList<>();
+            final String[]     modCells = new String[modifierColumns];
             Arrays.fill(modCells, "");
-            for (final Token m : d.modifiers) {
+            for(final Token m : d.modifiers) {
                 final int rank = modifierPriority.priorityOf(m.text);
-                if (rank >= 0) {
-                    modCells[rank] = m.text;
-                }
+                if(rank >= 0) modCells[rank] = m.text;
             }
-            for (int r = 0; r < modifierColumns; r++) {
-                if (modifierActive[r]) {
-                    cells.add(modCells[r]);
-                }
+            for(int r = 0; r < modifierColumns; ++r) {
+                if( modifierActive[r] ) cells.add( modCells[r] );
             }
             cells.add(d.name.text);
-            if (anyType) {
-                cells.add(d.typeTokens.isEmpty() ? "" : ": " + renderKotlinTokens(d.typeTokens));
-            }
-            if (anyInit) {
-                cells.add(d.initTokens.isEmpty() ? "" : "= " + renderKotlinTokens(d.initTokens));
-            }
-            if (d.trailingComment != null) {
-                cells.add(d.trailingComment.text);
-            }
-            grid.addRow(cells.toArray(new String[0]));
-        }
+            if(anyType) cells.add(
+                d.typeTokens.isEmpty() ? "" : ": " + renderKotlinTokens(d.typeTokens)
+            );
+            if(anyInit) cells.add(
+                d.initTokens.isEmpty() ? "" : "= " + renderKotlinTokens(d.initTokens)
+            );
+            if(d.trailingComment != null) cells.add(d.trailingComment.text);
+            grid.addRow( cells.toArray( new String[0] ) );
+        } // for d
 
         final List<String> lines = new ArrayList<>();
-        for (final String[] row : grid.flush()) {
-            lines.add(trimTrailingSpaces(String.join(" ", row)));
-        }
+        for( final String[] row : grid.flush() ) lines.add(
+            trimTrailingSpaces( String.join(" ", row) )
+        );
+
         return lines;
     }
 
@@ -446,7 +453,8 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      * grid-cell renderer, so `renderTokens` leaves its generic default (a single space) before
      * `?.`/`!!`. This strips exactly that one leftover space so the two passes agree.
      */
-    private String renderKotlinTokens(final List<Token> tokens) {
+    private String renderKotlinTokens(final List<Token> tokens)
+    {
         return renderTokens(tokens)
                 .replaceAll("\\s+(?=(\\?\\.|!!))", "")
                 .replaceAll("(?<=(\\?\\.|!!))\\s+", "");
@@ -465,73 +473,85 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      * fully Kotlin-scoped with zero risk to C/C++/Java behavior.
      */
     @Override
-    protected String renderTokens(final List<Token> tokens) {
-        final StringBuilder sb = new StringBuilder();
-        Token prev = null;
-        for (int i = 0; i < tokens.size(); i++) {
+    protected String renderTokens(final List<Token> tokens)
+    {
+        final StringBuilder sb   = new StringBuilder();
+              Token         prev = null;
+        for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (prev != null && !isUnaryMinusOperand(tokens, i) && needsSpaceBetween(prev, t, tokens, i)) {
-                sb.append(' ');
-            }
+            if( prev != null && !isUnaryMinusOperand(
+                tokens, i
+            ) && needsSpaceBetween(
+                prev, t, tokens, i
+            ) ) sb.append(
+                ' '
+            );
             sb.append(t.text);
             prev = t;
-        }
+        } // for
+
         return sb.toString();
     }
 
-    /** True iff {@code tokens.get(index)} is the operand immediately following a unary
+    /**
+     * True iff {@code tokens.get(index)} is the operand immediately following a unary
      *  `-`/`+` at {@code tokens.get(index - 1)} -- i.e. that `-`/`+` is not itself preceded by
-     *  another operand (identifier/number/closing `)`/`]`), which would make it binary instead. */
-    private boolean isUnaryMinusOperand(final List<Token> tokens, final int index) {
-        if (index == 0) {
-            return false;
-        }
+     *  another operand (identifier/number/closing `)`/`]`), which would make it binary instead.
+     */
+    private boolean isUnaryMinusOperand(final List<Token> tokens, final int index)
+    {
+        if(index == 0) return false;
         final Token prevTok = tokens.get(index - 1);
-        if (!(isOp(prevTok, "-") || isOp(prevTok, "+"))) {
-            return false;
-        }
-        if (index - 2 < 0) {
-            return true; // nothing before the sign -- must be unary
-        }
+        if( !( isOp(prevTok, "-") || isOp(prevTok, "+") ) ) return false;
+        if(index - 2 < 0) return true; // Nothing before the sign -- must be unary
         final Token beforeSign = tokens.get(index - 2);
-        return !(beforeSign.type == TokenType.IDENTIFIER || beforeSign.type == TokenType.NUMBER
-                || isPunct(beforeSign, ")") || isPunct(beforeSign, "]"));
+
+        return !( beforeSign.type == TokenType.IDENTIFIER || beforeSign.type == TokenType.NUMBER
+                || isPunct(beforeSign, ")") || isPunct(beforeSign, "]") );
     }
 
-    private String trimTrailingSpaces(final String s) {
+    private String trimTrailingSpaces(final String s)
+    {
         int end = s.length();
-        while (end > 0 && s.charAt(end - 1) == ' ') {
-            end--;
-        }
+        while( end > 0 && s.charAt(end - 1) == ' ' ) end--;
+
         return s.substring(0, end);
     }
 
     // ── §12 Destructuring declarations ──────────────────────────────────────────
-    /** One component of a destructuring declaration's parenthesized name list (`a` or `id:
+    /**
+     * One component of a destructuring declaration's parenthesized name list (`a` or `id:
      *  Long`); {@code typeTokens} is empty if the component has no explicit type (the common
      *  case -- STYLE_KOTLIN.md §12's own examples never type-annotate a component). The
      *  unnamed placeholder `_` needs no special handling here -- it tokenizes as a plain
      *  IDENTIFIER, per STYLE_KOTLIN.md §12's own "just another identifier for spacing
-     *  purposes" framing. */
+     *  purposes" framing.
+     */
     public static final class Component {
-        public final Token name;
+
+        public final Token       name;
         public final List<Token> typeTokens;
 
-        Component(final Token name, final List<Token> typeTokens) {
-            this.name = name;
+        Component(final Token name, final List<Token> typeTokens)
+        {
+            this.name       = name;
             this.typeTokens = typeTokens;
         }
-    }
 
-    /** One parsed `val`/`var (a, b, ...) = value` destructuring declaration. Unlike {@link
+    } // class Component
+
+    /**
+     * One parsed `val`/`var (a, b, ...) = value` destructuring declaration. Unlike {@link
      *  KotlinDecl}, there is no per-component type column to grid-align -- STYLE_KOTLIN.md §12
      *  is explicit that "a destructuring list has no type annotations to anchor a column grid"
      *  -- so this carries a single pre-rendered {@code lhsText} (`(a, b)`, comma-normalized)
      *  rather than a per-component token list, mirroring {@code MiscRule.Assignment}'s own
-     *  single-{@code lhsText}-cell shape for the same reason. */
+     *  single-{@code lhsText}-cell shape for the same reason.
+     */
     public static final class DestructuringDecl {
-        public final String lhsText; // e.g. "val (a, b)" -- modifiers + val/var + normalized list
-        // modifiers (including val/var itself, RDD_KEY_103's shared slot 5) and nameText (just the
+
+        public final String lhsText; // E.g. "val (a, b)" -- modifiers + val/var + normalized list
+        // Modifiers (including val/var itself, RDD_KEY_103's shared slot 5) and nameText (just the
         // "(a, b)" component list, no modifiers prefix) exposed separately -- alongside the
         // pre-joined lhsText above -- so RDD_KEY_107's merged alignment pass (see
         // groupAlignableDeclarations/Row below) can grid-align this row's val/var column and name
@@ -539,25 +559,33 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
         // C++ structured-bindings (`auto [b, c] = ...`) align against a plain `int a = ...` in the
         // same group.
         public final List<Token> modifiers;
-        public final String nameText; // e.g. "(a, b)" -- no modifiers prefix, unlike lhsText
+        public final String      nameText;        // E.g. "(a, b)" -- no modifiers prefix, unlike lhsText
         public final List<Token> initTokens;
-        public final Token trailingComment;
+        public final Token       trailingComment;
         // The statement's own first token (first plain modifier, or the val/var keyword itself if
         // there is none) -- exposed so a caller (ScopePipeline) can locate this declaration's own
         // token-index span in the original stream for splice-back, since lhsText is already a
-        // pre-rendered string disconnected from token indices.
+        // pre-rendered string disconnected from token indices
         public final Token startToken;
 
-        DestructuringDecl(final String lhsText, final List<Token> modifiers, final String nameText,
-                final List<Token> initTokens, final Token trailingComment, final Token startToken) {
-            this.lhsText = lhsText;
-            this.modifiers = modifiers;
-            this.nameText = nameText;
-            this.initTokens = initTokens;
+        DestructuringDecl(
+            final String      lhsText,
+            final List<Token> modifiers,
+            final String      nameText,
+            final List<Token> initTokens,
+            final Token       trailingComment,
+            final Token       startToken
+        )
+        {
+            this.lhsText         = lhsText;
+            this.modifiers       = modifiers;
+            this.nameText        = nameText;
+            this.initTokens      = initTokens;
             this.trailingComment = trailingComment;
-            this.startToken = startToken;
+            this.startToken      = startToken;
         }
-    }
+
+    } // class DestructuringDecl
 
     /**
      * Splits one scope's direct-content tokens into groups of consecutive destructuring
@@ -570,30 +598,32 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      *     the merged pass; no longer called from {@code ScopePipeline} directly.
      */
     @Deprecated
-    public List<List<DestructuringDecl>> groupDestructuringDeclarations(final List<Token> scopeTokens) {
-        final List<List<Token>> statements = splitKotlinStatements(scopeTokens);
-        final List<List<DestructuringDecl>> groups = new ArrayList<>();
-        List<DestructuringDecl> current = new ArrayList<>();
+    public List<List<DestructuringDecl>> groupDestructuringDeclarations(
+        final List<Token> scopeTokens
+    )
+    {
+        final List<List<Token>>             statements = splitKotlinStatements(scopeTokens);
+        final List<List<DestructuringDecl>> groups     = new ArrayList<>();
+              List<DestructuringDecl>       current    = new ArrayList<>();
 
-        for (final List<Token> stmt : statements) {
+        for(final List<Token> stmt : statements) {
             final DestructuringDecl decl = parseDestructuringDeclaration(stmt);
-            if (decl == null) {
-                if (!current.isEmpty()) {
+            if(decl == null) {
+                if( !current.isEmpty() ) {
                     groups.add(current);
                     current = new ArrayList<>();
                 }
                 continue;
-            }
+            } // if
             final boolean breakBefore = hasBlankLineBefore(stmt) || hasCommentBefore(stmt);
-            if (breakBefore && !current.isEmpty()) {
+            if( breakBefore && !current.isEmpty() ) {
                 groups.add(current);
                 current = new ArrayList<>();
             }
             current.add(decl);
-        }
-        if (!current.isEmpty()) {
-            groups.add(current);
-        }
+        } // for
+        if( !current.isEmpty() ) groups.add(current);
+
         return groups;
     }
 
@@ -608,99 +638,86 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      * modifier-bearing destructuring declaration to justify guessing at a canonical order for
      * one.
      */
-    private DestructuringDecl parseDestructuringDeclaration(final List<Token> stmt) {
+    private DestructuringDecl parseDestructuringDeclaration(final List<Token> stmt)
+    {
         final List<Token> sig = significantOnly(stmt);
-        if (sig.isEmpty()) {
-            return null;
-        }
+        if( sig.isEmpty() ) return null;
 
-        int i = 0;
-        final List<Token> modifiers = new ArrayList<>();
-        while (i < sig.size() && isPlainModifier(sig.get(i))) {
-            modifiers.add(sig.get(i));
-            i++;
+          int         i         = 0;
+    final List<Token> modifiers = new ArrayList<>();
+        while( i < sig.size() && isPlainModifier( sig.get(i) ) ) {
+            modifiers.add( sig.get(i) );
+            ++i;
         }
-        if (i >= sig.size() || !isValOrVar(sig.get(i))) {
-            return null;
-        }
-        modifiers.add(sig.get(i));
-        i++;
+        if( i >= sig.size() || !isValOrVar( sig.get(i) ) ) return null;
+        modifiers.add( sig.get(i) );
+        ++i;
 
-        if (i >= sig.size() || !isPunct(sig.get(i), "(")) {
-            return null;
-        }
-        i++;
+        if( i >= sig.size() || !isPunct( sig.get(i), "(" ) ) return null;
+        ++i;
 
         final List<Component> components = new ArrayList<>();
-        while (true) {
-            if (i >= sig.size() || sig.get(i).type != TokenType.IDENTIFIER) {
-                return null;
-            }
+        while(true) {
+            if( i >= sig.size() || sig.get(i).type != TokenType.IDENTIFIER ) return null;
             final Token compName = sig.get(i);
-            i++;
+            ++i;
             List<Token> typeTokens = new ArrayList<>();
-            if (i < sig.size() && isOp(sig.get(i), ":")) {
-                i++;
+            if( i < sig.size() && isOp( sig.get(i), ":" ) ) {
+                ++i;
                 final int typeStart = i;
-                while (i < sig.size() && !isPunct(sig.get(i), ",") && !isPunct(sig.get(i), ")")) {
-                    i++;
-                }
+                while( i < sig.size() && !isPunct(
+                    sig.get(i), ","
+                ) && !isPunct(
+                    sig.get(i), ")"
+                ) ) i++;
                 typeTokens = sig.subList(typeStart, i);
-            }
-            components.add(new Component(compName, typeTokens));
+            } // if
+            components.add( new Component(compName, typeTokens) );
 
-            if (i >= sig.size()) {
-                return null;
-            }
-            if (isPunct(sig.get(i), ",")) {
-                i++;
+            if( i >= sig.size() ) return null;
+            if( isPunct( sig.get(i), "," ) ) {
+                ++i;
                 continue;
             }
-            if (isPunct(sig.get(i), ")")) {
-                i++;
+            if( isPunct( sig.get(i), ")" ) ) {
+                ++i;
                 break;
             }
             return null;
-        }
-        if (components.size() < 2) {
-            return null; // a single-component `(a)` has no STYLE_KOTLIN.md §12 worked example
-        }
+        } // while
+        if( components.size() < 2 ) return null; // A single-component `(a)` has no STYLE_KOTLIN.md §12 worked example
 
-        if (i >= sig.size() || !isOp(sig.get(i), "=")) {
-            return null;
-        }
+        if( i >= sig.size() || !isOp( sig.get(i), "=" ) ) return null;
         final Token eqToken = sig.get(i);
-        i++;
-        final List<Token> initTokens = sig.subList(i, sig.size());
-        if (initTokens.isEmpty()) {
-            return null;
-        }
+        ++i;
+        final List<Token> initTokens = sig.subList( i, sig.size() );
+        if( initTokens.isEmpty() ) return null;
         // Same "never guess/never drop content" bailouts as parseKotlinDeclaration's own §6
         // multi-line-initializer and embedded-comment checks -- initTokens here is likewise built
         // from `sig` (comments and source-level NEWLINEs already stripped), so a multi-line call
         // (e.g. `Pair(\n 1, // first\n 2 // second\n)`) would otherwise get silently squished onto
         // one line, and any embedded comment inside it silently dropped.
-        if (spansMultipleLines(stmt, eqToken) || hasCommentAfter(stmt, eqToken)) {
-            return null;
-        }
+        if( spansMultipleLines(stmt, eqToken) || hasCommentAfter(stmt, eqToken) ) return null;
 
         final StringBuilder name = new StringBuilder("(");
-        for (int c = 0; c < components.size(); c++) {
-            if (c > 0) {
-                name.append(", ");
-            }
+        for( int c = 0; c < components.size(); ++c ) {
+            if(c > 0) name.append(", ");
             final Component comp = components.get(c);
             name.append(comp.name.text);
-            if (!comp.typeTokens.isEmpty()) {
-                name.append(": ").append(renderTokens(comp.typeTokens));
-            }
-        }
+            if( !comp.typeTokens.isEmpty() ) name.append(
+                ": "
+            ).append(
+                renderTokens(comp.typeTokens)
+            );
+        } // for
         name.append(')');
         final String nameText = name.toString();
-        final String lhs = renderTokens(modifiers) + " " + nameText;
+        final String lhs      = renderTokens(modifiers) + " " + nameText;
 
-        return new DestructuringDecl(lhs, modifiers, nameText, initTokens, findTrailingComment(stmt),
-                modifiers.get(0));
+        return new DestructuringDecl(
+            lhs, modifiers, nameText, initTokens, findTrailingComment(stmt),
+            modifiers.get(0)
+        );
     }
 
     /**
@@ -716,21 +733,21 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      *     as a standalone fallback renderer, no longer called from {@code ScopePipeline} directly.
      */
     @Deprecated
-    public List<String> renderDestructuringGroup(final List<DestructuringDecl> group) {
+    public List<String> renderDestructuringGroup(final List<DestructuringDecl> group)
+    {
         final ColumnGrid grid = new ColumnGrid();
-        for (final DestructuringDecl d : group) {
+        for(final DestructuringDecl d : group) {
             final List<String> cells = new ArrayList<>();
             cells.add(d.lhsText);
-            cells.add("= " + renderKotlinTokens(d.initTokens));
-            if (d.trailingComment != null) {
-                cells.add(d.trailingComment.text);
-            }
-            grid.addRow(cells.toArray(new String[0]));
-        }
+            cells.add( "= " + renderKotlinTokens(d.initTokens) );
+            if(d.trailingComment != null) cells.add(d.trailingComment.text);
+            grid.addRow( cells.toArray( new String[0] ) );
+        } // for
         final List<String> lines = new ArrayList<>();
-        for (final String[] row : grid.flush()) {
-            lines.add(trimTrailingSpaces(String.join(" ", row)));
-        }
+        for( final String[] row : grid.flush() ) lines.add(
+            trimTrailingSpaces( String.join(" ", row) )
+        );
+
         return lines;
     }
 
@@ -755,49 +772,72 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      * have no type-annotation slot of their own to show there).
      */
     public static final class Row {
-        public final List<Token> modifiers; // includes val/var itself, shared slot 5
-        public final String nameCell; // plain identifier text, or "(a, b)" for a destructuring row
-        public final List<Token> typeTokens; // always empty for a destructuring row
+
+        public final List<Token> modifiers;       // Includes val/var itself, shared slot 5
+        public final String      nameCell;        // Plain identifier text, or "(a, b)" for a destructuring row
+        public final List<Token> typeTokens;      // Always empty for a destructuring row
         public final List<Token> initTokens;
-        public final Token trailingComment;
-        public final Token firstAnchor; // modifiers.get(0) -- splice-back start
-        public final Token lastAnchor; // splice-back end (inclusive)
+        public final Token       trailingComment;
+        public final Token       firstAnchor;     // Modifiers.get(0) -- splice-back start
+        public final Token       lastAnchor;      // Splice-back end (inclusive)
 
-        Row(final List<Token> modifiers, final String nameCell, final List<Token> typeTokens,
-                final List<Token> initTokens, final Token trailingComment, final Token firstAnchor,
-                final Token lastAnchor) {
-            this.modifiers = modifiers;
-            this.nameCell = nameCell;
-            this.typeTokens = typeTokens;
-            this.initTokens = initTokens;
+        Row(
+            final List<Token> modifiers,
+            final String      nameCell,
+            final List<Token> typeTokens,
+            final List<Token> initTokens,
+            final Token       trailingComment,
+            final Token       firstAnchor,
+            final Token       lastAnchor
+        )
+        {
+            this.modifiers       = modifiers;
+            this.nameCell        = nameCell;
+            this.typeTokens      = typeTokens;
+            this.initTokens      = initTokens;
             this.trailingComment = trailingComment;
-            this.firstAnchor = firstAnchor;
-            this.lastAnchor = lastAnchor;
+            this.firstAnchor     = firstAnchor;
+            this.lastAnchor      = lastAnchor;
         }
-    }
 
-    /** Wraps a parsed {@link KotlinDecl} as a {@link Row} for the merged §6/§12 pass -- same
+    } // class Row
+
+    /**
+     * Wraps a parsed {@link KotlinDecl} as a {@link Row} for the merged §6/§12 pass -- same
      *  last-anchor fallback chain (trailing comment, else last init token, else last type token,
      *  else the name itself) {@code ScopePipeline}'s pre-revision two-pass code used to compute
-     *  inline for the §6 side. */
-    private Row toRow(final KotlinDecl d) {
-        final Token lastAnchor = d.trailingComment != null ? d.trailingComment
-                : !d.initTokens.isEmpty() ? d.initTokens.get(d.initTokens.size() - 1)
-                : !d.typeTokens.isEmpty() ? d.typeTokens.get(d.typeTokens.size() - 1)
-                : d.name;
-        return new Row(d.modifiers, d.name.text, d.typeTokens, d.initTokens, d.trailingComment,
-                d.modifiers.get(0), lastAnchor);
+     *  inline for the §6 side
+     */
+    private Row toRow(final KotlinDecl d)
+    {
+        final Token lastAnchor = d.trailingComment != null ? d. trailingComment : ! d.initTokens.isEmpty() ? d.initTokens.get(
+            d.initTokens.size() - 1
+        ) : ! d.typeTokens.isEmpty() ? d.typeTokens.get(
+            d.typeTokens.size() - 1
+        ) : d.name;
+
+        return new Row(
+            d.modifiers, d.name.text, d.typeTokens, d.initTokens, d.trailingComment,
+            d.modifiers.get(0), lastAnchor
+        );
     }
 
-    /** Wraps a parsed {@link DestructuringDecl} as a {@link Row} -- always has a non-empty
+    /**
+     * Wraps a parsed {@link DestructuringDecl} as a {@link Row} -- always has a non-empty
      *  {@code initTokens} ({@link #parseDestructuringDeclaration} rejects a destructuring
      *  declaration with no initializer, so no name-token fallback is ever needed here, unlike
-     *  {@link #toRow(KotlinDecl)} above). */
-    private Row toRow(final DestructuringDecl d) {
-        final Token lastAnchor = d.trailingComment != null ? d.trailingComment
-                : d.initTokens.get(d.initTokens.size() - 1);
-        return new Row(d.modifiers, d.nameText, java.util.Collections.emptyList(), d.initTokens,
-                d.trailingComment, d.startToken, lastAnchor);
+     *  {@link #toRow(KotlinDecl)} above)
+     */
+    private Row toRow(final DestructuringDecl d)
+    {
+        final Token lastAnchor = d.trailingComment != null ? d. trailingComment : d.initTokens.get(
+            d.initTokens.size() - 1
+        );
+
+        return new Row(
+            d.modifiers, d.nameText, java.util.Collections.emptyList(), d.initTokens,
+            d.trailingComment, d.startToken, lastAnchor
+        );
     }
 
     /**
@@ -812,39 +852,38 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      * blank line, a standalone leading comment, or any statement that parses as neither shape
      * breaks the current group.
      */
-    public List<List<Row>> groupAlignableDeclarations(final List<Token> scopeTokens) {
+    public List<List<Row>> groupAlignableDeclarations(final List<Token> scopeTokens)
+    {
         final List<List<Token>> statements = splitKotlinStatements(scopeTokens);
-        final List<List<Row>> groups = new ArrayList<>();
-        List<Row> current = new ArrayList<>();
+        final List<List<Row>>   groups     = new ArrayList<>();
+              List<Row>         current    = new ArrayList<>();
 
-        for (final List<Token> stmt : statements) {
+        for(final List<Token> stmt : statements) {
             final KotlinDecl plain = parseKotlinDeclaration(stmt);
-            Row row = null;
-            if (plain != null) {
+                  Row        row   = null;
+            if(plain != null) {
                 row = toRow(plain);
-            } else {
-                final DestructuringDecl destructuring = parseDestructuringDeclaration(stmt);
-                if (destructuring != null) {
-                    row = toRow(destructuring);
-                }
             }
-            if (row == null) {
-                if (!current.isEmpty()) {
+            else {
+                final DestructuringDecl destructuring = parseDestructuringDeclaration(stmt);
+                if(destructuring != null) row = toRow(destructuring);
+            }
+            if(row == null) {
+                if( !current.isEmpty() ) {
                     groups.add(current);
                     current = new ArrayList<>();
                 }
                 continue;
-            }
+            } // if
             final boolean breakBefore = hasBlankLineBefore(stmt) || hasCommentBefore(stmt);
-            if (breakBefore && !current.isEmpty()) {
+            if( breakBefore && !current.isEmpty() ) {
                 groups.add(current);
                 current = new ArrayList<>();
             }
             current.add(row);
-        }
-        if (!current.isEmpty()) {
-            groups.add(current);
-        }
+        } // for
+        if( !current.isEmpty() ) groups.add(current);
+
         return groups;
     }
 
@@ -857,7 +896,8 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      * precedent as {@link #renderPropertyGroup} -- the type column itself is only emitted at all
      * if some row in the group actually has one.
      */
-    public List<String> renderAlignedGroup(final List<Row> group) {
+    public List<String> renderAlignedGroup(final List<Row> group)
+    {
         return renderAlignedGroup(group, 0);
     }
 
@@ -897,44 +937,33 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      * {@code indentWidth}, and every existing caller of those constructors predates this
      * budget-awareness.
      */
-    public List<String> renderAlignedGroup(final List<Row> group, final int indent) {
-        if (group.size() <= 1 || indentWidth <= 0) {
-            return renderAlignedGroupRaw(group);
-        }
+    public List<String> renderAlignedGroup(final List<Row> group, final int indent)
+    {
+        if( group.size() <= 1 || indentWidth <= 0 ) return renderAlignedGroupRaw(group);
 
-        final boolean[] excluded = new boolean[group.size()];
-        while (true) {
+        final boolean[] excluded = new boolean[ group.size() ];
+        while(true) {
             final List<Integer> safeIndices = new ArrayList<>();
-            for (int i = 0; i < group.size(); i++) {
-                if (!excluded[i]) {
-                    safeIndices.add(i);
-                }
+            for( int i = 0; i < group.size(); ++i ) {
+                if( !excluded[i] ) safeIndices.add(i);
             }
-            if (safeIndices.size() <= 1) {
-                break; // nothing left to budget-check against
-            }
+            if( safeIndices.size() <= 1 ) break; // Nothing left to budget-check against
             final List<Row> safeRows = new ArrayList<>();
-            for (final int idx : safeIndices) {
-                safeRows.add(group.get(idx));
-            }
+            for(final int idx : safeIndices) safeRows.add( group.get(idx) );
             final List<String> safeLines = renderAlignedGroupRaw(safeRows);
 
-            int overflowAt = -1;
-            for (int k = 0; k < safeRows.size(); k++) {
+            int overflowAt = - 1;
+            for( int k = 0; k < safeRows.size(); ++k ) {
                 final Row r = safeRows.get(k);
-                if (!hasBraceBodiedInit(r.initTokens)) {
-                    continue;
-                }
-                if (indent + safeLines.get(k).length() > lineLengthLimit) {
+                if( !hasBraceBodiedInit(r.initTokens) ) continue;
+                if( indent + safeLines.get(k).length() > lineLengthLimit ) {
                     overflowAt = safeIndices.get(k);
                     break;
                 }
-            }
-            if (overflowAt < 0) {
-                break; // fixed point reached -- no remaining row overflows its budget
-            }
+            } // for
+            if(overflowAt < 0) break; // Fixed point reached -- no remaining row overflows its budget
             excluded[overflowAt] = true;
-        }
+        } // while
 
         // RDD_KEY_219: render surviving (non-excluded) rows as maximal CONTIGUOUS runs, not as one
         // flat shared-column grid spanning the whole original group. A row excluded above for
@@ -953,30 +982,35 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
         // identical: a run adjacent to an excluded row was already going to lose its grouping
         // with the row on the far side once that row wraps, so this pass should never have
         // pretended otherwise.
-        final List<String> result = new ArrayList<>(java.util.Collections.nCopies(group.size(), null));
-        int i = 0;
-        while (i < group.size()) {
-            if (excluded[i]) {
-                result.set(i, renderAlignedGroupRaw(java.util.Collections.singletonList(group.get(i))).get(0));
-                i++;
+        final List<String> result = new ArrayList<>( java.util.Collections.nCopies(
+            group.size(), null
+        ) );
+              int          i      = 0;
+        while( i < group.size() ) {
+            if( excluded[i] ) {
+                result.set(
+                    i,
+                    renderAlignedGroupRaw( java.util.Collections.singletonList( group.get(i) ) ).get(0)
+                );
+                ++i;
                 continue;
-            }
-            int j = i;
-            final List<Row> runRows = new ArrayList<>();
-            while (j < group.size() && !excluded[j]) {
-                runRows.add(group.get(j));
-                j++;
+            } // if
+              int       j       = i;
+        final List<Row> runRows = new ArrayList<>();
+            while( j < group.size() && !excluded[j] ) {
+                runRows.add( group.get(j) );
+                ++j;
             }
             final List<String> runLines = renderAlignedGroupRaw(runRows);
-            for (int k = 0; k < runLines.size(); k++) {
-                result.set(i + k, runLines.get(k));
-            }
+            for( int k = 0; k < runLines.size(); ++k ) result.set( i + k, runLines.get(k) );
             i = j;
-        }
+        } // while
+
         return result;
     }
 
-    /** True iff {@code initTokens} contains a literal {@code {} -- a lambda/object/block
+    /**
+     * True iff {@code initTokens} contains a literal {@code {} -- a lambda/object/block
      *  expression -- anywhere. This, not a generic "has a breakable call" check, is the correct
      *  gate for the width-budget exclusion above: {@link #spansMultipleLines} only ever bails a
      *  re-parsed declaration out of its alignment group over a newline found at brace-depth > 0
@@ -992,66 +1026,61 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      *  moment it overflows -- so once its own group-aligned width overflows the budget, excluding
      *  it pre-emptively (rendering solo from the very first pass) is what actually restores
      *  idempotency, regardless of whether it was already going to wrap on its own merits (e.g. a
-     *  long trailing comment) independent of any alignment padding. */
-    private boolean hasBraceBodiedInit(final List<Token> initTokens) {
-        for (final Token t : initTokens) {
-            if (isPunct(t, "{")) {
-                return true;
-            }
+     *  long trailing comment) independent of any alignment padding.
+     */
+    private boolean hasBraceBodiedInit(final List<Token> initTokens)
+    {
+        for(final Token t : initTokens) {
+            if( isPunct(t, "{") ) return true;
         }
+
         return false;
     }
 
-    private List<String> renderAlignedGroupRaw(final List<Row> group) {
-        final int modifierColumns = modifierPriority.columnCount();
-        final boolean[] modifierActive = new boolean[modifierColumns];
-        boolean anyType = false;
-        boolean anyInit = false;
-        for (final Row r : group) {
-            for (final Token m : r.modifiers) {
+    private List<String> renderAlignedGroupRaw(final List<Row> group)
+    {
+        final int       modifierColumns = modifierPriority.columnCount();
+        final boolean[] modifierActive  = new boolean[modifierColumns];
+              boolean   anyType         = false;
+              boolean   anyInit         = false;
+        for(final Row r : group) {
+            for(final Token m : r.modifiers) {
                 final int rank = modifierPriority.priorityOf(m.text);
-                if (rank >= 0) {
-                    modifierActive[rank] = true;
-                }
+                if(rank >= 0) modifierActive[rank] = true;
             }
             anyType = anyType || !r.typeTokens.isEmpty();
             anyInit = anyInit || !r.initTokens.isEmpty();
-        }
+        } // for r
 
         final ColumnGrid grid = new ColumnGrid();
-        for (final Row r : group) {
-            final List<String> cells = new ArrayList<>();
-            final String[] modCells = new String[modifierColumns];
+        for(final Row r : group) {
+            final List<String> cells    = new ArrayList<>();
+            final String[]     modCells = new String[modifierColumns];
             Arrays.fill(modCells, "");
-            for (final Token m : r.modifiers) {
+            for(final Token m : r.modifiers) {
                 final int rank = modifierPriority.priorityOf(m.text);
-                if (rank >= 0) {
-                    modCells[rank] = m.text;
-                }
+                if(rank >= 0) modCells[rank] = m.text;
             }
-            for (int c = 0; c < modifierColumns; c++) {
-                if (modifierActive[c]) {
-                    cells.add(modCells[c]);
-                }
+            for(int c = 0; c < modifierColumns; ++c) {
+                if( modifierActive[c] ) cells.add( modCells[c] );
             }
             cells.add(r.nameCell);
-            if (anyType) {
-                cells.add(r.typeTokens.isEmpty() ? "" : ": " + renderKotlinTokens(r.typeTokens));
-            }
-            if (anyInit) {
-                cells.add(r.initTokens.isEmpty() ? "" : "= " + renderKotlinTokens(r.initTokens));
-            }
-            if (r.trailingComment != null) {
-                cells.add(r.trailingComment.text);
-            }
-            grid.addRow(cells.toArray(new String[0]));
-        }
+            if(anyType) cells.add(
+                r.typeTokens.isEmpty() ? "" : ": " + renderKotlinTokens(r.typeTokens)
+            );
+            if(anyInit) cells.add(
+                r.initTokens.isEmpty() ? "" : "= " + renderKotlinTokens(r.initTokens)
+            );
+            if(r.trailingComment != null) cells.add(r.trailingComment.text);
+            grid.addRow( cells.toArray( new String[0] ) );
+        } // for r
 
         final List<String> lines = new ArrayList<>();
-        for (final String[] row : grid.flush()) {
-            lines.add(trimTrailingSpaces(String.join(" ", row)));
-        }
+        for( final String[] row : grid.flush() ) lines.add(
+            trimTrailingSpaces( String.join(" ", row) )
+        );
+
         return lines;
     }
 
-}
+} // class KotlinDeclarationAlignmentRule

@@ -24,17 +24,20 @@ import java.util.regex.Pattern;
 public final class InFileConfig {
 
     private static final Pattern DIRECTIVE = Pattern.compile(
-            "//%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|/\\*%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*\\*/"
-                    + "|#%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|<!--%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*-->", Pattern.DOTALL);
+        "//%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|/\\*%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*\\*/" + "|#%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|<!--%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*-->",
+        Pattern.DOTALL
+    );
 
     // Consumes a run of leading blank lines and whole comments (//, /* */, YAML/TOML's #, or XML's
     // <!-- -->) from the start of a file -- the "top-of-file preamble" a JXM_CFMT_CFG directive is
-    // allowed to live in.
+    // allowed to live in
     private static final Pattern PREAMBLE_PIECE = Pattern.compile(
-            "\\G(?:[ \\t]*\\r?\\n|[ \\t]*//[^\\r\\n]*(?:\\r?\\n|$)|[ \\t]*/\\*.*?\\*/[ \\t]*"
-                    + "|[ \\t]*#[^\\r\\n]*(?:\\r?\\n|$)|[ \\t]*<!--.*?-->[ \\t]*)", Pattern.DOTALL);
+        "\\G(?:[ \\t]*\\r?\\n|[ \\t]*//[^\\r\\n]*(?:\\r?\\n|$)|[ \\t]*/\\*.*?\\*/[ \\t]*" + "|[ \\t]*#[^\\r\\n]*(?:\\r?\\n|$)|[ \\t]*<!--.*?-->[ \\t]*)",
+        Pattern.DOTALL
+    );
 
-    private InFileConfig() {
+    private InFileConfig()
+    {
     }
 
     /**
@@ -44,67 +47,76 @@ public final class InFileConfig {
      * comment/blank-line preamble, or a directive naming a key that either isn't a recognized
      * config key or is {@code server-port} (a process-wide property, not a per-file one).
      */
-    public static Map<String, String> parse(final String source) throws IOException {
-        final Matcher m = DIRECTIVE.matcher(source);
-        int count = 0;
-        int matchStart = -1;
-        String body = null;
-        while (m.find()) {
-            count++;
-            if (count == 1) {
+    public static Map<String, String> parse(final String source) throws IOException
+    {
+        final Matcher m          = DIRECTIVE.matcher(source);
+              int     count      = 0;
+              int     matchStart = - 1;
+              String  body       = null;
+        while( m.find() ) {
+            ++count;
+            if(count == 1) {
                 matchStart = m.start();
-                body = m.group(1) != null ? m.group(1)
-                        : (m.group(2) != null ? m.group(2) : (m.group(3) != null ? m.group(3) : m.group(4)));
-            }
-        }
-        if (count == 0) {
-            return java.util.Collections.emptyMap();
-        }
-        if (count > 1) {
-            throw new IOException("multiple JXM_CFMT_CFG directives found -- only one is allowed per file");
-        }
+                body       = m.group(1) != null ? m.group(1)
+                           : ( m.group(
+                               2
+                           ) != null ? m.group(
+                               2
+                           ) : ( m.group(
+                               3
+                           ) != null ? m.group(
+                               3
+                           ) : m.group(
+                               4
+                           ) ) );
+            } // if
+        } // while
+        if(count == 0) return java.util.Collections.emptyMap();
+        if(count > 1) throw new IOException(
+            "multiple JXM_CFMT_CFG directives found -- only one is allowed per file"
+        );
 
         final int preambleEnd = preambleEnd(source);
-        if (matchStart >= preambleEnd) {
-            throw new IOException("JXM_CFMT_CFG must appear before the first non-comment/non-blank line "
-                    + "of the file (move it into the top-of-file comment/blank-line preamble)");
-        }
+        if(matchStart >= preambleEnd) throw new IOException(
+            "JXM_CFMT_CFG must appear before the first non-comment/non-blank line " + "of the file (move it into the top-of-file comment/blank-line preamble)"
+        );
 
         final Map<String, String> result = new LinkedHashMap<String, String>();
-        for (final String piece : body.split(";")) {
+        for( final String piece : body.split(";") ) {
             final String trimmed = piece.trim();
-            if (trimmed.isEmpty()) {
-                continue;
-            }
+            if( trimmed.isEmpty() ) continue;
             final int eq = trimmed.indexOf('=');
-            if (eq < 0) {
-                throw new IOException("malformed JXM_CFMT_CFG entry (expected key=value): \"" + trimmed + "\"");
-            }
-            final String key = trimmed.substring(0, eq).trim();
+            if(eq < 0) throw new IOException(
+                "malformed JXM_CFMT_CFG entry (expected key=value): \"" + trimmed + "\""
+            );
+            final String key   = trimmed.substring(0, eq).trim();
             final String value = trimmed.substring(eq + 1).trim();
-            if (!isPerFileApplicable(key)) {
-                throw new IOException("JXM_CFMT_CFG: \"" + key
-                        + "\" is not a valid per-file config key (either unrecognized, or 'server-port', which is "
-                        + "a process-wide property and cannot be set per-file)");
-            }
+            if( !isPerFileApplicable(
+                key
+            ) ) throw new IOException(
+                "JXM_CFMT_CFG: \"" + key + "\" is not a valid per-file config key (either unrecognized, or 'server-port', which is " + "a process-wide property and cannot be set per-file)"
+            );
             result.put(key, value);
-        }
+        } // for
+
         return result;
     }
 
-    private static boolean isPerFileApplicable(final String key) {
+    private static boolean isPerFileApplicable(final String key)
+    {
         return Config.isKnownKey(key) && !"server-port".equals(key);
     }
 
-    private static int preambleEnd(final String source) {
-        final Matcher m = PREAMBLE_PIECE.matcher(source);
-        int pos = 0;
-        while (pos < source.length() && m.find(pos)) {
-            if (m.end() == pos) {
-                break;
-            }
+    private static int preambleEnd(final String source)
+    {
+        final Matcher m   = PREAMBLE_PIECE.matcher(source);
+              int     pos = 0;
+        while( pos < source.length() && m.find(pos) ) {
+            if( m.end() == pos ) break;
             pos = m.end();
         }
+
         return pos;
     }
-}
+
+} // class InFileConfig

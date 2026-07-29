@@ -13,15 +13,22 @@ package com.jxmake.formatter;
  */
 public final class FormatterTags extends FormatterCore {
 
-    public FormatterTags(final Lang lang) {
+    public FormatterTags(final Lang lang)
+    {
         super(lang);
     }
 
     @Override
-    public String formatOne(final String content, final String filePath, final Config config,
-            final boolean formatOff) {
+    public String formatOne(
+        final String  content,
+        final String  filePath,
+        final Config  config,
+        final boolean formatOff
+    )
+    {
         throw new UnsupportedOperationException(
                 "'" + lang.language + "' formatting is not yet implemented (scaffold only -- see "
                         + "STATE_DATA_FORMATS.md)");
     }
-}
+
+} // class FormatterTags

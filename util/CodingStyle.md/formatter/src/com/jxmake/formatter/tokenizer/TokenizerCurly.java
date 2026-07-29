@@ -7,8 +7,6 @@
 
 package com.jxmake.formatter.tokenizer;
 
-import com.jxmake.formatter.Lang;
-
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -18,6 +16,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
+import com.jxmake.formatter.Lang;
+
 /**
  * Curly-brace-family tokenizer (C/C++/Java/Kotlin) -- everything in this file used to live
  * directly in {@link TokenizerCore} before the curly/indent/tags class-refactor
@@ -26,32 +26,186 @@ import java.util.Set;
 public class TokenizerCurly extends TokenizerCore {
 
     private static final Set<String> KEYWORDS_C = setOf(
-            "auto", "break", "case", "char", "const", "continue", "default", "do", "double",
-            "else", "enum", "extern", "float", "for", "goto", "if", "inline", "int", "long",
-            "register", "restrict", "return", "short", "signed", "sizeof", "static", "struct",
-            "switch", "typedef", "union", "unsigned", "void", "volatile", "while");
+        "auto",
+        "break",
+        "case",
+        "char",
+        "const",
+        "continue",
+        "default",
+        "do",
+        "double",
+        "else",
+        "enum",
+        "extern",
+        "float",
+        "for",
+        "goto",
+        "if",
+        "inline",
+        "int",
+        "long",
+        "register",
+        "restrict",
+        "return",
+        "short",
+        "signed",
+        "sizeof",
+        "static",
+        "struct",
+        "switch",
+        "typedef",
+        "union",
+        "unsigned",
+        "void",
+        "volatile",
+        "while"
+    );
 
     private static final Set<String> KEYWORDS_CPP = setOf(
-            "alignas", "alignof", "asm", "auto", "bool", "break", "case", "catch", "char",
-            "char16_t", "char32_t", "class", "co_await", "co_return", "co_yield", "concept",
-            "const", "constexpr", "consteval", "constinit", "const_cast", "continue",
-            "decltype", "default", "delete", "do", "double", "dynamic_cast", "else", "enum",
-            "explicit", "export", "extern", "false", "final", "float", "for", "friend", "goto",
-            "if", "inline", "int", "long", "mutable", "namespace", "new", "noexcept", "nullptr",
-            "operator", "override", "private", "protected", "public", "register",
-            "reinterpret_cast", "requires", "return", "short", "signed", "sizeof", "static",
-            "static_assert", "static_cast", "struct", "switch", "template", "this",
-            "thread_local", "throw", "true", "try", "typedef", "typeid", "typename", "union",
-            "unsigned", "using", "virtual", "void", "volatile", "wchar_t", "while");
+        "alignas",
+        "alignof",
+        "asm",
+        "auto",
+        "bool",
+        "break",
+        "case",
+        "catch",
+        "char",
+        "char16_t",
+        "char32_t",
+        "class",
+        "co_await",
+        "co_return",
+        "co_yield",
+        "concept",
+        "const",
+        "constexpr",
+        "consteval",
+        "constinit",
+        "const_cast",
+        "continue",
+        "decltype",
+        "default",
+        "delete",
+        "do",
+        "double",
+        "dynamic_cast",
+        "else",
+        "enum",
+        "explicit",
+        "export",
+        "extern",
+        "false",
+        "final",
+        "float",
+        "for",
+        "friend",
+        "goto",
+        "if",
+        "inline",
+        "int",
+        "long",
+        "mutable",
+        "namespace",
+        "new",
+        "noexcept",
+        "nullptr",
+        "operator",
+        "override",
+        "private",
+        "protected",
+        "public",
+        "register",
+        "reinterpret_cast",
+        "requires",
+        "return",
+        "short",
+        "signed",
+        "sizeof",
+        "static",
+        "static_assert",
+        "static_cast",
+        "struct",
+        "switch",
+        "template",
+        "this",
+        "thread_local",
+        "throw",
+        "true",
+        "try",
+        "typedef",
+        "typeid",
+        "typename",
+        "union",
+        "unsigned",
+        "using",
+        "virtual",
+        "void",
+        "volatile",
+        "wchar_t",
+        "while"
+    );
 
     private static final Set<String> KEYWORDS_JAVA = setOf(
-            "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char", "class",
-            "const", "continue", "default", "do", "double", "else", "enum", "extends", "final",
-            "finally", "float", "for", "goto", "if", "implements", "import", "instanceof", "int",
-            "interface", "long", "native", "new", "package", "permits", "private", "protected",
-            "public", "record", "return", "sealed", "short", "static", "strictfp", "super", "switch",
-            "synchronized", "this", "throw", "throws", "transient", "true", "false", "null", "try",
-            "var", "void", "volatile", "while");
+        "abstract",
+        "assert",
+        "boolean",
+        "break",
+        "byte",
+        "case",
+        "catch",
+        "char",
+        "class",
+        "const",
+        "continue",
+        "default",
+        "do",
+        "double",
+        "else",
+        "enum",
+        "extends",
+        "final",
+        "finally",
+        "float",
+        "for",
+        "goto",
+        "if",
+        "implements",
+        "import",
+        "instanceof",
+        "int",
+        "interface",
+        "long",
+        "native",
+        "new",
+        "package",
+        "permits",
+        "private",
+        "protected",
+        "public",
+        "record",
+        "return",
+        "sealed",
+        "short",
+        "static",
+        "strictfp",
+        "super",
+        "switch",
+        "synchronized",
+        "this",
+        "throw",
+        "throws",
+        "transient",
+        "true",
+        "false",
+        "null",
+        "try",
+        "var",
+        "void",
+        "volatile",
+        "while"
+    );
 
     // Kotlin 1.0-1.9 hard + soft/modifier keywords (STYLE_KOTLIN.md/STYLE_KOTLIN2.md). Soft
     // keywords (e.g. `by`, `data`, `get`/`set`) are only reserved in specific positions in real
@@ -59,24 +213,124 @@ public class TokenizerCurly extends TokenizerCore {
     // simplification already made for Java's `var`/`record` (both contextual in real Java, both
     // listed unconditionally in KEYWORDS_JAVA above).
     private static final Set<String> KEYWORDS_KOTLIN = setOf(
-            "as", "break", "class", "continue", "do", "else", "false", "for", "fun", "if", "in",
-            "interface", "is", "null", "object", "package", "return", "super", "this", "throw",
-            "true", "try", "typealias", "typeof", "val", "var", "when", "while",
-            "by", "catch", "companion", "const", "constructor", "crossinline", "data",
-            "dynamic", "enum", "external", "field", "file", "final", "finally", "get",
-            "import", "infix", "init", "inline", "inner", "internal", "lateinit", "noinline",
-            "open", "operator", "out", "override", "param", "private", "property", "protected",
-            "public", "receiver", "reified", "sealed", "set", "setparam", "suspend", "tailrec",
-            "vararg", "where");
+        "as",
+        "break",
+        "class",
+        "continue",
+        "do",
+        "else",
+        "false",
+        "for",
+        "fun",
+        "if",
+        "in",
+        "interface",
+        "is",
+        "null",
+        "object",
+        "package",
+        "return",
+        "super",
+        "this",
+        "throw",
+        "true",
+        "try",
+        "typealias",
+        "typeof",
+        "val",
+        "var",
+        "when",
+        "while",
+        "by",
+        "catch",
+        "companion",
+        "const",
+        "constructor",
+        "crossinline",
+        "data",
+        "dynamic",
+        "enum",
+        "external",
+        "field",
+        "file",
+        "final",
+        "finally",
+        "get",
+        "import",
+        "infix",
+        "init",
+        "inline",
+        "inner",
+        "internal",
+        "lateinit",
+        "noinline",
+        "open",
+        "operator",
+        "out",
+        "override",
+        "param",
+        "private",
+        "property",
+        "protected",
+        "public",
+        "receiver",
+        "reified",
+        "sealed",
+        "set",
+        "setparam",
+        "suspend",
+        "tailrec",
+        "vararg",
+        "where"
+    );
 
     // JS keywords (ES2024+, STYLE_JS_TS.md). `class`/`function`/`interface` etc. share the
     // curly-family named-construct machinery below the same way Java/Kotlin's do.
     private static final Set<String> KEYWORDS_JS = setOf(
-            "async", "await", "break", "case", "catch", "class", "const", "continue", "debugger",
-            "default", "delete", "do", "else", "export", "extends", "false", "finally", "for",
-            "function", "get", "if", "import", "in", "instanceof", "let", "new", "null", "of",
-            "return", "set", "static", "super", "switch", "this", "throw", "true", "try",
-            "typeof", "var", "void", "while", "with", "yield");
+        "async",
+        "await",
+        "break",
+        "case",
+        "catch",
+        "class",
+        "const",
+        "continue",
+        "debugger",
+        "default",
+        "delete",
+        "do",
+        "else",
+        "export",
+        "extends",
+        "false",
+        "finally",
+        "for",
+        "function",
+        "get",
+        "if",
+        "import",
+        "in",
+        "instanceof",
+        "let",
+        "new",
+        "null",
+        "of",
+        "return",
+        "set",
+        "static",
+        "super",
+        "switch",
+        "this",
+        "throw",
+        "true",
+        "try",
+        "typeof",
+        "var",
+        "void",
+        "while",
+        "with",
+        "yield"
+    );
 
     // TS adds its own keyword vocabulary on top of every JS keyword (RDD_KEY_187 -- shared
     // curly classes gated on lang.isJs/isTs, no separate JsTokenizer/TsTokenizer). STYLE_JS_TS.md
@@ -84,23 +338,27 @@ public class TokenizerCurly extends TokenizerCore {
     // and §12/§14 (enum/interface/type) all need their keywords recognized here.
     private static final Set<String> KEYWORDS_TS = new HashSet<>(KEYWORDS_JS);
     static {
-        KEYWORDS_TS.addAll(Arrays.asList(
+        KEYWORDS_TS.addAll( Arrays.asList(
                 "abstract", "any", "as", "asserts", "bigint", "boolean", "declare", "enum",
                 "implements", "infer", "interface", "is", "keyof", "namespace", "never", "number",
                 "object", "override", "private", "protected", "public", "readonly", "satisfies",
-                "string", "symbol", "type", "undefined", "unique", "unknown"));
+                "string", "symbol", "type", "undefined", "unique", "unknown") );
     }
 
-    private static final Set<String> NAMED_CONSTRUCT_C = setOf("struct", "enum");
-    private static final Set<String> NAMED_CONSTRUCT_CPP =
-            setOf("class", "struct", "enum", "namespace", "concept");
-    private static final Set<String> NAMED_CONSTRUCT_JAVA =
-            setOf("class", "interface", "enum", "record");
-    private static final Set<String> NAMED_CONSTRUCT_KOTLIN =
-            setOf("class", "object", "interface", "enum", "init");
-    private static final Set<String> NAMED_CONSTRUCT_JS = setOf("class");
-    private static final Set<String> NAMED_CONSTRUCT_TS =
-            setOf("class", "interface", "enum", "namespace");
+    private static final Set<String> NAMED_CONSTRUCT_C      = setOf("struct", "enum");
+    private static final Set<String> NAMED_CONSTRUCT_CPP    = setOf(
+        "class", "struct", "enum", "namespace", "concept"
+    );
+    private static final Set<String> NAMED_CONSTRUCT_JAVA   = setOf(
+        "class", "interface", "enum", "record"
+    );
+    private static final Set<String> NAMED_CONSTRUCT_KOTLIN = setOf(
+        "class", "object", "interface", "enum", "init"
+    );
+    private static final Set<String> NAMED_CONSTRUCT_JS     = setOf("class");
+    private static final Set<String> NAMED_CONSTRUCT_TS     = setOf(
+        "class", "interface", "enum", "namespace"
+    );
 
     // Keywords that may legally appear inside a generic/template argument list without
     // invalidating the candidate `<>` pair -- e.g. `vector<int>`, `array<unsigned char, 4>`,
@@ -110,56 +368,57 @@ public class TokenizerCurly extends TokenizerCore {
     // `Comparable<in T>`) are Kotlin-only keywords, absent from every other language's keyword set,
     // so this is a pure no-op for C/C++/Java.
     private static final Set<String> GENERIC_SAFE_KEYWORDS = setOf(
-            "extends", "super", "const", "typename", "class",
-            "bool", "char", "char16_t", "char32_t", "double", "float", "int", "long",
-            "short", "signed", "unsigned", "void", "wchar_t", "in", "out",
-            // TS/JS primitive type keywords: `Map<string,number>`'s `number`/`string` etc.
-            // are tokenized as KEYWORD, not IDENTIFIER, and appear directly inside a generic
-            // argument list -- without these, the second type argument invalidated the whole
-            // `<...>` tracking before the matching `>` was reached, leaving it a plain OP token.
-            "string", "number", "boolean", "any", "unknown", "never", "object", "undefined", "null",
-            // Missed the first time this set was extended (vuejs/core dogfood,
-            // `Record<string | symbol, Function | number>`): `symbol`/`bigint` are TS primitive
-            // type keywords exactly like `string`/`number` above, tokenized as KEYWORD too.
-            "symbol", "bigint",
-            // TS boolean-literal type arguments (`CreateComponentPublicInstanceWithMixins<...,
-            // false, {}, S>`, vuejs/core dogfood `apiDefineComponent.ts`): `true`/`false` are
-            // tokenized as KEYWORD, not IDENTIFIER, same as the primitive type keywords above --
-            // without these, a literal-type argument invalidated the whole `<...>` tracking
-            // before the matching `>` was reached, leaving it a plain OP token and defeating
-            // `JsTsSpecificRule.enforceSemicolonInsertion`'s depth tracking the same way the
-            // `symbol`/`bigint` gap did.
-            "true", "false",
-            // TS type-operator keywords that can legally appear directly inside a generic
-            // argument list / conditional type expression (vuejs/core dogfood,
-            // `shared/src/typeUtils.ts`'s `IsKeyValues<T, K = string> = IfAny<T, false,
-            // T extends object ? (keyof T extends K ? true : false) : false>`): `keyof T` is a
-            // keyed-lookup type operand, `is`/`infer`/`asserts` appear in type-predicate and
-            // conditional-type `infer` positions, `readonly`/`unique` are array/symbol type
-            // modifiers, `as`/`satisfies` are type-assertion operators -- none of these were in
-            // the safe set, so any of them appearing inside a multi-line generic clause
-            // invalidated the whole `<...>` tracking before the matching `>` was reached the same
-            // way the `true`/`false` gap above did. `typeof` (vuejs/core dogfood,
-            // `reactiveArray.spec.ts`'s `Record<(typeof identityMethods)[number], any>` and
-            // `trusted-types.spec.ts`'s `ReturnType<typeof createServer>`) is the same class of
-            // gap: a `typeof` type-query operand appearing inside a generic argument list
-            // invalidated the whole `<...>` tracking before the matching `>` was reached, in one
-            // case producing a bogus `;` before the closing `>` and in the other leaving the `>`
-            // a plain OP token that then defeated statement-boundary detection entirely, merging
-            // the following statement onto the same line. `import` (angular/angular dogfood,
-            // `utils.ts`'s `Promise<\n  (typeof import('...'))['default'] | null\n>`) is the same
-            // gap again: TS's dynamic-import type query (`import('module-name')` used as a type
-            // operand, not the dynamic-import expression) appearing inside a multi-line generic
-            // clause invalidated the whole `<...>` tracking before the matching `>` was reached,
-            // producing a bogus `;` at the end of the line containing the import-type clause.
-            "keyof", "is", "infer", "asserts", "readonly", "unique", "as", "satisfies", "typeof",
-            "import");
+        "extends",
+        "super",
+        "const",
+        "typename",
+        "class",
+        "bool",
+        "char",
+        "char16_t",
+        "char32_t",
+        "double",
+        "float",
+        "int",
+        "long",
+        "short",
+        "signed",
+        "unsigned",
+        "void",
+        "wchar_t",
+        "in",
+        "out",
+        "string",
+        "number",
+        "boolean",
+        "any",
+        "unknown",
+        "never",
+        "object",
+        "undefined",
+        "null",
+        "symbol",
+        "bigint",
+        "true",
+        "false",
+        "keyof",
+        "is",
+        "infer",
+        "asserts",
+        "readonly",
+        "unique",
+        "as",
+        "satisfies",
+        "typeof",
+        "import"
+    );
 
     // C++ cast keywords: `static_cast<T>(...)` etc. are tokenized as KEYWORD (not IDENTIFIER),
     // so the generic `<` after an IDENTIFIER check in reclassifyAngleBrackets() misses them
     // unless checked separately.
     private static final Set<String> CAST_KEYWORDS = setOf(
-            "static_cast", "dynamic_cast", "reinterpret_cast", "const_cast");
+        "static_cast", "dynamic_cast", "reinterpret_cast", "const_cast"
+    );
 
     // Longest-prefix-first order matters: emitOperator() matches the first entry whose text the
     // source starts with, so "<=>" must precede "<=" (a strict prefix of it) or the spaceship
@@ -194,17 +453,17 @@ public class TokenizerCurly extends TokenizerCore {
             "=>", "??=", "??"
     };
 
-    private final Lang lang;
-    private final String language;
+    private final Lang        lang;
+    private final String      language;
     private final Set<String> keywords;
     private final Set<String> namedConstructKeywords;
 
     private boolean atLineStart;
 
-    private int preprocessorDepth;
-    private boolean syntaxError;
-    private final Deque<String> nameStack = new LinkedList<>();
-    private final Deque<Token> recentSignificant = new ArrayDeque<>();
+    private       int           preprocessorDepth;
+    private       boolean       syntaxError;
+    private final Deque<String> nameStack         = new LinkedList<>();
+    private final Deque<Token>  recentSignificant = new ArrayDeque<>();
     // record header tracking (`record Name(` ... `)` -- the component list sits between the
     // keyword+name and the body brace, so the simple 2-token `computeConstructName` lookback
     // can't see across it). `bracketNameStack` mirrors every `(`/`[` open/close 1:1 so it stays
@@ -214,8 +473,8 @@ public class TokenizerCurly extends TokenizerCore {
     // legally emit a `{` between the component list and the body, since `implements`/generic
     // clauses there contain no brace-bearing expressions).
     private final Deque<String> bracketNameStack = new LinkedList<>(); // LinkedList allows null pushes
-    private String pendingRecordName;
-    // concept body tracking (`concept Name = requires(...) { ... }` -- the requires-expression's
+    private       String        pendingRecordName;
+    // Concept body tracking (`concept Name = requires(...) { ... }` -- the requires-expression's
     // own parameter list sits between the keyword+name and the body brace, same gap problem as
     // `record`'s component list, but simpler: nothing between `concept Name =` and that first `{`
     // can itself open a brace, so a single pending flag (armed on `=`, consumed by the very next
@@ -234,104 +493,129 @@ public class TokenizerCurly extends TokenizerCore {
     // armed, on `;`, or on `{`/`}` (scope transition).
     private boolean namedConstructKeywordSeen;
 
-    public boolean hasSyntaxError() {
+    public boolean hasSyntaxError()
+    {
         return syntaxError;
     }
 
-    public TokenizerCurly(final Lang lang) {
-        this.lang = lang;
+    public TokenizerCurly(final Lang lang)
+    {
+        this.lang     = lang;
         this.language = lang.language;
-        switch (language) {
+        switch(language) {
+
             case "c":
                 this.keywords = KEYWORDS_C;
                 this.namedConstructKeywords = NAMED_CONSTRUCT_C;
                 break;
+
             case "cpp":
                 this.keywords = KEYWORDS_CPP;
                 this.namedConstructKeywords = NAMED_CONSTRUCT_CPP;
                 break;
+
             case "java":
                 this.keywords = KEYWORDS_JAVA;
                 this.namedConstructKeywords = NAMED_CONSTRUCT_JAVA;
                 break;
+
             case "kotlin":
                 this.keywords = KEYWORDS_KOTLIN;
                 this.namedConstructKeywords = NAMED_CONSTRUCT_KOTLIN;
                 break;
+
             case "js":
                 this.keywords = KEYWORDS_JS;
                 this.namedConstructKeywords = NAMED_CONSTRUCT_JS;
                 break;
+
             case "ts":
                 this.keywords = KEYWORDS_TS;
                 this.namedConstructKeywords = NAMED_CONSTRUCT_TS;
                 break;
+
             default:
                 throw new IllegalArgumentException("Unknown language: " + language);
-        }
+
+        } // switch
     }
 
-    public List<Token> tokenize(final String source) {
-        this.source = source;
-        this.pos = 0;
-        this.length = source.length();
-        this.atLineStart = true;
-        this.braceDepth = 0;
-        this.parenDepth = 0;
+    public List<Token> tokenize(final String source)
+    {
+        this.source            = source;
+        this.pos               = 0;
+        this.length            = source.length();
+        this.atLineStart       = true;
+        this.braceDepth        = 0;
+        this.parenDepth        = 0;
         this.preprocessorDepth = 0;
-        this.syntaxError = false;
+        this.syntaxError       = false;
         this.nameStack.clear();
         this.recentSignificant.clear();
         this.bracketNameStack.clear();
-        this.pendingRecordName = null;
-        this.pendingConceptName = null;
+        this.pendingRecordName         = null;
+        this.pendingConceptName        = null;
         this.pendingNamedConstructName = null;
 
         final List<Token> tokens = new ArrayList<>();
 
-        while (pos < length) {
+        while(pos < length) {
             final char c = source.charAt(pos);
 
-            if (c == '\r' || c == '\n') {
-                addToken(tokens, emitNewline());
+            if(c == '\r' || c == '\n') {
+                addToken( tokens, emitNewline() );
                 atLineStart = true;
                 continue;
             }
-            if (c == ' ' || c == '\t') {
-                addToken(tokens, emitWhitespace());
+            if(c == ' ' || c == '\t') {
+                addToken( tokens, emitWhitespace() );
                 continue;
             }
 
             final Token t;
-            if (isPreprocessorLanguage() && c == '#' && atLineStart) {
+            if( isPreprocessorLanguage() && c == '#' && atLineStart ) {
                 t = emitPreprocessorOrDefine();
-            } else if (c == '/' && peek(1) == '/') {
+            }
+            else if( c == '/' && peek(1) == '/' ) {
                 t = emitLineComment();
-            } else if (c == '/' && peek(1) == '*') {
+            }
+            else if( c == '/' && peek(1) == '*' ) {
                 t = emitBlockComment();
-            } else if (c == '/' && (lang.isJs || lang.isTs) && isRegexLiteralAllowedHere(tokens)) {
+            }
+            else if( c == '/' && (lang.isJs || lang.isTs) && isRegexLiteralAllowedHere(tokens) ) {
                 t = emitRegexLiteral();
-            } else if (c == '"' && isTextBlockOpener()) {
+            }
+            else if( c == '"' && isTextBlockOpener() ) {
                 t = emitTextBlock();
-            } else if (c == '"' && isKotlinRawStringOpener()) {
+            }
+            else if( c == '"' && isKotlinRawStringOpener() ) {
                 t = emitKotlinRawString();
-            } else if ((lang.isC || lang.isCpp) && rawStringPrefixLength() >= 0) {
-                t = emitRawString(rawStringPrefixLength());
-            } else if (c == '"') {
+            }
+            else if( (lang.isC || lang.isCpp) && rawStringPrefixLength() >= 0 ) {
+                t = emitRawString( rawStringPrefixLength() );
+            }
+            else if(c == '"') {
                 t = emitString();
-            } else if (c == '`' && (lang.isJs || lang.isTs)) {
+            }
+            else if( c == '`' && (lang.isJs || lang.isTs) ) {
                 t = emitTemplateLiteral();
-            } else if (c == '`' && lang.isKotlin) {
+            }
+            else if(c == '`' && lang.isKotlin) {
                 t = emitKotlinBacktickIdentifier();
-            } else if (c == '\'') {
+            }
+            else if(c == '\'') {
                 t = emitChar();
-            } else if (Character.isDigit(c) || (c == '.' && Character.isDigit(peek(1)))) {
+            }
+            else if( Character.isDigit(c) || ( c == '.' && Character.isDigit( peek(1) ) ) ) {
                 t = emitNumber();
-            } else if (isIdentifierStart(c)) {
+            }
+            else if( isIdentifierStart(c) ) {
                 t = emitIdentifierOrKeyword();
-            } else if (c == '[' && peek(1) == '[' && looksLikeAttributeOpen()) {
+            }
+            else if( c == '[' && peek(1) == '[' && looksLikeAttributeOpen() ) {
                 t = emitOperator();
-            } else if (c == ']' && peek(1) == ']' && lang.isCpp) {
+            }
+            else if( c == ']' && peek(1) == ']' && lang.isCpp ) {
                 // C++11 attribute close (`]]` closing `[[nodiscard]]` etc, STYLE_CPP26.md §5).
                 // Must stay C++-only like the "[[" branch just above it -- outside C++, two
                 // adjacent `]` are unrelated closes (e.g. TS `{ [K in T[number]]?: unknown }`'s
@@ -342,64 +626,75 @@ public class TokenizerCurly extends TokenizerCore {
                 // token instead of a PUNCT one, which defeats every isPunct(t, "]") check the same
                 // way (vuejs/core dogfood, componentOptions.ts's InjectToObject mapped type).
                 t = emitOperator();
-            } else if (c == '[' && peek(1) == ':' && lang.isCpp) {
+            }
+            else if( c == '[' && peek(1) == ':' && lang.isCpp ) {
                 t = emitOperator();
-            } else if (c == '{') {
+            }
+            else if(c == '{') {
                 t = emitOpenBrace();
-            } else if (c == '}') {
+            }
+            else if(c == '}') {
                 t = emitCloseBrace();
-            } else if (c == '(' || c == '[') {
+            }
+            else if(c == '(' || c == '[') {
                 t = emitOpenBracket(c);
-            } else if (c == ')' || c == ']') {
+            }
+            else if(c == ')' || c == ']') {
                 t = emitCloseBracket(c);
-            } else if (c == ';' || c == ',') {
+            }
+            else if(c == ';' || c == ',') {
                 t = emitPunct(c);
-            } else {
+            }
+            else {
                 t = emitOperator();
             }
 
             addToken(tokens, t);
             atLineStart = false;
-            if (syntaxError) {
-                break;
-            }
-        }
+            if(syntaxError) break;
+        } // while
 
-        if (!syntaxError && !lang.isC) {
-            reclassifyAngleBrackets(tokens);
-        }
+        if(!syntaxError && !lang.isC) reclassifyAngleBrackets(tokens);
 
         return tokens;
     }
 
-    private void addToken(final List<Token> tokens, final Token t) {
+    private void addToken(final List<Token> tokens, final Token t)
+    {
         tokens.add(t);
         trackSignificant(t);
     }
 
-    private void trackSignificant(final Token t) {
-        switch (t.type) {
-            case WHITESPACE:
-            case NEWLINE:
-            case COMMENT_LINE:
-            case COMMENT_BLOCK:
+    private void trackSignificant(final Token t)
+    {
+        switch(t.type) {
+
+            case WHITESPACE: /* FALL-THROUGH */
+            case NEWLINE: /* FALL-THROUGH */
+            case COMMENT_LINE: /* FALL-THROUGH */
+            case COMMENT_BLOCK: /* FALL-THROUGH */
             case PREPROCESSOR:
                 return;
+
             default:
-                if (t.type == TokenType.OP && "=".equals(t.text)) {
+                if( t.type == TokenType.OP && "=".equals(t.text) ) {
                     final String conceptName = computeConceptHeaderName();
-                    if (conceptName != null) {
-                        pendingConceptName = conceptName;
-                    }
-                } else if (t.type == TokenType.PUNCT && ";".equals(t.text)) {
-                    pendingConceptName = null;
+                    if(conceptName != null) pendingConceptName = conceptName;
+                }
+                else if( t.type == TokenType.PUNCT && ";".equals(t.text) ) {
+                    pendingConceptName        = null;
                     pendingNamedConstructName = null;
                     namedConstructKeywordSeen = false;
-                } else if (t.type == TokenType.PUNCT && "{".equals(t.text)) {
+                }
+                else if( t.type == TokenType.PUNCT && "{".equals(t.text) ) {
                     namedConstructKeywordSeen = false;
-                } else if (t.type == TokenType.PUNCT && "}".equals(t.text)) {
+                }
+                else if( t.type == TokenType.PUNCT && "}".equals(t.text) ) {
                     namedConstructKeywordSeen = false;
-                } else if (t.type == TokenType.OP && ":".equals(t.text) && namedConstructKeywordSeen) {
+                }
+                else if( t.type == TokenType.OP && ":".equals(
+                    t.text
+                ) && namedConstructKeywordSeen ) {
                     // A named-construct keyword directly followed by `:` with no identifier in
                     // between (Kotlin's anonymous `object : Comparable<Int> {`) has no name to
                     // arm -- without this, the next IDENTIFIER found (the supertype name,
@@ -409,8 +704,9 @@ public class TokenizerCurly extends TokenizerCore {
                     // false (cleared by the arm-on-IDENTIFIER branch below) by the time a `:` is
                     // reached in those languages.
                     namedConstructKeywordSeen = false;
-                } else if (t.type == TokenType.PUNCT && "(".equals(t.text) && t.parenDepth == 1
-                        && !lang.isKotlin) {
+                }
+                else if( t.type == TokenType.PUNCT && "(".equals(t.text) && t.parenDepth == 1
+                        && !lang.isKotlin ) {
                     // Entering the outermost paren group (a function's parameter list) -- clear
                     // pendingNamedConstructName so the function body's `{` doesn't pick up the
                     // surrounding class/struct name.
@@ -425,9 +721,12 @@ public class TokenizerCurly extends TokenizerCore {
                     // from Java's `record`, which already survives via the separate
                     // `pendingRecordName` field, never touching `pendingNamedConstructName`).
                     pendingNamedConstructName = null;
-                } else if (t.type == TokenType.KEYWORD && namedConstructKeywords.contains(t.text)
+                }
+                else if( t.type == TokenType.KEYWORD && namedConstructKeywords.contains(t.text)
                         && !"concept".equals(t.text)
-                        && !(lang.isKotlin && "class".equals(t.text) && isPrecededByDoubleColon())) {
+                        && !( lang.isKotlin && "class".equals(
+                            t.text
+                        ) && isPrecededByDoubleColon() ) ) {
                     // Kotlin class-literal reflection expressions (`Foo::class`) tokenize `class`
                     // as a KEYWORD, but it is not introducing a new construct here -- it's a
                     // property-like reference to the `Foo` class's KClass object. Arming
@@ -439,90 +738,99 @@ public class TokenizerCurly extends TokenizerCore {
                     namedConstructKeywordSeen = true;
                 }
                 recentSignificant.addLast(t);
-                if (recentSignificant.size() > 3) {
-                    recentSignificant.removeFirst();
-                }
+                if( recentSignificant.size() > 3 ) recentSignificant.removeFirst();
                 // Arm pendingNamedConstructName when IDENTIFIER follows a named-construct keyword.
                 // namedConstructKeywordSeen survives attribute-specifiers like `alignas(16)` that
                 // sit between the keyword and the name; the old arr[n-2] check only caught the
                 // direct keyword→identifier case.
-                if (t.type == TokenType.IDENTIFIER && t.parenDepth == 0 && namedConstructKeywordSeen) {
+                if(t.type == TokenType.IDENTIFIER && t.parenDepth == 0 && namedConstructKeywordSeen) {
                     pendingNamedConstructName = t.text;
                     namedConstructKeywordSeen = false;
-                } else if (t.type == TokenType.IDENTIFIER && t.parenDepth == 0
-                        && pendingNamedConstructName != null && recentSignificant.size() >= 2) {
+                }
+                else if( t.type == TokenType.IDENTIFIER && t.parenDepth == 0
+                        && pendingNamedConstructName != null && recentSignificant.size() >= 2 ) {
                     // Qualified namespace name (`namespace alpha::beta::gamma {`): each further
-                    // `::identifier` segment after the first extends the already-armed name.
-                    final Token[] arr = recentSignificant.toArray(new Token[0]);
-                    final Token prev = arr[arr.length - 2];
-                    if (prev.type == TokenType.OP && "::".equals(prev.text)) {
+                    // `::identifier` segment after the first extends the already-armed name
+                    final Token[] arr  = recentSignificant.toArray( new Token[0] );
+                    final Token   prev = arr[arr.length - 2];
+                    if( prev.type == TokenType.OP && "::".equals(prev.text) ) {
                         pendingNamedConstructName = pendingNamedConstructName + "::" + t.text;
-                    } else if (prev.type == TokenType.IDENTIFIER) {
+                    }
+                    else if(prev.type == TokenType.IDENTIFIER) {
                         // Elaborated-type variable declaration (`struct sigaction sa = { };`):
                         // the first identifier after `struct` is a previously-declared type tag,
                         // not a new construct name, and this second identifier is the variable
                         // being declared -- the `{` that may follow is that variable's aggregate
-                        // initializer, not a construct body.
+                        // initializer, not a construct body
                         pendingNamedConstructName = null;
                     }
                 }
-        }
+
+        } // switch
     }
 
-    /** True iff the most recent significant token tracked so far is the {@code ::} operator --
+    /**
+     * True iff the most recent significant token tracked so far is the {@code ::} operator --
      *  used to recognize Kotlin class-literal expressions ({@code Foo::class}) so the {@code class}
-     *  keyword there is not mistaken for the start of an actual class declaration. */
-    private boolean isPrecededByDoubleColon() {
-        if (recentSignificant.isEmpty()) {
-            return false;
-        }
+     *  keyword there is not mistaken for the start of an actual class declaration
+     */
+    private boolean isPrecededByDoubleColon()
+    {
+        if( recentSignificant.isEmpty() ) return false;
         final Token prev = recentSignificant.peekLast();
+
         return prev.type == TokenType.OP && "::".equals(prev.text);
     }
 
-    /** True iff the last two significant tokens (before the `=` currently being tracked) are the
+    /**
+     * True iff the last two significant tokens (before the `=` currently being tracked) are the
      *  `concept` keyword followed by its declared name -- arms {@code pendingConceptName}, the
-     *  `concept` analog of {@link #computeRecordHeaderName}. */
-    private String computeConceptHeaderName() {
-        final Token[] arr = recentSignificant.toArray(new Token[0]); // oldest..newest
-        final int n = arr.length;
-        if (n < 2 || !namedConstructKeywords.contains("concept")) {
-            return null;
-        }
-        final Token kw = arr[n - 2];
+     *  `concept` analog of {@link #computeRecordHeaderName}
+     */
+    private String computeConceptHeaderName()
+    {
+        final Token[] arr = recentSignificant.toArray( new Token[0] ); // Oldest..newest
+        final int     n   = arr.length;
+        if( n < 2 || !namedConstructKeywords.contains("concept") ) return null;
+        final Token kw   = arr[n - 2];
         final Token name = arr[n - 1];
-        if (kw.type == TokenType.KEYWORD && "concept".equals(kw.text) && name.type == TokenType.IDENTIFIER) {
-            return name.text;
-        }
+        if( kw.type == TokenType.KEYWORD && "concept".equals(
+            kw.text
+        ) && name.type == TokenType.IDENTIFIER ) return name.text;
+
         return null;
     }
 
     // ── Named construct detection (for the `{` name stack) ─────────────────────────
-    private String computeConstructName() {
-        final Token[] arr = recentSignificant.toArray(new Token[0]); // oldest..newest
-        final int n = arr.length;
-        if (n >= 2) {
-            final Token kw = arr[n - 2];
+    private String computeConstructName()
+    {
+        final Token[] arr = recentSignificant.toArray( new Token[0] ); // Oldest..newest
+        final int     n   = arr.length;
+        if(n >= 2) {
+            final Token kw   = arr[n - 2];
             final Token name = arr[n - 1];
-            if ("extern".equals(kw.text) && kw.type == TokenType.KEYWORD
-                    && name.type == TokenType.STRING && "\"C\"".equals(name.text)) {
-                return kw.text + " " + name.text;
-            }
-            if (kw.type == TokenType.KEYWORD && namedConstructKeywords.contains(kw.text)
-                    && name.type == TokenType.IDENTIFIER) {
-                return name.text;
-            }
-        }
-        if (n >= 3) {
-            final Token enumKw = arr[n - 3];
+            if( "extern".equals(
+                kw.text
+            ) && kw.type == TokenType.KEYWORD && name.type == TokenType.STRING && "\"C\"".equals(
+                name.text
+            ) ) return kw.text + " " + name.text;
+            if( kw.type == TokenType.KEYWORD && namedConstructKeywords.contains(
+                kw.text
+            ) && name.type == TokenType.IDENTIFIER ) return name.text;
+        } // if
+        if(n >= 3) {
+            final Token enumKw  = arr[n - 3];
             final Token classKw = arr[n - 2];
-            final Token name = arr[n - 1];
-            if ("enum".equals(enumKw.text) && "class".equals(classKw.text)
-                    && namedConstructKeywords.contains("enum")
-                    && name.type == TokenType.IDENTIFIER) {
-                return name.text;
-            }
-        }
+            final Token name    = arr[n - 1];
+            if( "enum".equals(
+                enumKw.text
+            ) && "class".equals(
+                classKw.text
+            ) && namedConstructKeywords.contains(
+                "enum"
+            ) && name.type == TokenType.IDENTIFIER ) return name.text;
+        } // if
+
         return null;
     }
 
@@ -534,212 +842,209 @@ public class TokenizerCurly extends TokenizerCore {
      * bounded-effort spirit as {@code isAnonymousClassBrace}'s qualified-name limitation in
      * `BlockStructureRule`.
      */
-    private String computeRecordHeaderName() {
-        final Token[] arr = recentSignificant.toArray(new Token[0]); // oldest..newest
-        final int n = arr.length;
-        if (n < 2 || !namedConstructKeywords.contains("record")) {
-            return null;
-        }
-        final Token kw = arr[n - 2];
+    private String computeRecordHeaderName()
+    {
+        final Token[] arr = recentSignificant.toArray( new Token[0] ); // Oldest..newest
+        final int     n   = arr.length;
+        if( n < 2 || !namedConstructKeywords.contains("record") ) return null;
+        final Token kw   = arr[n - 2];
         final Token name = arr[n - 1];
-        if (kw.type == TokenType.KEYWORD && "record".equals(kw.text) && name.type == TokenType.IDENTIFIER) {
-            return name.text;
-        }
+        if( kw.type == TokenType.KEYWORD && "record".equals(
+            kw.text
+        ) && name.type == TokenType.IDENTIFIER ) return name.text;
+
         return null;
     }
 
     // ── Per-construct emit helpers ──────────────────────────────────────────────────
-    private Token emitOpenBrace() {
+    private Token emitOpenBrace()
+    {
         final String name;
-        if (pendingRecordName != null) {
-            name = pendingRecordName;
+        if(pendingRecordName != null) {
+            name              = pendingRecordName;
             pendingRecordName = null;
-        } else if (pendingConceptName != null) {
-            name = pendingConceptName;
+        }
+        else if(pendingConceptName != null) {
+            name               = pendingConceptName;
             pendingConceptName = null;
-        } else if (pendingNamedConstructName != null) {
-            name = pendingNamedConstructName;
+        }
+        else if(pendingNamedConstructName != null) {
+            name                      = pendingNamedConstructName;
             pendingNamedConstructName = null;
-        } else {
+        }
+        else {
             name = computeConstructName();
         }
-        braceDepth++;
+        ++braceDepth;
         nameStack.push(name);
-        pos++;
+        ++pos;
+
         return new Token(TokenType.PUNCT, "{", braceDepth, parenDepth, name);
     }
 
-    private Token emitCloseBrace() {
-        if (braceDepth == 0) {
-            syntaxError = true;
-        }
+    private Token emitCloseBrace()
+    {
+        if(braceDepth == 0) syntaxError = true;
         final String name = nameStack.isEmpty() ? null : nameStack.pop();
-        braceDepth--;
-        pos++;
+        --braceDepth;
+        ++pos;
+
         return new Token(TokenType.PUNCT, "}", braceDepth, parenDepth, name);
     }
 
-    private Token emitOpenBracket(final char c) {
-        bracketNameStack.push(c == '(' ? computeRecordHeaderName() : null);
-        parenDepth++;
-        pos++;
-        return new Token(TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null);
+    private Token emitOpenBracket(final char c)
+    {
+        bracketNameStack.push( c == '(' ? computeRecordHeaderName() : null );
+        ++parenDepth;
+        ++pos;
+
+        return new Token( TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null );
     }
 
-    private Token emitCloseBracket(final char c) {
+    private Token emitCloseBracket(final char c)
+    {
         final String recordName = bracketNameStack.isEmpty() ? null : bracketNameStack.pop();
-        if (c == ')' && recordName != null) {
-            pendingRecordName = recordName;
-        }
-        parenDepth--;
-        pos++;
-        return new Token(TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null);
+        if(c == ')' && recordName != null) pendingRecordName = recordName;
+        --parenDepth;
+        ++pos;
+
+        return new Token( TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null );
     }
 
-    private Token emitPunct(final char c) {
-        pos++;
-        return new Token(TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null);
+    private Token emitPunct(final char c)
+    {
+        ++pos;
+
+        return new Token( TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null );
     }
 
-    private Token emitPreprocessorOrDefine() {
-        int p = pos + 1; // skip '#'
-        while (p < length && (source.charAt(p) == ' ' || source.charAt(p) == '\t')) {
-            p++;
-        }
+    private Token emitPreprocessorOrDefine()
+    {
+        int p = pos + 1; // Skip '#'
+        while( p < length && ( source.charAt(p) == ' ' || source.charAt(p) == '\t' ) ) p++;
         final int wordStart = p;
-        while (p < length && isIdentifierPart(source.charAt(p))) {
-            p++;
-        }
+        while( p < length && isIdentifierPart( source.charAt(p) ) ) p++;
         final String directive = source.substring(wordStart, p);
 
-        if ("define".equals(directive)) {
-            return isMultilineDirective(p) ? emitMacroDef() : emitSingleLineDefine();
-        }
+        if( "define".equals(
+            directive
+        ) ) return isMultilineDirective(
+            p
+        ) ? emitMacroDef() : emitSingleLineDefine();
+
         return emitPreprocessor();
     }
 
-    private boolean isMultilineDirective(final int from) {
+    private boolean isMultilineDirective(final int from)
+    {
         int p = from;
-        while (p < length && source.charAt(p) != '\n' && source.charAt(p) != '\r') {
-            p++;
-        }
+        while( p < length && source.charAt(p) != '\n' && source.charAt(p) != '\r' ) p++;
         int q = p - 1;
-        while (q >= from && (source.charAt(q) == ' ' || source.charAt(q) == '\t')) {
-            q--;
-        }
+        while( q >= from && ( source.charAt(q) == ' ' || source.charAt(q) == '\t' ) ) q--;
+
         return q >= from && source.charAt(q) == '\\';
     }
 
-    private Token emitSingleLineDefine() {
-        pos++; // '#'
-        while (pos < length && (source.charAt(pos) == ' ' || source.charAt(pos) == '\t')) {
-            pos++;
-        }
+    private Token emitSingleLineDefine()
+    {
+        ++pos; // '#'
+        while( pos < length && ( source.charAt(pos) == ' ' || source.charAt(pos) == '\t' ) ) pos++;
         pos += "define".length();
-        while (pos < length && (source.charAt(pos) == ' ' || source.charAt(pos) == '\t')) {
-            pos++;
-        }
+        while( pos < length && ( source.charAt(pos) == ' ' || source.charAt(pos) == '\t' ) ) pos++;
         final int nameStart = pos;
-        while (pos < length && isIdentifierPart(source.charAt(pos))) {
-            pos++;
-        }
+        while( pos < length && isIdentifierPart( source.charAt(pos) ) ) pos++;
         final String name = source.substring(nameStart, pos);
 
         String paramList = "";
-        if (pos < length && source.charAt(pos) == '(') {
+        if( pos < length && source.charAt(pos) == '(' ) {
             final int paramStart = pos;
-            int depth = 0;
+                  int depth      = 0;
             do {
                 final char c = source.charAt(pos);
-                if (c == '(') {
-                    depth++;
-                } else if (c == ')') {
-                    depth--;
-                }
-                pos++;
-            } while (pos < length && depth > 0);
+                if(c == '(') depth++;
+                else if(c == ')') depth--;
+                ++pos;
+            } while(pos < length && depth > 0);
             paramList = source.substring(paramStart, pos);
-        }
+        } // if
 
         final int restStart = pos;
-        while (pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r') {
-            pos++;
-        }
+        while( pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r' ) pos++;
         final String rest = source.substring(restStart, pos);
 
         final String text = "#define " + name + paramList + rest;
+
         return new Token(TokenType.PREPROCESSOR, text, braceDepth, parenDepth, null);
     }
 
-    private Token emitMacroDef() {
+    private Token emitMacroDef()
+    {
         final int start = pos;
-        while (true) {
-            while (pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r') {
-                pos++;
-            }
+        while(true) {
+            while( pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r' ) pos++;
             int q = pos - 1;
-            while (q >= start && (source.charAt(q) == ' ' || source.charAt(q) == '\t')) {
-                q--;
+            while( q >= start && ( source.charAt(q) == ' ' || source.charAt(q) == '\t' ) ) q--;
+            final boolean continues = q >= start&& source.charAt(q) == '\\';
+            if(!continues || pos >= length) break;
+            if( source.charAt(pos) == '\r' ) {
+                ++pos;
+                if( pos < length && source.charAt(pos) == '\n' ) pos++;
             }
-            final boolean continues = q >= start && source.charAt(q) == '\\';
-            if (!continues || pos >= length) {
-                break;
+            else {
+                ++pos;
             }
-            if (source.charAt(pos) == '\r') {
-                pos++;
-                if (pos < length && source.charAt(pos) == '\n') {
-                    pos++;
-                }
-            } else {
-                pos++;
-            }
-        }
-        return new Token(TokenType.MACRO_DEF, source.substring(start, pos), braceDepth,
-                parenDepth, null);
+        } // while
+
+        return new Token(
+            TokenType.MACRO_DEF, source.substring(start, pos), braceDepth,
+            parenDepth, null
+        );
     }
 
-    /** Like {@link #emitMacroDef}, a {@code #if}/{@code #elif}/etc. directive can itself span
+    /**
+     * Like {@link #emitMacroDef}, a {@code #if}/{@code #elif}/etc. directive can itself span
      *  multiple physical lines via a trailing {@code \} continuation (e.g. a long boolean
      *  condition) -- failing to consume those continuation lines here left their real `(`/`)`
      *  tokens to be lexed as ordinary PUNCT by the caller, permanently desyncing every
-     *  brace/paren-depth counter for the remainder of the file from that point on. */
-    private Token emitPreprocessor() {
+     *  brace/paren-depth counter for the remainder of the file from that point on.
+     */
+    private Token emitPreprocessor()
+    {
         final int start = pos;
-        while (true) {
-            while (pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r') {
-                pos++;
-            }
+        while(true) {
+            while( pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r' ) pos++;
             int q = pos - 1;
-            while (q >= start && (source.charAt(q) == ' ' || source.charAt(q) == '\t')) {
-                q--;
+            while( q >= start && ( source.charAt(q) == ' ' || source.charAt(q) == '\t' ) ) q--;
+            final boolean continues = q >= start&& source.charAt(q) == '\\';
+            if(!continues || pos >= length) break;
+            if( source.charAt(pos) == '\r' ) {
+                ++pos;
+                if( pos < length && source.charAt(pos) == '\n' ) pos++;
             }
-            final boolean continues = q >= start && source.charAt(q) == '\\';
-            if (!continues || pos >= length) {
-                break;
+            else {
+                ++pos;
             }
-            if (source.charAt(pos) == '\r') {
-                pos++;
-                if (pos < length && source.charAt(pos) == '\n') {
-                    pos++;
-                }
-            } else {
-                pos++;
-            }
-        }
-        return new Token(TokenType.PREPROCESSOR, source.substring(start, pos), braceDepth, parenDepth, null);
+        } // while
+
+        return new Token(
+            TokenType.PREPROCESSOR, source.substring(start, pos), braceDepth, parenDepth, null
+        );
     }
 
-    private Token emitLineComment() {
+    private Token emitLineComment()
+    {
         final int start = pos;
         pos += 2;
-        while (pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r') {
-            pos++;
-        }
-        return new Token(TokenType.COMMENT_LINE, source.substring(start, pos), braceDepth,
-                parenDepth, null);
+        while( pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r' ) pos++;
+
+        return new Token(
+            TokenType.COMMENT_LINE, source.substring(start, pos), braceDepth,
+            parenDepth, null
+        );
     }
 
-    private Token emitBlockComment() {
+    private Token emitBlockComment()
+    {
         final int start = pos;
         pos += 2;
         // Kotlin, unlike C/C++/Java, allows block comments to nest (`/* ... /* ... */ ... */`) --
@@ -747,39 +1052,44 @@ public class TokenizerCurly extends TokenizerCore {
         // kotlinx.coroutines's Guidance.kt KDoc) is valid Kotlin and must not have the outer
         // comment close at that inner `*/`. Track nesting depth for Kotlin only; C/C++/Java block
         // comments still close at the first `*/`, matching those languages' real grammar.
-        if (lang.isKotlin) {
+        if(lang.isKotlin) {
             int depth = 1;
-            while (pos < length && depth > 0) {
-                if (source.charAt(pos) == '/' && peek(1) == '*') {
-                    depth++;
+            while(pos < length && depth > 0) {
+                if( source.charAt(pos) == '/' && peek(1) == '*' ) {
+                    ++depth;
                     pos += 2;
-                } else if (source.charAt(pos) == '*' && peek(1) == '/') {
-                    depth--;
-                    pos += 2;
-                } else {
-                    pos++;
                 }
-            }
-        } else {
-            while (pos < length && !(source.charAt(pos) == '*' && peek(1) == '/')) {
-                pos++;
-            }
-            if (pos < length) {
-                pos += 2;
-            }
+                else if( source.charAt(pos) == '*' && peek(1) == '/' ) {
+                    --depth;
+                    pos += 2;
+                }
+                else {
+                    ++pos;
+                }
+            } // while
+        } // if
+        else {
+            while( pos < length && !( source.charAt(pos) == '*' && peek(1) == '/' ) ) pos++;
+            if(pos < length) pos += 2;
         }
-        return new Token(TokenType.COMMENT_BLOCK, source.substring(start, pos), braceDepth,
-                parenDepth, null);
+
+        return new Token(
+            TokenType.COMMENT_BLOCK, source.substring(start, pos), braceDepth,
+            parenDepth, null
+        );
     }
 
-    /** True iff {@code pos} sits on the opening `"""` of a Java text block (STYLE_JAVA17.md §4) --
+    /**
+     * True iff {@code pos} sits on the opening `"""` of a Java text block (STYLE_JAVA17.md §4) --
      *  three consecutive `"` characters, Java only ({@code emitString}'s plain-string path already
      *  bails on a bare `"` followed by a newline before finding its own closing quote, which is
      *  exactly what would otherwise happen here: without this check, a text block's opening `"""`
      *  mis-lexes as an empty string token followed by a single stray-quote token, exposing the
      *  block's entire multi-line content -- braces, indentation, everything -- to every other rule
-     *  in the pipeline). */
-    private boolean isTextBlockOpener() {
+     *  in the pipeline).
+     */
+    private boolean isTextBlockOpener()
+    {
         return lang.isJava && peek(1) == '"' && peek(2) == '"';
     }
 
@@ -801,34 +1111,41 @@ public class TokenizerCurly extends TokenizerCore {
      * the end of the source -- same graceful-degradation posture as {@code emitBlockComment}'s own
      * unterminated-comment handling, never a crash.
      */
-    private Token emitTextBlock() {
+    private Token emitTextBlock()
+    {
         final int start = pos;
         pos += 3;
-        while (pos < length) {
+        while(pos < length) {
             final char c = source.charAt(pos);
-            if (c == '\\' && pos + 1 < length) {
+            if(c == '\\' && pos + 1 < length) {
                 pos += 2;
                 continue;
             }
-            if (c == '"' && peek(1) == '"' && peek(2) == '"') {
+            if( c == '"' && peek(1) == '"' && peek(2) == '"' ) {
                 pos += 3;
                 break;
             }
-            pos++;
-        }
-        return new Token(TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
-                null);
+            ++pos;
+        } // while
+
+        return new Token(
+            TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
+            null
+        );
     }
 
-    /** True iff {@code pos} sits on the opening `"""` of a Kotlin raw string. Neither
+    /**
+     * True iff {@code pos} sits on the opening `"""` of a Kotlin raw string. Neither
      *  STYLE_KOTLIN.md nor STYLE_KOTLIN2.md mentions raw strings at all -- surfaced as a
      *  side-finding while fixing §19's interpolation-nesting risk (RDD_KEY_116) and confirmed via
      *  harness to be badly broken: without this check, `"""hello "world" end"""` mis-lexed as five
      *  tokens (`""` / `"hello "` / `world` (a bare `IDENTIFIER`!) / `" end"` / `""`) instead of one,
      *  and a multi-line raw string mis-lexed a spurious `NEWLINE` token into the middle of what
      *  should be one opaque string -- exposing the content's real newlines to every indentation/
-     *  scope pass in the pipeline exactly the way an unrecognized text block would. */
-    private boolean isKotlinRawStringOpener() {
+     *  scope pass in the pipeline exactly the way an unrecognized text block would.
+     */
+    private boolean isKotlinRawStringOpener()
+    {
         return lang.isKotlin && peek(1) == '"' && peek(2) == '"';
     }
 
@@ -860,39 +1177,48 @@ public class TokenizerCurly extends TokenizerCore {
      * interpolation expression itself ({@code "${"""nested"""}"}), which {@code
      * skipKotlinInterpolationBlock} now dispatches back into this same method for.
      */
-    private int skipKotlinRawString(final int openIdx) {
+    private int skipKotlinRawString(final int openIdx)
+    {
         int p = openIdx + 3;
-        while (p < length) {
+        while(p < length) {
             final char c = source.charAt(p);
-            if (c == '"' && p + 2 < length && source.charAt(p + 1) == '"' && source.charAt(p + 2) == '"') {
+            if( c == '"' && p + 2 < length && source.charAt(
+                p + 1
+            ) == '"' && source.charAt(
+                p + 2
+            ) == '"' ) {
                 // Found a run of >= 3 quotes; extend through the whole run -- the closing
                 // delimiter is the *last* three quotes of it, so any additional quotes beyond
-                // the first three are still part of the string, not a premature close.
+                // the first three are still part of the string, not a premature close
                 int q = p;
-                while (q < length && source.charAt(q) == '"') {
-                    q++;
-                }
+                while( q < length && source.charAt(q) == '"' ) q++;
                 return q;
-            }
-            if (c == '$' && p + 1 < length && source.charAt(p + 1) == '{') {
+            } // if
+            if( c == '$' && p + 1 < length && source.charAt(p + 1) == '{' ) {
                 p = skipKotlinInterpolationBlock(p + 2);
                 continue;
             }
-            p++;
-        }
+            ++p;
+        } // while
+
         return p;
     }
 
-    private Token emitKotlinRawString() {
+    private Token emitKotlinRawString()
+    {
         final int start = pos;
         pos = skipKotlinRawString(pos);
-        return new Token(TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
-                null);
+
+        return new Token(
+            TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
+            null
+        );
     }
 
     private static final String[] RAW_STRING_PREFIXES = { "u8R", "uR", "UR", "LR", "R" };
 
-    /** C++11 raw string literals (`R"delim(...)delim"`, optionally prefixed by an encoding
+    /**
+     * C++11 raw string literals (`R"delim(...)delim"`, optionally prefixed by an encoding
      *  prefix `u8`/`u`/`U`/`L`) can contain arbitrary characters -- including `{`/`}` -- as plain
      *  content (nanobench's mustache HTML templates are stored this way). Without recognizing the
      *  whole thing as one opaque token, {@code emitIdentifierOrKeyword} + {@code emitString} would
@@ -901,93 +1227,90 @@ public class TokenizerCurly extends TokenizerCore {
      *  relies on -- silently corrupting nesting depth for the rest of the file. Returns the
      *  prefix length (`"R"` = 1, `"u8R"` = 3, ...) if {@code pos} sits on a genuine raw string
      *  opener (prefix + `"` + a valid delimiter of at most 16 chars with no whitespace/paren/
-     *  backslash + `(`), else -1. */
-    private int rawStringPrefixLength() {
-        for (final String prefix : RAW_STRING_PREFIXES) {
-            if (!source.startsWith(prefix, pos)) {
-                continue;
-            }
+     *  backslash + `(`), else -1.
+     */
+    private int rawStringPrefixLength()
+    {
+        for(final String prefix : RAW_STRING_PREFIXES) {
+            if( !source.startsWith(prefix, pos) ) continue;
             int p = pos + prefix.length();
-            if (p >= length || source.charAt(p) != '"') {
-                continue;
-            }
-            p++;
+            if( p >= length || source.charAt(p) != '"' ) continue;
+            ++p;
             final int delimStart = p;
-            while (p < length && p - delimStart <= 16 && source.charAt(p) != '(') {
+            while( p < length && p - delimStart <= 16 && source.charAt(p) != '(' ) {
                 final char dc = source.charAt(p);
-                if (dc == ' ' || dc == '\t' || dc == '\n' || dc == '\r' || dc == '\\' || dc == ')') {
-                    break;
-                }
-                p++;
+                if(dc == ' ' || dc == '\t' || dc == '\n' || dc == '\r' || dc == '\\' || dc == ')') break;
+                ++p;
             }
-            if (p < length && source.charAt(p) == '(') {
-                return prefix.length();
-            }
-        }
+            if( p < length && source.charAt(p) == '(' ) return prefix.length();
+        } // for
+
         return -1;
     }
 
-    /** Lexes a raw string literal as a single opaque STRING token, from the encoding/`R` prefix
+    /**
+     * Lexes a raw string literal as a single opaque STRING token, from the encoding/`R` prefix
      *  through the closing `)delim"` -- content in between (including any `{`/`}`/`"` chars) is
      *  never re-examined by the brace-depth tracker or any other rule (same "opaque, own text,
      *  never split" precedent as {@link #emitBlockComment}/{@link #emitTextBlock}). An unterminated
-     *  raw string (no matching `)delim"` before EOF) is consumed to the end of the source. */
-    private Token emitRawString(final int prefixLen) {
+     *  raw string (no matching `)delim"` before EOF) is consumed to the end of the source.
+     */
+    private Token emitRawString(final int prefixLen)
+    {
         final int start = pos;
         pos += prefixLen + 1; // prefix + opening `"`
         final int delimStart = pos;
-        while (pos < length && source.charAt(pos) != '(') {
-            pos++;
-        }
-        final String delim = source.substring(delimStart, pos);
+        while( pos < length && source.charAt(pos) != '(' ) pos++;
+        final String delim  = source.substring(delimStart, pos);
         final String closer = ")" + delim + "\"";
-        if (pos < length) {
-            pos++; // `(`
-        }
+        if(pos < length) pos++; // `(`
         final int closerIdx = source.indexOf(closer, pos);
-        if (closerIdx < 0) {
-            pos = length;
-        } else {
-            pos = closerIdx + closer.length();
-        }
-        return new Token(TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
-                null);
+        if(closerIdx < 0) pos = length;
+        else              pos = closerIdx + closer.length();
+
+        return new Token(
+            TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
+            null
+        );
     }
 
-    private Token emitString() {
+    private Token emitString()
+    {
         final int start = pos;
-        if (lang.isKotlin) {
+        if(lang.isKotlin) {
             pos = skipKotlinString(pos);
-        } else {
-            pos++;
-            while (pos < length) {
+        }
+        else {
+            ++pos;
+            while(pos < length) {
                 final char c = source.charAt(pos);
-                if (c == '\\' && pos + 1 < length) {
+                if(c == '\\' && pos + 1 < length) {
                     // A backslash-escaped CRLF line continuation must consume both the `\r`
                     // and the following `\n` as one escaped unit -- consuming only the `\r`
                     // (as the generic 2-char skip below would) leaves the `\n` as the very
                     // next character examined, which the `c == '\n'` check right below
-                    // mistakes for an unescaped newline terminating the string.
-                    if (source.charAt(pos + 1) == '\r' && pos + 2 < length
-                            && source.charAt(pos + 2) == '\n') {
-                        pos += 3;
-                    } else {
-                        pos += 2;
-                    }
+                    // mistakes for an unescaped newline terminating the string
+                    if( source.charAt(
+                        pos + 1
+                    ) == '\r' && pos + 2 < length && source.charAt(
+                        pos + 2
+                    ) == '\n' ) pos += 3;
+                    else pos += 2;
                     continue;
-                }
-                if (c == '"') {
-                    pos++;
+                } // if
+                if(c == '"') {
+                    ++pos;
                     break;
                 }
-                if (c == '\n' || c == '\r') {
-                    break;
-                }
-                pos++;
-            }
+                if(c == '\n' || c == '\r') break;
+                ++pos;
+            } // while
         }
-        return new Token(TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
-                null);
+
+        return new Token(
+            TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
+            null
+        );
     }
 
     /**
@@ -1000,30 +1323,36 @@ public class TokenizerCurly extends TokenizerCore {
      * is deferred to §4's future rule-implementation checkpoint, which will need to re-tokenize
      * each interpolation's interior rather than treating it as opaque -- not attempted here.
      */
-    private Token emitTemplateLiteral() {
+    private Token emitTemplateLiteral()
+    {
         final int start = pos;
-        pos++; // consume opening `
-        while (pos < length) {
+        ++pos; // Consume opening `
+        while(pos < length) {
             final char c = source.charAt(pos);
-            if (c == '\\') {
+            if(c == '\\') {
                 pos += 2;
                 continue;
             }
-            if (c == '`') {
-                pos++;
-                return new Token(TokenType.STRING, source.substring(start, pos), braceDepth,
-                        parenDepth, null);
-            }
-            if (c == '$' && peek(1) == '{') {
+            if(c == '`') {
+                ++pos;
+                return new Token(
+                    TokenType.STRING, source.substring(start, pos), braceDepth,
+                    parenDepth, null
+                );
+            } // if
+            if( c == '$' && peek(1) == '{' ) {
                 pos += 2;
                 skipTemplateInterpolation();
                 continue;
             }
-            pos++;
-        }
+            ++pos;
+        } // while
         syntaxError = true;
-        return new Token(TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
-                null);
+
+        return new Token(
+            TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
+            null
+        );
     }
 
     /**
@@ -1048,24 +1377,28 @@ public class TokenizerCurly extends TokenizerCore {
      * EOF/newline) sets {@code syntaxError} and returns whatever was scanned, same posture as
      * {@code emitTemplateLiteral}'s own EOF fallback.
      */
-    private Token emitKotlinBacktickIdentifier() {
+    private Token emitKotlinBacktickIdentifier()
+    {
         final int start = pos;
-        pos++; // consume opening `
-        while (pos < length) {
+        ++pos; // Consume opening `
+        while(pos < length) {
             final char c = source.charAt(pos);
-            if (c == '`') {
-                pos++;
-                return new Token(TokenType.IDENTIFIER, source.substring(start, pos), braceDepth,
-                        parenDepth, null);
-            }
-            if (c == '\n' || c == '\r') {
-                break;
-            }
-            pos++;
-        }
+            if(c == '`') {
+                ++pos;
+                return new Token(
+                    TokenType.IDENTIFIER, source.substring(start, pos), braceDepth,
+                    parenDepth, null
+                );
+            } // if
+            if(c == '\n' || c == '\r') break;
+            ++pos;
+        } // while
         syntaxError = true;
-        return new Token(TokenType.IDENTIFIER, source.substring(start, pos), braceDepth,
-                parenDepth, null);
+
+        return new Token(
+            TokenType.IDENTIFIER, source.substring(start, pos), braceDepth,
+            parenDepth, null
+        );
     }
 
     /**
@@ -1080,30 +1413,27 @@ public class TokenizerCurly extends TokenizerCore {
      * only OP tokens treated like a value-completing token, matching real JS semantics (`x++ / 2`
      * is division, not `x++` followed by a regex).
      */
-    private boolean isRegexLiteralAllowedHere(final List<Token> tokens) {
+    private boolean isRegexLiteralAllowedHere(final List<Token> tokens)
+    {
         int i = tokens.size() - 1;
-        while (i >= 0 && Token.isGapToken(tokens.get(i))) {
-            i--;
-        }
-        if (i < 0) {
-            return true;
-        }
+        while( i >= 0 && Token.isGapToken( tokens.get(i) ) ) i--;
+        if(i < 0) return true;
         final Token last = tokens.get(i);
-        switch (last.type) {
-            case IDENTIFIER:
-            case NUMBER:
-            case STRING:
+        switch(last.type) {
+            case IDENTIFIER: /* FALL-THROUGH */
+            case NUMBER: /* FALL-THROUGH */
+            case STRING: /* FALL-THROUGH */
             case CHAR:
                 return false;
             case KEYWORD:
-                return !("this".equals(last.text) || "super".equals(last.text));
+                return !( "this".equals(last.text) || "super".equals(last.text) );
             case PUNCT:
-                return !(")".equals(last.text) || "]".equals(last.text) || "}".equals(last.text));
+                return !( ")".equals(last.text) || "]".equals(last.text) || "}".equals(last.text) );
             case OP:
-                return !("++".equals(last.text) || "--".equals(last.text));
+                return !( "++".equals(last.text) || "--".equals(last.text) );
             default:
                 return true;
-        }
+        } // switch
     }
 
     /**
@@ -1120,106 +1450,117 @@ public class TokenizerCurly extends TokenizerCore {
      * (reaches end of line without a closing `/`) is a syntax error, same posture as
      * {@link #emitTemplateLiteral} hitting EOF.
      */
-    private Token emitRegexLiteral() {
+    private Token emitRegexLiteral()
+    {
         final int start = pos;
-        pos++; // consume opening '/'
+        ++pos; // Consume opening '/'
         boolean inCharClass = false;
-        while (pos < length) {
+        while(pos < length) {
             final char c = source.charAt(pos);
-            if (c == '\\' && pos + 1 < length) {
+            if(c == '\\' && pos + 1 < length) {
                 pos += 2;
                 continue;
             }
-            if (c == '\n' || c == '\r') {
-                break;
-            }
-            if (c == '[') {
+            if(c == '\n' || c == '\r') break;
+            if(c == '[') {
                 inCharClass = true;
-                pos++;
+                ++pos;
                 continue;
             }
-            if (c == ']') {
+            if(c == ']') {
                 inCharClass = false;
-                pos++;
+                ++pos;
                 continue;
             }
-            if (c == '/' && !inCharClass) {
-                pos++;
-                while (pos < length && Character.isLetter(source.charAt(pos))) {
-                    pos++;
-                }
-                return new Token(TokenType.STRING, source.substring(start, pos), braceDepth,
-                        parenDepth, null);
-            }
-            pos++;
-        }
+            if(c == '/' && !inCharClass) {
+                ++pos;
+                while( pos < length && Character.isLetter( source.charAt(pos) ) ) pos++;
+                return new Token(
+                    TokenType.STRING, source.substring(start, pos), braceDepth,
+                    parenDepth, null
+                );
+            } // if
+            ++pos;
+        } // while
         syntaxError = true;
-        return new Token(TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
-                null);
+
+        return new Token(
+            TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
+            null
+        );
     }
 
-    /** Skips a `${...}` interpolation body (opening `${` already consumed), respecting nested
+    /**
+     * Skips a `${...}` interpolation body (opening `${` already consumed), respecting nested
      *  `{}` depth, nested quoted strings, and nested template literals so an interior `}`/`` ` ``/
-     *  quote char doesn't prematurely end the interpolation or the outer template literal. */
-    private void skipTemplateInterpolation() {
+     *  quote char doesn't prematurely end the interpolation or the outer template literal.
+     */
+    private void skipTemplateInterpolation()
+    {
         int depth = 1;
-        while (pos < length && depth > 0) {
+        while(pos < length && depth > 0) {
             final char c = source.charAt(pos);
-            if (c == '\\') {
+            if(c == '\\') {
                 pos += 2;
                 continue;
             }
-            if (c == '{') {
-                depth++;
-                pos++;
-            } else if (c == '}') {
-                depth--;
-                pos++;
-            } else if (c == '"' || c == '\'') {
+            if(c == '{') {
+                ++depth;
+                ++pos;
+            }
+            else if(c == '}') {
+                --depth;
+                ++pos;
+            }
+            else if(c == '"' || c == '\'') {
                 skipQuotedForTemplate(c);
-            } else if (c == '`') {
-                pos++;
+            }
+            else if(c == '`') {
+                ++pos;
                 skipNestedTemplateLiteral();
-            } else {
-                pos++;
             }
-        }
+            else {
+                ++pos;
+            }
+        } // while
     }
 
-    private void skipQuotedForTemplate(final char quote) {
-        pos++; // opening quote
-        while (pos < length) {
+    private void skipQuotedForTemplate(final char quote)
+    {
+        ++pos; // Opening quote
+        while(pos < length) {
             final char c = source.charAt(pos);
-            if (c == '\\') {
+            if(c == '\\') {
                 pos += 2;
                 continue;
             }
-            if (c == quote) {
-                pos++;
+            if(c == quote) {
+                ++pos;
                 return;
             }
-            pos++;
-        }
+            ++pos;
+        } // while
     }
 
-    private void skipNestedTemplateLiteral() {
-        while (pos < length) {
+    private void skipNestedTemplateLiteral()
+    {
+        while(pos < length) {
             final char c = source.charAt(pos);
-            if (c == '\\') {
+            if(c == '\\') {
                 pos += 2;
                 continue;
             }
-            if (c == '`') {
-                pos++;
+            if(c == '`') {
+                ++pos;
                 return;
             }
-            if (c == '$' && peek(1) == '{') {
+            if( c == '$' && peek(1) == '{' ) {
                 pos += 2;
                 skipTemplateInterpolation();
                 continue;
             }
-            pos++;
-        }
+            ++pos;
+        } // while
     }
 
     /**
@@ -1235,117 +1576,127 @@ public class TokenizerCurly extends TokenizerCore {
      * braces) needs no special handling here -- the `$` itself introduces no nesting risk, so it's
      * simply ordinary string content as far as quote-matching is concerned.
      */
-    private int skipKotlinString(final int openQuoteIdx) {
+    private int skipKotlinString(final int openQuoteIdx)
+    {
         int p = openQuoteIdx + 1;
-        while (p < length) {
+        while(p < length) {
             final char c = source.charAt(p);
-            if (c == '\\' && p + 1 < length) {
+            if(c == '\\' && p + 1 < length) {
                 p += 2;
                 continue;
             }
-            if (c == '"') {
-                return p + 1;
-            }
-            if (c == '\n' || c == '\r') {
-                return p;
-            }
-            if (c == '$' && p + 1 < length && source.charAt(p + 1) == '{') {
+            if(c == '"') return p + 1;
+            if(c == '\n' || c == '\r') return p;
+            if( c == '$' && p + 1 < length && source.charAt(p + 1) == '{' ) {
                 p = skipKotlinInterpolationBlock(p + 2);
                 continue;
             }
-            p++;
-        }
+            ++p;
+        } // while
+
         return p;
     }
 
-    /** Scans from just after a `${`'s opening `{` to just past its matching `}`, skipping over any
+    /**
+     * Scans from just after a `${`'s opening `{` to just past its matching `}`, skipping over any
      *  nested `{`/`}` (e.g. a lambda literal passed inside the interpolation expression), string
      *  literals (recursively, via {@link #skipKotlinString}), and char literals encountered along
      *  the way -- so a `"`/`{`/`}` inside any of those never desynchronizes the depth count or gets
-     *  mistaken for this block's own closing `}`. */
-    private int skipKotlinInterpolationBlock(final int startIdx) {
-        int p = startIdx;
+     *  mistaken for this block's own closing `}`.
+     */
+    private int skipKotlinInterpolationBlock(final int startIdx)
+    {
+        int p     = startIdx;
         int depth = 1;
-        while (p < length && depth > 0) {
+        while(p < length && depth > 0) {
             final char c = source.charAt(p);
-            if (c == '"' && p + 2 < length && source.charAt(p + 1) == '"' && source.charAt(p + 2) == '"') {
+            if( c == '"' && p + 2 < length && source.charAt(
+                p + 1
+            ) == '"' && source.charAt(
+                p + 2
+            ) == '"' ) {
                 p = skipKotlinRawString(p);
                 continue;
             }
-            if (c == '"') {
+            if(c == '"') {
                 p = skipKotlinString(p);
                 continue;
             }
-            if (c == '\'') {
+            if(c == '\'') {
                 p = skipKotlinChar(p);
                 continue;
             }
-            if (c == '{') {
-                depth++;
-                p++;
+            if(c == '{') {
+                ++depth;
+                ++p;
                 continue;
             }
-            if (c == '}') {
-                depth--;
-                p++;
+            if(c == '}') {
+                --depth;
+                ++p;
                 continue;
             }
-            p++;
-        }
+            ++p;
+        } // while
+
         return p;
     }
 
-    /** Same scan as {@link #emitChar} but returning the end index rather than allocating a
+    /**
+     * Same scan as {@link #emitChar} but returning the end index rather than allocating a
      *  {@code Token} -- used by {@link #skipKotlinInterpolationBlock} to skip a char literal
-     *  without misreading its own quote as structurally significant. */
-    private int skipKotlinChar(final int openQuoteIdx) {
+     *  without misreading its own quote as structurally significant
+     */
+    private int skipKotlinChar(final int openQuoteIdx)
+    {
         int p = openQuoteIdx + 1;
-        while (p < length) {
+        while(p < length) {
             final char c = source.charAt(p);
-            if (c == '\\' && p + 1 < length) {
+            if(c == '\\' && p + 1 < length) {
                 p += 2;
                 continue;
             }
-            if (c == '\'') {
-                return p + 1;
-            }
-            if (c == '\n' || c == '\r') {
-                return p;
-            }
-            p++;
-        }
+            if(c == '\'') return p + 1;
+            if(c == '\n' || c == '\r') return p;
+            ++p;
+        } // while
+
         return p;
     }
 
-    private Token emitChar() {
+    private Token emitChar()
+    {
         final int start = pos;
-        pos++;
-        while (pos < length) {
+        ++pos;
+        while(pos < length) {
             final char c = source.charAt(pos);
-            if (c == '\\' && pos + 1 < length) {
+            if(c == '\\' && pos + 1 < length) {
                 pos += 2;
                 continue;
             }
-            if (c == '\'') {
-                pos++;
+            if(c == '\'') {
+                ++pos;
                 break;
             }
-            if (c == '\n' || c == '\r') {
-                break;
-            }
-            pos++;
-        }
-        return new Token(TokenType.CHAR, source.substring(start, pos), braceDepth, parenDepth,
-                null);
+            if(c == '\n' || c == '\r') break;
+            ++pos;
+        } // while
+
+        return new Token(
+            TokenType.CHAR, source.substring(start, pos), braceDepth, parenDepth,
+            null
+        );
     }
 
-    private Token emitIdentifierOrKeyword() {
+    private Token emitIdentifierOrKeyword()
+    {
         final int start = pos;
-        while (pos < length && isIdentifierPart(source.charAt(pos))) {
-            pos++;
-        }
-        final String text = source.substring(start, pos);
-        final TokenType type = keywords.contains(text) ? TokenType.KEYWORD : TokenType.IDENTIFIER;
+        while( pos < length && isIdentifierPart( source.charAt(pos) ) ) pos++;
+        final String                                                text = source.substring(
+            start, pos
+        );
+        final TokenType type = keywords.contains(text) ? TokenType. KEYWORD : TokenType.IDENTIFIER;
+
         return new Token(type, text, braceDepth, parenDepth, null);
     }
 
@@ -1358,53 +1709,45 @@ public class TokenizerCurly extends TokenizerCore {
     // between). Bails (returns false) on anything that couldn't appear in attribute syntax --
     // a bare single ']', a string/char literal, a statement terminator, or a brace -- which is
     // exactly what a message-send receiver/argument list looks like.
-    private boolean looksLikeAttributeOpen() {
-        int depth = 0;
-        final int limit = Math.min(length, pos + 200);
-        for (int i = pos + 2; i < limit; i++) {
+    private boolean looksLikeAttributeOpen()
+    {
+          int depth = 0;
+    final int limit = Math.min(length, pos + 200);
+        for(int i = pos + 2; i < limit; ++i) {
             final char c = source.charAt(i);
-            if (c == '\n' || c == '\r' || c == ';' || c == '{' || c == '}'
-                    || c == '"' || c == '\'') {
-                return false;
-            }
-            if (c == '(') {
-                depth++;
-            } else if (c == ')') {
-                depth--;
-            } else if (c == ']' && depth == 0) {
-                return i + 1 < length && source.charAt(i + 1) == ']';
-            }
-        }
+            if(c == '\n' || c == '\r' || c == ';' || c == '{' || c == '}' || c == '"' || c == '\'') return false;
+            if(c == '(') depth++;
+            else if(c == ')') depth--;
+            else if(c == ']' && depth == 0) return i + 1 < length && source.charAt(i + 1) == ']';
+        } // for
+
         return false;
     }
 
-    private Token emitOperator() {
+    private Token emitOperator()
+    {
         // Consume a maximal run of '*'
-        if (source.charAt(pos) == '*') {
+        if( source.charAt(pos) == '*' ) {
             final int start = pos;
-            while (pos < source.length() && source.charAt(pos) == '*') {
-                pos++;
-            }
-            return new Token(TokenType.OP, source.substring(start, pos), braceDepth, parenDepth, null);
-        }
+            while( pos < source.length() && source.charAt(pos) == '*' ) pos++;
+            return new Token(
+                TokenType.OP, source.substring(start, pos), braceDepth, parenDepth, null
+            );
+        } // if
 
-        for (final String op : MULTI_CHAR_OPS) {
+        for(final String op : MULTI_CHAR_OPS) {
             // "?:" is Kotlin's Elvis operator (STYLE_KOTLIN.md §5) -- in JS/TS the same two
             // adjacent characters are an unrelated pair (TS's `name?: type` optional-marker `?`
             // immediately followed by an ordinary type-annotation `:`, no space between), so
             // this single MULTI_CHAR_OPS entry must not swallow them together outside Kotlin.
-            if ("?:".equals(op) && !lang.isKotlin) {
-                continue;
-            }
+            if( "?:".equals(op) && !lang.isKotlin ) continue;
             // "T?::member" (nullable-type callable reference, e.g. `Array<*>?::contentEquals`)
             // is "?" (nullable-type marker) + "::" (callable reference), not elvis "?:" + ":".
             // Without this guard the greedy "?:" match above fires first (its prefix matches),
             // mis-splitting into elvis + a stray ":" token. Bail out of the "?:" match here so
             // "?" falls through to the single-char branch below, leaving "::" to be matched
             // whole on the next call.
-            if ("?:".equals(op) && source.startsWith("?::", pos)) {
-                continue;
-            }
+            if( "?:".equals(op) && source.startsWith("?::", pos) ) continue;
             // "[[" / "]]" are C++11 attribute brackets (`[[nodiscard]]`, STYLE_CPP26.md §5 and
             // earlier) -- in TS a closing mapped-type indexed-access type immediately followed by
             // the mapped-type bracket's own close (`{ [K in T[number]]?: unknown }`) produces the
@@ -1414,45 +1757,42 @@ public class TokenizerCurly extends TokenizerCore {
             // `depth`), which never recovers for the rest of the file (vuejs/core dogfood,
             // `componentOptions.ts`'s `InjectToObject` mapped type). Kept for C++ only, same as
             // the "?:" Kotlin-only guard immediately above.
-            if (("[[".equals(op) || "]]".equals(op)) && !lang.isCpp) {
-                continue;
-            }
-            if (source.startsWith(op, pos)) {
+            if( ( "[[".equals(op) || "]]".equals(op) ) && !lang.isCpp ) continue;
+            if( source.startsWith(op, pos) ) {
                 pos += op.length();
                 return new Token(TokenType.OP, op, braceDepth, parenDepth, null);
             }
-        }
+        } // for
 
         final char c = source.charAt(pos);
-        pos++;
-        return new Token(TokenType.OP, String.valueOf(c), braceDepth, parenDepth, null);
+        ++pos;
+
+        return new Token( TokenType.OP, String.valueOf(c), braceDepth, parenDepth, null );
     }
 
-    private static boolean isCastKeyword(final Token t) {
+    private static boolean isCastKeyword(final Token t)
+    {
         return t.type == TokenType.KEYWORD && CAST_KEYWORDS.contains(t.text);
     }
 
     // ── Generic/template angle bracket disambiguation ───────────────────────────────
-    private void reclassifyAngleBrackets(final List<Token> tokens) {
+    private void reclassifyAngleBrackets(final List<Token> tokens)
+    {
         final List<Integer> sig = new ArrayList<>();
-        for (int i = 0; i < tokens.size(); i++) {
+        for( int i = 0; i < tokens.size(); ++i ) {
             final TokenType ty = tokens.get(i).type;
-            if (ty == TokenType.WHITESPACE || ty == TokenType.NEWLINE
-                    || ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK
-                    || ty == TokenType.PREPROCESSOR) {
-                continue;
-            }
+            if(ty == TokenType.WHITESPACE || ty == TokenType.NEWLINE || ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK || ty == TokenType.PREPROCESSOR) continue;
             sig.add(i);
         }
 
-        final Deque<int[]> openStack = new ArrayDeque<>(); // each entry: {tokenIndex, validFlag}
-        int nestedBraceDepth = 0; // balanced `{...}` seen while openStack is non-empty -- see below
+        final Deque<int[]> openStack        = new ArrayDeque<>(); // Each entry: {tokenIndex, validFlag}
+              int          nestedBraceDepth = 0;                  // Balanced `{...}` seen while openStack is non-empty -- see below
 
-        for (int s = 0; s < sig.size(); s++) {
-            final int idx = sig.get(s);
+        for( int s = 0; s < sig.size(); ++s ) {
+            final int   idx = sig.get(s);
             final Token cur = tokens.get(idx);
 
-            if (cur.type == TokenType.PUNCT && "{".equals(cur.text) && !openStack.isEmpty()) {
+            if( cur.type == TokenType.PUNCT && "{".equals(cur.text) && !openStack.isEmpty() ) {
                 // TS object-type argument nested directly inside an active generic clause
                 // (`ComponentPublicInstanceConstructor<Foo<..., {}, S, ...>>` -- an empty or
                 // populated object-type literal used as one of several type arguments) is legal
@@ -1465,63 +1805,71 @@ public class TokenizerCurly extends TokenizerCore {
                 // clause's closing `>` a plain OP token instead of ANGLE_BRACKET_CLOSE (vuejs/core
                 // dogfood, `apiDefineComponent.ts`'s `CreateComponentPublicInstanceWithMixins<...,
                 // {}, S, ...>` type argument list).
-                nestedBraceDepth++;
+                ++nestedBraceDepth;
                 continue;
-            }
-            if (cur.type == TokenType.PUNCT && "}".equals(cur.text) && nestedBraceDepth > 0) {
-                nestedBraceDepth--;
+            } // if
+            if( cur.type == TokenType.PUNCT && "}".equals(cur.text) && nestedBraceDepth > 0 ) {
+                --nestedBraceDepth;
                 continue;
             }
 
-            if (nestedBraceDepth == 0 && cur.type == TokenType.PUNCT
-                    && (";".equals(cur.text) || "{".equals(cur.text) || "}".equals(cur.text))) {
+            if( nestedBraceDepth == 0 && cur.type == TokenType.PUNCT
+                    && ( ";".equals(cur.text) || "{".equals(cur.text) || "}".equals(cur.text) ) ) {
                 openStack.clear();
                 continue;
             }
 
-            if (cur.type == TokenType.OP && "<".equals(cur.text)) {
-                final Token prev = s > 0 ? tokens.get(sig.get(s - 1)) : null;
+            if( cur.type == TokenType.OP && "<".equals(cur.text) ) {
+                final Token prev = s > 0 ? tokens.get( sig.get(s - 1) ) : null;
                 // Kotlin's `fun <T> foo(...)` generic-function type-parameter clause has no
                 // identifier before its own `<` (it precedes the function name, not follows it,
                 // unlike `class Foo<T>`/`foo<T>(...)` which are already covered by the IDENTIFIER
                 // check above) -- recognize `fun` itself as a valid opener in that language only.
-                final boolean kotlinGenericFunClause = lang.isKotlin && prev != null
-                        && prev.type == TokenType.KEYWORD && "fun".equals(prev.text);
-                if (prev != null && (prev.type == TokenType.IDENTIFIER || isCastKeyword(prev)
-                        || kotlinGenericFunClause)) {
-                    openStack.push(new int[] {idx, 1});
-                } else if (!openStack.isEmpty()) {
-                    invalidateAll(openStack);
+                final boolean kotlinGenericFunClause = lang.isKotlin&& prev != null&& prev.type == TokenType.KEYWORD&& "fun".equals(
+                    prev.text
+                );
+                if( prev != null && ( prev.type == TokenType.IDENTIFIER || isCastKeyword(prev)
+                        || kotlinGenericFunClause ) ) {
+                    openStack.push( new int[] {idx, 1} );
                 }
+                else if( !openStack.isEmpty() ) invalidateAll(openStack);
                 continue;
-            }
+            } // if
 
-            if (cur.type == TokenType.OP && ">".equals(cur.text)) {
-                if (!openStack.isEmpty()) {
+            if( cur.type == TokenType.OP && ">".equals(cur.text) ) {
+                if( !openStack.isEmpty() ) {
                     final int[] open = openStack.pop();
-                    if (open[1] == 1) {
-                        tokens.set(open[0], retype(tokens.get(open[0]), TokenType.ANGLE_BRACKET_OPEN));
-                        tokens.set(idx, retype(cur, TokenType.ANGLE_BRACKET_CLOSE));
+                    if( open[1] == 1 ) {
+                        tokens.set(
+                            open[0], retype( tokens.get( open[0] ), TokenType.ANGLE_BRACKET_OPEN )
+                        );
+                        tokens.set( idx, retype(cur, TokenType.ANGLE_BRACKET_CLOSE) );
                     }
-                }
+                } // if
                 continue;
-            }
+            } // if
 
-            if (cur.type == TokenType.OP && ">>".equals(cur.text)) {
-                if (openStack.size() >= 2) {
+            if( cur.type == TokenType.OP && ">>".equals(cur.text) ) {
+                if( openStack.size() >= 2 ) {
                     final int[] inner = openStack.pop();
                     final int[] outer = openStack.pop();
-                    if (inner[1] == 1 && outer[1] == 1) {
-                        tokens.set(inner[0], retype(tokens.get(inner[0]), TokenType.ANGLE_BRACKET_OPEN));
-                        tokens.set(outer[0], retype(tokens.get(outer[0]), TokenType.ANGLE_BRACKET_OPEN));
-                        tokens.set(idx, retype(cur, TokenType.ANGLE_BRACKET_CLOSE));
-                        tokens.add(idx + 1, new Token(TokenType.ANGLE_BRACKET_CLOSE, "",
-                                cur.braceDepth, cur.parenDepth, null));
+                    if( inner[1] == 1 && outer[1] == 1 ) {
+                        tokens.set(
+                            inner[0], retype( tokens.get( inner[0] ), TokenType.ANGLE_BRACKET_OPEN )
+                        );
+                        tokens.set(
+                            outer[0], retype( tokens.get( outer[0] ), TokenType.ANGLE_BRACKET_OPEN )
+                        );
+                        tokens.set( idx, retype(cur, TokenType.ANGLE_BRACKET_CLOSE) );
+                        tokens.add(
+                            idx + 1, new Token(TokenType.ANGLE_BRACKET_CLOSE, "", cur.braceDepth, cur.parenDepth, null)
+                        );
                         shiftSigAfter(sig, s, idx + 1);
-                    }
-                } else if (openStack.size() == 1) {
+                    } // if
+                } // if
+                else if( openStack.size() == 1 ) {
                     final int[] open = openStack.pop();
-                    if (open[1] == 1) {
+                    if( open[1] == 1 ) {
                         // `cur` (the literal `>>` token) represents only ONE real angle-close here
                         // (the single tracked open `<`) plus one leftover literal `>` (e.g. an
                         // untracked `template<...>` outer bracket -- see the IDENTIFIER-only guard
@@ -1529,18 +1877,23 @@ public class TokenizerCurly extends TokenizerCore {
                         // retyped angle token and the new literal token, or the rendered output
                         // gains a spurious extra `>` (RDD_KEY_99-ish: was `retype(cur, ...)`,
                         // which preserved the full ">>" text on the angle token as well).
-                        tokens.set(open[0], retype(tokens.get(open[0]), TokenType.ANGLE_BRACKET_OPEN));
-                        tokens.set(idx, new Token(TokenType.ANGLE_BRACKET_CLOSE, ">",
-                                cur.braceDepth, cur.parenDepth, null));
-                        tokens.add(idx + 1,
-                                new Token(TokenType.OP, ">", cur.braceDepth, cur.parenDepth, null));
+                        tokens.set(
+                            open[0], retype( tokens.get( open[0] ), TokenType.ANGLE_BRACKET_OPEN )
+                        );
+                        tokens.set(
+                            idx, new Token(TokenType.ANGLE_BRACKET_CLOSE, ">", cur.braceDepth, cur.parenDepth, null)
+                        );
+                        tokens.add(
+                            idx + 1,
+                            new Token(TokenType.OP, ">", cur.braceDepth, cur.parenDepth, null)
+                        );
                         shiftSigAfter(sig, s, idx + 1);
-                    }
+                    } // if
                 }
                 continue;
-            }
+            } // if
 
-            if (cur.type == TokenType.OP && ">>>".equals(cur.text)) {
+            if( cur.type == TokenType.OP && ">>>".equals(cur.text) ) {
                 // Mirrors the `>>` handling above, generalized to a third nesting level (e.g.
                 // `HashMap<String, HashMap<String, ArrayList<String>>>>`-style triple-nested
                 // generics). Previously unhandled: `>>>` fell through to the generic-safe-token
@@ -1550,55 +1903,78 @@ public class TokenizerCurly extends TokenizerCore {
                 // bug: round1's tightly-rendered `<...>` gets spaced out to `< ... >` on round2,
                 // since round1's own output re-lexes the three adjacent `>` characters as a
                 // single `>>>` token).
-                if (openStack.size() >= 3) {
+                if( openStack.size() >= 3 ) {
                     final int[] inner = openStack.pop();
-                    final int[] mid = openStack.pop();
+                    final int[] mid   = openStack.pop();
                     final int[] outer = openStack.pop();
-                    if (inner[1] == 1 && mid[1] == 1 && outer[1] == 1) {
-                        tokens.set(inner[0], retype(tokens.get(inner[0]), TokenType.ANGLE_BRACKET_OPEN));
-                        tokens.set(mid[0], retype(tokens.get(mid[0]), TokenType.ANGLE_BRACKET_OPEN));
-                        tokens.set(outer[0], retype(tokens.get(outer[0]), TokenType.ANGLE_BRACKET_OPEN));
-                        tokens.set(idx, retype(cur, TokenType.ANGLE_BRACKET_CLOSE));
-                        tokens.add(idx + 1, new Token(TokenType.ANGLE_BRACKET_CLOSE, "",
-                                cur.braceDepth, cur.parenDepth, null));
+                    if( inner[1] == 1 && mid[1] == 1 && outer[1] == 1 ) {
+                        tokens.set(
+                            inner[0], retype( tokens.get( inner[0] ), TokenType.ANGLE_BRACKET_OPEN )
+                        );
+                        tokens.set(
+                            mid[0], retype( tokens.get( mid[0] ), TokenType.ANGLE_BRACKET_OPEN )
+                        );
+                        tokens.set(
+                            outer[0], retype( tokens.get( outer[0] ), TokenType.ANGLE_BRACKET_OPEN )
+                        );
+                        tokens.set( idx, retype(cur, TokenType.ANGLE_BRACKET_CLOSE) );
+                        tokens.add(
+                            idx + 1, new Token(TokenType.ANGLE_BRACKET_CLOSE, "", cur.braceDepth, cur.parenDepth, null)
+                        );
                         shiftSigAfter(sig, s, idx + 1);
-                        tokens.add(idx + 2, new Token(TokenType.ANGLE_BRACKET_CLOSE, "",
-                                cur.braceDepth, cur.parenDepth, null));
+                        tokens.add(
+                            idx + 2, new Token(TokenType.ANGLE_BRACKET_CLOSE, "", cur.braceDepth, cur.parenDepth, null)
+                        );
                         shiftSigAfter(sig, s + 1, idx + 2);
-                    }
-                } else if (openStack.size() == 2) {
+                    } // if
+                } // if
+                else if( openStack.size() == 2 ) {
                     final int[] inner = openStack.pop();
                     final int[] outer = openStack.pop();
-                    if (inner[1] == 1 && outer[1] == 1) {
+                    if( inner[1] == 1 && outer[1] == 1 ) {
                         // Two real closes plus one leftover literal `>` -- split `cur`'s 3-char
                         // text as 1+1+1 (see the `>>` size==1 branch's comment on why the text
-                        // must be distributed across tokens, not duplicated).
-                        tokens.set(inner[0], retype(tokens.get(inner[0]), TokenType.ANGLE_BRACKET_OPEN));
-                        tokens.set(outer[0], retype(tokens.get(outer[0]), TokenType.ANGLE_BRACKET_OPEN));
-                        tokens.set(idx, new Token(TokenType.ANGLE_BRACKET_CLOSE, ">",
-                                cur.braceDepth, cur.parenDepth, null));
-                        tokens.add(idx + 1, new Token(TokenType.ANGLE_BRACKET_CLOSE, ">",
-                                cur.braceDepth, cur.parenDepth, null));
+                        // must be distributed across tokens, not duplicated)
+                        tokens.set(
+                            inner[0], retype( tokens.get( inner[0] ), TokenType.ANGLE_BRACKET_OPEN )
+                        );
+                        tokens.set(
+                            outer[0], retype( tokens.get( outer[0] ), TokenType.ANGLE_BRACKET_OPEN )
+                        );
+                        tokens.set(
+                            idx, new Token(TokenType.ANGLE_BRACKET_CLOSE, ">", cur.braceDepth, cur.parenDepth, null)
+                        );
+                        tokens.add(
+                            idx + 1, new Token(TokenType.ANGLE_BRACKET_CLOSE, ">", cur.braceDepth, cur.parenDepth, null)
+                        );
                         shiftSigAfter(sig, s, idx + 1);
-                        tokens.add(idx + 2,
-                                new Token(TokenType.OP, ">", cur.braceDepth, cur.parenDepth, null));
+                        tokens.add(
+                            idx + 2,
+                            new Token(TokenType.OP, ">", cur.braceDepth, cur.parenDepth, null)
+                        );
                         shiftSigAfter(sig, s + 1, idx + 2);
-                    }
-                } else if (openStack.size() == 1) {
+                    } // if
+                }
+                else if( openStack.size() == 1 ) {
                     final int[] open = openStack.pop();
-                    if (open[1] == 1) {
+                    if( open[1] == 1 ) {
                         // One real close plus two leftover literal `>` characters (rendered back
-                        // as a literal `>>` operator token).
-                        tokens.set(open[0], retype(tokens.get(open[0]), TokenType.ANGLE_BRACKET_OPEN));
-                        tokens.set(idx, new Token(TokenType.ANGLE_BRACKET_CLOSE, ">",
-                                cur.braceDepth, cur.parenDepth, null));
-                        tokens.add(idx + 1,
-                                new Token(TokenType.OP, ">>", cur.braceDepth, cur.parenDepth, null));
+                        // as a literal `>>` operator token)
+                        tokens.set(
+                            open[0], retype( tokens.get( open[0] ), TokenType.ANGLE_BRACKET_OPEN )
+                        );
+                        tokens.set(
+                            idx, new Token(TokenType.ANGLE_BRACKET_CLOSE, ">", cur.braceDepth, cur.parenDepth, null)
+                        );
+                        tokens.add(
+                            idx + 1,
+                            new Token(TokenType.OP, ">>", cur.braceDepth, cur.parenDepth, null)
+                        );
                         shiftSigAfter(sig, s, idx + 1);
-                    }
+                    } // if
                 }
                 continue;
-            }
+            } // if
 
             // Any token inside an already-tracked nested `{...}` (see the nestedBraceDepth
             // block above) is an ordinary object-type member -- its own shape (property names,
@@ -1608,41 +1984,46 @@ public class TokenizerCurly extends TokenizerCore {
             // `Record<string, { local: string; default?: Expression }>`: the member name
             // `default` is a KEYWORD not in `GENERIC_SAFE_KEYWORDS`, which invalidated the
             // enclosing `Record<...>` tracking before this exclusion existed).
-            if (nestedBraceDepth == 0 && !isGenericSafeToken(cur) && !openStack.isEmpty()) {
-                invalidateAll(openStack);
-            }
-        }
+            if( nestedBraceDepth == 0 && !isGenericSafeToken(
+                cur
+            ) && !openStack.isEmpty() ) invalidateAll(
+                openStack
+            );
+        } // for
     }
 
-    private void shiftSigAfter(final List<Integer> sig, final int afterPos, final int newIndex) {
-        for (int j = afterPos + 1; j < sig.size(); j++) {
-            sig.set(j, sig.get(j) + 1);
-        }
+    private void shiftSigAfter(final List<Integer> sig, final int afterPos, final int newIndex)
+    {
+        for( int j = afterPos + 1; j < sig.size(); ++j ) sig.set( j, sig.get(j) + 1 );
         sig.add(afterPos + 1, newIndex);
     }
 
-    private void invalidateAll(final Deque<int[]> stack) {
-        for (final int[] entry : stack) {
-            entry[1] = 0;
-        }
+    private void invalidateAll(final Deque<int[]> stack)
+    {
+        for( final int[] entry : stack ) entry[1] = 0;
     }
 
-    private boolean isGenericSafeToken(final Token t) {
-        switch (t.type) {
-            case IDENTIFIER:
-            case NUMBER:
-            case STRING:
-            case CHAR:
-            case ANGLE_BRACKET_OPEN:
+    private boolean isGenericSafeToken(final Token t)
+    {
+        switch(t.type) {
+
+            case IDENTIFIER: /* FALL-THROUGH */
+            case NUMBER: /* FALL-THROUGH */
+            case STRING: /* FALL-THROUGH */
+            case CHAR: /* FALL-THROUGH */
+            case ANGLE_BRACKET_OPEN: /* FALL-THROUGH */
             case ANGLE_BRACKET_CLOSE:
                 return true;
+
             case KEYWORD:
                 return GENERIC_SAFE_KEYWORDS.contains(t.text);
+
             case PUNCT:
                 // `(`/`)` allowed too: a function-type template argument (`std::function<void(int)>`)
-                // has a balanced parameter list nested directly inside the `<>`.
+                // has a balanced parameter list nested directly inside the `<>`
                 return ",".equals(t.text) || "[".equals(t.text) || "]".equals(t.text)
                         || "(".equals(t.text) || ")".equals(t.text);
+
             case OP:
                 // `:` (Kotlin-only) marks a type-parameter bound inside a generic clause
                 // (`<A : Comparable<A>, B : Comparable<B>>`) -- without recognizing it as
@@ -1654,7 +2035,7 @@ public class TokenizerCurly extends TokenizerCore {
                 // use `:` inside a generic argument/parameter list.
                 return ".".equals(t.text) || "::".equals(t.text) || "?".equals(t.text)
                         || "*".equals(t.text) || "&".equals(t.text)
-                        || (lang.isKotlin && ":".equals(t.text))
+                        || ( lang.isKotlin && ":".equals(t.text) )
                         // TS conditional types (`A extends B ? X : Y`) are legal directly inside
                         // a generic argument list (`Readonly<A extends B ? X : Y>`) -- the `:`
                         // there is the conditional type's own `?`/`:` branch separator, not a
@@ -1665,7 +2046,7 @@ public class TokenizerCurly extends TokenizerCore {
                         // enforceSemicolonInsertion`'s depth tracking, wrongly treating a NEWLINE
                         // inside the multi-line clause as a statement boundary (vuejs/core
                         // dogfood, `Readonly<\n  A extends B\n    ? C\n    : D\n>`).
-                        || (lang.isTs && ":".equals(t.text))
+                        || ( lang.isTs && ":".equals(t.text) )
                         // TS union types are legal directly inside a generic argument list
                         // (`Record<string | symbol, Function | number>`) -- without this, `|`
                         // invalidates the enclosing `<...>` tracking the same way an unrecognized
@@ -1676,7 +2057,7 @@ public class TokenizerCurly extends TokenizerCore {
                         // semicolon and letting `JsTsDeclarationAlignmentRule.parseTypeAlias`'s
                         // depth-scan run away past the real statement boundary (vuejs/core
                         // dogfood, `collectionHandlers.ts`).
-                        || (lang.isTs && "|".equals(t.text))
+                        || ( lang.isTs && "|".equals(t.text) )
                         // TS function-type type arguments (`Map<(...args: any[]) => void,
                         // PageErrorHandler>`, vuejs/core dogfood
                         // `vue/__tests__/e2e/e2eBrowserUtils.ts`) are legal directly inside a
@@ -1685,18 +2066,22 @@ public class TokenizerCurly extends TokenizerCore {
                         // enclosing `<...>` tracking the same way an unrecognized OP always does,
                         // leaving the closing `>` a plain OP token instead of
                         // ANGLE_BRACKET_CLOSE.
-                        || (lang.isTs && "=>".equals(t.text))
-                        || (lang.isTs && "...".equals(t.text));
+                        || ( lang.isTs && "=>".equals(t.text) )
+                        || ( lang.isTs && "...".equals(t.text) );
+
             default:
                 return false;
-        }
+
+        } // switch
     }
 
-    private Token retype(final Token t, final TokenType newType) {
+    private Token retype(final Token t, final TokenType newType)
+    {
         return new Token(newType, t.text, t.braceDepth, t.parenDepth, t.name);
     }
 
-    private boolean isPreprocessorLanguage() {
+    private boolean isPreprocessorLanguage()
+    {
         // Java source files sometimes carry PCPP-style C-preprocessor directives
         // (`#define`/`#ifdef`/etc.) as a poor man's template mechanism ahead of a separate
         // preprocessing step. Lexing them as opaque PREPROCESSOR/MACRO_DEF tokens (same as
@@ -1713,4 +2098,5 @@ public class TokenizerCurly extends TokenizerCore {
         // (found via the standalone harness's round1/round2 idempotency check).
         return !(lang.isJs || lang.isTs);
     }
-}
+
+} // class TokenizerCurly

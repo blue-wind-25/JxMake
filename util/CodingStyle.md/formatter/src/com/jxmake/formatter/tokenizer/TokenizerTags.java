@@ -15,9 +15,11 @@ import com.jxmake.formatter.Lang;
  */
 public class TokenizerTags extends TokenizerCore {
 
-    public TokenizerTags(final Lang lang) {
+    public TokenizerTags(final Lang lang)
+    {
         throw new UnsupportedOperationException(
                 "'" + lang.language + "' formatting is not yet implemented (scaffold only -- see "
                         + "STATE_DATA_FORMATS.md)");
     }
-}
+
+} // class TokenizerTags

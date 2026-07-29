@@ -36,7 +36,9 @@ public class KotlinModifierPriority extends ModifierPriority {
     }
 
     @Override
-    protected Map<String, Integer> priorityMap() {
+    protected Map<String, Integer> priorityMap()
+    {
         return PRIORITY;
     }
-}
+
+} // class KotlinModifierPriority

@@ -19,15 +19,14 @@ package com.jxmake.formatter.tokenizer;
  */
 public abstract class TokenizerSimpleBraced extends TokenizerCore {
 
-    protected Token emitBlockComment() {
+    protected Token emitBlockComment()
+    {
         final int start = pos;
         pos += 2;
-        while (pos < length && !(source.charAt(pos) == '*' && peek(1) == '/')) {
-            pos++;
-        }
-        if (pos < length) {
-            pos += 2;
-        }
-        return new Token(TokenType.COMMENT_BLOCK, source.substring(start, pos), 0, 0, null);
+        while( pos < length && !( source.charAt(pos) == '*' && peek(1) == '/' ) ) pos++;
+        if(pos < length) pos += 2;
+
+        return new Token( TokenType.COMMENT_BLOCK, source.substring(start, pos), 0, 0, null );
     }
-}
+
+} // class TokenizerSimpleBraced

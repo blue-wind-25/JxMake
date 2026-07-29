@@ -19,10 +19,13 @@ import java.io.IOException;
  * errors (e.g. the `--preserve-tree`/`--root` file-outside-root case).
  */
 public final class UnsupportedLanguageException extends IOException {
+
     private static final long serialVersionUID = 1L;
 
-    public UnsupportedLanguageException(final String language) {
+    public UnsupportedLanguageException(final String language)
+    {
         super("'" + language + "' formatting is not yet implemented (scaffold only -- see the "
                 + "job routing table in formatter/CLAUDE.md for the relevant STATE_*.md file)");
     }
-}
+
+} // class UnsupportedLanguageException

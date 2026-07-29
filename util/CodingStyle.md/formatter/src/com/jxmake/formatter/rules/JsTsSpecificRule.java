@@ -7,17 +7,6 @@
 
 package com.jxmake.formatter.rules;
 
-import com.jxmake.formatter.FormatterSimpleBraced;
-import com.jxmake.formatter.Lang;
-import com.jxmake.formatter.tokenizer.TokenizerCurly;
-import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
-import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
-
-import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isComment;
-import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
-import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
-import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
-
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,6 +16,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import com.jxmake.formatter.FormatterSimpleBraced;
+import com.jxmake.formatter.Lang;
+import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
+import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
+import com.jxmake.formatter.tokenizer.TokenizerCurly;
+
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isComment;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
 
 /**
  * Landing spot for JavaScript/TypeScript-only STYLE_JS_TS.md sections not reusable from the
@@ -40,45 +40,85 @@ import java.util.Set;
  */
 public final class JsTsSpecificRule {
 
-    private final Lang lang;
-    private final int lineLengthLimit;
+    private final Lang   lang;
+    private final int    lineLengthLimit;
     private final String defaultIndentUnit;
 
-    public JsTsSpecificRule(final Lang lang) {
+    public JsTsSpecificRule(final Lang lang)
+    {
         this(lang, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
     }
 
-    public JsTsSpecificRule(final Lang lang, final int lineLengthLimit) {
+    public JsTsSpecificRule(final Lang lang, final int lineLengthLimit)
+    {
         this(lang, lineLengthLimit, MiscRuleCurly.DEFAULT_INDENT_WIDTH);
     }
 
-    public JsTsSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth) {
-        this.lang = lang;
+    public JsTsSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth)
+    {
+        this.lang            = lang;
         this.lineLengthLimit = lineLengthLimit;
         final StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < indentWidth; i++) {
-            sb.append(' ');
-        }
+        for(int i = 0; i < indentWidth; ++i) sb.append(' ');
         this.defaultIndentUnit = sb.toString();
     }
 
     // ── §2 Statement termination (semicolon insertion) ──────────────────────────────
-    /** Tokens that mean "the statement isn't finished yet" when they're the last significant
+    /**
+     * Tokens that mean "the statement isn't finished yet" when they're the last significant
      *  token seen before a would-be statement boundary -- a trailing binary/assignment operator,
      *  a comma, a colon (object-literal key or ternary), an opening bracket, or a keyword that
-     *  can never end a statement on its own. */
-    private static final Set<String> CONTINUATION_OPS = new HashSet<>(Arrays.asList(
-            "=", "+", "-", "*", "/", "%", "&&", "||", "??", "?", ".", "=>", "==", "===", "!=",
-            "!==", "<", ">", "<=", ">=", "+=", "-=", "*=", "/=", "%=", "&&=", "||=", "??=", "&",
-            "|", "^", "<<", ">>", ">>>", "...", "**", "**=", "&=", "|=", "^=", "<<=", ">>=", ">>>=",
-            // A trailing `:` (a property-signature/type-annotation colon whose type wraps to the
-            // next line, `'aria-current'?:\n  Booleanish | ... | undefined`, vuejs/core dogfood
-            // `runtime-dom/src/jsx.ts`) can never end a statement -- the intended PUNCT-type
-            // guard in needsSemicolonAfter (`isPunct(t, ":")`) never actually matches since `:`
-            // tokenizes as an OP, not a PUNCT, so this trailing-OP guard is the real fix.
-            ":"));
+     *  can never end a statement on its own
+     */
+    private static final Set<String> CONTINUATION_OPS = new HashSet<>( Arrays.asList(
+        "=",
+        "+",
+        "-",
+        "*",
+        "/",
+        "%",
+        "&&",
+        "||",
+        "??",
+        "?",
+        ".",
+        "=>",
+        "==",
+        "===",
+        "!=",
+        "!==",
+        "<",
+        ">",
+        "<=",
+        ">=",
+        "+=",
+        "-=",
+        "*=",
+        "/=",
+        "%=",
+        "&&=",
+        "||=",
+        "??=",
+        "&",
+        "|",
+        "^",
+        "<<",
+        ">>",
+        ">>>",
+        "...",
+        "**",
+        "**=",
+        "&=",
+        "|=",
+        "^=",
+        "<<=",
+        ">>=",
+        ">>>=",
+        ":"
+    ) );
 
-    /** Operators that, when they're the FIRST significant token on the line following a
+    /**
+     * Operators that, when they're the FIRST significant token on the line following a
      *  candidate statement boundary (leading-operator continuation style -- method chaining
      *  `.get()\n.expect()`, comma-first declarator lists `var a = 1\n  , b = 2`, ternary
      *  break-before-operator `cond\n  ? x\n  : y`, logical-operator chains, etc.), can *never*
@@ -87,20 +127,64 @@ public final class JsTsSpecificRule {
      *  Deliberately excludes ops that have a valid unary/statement-leading use (`+`, `-`, `!`,
      *  `...` (rest/spread can't start a statement either, but is excluded out of caution as
      *  it is not observed as a real leading-continuation shape) -- so this set stays narrower
-     *  than {@link #CONTINUATION_OPS} on purpose. */
-    private static final Set<String> LEADING_CONTINUATION_OPS = new HashSet<>(Arrays.asList(
-            ".", "?.", "?", ":", "&&", "||", "??", "==", "===", "!=", "!==", "<=", ">=",
-            "+=", "-=", "*=", "/=", "%=", "&&=", "||=", "??=", "*", "/", "%", "&", "^",
-            "<<", ">>", ">>>", "**"));
+     *  than {@link #CONTINUATION_OPS} on purpose.
+     */
+    private static final Set<String> LEADING_CONTINUATION_OPS = new HashSet<>( Arrays.asList(
+        ".",
+        "?.",
+        "?",
+        ":",
+        "&&",
+        "||",
+        "??",
+        "==",
+        "===",
+        "!=",
+        "!==",
+        "<=",
+        ">=",
+        "+=",
+        "-=",
+        "*=",
+        "/=",
+        "%=",
+        "&&=",
+        "||=",
+        "??=",
+        "*",
+        "/",
+        "%",
+        "&",
+        "^",
+        "<<",
+        ">>",
+        ">>>",
+        "**"
+    ) );
 
     // "void" is deliberately excluded here even though it's a prefix operator (`void 0`) in
     // expression position -- as such it's never the LAST token of a statement (its operand
     // always follows), so it would only ever matter here as TS's *type*-position `void` (a
     // function/arrow return-type annotation, `(): void` / `=> void`), which genuinely IS the
-    // last token before a statement boundary and must not block semicolon insertion there.
-    private static final Set<String> CONTINUATION_KEYWORDS = new HashSet<>(Arrays.asList(
-            "typeof", "new", "in", "instanceof", "else", "try", "finally", "do", "case",
-            "default", "extends", "implements", "delete", "of", "as", "from"));
+    // last token before a statement boundary and must not block semicolon insertion there
+    private static final Set<String> CONTINUATION_KEYWORDS = new HashSet<>( Arrays.asList(
+        "typeof",
+        "new",
+        "in",
+        "instanceof",
+        "else",
+        "try",
+        "finally",
+        "do",
+        "case",
+        "default",
+        "extends",
+        "implements",
+        "delete",
+        "of",
+        "as",
+        "from"
+    ) );
 
     /**
      * STYLE_JS_TS.md §2: always insert an explicit semicolon at the end of a statement, never
@@ -115,183 +199,221 @@ public final class JsTsSpecificRule {
      * Conservative posture matching every other pass in this codebase: any candidate boundary
      * touching a frozen token is left completely untouched.
      */
-    public String enforceSemicolonInsertion(final List<Token> tokens) {
-        final Map<Integer, Integer> braceOpenToClose = matchBraces(tokens);
-        final Map<Integer, Boolean> braceResetDepth = new HashMap<>();
+    public String enforceSemicolonInsertion(final List<Token> tokens)
+    {
+        final Map<Integer, Integer> braceOpenToClose    = matchBraces(tokens);
+        final Map<Integer, Boolean> braceResetDepth     = new HashMap<>();
         final Map<Integer, Boolean> braceNeedsSemicolon = new HashMap<>();
         classifyBraces(tokens, braceOpenToClose, braceResetDepth, braceNeedsSemicolon);
         final Map<Integer, Integer> parenOpenToClose = matchParens(tokens);
         final Map<Integer, Integer> parenCloseToOpen = new HashMap<>();
-        for (final Map.Entry<Integer, Integer> e : parenOpenToClose.entrySet()) {
-            parenCloseToOpen.put(e.getValue(), e.getKey());
-        }
+        for( final Map.Entry<Integer, Integer> e : parenOpenToClose.entrySet() ) parenCloseToOpen.put(
+            e.getValue(), e.getKey()
+        );
         final Map<Integer, Integer> braceCloseToOpen = new HashMap<>();
-        for (final Map.Entry<Integer, Integer> e : braceOpenToClose.entrySet()) {
-            braceCloseToOpen.put(e.getValue(), e.getKey());
-        }
+        for( final Map.Entry<Integer, Integer> e : braceOpenToClose.entrySet() ) braceCloseToOpen.put(
+            e.getValue(), e.getKey()
+        );
 
-        final Map<Integer, String> overrides = new HashMap<>();
-        final Deque<Integer> depthStack = new ArrayDeque<>();
-        int depth = 0;
-        int lastSigIdx = -1;
-        final int n = tokens.size();
+        final Map<Integer, String> overrides  = new HashMap<>();
+        final Deque<Integer>       depthStack = new ArrayDeque<>();
+              int                  depth      = 0;
+              int                  lastSigIdx = - 1;
+        final int                  n          = tokens.size();
 
-        for (int i = 0; i < n; i++) {
+        for(int i = 0; i < n; ++i) {
             final Token t = tokens.get(i);
 
-            if (t.type == TokenType.NEWLINE) {
-                if (depth == 0 && lastSigIdx >= 0) {
-                    maybeInsertSemicolon(tokens, lastSigIdx, i, braceNeedsSemicolon, braceCloseToOpen,
-                            parenCloseToOpen, overrides);
-                }
+            if(t.type == TokenType.NEWLINE) {
+                if(depth == 0 && lastSigIdx >= 0) maybeInsertSemicolon(
+                    tokens,
+                    lastSigIdx,
+                    i,
+                    braceNeedsSemicolon,
+                    braceCloseToOpen,
+                    parenCloseToOpen,
+                    overrides
+                );
                 continue;
-            }
-            if (isGapToken(t)) {
-                continue;
-            }
+            } // if
+            if( isGapToken(t) ) continue;
 
-            if (isPunct(t, "}") && depth == 0 && Boolean.TRUE.equals(braceResetDepth.get(braceCloseToOpen.get(i)))
-                    && lastSigIdx >= 0) {
+            if( isPunct(
+                t, "}"
+            ) && depth == 0 && Boolean.TRUE.equals(
+                braceResetDepth.get( braceCloseToOpen.get(i) )
+            )
+                    && lastSigIdx >= 0 ) {
                 // Statement-body brace about to close at depth 0 with no trailing NEWLINE first
                 // (a one-liner body, e.g. `{ return x }`) -- the boundary is right here, before
                 // `}`. Covers both true statement blocks (function/class/control-flow, never need
                 // a semicolon on `}` itself) and arrow-function block bodies (do need one).
-                maybeInsertSemicolon(tokens, lastSigIdx, i, braceNeedsSemicolon, braceCloseToOpen,
-                        parenCloseToOpen, overrides);
-            }
+                maybeInsertSemicolon(
+                    tokens, lastSigIdx, i, braceNeedsSemicolon, braceCloseToOpen,
+                    parenCloseToOpen, overrides
+                );
+            } // if
 
-            if (isPunct(t, "(") || isPunct(t, "[") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
+            if( isPunct(t, "(") || isPunct(t, "[") || t.type == TokenType.ANGLE_BRACKET_OPEN ) {
                 depthStack.push(depth);
-                depth++;
-            } else if (isPunct(t, ")") || isPunct(t, "]") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
-                if (!depthStack.isEmpty()) {
-                    depth = depthStack.pop();
-                }
-            } else if (isPunct(t, "{")) {
+                ++depth;
+            }
+            else if( isPunct(
+                t, ")"
+            ) || isPunct(
+                t, "]"
+            ) || t.type == TokenType.ANGLE_BRACKET_CLOSE ) {
+                if( !depthStack.isEmpty() ) depth = depthStack.pop();
+            }
+            else if( isPunct(t, "{") ) {
                 depthStack.push(depth);
-                depth = Boolean.TRUE.equals(braceResetDepth.get(i)) ? 0 : depth + 1;
-            } else if (isPunct(t, "}")) {
-                if (!depthStack.isEmpty()) {
-                    depth = depthStack.pop();
-                }
+                depth = Boolean.TRUE.equals( braceResetDepth.get(i) ) ? 0 : depth + 1;
+            }
+            else if( isPunct(t, "}") ) {
+                if( !depthStack.isEmpty() ) depth = depthStack.pop();
             }
             lastSigIdx = i;
-        }
+        } // for
 
         return render(tokens, overrides);
     }
 
-    /** Decides whether a semicolon is needed right after {@code lastSigIdx} (the last real
+    /**
+     * Decides whether a semicolon is needed right after {@code lastSigIdx} (the last real
      *  content token of a candidate statement), and if so records an override appending `;` to
      *  that token's own text. {@code boundaryIdx} is the NEWLINE or closing-`}` token that
      *  triggered the check -- used only to look ahead for a following `{` (control-flow/
-     *  function/class header continuation) and to bail out on a frozen span. */
-    private void maybeInsertSemicolon(final List<Token> tokens, final int lastSigIdx, final int boundaryIdx,
-            final Map<Integer, Boolean> braceNeedsSemicolon, final Map<Integer, Integer> braceCloseToOpen,
-            final Map<Integer, Integer> parenCloseToOpen, final Map<Integer, String> overrides) {
+     *  function/class header continuation) and to bail out on a frozen span.
+     */
+    private void maybeInsertSemicolon(
+        final List<Token>           tokens,
+        final int                   lastSigIdx,
+        final int                   boundaryIdx,
+        final Map<Integer, Boolean> braceNeedsSemicolon,
+        final Map<Integer, Integer> braceCloseToOpen,
+        final Map<Integer, Integer> parenCloseToOpen,
+        final Map<Integer, String>  overrides
+    )
+    {
         final Token lastSig = tokens.get(lastSigIdx);
-        if (lastSig.frozen || tokens.get(boundaryIdx).frozen) {
-            return;
-        }
-        if (overrides.containsKey(lastSigIdx)) {
-            return; // already handled (e.g. both a `}` boundary and a following NEWLINE fired)
-        }
+        if( lastSig.frozen || tokens.get(boundaryIdx).frozen ) return;
+        if( overrides.containsKey(
+            lastSigIdx
+        ) ) return; // Already handled (e.g. both a `}` boundary and a following NEWLINE fired)
         // If the next real content across the boundary is `{`, this is a control-flow/function/
-        // class header continuing onto its own-line Allman brace -- never a statement end.
-        if (tokens.get(boundaryIdx).type == TokenType.NEWLINE) {
+        // class header continuing onto its own-line Allman brace -- never a statement end
+        if( tokens.get(boundaryIdx).type == TokenType.NEWLINE ) {
             final int nextSig = nextSignificantIndex(tokens, boundaryIdx + 1);
-            if (nextSig >= 0 && isPunct(tokens.get(nextSig), "{")) {
-                return;
-            }
+            if( nextSig >= 0 && isPunct( tokens.get(nextSig), "{" ) ) return;
             // STYLE_JS_TS.md §11.1: a union/intersection type may wrap break-before-operator
             // (`type Y = A\n | B\n | C;`), leading `|`/`&` on the next line -- that's still the
             // same statement continuing, not a new one, even though the current line's own last
             // token (`A`) isn't itself a trailing continuation operator.
-            if (nextSig >= 0 && (isOp(tokens.get(nextSig), "|") || isOp(tokens.get(nextSig), "&"))) {
-                return;
-            }
+            if( nextSig >= 0 && ( isOp(
+                tokens.get(nextSig), "|"
+            ) || isOp(
+                tokens.get(nextSig), "&"
+            ) ) ) return;
             // Leading-operator continuation style: method chaining (`.get()\n.expect()`),
             // ternary break-before-operator (`cond\n  ? x\n  : y`), logical-operator chains,
             // etc. -- none of these operators can legally begin a new statement, so their
             // presence as the very next significant token means the previous line's statement
             // isn't actually finished, regardless of its own last token.
-            if (nextSig >= 0 && tokens.get(nextSig).type == TokenType.OP
-                    && LEADING_CONTINUATION_OPS.contains(tokens.get(nextSig).text)) {
-                return;
-            }
+            if( nextSig >= 0 && tokens.get(
+                nextSig
+            ).type == TokenType.OP && LEADING_CONTINUATION_OPS.contains(
+                tokens.get(nextSig).text
+            ) ) return;
             // Comma-first declarator-list style (`var a = 1\n  , b = 2`) -- a leading `,` can
-            // never begin a new statement either.
-            if (nextSig >= 0 && isPunct(tokens.get(nextSig), ",")) {
-                return;
-            }
+            // never begin a new statement either
+            if( nextSig >= 0 && isPunct( tokens.get(nextSig), "," ) ) return;
             // `class`/`interface` header wrapping its own `extends`/`implements` clause onto the
             // next line (`export interface ParserOptions\n  extends ErrorHandlingOptions {`) --
             // a leading `extends`/`implements` can never begin a new statement, so the previous
             // line's declaration name isn't actually finished yet (vuejs/core dogfood,
             // `compiler-core/src/options.ts`).
-            if (nextSig >= 0 && tokens.get(nextSig).type == TokenType.KEYWORD
-                    && ("extends".equals(tokens.get(nextSig).text) || "implements".equals(tokens.get(nextSig).text))) {
-                return;
-            }
-        }
-        if (needsSemicolonAfter(tokens, lastSigIdx, braceNeedsSemicolon, braceCloseToOpen, parenCloseToOpen)) {
-            overrides.put(lastSigIdx, lastSig.text + ";");
-        }
+            if( nextSig >= 0 && tokens.get(
+                nextSig
+            ).type == TokenType.KEYWORD && ( "extends".equals(
+                tokens.get(nextSig).text
+            ) || "implements".equals(
+                tokens.get(nextSig).text
+            ) ) ) return;
+        } // if
+        if( needsSemicolonAfter(
+            tokens, lastSigIdx, braceNeedsSemicolon, braceCloseToOpen, parenCloseToOpen
+        ) ) overrides.put(
+            lastSigIdx, lastSig.text + ";"
+        );
     }
 
-    private boolean needsSemicolonAfter(final List<Token> tokens, final int idx,
-            final Map<Integer, Boolean> braceNeedsSemicolon, final Map<Integer, Integer> braceCloseToOpen,
-            final Map<Integer, Integer> parenCloseToOpen) {
+    private boolean needsSemicolonAfter(
+        final List<Token>           tokens,
+        final int                   idx,
+        final Map<Integer, Boolean> braceNeedsSemicolon,
+        final Map<Integer, Integer> braceCloseToOpen,
+        final Map<Integer, Integer> parenCloseToOpen
+    )
+    {
         final Token t = tokens.get(idx);
-        if (isPunct(t, ";") || isPunct(t, "{") || isPunct(t, ",") || isPunct(t, ":")
-                || isPunct(t, "(") || isPunct(t, "[")) {
-            return false;
-        }
-        if (t.type == TokenType.OP && CONTINUATION_OPS.contains(t.text)) {
-            return false;
-        }
-        if (t.type == TokenType.KEYWORD && CONTINUATION_KEYWORDS.contains(t.text)) {
-            return false;
-        }
-        if (endsWithDecoratorApplication(tokens, idx, parenCloseToOpen)) {
-            return false;
-        }
-        if (isPunct(t, "}")) {
+        if( isPunct(
+            t, ";"
+        ) || isPunct(
+            t, "{"
+        ) || isPunct(
+            t, ","
+        ) || isPunct(
+            t, ":"
+        ) || isPunct(
+            t, "("
+        ) || isPunct(
+            t, "["
+        ) ) return false;
+        if( t.type == TokenType.OP && CONTINUATION_OPS.contains(t.text) ) return false;
+        if( t.type == TokenType.KEYWORD && CONTINUATION_KEYWORDS.contains(t.text) ) return false;
+        if( endsWithDecoratorApplication(tokens, idx, parenCloseToOpen) ) return false;
+        if( isPunct(t, "}") ) {
             final Integer openIdx = braceCloseToOpen.get(idx);
-            return openIdx != null && Boolean.TRUE.equals(braceNeedsSemicolon.get(openIdx));
+            return openIdx != null && Boolean.TRUE.equals( braceNeedsSemicolon.get(openIdx) );
         }
+
         return true;
     }
 
-    /** True if {@code idx} is the closing `)` of a decorator's own argument list
+    /**
+     * True if {@code idx} is the closing `)` of a decorator's own argument list
      *  (`@Name(...)`), or {@code idx} is a bare decorator name with no argument list
      *  (`@Name`) -- either way, this token ends a decorator application, not a statement, and a
-     *  trailing semicolon must never be inserted after it. */
-    private boolean endsWithDecoratorApplication(final List<Token> tokens, final int idx,
-            final Map<Integer, Integer> parenCloseToOpen) {
+     *  trailing semicolon must never be inserted after it.
+     */
+    private boolean endsWithDecoratorApplication(
+        final List<Token>           tokens,
+        final int                   idx,
+        final Map<Integer, Integer> parenCloseToOpen
+    )
+    {
         final Token t = tokens.get(idx);
-        if (isPunct(t, ")")) {
+        if( isPunct(t, ")") ) {
             final Integer openParenIdx = parenCloseToOpen.get(idx);
-            if (openParenIdx == null) {
-                return false;
-            }
+            if(openParenIdx == null) return false;
             final int nameIdx = prevSignificantIndex(tokens, openParenIdx - 1);
             return isDecoratorName(tokens, nameIdx);
         }
-        if (t.type == TokenType.IDENTIFIER) {
-            return isDecoratorName(tokens, idx);
-        }
+        if(t.type == TokenType.IDENTIFIER) return isDecoratorName(tokens, idx);
+
         return false;
     }
 
-    /** True if the token at {@code nameIdx} is an identifier immediately (tight, no gap other
-     *  than the `@` itself) preceded by `@` -- a decorator's own name. */
-    private boolean isDecoratorName(final List<Token> tokens, final int nameIdx) {
-        if (nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER) {
-            return false;
-        }
+    /**
+     * True if the token at {@code nameIdx} is an identifier immediately (tight, no gap other
+     *  than the `@` itself) preceded by `@` -- a decorator's own name
+     */
+    private boolean isDecoratorName(final List<Token> tokens, final int nameIdx)
+    {
+        if( nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER ) return false;
         final int atIdx = prevSignificantIndex(tokens, nameIdx - 1);
-        return atIdx >= 0 && isOp(tokens.get(atIdx), "@");
+
+        return atIdx >= 0 && isOp( tokens.get(atIdx), "@" );
     }
 
     /**
@@ -316,18 +438,24 @@ public final class JsTsSpecificRule {
      * value-starting shapes -- same conservative "don't guess, assume the common case" posture as
      * the rest of this file.
      */
-    private void classifyBraces(final List<Token> tokens, final Map<Integer, Integer> openToClose,
-            final Map<Integer, Boolean> outResetDepth, final Map<Integer, Boolean> outNeedsSemicolon) {
-        for (final Integer openIdx : openToClose.keySet()) {
+    private void classifyBraces(
+        final List<Token>           tokens,
+        final Map<Integer, Integer> openToClose,
+        final Map<Integer, Boolean> outResetDepth,
+        final Map<Integer, Boolean> outNeedsSemicolon
+    )
+    {
+        for( final Integer openIdx : openToClose.keySet() ) {
             final int prevIdx = prevSignificantIndex(tokens, openIdx - 1);
             final Token prev = prevIdx >= 0 ? tokens.get(prevIdx) : null;
-            final boolean isImportBraceHeader = prev != null
-                    && ((prev.type == TokenType.KEYWORD && "import".equals(prev.text))
-                            // TS `import type { Foo } from "...";` -- the `{` follows the `type`
-                            // modifier, not `import` directly; walk back one more significant
-                            // token to find the real `import` keyword.
-                            || ("type".equals(prev.text) && isKeywordAt(tokens, prevSignificantIndex(tokens, prevIdx - 1), "import")));
-            if (isImportBraceHeader) {
+            final boolean isImportBraceHeader = prev != null&& ( ( prev.type == TokenType.KEYWORD&& "import".equals(
+                prev.text
+            ) ) || ( "type".equals(
+                prev.text
+            )&& isKeywordAt(
+                tokens, prevSignificantIndex(tokens, prevIdx - 1), "import"
+            ) ) );
+            if(isImportBraceHeader) {
                 // §15: a named-import list's `{ ... }` (e.g. `import { Widget } from "...";`) is
                 // neither a statement-body brace (its interior is a comma-separated specifier
                 // list, not statements -- must not reset depth to 0, or an interior comma-less
@@ -337,13 +465,15 @@ public final class JsTsSpecificRule {
                 outResetDepth.put(openIdx, false);
                 outNeedsSemicolon.put(openIdx, false);
                 continue;
-            }
-            final boolean isExportBraceHeader = prev != null
-                    && ((prev.type == TokenType.KEYWORD && "export".equals(prev.text))
-                            // TS `export type { Foo } from "...";` -- same `type`-modifier lookback
-                            // as the import case above.
-                            || ("type".equals(prev.text) && isKeywordAt(tokens, prevSignificantIndex(tokens, prevIdx - 1), "export")));
-            if (isExportBraceHeader) {
+            } // if
+            final boolean isExportBraceHeader = prev != null&& ( ( prev.type == TokenType.KEYWORD&& "export".equals(
+                prev.text
+            ) ) || ( "type".equals(
+                prev.text
+            )&& isKeywordAt(
+                tokens, prevSignificantIndex(tokens, prevIdx - 1), "export"
+            ) ) );
+            if(isExportBraceHeader) {
                 // Same "comma-separated specifier list, not statements" shape as an import brace
                 // header, above -- must not reset depth to 0 either (vuejs/core dogfood, single-
                 // specifier one-liner `export { baseCompile } from './compile'` wrongly got a
@@ -353,14 +483,19 @@ public final class JsTsSpecificRule {
                 // has its real statement terminator after the `from` clause; the latter's own `}`
                 // really is the statement's last token and does need a trailing `;`.
                 final Integer closeIdx = openToClose.get(openIdx);
-                final int afterClose = closeIdx != null ? nextSignificantIndex(tokens, closeIdx + 1) : -1;
-                final boolean hasFromClause = afterClose >= 0
-                        && tokens.get(afterClose).type == TokenType.KEYWORD && "from".equals(tokens.get(afterClose).text);
+                final int afterClose = closeIdx != null ? nextSignificantIndex(
+                    tokens, closeIdx + 1
+                ) : -1;
+                final boolean hasFromClause = afterClose >= 0&& tokens.get(
+                    afterClose
+                ).type == TokenType.KEYWORD&& "from".equals(
+                    tokens.get(afterClose).text
+                );
                 outResetDepth.put(openIdx, false);
                 outNeedsSemicolon.put(openIdx, !hasFromClause);
                 continue;
-            }
-            if (lang.isTs && isTypeAliasObjectBrace(tokens, openIdx)) {
+            } // if
+            if( lang.isTs && isTypeAliasObjectBrace(tokens, openIdx) ) {
                 // §14: `type X = { ... };`'s object-shaped body is a `;`-separated property-
                 // signature list (interface-shaped), not a comma-separated object-literal value
                 // list -- must reset depth to 0 like any statement-body brace so each member's own
@@ -373,8 +508,8 @@ public final class JsTsSpecificRule {
                 outResetDepth.put(openIdx, true);
                 outNeedsSemicolon.put(openIdx, true);
                 continue;
-            }
-            if (isEnumBodyBrace(tokens, openIdx)) {
+            } // if
+            if( isEnumBodyBrace(tokens, openIdx) ) {
                 // §12: a TS enum body's `{ ... }` is a comma-separated member list, not a
                 // statement list (must not reset depth to 0, or a comma-less trailing member gets
                 // a bogus `;` inserted before `}` -- the same class of bug Checkpoint 16 already
@@ -384,133 +519,137 @@ public final class JsTsSpecificRule {
                 outResetDepth.put(openIdx, false);
                 outNeedsSemicolon.put(openIdx, false);
                 continue;
-            }
+            } // if
             final boolean isArrowBody = isOp(prev, "=>");
-            final boolean isValue = prev != null && (
-                    isArrowBody || isOp(prev, "=") || isPunct(prev, "(") || isPunct(prev, "[")
-                            || isPunct(prev, ",") || isOp(prev, ":") || isOp(prev, "??") || isOp(prev, "||")
-                            || isOp(prev, "&&") || isOp(prev, "?") || isOp(prev, "...")
-                            // TS mapped-type/object-type argument sitting directly as a generic
-                            // type argument (`UnionToIntersection<{ [key in Event]: ... }[Event]>`,
-                            // vuejs/core dogfood `runtime-core/src/componentEmits.ts`'s `EmitFn`):
-                            // a `{` immediately preceded by ANGLE_BRACKET_OPEN is the sole/first
-                            // type argument's own object-type brace, a value/pattern brace exactly
-                            // like the object-literal cases above -- without this, the default-
-                            // false fallthrough misclassified it as a statement-body brace,
-                            // resetting the depth counter to 0 mid-generic-clause and wrongly
-                            // inserting a semicolon after the mapped type's last member value.
-                            || prev.type == TokenType.ANGLE_BRACKET_OPEN
-                            // TS union/intersection type continuation (vuejs/core dogfood,
-                            // `type Steps = { step: '1' } | { step: '2' }`): an inline object type
-                            // directly following `|`/`&` is a *value*-shaped brace (a type literal,
-                            // never individually semicolon-terminated the way a statement body is)
-                            // exactly like the object-literal cases just above it -- without this,
-                            // the default-false fallthrough at the bottom of this list misclassifies
-                            // it as a statement-body brace, resetting the depth counter to 0 at a
-                            // point that isn't a real statement boundary and corrupting every
-                            // subsequent line's indentation for the rest of the enclosing scope.
-                            || (lang.isTs && (isOp(prev, "|") || isOp(prev, "&")))
-                            || (prev.type == TokenType.KEYWORD
-                                    && ("return".equals(prev.text) || "yield".equals(prev.text)
-                                            || "throw".equals(prev.text) || "typeof".equals(prev.text)
-                                            // `const`/`let`/`var { ... } = ...` -- an object-destructuring
-                                            // pattern on a declaration LHS, a value/pattern brace (never
-                                            // individually semicolon-terminated inside), not a statement
-                                            // body -- same distinction Checkpoint 5 already made for the
-                                            // array-bracket form via MiscRuleCore.needsSpaceBetween.
-                                            || "const".equals(prev.text) || "let".equals(prev.text)
-                                            || "var".equals(prev.text)))
-                            // TS legacy angle-bracket cast (`<WaitCallback>{...}`, angular/angular
-                            // dogfood, `testability.ts`'s `push(<WaitCallback>{doneCb: ...})`): the
-                            // cast's own `<Type>` is never reclassified to ANGLE_BRACKET_OPEN/CLOSE
-                            // by TokenizerCurly.reclassifyAngleBrackets, since that pass only tracks a
-                            // `<` preceded by an IDENTIFIER (a generic clause) -- a cast's `<` instead
-                            // follows an expression-start token (`(`, `,`, `=`, `return`, ...), so it's
-                            // left as a plain OP token pair. Without recognizing this shape here too,
-                            // the object literal right after the cast fell through to the default-false
-                            // case below, got misclassified as a statement-body brace, and had its
-                            // depth reset to 0 mid-expression -- corrupting the object literal's own
-                            // last member with a bogus inserted `;` right before its closing `}`.
-                            || isLegacyCastBrace(tokens, openIdx));
+            final boolean isValue     = prev != null&& ( isArrowBody || isOp(
+                prev, "="
+            ) || isPunct(
+                prev, "("
+            ) || isPunct(
+                prev, "["
+            ) || isPunct(
+                prev, ","
+            ) || isOp(
+                prev, ":"
+            ) || isOp(
+                prev, "??"
+            ) || isOp(
+                prev, "||"
+            ) || isOp(
+                prev, "&&"
+            ) || isOp(
+                prev, "?"
+            ) || isOp(
+                prev, "..."
+            ) || prev.type == TokenType.ANGLE_BRACKET_OPEN || ( lang.isTs&& ( isOp(
+                prev, "|"
+            ) || isOp(
+                prev, "&"
+            ) ) ) || ( prev.type == TokenType.KEYWORD&& ( "return".equals(
+                prev.text
+            ) || "yield".equals(
+                prev.text
+            ) || "throw".equals(
+                prev.text
+            ) || "typeof".equals(
+                prev.text
+            ) || "const".equals(
+                prev.text
+            ) || "let".equals(
+                prev.text
+            ) || "var".equals(
+                prev.text
+            ) ) ) || isLegacyCastBrace(
+                tokens, openIdx
+            ) );
             outResetDepth.put(openIdx, !isValue || isArrowBody);
             outNeedsSemicolon.put(openIdx, isValue);
-        }
+        } // for
     }
 
-    /** True iff {@code idx} is a valid index into {@code tokens} and that token is the KEYWORD
+    /**
+     * True iff {@code idx} is a valid index into {@code tokens} and that token is the KEYWORD
      *  {@code text} -- small guard used by {@link #classifyBraces}'s `import type {` lookback so
      *  a negative "not found" index from {@link #prevSignificantIndex} doesn't need its own
-     *  bounds check at every call site. */
-    private boolean isKeywordAt(final List<Token> tokens, final int idx, final String text) {
-        return idx >= 0 && tokens.get(idx).type == TokenType.KEYWORD && text.equals(tokens.get(idx).text);
+     *  bounds check at every call site
+     */
+    private boolean isKeywordAt(final List<Token> tokens, final int idx, final String text)
+    {
+        return idx >= 0 && tokens.get(
+            idx
+        ).type == TokenType.KEYWORD && text.equals(
+            tokens.get(idx).text
+        );
     }
 
-    /** True iff the `{` at {@code braceIdx} opens a TS enum body -- i.e. it is directly preceded
+    /**
+     * True iff the `{` at {@code braceIdx} opens a TS enum body -- i.e. it is directly preceded
      *  by an IDENTIFIER (the enum's own name) whose own preceding significant token is the `enum`
      *  KEYWORD (TS has no `extends`/generic clause on an enum name, unlike class/interface, so no
      *  intervening-clause walk is needed the way Java's own {@code isEnumBodyBrace} needs one).
      *  `const enum Name { ... }` is covered too -- the `const` modifier sits before `enum`, outside
-     *  this check's own two-token lookback, so it doesn't need to be inspected at all. */
-    private boolean isEnumBodyBrace(final List<Token> tokens, final int braceIdx) {
+     *  this check's own two-token lookback, so it doesn't need to be inspected at all.
+     */
+    private boolean isEnumBodyBrace(final List<Token> tokens, final int braceIdx)
+    {
         final int nameIdx = prevSignificantIndex(tokens, braceIdx - 1);
-        if (nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER) {
-            return false;
-        }
-        return isKeywordAt(tokens, prevSignificantIndex(tokens, nameIdx - 1), "enum");
+        if( nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER ) return false;
+
+        return isKeywordAt( tokens, prevSignificantIndex(tokens, nameIdx - 1), "enum" );
     }
 
-    private Map<Integer, Integer> matchBraces(final List<Token> tokens) {
+    private Map<Integer, Integer> matchBraces(final List<Token> tokens)
+    {
         final Map<Integer, Integer> openToClose = new HashMap<>();
-        final Deque<Integer> stack = new ArrayDeque<>();
-        for (int i = 0; i < tokens.size(); i++) {
+        final Deque<Integer>        stack       = new ArrayDeque<>();
+        for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (isPunct(t, "{")) {
-                stack.push(i);
-            } else if (isPunct(t, "}") && !stack.isEmpty()) {
-                openToClose.put(stack.pop(), i);
-            }
+            if( isPunct(t, "{") )                          stack.push(i);
+            else if( isPunct(t, "}") && !stack.isEmpty() ) openToClose.put( stack.pop(), i );
         }
+
         return openToClose;
     }
 
-    private Map<Integer, Integer> matchParens(final List<Token> tokens) {
+    private Map<Integer, Integer> matchParens(final List<Token> tokens)
+    {
         final Map<Integer, Integer> openToClose = new HashMap<>();
-        final Deque<Integer> stack = new ArrayDeque<>();
-        for (int i = 0; i < tokens.size(); i++) {
+        final Deque<Integer>        stack       = new ArrayDeque<>();
+        for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (isPunct(t, "(")) {
-                stack.push(i);
-            } else if (isPunct(t, ")") && !stack.isEmpty()) {
-                openToClose.put(stack.pop(), i);
-            }
+            if( isPunct(t, "(") ) stack.push(i);
+            else if( isPunct(t, ")") && !stack.isEmpty() ) openToClose.put( stack.pop(), i );
         }
+
         return openToClose;
     }
 
-    private int nextSignificantIndex(final List<Token> tokens, final int from) {
-        for (int i = from; i < tokens.size(); i++) {
-            if (!isGapToken(tokens.get(i))) {
-                return i;
-            }
+    private int nextSignificantIndex(final List<Token> tokens, final int from)
+    {
+        for( int i = from; i < tokens.size(); ++i ) {
+            if( !isGapToken( tokens.get(i) ) ) return i;
         }
+
         return -1;
     }
 
-    private int prevSignificantIndex(final List<Token> tokens, final int from) {
-        for (int i = from; i >= 0; i--) {
-            if (!isGapToken(tokens.get(i))) {
-                return i;
-            }
+    private int prevSignificantIndex(final List<Token> tokens, final int from)
+    {
+        for(int i = from; i >= 0; --i) {
+            if( !isGapToken( tokens.get(i) ) ) return i;
         }
+
         return -1;
     }
 
-    private String render(final List<Token> tokens, final Map<Integer, String> overrides) {
+    private String render(final List<Token> tokens, final Map<Integer, String> overrides)
+    {
         final StringBuilder out = new StringBuilder();
-        for (int i = 0; i < tokens.size(); i++) {
+        for( int i = 0; i < tokens.size(); ++i ) {
             final String override = overrides.get(i);
-            out.append(override != null ? override : tokens.get(i).text);
+            out.append( override != null ? override : tokens.get(i).text );
         }
+
         return out.toString();
     }
 
@@ -527,40 +666,39 @@ public final class JsTsSpecificRule {
      * Conservative bailout matching every other pass in this file: a gap containing a comment, a
      * NEWLINE, or a frozen token is left completely untouched.
      */
-    public String enforceSpreadRestSpacing(final List<Token> tokens) {
-        final StringBuilder out = new StringBuilder();
-        final List<Token> gap = new ArrayList<>();
-        Token lastSignificant = null;
-        final int n = tokens.size();
-        int i = 0;
+    public String enforceSpreadRestSpacing(final List<Token> tokens)
+    {
+        final StringBuilder out             = new StringBuilder();
+        final List<Token>   gap             = new ArrayList<>();
+              Token         lastSignificant = null;
+        final int           n               = tokens.size();
+              int           i               = 0;
 
-        while (i < n) {
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
+            if( isGapToken(t) ) {
                 gap.add(t);
-                i++;
+                ++i;
                 continue;
             }
 
-            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
-                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
-            final boolean afterSpread = lastSignificant != null && isOp(lastSignificant, "...");
+            final boolean gapBlocked  = gap.stream().anyMatch(
+                g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
+            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
+            final boolean afterSpread = lastSignificant != null&& isOp(lastSignificant, "...");
 
-            if (gapBlocked || !afterSpread) {
-                for (final Token g : gap) {
-                    out.append(g.text);
-                }
+            if(gapBlocked || !afterSpread) {
+                for(final Token g : gap) out.append(g.text);
             }
-            // afterSpread && !gapBlocked: gap dropped entirely, nothing appended.
+            // AfterSpread && !gapBlocked: gap dropped entirely, nothing appended
 
             gap.clear();
             out.append(t.text);
             lastSignificant = t;
-            i++;
-        }
-        for (final Token g : gap) {
-            out.append(g.text);
-        }
+            ++i;
+        } // while
+        for(final Token g : gap) out.append(g.text);
+
         return out.toString();
     }
 
@@ -573,52 +711,62 @@ public final class JsTsSpecificRule {
      * covers this, so it's its own flat pass, same conservative bailout (a gap containing a
      * comment, a NEWLINE, or a frozen token is left untouched).
      */
-    public String enforceOptionalChainingSpacing(final List<Token> tokens) {
-        final StringBuilder out = new StringBuilder();
-        final List<Token> gap = new ArrayList<>();
-        Token lastSignificant = null;
-        final int n = tokens.size();
-        int i = 0;
+    public String enforceOptionalChainingSpacing(final List<Token> tokens)
+    {
+        final StringBuilder out             = new StringBuilder();
+        final List<Token>   gap             = new ArrayList<>();
+              Token         lastSignificant = null;
+        final int           n               = tokens.size();
+              int           i               = 0;
 
-        while (i < n) {
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
+            if( isGapToken(t) ) {
                 gap.add(t);
-                i++;
+                ++i;
                 continue;
             }
 
-            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
-                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
-            final boolean adjacentToTightOp = isOptionalChain(lastSignificant) || isOptionalChain(t);
-            final boolean adjacentToNullish = !adjacentToTightOp && (isNullishCoalesce(lastSignificant) || isNullishCoalesce(t));
+            final boolean gapBlocked        = gap.stream().anyMatch(
+                g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
+            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
+            final boolean adjacentToTightOp = isOptionalChain(
+                lastSignificant
+            ) || isOptionalChain(
+                t
+            );
+            final boolean adjacentToNullish = ! adjacentToTightOp&& ( isNullishCoalesce(
+                lastSignificant
+            ) || isNullishCoalesce(
+                t
+            ) );
 
-            if (gapBlocked || (!adjacentToTightOp && !adjacentToNullish)) {
-                for (final Token g : gap) {
-                    out.append(g.text);
-                }
-            } else if (adjacentToNullish) {
+            if( gapBlocked || (!adjacentToTightOp && !adjacentToNullish) ) {
+                for(final Token g : gap) out.append(g.text);
+            }
+            else if(adjacentToNullish) {
                 out.append(' ');
             }
-            // adjacentToTightOp && !gapBlocked: gap dropped entirely, nothing appended.
+            // AdjacentToTightOp && !gapBlocked: gap dropped entirely, nothing appended
 
             gap.clear();
             out.append(t.text);
             lastSignificant = t;
-            i++;
-        }
-        for (final Token g : gap) {
-            out.append(g.text);
-        }
+            ++i;
+        } // while
+        for(final Token g : gap) out.append(g.text);
+
         return out.toString();
     }
 
-    private boolean isOptionalChain(final Token t) {
+    private boolean isOptionalChain(final Token t)
+    {
         return t != null && isOp(t, "?.");
     }
 
-    private boolean isNullishCoalesce(final Token t) {
-        return t != null && (isOp(t, "??") || isOp(t, "??="));
+    private boolean isNullishCoalesce(final Token t)
+    {
+        return t != null && ( isOp(t, "??") || isOp(t, "??=") );
     }
 
     // ── §4 Template literal `${...}` interpolation spacing ───────────────────────────
@@ -649,122 +797,136 @@ public final class JsTsSpecificRule {
      * re-runs this same {@code rewriteTemplateLiteral} on any nested backtick STRING token found
      * among its own significant tokens before final re-joining, so nesting of any depth is handled.
      */
-    public String enforceTemplateLiteralInterpolationSpacing(final List<Token> tokens) {
-        if (!lang.isJs && !lang.isTs) {
-            return render(tokens, new HashMap<>());
-        }
-        final Map<Integer, String> overrides = new HashMap<>();
-        final TokenizerCurly innerTokenizer = new TokenizerCurly(lang);
-        final MiscRuleCurly misc = new MiscRuleCurly(lang, false, false);
-        for (int i = 0; i < tokens.size(); i++) {
+    public String enforceTemplateLiteralInterpolationSpacing(final List<Token> tokens)
+    {
+        if(!lang.isJs && !lang.isTs) return render( tokens, new HashMap<>() );
+        final Map<Integer, String> overrides      = new HashMap<>();
+        final TokenizerCurly       innerTokenizer = new TokenizerCurly(lang);
+        final MiscRuleCurly        misc           = new MiscRuleCurly(lang, false, false);
+        for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (t.type == TokenType.STRING && !t.frozen && t.text.length() >= 2
-                    && t.text.charAt(0) == '`') {
+            if( t.type == TokenType.STRING && !t.frozen && t.text.length() >= 2
+                    && t.text.charAt(0) == '`' ) {
                 final String rewritten = rewriteTemplateLiteral(t.text, innerTokenizer, misc);
-                if (rewritten != null && !rewritten.equals(t.text)) {
-                    overrides.put(i, rewritten);
-                }
+                if( rewritten != null && !rewritten.equals(t.text) ) overrides.put(i, rewritten);
             }
-        }
+        } // for
+
         return render(tokens, overrides);
     }
 
-    /** Finds every top-level `${...}` span in {@code text} (a whole backtick-delimited template
+    /**
+     * Finds every top-level `${...}` span in {@code text} (a whole backtick-delimited template
      *  literal, opening/closing backtick included) and re-renders each interior expression via
      *  {@code renderTokens}, splicing the results back into the literal's raw text. Returns
      *  {@code text} unchanged if there are no interpolations, or if any span's own interior fails
-     *  its conservative reformat check (see {@link #reformatInterpolationInterior}). */
-    private String rewriteTemplateLiteral(final String text, final TokenizerCurly innerTokenizer,
-            final MiscRuleCurly misc) {
+     *  its conservative reformat check (see {@link #reformatInterpolationInterior}).
+     */
+    private String rewriteTemplateLiteral(
+        final String         text,
+        final TokenizerCurly innerTokenizer,
+        final MiscRuleCurly  misc
+    )
+    {
         final List<int[]> spans = findInterpolationSpans(text);
-        if (spans.isEmpty()) {
-            return text;
-        }
-        final StringBuilder out = new StringBuilder();
-        int last = 0;
-        for (final int[] span : spans) {
+        if( spans.isEmpty() ) return text;
+        final StringBuilder out  = new StringBuilder();
+              int           last = 0;
+        for( final int[] span : spans ) {
             final int start = span[0];
-            final int end = span[1];
+            final int end   = span[1];
             out.append(text, last, start);
-            final String interior = text.substring(start, end);
+            final String interior  = text.substring(start, end);
             final String rewritten = reformatInterpolationInterior(interior, innerTokenizer, misc);
             out.append(rewritten != null ? rewritten : interior);
             last = end;
-        }
-        out.append(text.substring(last));
+        } // for
+        out.append( text.substring(last) );
+
         return out.toString();
     }
 
-    /** Scans a template literal's raw text (opening/closing backtick included) for every
+    /**
+     * Scans a template literal's raw text (opening/closing backtick included) for every
      *  top-level `${...}` interpolation, returning each as a {@code [interiorStart, interiorEnd)}
      *  index pair (excluding the `${`/`}` delimiters themselves). Mirrors {@code
      *  TokenizerCurly.skipTemplateInterpolation}'s nesting rules: `{`/`}` depth counting, with
      *  nested `"`/`'`/`` ` `` quoted spans skipped as opaque units so an interior brace inside a
-     *  string literal (or a nested template) doesn't corrupt depth counting. */
-    private List<int[]> findInterpolationSpans(final String text) {
+     *  string literal (or a nested template) doesn't corrupt depth counting.
+     */
+    private List<int[]> findInterpolationSpans(final String text)
+    {
         final List<int[]> spans = new ArrayList<>();
-        final int end = text.length() - 1; // exclude the closing backtick
-        int pos = 1; // skip the opening backtick
-        while (pos < end) {
+        final int         end   = text.length() - 1; // Exclude the closing backtick
+              int         pos   = 1;                 // Skip the opening backtick
+        while(pos < end) {
             final char c = text.charAt(pos);
-            if (c == '\\') {
+            if(c == '\\') {
                 pos += 2;
                 continue;
             }
-            if (c == '$' && pos + 1 < end && text.charAt(pos + 1) == '{') {
+            if( c == '$' && pos + 1 < end && text.charAt(pos + 1) == '{' ) {
                 final int interiorStart = pos + 2;
-                int depth = 1;
-                int p = interiorStart;
-                while (p < end && depth > 0) {
+                      int depth         = 1;
+                      int p             = interiorStart;
+                while(p < end && depth > 0) {
                     final char cc = text.charAt(p);
-                    if (cc == '\\') {
+                    if(cc == '\\') {
                         p += 2;
                         continue;
-                    } else if (cc == '{') {
-                        depth++;
-                        p++;
-                    } else if (cc == '}') {
-                        depth--;
-                        p++;
-                    } else if (cc == '"' || cc == '\'' || cc == '`') {
-                        p = skipQuotedSpan(text, p, end, cc);
-                    } else {
-                        p++;
                     }
-                }
-                if (depth == 0) {
-                    spans.add(new int[] { interiorStart, p - 1 });
+                    else if(cc == '{') {
+                        ++depth;
+                        ++p;
+                    }
+                    else if(cc == '}') {
+                        --depth;
+                        ++p;
+                    }
+                    else if(cc == '"' || cc == '\'' || cc == '`') {
+                        p = skipQuotedSpan(text, p, end, cc);
+                    }
+                    else {
+                        ++p;
+                    }
+                } // while
+                if(depth == 0) {
+                    spans.add( new int[] { interiorStart, p - 1 } );
                 }
                 pos = p;
                 continue;
-            }
-            pos++;
-        }
+            } // if
+            ++pos;
+        } // while
+
         return spans;
     }
 
-    /** Skips a quoted span (`"`/`'`/`` ` ``-delimited, {@code quote} is the delimiter char)
+    /**
+     * Skips a quoted span (`"`/`'`/`` ` ``-delimited, {@code quote} is the delimiter char)
      *  starting at {@code p} (the opening delimiter itself), returning the index right after its
      *  closing delimiter -- or {@code boundIdx} if unterminated within that bound. A nested
      *  backtick template's own interior (including any of its own `${...}`) is treated as opaque
-     *  by this same skip -- not reformatted, see this section's own javadoc scope note. */
-    private int skipQuotedSpan(final String text, final int p, final int boundIdx, final char quote) {
+     *  by this same skip -- not reformatted, see this section's own javadoc scope note.
+     */
+    private int skipQuotedSpan(final String text, final int p, final int boundIdx, final char quote)
+    {
         int i = p + 1;
-        while (i < boundIdx) {
+        while(i < boundIdx) {
             final char c = text.charAt(i);
-            if (c == '\\') {
+            if(c == '\\') {
                 i += 2;
                 continue;
             }
-            if (c == quote) {
-                return i + 1;
-            }
-            i++;
-        }
+            if(c == quote) return i + 1;
+            ++i;
+        } // while
+
         return boundIdx;
     }
 
-    /** Re-tokenizes {@code interior} (a `${...}` interpolation's raw interior substring) in
+    /**
+     * Re-tokenizes {@code interior} (a `${...}` interpolation's raw interior substring) in
      *  isolation and re-joins its significant tokens via {@code renderTokens}'s ordinary
      *  tight/loose adjacency rules. Returns {@code null} (caller leaves the original interior
      *  untouched) if the interior is empty/blank, contains a NEWLINE or comment token (multi-line
@@ -772,34 +934,35 @@ public final class JsTsSpecificRule {
      *  A nested backtick-delimited STRING token among the interior's own significant tokens (a
      *  template literal nested inside this interpolation, e.g. `` `${`inner ${x}`}` ``) is
      *  recursively reformatted via {@code rewriteTemplateLiteral} before re-joining, so nesting of
-     *  any depth gets its own `${...}` spacing normalized, not just the outermost level. */
-    private String reformatInterpolationInterior(final String interior, final TokenizerCurly innerTokenizer,
-            final MiscRuleCurly misc) {
-        if (interior.trim().isEmpty()) {
-            return null;
-        }
+     *  any depth gets its own `${...}` spacing normalized, not just the outermost level.
+     */
+    private String reformatInterpolationInterior(
+        final String         interior,
+        final TokenizerCurly innerTokenizer,
+        final MiscRuleCurly  misc
+    )
+    {
+        if( interior.trim().isEmpty() ) return null;
         final List<Token> innerTokens;
         try {
             innerTokens = innerTokenizer.tokenize(interior);
-        } catch (final RuntimeException e) {
+        }
+        catch(final RuntimeException e) {
             return null;
         }
         final List<Token> significant = new ArrayList<>();
-        for (final Token t : innerTokens) {
-            if (t.type == TokenType.NEWLINE || isComment(t) || t.frozen) {
-                return null;
-            }
-            if (t.type == TokenType.WHITESPACE) {
-                continue;
-            }
-            if (t.type == TokenType.STRING && t.text.length() >= 2 && t.text.charAt(0) == '`') {
-                t.text = rewriteTemplateLiteral(t.text, innerTokenizer, misc);
-            }
+        for(final Token t : innerTokens) {
+            if( t.type == TokenType.NEWLINE || isComment(t) || t.frozen ) return null;
+            if(t.type == TokenType.WHITESPACE) continue;
+            if( t.type == TokenType.STRING && t.text.length() >= 2 && t.text.charAt(
+                0
+            ) == '`' ) t.text = rewriteTemplateLiteral(
+                t.text, innerTokenizer, misc
+            );
             significant.add(t);
-        }
-        if (significant.isEmpty()) {
-            return null;
-        }
+        } // for
+        if( significant.isEmpty() ) return null;
+
         return misc.renderTokens(significant);
     }
 
@@ -841,191 +1004,208 @@ public final class JsTsSpecificRule {
      * last token and the `{`) is left untouched -- idempotent. Any frozen token across the header
      * span is a conservative bailout, matching every other pass in this file.
      */
-    public String enforceMethodDefinitionAllmanBraceStyle(final List<Token> tokens) {
-        if (!lang.isJs && !lang.isTs) {
-            return render(tokens, new HashMap<>());
-        }
+    public String enforceMethodDefinitionAllmanBraceStyle(final List<Token> tokens)
+    {
+        if(!lang.isJs && !lang.isTs) return render( tokens, new HashMap<>() );
         final Map<Integer, Integer> braceOpenToClose = matchBraces(tokens);
         final Map<Integer, Integer> parenOpenToClose = matchParens(tokens);
-        final Map<Integer, Integer> overrides = new HashMap<>();
+        final Map<Integer, Integer> overrides        = new HashMap<>();
 
-        for (int i = 0; i < tokens.size(); i++) {
-            if (!isPunct(tokens.get(i), "{")) {
-                continue;
-            }
+        for( int i = 0; i < tokens.size(); ++i ) {
+            if( !isPunct( tokens.get(i), "{" ) ) continue;
             final int lastHeaderTokenIdx = prevSignificantIndex(tokens, i - 1);
-            if (lastHeaderTokenIdx < 0) {
-                continue;
-            }
+            if(lastHeaderTokenIdx < 0) continue;
             final int closeParenIdx = findHeaderCloseParen(tokens, lastHeaderTokenIdx);
-            if (closeParenIdx < 0) {
-                continue;
-            }
+            if(closeParenIdx < 0) continue;
             final Integer openParenIdx = findMatchingOpenParen(tokens, closeParenIdx);
-            if (openParenIdx == null) {
-                continue;
-            }
+            if(openParenIdx == null) continue;
             int beforeParenIdx = prevSignificantIndex(tokens, openParenIdx - 1);
-            if (beforeParenIdx >= 0 && tokens.get(beforeParenIdx).type == TokenType.ANGLE_BRACKET_CLOSE) {
+            if( beforeParenIdx >= 0 && tokens.get(
+                beforeParenIdx
+            ).type == TokenType.ANGLE_BRACKET_CLOSE ) {
                 beforeParenIdx = matchAngleOpenBackward(tokens, beforeParenIdx);
-                if (beforeParenIdx >= 0) {
-                    beforeParenIdx = prevSignificantIndex(tokens, beforeParenIdx - 1);
-                }
+                if(beforeParenIdx >= 0) beforeParenIdx = prevSignificantIndex(
+                    tokens, beforeParenIdx - 1
+                );
             }
             final int nameIdx = beforeParenIdx;
-            if (nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER) {
-                continue;
-            }
-            if (hasNewlineOrCommentBetween(tokens, lastHeaderTokenIdx, i)) {
-                continue;
-            }
-            if (anyFrozen(tokens, nameIdx, i + 1)) {
-                continue;
-            }
+            if( nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER ) continue;
+            if( hasNewlineOrCommentBetween(tokens, lastHeaderTokenIdx, i) ) continue;
+            if( anyFrozen(tokens, nameIdx, i + 1) ) continue;
             final Integer closeBraceIdx = braceOpenToClose.get(i);
-            if (closeBraceIdx == null) {
-                continue;
-            }
-            if (isEmptyBody(tokens, i, closeBraceIdx) || isSingleLineBraceBody(tokens, i, closeBraceIdx)) {
-                continue;
-            }
-            overrides.put(lastHeaderTokenIdx, i); // marker: this token's gap-to-brace gets rewritten below
-        }
-        if (overrides.isEmpty()) {
-            return render(tokens, new HashMap<>());
-        }
+            if(closeBraceIdx == null) continue;
+            if( isEmptyBody(
+                tokens, i, closeBraceIdx
+            ) || isSingleLineBraceBody(
+                tokens, i, closeBraceIdx
+            ) ) continue;
+            overrides.put(
+                lastHeaderTokenIdx, i
+            ); // Marker: this token's gap-to-brace gets rewritten below
+        } // for
+        if( overrides.isEmpty() ) return render( tokens, new HashMap<>() );
+
         return renderAllmanBraceMoves(tokens, overrides, parenOpenToClose);
     }
 
-    /** Walks backward from {@code fromIdx} (the last significant token seen before a candidate
+    /**
+     * Walks backward from {@code fromIdx} (the last significant token seen before a candidate
      *  `{`) to find the header's own closing `)`. If {@code fromIdx} itself is `)`, that's the
      *  direct-adjacency (plain JS, or TS with no return type) case. Otherwise looks for a `:`
      *  return-type-annotation tail whose own immediately-preceding significant token is `)` --
      *  the return type's own interior content between that `:` and {@code fromIdx} is never
      *  otherwise inspected. Returns -1 if neither shape is found before a statement-breaking
-     *  token (`;`, `{`, `}`) is hit. */
-    private int findHeaderCloseParen(final List<Token> tokens, final int fromIdx) {
-        if (isPunct(tokens.get(fromIdx), ")")) {
-            return fromIdx;
-        }
-        int j = fromIdx;
+     *  token (`;`, `{`, `}`) is hit.
+     */
+    private int findHeaderCloseParen(final List<Token> tokens, final int fromIdx)
+    {
+        if( isPunct( tokens.get(fromIdx), ")" ) ) return fromIdx;
+        int j     = fromIdx;
         int steps = 0;
-        while (j >= 0 && steps < 500) {
+        while(j >= 0 && steps < 500) {
             final Token t = tokens.get(j);
-            if (isPunct(t, ";") || isPunct(t, "{") || isPunct(t, "}")) {
-                return -1;
-            }
-            if (isOp(t, ":")) {
+            if( isPunct(t, ";") || isPunct(t, "{") || isPunct(t, "}") ) return -1;
+            if( isOp(t, ":") ) {
                 final int before = prevSignificantIndex(tokens, j - 1);
-                if (before >= 0 && isPunct(tokens.get(before), ")")) {
-                    return before;
-                }
+                if( before >= 0 && isPunct( tokens.get(before), ")" ) ) return before;
                 return -1;
             }
             j = prevSignificantIndex(tokens, j - 1);
-            steps++;
-        }
+            ++steps;
+        } // while
+
         return -1;
     }
 
-    /** Index of the `<` matching the `>` at {@code closeIdx} (a generic type-parameter list's
+    /**
+     * Index of the `<` matching the `>` at {@code closeIdx} (a generic type-parameter list's
      *  closing bracket), via local backward depth counting over the tokenizer's own
      *  {@code ANGLE_BRACKET_OPEN}/{@code ANGLE_BRACKET_CLOSE} reclassification (not raw `<`/`>`
      *  operator tokens, which would also match unrelated comparisons) -- structurally identical to
      *  {@code BlockStructureRule.matchAngleOpenBackward}, duplicated locally rather than shared
-     *  since that method is private to its own class. Returns -1 if unmatched. */
-    private int matchAngleOpenBackward(final List<Token> tokens, final int closeIdx) {
+     *  since that method is private to its own class. Returns -1 if unmatched.
+     */
+    private int matchAngleOpenBackward(final List<Token> tokens, final int closeIdx)
+    {
         int depth = 1;
-        int i = closeIdx - 1;
-        while (i >= 0 && depth > 0) {
+        int i     = closeIdx - 1;
+        while(i >= 0 && depth > 0) {
             final TokenType ty = tokens.get(i).type;
-            if (ty == TokenType.ANGLE_BRACKET_CLOSE) {
-                depth++;
-            } else if (ty == TokenType.ANGLE_BRACKET_OPEN) {
-                depth--;
-            }
-            i--;
+            if(ty == TokenType.ANGLE_BRACKET_CLOSE)     depth++;
+            else if(ty == TokenType.ANGLE_BRACKET_OPEN) depth--;
+            --i;
         }
+
         return depth == 0 ? i + 1 : -1;
     }
 
-    private Integer findMatchingOpenParen(final List<Token> tokens, final int closeParenIdx) {
+    private Integer findMatchingOpenParen(final List<Token> tokens, final int closeParenIdx)
+    {
         int depth = 0;
-        for (int i = closeParenIdx; i >= 0; i--) {
-            if (isPunct(tokens.get(i), ")")) {
-                depth++;
-            } else if (isPunct(tokens.get(i), "(")) {
-                depth--;
-                if (depth == 0) {
-                    return i;
-                }
+        for(int i = closeParenIdx; i >= 0; --i) {
+            if( isPunct( tokens.get(i), ")" ) ) {
+                ++depth;
             }
-        }
+            else if( isPunct( tokens.get(i), "(" ) ) {
+                --depth;
+                if(depth == 0) return i;
+            }
+        } // for
+
         return null;
     }
 
-    /** True if {@code braceIdx}/{@code closeBraceIdx} delimit an empty body -- nothing (not even
-     *  a comment) between the two braces. */
-    private boolean isEmptyBody(final List<Token> tokens, final int braceIdx, final int closeBraceIdx) {
+    /**
+     * True if {@code braceIdx}/{@code closeBraceIdx} delimit an empty body -- nothing (not even
+     *  a comment) between the two braces
+     */
+    private boolean isEmptyBody(
+        final List<Token> tokens,
+        final int         braceIdx,
+        final int         closeBraceIdx
+    )
+    {
         return nextSignificantIndex(tokens, braceIdx + 1) == closeBraceIdx
                 && !hasNewlineOrCommentBetween(tokens, braceIdx, closeBraceIdx);
     }
 
-    /** True if no NEWLINE token appears anywhere between {@code braceIdx} and
-     *  {@code closeBraceIdx} inclusive -- the whole body sits on one physical line. */
-    private boolean isSingleLineBraceBody(final List<Token> tokens, final int braceIdx, final int closeBraceIdx) {
-        for (int i = braceIdx; i <= closeBraceIdx; i++) {
-            if (tokens.get(i).type == TokenType.NEWLINE) {
-                return false;
-            }
+    /**
+     * True if no NEWLINE token appears anywhere between {@code braceIdx} and
+     *  {@code closeBraceIdx} inclusive -- the whole body sits on one physical line
+     */
+    private boolean isSingleLineBraceBody(
+        final List<Token> tokens,
+        final int         braceIdx,
+        final int         closeBraceIdx
+    )
+    {
+        for(int i = braceIdx; i <= closeBraceIdx; ++i) {
+            if( tokens.get(i).type == TokenType.NEWLINE ) return false;
         }
+
         return true;
     }
 
-    private boolean hasNewlineOrCommentBetween(final List<Token> tokens, final int fromExclusive, final int toExclusive) {
-        for (int i = fromExclusive + 1; i < toExclusive; i++) {
+    private boolean hasNewlineOrCommentBetween(
+        final List<Token> tokens,
+        final int         fromExclusive,
+        final int         toExclusive
+    )
+    {
+        for(int i = fromExclusive + 1; i < toExclusive; ++i) {
             final TokenType type = tokens.get(i).type;
-            if (type == TokenType.NEWLINE || type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) {
-                return true;
-            }
+            if(type == TokenType.NEWLINE || type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) return true;
         }
+
         return false;
     }
 
-    private boolean anyFrozen(final List<Token> tokens, final int fromInclusive, final int toExclusive) {
-        for (int i = fromInclusive; i < toExclusive; i++) {
-            if (tokens.get(i).frozen) {
-                return true;
-            }
+    private boolean anyFrozen(
+        final List<Token> tokens,
+        final int         fromInclusive,
+        final int         toExclusive
+    )
+    {
+        for(int i = fromInclusive; i < toExclusive; ++i) {
+            if( tokens.get(i).frozen ) return true;
         }
+
         return false;
     }
 
-    /** Second pass: given the set of `{` indices approved for Allman conversion (keyed by the
+    /**
+     * Second pass: given the set of `{` indices approved for Allman conversion (keyed by the
      *  last header token that immediately precedes each, in {@code headerTokenToBrace}), rebuilds
      *  the token stream, replacing the gap right after each such header token with a NEWLINE plus
-     *  the header line's own leading indentation, followed by the brace. */
-    private String renderAllmanBraceMoves(final List<Token> tokens, final Map<Integer, Integer> headerTokenToBrace,
-            final Map<Integer, Integer> parenOpenToClose) {
+     *  the header line's own leading indentation, followed by the brace
+     */
+    private String renderAllmanBraceMoves(
+        final List<Token>           tokens,
+        final Map<Integer, Integer> headerTokenToBrace,
+        final Map<Integer, Integer> parenOpenToClose
+    )
+    {
         final StringBuilder out = new StringBuilder();
-        int i = 0;
-        final int n = tokens.size();
-        while (i < n) {
-            out.append(tokens.get(i).text);
+              int           i   = 0;
+        final int           n   = tokens.size();
+        while(i < n) {
+            out.append( tokens.get(i).text );
             final Integer braceIdx = headerTokenToBrace.get(i);
-            if (braceIdx != null) {
-                out.append('\n').append(lineIndent(tokens, i));
-                out.append(tokens.get(braceIdx).text);
+            if(braceIdx != null) {
+                out.append('\n').append( lineIndent(tokens, i) );
+                out.append( tokens.get(braceIdx).text );
                 // Skip the original gap + `{` we just relocated.
                 i = braceIdx + 1;
                 continue;
-            }
-            i++;
-        }
+            } // if
+            ++i;
+        } // while
+
         return out.toString();
     }
 
-    /** Reindents a leading multi-line block comment (captured verbatim from the source, so its
+    /**
+     * Reindents a leading multi-line block comment (captured verbatim from the source, so its
      *  continuation lines still carry whatever absolute indentation they had at the *original*
      *  code depth) to align under {@code indentPrefix} at the *new* depth this comment is being
      *  re-emitted at (e.g. by an alignment-grid rewrite that may reindent the code around it).
@@ -1036,48 +1216,62 @@ public final class JsTsSpecificRule {
      *  {@code indentPrefix + " " + strippedLine} -- correct regardless of what depth the comment's
      *  interior lines were originally written at, and idempotent (re-running against already
      *  correctly-reindented text is a no-op). Single-line comments (no {@code '\n'}) pass through
-     *  unchanged. */
-    private static String reindentLeadingComment(final String commentText, final String indentPrefix) {
-        if (commentText.indexOf('\n') < 0) {
-            return commentText;
-        }
-        final String[] lines = commentText.split("\n", -1);
-        final StringBuilder sb = new StringBuilder(lines[0]);
-        for (int i = 1; i < lines.length; i++) {
+     *  unchanged.
+     */
+    private static String reindentLeadingComment(
+        final String commentText,
+        final String indentPrefix
+    )
+    {
+        if( commentText.indexOf('\n') < 0 ) return commentText;
+        final String[]      lines = commentText.split("\n", - 1);
+        final StringBuilder sb    = new StringBuilder( lines[0] );
+        for(int i = 1; i < lines.length; ++i) {
             int j = 0;
-            while (j < lines[i].length() && Character.isWhitespace(lines[i].charAt(j))) {
-                j++;
-            }
-            sb.append('\n').append(indentPrefix).append(' ').append(lines[i].substring(j));
+            while( j < lines[i].length() && Character.isWhitespace( lines[i].charAt(j) ) ) j++;
+            sb.append('\n').append(indentPrefix).append(' ').append( lines[i].substring(j) );
         }
+
         return sb.toString();
     }
 
-    /** Line-leading whitespace of the physical line containing token {@code idx} -- {@code ""} if
-     *  that line has no leading whitespace (column-0 start). */
-    private String lineIndent(final List<Token> tokens, final int idx) {
-        int newlineIdx = -1;
-        for (int i = idx; i >= 0; i--) {
-            if (tokens.get(i).type == TokenType.NEWLINE) {
+    /**
+     * Line-leading whitespace of the physical line containing token {@code idx} -- {@code ""} if
+     *  that line has no leading whitespace (column-0 start)
+     */
+    private String lineIndent(final List<Token> tokens, final int idx)
+    {
+        int newlineIdx = - 1;
+        for(int i = idx; i >= 0; --i) {
+            if( tokens.get(i).type == TokenType.NEWLINE ) {
                 newlineIdx = i;
                 break;
             }
         }
         final int afterNewline = newlineIdx + 1;
-        if (afterNewline < tokens.size() && tokens.get(afterNewline).type == TokenType.WHITESPACE) {
-            return tokens.get(afterNewline).text;
-        }
+        if( afterNewline < tokens.size() && tokens.get(
+            afterNewline
+        ).type == TokenType.WHITESPACE ) return tokens.get(
+            afterNewline
+        ).text;
+
         return "";
     }
 
-    /** Rendered column (0-based, in characters) of the physical line up to but not including
+    /**
+     * Rendered column (0-based, in characters) of the physical line up to but not including
      *  token {@code idx} -- i.e. how many characters of that line's own text precede it. Used to
-     *  compute the alignment target column for continuation-line indentation. */
-    private int lineColumnOf(final List<Token> tokens, final int idx) {
+     *  compute the alignment target column for continuation-line indentation.
+     */
+    private int lineColumnOf(final List<Token> tokens, final int idx)
+    {
         int col = 0;
-        for (int i = idx - 1; i >= 0 && tokens.get(i).type != TokenType.NEWLINE; i--) {
-            col += tokens.get(i).text.length();
-        }
+        for( int i = idx - 1; i >= 0 && tokens.get(
+            i
+        ).type != TokenType.NEWLINE; --i ) col += tokens.get(
+            i
+        ).text.length();
+
         return col;
     }
 
@@ -1099,116 +1293,132 @@ public final class JsTsSpecificRule {
      * touching a frozen token, or a shape this method doesn't recognize, is left completely
      * untouched.
      */
-    public String enforceUnionTypeContinuationIndent(final List<Token> tokens) {
-        if (!lang.isTs) {
-            return render(tokens, new HashMap<>());
-        }
+    public String enforceUnionTypeContinuationIndent(final List<Token> tokens)
+    {
+        if(!lang.isTs) return render( tokens, new HashMap<>() );
         final StringBuilder out = new StringBuilder();
-        int i = 0;
-        final int n = tokens.size();
-        while (i < n) {
+              int           i   = 0;
+        final int           n   = tokens.size();
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (t.type == TokenType.KEYWORD && "type".equals(t.text) && !t.frozen
-                    && (i == 0 || isStatementBoundary(tokens, i))) {
+            if( t.type == TokenType.KEYWORD && "type".equals(t.text) && !t.frozen
+                    && ( i == 0 || isStatementBoundary(tokens, i) ) ) {
                 final int rewritten = tryRewriteUnionTypeAlias(tokens, i, out);
-                if (rewritten > i) {
+                if(rewritten > i) {
                     i = rewritten;
                     continue;
                 }
-            }
+            } // if
             out.append(t.text);
-            i++;
-        }
+            ++i;
+        } // while
+
         return out.toString();
     }
 
-    /** True when the nearest preceding significant token to {@code idx} is a statement boundary
+    /**
+     * True when the nearest preceding significant token to {@code idx} is a statement boundary
      *  (`;`, `{`, `}`) or there isn't one (start of file/scope) -- i.e. {@code idx} can validly
-     *  start a new top-level statement. */
-    private boolean isStatementBoundary(final List<Token> tokens, final int idx) {
+     *  start a new top-level statement.
+     */
+    private boolean isStatementBoundary(final List<Token> tokens, final int idx)
+    {
         final int prevIdx = prevSignificantIndex(tokens, idx - 1);
-        if (prevIdx < 0) {
-            return true;
-        }
+        if(prevIdx < 0) return true;
         final Token prev = tokens.get(prevIdx);
+
         return isPunct(prev, ";") || isPunct(prev, "{") || isPunct(prev, "}");
     }
 
-    /** Attempts to rewrite one {@code type NAME = ...;} alias starting at the `type` keyword
+    /**
+     * Attempts to rewrite one {@code type NAME = ...;} alias starting at the `type` keyword
      *  (index {@code typeIdx}) whose RHS is a multi-line union/intersection expression, appending
      *  the rewritten text (with continuation lines re-indented) directly to {@code out} and
      *  returning the index just past the statement's `;` on success, or returning {@code typeIdx}
-     *  unchanged (having appended nothing) if this shape isn't recognized. */
-    private int tryRewriteUnionTypeAlias(final List<Token> tokens, final int typeIdx, final StringBuilder out) {
+     *  unchanged (having appended nothing) if this shape isn't recognized.
+     */
+    private int tryRewriteUnionTypeAlias(
+        final List<Token>   tokens,
+        final int           typeIdx,
+        final StringBuilder out
+    )
+    {
         final int nameIdx = nextSignificantIndex(tokens, typeIdx + 1);
-        if (nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER) {
-            return typeIdx;
-        }
+        if( nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER ) return typeIdx;
         int eqIdx = nextSignificantIndex(tokens, nameIdx + 1);
-        if (eqIdx < 0) {
-            return typeIdx;
-        }
-        if (isOp(tokens.get(eqIdx), "<")) {
+        if(eqIdx < 0) return typeIdx;
+        if( isOp( tokens.get(eqIdx), "<" ) ) {
             int depth = 0;
-            int j = eqIdx;
-            while (j < tokens.size()) {
-                if (isOp(tokens.get(j), "<")) {
-                    depth++;
-                } else if (isOp(tokens.get(j), ">")) {
-                    depth--;
-                    if (depth == 0) {
+            int j     = eqIdx;
+            while( j < tokens.size() ) {
+                if( isOp( tokens.get(j), "<" ) ) {
+                    ++depth;
+                }
+                else if( isOp( tokens.get(j), ">" ) ) {
+                    --depth;
+                    if(depth == 0) {
                         j = nextSignificantIndex(tokens, j + 1);
                         break;
                     }
                 }
                 j = nextSignificantIndex(tokens, j + 1);
-            }
+            } // while
             eqIdx = j;
-        }
-        if (eqIdx < 0 || !isOp(tokens.get(eqIdx), "=")) {
-            return typeIdx;
-        }
+        } // if
+        if( eqIdx < 0 || !isOp( tokens.get(eqIdx), "=" ) ) return typeIdx;
         final int rhsStart = nextSignificantIndex(tokens, eqIdx + 1);
-        if (rhsStart < 0) {
-            return typeIdx;
-        }
-        int semiIdx = rhsStart;
-        int depth = 0;
-        boolean hasUnion = false;
+        if(rhsStart < 0) return typeIdx;
+        int     semiIdx    = rhsStart;
+        int     depth      = 0;
+        boolean hasUnion   = false;
         boolean spansLines = false;
-        while (semiIdx < tokens.size()) {
+        while( semiIdx < tokens.size() ) {
             final Token t = tokens.get(semiIdx);
-            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
-                depth++;
-            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
-                depth--;
-            } else if (depth == 0 && isPunct(t, ";")) {
-                break;
-            } else if (depth == 0 && (isOp(t, "|") || isOp(t, "&"))) {
-                hasUnion = true;
-            } else if (t.type == TokenType.NEWLINE) {
-                spansLines = true;
-            } else if (t.frozen) {
-                return typeIdx;
-            }
-            semiIdx++;
-        }
-        if (semiIdx >= tokens.size() || !hasUnion || !spansLines) {
-            return typeIdx;
-        }
+            if( isPunct(
+                t, "("
+            ) || isPunct(
+                t, "["
+            ) || isPunct(
+                t, "{"
+            ) || t.type == TokenType.ANGLE_BRACKET_OPEN ) depth++;
+            else if( isPunct(
+                t, ")"
+            ) || isPunct(
+                t, "]"
+            ) || isPunct(
+                t, "}"
+            ) || t.type == TokenType.ANGLE_BRACKET_CLOSE ) depth--;
+            else if( depth == 0 && isPunct(t, ";") ) break;
+            else if( depth == 0 && ( isOp(t, "|") || isOp(t, "&") ) ) hasUnion = true;
+            else if(t.type == TokenType.NEWLINE) spansLines = true;
+            else if(t.frozen) return typeIdx;
+            ++semiIdx;
+        } // while
+        if( semiIdx >= tokens.size() || !hasUnion || !spansLines ) return typeIdx;
 
         final int rhsCol = lineColumnOf(tokens, rhsStart);
-        for (int k = typeIdx; k < rhsStart; k++) {
-            out.append(tokens.get(k).text);
-        }
-        int k = rhsStart;
+        for(int k = typeIdx; k < rhsStart; ++k) out.append( tokens.get(k).text );
+        int k           = rhsStart;
         int nestedDepth = 0;
-        while (k < semiIdx) {
+        while(k < semiIdx) {
             final Token t = tokens.get(k);
-            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
-                nestedDepth++;
-            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
-                nestedDepth--;
+            if( isPunct(
+                t, "("
+            ) || isPunct(
+                t, "["
+            ) || isPunct(
+                t, "{"
+            ) || t.type == TokenType.ANGLE_BRACKET_OPEN ) {
+                ++nestedDepth;
+            }
+            else if( isPunct(
+                t, ")"
+            ) || isPunct(
+                t, "]"
+            ) || isPunct(
+                t, "}"
+            ) || t.type == TokenType.ANGLE_BRACKET_CLOSE ) {
+                --nestedDepth;
             }
             // Only re-indent a continuation line that breaks at the union/intersection's own
             // top level (nestedDepth == 0) -- a NEWLINE inside a nested object-type literal
@@ -1216,23 +1426,23 @@ public final class JsTsSpecificRule {
             // shape's own indentation (already normalized by an earlier pass/ScopePipelineCurly)
             // and must be left completely untouched here, or its lines get wrongly forced onto
             // this alias's RHS column (STYLE_JS_TS.md §11.1 real-code regression).
-            if (t.type == TokenType.NEWLINE && nestedDepth == 0) {
+            if(t.type == TokenType.NEWLINE && nestedDepth == 0) {
                 out.append('\n');
-                k++;
-                while (k < semiIdx && tokens.get(k).type == TokenType.WHITESPACE) {
-                    k++;
-                }
-                final boolean breaksBeforeOperator = k < semiIdx && (isOp(tokens.get(k), "|") || isOp(tokens.get(k), "&"));
+                ++k;
+                while( k < semiIdx && tokens.get(k).type == TokenType.WHITESPACE ) k++;
+                final boolean breaksBeforeOperator = k < semiIdx&& ( isOp(
+                    tokens.get(k), "|"
+                ) || isOp(
+                    tokens.get(k), "&"
+                ) );
                 final int indent = breaksBeforeOperator ? Math.max(0, rhsCol - 2) : rhsCol;
-                for (int s = 0; s < indent; s++) {
-                    out.append(' ');
-                }
+                for(int s = 0; s < indent; ++s) out.append(' ');
                 continue;
-            }
+            } // if
             out.append(t.text);
-            k++;
-        }
-        out.append(tokens.get(semiIdx).text); // `;`
+            ++k;
+        } // while
+        out.append( tokens.get(semiIdx).text ); // `;`
         return semiIdx + 1;
     }
 
@@ -1257,44 +1467,42 @@ public final class JsTsSpecificRule {
      * arrow body written braceless stays braceless, matching §6's own worked examples, without any
      * dedicated pass).
      */
-    public String enforceArrowSpacing(final List<Token> tokens) {
-        if (!lang.isJs && !lang.isTs) {
-            return render(tokens, new HashMap<>());
-        }
-        final StringBuilder out = new StringBuilder();
-        final List<Token> gap = new ArrayList<>();
-        Token lastSignificant = null;
-        final int n = tokens.size();
-        int i = 0;
+    public String enforceArrowSpacing(final List<Token> tokens)
+    {
+        if(!lang.isJs && !lang.isTs) return render( tokens, new HashMap<>() );
+        final StringBuilder out             = new StringBuilder();
+        final List<Token>   gap             = new ArrayList<>();
+              Token         lastSignificant = null;
+        final int           n               = tokens.size();
+              int           i               = 0;
 
-        while (i < n) {
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
+            if( isGapToken(t) ) {
                 gap.add(t);
-                i++;
+                ++i;
                 continue;
             }
 
-            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
-                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean gapBlocked      = gap.stream().anyMatch(
+                g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
+            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
             final boolean adjacentToArrow = isOp(lastSignificant, "=>") || isOp(t, "=>");
 
-            if (gapBlocked || !adjacentToArrow) {
-                for (final Token g : gap) {
-                    out.append(g.text);
-                }
-            } else {
+            if(gapBlocked || !adjacentToArrow) {
+                for(final Token g : gap) out.append(g.text);
+            }
+            else {
                 out.append(' ');
             }
 
             gap.clear();
             out.append(t.text);
             lastSignificant = t;
-            i++;
-        }
-        for (final Token g : gap) {
-            out.append(g.text);
-        }
+            ++i;
+        } // while
+        for(final Token g : gap) out.append(g.text);
+
         return out.toString();
     }
 
@@ -1309,27 +1517,18 @@ public final class JsTsSpecificRule {
      * other passes: a gap containing a NEWLINE or comment between the identifier and `=>`, or
      * either token being frozen, leaves the pair untouched.
      */
-    public String enforceArrowFunctionParameterParens(final List<Token> tokens) {
-        if (!lang.isJs && !lang.isTs) {
-            return render(tokens, new HashMap<>());
-        }
+    public String enforceArrowFunctionParameterParens(final List<Token> tokens)
+    {
+        if(!lang.isJs && !lang.isTs) return render( tokens, new HashMap<>() );
         final Map<Integer, String> overrides = new HashMap<>();
-        for (int i = 0; i < tokens.size(); i++) {
+        for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (!isOp(t, "=>") || t.frozen) {
-                continue;
-            }
+            if( !isOp(t, "=>") || t.frozen ) continue;
             final int prevIdx = prevSignificantIndex(tokens, i - 1);
-            if (prevIdx < 0) {
-                continue;
-            }
+            if(prevIdx < 0) continue;
             final Token prev = tokens.get(prevIdx);
-            if (prev.type != TokenType.IDENTIFIER || prev.frozen) {
-                continue;
-            }
-            if (hasNewlineOrCommentBetween(tokens, prevIdx, i)) {
-                continue;
-            }
+            if(prev.type != TokenType.IDENTIFIER || prev.frozen) continue;
+            if( hasNewlineOrCommentBetween(tokens, prevIdx, i) ) continue;
             // TS explicit return-type annotation (`(node: Node): node is Function => {...}`,
             // `(a): SomeType => {...}`) -- the identifier immediately before `=>` is the tail of
             // the return type, not a bare single arrow parameter (a real bare-param arrow can
@@ -1368,57 +1567,60 @@ public final class JsTsSpecificRule {
             // Alternate dotted-chain and union walk-backs until neither makes progress, so chained
             // unions (`A | B | C`) and dotted union members both resolve to the true first anchor.
             int anchorIdx = prevIdx;
-            while (true) {
+            while(true) {
                 boolean moved = false;
-                while (true) {
+                while(true) {
                     final int dotIdx = prevSignificantIndex(tokens, anchorIdx - 1);
-                    if (dotIdx < 0 || !isOp(tokens.get(dotIdx), ".")) {
-                        break;
-                    }
+                    if( dotIdx < 0 || !isOp( tokens.get(dotIdx), "." ) ) break;
                     final int identIdx = prevSignificantIndex(tokens, dotIdx - 1);
-                    if (identIdx < 0 || tokens.get(identIdx).type != TokenType.IDENTIFIER) {
-                        break;
-                    }
+                    if( identIdx < 0 || tokens.get(identIdx).type != TokenType.IDENTIFIER ) break;
                     anchorIdx = identIdx;
-                    moved = true;
-                }
+                    moved     = true;
+                } // while
                 final int pipeIdx = prevSignificantIndex(tokens, anchorIdx - 1);
-                if (pipeIdx >= 0 && isOp(tokens.get(pipeIdx), "|")) {
+                if( pipeIdx >= 0 && isOp( tokens.get(pipeIdx), "|" ) ) {
                     final int identIdx = prevSignificantIndex(tokens, pipeIdx - 1);
-                    if (identIdx >= 0 && tokens.get(identIdx).type == TokenType.IDENTIFIER) {
+                    if( identIdx >= 0 && tokens.get(identIdx).type == TokenType.IDENTIFIER ) {
                         anchorIdx = identIdx;
-                        moved = true;
+                        moved     = true;
                     }
-                }
-                if (!moved) {
-                    break;
-                }
-            }
+                } // if
+                if(!moved) break;
+            } // while
             final int prevPrevIdx = prevSignificantIndex(tokens, anchorIdx - 1);
-            if (prevPrevIdx >= 0) {
+            if(prevPrevIdx >= 0) {
                 final Token prevPrev = tokens.get(prevPrevIdx);
-                if (isOp(prevPrev, ":") || (prevPrev.type == TokenType.KEYWORD
-                        && ("is".equals(prevPrev.text) || "typeof".equals(prevPrev.text) || "keyof".equals(prevPrev.text)))) {
-                    continue;
-                }
-            }
+                if( isOp(
+                    prevPrev, ":"
+                ) || ( prevPrev.type == TokenType.KEYWORD && ( "is".equals(
+                    prevPrev.text
+                ) || "typeof".equals(
+                    prevPrev.text
+                ) || "keyof".equals(
+                    prevPrev.text
+                ) ) ) ) continue;
+            } // if
             overrides.put(prevIdx, "(" + prev.text + ")");
-        }
+        } // for
+
         return render(tokens, overrides);
     }
 
     // ── §11.2 Class field modifier-priority table ────────────────────────────────────
-    /** STYLE_JS_TS.md §11.2's fixed six-slot modifier order -- `declare` first (ambient marker),
+    /**
+     * STYLE_JS_TS.md §11.2's fixed six-slot modifier order -- `declare` first (ambient marker),
      *  then visibility (`public`/`private`/`protected`, mutually exclusive so all three share one
      *  slot), then `static`, `abstract`, `override`, `readonly` last (parallels Java's `final`
-     *  taking the position right before the name). */
-    private static final List<String> MODIFIER_ORDER = Arrays.asList(
-            "declare", "public", "private", "protected", "static", "abstract", "override", "readonly");
+     *  taking the position right before the name).
+     */
+    private static final List<String>         MODIFIER_ORDER    = Arrays.asList(
+        "declare", "public", "private", "protected", "static", "abstract", "override", "readonly"
+    );
     private static final Map<String, Integer> MODIFIER_PRIORITY = new HashMap<>();
     static {
-        for (int i = 0; i < MODIFIER_ORDER.size(); i++) {
-            MODIFIER_PRIORITY.put(MODIFIER_ORDER.get(i), i);
-        }
+        for( int i = 0; i < MODIFIER_ORDER.size(); ++i ) MODIFIER_PRIORITY.put(
+            MODIFIER_ORDER.get(i), i
+        );
     }
 
     /**
@@ -1437,90 +1639,99 @@ public final class JsTsSpecificRule {
      * comment, or a frozen token in any of its internal gaps is left untouched, matching this
      * file's usual conservative bailout posture.
      */
-    public String reorderClassFieldModifiers(final List<Token> tokens) {
-        if (!lang.isTs) {
-            return render(tokens, new HashMap<>());
-        }
+    public String reorderClassFieldModifiers(final List<Token> tokens)
+    {
+        if(!lang.isTs) return render( tokens, new HashMap<>() );
         final StringBuilder out = new StringBuilder();
-        final int n = tokens.size();
-        int i = 0;
+        final int           n   = tokens.size();
+              int           i   = 0;
 
-        while (i < n) {
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isModifierKeyword(t) && !t.frozen) {
-                final List<Token> runKeywords = new ArrayList<>();
-                final List<List<Token>> gapsAfter = new ArrayList<>();
-                int j = i;
-                boolean brokenRun = false;
-                while (j < n && isModifierKeyword(tokens.get(j)) && !tokens.get(j).frozen) {
-                    runKeywords.add(tokens.get(j));
-                    int k = j + 1;
-                    final List<Token> gap = new ArrayList<>();
-                    while (k < n && isGapToken(tokens.get(k))) {
+            if( isModifierKeyword(t) && !t.frozen ) {
+                final List<Token>       runKeywords = new ArrayList<>();
+                final List<List<Token>> gapsAfter   = new ArrayList<>();
+                      int               j           = i;
+                      boolean           brokenRun   = false;
+                while( j < n && isModifierKeyword( tokens.get(j) ) && !tokens.get(j).frozen ) {
+                    runKeywords.add( tokens.get(j) );
+                      int         k   = j + 1;
+                final List<Token> gap = new ArrayList<>();
+                    while( k < n && isGapToken( tokens.get(k) ) ) {
                         final Token g = tokens.get(k);
-                        if (isComment(g) || g.type == TokenType.NEWLINE || g.frozen) {
-                            brokenRun = true;
-                        }
+                        if( isComment(
+                            g
+                        ) || g.type == TokenType.NEWLINE || g.frozen ) brokenRun = true;
                         gap.add(g);
-                        k++;
-                    }
+                        ++k;
+                    } // while
                     gapsAfter.add(gap);
-                    if (brokenRun) {
+                    if(brokenRun) {
                         j = k;
                         break;
                     }
                     j = k;
-                }
-                if (!brokenRun && runKeywords.size() >= 2) {
+                } // while
+                if( !brokenRun && runKeywords.size() >= 2 ) {
                     final List<Token> sorted = new ArrayList<>(runKeywords);
-                    sorted.sort((a, b) -> MODIFIER_PRIORITY.get(a.text) - MODIFIER_PRIORITY.get(b.text));
-                    for (int idx = 0; idx < sorted.size(); idx++) {
-                        out.append(sorted.get(idx).text);
-                        for (final Token g : gapsAfter.get(idx)) {
-                            out.append(g.text);
-                        }
+                    sorted.sort(
+                        (a, b) -> MODIFIER_PRIORITY.get(a.text) - MODIFIER_PRIORITY.get(b.text)
+                    );
+                    for( int idx = 0; idx < sorted.size(); ++idx ) {
+                        out.append( sorted.get(idx).text );
+                        for( final Token g : gapsAfter.get(idx) ) out.append(g.text);
                     }
-                } else {
-                    for (int idx = i; idx < j; idx++) {
-                        out.append(tokens.get(idx).text);
-                    }
+                } // if
+                else {
+                    for(int idx = i; idx < j; ++idx) out.append( tokens.get(idx).text );
                 }
                 i = j;
                 continue;
-            }
+            } // if
             out.append(t.text);
-            i++;
-        }
+            ++i;
+        } // while
+
         return out.toString();
     }
 
-    private boolean isModifierKeyword(final Token t) {
+    private boolean isModifierKeyword(final Token t)
+    {
         return t != null && t.type == TokenType.KEYWORD && MODIFIER_PRIORITY.containsKey(t.text);
     }
 
     // ── §12 Enum member formatting ───────────────────────────────────────────────────
-    /** One parsed enum member: an optional list of standalone (own-line) leading comments, the
+    /**
+     * One parsed enum member: an optional list of standalone (own-line) leading comments, the
      *  member's own name, whether it carries an explicit `= value` (and that value's raw text,
      *  trimmed, if so -- internal spacing within the value expression itself is left exactly as
      *  originally written, out of this method's scope), and an optional same-line trailing
      *  comment. {@code trailingComment} is mutable -- it may be discovered either immediately
      *  after the member's own name/value (before its trailing comma) or immediately after that
-     *  comma (before the next member), so it's filled in from whichever position is found. */
+     *  comma (before the next member), so it's filled in from whichever position is found.
+     */
     private static final class EnumMember {
-        private final List<String> leadingComments;
-        private final String name;
-        private final boolean hasValue;
-        private final String value;
-        private String trailingComment;
 
-        EnumMember(final List<String> leadingComments, final String name, final boolean hasValue,
-                final String value) {
+        private final List<String> leadingComments;
+        private final String       name;
+        private final boolean      hasValue;
+        private final String       value;
+        private       String       trailingComment;
+
+        EnumMember(
+            final List<String> leadingComments,
+            final String       name,
+            final boolean      hasValue,
+            final String       value
+        )
+        {
             this.leadingComments = leadingComments;
-            this.name = name;
-            this.hasValue = hasValue;
-            this.value = value;
+            this.name            = name;
+            this.hasValue        = hasValue;
+            this.value           = value;
         }
-    }
+
+    } // class EnumMember
 
     /**
      * STYLE_JS_TS.md §12: a TS enum body (`enum Name { ... }` / `const enum Name { ... }`) is
@@ -1554,212 +1765,216 @@ public final class JsTsSpecificRule {
      * member attached after it, or a member value expression spanning multiple physical lines is
      * left completely untouched rather than guessed at.
      */
-    public String enforceEnumMemberFormatting(final List<Token> tokens) {
-        final Map<Integer, Integer> braces = matchBraces(tokens);
-        final List<int[]> enumBodies = new ArrayList<>();
-        for (final Map.Entry<Integer, Integer> e : braces.entrySet()) {
-            if (isEnumBodyBrace(tokens, e.getKey())) {
-                enumBodies.add(new int[] { e.getKey(), e.getValue() });
+    public String enforceEnumMemberFormatting(final List<Token> tokens)
+    {
+        final Map<Integer, Integer> braces     = matchBraces(tokens);
+        final List<int[]>           enumBodies = new ArrayList<>();
+        for( final Map.Entry<Integer, Integer> e : braces.entrySet() ) {
+            if( isEnumBodyBrace( tokens, e.getKey() ) ) {
+                enumBodies.add( new int[] { e.getKey(), e.getValue() } );
             }
         }
-        if (enumBodies.isEmpty()) {
+        if( enumBodies.isEmpty() ) {
             final StringBuilder sb = new StringBuilder();
-            for (final Token t : tokens) {
-                sb.append(t.text);
-            }
+            for(final Token t : tokens) sb.append(t.text);
             return sb.toString();
         }
-        enumBodies.sort((a, b) -> Integer.compare(a[0], b[0]));
+        enumBodies.sort( (a, b) -> Integer.compare( a[0], b[0] ) );
 
-        final StringBuilder out = new StringBuilder();
-        int cursor = 0;
-        for (final int[] body : enumBodies) {
-            final int openIdx = body[0];
+        final StringBuilder out    = new StringBuilder();
+              int           cursor = 0;
+        for( final int[] body : enumBodies ) {
+            final int openIdx  = body[0];
             final int closeIdx = body[1];
-            if (anyFrozen(tokens, openIdx, closeIdx + 1)) {
-                continue;
-            }
+            if( anyFrozen(tokens, openIdx, closeIdx + 1) ) continue;
             final String rewritten = rewriteEnumBody(tokens, openIdx, closeIdx);
-            if (rewritten == null) {
-                continue;
-            }
-            for (int i = cursor; i <= openIdx; i++) {
-                out.append(tokens.get(i).text);
-            }
+            if(rewritten == null) continue;
+            for(int i = cursor; i <= openIdx; ++i) out.append( tokens.get(i).text );
             out.append(rewritten);
-            cursor = closeIdx; // resume from the closing `}` token itself
-        }
-        for (int i = cursor; i < tokens.size(); i++) {
-            out.append(tokens.get(i).text);
-        }
+            cursor = closeIdx; // Resume from the closing `}` token itself
+        } // for
+        for( int i = cursor; i < tokens.size(); ++i ) out.append( tokens.get(i).text );
+
         return out.toString();
     }
 
-    /** Rewrites the interior of one enum body (tokens strictly between {@code openIdx}'s `{` and
+    /**
+     * Rewrites the interior of one enum body (tokens strictly between {@code openIdx}'s `{` and
      *  {@code closeIdx}'s `}`, not including either brace) into the one-member-per-line,
      *  `=`-aligned-when-applicable layout described on {@link #enforceEnumMemberFormatting}, or
-     *  returns {@code null} if {@link #parseEnumMembers} can't safely parse it. */
-    private String rewriteEnumBody(final List<Token> tokens, final int openIdx, final int closeIdx) {
+     *  returns {@code null} if {@link #parseEnumMembers} can't safely parse it
+     */
+    private String rewriteEnumBody(final List<Token> tokens, final int openIdx, final int closeIdx)
+    {
         final List<EnumMember> members = parseEnumMembers(tokens, openIdx, closeIdx);
-        if (members == null) {
-            return null;
-        }
+        if(members == null) return null;
         int maxNameWidth = 0;
-        for (final EnumMember m : members) {
-            if (m.hasValue) {
-                maxNameWidth = Math.max(maxNameWidth, m.name.length());
-            }
+        for(final EnumMember m : members) {
+            if(m.hasValue) maxNameWidth = Math.max( maxNameWidth, m.name.length() );
         }
-        final String bodyIndent = lineIndent(tokens, openIdx);
-        final String memberIndent = bodyIndent + defaultIndentUnit;
-        final StringBuilder sb = new StringBuilder();
-        for (final EnumMember m : members) {
-            for (final String comment : m.leadingComments) {
-                sb.append('\n').append(memberIndent)
-                        .append(reindentLeadingComment(comment, memberIndent));
-            }
+        final String        bodyIndent   = lineIndent(tokens, openIdx);
+        final String        memberIndent = bodyIndent + defaultIndentUnit;
+        final StringBuilder sb           = new StringBuilder();
+        for(final EnumMember m : members) {
+            for(final String comment : m.leadingComments) sb.append(
+                '\n'
+            ).append(
+                memberIndent
+            ) .append(
+                reindentLeadingComment(comment, memberIndent)
+            );
             sb.append('\n').append(memberIndent);
-            if (m.hasValue) {
-                sb.append(padRight(m.name, maxNameWidth)).append(" = ").append(m.value);
-            } else {
-                sb.append(m.name);
-            }
+            if(m.hasValue) sb.append(
+                padRight(m.name, maxNameWidth)
+            ).append(
+                " = "
+            ).append(
+                m.value
+            );
+            else sb.append(m.name);
             sb.append(',');
-            if (m.trailingComment != null) {
-                sb.append("  ").append(m.trailingComment);
-            }
-        }
+            if(m.trailingComment != null) sb.append("  ").append(m.trailingComment);
+        } // for
         sb.append('\n').append(bodyIndent);
+
         return sb.toString();
     }
 
-    /** Parses an enum body's interior (between {@code openIdx} and {@code closeIdx}, exclusive)
+    /**
+     * Parses an enum body's interior (between {@code openIdx} and {@code closeIdx}, exclusive)
      *  into an ordered list of {@link EnumMember}s via a single forward scan, tracking whether the
      *  most recently seen top-level separator was a comma on the *same physical line* as what
      *  follows it (so a same-line trailing comment right after a member's own comma is correctly
      *  attributed back to that member, not misread as a standalone leading comment for the next
      *  one). Returns {@code null} (bail, leave this enum body untouched) if a non-identifier
      *  top-level token is found where a member name is expected, if a member's value expression
-     *  spans a NEWLINE, or if a floating comment is left with no member following it. */
-    private List<EnumMember> parseEnumMembers(final List<Token> tokens, final int openIdx, final int closeIdx) {
-        final List<EnumMember> members = new ArrayList<>();
-        final List<String> leadingComments = new ArrayList<>();
-        boolean sameLineAsPrevSeparator = false;
-        int i = openIdx + 1;
-        while (i < closeIdx) {
+     *  spans a NEWLINE, or if a floating comment is left with no member following it.
+     */
+    private List<EnumMember> parseEnumMembers(
+        final List<Token> tokens,
+        final int         openIdx,
+        final int         closeIdx
+    )
+    {
+        final List<EnumMember> members                 = new ArrayList<>();
+        final List<String>     leadingComments         = new ArrayList<>();
+              boolean          sameLineAsPrevSeparator = false;
+              int              i                       = openIdx + 1;
+        while(i < closeIdx) {
             final Token t = tokens.get(i);
-            if (t.type == TokenType.WHITESPACE) {
-                i++;
+            if(t.type == TokenType.WHITESPACE) {
+                ++i;
                 continue;
             }
-            if (t.type == TokenType.NEWLINE) {
+            if(t.type == TokenType.NEWLINE) {
                 sameLineAsPrevSeparator = false;
-                i++;
+                ++i;
                 continue;
             }
-            if (isPunct(t, ",")) {
+            if( isPunct(t, ",") ) {
                 sameLineAsPrevSeparator = true;
-                i++;
+                ++i;
                 continue;
             }
-            if (isComment(t)) {
-                if (sameLineAsPrevSeparator && !members.isEmpty()) {
-                    members.get(members.size() - 1).trailingComment = t.text;
-                } else {
-                    leadingComments.add(t.text);
-                }
-                i++;
+            if( isComment(t) ) {
+                if( sameLineAsPrevSeparator && !members.isEmpty() ) members.get(
+                    members.size() - 1
+                ).trailingComment = t.text;
+                else leadingComments.add(t.text);
+                ++i;
                 continue;
-            }
-            if (t.type != TokenType.IDENTIFIER) {
-                return null;
-            }
+            } // if
+            if(t.type != TokenType.IDENTIFIER) return null;
             final String name = t.text;
-            i++;
-            while (i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE) {
-                i++;
-            }
+            ++i;
+            while( i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE ) i++;
             boolean hasValue = false;
-            String value = null;
-            if (i < closeIdx && isOp(tokens.get(i), "=")) {
+            String  value    = null;
+            if( i < closeIdx && isOp( tokens.get(i), "=" ) ) {
                 hasValue = true;
-                i++;
+                ++i;
                 final StringBuilder valueBuf = new StringBuilder();
-                int depth = 0;
-                while (i < closeIdx) {
+                      int           depth    = 0;
+                while(i < closeIdx) {
                     final Token vt = tokens.get(i);
-                    if (depth == 0 && (isPunct(vt, ",") || isComment(vt))) {
-                        break;
-                    }
-                    if (depth == 0 && vt.type == TokenType.NEWLINE) {
+                    if( depth == 0 && ( isPunct(vt, ",") || isComment(vt) ) ) break;
+                    if(depth == 0 && vt.type == TokenType.NEWLINE) {
                         // Ends the value here rather than bailing the whole enum: this is
                         // overwhelmingly the last member with no trailing comma before `}`
-                        // (`Pending=3\n}`), not an actual multi-line value expression.
+                        // (`Pending=3\n}`), not an actual multi-line value expression
                         break;
                     }
-                    if (isPunct(vt, "(") || isPunct(vt, "[") || isPunct(vt, "{")) {
-                        depth++;
-                    } else if (isPunct(vt, ")") || isPunct(vt, "]") || isPunct(vt, "}")) {
-                        depth--;
-                    }
+                    if( isPunct(vt, "(") || isPunct(vt, "[") || isPunct(vt, "{") ) depth++;
+                    else if( isPunct(vt, ")") || isPunct(vt, "]") || isPunct(vt, "}") ) depth--;
                     valueBuf.append(vt.text);
-                    i++;
-                }
+                    ++i;
+                } // while
                 value = valueBuf.toString().trim();
-            }
+            } // if
             // A same-line trailing comment can sit directly after the name/value, before the
-            // member's own trailing comma (less common than after the comma, but valid).
-            while (i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE) {
-                i++;
-            }
+            // member's own trailing comma (less common than after the comma, but valid)
+            while( i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE ) i++;
             String trailingComment = null;
-            if (i < closeIdx && isComment(tokens.get(i))) {
+            if( i < closeIdx && isComment( tokens.get(i) ) ) {
                 trailingComment = tokens.get(i).text;
-                i++;
+                ++i;
             }
-            final EnumMember member = new EnumMember(new ArrayList<>(leadingComments), name, hasValue, value);
+            final EnumMember member = new EnumMember(
+                new ArrayList<>(leadingComments), name, hasValue, value
+            );
             member.trailingComment = trailingComment;
             leadingComments.clear();
             members.add(member);
             sameLineAsPrevSeparator = false;
-        }
-        if (!leadingComments.isEmpty()) {
-            return null; // a floating comment with no member attached after it -- don't drop it
-        }
+        } // while
+        if( !leadingComments.isEmpty() ) return null; // A floating comment with no member attached after it -- don't drop it
         return members.isEmpty() ? null : members;
     }
 
     // ── §11.2 Class field declaration-alignment grid ──────────────────────────────────
-    private static final Set<String> CLASS_FIELD_MODIFIERS = new HashSet<>(Arrays.asList(
-            "declare", "public", "private", "protected", "static", "abstract", "override", "readonly"));
+    private static final Set<String> CLASS_FIELD_MODIFIERS = new HashSet<>( Arrays.asList(
+        "declare", "public", "private", "protected", "static", "abstract", "override", "readonly"
+    ) );
 
-    /** One parsed simple class-field declaration (`[modifiers] name[?][: type][ = init];`) inside
+    /**
+     * One parsed simple class-field declaration (`[modifiers] name[?][: type][ = init];`) inside
      *  a class body -- the class-body analog of {@link InterfaceMember}, plus the modifier phrase
-     *  and optional initializer §11.2 field declarations carry that interface members never do. */
+     *  and optional initializer §11.2 field declarations carry that interface members never do.
+     */
     private static final class ClassField {
-        private final List<String> leadingComments;
-        private final String modifierPhrase; // "" if no modifiers
-        private final String name;
-        private final String type;
-        private final boolean hasValue;
-        private final String value; // null unless hasValue
-        private String trailingComment;
-        private final int startIdx;
-        private final int endIdx; // exclusive: index of the first token of whatever follows
 
-        ClassField(final List<String> leadingComments, final String modifierPhrase, final String name,
-                final String type, final boolean hasValue, final String value, final int startIdx,
-                final int endIdx) {
+        private final List<String> leadingComments;
+        private final String       modifierPhrase;  // "" if no modifiers
+        private final String       name;
+        private final String       type;
+        private final boolean      hasValue;
+        private final String       value;           // null unless hasValue
+        private       String       trailingComment;
+        private final int          startIdx;
+        private final int          endIdx;          // Exclusive: index of the first token of whatever follows
+
+        ClassField(
+            final List<String> leadingComments,
+            final String       modifierPhrase,
+            final String       name,
+            final String       type,
+            final boolean      hasValue,
+            final String       value,
+            final int          startIdx,
+            final int          endIdx
+        )
+        {
             this.leadingComments = leadingComments;
-            this.modifierPhrase = modifierPhrase;
-            this.name = name;
-            this.type = type;
-            this.hasValue = hasValue;
-            this.value = value;
-            this.startIdx = startIdx;
-            this.endIdx = endIdx;
+            this.modifierPhrase  = modifierPhrase;
+            this.name            = name;
+            this.type            = type;
+            this.hasValue        = hasValue;
+            this.value           = value;
+            this.startIdx        = startIdx;
+            this.endIdx          = endIdx;
         }
-    }
+
+    } // class ClassField
 
     /**
      * STYLE_JS_TS.md §11.2: consecutive simple class-field declarations (no blank line separating
@@ -1773,17 +1988,18 @@ public final class JsTsSpecificRule {
      * {@link #enforceInterfaceTypeAliasMemberColonAlignment}, but per-group rather than per-whole-
      * body, since a class body (unlike an interface) routinely mixes fields with methods.
      */
-    public String enforceClassFieldAlignmentGrid(final List<Token> tokens) {
-        if (!lang.isTs) {
-            return render(tokens, new HashMap<>());
-        }
-        final Map<Integer, Integer> braces = matchBraces(tokens);
-        final List<Integer> allClassOpens = new ArrayList<>();
-        for (final Map.Entry<Integer, Integer> e : braces.entrySet()) {
-            if ("CLASS".equals(classBraceKind(tokens, e.getKey()))) {
-                allClassOpens.add(e.getKey());
-            }
-        }
+    public String enforceClassFieldAlignmentGrid(final List<Token> tokens)
+    {
+        if(!lang.isTs) return render( tokens, new HashMap<>() );
+        final Map<Integer, Integer> braces        = matchBraces(tokens);
+        final List<Integer>         allClassOpens = new ArrayList<>();
+        for( final Map.Entry<Integer, Integer> e : braces.entrySet() ) {
+            if( "CLASS".equals(
+                classBraceKind( tokens, e.getKey() )
+            ) ) allClassOpens.add(
+                e.getKey()
+            );
+        } // for
         allClassOpens.sort(Integer::compare);
         // A class body can legitimately nest another class (e.g. an anonymous `return class
         // extends Base { ... };` expression inside an outer class's method, seen in nestjs/nest's
@@ -1799,91 +2015,93 @@ public final class JsTsSpecificRule {
         // the alignment-grid treatment (same conservative "only rewrite what's fully understood"
         // posture as the rest of this method -- extending the grid into nested class bodies is
         // future work, not a regression from before this fix).
-        final List<Integer> classOpens = new ArrayList<>();
-        int coveredUntil = -1;
-        for (final int openIdx : allClassOpens) {
-            if (openIdx < coveredUntil) {
-                continue; // nested inside an already-selected outer class -- skip
-            }
+        final List<Integer> classOpens   = new ArrayList<>();
+              int           coveredUntil = - 1;
+        for(final int openIdx : allClassOpens) {
+            if(openIdx < coveredUntil) continue; // Nested inside an already-selected outer class -- skip
             classOpens.add(openIdx);
             coveredUntil = braces.get(openIdx);
         }
 
-        final StringBuilder out = new StringBuilder();
-        int cursor = 0;
-        for (final int openIdx : classOpens) {
+        final StringBuilder out    = new StringBuilder();
+              int           cursor = 0;
+        for(final int openIdx : classOpens) {
             final int closeIdx = braces.get(openIdx);
-            if (anyFrozen(tokens, openIdx, closeIdx + 1)) {
-                continue;
-            }
+            if( anyFrozen(tokens, openIdx, closeIdx + 1) ) continue;
             final String rewritten = rewriteClassFieldGroups(tokens, openIdx, closeIdx);
-            if (rewritten == null) {
-                continue;
-            }
-            for (int i = cursor; i <= openIdx; i++) {
-                out.append(tokens.get(i).text);
-            }
+            if(rewritten == null) continue;
+            for(int i = cursor; i <= openIdx; ++i) out.append( tokens.get(i).text );
             out.append(rewritten);
             cursor = closeIdx;
-        }
-        for (int i = cursor; i < tokens.size(); i++) {
-            out.append(tokens.get(i).text);
-        }
+        } // for
+        for( int i = cursor; i < tokens.size(); ++i ) out.append( tokens.get(i).text );
+
         return out.toString();
     }
 
-    /** Rewrites the interior of one class body (strictly between {@code openIdx}'s `{` and
+    /**
+     * Rewrites the interior of one class body (strictly between {@code openIdx}'s `{` and
      *  {@code closeIdx}'s `}`), aligning each maximal run of consecutive simple field declarations
      *  and copying everything else (methods, blank lines, comments that aren't a field's own
-     *  leading comment) through byte-for-byte. */
-    private String rewriteClassFieldGroups(final List<Token> tokens, final int openIdx, final int closeIdx) {
-        final StringBuilder out = new StringBuilder();
-        final List<ClassField> group = new ArrayList<>();
-        final List<String> leadingComments = new ArrayList<>();
-        int copyFrom = openIdx + 1;
-        int i = openIdx + 1;
+     *  leading comment) through byte-for-byte
+     */
+    private String rewriteClassFieldGroups(
+        final List<Token> tokens,
+        final int         openIdx,
+        final int         closeIdx
+    )
+    {
+        final StringBuilder    out             = new StringBuilder();
+        final List<ClassField> group           = new ArrayList<>();
+        final List<String>     leadingComments = new ArrayList<>();
+              int              copyFrom        = openIdx + 1;
+              int              i               = openIdx + 1;
         // Tracks where leadingComments' first comment token started, so the blank-line
         // preservation below can stop before it -- flushClassFieldGroup renders each leading
         // comment with its own trailing newline, so counting the newline after it here too
-        // would double it up.
-        int leadingCommentsStartIdx = -1;
-        while (i < closeIdx) {
+        // would double it up
+        int leadingCommentsStartIdx = - 1;
+        while(i < closeIdx) {
             final Token t = tokens.get(i);
-            if (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE) {
-                i++;
+            if(t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE) {
+                ++i;
                 continue;
             }
-            if (isComment(t)) {
-                if (leadingComments.isEmpty()) {
-                    leadingCommentsStartIdx = i;
-                }
+            if( isComment(t) ) {
+                if( leadingComments.isEmpty() ) leadingCommentsStartIdx = i;
                 leadingComments.add(t.text);
-                i++;
+                ++i;
                 continue;
             }
-            final ClassField field = tryParseClassField(tokens, i, closeIdx, new ArrayList<>(leadingComments));
-            if (field == null) {
-                if (flushClassFieldGroup(tokens, group, openIdx, out)) {
-                    copyFrom = skipOneNewline(tokens, copyFrom);
-                }
+            final ClassField field = tryParseClassField(
+                tokens, i, closeIdx, new ArrayList<>(leadingComments)
+            );
+            if(field == null) {
+                if( flushClassFieldGroup(
+                    tokens, group, openIdx, out
+                ) ) copyFrom = skipOneNewline(
+                    tokens, copyFrom
+                );
                 leadingComments.clear();
                 leadingCommentsStartIdx = -1;
                 // Not a recognized simple field -- copy raw source through untouched from
-                // copyFrom up to this member's own end, then resume grouping after it.
+                // copyFrom up to this member's own end, then resume grouping after it
                 final int memberEnd = skipTopLevelMember(tokens, i, closeIdx);
-                for (int k = copyFrom; k < memberEnd; k++) {
-                    out.append(tokens.get(k).text);
-                }
+                for(int k = copyFrom; k < memberEnd; ++k) out.append( tokens.get(k).text );
                 copyFrom = memberEnd;
-                i = memberEnd;
+                i        = memberEnd;
                 continue;
-            }
-            if (blankLineBetween(tokens, group.isEmpty() ? -1 : lastFieldEnd(group), field.startIdx)) {
-                if (flushClassFieldGroup(tokens, group, openIdx, out)) {
-                    copyFrom = skipOneNewline(tokens, copyFrom);
-                }
-            }
-            if (group.isEmpty()) {
+            } // if
+            if( blankLineBetween(
+                tokens, group.isEmpty() ? -1 : lastFieldEnd(group), field.startIdx
+            ) ) {
+                if( flushClassFieldGroup(
+                    tokens, group, openIdx, out
+                ) ) copyFrom = skipOneNewline(
+                    tokens, copyFrom
+                );
+            } // if
+            if( group.isEmpty() ) {
                 // Preserve any blank line(s) between the previous content and this group's first
                 // field, but drop the trailing indentation whitespace -- flushClassFieldGroup
                 // supplies its own indent for the first rendered field, so copying raw
@@ -1891,265 +2109,277 @@ public final class JsTsSpecificRule {
                 // flushClassFieldGroup renders that comment (and its own trailing newline)
                 // separately below.
                 final int rawCopyEnd = leadingCommentsStartIdx >= 0 ? leadingCommentsStartIdx : i;
-                for (int k = copyFrom; k < rawCopyEnd; k++) {
-                    if (tokens.get(k).type == TokenType.NEWLINE) {
-                        out.append('\n');
-                    }
+                for(int k = copyFrom; k < rawCopyEnd; ++k) {
+                    if( tokens.get(k).type == TokenType.NEWLINE ) out.append('\n');
                 }
-            }
+            } // if
             group.add(field);
             leadingComments.clear();
             leadingCommentsStartIdx = -1;
-            copyFrom = field.endIdx;
-            i = field.endIdx;
-        }
-        if (flushClassFieldGroup(tokens, group, openIdx, out)) {
-            copyFrom = skipOneNewline(tokens, copyFrom);
-        }
-        if (!leadingComments.isEmpty()) {
-            // A floating comment with nothing after it -- copy it through untouched.
-            for (int k = copyFrom; k < closeIdx; k++) {
-                out.append(tokens.get(k).text);
-            }
+            copyFrom                = field.endIdx;
+            i                       = field.endIdx;
+        } // while
+        if( flushClassFieldGroup(
+            tokens, group, openIdx, out
+        ) ) copyFrom = skipOneNewline(
+            tokens, copyFrom
+        );
+        if( !leadingComments.isEmpty() ) {
+            // A floating comment with nothing after it -- copy it through untouched
+            for(int k = copyFrom; k < closeIdx; ++k) out.append( tokens.get(k).text );
             copyFrom = closeIdx;
         }
-        for (int k = copyFrom; k < closeIdx; k++) {
-            out.append(tokens.get(k).text);
-        }
+        for(int k = copyFrom; k < closeIdx; ++k) out.append( tokens.get(k).text );
+
         return out.toString();
     }
 
-    private int lastFieldEnd(final List<ClassField> group) {
-        return group.get(group.size() - 1).endIdx;
+    private int lastFieldEnd(final List<ClassField> group)
+    {
+        return group.get( group.size() - 1 ).endIdx;
     }
 
-    /** If the token at {@code idx} is a NEWLINE, returns {@code idx + 1}; otherwise returns
+    /**
+     * If the token at {@code idx} is a NEWLINE, returns {@code idx + 1}; otherwise returns
      *  {@code idx} unchanged. Used right after {@link #flushClassFieldGroup} to avoid
      *  double-counting the line-ending newline its own rendering already emitted for the last
-     *  member, before any subsequent raw-copy span starting at that same position. */
-    private int skipOneNewline(final List<Token> tokens, final int idx) {
+     *  member, before any subsequent raw-copy span starting at that same position.
+     */
+    private int skipOneNewline(final List<Token> tokens, final int idx)
+    {
         return idx < tokens.size() && tokens.get(idx).type == TokenType.NEWLINE ? idx + 1 : idx;
     }
 
-    /** True when two or more NEWLINE tokens (a genuine blank line) appear in {@code tokens}
+    /**
+     * True when two or more NEWLINE tokens (a genuine blank line) appear in {@code tokens}
      *  between {@code fromIdx} (exclusive; -1 means "no prior field, never a blank-line break")
-     *  and {@code toIdx} (exclusive). */
-    private boolean blankLineBetween(final List<Token> tokens, final int fromIdx, final int toIdx) {
-        if (fromIdx < 0) {
-            return false;
-        }
+     *  and {@code toIdx} (exclusive)
+     */
+    private boolean blankLineBetween(final List<Token> tokens, final int fromIdx, final int toIdx)
+    {
+        if(fromIdx < 0) return false;
         int newlineCount = 0;
-        for (int i = fromIdx; i < toIdx; i++) {
-            if (tokens.get(i).type == TokenType.NEWLINE) {
-                newlineCount++;
-            }
+        for(int i = fromIdx; i < toIdx; ++i) {
+            if( tokens.get(i).type == TokenType.NEWLINE ) newlineCount++;
         }
+
         return newlineCount >= 2;
     }
 
-    /** Renders {@code group} (if non-empty) as an aligned grid into {@code out}, then clears it.
-     *  Returns {@code true} iff anything was flushed (group was non-empty). */
-    private boolean flushClassFieldGroup(final List<Token> tokens, final List<ClassField> group,
-            final int classOpenIdx, final StringBuilder out) {
-        if (group.isEmpty()) {
-            return false;
-        }
-        int maxModifierWidth = 0;
-        int maxNameWidth = 0;
-        int maxTypeWidthAmongValued = 0;
-        boolean anyValued = false;
-        for (final ClassField f : group) {
-            maxModifierWidth = Math.max(maxModifierWidth, f.modifierPhrase.length());
-            maxNameWidth = Math.max(maxNameWidth, f.name.length());
-            if (f.hasValue) {
-                anyValued = true;
-                maxTypeWidthAmongValued = Math.max(maxTypeWidthAmongValued, f.type.length());
+    /**
+     * Renders {@code group} (if non-empty) as an aligned grid into {@code out}, then clears it.
+     *  Returns {@code true} iff anything was flushed (group was non-empty).
+     */
+    private boolean flushClassFieldGroup(
+        final List<Token>      tokens,
+        final List<ClassField> group,
+        final int              classOpenIdx,
+        final StringBuilder    out
+    )
+    {
+        if( group.isEmpty() ) return false;
+        int     maxModifierWidth        = 0;
+        int     maxNameWidth            = 0;
+        int     maxTypeWidthAmongValued = 0;
+        boolean anyValued               = false;
+        for(final ClassField f : group) {
+            maxModifierWidth = Math.max( maxModifierWidth, f.modifierPhrase.length() );
+            maxNameWidth     = Math.max( maxNameWidth, f.name.length() );
+            if(f.hasValue) {
+                anyValued               = true;
+                maxTypeWidthAmongValued = Math.max( maxTypeWidthAmongValued, f.type.length() );
             }
-        }
+        } // for
         final String memberIndent = lineIndent(tokens, classOpenIdx) + defaultIndentUnit;
-        for (final ClassField f : group) {
-            for (final String comment : f.leadingComments) {
-                out.append(memberIndent)
-                        .append(reindentLeadingComment(comment, memberIndent))
-                        .append('\n');
-            }
+        for(final ClassField f : group) {
+            for(final String comment : f.leadingComments) out.append(
+                memberIndent
+            ) .append(
+                reindentLeadingComment(comment, memberIndent)
+            ) .append(
+                '\n'
+            );
             out.append(memberIndent);
-            if (maxModifierWidth > 0) {
-                out.append(padRight(f.modifierPhrase, maxModifierWidth)).append(' ');
-            }
-            out.append(padRight(f.name, maxNameWidth)).append(" : ");
-            if (f.hasValue) {
-                out.append(padRight(f.type, maxTypeWidthAmongValued)).append(" = ").append(f.value);
-            } else {
-                out.append(anyValued ? padRight(f.type, maxTypeWidthAmongValued) : f.type);
-            }
+            if(maxModifierWidth > 0) out.append(
+                padRight(f.modifierPhrase, maxModifierWidth)
+            ).append(
+                ' '
+            );
+            out.append( padRight(f.name, maxNameWidth) ).append(" : ");
+            if(f.hasValue) out.append(
+                padRight(f.type, maxTypeWidthAmongValued)
+            ).append(
+                " = "
+            ).append(
+                f.value
+            );
+            else out.append( anyValued ? padRight(f.type, maxTypeWidthAmongValued) : f.type );
             out.append(';');
-            if (f.trailingComment != null) {
-                out.append("  ").append(f.trailingComment);
-            }
+            if(f.trailingComment != null) out.append("  ").append(f.trailingComment);
             out.append('\n');
-        }
+        } // for
         group.clear();
+
         return true;
     }
 
-    /** Attempts to parse a simple class-field declaration starting at {@code start} (already
+    /**
+     * Attempts to parse a simple class-field declaration starting at {@code start} (already
      *  known to be a non-comment, non-gap token). Returns {@code null} if this isn't a recognized
-     *  field shape (a method, an untyped/computed member, a multi-line type/initializer, ...). */
-    private ClassField tryParseClassField(final List<Token> tokens, final int start, final int closeIdx,
-            final List<String> leadingComments) {
-        int i = start;
-        final StringBuilder modPhrase = new StringBuilder();
-        while (i < closeIdx && tokens.get(i).type == TokenType.KEYWORD && CLASS_FIELD_MODIFIERS.contains(tokens.get(i).text)) {
-            if (modPhrase.length() > 0) {
-                modPhrase.append(' ');
-            }
-            modPhrase.append(tokens.get(i).text);
+     *  field shape (a method, an untyped/computed member, a multi-line type/initializer, ...).
+     */
+    private ClassField tryParseClassField(
+        final List<Token>  tokens,
+        final int          start,
+        final int          closeIdx,
+        final List<String> leadingComments
+    )
+    {
+          int           i         = start;
+    final StringBuilder modPhrase = new StringBuilder();
+        while( i < closeIdx && tokens.get(
+            i
+        ).type == TokenType.KEYWORD && CLASS_FIELD_MODIFIERS.contains(
+            tokens.get(i).text
+        ) ) {
+            if( modPhrase.length() > 0 ) modPhrase.append(' ');
+            modPhrase.append( tokens.get(i).text );
             i = nextSignificantIndex(tokens, i + 1);
-            if (i < 0 || i >= closeIdx) {
-                return null;
-            }
+            if(i < 0 || i >= closeIdx) return null;
         }
-        if (tokens.get(i).type != TokenType.IDENTIFIER) {
-            return null;
-        }
+        if( tokens.get(i).type != TokenType.IDENTIFIER ) return null;
         String name = tokens.get(i).text;
         i = nextSignificantIndex(tokens, i + 1);
-        if (i < 0 || i >= closeIdx) {
-            return null;
-        }
-        if (isOp(tokens.get(i), "?") || isOp(tokens.get(i), "!")) {
+        if(i < 0 || i >= closeIdx) return null;
+        if( isOp( tokens.get(i), "?" ) || isOp( tokens.get(i), "!" ) ) {
             name = name + tokens.get(i).text;
-            i = nextSignificantIndex(tokens, i + 1);
-            if (i < 0 || i >= closeIdx) {
-                return null;
-            }
+            i    = nextSignificantIndex(tokens, i + 1);
+            if(i < 0 || i >= closeIdx) return null;
         }
-        if (isPunct(tokens.get(i), "(") || tokens.get(i).type == TokenType.ANGLE_BRACKET_OPEN) {
-            return null; // method, not a field
-        }
-        if (!isOp(tokens.get(i), ":")) {
-            return null; // untyped field -- out of this grid's scope
-        }
+        if( isPunct(
+            tokens.get(i), "("
+        ) || tokens.get(
+            i
+        ).type == TokenType.ANGLE_BRACKET_OPEN ) return null; // Method, not a field
+        if( !isOp( tokens.get(i), ":" ) ) return null; // Untyped field -- out of this grid's scope
         i = nextSignificantIndex(tokens, i + 1);
-        if (i < 0 || i >= closeIdx) {
-            return null;
-        }
+        if(i < 0 || i >= closeIdx) return null;
         final StringBuilder typeBuf = new StringBuilder();
-        int depth = 0;
-        while (i < closeIdx) {
+              int           depth   = 0;
+        while(i < closeIdx) {
             final Token vt = tokens.get(i);
-            if (depth == 0 && (isPunct(vt, ";") || isOp(vt, "="))) {
-                break;
-            }
-            if (vt.type == TokenType.NEWLINE) {
-                return null; // multi-line type expression -- rare, not handled
-            }
-            if (isPunct(vt, "(") || isPunct(vt, "[") || isPunct(vt, "{") || vt.type == TokenType.ANGLE_BRACKET_OPEN) {
-                depth++;
-            } else if (isPunct(vt, ")") || isPunct(vt, "]") || isPunct(vt, "}") || vt.type == TokenType.ANGLE_BRACKET_CLOSE) {
-                depth--;
-            }
+            if( depth == 0 && ( isPunct(vt, ";") || isOp(vt, "=") ) ) break;
+            if(vt.type == TokenType.NEWLINE) return null; // Multi-line type expression -- rare, not handled
+            if( isPunct(
+                vt, "("
+            ) || isPunct(
+                vt, "["
+            ) || isPunct(
+                vt, "{"
+            ) || vt.type == TokenType.ANGLE_BRACKET_OPEN ) depth++;
+            else if( isPunct(
+                vt, ")"
+            ) || isPunct(
+                vt, "]"
+            ) || isPunct(
+                vt, "}"
+            ) || vt.type == TokenType.ANGLE_BRACKET_CLOSE ) depth--;
             typeBuf.append(vt.text);
-            i++;
-        }
+            ++i;
+        } // while
         final String type = typeBuf.toString().trim();
-        if (type.isEmpty() || i >= closeIdx) {
-            return null;
-        }
+        if( type.isEmpty() || i >= closeIdx ) return null;
         i = nextSignificantIndex(tokens, i);
-        if (i < 0 || i >= closeIdx) {
-            return null;
-        }
+        if(i < 0 || i >= closeIdx) return null;
         boolean hasValue = false;
-        String value = null;
-        if (isOp(tokens.get(i), "=")) {
+        String  value    = null;
+        if( isOp( tokens.get(i), "=" ) ) {
             hasValue = true;
-            i = nextSignificantIndex(tokens, i + 1);
-            if (i < 0 || i >= closeIdx) {
-                return null;
-            }
+            i        = nextSignificantIndex(tokens, i + 1);
+            if(i < 0 || i >= closeIdx) return null;
             final StringBuilder valueBuf = new StringBuilder();
             depth = 0;
-            while (i < closeIdx) {
+            while(i < closeIdx) {
                 final Token vt = tokens.get(i);
-                if (depth == 0 && isPunct(vt, ";")) {
-                    break;
-                }
-                if (vt.type == TokenType.NEWLINE) {
-                    return null; // multi-line initializer -- rare, not handled
-                }
-                if (isPunct(vt, "(") || isPunct(vt, "[") || isPunct(vt, "{")) {
-                    depth++;
-                } else if (isPunct(vt, ")") || isPunct(vt, "]") || isPunct(vt, "}")) {
-                    depth--;
-                }
+                if( depth == 0 && isPunct(vt, ";") ) break;
+                if(vt.type == TokenType.NEWLINE) return null; // Multi-line initializer -- rare, not handled
+                if( isPunct(vt, "(") || isPunct(vt, "[") || isPunct(vt, "{") ) depth++;
+                else if( isPunct(vt, ")") || isPunct(vt, "]") || isPunct(vt, "}") ) depth--;
                 valueBuf.append(vt.text);
-                i++;
-            }
+                ++i;
+            } // while
             value = valueBuf.toString().trim();
-            if (value.isEmpty() || i >= closeIdx) {
-                return null;
-            }
+            if( value.isEmpty() || i >= closeIdx ) return null;
             i = nextSignificantIndex(tokens, i);
-            if (i < 0 || i >= closeIdx) {
-                return null;
-            }
-        }
-        if (!isPunct(tokens.get(i), ";")) {
-            return null;
-        }
+            if(i < 0 || i >= closeIdx) return null;
+        } // if
+        if( !isPunct( tokens.get(i), ";" ) ) return null;
         int endIdx = i + 1;
-        // A same-line trailing comment travels with the field.
+        // A same-line trailing comment travels with the field
         String trailingComment = null;
-        int afterSemi = endIdx;
-        while (afterSemi < closeIdx && tokens.get(afterSemi).type == TokenType.WHITESPACE) {
-            afterSemi++;
-        }
-        if (afterSemi < closeIdx && isComment(tokens.get(afterSemi))) {
+        int    afterSemi       = endIdx;
+        while( afterSemi < closeIdx && tokens.get(
+            afterSemi
+        ).type == TokenType.WHITESPACE ) afterSemi++;
+        if( afterSemi < closeIdx && isComment( tokens.get(afterSemi) ) ) {
             trailingComment = tokens.get(afterSemi).text;
-            endIdx = afterSemi + 1;
+            endIdx          = afterSemi + 1;
         }
-        final ClassField field = new ClassField(leadingComments, modPhrase.toString(), name, type, hasValue,
-                value, start, endIdx);
+        final ClassField field = new ClassField(
+            leadingComments, modPhrase.toString(), name, type, hasValue, value, start, endIdx
+        );
         field.trailingComment = trailingComment;
+
         return field;
     }
 
-    /** Skips forward from {@code start} (a member this pass doesn't recognize -- a method, an
+    /**
+     * Skips forward from {@code start} (a member this pass doesn't recognize -- a method, an
      *  untyped field, etc.) past that member's own end: either a depth-0 `;` or, for a member
      *  with its own brace body (a method), the matching `}` of that body. Bracket-depth-aware over
-     *  `(`/`[`/`{`/`<>` so nested structure never trips an early depth-0 match. */
-    private int skipTopLevelMember(final List<Token> tokens, final int start, final int closeIdx) {
+     *  `(`/`[`/`{`/`<>` so nested structure never trips an early depth-0 match.
+     */
+    private int skipTopLevelMember(final List<Token> tokens, final int start, final int closeIdx)
+    {
         int depth = 0;
-        int i = start;
-        while (i < closeIdx) {
+        int i     = start;
+        while(i < closeIdx) {
             final Token t = tokens.get(i);
-            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
-                depth++;
-            } else if (isPunct(t, ")") || isPunct(t, "]") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
-                depth--;
-            } else if (isPunct(t, "}")) {
-                depth--;
-                if (depth == 0) {
-                    return i + 1;
-                }
-            } else if (depth == 0 && isPunct(t, ";")) {
+            if( isPunct(
+                t, "("
+            ) || isPunct(
+                t, "["
+            ) || isPunct(
+                t, "{"
+            ) || t.type == TokenType.ANGLE_BRACKET_OPEN ) {
+                ++depth;
+            }
+            else if( isPunct(
+                t, ")"
+            ) || isPunct(
+                t, "]"
+            ) || t.type == TokenType.ANGLE_BRACKET_CLOSE ) {
+                --depth;
+            }
+            else if( isPunct(t, "}") ) {
+                --depth;
+                if(depth == 0) return i + 1;
+            }
+            else if( depth == 0 && isPunct(t, ";") ) {
                 return i + 1;
             }
-            i++;
-        }
+            ++i;
+        } // while
+
         return closeIdx;
     }
 
-    private static String padRight(final String s, final int width) {
-        if (s.length() >= width) {
-            return s;
-        }
+    private static String padRight(final String s, final int width)
+    {
+        if( s.length() >= width ) return s;
         final StringBuilder sb = new StringBuilder(s);
-        while (sb.length() < width) {
-            sb.append(' ');
-        }
+        while( sb.length() < width ) sb.append(' ');
+
         return sb.toString();
     }
 
@@ -2172,49 +2402,52 @@ public final class JsTsSpecificRule {
      * already blocked by an embedded NEWLINE is left alone by the same conservative bailout every
      * other pass in this file uses.
      */
-    public String enforceUnionIntersectionSpacing(final List<Token> tokens) {
-        if (!lang.isTs) {
-            return render(tokens, new HashMap<>());
-        }
-        final StringBuilder out = new StringBuilder();
-        final List<Token> gap = new ArrayList<>();
-        Token lastSignificant = null;
-        final int n = tokens.size();
-        int i = 0;
+    public String enforceUnionIntersectionSpacing(final List<Token> tokens)
+    {
+        if(!lang.isTs) return render( tokens, new HashMap<>() );
+        final StringBuilder out             = new StringBuilder();
+        final List<Token>   gap             = new ArrayList<>();
+              Token         lastSignificant = null;
+        final int           n               = tokens.size();
+              int           i               = 0;
 
-        while (i < n) {
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
+            if( isGapToken(t) ) {
                 gap.add(t);
-                i++;
+                ++i;
                 continue;
             }
 
-            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
-                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
-            final boolean adjacentToUnionOrIntersection = isUnionOrIntersection(lastSignificant) || isUnionOrIntersection(t);
+            final boolean gapBlocked                    = gap.stream().anyMatch(
+                g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
+            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
+            final boolean adjacentToUnionOrIntersection = isUnionOrIntersection(
+                lastSignificant
+            ) || isUnionOrIntersection(
+                t
+            );
 
-            if (gapBlocked || !adjacentToUnionOrIntersection) {
-                for (final Token g : gap) {
-                    out.append(g.text);
-                }
-            } else {
+            if(gapBlocked || !adjacentToUnionOrIntersection) {
+                for(final Token g : gap) out.append(g.text);
+            }
+            else {
                 out.append(' ');
             }
 
             gap.clear();
             out.append(t.text);
             lastSignificant = t;
-            i++;
-        }
-        for (final Token g : gap) {
-            out.append(g.text);
-        }
+            ++i;
+        } // while
+        for(final Token g : gap) out.append(g.text);
+
         return out.toString();
     }
 
-    private boolean isUnionOrIntersection(final Token t) {
-        return t != null && (isOp(t, "|") || isOp(t, "&"));
+    private boolean isUnionOrIntersection(final Token t)
+    {
+        return t != null && ( isOp(t, "|") || isOp(t, "&") );
     }
 
     // ── §11 TypeScript type-annotation colon spacing ─────────────────────────────────
@@ -2244,50 +2477,48 @@ public final class JsTsSpecificRule {
      * `default` keyword, never an IDENTIFIER or `)` from a plain unparenthesized label) -- falls
      * through unclassified and is left byte-for-byte as this pass found it.
      */
-    public String enforceTypeColonSpacing(final List<Token> tokens) {
-        if (!lang.isTs) {
-            return render(tokens, new HashMap<>());
-        }
+    public String enforceTypeColonSpacing(final List<Token> tokens)
+    {
+        if(!lang.isTs) return render( tokens, new HashMap<>() );
         final Set<Integer> typeColons = classifyTypeColons(tokens);
 
-        final StringBuilder out = new StringBuilder();
-        final List<Token> gap = new ArrayList<>();
-        Token lastSignificant = null;
-        int lastSigIdx = -1;
-        final int n = tokens.size();
-        int i = 0;
+        final StringBuilder out             = new StringBuilder();
+        final List<Token>   gap             = new ArrayList<>();
+              Token         lastSignificant = null;
+              int           lastSigIdx      = - 1;
+        final int           n               = tokens.size();
+              int           i               = 0;
 
-        while (i < n) {
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
+            if( isGapToken(t) ) {
                 gap.add(t);
-                i++;
+                ++i;
                 continue;
             }
 
-            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
-                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean gapBlocked      = gap.stream().anyMatch(
+                g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
+            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
             final boolean beforeTypeColon = typeColons.contains(i);
-            final boolean afterTypeColon = lastSigIdx >= 0 && typeColons.contains(lastSigIdx);
+            final boolean afterTypeColon  = lastSigIdx >= 0&& typeColons.contains(lastSigIdx);
 
-            if (gapBlocked || (!beforeTypeColon && !afterTypeColon)) {
-                for (final Token g : gap) {
-                    out.append(g.text);
-                }
-            } else if (afterTypeColon) {
+            if( gapBlocked || (!beforeTypeColon && !afterTypeColon) ) {
+                for(final Token g : gap) out.append(g.text);
+            }
+            else if(afterTypeColon) {
                 out.append(' ');
             }
-            // beforeTypeColon && !gapBlocked && !afterTypeColon: gap dropped (tight before ':').
+            // BeforeTypeColon && !gapBlocked && !afterTypeColon: gap dropped (tight before ':')
 
             gap.clear();
             out.append(t.text);
             lastSignificant = t;
-            lastSigIdx = i;
-            i++;
-        }
-        for (final Token g : gap) {
-            out.append(g.text);
-        }
+            lastSigIdx      = i;
+            ++i;
+        } // while
+        for(final Token g : gap) out.append(g.text);
+
         return out.toString();
     }
 
@@ -2303,142 +2534,153 @@ public final class JsTsSpecificRule {
      * themselves by this point in the pipeline), same conservative gap-bailout shape as this
      * file's other spacing passes.
      */
-    public String enforceGenericArgumentCommaSpacing(final List<Token> tokens) {
-        if (!lang.isTs) {
-            return render(tokens, new HashMap<>());
-        }
-        final StringBuilder out = new StringBuilder();
-        final List<Token> gap = new ArrayList<>();
-        Token lastSignificant = null;
-        int angleDepth = 0;
-        final int n = tokens.size();
-        int i = 0;
+    public String enforceGenericArgumentCommaSpacing(final List<Token> tokens)
+    {
+        if(!lang.isTs) return render( tokens, new HashMap<>() );
+        final StringBuilder out             = new StringBuilder();
+        final List<Token>   gap             = new ArrayList<>();
+              Token         lastSignificant = null;
+              int           angleDepth      = 0;
+        final int           n               = tokens.size();
+              int           i               = 0;
 
-        while (i < n) {
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
+            if( isGapToken(t) ) {
                 gap.add(t);
-                i++;
+                ++i;
                 continue;
             }
 
-            final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen)
-                    || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
-            final boolean afterComma = lastSignificant != null && isPunct(lastSignificant, ",") && angleDepth > 0;
+            final boolean gapBlocked = gap.stream().anyMatch(
+                g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
+            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
+            final boolean afterComma = lastSignificant != null&& isPunct(
+                lastSignificant, ","
+            )&& angleDepth > 0;
 
-            if (gapBlocked || !afterComma) {
-                for (final Token g : gap) {
-                    out.append(g.text);
-                }
-            } else {
+            if(gapBlocked || !afterComma) {
+                for(final Token g : gap) out.append(g.text);
+            }
+            else {
                 out.append(' ');
             }
 
             gap.clear();
             out.append(t.text);
-            if (t.type == TokenType.ANGLE_BRACKET_OPEN) {
-                angleDepth++;
-            } else if (t.type == TokenType.ANGLE_BRACKET_CLOSE) {
-                angleDepth = Math.max(0, angleDepth - 1);
-            }
+            if(t.type == TokenType.ANGLE_BRACKET_OPEN)       angleDepth++;
+            else if(t.type == TokenType.ANGLE_BRACKET_CLOSE) angleDepth = Math.max(
+                0, angleDepth - 1
+            );
             lastSignificant = t;
-            i++;
-        }
-        for (final Token g : gap) {
-            out.append(g.text);
-        }
+            ++i;
+        } // while
+        for(final Token g : gap) out.append(g.text);
+
         return out.toString();
     }
 
-    /** Bracket-stack scan producing the index set of every `:` token classified as a
-     *  type-annotation colon. See {@link #enforceTypeColonSpacing}'s javadoc for the exact rules. */
-    private Set<Integer> classifyTypeColons(final List<Token> tokens) {
-        final Set<Integer> result = new HashSet<>();
+    /**
+     * Bracket-stack scan producing the index set of every `:` token classified as a
+     *  type-annotation colon. See {@link #enforceTypeColonSpacing}'s javadoc for the exact rules.
+     */
+    private Set<Integer> classifyTypeColons(final List<Token> tokens)
+    {
+        final Set<Integer>          result           = new HashSet<>();
         final Map<Integer, Integer> braceOpenToClose = matchBraces(tokens);
-        final Set<Integer> valueBraces = new HashSet<>();
-        final Map<Integer, String> braceKind = new HashMap<>();
-        for (final Integer openIdx : braceOpenToClose.keySet()) {
-            if (isValuePrecededBrace(tokens, openIdx)) {
-                valueBraces.add(openIdx);
-            }
+        final Set<Integer>          valueBraces      = new HashSet<>();
+        final Map<Integer, String>  braceKind        = new HashMap<>();
+        for( final Integer openIdx : braceOpenToClose.keySet() ) {
+            if( isValuePrecededBrace(tokens, openIdx) ) valueBraces.add(openIdx);
             final String kind = classBraceKind(tokens, openIdx);
-            if (kind != null) {
-                braceKind.put(openIdx, kind);
-            }
+            if(kind != null) braceKind.put(openIdx, kind);
         }
         final Map<Integer, Integer> parenOpenToClose = matchParens(tokens);
         final Map<Integer, Integer> parenCloseToOpen = new HashMap<>();
-        for (final Map.Entry<Integer, Integer> e : parenOpenToClose.entrySet()) {
-            parenCloseToOpen.put(e.getValue(), e.getKey());
-        }
+        for( final Map.Entry<Integer, Integer> e : parenOpenToClose.entrySet() ) parenCloseToOpen.put(
+            e.getValue(), e.getKey()
+        );
 
-        final Deque<String> stack = new ArrayDeque<>();
-        boolean inDeclarator = false;
+        final Deque<String> stack        = new ArrayDeque<>();
+              boolean       inDeclarator = false;
 
-        for (int i = 0; i < tokens.size(); i++) {
+        for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
-                continue;
-            }
+            if( isGapToken(t) ) continue;
 
-            if (isPunct(t, ";")) {
+            if( isPunct(t, ";") ) {
                 inDeclarator = false;
-            } else if (t.type == TokenType.KEYWORD
-                    && ("let".equals(t.text) || "const".equals(t.text) || "var".equals(t.text))
-                    && (stack.isEmpty() || "BLOCK".equals(stack.peek()))) {
+            }
+            else if( t.type == TokenType.KEYWORD
+                    && ( "let".equals(t.text) || "const".equals(t.text) || "var".equals(t.text) )
+                    && ( stack.isEmpty() || "BLOCK".equals( stack.peek() ) ) ) {
                 inDeclarator = true;
-            } else if (isOp(t, ":") && !t.frozen) {
+            }
+            else if( isOp(t, ":") && !t.frozen ) {
                 final int prevIdx = prevSignificantIndex(tokens, i - 1);
-                if (prevIdx >= 0 && !tokens.get(prevIdx).frozen) {
-                    if (isTypeColonAt(tokens, i, prevIdx, stack, inDeclarator, parenCloseToOpen)) {
-                        result.add(i);
-                    }
-                }
+                if( prevIdx >= 0 && !tokens.get(prevIdx).frozen ) {
+                    if( isTypeColonAt(
+                        tokens, i, prevIdx, stack, inDeclarator, parenCloseToOpen
+                    ) ) result.add(
+                        i
+                    );
+                } // if
             }
 
-            if (isPunct(t, "(")) {
+            if( isPunct(t, "(") ) {
                 stack.push("PAREN");
-            } else if (isPunct(t, "[")) {
-                stack.push("BRACKET");
-            } else if (isPunct(t, "{")) {
-                final String kind = braceKind.get(i);
-                if ("CLASS".equals(kind)) {
-                    stack.push("BLOCK:CLASS");
-                } else {
-                    stack.push(valueBraces.contains(i) ? "OBJ" : "BLOCK");
-                }
-            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")) {
-                if (!stack.isEmpty()) {
-                    stack.pop();
-                }
             }
-        }
+            else if( isPunct(t, "[") ) {
+                stack.push("BRACKET");
+            }
+            else if( isPunct(t, "{") ) {
+                final String kind = braceKind.get(i);
+                if( "CLASS".equals(kind) ) stack.push("BLOCK:CLASS");
+                else                       stack.push( valueBraces.contains(i) ? "OBJ" : "BLOCK" );
+            }
+            else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) {
+                if( !stack.isEmpty() ) stack.pop();
+            }
+        } // for
+
         return result;
     }
 
-    private boolean isTypeColonAt(final List<Token> tokens, final int colonIdx, final int prevIdx,
-            final Deque<String> stack, final boolean inDeclarator, final Map<Integer, Integer> parenCloseToOpen) {
+    private boolean isTypeColonAt(
+        final List<Token>           tokens,
+        final int                   colonIdx,
+        final int                   prevIdx,
+        final Deque<String>         stack,
+        final boolean               inDeclarator,
+        final Map<Integer, Integer> parenCloseToOpen
+    )
+    {
         final Token prev = tokens.get(prevIdx);
-        if (isPunct(prev, ")")) {
-            return !isCaseLabelParen(tokens, prevIdx, parenCloseToOpen)
-                    && !isGroupingExpressionParen(tokens, prevIdx, parenCloseToOpen);
-        }
-        int idIdx = -1;
-        if (prev.type == TokenType.IDENTIFIER) {
+        if( isPunct(
+            prev, ")"
+        ) ) return !isCaseLabelParen(
+            tokens, prevIdx, parenCloseToOpen
+        ) && !isGroupingExpressionParen(
+            tokens, prevIdx, parenCloseToOpen
+        );
+        int idIdx = - 1;
+        if(prev.type == TokenType.IDENTIFIER) {
             idIdx = prevIdx;
-        } else if (isOp(prev, "?")) {
+        }
+        else if( isOp(prev, "?") ) {
             final int maybeId = prevSignificantIndex(tokens, prevIdx - 1);
-            if (maybeId >= 0 && tokens.get(maybeId).type == TokenType.IDENTIFIER) {
-                idIdx = maybeId;
-            }
+            if( maybeId >= 0 && tokens.get(maybeId).type == TokenType.IDENTIFIER ) idIdx = maybeId;
         }
-        if (idIdx < 0) {
-            return false;
-        }
+        if(idIdx < 0) return false;
         final int ctxIdx = prevSignificantIndex(tokens, idIdx - 1);
         final Token ctx = ctxIdx >= 0 ? tokens.get(ctxIdx) : null;
-        final boolean paramCtx = "PAREN".equals(stack.peek())
-                && ctx != null && (isPunct(ctx, "(") || isPunct(ctx, ","));
+        final boolean paramCtx = "PAREN".equals(
+            stack.peek()
+        )&& ctx != null&& ( isPunct(
+            ctx, "("
+        ) || isPunct(
+            ctx, ","
+        ) );
         // A single-declarator `let`/`const`/`var` statement's own type colon (`let x: T = v;`) is
         // now grid-aligned by `JsTsDeclarationAlignmentRule` (STATE_JS_TS.md §11 declaration-
         // alignment-grid checkpoint) -- suppressing it here avoids this flat pass collapsing that
@@ -2451,11 +2693,19 @@ public final class JsTsSpecificRule {
         // single-declarator statement) and every subsequent declarator's colon (`ctx` is `,`) --
         // distinguished from the single-declarator case via a forward scan for a depth-0 comma
         // before the statement's terminating `;`.
-        final boolean declaratorCtx = inDeclarator
-                && (stack.isEmpty() || "BLOCK".equals(stack.peek()))
-                && ctx != null && (isPunct(ctx, ",") || (ctx.type == TokenType.KEYWORD
-                        && ("let".equals(ctx.text) || "const".equals(ctx.text) || "var".equals(ctx.text))
-                        && hasTopLevelCommaBeforeSemicolon(tokens, colonIdx)));
+        final boolean declaratorCtx = inDeclarator&& ( stack.isEmpty() || "BLOCK".equals(
+            stack.peek()
+        ) )&& ctx != null&& ( isPunct(
+            ctx, ","
+        ) || ( ctx.type == TokenType.KEYWORD&& ( "let".equals(
+            ctx.text
+        ) || "const".equals(
+            ctx.text
+        ) || "var".equals(
+            ctx.text
+        ) )&& hasTopLevelCommaBeforeSemicolon(
+            tokens, colonIdx
+        ) ) );
         // A class field's own `: type` colon (`private x: number;`) -- Checkpoint 7 deliberately
         // left this untouched ("class-field colons... deliberately NOT touched -- out of this
         // checkpoint's scope"); STATE_JS_TS.md's Checkpoint 21 bug 7 confirmed the gap is real
@@ -2466,13 +2716,21 @@ public final class JsTsSpecificRule {
         // misclassified. `ctx` must be the class body's own opening `{` (first member), a prior
         // member's terminating `;`, or one of §11.2's own modifier keywords (covers a run of
         // multiple modifiers, since each one's own preceding token is walked back to naturally).
-        final boolean memberCtx = "BLOCK:CLASS".equals(stack.peek())
-                && ctx != null && (isPunct(ctx, "{") || isPunct(ctx, ";")
-                        || (ctx.type == TokenType.KEYWORD && MODIFIER_PRIORITY.containsKey(ctx.text)));
+        final boolean memberCtx = "BLOCK:CLASS".equals(
+            stack.peek()
+        )&& ctx != null&& ( isPunct(
+            ctx, "{"
+        ) || isPunct(
+            ctx, ";"
+        ) || ( ctx.type == TokenType.KEYWORD&& MODIFIER_PRIORITY.containsKey(
+            ctx.text
+        ) ) );
+
         return paramCtx || declaratorCtx || memberCtx;
     }
 
-    /** Classifies the `{` at {@code braceIdx} as the body brace of a `class` or `interface`
+    /**
+     * Classifies the `{` at {@code braceIdx} as the body brace of a `class` or `interface`
      *  declaration (returns {@code "CLASS"}/{@code "IFACE"}), or {@code null} if it's neither.
      *  Scans backward from {@code braceIdx} tracking `(`/`[`/`<...>` nesting (an `extends`/
      *  `implements` clause's own type arguments, e.g. `class Foo extends Bar<T> implements Baz {`,
@@ -2480,86 +2738,92 @@ public final class JsTsSpecificRule {
      *  interface header found -- give up", not "false positive risk") until either a depth-0
      *  `class`/`interface` KEYWORD is found (match) or a depth-0 statement/block boundary (`{`,
      *  `}`, `;`) is hit first (no match, e.g. an ordinary function/control-flow body or an object-
-     *  literal brace). */
-    private String classBraceKind(final List<Token> tokens, final int braceIdx) {
+     *  literal brace).
+     */
+    private String classBraceKind(final List<Token> tokens, final int braceIdx)
+    {
         int depth = 0;
-        for (int i = braceIdx - 1; i >= 0; i--) {
+        for(int i = braceIdx - 1; i >= 0; --i) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
-                continue;
-            }
-            if (isPunct(t, ")") || isPunct(t, "]") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
-                depth++;
-            } else if (isPunct(t, "(") || isPunct(t, "[") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
-                depth--;
-            } else if (depth == 0 && (isPunct(t, "{") || isPunct(t, "}") || isPunct(t, ";"))) {
-                return null;
-            } else if (depth == 0 && t.type == TokenType.KEYWORD && "class".equals(t.text)) {
-                return "CLASS";
-            } else if (depth == 0 && t.type == TokenType.KEYWORD && "interface".equals(t.text)) {
-                return "IFACE";
-            }
-        }
+            if( isGapToken(t) ) continue;
+            if( isPunct(
+                t, ")"
+            ) || isPunct(
+                t, "]"
+            ) || t.type == TokenType.ANGLE_BRACKET_CLOSE ) depth++;
+            else if( isPunct(
+                t, "("
+            ) || isPunct(
+                t, "["
+            ) || t.type == TokenType.ANGLE_BRACKET_OPEN ) depth--;
+            else if( depth == 0 && ( isPunct(
+                t, "{"
+            ) || isPunct(
+                t, "}"
+            ) || isPunct(
+                t, ";"
+            ) ) ) return null;
+            else if( depth == 0 && t.type == TokenType.KEYWORD && "class".equals(
+                t.text
+            ) ) return "CLASS";
+            else if( depth == 0 && t.type == TokenType.KEYWORD && "interface".equals(
+                t.text
+            ) ) return "IFACE";
+        } // for
+
         return null;
     }
 
-    /** True iff the `{` at {@code braceIdx} is the object-shaped body of a `type X = { ... };`
+    /**
+     * True iff the `{` at {@code braceIdx} is the object-shaped body of a `type X = { ... };`
      *  alias declaration -- i.e. immediately preceded by `=`, whose own enclosing statement (walked
      *  backward the same depth-aware way as {@link #classBraceKind}) starts with the `type`
      *  KEYWORD. Excludes non-object type aliases (`type Status = "a" | "b";`, no brace at all) and
      *  ordinary `=`-preceded object-literal initializers (`const obj = { ... };`, whose enclosing
-     *  statement starts with `const`/`let`/`var`, never `type`) by construction. */
-    /** True iff the `{` at {@code braceIdx} is immediately preceded by a TS legacy angle-bracket
+     *  statement starts with `const`/`let`/`var`, never `type`) by construction.
+     */
+    /**
+     * True iff the `{` at {@code braceIdx} is immediately preceded by a TS legacy angle-bracket
      *  cast (`<Type>{...}`, e.g. `push(<WaitCallback>{doneCb: cb})`) -- i.e. a plain OP `>` whose
      *  matching plain OP `<` sits directly before a single (optionally dotted) type name, and that
      *  `<` itself follows a value-starting token (`(`, `,`, `=`, `return`, etc.). Such a `<...>`
      *  is never reclassified to ANGLE_BRACKET_OPEN/CLOSE by
      *  {@code TokenizerCurly.reclassifyAngleBrackets}, which only tracks a `<` preceded by an
-     *  IDENTIFIER (a generic clause) -- so it's still a plain OP pair by the time this runs. */
-    private boolean isLegacyCastBrace(final List<Token> tokens, final int braceIdx) {
+     *  IDENTIFIER (a generic clause) -- so it's still a plain OP pair by the time this runs.
+     */
+    private boolean isLegacyCastBrace(final List<Token> tokens, final int braceIdx)
+    {
         final int closeAngleIdx = prevSignificantIndex(tokens, braceIdx - 1);
-        if (closeAngleIdx < 0 || !isOp(tokens.get(closeAngleIdx), ">")) {
-            return false;
-        }
+        if( closeAngleIdx < 0 || !isOp( tokens.get(closeAngleIdx), ">" ) ) return false;
         int cursor = prevSignificantIndex(tokens, closeAngleIdx - 1);
-        if (cursor < 0 || tokens.get(cursor).type != TokenType.IDENTIFIER) {
-            return false;
-        }
+        if( cursor < 0 || tokens.get(cursor).type != TokenType.IDENTIFIER ) return false;
         // Walk back over a dotted type name (`<Foo.Bar>`), same chain-walk shape as the arrow-
         // parameter dotted-type bail-out above.
-        while (true) {
+        while(true) {
             final int dotIdx = prevSignificantIndex(tokens, cursor - 1);
-            if (dotIdx < 0 || !isOp(tokens.get(dotIdx), ".")) {
-                break;
-            }
+            if( dotIdx < 0 || !isOp( tokens.get(dotIdx), "." ) ) break;
             final int identIdx = prevSignificantIndex(tokens, dotIdx - 1);
-            if (identIdx < 0 || tokens.get(identIdx).type != TokenType.IDENTIFIER) {
-                break;
-            }
+            if( identIdx < 0 || tokens.get(identIdx).type != TokenType.IDENTIFIER ) break;
             cursor = identIdx;
-        }
+        } // while
         final int openAngleIdx = prevSignificantIndex(tokens, cursor - 1);
-        if (openAngleIdx < 0 || !isOp(tokens.get(openAngleIdx), "<")) {
-            return false;
-        }
+        if( openAngleIdx < 0 || !isOp( tokens.get(openAngleIdx), "<" ) ) return false;
         final int beforeOpenIdx = prevSignificantIndex(tokens, openAngleIdx - 1);
-        if (beforeOpenIdx < 0) {
-            return true; // cast at the very start of the token stream
-        }
+        if(beforeOpenIdx < 0) return true; // Cast at the very start of the token stream
         final Token beforeOpen = tokens.get(beforeOpenIdx);
+
         return isPunct(beforeOpen, "(") || isPunct(beforeOpen, "[") || isPunct(beforeOpen, ",")
                 || isOp(beforeOpen, "=") || isOp(beforeOpen, ":") || isOp(beforeOpen, "??")
                 || isOp(beforeOpen, "||") || isOp(beforeOpen, "&&") || isOp(beforeOpen, "?")
-                || (beforeOpen.type == TokenType.KEYWORD
-                        && ("return".equals(beforeOpen.text) || "yield".equals(beforeOpen.text)
-                                || "throw".equals(beforeOpen.text)));
+                || ( beforeOpen.type == TokenType.KEYWORD
+                        && ( "return".equals(beforeOpen.text) || "yield".equals(beforeOpen.text)
+                                || "throw".equals(beforeOpen.text) ) );
     }
 
-    private boolean isTypeAliasObjectBrace(final List<Token> tokens, final int braceIdx) {
+    private boolean isTypeAliasObjectBrace(final List<Token> tokens, final int braceIdx)
+    {
         final int prevIdx = prevSignificantIndex(tokens, braceIdx - 1);
-        if (prevIdx < 0 || !isOp(tokens.get(prevIdx), "=")) {
-            return false;
-        }
+        if( prevIdx < 0 || !isOp( tokens.get(prevIdx), "=" ) ) return false;
         // `type X = { ... } | { ... }` (a union of two-or-more inline object types on the RHS,
         // vuejs/core dogfood `ref.test-d.ts`/`watch.test-d.ts`: `type Steps = { step: '1' } |
         // { step: '2' }`) -- the FIRST `{...}` here is preceded by `=` exactly like a plain
@@ -2572,63 +2836,85 @@ public final class JsTsSpecificRule {
         // through to the ordinary isValue-brace classification below instead (conservative: no
         // member `;`-alignment for a union member's object type, but no depth corruption either).
         int matchDepth = 0;
-        int closeIdx = -1;
-        for (int i = braceIdx; i < tokens.size(); i++) {
+        int closeIdx   = - 1;
+        for( int i = braceIdx; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (isPunct(t, "{")) {
-                matchDepth++;
-            } else if (isPunct(t, "}")) {
-                matchDepth--;
-                if (matchDepth == 0) {
+            if( isPunct(t, "{") ) {
+                ++matchDepth;
+            }
+            else if( isPunct(t, "}") ) {
+                --matchDepth;
+                if(matchDepth == 0) {
                     closeIdx = i;
                     break;
                 }
             }
-        }
-        if (closeIdx >= 0) {
+        } // for
+        if(closeIdx >= 0) {
             final int afterClose = nextSignificantIndex(tokens, closeIdx + 1);
-            if (afterClose >= 0 && (isOp(tokens.get(afterClose), "|") || isOp(tokens.get(afterClose), "&"))) {
-                return false;
-            }
-        }
+            if( afterClose >= 0 && ( isOp(
+                tokens.get(afterClose), "|"
+            ) || isOp(
+                tokens.get(afterClose), "&"
+            ) ) ) return false;
+        } // if
         int depth = 0;
-        for (int i = prevIdx - 1; i >= 0; i--) {
+        for(int i = prevIdx - 1; i >= 0; --i) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
-                continue;
-            }
-            if (isPunct(t, ")") || isPunct(t, "]") || t.type == TokenType.ANGLE_BRACKET_CLOSE) {
-                depth++;
-            } else if (isPunct(t, "(") || isPunct(t, "[") || t.type == TokenType.ANGLE_BRACKET_OPEN) {
-                depth--;
-            } else if (depth == 0 && (isPunct(t, ";") || isPunct(t, "{") || isPunct(t, "}"))) {
-                return false;
-            } else if (depth == 0 && t.type == TokenType.KEYWORD && "type".equals(t.text)) {
-                return true;
-            }
-        }
+            if( isGapToken(t) ) continue;
+            if( isPunct(
+                t, ")"
+            ) || isPunct(
+                t, "]"
+            ) || t.type == TokenType.ANGLE_BRACKET_CLOSE ) depth++;
+            else if( isPunct(
+                t, "("
+            ) || isPunct(
+                t, "["
+            ) || t.type == TokenType.ANGLE_BRACKET_OPEN ) depth--;
+            else if( depth == 0 && ( isPunct(
+                t, ";"
+            ) || isPunct(
+                t, "{"
+            ) || isPunct(
+                t, "}"
+            ) ) ) return false;
+            else if( depth == 0 && t.type == TokenType.KEYWORD && "type".equals(
+                t.text
+            ) ) return true;
+        } // for
+
         return false;
     }
 
     // ── §14 interface/type-alias member `:` alignment ────────────────────────────────
-    /** One parsed `interface`/object-shaped `type`-alias member: optional leading (own-line)
+    /**
+     * One parsed `interface`/object-shaped `type`-alias member: optional leading (own-line)
      *  comments, the member's rendered "name phrase" (an optional {@code readonly } prefix plus the
      *  property name plus an optional trailing {@code ?}), its type expression's raw text (trimmed,
      *  internal spacing preserved exactly as originally written), and an optional same-line trailing
      *  comment -- structurally the direct TS analog of {@link EnumMember}, same fields modulo the
-     *  `=`-value pair being a `:`-type pair instead. */
+     *  `=`-value pair being a `:`-type pair instead
+     */
     private static final class InterfaceMember {
-        private final List<String> leadingComments;
-        private final String namePhrase;
-        private final String type;
-        private String trailingComment;
 
-        InterfaceMember(final List<String> leadingComments, final String namePhrase, final String type) {
+        private final List<String> leadingComments;
+        private final String       namePhrase;
+        private final String       type;
+        private       String       trailingComment;
+
+        InterfaceMember(
+            final List<String> leadingComments,
+            final String       namePhrase,
+            final String       type
+        )
+        {
             this.leadingComments = leadingComments;
-            this.namePhrase = namePhrase;
-            this.type = type;
+            this.namePhrase      = namePhrase;
+            this.type            = type;
         }
-    }
+
+    } // class InterfaceMember
 
     /**
      * STYLE_JS_TS.md §14: an `interface` body or an object-shaped `type X = { ... };` alias body
@@ -2654,225 +2940,239 @@ public final class JsTsSpecificRule {
      * the WHOLE body bail out untouched rather than partially aligning it -- same conservative
      * per-construct bailout {@link #parseEnumMembers} already uses.
      */
-    public String enforceInterfaceTypeAliasMemberColonAlignment(final List<Token> tokens) {
-        if (!lang.isTs) {
-            return render(tokens, new HashMap<>());
-        }
+    public String enforceInterfaceTypeAliasMemberColonAlignment(final List<Token> tokens)
+    {
+        if(!lang.isTs) return render( tokens, new HashMap<>() );
         final Map<Integer, Integer> braces = matchBraces(tokens);
-        final List<int[]> bodies = new ArrayList<>();
-        for (final Map.Entry<Integer, Integer> e : braces.entrySet()) {
+        final List<int[]>           bodies = new ArrayList<>();
+        for( final Map.Entry<Integer, Integer> e : braces.entrySet() ) {
             final int openIdx = e.getKey();
-            if ("IFACE".equals(classBraceKind(tokens, openIdx)) || isTypeAliasObjectBrace(tokens, openIdx)) {
-                bodies.add(new int[] { openIdx, e.getValue() });
+            if( "IFACE".equals(
+                classBraceKind(tokens, openIdx)
+            ) || isTypeAliasObjectBrace(
+                tokens, openIdx
+            ) ) {
+                bodies.add( new int[] { openIdx, e.getValue() } );
             }
-        }
-        if (bodies.isEmpty()) {
+        } // for
+        if( bodies.isEmpty() ) {
             final StringBuilder sb = new StringBuilder();
-            for (final Token t : tokens) {
-                sb.append(t.text);
-            }
+            for(final Token t : tokens) sb.append(t.text);
             return sb.toString();
         }
-        bodies.sort((a, b) -> Integer.compare(a[0], b[0]));
+        bodies.sort( (a, b) -> Integer.compare( a[0], b[0] ) );
 
-        final StringBuilder out = new StringBuilder();
-        int cursor = 0;
-        for (final int[] body : bodies) {
-            final int openIdx = body[0];
+        final StringBuilder out    = new StringBuilder();
+              int           cursor = 0;
+        for( final int[] body : bodies ) {
+            final int openIdx  = body[0];
             final int closeIdx = body[1];
-            if (anyFrozen(tokens, openIdx, closeIdx + 1)) {
-                continue;
-            }
+            if( anyFrozen(tokens, openIdx, closeIdx + 1) ) continue;
             final String rewritten = rewriteInterfaceBody(tokens, openIdx, closeIdx);
-            if (rewritten == null) {
-                continue;
-            }
-            for (int i = cursor; i <= openIdx; i++) {
-                out.append(tokens.get(i).text);
-            }
+            if(rewritten == null) continue;
+            for(int i = cursor; i <= openIdx; ++i) out.append( tokens.get(i).text );
             out.append(rewritten);
-            cursor = closeIdx; // resume from the closing `}` token itself
-        }
-        for (int i = cursor; i < tokens.size(); i++) {
-            out.append(tokens.get(i).text);
-        }
+            cursor = closeIdx; // Resume from the closing `}` token itself
+        } // for
+        for( int i = cursor; i < tokens.size(); ++i ) out.append( tokens.get(i).text );
+
         return out.toString();
     }
 
-    /** Rewrites the interior of one `interface`/type-alias body into the always-`: `-column-aligned
+    /**
+     * Rewrites the interior of one `interface`/type-alias body into the always-`: `-column-aligned
      *  layout described on {@link #enforceInterfaceTypeAliasMemberColonAlignment}, or returns
-     *  {@code null} if {@link #parseInterfaceMembers} can't safely parse it. */
-    private String rewriteInterfaceBody(final List<Token> tokens, final int openIdx, final int closeIdx) {
+     *  {@code null} if {@link #parseInterfaceMembers} can't safely parse it
+     */
+    private String rewriteInterfaceBody(
+        final List<Token> tokens,
+        final int         openIdx,
+        final int         closeIdx
+    )
+    {
         final List<InterfaceMember> members = parseInterfaceMembers(tokens, openIdx, closeIdx);
-        if (members == null) {
-            return null;
-        }
+        if(members == null) return null;
         int maxNameWidth = 0;
-        for (final InterfaceMember m : members) {
-            maxNameWidth = Math.max(maxNameWidth, m.namePhrase.length());
-        }
-        final String bodyIndent = lineIndent(tokens, openIdx);
-        final String memberIndent = bodyIndent + defaultIndentUnit;
-        final StringBuilder sb = new StringBuilder();
-        for (final InterfaceMember m : members) {
-            for (final String comment : m.leadingComments) {
-                sb.append('\n').append(memberIndent)
-                        .append(reindentLeadingComment(comment, memberIndent));
-            }
+        for(final InterfaceMember m : members) maxNameWidth = Math.max(
+            maxNameWidth, m.namePhrase.length()
+        );
+        final String        bodyIndent   = lineIndent(tokens, openIdx);
+        final String        memberIndent = bodyIndent + defaultIndentUnit;
+        final StringBuilder sb           = new StringBuilder();
+        for(final InterfaceMember m : members) {
+            for(final String comment : m.leadingComments) sb.append(
+                '\n'
+            ).append(
+                memberIndent
+            ) .append(
+                reindentLeadingComment(comment, memberIndent)
+            );
             sb.append('\n').append(memberIndent);
-            sb.append(padRight(m.namePhrase, maxNameWidth)).append(" : ").append(m.type).append(';');
-            if (m.trailingComment != null) {
-                sb.append("  ").append(m.trailingComment);
-            }
-        }
+            sb.append(
+                padRight(m.namePhrase, maxNameWidth)
+            ).append(
+                " : "
+            ).append(
+                m.type
+            ).append(
+                ';'
+            );
+            if(m.trailingComment != null) sb.append("  ").append(m.trailingComment);
+        } // for
         sb.append('\n').append(bodyIndent);
+
         return sb.toString();
     }
 
-    /** Parses an `interface`/type-alias body's interior (between {@code openIdx} and
+    /**
+     * Parses an `interface`/type-alias body's interior (between {@code openIdx} and
      *  {@code closeIdx}, exclusive) into an ordered list of {@link InterfaceMember}s via a single
      *  forward scan, mirroring {@link #parseEnumMembers}'s shape but with `;`-terminated `name :
      *  type` members instead of `,`-terminated `name [= value]` ones. Returns {@code null} (bail,
      *  leave the whole body untouched) on any unrecognized member shape, a member value spanning a
-     *  NEWLINE, or a floating comment with no member following it. */
-    private List<InterfaceMember> parseInterfaceMembers(final List<Token> tokens, final int openIdx,
-            final int closeIdx) {
-        final List<InterfaceMember> members = new ArrayList<>();
-        final List<String> leadingComments = new ArrayList<>();
-        boolean sameLineAsPrevSeparator = false;
-        int i = openIdx + 1;
-        while (i < closeIdx) {
+     *  NEWLINE, or a floating comment with no member following it.
+     */
+    private List<InterfaceMember> parseInterfaceMembers(
+        final List<Token> tokens,
+        final int         openIdx,
+        final int         closeIdx
+    )
+    {
+        final List<InterfaceMember> members                 = new ArrayList<>();
+        final List<String>          leadingComments         = new ArrayList<>();
+              boolean               sameLineAsPrevSeparator = false;
+              int                   i                       = openIdx + 1;
+        while(i < closeIdx) {
             final Token t = tokens.get(i);
-            if (t.type == TokenType.WHITESPACE) {
-                i++;
+            if(t.type == TokenType.WHITESPACE) {
+                ++i;
                 continue;
             }
-            if (t.type == TokenType.NEWLINE) {
+            if(t.type == TokenType.NEWLINE) {
                 sameLineAsPrevSeparator = false;
-                i++;
+                ++i;
                 continue;
             }
-            if (isComment(t)) {
-                if (sameLineAsPrevSeparator && !members.isEmpty()) {
-                    members.get(members.size() - 1).trailingComment = t.text;
-                } else {
-                    leadingComments.add(t.text);
-                }
-                i++;
+            if( isComment(t) ) {
+                if( sameLineAsPrevSeparator && !members.isEmpty() ) members.get(
+                    members.size() - 1
+                ).trailingComment = t.text;
+                else leadingComments.add(t.text);
+                ++i;
                 continue;
-            }
+            } // if
             final StringBuilder namePhrase = new StringBuilder();
-            while (i < closeIdx && tokens.get(i).type == TokenType.KEYWORD && "readonly".equals(tokens.get(i).text)) {
-                namePhrase.append(tokens.get(i).text).append(' ');
-                i++;
-                while (i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE) {
-                    i++;
-                }
+            while( i < closeIdx && tokens.get(
+                i
+            ).type == TokenType.KEYWORD && "readonly".equals(
+                tokens.get(i).text
+            ) ) {
+                namePhrase.append( tokens.get(i).text ).append(' ');
+                ++i;
+                while( i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE ) i++;
             }
-            if (i >= closeIdx || tokens.get(i).type != TokenType.IDENTIFIER) {
-                return null; // not a recognized member shape (index signature, method signature, ...)
-            }
-            namePhrase.append(tokens.get(i).text);
-            i++;
-            if (i < closeIdx && isOp(tokens.get(i), "?")) {
+            if( i >= closeIdx || tokens.get(
+                i
+            ).type != TokenType.IDENTIFIER ) return null; // Not a recognized member shape (index signature, method signature, ...)
+            namePhrase.append( tokens.get(i).text );
+            ++i;
+            if( i < closeIdx && isOp( tokens.get(i), "?" ) ) {
                 namePhrase.append('?');
-                i++;
+                ++i;
             }
-            while (i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE) {
-                i++;
-            }
-            if (i >= closeIdx || !isOp(tokens.get(i), ":")) {
-                return null; // e.g. a method-signature member (`onSelect(id: string): void;`)
-            }
-            i++;
-            while (i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE) {
-                i++;
-            }
+            while( i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE ) i++;
+            if( i >= closeIdx || !isOp(
+                tokens.get(i), ":"
+            ) ) return null; // E.g. a method-signature member (`onSelect(id: string): void;`)
+            ++i;
+            while( i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE ) i++;
             final StringBuilder typeBuf = new StringBuilder();
-            int depth = 0;
-            while (i < closeIdx) {
+                  int           depth   = 0;
+            while(i < closeIdx) {
                 final Token vt = tokens.get(i);
-                if (depth == 0 && isPunct(vt, ";")) {
-                    break;
-                }
-                if (vt.type == TokenType.NEWLINE) {
-                    return null; // multi-line member type expression -- rare, not handled
-                }
-                if (isPunct(vt, "(") || isPunct(vt, "[") || isPunct(vt, "{") || vt.type == TokenType.ANGLE_BRACKET_OPEN) {
-                    depth++;
-                } else if (isPunct(vt, ")") || isPunct(vt, "]") || isPunct(vt, "}") || vt.type == TokenType.ANGLE_BRACKET_CLOSE) {
-                    depth--;
-                }
+                if( depth == 0 && isPunct(vt, ";") ) break;
+                if(vt.type == TokenType.NEWLINE) return null; // Multi-line member type expression -- rare, not handled
+                if( isPunct(
+                    vt, "("
+                ) || isPunct(
+                    vt, "["
+                ) || isPunct(
+                    vt, "{"
+                ) || vt.type == TokenType.ANGLE_BRACKET_OPEN ) depth++;
+                else if( isPunct(
+                    vt, ")"
+                ) || isPunct(
+                    vt, "]"
+                ) || isPunct(
+                    vt, "}"
+                ) || vt.type == TokenType.ANGLE_BRACKET_CLOSE ) depth--;
                 typeBuf.append(vt.text);
-                i++;
-            }
-            if (i >= closeIdx) {
-                return null; // no terminating ';' found -- malformed/unsupported
-            }
-            i++; // skip ';'
+                ++i;
+            } // while
+            if(i >= closeIdx) return null; // No terminating ';' found -- malformed/unsupported
+            ++i; // Skip ';'
             final String type = typeBuf.toString().trim();
-            if (type.isEmpty()) {
-                return null;
-            }
-            while (i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE) {
-                i++;
-            }
+            if( type.isEmpty() ) return null;
+            while( i < closeIdx && tokens.get(i).type == TokenType.WHITESPACE ) i++;
             String trailingComment = null;
-            if (i < closeIdx && isComment(tokens.get(i))) {
+            if( i < closeIdx && isComment( tokens.get(i) ) ) {
                 trailingComment = tokens.get(i).text;
-                i++;
+                ++i;
             }
-            final InterfaceMember member = new InterfaceMember(new ArrayList<>(leadingComments), namePhrase.toString(), type);
+            final InterfaceMember member = new InterfaceMember(
+                new ArrayList<>(leadingComments), namePhrase.toString(), type
+            );
             member.trailingComment = trailingComment;
             leadingComments.clear();
             members.add(member);
             sameLineAsPrevSeparator = true;
-        }
-        if (!leadingComments.isEmpty()) {
-            return null; // a floating comment with no member attached after it -- don't drop it
-        }
+        } // while
+        if( !leadingComments.isEmpty() ) return null; // A floating comment with no member attached after it -- don't drop it
         return members.isEmpty() ? null : members;
     }
 
-    /** Depth-aware forward scan (over `(`/`[`/`{` nesting) from {@code fromIdx} for a depth-0
+    /**
+     * Depth-aware forward scan (over `(`/`[`/`{` nesting) from {@code fromIdx} for a depth-0
      *  `,` reached before the statement's own depth-0 terminating `;` -- true iff the enclosing
      *  `let`/`const`/`var` statement is a multi-declarator statement, per {@link
-     *  #isTypeColonAt}'s declarator-colon suppression note above. */
-    private boolean hasTopLevelCommaBeforeSemicolon(final List<Token> tokens, final int fromIdx) {
+     *  #isTypeColonAt}'s declarator-colon suppression note above
+     */
+    private boolean hasTopLevelCommaBeforeSemicolon(final List<Token> tokens, final int fromIdx)
+    {
         int depth = 0;
-        for (int i = fromIdx + 1; i < tokens.size(); i++) {
+        for( int i = fromIdx + 1; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if (isGapToken(t)) {
-                continue;
-            }
-            if (isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{")) {
-                depth++;
-            } else if (isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}")) {
-                depth--;
-            } else if (depth == 0 && isPunct(t, ",")) {
-                return true;
-            } else if (depth == 0 && isPunct(t, ";")) {
-                return false;
-            }
-        }
+            if( isGapToken(t) ) continue;
+            if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
+            else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
+            else if( depth == 0 && isPunct(t, ",") ) return true;
+            else if( depth == 0 && isPunct(t, ";") ) return false;
+        } // for
+
         return false;
     }
 
-    /** True if {@code closeParenIdx} closes a `case (...)：`-style parenthesized case-label
+    /**
+     * True if {@code closeParenIdx} closes a `case (...)：`-style parenthesized case-label
      *  condition -- i.e. the token immediately before the matching `(` is the `case` keyword --
-     *  the one shape where a bare `)` immediately followed by `:` is NOT a return-type colon. */
-    private boolean isCaseLabelParen(final List<Token> tokens, final int closeParenIdx,
-            final Map<Integer, Integer> parenCloseToOpen) {
+     *  the one shape where a bare `)` immediately followed by `:` is NOT a return-type colon.
+     */
+    private boolean isCaseLabelParen(
+        final List<Token>           tokens,
+        final int                   closeParenIdx,
+        final Map<Integer, Integer> parenCloseToOpen
+    )
+    {
         final Integer openIdx = parenCloseToOpen.get(closeParenIdx);
-        if (openIdx == null) {
-            return false;
-        }
+        if(openIdx == null) return false;
         final int beforeOpen = prevSignificantIndex(tokens, openIdx - 1);
+
         return beforeOpen >= 0 && tokens.get(beforeOpen).type == TokenType.KEYWORD
-                && "case".equals(tokens.get(beforeOpen).text);
+                && "case".equals( tokens.get(beforeOpen).text );
     }
 
-    /** True if {@code closeParenIdx} closes a plain grouping/sub-expression `(...)` -- e.g. a
+    /**
+     * True if {@code closeParenIdx} closes a plain grouping/sub-expression `(...)` -- e.g. a
      *  parenthesized ternary (`cond ? (a ? b : c) : d`) or any other parenthesized expression --
      *  rather than a function/arrow/constructor parameter list, the other shape where a bare `)`
      *  immediately followed by `:` is NOT a return-type colon. A real parameter list's `(` is
@@ -2884,36 +3184,50 @@ public final class JsTsSpecificRule {
      *  `||`, `=`, `return`, etc.) (vuejs/core dogfood, `shared/src/typeUtils.ts`'s
      *  `T extends object ? (keyof T extends K ? true : false) : false`, where the outer ternary's
      *  own `:` was misclassified as a return-type colon because its preceding `)` closes the
-     *  parenthesized nested-ternary sub-expression, not a parameter list). */
-    private boolean isGroupingExpressionParen(final List<Token> tokens, final int closeParenIdx,
-            final Map<Integer, Integer> parenCloseToOpen) {
+     *  parenthesized nested-ternary sub-expression, not a parameter list).
+     */
+    private boolean isGroupingExpressionParen(
+        final List<Token>           tokens,
+        final int                   closeParenIdx,
+        final Map<Integer, Integer> parenCloseToOpen
+    )
+    {
         final Integer openIdx = parenCloseToOpen.get(closeParenIdx);
-        if (openIdx == null) {
-            return false;
-        }
+        if(openIdx == null) return false;
         final int beforeOpen = prevSignificantIndex(tokens, openIdx - 1);
-        if (beforeOpen < 0) {
-            return false;
-        }
+        if(beforeOpen < 0) return false;
         final Token before = tokens.get(beforeOpen);
+
         return before.type == TokenType.OP && !"=>".equals(before.text);
     }
 
-    /** Same "is this `{` a value/pattern brace" heuristic as {@link #classifyBraces}'s
+    /**
+     * Same "is this `{` a value/pattern brace" heuristic as {@link #classifyBraces}'s
      *  {@code isValue} local, duplicated (not shared) since it's used from a different pass with
-     *  different bookkeeping needs (a bracket-kind stack, not resetDepth/needsSemicolon maps). */
-    private boolean isValuePrecededBrace(final List<Token> tokens, final int openIdx) {
+     *  different bookkeeping needs (a bracket-kind stack, not resetDepth/needsSemicolon maps)
+     */
+    private boolean isValuePrecededBrace(final List<Token> tokens, final int openIdx)
+    {
         final int prevIdx = prevSignificantIndex(tokens, openIdx - 1);
         final Token prev = prevIdx >= 0 ? tokens.get(prevIdx) : null;
-        if (prev == null) {
-            return false;
-        }
+        if(prev == null) return false;
+
         return isOp(prev, "=>") || isOp(prev, "=") || isPunct(prev, "(") || isPunct(prev, "[")
                 || isPunct(prev, ",") || isOp(prev, ":") || isOp(prev, "??") || isOp(prev, "||")
                 || isOp(prev, "&&") || isOp(prev, "?") || isOp(prev, "...")
-                || (prev.type == TokenType.KEYWORD && ("return".equals(prev.text) || "yield".equals(prev.text)
+                || ( prev.type == TokenType.KEYWORD && ( "return".equals(
+                    prev.text
+                ) || "yield".equals(
+                    prev.text
+                )
                         || "throw".equals(prev.text) || "typeof".equals(prev.text)
-                        || "const".equals(prev.text) || "let".equals(prev.text) || "var".equals(prev.text)));
+                        || "const".equals(
+                            prev.text
+                        ) || "let".equals(
+                            prev.text
+                        ) || "var".equals(
+                            prev.text
+                        ) ) );
     }
 
     // ── §9 Decorators ────────────────────────────────────────────────────────────
@@ -2931,27 +3245,30 @@ public final class JsTsSpecificRule {
      * as a decorator marker (no bitwise/other operator use, unlike Kotlin's overloaded operators),
      * so no additional context check is needed before tightening every occurrence.
      */
-    public String enforceDecoratorTightAtSpacing(final List<Token> tokens) {
+    public String enforceDecoratorTightAtSpacing(final List<Token> tokens)
+    {
         final StringBuilder out = new StringBuilder();
-        int i = 0;
-        final int n = tokens.size();
-        while (i < n) {
+              int           i   = 0;
+        final int           n   = tokens.size();
+        while(i < n) {
             final Token t = tokens.get(i);
             out.append(t.text);
-            if (isOp(t, "@") && !t.frozen) {
+            if( isOp(t, "@") && !t.frozen ) {
                 final int nextSig = nextSignificantIndex(tokens, i + 1);
-                if (nextSig > i + 1) {
-                    final List<Token> gap = tokens.subList(i + 1, nextSig);
-                    final boolean gapBlocked = gap.stream().anyMatch(g -> isComment(g)
-                            || g.type == TokenType.NEWLINE || g.frozen);
-                    if (!gapBlocked) {
+                if(nextSig > i + 1) {
+                    final List<Token> gap        = tokens.subList(i + 1, nextSig);
+                    final boolean     gapBlocked = gap.stream().anyMatch(
+                        g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
+                    );
+                    if(!gapBlocked) {
                         i = nextSig;
                         continue;
                     }
-                }
-            }
-            i++;
-        }
+                } // if
+            } // if
+            ++i;
+        } // while
+
         return out.toString();
     }
 
@@ -2981,158 +3298,225 @@ public final class JsTsSpecificRule {
      * need to see the post-split shape on the very first format pass for the "does it fit"
      * decision to stay stable across reformats.
      */
-    public String enforceDecoratorOverflowCascade(final List<Token> tokens) {
+    public String enforceDecoratorOverflowCascade(final List<Token> tokens)
+    {
         final Map<Integer, Integer> parenOpenToClose = matchParens(tokens);
-        final StringBuilder out = new StringBuilder();
-        int i = 0;
-        final int n = tokens.size();
-        while (i < n) {
+        final StringBuilder         out              = new StringBuilder();
+              int                   i                = 0;
+        final int                   n                = tokens.size();
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isOp(t, "@") && !t.frozen) {
+            if( isOp(t, "@") && !t.frozen ) {
                 final int decoratorEnd = findDecoratorEnd(tokens, i, parenOpenToClose);
-                final int nextSig = decoratorEnd >= 0 ? nextSignificantIndex(tokens, decoratorEnd + 1) : -1;
-                final boolean alreadyOwnLine = nextSig >= 0 && hasNewlineBetween(tokens, decoratorEnd + 1, nextSig);
-                if (decoratorEnd >= 0 && nextSig >= 0 && !alreadyOwnLine && !anyFrozen(tokens, i, decoratorEnd + 1)) {
-                    final String indent = lineIndent(tokens, i);
-                    final int lineEnd = lineEndIndex(tokens, nextSig);
-                    final String wholeLine = indent
-                            + collapseTokensToOneLine(tokens.subList(lineStartTokenIndex(tokens, i), lineEnd));
-                    if (wholeLine.length() > lineLengthLimit) {
+                final int nextSig = decoratorEnd >= 0 ? nextSignificantIndex(
+                    tokens, decoratorEnd + 1
+                ) : -1;
+                final boolean alreadyOwnLine = nextSig >= 0&& hasNewlineBetween(
+                    tokens, decoratorEnd + 1, nextSig
+                );
+                if( decoratorEnd >= 0 && nextSig >= 0 && !alreadyOwnLine && !anyFrozen(
+                    tokens, i, decoratorEnd + 1
+                ) ) {
+                    final String indent    = lineIndent(tokens, i);
+                    final int    lineEnd   = lineEndIndex(tokens, nextSig);
+                    final String wholeLine = indent + collapseTokensToOneLine(
+                        tokens.subList( lineStartTokenIndex(tokens, i), lineEnd )
+                    );
+                    if( wholeLine.length() > lineLengthLimit ) {
                         // Drop: emit the decorator itself, then a NEWLINE + the same
-                        // indentation, then let the loop continue from the target.
-                        out.append(collapseTokensToOneLine(tokens.subList(i, decoratorEnd + 1)));
+                        // indentation, then let the loop continue from the target
+                        out.append(
+                            collapseTokensToOneLine( tokens.subList(i, decoratorEnd + 1) )
+                        );
                         out.append('\n').append(indent);
                         i = nextSig;
                         continue;
-                    }
-                }
-            }
+                    } // if
+                } // if
+            } // if
             out.append(t.text);
-            i++;
-        }
+            ++i;
+        } // while
+
         return out.toString();
     }
 
-    /** Index of the last token of a decorator application starting at {@code atIdx} (the
+    /**
+     * Index of the last token of a decorator application starting at {@code atIdx} (the
      *  {@code @} token itself): the decorator name identifier for a bare {@code @Name}, or the
      *  matching {@code )} for {@code @Name(args)}. Returns -1 if the shape isn't recognized (no
-     *  identifier immediately follows {@code @}). */
-    private int findDecoratorEnd(final List<Token> tokens, final int atIdx,
-            final Map<Integer, Integer> parenOpenToClose) {
+     *  identifier immediately follows {@code @}).
+     */
+    private int findDecoratorEnd(
+        final List<Token>           tokens,
+        final int                   atIdx,
+        final Map<Integer, Integer> parenOpenToClose
+    )
+    {
         final int nameIdx = nextSignificantIndex(tokens, atIdx + 1);
-        if (nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER) {
-            return -1;
-        }
+        if( nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER ) return -1;
         // A qualified decorator name (`@ns.Name`) walks forward over `.identifier` pairs too.
         int end = nameIdx;
-        while (true) {
+        while(true) {
             final int dotIdx = nextSignificantIndex(tokens, end + 1);
-            if (dotIdx < 0 || !isOp(tokens.get(dotIdx), ".")) {
-                break;
-            }
+            if( dotIdx < 0 || !isOp( tokens.get(dotIdx), "." ) ) break;
             final int idIdx = nextSignificantIndex(tokens, dotIdx + 1);
-            if (idIdx < 0 || tokens.get(idIdx).type != TokenType.IDENTIFIER) {
-                break;
-            }
+            if( idIdx < 0 || tokens.get(idIdx).type != TokenType.IDENTIFIER ) break;
             end = idIdx;
-        }
+        } // while
         final int afterName = nextSignificantIndex(tokens, end + 1);
-        if (afterName >= 0 && isPunct(tokens.get(afterName), "(")) {
+        if( afterName >= 0 && isPunct( tokens.get(afterName), "(" ) ) {
             final Integer closeIdx = parenOpenToClose.get(afterName);
-            if (closeIdx != null) {
-                return closeIdx;
-            }
+            if(closeIdx != null) return closeIdx;
         }
+
         return end;
     }
 
-    /** True if any {@code NEWLINE} token appears in {@code [from, to)}. */
-    private boolean hasNewlineBetween(final List<Token> tokens, final int from, final int to) {
-        for (int i = from; i < to && i < tokens.size(); i++) {
-            if (tokens.get(i).type == TokenType.NEWLINE) {
-                return true;
-            }
+    /** True if any {@code NEWLINE} token appears in {@code [from, to)} */
+    private boolean hasNewlineBetween(final List<Token> tokens, final int from, final int to)
+    {
+        for( int i = from; i < to && i < tokens.size(); ++i ) {
+            if( tokens.get(i).type == TokenType.NEWLINE ) return true;
         }
+
         return false;
     }
 
-    /** First token index of the physical line containing token {@code idx}. */
-    private int lineStartTokenIndex(final List<Token> tokens, final int idx) {
-        for (int i = idx; i >= 0; i--) {
-            if (tokens.get(i).type == TokenType.NEWLINE) {
-                return i + 1;
-            }
+    /** First token index of the physical line containing token {@code idx} */
+    private int lineStartTokenIndex(final List<Token> tokens, final int idx)
+    {
+        for(int i = idx; i >= 0; --i) {
+            if( tokens.get(i).type == TokenType.NEWLINE ) return i + 1;
         }
+
         return 0;
     }
 
-    /** Index one past the last token of the physical line containing token {@code idx} (i.e. the
+    /**
+     * Index one past the last token of the physical line containing token {@code idx} (i.e. the
      *  index of the line's own trailing {@code NEWLINE}, or the token count if the file ends
-     *  without one). */
-    private int lineEndIndex(final List<Token> tokens, final int idx) {
-        for (int i = idx; i < tokens.size(); i++) {
-            if (tokens.get(i).type == TokenType.NEWLINE) {
-                return i;
-            }
+     *  without one).
+     */
+    private int lineEndIndex(final List<Token> tokens, final int idx)
+    {
+        for( int i = idx; i < tokens.size(); ++i ) {
+            if( tokens.get(i).type == TokenType.NEWLINE ) return i;
         }
+
         return tokens.size();
     }
 
-    /** Plain concatenation of each token's own raw text across {@code [from, to)} of a token
+    /**
+     * Plain concatenation of each token's own raw text across {@code [from, to)} of a token
      *  sublist -- used only for this method's own line-length estimate and for re-emitting the
      *  decorator's own span verbatim when dropping it to its own line; not a general-purpose
-     *  renderer (does not touch spacing, unlike {@code MiscRuleCurly.collapseTokensToOneLine}). */
-    private String collapseTokensToOneLine(final List<Token> slice) {
+     *  renderer (does not touch spacing, unlike {@code MiscRuleCurly.collapseTokensToOneLine}).
+     */
+    private String collapseTokensToOneLine(final List<Token> slice)
+    {
         final StringBuilder sb = new StringBuilder();
-        for (final Token t : slice) {
-            sb.append(t.text);
-        }
+        for(final Token t : slice) sb.append(t.text);
+
         return sb.toString();
     }
 
     // ── §15 Import ordering ──────────────────────────────────────────────────────────
-    /** The three fixed §15 bucket names -- {@code groupOrder} must be an exact permutation of
-     *  this set, mirroring {@code JavaSpecificRule.IMPORT_GROUP_KEYS}'s validation posture. */
-    private static final Set<String> IMPORT_GROUP_KEYS =
-            new HashSet<>(Arrays.asList("builtin", "third-party", "local"));
+    /**
+     * The three fixed §15 bucket names -- {@code groupOrder} must be an exact permutation of
+     *  this set, mirroring {@code JavaSpecificRule.IMPORT_GROUP_KEYS}'s validation posture.
+     */
+    private static final Set<String> IMPORT_GROUP_KEYS = new HashSet<>( Arrays.asList(
+        "builtin", "third-party", "local"
+    ) );
 
-    /** Reasonably complete (not exhaustive-to-the-letter) list of Node built-in module names,
+    /**
+     * Reasonably complete (not exhaustive-to-the-letter) list of Node built-in module names,
      *  matched against a bare specifier's own leading path segment (e.g. {@code "fs/promises"}
      *  still classifies as {@code builtin} via its {@code "fs"} segment). A {@code node:}-prefixed
      *  specifier is always {@code builtin} regardless of list membership (RDD_KEY_195's
      *  classification order, leg 1) -- unambiguous by ecosystem convention, doesn't rely on this
-     *  list being complete. */
-    private static final Set<String> NODE_BUILTIN_MODULES = new HashSet<>(Arrays.asList(
-            "assert", "async_hooks", "buffer", "child_process", "cluster", "console", "constants",
-            "crypto", "dgram", "diagnostics_channel", "dns", "domain", "events", "fs", "http",
-            "http2", "https", "inspector", "module", "net", "os", "path", "perf_hooks", "process",
-            "punycode", "querystring", "readline", "repl", "stream", "string_decoder", "sys",
-            "test", "timers", "tls", "trace_events", "tty", "url", "util", "v8", "vm", "wasi",
-            "worker_threads", "zlib"));
+     *  list being complete.
+     */
+    private static final Set<String> NODE_BUILTIN_MODULES = new HashSet<>( Arrays.asList(
+        "assert",
+        "async_hooks",
+        "buffer",
+        "child_process",
+        "cluster",
+        "console",
+        "constants",
+        "crypto",
+        "dgram",
+        "diagnostics_channel",
+        "dns",
+        "domain",
+        "events",
+        "fs",
+        "http",
+        "http2",
+        "https",
+        "inspector",
+        "module",
+        "net",
+        "os",
+        "path",
+        "perf_hooks",
+        "process",
+        "punycode",
+        "querystring",
+        "readline",
+        "repl",
+        "stream",
+        "string_decoder",
+        "sys",
+        "test",
+        "timers",
+        "tls",
+        "trace_events",
+        "tty",
+        "url",
+        "util",
+        "v8",
+        "vm",
+        "wasi",
+        "worker_threads",
+        "zlib"
+    ) );
 
-    /** One successfully-parsed {@code import ...;} declaration -- {@code startIdx}/{@code
+    /**
+     * One successfully-parsed {@code import ...;} declaration -- {@code startIdx}/{@code
      *  semicolonIdx} bound its own original token span, re-emitted verbatim (not canonically
      *  regenerated, unlike Java's import-ordering pass) when reordering, since JS/TS import
      *  clauses (named-import lists, {@code type} modifier, default+namespace combinations) have
      *  enough internal shape variety that preserving the original text is safer than trying to
-     *  reconstruct it. */
+     *  reconstruct it.
+     */
     private static final class ParsedJsImport {
+
         final int startIdx;
         final int semicolonIdx;
         // Exclusive end of this import's own emitted span -- normally semicolonIdx + 1, but
         // extended past a trailing same-line comment (RDD_KEY_197) so that comment travels with
         // this import through reordering instead of being treated as a floating comment between
-        // imports.
-        final int endIdx;
+        // imports
+        final int    endIdx;
         final String path;
 
-        ParsedJsImport(final int startIdx, final int semicolonIdx, final int endIdx, final String path) {
-            this.startIdx = startIdx;
+        ParsedJsImport(
+            final int    startIdx,
+            final int    semicolonIdx,
+            final int    endIdx,
+            final String path
+        )
+        {
+            this.startIdx     = startIdx;
             this.semicolonIdx = semicolonIdx;
-            this.endIdx = endIdx;
-            this.path = path;
+            this.endIdx       = endIdx;
+            this.path         = path;
         }
-    }
+
+    } // class ParsedJsImport
 
     /**
      * STYLE_JS_TS.md §15: groups and sorts top-level {@code import} declarations into {@code
@@ -3165,144 +3549,161 @@ public final class JsTsSpecificRule {
      *        config-validation precondition, so an invalid value throws rather than silently
      *        dropping a bucket's imports
      */
-    public String enforceImportOrdering(final List<Token> tokens, final List<String> groupOrder,
-            final boolean sortAlphabetically, final int blankLines) {
-        if (!new HashSet<>(groupOrder).equals(IMPORT_GROUP_KEYS) || groupOrder.size() != IMPORT_GROUP_KEYS.size()) {
-            throw new IllegalArgumentException(
-                    "groupOrder must be a permutation of " + IMPORT_GROUP_KEYS + ", got: " + groupOrder);
-        }
+    public String enforceImportOrdering(
+        final List<Token>  tokens,
+        final List<String> groupOrder,
+        final boolean      sortAlphabetically,
+        final int          blankLines
+    )
+    {
+        if( !new HashSet<>(groupOrder).equals(
+            IMPORT_GROUP_KEYS
+        ) || groupOrder.size() != IMPORT_GROUP_KEYS.size() ) throw new IllegalArgumentException(
+            "groupOrder must be a permutation of " + IMPORT_GROUP_KEYS + ", got: " + groupOrder
+        );
 
-        int depth = 0;
-        int firstImportIdx = -1;
-        int prevEndIdx = -1;
-        int lastEndIdx = -1;
-        boolean blocked = false;
+        int     depth          = 0;
+        int     firstImportIdx = - 1;
+        int     prevEndIdx     = - 1;
+        int     lastEndIdx     = - 1;
+        boolean blocked        = false;
         // RDD_KEY_197: a standalone comment between two imports no longer bails the whole pass --
         // it segments the import list instead (same "blank line breaks the group" precedent used
         // elsewhere in this codebase). Each segment is grouped/sorted independently; the comment's
         // own original text (verbatim, including its surrounding gap) is preserved in place
         // between the two segments it separated.
-        final List<List<ParsedJsImport>> segments = new ArrayList<>();
-        final List<String> interSegmentGaps = new ArrayList<>();
-        List<ParsedJsImport> currentSegment = new ArrayList<>();
-        final int n = tokens.size();
-        int i = 0;
-        while (i < n) {
+        final List<List<ParsedJsImport>> segments         = new ArrayList<>();
+        final List<String>               interSegmentGaps = new ArrayList<>();
+              List<ParsedJsImport>       currentSegment   = new ArrayList<>();
+        final int                        n                = tokens.size();
+              int                        i                = 0;
+        while(i < n) {
             final Token t = tokens.get(i);
-            if (isPunct(t, "{")) {
-                depth++;
-                i++;
+            if( isPunct(t, "{") ) {
+                ++depth;
+                ++i;
                 continue;
             }
-            if (isPunct(t, "}")) {
-                depth--;
-                i++;
+            if( isPunct(t, "}") ) {
+                --depth;
+                ++i;
                 continue;
             }
-            if (depth == 0 && t.type == TokenType.KEYWORD && "import".equals(t.text)) {
+            if( depth == 0 && t.type == TokenType.KEYWORD && "import".equals(t.text) ) {
                 final int nextSig = nextSignificantIndex(tokens, i + 1);
-                if (nextSig >= 0 && (isPunct(tokens.get(nextSig), "(") || isPunct(tokens.get(nextSig), "."))) {
+                if( nextSig >= 0 && ( isPunct(
+                    tokens.get(nextSig), "("
+                ) || isPunct(
+                    tokens.get(nextSig), "."
+                ) ) ) {
                     // Dynamic `import(...)` call or `import.meta` -- not a declaration, leave
                     // completely alone.
-                    i++;
+                    ++i;
                     continue;
                 }
-                if (firstImportIdx < 0) {
+                if(firstImportIdx < 0) {
                     firstImportIdx = i;
-                } else if (hasCommentBetween(tokens, prevEndIdx, i)) {
+                }
+                else if( hasCommentBetween(tokens, prevEndIdx, i) ) {
                     // A trailing same-line comment on the previous import is already folded into
                     // that import's own endIdx below, so any comment still found in this gap is a
-                    // standalone one -- a segment boundary, not a bail condition.
+                    // standalone one -- a segment boundary, not a bail condition
                     segments.add(currentSegment);
                     currentSegment = new ArrayList<>();
-                    interSegmentGaps.add(collapseTokensToOneLine(tokens.subList(prevEndIdx, i)));
+                    interSegmentGaps.add(
+                        collapseTokensToOneLine( tokens.subList(prevEndIdx, i) )
+                    );
                 }
                 final ParsedJsImport parsed = parseJsImportStatement(tokens, i);
-                if (parsed == null) {
+                if(parsed == null) {
                     blocked = true;
                     break;
                 }
                 final int endIdx = extendPastTrailingComment(tokens, parsed.semicolonIdx + 1);
-                if (anyFrozen(tokens, i, endIdx)) {
+                if( anyFrozen(tokens, i, endIdx) ) {
                     blocked = true;
                     break;
                 }
-                final ParsedJsImport withSpan = new ParsedJsImport(parsed.startIdx, parsed.semicolonIdx,
-                        endIdx, parsed.path);
+                final ParsedJsImport withSpan = new ParsedJsImport(
+                    parsed.startIdx, parsed.semicolonIdx, endIdx, parsed.path
+                );
                 currentSegment.add(withSpan);
                 prevEndIdx = endIdx;
                 lastEndIdx = endIdx;
-                i = endIdx;
+                i          = endIdx;
                 continue;
-            }
-            i++;
-        }
+            } // if
+            ++i;
+        } // while
         segments.add(currentSegment);
 
-        final boolean anyImports = segments.stream().anyMatch(seg -> !seg.isEmpty());
-        if (blocked || !anyImports) {
-            return render(tokens, java.util.Collections.emptyMap());
-        }
+        final boolean anyImports = segments.stream().anyMatch( seg->! seg.isEmpty() );
+        if(blocked || !anyImports) return render( tokens, java.util.Collections.emptyMap() );
 
         final StringBuilder body = new StringBuilder();
-        for (int s = 0; s < segments.size(); s++) {
-            if (s > 0) {
-                body.append(interSegmentGaps.get(s - 1));
-            }
-            body.append(renderImportSegment(tokens, segments.get(s), groupOrder, sortAlphabetically, blankLines));
+        for( int s = 0; s < segments.size(); ++s ) {
+            if(s > 0) body.append( interSegmentGaps.get(s - 1) );
+            body.append(
+                renderImportSegment( tokens, segments.get(s), groupOrder, sortAlphabetically, blankLines )
+            );
         }
 
         final StringBuilder out = new StringBuilder();
-        out.append(collapseTokensToOneLine(tokens.subList(0, firstImportIdx)));
+        out.append( collapseTokensToOneLine( tokens.subList(0, firstImportIdx) ) );
         out.append(body);
-        out.append(collapseTokensToOneLine(tokens.subList(lastEndIdx, n)));
+        out.append( collapseTokensToOneLine( tokens.subList(lastEndIdx, n) ) );
+
         return out.toString();
     }
 
-    /** Groups/sorts and renders one segment's imports (a maximal run of imports uninterrupted by
+    /**
+     * Groups/sorts and renders one segment's imports (a maximal run of imports uninterrupted by
      *  a standalone comment, RDD_KEY_197) into its own bucketed, blank-line-separated text --
      *  the same shape {@code enforceImportOrdering} used to produce for the whole file before
-     *  segmenting at standalone comments was introduced. */
-    private String renderImportSegment(final List<Token> tokens, final List<ParsedJsImport> imports,
-            final List<String> groupOrder, final boolean sortAlphabetically, final int blankLines) {
+     *  segmenting at standalone comments was introduced
+     */
+    private String renderImportSegment(
+        final List<Token>          tokens,
+        final List<ParsedJsImport> imports,
+        final List<String>         groupOrder,
+        final boolean              sortAlphabetically,
+        final int                  blankLines
+    )
+    {
         final Map<String, List<ParsedJsImport>> buckets = new HashMap<>();
-        for (final String key : IMPORT_GROUP_KEYS) {
-            buckets.put(key, new ArrayList<>());
-        }
-        for (final ParsedJsImport imp : imports) {
-            buckets.get(classifyJsImportGroup(imp.path)).add(imp);
-        }
-        if (sortAlphabetically) {
-            for (final List<ParsedJsImport> group : buckets.values()) {
-                group.sort((a, b) -> a.path.compareTo(b.path));
-            }
+        for(final String key : IMPORT_GROUP_KEYS) buckets.put( key, new ArrayList<>() );
+        for(final ParsedJsImport imp : imports) buckets.get(
+            classifyJsImportGroup(imp.path)
+        ).add(
+            imp
+        );
+        if(sortAlphabetically) {
+            for( final List<ParsedJsImport> group : buckets.values() ) group.sort(
+                (a, b) -> a.path.compareTo(b.path)
+            );
         }
 
-        final StringBuilder body = new StringBuilder();
-        boolean emittedAnyGroup = false;
-        for (final String groupKey : groupOrder) {
+        final StringBuilder body            = new StringBuilder();
+              boolean       emittedAnyGroup = false;
+        for(final String groupKey : groupOrder) {
             final List<ParsedJsImport> members = buckets.get(groupKey);
-            if (members.isEmpty()) {
-                continue;
+            if( members.isEmpty() ) continue;
+            if(emittedAnyGroup) {
+                for(int b = 0; b < blankLines + 1; ++b) body.append('\n');
             }
-            if (emittedAnyGroup) {
-                for (int b = 0; b < blankLines + 1; b++) {
-                    body.append('\n');
-                }
-            }
-            for (int m = 0; m < members.size(); m++) {
-                if (m > 0) {
-                    body.append('\n');
-                }
+            for( int m = 0; m < members.size(); ++m ) {
+                if(m > 0) body.append('\n');
                 final ParsedJsImport imp = members.get(m);
-                body.append(collapseTokensToOneLine(tokens.subList(imp.startIdx, imp.endIdx)));
+                body.append( collapseTokensToOneLine( tokens.subList(imp.startIdx, imp.endIdx) ) );
             }
             emittedAnyGroup = true;
-        }
+        } // for groupKey
+
         return body.toString();
     }
 
-    /** Parses one {@code import ...;} declaration starting at the {@code import} keyword token at
+    /**
+     * Parses one {@code import ...;} declaration starting at the {@code import} keyword token at
      *  {@code importIdx}. Permissive about the shape of the clause between {@code import} and the
      *  module-path {@code STRING} token (default import, namespace {@code * as x}, named-import
      *  list, {@code type} modifier, side-effect-only form with no {@code from} clause at all) --
@@ -3310,90 +3711,99 @@ public final class JsTsSpecificRule {
      *  the clause grammar, since the original token span is re-emitted verbatim rather than
      *  reconstructed. Returns {@code null} -- signaling "bail the entire pass" to the caller --
      *  if a comment is found anywhere inside the declaration, or if no module-path {@code STRING}
-     *  token or no terminating {@code ;} is found before EOF. */
-    private ParsedJsImport parseJsImportStatement(final List<Token> tokens, final int importIdx) {
-        final int n = tokens.size();
-        int stringIdx = -1;
-        int semicolonIdx = -1;
-        int p = importIdx + 1;
-        while (p < n) {
+     *  token or no terminating {@code ;} is found before EOF.
+     */
+    private ParsedJsImport parseJsImportStatement(final List<Token> tokens, final int importIdx)
+    {
+        final int n            = tokens.size();
+              int stringIdx    = - 1;
+              int semicolonIdx = - 1;
+              int p            = importIdx + 1;
+        while(p < n) {
             final Token t = tokens.get(p);
-            if (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
-                return null;
-            }
-            if (t.type == TokenType.STRING && stringIdx < 0) {
-                stringIdx = p;
-            }
-            if (isPunct(t, ";")) {
+            if(t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) return null;
+            if(t.type == TokenType.STRING && stringIdx < 0) stringIdx = p;
+            if( isPunct(t, ";") ) {
                 semicolonIdx = p;
                 break;
             }
-            p++;
-        }
-        if (stringIdx < 0 || semicolonIdx < 0) {
-            return null;
-        }
-        return new ParsedJsImport(importIdx, semicolonIdx, semicolonIdx + 1,
-                stringLiteralContent(tokens.get(stringIdx).text));
+            ++p;
+        } // while
+        if(stringIdx < 0 || semicolonIdx < 0) return null;
+
+        return new ParsedJsImport(
+            importIdx, semicolonIdx, semicolonIdx + 1,
+            stringLiteralContent( tokens.get(stringIdx).text )
+        );
     }
 
-    /** RDD_KEY_197: extends a just-parsed import's span past a trailing same-line comment right
+    /**
+     * RDD_KEY_197: extends a just-parsed import's span past a trailing same-line comment right
      *  after its `;` (only whitespace, no NEWLINE, in between) -- that comment travels with its
      *  own import through reordering rather than being (mis)treated as a floating comment between
      *  imports that would otherwise segment the list. Returns {@code fromIdx} unchanged (no
-     *  trailing comment found) otherwise. */
-    private int extendPastTrailingComment(final List<Token> tokens, final int fromIdx) {
-        int idx = fromIdx;
-        final int n = tokens.size();
-        while (idx < n && tokens.get(idx).type == TokenType.WHITESPACE) {
-            idx++;
-        }
-        if (idx < n && (tokens.get(idx).type == TokenType.COMMENT_LINE
-                || tokens.get(idx).type == TokenType.COMMENT_BLOCK)) {
-            return idx + 1;
-        }
+     *  trailing comment found) otherwise.
+     */
+    private int extendPastTrailingComment(final List<Token> tokens, final int fromIdx)
+    {
+          int idx = fromIdx;
+    final int n   = tokens.size();
+        while( idx < n && tokens.get(idx).type == TokenType.WHITESPACE ) idx++;
+        if( idx < n && ( tokens.get(
+            idx
+        ).type == TokenType.COMMENT_LINE || tokens.get(
+            idx
+        ).type == TokenType.COMMENT_BLOCK ) ) return idx + 1;
+
         return fromIdx;
     }
 
-    /** Strips the surrounding quote characters (`'`/`"`/`` ` ``) from a {@code STRING} token's raw
+    /**
+     * Strips the surrounding quote characters (`'`/`"`/`` ` ``) from a {@code STRING} token's raw
      *  text -- module-path specifiers never contain the quote character they're delimited by
-     *  unescaped, so a plain substring is sufficient (no escape-processing needed). */
-    private String stringLiteralContent(final String raw) {
-        if (raw.length() >= 2) {
-            return raw.substring(1, raw.length() - 1);
-        }
+     *  unescaped, so a plain substring is sufficient (no escape-processing needed)
+     */
+    private String stringLiteralContent(final String raw)
+    {
+        if( raw.length() >= 2 ) return raw.substring( 1, raw.length() - 1 );
+
         return raw;
     }
 
-    /** True iff a {@code COMMENT_LINE}/{@code COMMENT_BLOCK} token exists anywhere in {@code
+    /**
+     * True iff a {@code COMMENT_LINE}/{@code COMMENT_BLOCK} token exists anywhere in {@code
      *  tokens[fromInclusive, toExclusive)} -- used to detect a floating comment between two
      *  otherwise-clean import declarations, which would otherwise be silently dropped by
-     *  reordering. */
-    private boolean hasCommentBetween(final List<Token> tokens, final int fromInclusive, final int toExclusive) {
-        for (int idx = Math.max(fromInclusive, 0); idx < toExclusive; idx++) {
+     *  reordering
+     */
+    private boolean hasCommentBetween(
+        final List<Token> tokens,
+        final int         fromInclusive,
+        final int         toExclusive
+    )
+    {
+        for( int idx = Math.max(fromInclusive, 0); idx < toExclusive; ++idx ) {
             final TokenType type = tokens.get(idx).type;
-            if (type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) {
-                return true;
-            }
+            if(type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) return true;
         }
+
         return false;
     }
 
-    /** Classification priority (RDD_KEY_195): {@code node:}-prefixed or a known Node built-in
+    /**
+     * Classification priority (RDD_KEY_195): {@code node:}-prefixed or a known Node built-in
      *  name &gt; relative-path-prefixed ({@code local}) &gt; everything else ({@code
-     *  third-party}). */
-    private String classifyJsImportGroup(final String path) {
-        if (path.startsWith("node:")) {
-            return "builtin";
-        }
-        final int slash = path.indexOf('/');
+     *  third-party})
+     */
+    private String classifyJsImportGroup(final String path)
+    {
+        if( path.startsWith("node:") ) return "builtin";
+        final int                                 slash = path.indexOf('/');
         final String leadingSegment = slash < 0 ? path : path.substring(0, slash);
-        if (NODE_BUILTIN_MODULES.contains(leadingSegment)) {
-            return "builtin";
-        }
-        if (path.startsWith("./") || path.startsWith("../")) {
-            return "local";
-        }
+        if( NODE_BUILTIN_MODULES.contains(leadingSegment) ) return "builtin";
+        if( path.startsWith("./") || path.startsWith("../") ) return "local";
+
         return "third-party";
     }
-}
+
+} // class JsTsSpecificRule

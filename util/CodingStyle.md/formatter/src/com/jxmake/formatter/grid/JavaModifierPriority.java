@@ -31,7 +31,9 @@ public class JavaModifierPriority extends ModifierPriority {
     }
 
     @Override
-    protected Map<String, Integer> priorityMap() {
+    protected Map<String, Integer> priorityMap()
+    {
         return PRIORITY;
     }
-}
+
+} // class JavaModifierPriority

@@ -15,12 +15,19 @@ import com.jxmake.formatter.Lang;
  */
 public final class MiscRuleTags extends MiscRuleCore {
 
-    public MiscRuleTags(final Lang lang, final boolean normalizeCommentStartCase,
-            final boolean normalizeCommentEndPeriod, final boolean commentNormalizationClassifier,
-            final int indentWidth, final int lineLengthLimit) {
+    public MiscRuleTags(
+        final Lang    lang,
+        final boolean normalizeCommentStartCase,
+        final boolean normalizeCommentEndPeriod,
+        final boolean commentNormalizationClassifier,
+        final int     indentWidth,
+        final int     lineLengthLimit
+    )
+    {
         super(lang, normalizeCommentStartCase, normalizeCommentEndPeriod, commentNormalizationClassifier,
                 indentWidth, lineLengthLimit);
         throw new UnsupportedOperationException(
                 "MiscRuleTags (XML/HTML5) is not yet implemented -- see STATE_DATA_FORMATS.md");
     }
-}
+
+} // class MiscRuleTags

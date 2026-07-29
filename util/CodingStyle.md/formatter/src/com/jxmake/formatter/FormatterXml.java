@@ -11,18 +11,30 @@ import com.jxmake.formatter.rules.XmlSpecificRule;
 
 public final class FormatterXml extends FormatterCore {
 
-    public FormatterXml(final Lang lang) {
+    public FormatterXml(final Lang lang)
+    {
         super(lang);
     }
 
     @Override
-    public String formatOne(final String content, final String filePath, final Config config,
-            final boolean formatOff) {
-        if (formatOff) {
-            return content;
-        }
-        final XmlSpecificRule rule = new XmlSpecificRule(lang, config.lineLength(), config.indentSize(),
-                config.indentStyle(), config.isNormalizeCommentStartCase(), config);
+    public String formatOne(
+        final String  content,
+        final String  filePath,
+        final Config  config,
+        final boolean formatOff
+    )
+    {
+        if(formatOff) return content;
+        final XmlSpecificRule rule = new XmlSpecificRule(
+            lang,
+            config.lineLength(),
+            config.indentSize(),
+            config.indentStyle(),
+            config.isNormalizeCommentStartCase(),
+            config
+        );
+
         return rule.format(content);
     }
-}
+
+} // class FormatterXml

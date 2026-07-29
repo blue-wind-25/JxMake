@@ -7,11 +7,6 @@
 
 package com.jxmake.formatter.classifier.gru;
 
-import com.jxmake.formatter.Config;
-import com.jxmake.formatter.classifier.CommentClassifier;
-import com.jxmake.formatter.classifier.CommentDecision;
-import com.jxmake.formatter.classifier.CommentFeatureVector;
-
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -20,7 +15,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.CodeSource;
 
-/** Integration point for the "Rules, then GRU on abstain" pipeline documented in STATE_AI.md's
+import com.jxmake.formatter.Config;
+import com.jxmake.formatter.classifier.CommentClassifier;
+import com.jxmake.formatter.classifier.CommentDecision;
+import com.jxmake.formatter.classifier.CommentFeatureVector;
+
+/**
+ * Integration point for the "Rules, then GRU on abstain" pipeline documented in STATE_AI.md's
  *  "GRU implementation design" ({@code Rules -> high confidence / abstain -> bidirectional GRU
  *  classifier -> final decision}). This is purely additive plumbing -- it does not change
  *  {@link CommentClassifier#classify}'s pure rule-based signature/contract (that contract is a
@@ -32,21 +33,26 @@ import java.security.CodeSource;
  *  weights file is deployed ({@link GruClassifier#classify} fails safe per its own javadoc), this
  *  resolver produces exactly the same result {@link CommentClassifier#classify} alone would --
  *  matching STATE_AI.md's hard constraint that this work is purely additive, no existing
- *  Tier-1/Tier-2 rule behavior may change when the feature is off or the weights file is absent. */
+ *  Tier-1/Tier-2 rule behavior may change when the feature is off or the weights file is absent.
+ */
 public final class GruAbstainResolver {
 
-    /** Filename of the GRU weights file expected in the "program directory" (see
+    /**
+     * Filename of the GRU weights file expected in the "program directory" (see
      *  {@link #programDirectory()}) when {@code gru-weights-path} is left at its default (empty)
      *  -- i.e. not explicitly configured. Matches the name the top-level distribution build
      *  (see {@code ../../../dist_build/jxmake_dist/apps/code-formatter/}) copies alongside the
      *  packaged jar, and that {@code make gru-train} also copies into {@code $(CLASS_DIR)} for
-     *  dev/test runs. */
+     *  dev/test runs.
+     */
     public static final String WEIGHTS_FILENAME = "code-formatter-ai-assist-weights.json";
 
-    private GruAbstainResolver() {
+    private GruAbstainResolver()
+    {
     }
 
-    /** Runs the full "Rules, then GRU on abstain" pipeline for one comment's target word, using
+    /**
+     * Runs the full "Rules, then GRU on abstain" pipeline for one comment's target word, using
      *  {@link Config#isGruClassifier()}/{@link Config#gruWeightsPath()} to decide whether the GRU
      *  stage is even attempted.
      *
@@ -76,59 +82,79 @@ public final class GruAbstainResolver {
      * @param config resolved config, supplying the {@code gru-classifier}/{@code gru-weights-path}
      *      keys
      */
-    public static CommentDecision resolve(final CommentFeatureVector features, final String commentText,
-            final int targetWordIndex, final Config config) {
-        return resolve(features, commentText, targetWordIndex, config.isGruClassifier(), config.gruWeightsPath());
+    public static CommentDecision resolve(
+        final CommentFeatureVector features,
+        final String               commentText,
+        final int                  targetWordIndex,
+        final Config               config
+    )
+    {
+        return resolve(
+            features,
+            commentText,
+            targetWordIndex,
+            config.isGruClassifier(),
+            config.gruWeightsPath()
+        );
     }
 
-    /** {@code Config}-free overload of {@link #resolve(CommentFeatureVector, String, int, Config)} for
+    /**
+     * {@code Config}-free overload of {@link #resolve(CommentFeatureVector, String, int, Config)} for
      *  callers (e.g. {@code MiscRuleCore}) that don't hold a full {@link Config} instance -- takes the
      *  same two config values ({@code gru-classifier}, {@code gru-weights-path}) directly. Identical
-     *  behavior/fail-safe posture to the {@code Config}-based overload, which now just forwards here. */
-    public static CommentDecision resolve(final CommentFeatureVector features, final String commentText,
-            final int targetWordIndex, final boolean gruClassifierEnabled, final String gruWeightsPathConfig) {
+     *  behavior/fail-safe posture to the {@code Config}-based overload, which now just forwards here.
+     */
+    public static CommentDecision resolve(
+        final CommentFeatureVector features,
+        final String               commentText,
+        final int                  targetWordIndex,
+        final boolean              gruClassifierEnabled,
+        final String               gruWeightsPathConfig
+    )
+    {
         final CommentDecision ruleResult = CommentClassifier.classify(features);
-        if (ruleResult != CommentDecision.ABSTAIN) {
-            return ruleResult;
-        }
-        if (!gruClassifierEnabled) {
-            return CommentDecision.ABSTAIN;
-        }
+        if(ruleResult != CommentDecision.ABSTAIN) return ruleResult;
+        if(!gruClassifierEnabled) return CommentDecision.ABSTAIN;
 
         final Path weightsPath = resolveWeightsPath(gruWeightsPathConfig);
-        if (weightsPath == null) {
+        if(weightsPath == null) {
             // Fail-safe: no explicit path configured and the program directory couldn't be
-            // determined -- ABSTAIN, never blocks formatting.
+            // determined -- ABSTAIN, never blocks formatting
             return CommentDecision.ABSTAIN;
         }
         final GruClassifier gru;
         try {
             gru = GruClassifier.load(weightsPath);
-        } catch (final IOException e) {
+        }
+        catch(final IOException e) {
             // Fail-safe: missing/unreadable/corrupt weights file -> ABSTAIN, never blocks
-            // formatting.
+            // formatting
             return CommentDecision.ABSTAIN;
         }
+
         return gru.classify(commentText, targetWordIndex);
     }
 
-    /** Resolves the weights-file path to attempt loading: {@code gruWeightsPathConfig} if it is
+    /**
+     * Resolves the weights-file path to attempt loading: {@code gruWeightsPathConfig} if it is
      *  explicitly set (non-empty), else derived as {@code programDirectory()/WEIGHTS_FILENAME} when
      *  {@code gru-weights-path} is left at its default empty value. Returns {@code null} (a
      *  fail-safe "no path" result, handled by the caller as {@code ABSTAIN}) if no explicit path
-     *  is configured and the program directory can't be determined either. */
-    private static Path resolveWeightsPath(final String gruWeightsPathConfig) {
-        if (gruWeightsPathConfig != null && !gruWeightsPathConfig.trim().isEmpty()) {
-            return Paths.get(gruWeightsPathConfig);
-        }
+     *  is configured and the program directory can't be determined either.
+     */
+    private static Path resolveWeightsPath(final String gruWeightsPathConfig)
+    {
+        if( gruWeightsPathConfig != null && !gruWeightsPathConfig.trim().isEmpty() ) return Paths.get(
+            gruWeightsPathConfig
+        );
         final Path programDir = programDirectory();
-        if (programDir == null) {
-            return null;
-        }
+        if(programDir == null) return null;
+
         return programDir.resolve(WEIGHTS_FILENAME);
     }
 
-    /** Resolves the directory the running program lives in, so the GRU weights file can be found
+    /**
+     * Resolves the directory the running program lives in, so the GRU weights file can be found
      *  next to it without a hardcoded path: the jar's parent directory when run via {@code -jar}
      *  (packaged/distributed layout, e.g. {@code apps/code-formatter/} in the distribution tree),
      *  or the classes directory itself for a dev/test run against {@code $(CLASS_DIR)} (there is
@@ -136,24 +162,22 @@ public final class GruAbstainResolver {
      *  directory" analog for that mode). Returns {@code null} (fail-safe, treated as "can't
      *  resolve a default path" by {@link #resolveWeightsPath(Config)}) if the code source location
      *  is unavailable or malformed -- this is not expected in normal operation, but must never
-     *  throw and block formatting. */
-    private static Path programDirectory() {
+     *  throw and block formatting.
+     */
+    private static Path programDirectory()
+    {
         try {
             final CodeSource codeSource = GruAbstainResolver.class.getProtectionDomain().getCodeSource();
-            if (codeSource == null) {
-                return null;
-            }
+            if(codeSource == null) return null;
             final URL location = codeSource.getLocation();
-            if (location == null) {
-                return null;
-            }
-            final Path path = Paths.get(location.toURI());
-            if (Files.isDirectory(path)) {
-                return path;
-            }
+            if(location == null) return null;
+            final Path path = Paths.get( location.toURI() );
+            if( Files.isDirectory(path) ) return path;
             return path.getParent();
-        } catch (final URISyntaxException | RuntimeException e) {
+        }
+        catch(final URISyntaxException | RuntimeException e) {
             return null;
         }
     }
-}
+
+} // class GruAbstainResolver

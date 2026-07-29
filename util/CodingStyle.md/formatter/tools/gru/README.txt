@@ -148,12 +148,28 @@ GruTrainer.java
     useful only for quick smoke tests). Wired as a Makefile target:
 
         make gru-train GRU_TRAIN_INPUT=<labeled-file> GRU_WEIGHTS_OUT=<weights-file> \
-            [GRU_TRAIN_ARGS="--epochs=40 --patience=6 --vocab=<path> --seed=<n>"]
+            [GRU_TRAIN_ARGS="--epochs=40 --patience=6 --vocab=<path> --seed=<n> --threads=<n>"]
 
     or invoked directly once compiled:
 
         java -cp target/classes:<gru-tools-classes> GruTrainer <labeled-file> <weights-file> \
-            [--epochs=N] [--patience=N] [--vocab=<path>] [--seed=N]
+            [--epochs=N] [--patience=N] [--vocab=<path>] [--seed=N] [--threads=N]
+
+    --threads=N (default 1, i.e. plain sequential online SGD, same as before
+    this flag existed) parallelizes the expensive forward/backward compute
+    across N worker threads, N examples at a time. Adam updates are still
+    applied one example at a time, in original order, immediately after each
+    batch's compute finishes — same per-example step count/schedule as
+    threads=1 — but the N examples within one batch are computed against the
+    same pre-batch weights snapshot rather than each other's immediately-
+    preceding update, so results are not bit-identical to threads=1 (standard
+    parallel-SGD staleness tradeoff, not a bug). Validation-loss computation
+    is also parallelized under --threads=N, but carries no such tradeoff:
+    weights are frozen during validation, so results there are identical
+    regardless of thread count. Left opt-in at 1 rather than defaulting to
+    all cores, so a real training run doesn't unexpectedly saturate the
+    machine — pick a value that leaves some cores free if you want to keep
+    using the machine for other things while training runs.
 
 GruEval.java
     Loads a trained weights file and reports precision/abstain-rate against

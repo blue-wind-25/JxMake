@@ -244,15 +244,32 @@ public final class GruClassifier {
             x[i] = weights.embeddings[tokenRow[i]];
         }
 
+        // wx/uh/az/ar/ah are short-lived per-token scratch (pre-activation sums) that were
+        // previously re-allocated fresh via matVec/addVec on every token; none of them are
+        // retained in ForwardCache (only their sigmoid/tanh/hadamard *outputs* z/r/hTilde/rh are),
+        // so they're safe to reuse across the token loop -- local to this one forward() call/
+        // thread, never shared, so this stays thread-safe under concurrent forward() calls.
+        double[] wx = new double[h];
+        double[] uh = new double[h];
+        double[] az = new double[h];
+        double[] ar = new double[h];
+        double[] ah = new double[h];
+
         double[][] fZ = new double[t][], fR = new double[t][], fHTilde = new double[t][], fH = new double[t][], fRH = new double[t][];
         double[] hPrev = new double[h];
         for (int i = 0; i <= targetIndex; i++) {
-            double[] az = addVec(matVec(weights.forward.Wz, x[i]), matVec(weights.forward.Uz, hPrev), weights.forward.bz);
+            matVecInto(weights.forward.Wz, x[i], wx);
+            matVecInto(weights.forward.Uz, hPrev, uh);
+            addVecInto(wx, uh, weights.forward.bz, az);
             double[] z = sigmoidVec(az);
-            double[] ar = addVec(matVec(weights.forward.Wr, x[i]), matVec(weights.forward.Ur, hPrev), weights.forward.br);
+            matVecInto(weights.forward.Wr, x[i], wx);
+            matVecInto(weights.forward.Ur, hPrev, uh);
+            addVecInto(wx, uh, weights.forward.br, ar);
             double[] r = sigmoidVec(ar);
             double[] rh = hadamard(r, hPrev);
-            double[] ah = addVec(matVec(weights.forward.Wh, x[i]), matVec(weights.forward.Uh, rh), weights.forward.bh);
+            matVecInto(weights.forward.Wh, x[i], wx);
+            matVecInto(weights.forward.Uh, rh, uh);
+            addVecInto(wx, uh, weights.forward.bh, ah);
             double[] hTilde = tanhVec(ah);
             double[] hNew = new double[h];
             for (int k = 0; k < h; k++) {
@@ -269,12 +286,18 @@ public final class GruClassifier {
         double[][] bZ = new double[t][], bR = new double[t][], bHTilde = new double[t][], bH = new double[t][], bRH = new double[t][];
         double[] hNext = new double[h];
         for (int i = t - 1; i >= targetIndex; i--) {
-            double[] az = addVec(matVec(weights.backward.Wz, x[i]), matVec(weights.backward.Uz, hNext), weights.backward.bz);
+            matVecInto(weights.backward.Wz, x[i], wx);
+            matVecInto(weights.backward.Uz, hNext, uh);
+            addVecInto(wx, uh, weights.backward.bz, az);
             double[] z = sigmoidVec(az);
-            double[] ar = addVec(matVec(weights.backward.Wr, x[i]), matVec(weights.backward.Ur, hNext), weights.backward.br);
+            matVecInto(weights.backward.Wr, x[i], wx);
+            matVecInto(weights.backward.Ur, hNext, uh);
+            addVecInto(wx, uh, weights.backward.br, ar);
             double[] r = sigmoidVec(ar);
             double[] rh = hadamard(r, hNext);
-            double[] ah = addVec(matVec(weights.backward.Wh, x[i]), matVec(weights.backward.Uh, rh), weights.backward.bh);
+            matVecInto(weights.backward.Wh, x[i], wx);
+            matVecInto(weights.backward.Uh, rh, uh);
+            addVecInto(wx, uh, weights.backward.bh, ah);
             double[] hTilde = tanhVec(ah);
             double[] hNew = new double[h];
             for (int k = 0; k < h; k++) {
@@ -480,6 +503,27 @@ public final class GruClassifier {
             y[i] = sum;
         }
         return y;
+    }
+
+    /** Same computation as {@link #matVec} but writes into a caller-provided buffer instead of
+     *  allocating a new array -- used by {@link #forward}'s per-token scratch sums, which are
+     *  reused across the token loop rather than freshly allocated every token. */
+    private static void matVecInto(double[][] w, double[] x, double[] out) {
+        for (int i = 0; i < w.length; i++) {
+            double[] row = w[i];
+            double sum = 0.0;
+            for (int j = 0; j < x.length; j++) {
+                sum += row[j] * x[j];
+            }
+            out[i] = sum;
+        }
+    }
+
+    /** Same computation as the 3-arg {@link #addVec} but writes into a caller-provided buffer. */
+    private static void addVecInto(double[] a, double[] b, double[] c, double[] out) {
+        for (int i = 0; i < out.length; i++) {
+            out[i] = a[i] + b[i] + c[i];
+        }
     }
 
     /** {@code W}-transpose times {@code v}: {@code result[j] = sum_i W[i][j] * v[i]}, where

@@ -21,6 +21,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /** Training entry point for the Step 3 GRU comment-classifier, per STATE_AI.md's "GRU
  *  implementation design". Deliberately lives outside {@code src/} -- the runtime JAR must never
@@ -136,6 +141,20 @@ public final class GruTrainer {
         // within the epoch (0 disables); default chosen so it fires a handful of times per epoch on
         // a ~100k-example corpus without flooding the console on small corpora.
         int progressEvery = Integer.parseInt(hyperparameters.getOrDefault("progress-every", "1000"));
+        // --threads=N (default 1, i.e. today's plain sequential online SGD): computes forward/
+        // backward for up to N examples in parallel per batch against the same pre-batch weights
+        // snapshot, then applies their Adam updates sequentially afterward in original order (same
+        // per-example step count/schedule as threads=1). This means examples within one batch are
+        // computed against a slightly stale snapshot rather than each other's immediately-preceding
+        // update -- not bit-identical to threads=1, but standard parallel-SGD practice. Left opt-in
+        // (default 1) rather than defaulting to all cores, so a real training run doesn't
+        // unexpectedly saturate the machine.
+        int threads = Integer.parseInt(hyperparameters.getOrDefault("threads", "1"));
+        if (threads < 1) {
+            System.err.println("GruTrainer: --threads must be >= 1, got " + threads);
+            System.exit(2);
+            return;
+        }
 
         List<Example> examples;
         try {
@@ -185,77 +204,90 @@ public final class GruTrainer {
 
         AdamState adam = new AdamState(weights);
         double bestValidationLoss = Double.POSITIVE_INFINITY;
-        GruWeights bestWeights = weights;
+        // `weights` is mutated in place by `adam.apply` every step, so a plain `bestWeights =
+        // weights` reference assignment would silently drift to whatever `weights` is by the end
+        // of training instead of actually preserving the best-validation-loss epoch's numbers.
+        // Snapshotting the serialized JSON immediately on improvement sidesteps needing a real
+        // deep-copy of GruWeights' nested arrays.
+        String bestWeightsJson = toJson(weights, explicitVocab);
         int epochsSinceImprovement = 0;
         int step = 0;
         long trainingStartNanos = System.nanoTime();
 
-        for (int epoch = 1; epoch <= maxEpochs; epoch++) {
-            Collections.shuffle(train, random);
-            double trainLoss = 0.0;
-            long epochStartNanos = System.nanoTime();
-            int examplesSeen = 0;
-            for (Example example : train) {
-                List<String> tokens = GruClassifier.tokenize(example.text);
-                if (tokens.size() > GruClassifier.SEQUENCE_CAP) {
-                    tokens = tokens.subList(0, GruClassifier.SEQUENCE_CAP);
-                }
-                examplesSeen++;
-                if (example.targetWordIndex < 0 || example.targetWordIndex >= tokens.size()) {
-                    if (progressEvery > 0 && examplesSeen % progressEvery == 0) {
-                        printProgress(epoch, examplesSeen, train.size(), trainLoss, epochStartNanos, trainingStartNanos);
+        ExecutorService executor = threads > 1 ? Executors.newFixedThreadPool(threads) : null;
+        try {
+            for (int epoch = 1; epoch <= maxEpochs; epoch++) {
+                Collections.shuffle(train, random);
+                double trainLoss = 0.0;
+                long epochStartNanos = System.nanoTime();
+                int examplesSeen = 0;
+                int i = 0;
+                while (i < train.size()) {
+                    int batchEnd = Math.min(i + threads, train.size());
+                    List<Example> batch = train.subList(i, batchEnd);
+                    i = batchEnd;
+                    List<ComputedGradient> computed = computeBatch(executor, weights, vocabulary, batch);
+                    for (int b = 0; b < batch.size(); b++) {
+                        examplesSeen++;
+                        ComputedGradient result = computed.get(b);
+                        if (result != null) {
+                            trainLoss += result.loss;
+                            step++;
+                            adam.apply(weights, result.gradients, learningRate, step);
+                        }
+                        if (progressEvery > 0 && examplesSeen % progressEvery == 0) {
+                            printProgress(epoch, examplesSeen, train.size(), trainLoss, epochStartNanos, trainingStartNanos);
+                        }
                     }
-                    continue;
                 }
-                GruClassifier.ForwardCache cache = GruClassifier.forward(weights, vocabulary, tokens, example.targetWordIndex);
-                trainLoss += crossEntropyLoss(cache.logits, example.classIndex);
-                GruClassifier.Gradients gradients = GruClassifier.backward(weights, cache, example.classIndex);
-                clipGradients(gradients, GRADIENT_CLIP_NORM);
-                step++;
-                adam.apply(weights, gradients, learningRate, step);
-                if (progressEvery > 0 && examplesSeen % progressEvery == 0) {
-                    printProgress(epoch, examplesSeen, train.size(), trainLoss, epochStartNanos, trainingStartNanos);
+                trainLoss /= train.size();
+
+                // Validation never mutates `weights`, so parallelizing it (unlike training) carries
+                // no staleness tradeoff at all -- every example is scored against the exact same
+                // frozen snapshot regardless of thread count, and losses are summed back in
+                // original list order, so the result is identical to running it sequentially.
+                double validationLoss = 0.0;
+                int vi = 0;
+                while (vi < validation.size()) {
+                    int vEnd = Math.min(vi + threads, validation.size());
+                    List<Example> batch = validation.subList(vi, vEnd);
+                    vi = vEnd;
+                    List<Double> losses = computeValidationBatch(executor, weights, vocabulary, batch);
+                    for (Double loss : losses) {
+                        if (loss != null) {
+                            validationLoss += loss;
+                        }
+                    }
+                }
+                validationLoss /= validation.size();
+
+                double epochSeconds = (System.nanoTime() - epochStartNanos) / 1e9;
+                double totalSeconds = (System.nanoTime() - trainingStartNanos) / 1e9;
+                System.out.println("GruTrainer: epoch " + epoch + " trainLoss=" + trainLoss
+                        + " validationLoss=" + validationLoss + " epochSeconds=" + String.format("%.1f", epochSeconds)
+                        + " totalElapsedSeconds=" + String.format("%.1f", totalSeconds));
+
+                if (validationLoss < bestValidationLoss) {
+                    bestValidationLoss = validationLoss;
+                    bestWeightsJson = toJson(weights, explicitVocab);
+                    epochsSinceImprovement = 0;
+                } else {
+                    epochsSinceImprovement++;
+                    if (epochsSinceImprovement >= patience) {
+                        System.out.println("GruTrainer: early stopping at epoch " + epoch
+                                + " (no validation improvement for " + patience + " epochs)");
+                        break;
+                    }
                 }
             }
-            trainLoss /= train.size();
-
-            double validationLoss = 0.0;
-            for (Example example : validation) {
-                List<String> tokens = GruClassifier.tokenize(example.text);
-                if (tokens.size() > GruClassifier.SEQUENCE_CAP) {
-                    tokens = tokens.subList(0, GruClassifier.SEQUENCE_CAP);
-                }
-                if (example.targetWordIndex < 0 || example.targetWordIndex >= tokens.size()) {
-                    continue;
-                }
-                GruClassifier.ForwardCache cache = GruClassifier.forward(weights, vocabulary, tokens, example.targetWordIndex);
-                validationLoss += crossEntropyLoss(cache.logits, example.classIndex);
-            }
-            validationLoss /= validation.size();
-
-            double epochSeconds = (System.nanoTime() - epochStartNanos) / 1e9;
-            double totalSeconds = (System.nanoTime() - trainingStartNanos) / 1e9;
-            System.out.println("GruTrainer: epoch " + epoch + " trainLoss=" + trainLoss
-                    + " validationLoss=" + validationLoss + " epochSeconds=" + String.format("%.1f", epochSeconds)
-                    + " totalElapsedSeconds=" + String.format("%.1f", totalSeconds));
-
-            if (validationLoss < bestValidationLoss) {
-                bestValidationLoss = validationLoss;
-                bestWeights = weights;
-                epochsSinceImprovement = 0;
-            } else {
-                epochsSinceImprovement++;
-                if (epochsSinceImprovement >= patience) {
-                    System.out.println("GruTrainer: early stopping at epoch " + epoch
-                            + " (no validation improvement for " + patience + " epochs)");
-                    break;
-                }
+        } finally {
+            if (executor != null) {
+                executor.shutdown();
             }
         }
 
-        String json = toJson(bestWeights, explicitVocab);
         try {
-            Files.write(weightsOut.toPath(), json.getBytes(StandardCharsets.UTF_8));
+            Files.write(weightsOut.toPath(), bestWeightsJson.getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
             System.err.println("GruTrainer: could not write output weights file " + args[1] + ": "
                     + e.getMessage());
@@ -266,6 +298,117 @@ public final class GruTrainer {
         System.out.println("GruTrainer: wrote trained weights file to " + weightsOut
                 + " (vocabSize=" + explicitVocab.size() + ", trainExamples=" + train.size()
                 + ", validationExamples=" + validation.size() + ", bestValidationLoss=" + bestValidationLoss + ")");
+    }
+
+    /** One example's computed loss + gradients, or the outcome of skipping an out-of-range
+     *  {@code targetWordIndex} (never constructed for those -- see {@link #computeBatch}). */
+    private static final class ComputedGradient {
+        final double loss;
+        final GruClassifier.Gradients gradients;
+
+        ComputedGradient(double loss, GruClassifier.Gradients gradients) {
+            this.loss = loss;
+            this.gradients = gradients;
+        }
+    }
+
+    private static ComputedGradient computeGradient(GruWeights weights, Vocabulary vocabulary, Example example) {
+        GruClassifier.ForwardCache cache = GruClassifier.forward(weights, vocabulary, example.tokens, example.targetWordIndex);
+        double loss = crossEntropyLoss(cache.logits, example.classIndex);
+        GruClassifier.Gradients gradients = GruClassifier.backward(weights, cache, example.classIndex);
+        clipGradients(gradients, GRADIENT_CLIP_NORM);
+        return new ComputedGradient(loss, gradients);
+    }
+
+    /** Computes forward+backward for one batch of examples, in parallel across {@code executor}'s
+     *  worker threads when non-null (all against the same {@code weights} snapshot -- safe since
+     *  {@link GruClassifier#forward}/{@link GruClassifier#backward} only read {@code weights}, never
+     *  mutate it), sequentially otherwise. Result order matches {@code batch}'s order; entries for
+     *  examples with an out-of-range {@code targetWordIndex} are {@code null} (skipped, matching the
+     *  pre-existing single-threaded behavior of not computing anything for them). */
+    private static List<ComputedGradient> computeBatch(ExecutorService executor, GruWeights weights,
+            Vocabulary vocabulary, List<Example> batch) {
+        List<ComputedGradient> results = new ArrayList<>(batch.size());
+        if (executor == null) {
+            for (Example example : batch) {
+                if (example.targetWordIndex < 0 || example.targetWordIndex >= example.tokens.size()) {
+                    results.add(null);
+                } else {
+                    results.add(computeGradient(weights, vocabulary, example));
+                }
+            }
+            return results;
+        }
+        List<Future<ComputedGradient>> futures = new ArrayList<>(batch.size());
+        for (final Example example : batch) {
+            if (example.targetWordIndex < 0 || example.targetWordIndex >= example.tokens.size()) {
+                futures.add(null);
+            } else {
+                futures.add(executor.submit(new Callable<ComputedGradient>() {
+                    @Override
+                    public ComputedGradient call() {
+                        return computeGradient(weights, vocabulary, example);
+                    }
+                }));
+            }
+        }
+        for (Future<ComputedGradient> future : futures) {
+            if (future == null) {
+                results.add(null);
+                continue;
+            }
+            try {
+                results.add(future.get());
+            } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException("GruTrainer: parallel gradient computation failed", e);
+            }
+        }
+        return results;
+    }
+
+    /** Same parallelization strategy as {@link #computeBatch}, but for validation (loss only, no
+     *  gradients/Adam application) -- see the call site's comment on why this carries no staleness
+     *  tradeoff, unlike training. */
+    private static List<Double> computeValidationBatch(ExecutorService executor, GruWeights weights,
+            Vocabulary vocabulary, List<Example> batch) {
+        List<Double> results = new ArrayList<>(batch.size());
+        if (executor == null) {
+            for (Example example : batch) {
+                if (example.targetWordIndex < 0 || example.targetWordIndex >= example.tokens.size()) {
+                    results.add(null);
+                } else {
+                    GruClassifier.ForwardCache cache = GruClassifier.forward(weights, vocabulary, example.tokens, example.targetWordIndex);
+                    results.add(crossEntropyLoss(cache.logits, example.classIndex));
+                }
+            }
+            return results;
+        }
+        List<Future<Double>> futures = new ArrayList<>(batch.size());
+        for (final Example example : batch) {
+            if (example.targetWordIndex < 0 || example.targetWordIndex >= example.tokens.size()) {
+                futures.add(null);
+            } else {
+                futures.add(executor.submit(new Callable<Double>() {
+                    @Override
+                    public Double call() {
+                        GruClassifier.ForwardCache cache = GruClassifier.forward(weights, vocabulary, example.tokens, example.targetWordIndex);
+                        return crossEntropyLoss(cache.logits, example.classIndex);
+                    }
+                }));
+            }
+        }
+        for (Future<Double> future : futures) {
+            if (future == null) {
+                results.add(null);
+                continue;
+            }
+            try {
+                results.add(future.get());
+            } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException("GruTrainer: parallel validation computation failed", e);
+            }
+        }
+        return results;
     }
 
     /** Mid-epoch progress line: examples-seen/total, running average train loss so far this epoch,
@@ -293,12 +436,21 @@ public final class GruTrainer {
         final int classIndex;
         final int targetWordIndex;
         final String text;
+        /** Tokenized once at load time (and truncated to {@code SEQUENCE_CAP}, matching what the
+         *  per-epoch code previously recomputed on every pass) rather than re-tokenized on every
+         *  epoch -- the text/tokenization never changes across epochs, only the weights do. */
+        final List<String> tokens;
 
         Example(String label, int classIndex, int targetWordIndex, String text) {
             this.label = label;
             this.classIndex = classIndex;
             this.targetWordIndex = targetWordIndex;
             this.text = text;
+            List<String> tokenized = GruClassifier.tokenize(text);
+            if (tokenized.size() > GruClassifier.SEQUENCE_CAP) {
+                tokenized = tokenized.subList(0, GruClassifier.SEQUENCE_CAP);
+            }
+            this.tokens = tokenized;
         }
     }
 

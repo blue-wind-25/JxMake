@@ -711,6 +711,45 @@ concrete, test-backed blocker for actually making the GRU path active by
 default in the shipped formatter, as opposed to merely reachable when a user
 opts in via config.
 
+**User feedback**
+
+With `GRU_TRAIN_ARGS ?= --epochs=2 --patience=2 --progress-every=100`, it produces:
+
+```
+...
+GruTrainer: epoch 1 progress 74000/74169 (99.8%) avgTrainLoss=0.0004 epochElapsedSeconds=1139.2 epochEtaSeconds=2.6 totalElapsedSeconds=1139.2
+GruTrainer: epoch 1 progress 74100/74169 (99.9%) avgTrainLoss=0.0004 epochElapsedSeconds=1140.8 epochEtaSeconds=1.1 totalElapsedSeconds=1140.8
+GruTrainer: epoch 1 trainLoss=3.6419302800601685E-4 validationLoss=8.358795624725238E-13 epochSeconds=1206.9 totalElapsedSeconds=1206.9
+GruTrainer: epoch 2 progress 100/74169 (0.1%) avgTrainLoss=0.0000 epochElapsedSeconds=1.5 epochEtaSeconds=1108.9 totalElapsedSeconds=1208.4
+GruTrainer: epoch 2 progress 200/74169 (0.3%) avgTrainLoss=0.0000 epochElapsedSeconds=3.0 epochEtaSeconds=1125.0 totalElapsedSeconds=1209.9
+GruTrainer: epoch 2 progress 300/74169 (0.4%) avgTrainLoss=0.0000 epochElapsedSeconds=4.5 epochEtaSeconds=1108.5 totalElapsedSeconds=1211.4
+...
+GruTrainer: epoch 2 progress 74100/74169 (99.9%) avgTrainLoss=0.0000 epochElapsedSeconds=1192.3 epochEtaSeconds=1.1 totalElapsedSeconds=2399.2
+GruTrainer: epoch 2 trainLoss=4.548027954333698E-13 validationLoss=3.277513329499397E-13 epochSeconds=1258.2 totalElapsedSeconds=2465.1
+GruTrainer: wrote trained weights file to /tmp/code-formatter-ai-assist-weights.json (vocabSize=3500, trainExamples=74169, validationExamples=18542, bestValidationLoss=3.277513329499397E-1
+```
+
+There could be something wrong with the training because of the `avgTrainLoss=0.0000` value.
+
+Also there should be some improvement that can be done to increase the training speed:
+- Optimize Adam bias correction.
+- Compute the bias-correction factors (1 - beta1^step and 1 - beta2^step) once per optimizer step instead of inside every parameter update.
+- Do not change the training algorithm or numerical results.
+
+- Convert SGD (batch size 1) into mini-batch training with batch size 32.
+- Accumulate gradients.
+- Average gradients over the batch.
+- Perform one Adam update per batch.
+- Preserve identical behavior except for the batching.
+
+- Tokenize every training sample once before the epoch loop.
+- Reuse the cached tokenized representation in every epoch.
+- Do not change runtime inference, only the trainer.
+
+- Fix early stopping so bestWeights is a true deep copy instead of another reference to the same o
+
+I have attempted some of the above, please check and continue.
+
 ### Still outstanding
 
 - Improving `CommentClassifier`'s keyword-list accuracy (or otherwise

@@ -61,8 +61,8 @@ Be careful not to lose important information, especially the `**Tools/compiler u
 Then update `STATE_DOGFOOD.md` about the above dogfood state (keep `Note` short enough).
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_171_inp/out.java`
-    to   `...`
+    from `...`
+    to   `real_code_regressions_171_inp/out.java`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -196,57 +196,82 @@ exec  ~/mynpm/bin/claude "$@"
 ####################################################################################################
 
 Remaining jobs across formatter/gru, sorted by worthiness (value vs. difficulty),
-compiled 2026-07-29 from STATE_DOGFOOD.md + each job's own STATE_*.md. Highest
-worthiness first within each tier.
+compiled 2026-07-29 from STATE_DOGFOOD.md + each job's own STATE_*.md, updated
+2026-07-30 after a design/scoping pass on item 1 and a disagreement-sampling
+pass that promoted the former item 6. Highest worthiness first within each
+tier.
 
 --- Tier 1: high value, tractable next steps ---
 
-Now do you think it is a good idea to execute `### Formatter self-formatting (dogfood-and-adopt) process` now?
-How about the chance of wrong comments normalization?
+11. GRU: commented-out-code NO-gate (comment that looks like a code statement —
+    semicolon-terminated, assignment/call/increment/declaration shape).
+    Promoted from Tier 2 (2026-07-30) after a disagreement-sampling pass found
+    real evidence, not just a hypothetical risk: filtering the full 91064-line
+    YES pool in `sample_default.txt` for lines ending in `;` found 984
+    candidates (~1.1%), and spot-checking confirmed most are genuinely
+    commented-out code (`fmap[j] = a;`, `blockNo++;`, `System.out.println(...)`,
+    `uint16_t ctr = 0;`) across C, C++, Java, and JS. **This is a live
+    formatting-correctness bug, not just training-corpus quality** —
+    `CommentClassifier` is wired live via `GruAbstainResolver` into the real
+    pipeline (comment-normalization-classifier defaults `on`; only the GRU half
+    is off), so real code today gets this wrong across every curly-brace
+    language, a broader footprint than the JS/TS-only item below. Full findings
+    + example candidates in STATE_AI.md's "Findings from a first
+    disagreement-sampling pass" section. Difficulty: medium-high — highest
+    false-positive risk of the deferred gates; a 25-line spot-check found ~8%
+    of real prose lines legitimately end a clause with `;`, so a bare
+    trailing-`;` signal alone is unsafe (same asymmetric-risk shape as this
+    session's reverted hyphen-gate) — needs `;` combined with a second
+    code-shape signal before it's safe.
 
-4. JS/TS: shared TypeScript cluster #3 / Angular cluster 4 #3 — call-wrap/collapse
-   vs. alignment-padding fits-check ordering. Highest file-count value of any open
-   JS/TS item (28/601 TypeScript files; same root cause hits Angular). Difficulty:
-   medium-high (cross-pass-ordering fix; a previous attempt was deliberately
-   deferred, not reverted-after-failure — no known landmine, just unscoped).
+12. JS/TS: shared TypeScript cluster #3 / Angular cluster 4 #3 — call-wrap/collapse
+    vs. alignment-padding fits-check ordering. Highest file-count value of any open
+    JS/TS item (28/601 TypeScript files; same root cause hits Angular), but narrower
+    than item 1 above (TS/Angular idempotency only, vs. a live cross-language
+    correctness bug). Difficulty: medium (downgraded from medium-high 2026-07-30 —
+    a design/scoping pass, no code changed, found a cheaper fix than the
+    originally-assumed two-pass simulation: reuse the existing `hasBreakableCall` +
+    raw-width-estimate heuristic already used by `JavaSpecificRule.isSingleLineBody`/
+    `KotlinSpecificRule`'s analog/`GetterSetterRuleCurly.parseOneLinerMember` for the
+    identical "will `enforceCallLineBreaking` still wrap this later" problem, rather
+    than a true simulation of that pass. Full scoped plan — exact insertion points in
+    `BlockStructureRule.java`'s `tryCollapse`/`tryCollapseBraceless`, why the
+    reverted attempt misfired, and the validation plan — is written up in
+    STATE_JS_TS.md under root cause #3, "2026-07-30 design/scoping pass").
+
+Use sub-agent. This can be substantial work.
 
 --- Tier 2: meaningful, narrower value or higher difficulty ---
 
-5. Kotlin: `JetBrains/kotlin` dogfood cluster D3 — multi-line-call/condition
-   wrap-decision flap (~33 files). Root cause confirmed
-   (`MiscRuleCurly.renderCallCandidate`'s fits-check measures against the whole
-   enclosing physical line instead of a stable per-candidate position), but the
-   one attempted fix regressed 28 fixtures across C/C++/Java/TS/Kotlin and was
-   reverted. Value: medium (single repo, ~33 files). Difficulty: high — proven
-   collateral-damage-prone, needs a more surgical anchor than tried so far.
+21. Kotlin: `JetBrains/kotlin` dogfood cluster D3 — multi-line-call/condition
+    wrap-decision flap (~33 files). Root cause confirmed
+    (`MiscRuleCurly.renderCallCandidate`'s fits-check measures against the whole
+    enclosing physical line instead of a stable per-candidate position), but the
+    one attempted fix regressed 28 fixtures across C/C++/Java/TS/Kotlin and was
+    reverted. Value: medium (single repo, ~33 files). Difficulty: high — proven
+    collateral-damage-prone, needs a more surgical anchor than tried so far.
 
-6. GRU: commented-out-code NO-gate (comment that looks like a code statement —
-   semicolon-terminated, assignment/braces shape). Value: medium. Difficulty:
-   medium-high — highest false-positive risk of the deferred gates; real prose can
-   legitimately contain a semicolon/braces, so needs multiple code-like signals
-   together before it's safe.
+22. GRU: multi-line license/copyright-block NO-gate (2+ newlines, no trailing
+    sentence-ending period). Value: low-medium. Difficulty: medium — risk of
+    misfiring on a real multi-line prose paragraph without a careful
+    period-position check.
 
-7. GRU: multi-line license/copyright-block NO-gate (2+ newlines, no trailing
-   sentence-ending period). Value: low-medium. Difficulty: medium — risk of
-   misfiring on a real multi-line prose paragraph without a careful
-   period-position check.
+23. C/C++/Java: `microsoft/STL` documented open gaps — macro-invocation-as-statement
+    glued to a following collapsed `if` one round later (root cause already
+    identified: `splitStatements` merges the bare macro with the following `if` into
+    one "statement"). Value: low (narrow shape, 289-file corpus otherwise clean).
+    Difficulty: medium — root cause known, fix not yet scoped.
 
-8. C/C++/Java: `microsoft/STL` documented open gaps — macro-invocation-as-statement
-   glued to a following collapsed `if` one round later (root cause already
-   identified: `splitStatements` merges the bare macro with the following `if` into
-   one "statement"). Value: low (narrow shape, 289-file corpus otherwise clean).
-   Difficulty: medium — root cause known, fix not yet scoped.
+24. C/C++/Java: `jenkinsci/jenkins` `PluginManager.java` line-wrap instability —
+    explicitly documented as low-priority. Value: low. Difficulty: unscoped.
 
-9. C/C++/Java: `jenkinsci/jenkins` `PluginManager.java` line-wrap instability —
-   explicitly documented as low-priority. Value: low. Difficulty: unscoped.
-
-10. HTML5: `apache/ant` `manual/running.html` loses one `<p>` (1/226 files) — needs
+25. HTML5: `apache/ant` `manual/running.html` loses one `<p>` (1/226 files) — needs
     more than RDD_KEY_204's existing fix covers. Value: low (single file).
     Difficulty: medium.
 
 --- Tier 3: big/risky architectural bets ---
 
-11. General scope-depth reindentation (STATE_COMMON.md "Architectural TODOs",
+31. General scope-depth reindentation (STATE_COMMON.md "Architectural TODOs",
     cross-cutting — not owned by one job). Would close two ACCEPTED-not-fixed gaps
     (`javaparser/javaparser`'s `ASTParser.java`, local `JSONEncoderLite.java`) and
     any future bug of the same shape. Value: potentially high (removes a whole bug
@@ -257,12 +282,12 @@ How about the chance of wrong comments normalization?
     multiply, and ordering interactions with every other pass. Difficulty: very
     high. Do not attempt without a dedicated design pass first.
 
-12. JSX/TSX support — currently out of scope entirely (not merely deferred),
+32. JSX/TSX support — currently out of scope entirely (not merely deferred),
     pending a future embedding-aware dispatcher (STATE_JS_TS.md). Value: high (real
     coverage gap, analogous to HTML5's `<script>` dispatch but harder). Difficulty:
     high — new dispatch architecture, not an incremental rule.
 
-13. HTML5 deep tree-construction gaps (foster-parenting, case-folding, adoption
+33. HTML5 deep tree-construction gaps (foster-parenting, case-folding, adoption
     agency algorithm) — only bites `web-platform-tests/wpt`'s deliberately
     pathological conformance fixtures, not real-world content (STATE_DATA_FORMATS.md
     confirms no real WPT syntax-page is affected). Value: low. Difficulty: high —
@@ -271,23 +296,38 @@ How about the chance of wrong comments normalization?
 
 --- Tier 4: ML/infra nice-to-haves — defer until a real training/tuning cycle needs them ---
 
-14. GruTrainer: automatic abstain-threshold tuning (needs a labeled validation
+41. GruTrainer: automatic abstain-threshold tuning (needs a labeled validation
     slice + a chosen objective). Value: low-medium. Difficulty: medium.
-15. GruTrainer: mini-batch training (16-32) — perf/numerics only, no correctness
+42. GruTrainer: mini-batch training (16-32) — perf/numerics only, no correctness
     gain; changes training numerics, needs explicit sign-off. Value: low.
     Difficulty: medium.
-16. GruTrainer: dropout before dense layer — regularization only; current abstain
+43. GruTrainer: dropout before dense layer — regularization only; current abstain
     rate is already low (0.6%-2.1%) so unclear this is needed. Value: low.
     Difficulty: medium.
-17. GruTrainer: learning-rate warmup + cosine decay. Value: low. Difficulty: medium.
-18. GruTrainer: break/resume checkpointing (weights + Adam state + epoch/step,
+44. GruTrainer: learning-rate warmup + cosine decay. Value: low. Difficulty: medium.
+45. GruTrainer: break/resume checkpointing (weights + Adam state + epoch/step,
     real serialization). Value: low — current training runs are short
     (epochs=2-5). Difficulty: high.
-19. GRU: comment sentence-boundary mid-word-dot detection (`.hpp`, `e.g.`, `v1.0`
+46. GRU: comment sentence-boundary mid-word-dot detection (`.hpp`, `e.g.`, `v1.0`
     defeating the sole-trailing-period heuristic) — accepted mechanical-rule
     limitation, feasible only once the GRU has enough mid-word-dot training
     examples; not independently actionable right now. Value: low. Difficulty:
     blocked on more training data, not really "difficulty" in the usual sense.
+47. GRU: LLM-assisted disagreement sampling against `sample_default.txt` (added
+    2026-07-30, first pass done same day, self-judged rather than via a
+    separate LLM API call) — not a full relabel (corpus is auto-labeled by the
+    existing rule-based classifier itself, so a full relabel would just
+    reproduce its blind spots); instead sample lines and treat any disagreement
+    as a candidate hard example to hand-verify and append. First pass's two
+    findings (commented-out-code mislabeling, a separate string-in-comment
+    extraction bug) already written up and acted on — see item 1 above (now
+    Tier 1) and STATE_AI.md's "Findings from a first disagreement-sampling
+    pass" section. Remaining scope: the 875 not-yet-sampled NO lines, a larger
+    YES slice beyond the semicolon-filtered subset, and root-causing the
+    string-extraction bug (which extractor step, `extract_comments.py` or
+    `GenerateSampleDefault.java`). Value: low-medium (corpus-quality
+    improvement/further evidence-gathering, most of the high-value finding
+    already extracted). Difficulty: low (reading/judging text, no code).
 
 --- Not worth pursuing / explicitly no action planned ---
 

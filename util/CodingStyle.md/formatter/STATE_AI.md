@@ -948,3 +948,56 @@ sample, not to relabel the whole corpus. Steps for whoever picks this up:
    existing 92k labels). This directly grows the corpus's coverage of hard
    NO/ambiguous cases rather than paying full-corpus relabeling cost for a
    result that wouldn't change the GRU's YES-only failure mode.
+
+### Findings from a first disagreement-sampling pass (2026-07-30, self-judged, no LLM API call needed)
+
+Ran step 1 of the plan above by hand (I judged the samples directly rather
+than calling out to a separate LLM). Two distinct findings, one directly
+actionable, one a separate corpus-generation bug:
+
+1. **[ACTIONABLE — elevates tracker item 6's priority] Commented-out code
+   mislabeled YES is common, not rare.** Initial small stratified sample
+   (100 NO + 100 YES) found only one disagreement (`size_t offset = 0;`,
+   labeled YES, clearly code not prose) — 0.5%, seemingly weak evidence.
+   Scaling up by filtering the **full** 91064-line YES pool for lines ending
+   in `;` (the exact commented-out-code shape) found **984 candidates
+   (~1.1% of all YES lines)**. Spot-checking ~50 across both a
+   "starts-with-a-space" and "no-leading-space" subset: the large majority
+   are genuinely commented-out code (`fmap[j] = a;`, `blockNo++;`,
+   `ch = 0;`, `System.out.println(...)`, `mnuToolbox.addSeparator();`,
+   `assertTrue(...)`, `uint16_t ctr = 0;`, `Event event;`), spanning C, C++,
+   Java, and JS — not a single-language quirk. **Important caveat: a bare
+   "ends with `;`" signal alone is NOT safe as a gate** — a 25-line
+   spot-check of the leading-space subset found ~2/25 (8%) were genuine
+   English prose that happens to end a clause with a semicolon before
+   continuing (e.g. "...cannot be expressed in RFC 3339's 4-digit form;",
+   "...is expected to emit an object body (e.g. a map);") — the same
+   asymmetric-risk shape as this session's reverted hyphen-gate. **This
+   confirms tracker item 6 (`XL.txt`) is worth building, but the gate must
+   combine trailing `;` with a second signal** (assignment/call/increment/
+   declaration shape — e.g. `IDENTIFIER (=|++|--|(...)) ... ;` — not
+   semicolon alone) to keep the ~8% prose-false-positive rate out.
+   **Unlike the GRU-corpus-only framing this TODO section started from,
+   this is a live-formatting-correctness finding**: `CommentClassifier` is
+   wired live via `GruAbstainResolver` into the real formatting pipeline
+   (comment-normalization-classifier defaults `on` — see the 2026-07-30
+   "`gru-classifier` flipped back to default `off`" section above; only the
+   GRU half of that pipeline is off, the rule-based `CommentClassifier`
+   gates are always live), so a fix here changes real output for real code
+   today, across every curly-brace language — not just training-corpus
+   quality for a currently-disabled feature.
+2. **[SEPARATE BUG, not a `CommentClassifier` concern] String-literal
+   content getting extracted as if it were comment text.** A cluster of the
+   984 candidates are DTD/URL string fragments with no leading space (e.g.
+   `Sun Microsystems, Inc.//DTD Enterprise JavaBeans 1.1//EN";`,
+   `apache.org/xml/features/validation/schema";`) — these look like pieces
+   of ordinary Java string literals that happen to contain a `//`
+   substring, which the comment-extraction step (`extract_comments.py`
+   and/or `GenerateSampleDefault.java`'s own scan, not yet root-caused to
+   which one) appears to misread as a line-comment start, capturing the
+   rest of the string as if it were comment text. This is a corpus-
+   generation/extraction bug, not a classifier-gate gap — `CommentClassifier`
+   can't fix bad input. Not yet investigated further (which extractor step,
+   how it decides `//` starts a comment without checking string-literal
+   context) — flagged here for whoever picks up either this TODO or a
+   corpus-generation-quality pass.

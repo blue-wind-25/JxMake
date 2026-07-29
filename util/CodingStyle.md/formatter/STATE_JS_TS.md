@@ -537,6 +537,67 @@ first (value = criticality weighed against difficulty):
      guard must simulate `enforceCallLineBreaking`'s wrap decision on the
      joined candidate first (two-pass lookahead) — bigger lift, deferred.
      2026-07-28 re-assessment: unchanged, not reattempted.
+
+     **2026-07-30 design/scoping pass (no code changed) — cheaper design found,
+     reusing an existing precedent instead of a true two-pass simulation:**
+     `JavaSpecificRule.isSingleLineBody` (~line 244-309), `KotlinSpecificRule`'s
+     analogous method (~line 1736-1782), and `GetterSetterRuleCurly
+     .parseOneLinerMember`'s length pre-check (~line 684-715) already solve
+     *the same class of problem* — "will `enforceCallLineBreaking` still wrap
+     this later, so my decision now must anticipate that" — via a cheap
+     two-part heuristic, not a real simulation:
+       1. `hasBreakableCall(tokens, from, to)` — true iff the span contains at
+          least one `name(args)` call with a non-empty argument list (the only
+          shape `enforceCallLineBreaking` ever wraps; zero-arg calls never
+          break). Each class keeps its own private copy (established
+          duplication precedent — see `JavaSpecificRule`'s doc comment on its
+          own copy — `GetterSetterRuleCore.hasBreakableCall` is the one
+          `protected`-visibility shared instance, reused by
+          `KotlinGetterSetterRule` only).
+       2. A raw-width estimate — `expandedIndentWidth(lineIndent(...)) +`
+          collapsed-whitespace-run text length, matching
+          `enforceCallLineBreaking`'s own `collapseToOneLine` measurement
+          (every whitespace/newline run counts as exactly one space,
+          including the line's leading indent and any trailing same-line
+          `//` comment) — compared against `lineLengthLimit`.
+
+     The key insight the reverted naive attempt missed: refusing collapse
+     whenever over-limit is only correct when nothing later can rescue the
+     line. **If the joined candidate contains a breakable call, collapsing is
+     still safe** — `enforceCallLineBreaking` will wrap that call's args
+     across lines inside the now-braceless body (a braceless `if`/`else`
+     consequent can legally span multiple physical lines as long as it's
+     still one statement), and both round1 and round2 predict the same "will
+     wrap" outcome from the same heuristic, so idempotency holds. Refusal
+     should apply **only** when the joined candidate is over-limit **and**
+     `hasBreakableCall` is false (truly nothing will shrink it) — the
+     reverted attempt checked width alone, with no `hasBreakableCall` gate,
+     which is exactly why it misfired on every wrappable-call body.
+
+     **Proposed fix, scoped, not yet implemented:** in `tryCollapse`
+     (`BlockStructureRule.java` ~line 463-528) and its braceless sibling
+     `tryCollapseBraceless` (~line 822+), after the existing guards and
+     before returning the collapsed candidate, add: compute the joined
+     one-line width the same way `isSingleLineBody` does; if it exceeds
+     `lineLengthLimit` **and** `hasBreakableCall` is false over the
+     candidate's body span, `return null` (refuse collapse, leave braced —
+     matches today's `alignBracelessElseIfChain` escape-hatch behavior,
+     unaffected). Otherwise proceed exactly as today. Needs a new private
+     `hasBreakableCall` copy in `BlockStructureRule.java` (per the
+     established per-class duplication convention) plus a width-estimate
+     helper mirroring `isSingleLineBody`'s (or a small shared extraction, if
+     a third near-identical copy feels like enough repetition to justify one
+     — judgment call for whoever implements).
+
+     **Validation plan:** re-run the 5 previously-regressed fixtures
+     (`java_combined`, `real_code_regressions_57`/`_81`/`_93`/`_141`) first in
+     isolation to confirm the `hasBreakableCall` gate fixes the false
+     regression, then full `make test`, then re-run the real-code
+     round1/round2/compile-verify cycle against both `/tmp/ts-dogfood
+     /TypeScript` (601 files, cluster #3, reuse existing checkout — do not
+     re-clone) and the `angular/angular` checkout (cluster 4, ~23 remaining
+     files) to confirm the cluster actually closes rather than partially
+     shifting.
    - **Root cause #4 [FIXED] — trailing same-line comment inconsistently
      counted in the collapse fits-check** (`location_shim.ts:461`): fresh
      format counts the trailing comment's width in the fits-check (over

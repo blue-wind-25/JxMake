@@ -631,28 +631,23 @@ decorative-separator case.
 
 ## 2026-07-30 session: fixed `KeywordAmbiguityGate` weight regression, `comment-normalization-classifier` now defaults `on`
 
-Root cause of the 9-fixture regression from 2026-07-29: the 40-example
-`cwg/examples_{c,cpp,java,kotlin}.md` training set had all 20 of its
-"zero mechanical feature" rows (no paren/arrow/semicolon/url-or-number
-signal) labeled YES, all hand-authored "keyword-used-as-English-word"
-prose (`static analysis caught...`, `void of any real logic...`, etc.).
-That produced a large positive `KEYWORD_BIAS` (`2.48420`), so any real
-keyword-led comment with none of those four signals defaulted to YES
-(capitalize) — wrong for real code, where that shape is overwhelmingly a
-genuine code reference (`static operator()`, `consteval utility`, `while
-loop`, `do-while`, `var usage`, `this comment is between annotation and
-field`, etc. — all confirmed real lines from `test/cpp_modern_inp.cpp`,
+Root cause of the 9-fixture 2026-07-29 regression: the 40-example
+`cwg/examples_{c,cpp,java,kotlin}.md` set had all 20 "zero mechanical
+feature" rows (no paren/arrow/semicolon/url-or-number signal) labeled YES
+— hand-authored "keyword-used-as-English-word" prose only. That produced
+`KEYWORD_BIAS = +2.48420`, so any real keyword-led comment with none of
+those four signals defaulted to YES (capitalize) — wrong, since that shape
+is overwhelmingly a genuine code reference in real code (`static
+operator()`, `consteval utility`, `while loop`, `do-while`, `var usage`,
+etc. — confirmed real lines from `test/cpp_modern_inp.cpp`,
 `test/cpp_combined_inp.cpp`, `test/java_core_inp.java`,
 `test/java_combined_inp.java`, `test/java_comments_inp.java`).
 
-Fix: added 22 new zero-feature NO-labeled rows across
-`cwg/examples_{c,cpp,java,kotlin}.md` — a mix of the real regression
-lines above and hand-authored analogues for languages/keywords that
-didn't happen to have a failing fixture (e.g. `default label handles
-unmatched values`, `virtual keyword adds a vtable pointer`, `when branch
-order matters here`) — bringing the zero-feature split to 20 YES / 22 NO.
-Re-ran `python3 cwg/derive_weights.py` (62 total examples now) and copied
-the new constants into `CommentClassifierWeights.java`:
+Fix: added 22 new zero-feature NO-labeled rows (mix of the real regression
+lines above + hand-authored analogues for languages/keywords without a
+failing fixture) bringing the zero-feature split to 20 YES / 22 NO.
+Re-ran `python3 cwg/derive_weights.py` (62 examples) and copied the new
+constants into `CommentClassifierWeights.java`:
 
 ```
 KEYWORD_BIAS                 = -0.20825   (was +2.48420)
@@ -662,43 +657,38 @@ KEYWORD_WEIGHT_SEMICOLON     = -2.96142   (was -4.93396)
 KEYWORD_WEIGHT_URL_OR_NUMBER = -0.51492   (was -2.80469)
 ```
 
-The now-negative bias means a zero-signal keyword-led comment defaults
-to ABSTAIN (skip normalization) instead of YES — the intentional
-asymmetric-risk tradeoff already documented on `KeywordAmbiguityGate`
-("a false skip is zero-cost, a false positive is a visible bug"); the
-per-example check now shows 20 mismatches, all of them the rare
-"keyword used as plain English adjective, zero mechanical signal" case
-(e.g. `static analysis caught a null deref here`) resolving to ABSTAIN
-instead of YES — an accepted tradeoff, not a bug.
+The now-negative bias means a zero-signal keyword-led comment defaults to
+ABSTAIN (skip normalization) instead of YES — the intentional
+asymmetric-risk tradeoff already documented on `KeywordAmbiguityGate` ("a
+false skip is zero-cost, a false positive is a visible bug"); per-example
+check now shows 20 mismatches, all the rare "keyword used as plain English
+adjective, zero mechanical signal" case (e.g. `static analysis caught a
+null deref here`) resolving to ABSTAIN instead of YES — accepted tradeoff.
 
-Fixing 8 of the 9 originally-regressed fixtures this way surfaced a
-second, distinct bug: `test/real_code_regressions_54_inp.java` still
-failed, but not on capitalization — on a stray-trailing-period strip
-(`... as the specified type .` should lose the stray `" ."`, per
-`stripSoleTrailingPeriod`). That comment starts with the keyword
-`return` (`KEYWORDS_JAVA`), and `CommentFeatureExtractor.extract` always
-computed `hasLeadingKeywordMatch` from the comment's *first* word
-regardless of the caller's `targetWordIndex` — so the strip-period call
-site (whose `targetWordIndex` correctly points at the *last* token,
-unrelated to "return") was wrongly gated by the leading-word ambiguity
-anyway, abstaining (skip strip) when it should strip. Fixed by adding a
-`targetWordIndex`-aware `CommentFeatureExtractor.extract` overload that
-only sets `hasLeadingKeywordMatch` when `targetWordIndex == 0`, and
-wiring `MiscRuleCore.classifyComment`'s existing `targetWordIndex`
-parameter through to it (previously computed unconditionally regardless
-of index). This is a real, if narrow, architectural gap independent of
-the weight-derivation fix above — the rule-based `CommentClassifier`
-path had never actually been position-aware despite `classifyComment`'s
-own javadoc describing `targetWordIndex` as pointing "at the token the
-decision actually hinges on".
+Fixing 8 of the 9 regressed fixtures surfaced a second, distinct bug:
+`test/real_code_regressions_54_inp.java` still failed, on a
+stray-trailing-period strip (not capitalization) — `stripSoleTrailingPeriod`
+should have stripped `" ."` from `... as the specified type .` but didn't.
+That comment starts with keyword `return`, and `CommentFeatureExtractor
+.extract` always computed `hasLeadingKeywordMatch` from the comment's
+*first* word regardless of the caller's `targetWordIndex` — so the
+strip-period call site (whose `targetWordIndex` correctly points at the
+*last* token, unrelated to "return") was wrongly gated by leading-word
+ambiguity anyway. Fixed with a `targetWordIndex`-aware `extract` overload
+that only sets `hasLeadingKeywordMatch` when `targetWordIndex == 0`, wired
+through `MiscRuleCore.classifyComment`'s existing parameter (previously
+computed unconditionally). A real, narrow architectural gap independent of
+the weight-derivation fix — the rule-based `CommentClassifier` path had
+never actually been position-aware despite `classifyComment`'s own javadoc
+describing `targetWordIndex` as pointing "at the token the decision
+actually hinges on".
 
 With both fixes in place, flipped `Config.commentNormalizationClassifier`'s
-default to `true` (`STATE_COMMON.md`'s config-key line updated to match)
-and confirmed `make test`: **219/219 forward, 219/219 idempotency** — all
-9 originally-regressed fixtures now pass, no new regressions. The GRU
-comment-normalization pipeline (`gruClassifier` + `commentNormalizationClassifier`,
-both now `true` by default) is fully active by default, no longer
-real-but-opt-in.
+default to `true` (`STATE_COMMON.md`'s config-key line updated to match):
+**219/219 forward, 219/219 idempotency** — all 9 originally-regressed
+fixtures pass, no new regressions. The GRU comment-normalization pipeline
+(`gruClassifier` + `commentNormalizationClassifier`, both now `true` by
+default) is fully active by default, no longer real-but-opt-in.
 
 ### TODO — GruTrainer follow-ups (deferred, not yet scheduled)
 
@@ -772,14 +762,13 @@ false-positive risk than that gate, so deferred rather than bundled in:
 
 ## 2026-07-30 session: `gru-classifier` flipped back to default `off` (real-trained weights underperform the linear classifier on ambiguous cases)
 
-Evaluated the currently-shipped `code-formatter-ai-assist-weights.json`
-against the 62 hand-labeled keyword-ambiguity examples in
-`cwg/examples_{c,cpp,java,kotlin}.md` — the genuinely-ambiguous corpus
-`derive_weights.py` trains the linear `KeywordAmbiguityGate` on, converted
-to `GruEval`'s RDD_EXT_21 schema (`targetWordIndex=0` for all rows, since
-every example's target word is the leading word per that corpus's own
-design). Result via
-`java -cp target/classes:<gru-tools-classes> GruEval code-formatter-ai-assist-weights.json <converted-file>`:
+Evaluated the shipped `code-formatter-ai-assist-weights.json` against the
+62 hand-labeled keyword-ambiguity examples in
+`cwg/examples_{c,cpp,java,kotlin}.md` (the genuinely-ambiguous corpus
+`derive_weights.py` trains the linear `KeywordAmbiguityGate` on), converted
+to `GruEval`'s RDD_EXT_21 schema (`targetWordIndex=0` for all rows). Result
+via `java -cp target/classes:<gru-tools-classes> GruEval
+code-formatter-ai-assist-weights.json <converted-file>`:
 
 ```
 total=62 abstain=0 decided=62 correct=19 precision=30.6%
@@ -792,39 +781,37 @@ should be NO — worse than the linear classifier's own 67.7% (42/62, see
 
 Root cause: `sample_default.txt` (the GRU's only training corpus) is
 auto-labeled *by the linear classifier itself* via `GenerateSampleDefault`,
-which only keeps its own high-confidence YES/NO decisions. That corpus is
-dominated by clear-cut prose (mostly YES) and never contains the genuinely
-hard ambiguous-keyword-led NO cases — those are exactly the ABSTAIN-path
-comments the linear classifier doesn't auto-label with confidence, and per
-RDD_EXT_19 the hand-labeled `cwg/examples_*.md` set is deliberately never
-merged into `sample_default.txt`. The GRU therefore learned "default to
-YES" rather than the subtle distinction it exists to resolve.
+keeping only its own high-confidence YES/NO decisions — so it's dominated
+by clear-cut prose (mostly YES) and never contains the genuinely hard
+ambiguous-keyword-led NO cases (those are exactly the ABSTAIN-path
+comments the linear classifier won't auto-label, and per RDD_EXT_19 the
+hand-labeled `cwg/examples_*.md` set is deliberately never merged into
+`sample_default.txt`). The GRU learned "default to YES" rather than the
+subtle distinction it exists to resolve.
 
 Fix: `Config.gruClassifier` default flipped back to `false`
-(`src/com/jxmake/formatter/Config.java`), `README.md` and
-`STATE_COMMON.md`'s `gru-classifier` config-key lines updated to
-`off` with a pointer to this section. This does not touch
-`commentNormalizationClassifier` (still defaults `on` — see the
-2026-07-30 KEYWORD_BIAS-regression section above), since that flag gates
-the linear classifier path only and is unaffected by this finding.
+(`src/com/jxmake/formatter/Config.java`), `README.md`/`STATE_COMMON.md`'s
+`gru-classifier` config-key lines updated to `off` with a pointer here.
+Does not touch `commentNormalizationClassifier` (still defaults `on` — see
+the KEYWORD_BIAS-regression section above), which gates the linear
+classifier path only and is unaffected by this finding.
 
-**Still outstanding** (not scheduled this session): teaching the GRU the
-hard cases requires training data that actually contains them — e.g.
-incorporating the 62 hand-labeled examples (or a larger hand-labeled set in
-the same style) directly into the GRU's training corpus, not just relying
-on the auto-labeled majority-YES `sample_default.txt`. Until that exists
-and is re-evaluated with `GruEval` against a held-out labeled set showing
-it beats the linear classifier's 67.7% baseline, `gru-classifier` should
-stay `off`.
+**Still outstanding:** teaching the GRU the hard cases requires training
+data that actually contains them — e.g. incorporating the 62 hand-labeled
+examples (or a larger set in the same style) directly into the GRU's
+training corpus rather than relying on auto-labeled majority-YES
+`sample_default.txt`. Until re-evaluated with `GruEval` against a held-out
+labeled set beating the linear classifier's 67.7% baseline,
+`gru-classifier` stays `off`.
 
 ## 2026-07-30 session: self-formatting dogfood-and-adopt run found and fixed a `CommentClassifier` false positive (slash-separated lists)
 
-Ran `STATE_COMMON.md`'s "Formatter self-formatting (dogfood-and-adopt)
-process" for the first time against the formatter's own `src/` tree
+First run of `STATE_COMMON.md`'s "Formatter self-formatting
+(dogfood-and-adopt) process" against the formatter's own `src/` tree
 (round1/round2 fixed-point + `make test` all clean). Step 4's mandated
-spot-check of the diff isolated same-content-different-case line pairs and
-found 5 wrong capitalizations, all sharing one shape — a comment starting
-with a slash-separated list of code identifiers/keywords, e.g.:
+spot-check found 5 wrong capitalizations, all sharing one shape — a
+comment starting with a slash-separated list of code identifiers/keywords,
+e.g.:
 
 ```
 sizeTokens/initTokens get flattened...       -> SizeTokens/initTokens ...   (WRONG)
@@ -835,14 +822,12 @@ wx/uh/az/ar/ah are short-lived per-token...  -> Wx/uh/az/ar/ah are ...      (WRO
 ```
 
 Root cause: none of these leading words (`sizeTokens`, `open`, `val`,
-`constexpr`, `wx`) are in the file's language's keyword set (these are all
-Java comments — `.isJava` — and none of `open`/`val`/`constexpr` are Java
-keywords), so `hasLeadingKeywordMatch` was false and every one skipped
-`KeywordAmbiguityGate` entirely, falling straight into `CommentClassifier`'s
-"main path" (`BIAS=1.0`, always YES) — a path that, per `cwg/weights.md`,
-deliberately runs no feature check at all because it was designed only for
-the non-ambiguous majority case. A leading word directly followed by `/`
-(no whitespace) was never checked anywhere, keyword or not.
+`constexpr`, `wx`) are in the file's language's keyword set (all Java
+comments — `.isJava`), so `hasLeadingKeywordMatch` was false and every one
+skipped `KeywordAmbiguityGate` entirely, falling into `CommentClassifier`'s
+"main path" (`BIAS=1.0`, always YES) — designed only for the non-ambiguous
+majority case per `cwg/weights.md`. A leading word directly followed by
+`/` (no whitespace) was never checked anywhere, keyword or not.
 
 Fix: new `CommentFeatureVector.leadingWordFollowedBySlash` field (computed
 in `CommentFeatureExtractor`, `targetWordIndex == 0` scoped like
@@ -856,16 +841,15 @@ start are rare enough that occasionally leaving one lowercase costs
 nothing, versus wrongly capitalizing a code-identifier reference.
 `make test`: 220/220 forward + idempotency, unchanged.
 
-After the fix, re-ran the self-formatting process from step 1: round1/round2
-fixed-point clean, trial-JAR `make test` 220/220, round1b/round2b
-fixed-point clean against both `src/` and the trial JAR, re-checked the
-isolated case-diff (only the 4 legitimate prose capitalizations remained,
-zero false positives) and adopted round1's output into the real `src/`
-tree. Rebuilt from the adopted tree, `make test`: 220/220 forward +
-idempotency. This is the first real self-formatting adoption of this
-codebase's own source with the current ruleset — see git history for the
-resulting diff (71 `src/` files + `tools/gru/GruAbstainResolverSelfTest.java`
-for the new constructor argument).
+After the fix, re-ran the process from step 1 (round1/round2 fixed-point
+clean, trial-JAR `make test` 220/220, round1b/round2b fixed-point clean,
+isolated case-diff re-checked: only the 4 legitimate prose capitalizations
+remained, zero false positives) and adopted round1's output into the real
+`src/` tree; rebuild `make test`: 220/220 forward + idempotency. First real
+self-formatting adoption of this codebase's own source with the current
+ruleset — see git history for the resulting diff (71 `src/` files +
+`tools/gru/GruAbstainResolverSelfTest.java` for the new constructor
+argument).
 
 ### 2026-07-30 session: extended self-formatting to `tools/*`/`cwg/*`, found and fixed a JS shebang-mangling bug
 
@@ -927,3 +911,40 @@ all `.java` files (including the Kotlin-compiler-dependent
 `~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib`'s jars on the classpath, and the
 JDK11+-API-dependent `java_content_diff.java`/`java_syntax_check.java`,
 needing `/opt/openjdk-21_linux-x64_bin/jdk-21`) compile cleanly.
+
+### TODO — LLM-assisted disagreement sampling against `sample_default.txt` (deferred, not yet scheduled)
+
+Discussed 2026-07-30: user asked how expensive it would be to have an LLM fix
+labels in `sample_default.txt` (92039 data lines, 975 NO / 91064 YES, ~116.5
+avg chars/line). Root cause (see this file's earlier sessions) is that the
+corpus is auto-labeled entirely by the existing rule-based `CommentClassifier`
+itself, so it structurally cannot contain hard NO cases the rules already
+miss — a full LLM relabel of all 92k lines would just reproduce the same
+blind spots at a different price point (est. a few dollars/~1-2h if batched,
+$50-150+ if not, using cheap-model pricing). Agreed direction instead: use an
+LLM to find *disagreements* against the existing rule-based labels on a small
+sample, not to relabel the whole corpus. Steps for whoever picks this up:
+
+1. **Sample.** Pull a few hundred lines from `sample_default.txt`, stratified
+   toward the 975 existing NO lines (all or most of them) plus a random slice
+   of YES lines, e.g.:
+   ```bash
+   grep -v '^#' tools/gru/sample_default.txt | awk -F'\t' '$2=="NO"' > /tmp/sample_no.tsv
+   grep -v '^#' tools/gru/sample_default.txt | awk -F'\t' '$2=="YES"' | shuf -n 300 --random-source=<(yes 42) > /tmp/sample_yes.tsv
+   cat /tmp/sample_no.tsv /tmp/sample_yes.tsv > /tmp/sample_for_llm.tsv
+   ```
+2. **Label independently via LLM.** Batch many lines per API call (schema:
+   `<lang>\t<YES|NO>\t<targetWordIndex>\t<comment text>`, per RDD_EXT_21) and
+   ask the LLM to return its own YES/NO judgment per line, without showing it
+   the existing label (avoid anchoring). Keep batches small enough that a
+   single bad completion doesn't corrupt the whole run.
+3. **Diff against existing labels.** Any line where the LLM's label differs
+   from the corpus's existing label is a candidate genuinely-hard case —
+   exactly the class of example missing from the corpus today. This should
+   be a small set (tens, not thousands) if the LLM roughly agrees with the
+   rule-based classifier's easy majority.
+4. **Hand-verify only the disagreements**, then fold the confirmed ones into
+   the corpus as new hard examples (append-only — never bulk-overwrite the
+   existing 92k labels). This directly grows the corpus's coverage of hard
+   NO/ambiguous cases rather than paying full-corpus relabeling cost for a
+   result that wouldn't change the GRU's YES-only failure mode.

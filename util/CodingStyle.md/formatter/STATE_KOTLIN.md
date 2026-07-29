@@ -426,12 +426,10 @@ found. Verified against this project's own `test/kt_combined_out.kt`
 (passes clean) and a deliberately corrupted copy with injected stray `}}}`
 (correctly reports the right errors at the right offsets).
 
-**Recommended use going forward:** run `kotlin_syntax_check` first for a
-quick syntax/parse sanity check — near-instant versus a full Gradle build.
-It does NOT replace `./gradlew compileDebugKotlin` for real dogfood/
-compile-check testing (no semantic checking, no unresolved-reference
-detection) — keep using the Gradle recipe for that. Fast pre-filter /
-supplement, not a substitute.
+**Recommended use going forward:** run `kotlin_syntax_check` first as a
+near-instant pre-filter. It does NOT replace `./gradlew compileDebugKotlin`
+for real compile-check testing (no semantic/unresolved-reference checking)
+— keep using the Gradle recipe for that.
 
 Follow STATE_COMMON.md's fixture-registration convention when a bug is
 found and fixed here (`test/real_code_regressions_N_{inp,out}.kt`,
@@ -462,13 +460,11 @@ legitimate transforms, not corruption):
 comment extraction MUST use `ASTNode.getChildren(null)` (via
 `PsiElement.getNode()`), not `PsiElement.getChildren()` or
 `PsiTreeUtil.findChildrenOfType()`. For stub-based elements (`KtClass`,
-`KtProperty`, `KtNamedFunction`), `PsiElement.getChildren()` only returns
-structurally significant composite children and silently omits every
-plain leaf token — identifiers, keywords, and critically comments —
-confirmed via an ASTNode-level dump showing `BLOCK_COMMENT`/`EOL_COMMENT`
-nodes reachable only through `ASTNode.getChildren(null)`. Switching both
-the canonicalization walk and comment collection to ASTNode traversal
-fixed it.
+`KtProperty`, `KtNamedFunction`), `PsiElement.getChildren()` silently omits
+plain leaf tokens — identifiers, keywords, and critically comments
+(confirmed via an ASTNode-level dump showing `BLOCK_COMMENT`/`EOL_COMMENT`
+reachable only through `ASTNode.getChildren(null)`). Switching both the
+canonicalization walk and comment collection to ASTNode traversal fixed it.
 
 Run (same classpath/env as `kotlin_syntax_check` — see STATE_COMMON.md's
 "Verifier toolchain paths"):

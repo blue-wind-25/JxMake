@@ -2878,24 +2878,23 @@ Real-code regressions:
                                               (`return (T)(cond ? a : b);`) got misparsed by
                                               `DeclarationAlignmentRuleCurly.parseDeclaration`'s
                                               function-pointer-declarator detection as `Type
-                                              (*name)(params);`, reading "return" as the "type" and
-                                              "(T)" as the "(*name)" group -- the leading keyword
+                                              (*name)(params);` (reading "return" as the type,
+                                              "(T)" as the "(*name)" group) -- the leading keyword
                                               was never excluded there, unlike
                                               `GetterSetterRuleCurly`'s own `STATEMENT_KEYWORDS`
-                                              guard for the same class of misparse. The bogus
-                                              "declaration" then merged into the preceding real
-                                              declaration's alignment group, padding "return" out to
-                                              that group's type-column width on a fresh format --
-                                              non-idempotent, since reformatting that padded output
-                                              recomputed a different group and collapsed the padding
-                                              back down. Fixed via a new
-                                              `STATEMENT_LEADING_KEYWORDS` guard at the
-                                              function-pointer-detection call site, rejecting the
-                                              shape whenever its "type" token is `if`/`else`/
+                                              guard for the same misparse class. The bogus
+                                              "declaration" merged into the preceding real
+                                              declaration's alignment group, padding "return" to
+                                              that group's type-column width -- non-idempotent,
+                                              since reformatting the padded output recomputed a
+                                              different group and collapsed the padding back down.
+                                              Fixed via a new `STATEMENT_LEADING_KEYWORDS` guard at
+                                              the function-pointer-detection call site, rejecting
+                                              the shape whenever its "type" token is `if`/`else`/
                                               `while`/`for`/`do`/`switch`/`try`/`catch`/`finally`/
                                               `throw`/`return`/`synchronized`. `make test`:
-                                              219/219 forward + 219/219 idempotency. Closes Cluster
-                                              5, the last of the 6 `openrewrite/rewrite` idempotency
+                                              219/219 forward + idempotency. Closes Cluster 5, the
+                                              last of the 6 `openrewrite/rewrite` idempotency
                                               clusters -- see `STATE_C_CPP_JAVA.md`'s
                                               `openrewrite/rewrite` entry.
 

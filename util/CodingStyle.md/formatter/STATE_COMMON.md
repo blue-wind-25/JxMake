@@ -593,31 +593,21 @@ done
 No syntax errors found; AST differed only in comments. `java_content_diff`
 initially flagged **INCORRECT COMMENT NORMALIZATION** on `tools/gru/*.java`.
 
-**RESOLVED (2026-07-29):** investigated — false alarm from
-`tools/verifiers/java_content_diff.java` itself, not a formatter bug. Every
-flagged "mismatch" traced to one of three expected, intentional behaviors
-the verifier didn't yet account for:
-1. Reflowing a single-line-opening Javadoc (`/** Foo...`) to
-   one-sentence-per-line (`/**\n * Foo...`) made the verifier's naive
-   whitespace-collapse pick up a spurious doubled `*` (the line's own
-   continuation marker plus the next line's), reading as changed text when
-   the actual comment prose was untouched.
-2. Closing-brace annotations (`} // while`, `} // class Foo`) are new,
-   intentional content the formatter adds — correctly new, but the verifier
-   flagged all unmatched additions as suspect instead of recognizing this
-   known feature.
-3. `normalize-comment-end-period` (STYLE.md #15: single-sentence comments
-   must not end with a period) legitimately strips a sole trailing `.` —
-   same category of expected normalization as the case-folding the
-   verifier already exempted, just not implemented for periods.
-
-Fixed in `tools/verifiers/java_content_diff.java`: strips the per-line `* `
-continuation marker before collapsing whitespace, strips a sole trailing
-`.` on both sides before comparing, and exempts closing-brace-annotation
-comments from the "unexplained addition" check. Re-ran the same `tools/gru`
-comparison after the fix: all 9 files now report zero comment mismatches
-(the only remaining line per file, `top-level declaration #0
-structure/content differs`, is javac's pretty-printer reacting to real,
-unrelated structural reformatting like brace-enforcement on
-single-statement bodies — expected, out of scope). No classifier fix
-(linear or GRU) was needed; nothing was actually misclassified.
+**RESOLVED (2026-07-29):** false alarm in `tools/verifiers/java_content_diff.java`
+itself, not a formatter bug — three expected/intentional behaviors it didn't
+yet account for: (1) reflowing a single-line Javadoc opener to
+one-sentence-per-line made its naive whitespace-collapse pick up a spurious
+doubled `*` continuation marker as changed text; (2) closing-brace
+annotations (`} // while`, `} // class Foo`) are new, intentional formatter
+output, but got flagged as suspect unmatched additions; (3)
+`normalize-comment-end-period` (STYLE.md #15) legitimately strips a sole
+trailing `.` — same category of expected normalization as the case-folding
+the verifier already exempted, just not implemented for periods. Fixed in
+`java_content_diff.java`: strips the `* ` continuation marker before
+collapsing whitespace, strips a sole trailing `.` on both sides before
+comparing, exempts closing-brace-annotation comments from the "unexplained
+addition" check. Re-ran: all 9 `tools/gru` files report zero comment
+mismatches (remaining `top-level declaration #0 structure/content differs`
+per file is javac's pretty-printer reacting to real, unrelated structural
+reformatting — expected, out of scope). No classifier fix (linear or GRU)
+was needed; nothing was actually misclassified.

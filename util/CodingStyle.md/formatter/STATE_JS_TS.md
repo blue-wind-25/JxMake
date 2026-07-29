@@ -521,48 +521,37 @@ first (value = criticality weighed against difficulty):
 
    - **Root cause #3 — ATTEMPTED AND REVERTED (too many regressions) —
      braceless-else body never re-validated after brace-collapse/alignment**
-     (`format_date.ts:519`, `if(offset === 0) return 'Z'; else return
-     (...)`): `collapseSingleExpressionBlocks` strips `if`/`else` braces in
-     Phase 0, before `enforceCallLineBreaking` (Phase 1) runs — but the
-     braced source form used a `+`-chain complexity-wrap to fit, which
-     doesn't apply to the now-braceless `else` body, leaving the joined line
-     over the limit; `alignBracelessElseIfChain` (last pass) then pads the
-     branch to align regardless (an intentional escape hatch,
-     `BlockStructureRule.java` ~line 2801-2819, not a bug there). A fresh
-     format thus commits a too-long braceless-else line unvalidated;
-     reformatting re-wraps it — rounds diverge.
-
-     **Tried:** refuse to collapse (`tryCollapse`) whenever the joined
-     one-line result exceeds `lineLengthLimit`. **DO NOT retry this naive
-     approach** — reverted: it has no way to know `enforceCallLineBreaking`
-     will still wrap an inner call and make the joined form fit, so it
-     wrongly re-braced every braceless if/else whose body merely contains a
-     wrappable call — broke 5 existing fixtures (`java_combined`,
-     `real_code_regressions_57`/`_81`/`_93`/`_141`). **Real fix needed:** the
+     (`format_date.ts:519`): `collapseSingleExpressionBlocks` strips
+     `if`/`else` braces in Phase 0, before `enforceCallLineBreaking`
+     (Phase 1) — the braced source used a `+`-chain complexity-wrap to fit,
+     which doesn't apply to the now-braceless body, leaving the joined line
+     over the limit; `alignBracelessElseIfChain` then pads it anyway
+     (intentional escape hatch, `BlockStructureRule.java` ~line 2801-2819,
+     not a bug there). Rounds diverge. **Tried:** refuse to collapse
+     (`tryCollapse`) whenever the joined one-liner exceeds
+     `lineLengthLimit`. **DO NOT retry this naive approach** — reverted: no
+     way to know `enforceCallLineBreaking` will still wrap an inner call and
+     make it fit, so it wrongly re-braced every braceless if/else with a
+     wrappable-call body — broke 5 fixtures (`java_combined`,
+     `real_code_regressions_57`/`_81`/`_93`/`_141`). **Real fix needed:**
      guard must simulate `enforceCallLineBreaking`'s wrap decision on the
-     joined candidate before deciding collapsibility (two-pass lookahead) —
-     bigger lift, deferred. **2026-07-28 re-assessment:** unchanged
-     conclusion, not attempted again.
+     joined candidate first (two-pass lookahead) — bigger lift, deferred.
+     2026-07-28 re-assessment: unchanged, not reattempted.
    - **Root cause #4 [FIXED] — trailing same-line comment inconsistently
-     counted in the collapse fits-check** (`location_shim.ts:461`): on a
-     fresh format the call is still on its original line with a trailing
-     comment, and the fits-check counts the comment's width (over limit once
-     `=`-alignment padding widens the column) → wraps; once wrapped, the
-     comment moves after the call's `)`, so reformatting measures without it
-     → collapses back — non-idempotent regardless of true final width.
-     **Fixed** via `appendRangeCollapsingTrailingCommentGap`
-     (`MiscRuleCurly.java`): whitespace immediately before a trailing line
-     comment collapses to one space for measurement only (never rendered),
-     used only in the JS/TS tight-candidate fits-check's `suffix`
-     computation. Fixture `real_code_regressions_142`. `make test`: 191/191.
-     **Separate still-open observation** found while building this fixture:
-     a 3-sibling `=`-alignment-group variant isn't self-stable on the very
-     first format (`format(inp)` commits wide comment-column padding onto a
-     newly-wrapped call's comment line; `format(format(inp))` re-collapses
-     it) — did NOT reproduce against the real `location_shim.ts` (confirmed
-     idempotent there), so root cause #4's fix is complete for that file;
-     fixture 142 deliberately kept single-statement to dodge this quirk. Not
-     investigated further — flag if a future dogfood run hits it.
+     counted in the collapse fits-check** (`location_shim.ts:461`): fresh
+     format counts the trailing comment's width in the fits-check (over
+     limit once `=`-alignment padding widens the column) → wraps; once
+     wrapped the comment moves past the call's `)`, so reformat measures
+     without it → collapses back. **Fixed** via
+     `appendRangeCollapsingTrailingCommentGap` (`MiscRuleCurly.java`):
+     whitespace before a trailing line comment collapses to one space for
+     measurement only (never rendered), used only in the JS/TS
+     tight-candidate fits-check's `suffix`. Fixture
+     `real_code_regressions_142`. `make test`: 191/191. A related 3-sibling
+     `=`-alignment-group non-self-stability quirk was seen while building
+     the fixture but did NOT reproduce against real `location_shim.ts`
+     (confirmed idempotent there) — not investigated further, flag if a
+     future dogfood run hits it.
 
    `compiler-cli/src/ngtsc/core/{compiler,host}.ts` and
    `devtools/.../split.component.ts` were not re-checked (missing from the
@@ -635,23 +624,22 @@ symptoms of Category 1 bugs, not independent findings).
 
 **Cluster #3 — call-wrap/collapse vs. alignment-padding fits-check ordering.
 NOT FIXED — deliberately deferred by user decision, ACTIVE / OPEN WORK:**
-this is the **SAME root cause as the still-open `angular/angular` cluster 4**
-above (`enforceCallLineBreaking`'s single-argument fits-check measuring
-candidate width before declaration-alignment/keyword-spacing/complexity-
-padding finish adjusting column widths) — a third confirming recurrence,
-proportionally ~30x denser here (28/601 vs 23/5394 in angular), likely
-because this repo's line lengths sit close to the 100-char boundary often.
-Confirmed config-insensitive (`indent-size=2` on `commandLineParser.ts`
-reproduces identically). Spot-checked ~10/28 files — every diff is a call
-wrapped/collapsed between rounds, or a closer moving to its own line. Two of
-angular cluster 4's root causes are already fixed here too (dangling-empty-
-group measurement, `if(`/`if (` spacing ordering); this run doesn't isolate
-which remaining root cause(s) (#3 braceless-else, or others) apply — same
-underlying architectural fix needed either way. The angular cluster-4 root
-cause #3 fix attempt (naive `tryCollapse` guard) was tried and reverted
-there (5-fixture regressions) — **whoever picks up this work should treat
-this TS corpus as further confirming evidence for angular cluster 4, not a
-separate task.** No fixture registered (not fixed).
+**SAME root cause as the still-open `angular/angular` cluster 4** above
+(`enforceCallLineBreaking`'s single-argument fits-check measuring candidate
+width before declaration-alignment/keyword-spacing/complexity-padding finish
+adjusting column widths) — a third confirming recurrence, proportionally
+~30x denser here (28/601 vs 23/5394 in angular), likely because this repo's
+line lengths sit close to the 100-char boundary often. Confirmed
+config-insensitive (`indent-size=2` on `commandLineParser.ts` reproduces
+identically). Spot-checked ~10/28: every diff is a call wrapped/collapsed
+between rounds, or a closer moving to its own line. Angular cluster 4's
+root causes #1/#2 (dangling-empty-group measurement, `if(`/`if (` spacing
+ordering) are already fixed here too; this run doesn't isolate which
+remaining cause (#3 braceless-else, or others) applies — same underlying
+architectural fix needed either way; angular's naive `tryCollapse` guard
+attempt was reverted (5-fixture regressions). **Treat this TS corpus as
+further confirming evidence for angular cluster 4, not a separate task.**
+No fixture registered (not fixed).
 
 ### Ranked list (most-valuable-first)
 

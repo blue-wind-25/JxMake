@@ -151,7 +151,7 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_201 | `alignCommentSeparators` false-positive narrowing attempt, reverted -- tried a fixed allowlist (`—:–|~`) instead of RDD_KEY_50's "any non-alphanumeric char"; backfired (157/162, was 162/162) by disabling the old rule's incidental 2+-candidate disqualifier that had been protecting `:`-heavy prose comments; fully reverted, 162/162 restored; design question remains open (see "Known Gaps -- Open"). |
 | RDD_KEY_202 | `alignCommentSeparators` false-positive -- FIXED via `MiscRuleCore.looksCodeLike`, a structural code-likeness check (word count/length/stopword list) on each candidate line's label/rest; see "Known Gaps -- Fixed" for full detail. |
 | RDD_KEY_203 | `GetterSetterRuleCurly.parseOneLinerMember`'s breakable-width pre-check gated only on `isDefinition`, `filesystem.hpp` `recursive_directory_iterator` assignment-alignment shape -- FIXED via a new `hasBreakableParams` check alongside the existing `hasBreakableCall` check; see "Known Gaps -- Fixed" for full detail. |
-| RDD_KEY_222 | `MiscRuleCore.computeLineCommentGroups`'s §15 consecutive-`//`-comment grouping (RDD_KEY_89) capitalized every group member's first letter independently, per-line -- so a genuine multi-line `//` comment (e.g. `// this function must be...` / `// because the design requires it.`) got its SECOND (and later) lines wrongly capitalized too, unlike the equivalent `/* */` block-comment path (`stripSoleTrailingPeriodAcrossLines` + single `capitalizeFirstLetter` call on content line 0 only), which was already correct. FIXED by capitalizing only `contents.get(0)` before populating `result`, matching the block-comment path exactly. Applies to every Curly-family language (`Lang.isCurly` = C/C++/Java/Kotlin/JS/TS, all sharing `FormatterCurly`/`MiscRuleCore`); Python3/data-formats/XML/HTML5 have no §15 comment-normalization pass at all, so no change needed there. This surfaced a second, previously-latent bug in the SAME grouping logic: `nextCommentChainLinkIfAdjacent` chained a trailing end-of-line comment (one following real code on its own physical line, e.g. `const x = 1; // greeting label`) onto a following line's standalone `//` comment, treating them as one logical prose block for capitalization purposes even though they are logically unrelated (one annotates a statement, the other starts a fresh comment). Confirmed via `test/js_comments_inp.js` (`// greeting label` / `// nullish fallback to zero`) and `test/ts_comments_inp.ts` (`// unique identifier` / `// display label`) regressing after the first fix landed. FIXED with a new `isStandaloneCommentLine` helper (true iff the comment is alone on its line, only `WHITESPACE` back to a `NEWLINE`/start-of-tokens); `nextCommentChainLinkIfAdjacent` now returns -1 immediately if the token at `idx` is not standalone, so a trailing comment can still be capitalized/period-stripped on its own (as a size-1 group) but never extends the chain onto the next line. Verified via three additional scratchpad repros (standalone single-line `//` still capitalizes normally; a genuine 2+-line group's line 2+ stays uncapitalized; a trailing-comment-then-standalone-comment pair is no longer wrongly merged) before touching any fixture. 26 pre-existing `*_out` fixtures (Java/C/C++/Kotlin/TS across `real_code_regressions_*`, `c_cpp_decl_gaps`, `java_format_toggle`, `java_preprocessor_method`, `js_comments`, `ts_comments`) had hand-authored the old buggy per-line capitalization as "expected" and were updated to match; `make test`: 219/219 forward + idempotency after both fixes, zero unexpected diffs (every changed fixture line reviewed individually against the expected "continuation line loses wrong capitalization, first line/trailing comment unchanged" pattern). |
+| RDD_KEY_222 | `MiscRuleCore.computeLineCommentGroups`'s §15 consecutive-`//`-comment grouping (RDD_KEY_89) capitalized every group member's line independently, wrongly capitalizing continuation lines of a genuine multi-line `//` comment (unlike the `/* */` path, which correctly capitalizes only content line 0 via `stripSoleTrailingPeriodAcrossLines` + one `capitalizeFirstLetter` call). FIXED by capitalizing only `contents.get(0)`, matching the block-comment path. Applies to all Curly-family languages (`Lang.isCurly` = C/C++/Java/Kotlin/JS/TS); Python3/data-formats/XML/HTML5 have no §15 pass, so unaffected. Surfaced a second latent bug in the same grouping logic: `nextCommentChainLinkIfAdjacent` wrongly chained a trailing end-of-line comment onto the next line's standalone `//` comment as one prose block (found via `test/js_comments_inp.js` and `test/ts_comments_inp.ts` regressing after the first fix). FIXED with a new `isStandaloneCommentLine` helper (true iff alone on its line back to `NEWLINE`/start-of-tokens); `nextCommentChainLinkIfAdjacent` now returns -1 for a non-standalone token, so a trailing comment is still capitalized/period-stripped alone (size-1 group) but never chains onto the next line. 26 pre-existing `*_out` fixtures (Java/C/C++/Kotlin/TS: `real_code_regressions_*`, `c_cpp_decl_gaps`, `java_format_toggle`, `java_preprocessor_method`, `js_comments`, `ts_comments`) had the old buggy per-line capitalization hand-authored as "expected"; updated to match. `make test`: 219/219 forward + idempotency after both fixes, zero unexpected diffs. |
 
 ---
 
@@ -453,20 +453,19 @@ on the noted commits/fixtures)
      - Cluster 6 (closing-brace indent drift on a still-K&R `else`/`catch`/`finally`) — fixed, see
        `ScopePipelineCurly.findParentIndent`. Fixture: `_132`.
      - Cluster 5 (alignment-group padding collapse, `rewrite-kotlin/.../K.java`'s
-       `ExpressionStatement.withType`) — fixed. Root cause, confirmed via debug prints (reverted):
-       NOT `GetterSetterRuleCurly` (the leading hypothesis) — `DeclarationAlignmentRuleCurly
-       .parseDeclaration`'s function-pointer-declarator detection (`Type (*name)(params);`)
-       misread the `return` keyword of a cast-and-parenthesized-expression statement
-       (`return (T)(cond ? a : b);`) as the "type", with "(T)" as the "(*name)" group -- it had no
-       equivalent of `GetterSetterRuleCurly.STATEMENT_KEYWORDS`'s leading-keyword exclusion for
-       this same misparse class. The bogus "declaration" merged into the preceding real
-       declaration's alignment group, padding "return" out to that group's type-column width on a
-       fresh format; reformatting that padded output recomputed a different group and collapsed
-       the padding back down (the idempotency bug). Fixed via a new
-       `STATEMENT_LEADING_KEYWORDS` guard at the function-pointer-detection call site
-       (`if`/`else`/`while`/`for`/`do`/`switch`/`try`/`catch`/`finally`/`throw`/`return`/
-       `synchronized`). Verified: minimal hand-authored repro, full real `K.java` round1/round2
-       now byte-identical, `make test` 220/220 forward + idempotency (up from 219/219). Fixture:
+       `ExpressionStatement.withType`) — fixed. Root cause (NOT `GetterSetterRuleCurly`, the
+       leading hypothesis): `DeclarationAlignmentRuleCurly.parseDeclaration`'s
+       function-pointer-declarator detection (`Type (*name)(params);`) misread a cast-and-
+       parenthesized-expression `return` statement (`return (T)(cond ? a : b);`) as a declaration
+       (`return` as "type", `(T)` as the `(*name)` group) — it had no equivalent of
+       `GetterSetterRuleCurly.STATEMENT_KEYWORDS`'s leading-keyword exclusion for this misparse
+       class. The bogus "declaration" merged into an adjacent real declaration's alignment group,
+       padding "return" to that group's type-column width on a fresh format; reformatting the
+       padded output recomputed a narrower group and collapsed the padding back down (the
+       idempotency bug). Fixed via a new `STATEMENT_LEADING_KEYWORDS` guard (`if`/`else`/`while`/
+       `for`/`do`/`switch`/`try`/`catch`/`finally`/`throw`/`return`/`synchronized`) at the
+       function-pointer-detection call site. Verified: real `K.java` round1/round2 now
+       byte-identical, `make test` 220/220 forward + idempotency (up from 219/219). Fixture:
        `real_code_regressions_171`.
      All 6 clusters now fixed. `make test` after fixes: 220/220 forward + idempotency, zero
      regressions. Full-tree round1/round2 re-run + `javac` compile-check across the whole

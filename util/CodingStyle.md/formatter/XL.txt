@@ -201,8 +201,6 @@ worthiness first within each tier.
 
 --- Tier 1: high value, tractable next steps ---
 
-X. Remove from `util/CodingStyle.md/formatter/tools/gru/sample_default.txt` `AIza...`
-
 X. acquire_corpus.sh: add a secret/API-key filter pass over extracted comment
    text (known provider key patterns + generic high-entropy strings) before
    writing to any corpus file — prevents a leaked key from a scraped source

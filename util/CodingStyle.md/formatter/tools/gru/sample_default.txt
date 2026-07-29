@@ -92671,7 +92671,6 @@ js	YES	0	 [TODO] Remove this when possible
 js	YES	0	 Equalizer test
 js	YES	0	 TODO: Add alternate between advanced and intro
 js	YES	0	zurb.com/university/foundation-intro?utm_source=Foundation%20Docs&utm_medium=Docs&utm_content=Struggling&utm_campaign=Docs%20To%20Intro';
-js	YES	0	maps.googleapis.com/maps/api/js?key=AIzaSyBOVwxUM9akvFrSWmmb2iKc7Fe0vjRBY7c&sensor=false&callback=initializeMaps")
 js	YES	0	 Basic options for a simple Google Map
 js	YES	0	 For more options see: https://developers.google.com/maps/documentation/javascript/reference#MapOptions
 js	YES	0	 How zoomed in you want the map to start at (always required)

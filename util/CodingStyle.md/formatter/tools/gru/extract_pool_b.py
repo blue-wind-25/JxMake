@@ -52,7 +52,7 @@ SINGLE_CAPITAL_DOT_RE = re.compile(r"\b[A-Z]\.(?![a-z])")
 
 def unescape(escaped):
     out = []
-    i = 0
+    i   = 0
     while i < len(escaped):
         c = escaped[i]
         if c == "\\" and i + 1 < len(escaped):
@@ -71,17 +71,16 @@ def unescape(escaped):
                 continue
         out.append(c)
         i += 1
+
     return "".join(out)
 
 
 def is_pool_b_candidate(comment_text):
     dot_count = comment_text.count(".")
-    if dot_count >= 2 and WHITESPACE_SURROUNDED_DOT_RE.search(comment_text):
-        return True
-    if ABBREVIATION_TOKEN_RE.search(comment_text):
-        return True
-    if SINGLE_CAPITAL_DOT_RE.search(comment_text):
-        return True
+    if dot_count >= 2 and WHITESPACE_SURROUNDED_DOT_RE.search(comment_text): return True
+    if ABBREVIATION_TOKEN_RE.search(comment_text): return True
+    if SINGLE_CAPITAL_DOT_RE.search(comment_text): return True
+
     return False
 
 
@@ -91,23 +90,22 @@ def main():
     parser.add_argument("--out", required=True, help="Output file path")
     args = parser.parse_args()
 
-    total = 0
+    total     = 0
     malformed = 0
-    kept = 0
+    kept      = 0
     with open(args.input, "r", encoding="utf-8") as inp, \
             open(args.out, "w", encoding="utf-8") as out:
         for line in inp:
             line = line.rstrip("\n")
-            if not line:
-                continue
+            if not line: continue
             tab = line.find("\t")
             if tab < 0:
                 malformed += 1
                 continue
-            total += 1
-            lang_name = line[:tab]
-            escaped_text = line[tab + 1:]
-            comment_text = unescape(escaped_text)
+            total        += 1
+            lang_name     = line[:tab]
+            escaped_text  = line[tab + 1:]
+            comment_text  = unescape(escaped_text)
 
             if is_pool_b_candidate(comment_text):
                 out.write(f"{lang_name}\t{escaped_text}\n")
@@ -117,5 +115,4 @@ def main():
           f"{kept} kept as Pool B (period-ambiguity) candidate(s)", file=sys.stderr)
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

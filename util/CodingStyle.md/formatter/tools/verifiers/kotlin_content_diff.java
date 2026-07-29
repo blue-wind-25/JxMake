@@ -7,13 +7,15 @@
 
 import java.util.ArrayList;
 import java.util.List;
+
 import com.intellij.lang.ASTNode;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.psi.PsiComment;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiWhiteSpace;
-import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment;
+
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles;
+import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment;
 import org.jetbrains.kotlin.config.CompilerConfiguration;
 import org.jetbrains.kotlin.kdoc.psi.api.KDoc;
 import org.jetbrains.kotlin.psi.KtDeclaration;
@@ -69,150 +71,179 @@ import org.jetbrains.kotlin.psi.KtPsiFactory;
  */
 public class kotlin_content_diff {
 
-    static KtFile parse(String source) {
+    static KtFile parse(String source)
+    {
         KotlinCoreEnvironment env = KotlinCoreEnvironment.createForProduction(
-            Disposer.newDisposable(), new CompilerConfiguration(), EnvironmentConfigFiles.JVM_CONFIG_FILES);
-        return new KtPsiFactory(env.getProject()).createFile(source);
+            Disposer.newDisposable(),
+            new CompilerConfiguration(),
+            EnvironmentConfigFiles.JVM_CONFIG_FILES
+        );
+
+        return new KtPsiFactory( env.getProject() ).createFile(source);
     }
 
-    static String normalizeWhitespace(String s) {
+    static String normalizeWhitespace(String s)
+    {
         return s.trim().replaceAll("\\s+", " ");
     }
 
-    /** Canonicalize a subtree: leaf tokens only, whitespace/comment/KDoc
+    /**
+     * Canonicalize a subtree: leaf tokens only, whitespace/comment/KDoc
      *  nodes skipped, joined with single spaces. Walks the ASTNode (not
      *  PsiElement.getChildren(), which for stub-based elements like
      *  KtClass/KtProperty/KtNamedFunction only returns structurally
      *  significant composite children -- plain leaf tokens (identifiers,
-     *  keywords, comments) never show up there at all). */
-    static void collectLeafText(ASTNode n, StringBuilder sb) {
+     *  keywords, comments) never show up there at all).
+     */
+    static void collectLeafText(ASTNode n, StringBuilder sb)
+    {
         PsiElement psi = n.getPsi();
-        if (psi instanceof PsiWhiteSpace || psi instanceof PsiComment || psi instanceof KDoc) {
-            return;
-        }
+        if(psi instanceof PsiWhiteSpace || psi instanceof PsiComment || psi instanceof KDoc) return;
         ASTNode[] children = n.getChildren(null);
-        if (children.length == 0) {
+        if(children.length == 0) {
             String t = n.getText();
-            if (!t.isEmpty()) {
-                sb.append(t).append(' ');
-            }
-        } else {
-            for (ASTNode c : children) {
-                collectLeafText(c, sb);
-            }
+            if( !t.isEmpty() ) sb.append(t).append(' ');
+        }
+        else {
+            for(ASTNode c : children) collectLeafText(c, sb);
         }
     }
 
-    static String canonicalize(PsiElement e) {
+    static String canonicalize(PsiElement e)
+    {
         StringBuilder sb = new StringBuilder();
-        collectLeafText(e.getNode(), sb);
-        return normalizeWhitespace(sb.toString());
+        collectLeafText( e.getNode(), sb );
+
+        return normalizeWhitespace( sb.toString() );
     }
 
-    static List<String> importMultiset(KtFile file) {
+    static List<String> importMultiset(KtFile file)
+    {
         List<String> out = new ArrayList<>();
-        for (KtImportDirective imp : file.getImportDirectives()) {
+        for( KtImportDirective imp : file.getImportDirectives() ) {
             String fq = imp.getImportedFqName() == null ? "" : imp.getImportedFqName().asString();
-            String alias = imp.getAliasName() == null ? "" : (" as " + imp.getAliasName());
-            out.add(fq + (imp.isAllUnder() ? ".*" : "") + alias);
+            String alias = imp.getAliasName() == null ? "" : ( " as " + imp.getAliasName() );
+            out.add( fq + ( imp.isAllUnder() ? ".*" : "" ) + alias );
         }
         out.sort(null);
+
         return out;
     }
 
-    static List<String> topLevelDecls(KtFile file) {
+    static List<String> topLevelDecls(KtFile file)
+    {
         List<String> out = new ArrayList<>();
-        for (KtDeclaration d : file.getDeclarations()) {
-            out.add(canonicalize(d));
-        }
+        for( KtDeclaration d : file.getDeclarations() ) out.add( canonicalize(d) );
+
         return out;
     }
 
-    /** Walks the ASTNode tree collecting every comment/KDoc leaf's text --
+    /**
+     * Walks the ASTNode tree collecting every comment/KDoc leaf's text --
      *  see collectLeafText's comment on why PsiElement.getChildren()/
-     *  PsiTreeUtil can't be used to reach these for stub-based elements. */
-    static void collectComments(ASTNode n, List<String> out) {
+     *  PsiTreeUtil can't be used to reach these for stub-based elements.
+     */
+    static void collectComments(ASTNode n, List<String> out)
+    {
         PsiElement psi = n.getPsi();
-        if (psi instanceof PsiComment || psi instanceof KDoc) {
-            out.add(stripCommentDelims(n.getText()));
+        if(psi instanceof PsiComment || psi instanceof KDoc) {
+            out.add( stripCommentDelims( n.getText() ) );
             return;
         }
-        for (ASTNode c : n.getChildren(null)) {
-            collectComments(c, out);
-        }
+        for( ASTNode c : n.getChildren(null) ) collectComments(c, out);
     }
 
-    static List<String> commentMultiset(KtFile file) {
+    static List<String> commentMultiset(KtFile file)
+    {
         List<String> out = new ArrayList<>();
-        collectComments(file.getNode(), out);
+        collectComments( file.getNode(), out );
         out.sort(null);
+
         return out;
     }
 
-    static String stripCommentDelims(String text) {
+    static String stripCommentDelims(String text)
+    {
         String t = text.trim();
-        if (t.startsWith("///")) t = t.substring(3);
-        else if (t.startsWith("//")) t = t.substring(2);
-        else if (t.startsWith("/**")) t = t.substring(3, Math.max(3, t.length() - 2));
-        else if (t.startsWith("/*")) t = t.substring(2, Math.max(2, t.length() - 2));
+        if( t.startsWith("///") )      t = t.substring(3);
+        else if( t.startsWith("//") )  t = t.substring(2);
+        else if( t.startsWith("/**") ) t = t.substring( 3, Math.max( 3, t.length() - 2 ) );
+        else if( t.startsWith("/*") )  t = t.substring( 2, Math.max( 2, t.length() - 2 ) );
+
         return normalizeWhitespace(t).toLowerCase();
     }
 
-    static List<String> diffMultisets(String label, List<String> a, List<String> b) {
+    static List<String> diffMultisets(String label, List<String> a, List<String> b)
+    {
         List<String> mismatches = new ArrayList<>();
-        List<String> bCopy = new ArrayList<>(b);
-        List<String> onlyInA = new ArrayList<>();
-        for (String s : a) {
-            if (!bCopy.remove(s)) onlyInA.add(s);
+        List<String> bCopy      = new ArrayList<>(b);
+        List<String> onlyInA    = new ArrayList<>();
+        for(String s : a) {
+            if( !bCopy.remove(s) ) onlyInA.add(s);
         }
-        if (!onlyInA.isEmpty()) {
-            mismatches.add(label + ": present in original, missing from formatted: " + onlyInA);
-        }
-        if (!bCopy.isEmpty()) {
-            mismatches.add(label + ": present in formatted, missing from original: " + bCopy);
-        }
+        if( !onlyInA.isEmpty() ) mismatches.add(
+            label + ": present in original, missing from formatted: " + onlyInA
+        );
+        if( !bCopy.isEmpty() ) mismatches.add(
+            label + ": present in formatted, missing from original: " + bCopy
+        );
+
         return mismatches;
     }
 
-    public static void main(String[] args) throws Exception {
-        if (args.length != 2) {
+    public static void main(String[] args) throws Exception
+    {
+        if(args.length != 2) {
             System.err.println("Usage: kotlin_content_diff <original.kt> <formatted.kt>");
             System.exit(2);
         }
 
-        String origSrc = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(args[0])));
-        String fmtSrc = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(args[1])));
+        String origSrc = new String(
+            java.nio.file.Files.readAllBytes( java.nio.file.Paths.get( args[0] ) )
+        );
+        String fmtSrc  = new String(
+            java.nio.file.Files.readAllBytes( java.nio.file.Paths.get( args[1] ) )
+        );
 
         KtFile origFile = parse(origSrc);
-        KtFile fmtFile = parse(fmtSrc);
+        KtFile fmtFile  = parse(fmtSrc);
 
         List<String> mismatches = new ArrayList<>();
 
-        mismatches.addAll(diffMultisets("imports", importMultiset(origFile), importMultiset(fmtFile)));
+        mismatches.addAll(
+            diffMultisets( "imports", importMultiset(origFile), importMultiset(fmtFile) )
+        );
 
         List<String> origDecls = topLevelDecls(origFile);
-        List<String> fmtDecls = topLevelDecls(fmtFile);
-        if (origDecls.size() != fmtDecls.size()) {
-            mismatches.add("top-level declaration count changed: " + origDecls.size() +
-                " -> " + fmtDecls.size());
-        }
-        int n = Math.min(origDecls.size(), fmtDecls.size());
-        for (int i = 0; i < n; i++) {
-            if (!origDecls.get(i).equals(fmtDecls.get(i))) {
-                mismatches.add("top-level declaration #" + i + " structure/content differs");
-            }
-        }
+        List<String> fmtDecls  = topLevelDecls(fmtFile);
+        if( origDecls.size() != fmtDecls.size() ) mismatches.add(
+            "top-level declaration count changed: " + origDecls.size() + " -> " + fmtDecls.size()
+        );
+        int n = Math.min( origDecls.size(), fmtDecls.size() );
+        for(int i = 0; i < n; ++i) {
+            if( !origDecls.get(
+                i
+            ).equals(
+                fmtDecls.get(i)
+            ) ) mismatches.add(
+                "top-level declaration #" + i + " structure/content differs"
+            );
+        } // for
 
-        mismatches.addAll(diffMultisets("comments", commentMultiset(origFile), commentMultiset(fmtFile)));
+        mismatches.addAll(
+            diffMultisets( "comments", commentMultiset(origFile), commentMultiset(fmtFile) )
+        );
 
-        if (mismatches.isEmpty()) {
-            System.out.println("OK: content preserved (" + args[0] + " == " + args[1] + ")");
-        } else {
-            System.out.println("MISMATCH: content differs between " + args[0] + " and " + args[1]);
-            for (String m : mismatches) {
-                System.out.println("  " + m);
-            }
+        if( mismatches.isEmpty() ) {
+            System.out.println( "OK: content preserved (" + args[0] + " == " + args[1] + ")" );
+        }
+        else {
+            System.out.println(
+                "MISMATCH: content differs between " + args[0] + " and " + args[1]
+            );
+            for(String m : mismatches) System.out.println("  " + m);
             System.exit(1);
         }
     }
-}
+
+} // class kotlin_content_diff

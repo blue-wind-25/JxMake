@@ -55,12 +55,11 @@ _KEYish_ASSIGNMENT_RE = re.compile(
 
 
 def _shannon_entropy(s):
-    if not s:
-        return 0.0
+    if not s: return 0.0
     freq = {}
-    for ch in s:
-        freq[ch] = freq.get(ch, 0) + 1
+    for ch in s: freq[ch] = freq.get(ch, 0) + 1
     length = len(s)
+
     return -sum((c / length) * math.log2(c / length) for c in freq.values())
 
 
@@ -68,8 +67,8 @@ def _looks_high_entropy(token):
     has_upper = any(c.isupper() for c in token)
     has_lower = any(c.islower() for c in token)
     has_digit = any(c.isdigit() for c in token)
-    if sum([has_upper, has_lower, has_digit]) < 2:
-        return False
+    if sum([has_upper, has_lower, has_digit]) < 2: return False
+
     return _shannon_entropy(token) >= 3.5
 
 
@@ -79,6 +78,7 @@ def redact(comment_text):
     def _sub_named(m):
         nonlocal redacted_count
         redacted_count += 1
+
         return _REDACTED
 
     text = comment_text
@@ -91,9 +91,11 @@ def redact(comment_text):
         if _looks_high_entropy(token):
             redacted_count += 1
             return m.group(1) + "=" + _REDACTED
+
         return m.group(0)
 
     text = _KEYish_ASSIGNMENT_RE.sub(_sub_generic, text)
+
     return text, redacted_count
 
 
@@ -109,7 +111,7 @@ def main():
 
         out_lines = []
         for line in lines:
-            line = line.rstrip("\n")
+            line  = line.rstrip("\n")
             parts = line.split("\t", 1)
             if len(parts) != 2:
                 out_lines.append(line)
@@ -125,5 +127,4 @@ def main():
     print(f"redact_secrets: redacted {total_redacted} likely secret(s) across {len(args.files)} file(s)", file=sys.stderr)
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

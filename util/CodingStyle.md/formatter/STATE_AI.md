@@ -831,7 +831,7 @@ sizeTokens/initTokens get flattened...       -> SizeTokens/initTokens ...   (WRO
 open/final/abstract/sealed share one column  -> Open/final/abstract/...     (WRONG)
 val/var share one slot per STYLE_KOTLIN.md   -> Val/var share one slot      (WRONG)
 constexpr/consteval/constinit share one...   -> Constexpr/consteval/...     (WRONG)
-wx/uh/az/ar/ah are short-lived per-token...   -> Wx/uh/az/ar/ah are ...      (WRONG)
+wx/uh/az/ar/ah are short-lived per-token...  -> Wx/uh/az/ar/ah are ...      (WRONG)
 ```
 
 Root cause: none of these leading words (`sizeTokens`, `open`, `val`,
@@ -866,3 +866,64 @@ idempotency. This is the first real self-formatting adoption of this
 codebase's own source with the current ruleset — see git history for the
 resulting diff (71 `src/` files + `tools/gru/GruAbstainResolverSelfTest.java`
 for the new constructor argument).
+
+### 2026-07-30 session: extended self-formatting to `tools/*`/`cwg/*`, found and fixed a JS shebang-mangling bug
+
+Ran the same dogfood-and-adopt process against the 36 supported-language
+files under `tools/*` and `cwg/*` (Java, Python, JS — the project's own
+verifier scripts and GRU training/eval tools, distinct from the `src/`
+formatter JAR itself but still formatter-supported languages). Spot-check
+(step 4) surfaced two separate bugs before adoption:
+
+**Bug 1 (real formatter bug, fixed in `src/`):** `#!/usr/bin/env node`
+shebang lines in `tools/verifiers/*.js` were being corrupted. Root cause:
+JS/TS routes through the same curly-brace tokenizer as C/C++/Java, and `#`
+is only treated as a preprocessor directive for C/C++
+(`isPreprocessorLanguage()`); for JS a leading `#!` fell through to normal
+tokenization, so `enforceSemicolonInsertion` (`JsTsSpecificRule.java`) saw
+`/usr/bin/env` etc. as a chain of division operators and appended a stray
+statement-terminator semicolon at the line's end
+(`#!/usr/bin/env node` -> `#!/usr/bin/env node;`), which breaks the
+shebang (`env` would look for a binary literally named `node;`). A first
+fix attempt emitted the shebang line as a `COMMENT_LINE` token, which
+avoided the semicolon but introduced a *second* bug: `MiscRuleCore
+.enforceCommentStyle` and other passes assume every `COMMENT_LINE` token's
+text starts with a literal `//` and rewrite it as such, mangling the line
+into `///usr/bin/env node`. Final fix: a dedicated `TokenType.SHEBANG`
+(added to `Token.isGapToken`, so it's skipped by every rule exactly like
+`COMMENT_LINE`/`COMMENT_BLOCK`, but never matched by any `//`-prefix-
+assuming code) plus `TokenizerCurly.emitShebangLine()`, dispatched only
+when `pos == 0 && c == '#' && peek(1) == '!'` (so it can only ever fire on
+the file's literal first two characters, never mid-file). `make test`:
+220/220 forward + idempotency, unchanged.
+
+**Bug 2 (comment-classifier false positive, hand-fixed per-occurrence, NOT
+gated):** two comments in `tools/gru/GruAbstainResolverSelfTest.java`
+started with a hyphenated config-key literal (`gru-classifier`,
+`gru-weights-path`) that got capitalized to `Gru-classifier`/
+`Gru-weights-path`, breaking the literal spelling of the real config key.
+Unlike the 2026-07-30 slash-list fix above, a blanket
+`leadingWordFollowedByHyphen` gate was tried and **rejected**: it also
+suppressed capitalization of legitimate English hyphenated compounds (e.g.
+`non-negative` -> `Non-negative` in the existing `test/c_comments_inp.c`
+golden test), which is a real regression, not an acceptable false-skip —
+unlike `/`, a leading hyphen is common in ordinary English prose, so the
+same asymmetric-risk argument doesn't hold. Decision (user-confirmed):
+revert the hyphen feature/gate entirely and hand-edit the two affected
+comments instead (reworded so the config-key literal no longer starts the
+comment, e.g. "The gru-classifier config key is off: ..."). No classifier
+change survived from this bug; if a similar case recurs, prefer wording the
+comment to avoid a bare identifier at position 0, not a new blanket gate.
+
+After both fixes, re-ran the process from step 1 (round1/round2 fixed-point
+clean, round1b/round2b fixed-point clean, isolated case-diff zero false
+positives, `make test` 220/220 clean) and adopted all 36 files into their
+real locations. Verified beyond the standard process, since these files
+aren't exercised by the `src/` JAR's own `make test`: all `.js` files parse
+via `node --check` and run correctly end-to-end (`json_syntax_check.js`
+against a real sample), all `.py` files via `python3 -m py_compile`, and
+all `.java` files (including the Kotlin-compiler-dependent
+`kotlin_syntax_check.java`/`kotlin_content_diff.java`, needing
+`~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib`'s jars on the classpath, and the
+JDK11+-API-dependent `java_content_diff.java`/`java_syntax_check.java`,
+needing `/opt/openjdk-21_linux-x64_bin/jdk-21`) compile cleanly.

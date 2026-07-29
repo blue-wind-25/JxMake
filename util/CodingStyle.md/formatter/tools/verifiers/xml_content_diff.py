@@ -42,8 +42,8 @@ Output Validation" section -- written during the apache/maven XML dogfood
 session (first XML dogfood run). Reusable as-is for the other three XML
 test-fixture repos (apache/ant, jenkinsci/jenkins, w3c/svgwg) still pending.
 """
-import sys
 import re
+import sys
 from xml.dom.minidom import parse
 from xml.parsers.expat import ExpatError
 
@@ -59,25 +59,21 @@ def significant_children(node):
     out = []
     for child in node.childNodes:
         if child.nodeType == child.TEXT_NODE:
-            if child.data.strip() == "":
-                continue
+            if child.data.strip() == "": continue
             out.append(child)
         elif child.nodeType in (child.ELEMENT_NODE, child.COMMENT_NODE, child.CDATA_SECTION_NODE):
             out.append(child)
+
     return out
 
 
 def describe(node):
-    if node is None:
-        return "<nothing>"
-    if node.nodeType == node.ELEMENT_NODE:
-        return f"<{node.tagName}>"
-    if node.nodeType == node.TEXT_NODE:
-        return f"text {node.data!r}"
-    if node.nodeType == node.COMMENT_NODE:
-        return f"comment {node.data!r}"
-    if node.nodeType == node.CDATA_SECTION_NODE:
-        return f"CDATA {node.data!r}"
+    if node is None: return "<nothing>"
+    if node.nodeType == node.ELEMENT_NODE: return f"<{node.tagName}>"
+    if node.nodeType == node.TEXT_NODE: return f"text {node.data!r}"
+    if node.nodeType == node.COMMENT_NODE: return f"comment {node.data!r}"
+    if node.nodeType == node.CDATA_SECTION_NODE: return f"CDATA {node.data!r}"
+
     return f"node type {node.nodeType}"
 
 
@@ -148,13 +144,11 @@ def main():
 
     if errors:
         print(f"CONTENT MISMATCH ({len(errors)} issue(s)) between {orig_path} and {fmt_path}:")
-        for e in errors:
-            print(f"  - {e}")
+        for e in errors: print(f"  - {e}")
         sys.exit(1)
 
     print(f"OK: content preserved between {orig_path} and {fmt_path}")
     sys.exit(0)
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

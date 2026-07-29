@@ -27,58 +27,56 @@
 //     export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
 //     node xml_syntax_check.js <file.xml> [file2.xml ...]
 
-const fs = require('fs');
+const fs            = require('fs');
 const { DOMParser } = require('@xmldom/xmldom');
 
-function hasSyntaxError(source) {
+function hasSyntaxError(source)
+{
     const messages = [];
 
-    const parser = new DOMParser({
+    const parser = new DOMParser( {
         onError: (level, msg) => {
             messages.push(`${level}: ${msg}`);
         }
-    });
+    } );
 
     try {
         parser.parseFromString(source, 'text/xml');
-    } catch (e) {
+    }
+    catch(e) {
         // A fatalError is reported via onError above AND thrown -- only
-        // record it here if onError didn't already capture it.
-        if (messages.length === 0) {
-            messages.push(e.message || String(e));
-        }
+        // record it here if onError didn't already capture it
+        if(messages.length === 0) messages.push( e.message || String(e) );
     }
 
-    for (const m of messages) {
-        console.log(m);
-    }
+    for(const m of messages) console.log(m);
 
     return messages.length > 0;
-}
+} // hasSyntaxError
 
-function main() {
+function main()
+{
     const args = process.argv.slice(2);
-    if (args.length < 1) {
+    if(args.length < 1) {
         console.error('Usage: xml_syntax_check.js <file.xml> [file2.xml ...]');
         process.exit(2);
     }
 
     let anyError = false;
 
-    for (const arg of args) {
-        const source = fs.readFileSync(arg, 'utf8');
+    for(const arg of args) {
+        const source   = fs.readFileSync(arg, 'utf8');
         const hasError = hasSyntaxError(source);
-        if (hasError) {
+        if(hasError) {
             console.log(`SYNTAX ERRORS FOUND in ${arg}`);
             anyError = true;
-        } else {
+        }
+        else {
             console.log(`OK: no syntax errors in ${arg}`);
         }
-    }
+    } // for
 
-    if (anyError) {
-        process.exit(1);
-    }
-}
+    if(anyError) process.exit(1);
+} // main
 
 main();

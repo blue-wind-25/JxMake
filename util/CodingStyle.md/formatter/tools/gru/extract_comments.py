@@ -51,7 +51,7 @@ HASH_STYLE_LANGS = {"yaml", "toml", "python3"}
 XML_STYLE_LANGS = {"xml", "html5"}
 
 HASH_COMMENT_RE = re.compile(r"#(.*)$", re.MULTILINE)
-XML_COMMENT_RE = re.compile(r"<!--(.*?)-->", re.DOTALL)
+XML_COMMENT_RE  = re.compile(r"<!--(.*?)-->", re.DOTALL)
 
 # "3rd_party" excluded per STATE_AI.md's item-9 lesson: a single vendored
 # non-code-comment data file (a bitmap-font glyph table) dominated a whole
@@ -71,13 +71,12 @@ def extract_c_style_comments(text):
     # spans avoids that: a "/*" found while already inside a "//" span was
     # already consumed as line-comment text, so it can't be reinterpreted.
     comments = []
-    i = 0
-    n = len(text)
+    i        = 0
+    n        = len(text)
     while i < n:
         if text[i:i + 2] == "//":
             end = text.find("\n", i + 2)
-            if end == -1:
-                end = n
+            if end == -1: end = n
             comments.append(text[i + 2:end])
             i = end
         elif text[i:i + 2] == "/*":
@@ -88,21 +87,19 @@ def extract_c_style_comments(text):
             else:
                 comments.append(text[i + 2:end])
                 i = end + 2
-        else:
-            i += 1
+        else: i += 1
+
     return comments
 
 
 def extract_from_text(text, lang):
     comments = []
-    if lang in C_STYLE_LANGS:
-        comments.extend(extract_c_style_comments(text))
+    if lang in C_STYLE_LANGS: comments.extend(extract_c_style_comments(text))
     elif lang in HASH_STYLE_LANGS:
-        for m in HASH_COMMENT_RE.finditer(text):
-            comments.append(m.group(1))
+        for m in HASH_COMMENT_RE.finditer(text): comments.append(m.group(1))
     elif lang in XML_STYLE_LANGS:
-        for m in XML_COMMENT_RE.finditer(text):
-            comments.append(m.group(1))
+        for m in XML_COMMENT_RE.finditer(text): comments.append(m.group(1))
+
     return comments
 
 
@@ -122,10 +119,9 @@ def main():
             for dirpath, dirnames, filenames in os.walk(root):
                 dirnames[:] = [d for d in dirnames if d not in SKIP_DIR_NAMES]
                 for filename in filenames:
-                    ext = os.path.splitext(filename)[1].lower()
+                    ext  = os.path.splitext(filename)[1].lower()
                     lang = EXTENSION_TO_LANG.get(ext)
-                    if lang is None:
-                        continue
+                    if lang is None: continue
                     path = os.path.join(dirpath, filename)
                     try:
                         with open(path, "r", encoding="utf-8", errors="ignore") as f:
@@ -134,13 +130,11 @@ def main():
                         print(f"extract_comments: skipping unreadable file {path}: {e}", file=sys.stderr)
                         continue
                     for comment_text in extract_from_text(text, lang):
-                        if not comment_text.strip():
-                            continue
+                        if not comment_text.strip(): continue
                         out.write(f"{lang}\t{escape(comment_text)}\n")
                         total += 1
 
     print(f"extract_comments: wrote {total} comment(s) to {args.out}", file=sys.stderr)
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

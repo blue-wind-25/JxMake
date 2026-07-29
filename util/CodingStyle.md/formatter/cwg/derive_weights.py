@@ -54,7 +54,7 @@ DATASET = [
 ]
 
 LEARNING_RATE = 0.5
-EPOCHS = 5000
+EPOCHS        = 5000
 
 # L2 regularization strength. Without this, gradient descent on (near-)separable data never
 # converges -- weights just keep growing every epoch to push predictions closer to 0/1 confidence,
@@ -76,15 +76,15 @@ def train():
     for _ in range(EPOCHS):
         grad = [0.0, 0.0, 0.0, 0.0, 0.0]
         for _, _, paren, arrow, semi, urlnum, label in DATASET:
-            x = [1.0, float(paren), float(arrow), float(semi), float(urlnum)]
+            x    = [1.0, float(paren), float(arrow), float(semi), float(urlnum)]
             pred = sigmoid(sum(wi * xi for wi, xi in zip(w, x)))
-            err = pred - label
+            err  = pred - label
             for i in range(5):
                 grad[i] += err * x[i]
         # L2 penalty gradient is lambda * w for each regularized weight (skip index 0, the bias).
-        for i in range(1, 5):
-            grad[i] += L2_LAMBDA * w[i]
+        for i in range(1, 5): grad[i] += L2_LAMBDA * w[i]
         w = [wi - LEARNING_RATE * gi / n for wi, gi in zip(w, grad)]
+
     return w
 
 
@@ -103,13 +103,12 @@ def report(w):
     print("Per-example check (score = w.x + bias, predicted YES iff score > 0):")
     mistakes = 0
     for source, idx, paren, arrow, semi, urlnum, label in DATASET:
-        score = bias + w_paren * paren + w_arrow * arrow + w_semi * semi + w_urlnum * urlnum
+        score     = bias + w_paren * paren + w_arrow * arrow + w_semi * semi + w_urlnum * urlnum
         predicted = 1 if score > 0 else 0
-        expected = "YES" if label else "NO"
-        got = "YES" if predicted else "NO"
-        flag = "" if predicted == label else " <-- MISMATCH"
-        if predicted != label:
-            mistakes += 1
+        expected  = "YES" if label else "NO"
+        got       = "YES" if predicted else "NO"
+        flag      = "" if predicted == label else " <-- MISMATCH"
+        if predicted != label: mistakes += 1
         print("  %-6s #%-2d score=%+9.5f expected=%-3s predicted=%-3s%s" % (source, idx, score, expected, got, flag))
     print()
     print("%d/%d examples classified as expected (%d mismatch(es))." % (len(DATASET) - mistakes, len(DATASET), mistakes))
@@ -121,5 +120,4 @@ def report(w):
     print()
 
 
-if __name__ == "__main__":
-    report(train())
+if __name__ == "__main__": report(train())

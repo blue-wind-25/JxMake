@@ -30,50 +30,51 @@
 //     export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
 //     node html_syntax_check.js <file.html> [file2.html ...]
 
-const fs = require('fs');
+const fs     = require('fs');
 const parse5 = require('parse5');
 
-function hasSyntaxError(source) {
+function hasSyntaxError(source)
+{
     const errors = [];
 
-    parse5.parse(source, {
+    parse5.parse( source, {
         sourceCodeLocationInfo: true,
         onParseError: (error) => {
             errors.push(error);
         }
-    });
+    } );
 
-    for (const e of errors) {
+    for(const e of errors) {
         const loc = e.startLine != null ? `${e.startLine}:${e.startCol}: ` : '';
         console.log(`${loc}${e.code}`);
     }
 
     return errors.length > 0;
-}
+} // hasSyntaxError
 
-function main() {
+function main()
+{
     const args = process.argv.slice(2);
-    if (args.length < 1) {
+    if(args.length < 1) {
         console.error('Usage: html_syntax_check.js <file.html> [file2.html ...]');
         process.exit(2);
     }
 
     let anyError = false;
 
-    for (const arg of args) {
-        const source = fs.readFileSync(arg, 'utf8');
+    for(const arg of args) {
+        const source   = fs.readFileSync(arg, 'utf8');
         const hasError = hasSyntaxError(source);
-        if (hasError) {
+        if(hasError) {
             console.log(`SYNTAX ERRORS FOUND in ${arg}`);
             anyError = true;
-        } else {
+        }
+        else {
             console.log(`OK: no syntax errors in ${arg}`);
         }
-    }
+    } // for
 
-    if (anyError) {
-        process.exit(1);
-    }
-}
+    if(anyError) process.exit(1);
+} // main
 
 main();

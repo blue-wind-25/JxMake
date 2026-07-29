@@ -35,7 +35,7 @@ import sys
 
 def unescape(escaped):
     out = []
-    i = 0
+    i   = 0
     while i < len(escaped):
         c = escaped[i]
         if c == "\\" and i + 1 < len(escaped):
@@ -54,6 +54,7 @@ def unescape(escaped):
                 continue
         out.append(c)
         i += 1
+
     return "".join(out)
 
 
@@ -63,8 +64,8 @@ def is_word_char(c):
 
 def tokenize(text):
     tokens = []
-    i = 0
-    n = len(text)
+    i      = 0
+    n      = len(text)
     while i < n:
         c = text[i]
         if c.isspace():
@@ -72,12 +73,12 @@ def tokenize(text):
             continue
         if is_word_char(c):
             start = i
-            while i < n and is_word_char(text[i]):
-                i += 1
+            while i < n and is_word_char(text[i]): i += 1
             tokens.append(text[start:i])
         else:
             tokens.append(c)
             i += 1
+
     return tokens
 
 
@@ -88,31 +89,27 @@ def main():
     parser.add_argument("--out", required=True, help="Output file path (RDD_EXT_21 schema)")
     args = parser.parse_args()
 
-    total = 0
+    total             = 0
     skipped_no_tokens = 0
     with open(args.input, "r", encoding="utf-8") as inp, open(args.out, "w", encoding="utf-8") as out:
         for line in inp:
             line = line.rstrip("\n")
-            if not line:
-                continue
+            if not line: continue
             parts = line.split("\t", 2)
-            if len(parts) != 3:
-                continue
+            if len(parts) != 3: continue
             lang_name, label, escaped_text = parts
-            if label not in ("YES", "NO"):
-                continue
+            if label not in ("YES", "NO"): continue
             comment_text = unescape(escaped_text)
-            tokens = tokenize(comment_text)
+            tokens       = tokenize(comment_text)
             if not tokens:
                 skipped_no_tokens += 1
                 continue
-            target_index = 0 if args.pool == "pool-a" else len(tokens) - 1
-            total += 1
+            target_index  = 0 if args.pool == "pool-a" else len(tokens) - 1
+            total        += 1
             out.write(f"{lang_name}\t{label}\t{target_index}\t{escaped_text}\n")
 
     print(f"add_target_index: wrote {total} example(s) to {args.out} "
           f"({skipped_no_tokens} skipped for having no tokens)", file=sys.stderr)
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

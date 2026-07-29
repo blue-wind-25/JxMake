@@ -133,8 +133,7 @@ def parse_html_via_node(path):
         ["node", "-e", NODE_HELPER, "--", path],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
     )
-    if proc.returncode != 0:
-        return None, proc.stderr.strip()
+    if proc.returncode != 0: return None, proc.stderr.strip()
     try:
         return json.loads(proc.stdout), None
     except json.JSONDecodeError as e:
@@ -144,25 +143,20 @@ def parse_html_via_node(path):
 def significant_children(node):
     out = []
     for child in node.get("children", []):
-        if child["type"] == "text" and child["value"].strip() == "":
-            continue
+        if child["type"] == "text" and child["value"].strip() == "": continue
         out.append(child)
+
     return out
 
 
 def describe(node):
-    if node is None:
-        return "<nothing>"
-    if node["type"] == "element":
-        return "<%s>" % node["tagName"]
-    if node["type"] == "text":
-        return "text %r" % node["value"]
-    if node["type"] == "comment":
-        return "comment %r" % node["value"]
-    if node["type"] == "doctype":
-        return "doctype %r" % node["name"]
-    if node["type"] == "opaque-body":
-        return "opaque-body(present=%r)" % node["present"]
+    if node is None: return "<nothing>"
+    if node["type"] == "element": return "<%s>" % node["tagName"]
+    if node["type"] == "text": return "text %r" % node["value"]
+    if node["type"] == "comment": return "comment %r" % node["value"]
+    if node["type"] == "doctype": return "doctype %r" % node["name"]
+    if node["type"] == "opaque-body": return "opaque-body(present=%r)" % node["present"]
+
     return "node type %r" % node["type"]
 
 
@@ -251,13 +245,11 @@ def main():
 
     if errors:
         print("CONTENT MISMATCH (%d issue(s)) between %s and %s:" % (len(errors), orig_path, fmt_path))
-        for e in errors:
-            print("  - %s" % e)
+        for e in errors: print("  - %s" % e)
         sys.exit(1)
 
     print("OK: content preserved between %s and %s" % (orig_path, fmt_path))
     sys.exit(0)
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

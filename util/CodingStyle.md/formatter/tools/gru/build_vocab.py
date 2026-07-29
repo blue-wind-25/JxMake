@@ -96,7 +96,7 @@ WORD_RE = re.compile(r"^[A-Za-z]+$")
 
 def unescape(escaped):
     out = []
-    i = 0
+    i   = 0
     while i < len(escaped):
         c = escaped[i]
         if c == "\\" and i + 1 < len(escaped):
@@ -115,6 +115,7 @@ def unescape(escaped):
                 continue
         out.append(c)
         i += 1
+
     return "".join(out)
 
 
@@ -127,8 +128,8 @@ def tokenize(text):
     # as add_target_index.py's own copy: keeps token boundaries (and therefore which strings show
     # up as candidate vocab words) consistent with what the runtime/trainer actually see.
     tokens = []
-    i = 0
-    n = len(text)
+    i      = 0
+    n      = len(text)
     while i < n:
         c = text[i]
         if c.isspace():
@@ -136,12 +137,12 @@ def tokenize(text):
             continue
         if is_word_char(c):
             start = i
-            while i < n and is_word_char(text[i]):
-                i += 1
+            while i < n and is_word_char(text[i]): i += 1
             tokens.append(text[start:i])
         else:
             tokens.append(c)
             i += 1
+
     return tokens
 
 
@@ -153,7 +154,7 @@ def main():
     args = parser.parse_args()
 
     explicit_words = []
-    seen = set()
+    seen           = set()
     for group in ALL_KEYWORD_GROUPS:
         for word in group:
             if word not in seen:
@@ -165,11 +166,9 @@ def main():
     with open(args.input, "r", encoding="utf-8") as inp:
         for line in inp:
             line = line.rstrip("\n")
-            if not line:
-                continue
+            if not line: continue
             tab = line.find("\t")
-            if tab < 0:
-                continue
+            if tab < 0: continue
             comment_text = unescape(line[tab + 1:])
             for token in tokenize(comment_text):
                 if WORD_RE.match(token) and token not in seen:
@@ -200,5 +199,4 @@ def main():
           file=sys.stderr)
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

@@ -573,7 +573,10 @@ public class TokenizerCurly extends TokenizerCore {
             }
 
             final Token t;
-            if( isPreprocessorLanguage() && c == '#' && atLineStart ) {
+            if(pos == 0 && c == '#' && peek(1) == '!') {
+                t = emitShebangLine();
+            }
+            else if( isPreprocessorLanguage() && c == '#' && atLineStart ) {
                 t = emitPreprocessorOrDefine();
             }
             else if( c == '/' && peek(1) == '/' ) {
@@ -1039,6 +1042,24 @@ public class TokenizerCurly extends TokenizerCore {
 
         return new Token(
             TokenType.COMMENT_LINE, source.substring(start, pos), braceDepth,
+            parenDepth, null
+        );
+    }
+
+    // A shebang line (`#!...`) is only ever valid as the file's first two characters -- emitted
+    // as its own opaque SHEBANG type (a gap token, per Token.isGapToken) rather than COMMENT_LINE
+    // so no rule ever tokenizes its `/`-separated path segments as JS/TS division operators and
+    // appends a stray statement-terminator semicolon, and so comment-normalization passes that
+    // assume every COMMENT_LINE token's text starts with a literal `//` (e.g. MiscRuleCore
+    // .enforceCommentStyle) never mangle it into `///usr/bin/env node` (found 2026-07-30
+    // formatting tools/verifiers/*.js -- see STATE_AI.md's 2026-07-30 section).
+    private Token emitShebangLine()
+    {
+        final int start = pos;
+        while( pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r' ) pos++;
+
+        return new Token(
+            TokenType.SHEBANG, source.substring(start, pos), braceDepth,
             parenDepth, null
         );
     }

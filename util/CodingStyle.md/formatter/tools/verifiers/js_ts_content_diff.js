@@ -58,24 +58,28 @@
  */
 'use strict';
 
-const fs = require('fs');
+const fs   = require('fs');
 const path = require('path');
-const ts = require('typescript');
+const ts   = require('typescript');
 
-function normalizeWhitespace(s) {
+function normalizeWhitespace(s)
+{
   return s.trim().replace(/\s+/g, ' ');
 }
 
-function scriptKindFor(file) {
+function scriptKindFor(file)
+{
   return file.endsWith('.ts') ? ts.ScriptKind.TS : ts.ScriptKind.JS;
 }
 
-function parse(source, fileName) {
+function parse(source, fileName)
+{
   return ts.createSourceFile(
-    fileName, source, ts.ScriptTarget.Latest, /*setParentNodes*/ true, scriptKindFor(fileName));
+    fileName, source, ts.ScriptTarget.Latest, /*SetParentNodes*/ true, scriptKindFor(fileName) );
 }
 
-/** Leaf-token canonicalization: every terminal token's text (identifiers,
+/**
+ * Leaf-token canonicalization: every terminal token's text (identifiers,
  *  keywords, literals, punctuation), whitespace collapsed -- comments are
  *  never tree nodes so they never appear here regardless.
  *
@@ -89,12 +93,15 @@ function parse(source, fileName) {
  *  A block with zero or 2+ statements is walked normally (braces included)
  *  -- only the exact one-statement shape is unwrapped, so a genuinely
  *  added/removed statement, or a different single statement, is still
- *  caught by the ordinary token-level comparison below. */
-function canonicalize(node) {
-  const parts = [];
-  (function walk(n) {
-    if (ts.isBlock(n) && n.statements.length === 1) {
-      walk(n.statements[0]);
+ *  caught by the ordinary token-level comparison below.
+ */
+function canonicalize(node)
+{
+    const parts = [];
+  ( function walk(n)
+  {
+    if( ts.isBlock(n) && n.statements.length === 1 ) {
+      walk( n.statements[0] );
       return;
     }
     // A `/** ... */` JSDoc comment is parsed by the TS compiler as a real
@@ -106,150 +113,165 @@ function canonicalize(node) {
     // case-normalization tolerance, false-flagging exactly the same
     // intentional transformations this canonicalization is meant to
     // tolerate.
-    if (ts.isJSDoc(n)) return;
+    if( ts.isJSDoc(n) ) return;
     const kids = n.getChildren();
-    if (kids.length === 0) {
+    if(kids.length === 0) {
       const t = n.getText();
-      if (t.length > 0) parts.push(t);
-    } else {
-      for (const k of kids) walk(k);
+      if(t.length > 0) parts.push(t);
     }
-  })(node);
-  return normalizeWhitespace(parts.join(' '));
-}
+    else {
+      for(const k of kids) walk(k);
+    }
+  } )(node);
 
-function isImportStatement(stmt) {
+  return normalizeWhitespace( parts.join(' ') );
+} // canonicalize
+
+function isImportStatement(stmt)
+{
   return ts.isImportDeclaration(stmt) || ts.isImportEqualsDeclaration(stmt);
 }
 
-function topLevelBuckets(sourceFile) {
-  const imports = [];
-  const others = [];
-  for (const stmt of sourceFile.statements) {
-    if (isImportStatement(stmt)) {
-      imports.push(canonicalize(stmt));
-    } else {
-      others.push(canonicalize(stmt));
-    }
+function topLevelBuckets(sourceFile)
+{
+    const imports = [];
+    const others  = [];
+  for(const stmt of sourceFile.statements) {
+    if( isImportStatement(stmt) ) imports.push( canonicalize(stmt) );
+    else                          others.push( canonicalize(stmt) );
   }
   imports.sort();
-  return { imports, others };
-}
 
-/** Comments are not tree nodes -- recover them from raw source text via
+  return { imports, others };
+} // topLevelBuckets
+
+/**
+ * Comments are not tree nodes -- recover them from raw source text via
  *  getLeadingCommentRanges, scanning at each token's start position plus
  *  position 0 (covers any comment before the very first token) and the
  *  end of file (covers a final trailing comment with nothing after it).
  *  Dedup by [pos,end) since the same range can be reached from more than
- *  one scan point. */
-function collectComments(sourceFile, sourceText) {
-  const seen = new Set();
-  const out = [];
+ *  one scan point.
+ */
+function collectComments(sourceFile, sourceText)
+{
+    const seen = new Set();
+    const out  = [];
 
-  function addRangesAt(pos) {
-    const ranges = ts.getLeadingCommentRanges(sourceText, pos) || [];
-    for (const r of ranges) {
-      const key = r.pos + ':' + r.end;
-      if (seen.has(key)) continue;
+  function addRangesAt(pos)
+  {
+    const ranges = ts.getLeadingCommentRanges(sourceText, pos) ||[];
+    for(const r of ranges) {
+        const key = r.pos + ':' + r.end;
+      if( seen.has(key) ) continue;
       seen.add(key);
-      out.push(stripCommentDelims(sourceText.slice(r.pos, r.end)));
+      out.push( stripCommentDelims( sourceText.slice(r.pos, r.end) ) );
     }
-  }
+  } // addRangesAt
 
   addRangesAt(0);
-  (function walk(n) {
-    addRangesAt(n.getFullStart());
+  ( function walk(n)
+  {
+    addRangesAt( n.getFullStart() );
     n.forEachChild(walk);
-  })(sourceFile);
+  } )(sourceFile);
   addRangesAt(sourceText.length);
 
   out.sort();
-  return out;
-}
 
-/** Strips a single trailing `.` immediately before the comment's closing
+  return out;
+} // collectComments
+
+/**
+ * Strips a single trailing `.` immediately before the comment's closing
  *  delimiter/end (after outer delimiters are already stripped), mirroring
  *  `normalize-comment-end-period`'s `stripSoleTrailingPeriod` formatter
  *  behavior (MiscRuleCore.java) so an intentional period-strip isn't
  *  flagged as a content change. Only the very last `.` is affected -- a
- *  mid-sentence period, or a trailing ellipsis (`...`), is left alone. */
-function stripSoleTrailingPeriod(t) {
-  const trimmed = t.replace(/\s+$/, '');
-  if (trimmed.endsWith('.') && !trimmed.endsWith('..')) {
-    return trimmed.slice(0, -1);
-  }
+ *  mid-sentence period, or a trailing ellipsis (`...`), is left alone.
+ */
+function stripSoleTrailingPeriod(t)
+{
+    const trimmed = t.replace(/\s+$/, '');
+  if( trimmed.endsWith('.') && !trimmed.endsWith('..') ) return trimmed.slice(0, -1);
+
   return trimmed;
 }
 
-function stripCommentDelims(text) {
-  let t = text.trim();
-  if (t.startsWith('///')) t = t.slice(3);
-  else if (t.startsWith('//')) t = t.slice(2);
-  else if (t.startsWith('/**')) t = t.slice(3, Math.max(3, t.length - 2));
-  else if (t.startsWith('/*')) t = t.slice(2, Math.max(2, t.length - 2));
-  t = stripSoleTrailingPeriod(t);
+function stripCommentDelims(text)
+{
+    let t = text.trim();
+  if( t.startsWith('///') )      t = t.slice(3);
+  else if( t.startsWith('//') )  t = t.slice(2);
+  else if( t.startsWith('/**') ) t = t.slice( 3, Math.max(3, t.length - 2) );
+  else if( t.startsWith('/*') )  t = t.slice( 2, Math.max(2, t.length - 2) );
+    t = stripSoleTrailingPeriod(t);
+
   return normalizeWhitespace(t).toLowerCase();
-}
+} // stripCommentDelims
 
-function diffMultisets(label, a, b) {
-  const mismatches = [];
-  const bCopy = b.slice();
-  const onlyInA = [];
-  for (const s of a) {
+function diffMultisets(label, a, b)
+{
+    const mismatches = [];
+    const bCopy      = b.slice();
+    const onlyInA    = [];
+  for(const s of a) {
     const idx = bCopy.indexOf(s);
-    if (idx === -1) onlyInA.push(s);
-    else bCopy.splice(idx, 1);
+    if(idx === -1) onlyInA.push(s);
+    else           bCopy.splice(idx, 1);
   }
-  if (onlyInA.length > 0) {
-    mismatches.push(label + ': present in original, missing from formatted: ' + JSON.stringify(onlyInA));
-  }
-  if (bCopy.length > 0) {
-    mismatches.push(label + ': present in formatted, missing from original: ' + JSON.stringify(bCopy));
-  }
-  return mismatches;
-}
+  if(onlyInA.length > 0) mismatches.push(
+      label + ': present in original, missing from formatted: ' + JSON.stringify(onlyInA)
+  );
+  if(bCopy.length > 0) mismatches.push(
+      label + ': present in formatted, missing from original: ' + JSON.stringify(bCopy)
+  );
 
-function main() {
-  const args = process.argv.slice(2);
-  if (args.length !== 2) {
+  return mismatches;
+} // diffMultisets
+
+function main()
+{
+    const args = process.argv.slice(2);
+  if(args.length !== 2) {
     console.error('Usage: node js_ts_content_diff.js <original.(js|ts)> <formatted.(js|ts)>');
     process.exit(2);
   }
-  const [origPath, fmtPath] = args;
-  const origSrc = fs.readFileSync(origPath, 'utf8');
-  const fmtSrc = fs.readFileSync(fmtPath, 'utf8');
+    const [origPath, fmtPath] = args;
+    const origSrc             = fs.readFileSync(origPath, 'utf8');
+    const fmtSrc              = fs.readFileSync(fmtPath, 'utf8');
 
-  const origFile = parse(origSrc, path.basename(origPath));
-  const fmtFile = parse(fmtSrc, path.basename(fmtPath));
+    const origFile = parse( origSrc, path.basename(origPath) );
+    const fmtFile  = parse( fmtSrc, path.basename(fmtPath) );
 
-  const mismatches = [];
+    const mismatches = [];
 
-  const origBuckets = topLevelBuckets(origFile);
-  const fmtBuckets = topLevelBuckets(fmtFile);
+    const origBuckets = topLevelBuckets(origFile);
+    const fmtBuckets  = topLevelBuckets(fmtFile);
 
-  mismatches.push(...diffMultisets('imports', origBuckets.imports, fmtBuckets.imports));
+  mismatches.push( ...diffMultisets('imports', origBuckets.imports, fmtBuckets.imports) );
 
-  if (origBuckets.others.length !== fmtBuckets.others.length) {
-    mismatches.push('non-import top-level statement count changed: ' +
-      origBuckets.others.length + ' -> ' + fmtBuckets.others.length);
+  if(origBuckets.others.length !== fmtBuckets.others.length) mismatches.push(
+      'non-import top-level statement count changed: ' + origBuckets.others.length + ' -> ' + fmtBuckets.others.length
+  );
+    const n = Math.min(origBuckets.others.length, fmtBuckets.others.length);
+  for(let i = 0; i < n; ++i) {
+    if( origBuckets.others[i] !== fmtBuckets.others[i] ) mismatches.push(
+        'non-import top-level statement #' + i + ' structure/content differs'
+    );
   }
-  const n = Math.min(origBuckets.others.length, fmtBuckets.others.length);
-  for (let i = 0; i < n; i++) {
-    if (origBuckets.others[i] !== fmtBuckets.others[i]) {
-      mismatches.push('non-import top-level statement #' + i + ' structure/content differs');
-    }
-  }
 
-  mismatches.push(...diffMultisets(
-    'comments', collectComments(origFile, origSrc), collectComments(fmtFile, fmtSrc)));
+  mismatches.push( ...diffMultisets(
+    'comments', collectComments(origFile, origSrc), collectComments(fmtFile, fmtSrc) ) );
 
-  if (mismatches.length === 0) {
+  if(mismatches.length === 0) {
     console.log('OK: content preserved (' + origPath + ' == ' + fmtPath + ')');
-  } else {
+  }
+  else {
     console.log('MISMATCH: content differs between ' + origPath + ' and ' + fmtPath);
-    for (const m of mismatches) console.log('  ' + m);
+    for(const m of mismatches) console.log('  ' + m);
     process.exit(1);
   }
-}
+} // main
 
 main();

@@ -65,7 +65,7 @@ def main():
         sys.exit(2)
 
     orig_dump = dump(orig_tree)
-    fmt_dump = dump(fmt_tree)
+    fmt_dump  = dump(fmt_tree)
 
     if orig_dump == fmt_dump:
         print("OK: AST structurally identical (%s == %s)" % (orig_path, fmt_path))
@@ -73,18 +73,18 @@ def main():
     else:
         sys.stderr.write("MISMATCH: AST structure differs between %s and %s\n" % (orig_path, fmt_path))
         orig_lines = orig_dump.splitlines()
-        fmt_lines = fmt_dump.splitlines()
+        fmt_lines  = fmt_dump.splitlines()
         for i, (a, b) in enumerate(zip(orig_lines, fmt_lines)):
             if a != b:
                 sys.stderr.write("first differing line (%d):\n" % (i + 1))
                 sys.stderr.write("  original : %s\n" % a)
                 sys.stderr.write("  formatted: %s\n" % b)
                 break
+
         else:
             sys.stderr.write("(one AST dump is a strict prefix of the other -- "
                               "orig %d lines, formatted %d lines)\n" % (len(orig_lines), len(fmt_lines)))
         sys.exit(1)
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

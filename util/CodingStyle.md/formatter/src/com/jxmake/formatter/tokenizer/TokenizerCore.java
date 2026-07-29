@@ -34,6 +34,7 @@ public class TokenizerCore {
         PUNCT,
         COMMENT_LINE,
         COMMENT_BLOCK,
+        SHEBANG,             // JS/TS only — opaque `#!...` first line, see TokenizerCurly#emitShebangLine
         WHITESPACE,
         NEWLINE,
         PREPROCESSOR,        // C/C++ only — opaque single-line #-directive
@@ -119,7 +120,8 @@ public class TokenizerCore {
         public static boolean isGapToken(final Token t)
         {
             return t != null && (t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE
-                    || t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK);
+                    || t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK
+                    || t.type == TokenType.SHEBANG);
         }
 
     } // class Token

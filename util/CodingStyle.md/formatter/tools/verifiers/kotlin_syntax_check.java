@@ -6,11 +6,13 @@
  */
 
 import java.util.Collection;
+
 import com.intellij.openapi.util.Disposer;
 import com.intellij.psi.PsiErrorElement;
 import com.intellij.psi.util.PsiTreeUtil;
-import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment;
+
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles;
+import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment;
 import org.jetbrains.kotlin.config.CompilerConfiguration;
 import org.jetbrains.kotlin.psi.KtFile;
 import org.jetbrains.kotlin.psi.KtPsiFactory;
@@ -37,56 +39,56 @@ import org.jetbrains.kotlin.psi.KtPsiFactory;
  */
 public class kotlin_syntax_check {
 
-    public static boolean hasSyntaxError(String source) {
-        KotlinCoreEnvironment env =
-            KotlinCoreEnvironment.createForProduction(
-                Disposer.newDisposable(),
-                new CompilerConfiguration(),
-                EnvironmentConfigFiles.JVM_CONFIG_FILES
-            );
+    public static boolean hasSyntaxError(String source)
+    {
+        KotlinCoreEnvironment env = KotlinCoreEnvironment.createForProduction(
+            Disposer.newDisposable(),
+            new CompilerConfiguration(),
+            EnvironmentConfigFiles.JVM_CONFIG_FILES
+        );
 
-        KtFile file = new KtPsiFactory(env.getProject())
-            .createFile(source);
+        KtFile file = new KtPsiFactory( env.getProject() ).createFile(source);
 
-        Collection<PsiErrorElement> errors =
-            PsiTreeUtil.findChildrenOfType(
-                file,
-                PsiErrorElement.class
-            );
+        Collection<PsiErrorElement> errors = PsiTreeUtil.findChildrenOfType(
+            file, PsiErrorElement.class
+        );
 
         boolean anyErrors = false;
-        for (PsiErrorElement e : errors) {
+        for(PsiErrorElement e : errors) {
             anyErrors = true;
             System.out.println(
                 e.getErrorDescription() +
                 " at " + e.getTextRange()
             );
-        }
+        } // for
+
         return anyErrors;
     }
 
-    public static void main(String[] args) throws Exception {
-        if (args.length < 1) {
+    public static void main(String[] args) throws Exception
+    {
+        if(args.length < 1) {
             System.err.println("Usage: kotlin_syntax_check <file.kt> [file2.kt ...]");
             System.exit(2);
         }
 
         boolean anyError = false;
 
-        for (String arg : args) {
-            String source = new String(java.nio.file.Files.readAllBytes(
-                java.nio.file.Paths.get(arg)));
+        for(String arg : args) {
+            String  source   = new String(
+                java.nio.file.Files.readAllBytes( java.nio.file.Paths.get(arg) )
+            );
             boolean hasError = hasSyntaxError(source);
-            if (hasError) {
+            if(hasError) {
                 System.out.println("SYNTAX ERRORS FOUND in " + arg);
                 anyError = true;
-            } else {
+            }
+            else {
                 System.out.println("OK: no syntax errors in " + arg);
             }
-        }
+        } // for
 
-        if (anyError) {
-            System.exit(1);
-        }
+        if(anyError) System.exit(1);
     }
-}
+
+} // class kotlin_syntax_check

@@ -37,45 +37,42 @@ import com.sun.source.util.JavacTask;
 public class java_syntax_check {
 
     static class SourceFile extends SimpleJavaFileObject {
+
         private final String source;
 
-        SourceFile(String className, String source) {
+        SourceFile(String className, String source)
+        {
             super(
-                URI.create("string:///" +
+                URI.create( "string:///" +
                     className.replace('.', '/') +
-                    Kind.SOURCE.extension),
+                    Kind.SOURCE.extension ),
                 Kind.SOURCE
             );
             this.source = source;
         }
 
         @Override
-        public CharSequence getCharContent(boolean ignoreEncodingErrors) {
+        public CharSequence getCharContent(boolean ignoreEncodingErrors)
+        {
             return source;
         }
-    }
 
-    public static boolean hasSyntaxError(String source) throws IOException {
+    } // class SourceFile
+
+    public static boolean hasSyntaxError(String source) throws IOException
+    {
 
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        if (compiler == null) {
-            throw new IllegalStateException(
-                "No system compiler found (are you using a JDK instead of a JRE?)");
-        }
+        if(compiler == null) throw new IllegalStateException(
+            "No system compiler found (are you using a JDK instead of a JRE?)"
+        );
 
-        DiagnosticCollector<JavaFileObject> diagnostics =
-            new DiagnosticCollector<>();
+        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
 
-        JavaFileObject file =
-            new SourceFile("Test", source);
+        JavaFileObject file = new SourceFile("Test", source);
 
-        JavacTask task = (JavacTask) compiler.getTask(
-            null,
-            null,
-            diagnostics,
-            Arrays.asList("-proc:none"),
-            null,
-            Arrays.asList(file)
+        JavacTask task = (JavacTask)compiler.getTask(
+            null, null, diagnostics, Arrays.asList("-proc:none"), null, Arrays.asList(file)
         );
 
         // Parse only
@@ -86,10 +83,10 @@ public class java_syntax_check {
 
         boolean anyErrors = false;
 
-        for (Diagnostic<? extends JavaFileObject> d :
-                diagnostics.getDiagnostics()) {
+        for( Diagnostic<? extends JavaFileObject> d :
+                diagnostics.getDiagnostics() ) {
 
-            if (d.getKind() == Diagnostic.Kind.ERROR) {
+            if( d.getKind() == Diagnostic.Kind.ERROR ) {
                 anyErrors = true;
 
                 System.out.printf(
@@ -98,36 +95,37 @@ public class java_syntax_check {
                     d.getColumnNumber(),
                     d.getMessage(null)
                 );
-            }
-        }
+            } // if
+        } // for
 
         return anyErrors;
     }
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) throws Exception
+    {
 
-        if (args.length < 1) {
+        if(args.length < 1) {
             System.err.println("Usage: java_syntax_check <file.java> [file2.java ...]");
             System.exit(2);
         }
 
         boolean anyError = false;
 
-        for (String arg : args) {
-            String source = Files.readString(Paths.get(arg));
+        for(String arg : args) {
+            String source = Files.readString( Paths.get(arg) );
 
             boolean hasError = hasSyntaxError(source);
 
-            if (hasError) {
+            if(hasError) {
                 System.out.println("SYNTAX ERRORS FOUND in " + arg);
                 anyError = true;
-            } else {
+            }
+            else {
                 System.out.println("OK: no syntax errors in " + arg);
             }
-        }
+        } // for
 
-        if (anyError) {
-            System.exit(1);
-        }
+        if(anyError) System.exit(1);
     }
-}
+
+} // class java_syntax_check

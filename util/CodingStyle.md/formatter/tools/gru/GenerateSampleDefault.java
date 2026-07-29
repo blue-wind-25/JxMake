@@ -22,7 +22,8 @@ import com.jxmake.formatter.classifier.CommentFeatureExtractor;
 import com.jxmake.formatter.classifier.CommentFeatureVector;
 import com.jxmake.formatter.classifier.gru.GruClassifier;
 
-/** Auto-labels a real comment corpus via the existing rule-based (linear) {@link CommentClassifier}
+/**
+ * Auto-labels a real comment corpus via the existing rule-based (linear) {@link CommentClassifier}
  *  to produce {@code tools/gru/sample_default.txt}, an RDD_EXT_20/21-schema labeled-examples file
  *  for {@code GruTrainer} -- replaces the old "extract corpus, archive raw, hand-label later"
  *  workflow for the default training set (Pool A/Pool B hand-labeling per {@code acquire_corpus.sh}
@@ -50,17 +51,21 @@ import com.jxmake.formatter.classifier.gru.GruClassifier;
  *  pointing at a specific word.
  *
  *  <p>Lives outside {@code src/}, same as {@code GruTrainer.java}/{@code CommentAbstainTally.java}/
- *  {@code ExtractPoolA.java} -- a one-off data-preparation tool, not runtime or shipped code. */
+ *  {@code ExtractPoolA.java} -- a one-off data-preparation tool, not runtime or shipped code.
+ */
 public final class GenerateSampleDefault {
 
-    private GenerateSampleDefault() {
+    private GenerateSampleDefault()
+    {
     }
 
     private static final String USAGE = "Usage: GenerateSampleDefault <combined-comments-path> <output-path>";
 
-    /** Header written to the top of every generated {@code sample_default.txt}, documenting
+    /**
+     * Header written to the top of every generated {@code sample_default.txt}, documenting
      *  provenance per the user's explicit request -- lines starting with {@code #} are already
-     *  skipped by {@code GruTrainer.readExamples}, same convention as {@code sample_examples.txt}. */
+     *  skipped by {@code GruTrainer.readExamples}, same convention as {@code sample_examples.txt}.
+     */
     private static final String[] HEADER = {
         "# tools/gru/sample_default.txt -- auto-generated GRU training corpus.",
         "# This corpus is obtained from local project directories owned by me and from external",
@@ -71,78 +76,74 @@ public final class GenerateSampleDefault {
         "# Regenerate by re-running `make gru-acquire-corpus`; do not hand-edit.",
     };
 
-    public static void main(final String[] args) throws IOException {
-        if (args.length != 2) {
+    public static void main(final String[] args) throws IOException
+    {
+        if(args.length != 2) {
             System.err.println(USAGE);
             System.exit(2);
             return;
         }
 
-        final java.io.File input = new java.io.File(args[0]);
-        if (!input.isFile() || !input.canRead()) {
-            System.err.println("GenerateSampleDefault: input file not readable: " + args[0]);
+        final java.io.File input = new java.io.File( args[0] );
+        if( !input.isFile() || !input.canRead() ) {
+            System.err.println( "GenerateSampleDefault: input file not readable: " + args[0] );
             System.exit(2);
             return;
         }
 
         final Map<String, Lang> langCache = new LinkedHashMap<String, Lang>();
-        int total = 0;
-        int malformed = 0;
-        int kept = 0;
-        int yesCount = 0;
-        int noCount = 0;
+              int               total     = 0;
+              int               malformed = 0;
+              int               kept      = 0;
+              int               yesCount  = 0;
+              int               noCount   = 0;
 
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(Files.newInputStream(input.toPath()), StandardCharsets.UTF_8));
+        try ( BufferedReader reader = new BufferedReader(
+                new InputStreamReader( Files.newInputStream( input.toPath() ), StandardCharsets.UTF_8 ) );
              BufferedWriter writer = new BufferedWriter(
-                new OutputStreamWriter(Files.newOutputStream(new java.io.File(args[1]).toPath()),
-                        StandardCharsets.UTF_8))) {
-            for (final String headerLine : HEADER) {
+                new OutputStreamWriter( Files.newOutputStream( new java.io.File( args[1] ).toPath() ),
+                        StandardCharsets.UTF_8 ) ) ) {
+            for(final String headerLine : HEADER) {
                 writer.write(headerLine);
                 writer.newLine();
             }
 
             String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.isEmpty()) {
-                    continue;
-                }
+            while( ( line = reader.readLine() ) != null ) {
+                if( line.isEmpty() ) continue;
                 final int tab = line.indexOf('\t');
-                if (tab < 0) {
-                    malformed++;
+                if(tab < 0) {
+                    ++malformed;
                     continue;
                 }
-                total++;
-                final String langName = line.substring(0, tab);
+                ++total;
+                final String langName    = line.substring(0, tab);
                 final String escapedText = line.substring(tab + 1);
                 final String commentText = unescape(escapedText);
 
-                final Lang lang = langCache.computeIfAbsent(langName, Lang::new);
-                final CommentFeatureVector features = CommentFeatureExtractor.extract(commentText, lang);
-                final CommentDecision decision = CommentClassifier.classify(features);
+                final Lang                 lang     = langCache.computeIfAbsent(
+                    langName, Lang::new
+                );
+                final CommentFeatureVector features = CommentFeatureExtractor.extract(
+                    commentText, lang
+                );
+                final CommentDecision      decision = CommentClassifier.classify(features);
 
-                if (decision != CommentDecision.YES && decision != CommentDecision.NO) {
-                    continue;
-                }
-                if (GruClassifier.tokenize(commentText).isEmpty()) {
-                    continue;
-                }
+                if(decision != CommentDecision.YES && decision != CommentDecision.NO) continue;
+                if( GruClassifier.tokenize(commentText).isEmpty() ) continue;
 
                 writer.write(langName);
                 writer.write('\t');
-                writer.write(decision.name());
+                writer.write( decision.name() );
                 writer.write('\t');
                 writer.write("0");
                 writer.write('\t');
                 writer.write(escapedText);
                 writer.newLine();
-                kept++;
-                if (decision == CommentDecision.YES) {
-                    yesCount++;
-                } else {
-                    noCount++;
-                }
-            }
+                ++kept;
+                if(decision == CommentDecision.YES) yesCount++;
+                else                                noCount++;
+            } // while
         }
 
         System.out.println("GenerateSampleDefault: " + total + " comment(s) read (" + malformed
@@ -150,30 +151,33 @@ public final class GenerateSampleDefault {
                 + ", NO=" + noCount + ")");
     }
 
-    private static String unescape(final String escaped) {
-        final StringBuilder sb = new StringBuilder(escaped.length());
-        for (int i = 0; i < escaped.length(); i++) {
+    private static String unescape(final String escaped)
+    {
+        final StringBuilder sb = new StringBuilder( escaped.length() );
+        for( int i = 0; i < escaped.length(); ++i ) {
             final char c = escaped.charAt(i);
-            if (c == '\\' && i + 1 < escaped.length()) {
+            if( c == '\\' && i + 1 < escaped.length() ) {
                 final char next = escaped.charAt(i + 1);
-                if (next == 'n') {
+                if(next == 'n') {
                     sb.append('\n');
-                    i++;
+                    ++i;
                     continue;
                 }
-                if (next == 't') {
+                if(next == 't') {
                     sb.append('\t');
-                    i++;
+                    ++i;
                     continue;
                 }
-                if (next == '\\') {
+                if(next == '\\') {
                     sb.append('\\');
-                    i++;
+                    ++i;
                     continue;
                 }
-            }
+            } // if
             sb.append(c);
-        }
+        } // for
+
         return sb.toString();
     }
-}
+
+} // class GenerateSampleDefault

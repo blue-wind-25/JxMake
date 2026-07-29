@@ -23,46 +23,47 @@
 //     export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
 //     node json5_syntax_check.js <file.json5> [file2.json5 ...]
 
-const fs = require('fs');
+const fs    = require('fs');
 const JSON5 = require('json5');
 
-function hasSyntaxError(source) {
+function hasSyntaxError(source)
+{
     try {
         JSON5.parse(source);
         return false;
-    } catch (e) {
-        if (typeof e.lineNumber === 'number') {
-            console.log(`${e.lineNumber}:${e.columnNumber}: ${e.message}`);
-        } else {
-            console.log(e.message);
-        }
+    }
+    catch(e) {
+        if(typeof e.lineNumber === 'number') console.log(
+            `${e.lineNumber}:${e.columnNumber}: ${e.message}`
+        );
+        else console.log(e.message);
         return true;
     }
-}
+} // hasSyntaxError
 
-function main() {
+function main()
+{
     const args = process.argv.slice(2);
-    if (args.length < 1) {
+    if(args.length < 1) {
         console.error('Usage: json5_syntax_check.js <file.json5> [file2.json5 ...]');
         process.exit(2);
     }
 
     let anyError = false;
 
-    for (const arg of args) {
-        const source = fs.readFileSync(arg, 'utf8');
+    for(const arg of args) {
+        const source   = fs.readFileSync(arg, 'utf8');
         const hasError = hasSyntaxError(source);
-        if (hasError) {
+        if(hasError) {
             console.log(`SYNTAX ERRORS FOUND in ${arg}`);
             anyError = true;
-        } else {
+        }
+        else {
             console.log(`OK: no syntax errors in ${arg}`);
         }
-    }
+    } // for
 
-    if (anyError) {
-        process.exit(1);
-    }
-}
+    if(anyError) process.exit(1);
+} // main
 
 main();

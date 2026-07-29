@@ -27,8 +27,8 @@ Exit codes:
         to a real dogfood run where both files should already be
         syntax-checked separately)
 """
-import sys
 import re
+import sys
 
 try:
     import yaml
@@ -40,6 +40,7 @@ except ImportError:
 def load_docs(path):
     with open(path, "r", encoding="utf-8") as f:
         text = f.read()
+
     return list(yaml.safe_load_all(text)), text
 
 
@@ -50,8 +51,8 @@ def comment_lines(text):
     out = []
     for line in text.splitlines():
         s = line.strip()
-        if s.startswith("#"):
-            out.append(s)
+        if s.startswith("#"): out.append(s)
+
     return out
 
 
@@ -87,8 +88,7 @@ def main():
 
     if mismatches:
         print(f"MISMATCH: {orig_path} vs {fmt_path}")
-        for m in mismatches:
-            print(f"  - {m}")
+        for m in mismatches: print(f"  - {m}")
         sys.exit(1)
 
     # informational-only comment scan (not a failure condition by itself)
@@ -98,8 +98,7 @@ def main():
         diffs = [(a, b) for a, b in zip(oc, fc) if a != b]
         if diffs:
             print(f"OK: content preserved (data structures match). Note: {len(diffs)} comment line(s) textually changed (informational only):")
-            for a, b in diffs[:10]:
-                print(f"    {a!r} -> {b!r}")
+            for a, b in diffs[:10]: print(f"    {a!r} -> {b!r}")
             sys.exit(0)
     elif oc != fc:
         print(f"OK: content preserved (data structures match). Note: comment line count differs ({len(oc)} -> {len(fc)}), informational only.")
@@ -109,5 +108,4 @@ def main():
     sys.exit(0)
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

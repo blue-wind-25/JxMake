@@ -27,10 +27,10 @@ import json
 import os
 import sys
 
-DEFAULT_VOCAB = os.path.join(os.path.dirname(__file__), "explicit_vocab.txt")
-DEFAULT_STATE = os.path.join(os.path.dirname(__file__), ".gen_synthetic_state.json")
+DEFAULT_VOCAB           = os.path.join(os.path.dirname(__file__), "explicit_vocab.txt")
+DEFAULT_STATE           = os.path.join(os.path.dirname(__file__), ".gen_synthetic_state.json")
 DEFAULT_REQUESTED_WORDS = os.path.join(os.path.dirname(__file__), ".gen_synthetic_requested_words.txt")
-DEFAULT_LANGS = ["c", "cpp", "java", "kotlin", "js", "ts", "python"]
+DEFAULT_LANGS           = ["c", "cpp", "java", "kotlin", "js", "ts", "python"]
 
 # git add .gen_synthetic_state.json ../sp_gemini.txt && git commit -S -m 'Synthetic training data generation result'
 # clear && cat .gen_synthetic_state.json && ./gen_synthetic_prompt.py
@@ -62,11 +62,10 @@ def load_vocab(path):
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
-            if not line or line.startswith("#"):
-                continue
+            if not line or line.startswith("#"): continue
             words.append(line)
-    if not words:
-        raise ValueError("no words found in vocab file: {}".format(path))
+    if not words: raise ValueError("no words found in vocab file: {}".format(path))
+
     return words
 
 
@@ -75,6 +74,7 @@ def load_state(path):
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         return data.get("next_index", 0)
+
     return 0
 
 
@@ -106,13 +106,14 @@ def take_slice(words, start, count):
 
     end = start + count
     if end <= n:
-        sl = words[start:end]
-        wrapped = False
+        sl       = words[start:end]
+        wrapped  = False
         new_next = end % n
     else:
-        sl = words[start:n] + words[0:end - n]
-        wrapped = True
+        sl       = words[start:n] + words[0:end - n]
+        wrapped  = True
         new_next = end - n
+
     return sl, wrapped, new_next
 
 
@@ -137,8 +138,7 @@ def main():
 
     words = load_vocab(args.vocab)
 
-    if args.reset:
-        start = 0
+    if args.reset: start = 0
     else:
         start = load_state(args.state)
         start = start % len(words)  # defensive, in case vocab shrank
@@ -170,5 +170,4 @@ def main():
         print("# also saved to {}".format(args.out), file=sys.stderr)
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

@@ -46,7 +46,7 @@ import re
 import sys
 
 
-COMMENT_RE = re.compile(r'/\*.*?\*/', re.S)
+COMMENT_RE       = re.compile(r'/\*.*?\*/', re.S)
 VENDOR_PREFIX_RE = re.compile(r'-(webkit|moz|ms|o)-[a-zA-Z-]+')
 
 
@@ -57,6 +57,7 @@ def extract_comments(text):
 def strip_comments_and_normalize(text):
     stripped = COMMENT_RE.sub('', text)
     stripped = re.sub(r'\s*:\s*', ':', stripped)
+
     return re.sub(r'\s+', ' ', stripped).strip()
 
 
@@ -65,6 +66,7 @@ def vendor_prefix_counts(text):
     for m in VENDOR_PREFIX_RE.finditer(text):
         key = m.group(0)
         counts[key] = counts.get(key, 0) + 1
+
     return counts
 
 
@@ -75,13 +77,13 @@ def main():
 
     orig_path, fmt_path = sys.argv[1], sys.argv[2]
     orig = open(orig_path, encoding='utf-8').read()
-    fmt = open(fmt_path, encoding='utf-8').read()
+    fmt  = open(fmt_path, encoding='utf-8').read()
 
     ok = True
 
     # 1. Comments
     c_orig = extract_comments(orig)
-    c_fmt = extract_comments(fmt)
+    c_fmt  = extract_comments(fmt)
     if len(c_orig) != len(c_fmt):
         ok = False
         print(f"COMMENT COUNT MISMATCH: original={len(c_orig)} formatted={len(c_fmt)}")
@@ -95,7 +97,7 @@ def main():
 
     # 2. Token stream (comments stripped, whitespace/colon-spacing normalized)
     t_orig = strip_comments_and_normalize(orig)
-    t_fmt = strip_comments_and_normalize(fmt)
+    t_fmt  = strip_comments_and_normalize(fmt)
     if t_orig != t_fmt:
         ok = False
         print("TOKEN STREAM MISMATCH (property/value/selector content changed):")
@@ -106,19 +108,20 @@ def main():
                 print(f"    ORIGINAL : ...{t_orig[lo:i+40]}...")
                 print(f"    FORMATTED: ...{t_fmt[lo:i+40]}...")
                 break
+
         else:
             print(f"  (differ only in trailing length: {len(t_orig)} vs {len(t_fmt)} chars)")
 
     # 3. !important count
     imp_orig = orig.count('!important')
-    imp_fmt = fmt.count('!important')
+    imp_fmt  = fmt.count('!important')
     if imp_orig != imp_fmt:
         ok = False
         print(f"!important COUNT MISMATCH: original={imp_orig} formatted={imp_fmt}")
 
     # 4. vendor-prefix counts
     vp_orig = vendor_prefix_counts(orig)
-    vp_fmt = vendor_prefix_counts(fmt)
+    vp_fmt  = vendor_prefix_counts(fmt)
     if vp_orig != vp_fmt:
         ok = False
         print("VENDOR-PREFIX MISMATCH:")
@@ -137,5 +140,4 @@ def main():
         sys.exit(1)
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == '__main__': main()

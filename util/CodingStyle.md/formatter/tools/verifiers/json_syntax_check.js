@@ -21,59 +21,65 @@
 
 const fs = require('fs');
 
-function lineColOf(source, pos) {
+function lineColOf(source, pos)
+{
     let line = 1;
-    let col = 1;
-    for (let i = 0; i < pos && i < source.length; i++) {
-        if (source[i] === '\n') {
-            line++;
+    let col  = 1;
+    for(let i = 0; i < pos && i < source.length; ++i) {
+        if( source[i] === '\n' ) {
+            ++line;
             col = 1;
-        } else {
-            col++;
         }
-    }
-    return { line, col };
-}
+        else {
+            ++col;
+        }
+    } // for
 
-function hasSyntaxError(source) {
+    return { line, col };
+} // lineColOf
+
+function hasSyntaxError(source)
+{
     try {
         JSON.parse(source);
         return false;
-    } catch (e) {
+    }
+    catch(e) {
         const m = /position (\d+)/.exec(e.message);
-        if (m) {
-            const { line, col } = lineColOf(source, parseInt(m[1], 10));
+        if(m) {
+            const { line, col } = lineColOf( source, parseInt( m[1], 10 ) );
             console.log(`${line}:${col}: ${e.message}`);
-        } else {
+        }
+        else {
             console.log(e.message);
         }
         return true;
     }
-}
+} // hasSyntaxError
 
-function main() {
+function main()
+{
     const args = process.argv.slice(2);
-    if (args.length < 1) {
+    if(args.length < 1) {
         console.error('Usage: json_syntax_check.js <file.json> [file2.json ...]');
         process.exit(2);
     }
 
     let anyError = false;
 
-    for (const arg of args) {
-        const source = fs.readFileSync(arg, 'utf8');
+    for(const arg of args) {
+        const source   = fs.readFileSync(arg, 'utf8');
         const hasError = hasSyntaxError(source);
-        if (hasError) {
+        if(hasError) {
             console.log(`SYNTAX ERRORS FOUND in ${arg}`);
             anyError = true;
-        } else {
+        }
+        else {
             console.log(`OK: no syntax errors in ${arg}`);
         }
-    }
+    } // for
 
-    if (anyError) {
-        process.exit(1);
-    }
-}
+    if(anyError) process.exit(1);
+} // main
 
 main();

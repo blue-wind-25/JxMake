@@ -41,6 +41,7 @@ def split(lines, seed, train_fraction=0.8):
     shuffled = list(lines)
     random.Random(seed).shuffle(shuffled)
     cut = int(len(shuffled) * train_fraction)
+
     return shuffled[:cut], shuffled[cut:]
 
 
@@ -55,7 +56,7 @@ def main():
     args = parser.parse_args()
 
     formatter_dir = Path(__file__).resolve().parent.parent.parent
-    work_dir = Path(args.work_dir)
+    work_dir      = Path(args.work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
     classes_dir = work_dir / "classes"
     classes_dir.mkdir(exist_ok=True)
@@ -82,16 +83,15 @@ def main():
     for round_index in range(args.rounds):
         seed = 1000 + round_index
         train_lines, test_lines = split(lines, seed)
-        train_path = work_dir / f"train_round{round_index}.txt"
-        test_path = work_dir / f"test_round{round_index}.txt"
+        train_path   = work_dir / f"train_round{round_index}.txt"
+        test_path    = work_dir / f"test_round{round_index}.txt"
         weights_path = work_dir / f"weights_round{round_index}.json"
         train_path.write_text("\n".join(train_lines) + "\n", encoding="utf-8")
         test_path.write_text("\n".join(test_lines) + "\n", encoding="utf-8")
 
         train_cmd = ["java", "-cp", classpath, "GruTrainer", str(train_path), str(weights_path),
                      f"--epochs={args.epochs}", f"--patience={args.patience}", f"--seed={seed}"]
-        if args.vocab is not None:
-            train_cmd.append(f"--vocab={args.vocab}")
+        if args.vocab is not None: train_cmd.append(f"--vocab={args.vocab}")
         subprocess.run(train_cmd, cwd=formatter_dir, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         eval_result = subprocess.run(
@@ -108,11 +108,10 @@ def main():
         print(f"round {round_index} (seed={seed}, train={len(train_lines)}, test={len(test_lines)}): "
               f"{eval_result.stdout.strip()}")
 
-    mean = statistics.mean(precisions)
+    mean  = statistics.mean(precisions)
     stdev = statistics.stdev(precisions) if len(precisions) > 1 else 0.0
     print(f"\ncross_validate: {args.rounds} round(s) -- precision mean={mean:.4f} stdev={stdev:.4f} "
           f"min={min(precisions):.4f} max={max(precisions):.4f}")
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

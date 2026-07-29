@@ -33,9 +33,9 @@ Exit 0 if parsed data structures match (content preserved), 1 otherwise with
 a description of the mismatch, 2 if either file fails to parse as TOML at all.
 """
 import json
+import os
 import subprocess
 import sys
-import os
 
 NODE_HELPER = r"""
 const { parse } = require('smol-toml');
@@ -57,8 +57,7 @@ def parse_toml_via_node(path):
         ["node", "-e", NODE_HELPER, "--", path],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
     )
-    if proc.returncode != 0:
-        return None, proc.stderr.strip()
+    if proc.returncode != 0: return None, proc.stderr.strip()
     try:
         return json.loads(proc.stdout), None
     except json.JSONDecodeError as e:
@@ -94,5 +93,4 @@ def main():
         sys.exit(1)
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

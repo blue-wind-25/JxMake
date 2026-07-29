@@ -48,9 +48,9 @@ import os
 import re
 import sys
 
-VALID_LABELS = {"YES", "NO"}
-FIELD_SPLIT = re.compile(r"[ \t]+")
-DEFAULT_VOCAB = os.path.join(os.path.dirname(__file__), "explicit_vocab.txt")
+VALID_LABELS            = {"YES", "NO"}
+FIELD_SPLIT             = re.compile(r"[ \t]+")
+DEFAULT_VOCAB           = os.path.join(os.path.dirname(__file__), "explicit_vocab.txt")
 DEFAULT_REQUESTED_WORDS = os.path.join(os.path.dirname(__file__), ".gen_synthetic_requested_words.txt")
 
 
@@ -59,34 +59,30 @@ def load_word_set(path):
     (blank lines and '#'-comment lines skipped), or None if the path is
     empty/missing -- fail open, not closed, so a missing/misnamed file
     never causes silent data loss by rejecting everything."""
-    if not path or not os.path.exists(path):
-        return None
+    if not path or not os.path.exists(path): return None
     words = set()
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
-            if not line or line.startswith("#"):
-                continue
+            if not line or line.startswith("#"): continue
             words.add(line.lower())
+
     return words or None
 
 
 def classify(lang, label, idx_str, text, expected_words=None, vocab=None):
     """Returns ('A'|'B'|None, reason_if_none)."""
-    if lang.strip() == "":
-        return None, "empty lang"
-    if label not in VALID_LABELS:
-        return None, "label not YES/NO: {!r}".format(label)
+    if lang.strip() == "": return None, "empty lang"
+    if label not in VALID_LABELS: return None, "label not YES/NO: {!r}".format(label)
     try:
         idx = int(idx_str)
     except ValueError:
         return None, "targetWordIndex not an int: {!r}".format(idx_str)
-    if idx < 0:
-        return None, "negative targetWordIndex"
+    if idx < 0: return None, "negative targetWordIndex"
     if text.strip() == "":
         return None, "empty comment text"
 
-    tokens = text.strip().split()
+    tokens   = text.strip().split()
     last_idx = len(tokens) - 1
 
     if idx == 0:
@@ -96,8 +92,8 @@ def classify(lang, label, idx_str, text, expected_words=None, vocab=None):
         if vocab is not None and leading not in vocab:
             return None, "leading word {!r} not in vocab (idx==0)".format(tokens[0])
         return "A", None
-    if idx == last_idx:
-        return "B", None
+    if idx == last_idx: return "B", None
+
     return None, "targetWordIndex {} matches neither first (0) nor last ({}) token".format(idx, last_idx)
 
 
@@ -126,19 +122,19 @@ def main():
         print("# note: --vocab check disabled (no file at {!r})".format(args.vocab), file=sys.stderr)
 
     pool_a, pool_b, unresolved = [], [], []
-    total_lines = 0
+    total_lines              = 0
     skipped_blank_or_comment = 0
 
     with open(args.input, "r", encoding="utf-8") as f:
         for raw_line in f:
-            line = raw_line.rstrip("\n").rstrip("\r")
+            line     = raw_line.rstrip("\n").rstrip("\r")
             stripped = line.strip()
             if not stripped or stripped.startswith("#"):
                 skipped_blank_or_comment += 1
                 continue
 
             total_lines += 1
-            parts = FIELD_SPLIT.split(stripped, maxsplit=3)
+            parts        = FIELD_SPLIT.split(stripped, maxsplit=3)
             if len(parts) < 4:
                 unresolved.append((line, "fewer than 4 fields"))
                 continue
@@ -149,10 +145,8 @@ def main():
             # normalize the output line to real tabs regardless of input spacing
             norm_line = "\t".join([lang, label, idx_str, text])
 
-            if pool == "A":
-                pool_a.append(norm_line)
-            elif pool == "B":
-                pool_b.append(norm_line)
+            if pool == "A": pool_a.append(norm_line)
+            elif pool == "B": pool_b.append(norm_line)
             else:
                 unresolved.append((line, reason))
 
@@ -178,5 +172,4 @@ def main():
               file=sys.stderr)
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

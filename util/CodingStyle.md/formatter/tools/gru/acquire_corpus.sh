@@ -13,11 +13,18 @@
 # script attempts, so its output is an intermediate, not a finished corpus.
 #
 # For each configured source (local dogfood path, or a public repo shallow-
-# cloned to a scratch dir), runs the same three steps a human would run by
-# hand: extract_comments.py over the source tree, then `make
-# gru-extract-pool-a`/`gru-extract-pool-b` against that extraction. Public
-# repos are cloned with --depth 1 and removed again after extraction (only the
-# extracted text is needed downstream) unless --keep-clones is passed.
+# cloned to a scratch dir), runs the same steps a human would run by hand:
+# extract_comments.py over the source tree, then redact_secrets.py (scrubs
+# likely API keys/tokens -- Google, AWS, GitHub, Stripe, OpenAI/Anthropic,
+# Slack, plus a narrow generic high-entropy fallback -- from the extracted
+# comment text in place, before it lands in any corpus file or gets combined/
+# labeled downstream), then an exact-duplicate-line dedup (same `awk
+# '!seen[$0]++'` idiom formerly run only on the final combined/labeled
+# sample_default.txt in the Makefile -- now run per-source, earlier), then
+# `make gru-extract-pool-a`/`gru-extract-pool-b` against that extraction.
+# Public repos are cloned with --depth 1 and removed again after extraction
+# (only the extracted text is needed downstream) unless --keep-clones is
+# passed.
 #
 # Per RDD_EXT_19, none of this script's *output* is ever committed -- it
 # writes only under --out-dir (default /tmp/gru_corpus), same posture as every
@@ -115,6 +122,8 @@ for entry in "${SOURCES[@]}"; do
     pool_b_out="$OUT_DIR/pool_b_${name}.txt"
 
     python3 "$SCRIPT_DIR/extract_comments.py" "$src_dir" --out "$comments_out" >/dev/null
+    python3 "$SCRIPT_DIR/redact_secrets.py" "$comments_out" >/dev/null
+    awk '!seen[$0]++' "$comments_out" > "$comments_out.dedup" && mv "$comments_out.dedup" "$comments_out"
 
     (cd "$FORMATTER_DIR" && make --no-print-directory gru-extract-pool-a \
         GRU_ABSTAIN_INPUT="$comments_out" GRU_POOL_A_OUT="$pool_a_out" >/dev/null)

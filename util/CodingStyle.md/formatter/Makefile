@@ -114,19 +114,15 @@ gru-measure-abstain-rate: $(JAR_FILE)
 
 # ── GRU corpus acquisition + auto-labeling target ────────────────────────────
 #
-# Runs `tools/gru/acquire_corpus.sh` (extraction + Pool A/Pool B candidate extraction across every
-# configured source -- unchanged) into a scratch dir, concatenates every source's extracted comments
-# into one combined file, then compiles and runs `tools/gru/GenerateSampleDefault.java` over that
-# combined file: it feeds every comment through the real rule-based (linear) `CommentClassifier` and
-# keeps only the high-confidence (YES/NO) decisions, writing them in `GruTrainer`'s RDD_EXT_20/21
-# schema to `tools/gru/sample_default.txt`, with a header documenting provenance. Unlike the old
-# manual workflow, nothing here is archived to the personal GruArtifacts directory -- the
-# classifier-labeled `sample_default.txt` output is the artifact going forward.
-#
-# Finally deduplicates exact-duplicate lines in place (`awk '!seen[$0]++'`, preserving first-
-# occurrence order, including the header lines) -- verbatim-duplicate comments (license headers,
-# boilerplate) are common across many files of the same repo and would otherwise over-weight the
-# training set toward those exact strings.
+# Runs `tools/gru/acquire_corpus.sh` (extraction + secret-redaction + per-source exact-duplicate-line
+# dedup + Pool A/Pool B candidate extraction across every configured source) into a scratch dir,
+# concatenates every source's already-redacted/deduped extracted comments into one combined file, then
+# compiles and runs `tools/gru/GenerateSampleDefault.java` over that combined file: it feeds every
+# comment through the real rule-based (linear) `CommentClassifier` and keeps only the high-confidence
+# (YES/NO) decisions, writing them in `GruTrainer`'s RDD_EXT_20/21 schema to
+# `tools/gru/sample_default.txt`, with a header documenting provenance. Unlike the old manual workflow,
+# nothing here is archived to the personal GruArtifacts directory -- the classifier-labeled
+# `sample_default.txt` output is the artifact going forward.
 #
 # Usage:
 #     make gru-acquire-corpus [GRU_CORPUS_OUT_DIR=/tmp/gru_corpus]
@@ -141,8 +137,7 @@ gru-acquire-corpus: $(JAR_FILE)
 	@mkdir -p $(GRU_TOOLS_CLASSES)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/GenerateSampleDefault.java
 	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GenerateSampleDefault $(GRU_CORPUS_OUT_DIR)/comments_combined.txt $(GRU_SAMPLE_DEFAULT)
-	@awk '!seen[$$0]++' $(GRU_SAMPLE_DEFAULT) > $(GRU_SAMPLE_DEFAULT).dedup && mv $(GRU_SAMPLE_DEFAULT).dedup $(GRU_SAMPLE_DEFAULT)
-	@echo "gru-acquire-corpus: wrote $(GRU_SAMPLE_DEFAULT) ($(shell wc -l < $(GRU_SAMPLE_DEFAULT) 2>/dev/null || echo '?') line(s) after dedup)"
+	@echo "gru-acquire-corpus: wrote $(GRU_SAMPLE_DEFAULT) ($(shell wc -l < $(GRU_SAMPLE_DEFAULT) 2>/dev/null || echo '?') line(s))"
 
 # ── GRU trainer target ───────────────────────────────────────────────────────
 #

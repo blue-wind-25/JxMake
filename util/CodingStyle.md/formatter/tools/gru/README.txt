@@ -28,9 +28,11 @@ Steps 1+3 for many sources at once, minus the labeling, are automated by
 acquire_corpus.sh.
 
 Quick default path (replaces steps 2-6, no hand-labeling): `make
-gru-acquire-corpus` acquires a corpus (step 1, via acquire_corpus.sh) AND
+gru-acquire-corpus` acquires a corpus (step 1, via acquire_corpus.sh — which
+also redacts likely API keys/tokens and dedupes exact-duplicate lines
+per-source before Pool A/B extraction, see acquire_corpus.sh below) AND
 auto-labels it via GenerateSampleDefault.java (below) straight into
-tools/gru/sample_default.txt, deduplicated in place — bootstrapping labels
+tools/gru/sample_default.txt — bootstrapping labels
 from the rule-based CommentClassifier itself (distant supervision) instead
 of steps 2-6's ABSTAIN-tally/Pool-extraction/hand-labeling/vocab-build
 chain. `make gru-train` then runs step 7 against sample_default.txt by
@@ -219,10 +221,35 @@ acquire_corpus.sh
     that stays a manual step. Writes per-source comments/pool-a/pool-b files
     under --out-dir (default /tmp/gru_corpus) and prints a summary table.
 
+    Per source, right after extract_comments.py and before Pool A/B
+    extraction: runs redact_secrets.py (below) over the extracted comments
+    file in place, then dedupes exact-duplicate lines in place
+    (`awk '!seen[$0]++'` — real-world corpora accumulate many exact-duplicate
+    lines, mostly repeated license-header/boilerplate text recurring across
+    files of the same source repo; this used to run once at the very end
+    against the final combined/auto-labeled sample_default.txt in the
+    Makefile — moved here, per-source, so it also applies to Pool A/B
+    candidate extraction).
+
         tools/gru/acquire_corpus.sh [--out-dir DIR] [--keep-clones] [--only name1,name2,...]
 
     Extend the SOURCES list by hand as new repos get vetted (license check
     first) — don't add unvetted sources.
+
+redact_secrets.py
+    Scrubs likely API keys/tokens from an extract_comments.py-format corpus
+    file's comment-text column, in place, before it lands in any corpus file
+    or gets combined/labeled downstream — so a scraped repo's leaked secret
+    never reaches sample_default.txt or anything committed. Covers named
+    provider formats (Google, AWS access-key-id, GitHub, Stripe,
+    OpenAI/Anthropic, Slack) plus a narrow generic fallback for
+    key/secret/token/password/access_key/auth-shaped assignments whose value
+    looks high-entropy (mixed case+digit, Shannon entropy >= 3.5) — deliberately
+    conservative to avoid mass-redacting ordinary hashes/identifiers that
+    happen to appear in comments. Matches are replaced with [REDACTED].
+    Called automatically by acquire_corpus.sh; can also be run standalone:
+
+        python3 tools/gru/redact_secrets.py <file> [<file> ...]
 
 GenerateSampleDefault.java
     Auto-labels a comments file (from extract_comments.py / acquire_corpus.sh)
@@ -236,11 +263,9 @@ GenerateSampleDefault.java
 
         make gru-acquire-corpus
 
-    which acquires + extracts Pool A/B (as before) and additionally runs this
-    auto-labeling step into tools/gru/sample_default.txt, then deduplicates
-    it in place (`awk '!seen[$0]++'` — real-world corpora accumulate many
-    exact-duplicate lines, mostly repeated license-header/boilerplate text
-    recurring across files of the same source repo).
+    which acquires + extracts Pool A/B (as before, already redacted/deduped
+    per-source by acquire_corpus.sh) and additionally runs this auto-labeling
+    step into tools/gru/sample_default.txt.
 
 cross_validate.py
     Bounds the variance on a single held-out-split precision estimate via

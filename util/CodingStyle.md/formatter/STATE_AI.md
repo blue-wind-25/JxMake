@@ -626,11 +626,6 @@ decorative-separator case.
 
 ### Still outstanding
 
-- `acquire_corpus.sh` should filter/redact likely API keys (Google, AWS, GitHub,
-  Stripe, OpenAI/Anthropic, generic high-entropy tokens, etc.) from extracted
-  comment text before it lands in any corpus file, so a scraped repo's leaked
-  secret never gets written into `sample_default.txt` or committed. Deferred,
-  not yet scheduled.
 - Improving `CommentClassifier`'s keyword-list accuracy (or otherwise
   reconciling it with the deterministic heuristic) so
   `comment-normalization-classifier` can default `on` without regressing
@@ -667,6 +662,29 @@ numerics, output format, or runtime classifier behavior:
   and a chosen objective (max F1? fixed precision target?) to sweep
   thresholds against; also touches the classifier's runtime abstain logic,
   not just the trainer.
+
+### `acquire_corpus.sh` secret redaction + earlier dedup (2026-07-30)
+
+Added `tools/gru/redact_secrets.py`: scrubs likely API keys/tokens (Google,
+AWS access-key-id, GitHub, Stripe, OpenAI/Anthropic, Slack — named-prefix
+patterns — plus a narrow generic fallback for `key=`/`secret=`/`token=`/
+`password=`/`access_key=`/`auth=`-shaped assignments whose value looks
+high-entropy: mixed case+digit, Shannon entropy >= 3.5) from a comment's text
+column, replacing matches with `[REDACTED]` in place. Wired into
+`acquire_corpus.sh` right after `extract_comments.py` and before Pool A/B
+extraction, so a scraped repo's leaked secret never reaches any corpus file
+(Pool A/B candidates, `sample_default.txt`, or anything committed).
+Smoke-tested against synthetic examples of each named format (correctly
+redacted) and a plain-English/commit-hash control (correctly left alone).
+
+Also moved the exact-duplicate-line dedup (`awk '!seen[$0]++'`) from the
+Makefile's `gru-acquire-corpus` target — where it only ever ran once, at the
+very end, against the final combined+auto-labeled `sample_default.txt` — into
+`acquire_corpus.sh` itself, running per-source right after redaction. Smoke
+run (`--only eCxx`): 45357 raw extracted comments → 27710 after dedup (license
+header/boilerplate repetition, as expected), 117 Pool A / 189 Pool B
+candidates. `make -n gru-acquire-corpus` confirmed the Makefile target still
+parses correctly with the line removed.
 
 ### TODO — further `CommentClassifier` NO-producing gates (deferred, not yet scheduled)
 

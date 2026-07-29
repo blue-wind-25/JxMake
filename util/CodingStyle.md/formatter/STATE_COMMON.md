@@ -618,4 +618,35 @@ done
 ```
 
 There is no syntax error. AST seems only differs only in comments.
-However, there are **INCORRECT COMMENT NORMALIZATION**.
+However, there are **INCORRECT COMMENT NORMALIZATION** — flagged by
+`java_content_diff` on `tools/gru/*.java`.
+
+**RESOLVED (2026-07-29):** investigated and it was a false alarm from
+`tools/verifiers/java_content_diff.java` itself, not a formatter bug. Every
+flagged "mismatch" traced back to one of three *expected, intentional*
+behaviors the verifier didn't yet account for:
+1. Reflowing a single-line-opening Javadoc (`/** Foo...`) to one-sentence-
+   per-line (`/**\n * Foo...`) made the verifier's naive whitespace-collapse
+   pick up a spurious doubled `*` (the line's own continuation marker plus
+   the next line's), reading as changed text when the actual comment prose
+   was untouched.
+2. Closing-brace annotations (`} // while`, `} // class Foo`) are new,
+   intentional content the formatter adds — correctly new, but the verifier
+   flagged all unmatched additions as suspect instead of recognizing this
+   known feature.
+3. `normalize-comment-end-period` (STYLE.md #15: single-sentence comments
+   must not end with a period) legitimately strips a sole trailing `.` —
+   same category of expected normalization as the case-folding the verifier
+   already exempted, just not implemented for periods.
+
+Fixed in `tools/verifiers/java_content_diff.java`: strips the per-line `* `
+continuation marker before collapsing whitespace, strips a sole trailing
+`.` on both sides before comparing, and exempts closing-brace-annotation
+comments from the "unexplained addition" check. Re-ran the same `tools/gru`
+comparison after the fix: all 9 files now report zero comment mismatches
+(the only remaining line per file, `top-level declaration #0
+structure/content differs`, is javac's pretty-printer reacting to real,
+unrelated structural reformatting like brace-enforcement on single-
+statement bodies — expected, and outside the scope of this note). No
+classifier fix (linear or GRU) was needed; nothing was actually
+misclassified.

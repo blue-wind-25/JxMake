@@ -42,7 +42,17 @@ import com.sun.source.util.JavacTask;
  *       raw-text scan that skips string/char literals) are compared as a
  *       MULTISET, whitespace-normalized AND case-normalized (lowercased) --
  *       a case-only change is expected (normalize-comment-start-case), so it
- *       must not be flagged, but a dropped/corrupted comment still is.
+ *       must not be flagged, but a dropped/corrupted comment still is. Each
+ *       line's own leading "* " continuation marker is stripped before
+ *       collapsing whitespace, so reflowing a single-line-opening Javadoc to
+ *       one-sentence-per-line doesn't read as changed text. A sole trailing
+ *       "." is also stripped on both sides before comparing (normalize-
+ *       comment-end-period is equally expected, intentional behavior).
+ *       Closing-brace
+ *       annotations ({@code } // while}, {@code } // class Foo}, ...) are
+ *       genuinely new content the formatter intentionally adds, not a
+ *       normalization of pre-existing text, so they're exempted from the
+ *       "present in formatted, missing from original" check.
  *
  * Build:
  *     JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
@@ -86,6 +96,44 @@ public class java_content_diff {
         return s.trim().replaceAll("\\s+", " ");
     }
 
+    /** Strips a single trailing "." -- like the lowercasing this class already
+     *  does for {@code normalize-comment-start-case}, a sole-trailing-period
+     *  removal is expected, intentional behavior ({@code
+     *  normalize-comment-end-period}, per STYLE.md #15: single-sentence
+     *  comments must not end with a period) and must not be flagged as
+     *  dropped content. An ellipsis ("...") is untouched since its dot count
+     *  isn't 1, matching {@code MiscRuleCore.stripSoleTrailingPeriod}. */
+    static String normalizeTrailingPeriod(String s) {
+        if (s.endsWith(".") && s.chars().filter(c -> c == '.').count() == 1) {
+            return s.substring(0, s.length() - 1);
+        }
+        return s;
+    }
+
+    /** Strips a leading Javadoc/block-comment continuation marker ("<ws>* ")
+     *  from every line before whitespace-collapsing, so reflowing a comment
+     *  from a single opening line ({@code /** Foo...}) to one-sentence-per-
+     *  line ({@code /**\n * Foo...}) does not read as changed content --
+     *  without this, the collapsed text picks up a spurious doubled "*"
+     *  (the line's own marker plus the following line's) that isn't part of
+     *  the actual comment text. */
+    static String normalizeCommentBody(String s) {
+        String[] lines = s.split("\n", -1);
+        StringBuilder out = new StringBuilder();
+        for (String line : lines) {
+            out.append(line.replaceFirst("^\\s*\\*\\s?", "")).append(' ');
+        }
+        return normalizeWhitespace(out.toString());
+    }
+
+    /** A closing-brace annotation trailer ({@code } // while}, {@code } //
+     *  class Foo}) is new content the formatter is intentionally adding, not
+     *  a normalization of pre-existing comment text, so it must not be
+     *  flagged as an unexplained addition. */
+    static final java.util.regex.Pattern BRACE_ANNOTATION = java.util.regex.Pattern.compile(
+        "^(while|for|if|else|do|switch|try|catch|finally)( \\S+)?$"
+        + "|^(class|interface|enum) \\S+$");
+
     /** Raw-text comment scan: skips string/char literals so a "//" or "/*"
      *  inside a literal is never mistaken for a comment start. */
     static List<String> extractComments(String src) {
@@ -112,13 +160,13 @@ public class java_content_diff {
                 int start = i + 2;
                 int end = src.indexOf('\n', start);
                 if (end < 0) end = n;
-                out.add(normalizeWhitespace(src.substring(start, end)).toLowerCase());
+                out.add(normalizeTrailingPeriod(normalizeCommentBody(src.substring(start, end)).toLowerCase()));
                 i = end;
             } else if (c == '/' && i + 1 < n && src.charAt(i + 1) == '*') {
                 int start = i + 2;
                 int end = src.indexOf("*/", start);
                 if (end < 0) end = n;
-                out.add(normalizeWhitespace(src.substring(start, end)).toLowerCase());
+                out.add(normalizeTrailingPeriod(normalizeCommentBody(src.substring(start, end)).toLowerCase()));
                 i = (end == n) ? n : end + 2;
             } else {
                 i++;
@@ -145,12 +193,22 @@ public class java_content_diff {
     }
 
     static List<String> diffMultisets(String label, List<String> a, List<String> b) {
+        return diffMultisets(label, a, b, s -> false);
+    }
+
+    /** {@code ignorableAddition} lets a caller exempt entries that are only
+     *  in {@code b} but are known, intentional new content (e.g. closing-
+     *  brace annotations) rather than a genuine unexplained addition. */
+    static List<String> diffMultisets(
+            String label, List<String> a, List<String> b,
+            java.util.function.Predicate<String> ignorableAddition) {
         List<String> mismatches = new ArrayList<>();
         List<String> bCopy = new ArrayList<>(b);
         List<String> onlyInA = new ArrayList<>();
         for (String s : a) {
             if (!bCopy.remove(s)) onlyInA.add(s);
         }
+        bCopy.removeIf(ignorableAddition);
         if (!onlyInA.isEmpty()) {
             mismatches.add(label + ": present in original, missing from formatted: " + onlyInA);
         }
@@ -217,7 +275,8 @@ public class java_content_diff {
         // Comments: multiset, whitespace- and case-normalized (case-only changes
         // are expected behavior per normalize-comment-start-case).
         mismatches.addAll(diffMultisets("comments",
-            extractComments(origSrc), extractComments(fmtSrc)));
+            extractComments(origSrc), extractComments(fmtSrc),
+            s -> BRACE_ANNOTATION.matcher(s).matches()));
 
         if (mismatches.isEmpty()) {
             System.out.println("OK: content preserved (" + args[0] + " == " + args[1] + ")");

@@ -551,3 +551,71 @@ of an unrelated task.
    itself and the change is ready for the normal commit workflow (see
    this file's own commit-workflow section above) — do not skip that
    workflow just because this is a self-referential change.
+
+**User feedback**
+
+I have done the above using these commands for the formatter source code and the GRU tools source code:
+
+```bash
+### Formatter
+rm -rvf /tmp/fmt_r1 /tmp/fmt_r2
+find src         -type f -print0 | xargs -0 ./code-formatter.sh --out /tmp/fmt_r1 --preserve-tree --root src
+find /tmp/fmt_r1 -type f -print0 | xargs -0 ./code-formatter.sh --out /tmp/fmt_r2 --preserve-tree --root /tmp/fmt_r1
+diff -ru /tmp/fmt_r1 /tmp/fmt_r2
+
+JAVA_VERSION=8
+CLASS_DIR=/tmp/classes
+JAR_FILE=/tmp/output.jar
+MANIFEST=/tmp/manifest.txt
+MAIN_CLASS=com.jxmake.formatter.Main
+
+mkdir -p "$CLASS_DIR"
+find /tmp/fmt_r1 -type f -name "*.java" -print0 | xargs -0 javac -encoding UTF-8 -source "$JAVA_VERSION" -target "$JAVA_VERSION" -d "$CLASS_DIR"
+jar cfm "$JAR_FILE" "$MANIFEST" -C "$CLASS_DIR" .
+
+make _test_serial JAR_FILE=$JAR_FILE
+
+rm -rvf /tmp/fmt_r1b /tmp/fmt_r2b
+find src          -type f -print0 | xargs -0 java -jar $JAR_FILE --out /tmp/fmt_r1b --preserve-tree --root src
+find /tmp/fmt_r1b -type f -print0 | xargs -0 java -jar $JAR_FILE --out /tmp/fmt_r2b --preserve-tree --root /tmp/fmt_r1b
+diff -ru /tmp/fmt_r1b /tmp/fmt_r1b
+diff -ru /tmp/fmt_r1  /tmp/fmt_r1b
+diff -ru /tmp/fmt_r2  /tmp/fmt_r2b
+
+### GRU tools
+cd tools/gru
+mkdir /tmp/gru_tools
+cp *.java /tmp/gru_tools
+find /tmp/gru_tools    -type f -print0 | xargs -0 ../../code-formatter.sh --out /tmp/gru_tools_r1
+find /tmp/gru_tools_r1 -type f -print0 | xargs -0 ../../code-formatter.sh --out /tmp/gru_tools_r2
+diff -ru /tmp/gru_tools_r1 /tmp/gru_tools_r2
+
+JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
+$JDK/bin/javac ../verifiers/java_syntax_check.java
+$JDK/bin/javac ../verifiers/java_content_diff.java
+
+find /tmp/gru_tools    -type f -print0 | xargs -0 $JDK/bin/java -cp ../verifiers java_syntax_check
+find /tmp/gru_tools_r1 -type f -print0 | xargs -0 $JDK/bin/java -cp ../verifiers java_syntax_check
+find /tmp/gru_tools_r2 -type f -print0 | xargs -0 $JDK/bin/java -cp ../verifiers java_syntax_check
+
+for orig in /tmp/gru_tools/*.java; do \
+    filename=$(basename "$orig"); \
+    fmt="/tmp/gru_tools_r1/$filename"; \
+    if [ -f "$fmt" ]; then \
+        echo "=== Comparing: $filename ==="; \
+        "$JDK/bin/java" -cp ../verifiers java_content_diff "$orig" "$fmt"; \
+    fi; \
+done
+
+for orig in /tmp/gru_tools_r1/*.java; do \
+    filename=$(basename "$orig"); \
+    fmt="/tmp/gru_tools_r2/$filename"; \
+    if [ -f "$fmt" ]; then \
+        echo "=== Comparing: $filename ==="; \
+        "$JDK/bin/java" -cp ../verifiers java_content_diff "$orig" "$fmt"; \
+    fi; \
+done
+```
+
+There is no syntax error. AST seems only differs only in comments.
+However, there are **INCORRECT COMMENT NORMALIZATION**.

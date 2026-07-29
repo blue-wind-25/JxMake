@@ -27,7 +27,7 @@ internal fun KClassImpl<*>.isVisibleAsFunctionInCurrentClass(function: JavaKName
                         listOf(function)
                     else {
                         // K1 code also searched in supertypes (see searchMethodsInSupertypesWithoutBuiltinMagic), but it seems useful
-                        // Only for mapped builtins and their subtypes, so will be handled separately in KT-85727
+                        // only for mapped builtins and their subtypes, so will be handled separately in KT-85727
                         getDeclaredNonStaticMethodsFromJavaClass().filter { it.name == accessorName }
                     }
                 } && ( property is KMutableProperty<*> || !JvmAbi.isSetterName(function.name) )

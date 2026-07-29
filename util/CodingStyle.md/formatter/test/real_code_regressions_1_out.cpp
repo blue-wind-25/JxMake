@@ -4,13 +4,13 @@
  */
 
 // Regression coverage for three formatter bugs found by dogfood-testing against
-// Real-world C++ (github.com/blake-madden/tinyexpr-plusplus): (1) a multi-line call whose
-// Sole argument is itself a nested call wrapping onto a second line got a duplicated comma;
+// real-world C++ (github.com/blake-madden/tinyexpr-plusplus): (1) a multi-line call whose
+// sole argument is itself a nested call wrapping onto a second line got a duplicated comma;
 // (2) two sibling arguments legitimately sharing one source line got wrongly split onto
-// Separate lines; (3) a borderline-length line's "fits?" measurement ran before later
-// Spacing-padding was applied, so first-format and re-format disagreed on whether to break it,
-// And a while-loop body's closing-comment line-count threshold was evaluated before a
-// Line-count-expanding pass ran, so it only fired on a second format pass.
+// separate lines; (3) a borderline-length line's "fits?" measurement ran before later
+// spacing-padding was applied, so first-format and re-format disagreed on whether to break it,
+// and a while-loop body's closing-comment line-count threshold was evaluated before a
+// line-count-expanding pass ran, so it only fired on a second format pass.
 
 #include <bit>
 #include <cstdint>

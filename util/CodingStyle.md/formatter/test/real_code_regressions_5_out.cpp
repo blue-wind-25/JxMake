@@ -4,9 +4,9 @@
  */
 
 // Distilled from martinus/nanobench and blake-madden/tinyexpr-plusplus: a scope's own
-// Closing `}` used to keep whatever indentation the original source happened to have,
-// Even when it was wrong (indented to match the body instead of the frame that opened
-// It), because no pass ever re-derived that one gap's indentation from depth
+// closing `}` used to keep whatever indentation the original source happened to have,
+// even when it was wrong (indented to match the body instead of the frame that opened
+// it), because no pass ever re-derived that one gap's indentation from depth
 
 int list(int ret)
 {
@@ -19,9 +19,9 @@ int list(int ret)
 }
 
 // A `case` label sharing a span with the construct that follows it (case labels don't
-// End a span the way `;`/`}` do) used to make the anchor-finding walk land on the case
-// Label itself instead of the `if`, corrupting the `if`/`else` closing-brace indent with
-// Text pulled from the wrong line
+// end a span the way `;`/`}` do) used to make the anchor-finding walk land on the case
+// label itself instead of the `if`, corrupting the `if`/`else` closing-brace indent with
+// text pulled from the wrong line
 void generateResult(int n)
 {
     switch(n) {
@@ -42,7 +42,7 @@ void generateResult(int n)
 }
 
 // A comment sitting directly between a block's `}` and a following `else` (or any other
-// Following construct) must not be disturbed by the closing-brace reindent fix
+// following construct) must not be disturbed by the closing-brace reindent fix
 void withComment(int result)
 {
     if(result > 0) {
@@ -55,7 +55,7 @@ void withComment(int result)
 }
 
 // A bare compound block (`{ ... }` with no preceding keyword) has no earlier keyword to
-// Anchor on -- the `{` itself is the first significant token in its own span.
+// anchor on -- the `{` itself is the first significant token in its own span.
 void bareBlock()
 {
     {
@@ -65,5 +65,5 @@ void bareBlock()
 }
 
 // Empty named-construct bodies must stay collapsed, not get expanded into `{\n}` by the
-// Closing-brace reindent fix
+// closing-brace reindent fix
 struct Empty {};

@@ -1498,9 +1498,12 @@ public static final class Assignment {
                 if (isCommentRewritable(tokens, group.get(lastIdx))) {
                     stripSoleTrailingPeriodAcrossLines(contents);
                 }
+                if (isCommentRewritable(tokens, group.get(0))) {
+                    contents.set(0, capitalizeFirstLetter(contents.get(0)));
+                }
                 for (int k = 0; k < group.size(); k++) {
                     if (isCommentRewritable(tokens, group.get(k))) {
-                        result.put(group.get(k), capitalizeFirstLetter(contents.get(k)));
+                        result.put(group.get(k), contents.get(k));
                     }
                 }
                 i = j + 1;
@@ -1521,11 +1524,30 @@ public static final class Assignment {
         final Token t = tokens.get(idx);
         return parseSeparatorComment(t.text, idx) == null;
     }
-    /** If the token at {@code idx} is a `//` chain-link comment, and it is followed -- after
-     *  exactly one {@code NEWLINE} and only {@code WHITESPACE} otherwise (no blank line, no other
-     *  token) -- by another chain-link `//` comment, returns that next comment's token index;
-     *  otherwise returns -1. */
+    /** True iff the {@code COMMENT_LINE} token at {@code idx} is alone on its physical line (only
+     *  {@code WHITESPACE} between it and the start of the line or a preceding {@code NEWLINE}) --
+     *  as opposed to a trailing end-of-line comment following real code on the same line. A
+     *  trailing comment must never extend the §15 grouping chain onto a following line's own-line
+     *  comment: the two are logically unrelated (one annotates a statement, the other starts a
+     *  fresh prose block), even though nothing here stops a trailing comment from being grouped
+     *  on its own as a size-1 group and rewritten individually. */
+    protected boolean isStandaloneCommentLine(final List<Token> tokens, final int idx) {
+        int p = idx - 1;
+        while (p >= 0 && tokens.get(p).type == TokenType.WHITESPACE) {
+            p--;
+        }
+        return p < 0 || tokens.get(p).type == TokenType.NEWLINE;
+    }
+    /** If the token at {@code idx} is a `//` chain-link comment standing alone on its own physical
+     *  line, and it is followed -- after exactly one {@code NEWLINE} and only {@code WHITESPACE}
+     *  otherwise (no blank line, no other token) -- by another chain-link `//` comment, returns
+     *  that next comment's token index; otherwise returns -1. A trailing end-of-line comment (one
+     *  following real code on its own line) never extends the chain onto the next line, even if
+     *  that next line is itself a standalone comment. */
     protected int nextCommentChainLinkIfAdjacent(final List<Token> tokens, final int idx) {
+        if (!isStandaloneCommentLine(tokens, idx)) {
+            return -1;
+        }
         int p = idx + 1;
         int newlineCount = 0;
         while (p < tokens.size()) {

@@ -9,7 +9,7 @@ class TestRunNodeBuilder {
         testRunNodes: Collection<TreeNode<String>>
     ): Collection<String> =
     // This is the proper implementation that should be used instead:
-//        BuildList {
+//        buildList {
 //            testRunNodes.forEach { testRunNode ->
 //                testRunNode.items.mapTo(this) { testRun ->
 //                    dynamicTest(testRun.displayName) { runTest(testRun) }

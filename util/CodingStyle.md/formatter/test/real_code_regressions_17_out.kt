@@ -4,13 +4,13 @@
  */
 
 // Found via dogfood-testing against RobotCoding gui_frontend_android's RobotTcpSession.kt:
-// EnforceCallLineBreaking's Option 2 (renderCallPreserveGroups) groups a multi-line call's
-// Arguments by *original source line*, not by argument. When one of several sibling arguments
-// Is itself a multi-line brace body (a trailing/leading lambda), every line inside that body
-// Became its own row, and since Kotlin has no `;` to separate statements (unlike C/C++/Java,
-// Which this pass was originally written for), collapsing those rows onto fewer output lines
-// Silently merged what were separate statements onto one line with nothing between them --
-// Producing invalid Kotlin that wouldn't compile.
+// enforceCallLineBreaking's Option 2 (renderCallPreserveGroups) groups a multi-line call's
+// arguments by *original source line*, not by argument. When one of several sibling arguments
+// is itself a multi-line brace body (a trailing/leading lambda), every line inside that body
+// became its own row, and since Kotlin has no `;` to separate statements (unlike C/C++/Java,
+// which this pass was originally written for), collapsing those rows onto fewer output lines
+// silently merged what were separate statements onto one line with nothing between them --
+// producing invalid Kotlin that wouldn't compile.
 class Repro {
 
     fun startReaderThread(s: Socket)

@@ -1,5 +1,5 @@
 // Regression: 'typeof' was missing from GENERIC_SAFE_KEYWORDS -- a
-// Type-query operand inside a generic argument list invalidated the whole
+// type-query operand inside a generic argument list invalidated the whole
 // <...> open-stack tracking before the matching '>' was reached.
 function instrumentArr(rawTarget: any[])
 {
@@ -13,8 +13,8 @@ function instrumentArr(rawTarget: any[])
 } // instrumentArr
 
 // Same root cause, single-line form: losing the '<...>' tracking left the
-// Closing '>' a plain OP token, which then defeated statement-boundary
-// Detection entirely and merged the following statement onto the same line.
+// closing '>' a plain OP token, which then defeated statement-boundary
+// detection entirely and merged the following statement onto the same line.
 let server : ReturnType<typeof createServer>;
 beforeAll( async () => {
     server = createServer( (req, res) => {

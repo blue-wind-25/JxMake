@@ -4,13 +4,13 @@
  */
 
 // Found via dogfood-testing against RobotCoding gui_frontend_android's PlayMusicBlock.kt: an
-// Idempotency bug in KotlinDeclarationAlignmentRule.spansMultipleLines. On a fresh format, a
-// Braceless `if(cond) expr else expr` initializer that's short enough to stay on one line groups
-// And column-aligns normally with an adjacent `val` sibling. But if that initializer's own nested
-// Call gets wrapped across lines by MiscRule.enforceCallLineBreaking (because the whole statement
-// Is too long), a *second* format pass sees those wrapping newlines and wrongly treated the
-// Initializer as a genuine multi-line block expression, bailing it out of its alignment group --
-// Shrinking the sibling `val`'s own column padding on every successive pass.
+// idempotency bug in KotlinDeclarationAlignmentRule.spansMultipleLines. On a fresh format, a
+// braceless `if(cond) expr else expr` initializer that's short enough to stay on one line groups
+// and column-aligns normally with an adjacent `val` sibling. But if that initializer's own nested
+// call gets wrapped across lines by MiscRule.enforceCallLineBreaking (because the whole statement
+// is too long), a *second* format pass sees those wrapping newlines and wrongly treated the
+// initializer as a genuine multi-line block expression, bailing it out of its alignment group --
+// shrinking the sibling `val`'s own column padding on every successive pass.
 class Repro {
 
     fun draw(x: Int)

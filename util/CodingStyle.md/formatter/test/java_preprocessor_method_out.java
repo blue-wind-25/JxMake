@@ -9,10 +9,10 @@ package com.example.pp;
     public ARMCortexMThumb NAME##SUFFIX() throws JXMAsmError { return FIMPL(); }
 
 // Regression coverage for the "preprocessor directive glued onto a following Java
-// Method definition" bug recorded in STATE.md's Known Gaps: a `#endif` (or any
-// Preprocessor line) sitting directly before a method definition inside a class
-// Body must not get glued onto the same output line as the method's own modifiers,
-// Regardless of blank lines separating them in the source.
+// method definition" bug recorded in STATE.md's Known Gaps: a `#endif` (or any
+// preprocessor line) sitting directly before a method definition inside a class
+// body must not get glued onto the same output line as the method's own modifiers,
+// regardless of blank lines separating them in the source.
 
 public class Toggle {
 #ifdef FEATURE_X

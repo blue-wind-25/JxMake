@@ -769,3 +769,50 @@ false-positive risk than that gate, so deferred rather than bundled in:
   labeling section). Risk: legitimate multi-line prose comments (a real
   paragraph split across lines) could misfire without a period-position
   check that's more careful than the hand-labeling shortcut.
+
+## 2026-07-30 session: `gru-classifier` flipped back to default `off` (real-trained weights underperform the linear classifier on ambiguous cases)
+
+Evaluated the currently-shipped `code-formatter-ai-assist-weights.json`
+against the 62 hand-labeled keyword-ambiguity examples in
+`cwg/examples_{c,cpp,java,kotlin}.md` — the genuinely-ambiguous corpus
+`derive_weights.py` trains the linear `KeywordAmbiguityGate` on, converted
+to `GruEval`'s RDD_EXT_21 schema (`targetWordIndex=0` for all rows, since
+every example's target word is the leading word per that corpus's own
+design). Result via
+`java -cp target/classes:<gru-tools-classes> GruEval code-formatter-ai-assist-weights.json <converted-file>`:
+
+```
+total=62 abstain=0 decided=62 correct=19 precision=30.6%
+yesCorrect=19/19  noCorrect=0/43
+```
+
+The GRU predicts **YES on every single example**, including all 43 that
+should be NO — worse than the linear classifier's own 67.7% (42/62, see
+`cwg/weights.md`) on this identical set.
+
+Root cause: `sample_default.txt` (the GRU's only training corpus) is
+auto-labeled *by the linear classifier itself* via `GenerateSampleDefault`,
+which only keeps its own high-confidence YES/NO decisions. That corpus is
+dominated by clear-cut prose (mostly YES) and never contains the genuinely
+hard ambiguous-keyword-led NO cases — those are exactly the ABSTAIN-path
+comments the linear classifier doesn't auto-label with confidence, and per
+RDD_EXT_19 the hand-labeled `cwg/examples_*.md` set is deliberately never
+merged into `sample_default.txt`. The GRU therefore learned "default to
+YES" rather than the subtle distinction it exists to resolve.
+
+Fix: `Config.gruClassifier` default flipped back to `false`
+(`src/com/jxmake/formatter/Config.java`), `README.md` and
+`STATE_COMMON.md`'s `gru-classifier` config-key lines updated to
+`off` with a pointer to this section. This does not touch
+`commentNormalizationClassifier` (still defaults `on` — see the
+2026-07-30 KEYWORD_BIAS-regression section above), since that flag gates
+the linear classifier path only and is unaffected by this finding.
+
+**Still outstanding** (not scheduled this session): teaching the GRU the
+hard cases requires training data that actually contains them — e.g.
+incorporating the 62 hand-labeled examples (or a larger hand-labeled set in
+the same style) directly into the GRU's training corpus, not just relying
+on the auto-labeled majority-YES `sample_default.txt`. Until that exists
+and is re-evaluated with `GruEval` against a held-out labeled set showing
+it beats the linear classifier's 67.7% baseline, `gru-classifier` should
+stay `off`.

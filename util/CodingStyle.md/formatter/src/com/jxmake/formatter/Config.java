@@ -95,12 +95,18 @@ public final class Config {
     private boolean jsImportSort = true;
     private int jsImportBlankLines = 1;
 
-    /** Step 3 GRU classifier gate (STATE_AI.md) -- default on now that a real trained weights file
-     *  (`code-formatter-ai-assist-weights.json`, trained on `tools/gru/sample_default.txt`) ships
-     *  alongside the jar/classes. {@code GruAbstainResolver} reads this to decide whether to even
-     *  attempt loading a weights file; when off (or when the file is missing/unreadable), no
-     *  filesystem access is attempted / the resolver fails safe to the rule-based result alone. */
-    private boolean gruClassifier = true;
+    /** Step 3 GRU classifier gate (STATE_AI.md) -- default off: evaluated against the 62
+     *  hand-labeled keyword-ambiguity examples in {@code cwg/examples_*.md} (the genuinely-ambiguous
+     *  cases the linear {@code KeywordAmbiguityGate} is tuned for) on 2026-07-30 and found to predict
+     *  YES on every single example (0/43 NO correct, 30.6% overall precision) -- worse than the
+     *  linear classifier's own 67.7% on the same set. Root cause: {@code sample_default.txt} (the
+     *  GRU's training corpus) is auto-labeled *by the linear classifier itself* via
+     *  {@code GenerateSampleDefault}, which only keeps its own high-confidence YES/NO decisions, so
+     *  the GRU never saw the hard ambiguous-keyword NO cases and learned to default to YES instead.
+     *  {@code GruAbstainResolver} reads this to decide whether to even attempt loading a weights
+     *  file; when off (or when the file is missing/unreadable), no filesystem access is attempted /
+     *  the resolver fails safe to the rule-based result alone. */
+    private boolean gruClassifier = false;
     private String gruWeightsPath = DEFAULT_GRU_WEIGHTS_PATH;
 
     private Config() {

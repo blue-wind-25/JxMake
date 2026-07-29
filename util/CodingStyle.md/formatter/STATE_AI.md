@@ -626,13 +626,79 @@ decorative-separator case.
 
 ### Still outstanding
 
-- Improving `CommentClassifier`'s keyword-list accuracy (or otherwise
-  reconciling it with the deterministic heuristic) so
-  `comment-normalization-classifier` can default `on` without regressing
-  fixtures is now the concrete next step for actually activating the GRU
-  path by default, rather than leaving it real-but-opt-in.
 - Commented-out-code and multi-line-license-block NO gates — see the
   "TODO — further `CommentClassifier` NO-producing gates" section below.
+
+## 2026-07-30 session: fixed `KeywordAmbiguityGate` weight regression, `comment-normalization-classifier` now defaults `on`
+
+Root cause of the 9-fixture regression from 2026-07-29: the 40-example
+`cwg/examples_{c,cpp,java,kotlin}.md` training set had all 20 of its
+"zero mechanical feature" rows (no paren/arrow/semicolon/url-or-number
+signal) labeled YES, all hand-authored "keyword-used-as-English-word"
+prose (`static analysis caught...`, `void of any real logic...`, etc.).
+That produced a large positive `KEYWORD_BIAS` (`2.48420`), so any real
+keyword-led comment with none of those four signals defaulted to YES
+(capitalize) — wrong for real code, where that shape is overwhelmingly a
+genuine code reference (`static operator()`, `consteval utility`, `while
+loop`, `do-while`, `var usage`, `this comment is between annotation and
+field`, etc. — all confirmed real lines from `test/cpp_modern_inp.cpp`,
+`test/cpp_combined_inp.cpp`, `test/java_core_inp.java`,
+`test/java_combined_inp.java`, `test/java_comments_inp.java`).
+
+Fix: added 22 new zero-feature NO-labeled rows across
+`cwg/examples_{c,cpp,java,kotlin}.md` — a mix of the real regression
+lines above and hand-authored analogues for languages/keywords that
+didn't happen to have a failing fixture (e.g. `default label handles
+unmatched values`, `virtual keyword adds a vtable pointer`, `when branch
+order matters here`) — bringing the zero-feature split to 20 YES / 22 NO.
+Re-ran `python3 cwg/derive_weights.py` (62 total examples now) and copied
+the new constants into `CommentClassifierWeights.java`:
+
+```
+KEYWORD_BIAS                 = -0.20825   (was +2.48420)
+KEYWORD_WEIGHT_PAREN         = -2.28827   (was -3.96297)
+KEYWORD_WEIGHT_ARROW         = -1.51467   (was -3.22603)
+KEYWORD_WEIGHT_SEMICOLON     = -2.96142   (was -4.93396)
+KEYWORD_WEIGHT_URL_OR_NUMBER = -0.51492   (was -2.80469)
+```
+
+The now-negative bias means a zero-signal keyword-led comment defaults
+to ABSTAIN (skip normalization) instead of YES — the intentional
+asymmetric-risk tradeoff already documented on `KeywordAmbiguityGate`
+("a false skip is zero-cost, a false positive is a visible bug"); the
+per-example check now shows 20 mismatches, all of them the rare
+"keyword used as plain English adjective, zero mechanical signal" case
+(e.g. `static analysis caught a null deref here`) resolving to ABSTAIN
+instead of YES — an accepted tradeoff, not a bug.
+
+Fixing 8 of the 9 originally-regressed fixtures this way surfaced a
+second, distinct bug: `test/real_code_regressions_54_inp.java` still
+failed, but not on capitalization — on a stray-trailing-period strip
+(`... as the specified type .` should lose the stray `" ."`, per
+`stripSoleTrailingPeriod`). That comment starts with the keyword
+`return` (`KEYWORDS_JAVA`), and `CommentFeatureExtractor.extract` always
+computed `hasLeadingKeywordMatch` from the comment's *first* word
+regardless of the caller's `targetWordIndex` — so the strip-period call
+site (whose `targetWordIndex` correctly points at the *last* token,
+unrelated to "return") was wrongly gated by the leading-word ambiguity
+anyway, abstaining (skip strip) when it should strip. Fixed by adding a
+`targetWordIndex`-aware `CommentFeatureExtractor.extract` overload that
+only sets `hasLeadingKeywordMatch` when `targetWordIndex == 0`, and
+wiring `MiscRuleCore.classifyComment`'s existing `targetWordIndex`
+parameter through to it (previously computed unconditionally regardless
+of index). This is a real, if narrow, architectural gap independent of
+the weight-derivation fix above — the rule-based `CommentClassifier`
+path had never actually been position-aware despite `classifyComment`'s
+own javadoc describing `targetWordIndex` as pointing "at the token the
+decision actually hinges on".
+
+With both fixes in place, flipped `Config.commentNormalizationClassifier`'s
+default to `true` (`STATE_COMMON.md`'s config-key line updated to match)
+and confirmed `make test`: **219/219 forward, 219/219 idempotency** — all
+9 originally-regressed fixtures now pass, no new regressions. The GRU
+comment-normalization pipeline (`gruClassifier` + `commentNormalizationClassifier`,
+both now `true` by default) is fully active by default, no longer
+real-but-opt-in.
 
 ### TODO — GruTrainer follow-ups (deferred, not yet scheduled)
 

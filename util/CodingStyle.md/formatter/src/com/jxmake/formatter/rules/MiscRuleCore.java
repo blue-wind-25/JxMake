@@ -1998,7 +1998,7 @@ public static final class Assignment {
      *  stage (when reached) looks at the right word. */
     protected CommentDecision classifyComment(final String content, final int targetWordIndex) {
         final com.jxmake.formatter.classifier.CommentFeatureVector features =
-                CommentFeatureExtractor.extract(content, lang);
+                CommentFeatureExtractor.extract(content, lang, TokenType.COMMENT_LINE, targetWordIndex);
         return GruAbstainResolver.resolve(features, content, targetWordIndex, gruClassifier, gruWeightsPath);
     }
 

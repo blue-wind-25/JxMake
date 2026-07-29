@@ -12,3 +12,11 @@
 | 8 | `native void init();` | yes | yes | no | NO | Declaration fragment, both signals fire. |
 | 9 | `transient state should never be persisted here` | no | no | no | YES | Prose explaining a design rule using "transient" as an adjective. |
 | 10 | `transient int retryCount;` | no | yes | no | NO | Field declaration. |
+| 11 | `while loop` | no | no | no | NO | Real regression, `test/java_core_inp.java` — names the actual loop construct being demonstrated, not prose. Added 2026-07-30, see `STATE_AI.md`'s 2026-07-30 section. |
+| 12 | `do-while` | no | no | no | NO | Real regression, `test/java_core_inp.java` — same as above for `do`/`while`. |
+| 13 | `var usage` | no | no | no | NO | Real regression, `test/java_combined_inp.java` — labels a code section demonstrating `var`, not prose using "var" as a word. |
+| 14 | `switch expressions, records, sealed classes, text blocks, var, pattern matching.` | no | no | no | NO | Real regression, `test/java_combined_inp.java` — file-level banner listing language features by keyword, not a sentence. |
+| 15 | `this comment is between annotation and field` | no | no | no | NO | Real regression, `test/java_comments_inp.java` — "this" refers to the comment itself in a meta/structural sense tied to code layout, not free-standing English prose; kept NO to match the fixture's expected (non-capitalized) output. |
+| 16 | `this is a void method so this is wrong but tests the comment` | no | no | no | NO | Real regression, `test/java_comments_inp.java` — same meta/structural "this", describing the surrounding code shape rather than being ordinary prose. |
+| 17 | `transient fields skip default serialization` | no | no | no | NO | "transient" naming the actual field modifier being explained, code reference despite zero mechanical feature. |
+| 18 | `native methods bridge to platform code` | no | no | no | NO | "native" naming the actual keyword being explained. |

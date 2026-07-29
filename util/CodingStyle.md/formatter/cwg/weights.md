@@ -1,9 +1,10 @@
 # Derived weights (RDD_KEY_97 / RDD_KEY_98)
 
-Derived over the 40 labeled examples in `examples_c.md`, `examples_cpp.md`, `examples_java.md`,
-`examples_kotlin.md` by `derive_weights.py` (L2-regularized logistic regression, run with
-`python3 cwg/derive_weights.py` — no dependencies). Two separate linear formulas exist in
-`CommentClassifier`/`CommentClassifierWeights`:
+Derived over the 62 labeled examples in `examples_c.md`, `examples_cpp.md`, `examples_java.md`,
+`examples_kotlin.md` (40 original + 22 added 2026-07-30, see "2026-07-30 re-derivation" below and
+`STATE_AI.md`'s 2026-07-30 section) by `derive_weights.py` (L2-regularized logistic regression,
+run with `python3 cwg/derive_weights.py` — no dependencies). Two separate linear formulas exist
+in `CommentClassifier`/`CommentClassifierWeights`:
 
 ## Main path (no leading-keyword ambiguity; both gates already cleared)
 
@@ -20,7 +21,7 @@ which is what "classifier on" is supposed to preserve per STATE_COMMENT_GRAMMAR.
 
 ## Keyword-ambiguity path (`KeywordAmbiguityGate.resolveAmbiguousKeyword`, stage 2)
 
-Across all 40 examples, four features cleanly separated the label:
+Across the original 40 examples, four features cleanly separated the label:
 
 | Feature present | Observed label | Consistency |
 |---|---|---|
@@ -30,28 +31,50 @@ Across all 40 examples, four features cleanly separated the label:
 | `containsUrlOrFilenameOrNumber` only (no paren/arrow/semi) | 4/5 NO, 1/5 YES (`examples_c.md` #6) | 80% |
 | none of the four | always YES | 100% (20/20 rows) |
 
+That last row was the bug: all 20 "zero-signal" examples were hand-authored YES prose
+(`static analysis caught a null deref here`, `void of any real logic, this is a stub`, etc.),
+with zero real-world zero-signal NO examples to balance them — see "2026-07-30 re-derivation"
+below for the fix.
+
 `derive_weights.py` trains a logistic regression (weights `[bias, w_paren, w_arrow,
-w_semicolon, w_url_or_number]`) against these 40 rows via gradient descent, with an L2 penalty
+w_semicolon, w_url_or_number]`) against the labeled rows via gradient descent, with an L2 penalty
 (`lambda=0.1`) on the four feature weights (not the bias) so the run converges to a finite
 optimum instead of diverging on this (near-)separable data — see the script's own comment on
-`L2_LAMBDA` for why that matters. Output (`lr=0.5`, `5000` epochs):
+`L2_LAMBDA` for why that matters. Current output (`lr=0.5`, `5000` epochs, 62 examples):
 
 ```
-KEYWORD_BIAS                  =  2.48420
-KEYWORD_WEIGHT_PAREN          = -3.96297
-KEYWORD_WEIGHT_ARROW          = -3.22603
-KEYWORD_WEIGHT_SEMICOLON      = -4.93396
-KEYWORD_WEIGHT_URL_OR_NUMBER  = -2.80469
+KEYWORD_BIAS                  = -0.20825
+KEYWORD_WEIGHT_PAREN          = -2.28827
+KEYWORD_WEIGHT_ARROW          = -1.51467
+KEYWORD_WEIGHT_SEMICOLON      = -2.96142
+KEYWORD_WEIGHT_URL_OR_NUMBER  = -0.51492
 KEYWORD_THRESHOLD             =  0.0        (fixed sigmoid decision boundary, not trained)
 ```
 
-Result: 39/40 examples classified as labeled. The one remaining mismatch is an accepted tradeoff,
-not a defect:
-- `examples_c.md` #6 (`short delay before retry, about 50ms`) — labeled YES but has the
-  url/number signal, which the trained weight treats as strong enough evidence of code-shaped
-  content to push the score negative. Accepted per RDD_KEY_98's asymmetric-risk design: a false
-  skip here is zero-cost, and the url/number feature is only ~80% reliable as a YES-predictor in
-  this sample, not worth the precision risk.
+Result: 42/62 examples classified as labeled. All 20 mismatches are the accepted asymmetric-risk
+tradeoff (RDD_KEY_98): with the bias now negative, a zero-signal keyword-led comment defaults to
+ABSTAIN (skip normalization) rather than YES. This means the rare "keyword used as plain English
+adjective, no other signal" examples (`static analysis caught a null deref here`, `void of any
+real logic, this is a stub`, etc.) now resolve to ABSTAIN instead of their labeled YES — a false
+skip, zero-cost per the design philosophy, and the correct tradeoff given real-code zero-signal
+keyword-led comments are overwhelmingly genuine code references, not prose (see the real
+regression examples added to `examples_cpp.md`/`examples_java.md` and `STATE_AI.md`'s 2026-07-30
+section).
+
+### 2026-07-30 re-derivation
+
+The original 40-example set had no zero-feature NO example at all, so the bias trained
+positive and every real zero-signal keyword-led comment (e.g. `static operator()`, `consteval
+utility`, `while loop`, `do-while`, `var usage`) got wrongly capitalized — a concrete regression
+found via `make test` (9 fixtures) once `comment-normalization-classifier` was tried at its
+default-`on` setting. Fixed by adding 22 new zero-feature NO rows: real lines pulled from the
+failing fixtures (`test/cpp_modern_inp.cpp`, `test/cpp_combined_inp.cpp`,
+`test/java_core_inp.java`, `test/java_combined_inp.java`, `test/java_comments_inp.java`) plus
+hand-authored analogues for keywords/languages that didn't happen to have a failing fixture,
+bringing the zero-feature split from 20 YES / 0 NO to 20 YES / 22 NO. Re-ran
+`python3 cwg/derive_weights.py` and copied the new constants above into
+`CommentClassifierWeights.java`. `make test`: 219/219 forward, 219/219 idempotency, with
+`comment-normalization-classifier` now defaulting `on`.
 
 ### Adding a feature (worked example: `nextTokenIsArrow`)
 

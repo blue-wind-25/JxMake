@@ -20,21 +20,37 @@ DATASET = [
     ("c", 4, 0, 0, 0, 0, 1), ("c", 5, 0, 0, 1, 0, 0), ("c", 6, 0, 0, 0, 1, 1),
     ("c", 7, 0, 0, 0, 1, 0), ("c", 8, 0, 0, 0, 0, 1), ("c", 9, 0, 0, 0, 0, 1),
     ("c", 10, 0, 0, 1, 0, 0), ("c", 11, 0, 0, 0, 0, 1), ("c", 12, 1, 0, 0, 0, 0),
+    # rows 13-17 added 2026-07-30 to fix the KEYWORD_BIAS regression (see cwg/examples_c.md).
+    ("c", 13, 0, 0, 0, 0, 0), ("c", 14, 0, 0, 0, 0, 0), ("c", 15, 0, 0, 0, 0, 0),
+    ("c", 16, 0, 0, 0, 0, 0), ("c", 17, 0, 0, 0, 0, 0),
     # examples_cpp.md
     ("cpp", 1, 0, 0, 0, 0, 1), ("cpp", 2, 1, 0, 1, 0, 0), ("cpp", 3, 0, 0, 0, 0, 1),
     ("cpp", 4, 1, 0, 0, 1, 0), ("cpp", 5, 0, 0, 0, 0, 1), ("cpp", 6, 1, 0, 1, 0, 0),
     ("cpp", 7, 0, 0, 0, 0, 1), ("cpp", 8, 1, 0, 1, 0, 0), ("cpp", 9, 0, 0, 0, 0, 1),
     ("cpp", 10, 0, 0, 0, 1, 0),
+    # rows 11-15 are real regressions from test/cpp_modern_inp.cpp and test/cpp_combined_inp.cpp,
+    # plus hand-authored analogues, added 2026-07-30 (see cwg/examples_cpp.md).
+    ("cpp", 11, 0, 0, 0, 0, 0), ("cpp", 12, 0, 0, 0, 0, 0), ("cpp", 13, 0, 0, 0, 0, 0),
+    ("cpp", 14, 0, 0, 0, 0, 0), ("cpp", 15, 0, 0, 0, 0, 0),
     # examples_java.md
     ("java", 1, 0, 0, 0, 0, 1), ("java", 2, 0, 0, 1, 0, 0), ("java", 3, 0, 0, 0, 0, 1),
     ("java", 4, 1, 0, 1, 0, 0), ("java", 5, 0, 0, 0, 0, 1), ("java", 6, 0, 0, 1, 1, 0),
     ("java", 7, 0, 0, 0, 0, 1), ("java", 8, 1, 0, 1, 0, 0), ("java", 9, 0, 0, 0, 0, 1),
     ("java", 10, 0, 0, 1, 0, 0),
+    # rows 11-18 are real regressions from test/java_core_inp.java, test/java_combined_inp.java,
+    # and test/java_comments_inp.java, plus hand-authored analogues, added 2026-07-30
+    # (see cwg/examples_java.md).
+    ("java", 11, 0, 0, 0, 0, 0), ("java", 12, 0, 0, 0, 0, 0), ("java", 13, 0, 0, 0, 0, 0),
+    ("java", 14, 0, 0, 0, 0, 0), ("java", 15, 0, 0, 0, 0, 0), ("java", 16, 0, 0, 0, 0, 0),
+    ("java", 17, 0, 0, 0, 0, 0), ("java", 18, 0, 0, 0, 0, 0),
     # examples_kotlin.md -- row 2 ("is Foo -> handle(foo)") used to be a documented outlier (label
     # NO, no mechanical feature fired) before nextTokenIsArrow existed; now arrow=1 catches it.
     ("kotlin", 1, 0, 0, 0, 0, 1), ("kotlin", 2, 0, 1, 0, 0, 0), ("kotlin", 3, 0, 0, 0, 0, 1),
     ("kotlin", 4, 1, 0, 1, 0, 0), ("kotlin", 5, 0, 0, 0, 0, 1), ("kotlin", 6, 0, 0, 1, 0, 0),
     ("kotlin", 7, 0, 0, 0, 0, 1), ("kotlin", 8, 1, 0, 1, 0, 0),
+    # rows 9-12 added 2026-07-30, hand-authored analogues (see cwg/examples_kotlin.md).
+    ("kotlin", 9, 0, 0, 0, 0, 0), ("kotlin", 10, 0, 0, 0, 0, 0),
+    ("kotlin", 11, 0, 0, 0, 0, 0), ("kotlin", 12, 0, 0, 0, 0, 0),
 ]
 
 LEARNING_RATE = 0.5

@@ -25,3 +25,17 @@ boundary, not the whole comment, so `register your callback...` has `nextCharIsO
 actually, since it's ordinary prose "register your callback"). Corrected: **row 8 is YES**, not
 NO. Kept as an explicit worked example of the feature's exact scope, since it's the one place
 in this set where an initial guess was wrong.
+
+Rows 13-15 added 2026-07-30 to fix the KEYWORD_BIAS regression: the original 12-row set had
+zero NO-labeled examples with all four features off, so the trained bias defaulted heavily
+toward YES on that all-zero vector — wrong for real code, where a zero-signal keyword-led
+comment is overwhelmingly a code reference, not adjective-style prose (see the real
+`cpp`/`java` fixture regressions added to `examples_cpp.md`/`examples_java.md` the same day,
+and `STATE_AI.md`'s 2026-07-30 section for the full analysis). These three are hand-authored
+C analogues of that same real-world shape, since no C fixture happened to trip the bug.
+
+| 13 | `static helper used internally, not part of the public interface` | no | no | no | NO | "static" as the real keyword describing internal linkage — a code reference, not an adjective, despite firing no mechanical feature. |
+| 14 | `while loop retries the connection three times` | no | no | no | NO | "while" naming the actual loop construct being described, not the English conjunction. |
+| 15 | `do-while guarantees the body executes at least once` | no | no | no | NO | "do" naming the actual `do`/`while` construct, not the English auxiliary verb. |
+| 16 | `static keyword restricts this symbol to file scope` | no | no | no | NO | "static" naming the actual keyword being explained, a code reference despite zero mechanical feature. |
+| 17 | `default label handles unmatched values` | no | no | no | NO | "default" naming the actual `switch`/`case` label being described, not the English adjective. |

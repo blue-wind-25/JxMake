@@ -19,3 +19,13 @@ Row 2 was originally a documented gap (no feature fired, so the linear model res
 ABSTAIN — safe but low-coverage) until `CommentFeatureVector.nextTokenIsArrow` was added
 specifically to close it (see `cwg/weights.md`'s "Adding a feature" section for the full story).
 It's kept in the table as the worked example that motivated that feature, not as a residual gap.
+
+Rows 9-10 added 2026-07-30, hand-authored analogues of the real `cpp`/`java` zero-feature NO
+regressions found the same day (see `examples_cpp.md`/`examples_java.md` and `STATE_AI.md`'s
+2026-07-30 section) — no Kotlin fixture happened to trip the bug, but the same false-friend
+shape applies to Kotlin's own keyword set.
+
+| 9 | `this function is called from the UI thread` | no | no | no | no | NO | "this" referring to the surrounding function itself (a code reference), not the English demonstrative pronoun opening ordinary prose. |
+| 10 | `var holds the mutable reference` | no | no | no | no | NO | "var" naming the actual declaration keyword being described, not an English noun. |
+| 11 | `when branch order matters here` | no | no | no | no | NO | "when" naming the actual `when` construct being explained, not the English conjunction. |
+| 12 | `object declaration creates a singleton` | no | no | no | no | NO | "object" naming the actual declaration keyword, code reference despite zero mechanical feature. |

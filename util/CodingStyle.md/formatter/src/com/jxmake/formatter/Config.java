@@ -68,16 +68,18 @@ public final class Config {
     private String lineEndings = "lf";
     private boolean normalizeCommentStartCase = true;
     private boolean normalizeCommentEndPeriod = true;
-    // Default off: this gates the rule-based comment-grammar classifier path (which the GRU stage
+    // Default on: this gates the rule-based comment-grammar classifier path (which the GRU stage
     // sits behind on ABSTAIN, see gruClassifier below) instead of the purely-deterministic
-    // isCommentNoCapitalizeWord/dot-count heuristics. Tried flipping on 2026-07-29 alongside
+    // isCommentNoCapitalizeWord/dot-count heuristics. First tried on 2026-07-29 alongside
     // gruClassifier; make test regressed 9 fixtures (c/cpp/java _comments/_core/_combined +
-    // real_code_regressions_22/54) because the rule-based classifier disagrees with the
-    // deterministic no-capitalize keyword list on common cases (consteval/static/while/var/this/
-    // const/explicit/public/switch, etc.), incorrectly capitalizing them. Reverted to off pending
-    // classifier accuracy work -- see STATE_AI.md. gruClassifier is left on since it's inert
-    // (GruAbstainResolver is only ever reached from this gate) but flip both together once fixed.
-    private boolean commentNormalizationClassifier = false;
+    // real_code_regressions_22/54) because KeywordAmbiguityGate's stage-2 weights, trained on a
+    // small hand-authored cwg/ example set with no zero-feature NO examples, defaulted to YES
+    // (capitalize) for common zero-signal keyword-led comments (consteval/static/while/var/this/
+    // const/explicit/public/switch, etc.) that are actually code references. Fixed 2026-07-30 by
+    // adding real regression-derived and hand-authored zero-feature NO examples to
+    // cwg/examples_{c,cpp,java,kotlin}.md and re-deriving the weights -- see STATE_AI.md's
+    // 2026-07-30 section and cwg/weights.md.
+    private boolean commentNormalizationClassifier = true;
     private boolean headerGuardRename = false;
     private List<String> javaImportOrder = Arrays.asList("java", "com", "org", "other", "local", "static");
     private boolean javaImportSort = true;

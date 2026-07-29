@@ -30,6 +30,20 @@ public final class CommentFeatureExtractor {
     }
 
     public static CommentFeatureVector extract(final String commentText, final Lang lang, final TokenType commentType) {
+        return extract(commentText, lang, commentType, 0);
+    }
+
+    /** Same as {@link #extract(String, Lang, TokenType)}, but {@code targetWordIndex} (per
+     *  {@link com.jxmake.formatter.classifier.gru.GruClassifier#tokenize}) scopes
+     *  {@code hasLeadingKeywordMatch} to only fire when the decision is actually about the
+     *  leading word (index 0) -- e.g. {@code MiscRuleCore}'s strip-trailing-period call site
+     *  passes the *last* token's index, since the ambiguous trailing dot has nothing to do with
+     *  whatever keyword the comment happens to start with. Without this, a comment like
+     *  "return true if ... type ." would abstain from stripping its stray trailing period just
+     *  because it starts with the keyword "return" -- a real regression found 2026-07-30 fixing
+     *  `test/real_code_regressions_54_inp.java`, see STATE_AI.md's 2026-07-30 section. */
+    public static CommentFeatureVector extract(final String commentText, final Lang lang,
+            final TokenType commentType, final int targetWordIndex) {
         final int[] targetBounds = leadingWordBounds(commentText);
         final String targetWord = commentText.substring(targetBounds[0], targetBounds[1]);
         final String previousWord = ""; // targetWord is always the comment's leading word (see class javadoc)
@@ -44,7 +58,8 @@ public final class CommentFeatureExtractor {
         final boolean containsSemicolon = commentText.indexOf(';') >= 0;
         final boolean containsUrlOrFilenameOrNumber = URL_OR_FILENAME_OR_NUMBER.matcher(commentText).find();
         final boolean hasNonLatinScript = NonLatinScriptGate.containsNonLatinScript(commentText);
-        final boolean hasLeadingKeywordMatch = KeywordAmbiguityGate.hasLeadingKeywordMatch(commentText, lang);
+        final boolean hasLeadingKeywordMatch = targetWordIndex == 0
+                && KeywordAmbiguityGate.hasLeadingKeywordMatch(commentText, lang);
         final boolean isDecorativeOnly = DecorativeSeparatorGate.isDecorativeOnly(commentText);
         return new CommentFeatureVector(targetWord, previousWord, nextWord, nextCharIsOpenParen,
                 nextTokenIsArrow, containsSemicolon, containsUrlOrFilenameOrNumber, commentType,

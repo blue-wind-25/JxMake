@@ -23,17 +23,21 @@ public final class CommentClassifierWeights {
     public static final double THRESHOLD = 0.0;
 
     // Keyword-ambiguity path (KeywordAmbiguityGate.resolveAmbiguousKeyword, stage 2). L2-regularized
-    // logistic regression trained on all 40 labeled examples across
+    // logistic regression trained on all 62 labeled examples across
     // cwg/examples_{c,cpp,java,kotlin}.md by cwg/derive_weights.py (lambda=0.1, 5000 epochs,
     // lr=0.5) -- see cwg/weights.md "Keyword-ambiguity path" for the derivation and the
-    // per-example verification (39/40; one documented accepted-tradeoff outlier remains, see that
-    // file). KEYWORD_WEIGHT_ARROW covers a when/match-branch shape (e.g. "is Foo -> handle(foo)")
-    // the other three features can't see on their own.
-    public static final double KEYWORD_BIAS = 2.48420;
-    public static final double KEYWORD_WEIGHT_PAREN = -3.96297;
-    public static final double KEYWORD_WEIGHT_ARROW = -3.22603;
-    public static final double KEYWORD_WEIGHT_SEMICOLON = -4.93396;
-    public static final double KEYWORD_WEIGHT_URL_OR_NUMBER = -2.80469;
+    // per-example verification (42/62; mismatches are all the intentional asymmetric-risk
+    // tradeoff -- a zero-signal keyword-led comment now resolves to NO/ABSTAIN by default, since
+    // real code overwhelmingly uses that shape as a code reference rather than English prose, and
+    // a false skip is zero-cost while a false positive is a visible bug; see cwg/weights.md and
+    // STATE_AI.md's 2026-07-30 section for the full analysis and the real fixture regressions
+    // that motivated re-deriving these constants). KEYWORD_WEIGHT_ARROW covers a when/match-branch
+    // shape (e.g. "is Foo -> handle(foo)") the other three features can't see on their own.
+    public static final double KEYWORD_BIAS = -0.20825;
+    public static final double KEYWORD_WEIGHT_PAREN = -2.28827;
+    public static final double KEYWORD_WEIGHT_ARROW = -1.51467;
+    public static final double KEYWORD_WEIGHT_SEMICOLON = -2.96142;
+    public static final double KEYWORD_WEIGHT_URL_OR_NUMBER = -0.51492;
     public static final double KEYWORD_THRESHOLD = 0.0;
 
     private CommentClassifierWeights() {

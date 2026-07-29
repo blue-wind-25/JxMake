@@ -121,23 +121,6 @@ Use one sub-agent as needed, the sub-agent can launch up to one more research su
 
 
 
-Now, start with the dogfood test (search in `/tmp` first, clone the repo if not found):
-   JS : github.com/nodejs/node` (the repo is MASSIVE, checkout ONLY the *.js files)
-Do NOT perform any bug fix yet, instead categorize and note the bugs inside
-`....md` and `....md` into two categories:
-    1. Critical bugs that cause formatter error/crash and output file corruption (syntax
-       error, unwanted content change, etc.).
-    2. Idempotency bugs only. Try reformat with `indent-size = 2` if the idempotency test
-       failed.
-For each category, cluster the bugs based on the types/appearance. Sort the clusters based on
-the estimated criticality/the value of fixing the bug and the estimated difficulty (weigh them).
-Sort the clusters from the most valuable to the least valuable to fix based on the above
-criteria. Write and commit the state files, then ask me which clusters to fix first.
-Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
-Write also your short report (which you print to the CLI console) to `/tmp/REP_JS.txt`.
-
-
-
 C/C++:
     [X] `github.com/gcc-mirror/gcc`    [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
     [X] `github.com/llvm/llvm-project` [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
@@ -157,7 +140,7 @@ HTML5:
     [X] `**Remaining TODO — adoption agency, foster-parenting, implicit ...`
     [X] `**Known gap found (2026-07-26, `apache/ant` `manual/` dogfood run):**`
 JS:
-    [P] `github.com/nodejs/node` [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
+    [X] `github.com/nodejs/node` [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
     [X] `**TODO (low priority):** teach `js_ts_content_diff.js` ...`
 TS:
 Python3:
@@ -207,3 +190,127 @@ trap 'kill -- -$$ 2>/dev/null; wait' EXIT
 
 echo $$ > "$CG/cgroup.procs"
 exec  ~/mynpm/bin/claude "$@"
+
+####################################################################################################
+####################################################################################################
+####################################################################################################
+
+Remaining jobs across formatter/gru, sorted by worthiness (value vs. difficulty),
+compiled 2026-07-29 from STATE_DOGFOOD.md + each job's own STATE_*.md. Highest
+worthiness first within each tier.
+
+--- Tier 1: high value, tractable next steps ---
+
+1. GRU: improve `CommentClassifier` keyword-list accuracy so `comment-normalization-
+   classifier` can default `on` without regressing fixtures (STATE_AI.md "Still
+   outstanding"). This is the single concrete blocker to activating the whole GRU
+   comment-normalization pipeline by default instead of leaving it real-but-opt-in.
+   Value: high (unlocks an already-shipped feature). Difficulty: medium.
+
+2. HTML5: WordPress magic-comment capitalization — an open DESIGN QUESTION, not a
+   bug (STATE_DATA_FORMATS.md, `wordpress/wordpress-develop` DONE - OPEN Q). No
+   engineering needed, just a decision from the user. Value: medium. Difficulty:
+   trivial once decided — best value/effort ratio on this list.
+
+3. C/C++/Java: `openrewrite/rewrite` dogfood Cluster 5 — alignment-group padding
+   collapse (`ExpressionStatement.withType` in `rewrite-kotlin/.../K.java`). Real,
+   unfixed, mid-investigation with a leading hypothesis already narrowed
+   (`GetterSetterRuleCurly`'s one-liner scan possibly crossing nested-class
+   boundaries) and a concrete next step (bisect the 900-1037 line range). Blocks
+   that dogfood entry's full-tree re-run. Value: medium. Difficulty: medium.
+
+4. JS/TS: shared TypeScript cluster #3 / Angular cluster 4 #3 — call-wrap/collapse
+   vs. alignment-padding fits-check ordering. Highest file-count value of any open
+   JS/TS item (28/601 TypeScript files; same root cause hits Angular). Difficulty:
+   medium-high (cross-pass-ordering fix; a previous attempt was deliberately
+   deferred, not reverted-after-failure — no known landmine, just unscoped).
+
+--- Tier 2: meaningful, narrower value or higher difficulty ---
+
+5. Kotlin: `JetBrains/kotlin` dogfood cluster D3 — multi-line-call/condition
+   wrap-decision flap (~33 files). Root cause confirmed
+   (`MiscRuleCurly.renderCallCandidate`'s fits-check measures against the whole
+   enclosing physical line instead of a stable per-candidate position), but the
+   one attempted fix regressed 28 fixtures across C/C++/Java/TS/Kotlin and was
+   reverted. Value: medium (single repo, ~33 files). Difficulty: high — proven
+   collateral-damage-prone, needs a more surgical anchor than tried so far.
+
+6. GRU: commented-out-code NO-gate (comment that looks like a code statement —
+   semicolon-terminated, assignment/braces shape). Value: medium. Difficulty:
+   medium-high — highest false-positive risk of the deferred gates; real prose can
+   legitimately contain a semicolon/braces, so needs multiple code-like signals
+   together before it's safe.
+
+7. GRU: multi-line license/copyright-block NO-gate (2+ newlines, no trailing
+   sentence-ending period). Value: low-medium. Difficulty: medium — risk of
+   misfiring on a real multi-line prose paragraph without a careful
+   period-position check.
+
+8. C/C++/Java: `microsoft/STL` documented open gaps — macro-invocation-as-statement
+   glued to a following collapsed `if` one round later (root cause already
+   identified: `splitStatements` merges the bare macro with the following `if` into
+   one "statement"). Value: low (narrow shape, 289-file corpus otherwise clean).
+   Difficulty: medium — root cause known, fix not yet scoped.
+
+9. C/C++/Java: `jenkinsci/jenkins` `PluginManager.java` line-wrap instability —
+   explicitly documented as low-priority. Value: low. Difficulty: unscoped.
+
+10. HTML5: `apache/ant` `manual/running.html` loses one `<p>` (1/226 files) — needs
+    more than RDD_KEY_204's existing fix covers. Value: low (single file).
+    Difficulty: medium.
+
+--- Tier 3: big/risky architectural bets ---
+
+11. General scope-depth reindentation (STATE_COMMON.md "Architectural TODOs",
+    cross-cutting — not owned by one job). Would close two ACCEPTED-not-fixed gaps
+    (`javaparser/javaparser`'s `ASTParser.java`, local `JSONEncoderLite.java`) and
+    any future bug of the same shape. Value: potentially high (removes a whole bug
+    class) but the file itself flags this as high-risk: blast-radius inversion
+    (every line in every file becomes a candidate for a wrong result, vs. today's
+    ~1/2000-file exposure), a second continuation-vs-block-depth axis to merge,
+    exclusion zones (raw strings, comments, preprocessor, `frozen` spans) that
+    multiply, and ordering interactions with every other pass. Difficulty: very
+    high. Do not attempt without a dedicated design pass first.
+
+12. JSX/TSX support — currently out of scope entirely (not merely deferred),
+    pending a future embedding-aware dispatcher (STATE_JS_TS.md). Value: high (real
+    coverage gap, analogous to HTML5's `<script>` dispatch but harder). Difficulty:
+    high — new dispatch architecture, not an incremental rule.
+
+13. HTML5 deep tree-construction gaps (foster-parenting, case-folding, adoption
+    agency algorithm) — only bites `web-platform-tests/wpt`'s deliberately
+    pathological conformance fixtures, not real-world content (STATE_DATA_FORMATS.md
+    confirms no real WPT syntax-page is affected). Value: low. Difficulty: high —
+    full tree-construction algorithm work for edge cases that don't occur in
+    practice.
+
+--- Tier 4: ML/infra nice-to-haves — defer until a real training/tuning cycle needs them ---
+
+14. GruTrainer: automatic abstain-threshold tuning (needs a labeled validation
+    slice + a chosen objective). Value: low-medium. Difficulty: medium.
+15. GruTrainer: mini-batch training (16-32) — perf/numerics only, no correctness
+    gain; changes training numerics, needs explicit sign-off. Value: low.
+    Difficulty: medium.
+16. GruTrainer: dropout before dense layer — regularization only; current abstain
+    rate is already low (0.6%-2.1%) so unclear this is needed. Value: low.
+    Difficulty: medium.
+17. GruTrainer: learning-rate warmup + cosine decay. Value: low. Difficulty: medium.
+18. GruTrainer: break/resume checkpointing (weights + Adam state + epoch/step,
+    real serialization). Value: low — current training runs are short
+    (epochs=2-5). Difficulty: high.
+19. GRU: comment sentence-boundary mid-word-dot detection (`.hpp`, `e.g.`, `v1.0`
+    defeating the sole-trailing-period heuristic) — accepted mechanical-rule
+    limitation, feasible only once the GRU has enough mid-word-dot training
+    examples; not independently actionable right now. Value: low. Difficulty:
+    blocked on more training data, not really "difficulty" in the usual sense.
+
+--- Not worth pursuing / explicitly no action planned ---
+
+- C/C++: `gcc-mirror/gcc`, `llvm/llvm-project` dogfood — NOT STARTED, too massive
+  to even LOC-count, let alone dogfood in one pass.
+- JS: `nodejs/node` dogfood — same, TOO MASSIVE.
+- TS: Angular dogfood cluster 5 — accepted gap, no action planned (per
+  STATE_JS_TS.md's own text).
+- AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM) — permanently
+  NOT FEASIBLE, no tractable grouping-intent heuristic exists at any model size
+  tested. Reference-only, not a live TODO.

@@ -156,8 +156,8 @@ gru-acquire-corpus: $(JAR_FILE)
 GRU_WEIGHTS_FILENAME = code-formatter-ai-assist-weights.json
 GRU_WEIGHTS_OUT      = $(GRU_BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)
 GRU_SAMPLE_EXAMPLES  = $(GRU_SAMPLE_DEFAULT)
-GRU_TRAIN_ARGS      ?= --threads=3 --epochs=2 --patience=2 --progress-every=100
-#GRU_TRAIN_ARGS      = --threads=3 --epochs=5 --patience=2 --progress-every=100
+GRU_TRAIN_ARGS      ?= --threads=3 --epochs=2 --patience=2 --progress-every=1000
+#GRU_TRAIN_ARGS      = --threads=3 --epochs=5 --patience=2 --progress-every=1000
 
 gru-train: $(JAR_FILE)
 	@mkdir -p $(GRU_TOOLS_CLASSES)

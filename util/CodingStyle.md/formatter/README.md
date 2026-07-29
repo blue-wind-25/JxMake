@@ -227,7 +227,7 @@ server-port                      = 17173
 line-endings                     = lf          # lf | crlf | preserve
 normalize-comment-start-case     = on          # on | off
 normalize-comment-end-period     = on          # on | off
-comment-normalization-classifier = off         # off | on (tried on 2026-07-29, regressed 9 fixtures vs deterministic keyword list, see formatter/STATE_AI.md)
+comment-normalization-classifier = on          # on | off
 closing-comment-min-lines        = 5
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
@@ -256,7 +256,7 @@ python-import-sort               = on
 python-import-blank-lines        = 1
 
 # ── AI-assist (GRU) ───────────────────────────────────────────────────────────
-gru-classifier                   = on          # off | on (a real trained weights file ships, see formatter/STATE_AI.md)
+gru-classifier                   = on          # on | off
 gru-weights-path                 =             # empty = derive from program dir (code-formatter-ai-assist-weights.json)
 ```
 

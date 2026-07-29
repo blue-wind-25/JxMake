@@ -12,6 +12,11 @@ Dogfood corpus status: see `STATE_DOGFOOD.md`.
 Tracks implementation of Kotlin support in the deterministic JAR formatter
 (`util/CodingStyle.md/formatter/`), per `STYLE_KOTLIN.md` / `STYLE_KOTLIN2.md`.
 
+**Overall status: implementation complete (Steps 0-4 all DONE, `make test`
+green). Step 5 dogfood: core goal (dogfood tree compiles clean) met. Only
+open item is bucket D3 (see "Dogfood: JetBrains/kotlin" below) — root cause
+confirmed, fix attempted and reverted, currently unfixed.**
+
 ---
 
 ## Hard Constraint — Shared Classes
@@ -71,6 +76,11 @@ Existing shared files listed under Hard Constraint above are modified
 in-place, additively, when Kotlin needs a shared capability they don't yet
 have (e.g. a new operator token) — they are not duplicated per-language.
 
+New Kotlin-only rule classes that grew large enough to warrant their own
+file (beyond `KotlinSpecificRule.java`): `KotlinDeclarationAlignmentRule`
+(extends `DeclarationAlignmentRule`), `KotlinSignatureRule` (extends
+`MiscRule`), `KotlinGetterSetterRule` (extends `GetterSetterRule`).
+
 ---
 
 ## Resolved Design Decisions
@@ -125,7 +135,7 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_146 | `square/okio` bug #1: unary minus/plus mis-spacing in declaration initializers — new `renderTokens` override + `isUnaryMinusOperand` lookback |
 | RDD_KEY_147 | `square/okio` bug #2: `: ReturnType` tail detection merged an unrelated `val ... by lazy {}` across a blank line — new `hasTopLevelBlankLine` guard |
 | RDD_KEY_148 | `square/okio` bug #3: braceless `if {...}` round1-vs-round2 wrap flap from an untightened `keyword (` prefix width mismatch — new `tightenParenPrefix` helper. Combined fixture `_30` (with 146/147) |
-| RDD_KEY_149 | `square/okio` bug #4 — **found, not fixed, deferred** (later **resolved by RDD_KEY_163**): multi-line signature's column padding/trailing comma silently stripped downstream. See Open Questions. |
+| RDD_KEY_149 | `square/okio` bug #4 — **found, not fixed, deferred** (later **resolved by RDD_KEY_163**): multi-line signature's column padding/trailing comma silently stripped downstream. |
 | RDD_KEY_150 | `square/okio` compile bug #1: `TokenizerCore.MULTI_CHAR_OPS` missing `===`/`!==`, mis-tokenized and re-spaced invalid |
 | RDD_KEY_151 | `square/okio` compile bug #2: do-while's trailing `while (cond)` misread as loop-start, fusing the next statement — new `isDoWhileTailKeyword` lookback. Combined fixture `_31` (with 150) |
 | RDD_KEY_152 | `square/kotlinpoet` idempotency: nested `when {}` closing-brace indent flap from a pre-merge brace-line anchor — new `findMergingWhenBranchLineStart` lookahead. Fixture `_32` |
@@ -156,7 +166,7 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_213 | `JetBrains/kotlin` dogfood C6k Shape C6k-2 (`KtVisitorTest.kt`, `BenchmarksReport.kt`) — **FIXED**: a raw string ending in its own literal `"` right before the closing `"""` produces a 4+-quote trailing run in the source; `skipKotlinRawString` (RDD_KEY_117) closed at the *first* `"""` of that run instead of the last three, leaving a stray `"` token that a later spacing pass then space-separated from the following call, corrupting `""""` into `""" "`. Confirmed via `kotlin_syntax_check` that real `kotlinc` accepts `"""abc"""".trimMargin()`/5-quote variants cleanly, proving the closing delimiter is always the run's last three quotes. Fixed by scanning through the whole quote run before closing. Fixture `_164`. |
 | RDD_KEY_214 | `JetBrains/kotlin` dogfood Category 2 cluster **D2a** (chained-fluent-call closing-brace drift, 328 of 334 known idempotency-flap files) — **FIXED**: `ScopePipelineCurly`'s existing `isChainedCatchFinally` carve-out (RDD_KEY_158, inherit the preceding span's own already-resolved `effectiveSpanIndent` instead of re-deriving from volatile physical text) generalized from `catch`/`finally` keywords to any Kotlin `.`/`?.` fluent-chain continuation directly following a preceding span's own `}` (`}.apply {`, `}.also {`, etc) — new `isChainedFluentCall`. Fixture `_165`. |
 | RDD_KEY_215 | `JetBrains/kotlin` dogfood D2a residual, where-clause-shaped share (`TestStepBuilder.kt`/`common.kt`/`KaBaseSymbolRelationProvider.kt`/`TopLevelPhases.kt`) — **FIXED**: two causes. (a) `ScopePipelineCurly`'s `isNamedScope` carve-out (RDD_KEY_159) never covers `fun` — added `headerHasTopLevelWhereClause` + `hasWhereClauseHeader` condition to force `spanIndent` for a `fun` with its own wrapped `where` clause too. (b) `KotlinSpecificRule.signatureLineIndent` (RDD_KEY_164) anchored a where-clause's base indent on the volatile physical line of the immediately preceding boundary token — non-idempotent when that boundary is itself the tail of an ANCESTOR's own wrapped `where` clause; fixed by deriving base indent from the true statement's own stable header-line indent minus one `indentUnit`. Fixture `_166`. |
-| RDD_KEY_216 | `JetBrains/kotlin` dogfood D2a residual, `TopLevelPhases.kt`'s remaining line — **FIXED**: `isChainedFluentCall` (RDD_KEY_214) only recognized `.`/`?.` continuation after the preceding span's own `}`, not a boolean-infix-operator-joined chain (`} || declarations.any { ... }`) — widened with new `isChainedBooleanOp` (`||`/`&&`). Fixture `_167`. Closes 5 of RDD_KEY_214's 6-file D2a residual (all but `GenerateReleaseNotes.kt`/`TypeBridging.kt`, which direct diffing shows are ordinary D3 wrap-decision-flap instances, not a distinct D2a shape — misclassified by RDD_KEY_214's own text, left open under the separate D3 bucket). |
+| RDD_KEY_216 | `JetBrains/kotlin` dogfood D2a residual, `TopLevelPhases.kt`'s remaining line — **FIXED**: `isChainedFluentCall` (RDD_KEY_214) only recognized `.`/`?.` continuation after the preceding span's own `}`, not a boolean-infix-operator-joined chain (`} \|\| declarations.any { ... }`) — widened with new `isChainedBooleanOp` (`\|\|`/`&&`). Fixture `_167`. Closes 5 of RDD_KEY_214's 6-file D2a residual (all but `GenerateReleaseNotes.kt`/`TypeBridging.kt`, which direct diffing shows are ordinary D3 wrap-decision-flap instances, not a distinct D2a shape — misclassified by RDD_KEY_214's own text, left open under the separate D3 bucket). |
 | RDD_KEY_218 | `JetBrains/kotlin` dogfood cluster **D4** (minor adjacent-closing-brace spacing flap, sample hit `JsArgumentsImpl.kt`) — **FIXED, closes D4**: `BlockStructureRule.collapseBracelessBody` (the already-braceless multi-line-body collapse path exercised only on a reformat, once a prior pass had already stripped an enclosing `if`'s own braces) correctly excluded its enclosing scope's own terminating `}` from the rendered body but left the WHITESPACE token immediately preceding it inside `contents`, which `renderInline` then silently dropped (never emits trailing whitespace) — losing a source-preserved single space (`) }` → `)}`) on the second format pass; `tryCollapse`'s sibling braced-body path never has this loss since it lets the surrounding loop re-append a *different* piece of untouched whitespace verbatim instead of folding it into a render. Fixed by appending a trailing space when the token right before the enclosing `}` was WHITESPACE/NEWLINE. Also required correcting `real_code_regressions_33_out.kt` (a pre-existing fixture that had, by coincidence, already baked this same bug's buggy `)} as T` into its own recorded "expected" output — corrected to `) } as T`). Fixture `_168`. `make test` 216/216 forward + idempotency, zero regressions. |
 | RDD_KEY_219 | `JetBrains/kotlin` dogfood cluster **D1** (declaration/accessor column-alignment padding flap) — **PARTIALLY FIXED**: two independent group-width-recompute-instability root causes (RDD_KEY_139/140/162 family). (1) `KotlinDeclarationAlignmentRule.renderAlignedGroup` rendered surviving (non-excluded) rows as one flat shared-width grid even when an excluded, overflowing, brace-bodied-init row sat in the MIDDLE of the group — fixed by rendering surviving rows as maximal contiguous runs instead. (2) The analogous bug in shared `ScopePipelineCurly.applyGetterSetterPass` (Kotlin's one-liner expression-bodied function/accessor grouping) — fixed with new Kotlin-gated `renderKotlinFilteredRuns` helper, C/C++/Java untouched. **Known remaining gap, left open**: a third sub-shape where the offending member's own solo/raw width fits under the limit (so the raw-length parse-time pre-check never excludes it) but the group's own shared-column padding alone pushes it over — `KotlinGetterSetterRule` has no RDD_KEY_162-style budget-aware exclusion mechanism at all. D1's ~100-file estimate likely contains an unknown mix of all three sub-shapes; closure is partial. Fixture `_169`. `make test`: 217/217 forward + idempotency, zero regressions. |
 | RDD_KEY_220 | `JetBrains/kotlin` dogfood cluster **D1**, third sub-shape left open by RDD_KEY_219 — **FIXED, closes D1 fully**: group-padding-induced overflow in `KotlinGetterSetterRule`'s one-liner grouping (member's own raw width fits under `lineLengthLimit`, but shared-column padding alone pushes it over; pre-fix this was silently absorbed by a later `MiscRule.enforceCallLineBreaking` call-argument wrap). Fixed by porting RDD_KEY_162's fixed-point budget-exclusion loop into a new depth-aware 3-arg `GetterSetterRuleCurly.render`/`KotlinGetterSetterRule.render` override, gated on `GetterSetterRuleCore.hasBreakableCall`, reusing RDD_KEY_219's contiguous-run rendering for survivors; `depth` threaded through `ScopePipelineCurly.applyGetterSetterPass`/`renderKotlinFilteredRuns`. Fixture `_170`. `make test`: 218/218 → 219/219 forward + idempotency, zero regressions. |
@@ -166,305 +176,211 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 
 ## Checklist
 
-### Step 0 — Tokenizer Support (shared file, additive only)
+### Step 0 — Tokenizer Support (shared file, additive only) — DONE
 
-**Critical rule:** `TokenizerCore.java` is shared with C/C++/Java. Every
-addition must be additive and must not change existing token lexing.
-Re-run the full test suite after this step, before Step 1.
+`TokenizerCore.java` is shared with C/C++/Java; every addition below was
+additive, verified against the full C/C++/Java suite before/after each
+change (32/32, zero regressions throughout).
 
-- [x] Added to `MULTI_CHAR_OPS`: `?.`, `?:`, `!!`, `..<`, `..`
-      (longest-prefix-first, same rule as `...`/`->*`). `->` reused as-is;
-      `@` in labeled jumps needs no new entry (falls to `emitOperator`'s
-      fallback, spacing is Step 3's concern). **Bug found/fixed:**
-      `emitNumber()` consumed every `.` unconditionally, so `1..10` lexed as
-      one bogus `NUMBER`; fixed by stopping consumption when a `.` is
-      followed by another `.`. Verified via `TokenizerCore` dump, `make test`
-      25/25 unaffected.
-- [x] Added Kotlin keyword set `KEYWORDS_KOTLIN` (hard + modifier/soft
-      keywords, unconditionally reserved, same simplification as Java's
-      `var`/`record`).
-- [x] Added `NAMED_CONSTRUCT_KOTLIN` = `class`, `object`, `interface`,
-      `enum`, `init`. `companion object`/`enum class` special-casing and
-      `computeConstructName()` lookback per shape deferred to Step 1.
-- [x] Re-ran full C/C++/Java suite: **25/25 pass, zero regressions**.
-- [x] **Follow-up (§13 cross-check):** added `"in"`/`"out"` to
-      `GENERIC_SAFE_KEYWORDS` so `reclassifyAngleBrackets` treats
-      declaration-site variance (`Box<out T>`, `Comparable<in T>`) as a
-      generic pair not a comparison. No-op for C/C++/Java. `make test` 32/32
-      before/after. RDD_KEY_113.
-- [x] **Follow-up (§19 cross-check):** added Kotlin-only interpolation-aware
-      string scan (`skipKotlinString`/`skipKotlinInterpolationBlock`/
-      `skipKotlinChar`) inside `emitString()`, gated `lang.isKotlin` — the
-      shared naive scan-to-next-`"` misread a nested string inside `${...}`
-      (`"${foo("x")}"`) as three tokens instead of one. Depth-tracks
-      `${...}`'s own `{`/`}` nesting, recurses for nested literals
-      arbitrarily deep. Non-Kotlin scan untouched. `make test` 32/32
-      before/after. RDD_KEY_116.
-- [x] **Follow-up (row 19.1, investigated on request):** added Kotlin-only
-      raw-string support (`isKotlinRawStringOpener`/`emitKotlinRawString`/
-      `skipKotlinRawString`), checked before the plain-`"` and C/C++
-      raw-string-prefix branches. Naive path mis-lexed `"""..."""` into
-      multiple STRING/IDENTIFIER tokens and leaked a spurious `NEWLINE` on
-      multi-line ones. No backslash-escape processing (literal `\` by
-      design); terminates greedily at first `"""`, matching the real
-      compiler. `skipKotlinInterpolationBlock` extended for nested raw
-      strings inside interpolation. Non-Kotlin paths untouched. `make test`
-      32/32 before/after. RDD_KEY_117.
+- [x] `MULTI_CHAR_OPS`: `?.`, `?:`, `!!`, `..<`, `..` added (longest-prefix
+      rule). Bug found/fixed: `emitNumber()` consumed every `.`
+      unconditionally, misreading `1..10` as one bogus `NUMBER` — fixed by
+      stopping consumption when a `.` is followed by another `.`.
+- [x] `KEYWORDS_KOTLIN` keyword set added (hard + modifier/soft keywords).
+- [x] `NAMED_CONSTRUCT_KOTLIN` = `class`, `object`, `interface`, `enum`,
+      `init` (special-casing deferred to Step 1).
+- [x] §13: `GENERIC_SAFE_KEYWORDS` extended with `in`/`out` so
+      `reclassifyAngleBrackets` treats declaration-site variance
+      (`Box<out T>`) as a generic pair, not a comparison. RDD_KEY_113.
+- [x] §19: Kotlin-only interpolation-aware string scan
+      (`skipKotlinString`/`skipKotlinInterpolationBlock`/`skipKotlinChar`)
+      inside `emitString()` — the shared naive scan misread a nested string
+      inside `${...}` as three tokens instead of one. RDD_KEY_116.
+- [x] §19.1: Kotlin-only raw-string support (`isKotlinRawStringOpener`/
+      `emitKotlinRawString`/`skipKotlinRawString`) for `"""..."""`, checked
+      ahead of the plain-`"` and C/C++ raw-string branches. No
+      backslash-escape processing by design; terminates greedily at first
+      `"""` (later found insufficient for a 4+-quote trailing run — see
+      RDD_KEY_213). RDD_KEY_117.
 
-### Step 1 — Scoping Pass (mirrors `JavaSpecificRule.java`'s own scoping, RDD_KEY_59)
+### Step 1 — Scoping Pass (mirrors `JavaSpecificRule.java`, RDD_KEY_59) — DONE
 
-- [x] Cross-checked every section of `STYLE_KOTLIN.md`/`STYLE_KOTLIN2.md`
-      against the already-COMPLETE shared rule classes
-      (`DeclarationAlignmentRule`, `BlockStructureRule`, `SwitchRule`,
-      `GetterSetterRule`, `MiscRule`) to determine, per section: (a) already
-      satisfied as-is once Step 0 lands, (b) satisfied by a small additive
-      shared-class extension, or (c) needs a new method in
-      `KotlinSpecificRule.java`. Table below.
-- [x] Flagged shared-class *behavior* changes (not just additions) — see
-      **Open Questions**: `DeclarationAlignmentRule`'s `Declaration` model
-      assumes C/Java's `[modifiers] Type name [= init]` order, structurally
-      reversed from Kotlin's `[modifiers] val/var name : Type [= init]`.
-      Stopped here rather than guessing a direction.
+Every section of `STYLE_KOTLIN.md`/`STYLE_KOTLIN2.md` was cross-checked
+against the already-complete shared rule classes and classified: (a)
+already satisfied as-is, (b) small additive shared-class extension, or (c)
+new method in `KotlinSpecificRule.java`. One flagged shared-class-behavior
+issue is in Open Questions history: `DeclarationAlignmentRule`'s
+`Declaration` model assumes C/Java's `[modifiers] Type name [= init]`
+order, structurally reversed from Kotlin's `[modifiers] val/var name :
+Type [= init]` — resolved by writing `KotlinDeclarationAlignmentRule` as
+its own model rather than forcing the shared one (RDD_KEY_103).
 
-**Scoping table** (section numbers match `STYLE_KOTLIN.md`; `K2.N` = `STYLE_KOTLIN2.md` §N):
+**Scoping table** (section numbers match `STYLE_KOTLIN.md`; `K2.N` = `STYLE_KOTLIN2.md` §N). All DONE/verified; RDD_KEY column is authoritative detail.
 
-| § | Topic | Outcome | Notes |
+| § | Topic | Outcome | RDD_KEY |
 |---|---|---|---|
-| 1 | Semicolons (strip optional `;`) | (c), **done** | No shared class strips statement-terminating `;` for any language — Kotlin-only `KotlinSpecificRule.stripOptionalSemicolons`. See RDD_KEY_115 for the rewrite from an earlier flawed version. |
-| 2 | `enum class` with members | (a)/(c), **done** | `BlockStructureRule.classifyNamed`'s "keyword before `class` is `enum`" check already labels the closing comment for free once `enum`/`class` are Kotlin keywords. Body-open/close blank lines already free via `insertNamedConstructBlankLines`. Blank-line emphasis around the entry-list-terminating `;` needed new `KotlinSpecificRule.separateEnumConstantListTerminator`, mirroring the Java equivalent. RDD_KEY_111. |
-| 3 | Brace style (Allman fn bodies / K&R everything else) | (a) K&R direction **verified**; (c) Allman-conversion direction **done** | `BlockStructureRule.qualifiesForKAndR`'s keyword sets already cover Kotlin's vocabulary. Function-body K&R→Allman needed new `KotlinSpecificRule.enforceFunctionDefinitionAllmanBraceStyle` (backward scan to `fun`/`constructor`, more conservative than Java/C++ since a trailing-lambda call is token-shape-identical to a function body brace and there's no `new` to rule calls out). Also handles `: ReturnType` between `)` and `{`, and a one-liner body staying K&R (RDD_KEY_75/RDD_KEY_89 exception). RDD_KEY_114. |
-| 3.1 | Class/Object/Companion Object bodies | (b), **done** | Named constructs already worked; the headless gap (anonymous `companion object {}`, anonymous `object : Interface {}`, `init {}`) fixed via RDD_KEY_99 (`BlockStructureRule.classifyKotlinHeadlessNamed`, gated by `Lang.isKotlin`), which also fixed a related tokenizer bug (`:` wrongly arming a supertype identifier as the construct name). |
-| 3.2 | `catch`/`for`/`while`/`when` no space before `(` | (b), **done** | Added `"when"` to `MiscRule.TIGHT_PAREN_KEYWORDS`. No-op for C/C++/Java. RDD_KEY_100. |
-| 3.3 | Secondary constructors (Allman body) | (c), **done** | Covered by the same §3 method — a secondary constructor is recognized by the token before `(` being `constructor` itself. Verified via harness. RDD_KEY_114. |
-| 3.4 | `init` blocks | (b), **done** | Same headless-named-construct fix as §3.1 — `init {}` returns `"init"` from `classifyKotlinHeadlessNamed`. RDD_KEY_99. |
-| 4 | `when` expression (arrow alignment, closing comment, blank lines) | (c) | `SwitchRule.java` is colon-form-statement-only (STYLE.md §13), unrelated; `JavaSpecificRule.enforceSwitchExpressionArrowAlignment`'s `case`/`default`-keyword scan and all-or-nothing bailout don't fit Kotlin's keyword-less, non-all-or-nothing `when` — new `KotlinSpecificRule.formatWhenExpressions`. RDD_KEY_101. Idempotency bug fixed under RDD_KEY_121 (root cause was `KotlinDeclarationAlignmentRule`, not this method). |
-| 5 | Null-safety operators (`?.`/`!!` tight, `?:` spaced) | (c), **done** | New `KotlinSpecificRule.enforceNullSafetyOperatorSpacing`, flat whole-file pass. RDD_KEY_102. |
-| 6 | Variable/property declaration alignment | (c), **done** | New `KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule` (loosen-then-extend, not an independent parser). Reuses several protected-raised helpers plus `ColumnGrid`/`KotlinModifierPriority`; writes its own `KotlinDecl` model, statement splitter, parser, group renderer. RDD_KEY_103. |
-| 7 | Constructor/function parameter lists | (c), **done** | Same reversed-grammar issue as §6, in `MiscRule.Param`/`Signature`. New `KotlinSignatureRule extends MiscRule`, same pattern as §6. RDD_KEY_104. |
-| 7.1 | Named/default arguments (`=` spacing/alignment) | (c), **done for declarations** | Folded into §7's parser/renderer — a default value is one more optional trailing part. **Not covered:** the call-site named-argument shape (`foo(x = 1, y = 2)`) is a function *call*, different token shape — out of `KotlinSignature`'s scope; would need its own small parser/renderer if picked up later. |
-| 7.2 | Trailing comma (preserved as-is) | (a), **verified** | No pass adds/strips a trailing comma for any language — trivially satisfied. Confirmed via harness: `fun foo(x: Int,)` round-trips correctly. |
-| 8 | Property accessors (`get`/`set`, preserve expression/block form) | (a)/(c), **done for the plain expression-bodied getter shape (RDD_KEY_133); block-bodied/setter/initializer shapes remain preserve-as-written-only** | "Preserve as-is" satisfied by not touching it. `BlockStructureRule.collapseSingleExpressionBlocks`'s `SINGLE_EXPR_KEYWORDS` (`{if, while, for}`) never matches an accessor's block body — confirmed via harness both a block-bodied `set(v) { field = v }` and expression-bodied `get() = computeY()` stay untouched. **Grouping fixed under RDD_KEY_133** for the plain getter-only shape: `parseKotlinAccessorMember`/`renderAccessorGroup` in `KotlinGetterSetterRule.java` merges an adjacent group of `val x: Int` / `get() = expr` two-line units onto one line each, column-aligned. Block-bodied accessors, getter+setter pairs, and initializer+accessor properties remain unhandled but correctly preserved-as-written. See Open Questions. |
-| 9 | Expression-bodied functions | (a)/(c), **done, including grouping** | "Preserve as-is" free (same reasoning as §8). Wrap-`= expr`-onto-own-line implemented as `KotlinSignatureRule.FunctionTail`/`parseFunctionTail`/`renderWithTail`, three-tier fallback delegating to §7's `render` for the middle tier. Also fixed a shared-class bug: `MiscRule.isTightToken` was collapsing Kotlin multiplication spacing (`x* x`), gated off for Kotlin. RDD_KEY_112. **Grouping fixed under RDD_KEY_132**: `KotlinGetterSetterRule` column-aligns adjacent one-liner expression-bodied functions. §8's accessor one-liners were a separate gap, resolved by RDD_KEY_133. |
-| 10 | `for` loops and ranges | (a)/(c), **done** | Tight/loose paren-padding already generic (`ComplexityPaddingEvaluator`); `in`/`until`/`downTo`/`step` turned out already inert w.r.t. nested-bracket detection with zero code changes (confirmed via harness, reclassified (b)→(a)). `..`/`..<`'s own tight spacing needed new `KotlinSpecificRule.enforceRangeOperatorSpacing`. RDD_KEY_110. |
-| 11 | Labeled jumps (`@label` spacing) | (c), **done** | New `KotlinSpecificRule.enforceLabeledJumpSpacing` — a left-to-right state machine telling a jump's `@label` (tight both sides) apart from a declaration's `label@` (tight before, spaced after) apart from an unrelated `@Foo` annotation. RDD_KEY_105. |
-| 12 | Destructuring declarations | (c), **done** | LHS is a parenthesized name list (`(a, b) = pair`), not `MiscRule.Assignment`'s single-`target` assumption — implemented in `KotlinDeclarationAlignmentRule.java` (reuses §6 infrastructure). Comma spacing normalized for free as a side effect of rebuilding `lhsText`. RDD_KEY_107; group-stream merge revised under RDD_KEY_126 (merges into the same column-aligned group as an adjacent §6 declaration, C++ structured-bindings precedent). |
-| 13 | Generics variance (`in`/`out`) | (b), **done** | `TokenizerCore.GENERIC_SAFE_KEYWORDS` extended — confirmed via harness these were previously misread as comparison `OP` tokens, now correctly angle-bracket tokens; plain comparisons unaffected. No-op for C/C++/Java. Tokenizer-level, no rendering pass needed. RDD_KEY_113. |
-| 14 | Generic `where` clause | (c), **done** | Structural analog exists in `CppSpecificRule.java`'s trailing-`requires`-clause handling (a per-language file, not shared) — new `KotlinSpecificRule.enforceWhereClausePlacement`, using the C++ method as a reference pattern. RDD_KEY_106. |
-| 15 | Infix functions (modifier slot; call-site spacing) | (a), **verified** | Modifier slot is Step 2 scope. Call-site word-operator spacing is ordinary expression spacing, already left alone by every shared class. Confirmed via harness. |
-| 16 | Annotation use-site targets (`@field:` tight `:`) | (c), **done** | No existing annotation-colon handling (Java has no use-site-target shape) — new `KotlinSpecificRule.enforceAnnotationUseSiteTargetSpacing`. RDD_KEY_108. |
-| 17 | Lambda-with-receiver / function types (exempt from nesting detector) | (b), **done** | `ComplexityPaddingEvaluator.isLoose` extended to skip a `.`-preceded/`->`-followed `(...)` span rather than counting it as nesting — no-op for C/C++/Java, `make test` 32/32. Known Gap (function type nested as a parameter of another) deliberately unhandled per the style doc. RDD_KEY_109. |
-| 17.1 | Lambda parameter arrow spacing | (c), **done** | New `KotlinSpecificRule.enforceArrowSpacing` — flat whole-file single-space-both-sides pass over every `->`, covering §17 and §17.1 together. Excludes `when`-branch arrows via `collectWhenBranchArrowIndices` (owned by §4). RDD_KEY_109. |
-| 18 | `vararg` | (a), **verified** | Modifier-slot handling is Step 2 scope; no general spacing concern. Confirmed via harness inert to every brace-style pass. |
-| 19 | String templates (preserve `"$x"`/`"${x}"` exactly) | (c) — **tokenizer-level, done** | Confirmed the flagged risk was real (see RDD_KEY_116). Bare `$x` needed no special handling — introduces no nesting risk. Triple-quoted raw strings flagged as a related but out-of-scope gap — see row 19.1. |
-| 19.1 | Triple-quoted raw strings (`"""..."""`) | (c) — **tokenizer-level, done** | Investigated on explicit request; confirmed badly broken, not merely unhandled (see RDD_KEY_117). Verified via a 14-case harness (embedded quote runs, multi-line, literal backslash, plain/nested/doubly-nested interpolation, 4-trailing-quotes edge case, unterminated input, plus Java text block / C++ raw string / plain C string sanity checks all untouched). `make test` 32/32 before/after. |
-| 20 | Sealed classes/interfaces | (a), **verified** | Normal `class`/`object` K&R rules apply unchanged. Confirmed via harness: `sealed class Result { ... }` gets the same K&R brace + closing comment as a plain `class`. |
-| 21 | Type aliases | (a), **verified** | Single-line `=`-spaced statement, no new behavior. Confirmed via harness. |
-| 22 | Extension functions | (a), **verified** | `fun` behaves like any other modifier/keyword for spacing. Confirmed via harness: `KotlinSignatureRule.parseKotlinSignature` correctly parses `fun String.reverseWords()` — the receiver-type-before-name shape needs no special-casing beyond §7's existing name-detection. |
-| 23 | Known Gaps | (a), excluded | Explicitly out of scope, same posture as STYLE_JAVA.md's own excluded section (RDD_KEY_59). |
-| K2.1 | Guard conditions in `when` | (a), **verified** | Extends §4's arrow-alignment logic as-is per the style doc — confirmed via harness `formatWhenExpressions` already handles a guarded branch (`is String if x.isNotEmpty() -> foo()`) correctly with zero code changes, since the guard text is scanned up to the first top-level `->` like any label. Output matched STYLE_KOTLIN2.md §1's worked example byte-for-byte, including multi-guarded-branch alignment. |
-| K2.2 | `data object` | (a), **verified** | Formatted exactly like `object` — a *named* `data object Singleton { ... }` is an ordinary named construct with an extra leading modifier, not a headless shape. Confirmed via harness: gets the same blank lines + closing comment as any other named `object`. |
-| K2.3 | Other 2.0/2.1 features | (a), excluded | Explicitly "no new formatting rules" in the style doc. |
+| 1 | Semicolons (strip optional `;`) | (c) done, Kotlin-only `stripOptionalSemicolons` | 115 |
+| 2 | `enum class` with members | (a)/(c) done — closing comment free from `classifyNamed`; blank-line emphasis around terminating `;` new | 111 |
+| 3 | Brace style (Allman fn bodies / K&R else) | (a) K&R verified; (c) Allman-conversion done, conservative `fun`/`constructor`-anchored scan | 114 |
+| 3.1 | Class/Object/Companion Object bodies | (b) done — headless gap (`companion object {}`, `object : I {}`, `init {}`) + a `:` supertype tokenizer bug | 99 |
+| 3.2 | `catch`/`for`/`while`/`when` no space before `(` | (b) done — `"when"` added to `TIGHT_PAREN_KEYWORDS` | 100 |
+| 3.3 | Secondary constructors (Allman body) | (c) done — same method as §3, keyed off `constructor` | 114 |
+| 3.4 | `init` blocks | (b) done — same headless fix as §3.1 | 99 |
+| 4 | `when` expression (arrow alignment, closing comment, blank lines) | (c) done, new `KotlinSpecificRule.formatWhenExpressions` (idempotency fix RDD_KEY_121) | 101 |
+| 5 | Null-safety operators (`?.`/`!!` tight, `?:` spaced) | (c) done, flat whole-file pass | 102 |
+| 6 | Variable/property declaration alignment | (c) done, `KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule` (loosen-then-extend) | 103 |
+| 7 | Constructor/function parameter lists | (c) done, `KotlinSignatureRule extends MiscRule`, same pattern as §6 | 104 |
+| 7.1 | Named/default arguments (`=` spacing/alignment) | (c) done for declarations only; call-site named args (`foo(x = 1)`) out of scope, different token shape | 104 |
+| 7.2 | Trailing comma (preserved as-is) | (a) verified — no pass adds/strips one | — |
+| 8 | Property accessors (`get`/`set`) | (a)/(c) — preserve-as-is default; plain expression-bodied-getter grouping done (RDD_KEY_133); block-bodied/setter/initializer shapes remain preserve-as-written-only (open gap) | 132/133 |
+| 9 | Expression-bodied functions | (a)/(c) done incl. grouping — `FunctionTail`/`parseFunctionTail`/`renderWithTail`; shared fix `MiscRule.isTightToken` gated off for Kotlin `*`/`&` | 112, grouping 132 |
+| 10 | `for` loops and ranges | (a)/(c) done — `in`/`until`/`downTo`/`step` already inert; `..`/`..<` tight spacing new | 110 |
+| 11 | Labeled jumps (`@label` spacing) | (c) done, state machine distinguishing jump-`@label`/decl-`label@`/`@Annotation` | 105 |
+| 12 | Destructuring declarations | (c) done in `KotlinDeclarationAlignmentRule`, merged into §6's group stream | 107, revised 126 |
+| 13 | Generics variance (`in`/`out`) | (b) done, tokenizer-level only | 113 |
+| 14 | Generic `where` clause | (c) done, mirrors C++'s trailing-`requires` handling | 106 |
+| 15 | Infix functions (call-site spacing) | (a) verified, ordinary expression spacing | — |
+| 16 | Annotation use-site targets (`@field:` tight `:`) | (c) done | 108 |
+| 17 | Lambda-with-receiver / function types (nesting exemption) | (b) done, `ComplexityPaddingEvaluator.isLoose` extended, no-op C/C++/Java | 109 |
+| 17.1 | Lambda parameter arrow spacing | (c) done, flat whole-file pass, excludes `when`-arrow via §4's helper | 109 |
+| 18 | `vararg` | (a) verified, modifier-slot only | — |
+| 19 | String templates (preserve `"$x"`/`"${x}"`) | (c) tokenizer-level done | 116 |
+| 19.1 | Triple-quoted raw strings | (c) tokenizer-level done, verified via 14-case harness | 117 |
+| 20 | Sealed classes/interfaces | (a) verified, ordinary K&R rules apply | — |
+| 21 | Type aliases | (a) verified | — |
+| 22 | Extension functions | (a) verified — `fun String.reverseWords()` receiver-type shape needs no special-casing | — |
+| 23 | Known Gaps | (a) excluded, same posture as STYLE_JAVA.md's own excluded section | — |
+| K2.1 | Guard conditions in `when` | (a) verified, extends §4 as-is, matches style doc's worked example byte-for-byte | — |
+| K2.2 | `data object` | (a) verified, formatted exactly like `object` | — |
+| K2.3 | Other 2.0/2.1 features | (a) excluded, no new formatting rules per style doc | — |
 
-### Step 2 — `KotlinModifierPriority.java`
+### Step 2 — `KotlinModifierPriority.java` — DONE
 
-- [x] Column order for Kotlin's modifier set (`public/private/protected/
-      internal`, `open/final/abstract/sealed`, `override`, `const`,
-      `lateinit`, `val`/`var` sharing one slot per STYLE_KOTLIN.md §6) —
-      confirmed no cross-declaration-kind conflict analogous to Java's
-      `abstract`/`volatile` case (RDD_KEY_83): `const` (properties only),
-      `lateinit` (var properties only), `override` (members only), and
-      `open`/`final`/`abstract`/`sealed` (mutually exclusive modality) never
-      fight over column order across declaration kinds. Implemented as
-      `grid/KotlinModifierPriority.java`: columns 0 (visibility) / 1
-      (modality, shared) / 2 (`override`) / 3 (`const`) / 4 (`lateinit`) / 5
-      (`val`/`var`, shared). Compiles clean standalone; wiring into rule
-      classes is Step 3's job.
+- [x] Column order for Kotlin's modifier set (visibility, modality,
+      `override`, `const`, `lateinit`, `val`/`var`). Confirmed no
+      cross-declaration-kind conflict analogous to Java's `abstract`/
+      `volatile` case (RDD_KEY_83) — `const`/`lateinit`/`override`/modality
+      never fight over column order across declaration kinds. Implemented
+      as `grid/KotlinModifierPriority.java`: columns 0 (visibility) / 1
+      (modality) / 2 (`override`) / 3 (`const`) / 4 (`lateinit`) / 5
+      (`val`/`var`).
 
-### Step 3 — `KotlinSpecificRule.java`
+### Step 3 — `KotlinSpecificRule.java` — DONE
 
-- [x] Implemented each "(c)"-flagged section from Step 1's scoping table,
-      one per checkpoint commit. §8/§9 one-liner getter/setter grouping: §9
-      fixed via `KotlinGetterSetterRule` (RDD_KEY_132), §8 fixed via the
-      same class (RDD_KEY_133) — block-bodied/setter/initializer accessor
-      shapes remain an open, documented gap (see Open Questions). Every
-      other flagged section done.
+Every "(c)"-flagged section from Step 1 implemented, one per checkpoint
+commit; per-section RDD_KEY mapping is the Step 1 scoping table above. Only
+remaining documented gap: §8 block-bodied accessors, getter+setter pairs,
+and initializer+accessor properties are preserved-as-written but not
+grouped (see Open Questions).
 
-Implementation/verification narratives in `RDD_LOG.md` (`grep -Fm1
-'RDD_KEY_n'`), not duplicated here. Per-section RDD_KEY mapping (see Step 1
-scoping table above for full detail): §1 RDD_KEY_115 (supersedes flawed
-`b0e778f`); §3.1/§3.4 RDD_KEY_99; §3.2 RDD_KEY_100; §4 RDD_KEY_101
-(idempotency fix RDD_KEY_121); §5 RDD_KEY_102; §6
-`KotlinDeclarationAlignmentRule extends DeclarationAlignmentRule` RDD_KEY_103;
-§7/§7.1 `KotlinSignatureRule extends MiscRule` RDD_KEY_104 (call-site named
-args `foo(x = 1, y = 2)` not covered — different shape); §11 RDD_KEY_105;
-§14 RDD_KEY_106; §12 RDD_KEY_107, revised RDD_KEY_126 (merges into adjacent
-§6 alignment group, C++ structured-bindings precedent, per user request);
-§16 RDD_KEY_108; §17/§17.1 RDD_KEY_109 (shared-class change:
-`ComplexityPaddingEvaluator.isLoose`); §10 RDD_KEY_110; §2 RDD_KEY_111; §9
-RDD_KEY_112 (shared-class change: `MiscRule.isTightToken` gated off for
-Kotlin `*`/`&`); §3/§3.3 RDD_KEY_114; §19/§19.1 tokenizer-level RDD_KEY_116,
-RDD_KEY_117; §8/§9 one-liner getter/setter grouping — new
-`KotlinGetterSetterRule extends GetterSetterRule`, §9 RDD_KEY_132, §8 (plain
-expression-bodied `get()`, no initializer, no `set`) RDD_KEY_133.
-Block-bodied accessors, getter+setter pairs, and initializer+accessor
-properties remain unhandled (preserved as written, not grouped) — see Open
-Questions.
+### Step 3.5 — Configuration Property Wiring — DONE
 
-### Step 3.5 — Configuration Property Wiring
+Pipeline fully wired and verified live — `Main.java` `inferLanguage`
+auto-detects `.kt`/`.kts`, `Formatter.java` runs every Kotlin rule class
+through the same pipeline as Java/C++. Config uses `.jxmake-code-formatter`
+`key=value` format; boolean keys accept `on`/`off` only.
 
-Pipeline is fully wired (verified live) — `Main.java` `inferLanguage`
-auto-detects `.kt`/`.kts`, `Formatter.java` constructs and runs every Kotlin
-rule class through the same pipeline as Java/C++. Config uses
-`.jxmake-code-formatter`, `key=value` format (not YAML); boolean keys accept
-`on`/`off` only, not `true`/`false`.
-
-- [x] `line-length`/`indent-size`/`indent-style`: wired, same behavior as
-      Java/C++. See `STATE_COMMON.md` → **Config Keys and Defaults** for the
-      full config table (shared across all four languages).
-- [x] `closing-comment-min-lines`: wired via shared `BlockStructureRule`.
-- [x] `format-macros`: permanent no-op for Kotlin (no preprocessor) — not a gap.
-- [x] `line-endings`: language-agnostic, applied post-format in `Main.java`.
-- [x] `normalize-comment-start-case`/`normalize-comment-end-period`: wired,
-      same cross-language behavior as Java (line comments not end-period-normalized).
-- [x] Kotlin import ordering — STYLE_KOTLIN.md §24 spec + implementation:
-      `kotlin-import-order`/`-sort`/`-depth`/`-blank-lines` config keys,
-      `KotlinSpecificRule.enforceKotlinImportOrdering` (mirrors
-      `JavaSpecificRule.enforceImportOrdering`; no `static` bucket — replaced
-      by a `kotlin` group, since Kotlin has no `import static` keyword;
+- [x] `line-length`/`indent-size`/`indent-style` — same behavior as
+      Java/C++, see `STATE_COMMON.md` → Config Keys and Defaults.
+- [x] `closing-comment-min-lines` — wired via shared `BlockStructureRule`.
+- [x] `format-macros` — permanent no-op for Kotlin (no preprocessor).
+- [x] `line-endings` — language-agnostic, applied post-format in `Main.java`.
+- [x] `normalize-comment-start-case`/`normalize-comment-end-period` — wired,
+      same cross-language behavior as Java.
+- [x] Kotlin import ordering (§24): `kotlin-import-order`/`-sort`/`-depth`/
+      `-blank-lines` config keys, `KotlinSpecificRule.enforceKotlinImportOrdering`
+      (mirrors Java's; no `static` bucket, replaced by a `kotlin` group;
       aliased/wildcard imports sort by original qualified name). RDD_KEY_118.
-      Not yet wired into `Formatter.formatOne`.
-- [x] JXM_CFMT_DIS/JXM_CFMT_ENA + `--format-off`: confirmed working for
-      Kotlin, language-generic implementation, no gap.
-- [x] README.md/README.txt updated for Kotlin support (config keys, import
-      groups, `.kt`/`.kts` detection, stale "not implemented" notes corrected).
+      Verified standalone; not yet wired into `Formatter.formatOne`.
+- [x] JXM_CFMT_DIS/ENA + `--format-off` — confirmed working, language-generic.
+- [x] README.md/README.txt updated for Kotlin support.
 
-### Step 4 — Test Fixtures
+### Step 4 — Test Fixtures — DONE
 
-**DONE — both `kt_combined_inp.kt`/`kt_combined_out.kt` and
-`kt_comments_inp.kt`/`kt_comments_out.kt` fully pass, both enabled in the
-`Makefile`.**
+Both `kt_combined_inp.kt`/`kt_combined_out.kt` and `kt_comments_inp.kt`/
+`kt_comments_out.kt` fully pass, both enabled in the `Makefile`.
+**Fixtures are handwritten and may have syntax errors — confirm with the
+user as needed.** Methodology: format the input, diff against the
+reference to find bugs, plus an idempotency check (output re-run through
+the formatter should be unchanged).
 
-**Fixtures are handwritten and may have syntax errors — confirm with the user
-as needed.**
+- [x] `kt_combined_inp/out.kt` — STYLE_KOTLIN.md + STYLE_KOTLIN2.md
+      end-to-end coverage. Round-trips clean, forward + idempotency. 9
+      punch-list bugs found, all resolved (see below); 2 non-bugs (fixture
+      naming ambiguity, intentional trailing whitespace on EOF blank line)
+      left as-is.
+- [x] `kt_comments_inp/out.kt` — uncommon comment locations +
+      JXM_CFMT_DIS/ENA. 4 bugs found, all resolved (RDD_KEY_131).
+- [x] **`make test` 36/36** (34 prior C/C++/Java + real_code_regressions
+      fixtures, plus both Kotlin fixtures, forward and idempotency both
+      green).
 
-`test/kt_combined_inp.kt`/`kt_combined_out.kt` capture STYLE_KOTLIN.md +
-STYLE_KOTLIN2.md end-to-end coverage. `test/kt_comments_inp.kt`/
-`kt_comments_out.kt` capture uncommon comment locations + JXM_CFMT_DIS/ENA.
+**`kt_combined` punch list** (all resolved, one-line summary each):
+1. Missing blank line/closing comment on `class`/`enum class` with primary
+   constructor — RDD_KEY_119 (tokenizer, Kotlin-gated).
+2. `for(...) { stmt }` not collapsing (no `;` to count) — RDD_KEY_120.
+3. `when(status) { ... }` squished/mis-indented — `parseKotlinDeclaration`
+   stripped newlines from a multi-line block-expression initializer —
+   RDD_KEY_121.
+4. Fixture typo (`int`→`Int`), fixed by user, not a formatter bug.
+5. `result1`/`result2` run-together — fixture ambiguity, fixed by user.
+6. Apparent double-indentation — stray test-harness `indent-size=8`
+   artifact, not a bug. RDD_KEY_122 fixed a real separate bug in the same
+   area (`set(value) { ... }` accessor closing-brace indent).
+7. `val safe = ...` spacing/alignment near the `when` fix — two parts:
+   missing space in `.let{ }` (RDD_KEY_123) and column-alignment with a
+   following destructuring line (RDD_KEY_126, reverses RDD_KEY_107).
+8. `if(...) return@X` / `if(...) expr` braceless collapse not firing —
+   RDD_KEY_124 (main case), RDD_KEY_127 (bare `else`), RDD_KEY_128
+   (collapsed-`else` column padding).
+9. Explicit-return-type functions missing blank-line-before-`return` —
+   RDD_KEY_125 (`isFunctionBodyBrace` didn't recognize `: ReturnType`;
+   also surfaced an unrelated C++ `->`-scan ordering bug).
 
-`kt_*_inp.kt` = input files; `kt_*_out.kt` = reference output. Methodology:
-run the formatter on the input, diff the `/tmp` output against the reference
-to find bugs, and also run an idempotency test (output re-run through the
-formatter should be unchanged).
+**`kt_comments` punch list** (all resolved, RDD_KEY_131):
+1. Missing blank line before a comment-led `when` branch —
+   `ensureBlankLineInGap` replaced with `SwitchRule`'s comment-anchored version.
+2. Missing blank line before a comment-led `return` — Kotlin-only carve-out
+   in `MiscRule.insertBlankLineBeforeReturn`.
+3. Leading blank line inside a body not stripped when first statement
+   isn't a declaration — new `stripLeadingBlankBeforeNonDeclarationStatement`.
+4. Outermost class missing closing blank line + comment — an unrelated
+   frozen (JXM_CFMT_DIS/ENA) region nested inside suppressed the outer
+   class's own blank line/comment; shared-class fix, also fixed a latent
+   identical bug in `java_format_toggle_out.java`.
 
-- [x] `test/kt_combined_inp.kt` / `kt_combined_out.kt` — **DONE.** Enabled in
-      the `Makefile`'s `INP_FILES`; round-trips clean, both forward
-      (`inp`→`out`) and idempotency (`out`→`out`) passes. Every punch-list
-      item below is resolved except item 2 (`result1`/`result2` fixture
-      naming, resolved by the user directly in the fixture, not a formatter
-      change) and item 4 (trailing whitespace on the EOF blank line,
-      intentional test content, not a bug).
-- [x] `test/kt_comments_inp.kt` / `test/kt_comments_out.kt` — **DONE.**
-      Enabled in the `Makefile`'s `INP_FILES`. All four bugs found by the
-      earlier manual check were root-caused and fixed; round-trips clean,
-      both passes. See punch list below. RDD_KEY_131.
-- [x] After every fixture addition or shared-class change: full existing
-      C/C++/Java suite + new Kotlin fixtures, zero regressions. **`make test`
-      36/36** (34 prior C/C++/Java + real_code_regressions fixtures, plus
-      `kt_combined_inp.kt` and `kt_comments_inp.kt`, forward and idempotency
-      passes both green).
+---
 
-**Step 4 known-bugs punch list** (against `test/kt_combined_inp.kt` /
-`kt_combined_out.kt`) — all resolved. Full narratives in `RDD_LOG.md`;
-one-line summary each:
+## Step 5 — Dogfood / Real-Code Testing
 
-1. [x] Missing blank line/closing comment on `class`/`enum class` with a
-   primary constructor. RDD_KEY_119 (tokenizer, Kotlin-gated).
-2. [x] `for(...) { stmt }` not collapsing (no `;` to count). RDD_KEY_120.
-3. [x] `when(status) { ... }` squished/mis-indented — `KotlinDeclarationAlignmentRule.
-   parseKotlinDeclaration` stripped newlines from a multi-line
-   block-expression initializer. RDD_KEY_121.
-4. [x] `fun test(): int` — fixture typo (`int`→`Int`), fixed by the user, not
-   a formatter bug.
-5. Lines 88-90 (`val result`/`val result` run-together) — fixture ambiguity,
-   later fixed by the user (`result1`/`result2` rename), not touched here.
-6. [x] Apparent double-indentation of a body's first `val`/`var` — stray
-   leftover `/tmp/kt_test/.jxmake-code-formatter` (`indent-size=8`)
-   test-harness artifact, not a bug. RDD_KEY_122 fixed a real separate bug
-   in the same area (`set(value) { ... }` accessor closing-brace indent).
-7. [x] `val safe = ...` spacing/alignment near the `when` fix — two parts:
-   missing space in `.let{ }` (RDD_KEY_123, Kotlin-gated
-   `DeclarationAlignmentRule.needsSpaceBetween`), and column-alignment with
-   the following `val (a, b) = ...` destructuring line (RDD_KEY_126 —
-   reverses RDD_KEY_107's "never merged" decision, C++ structured-bindings
-   precedent).
-8. [x] `if(...) return@X` / `if(...) expr` braceless collapse not firing.
-   RDD_KEY_124 (main case), RDD_KEY_127 (bare `else` collapse), RDD_KEY_128
-   (collapsed `else` body column-padding, new `KotlinSpecificRule.
-   alignBracelessElseWithIf` pass).
-9. [x] Explicit-return-type functions (`fun foo(...): Int { ... }`) missing
-   STYLE.md §9's blank-line-before-`return`. RDD_KEY_125
-   (`MiscRule.isFunctionBodyBrace` didn't recognize Kotlin's `: ReturnType`
-   shape; also surfaced/fixed an unrelated C++ `->`-scan ordering bug).
+**Status: dogfood tree now compiles clean end-to-end — Step 5's core goal
+is met.** Any future session picking this up should treat it as
+regression-watching / further polish, not a known-broken state. Only open
+item: bucket D3 (see "Dogfood: JetBrains/kotlin" below).
 
-**Step 4 known-bugs punch list** (against `test/kt_comments_inp.kt` /
-`kt_comments_out.kt`) — all resolved. Full narrative in `RDD_LOG.md`
-RDD_KEY_131; one-line summary each:
-
-1. [x] Missing blank line before a `when` branch led by its own standalone
-   comment (`// Success case` after `when(status) {`).
-   `KotlinSpecificRule.ensureBlankLineInGap` bailed on any comment anywhere
-   in the gap; replaced with `SwitchRule`'s comment-anchored version.
-2. [x] Missing blank line before a `return` preceded by its own standalone
-   leading comment. Kotlin-only carve-out in `MiscRule.
-   insertBlankLineBeforeReturn` (`appendGapWithForcedBlankAfterLastComment`)
-   — Java's accepted fixture wants the opposite, so gated `lang.isKotlin`,
-   not a shared-class change.
-3. [x] Leading blank line inside a function/lambda body not stripped when
-   the first statement isn't a `val`/`var` declaration. New
-   `KotlinSpecificRule.stripLeadingBlankBeforeNonDeclarationStatement`,
-   wired into `Formatter.java`'s Kotlin-only Phase 1 block.
-4. [x] Outermost `class Widget` missing its closing blank line + `} //
-   class Widget` comment. Root cause: `BlockStructureRule.addClosingComments`
-   and `insertNamedConstructBlankLines` both scanned the *entire* block span
-   for any frozen (JXM_CFMT_DIS/ENA) token instead of just the boundary gap
-   being rewritten — an unrelated frozen region nested inside `findFirstX`
-   suppressed the outer class's own blank line/comment. Shared-class fix;
-   also fixed a latent identical bug in `test/java_format_toggle_out.java`
-   (added its own previously-missing blank line + `} // class FormatToggle`).
-
-### Step 5 — Dogfood / Real-Code Testing
-
-**Status: dogfood tree now compiles clean end-to-end — Step 5's core goal is
-met.** Any future session picking this up should treat it as
-regression-watching / further polish, not a known-broken state. See
-**Finished dogfood / real-code testing** for completed candidates,
-**Not started dogfood / real-code testing** for queued/deferred ones, and
-**Tools/compiler used** for exact invocations.
-
-- [x] Once Steps 0–4 are complete, apply STATE_COMMON.md's real-code-testing
-      methodology (clone a real, compiling Kotlin project → format →
-      idempotency check round1 vs round2 → compile-check) — deferred until
-      the core checklist above was done, not started speculatively. See the
-      candidate lists below for status of every candidate run so far.
+Applied STATE_COMMON.md's real-code-testing methodology (clone a real,
+compiling Kotlin project → format → idempotency round1 vs round2 →
+compile-check) once Steps 0-4 were complete.
 
 **Standalone `K2JVMCompiler` classpath — rejected, do not use.** A bare
-`kotlin-compiler-embeddable` + `kotlin-stdlib` classpath cannot syntax-check
-an Android/AndroidX candidate: every file under
+`kotlin-compiler-embeddable` + `kotlin-stdlib` classpath cannot
+syntax-check an Android/AndroidX candidate — every file under
 `gui_frontend_android/app/src/main/java/*.kt` imports `android.*`/AndroidX
-APIs, only resolvable via the project's own Gradle build. Use the project's
-Gradle wrapper (tool (2) below) for any Android/Gradle candidate.
+APIs, only resolvable via the project's own Gradle build. Use the Gradle
+wrapper (tool (2) below) for any Android/Gradle candidate.
 
 For `gui_frontend_android`: copy once into a **persistent** location —
 `~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD` — not `/tmp`, so it
 survives reboots. Never write to `~/Projects/RobotCoding/gui_frontend_android`
 itself (read-only); always re-verify a fix against the true pristine
-originals there, not just the dogfood copy (a stale copy can hold
-already-formatted, pre-fix output and falsely look fixed/unfixed).
+originals there (a stale dogfood copy can hold already-formatted output and
+falsely look fixed/unfixed).
 
 **One-time setup after the copy:** edit `gradle.properties` in the dogfood
-copy so `project.buildDir=build` (plain relative value — the original points
-at the real project's own external build dir, which would still collide even
-from a copy). Redo if the dogfood dir is ever deleted and recopied.
+copy so `project.buildDir=build` (plain relative value — the original
+points at the real project's own external build dir, which would still
+collide even from a copy). Redo if the dogfood dir is ever deleted and
+recopied.
 
 ```bash
 cp -r ~/Projects/RobotCoding/gui_frontend_android ~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD
@@ -483,18 +399,18 @@ ends by `exec bash`-ing into an interactive session — source only its
 **Lightweight PSI-based syntax-only checker (`kotlin_syntax_check`) — viable, distinct
 from the rejected full-compilation recipe above.** The rejected K2JVMCompiler
 note is about a bare classpath doing a *full compile*, which can't resolve
-`android.*`/AndroidX imports without Gradle's dependency graph. `kotlin_syntax_check`
-is lighter: parses a `.kt` file to a PSI/AST via
+`android.*`/AndroidX imports without Gradle's dependency graph.
+`kotlin_syntax_check` is lighter: parses a `.kt` file to a PSI/AST via
 `KotlinCoreEnvironment`/`KtPsiFactory` and reports `PsiErrorElement` nodes
-(parse errors) — no semantic/type checking, never resolves `android.*`
+(parse errors only, no semantic/type checking) — never resolves `android.*`
 imports, so the AndroidX objection doesn't apply. Plain classpath-based
-standalone Java program; every needed class is bundled in the single shaded
-`~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib/kotlin-compiler.jar` (confirmed via
-`unzip -l`, no separate intellij-core/trove4j jars needed).
+standalone Java program; every needed class is bundled in the single
+shaded `~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib/kotlin-compiler.jar`
+(confirmed via `unzip -l`, no separate intellij-core/trove4j jars needed).
 
 Tool location: `util/CodingStyle.md/formatter/tools/verifiers/`
-(`kotlin_syntax_check.java` + compiled `kotlin_syntax_check.class`; committed, licensed project
-tooling, alongside the other jobs' syntax checkers).
+(`kotlin_syntax_check.java` + compiled `.class`; committed, licensed
+project tooling, alongside the other jobs' syntax checkers).
 
 Build/run (JDK 21, matches this compiler's class file version 52 = Java 8
 target, runs fine on 21):
@@ -507,62 +423,55 @@ cd util/CodingStyle.md/formatter/tools/verifiers
 "$JDK/bin/java" -cp ".:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_syntax_check <file.kt> [file2.kt ...]
 ```
 
-Exits 0 and prints "OK: no syntax errors" when clean; exits 1 and prints each
-`PsiErrorElement`'s description + text range when a parse error is found.
-Verified against this project's own `test/kt_combined_out.kt` (passes clean)
-and a deliberately corrupted copy with injected stray `}}}` (correctly
-reports the right errors at the right offsets).
+Exits 0 and prints "OK: no syntax errors" when clean; exits 1 and prints
+each `PsiErrorElement`'s description + text range when a parse error is
+found. Verified against this project's own `test/kt_combined_out.kt`
+(passes clean) and a deliberately corrupted copy with injected stray `}}}`
+(correctly reports the right errors at the right offsets).
 
-**Recommended use going forward:** for a quick syntax/parse sanity check on
-formatter output, run `kotlin_syntax_check` first — near-instant versus a full Gradle
-build. It does NOT replace `./gradlew compileDebugKotlin` for real
-dogfood/compile-check testing (no semantic checking, no unresolved-reference
-detection) — keep using the Gradle recipe for that. Treat it as a fast
-pre-filter / supplement, not a substitute.
+**Recommended use going forward:** run `kotlin_syntax_check` first for a
+quick syntax/parse sanity check — near-instant versus a full Gradle build.
+It does NOT replace `./gradlew compileDebugKotlin` for real dogfood/
+compile-check testing (no semantic checking, no unresolved-reference
+detection) — keep using the Gradle recipe for that. Fast pre-filter /
+supplement, not a substitute.
 
-Follow STATE_COMMON.md's fixture-registration convention when a bug is found
-and fixed here (`test/real_code_regressions_N_{inp,out}.kt`, registered in
-`Makefile`'s `INP_FILES`, documented in `test/README.txt`, standard copyright
-header) — same precedent as the `indent-size = 2` config-wiring no-op
-exception noted there.
+Follow STATE_COMMON.md's fixture-registration convention when a bug is
+found and fixed here (`test/real_code_regressions_N_{inp,out}.kt`,
+registered in `Makefile`'s `INP_FILES`, documented in `test/README.txt`,
+standard copyright header) — same precedent as the `indent-size = 2`
+config-wiring no-op exception noted there.
 
 **Dogfood Output Validation — `kotlin_content_diff`.** A content-preservation
-checker for Kotlin, complementing `kotlin_syntax_check` (which only proves "still
-parses", same `java_content_diff`/`css_content_diff.py`/`xml_content_diff.py`
-precedent). Reuses `kotlin_syntax_check`'s `KotlinCoreEnvironment`/`KtPsiFactory`
-infrastructure (no new dependency), modeled directly on `java_content_diff`'s
-design split by content family (`kotlin-import-order` sorting,
-declaration-alignment whitespace, `normalize-comment-start-case` are all
-legitimate transforms that must not be flagged as corruption):
+checker for Kotlin, complementing `kotlin_syntax_check` (which only proves
+"still parses", same `java_content_diff`/`css_content_diff.py`/
+`xml_content_diff.py` precedent). Reuses `kotlin_syntax_check`'s
+`KotlinCoreEnvironment`/`KtPsiFactory` infrastructure, modeled on
+`java_content_diff`'s design split by content family (import sorting,
+declaration-alignment whitespace, comment-case normalization are all
+legitimate transforms, not corruption):
 - **imports** — compared as a multiset (`getImportedFqName()` +
-  `isAllUnder()`/alias, sorted) since reordering here is legitimate.
-- **every top-level declaration** (`KtFile.getDeclarations()`) — compared
-  **in original relative order**, each canonicalized by a hand-rolled
-  leaf-token walk (whitespace/comment/KDoc nodes skipped, remaining leaf
-  text joined with single spaces) rather than a pretty-printer: unlike
-  javac's `Tree.toString()` (which re-synthesizes text from the AST,
-  losing original whitespace/comments for free), IntelliJ PSI is a
-  lossless concrete syntax tree — `PsiElement.getText()` returns verbatim
-  original source — so there is no built-in canonical form to lean on;
-  this tool builds its own.
-- **comments** (both line/block comments and KDoc blocks) — extracted
-  separately, compared as a multiset, whitespace-normalized **and**
-  lowercased, so a case-only change is not flagged but a dropped/corrupted
-  comment still is.
+  `isAllUnder()`/alias, sorted) since reordering is legitimate.
+- **every top-level declaration** — compared in original relative order,
+  each canonicalized by a hand-rolled leaf-token walk (whitespace/comment/
+  KDoc skipped, remaining leaf text joined with single spaces) rather than
+  a pretty-printer, since IntelliJ PSI is a lossless CST with no built-in
+  canonical form to lean on.
+- **comments** (line/block/KDoc) — extracted separately, compared as a
+  multiset, whitespace-normalized and lowercased, so a case-only change
+  isn't flagged but a dropped/corrupted comment still is.
 
 **Gotcha hit and fixed during verification:** the leaf-token walk and
 comment extraction MUST use `ASTNode.getChildren(null)` (via
 `PsiElement.getNode()`), not `PsiElement.getChildren()` or
 `PsiTreeUtil.findChildrenOfType()`. For stub-based elements (`KtClass`,
 `KtProperty`, `KtNamedFunction`), `PsiElement.getChildren()` only returns
-structurally significant composite children and silently omits every plain
-leaf token — identifiers, keywords, and critically comments — so a
-`PsiTreeUtil.findChildrenOfType(file, PsiComment.class)` scan over the
-whole file found zero comments even with several clearly present (confirmed
-via an ASTNode-level dump showing `BLOCK_COMMENT`/`EOL_COMMENT` nodes
-reachable only through `ASTNode.getChildren(null)`, never through the
-PSI-level children array). Switching both the canonicalization walk and
-comment collection to ASTNode traversal fixed it.
+structurally significant composite children and silently omits every
+plain leaf token — identifiers, keywords, and critically comments —
+confirmed via an ASTNode-level dump showing `BLOCK_COMMENT`/`EOL_COMMENT`
+nodes reachable only through `ASTNode.getChildren(null)`. Switching both
+the canonicalization walk and comment collection to ASTNode traversal
+fixed it.
 
 Build/run (same classpath as `kotlin_syntax_check`):
 ```bash
@@ -574,14 +483,12 @@ cd util/CodingStyle.md/formatter/tools/verifiers
 ```
 Verified against a hand-crafted good pair (reindentation + import sort +
 one comment recapitalization — passes clean) and two bad pairs, a dropped
-statement (correctly flagged as "top-level declaration #0 structure/content
-differs") and a corrupted comment (correctly flagged as a comment present
-in one file's set but not the other's) — all three cases caught correctly,
-after the ASTNode-traversal fix above. Test fixtures kept in `/tmp` only
-(hand-crafted verification pairs, not registered as permanent `test/`
-fixtures).
+statement and a corrupted comment (both correctly flagged), after the
+ASTNode-traversal fix above. Test fixtures kept in `/tmp` only (hand-crafted
+verification pairs, not registered as permanent `test/` fixtures).
 
 **Tools/compiler used**
+
 (1) `kotlinc` — bare standalone compiler, e.g.:
 ```bash
 PATH=/opt/openjdk-21_linux-x64_bin/jdk-21/bin:$PATH \
@@ -595,23 +502,24 @@ Cannot resolve AndroidX or a multi-module Gradle project's own dependencies
 — see the rejected K2JVMCompiler note above and use (2) instead for those.
 
 (2) `./gradlew compileDebugKotlin` — full command block above (with
-`ANDROID_HOME`/JDK 21 on `PATH`, run against a persistent dogfood copy, never
-the original checkout). Used for Android/Gradle candidates needing the real
-SDK/AndroidX dependency graph (`gui_frontend_android`).
+`ANDROID_HOME`/JDK 21 on `PATH`, run against a persistent dogfood copy,
+never the original checkout). Used for Android/Gradle candidates needing
+the real SDK/AndroidX dependency graph (`gui_frontend_android`).
 
-(3) `kotlin_syntax_check` — PSI-based syntax-only checker, build/run commands above.
-Used when a full Gradle build is not wanted/needed (`kotlinx.coroutines`, per
-explicit user request) — catches parse errors only, weaker confidence than (2)
-(no semantic/type checking).
+(3) `kotlin_syntax_check` — PSI-based syntax-only checker, build/run
+commands above. Used when a full Gradle build is not wanted/needed
+(`kotlinx.coroutines`, per explicit user request) — catches parse errors
+only, weaker confidence than (2) (no semantic/type checking).
 
 **Finished dogfood / real-code testing**
+
 1. **RobotCoding `gui_frontend_android`** (Android/Gradle app, 46 `.kt`
-   files) — complete, config: default. 9 idempotency bugs, RDD_KEY_134–140
-   (trailing-lambda collapse, call-wrapped-initializer misclassification,
+   files) — complete, config: default. 9 idempotency bugs (RDD_KEY_134–140:
+   trailing-lambda collapse, call-wrapped-initializer misclassification,
    lambda-brace indent anchor, if/else-as-value collapse, `&&`-vs-`&`
    confusion, §9 column-width flap, Allman width-prediction gap). Then
-   `./gradlew compileDebugKotlin` found ~50 compile errors across 9 files,
-   RDD_KEY_141–144 (return-type-tail misdetection eating a fluent-chain
+   `./gradlew compileDebugKotlin` found ~50 compile errors across 9 files
+   (RDD_KEY_141–144: return-type-tail misdetection eating a fluent-chain
    call, `@Annotation`-vs-label false positive, `when`-arm `else ->`
    mismatched by braceless-`else` collapse, two unrelated bugs in one
    statement). Final: `BUILD SUCCESSFUL`, zero errors (2 pre-existing
@@ -619,23 +527,23 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
 2. **`github.com/square/okio`** — core bugs fixed, config `indent-size=2`
    (matches okio's own `.editorconfig`; RDD_KEY_145 confirmed default
    `indent-size=4` produces spurious diffs, not a bug). Fixed: RDD_KEY_146
-   (unary minus mis-spacing), RDD_KEY_147 (blank-line signature-tail merge),
-   RDD_KEY_148 (stale-prefix over-wrap of a braceless `if`) — fixture `_30`;
-   RDD_KEY_150 (missing `===`/`!==` tokenizer entries), RDD_KEY_151
-   (do-while trailing `while` misread as loop-start) — fixture `_31`.
-   Verified via round1/round2 idempotency diffing + tool (1) against
-   `commonMain` only. One bug found but **not** fixed at the time —
-   RDD_KEY_149 (later resolved by RDD_KEY_163) — see **Not started** below.
+   (unary minus mis-spacing), RDD_KEY_147 (blank-line signature-tail
+   merge), RDD_KEY_148 (stale-prefix over-wrap of a braceless `if`) —
+   fixture `_30`; RDD_KEY_150 (missing `===`/`!==` tokenizer entries),
+   RDD_KEY_151 (do-while trailing `while` misread as loop-start) —
+   fixture `_31`. Verified via round1/round2 idempotency diffing + tool
+   (1) against `commonMain` only. One bug found but not fixed at the time
+   — RDD_KEY_149 (later resolved by RDD_KEY_163).
 3. **`github.com/Kotlin/kotlinx.coroutines`** — fully closed, config:
-   default. Scoped to `kotlinx-coroutines-core`'s `common`+`jvm` source sets
-   (163 `.kt` files), tool (3) per user instruction instead of a Gradle
-   build. Idempotency: 11 non-idempotent files, resolved across RDD_KEY_154
-   (baked trailing-space growth) and RDD_KEY_158–162 (try/catch-as-expression
-   brace confusion; a shared named-scope-with-wrapped-header root cause
-   across 4 files; a call-argument continuation-indent flap; a dangling
-   braceless-`else` mis-anchoring bare `}` drift; a declaration-alignment
-   padding-width flap — see RDD table for per-bug detail). Compile-check:
-   9 of 163 files had genuine syntax errors, resolved via RDD_KEY_155
+   default. Scoped to `kotlinx-coroutines-core`'s `common`+`jvm` source
+   sets (163 `.kt` files), tool (3) per user instruction instead of a
+   Gradle build. Idempotency: 11 non-idempotent files, resolved across
+   RDD_KEY_154 (baked trailing-space growth) and RDD_KEY_158–162
+   (try/catch-as-expression brace confusion; a shared named-scope-with-
+   wrapped-header root cause across 4 files; a call-argument
+   continuation-indent flap; a dangling braceless-`else` mis-anchoring bare
+   `}` drift; a declaration-alignment padding-width flap). Compile-check: 9
+   of 163 files had genuine syntax errors, resolved via RDD_KEY_155
    (nesting-unaware block-comment truncation), RDD_KEY_156 (`this@Label`
    spacing), RDD_KEY_157 (a `synchronized(...)` block's statements fused
    with no separators). Verified via round1/round2 diffing + tool (3) only
@@ -643,16 +551,17 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
 4. **`github.com/square/kotlinpoet`** — fully closed, all 4 idempotency
    shapes resolved, config `indent-size=2` (matches kotlinpoet's own
    `.editorconfig`). Initial pass fixed 2 bugs (RDD_KEY_152 stale
-   when-branch brace-indent anchor, RDD_KEY_153 Allman-conversion misfiring
-   on an expr-bodied function's own trailing-lambda body). A later 125-file
-   re-run surfaced a residual 10-file idempotency gap in 4 shapes: Shape 1
-   (6 files) via RDD_KEY_163 (also resolved RDD_KEY_149's deferred `okio`
-   bug); Shape 2 (`AbstractTypesTest.kt`) via RDD_KEY_164; Shape 3
-   (`ReflectiveClassInspector.kt`/`kmAnnotations.kt`) via RDD_KEY_165;
-   Shape 4 (`KotlinPoetMetadataSpecsTest.kt`) via RDD_KEY_166 (also fixed
-   two masked bugs in `signatureLineIndent` found via a from-clean rebuild).
-   Fixtures `_46`–`_49`. `make test`: 68/68 clean-rebuild final. Confirmed
-   via a fresh full-125-file re-run, `diff -rq round1 round2` empty.
+   when-branch brace-indent anchor, RDD_KEY_153 Allman-conversion
+   misfiring on an expr-bodied function's own trailing-lambda body). A
+   later 125-file re-run surfaced a residual 10-file idempotency gap in 4
+   shapes: Shape 1 (6 files) via RDD_KEY_163 (also resolved RDD_KEY_149's
+   deferred `okio` bug); Shape 2 (`AbstractTypesTest.kt`) via RDD_KEY_164;
+   Shape 3 (`ReflectiveClassInspector.kt`/`kmAnnotations.kt`) via
+   RDD_KEY_165; Shape 4 (`KotlinPoetMetadataSpecsTest.kt`) via RDD_KEY_166
+   (also fixed two masked bugs in `signatureLineIndent` found via a
+   from-clean rebuild). Fixtures `_46`–`_49`. `make test`: 68/68
+   clean-rebuild final. Confirmed via a fresh full-125-file re-run,
+   `diff -rq round1 round2` empty.
 5. **`github.com/arrow-kt/arrow`** — fully closed, all bugs resolved.
    Functional-programming library, scoped to `arrow-core`'s and
    `arrow-optics`'s `commonMain/kotlin` source sets (63 `.kt` files),
@@ -662,119 +571,97 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
    tracking), RDD_KEY_172 (`val`/`var` declaration wrongly collapsed into a
    braceless `if`), RDD_KEY_173 (annotation `@` sharing its line with a
    function signature rendering as `@ Foo`), RDD_KEY_176 (`Either.kt`'s
-   `zipOrAccumulate`: `collapseBracelessBody` fused a trailing-lambda call's
-   own multi-line block body with no `;` separators). Idempotency-only
-   flaps: RDD_KEY_174 (`RaiseContext.kt`'s `ensureNotNull`, a
-   `context(...)`-clause paren misdetected as the real signature's paren),
-   RDD_KEY_175 (`Iterable.kt`'s `separateEither`, a `formatWhenExpressions`/
-   `addClosingComments` pipeline-ordering bug), and RDD_KEY_177
-   (`Comparison.kt`'s `sort2`, the investigation's last open item — an
-   unparenthesized depth-0 if-expression used as an entire expression-bodied
-   function's whole body wasn't exempted from `collapseSingleExpressionBlocks`,
-   plus a sibling bug in its paired bare `else` arm). Fixtures
-   `test/real_code_regressions_59`–`_64`. Verified: a fresh full-scope
-   63-file reformat is round1/round2 byte-identical (`diff -rq` empty);
-   `kotlin_syntax_check` reports 0 syntax errors across all 63 files (started at 5
-   before RDD_KEY_171-173, 1 after RDD_KEY_173, 0 after RDD_KEY_176);
-   `make test` 88/88 clean, zero regressions throughout.
+   `zipOrAccumulate`: `collapseBracelessBody` fused a trailing-lambda
+   call's own multi-line block body with no `;` separators). Idempotency-
+   only flaps: RDD_KEY_174 (`RaiseContext.kt`'s `ensureNotNull`, a
+   `context(...)`-clause paren misdetected as the real signature's
+   paren), RDD_KEY_175 (`Iterable.kt`'s `separateEither`, a
+   `formatWhenExpressions`/`addClosingComments` pipeline-ordering bug),
+   and RDD_KEY_177 (`Comparison.kt`'s `sort2`, the investigation's last
+   open item — an unparenthesized depth-0 if-expression used as an entire
+   expression-bodied function's whole body wasn't exempted from
+   `collapseSingleExpressionBlocks`, plus a sibling bug in its paired bare
+   `else` arm). Fixtures `_59`–`_64`. Verified: a fresh full-scope 63-file
+   reformat is round1/round2 byte-identical; `kotlin_syntax_check` reports
+   0 syntax errors across all 63 files (started at 5 before RDD_KEY_171-
+   173, 1 after RDD_KEY_173, 0 after RDD_KEY_176); `make test` 88/88 clean,
+   zero regressions throughout.
 
-**Not started dogfood / real-code testing**
-1. **`github.com/JetBrains/kotlin`** — IN PROGRESS, not "not started." The
-   Kotlin compiler's own source tree (~16k `.kt` files after filters),
-   originally queued as a last-resort/stress candidate (similar posture to
-   `microsoft/STL`/`llvm-project` in the C++ list) but substantial work has
-   since landed. Category 1 (parse errors/corruption) is fully closed.
-   Category 2 (idempotency) has buckets D2a (332/334 known-flap files —
-   RDD_KEY_214/215/216; the remaining 2 are ordinary D3 instances, not a
-   distinct D2a shape) and D4 (~8 files — RDD_KEY_218) both fully closed;
-   D1 is now **fully closed** (RDD_KEY_219 + RDD_KEY_220 — all three
-   group-width-recompute-instability sub-shapes fixed); D3's root cause is
-   now confirmed (RDD_KEY_221: `MiscRuleCurly.renderCallCandidate`'s
-   no-newline-branch fits-check measures against the entire enclosing
-   physical source line instead of the candidate's own stable content) but
-   **no fix has landed** — a candidate fix was tried and reverted after
-   regressing 28 fixtures across C/C++/Java/TS/Kotlin at `make test`; see
-   `README.md`'s Known Limitations section and RDD_KEY_221 for the full
-   writeup. D3 remains open (~334 files total across all buckets,
-   with D3 now confirmed to include at least
-   `GenerateReleaseNotes.kt`/`TypeBridging.kt` from D2a's own former
-   residual). Full diagnosis, tool commands, and per-cluster fix history:
-   see "Dogfood: JetBrains/kotlin" section below.
+**Not started / in progress**
 
-**When a test completes:** move/compact its entry from "Not started" (or its
-"In progress" detail) into "Finished dogfood / real-code testing", and add a
-new numbered entry to "Tools/compiler used" if a genuinely new tool is
-introduced.
+1. **`github.com/JetBrains/kotlin`** — IN PROGRESS. The Kotlin compiler's
+   own source tree (~16k `.kt` files after filters), originally queued as
+   a last-resort/stress candidate (similar posture to `microsoft/STL`/
+   `llvm-project` in the C++ list) but substantial work has landed.
+   Category 1 (parse errors/corruption) fully closed. Category 2
+   (idempotency): D2a (332/334 known-flap files) and D4 (~8 files) both
+   fully closed; D1 fully closed (all three group-width-recompute-
+   instability sub-shapes fixed); **D3's root cause is confirmed
+   (RDD_KEY_221) but no fix has landed** — a candidate fix was tried and
+   reverted after regressing 28 fixtures across C/C++/Java/TS/Kotlin at
+   `make test`; see `README.md`'s Known Limitations section and
+   RDD_KEY_221. D3 remains open (~34 files total, including 2 files
+   reclassified out of D2a's own former residual:
+   `GenerateReleaseNotes.kt`/`TypeBridging.kt`). Full diagnosis, tool
+   commands, and per-cluster fix history: see "Dogfood: JetBrains/kotlin"
+   section below.
+
+**When a test completes:** move/compact its entry from "Not started" into
+"Finished dogfood / real-code testing", and add a new numbered entry to
+"Tools/compiler used" if a genuinely new tool is introduced.
 
 ---
 
-## Dogfood: JetBrains/kotlin (categorization pass, not yet fixed)
+## Dogfood: JetBrains/kotlin (categorization pass)
 
-**Status (current, as of D1's full closure — RDD_KEY_219 + RDD_KEY_220):**
-Category 1
-(parse errors/corruption) is **fully closed** — every C1-C6k cluster/shape
-fixed, 0 genuine formatter-caused failures remain (2 pre-existing BOM
-syntax-checker artifacts, unrelated to the formatter, are the only
-remaining `kotlin_syntax_check` hits). Category 2 (idempotency-only) is
-**partially closed**: D2a is **fully closed** (332 of 334 known-flap
-files — the remaining 2, `GenerateReleaseNotes.kt`/`TypeBridging.kt`, were
-re-triaged and found to be ordinary D3 wrap-decision-flap instances, not a
-distinct D2a shape); D4 is now also **fully closed** (~8 files,
-RDD_KEY_218); D1 is now **fully closed** (RDD_KEY_219, fixtures `_169`
-+ RDD_KEY_220, fixture `_170` — all three group-width-recompute-
-instability sub-shapes fixed); D3 still fully
-open. See the "Category
-1"/"Category 2" tables below for the current per-cluster/per-bucket
-breakdown.
-Checkout: `/tmp/jb_kotlin_kt/kotlin-master`
-(fresh `.kt`-only tarball extraction from
-`codeload.github.com/JetBrains/kotlin/tar.gz/refs/heads/master` — no prior
-`/tmp` checkout existed; full git clone skipped in favor of
-`tar --wildcards '*.kt'` to avoid the non-Kotlin majority of this huge repo)
-— reuse this checkout, do not re-clone. Scope: all `*.kt` under the tarball
-root excluding `*/testData/*` (compiler test fixtures, out of scope),
-`*/build/*`, `*/resources/*`, anything with `generated` in its name —
-16268 files, 128 MB, ~113.6k lines (`/tmp/kt_filelist.txt`).
+**Current status:** Category 1 (parse errors/corruption) **fully closed**
+— every C1-C6k cluster/shape fixed, 0 genuine formatter-caused failures
+remain (2 pre-existing BOM syntax-checker artifacts, unrelated to the
+formatter, are the only remaining `kotlin_syntax_check` hits). Category 2
+(idempotency-only): D2a **fully closed** (332 of 334 known-flap files —
+the remaining 2, `GenerateReleaseNotes.kt`/`TypeBridging.kt`, re-triaged as
+ordinary D3 instances, not a distinct D2a shape); D4 **fully closed** (~8
+files, RDD_KEY_218); D1 **fully closed** (RDD_KEY_219 fixture `_169` +
+RDD_KEY_220 fixture `_170`); **D3 still fully open.**
+
+Checkout: `/tmp/jb_kotlin_kt/kotlin-master` (fresh `.kt`-only tarball
+extraction from `codeload.github.com/JetBrains/kotlin/tar.gz/refs/heads/master`
+— `tar --wildcards '*.kt'` used instead of a full git clone to avoid the
+non-Kotlin majority of this huge repo) — reuse this checkout, do not
+re-clone. Scope: all `*.kt` excluding `*/testData/*` (compiler test
+fixtures), `*/build/*`, `*/resources/*`, anything with `generated` in its
+name — ~16k files (`/tmp/kt_filelist.txt`).
 
 **Tools/compiler used:** same as this file's general "Tools/compiler used"
 section above — JDK `/opt/openjdk-21_linux-x64_bin/jdk-21`, Kotlin compiler
 `~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib`, `kotlin_syntax_check` (compile
 once with javac against `kotlin-compiler.jar:kotlin-stdlib.jar`, then run
-against files — see that section for the exact commands). Formatted via
-`--preserve-tree --root <src> --out <dir>` single-JAR-invocation batching
-per STATE_COMMON's methodology (round1 then round2 off round1's output),
-verified via `kotlin_syntax_check` (round1) and `diff -rq round1 round2`
-(idempotency). No `indent-size` override needed — all findings reproduce at
-default config.
-
-**Original results (stale, fully superseded by the 2026-07-28 re-triage
-below):** 220/16268 files failed `kotlin_syntax_check` (Category 1); 344/16268
-were idempotency-only (Category 2), after de-duping 81 files that overlapped
-both categories.
+against files). Formatted via `--preserve-tree --root <src> --out <dir>`
+single-JAR-invocation batching per STATE_COMMON's methodology (round1 then
+round2 off round1's output), verified via `kotlin_syntax_check` (round1)
+and `diff -rq round1 round2` (idempotency). No `indent-size` override
+needed — all findings reproduce at default config.
 
 ### 2026-07-28 Re-triage — fresh full-corpus numbers
 
-Reused the same checkout (`/tmp/jb_kotlin_kt/kotlin-master`, not re-cloned).
-True current denominator: **16078** files (the earlier 16268 figure was a
-stale recount, exclude rules/corpus unchanged — not worth chasing further).
-Batched `--preserve-tree --root <src> --out <dir>` reformat, one JAR
-invocation per top-level subdirectory (16 subdirs, ~324s round1/~321s round2
-wall-clock). No `indent-size` override — default config.
+Reused the same checkout (not re-cloned). True denominator: **16078**
+files (earlier 16268 figure was a stale recount, not worth chasing).
+Batched `--preserve-tree` reformat, one JAR invocation per top-level
+subdirectory (16 subdirs, ~324s round1/~321s round2 wall-clock). No
+`indent-size` override — default config.
 
-- **Category 1 (parse errors), fresh baseline: 10 raw `kotlin_syntax_check`
-  failures on round1, of which 2 are a pre-existing BOM syntax-checker
-  artifact** (`JavaScriptLexerBase.kt`/`JavaScriptParserBase.kt`, under
-  `js/js.parser/.../antlr/` — confirmed via `xxd` the `EF BB BF` UTF-8 BOM is
-  identical in original and formatted output; the formatter preserves it
-  correctly, the syntax checker's own BOM handling is at fault, not the
-  formatter — permanent, unrelated to any cluster below), leaving **8
-  genuine formatter-caused failures, all now FIXED** (C6k shapes 1-5, see
-  table below). Category 1 is now 0/8 genuine failures.
-- **Category 2 (idempotency-only), fresh baseline: 334/16078 (2.08%)**
-  (`diff -rq round1 round2`) — essentially flat vs. the stale 344/16268
-  count despite the intervening C1-C6k fixes (those targeted Category 1
-  crash/corruption, not the D1-D4 idempotency-flap families, so no overlap
-  expected). See "Category 2" table below for current per-bucket status.
+- **Category 1 (parse errors), fresh baseline: 10 raw failures on round1**,
+  of which 2 are a pre-existing BOM syntax-checker artifact
+  (`JavaScriptLexerBase.kt`/`JavaScriptParserBase.kt` — confirmed via
+  `xxd` the `EF BB BF` UTF-8 BOM is identical in original and formatted
+  output; the formatter preserves it correctly, the syntax checker's own
+  BOM handling is at fault — permanent, unrelated to any cluster below),
+  leaving **8 genuine formatter-caused failures, all now FIXED** (C6k
+  shapes 1-5). Category 1 is now 0/8 genuine failures.
+- **Category 2 (idempotency-only), fresh baseline: 334/16078 (2.08%)** —
+  essentially flat vs. the stale 344/16268 count despite the intervening
+  C1-C6k fixes (those targeted Category 1 crash/corruption, not the D1-D4
+  idempotency-flap families, so no overlap expected).
 
 Working files (not committed, `/tmp` only): `/tmp/kt_retriage_round1`,
 `/tmp/kt_retriage_round2`, `/tmp/round1_filelist.txt`,
@@ -787,89 +674,61 @@ Working files (not committed, `/tmp` only): `/tmp/kt_retriage_round1`,
 
 | Cluster | Files | Root cause / Fix | Fixture / RDD_KEY |
 |---|---|---|---|
-| **C1** — own-line comment before a constructor param fused onto the param, deleting it | 1+ | `parseKotlinSignature`'s comma-split moved any comment starting the next param's slice onto the previous param. Fixed via `findLineStartComments`/`findStandaloneComments` + `KotlinParam.leadingCommentOwnLine`. | `real_code_regressions_144.kt` |
-| **C2** — `@Annotation` at expression position gets spurious space after `@` | ~22 | `DeclarationAlignmentRuleCore.needsSpaceBetween` lacked the `@`-tight case `MiscRuleCore` already had. Added it. | `real_code_regressions_149.kt` |
-| **C3** — multi-statement named-argument lambda body fused, no separators (largest crash cluster) | ~70+ | `MiscRuleCurly.renderCallCandidate`'s bail loop used `splitTopLevelCommas` (no brace-depth tracking), misreading a lambda's own param commas as call-arg separators. New brace-depth-aware `splitTopLevelCommasBraceAware`. | `real_code_regressions_146.kt` |
-| **C4** — CLOSED, not a real bug: miscategorized instance of C5, folds into its count (see Open Questions). | — | — | — |
-| **C5** — multi-line `when (...)` subject's embedded newlines leaked into the `// when <subject>` closing comment, orphaning trailing tokens | ~15-20 | `formatWhenExpressions`'s subject capture preserved raw newlines. Fixed by collapsing whitespace runs to a single space. Also resolved C4. | `real_code_regressions_148.kt` |
-| **C6a** — typed `by`-delegate's type-scan swallowed the whole delegate expression (incl. multi-statement trailing lambda) | 42 | `parseKotlinDeclaration`'s type-token scan only terminated on `=`; a `by`-delegate has none. Fixed with a bail on any top-level `by` keyword. | `real_code_regressions_150.kt` |
-| **C6b** — multi-dollar string prefix (`$$`/`$$$`) gets spurious space before the string | 12 | No tight-token rule recognized the `$$`/`$$$`-then-STRING join. New `isDollarRun` carve-out in both `needsSpaceBetween` duplicates. | `real_code_regressions_158.kt`; RDD_KEY_207 |
-| **C6c** — nullable callable ref `T?::member` corrupted to `T ?: :member` | 2 files, high density | `MULTI_CHAR_OPS`' `"?:"` match had no lookahead for a following `::`. Added `source.startsWith("?::", pos)` bail. | `real_code_regressions_151.kt` |
-| **C6d** — `@Composable (Params) -> Type` function-type parens lose required leading space | 6 | The general "`IDENTIFIER` before `(` is tight" call rule fired before either duplicate's `@`-tight case could. New lookback/lookahead carve-out (confirms annotation name + `->` inside the parens) in both Core duplicates plus a third overlooked copy in `KotlinDeclarationAlignmentRule.renderTokens`. | `real_code_regressions_153.kt` |
-| **C6e** — trailing-lambda multi-statement body fused when used as boolean sub-expression inside `if(...)`/`&&`/`\|\|` | 6 | `BlockStructureRule.tryCollapse`/`tryCollapseBraceless` guarded the collapse *body* against embedded multi-line braces but not the *condition*. Reused `containsMultilineNestedBrace` as a condition bail. | `real_code_regressions_159.kt`; RDD_KEY_208 |
-| **C6f** — multi-line collapse swallows an embedded `//` comment, corrupting everything after it (largest sub-cluster, C1-grade severity) | ~20, overlapped C6h/C6k | Three independent comment-unaware flattening call sites, each fixed with a `containsLineComment`/`hasLineComment`-style bail returning `null` (leave span untouched) instead of flattening: (1) `parseKotlinParam`'s default-value grid rendering, (2) `tryCollapseBraceless`'s condition render (had no guard, unlike sibling `tryCollapse`), (3) `parseFunctionTail`'s expression-body slice (comment-only pre-check missed `tail.exprTokens`). | `real_code_regressions_156.kt` (fixes 1-2), `real_code_regressions_157.kt` (fix 3) |
-| **C6g** — backtick identifier containing literal `(` breaks paren-depth tracking downstream | 4 | Kotlin backtick spans weren't recognized at all in the tokenizer's dispatch loop, so interior `(`/`)` chars were mis-tokenized as real brackets. New `TokenizerCurly.emitKotlinBacktickIdentifier`, opaque-span treatment mirroring JS/TS template literals. | `real_code_regressions_154.kt` |
-| **C6h** — `Missing '}'` at EOF in Gradle-plugin tests — folded into C6f, no independent cause | 8 | Downstream symptom of C6f's comment-swallow mechanism; all originally-affected files clean once C6f/C6g landed, no separate fix needed. | covered by `_156`/`_154` |
-| **C6i** — multiple one-line interface member declarations fused without separators | 1 | `ScopePipelineCurly.applySignaturePass`'s `: ReturnType` tail detection only bailed on a blank-line run before the next brace, not an ordinary single newline, so a headerless one-liner got swallowed into a later construct's span. New `hasTopLevelNewline` bail, gated off when a depth-0 `=` is present (preserves the legitimate expr-body-with-trailing-lambda shape). | `real_code_regressions_155.kt`; RDD_KEY_206 |
-| **C6j** — square-bracket destructuring lambda params `[x, y] ->` lost the space after `{` | 1 | `[` was always-tight (C/C++/Java indexing-shape rule) in both `needsSpaceBetween` duplicates. Narrow `lang.isKotlin && "[" after "{"` carve-out forcing the space (safe — Kotlin has no bracket array-literal syntax). | `real_code_regressions_152.kt` |
-| **C6k** — 5/5 shapes fixed, cluster closed. 8 genuine failures (2 remaining from the original 10 + 6 surfacing in the fresh re-triage: `ConeTypeRenderer.kt`, `ClientUtils.kt`, `TypeExpansionUtils.kt`, `KtVisitorTest.kt`, `BenchmarksReport.kt`, `Number2String.kt`, `CompositionTests.kt`, `TypeCommonizerTest.kt`). | 8 | **Shape 1** (multi-statement fusion, `TypeExpansionUtils.kt`/`Number2String.kt`/`TypeCommonizerTest.kt`): two causes — (a) `isSingleStatementBody` only routed Kotlin through the newline-aware helper when `semiCount != 1`, wrongly collapsing multi-statement bodies with one trailing `;`; now always routes Kotlin through it. (b) `parseKotlinSignature` stripped NEWLINEs before detecting a param's multi-line lambda default, letting the inline-fits shortcut fuse it; new pre-strip `containsMultilineNestedBrace` bail. **Shape 2** (`KtVisitorTest.kt`/`BenchmarksReport.kt`): a raw string ending in its own `"` before the closing `"""` produces a 4+-quote run; `skipKotlinRawString` closed at the run's first `"""` instead of its last three. Fixed to scan through the whole run. **Shape 3** (`ConeTypeRenderer.kt`): RDD_KEY_144(A)'s `!is`/`!in` carve-out existed only in `DeclarationAlignmentRuleCore`, missing from `MiscRuleCore` (the path a param default value renders through). Added there too. **Shape 4** (`ClientUtils.kt`): `enforceNullSafetyOperatorSpacing` treated `!!` as unconditionally tight on the right; new `isPostfixNullOpContinuation` narrows it to genuine postfix continuations. **Shape 5** (`CompositionTests.kt`): C6d's fix didn't cover a *nullable* function-type default (`@Composable( () -> Unit )?`) since its lookahead only recognized `->`, not a following `?`. Widened to accept both. | `_163` (Shape 1); `_164` (Shape 2); RDD_KEY_212, RDD_KEY_213, RDD_KEY_209, RDD_KEY_210, RDD_KEY_211; `_160`/`_161`/`_162` (Shapes 3-5) |
+| **C1** — own-line comment before a constructor param fused onto the param, deleting it | 1+ | `parseKotlinSignature`'s comma-split moved a comment starting the next param's slice onto the previous param. Fixed via `findLineStartComments`/`findStandaloneComments` + `leadingCommentOwnLine`. | `_144` |
+| **C2** — `@Annotation` at expression position gets spurious space after `@` | ~22 | `DeclarationAlignmentRuleCore.needsSpaceBetween` lacked the `@`-tight case `MiscRuleCore` already had. | `_149` |
+| **C3** — multi-statement named-argument lambda body fused, no separators (largest crash cluster) | ~70+ | `renderCallCandidate`'s bail loop used `splitTopLevelCommas` (no brace-depth tracking), misreading a lambda's own param commas as call-arg separators. New brace-depth-aware `splitTopLevelCommasBraceAware`. | `_146` |
+| **C4** — CLOSED, not a real bug: miscategorized instance of C5, folds into its count. | — | — | — |
+| **C5** — multi-line `when (...)` subject's embedded newlines leaked into the `// when <subject>` closing comment, orphaning trailing tokens | ~15-20 | `formatWhenExpressions`'s subject capture preserved raw newlines; fixed by collapsing whitespace runs to a single space. Also resolved C4. | `_148` |
+| **C6a** — typed `by`-delegate's type-scan swallowed the whole delegate expression (incl. multi-statement trailing lambda) | 42 | `parseKotlinDeclaration`'s type-token scan only terminated on `=`; a `by`-delegate has none — bail added on any top-level `by`. | `_150` |
+| **C6b** — multi-dollar string prefix (`$$`/`$$$`) gets spurious space before the string | 12 | New `isDollarRun` carve-out in both `needsSpaceBetween` duplicates. | `_158`; RDD_KEY_207 |
+| **C6c** — nullable callable ref `T?::member` corrupted to `T ?: :member` | 2 files, high density | `MULTI_CHAR_OPS`'s `"?:"` match had no lookahead for a following `::` — added `source.startsWith("?::", pos)` bail. | `_151` |
+| **C6d** — `@Composable (Params) -> Type` function-type parens lose required leading space | 6 | The general "`IDENTIFIER` before `(` is tight" call rule fired before either duplicate's `@`-tight case could. New lookback/lookahead carve-out in both Core duplicates plus a third overlooked copy in `KotlinDeclarationAlignmentRule.renderTokens`. | `_153` |
+| **C6e** — trailing-lambda multi-statement body fused when used as boolean sub-expression inside `if(...)`/`&&`/`\|\|` | 6 | `tryCollapse`/`tryCollapseBraceless` guarded the collapse *body* against embedded multi-line braces but not the *condition* — reused `containsMultilineNestedBrace` as a condition bail. | `_159`; RDD_KEY_208 |
+| **C6f** — multi-line collapse swallows an embedded `//` comment, corrupting everything after it (largest sub-cluster, C1-grade severity) | ~20, overlapped C6h/C6k | Three independent comment-unaware flattening call sites, each fixed with a comment-aware bail returning `null` (leave span untouched): (1) `parseKotlinParam`'s default-value grid rendering, (2) `tryCollapseBraceless`'s condition render, (3) `parseFunctionTail`'s expression-body slice. | `_156` (1-2), `_157` (3) |
+| **C6g** — backtick identifier containing literal `(` breaks paren-depth tracking downstream | 4 | Kotlin backtick spans weren't recognized in the tokenizer's dispatch loop at all — new `TokenizerCurly.emitKotlinBacktickIdentifier`, opaque-span treatment mirroring JS/TS template literals. | `_154` |
+| **C6h** — `Missing '}'` at EOF in Gradle-plugin tests — folded into C6f, no independent cause | 8 | Downstream symptom of C6f; no separate fix needed. | covered by `_156`/`_154` |
+| **C6i** — multiple one-line interface member declarations fused without separators | 1 | `applySignaturePass`'s `: ReturnType` tail detection only bailed on a blank-line run, not an ordinary single newline — new `hasTopLevelNewline` bail, gated off when a depth-0 `=` is present. | `_155`; RDD_KEY_206 |
+| **C6j** — square-bracket destructuring lambda params `[x, y] ->` lost the space after `{` | 1 | `[` was always-tight (C/C++/Java indexing rule) — narrow `lang.isKotlin && "[" after "{"` carve-out forcing the space. | `_152` |
+| **C6k** — 5/5 shapes fixed, cluster closed (8 genuine failures) | 8 | **Shape 1** (multi-statement fusion): two causes — `isSingleStatementBody` only routed Kotlin through the newline-aware helper when `semiCount != 1`; `parseKotlinSignature` stripped NEWLINEs before detecting a param's multi-line lambda default. **Shape 2**: a raw string ending in its own `"` before closing `"""` produces a 4+-quote run; `skipKotlinRawString` closed at the run's first `"""` instead of last three. **Shape 3**: RDD_KEY_144(A)'s `!is`/`!in` carve-out missing from `MiscRuleCore` (param-default path). **Shape 4**: `enforceNullSafetyOperatorSpacing` treated `!!` unconditionally tight on the right; new `isPostfixNullOpContinuation`. **Shape 5**: C6d's fix didn't cover a nullable function-type default (`@Composable( () -> Unit )?`) since lookahead only recognized `->`, not a following `?`. | `_163` (Shape 1), `_164` (Shape 2), `_160`/`_161`/`_162` (Shapes 3-5); RDD_KEY_212, 213, 209, 210, 211 |
 
 **Baseline check:** the 70-file C6b-C6k total was cross-checked against the
-raw `kotlin_syntax_check` failure list — 70/72 are confirmed genuine
-formatter bugs, the other 2/72 are the pre-existing BOM syntax-checker
-artifact (see above), excluded from the 70.
+raw `kotlin_syntax_check` failure list — 70/72 confirmed genuine formatter
+bugs, the other 2/72 are the pre-existing BOM artifact (excluded from 70).
 
 Working files retained in `/tmp` (not committed): `/tmp/c6_remaining.txt`,
 `/tmp/round1c_syntax.log`, `/tmp/c6_70.txt`, `/tmp/all_ctx.txt`,
 `/tmp/REP2.txt`, `/tmp/round1`, `/tmp/round2`, `/tmp/round1_syntax.log`,
 `/tmp/idempotency_diff.txt`, `/tmp/kt_filelist.txt`.
 
-### Category 2 — Idempotency-only, fresh count 334/16078 files (D2a now FIXED — see below)
+### Category 2 — Idempotency-only, fresh count 334/16078 files
 
-**2026-07-28 re-triage — fresh per-bucket counts.** Sampling methodology: 334
-total differing files (`diff -rq round1 round2` on the fresh full-corpus
-round1/round2 pair — see "2026-07-28 Re-triage" above), a uniform random
+**2026-07-28 re-triage — fresh per-bucket counts.** Sampling methodology:
+334 total differing files (`diff -rq round1 round2`), a uniform random
 40-file sample (`shuf -n 40`) manually diffed and bucketed by primary diff
-shape (a few files show more than one shape; classified by whichever
-dominates that file's diff). Estimates below are the sample's bucket
-proportion scaled to the full 334, **not** an exhaustive per-file
-classification of all 334 — treat as directional, not exact.
+shape. Estimates below are the sample's bucket proportion scaled to the
+full 334, **not** exhaustive — treat as directional.
 
-| Cluster | Sample hits (of 40) | Est. files (scaled from sample) | Notes |
+| Cluster | Sample hits (of 40) | Est. files | Status |
 |---|---|---|---|
-| **D2a.** Chained-fluent-call closing-brace drift (`}.apply {`, `}?.let {`, etc — a span's own `braceIndent`/`spanIndent` read off the volatile physical text of the PRECEDING span's own `}`) | 22 (of 40 D2 hits) | **332 of 334 known idempotency-flap files — FIXED** (RDD_KEY_214/215/216, fixtures `_165`/`_166`/`_167`) | Fix: generalized the existing `isChainedCatchFinally` carve-out (RDD_KEY_158) to any Kotlin `.`/`?.` fluent-chain continuation following a preceding span's own `}` — new `ScopePipelineCurly.isChainedFluentCall`, inherits the preceding span's already-resolved `prevEffectiveSpanIndent` instead of re-deriving from its volatile physical closing text. Root-caused against real corpus file `declarationBuilders.kt`. RDD_KEY_214's own 6-file residual has been fully triaged and closed for 5 of the 6 files: `TestStepBuilder.kt`/`common.kt`/`KaBaseSymbolRelationProvider.kt`/`TopLevelPhases.kt` were a `fun`-with-wrapped-`where`-clause `effectiveSpanIndent`/`signatureLineIndent` gap, not the "isNamedScope excluding fun" guess alone — fixed by RDD_KEY_215 (two causes: `ScopePipelineCurly.headerHasTopLevelWhereClause` + `KotlinSpecificRule.signatureLineIndent`'s boundary-line-anchoring rewrite); `TopLevelPhases.kt`'s one remaining line (a boolean-operator-chained `.any { } || .any { }`, not "unexplained brace drift") was fixed by RDD_KEY_216's `isChainedBooleanOp`. The last 2 files, `GenerateReleaseNotes.kt`/`TypeBridging.kt`, were misclassified by RDD_KEY_214's own text as "D2a-adjacent" — direct diffing shows they are ordinary instances of the separate, already-tracked D3 wrap-decision-flap bucket (a `joinToString`/`.also` call-argument wrap decision flapping between one-line and multi-line across rounds), not a distinct D2a shape at all; left open under D3 below, out of scope for D2a's own closure. `make test`: 214/214 → 215/215 → 216/216 forward + idempotency across both fixes, zero regressions. |
-| **D1.** Declaration/accessor column-alignment padding flap (round1 vs round2 disagree on padding width) | 12 | **~100 — FULLY FIXED** (RDD_KEY_219, fixture `_169`; RDD_KEY_220, fixture `_170`) | Same family as fixed RDD_KEY_139/162 (group-width recompute instability). Three independent root causes, all fixed: (1) `KotlinDeclarationAlignmentRule.renderAlignedGroup` rendered surviving (non-excluded) rows as one flat shared-width grid even when an excluded, overflowing, brace-bodied-init row sat in the MIDDLE of the group — round1 aligned across the gap, round2 (once the excluded row hard-breaks parsing as genuine multi-line) split into narrower groups; fixed by rendering surviving rows as maximal contiguous runs. (2) The analogous bug in the shared `ScopePipelineCurly.applyGetterSetterPass` driver for Kotlin's one-liner expression-bodied function/accessor grouping; fixed with a new Kotlin-gated `renderKotlinFilteredRuns` helper, C/C++/Java's flat-group behavior left untouched. (3) A THIRD sub-shape where the offending member's own solo/raw width already fits under `lineLengthLimit` (so it's never excluded via the raw-length parse-time pre-check or the body-width-ratio outlier test that catch (1)/(2)) but the group's own shared-column padding alone pushes it over the limit, pre-fix silently absorbed by a later unrelated `MiscRule.enforceCallLineBreaking` call-argument wrap — fixed by porting RDD_KEY_162's fixed-point budget-exclusion loop into a new depth-aware 3-arg `GetterSetterRuleCurly.render`/`KotlinGetterSetterRule.render` override, gated on `GetterSetterRuleCore.hasBreakableCall`, reusing RDD_KEY_219's contiguous-run rendering for survivors (RDD_KEY_220). D1 is now fully closed — all three known sub-shapes of this bucket are fixed. |
-| **D3.** Multi-line-call/condition wrap-decision flap (one line in round1, exploded across multiple lines in round2, or vice versa) | 4 | **~33** (previous ~15-20 estimate for a narrower "multi-param lambda header" sub-shape; fresh sampling shows the wrap-flap bucket is broader than originally scoped — includes plain call-argument and `if(...)` condition wraps, not just lambda headers) | Wrap decision (`enforceCallLineBreaking`-family) isn't stable across passes — round1 and round2 make different one-line-vs-wrapped calls for the same logical content. |
-| **D4.** Minor adjacent-closing-brace spacing flap (`) }` vs `)}`) | 1 | **~8 — FIXED** (RDD_KEY_218, fixture `_168`) | Root cause: `BlockStructureRule.collapseBracelessBody` dropped a source-preserved trailing space before an already-braceless body's enclosing `}` via `renderInline`'s no-trailing-whitespace behavior. Reproduced directly against `JsArgumentsImpl.kt`; also surfaced a latent instance of the same bug already baked into pre-existing fixture `real_code_regressions_33_out.kt`, corrected alongside. |
+| **D2a.** Chained-fluent-call closing-brace drift (`}.apply {`, `}?.let {`, etc — a span's own `braceIndent`/`spanIndent` read off the volatile physical text of the PRECEDING span's own `}`) | 22 | 332 of 334 known flap files | **FIXED** (RDD_KEY_214/215/216, fixtures `_165`/`_166`/`_167`). Fix: generalized `isChainedCatchFinally` (RDD_KEY_158) into `isChainedFluentCall`, inherits the preceding span's already-resolved `prevEffectiveSpanIndent`. Root-caused against `declarationBuilders.kt`. RDD_KEY_214's own 6-file residual: 5 fixed by a `fun`-with-wrapped-`where`-clause gap (RDD_KEY_215) + a boolean-operator-chained continuation (RDD_KEY_216); the last 2 (`GenerateReleaseNotes.kt`/`TypeBridging.kt`) were misclassified as D2a-adjacent — direct diffing shows they're ordinary D3 wrap-decision-flap instances, left open under D3. `make test`: 214/214 → 215/215 → 216/216, zero regressions. |
+| **D1.** Declaration/accessor column-alignment padding flap (round1 vs round2 disagree on padding width) | 12 | ~100 | **FULLY FIXED** (RDD_KEY_219 fixture `_169`, RDD_KEY_220 fixture `_170`). Same family as RDD_KEY_139/162 (group-width recompute instability). Three independent root causes, all fixed: (1) `renderAlignedGroup` rendered surviving rows as one flat shared-width grid even with an excluded overflowing row mid-group — fixed via maximal contiguous runs. (2) Same bug in `applyGetterSetterPass` — new Kotlin-gated `renderKotlinFilteredRuns`. (3) A member whose own solo width fits but whose group's shared-column padding alone pushes it over (silently absorbed pre-fix by a later `enforceCallLineBreaking` wrap) — fixed by porting RDD_KEY_162's fixed-point budget-exclusion loop into a depth-aware `GetterSetterRuleCurly.render`/`KotlinGetterSetterRule.render` override. |
+| **D3.** Multi-line-call/condition wrap-decision flap (one line in round1, exploded across multiple lines in round2, or vice versa) | 4 | ~33 (broader than the original ~15-20 "lambda header" estimate — includes plain call-argument and `if(...)` condition wraps too) | **OPEN — root cause confirmed (RDD_KEY_221), fix not landed.** `MiscRuleCurly.renderCallCandidate`'s no-newline-branch fits-check measures a candidate against its entire enclosing physical source line (`lineStartIndex(tokens, nameIdx)`) instead of a stable position tied to the candidate itself, so the wrap decision flaps across rounds as the enclosing line's own length changes. A candidate fix (anchor measurement at `nameIdx`) regressed 28 fixtures across C/C++/Java/TS/Kotlin at `make test` — reverted, not committed. Documented in `README.md`'s Known Limitations. Landing a real fix needs a more careful design (distinguishing same-line prefix that must still count toward the limit from unrelated outer-construct text that shouldn't) plus a full four-language regression review — a larger undertaking than a single-session investigation. Includes 2 files reclassified out of D2a's former residual (`GenerateReleaseNotes.kt`/`TypeBridging.kt`). **This is the only remaining open bucket in the whole Kotlin job, and the best-understood unfixed one — next session should start here.** |
+| **D4.** Minor adjacent-closing-brace spacing flap (`) }` vs `)}`) | 1 | ~8 | **FIXED** (RDD_KEY_218, fixture `_168`). `collapseBracelessBody` dropped a source-preserved trailing space before an already-braceless body's enclosing `}` via `renderInline`'s no-trailing-whitespace behavior. Reproduced against `JsArgumentsImpl.kt`; also fixed a latent instance already baked into fixture `real_code_regressions_33_out.kt`. |
 
-Sample total: 22+12+4+1 = 39 of 40 (the 40th file, `org.w3c.dom.kt`, showed
-both a D1 padding flap and a D3 wrap flap in the same diff — counted once
-under its dominant D1 shape above, so cluster hit-counts sum to 39/40 files
-but the file itself touches 2 buckets). No new bucket shape needed — all 40
-sampled files fit one of the 4 existing D1-D4 categories, none required a
-5th bucket.
-
-**Current standing (see this file's top "Status" line for the summary):**
-Category 1 fully closed (all C1-C6k). Category 2: D2a fully closed
-(332/334, RDD_KEY_214/215/216 — see D2a row above); D4 now also fully
-closed (RDD_KEY_218, fixture `_168`, ~8 files); D1 now **FULLY CLOSED**
-(RDD_KEY_219, fixture `_169` + RDD_KEY_220, fixture `_170` — all three
-group-width-recompute-instability sub-shapes fixed, see D1 row above);
-D3's root cause is **confirmed but its fix is NOT landed** (RDD_KEY_221 —
-`MiscRuleCurly.renderCallCandidate`'s no-newline-branch fits-check measures
-against the whole enclosing physical source line rather than the
-candidate's own stable content; a candidate fix anchoring the measurement
-at the candidate's own start instead regressed 28 fixtures spanning
-C/C++/Java/TS/Kotlin at `make test` and was reverted, not committed — see
-`README.md`'s Known Limitations section for the full writeup). D3 remains
-open (D3's known count includes 2 files reclassified out of D2a's own
-former residual, `GenerateReleaseNotes.kt`/`TypeBridging.kt`) — landing a
-real fix needs a more careful design (distinguishing same-line prefix that
-must still count toward the limit from unrelated outer-construct text
-that shouldn't) plus a full four-language regression review, a larger
-undertaking than a single-session investigation; the only remaining open
-bucket, and now the best-understood one even though unfixed.
+Sample total: 22+12+4+1 = 39 of 40 (`org.w3c.dom.kt` showed both a D1 and a
+D3 flap in the same diff — counted once under its dominant D1 shape). No
+5th bucket shape needed — all 40 sampled files fit one of D1-D4.
 
 **Recommended next step (not done yet):** run `kotlin_content_diff` across
-the full 16078-file corpus before further Category-1-family work — it would
-surface silent content loss undetectable by the syntax checker and give a
-truer denominator. Otherwise, D3 is the next-highest-value open item.
+the full 16078-file corpus before further Category-1-family work — it
+would surface silent content loss undetectable by the syntax checker and
+give a truer denominator. Otherwise, D3 is the next-highest-value open item.
 
 ## Open Questions
 
 - **C4 — closed, no open question remains.** Was a miscategorized instance
-  of C5, not a real bug: both collapse paths always join condition/body with
-  a literal `" "`, so a missing separator is impossible by construction.
-  Re-verified clean against the fixed JAR once C5's actual bug was patched.
-  See the "Dogfood: JetBrains/kotlin" → Category 1 table's C4/C5 rows for
-  detail; C4's ~44-file estimate folds into C5's count.
+  of C5, not a real bug: both collapse paths always join condition/body
+  with a literal `" "`, so a missing separator is impossible by
+  construction. Re-verified clean against the fixed JAR once C5's actual
+  bug was patched. See Category 1 table's C4/C5 rows for detail; C4's
+  ~44-file estimate folds into C5's count.

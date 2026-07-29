@@ -21,22 +21,18 @@ the same `STATE_COMMON.md` process conventions as every other job.
 
 ## Step 2 — AI Integration: NOT FEASIBLE (deferred)
 
-> The JAR cannot distinguish meaningful author-expressed argument grouping
-> from arbitrary line breaks — the core prerequisite for reliable AI candidate
-> selection — and no tractable heuristic exists for it. A small on-device
-> model (3B–7B) has no reliable basis for choosing between candidates without
-> that signal. The mechanical fallback (dropped form if args fit on one
-> indented line, one-per-line otherwise) is therefore permanent behavior when
-> inline exceeds 100 chars.
->
-> The architecture (grammar-constrained single-token response via
-> `/v1/chat/completions`, candidate layout generation, fail-safe fallback)
-> remains documented here as a valid design, reusable if a grouping-intent
-> heuristic or a larger model (7B+) is proven reliable in the future.
->
-> Tier-3 aesthetic decisions (argument layout, non-standard getter/setter
-> grouping) are handled by the capable-AI workflow in `README.txt` /
-> `AI_PREAMBLE_AESTHETIC.md` instead.
+The JAR cannot distinguish meaningful author-expressed argument grouping from
+arbitrary line breaks — the core prerequisite for reliable AI candidate
+selection — and no tractable heuristic exists for it. A small on-device model
+(3B–7B) has no reliable basis for choosing between candidates without that
+signal. The mechanical fallback (dropped form if args fit on one indented
+line, one-per-line otherwise) is therefore permanent behavior when inline
+exceeds 100 chars. The architecture (grammar-constrained single-token
+response via `/v1/chat/completions`, candidate layout generation, fail-safe
+fallback) remains valid and reusable if a grouping-intent heuristic or a
+larger model (7B+) is proven reliable in future. Tier-3 aesthetic decisions
+(argument layout, non-standard getter/setter grouping) are instead handled by
+the capable-AI workflow in `README.txt` / `AI_PREAMBLE_AESTHETIC.md`.
 
 Checklist — Step 2 (all NOT FEASIBLE, no implementation needed): `Config.java`
 ai-assist keys, `AiDecisionClient.java`, `AI_DECISION_PROMPT.md`,
@@ -63,7 +59,7 @@ llama.cpp on Raspberry Pi CM5), reused as Step 3's architecture pattern:
 - Model never rewrites source text — JAR executes the chosen layout
   mechanically. AI only invoked when there's a genuine multi-candidate choice.
 
-**Reference tools/models:** llama.cpp (https://github.com/ggml-org/llama.cpp);
+**Tools/compiler used:** llama.cpp (https://github.com/ggml-org/llama.cpp);
 Qwen2.5-Coder-3B-Instruct-GGUF (tested: `qwen2.5-coder-3b-instruct-q4_k_m.gguf`).
 
 ---
@@ -109,70 +105,45 @@ function as a keyword or as prose here; is this trailing dot a sentence-ender
 or part of a token), not a layout-authorship judgment call — a small
 **purpose-trained** classifier (the GRU's ~500k-parameter footprint) can
 plausibly handle it, unlike a small instruction-tuned LLM (confirmed NOT
-FEASIBLE, see below — different kind of "small model"). Builds on the
-already-implemented rule-based comment-grammar classifier (Task H in
-`STATE.md`, `RDD_KEY_94`–`98`): `CommentFeatureExtractor`/
-`CommentFeatureVector`, `NonLatinScriptGate`, `KeywordAmbiguityGate`,
-`CommentClassifier`/`CommentClassifierWeights` (`YES`/`NO`/`ABSTAIN`), gated
-behind `comment-normalization-classifier` (default `off`).
+FEASIBLE, see below). Builds on the already-implemented rule-based
+comment-grammar classifier (Task H in `STATE.md`, `RDD_KEY_94`–`98`):
+`CommentFeatureExtractor`/`CommentFeatureVector`, `NonLatinScriptGate`,
+`KeywordAmbiguityGate`, `CommentClassifier`/`CommentClassifierWeights`
+(`YES`/`NO`/`ABSTAIN`), gated behind `comment-normalization-classifier`
+(default `off`). Reuses Step 2's confirmed architecture pattern
+(grammar-constrained short response, `temperature=0.0`, fail-safe fallback,
+`RDD_EXT_9` caching) — only the small-LLM variant is NOT FEASIBLE, not the
+pattern itself.
 
-Reuses Step 2's confirmed architecture pattern (grammar-constrained short
-response, `temperature=0.0`, fail-safe fallback, `RDD_EXT_9` caching) — only
-the small-LLM variant of that pattern is what's NOT FEASIBLE, not the pattern
-itself (Step 2 validated the plumbing end-to-end).
+**Small-LLM classifier fallback: NOT FEASIBLE (confirmed by testing).** Small
+instruction-tuned models (1B–3B class) cannot reliably tell whether a word at
+the start of a sentence is plain English prose or a language keyword —
+exactly the `KeywordAmbiguityGate`/Step 3 task. Tested and failed: Qwen
+(1B–3B), Qwen2.5-Coder (1B–3B), Gemma (1B–3B). Not tested, not expected to
+fare better: Llama 3B. **A small on-device LLM will not be used for Step 3,
+full stop** — not as v1, not as a fallback behind the GRU, not for
+non-Latin-comment routing. The bidirectional GRU is the only Step 3 approach
+going forward. Does not reopen Step 2. Doesn't rule out a larger model (7B+)
+— untested, no such path currently designed.
 
-### Small-LLM classifier fallback: NOT FEASIBLE (confirmed by testing)
-
-> Small instruction-tuned models (1B–3B class) cannot reliably tell whether a
-> word at the start of a sentence is plain English prose or a language
-> keyword — exactly the `KeywordAmbiguityGate`/Step 3 task. **Tested and
-> failed:** Qwen (1B–3B), Qwen2.5-Coder (1B–3B), Gemma (1B–3B). **Not tested,
-> not expected to fare better:** Llama 3B (same param-count class).
->
-> **A small on-device LLM will not be used for Step 3, full stop** — not as
-> v1, not as a fallback behind the GRU, not for non-Latin-comment routing. The
-> bidirectional GRU is the only Step 3 approach going forward. Does not
-> reopen Step 2 (independent determination, different reason). Doesn't rule
-> out a *larger* model (7B+) — untested, but no such path is being designed
-> here; would need its own fresh justification.
-
-### Model size determination — GRU is the only v1 approach
-
-A **bidirectional GRU with ~500k parameters** is the best balance of
-accuracy/latency/footprint for this narrow classification decision (not
-open-ended generation). Bidirectional because the full comment text is
-available upfront (not streamed), so only ~2x encoding compute, no
-autoregressive-latency downside.
-
-```text
-Rules
-   │
-   ├── High confidence
-   │
-   └── Abstain
-         │
-      Bidirectional GRU classifier (~500k params) — v1
-         │
-      Final decision
-```
-
-If GRU accuracy proves insufficient in practice, the next step is a fresh
-design discussion (larger model? different hyperparameters/training set?) —
+**Model size determination:** a bidirectional GRU with ~500k parameters is
+the best accuracy/latency/footprint balance for this narrow classification
+decision. Bidirectional because the full comment text is available upfront
+(not streamed) — only ~2x encoding compute, no autoregressive-latency
+downside. Pipeline: rules first (high confidence → done; abstain → GRU
+classifier → final decision). If GRU accuracy proves insufficient, the next
+step is a fresh design discussion (larger model/different hyperparameters),
 not a revival of the rejected small-LLM fallback.
 
-### Non-Latin comments
-
-`RDD_KEY_95`'s `NonLatinScriptGate` disables the rule-based classifier
-entirely (≡ `ABSTAIN`) for any comment with a non-Latin codepoint, deferring
-to the full-file AI pass. **Closed, not unstarted:** depended on the
-small-LLM fallback's multi-language understanding, which is NOT FEASIBLE —
-no Step 3 LLM branch exists to route to. `RDD_KEY_95`'s behavior stands
-unchanged. A GRU trained specifically on non-Latin/mixed-language examples
-would be a distinct, unexplored idea — raise separately if worth pursuing.
+**Non-Latin comments:** `RDD_KEY_95`'s `NonLatinScriptGate` disables the
+rule-based classifier entirely (≡ `ABSTAIN`) for any comment with a
+non-Latin codepoint, deferring to the full-file AI pass. Closed, not
+unstarted: depended on the small-LLM fallback's multi-language
+understanding, which is NOT FEASIBLE — no Step 3 LLM branch exists to route
+to. `RDD_KEY_95`'s behavior stands unchanged. A GRU trained specifically on
+non-Latin/mixed-language examples would be a distinct, unexplored idea.
 
 ### GRU implementation design (v1 target) — architecture finalized
-
-**Architecture:**
 
 | Component | Value |
 |---|---|
@@ -180,10 +151,10 @@ would be a distinct, unexplored idea — raise separately if worth pursuing.
 | Explicit vocab | ~3.5k: every keyword across every supported/planned language gets a guaranteed slot (never left to a hash bucket, since a keyword is exactly what triggers `KeywordAmbiguityGate`), plus ~3k common comment-corpus words |
 | OOV handling | 1024-bucket hashing, not a shared `<UNK>` — distinguishable unknown identifiers |
 | Embedding init | trained from scratch (pretrained vocabularies like GloVe/fastText blow past the param budget and reopen licensing/provenance questions) |
-| Embedding dim | 16 (kept small — context modeling capacity, i.e. GRU hidden size, matters more than word-identity richness for resolving *ambiguous* usage) |
+| Embedding dim | 16 (context modeling capacity, i.e. GRU hidden size, matters more than word-identity richness for resolving ambiguous usage) |
 | Sequence cap | ~64 tokens per comment (truncate/pad) |
 | GRU | single-layer bidirectional, hidden=224 |
-| Target-word handling | index into the target word's own biGRU output (concat forward+backward) — no marker token; a biGRU timestep output is already a contextualized representation |
+| Target-word handling | index into the target word's own biGRU output (concat forward+backward) — no marker token |
 | Head | concat(448) → dense(64, ReLU) → softmax(3 classes) |
 | **Total params** | **~425k** (~75k headroom under the 500k budget) |
 
@@ -197,41 +168,27 @@ would be a distinct, unexplored idea — raise separately if worth pursuing.
   resource-file swap.
 
 **Training-set acquisition approach** (measure-first, two-pool design,
-extends the `cwg/` pattern from `RDD_KEY_97`):
-
-- Don't pre-commit to a total corpus size before measuring — run the existing
-  `CommentClassifier` over a large sample first to find the real ABSTAIN
-  rate (done, see item 9 below), then size acquisition off that.
-- Pre-filter every extracted comment through `CommentClassifier` first:
-  high-confidence YES/NO already resolved for free (keep a modest sample so
-  the GRU also sees easy cases); `ABSTAIN` is the real labeling target.
-- **Two pools, different shapes:** Pool A (keyword-ambiguity) — large pool,
-  targeted extraction toward short comments (≤6-8 words) containing a known
-  keyword (`// for i` ambiguous vs. `// for matrix below` not). Pool B
-  (period-ambiguity) — small pool, punctuation-discussion comments and
-  abbreviation patterns beyond `e.g.`/`i.e.` (RDD_EXT_15's grep filter).
-- **Sources:** own dogfooded repos first (RDD_EXT_16), then vetted permissive
-  public repos.
-- **Labeling:** Pool A via frontier-model labeling + spot-check (random
-  baseline + every low-confidence flag); Pool B by hand directly (small,
-  easy human call).
-- **Verification/fixing:** flag mislabels via rule-based-classifier/label
-  disagreement and held-out regressions; correct in place with a note on
-  *why* it was wrong, same pattern as `cwg/derive_weights.py`.
+extends the `cwg/` pattern from `RDD_KEY_97`): don't pre-commit to a total
+corpus size before measuring real ABSTAIN rate (done, see below). Pre-filter
+every extracted comment through `CommentClassifier` first — high-confidence
+YES/NO resolved for free, `ABSTAIN` is the real labeling target. **Two
+pools:** Pool A (keyword-ambiguity) — large pool, targeted extraction toward
+short comments (≤6-8 words) containing a known keyword. Pool B
+(period-ambiguity) — small pool, punctuation-discussion comments and
+abbreviation patterns (RDD_EXT_15's grep filter). Sources: own dogfooded
+repos first (RDD_EXT_16), then vetted permissive public repos. Labeling:
+Pool A via frontier-model labeling + spot-check; Pool B by hand (small, easy
+call). Verification: flag mislabels via rule-based/label disagreement and
+held-out regressions, correct in place with a why-note.
 
 **Fail-safe:** missing/unreadable weights file → `GruClassifier` behaves as
 `ABSTAIN` (classifier `off` for that comment) — no further LLM fallback,
-matches the fail-safe posture everywhere else — never blocks formatting.
+never blocks formatting.
 
-### Open refinement items — all resolved
-
-Items 1, 2, 5, 6, 7, 8 (output classes, abstain threshold, tokenization,
-hash function, weights schema, Pool B extraction method) were pure judgment
-calls, resolved as RDD_EXT_10–15 above. Items 3, 4, 10 (hyperparameters,
-eval target, licensing) resolved as RDD_EXT_16–18 (starting points,
-revisitable once real measurements exist). **Item 9 (real ABSTAIN-rate
-measurement) is CLOSED** — see "Remaining blocked open items" below for the
-full measurement and conclusion.
+All "Open refinement items" (output classes, abstain threshold, tokenization,
+hash function, weights schema, Pool B extraction, hyperparameters, eval
+target, licensing) are resolved — see RDD_EXT_10–18 above. Item 9 (real
+ABSTAIN-rate measurement) is CLOSED — see below.
 
 ---
 
@@ -250,554 +207,422 @@ AI_PREAMBLE_FULL.md §15):
 
 `.hpp` and the trailing `C.` both count as dots, so `dotCount != 1` and the
 genuinely sentence-ending trailing period is left in place (expected:
-stripped).
-
-**2026-07-28 cleanup-pass re-assessment:** no trained weights ship yet
-(`GruClassifier.classify` still unconditionally abstains without
-`hasTrainedWeights()`, per "Remaining blocked open items" below), so this
-is still not tractable mechanically — unchanged from prior assessment.
-
-Distinguishing a mid-word/mid-token dot (file extensions, `e.g.`, `i.e.`,
-`v1.0`, single-letter abbreviations) from a true sentence-ending dot is a
-natural-language judgment call — no tractable mechanical heuristic exists.
-**Exactly the class of ABSTAIN-worthy case Step 3 targets:** the rule-based
-classifier's `dotCount != 1` case would ABSTAIN here, and the GRU classifier
-would resolve it given enough mid-word-dot training examples. No longer
-blanket NOT FEASIBLE — feasible via Step 3's GRU once trained; until then,
-remains an accepted mechanical-rule limitation (`dotCount != 1` → leave
-as-is).
+stripped). **2026-07-28 re-assessment:** no trained weights ship yet (at that
+time — `GruClassifier.classify` still unconditionally abstained without
+`hasTrainedWeights()`), so still not mechanically tractable. Distinguishing a
+mid-word/mid-token dot (file extensions, `e.g.`, `i.e.`, `v1.0`, single-letter
+abbreviations) from a true sentence-ending dot is a natural-language judgment
+call with no tractable mechanical heuristic — exactly the class of
+ABSTAIN-worthy case Step 3 targets: the rule-based classifier's
+`dotCount != 1` case would ABSTAIN, and the GRU classifier would resolve it
+given enough mid-word-dot training examples. Not blanket NOT FEASIBLE —
+feasible via Step 3's GRU once trained; until then, remains an accepted
+mechanical-rule limitation (`dotCount != 1` → leave as-is).
 
 ---
 
-## Remaining blocked open items / current job state
+## Job state history (through 2026-07-29)
 
 Everything mechanical is wired and real, not stubbed: `GruClassifier`
-(`tokenize`, `hashBucket`, `softmax`, `decide`, `CLASS_ORDER`, and a real
-`forward()` pass — embedding lookup, bidirectional GRU recurrence computed
-only across the ranges that affect the target word's output, dense ReLU
-head, softmax), `GruWeights` (full schema: explicit vocab, embedding table,
-both GRU directions' gate matrices/biases, dense head, output layer — hand-
-rolled recursive-descent JSON parser, no external library, backward-
-compatible with the old scalar-only fixture files), `Vocabulary`
-(explicit-vocab-vs-hash-bucket lookup), `GruAbstainResolver` (real "rules →
-GRU on abstain" pipeline, config-gated via `gru-classifier`/
-`gru-weights-path`, empty-path falls back to program-directory-relative
-resolution), `tools/gru/GruTrainer.java` (real training loop: Xavier/Glorot
-init, per-example forward+backward+Adam step at batch size 1 — a deliberate
-simplification of RDD_EXT_18's batch-32 default, revisit if a production run
-shows it matters — 20% held-out validation split with patience-based early
-stopping, reads RDD_EXT_21's 4-column schema, loads `explicit_vocab.txt` by
-default per RDD_EXT_22), the `gru-train`/`gru-extract-pool-a`/
-`gru-extract-pool-b`/`gru-measure-abstain-rate` Makefile targets, and five
-self-tests (`GruTokenizerSelfTest`, `GruWeightsSelfTest`, `GruSoftmaxSelfTest`,
+(`tokenize`, `hashBucket`, `softmax`, `decide`, `CLASS_ORDER`, real
+`forward()` — embedding lookup, bidirectional GRU recurrence computed only
+across ranges affecting the target word's output, dense ReLU head, softmax),
+`GruWeights` (full schema: explicit vocab, embedding table, both GRU
+directions' gate matrices/biases, dense head, output layer — hand-rolled
+recursive-descent JSON parser, backward-compatible with old scalar-only
+fixtures), `Vocabulary` (explicit-vocab-vs-hash-bucket lookup),
+`GruAbstainResolver` (real "rules → GRU on abstain" pipeline, config-gated
+via `gru-classifier`/`gru-weights-path`, empty-path falls back to
+program-directory-relative resolution), `tools/gru/GruTrainer.java` (real
+training loop: Xavier/Glorot init, per-example forward+backward+Adam step at
+batch size 1 — a deliberate simplification of RDD_EXT_18's batch-32 default,
+revisit if a production run shows it matters — 20% held-out validation split
+with patience-based early stopping, reads RDD_EXT_21's 4-column schema,
+loads `explicit_vocab.txt` by default per RDD_EXT_22), the
+`gru-train`/`gru-extract-pool-a`/`gru-extract-pool-b`/
+`gru-measure-abstain-rate` Makefile targets, and five self-tests
+(`GruTokenizerSelfTest`, `GruWeightsSelfTest`, `GruSoftmaxSelfTest`,
 `GruAbstainResolverSelfTest`, all passing; `make test` 116/116 forward +
-116/116 idempotency, zero regressions throughout).
+116/116 idempotency at that point, zero regressions).
 
-`GruClassifier.classify` still abstains whenever `hasTrainedWeights()` is
-false — same fail-safe posture, no change to existing rule-based behavior
-until a real weights file is deployed.
+`GruClassifier.classify` abstains whenever `hasTrainedWeights()` is false —
+fail-safe posture, no change to rule-based behavior until a real weights
+file is deployed.
 
 ### Item 9 — real ABSTAIN-rate measurement: CLOSED
 
 Tooling: `tools/gru/extract_comments.py` (walks a source tree, maps file
 extensions to `Lang` languages, extracts marker-stripped comment text into a
-flat `<lang>\t<escaped-text>` corpus; excludes `3rd_party` dirs since a
-single vendored non-code comment file can dominate a language's count) +
+flat `<lang>\t<escaped-text>` corpus; excludes `3rd_party` dirs) +
 `tools/gru/CommentAbstainTally.java` (feeds each comment through the real
-`CommentFeatureExtractor`/`CommentClassifier` pipeline, tallies YES/NO/
-ABSTAIN per language; wired as `make gru-measure-abstain-rate
+pipeline, tallies YES/NO/ABSTAIN per language; `make gru-measure-abstain-rate
 GRU_ABSTAIN_INPUT=...`).
 
 **Measured across 14 corpora (~199,000 comments, own repos + 11 vetted
-MIT/Apache-2.0/BSD-3-Clause public repos spanning every job's dogfood/
-test-fixture list — full run-by-run counts recoverable via `git log`/`git
-show` on this file's history):** ABSTAIN rate is consistently **0.0%-0.6%**
-for ordinary hand-written comments, regardless of language or repo, with two
-explained outliers: (a) `TTGO_VGA32_Lite`+`RobotCoding` 4.6%, traced to
-vendored bitmap-font glyph-table files and embedded third-party zlib/libjpeg
-source, not a classifier defect; (b) `json5/json5` 14.6% on only 103
-comments, too small to be informative, flagged as unexplained rather than
-root-caused. `CommentDecision.NO` never fires in any run — confirmed
-expected (traced into `CommentClassifier.classify`: no code path currently
-produces `NO`, not a bug).
+MIT/Apache-2.0/BSD-3-Clause public repos):** ABSTAIN rate consistently
+**0.0%-0.6%** for ordinary hand-written comments, with two explained
+outliers: (a) `TTGO_VGA32_Lite`+`RobotCoding` 4.6%, traced to vendored
+bitmap-font/zlib/libjpeg content, not a classifier defect; (b)
+`json5/json5` 14.6% on only 103 comments, too small to be informative.
+`CommentDecision.NO` never fired in any run at that time — confirmed
+expected (no code path produced `NO` yet, not a bug — see below for the
+later decorative-separator gate that changed this).
 
 **Implication:** at a ~0.3-0.5% typical rate, random sampling would need an
 impractically large raw volume for a usable training set — confirms
-RDD_EXT_15's targeted-extraction choice for Pool B, and the same principle
-applies to Pool A. This closed item 9; volume-based random sampling is ruled
-out as impractical for training-set acquisition.
+RDD_EXT_15's targeted-extraction choice for Pool B (and Pool A). This closed
+item 9; volume-based random sampling is ruled out as impractical for
+training-set acquisition.
 
-### Pool A/Pool B extraction, labeling, and first production training run
+### Pool A/Pool B extraction, labeling, first production training run
 
-`tools/gru/ExtractPoolA.java` (Pool A: ABSTAIN comments with
-`hasLeadingKeywordMatch` set, excluding `NonLatinScriptGate` ABSTAINs) and
-`tools/gru/extract_pool_b.py` (Pool B: RDD_EXT_15's grep filter,
-independent of `CommentClassifier`) both read `extract_comments.py`'s
-corpus format; wired as `gru-extract-pool-a`/`gru-extract-pool-b`.
+`tools/gru/ExtractPoolA.java` (ABSTAIN comments with `hasLeadingKeywordMatch`
+set, excluding `NonLatinScriptGate` ABSTAINs) and `tools/gru/extract_pool_b.py`
+(RDD_EXT_15's grep filter, independent of `CommentClassifier`) both read
+`extract_comments.py`'s corpus format; wired as `gru-extract-pool-a`/
+`gru-extract-pool-b`.
 
-**First real acquisition run (eCxx/SusterCaller/VMA-GIT, own repos per
-RDD_EXT_16)** found and fixed a genuine `extract_comments.py` bug: the old
-two-regex approach let a literal `/*` inside a `//` line comment (e.g.
-`///*mlen = n;`) get matched by the block-comment regex and non-greedily
-swallow unrelated later text, merging code into a bogus comment record
-(reproduced at `TweetNacl.java:2354-2364`). Fixed with a single left-to-right
-scanner (`extract_c_style_comments`) treating `//` and `/* */` as mutually
-exclusive consumed spans. Verified against the reproduction and against real
-large `/* */` blocks (BearSSL/esp8266) that now extract correctly as single
-comments.
+First real acquisition run (eCxx/SusterCaller/VMA-GIT, own repos) found and
+fixed a genuine `extract_comments.py` bug: a literal `/*` inside a `//` line
+comment (e.g. `///*mlen = n;`) got matched by the block-comment regex and
+non-greedily swallowed unrelated later text, merging code into a bogus
+comment record. Fixed with a single left-to-right scanner
+(`extract_c_style_comments`) treating `//` and `/* */` as mutually exclusive
+spans; verified against the reproduction and real large `/* */` blocks.
 
-Post-fix: 57974 comments → **Pool A 167 candidates** (c=49, cpp=92, java=26),
-**Pool B 241 candidates** (c=181, cpp=54, java=6).
+Post-fix: 57974 comments → Pool A 167 candidates (c=49, cpp=92, java=26),
+Pool B 241 candidates (c=181, cpp=54, java=6). **Labeling** (RDD_EXT_20
+schema): Pool A hand-reviewed: 45 YES / 122 NO (large NO share expected for
+a keyword-leading pool from embedded/driver code — mostly commented-out code
+or terse labels). Pool B via documented rule-based fallback (NO if 2+
+newlines, no trailing `.`/ellipsis/abbreviation-final; YES otherwise): 41
+YES / 200 NO, spot-checked. `add_target_index.py` inserts RDD_EXT_21's
+`targetWordIndex` column, cross-checked bit-for-bit against the real Java
+tokenizer; applied to both corpora with 0 skipped. Labeled corpora never
+committed (RDD_EXT_19).
 
-**Labeling (RDD_EXT_20 schema):** Pool A hand-reviewed per-example: **45
-YES / 122 NO** (c: 25/24, cpp: 19/73, java: 1/25) — large NO share matches
-expectations for a keyword-leading pool drawn from embedded/driver code
-(mostly commented-out code or terse labels, not full sentences). Pool B
-labeled via a documented rule-based fallback (NO if 2+ newlines, no trailing
-`.`, ellipsis, or abbreviation-final; YES otherwise): **41 YES / 200 NO**
-(c: 37/144, cpp: 3/51, java: 1/5), spot-checked for correctness.
+**First production training run:** 408 examples, 80/20 split (327/81).
+`--epochs=40 --patience=6`: early-stopped epoch 15. Held-out precision
+97.96% (YES 13/1, NO 35/0), 39.5% abstain; training-split 97.37% (not
+memorization). Caveat: 408 examples is small for a ~425k-param model; single
+un-cross-validated split carries sampling variance — a positive signal, not
+a validated production claim.
 
-`add_target_index.py` (checked in) inserts RDD_EXT_21's `targetWordIndex`
-column (index 0 for Pool A's leading keyword, last-token index for Pool B) —
-its own `tokenize()` cross-checked bit-for-bit against the real Java
-tokenizer before trusting it. Applied to both real corpora: 167/167 Pool A
-and 241/241 Pool B converted, 0 skipped. Labeled corpora live in the session
-scratchpad only, never committed (RDD_EXT_19).
+**Explicit vocab curated (RDD_EXT_22)**, `GruTrainer` wired to load it
+(vocabSize=3500). Retrained against permanent vocab (same split/hyperparams):
+early-stopped epoch 15, held-out precision **93.88%** (YES 11/2, NO 35/0),
+39.5% abstain — still clears RDD_EXT_17's 90% bar; training-split 99.12%.
+The drop from 97.96% read as sampling variance (vocab change), not
+regression — **this is the current baseline; 97.96%/97.37% are historical
+(pre-RDD_EXT_22)**.
 
-**First production training run:** 408 examples (167+241), 80/20 split
-(327 train / 81 held-out test, kept fully separate from `GruTrainer`'s own
-internal 20% early-stopping split). `--epochs=40 --patience=6`: train loss
-0.57→~0, validation bottomed at epoch 9 (0.156), early-stopped at epoch 15.
-Held-out precision: 48/49 decided correct = **97.96%** (YES 13/1, NO 35/0),
-39.5% abstain rate; training-split sanity check 97.37% (not suspiciously
-perfect vs. held-out, i.e. not memorization). **Caveat:** 408 examples is a
-very small corpus for a ~425k-param model, and a single un-cross-validated
-80/20 split carries real sampling variance — read as "a real positive
-signal," not a validated production accuracy claim.
+Qualitative spot-check confirmed the model differentiates on surrounding
+context, not the target token alone: `"for the sake of clarity, rewrite
+this"` (target="for") → YES; `"for (int i = 0; i < n; i++) increments"`
+(same leading token) → NO; `"extern C."` (target=".") → YES; `"supports
+JSON, YAML, TOML, etc."` (target=".") → NO; a non-trailing mid-sentence
+period at a different index than the target → ABSTAIN rather than guessed.
 
-**Explicit vocab curated (RDD_EXT_22)** and `GruTrainer` wired to load it by
-default (verified `vocabSize=3500` in written weights). **Retrained against
-the permanent vocab** (same 327/81 split, same hyperparameters): validation
-bottomed at epoch 9 (0.062), early-stopped at epoch 15. Held-out precision:
-46/49 decided correct = **93.88%** (YES 11/2, NO 35/0), 39.5% abstain rate —
-still clears RDD_EXT_17's 90% bar. Training-split sanity check: 99.12%
-(226/228), 30.3% abstain. The drop from 97.96% is read as sampling variance
-(vocab, not just size, changed between runs), not a regression — **this is
-now the current baseline; the 97.96%/97.37% figures are superseded/
-historical (pre-RDD_EXT_22)**.
-
-Qualitative spot-check on hand-written inputs (not part of either corpus)
-confirmed the model differentiates on surrounding context rather than the
-target token alone: `"for the sake of clarity, rewrite this"` (target="for")
-→ YES; `"for (int i = 0; i < n; i++) increments"` (same leading token) → NO;
-`"extern C."` (target=".") → YES; `"supports JSON, YAML, TOML, etc."`
-(target=".") → NO; a non-trailing mid-sentence period at a different index
-than the target → ABSTAIN rather than guessed.
-
-### Tooling for corpus growth and cross-validation (added, not yet run at scale)
+### Tooling for corpus growth and cross-validation
 
 - `tools/gru/acquire_corpus.sh` — automates acquisition + extraction only
-  (deliberately stops before labeling, a human judgment call per RDD_EXT_20).
-  For each of 16 hardcoded sources (5 local dogfood repos under `~` + 11
-  vetted MIT/BSD-3-Clause/Apache-2.0 public repos, sourced from item 9's own
-  run log — extend by hand as new sources get vetted, never add unvetted
-  ones), runs `extract_comments.py` then `gru-extract-pool-a`/
-  `gru-extract-pool-b`, writing candidates under `--out-dir` (default
-  `/tmp/gru_corpus`); public repos are shallow-cloned and removed after
-  extraction unless `--keep-clones`. Smoke-tested (`--only eCxx`): 45357
+  (stops before labeling, a human call per RDD_EXT_20). 16 hardcoded sources
+  (5 local dogfood repos + 11 vetted public repos), writes candidates under
+  `--out-dir` (default `/tmp/gru_corpus`); public repos shallow-cloned and
+  removed after unless `--keep-clones`. Smoke-tested (`--only eCxx`): 45357
   comments, 140 Pool A / 215 Pool B candidates.
-- `tools/gru/GruEval.java` (checked in) — loads a trained weights file,
-  reports precision/abstain-rate against an RDD_EXT_21-schema file; replaces
-  the earlier throwaway `/tmp/GruEval.java` harness.
-- `tools/gru/cross_validate.py` — repeated Monte Carlo cross-validation on
-  top of `GruEval`: reshuffles a combined labeled file with a fresh seed per
-  round (default 5), retrains `GruTrainer` from scratch on an 80% split,
-  evaluates on the untouched 20%, reports mean/stdev/min/max precision.
-  Smoke-tested (2 rounds, `--epochs=5 --patience=2`): 0.8333/0.8163, mean
-  0.8248 stdev 0.0120 — confirms the pipeline runs end to end (low epoch
-  count, not a real accuracy measurement).
+- `tools/gru/GruEval.java` — loads a trained weights file, reports
+  precision/abstain-rate against an RDD_EXT_21-schema file.
+- `tools/gru/cross_validate.py` — repeated Monte Carlo cross-validation:
+  reshuffles combined labeled file with a fresh seed per round (default 5),
+  retrains from scratch on 80%, evaluates on untouched 20%, reports
+  mean/stdev/min/max precision. Smoke-tested (2 rounds, low epochs):
+  0.8333/0.8163, mean 0.8248 stdev 0.0120 (pipeline check only, not a real
+  accuracy measurement).
 
-Neither script's working files (splits, weights, clones) are ever committed,
-per RDD_EXT_19. See `tools/gru/README.txt` for exact invocation syntax for
-every tool in this directory.
+Neither script's working files (splits, weights, clones) are ever committed
+(RDD_EXT_19). See `tools/gru/README.txt` for exact invocation syntax.
 
 ### Optional synthetic-augmentation tooling (chat-LLM assisted, NOT the real corpus)
 
 Separate, optional tooling to pad Pool A/B with LLM-generated synthetic
-examples via a manually-copy-pasted chat prompt (Gemini/Grok free tiers,
-no API key). This is **explicitly not a replacement** for the
-acquire_corpus.sh + hand-labeling pipeline (RDD_EXT_19/20) — synthetic
-comments risk teaching the GRU "what an LLM thinks ambiguous code looks
-like" rather than real-world distribution, which is the exact failure
-mode Step 3 was designed around when the small-instruction-tuned-LLM
-approach was rejected. Treat any synthetic-augmented file as a distinct,
-clearly-labeled source, not silently merged into the real combined corpus.
+examples via a manually-copy-pasted chat prompt (Gemini/Grok free tiers, no
+API key). **Explicitly not a replacement** for the acquire_corpus.sh +
+hand-labeling pipeline (RDD_EXT_19/20) — synthetic comments risk teaching
+the GRU "what an LLM thinks ambiguous code looks like" rather than
+real-world distribution, the exact failure mode Step 3 was designed around
+when the small-LLM approach was rejected. Any synthetic-augmented file is a
+distinct, clearly-labeled source, never silently merged into the real corpus.
 
-- `tools/gru/gen_synthetic_prompt.py` — reads `explicit_vocab.txt`,
-  prints a self-contained copy/paste prompt (RDD_EXT_20/21 schema spelled
-  out inline, no file upload needed) requesting Pool A + Pool B lines for
-  the next unused slice of the vocab. `--words-per-batch` is configurable
-  (default **100**, producing `2 * words_per_batch` total lines — raised
-  from an earlier default of 20). State (`next_index` into the vocab)
-  persists in `.gen_synthetic_state.json` next to the script, so
-  consecutive daily runs walk forward through the 3500-word vocab instead
-  of repeating words; wraps back to index 0 once exhausted. `--reset`
-  restarts from 0. Each run also appends its actual `word_slice` (the
-  words really requested that run, one per line) to a persistent,
-  append-only sidecar, `--requested-words` (default
-  `.gen_synthetic_requested_words.txt` next to the script) — this happens
-  as soon as the slice is computed, independent of whether the printed
-  prompt is ever actually pasted to a chat LLM. Pass an empty string to
-  skip writing it.
-  **Known behavior, not a bug:** a chat LLM (observed with Gemini) may
-  silently skip a requested word it doesn't recognize as a real language
-  keyword rather than emitting a line for it — expected, and the reason
-  `regroup_synthetic.py`'s `--expected-words` check below exists.
-- `tools/gru/regroup_synthetic.py` — takes one pasted-in file containing
-  scattered Pool A/B lines (e.g. concatenated output from multiple chat
-  responses/models) and splits it into `pool_a.tsv` / `pool_b.tsv` /
-  `unresolved.tsv`. Field splitting tolerates inconsistent space/tab
-  spacing (any whitespace run counts as one separator). Classification
-  is deliberately conservative: `targetWordIndex == 0` → Pool A;
-  `targetWordIndex == index of the last whitespace-split token` → Pool B;
-  anything else (including malformed labels/indices) → `unresolved.tsv`
-  for manual review, never silently discarded.
-  **Known limitation:** the real `GruClassifier.tokenize` splits trailing
-  attached punctuation into its own token (RDD_EXT_12), so the true
-  target token is not always the last *raw* whitespace-split word (see
-  the `extern C.` / `uses a vs. b comparison` examples in
-  `sample_examples.txt`). Neither this script nor the chat LLM generating
-  the data can reconstruct that tokenizer's exact behavior without its
-  source, so a meaningful fraction of real Pool B lines are expected to
-  land in `unresolved.tsv` rather than being auto/mis-classified — this
-  is intentional, not a bug to fix by loosening the match.
-  **Pool A leading-word cross-check (added after a real-data review of
-  `sp_gemini.txt` found a chat LLM drifting into unprompted, unrelated
-  filler sentences once it ran past its requested word list — still
-  well-formed `targetWordIndex == 0` lines, just not answering the actual
-  word that was asked for):** for `idx == 0` candidates, the leading
-  word (trailing punctuation stripped) is checked against two optional
-  sources, either of which can be disabled with an empty string:
-  - `--expected-words` (default the `gen_synthetic_prompt.py` sidecar
-    above) — the tight check: rejects any leading word that was never
-    actually requested by any run. Preferred once the sidecar exists.
-  - `--vocab` (default `explicit_vocab.txt`) — a looser fallback that
-    only catches outright garbage (e.g. a leading token like
-    `sizeof(int)` with code glued on with no space), since the vocab
-    also legitimately contains ordinary English words (`the`, `a`,
-    `to`, `on`, `by`, …) that are valid Pool A entries in general but
-    may not be the specific word a given batch asked for.
-  A line failing either enabled check goes to `unresolved.tsv`, never
-  silently dropped, same as every other unresolved case.
-  **`sp_gemini.txt` predates the sidecar mechanism** (its
-  `.gen_synthetic_state.json`/`.gen_synthetic_requested_words.txt` history
-  wasn't tracked when it was generated) — do not try to reconstruct its
-  request history by replaying `gen_synthetic_prompt.py`
-  from a reset state, since the file's actual batch boundaries don't
-  cleanly match any single `--words-per-batch` value and a replay would
-  very likely diverge from what was actually sent to the LLM, silently
-  mis-filtering good lines. Treat `sp_gemini.txt` as vocab-only-checked
-  legacy data; `--expected-words` becomes fully reliable only for batches
-  generated after this mechanism was added.
-
----
+- `tools/gru/gen_synthetic_prompt.py` — reads `explicit_vocab.txt`, prints a
+  self-contained copy/paste prompt requesting Pool A + Pool B lines for the
+  next unused vocab slice. `--words-per-batch` default 100. State
+  (`next_index`) persists in `.gen_synthetic_state.json` so consecutive runs
+  walk forward through the vocab; `--reset` restarts from 0. Each run
+  appends its actual `word_slice` to an append-only sidecar
+  (`--requested-words`, default `.gen_synthetic_requested_words.txt`) as
+  soon as computed, independent of whether the prompt is ever pasted. Known
+  behavior, not a bug: a chat LLM may silently skip a requested word it
+  doesn't recognize as a real keyword.
+- `tools/gru/regroup_synthetic.py` — splits one pasted-in file of scattered
+  Pool A/B lines into `pool_a.tsv`/`pool_b.tsv`/`unresolved.tsv`. Tolerant
+  field splitting. Classification: `targetWordIndex == 0` → Pool A;
+  `== index of last whitespace-split token` → Pool B; anything else →
+  `unresolved.tsv` for manual review. Known limitation: the real
+  `GruClassifier.tokenize` splits trailing attached punctuation into its own
+  token (RDD_EXT_12), so a meaningful fraction of real Pool B lines land in
+  `unresolved.tsv` rather than being auto-classified — intentional, not a
+  bug to fix by loosening the match. Pool A leading-word cross-check (added
+  after `sp_gemini.txt` review found a chat LLM drifting into unprompted
+  filler sentences with well-formed `targetWordIndex == 0` but wrong
+  content): for `idx == 0` candidates, the leading word is checked against
+  `--expected-words` (tight — the sidecar above, rejects never-requested
+  words) and/or `--vocab` (loose fallback, catches outright garbage only,
+  since ordinary English words are legitimately in the vocab). Either check
+  can be disabled with an empty string; a line failing either enabled check
+  goes to `unresolved.tsv`, never silently dropped. `sp_gemini.txt` predates
+  the sidecar mechanism — do not try to reconstruct its request history by
+  replaying `gen_synthetic_prompt.py` from reset, since batch boundaries
+  don't cleanly match any single `--words-per-batch` value; treat it as
+  vocab-only-checked legacy data.
 
 ### acquire_corpus.sh run at full scale (16 sources)
 
-Run for real (not a smoke test) against all 16 configured sources, output to
-`/tmp/gru_corpus` (archived by the user to their own personal directory, per
-RDD_EXT_19 — not the repo): **172,285 comments total → 578 Pool A +
-492 Pool B candidates**, roughly 3.5x the previous 167/241 hand-labeled batch.
-None of it is labeled yet — hand-labeling (RDD_EXT_20) remains the next
-manual step before any of it can be added to training.
+Output to `/tmp/gru_corpus` (archived by user to personal directory per
+RDD_EXT_19): **172,285 comments total → 578 Pool A + 492 Pool B candidates**,
+~3.5x the previous 167/241 hand-labeled batch. None labeled yet at that
+point — hand-labeling remains an available next manual step.
 
 ### Real (non-smoke-test) cross-validation run
 
-Ran `cross_validate.py` (5 rounds, real `--epochs=40 --patience=6`, default
-80/20 split) against the existing 408-example combined corpus
-(`explicit_vocab.txt` vocab, same as the RDD_EXT_22 retrain baseline):
-**precision mean=92.40%, stdev=3.00%, min=89.80%, max=96.49%** across the 5
-rounds (abstain rate ranged 27%-40% per round, consistent with prior single-
-split runs). Confirms the single-split 93.88% figure from the RDD_EXT_22
-retrain sits well within normal split-to-split variance, not a lucky or
-unlucky draw — this is now the variance-bounded precision estimate for the
-408-example corpus, superseding the single-split-only caveat above. Working
-files (per-round splits/weights) were not committed, per RDD_EXT_19.
+Ran `cross_validate.py` (5 rounds, real `--epochs=40 --patience=6`, 80/20
+split) against the 408-example combined corpus (RDD_EXT_22 vocab):
+**precision mean=92.40%, stdev=3.00%, min=89.80%, max=96.49%** (abstain rate
+27%-40% per round). Confirms the single-split 93.88% figure sits well within
+normal variance — this is the variance-bounded precision estimate for the
+408-example corpus, superseding the single-split-only caveat. Working files
+not committed (RDD_EXT_19).
 
-### Not yet done
+### Next-steps checklist from the 16-source run — resolution (2026-07-29)
 
-Hand-labeling the newly acquired 578 Pool A / 492 Pool B candidates (from the
-full-scale `acquire_corpus.sh` run above) and folding them into a larger
-combined corpus would substantially grow the training set beyond 408
-examples — this is the next actionable step for further de-risking precision,
-now that both acquisition-at-scale and cross-validation tooling have real
-run data behind them.
+This session took a different path than the originally planned "hand-label
+578/492 → combine → retrain → re-cross-validate → deploy" sequence:
 
----
-
-## Next steps (as of the 16-source acquisition + 5-round cross-validation run)
-
-**Status update (2026-07-29): superseded by this session's `gru-acquire-corpus`/
-auto-labeling/live-wiring work (see the dated section above) — marked
-per-item below rather than left as if still pending as originally written.**
-
-1. **Hand-label the 578 Pool A / 492 Pool B candidates** — **CANCELED
-   (superseded, not performed).** This session took a different path
-   (`GenerateSampleDefault.java` auto-labeling via the rule-based classifier)
-   to get a real default training corpus without hand-labeling. The 578/492
-   candidates themselves were never hand-labeled and still sit unlabeled in
-   the archived `gru_corpus.tar.xz`; hand-labeling them remains available as
-   a *future* option (it's the only source of real ground-truth `NO`
-   examples, since the auto-labeled path structurally cannot produce `NO` —
-   see the dated section above) but is no longer "the next step" by default.
-2. **Add the `targetWordIndex` column** to the newly labeled candidates —
-   **CANCELED (superseded, moot).** Moot as stated, since step 1 didn't
-   happen; `GenerateSampleDefault.java` emits its own `targetWordIndex`
-   column (always 0) directly as part of auto-labeling, so this exact tool
-   invocation is no longer needed for the default-corpus path either way.
-3. **Combine** the new labeled corpora with the existing 408-example set —
-   **CANCELED (superseded, not performed).** `sample_default.txt` (the new
-   170k-line auto-labeled corpus) was deliberately kept as its own separate
-   file, not merged with the 408-example hand-labeled corpus — different
-   provenance/label-quality tier, and RDD_KEY_217's commit exception applies
-   only to `sample_default.txt`, not the hand-labeled corpus.
-4. **Retrain** against the grown corpus and **re-run `cross_validate.py`** —
-   **MODIFIED.** A retrain did happen (`make gru-train`, this session,
-   producing `code-formatter-ai-assist-weights.json`), but against
-   `sample_default.txt` (the new auto-labeled corpus), not the "grown"
-   408-example-plus-hand-labeled-candidates corpus this step originally
-   meant. `cross_validate.py` was not re-run against it (would report ~0%
-   variance-of-precision-on-NO trivially, since the corpus has no `NO`
-   examples) — the 92.40%/3.00% (408-example) figures above are NOT
-   superseded by this retrain and remain the only real precision estimate
-   on record.
-5. **Back up** any new real corpus/weights artifacts to the personal directory —
-   **MODIFIED.** Superseded by RDD_KEY_217's narrower, different resolution:
-   instead of (or in addition to) a personal-directory backup, exactly
-   `tools/gru/sample_default.txt` and `code-formatter-ai-assist-weights.json`
-   are being committed straight into the repo, per explicit user direction —
-   see RDD_KEY_217 in `RDD_LOG.md`. This does not apply to any other
-   artifact (Pool A/B candidates, cross-validation working files, etc.),
-   which still follow the original personal-directory-backup guidance as-is.
-6. **Deploy** the weights file once precision clears RDD_EXT_17's 90% bar —
-   **MODIFIED / PARTIALLY DONE.** The wiring itself is done this session
-   (`GruAbstainResolver` is genuinely reachable from the live formatter via
-   `MiscRuleCore`), but it did NOT wait on a precision re-measurement against
-   a grown corpus as this step assumed — the shipped default weights file
-   is trained on the all-`YES` auto-labeled corpus, not a precision-vetted
-   grown one. It's also not active *by default* in practice:
-   `comment-normalization-classifier` (the prerequisite gate) had to be kept
-   `off` by default after it regressed 9 `make test` fixtures — see the dated
-   section above. So: reachable/wired = done; "deployed" in the sense of
-   active by default and precision-vetted against a bigger corpus = not done,
-   now blocked on classifier-accuracy work instead of corpus size.
+1. **Hand-label the 578/492 candidates** — CANCELED/superseded. This session
+   used `GenerateSampleDefault.java` auto-labeling via the rule-based
+   classifier instead. The 578/492 candidates remain unlabeled in the
+   archived `gru_corpus.tar.xz`; hand-labeling them is still available as a
+   future option (it's the only source of real ground-truth `NO` examples
+   for prose, since the auto-labeled path structurally can't produce prose
+   `NO`) but is no longer the default next step.
+2. **Add `targetWordIndex`** — moot, since step 1 didn't happen;
+   `GenerateSampleDefault.java` emits its own (always 0) directly.
+3. **Combine with the 408-example set** — did not happen.
+   `sample_default.txt` (new 170k-line auto-labeled corpus) was deliberately
+   kept separate — different provenance/label-quality tier; RDD_KEY_217's
+   commit exception applies only to `sample_default.txt`, not the
+   hand-labeled corpus.
+4. **Retrain + re-run cross_validate.py** — a retrain did happen (`make
+   gru-train`, producing `code-formatter-ai-assist-weights.json`), but
+   against `sample_default.txt`, not the originally-intended grown corpus.
+   `cross_validate.py` was not re-run against it (would trivially report
+   ~0% variance on NO precision, since that corpus has no NO examples) — the
+   92.40%/3.00% (408-example) figures remain the only real precision
+   estimate on record.
+5. **Back up new artifacts to personal directory** — superseded by
+   RDD_KEY_217 (see below): `tools/gru/sample_default.txt` and
+   `code-formatter-ai-assist-weights.json` are committed directly instead,
+   per explicit user direction. Does not apply to any other artifact (Pool
+   A/B candidates, cross-validation working files), which still follow
+   personal-directory-backup guidance.
+6. **Deploy once precision clears 90%** — partially done. Wiring is done
+   this session (`GruAbstainResolver` genuinely reachable from the live
+   formatter via `MiscRuleCore`), but did not wait on a precision
+   re-measurement against a grown corpus — the shipped default weights file
+   is trained on the all-YES auto-labeled corpus, not a precision-vetted
+   grown one. Not active by default in practice either:
+   `comment-normalization-classifier` (the prerequisite gate) stayed `off`
+   by default after it regressed 9 `make test` fixtures (see below). So:
+   reachable/wired = done; active-by-default + precision-vetted-at-scale =
+   not done, now blocked on classifier-accuracy work instead of corpus size.
 
 ---
 
 ## 2026-07-29 session: default auto-labeled corpus, live wiring, RDD_KEY_217
 
-### Why the GRU only ever returns YES/ABSTAIN in practice (never NO)
+### Why the rule-based classifier only ever returns YES/ABSTAIN, never NO (and why NO can only come from the GRU)
 
-**Superseded in part** by the "`CommentClassifier` first real NO-producing
-path: decorative-separator gate" section further below (same day, later in
-this session) — `classify` can now return `NO` for decorative-only
-comments. The finding below is still accurate for every other case
-(genuine prose/code NO still has no gate) and is kept as-is for history;
-read it as "no NO path existed *at all*, historically" rather than the
-current state.
-
-Two independent causes, confirmed by reading the actual code:
+Two independent, confirmed-by-reading-the-code facts:
 
 - `CommentClassifier.classify(CommentFeatureVector)` (the rule-based/"linear"
   classifier that gates the GRU) is architecturally incapable of returning
   `NO` — its decision tree only ever returns `YES` or `ABSTAIN` (RDD_KEY_96).
-  `GruAbstainResolver.resolve` only calls the GRU at all when the rule result
-  is `ABSTAIN`, so `NO` can only ever come from the GRU stage itself.
-- The GRU stage itself (`GruClassifier.classify`) genuinely can return `NO`
-  — but until this session it was never reached in the live formatter at
-  all (`gruClassifier` config defaulted off, no shipped weights file existed,
-  and — separately — the default training corpus turned out to be 100% `YES`
-  labels, see below), so empirically `NO` never appeared out of either stage.
+  `GruAbstainResolver.resolve` only calls the GRU at all when the rule
+  result is `ABSTAIN`, so **`NO` can only ever come from the GRU stage
+  itself.**
+- The GRU stage (`GruClassifier.classify`) genuinely can return `NO` — but
+  until this session it was never reached in the live formatter at all
+  (`gruClassifier` config defaulted off, no shipped weights file existed,
+  and the default training corpus turned out to be 100% YES labels — see
+  below), so empirically `NO` never appeared from either stage.
+
+**Later this same session**, a first real NO-producing rule-based gate was
+added (`DecorativeSeparatorGate`, below) — so `CommentClassifier.classify`
+itself can now return `NO` for decorative-only comments. The two-fact
+finding above is otherwise still accurate (genuine prose/code NO still has
+no rule-based gate; the GRU is still the only source of prose `NO`).
 
 ### New default-corpus auto-labeling pipeline (`gru-acquire-corpus`)
 
 Added `tools/gru/GenerateSampleDefault.java`: runs an acquired comment corpus
-through the real rule-based `CommentClassifier` (distant supervision/
-auto-labeling) to bootstrap `tools/gru/sample_default.txt` in RDD_EXT_20/21
-schema, skipping `ABSTAIN` comments, always `targetWordIndex=0`, with a
-provenance header. Wired into the `Makefile`: `make gru-acquire-corpus` now
-acquires the corpus, extracts Pool A/B (as before), and additionally runs
-this auto-labeling step, in-place `awk '!seen[$0]++'`-deduplicating the
-result (77,499 duplicate lines removed from a 172,285-comment/170,210-kept
-run — mostly repeated license-header/boilerplate text recurring across
-files of the same source repo). `make gru-train`'s `GRU_SAMPLE_EXAMPLES`
-default now points at `sample_default.txt` instead of the old placeholder
-`sample_examples.txt`; a new `GRU_TRAIN_ARGS` passthrough variable was added
-for hyperparameter overrides (e.g. `GRU_TRAIN_ARGS="--epochs=20 --patience=4"`).
+through the real rule-based `CommentClassifier` (distant supervision) to
+bootstrap `tools/gru/sample_default.txt` in RDD_EXT_20/21 schema, skipping
+`ABSTAIN` comments, always `targetWordIndex=0`, with a provenance header.
+Wired into the `Makefile`: `make gru-acquire-corpus` now also runs this
+auto-labeling step, deduplicating in place (77,499 duplicate lines removed
+from a 172,285-comment/170,210-kept run — mostly repeated license-header
+text recurring across files of the same repo). `make gru-train`'s
+`GRU_SAMPLE_EXAMPLES` default now points at `sample_default.txt` (was
+`sample_examples.txt`); new `GRU_TRAIN_ARGS` passthrough for hyperparameter
+overrides.
 
-**Empirical confirmation of the "why no NO" finding**: the full-scale
-auto-labeled run produced 170,210 kept examples, **100% labeled `YES`** —
+**Empirical confirmation of the "why no NO" finding:** the full-scale
+auto-labeled run produced 170,210 kept examples, **100% labeled YES** —
 directly demonstrating that bootstrapping training data from the rule-based
-classifier alone can only ever teach the GRU to imitate that classifier's
-own `YES`/abstain-collapsed-to-skip behavior, never `NO`. Answering the
-session's rhetorical question directly: **yes, a default weights file
+classifier alone can only teach the GRU to imitate that classifier's own
+YES/abstain-collapsed-to-skip behavior, never NO. A default weights file
 trained purely on this auto-labeled corpus is expected to behave similarly
-to the rule-based classifier** on the cases the rule-based classifier is
-already confident about, precisely because that classifier is the sole
-source of its labels. It should still generalize somewhat differently on
-truly ambiguous (rule-`ABSTAIN`) inputs, since those weren't excluded from
-the input corpus for lack of a label — they just never became `sample_default.txt`
-rows at all (only non-`ABSTAIN` rule verdicts get emitted). Getting real `NO`
-signal into the default corpus still requires either hand-labeled real `NO`
-examples (the existing Pool A/B hand-labeling path) or a different
-bootstrapping signal than "what does the current rule-based classifier say".
+to the rule-based classifier on cases it's already confident about (that
+classifier is the sole source of its labels), but should still generalize
+somewhat differently on truly ambiguous (rule-ABSTAIN) inputs, since those
+just never became `sample_default.txt` rows at all rather than being
+excluded for lack of a label. Getting real NO signal into the default
+corpus still requires either hand-labeled real NO examples (Pool A/B path)
+or a different bootstrapping signal than "what does the current rule-based
+classifier say."
 
 ### RDD_KEY_217 — named exception to RDD_EXT_19 for the default artifacts
 
 Per explicit user direction (license compatibility: sources are MIT/
 Apache-2.0/BSD-3-Clause, all compatible with the formatter's own license;
-provenance is traceable since the acquisition script recording each source
-lives in the repo; and the comment excerpts themselves are short quoted
-fragments, not "proper/significant code" in the copyright sense), logged
-**RDD_KEY_217** in `RDD_LOG.md` as a named, narrow exception: exactly
-`tools/gru/sample_default.txt` and `code-formatter-ai-assist-weights.json`
-are committed, unlike every other real corpus/weights artifact this job
-produces. RDD_EXT_19's general policy is **not** retracted for anything
-else — hand-labeled Pool A/B corpora, cross-validation working files, and
-any other derived artifact still stay under `/tmp`/personal-directory only.
+provenance traceable via the acquisition script in-repo; comment excerpts
+are short quoted fragments, not "proper/significant code" in the copyright
+sense), logged **RDD_KEY_217** in `RDD_LOG.md` as a named, narrow exception:
+exactly `tools/gru/sample_default.txt` and
+`code-formatter-ai-assist-weights.json` are committed, unlike every other
+real corpus/weights artifact this job produces. RDD_EXT_19's general policy
+is **not** retracted for anything else — hand-labeled Pool A/B corpora,
+cross-validation working files, and any other derived artifact still stay
+under `/tmp`/personal-directory only.
 
 ### `tools/gru/sample_examples.txt` bug fix
 
 Found and fixed 3 pre-existing `targetWordIndex` bugs in the small
 illustrative Pool B lines (cross-checked against `GruClassifier.tokenize`'s
-real output): `"extern C."` was pointing past the end of its 3-token
+real output): `"extern C."` pointed past the end of its 3-token
 tokenization (index 3, should be 2 — `GruTrainer` was silently skipping this
-line on every run rather than erroring); two other lines pointed at a
+line every run rather than erroring); two other lines pointed at a
 mid-sentence comma/abbreviation-dot token instead of the real trailing
-period. Fixed in place with an explanatory dated comment in the file itself;
-verified via a live `GruTrainer` smoke run showing all 14 lines now usable
-(`trainExamples=12, validationExamples=2`) instead of one being silently
-dropped.
+period. Fixed in place with a dated comment; verified via a live
+`GruTrainer` smoke run showing all 14 lines usable
+(`trainExamples=12, validationExamples=2`).
 
 ### Live formatter wiring — `GruAbstainResolver` reachable from `MiscRuleCore`
 
 `MiscRuleCore.classifyComment` (the actual comment-normalization funnel used
 by `MiscRuleCurly`'s three call sites: sole-trailing-period stripping across
-lines, first-letter capitalization, and single-line trailing-period
-stripping) now calls `GruAbstainResolver.resolve(features, commentText,
+lines, first-letter capitalization, single-line trailing-period stripping)
+now calls `GruAbstainResolver.resolve(features, commentText,
 targetWordIndex, gruClassifier, gruWeightsPath)` instead of calling
 `CommentClassifier.classify` directly — the GRU stage is now genuinely
 reachable from the live formatting pipeline, not just offline tooling.
 `gruClassifier`/`gruWeightsPath` were threaded as new constructor parameters
 through `MiscRuleCore` → `MiscRuleCurly` → `ScopePipelineCurly` →
-`FormatterCurly` (all with backward-compatible delegating overloads, so no
-other caller needed to change). `Config.gruClassifier` now defaults to
-`true` (a real trained weights file — once training finishes — ships
-alongside the jar; `GruAbstainResolver` fails safe to `ABSTAIN` if the file
-is missing/unreadable regardless of this flag, so flipping it on is
+`FormatterCurly` (all with backward-compatible delegating overloads).
+`Config.gruClassifier` now defaults to `true` (a real trained weights file
+ships alongside the jar; `GruAbstainResolver` fails safe to `ABSTAIN` if the
+file is missing/unreadable regardless of this flag, so flipping it on is
 low-risk by itself).
 
 **Important finding — `comment-normalization-classifier` stays `off` by
 default.** This is the *other* gate in the chain (`MiscRuleCore` only calls
 `GruAbstainResolver` at all when `commentNormalizationClassifier` is true;
-`gruClassifier` alone is inert without it). Tried flipping both defaults to
-`true` together; `make test` regressed 9 fixtures (`c_comments`,
-`cpp_modern`, `cpp_combined`, `cpp_comments`, `java_core`, `java_combined`,
-`java_comments`, `real_code_regressions_22.kt`, `real_code_regressions_54.java`).
-Root cause: the rule-based classifier disagrees with the existing
-deterministic `isCommentNoCapitalizeWord` keyword list on common real-code
-cases — it incorrectly decided to capitalize comments starting with
-`consteval`, `static`, `while`, `do-while`, `var`, `this`, `const`,
-`explicit`, `public`, `switch`, etc., where the deterministic list correctly
-left them lowercase. **Reverted `commentNormalizationClassifier`'s default
-back to `false`** (restoring all-green `make test`); `gruClassifier` was
-left at its new `true` default since it's provably inert on its own. The
-rule-based classifier's accuracy on exactly this keyword-leading-comment
-case (`KeywordAmbiguityGate`'s core scenario) needs real improvement before
-`comment-normalization-classifier` can safely default on — this is now the
-concrete, test-backed blocker for actually making the GRU path active by
-default in the shipped formatter, as opposed to merely reachable when a user
-opts in via config.
+`gruClassifier` alone is inert without it). Flipping both defaults to `true`
+together regressed 9 `make test` fixtures (`c_comments`, `cpp_modern`,
+`cpp_combined`, `cpp_comments`, `java_core`, `java_combined`,
+`java_comments`, `real_code_regressions_22.kt`,
+`real_code_regressions_54.java`). Root cause: the rule-based classifier
+disagrees with the existing deterministic `isCommentNoCapitalizeWord`
+keyword list on common real-code cases — it incorrectly decided to
+capitalize comments starting with `consteval`, `static`, `while`,
+`do-while`, `var`, `this`, `const`, `explicit`, `public`, `switch`, etc.,
+where the deterministic list correctly left them lowercase. **Reverted
+`commentNormalizationClassifier`'s default back to `false`** (restoring
+all-green `make test`); `gruClassifier` was left at its new `true` default
+since it's provably inert on its own. The rule-based classifier's accuracy
+on exactly this keyword-leading-comment case (`KeywordAmbiguityGate`'s core
+scenario) needs real improvement before `comment-normalization-classifier`
+can safely default on — the concrete, test-backed blocker to actually
+activating the GRU path by default, as opposed to merely reachable when a
+user opts in via config.
 
-**User feedback**
-
-With `GRU_TRAIN_ARGS ?= --epochs=2 --patience=2 --progress-every=100`, it produces:
-
-```
-...
-GruTrainer: epoch 1 progress 74000/74169 (99.8%) avgTrainLoss=0.0004 epochElapsedSeconds=1139.2 epochEtaSeconds=2.6 totalElapsedSeconds=1139.2
-GruTrainer: epoch 1 progress 74100/74169 (99.9%) avgTrainLoss=0.0004 epochElapsedSeconds=1140.8 epochEtaSeconds=1.1 totalElapsedSeconds=1140.8
-GruTrainer: epoch 1 trainLoss=3.6419302800601685E-4 validationLoss=8.358795624725238E-13 epochSeconds=1206.9 totalElapsedSeconds=1206.9
-GruTrainer: epoch 2 progress 100/74169 (0.1%) avgTrainLoss=0.0000 epochElapsedSeconds=1.5 epochEtaSeconds=1108.9 totalElapsedSeconds=1208.4
-GruTrainer: epoch 2 progress 200/74169 (0.3%) avgTrainLoss=0.0000 epochElapsedSeconds=3.0 epochEtaSeconds=1125.0 totalElapsedSeconds=1209.9
-GruTrainer: epoch 2 progress 300/74169 (0.4%) avgTrainLoss=0.0000 epochElapsedSeconds=4.5 epochEtaSeconds=1108.5 totalElapsedSeconds=1211.4
-...
-GruTrainer: epoch 2 progress 74100/74169 (99.9%) avgTrainLoss=0.0000 epochElapsedSeconds=1192.3 epochEtaSeconds=1.1 totalElapsedSeconds=2399.2
-GruTrainer: epoch 2 trainLoss=4.548027954333698E-13 validationLoss=3.277513329499397E-13 epochSeconds=1258.2 totalElapsedSeconds=2465.1
-GruTrainer: wrote trained weights file to /tmp/code-formatter-ai-assist-weights.json (vocabSize=3500, trainExamples=74169, validationExamples=18542, bestValidationLoss=3.277513329499397E-1
-```
-
-There could be something wrong with the training because of the `avgTrainLoss=0.0000` value.
-
-Also there should be some improvement that can be done to increase the training speed:
-- Optimize Adam bias correction.
-- Compute the bias-correction factors (1 - beta1^step and 1 - beta2^step) once per optimizer step instead of inside every parameter update.
-- Do not change the training algorithm or numerical results.
-
-- Convert SGD (batch size 1) into mini-batch training with batch size 32.
-- Accumulate gradients.
-- Average gradients over the batch.
-- Perform one Adam update per batch.
-- Preserve identical behavior except for the batching.
-
-- Tokenize every training sample once before the epoch loop.
-- Reuse the cached tokenized representation in every epoch.
-- Do not change runtime inference, only the trainer.
-
-- Fix early stopping so bestWeights is a true deep copy instead of another reference to the same o
-
-I have attempted some of the above, please check and continue.
+**User feedback on `GruTrainer` performance/correctness**, from a real run
+with `GRU_TRAIN_ARGS ?= --epochs=2 --patience=2 --progress-every=100`
+(`vocabSize=3500, trainExamples=74169, validationExamples=18542`, epoch 1
+took ~1207s): `avgTrainLoss=0.0000` looked suspicious and needed checking.
+Requested improvements, not yet fully verified/closed out:
+- Optimize Adam bias correction: compute the bias-correction factors
+  (1 - beta1^step, 1 - beta2^step) once per optimizer step instead of inside
+  every parameter update, without changing the training algorithm or
+  numerical results.
+- Convert SGD (batch size 1) to mini-batch training (batch size 32):
+  accumulate gradients, average over the batch, one Adam update per batch,
+  preserving identical behavior except for the batching.
+- Tokenize every training sample once before the epoch loop and reuse the
+  cached tokenized representation every epoch, without changing runtime
+  inference (trainer-only change).
+- Fix early stopping so `bestWeights` is a true deep copy instead of another
+  reference to the same object.
+User noted some of these were already attempted and asked for the rest to
+be checked and continued — status of that follow-through not further
+detailed in this file; check commit history / `GruTrainer.java` directly
+for current state before assuming any item above is done.
 
 ### `CommentClassifier` first real NO-producing path: decorative-separator gate
 
-2026-07-29: `CommentClassifier.classify` previously had no code path that
-could ever emit `NO` (RDD_KEY_96's finding — see "Empirical confirmation"
-above). Added the first one: `DecorativeSeparatorGate.isDecorativeOnly`
-(new file, `src/com/jxmake/formatter/classifier/DecorativeSeparatorGate.java`)
+Added `DecorativeSeparatorGate.isDecorativeOnly`
+(`src/com/jxmake/formatter/classifier/DecorativeSeparatorGate.java`):
 returns true for a comment with no letter or digit anywhere — just
 punctuation/symbol runs like `****...****`, `#####...#####`, `");`, `---`.
 Wired as a new gate in `classify` right after the non-Latin-script gate,
 returning `NO`. Presence-based like `NonLatinScriptGate`, not scored —
 deliberately narrow, doesn't attempt commented-out-code or license-block
-detection (those still need real word content to distinguish from prose,
-left for a future gate). Structurally cannot affect ABSTAIN counts: a
-decorative-only comment (no letters) can never also match the leading-
-keyword gate (which requires a real keyword word), so the two are mutually
-exclusive by construction, not just empirically.
-
+detection (left for a future gate, see TODO below). Structurally cannot
+affect ABSTAIN counts: a decorative-only comment (no letters) can never also
+match the leading-keyword gate (which requires a real keyword word), so the
+two are mutually exclusive by construction, not just empirically.
 `CommentFeatureVector`/`CommentFeatureExtractor` gained the new
 `isDecorativeOnly` field (constructor signature changed — updated the one
 other call site, `tools/gru/GruAbstainResolverSelfTest.java`).
 
-**Validated** (user's explicit request, not full 14-corpus Item 9 rerun —
-network/scope tradeoff discussed and user chose local-only): re-ran
-`acquire_corpus.sh --only eCxx,SusterCaller,VMA-GIT,TTGO_VGA32_Lite,
-RobotCoding` (the 5 local dogfood repos, no network) + `gru-measure-abstain-
-rate` against the combined 96442-comment corpus. Result: NO=20774 (0 before
-this change), ABSTAIN=1995 (2.1%) — the 2.1% figure is fully explained by
-this batch including the two already-documented outlier repos (TTGO_VGA32_
-Lite/RobotCoding, vendored bitmap-font/zlib content, ~4.6% per Item 9), not
-a regression. Spot-checked 15 real newly-NO comments by hand (separator
-lines, decorative punctuation, no false positives on real prose). `make
-test` clean (219/219 forward + idempotency) throughout.
+**Validated** (local-only re-run of `acquire_corpus.sh --only
+eCxx,SusterCaller,VMA-GIT,TTGO_VGA32_Lite,RobotCoding`, the 5 local dogfood
+repos, no network, plus `gru-measure-abstain-rate` against the combined
+96442-comment corpus): **NO=20774** (0 before this change),
+**ABSTAIN=1995 (2.1%)** — fully explained by this batch including the two
+already-documented outlier repos (TTGO_VGA32_Lite/RobotCoding, vendored
+bitmap-font/zlib content, ~4.6% per Item 9), not a regression. Spot-checked
+15 real newly-NO comments by hand (separator lines, decorative punctuation,
+no false positives on real prose). `make test` clean (219/219 forward +
+idempotency) throughout.
 
 This means `sample_default.txt`/`GenerateSampleDefault.java`'s "auto-
 labeling can never produce NO" limitation (documented in `tools/gru/
-README.txt` and above) is now only *mostly* true — decorative-only
-comments will auto-label as NO on the next `make gru-acquire-corpus` run.
-Real prose NO ground truth (commented-out code, license blocks, etc.)
-still requires the hand-labeled Pool A/B path — this gate only covers the
-narrow decorative-separator case.
+README.txt` and above) is now only *mostly* true — decorative-only comments
+will auto-label as NO on the next `make gru-acquire-corpus` run. Real prose
+NO ground truth (commented-out code, license blocks, etc.) still requires
+the hand-labeled Pool A/B path — this gate only covers the narrow
+decorative-separator case.
 
 ### Still outstanding
 
@@ -811,12 +636,11 @@ narrow decorative-separator case.
 
 ### TODO — GruTrainer follow-ups (deferred, not yet scheduled)
 
-Discussed 2026-07-29; user chose to implement fallback-write-on-failure,
-a gradient-checking tool, and confusion-matrix/precision/recall/F1
-reporting immediately (see commit history for those). The rest were
-deferred to their own future design passes rather than bundled in, since
-each changes training numerics, output format, or runtime classifier
-behavior:
+Discussed 2026-07-29; user chose to implement fallback-write-on-failure, a
+gradient-checking tool, and confusion-matrix/precision/recall/F1 reporting
+immediately (see commit history for those). The rest were deferred to their
+own future design passes rather than bundled in, since each changes training
+numerics, output format, or runtime classifier behavior:
 
 - **Break/resume support.** Needs real checkpointing: weights + Adam
   optimizer state (currently not serialized at all) + epoch/step position,

@@ -241,51 +241,44 @@ All file-pair tests below PASS (forward + idempotency), zero known regressions. 
 bug-by-bug root-cause narratives have been compacted out of this file — available via
 `git log`/`git show` on the commits noted per entry.
 
-- [x] File-pair test: `h_core_inp.h` → diff vs `h_core_out.h` (PASS)
-- [x] File-pair test: `c_core_inp.c` → diff vs `c_core_out.c` (PASS)
-- [x] File-pair test: `hpp_core_inp.hpp` → diff vs `hpp_core_out.hpp` (PASS)
-- [x] File-pair test: `cpp_core_inp.cpp` → diff vs `cpp_core_out.cpp` (PASS) — 6 bugs fixed
-  (named-construct/attribute/modifier detection, `::`-qualified spacing, constructor Allman
-  close-paren, getter/setter padding, trailing-return-type, if/else-if chain collapsing).
-- [x] File-pair test: `java_core_inp.java` → diff vs `java_core_out.java` (PASS) — 8 bugs fixed
-  (header-spacing, `this`/`super` as LHS, stale closing-comment, `throws` Allman conversion,
-  inline-switch padding, `catch`/`finally` placement, `@Annotation` skip).
-- [x] File-pair test: `cpp_modern_inp.cpp` → diff vs `cpp_modern_out.cpp` (PASS) — 11 bugs fixed
-  (comment no-capitalize set, named-construct one-liners, `template`/`requires` signatures,
-  operator-overload detection, coroutine promise_type grouping, brace-init/structured-binding
-  spacing, tight cast-template brackets, namespace closing-comment chain) + an idempotency fix
-  (column padding double-counted as indentation on a second pass).
-- [x] File-pair test: `java_modern_inp.java` → diff vs `java_modern_out.java` (PASS) — 5 bugs
-  fixed (empty named-construct bodies, one-liner-call getter/setter rejection, multi-statement
-  one-liners left unsplit, RDD_KEY_75 adjacency heuristic removed, blank line before leading
-  comment).
-- [x] File-pair test: `combined_inp.h` → diff vs `combined_out.h` (PASS) — 3 bugs fixed
-  (`format-macros` alignment, `extern "C"` fixture correction, enum-alias closing comment +
-  `#if`-guard depth). Committed as `efeb6df`.
-- [x] File-pair test: `combined_inp.c` → diff vs `combined_out.c` (PASS) — 4 bugs fixed (struct
-  member indentation strip safety, flat brace-aggregate initializers + C-style cast rejoining,
-  parameter inline comments preserved, switch closing-comment idempotency).
-- [x] File-pair test: `combined_inp.hpp` → diff vs `combined_out.hpp` (PASS) — 2 bugs fixed
-  (constructor/destructor/operator-overload one-liner exclusion, `template<...>` prefix
-  recognition); 1 not feasible (mid-word-dot vs. sentence-period needs semantic understanding —
-  Tier-3 AI-assist candidate in `STATE_AI.md`, fixture hand-edited instead).
-- [x] File-pair test: `combined_inp.cpp` → diff vs `combined_out.cpp` (PASS) — 4 bugs fixed
-  (destructor `~` vs. return type, class-template member tight brackets + layout,
-  structured-binding misparse, trailing comment duplication on group-gap trim).
-- [x] File-pair test: `combined_inp.java` → diff vs `combined_out.java` (PASS) — 3 bugs fixed
-  (multi-line `//` prose period-stripping, enum constant-list `;` detached, blank line before
-  final `return` in a `throws`-clause method).
-- [x] File-pair test: `c_comments_inp.c` → diff vs `c_comments_out.c` (PASS) — 6 bugs fixed
-  (mid-param `//` comment reattachment fixing a brace-depth desync, compound-assignment
-  misparse, one-param-per-line padding, `hasCommentBefore` group-break guard, last-param
-  comment alignment, `#define` trailing-comment capitalization). One fixture-only correction.
-- [x] File-pair test: `cpp_comments_inp.cpp` → diff vs `cpp_comments_out.cpp` (PASS) — 5 bugs
-  fixed (forward-declaration comment isolation, stale-closing-comment guard narrowing,
-  namespace-body/template-argument/keyword spacing, `requires`-clause signature pull, blank
-  line after trailing-comment member, structured-binding/template-argument comment spacing).
-- [x] File-pair test: `java_comments_inp.java` → diff vs `java_comments_out.java` (PASS) — 4 bugs
-  fixed (multi-line param comment reattachment, per-language no-capitalize keyword sets,
-  switch-case comment blank-line preservation, flat-aggregate per-element comments untouched).
+- [x] `h_core` / `c_core` / `hpp_core` (PASS, no bugs)
+- [x] `cpp_core` (PASS) — 6 bugs: named-construct/attribute/modifier detection, `::`-qualified
+  spacing, constructor Allman close-paren, getter/setter padding, trailing-return-type,
+  if/else-if chain collapsing.
+- [x] `java_core` (PASS) — 8 bugs: header-spacing, `this`/`super` as LHS, stale closing-comment,
+  `throws` Allman conversion, inline-switch padding, `catch`/`finally` placement, `@Annotation`
+  skip.
+- [x] `cpp_modern` (PASS) — 11 bugs: comment no-capitalize set, named-construct one-liners,
+  `template`/`requires` signatures, operator-overload detection, coroutine promise_type
+  grouping, brace-init/structured-binding spacing, tight cast-template brackets, namespace
+  closing-comment chain, + an idempotency fix (column padding double-counted as indentation).
+- [x] `java_modern` (PASS) — 5 bugs: empty named-construct bodies, one-liner-call getter/setter
+  rejection, multi-statement one-liners left unsplit, RDD_KEY_75 adjacency heuristic removed,
+  blank line before leading comment.
+- [x] `combined.h` (PASS) — 3 bugs: `format-macros` alignment, `extern "C"` fixture correction,
+  enum-alias closing comment + `#if`-guard depth. Committed `efeb6df`.
+- [x] `combined.c` (PASS) — 4 bugs: struct member indentation strip safety, flat
+  brace-aggregate initializers + C-style cast rejoining, parameter inline comments preserved,
+  switch closing-comment idempotency.
+- [x] `combined.hpp` (PASS) — 2 bugs: constructor/destructor/operator-overload one-liner
+  exclusion, `template<...>` prefix recognition; 1 not feasible (mid-word-dot vs. sentence-period
+  needs semantic understanding — Tier-3 AI-assist candidate in `STATE_AI.md`, fixture hand-edited).
+- [x] `combined.cpp` (PASS) — 4 bugs: destructor `~` vs. return type, class-template member
+  tight brackets + layout, structured-binding misparse, trailing comment duplication on
+  group-gap trim.
+- [x] `combined.java` (PASS) — 3 bugs: multi-line `//` prose period-stripping, enum
+  constant-list `;` detached, blank line before final `return` in a `throws`-clause method.
+- [x] `c_comments` (PASS) — 6 bugs: mid-param `//` comment reattachment (brace-depth desync),
+  compound-assignment misparse, one-param-per-line padding, `hasCommentBefore` group-break
+  guard, last-param comment alignment, `#define` trailing-comment capitalization. 1
+  fixture-only correction.
+- [x] `cpp_comments` (PASS) — 5 bugs: forward-declaration comment isolation, stale-closing-
+  comment guard narrowing, namespace-body/template-argument/keyword spacing, `requires`-clause
+  signature pull, blank line after trailing-comment member, structured-binding/template-argument
+  comment spacing.
+- [x] `java_comments` (PASS) — 4 bugs: multi-line param comment reattachment, per-language
+  no-capitalize keyword sets, switch-case comment blank-line preservation, flat-aggregate
+  per-element comments untouched.
 
 **If any file-pair test above shows a mismatch: stop, report the full diff to the user, and
 wait for instruction. Do not fix either the formatter or the `*_out` file without explicit
@@ -421,70 +414,50 @@ on the noted commits/fixtures)
      audit below (no code change); `applyArrowAlignment` joining arrow-case with no
      line-length check (fixture `_7`); `findNameBeforeParen` misparsing `case`/`default` arrow
      arms as one-liner members (fixture `_8`). Verified (4).
-(16) MEDIUM `javaparser/javaparser` (1997 `.java` files across 7 modules) — 6 idempotency bugs,
-     verified via full-tree round1/round2 (in-place-copy methodology — NOT `--out DIR`, which
-     flattens to basenames and silently collides same-named files across modules) + `make test`:
-     braceless `if (cond) throw/return ...` misparsed as one-liner getter/setter (rejected by
-     excluding control-flow keywords from "return type" spans); comment's sole trailing `.`
-     stripped without separating whitespace (`_54`); `else`/`catch`/`finally` force-reindent
-     dropping a real blank line before `}` once Allman-rendered (`trailingRunNewlineCount`
-     helper, `_55`); `enforceCallLineBreaking`'s fits-check running before
-     `formatNonInlineSwitches` reindented case bodies, causing post-reindent overflow (ordering
-     fix, `_56`); `isCStyleCastClose` missing a control-flow-keyword exclusion, misreading
-     `if(node instanceof RecordPatternExpr)` as a cast (`CONTROL_FLOW_KEYWORDS` set, `_57`); Java
-     enum-constant-list merging into an adjacent field's alignment group + drifting indent
-     (`isJavaEnumConstantListShape` helper, `_58`).
+(16) MEDIUM `javaparser/javaparser` (1997 `.java` files, 7 modules) — 6 idempotency bugs found via
+     full-tree round1/round2 (in-place-copy, not `--out DIR` — collides same-named files across
+     modules) + `make test`, all fixed: braceless `if (cond) throw/return ...` misparsed as
+     one-liner getter/setter (excluded control-flow keywords from "return type" spans); comment's
+     sole trailing `.` stripped w/o separating whitespace (`_54`); `else`/`catch`/`finally`
+     force-reindent dropping a real blank line before `}` (`trailingRunNewlineCount`, `_55`);
+     `enforceCallLineBreaking` fits-check ran before `formatNonInlineSwitches` reindented case
+     bodies, causing post-reindent overflow — ordering fix (`_56`); `isCStyleCastClose` missing
+     control-flow exclusion, misread `if(node instanceof RecordPatternExpr)` as a cast
+     (`CONTROL_FLOW_KEYWORDS` set, `_57`); Java enum-constant-list merging into adjacent field's
+     alignment group + drifting indent (`isJavaEnumConstantListShape`, `_58`).
 
-     One residual gap ACCEPTED, not fixed: `ASTParser.java` (JavaCC-generated, ~5500 lines) has
-     one switch-case body with internally-inconsistent source indentation (generator quirk),
-     causing one non-idempotent re-indent — same root cause as "Known Gaps — Open" below (1 file
-     out of 1997). `javac` compile-check not run (gated on fully-clean idempotency); accepted as
-     Finished with this caveat per user decision — see `README.md`'s "Known Limitations".
+     1 gap ACCEPTED not fixed: `ASTParser.java` (JavaCC-generated, ~5500 lines) has one
+     switch-case body with internally-inconsistent source indentation causing one non-idempotent
+     re-indent — same root cause as "Known Gaps — Open" (1/1997 files). `javac` compile-check not
+     run (gated on fully-clean idempotency); accepted Finished per user decision — see
+     `README.md`'s "Known Limitations".
 (17) HUGE `openrewrite/rewrite` (3373 `.java` files) — IN PROGRESS, not DONE. Full-tree forward
-     pass (default config): 0 errors. Round1/round2 idempotency: 34 differing files, characterized
-     into 6 clusters, 5 fixed so far:
-     - Cluster 1 (~20 files, mostly ANTLR-generated grammar/parser files, incl. `tree/J.java`) — 2
-       sub-bugs, one root-cause shape (a fits-in-`line-length` prediction made before a later
-       width-growing pass ran): (a) `JavaSpecificRule.isSingleLineBody` measured a tab-indented
-       one-liner's leading indent via raw `String.length()` not expanded width — fixed via new
-       `expandedIndentWidth` helper. (b) `enforceInitializerBraceSpacing` ran in Phase 4, after
-       `enforceCallLineBreaking` had already decided not to wrap — fixed by pulling a second call
-       forward to run right before it. Verified: minimal repro + all 18 affected files + `make
-       test`. Fixture: `real_code_regressions_128`.
-     - Cluster 2 (8 files: dense single-line lambda/if-else bodies re-split differently across
-       passes) — distinct root cause from cluster 1 despite resemblance:
-       `BlockStructureRule.collapseSingleExpressionBlocks`'s per-branch newline before a chain's
-       next `else` (`appendChainNewlineBeforeElse`) was only inserted as a side effect of collapsing
-       a *braced* if/else-if to braceless; an already-braceless body (round1's own output fed back
-       in) left no brace to re-collapse, so no newline was reinserted, and the declaration/
-       assignment-RHS pass fused the whole chain. Fixed by adding a C/C++/Java sibling of Kotlin's
-       "already-braceless multi-line body" branch: new `findBracelessStatementEnd` helper copies the
-       branch verbatim, then `appendChainNewlineBeforeElse` still runs. Verified: minimal repro + all
-       8 files + `make test`. Fixture: `real_code_regressions_129`.
-     - Cluster 3 (`rewrite-core/.../AdaptiveRadixTreeTest.java`, pre-increment spacing regression) —
-       fixed. A prefix `++`/`--` immediately followed by an identifier has no tight-join case in
-       either `MiscRuleCore.needsSpaceBetween` or its duplicate
-       `DeclarationAlignmentRuleCore.needsSpaceBetween` — `enforcePreIncrement`'s swap-render
-       produces the tight join on a fresh format (`i++` → `++i`), but once already prefix-form,
-       `collectForIncrementSpans` no longer matches, and once the lambda body collapses, the
-       `for`-header re-renders through the shared join point, falling to the generic
-       space-by-default rule (`++ i`). Fixed by adding the tight-join case to both methods. Verified:
-       minimal repro + `make test`. Fixture: `real_code_regressions_130`.
-     - Cluster 4 (`rewrite-java-{8,11,17,21,25}/.../ReloadableJava*ParserVisitor.java`, trailing
-       end-of-line comment column alignment drift) — fixed. `MiscRuleCore.parseAssignment`'s
-       verbatim fallback returns a non-`multiLine` `Assignment` whose `valueTokens` still contains
-       embedded `NEWLINE`s — `render` fed that row's `joinVerbatim` text into `ColumnGrid`, whose
-       plain `String.length()` counted every char across the whole wrapped call, corrupting the
-       group's comment/value column width non-idempotently. Fixed by adding
-       `valueSpansMultipleLines`, excluding such rows from the grid like `a.multiLine` rows,
-       rendering directly instead. Verified: minimal repro + all 5 files + `make test`. Fixture:
-       `real_code_regressions_131`.
-     - Cluster 6 (closing-brace indentation drift on a still-K&R `else`/`catch`/`finally`) — fixed,
-       see `ScopePipelineCurly.findParentIndent`. Fixture: `real_code_regressions_132`.
-     1 cluster still open (5) — see "Known Gaps — Open" for repro/shape/hypothesis; next free
-     fixture number 133. `make test` after all fixes: 180/180 forward + 180/180 idempotency, zero
-     regressions. Full-tree round1/round2 re-run + `javac` compile-check deferred until all 6
-     clusters resolve — NOT yet run.
+     pass (default config): 0 errors. Round1/round2 idempotency: 34 differing files, 6 clusters, 5
+     fixed:
+     - Cluster 1 (~20 files, ANTLR-generated, incl. `tree/J.java`) — 2 sub-bugs, one root-cause
+       shape (fits-in-`line-length` prediction made before a later width-growing pass ran): (a)
+       `isSingleLineBody` measured tab-indent via raw `String.length()` not expanded width — fixed
+       via `expandedIndentWidth`. (b) `enforceInitializerBraceSpacing` ran after
+       `enforceCallLineBreaking` had already decided not to wrap — fixed by pulling it earlier.
+       Fixture: `real_code_regressions_128`.
+     - Cluster 2 (8 files, dense lambda/if-else bodies re-split differently across passes) —
+       distinct cause: `appendChainNewlineBeforeElse` only fired as a side effect of collapsing a
+       *braced* if/else-if; an already-braceless body (round1 output fed back) left nothing to
+       re-collapse, so the chain got fused on round2. Fixed via new `findBracelessStatementEnd`
+       (C/C++/Java sibling of Kotlin's already-braceless-body branch). Fixture: `_129`.
+     - Cluster 3 (`AdaptiveRadixTreeTest.java`, pre-increment spacing) — fixed: prefix `++`/`--`
+       immediately before an identifier had no tight-join case in `needsSpaceBetween`/its
+       duplicate, so a `for`-header re-render fell to the generic space-by-default rule (`++ i`).
+       Fixed by adding the tight-join case to both. Fixture: `_130`.
+     - Cluster 4 (`ReloadableJava*ParserVisitor.java` x5, trailing-comment column drift) — fixed:
+       `parseAssignment`'s verbatim fallback kept embedded `NEWLINE`s in `valueTokens`; `ColumnGrid`
+       measured the whole wrapped-call text via plain `String.length()`, corrupting column width
+       non-idempotently. Fixed via new `valueSpansMultipleLines` exclusion. Fixture: `_131`.
+     - Cluster 6 (closing-brace indent drift on a still-K&R `else`/`catch`/`finally`) — fixed, see
+       `ScopePipelineCurly.findParentIndent`. Fixture: `_132`.
+     - Cluster 5 — still open; full diagnosis in "Known Gaps — Open". Next free fixture number 133.
+     `make test` after fixes: 180/180 forward + idempotency, zero regressions. Full-tree round1/
+     round2 re-run + `javac` compile-check deferred until cluster 5 resolves — NOT yet run.
 (18) Local `VMA-GIT/anemonesoft/` (82 `.java`) — 1 bug: `renderCallCandidate` swallowed a
      multi-line brace-bodied trailing argument (brace depth not tracked). Verified (4).
      Fixture: `real_code_regressions_29`.
@@ -513,107 +486,77 @@ on the noted commits/fixtures)
      producing invalid C++ — fixed by leaving any clause containing a `PREPROCESSOR` token
      untouched. Verified with `clang++ -std=c++23 -stdlib=libc++ -fsyntax-only` (0-error baseline
      unchanged), full round1/round2 idempotency, `make test` 77/77. Fixture: `real_code_regressions_53`.
-(23) Local `../../../src/jxm` (JxMake's own Java source tree, real `.java` plus PCPP `.java.in`
-     templates and `.java.inc` fragments, ~272 files) — 3 plain-Java bugs, none PCPP-specific:
-     (a) `TokenizerCore.reclassifyAngleBrackets` had no `>>>` case (triple-nested generics),
-     RDD_KEY_171; (b) `JavaSpecificRule.isSingleLineBody`'s fit-prediction omitted leading indent
-     and trailing same-line comment width, causing a K&R/Allman flip-flop, RDD_KEY_172; (c)
-     `MiscRule`'s §8 multi-line param-list renderer inlined a leading `//` comment as a same-line
-     prefix (swallowing the next param's declaration, compile-breaking) and its shared
-     type/name-alignment column width excluded such params, letting `padRight` become a no-op and
-     merge type+name with zero space, RDD_KEY_178. One known-but-unfixed gap: second occurrence of
-     the accepted switch-case-reindent architectural gap, in `tool/JSONEncoderLite.java` (see
-     "Known Gaps — Open"). Verified: full round1/round2 idempotency over the whole tree (clean
-     except the one accepted gap); every `.java.in` run through `pcpp_java` in-place,
-     `java_syntax_check` over real + pcpp-generated `.java` (32 pre-existing syntax-error results,
-     all traced to a pre-existing U+200B zero-width-space in pristine original source, not
-     formatter-introduced); `make test` 90/90 forward + 90/90 idempotency (up from 88/88).
-     Fixtures: `real_code_regressions_65` (a+b combined), `real_code_regressions_66` (c).
-(24) Local `../../../src` minus the already-DONE `jxm` subtree (item 23) — vendored third-party
-     Java libraries under `src/com/`/`src/org/` (173 `.java` files: `com.j256.simplemagic`,
-     `com.intellectualsites.http`, `org.tukaani.xz`, `org.kamranzafar.jtar`, `org.itadaki.bzip2`).
-     Plain `.java` only, no PCPP. `src/`'s other loose top-level `.java` files and the
-     `0-JxMake`/`1-TestData` dirs excluded (not confirmed suitable for this methodology, left for a
-     future candidate). 2 bugs found, both the same "raw source indent measured before conversion
-     to target indent-style" architectural pattern, only observable against tab-indented source:
-     (a) `MiscRule.enforceCommentStyle` reindented a block comment's continuation lines to the
-     comment's own *raw*, not-yet-converted indent, baking a literal tab in that
-     `convertIndentation` (always last in pipeline) never revisits since it's now embedded inside
-     the comment token — self-correcting only on a second pass; fixed by normalizing through
-     `MiscRuleCore.renderIndent` first (new `indentStyle` param). (b)
-     `MiscRule.enforceCallLineBreaking`'s fits-checks measured a tab-indented line's leading indent
-     via `String.length()`, so a line whose true width only exceeds `lineLengthLimit` once its tab
-     expands stayed wrongly collapsed on a fresh format; fixed by new
-     `MiscRuleCore.expandedIndentWidth` helper (same formula as `renderIndent`'s), used at both
-     fits-check sites. Verified: round1/round2 idempotency over all 173 files (down to 6
-     pre-existing/deferred diffs — 1 owned by a concurrent JS/TS-job fix, 5 a separate
-     not-yet-fixed declaration-alignment column-padding gap, left undisturbed to avoid conflicting
-     with concurrent edits); `make test` 145/145 forward + idempotency; `javac` compile-check (100
-     pre-existing errors, all inside the untouched `jxm/` sibling tree via `com.intellectualsites.
-     http`'s transitive `jxm.*` imports, identical baseline vs. round1, zero inside `com`/`org`);
-     `java_syntax_check` 173/173 clean, identical baseline. All validation run out-of-place
-     (`--out` to scratch dirs) — the real vendored tree was never modified. Fixture:
-     `real_code_regressions_95`.
+(23) Local `../../../src/jxm` (~272 files: real `.java` + PCPP `.java.in`/`.java.inc`) — 3
+     plain-Java bugs, none PCPP-specific: (a) `reclassifyAngleBrackets` had no `>>>` case
+     (RDD_KEY_171); (b) `isSingleLineBody`'s fit-prediction omitted leading indent + trailing
+     comment width, causing K&R/Allman flip-flop (RDD_KEY_172); (c) §8 multi-line param-list
+     renderer inlined a leading `//` comment as a same-line prefix (compile-breaking) and its
+     column-width calc excluded such params, letting `padRight` no-op and merge type+name
+     (RDD_KEY_178). 1 known gap unfixed: second occurrence of the accepted switch-case-reindent
+     gap, `tool/JSONEncoderLite.java` (see "Known Gaps — Open"). Verified: full-tree round1/round2
+     idempotency (clean except the accepted gap); `.java.in` via `pcpp_java`; `java_syntax_check`
+     (32 pre-existing errors, all a pristine U+200B zero-width-space, not formatter-introduced);
+     `make test` 90/90 forward+idempotency (up from 88/88). Fixtures: `real_code_regressions_65`
+     (a+b), `_66` (c).
+(24) Local `../../../src` minus `jxm` (item 23) — vendored third-party Java under `src/com/`/
+     `src/org/` (173 files: `com.j256.simplemagic`, `com.intellectualsites.http`, `org.tukaani.xz`,
+     `org.kamranzafar.jtar`, `org.itadaki.bzip2`). Plain `.java`, no PCPP. 2 bugs, same "raw source
+     indent measured before conversion to target indent-style" pattern, only observable on
+     tab-indented source: (a) `enforceCommentStyle` reindented a block comment's continuation
+     lines to raw not-yet-converted indent, baking a literal tab that `convertIndentation` (last
+     in pipeline) never revisits — fixed via `renderIndent` normalization first. (b)
+     `enforceCallLineBreaking`'s fits-checks measured tab-indent via `String.length()`, understating
+     true width — fixed via new `expandedIndentWidth` helper at both fits-check sites. Verified:
+     round1/round2 over all 173 files (down to 6 pre-existing/deferred diffs — 1 owned by a
+     concurrent JS/TS fix, 5 a separate not-yet-fixed column-padding gap, left undisturbed);
+     `make test` 145/145; `javac` (100 pre-existing errors, all in untouched `jxm/` sibling via
+     transitive imports, identical baseline, zero inside `com`/`org`); `java_syntax_check` 173/173
+     clean. All validation out-of-place; real tree never modified. Fixture: `real_code_regressions_95`.
 
-(25) **DONE** — `github.com/jenkinsci/jenkins` (1929 `.java` files across `core`/`cli`/`test`/
-     `war`/`websocket`, plain Java, no PCPP). Reused a checkout already cloned by a prior
-     XML-focused dogfood session on the same repo (see `STATE_DATA_FORMATS.md`). Baseline
-     `java_syntax_check`: 0 pre-existing errors over all 1929 files. Full-tree round1 (one batch
-     `--preserve-tree --root <clone> --out <dir>`): all formatted cleanly. 3 bugs found; 2 fixed:
-     (a) `JavaSpecificRule.findArrowCases`'s brace-depth-0 label scan never skipped past a case's
-     own just-found arrow, so a multi-value arrow label (`case null, default -> ...`, embedded
-     `default` before the shared arrow) got re-matched as its own case, duplicating the label
-     worse each round (`-> default -> default -> ...`, already wrong on round1 too) — fixed by
-     advancing the scan index past the found arrow. (b) `MiscRuleCore.needsSpaceBetween` only
-     special-cased a Kotlin annotation's `@` as tight against its identifier; Java annotations
-     (`@NonNull String id`) rendered as `@ NonNull`, invalid — fixed by extending the same
-     condition to `lang.isJava`. Verified via minimal repros, `make test` 162/162 (up from
-     161/161), and a targeted re-run of the full 1929-file round1/round2: idempotency diff dropped
-     from 20 files to 15. Fixture: `real_code_regressions_113` (combines both). Remaining 15-file
-     diff is architectural, not new: 13 hit the already-documented "non-idempotent reindent on
-     internally-inconsistent source" gap, 1 (`IdStrategy.java`) hits the `alignCommentSeparators`
-     false-positive, 1 (`PluginManager.java`) hits a low-priority pathological-line-wrap
-     instability (both "Known Gaps — Open" at the time). `javac` compile pass not attempted
-     (Jenkins' Maven build needs heavy dependency resolution, not worth the setup cost);
-     `java_syntax_check` + idempotency are load-bearing here. `java_content_diff` spot-checked on
-     `IdStrategy.java`/`PluginManager.java`: content preserved in both. **Session closed with the
-     remaining 2 gaps explicitly accepted, not fixed** — user decision to mark DONE rather than
-     keep deferring; both now documented as permanent known limitations (`alignCommentSeparators`
-     case also in `README.md`'s "Known Limitations").
+(25) **DONE** — `github.com/jenkinsci/jenkins` (1929 `.java` files, plain Java, no PCPP). Baseline
+     `java_syntax_check`: 0 pre-existing errors. Full-tree round1 formatted cleanly. 3 bugs found,
+     2 fixed: (a) `findArrowCases`'s brace-depth-0 label scan never skipped past a case's own
+     just-found arrow, so a multi-value arrow label (`case null, default -> ...`) got re-matched,
+     duplicating worse each round — fixed by advancing the scan index past the found arrow. (b)
+     `needsSpaceBetween` only tight-joined a Kotlin annotation's `@`; Java annotations
+     (`@NonNull String id`) rendered as `@ NonNull`, invalid — fixed by extending to `lang.isJava`.
+     Verified via minimal repros, `make test` 162/162 (up from 161/161); targeted full-tree
+     re-run: idempotency diff dropped from 20 files to 15. Fixture: `real_code_regressions_113`.
+     Remaining 15-file diff architectural, not new: 13 hit the documented "non-idempotent reindent
+     on internally-inconsistent source" gap, 1 (`IdStrategy.java`) the `alignCommentSeparators`
+     false-positive, 1 (`PluginManager.java`) a low-priority line-wrap instability (both then
+     "Known Gaps — Open"). `javac` compile pass not attempted (Jenkins' Maven build needs heavy
+     dependency resolution); `java_syntax_check` + idempotency load-bearing. `java_content_diff`
+     spot-check on both files: content preserved. **Session closed with the remaining 2 gaps
+     explicitly accepted, not fixed** — user decision to mark DONE; both documented as permanent
+     known limitations (`alignCommentSeparators` case also in `README.md`).
 
-(26) **DONE (with documented open gaps)** — `github.com/microsoft/STL` (Microsoft's `std::`
-     implementation, `stl/inc/` + `stl/src/`, 289 files ~9MB: 127+3 extensionless headers copied to
-     `.hpp` first per this job's convention, 21 `.h`, 22 `.hpp`, 112 `.cpp`, 4 already-extensioned
-     `.hpp`; excluded `inc/modules/*.ixx` C++20 module units, 1 `.json`, 2 `.asm`, 1 `.src`).
-     Full-tree round1 (batch `--preserve-tree --root DIR --out DIR`): all 289 formatted, no
-     crashes. Round1/round2: 110/289 differed initially. `clang++` compile not attempted — STL's
-     MSVC-specific intrinsics/`__declspec`/`_STL_INTERNAL_*` macros need STL's own CMake+MSVC
-     harness to compile standalone; full-tree idempotency is the load-bearing check here.
+(26) **DONE (with documented open gaps)** — `github.com/microsoft/STL` (`stl/inc/`+`stl/src/`,
+     289 files ~9MB, extensionless headers copied to `.hpp` first; excluded `.ixx` module units).
+     Full-tree round1: all 289 formatted, no crashes. Round1/round2: 110/289 differed initially.
+     `clang++` compile not attempted (needs STL's own CMake+MSVC harness); full-tree idempotency
+     is the load-bearing check.
 
-     2 bugs found and fixed: (a) `Main.applyLineEndings`'s default (`line-endings = lf`) fast path
-     assumed no `\r` remained and skipped stripping — false when the *original* input was CRLF,
-     since the tokenizer preserves `\r` inside any untouched WHITESPACE token, so untouched lines
-     kept `\r` while rewritten lines didn't, diverging each round. Fixed by always normalizing to
-     clean LF before applying the target ending — alone resolved 99/110 diffing files (STL is
-     CRLF-authored throughout). (b) Two duplicated `collapseToOneLine`/`flushCollapseGap`
-     implementations (`MiscRuleCurly.java`, `CppSpecificRule.java`) unconditionally inserted a
-     space when rejoining a newline-spanning gap with no tight-join awareness, so a wrapped
-     `.`/`->` expression broken right at the `.`/`->` came back corrupted (`other. _Outer`) once
-     re-collapsed — sibling `collapseTokensToOneLine` already had this guard for JS/TS's `.`/`?.`
-     but it was never mirrored; fixed by adding the same tight-join check to both. `make test`
-     168/168 (up from 166/166); targeted re-run of the 110 originally-diffing files: down to 11.
+     2 bugs found and fixed: (a) `applyLineEndings`'s default (`lf`) fast path assumed no `\r`
+     remained and skipped stripping — false when original input was CRLF (tokenizer preserves
+     `\r` inside untouched WHITESPACE tokens), diverging each round. Fixed by always normalizing
+     to clean LF before applying the target ending — alone resolved 99/110 diffing files (STL is
+     CRLF-authored throughout). (b) Two duplicated `collapseToOneLine`/`flushCollapseGap` impls
+     (`MiscRuleCurly.java`, `CppSpecificRule.java`) unconditionally inserted a space rejoining a
+     newline-spanning gap with no tight-join awareness, corrupting a `.`/`->` expression broken
+     right at the operator (`other. _Outer`) — sibling `collapseTokensToOneLine` already had this
+     guard for JS/TS but it was never mirrored; fixed by adding the same check to both. `make
+     test` 168/168 (up from 166/166); targeted re-run of the 110 diffing files: down to 11.
      Fixtures: `real_code_regressions_118` (a), `_119` (b).
 
-     3 additional gaps found; all now fixed except one distinct shape left open (see "Known Gaps —
-     Fixed" for each): a long constructor signature's parameter-wrap logic misapplied to its own
-     following member-initializer-list entry (mutex.hpp, shared_mutex.hpp, filesystem.cpp); a
-     macro-then-statement line-merge instability (`_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK`-style
-     macros glued to a following `if(...)` — istream.hpp, stacktrace.hpp, xlocale.hpp); a
-     recurrence of "declaration-alignment column-padding non-idempotency" — the `ranges.hpp`/
-     `_Range` shape (root cause: `ScopePipelineCore.trailingIndent` sweeping a same-line leading
-     comment into the group's per-line indent) is fixed, but `filesystem.hpp`'s
-     `recursive_directory_iterator` assignment-alignment shape is a distinct mechanism, separately
-     fixed (also algorithm.hpp).
+     3 additional gaps found, all fixed (see "Known Gaps — Fixed" for each): a long constructor
+     signature's parameter-wrap logic misapplied to its own following member-initializer-list
+     entry (mutex.hpp, shared_mutex.hpp, filesystem.cpp); a macro-then-statement line-merge
+     instability (`_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK`-style macros glued to a following
+     `if(...)` — istream.hpp, stacktrace.hpp, xlocale.hpp); two distinct
+     declaration-alignment column-padding non-idempotency shapes — `ranges.hpp`/`_Range`
+     (`ScopePipelineCore.trailingIndent` sweeping a same-line comment into per-line indent) and
+     `filesystem.hpp`'s `recursive_directory_iterator` (separate mechanism, also algorithm.hpp).
 
 (27) **DONE** — `github.com/apache/ant` `src/` tree (item 9). Plain `.java`, no PCPP, 1337 files
      (`src/main` + `src/tests`). Full-tree round1/round2 (`--preserve-tree --root DIR --out DIR`):
@@ -668,24 +611,19 @@ detail block here) and add it to "Finished dogfood / real-code testing" above �
 
 **Other findings outside the candidate list**
 
-**Config-key wiring audit (2026-07-06)** — root-caused `Doc.java`'s divergence to
+**Config-key wiring audit (2026-07-06)** — `Doc.java`'s divergence traced to
 `MiscRule.INDENT_WIDTH`/`LINE_LENGTH_LIMIT` being dead `static final` constants disconnected
-from `Config`; only `line-length`/`indent-size` were unwired, every other key already correct.
-Fixed by converting to instance fields threaded through the relevant rule constructors. No-op
-at default settings; verified live at `indent-size = 2`.
+from `Config` (only `line-length`/`indent-size` unwired, all other keys correct). Fixed via
+instance fields threaded through rule constructors. No-op at default; verified at
+`indent-size = 2`. Same-day follow-up: several rule classes also carried a hardcoded
+`DEFAULT_INDENT_UNIT = "    "` fallback (same bug class) — fixed in `MiscRule`,
+`JavaSpecificRule`, `CppSpecificRule`. Same-day removal: `header-guard-style` (silently-dead
+config surface) removed from `Config.java`, `README.md`, and this file's sample config.
 
-**Follow-up (same day):** several rule classes also carried their own hardcoded
-`DEFAULT_INDENT_UNIT = "    "` fallback (same bug class) — fixed in `MiscRule`, `JavaSpecificRule`,
-`CppSpecificRule`. No-op at default `indent-size`.
-
-**Removal (same day):** `header-guard-style` removed entirely (silently-dead config surface)
-from `Config.java`, `README.md`, and this file's sample config.
-
-**Dogfood-compile-check bug** (predates round1/round2 methodology; referenced by Step A's
-"Dogfood self-format compile" item above): `MiscRule`'s call/declaration preserve-group
-renderers reset paren/bracket/angle depth to 0 at each physical line start, corrupting
-multi-line nested calls (including the formatter's own `TokenizerCore.java`). Fixed with a
-`groupByOriginalLine` helper tracking depth cumulatively across the whole slice.
+**Dogfood-compile-check bug** (predates round1/round2 methodology): `MiscRule`'s call/
+declaration preserve-group renderers reset paren/bracket/angle depth to 0 at each physical line
+start, corrupting multi-line nested calls (incl. the formatter's own `TokenizerCore.java`).
+Fixed with a `groupByOriginalLine` helper tracking depth cumulatively across the slice.
 
 **Known pre-existing gaps** (found during `Main.java` smoke-testing, left unfixed as out of
 scope, flagged to user): `ServerMode.FormatHandler` doesn't resolve `indent-style = auto` before

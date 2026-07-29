@@ -816,3 +816,53 @@ on the auto-labeled majority-YES `sample_default.txt`. Until that exists
 and is re-evaluated with `GruEval` against a held-out labeled set showing
 it beats the linear classifier's 67.7% baseline, `gru-classifier` should
 stay `off`.
+
+## 2026-07-30 session: self-formatting dogfood-and-adopt run found and fixed a `CommentClassifier` false positive (slash-separated lists)
+
+Ran `STATE_COMMON.md`'s "Formatter self-formatting (dogfood-and-adopt)
+process" for the first time against the formatter's own `src/` tree
+(round1/round2 fixed-point + `make test` all clean). Step 4's mandated
+spot-check of the diff isolated same-content-different-case line pairs and
+found 5 wrong capitalizations, all sharing one shape — a comment starting
+with a slash-separated list of code identifiers/keywords, e.g.:
+
+```
+sizeTokens/initTokens get flattened...       -> SizeTokens/initTokens ...   (WRONG)
+open/final/abstract/sealed share one column  -> Open/final/abstract/...     (WRONG)
+val/var share one slot per STYLE_KOTLIN.md   -> Val/var share one slot      (WRONG)
+constexpr/consteval/constinit share one...   -> Constexpr/consteval/...     (WRONG)
+wx/uh/az/ar/ah are short-lived per-token...   -> Wx/uh/az/ar/ah are ...      (WRONG)
+```
+
+Root cause: none of these leading words (`sizeTokens`, `open`, `val`,
+`constexpr`, `wx`) are in the file's language's keyword set (these are all
+Java comments — `.isJava` — and none of `open`/`val`/`constexpr` are Java
+keywords), so `hasLeadingKeywordMatch` was false and every one skipped
+`KeywordAmbiguityGate` entirely, falling straight into `CommentClassifier`'s
+"main path" (`BIAS=1.0`, always YES) — a path that, per `cwg/weights.md`,
+deliberately runs no feature check at all because it was designed only for
+the non-ambiguous majority case. A leading word directly followed by `/`
+(no whitespace) was never checked anywhere, keyword or not.
+
+Fix: new `CommentFeatureVector.leadingWordFollowedBySlash` field (computed
+in `CommentFeatureExtractor`, `targetWordIndex == 0` scoped like
+`hasLeadingKeywordMatch`) and a new `CommentClassifier` **Gate 1c** (between
+the decorative-separator gate and the keyword-ambiguity gate) that returns
+`NO` whenever it fires — independent of keyword membership, so it also
+catches non-keyword identifier lists like `sizeTokens`/`wx`. Accepted
+false-skip risk (asymmetric-risk design, same as every other gate here):
+genuine English "a/b" constructs (`and/or`, `km/h`) at a comment's very
+start are rare enough that occasionally leaving one lowercase costs
+nothing, versus wrongly capitalizing a code-identifier reference.
+`make test`: 220/220 forward + idempotency, unchanged.
+
+After the fix, re-ran the self-formatting process from step 1: round1/round2
+fixed-point clean, trial-JAR `make test` 220/220, round1b/round2b
+fixed-point clean against both `src/` and the trial JAR, re-checked the
+isolated case-diff (only the 4 legitimate prose capitalizations remained,
+zero false positives) and adopted round1's output into the real `src/`
+tree. Rebuilt from the adopted tree, `make test`: 220/220 forward +
+idempotency. This is the first real self-formatting adoption of this
+codebase's own source with the current ruleset — see git history for the
+resulting diff (71 `src/` files + `tools/gru/GruAbstainResolverSelfTest.java`
+for the new constructor argument).

@@ -1,17 +1,4 @@
 {
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '--- STATE_COMMON.md (re-injected after /compact) ---'; cat /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/STATE_COMMON.md"
-          }
-        ]
-      }
-    ]
-  },
   "permissions": {
     "allow": [
       "Bash(java -jar target/code-formatter-1.00.jar --help)",
@@ -42,7 +29,17 @@
       "Bash(*=* java -jar /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/target/code-formatter-1.00.jar --standalone --out * *)",
       "Read(//home/aloysius/.config/jxmake-code-formatter/**)",
       "Read(//home/aloysius/Projects/JxMake/util/CodingStyle.md/**)",
-      "Read(//home/aloysius/xsdk/**)"
+      "Read(//home/aloysius/xsdk/**)",
+      "Read(//opt/openjdk-21_linux-x64_bin/jdk-21/**)"
+    ],
+    "deny": [
+      "Bash(find /home/aloysius)",
+      "Bash(find /home/aloysius *)",
+      "Bash(* /home/aloysius/.gnupg)",
+      "Bash(* /home/aloysius/.gnupg/**)",
+      "Read(//home/aloysius/.gnupg)",
+      "Read(//home/aloysius/.gnupg/**)",
+      "Read(//home/aloysius/.bashrc)"
     ]
   }
 }

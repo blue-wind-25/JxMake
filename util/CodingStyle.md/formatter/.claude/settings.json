@@ -1,0 +1,50 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '--- STATE_COMMON.md (re-injected after /compact) ---'; cat /home/aloysius/Projects/JxMake/util/CodingStyle.md/formatter/STATE_COMMON.md"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(awk *)",
+      "Bash(cat *)",
+      "Bash(export *=*)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git stash *)",
+      "Bash(git status *)",
+      "Bash(grep *)",
+      "Bash(head *)",
+      "Bash(javac *)",
+      "Bash(jobs *)",
+      "Bash(make *)",
+      "Bash(mkdir -p /tmp/**)",
+      "Bash(python3 *)",
+      "Bash(sed *)",
+      "Bash(tail *)",
+      "Bash(xargs ls -la *)",
+      "Read(//tmp/**)",
+      "Edit(//tmp/**)"
+    ],
+    "deny": [
+      "Bash(find /)",
+      "Bash(find / *)",
+      "Bash(gpg *)",
+      "Bash(*gpg*)",
+      "Bash(*.gnupg*)",
+      "Bash(*.bashrc*)",
+      "Bash(*~/.gnupg*)",
+      "Bash(*~/.bashrc*)"
+    ]
+  }
+}

@@ -447,6 +447,36 @@ third-party client only needs to speak this HTTP protocol, not link against the 
   for a project's source root and no `tsconfig.json`/bundler-config resolution logic. This
   is a known, accepted simplification (RDD_KEY_195) — no source-root config key is planned.
 
+- **Multi-line-call/condition wrap decision can flap across formatting passes
+  (physical-source-line-dependent fits-check), affecting C/C++/Java/Kotlin/JS/TS.**
+  `MiscRuleCurly.renderCallCandidate`'s no-newline-branch fits-check (deciding whether a
+  call/condition candidate stays on one line or gets wrapped) measures against the
+  candidate's *entire enclosing physical source line* (via `lineStartIndex(tokens,
+  nameIdx)` through the line's own end) rather than a position tied to the candidate
+  itself. For a small candidate nested inside a longer enclosing expression (e.g.
+  `text.startsWith('@')` inside a long `val text = ...` line), this measures the whole
+  enclosing line's length against the line-length limit even though only the nested
+  candidate's own wrap decision is being made — so the same logical content can wrap on
+  one formatting pass (when it originally sat on a long physical source line) and stay on
+  one line on the next pass (once that same content, after the first pass's own output,
+  now sits on a shorter physical line), a non-idempotent flap. Confirmed against real
+  corpus files `GenerateReleaseNotes.kt`/`TypeBridging.kt` (JetBrains/kotlin dogfood,
+  tracked as bucket "D3" in `STATE_KOTLIN.md`, ~33 known-affected files there).
+  A fix was attempted (anchoring the measurement at the candidate's own start position,
+  `nameIdx`, instead of its enclosing physical line's start) but regressed 28 existing
+  fixtures spanning C++/Java/TypeScript/Kotlin at `make test` — dropping the enclosing
+  line's leading prefix text from the measurement under-counts real line length whenever
+  a candidate is preceded by same-line prefix content (`return `, `if (`, `val x = `,
+  etc.), causing lines that should wrap to no longer wrap. Landing a real fix requires
+  a more careful design (distinguishing "prefix belongs to an unrelated outer construct"
+  from "prefix is part of this same rendered line and must count") and a broader
+  regression-review pass across all four affected languages' fixtures — not attempted
+  further in the session that found this, to avoid landing a fix "narrowed" into
+  correctness on only the two known repro files while leaving the general case (and this
+  regression surface) unaddressed. No code change has landed for this issue; the
+  fits-check still measures against the full enclosing physical source line as described
+  above.
+
 ---
 
 ## License

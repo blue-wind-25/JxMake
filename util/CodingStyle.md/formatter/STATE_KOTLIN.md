@@ -160,6 +160,7 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_218 | `JetBrains/kotlin` dogfood cluster **D4** (minor adjacent-closing-brace spacing flap, sample hit `JsArgumentsImpl.kt`) — **FIXED, closes D4**: `BlockStructureRule.collapseBracelessBody` (the already-braceless multi-line-body collapse path exercised only on a reformat, once a prior pass had already stripped an enclosing `if`'s own braces) correctly excluded its enclosing scope's own terminating `}` from the rendered body but left the WHITESPACE token immediately preceding it inside `contents`, which `renderInline` then silently dropped (never emits trailing whitespace) — losing a source-preserved single space (`) }` → `)}`) on the second format pass; `tryCollapse`'s sibling braced-body path never has this loss since it lets the surrounding loop re-append a *different* piece of untouched whitespace verbatim instead of folding it into a render. Fixed by appending a trailing space when the token right before the enclosing `}` was WHITESPACE/NEWLINE. Also required correcting `real_code_regressions_33_out.kt` (a pre-existing fixture that had, by coincidence, already baked this same bug's buggy `)} as T` into its own recorded "expected" output — corrected to `) } as T`). Fixture `_168`. `make test` 216/216 forward + idempotency, zero regressions. |
 | RDD_KEY_219 | `JetBrains/kotlin` dogfood cluster **D1** (declaration/accessor column-alignment padding flap) — **PARTIALLY FIXED**: two independent group-width-recompute-instability root causes (RDD_KEY_139/140/162 family). (1) `KotlinDeclarationAlignmentRule.renderAlignedGroup` rendered surviving (non-excluded) rows as one flat shared-width grid even when an excluded, overflowing, brace-bodied-init row sat in the MIDDLE of the group — fixed by rendering surviving rows as maximal contiguous runs instead. (2) The analogous bug in shared `ScopePipelineCurly.applyGetterSetterPass` (Kotlin's one-liner expression-bodied function/accessor grouping) — fixed with new Kotlin-gated `renderKotlinFilteredRuns` helper, C/C++/Java untouched. **Known remaining gap, left open**: a third sub-shape where the offending member's own solo/raw width fits under the limit (so the raw-length parse-time pre-check never excludes it) but the group's own shared-column padding alone pushes it over — `KotlinGetterSetterRule` has no RDD_KEY_162-style budget-aware exclusion mechanism at all. D1's ~100-file estimate likely contains an unknown mix of all three sub-shapes; closure is partial. Fixture `_169`. `make test`: 217/217 forward + idempotency, zero regressions. |
 | RDD_KEY_220 | `JetBrains/kotlin` dogfood cluster **D1**, third sub-shape left open by RDD_KEY_219 — **FIXED, closes D1 fully**: group-padding-induced overflow in `KotlinGetterSetterRule`'s one-liner grouping (member's own raw width fits under `lineLengthLimit`, but shared-column padding alone pushes it over; pre-fix this was silently absorbed by a later `MiscRule.enforceCallLineBreaking` call-argument wrap). Fixed by porting RDD_KEY_162's fixed-point budget-exclusion loop into a new depth-aware 3-arg `GetterSetterRuleCurly.render`/`KotlinGetterSetterRule.render` override, gated on `GetterSetterRuleCore.hasBreakableCall`, reusing RDD_KEY_219's contiguous-run rendering for survivors; `depth` threaded through `ScopePipelineCurly.applyGetterSetterPass`/`renderKotlinFilteredRuns`. Fixture `_170`. `make test`: 218/218 → 219/219 forward + idempotency, zero regressions. |
+| RDD_KEY_221 | `JetBrains/kotlin` dogfood cluster **D3** — root cause confirmed, fix **NOT landed**: `MiscRuleCurly.renderCallCandidate`'s no-newline-branch fits-check measures a candidate against its entire enclosing physical source line (`lineStartIndex(tokens, nameIdx)`) instead of a stable position tied to the candidate itself, causing the wrap decision to flap across rounds as the enclosing line's own length changes. Candidate fix (anchor measurement at `nameIdx`) regressed 28 fixtures across C/C++/Java/TS/Kotlin at `make test` — reverted, not committed. Documented as a `README.md` Known Limitations bullet; D3 remains open. |
 
 ---
 
@@ -687,8 +688,14 @@ explicit user request) — catches parse errors only, weaker confidence than (2)
    RDD_KEY_214/215/216; the remaining 2 are ordinary D3 instances, not a
    distinct D2a shape) and D4 (~8 files — RDD_KEY_218) both fully closed;
    D1 is now **fully closed** (RDD_KEY_219 + RDD_KEY_220 — all three
-   group-width-recompute-instability sub-shapes fixed); D3 still fully
-   open (~334 files total across all buckets,
+   group-width-recompute-instability sub-shapes fixed); D3's root cause is
+   now confirmed (RDD_KEY_221: `MiscRuleCurly.renderCallCandidate`'s
+   no-newline-branch fits-check measures against the entire enclosing
+   physical source line instead of the candidate's own stable content) but
+   **no fix has landed** — a candidate fix was tried and reverted after
+   regressing 28 fixtures across C/C++/Java/TS/Kotlin at `make test`; see
+   `README.md`'s Known Limitations section and RDD_KEY_221 for the full
+   writeup. D3 remains open (~334 files total across all buckets,
    with D3 now confirmed to include at least
    `GenerateReleaseNotes.kt`/`TypeBridging.kt` from D2a's own former
    residual). Full diagnosis, tool commands, and per-cluster fix history:
@@ -838,10 +845,20 @@ Category 1 fully closed (all C1-C6k). Category 2: D2a fully closed
 closed (RDD_KEY_218, fixture `_168`, ~8 files); D1 now **FULLY CLOSED**
 (RDD_KEY_219, fixture `_169` + RDD_KEY_220, fixture `_170` — all three
 group-width-recompute-instability sub-shapes fixed, see D1 row above);
-D3 remains fully untouched (D3's known count
-now includes 2 files reclassified out of D2a's own former residual,
-`GenerateReleaseNotes.kt`/`TypeBridging.kt`) — the only good candidate for
-a dedicated future fix session among the remaining open buckets.
+D3's root cause is **confirmed but its fix is NOT landed** (RDD_KEY_221 —
+`MiscRuleCurly.renderCallCandidate`'s no-newline-branch fits-check measures
+against the whole enclosing physical source line rather than the
+candidate's own stable content; a candidate fix anchoring the measurement
+at the candidate's own start instead regressed 28 fixtures spanning
+C/C++/Java/TS/Kotlin at `make test` and was reverted, not committed — see
+`README.md`'s Known Limitations section for the full writeup). D3 remains
+open (D3's known count includes 2 files reclassified out of D2a's own
+former residual, `GenerateReleaseNotes.kt`/`TypeBridging.kt`) — landing a
+real fix needs a more careful design (distinguishing same-line prefix that
+must still count toward the limit from unrelated outer-construct text
+that shouldn't) plus a full four-language regression review, a larger
+undertaking than a single-session investigation; the only remaining open
+bucket, and now the best-understood one even though unfixed.
 
 **Recommended next step (not done yet):** run `kotlin_content_diff` across
 the full 16078-file corpus before further Category-1-family work — it would

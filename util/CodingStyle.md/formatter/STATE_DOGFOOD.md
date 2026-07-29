@@ -63,7 +63,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Java       | STATE_C_CPP_JAVA.md   | VMA-GIT/anemonesoft (local)                 | DONE                |                                                                                                  |
 | Kotlin     | STATE_KOTLIN.md       | arrow-kt/arrow                              | DONE                |                                                                                                  |
 | Kotlin     | STATE_KOTLIN.md       | gui_frontend_android                        | DONE                |                                                                                                  |
-| Kotlin     | STATE_KOTLIN.md       | JetBrains/kotlin                            | DONE - PARTIAL FIX  | D3 still open                                                                                    |
+| Kotlin     | STATE_KOTLIN.md       | JetBrains/kotlin                            | DONE - PARTIAL FIX  | D3 still open — root cause confirmed, attempted fix reverted (28 fixture regressions)            |
 | Kotlin     | STATE_KOTLIN.md       | kotlinx.coroutines                          | DONE                |                                                                                                  |
 | Kotlin     | STATE_KOTLIN.md       | square/kotlinpoet                           | DONE                |                                                                                                  |
 | Kotlin     | STATE_KOTLIN.md       | square/okio                                 | DONE                |                                                                                                  |

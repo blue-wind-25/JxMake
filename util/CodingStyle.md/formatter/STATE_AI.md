@@ -598,6 +598,14 @@ per-item below rather than left as if still pending as originally written.**
 
 ### Why the GRU only ever returns YES/ABSTAIN in practice (never NO)
 
+**Superseded in part** by the "`CommentClassifier` first real NO-producing
+path: decorative-separator gate" section further below (same day, later in
+this session) — `classify` can now return `NO` for decorative-only
+comments. The finding below is still accurate for every other case
+(genuine prose/code NO still has no gate) and is kept as-is for history;
+read it as "no NO path existed *at all*, historically" rather than the
+current state.
+
 Two independent causes, confirmed by reading the actual code:
 
 - `CommentClassifier.classify(CommentFeatureVector)` (the rule-based/"linear"

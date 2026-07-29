@@ -34,12 +34,16 @@ tools/gru/sample_default.txt, deduplicated in place — bootstrapping labels
 from the rule-based CommentClassifier itself (distant supervision) instead
 of steps 2-6's ABSTAIN-tally/Pool-extraction/hand-labeling/vocab-build
 chain. `make gru-train` then runs step 7 against sample_default.txt by
-default. This auto-labeled path only ever produces YES/skip (never NO),
-since the rule-based classifier it bootstraps from cannot emit NO itself
-(see STATE_AI.md's "why the GRU only ever returns YES/ABSTAIN" note) — it
+default. This auto-labeled path can only produce NO for the narrow
+decorative-only case (a comment with no letter or digit at all — see
+CommentClassifier's DecorativeSeparatorGate); the rule-based classifier it
+bootstraps from still cannot emit NO for genuine prose/code cases
+(commented-out code, license blocks, etc. — see STATE_AI.md's "why the GRU
+only ever returns YES/ABSTAIN" note for what's still unhandled) — it
 exists to give the shipped weights file *some* real, license-clean,
 non-empty default training data, not to replace the hand-labeled Pool A/B
-path (steps 2-6), which remains the only source of real NO ground truth.
+path (steps 2-6), which remains the only source of real prose/code NO
+ground truth.
 
 Tools
 -----

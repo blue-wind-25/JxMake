@@ -201,6 +201,8 @@ worthiness first within each tier.
 
 --- Tier 1: high value, tractable next steps ---
 
+Now do you think it is a good idea to execute `### Formatter self-formatting (dogfood-and-adopt) process` now?
+How about the chance of wrong comments normalization?
 
 4. JS/TS: shared TypeScript cluster #3 / Angular cluster 4 #3 — call-wrap/collapse
    vs. alignment-padding fits-check ordering. Highest file-count value of any open

@@ -456,9 +456,26 @@ on the noted commits/fixtures)
        non-idempotently. Fixed via new `valueSpansMultipleLines` exclusion. Fixture: `_131`.
      - Cluster 6 (closing-brace indent drift on a still-K&R `else`/`catch`/`finally`) — fixed, see
        `ScopePipelineCurly.findParentIndent`. Fixture: `_132`.
-     - Cluster 5 — still open; full diagnosis in "Known Gaps — Open". Next free fixture number 133.
-     `make test` after fixes: 180/180 forward + idempotency, zero regressions. Full-tree round1/
-     round2 re-run + `javac` compile-check deferred until cluster 5 resolves — NOT yet run.
+     - Cluster 5 (alignment-group padding collapse, `rewrite-kotlin/.../K.java`'s
+       `ExpressionStatement.withType`) — fixed. Root cause, confirmed via debug prints (reverted):
+       NOT `GetterSetterRuleCurly` (the leading hypothesis) — `DeclarationAlignmentRuleCurly
+       .parseDeclaration`'s function-pointer-declarator detection (`Type (*name)(params);`)
+       misread the `return` keyword of a cast-and-parenthesized-expression statement
+       (`return (T)(cond ? a : b);`) as the "type", with "(T)" as the "(*name)" group -- it had no
+       equivalent of `GetterSetterRuleCurly.STATEMENT_KEYWORDS`'s leading-keyword exclusion for
+       this same misparse class. The bogus "declaration" merged into the preceding real
+       declaration's alignment group, padding "return" out to that group's type-column width on a
+       fresh format; reformatting that padded output recomputed a different group and collapsed
+       the padding back down (the idempotency bug). Fixed via a new
+       `STATEMENT_LEADING_KEYWORDS` guard at the function-pointer-detection call site
+       (`if`/`else`/`while`/`for`/`do`/`switch`/`try`/`catch`/`finally`/`throw`/`return`/
+       `synchronized`). Verified: minimal hand-authored repro, full real `K.java` round1/round2
+       now byte-identical, `make test` 220/220 forward + idempotency (up from 219/219). Fixture:
+       `real_code_regressions_171`.
+     All 6 clusters now fixed. `make test` after fixes: 220/220 forward + idempotency, zero
+     regressions. Full-tree round1/round2 re-run + `javac` compile-check across the whole
+     3373-file `openrewrite/rewrite` tree (deferred until all 6 clusters resolved) is now
+     unblocked — still NOT yet run, left for a future session.
 (18) Local `VMA-GIT/anemonesoft/` (82 `.java`) — 1 bug: `renderCallCandidate` swallowed a
      multi-line brace-bodied trailing argument (brace depth not tracked). Verified (4).
      Fixture: `real_code_regressions_29`.
@@ -638,44 +655,6 @@ RDD_KEY_88.
 ---
 
 ## Known Gaps — Open
-
-- **`openrewrite/rewrite` dogfood (entry 17) — 1 cluster still open.** Next free fixture
-  number: 133. Each cluster below is a real, confirmed-differing (round1 != round2) file group
-  from the full-tree idempotency diff; none has been root-caused yet beyond what's noted.
-  (Clusters 3, 4, and 6 are fixed; see entry 17's own narrative and fixtures
-  `real_code_regressions_130`/`_131`/`_132`.)
-
-  - **Cluster 5 — alignment-group padding collapse**: `rewrite-kotlin/.../K.java`, the
-    `ExpressionStatement.withType` method (source line 1029: `return (T) (newExpression ==
-    expression ? this : newExpression);`, immediately after a `ExpressionStatement newExpression =
-    withExpression(...);` declaration with a blank line between them in round1's output). Confirmed
-    NOT reproducible from `ExpressionStatement`'s own class body in isolation (lines 982-1037 wrapped
-    standalone in a stub `class M { ... }`: no padding, idempotent both rounds) -- reproduction
-    requires the *whole* preceding file content back to line 1 (`head -1037` of the real file, brace-
-    balanced with trailing `}`s, still shows the bug; smaller prefixes N=100/300/600/900 don't). This
-    means whatever pass pads/misrenders this `return` depends on sibling nested-class content earlier
-    in the same outer `interface K` body, not on `ExpressionStatement`'s own class alone. Confirmed
-    NOT `MiscRuleCore.parseAssignment`/`groupAssignments` (the `return` keyword's next token `(` fails
-    every scan-state branch there, returning null unconditionally regardless of context). Leading
-    hypothesis, not yet confirmed: `GetterSetterRuleCurly`'s one-liner-member grouping explicitly
-    "needs to see inside `{ }`" (its own class javadoc) to find one-liner getter/setter members
-    nested inside a class body -- worth checking whether its scan crosses nested-class boundaries (or
-    otherwise picks up unrelated sibling `return (J2) withExpression(...);` one-liner members
-    elsewhere in the file) when deciding this `return`'s padding, rather than correctly excluding
-    `withType`'s 2-statement body via its own documented `hasNewlineBetween` check. No minimal repro
-    found yet despite the above narrowing; next step is bisecting within the 900-1037 range (not
-    just whole-prefix doubling) to find the smallest triggering content, then reading
-    `GetterSetterRuleCurly.parseOneLinerMember`/`groupOneLiners`'s exact scan-boundary logic against
-    it.
-
-  Full-tree round1/round2 re-run (reusing existing `round1`/`round2` scratchpad dirs, regenerating
-  only what changes) plus the `javac`/`tools/verifiers` compile-check are both still pending,
-  deferred until all 6 clusters are resolved per this candidate's own methodology (see entry (17)
-  above for the 2 already-fixed clusters and their fixtures).
-
-  **2026-07-28 cleanup-pass re-assessment:** still not root-caused, so not "accepted" in the
-  ACCEPTED-not-fixed sense — genuinely mid-investigation. Nothing learned in the meantime makes
-  the next step (bisecting 900-1037) cheaper; leaving as-is, no action taken this pass.
 
 - **Non-idempotent switch-case re-indent on internally-inconsistent generated source**
   (`SwitchRule.applyNonInlineCaseIndent`) — ACCEPTED, not fixed. Found in `javaparser/javaparser`

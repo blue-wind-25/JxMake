@@ -41,6 +41,15 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
     private static final Set<String> TYPE_KEYWORDS_JAVA = setOf(
             "boolean", "byte", "char", "double", "float", "int", "long", "short", "void", "var");
 
+    /** Statement keywords that can never legitimately begin a real type -- used to reject a
+     *  cast-and-parenthesized-expression statement (e.g. {@code return (T)(cond ? a : b);}) from
+     *  being misparsed as the function-pointer declarator shape ({@code Type (*name)(params);}).
+     *  Same rationale/precedent as {@code GetterSetterRuleCurly.STATEMENT_KEYWORDS}, but scoped
+     *  narrowly to the one call site that actually needs it here -- see its own guard comment. */
+    private static final Set<String> STATEMENT_LEADING_KEYWORDS = new HashSet<>(Arrays.asList(
+            "if", "else", "while", "for", "do", "switch", "try", "catch", "finally", "throw",
+            "return", "synchronized"));
+
     private final ModifierPriority modifierPriority;
     private final Set<String> typeKeywords;
 
@@ -882,6 +891,22 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                         if (!Token.isRepOp(inner.get(k), '*')) {
                             isFuncPtrName = false;
                         }
+                    }
+                    // A leading statement keyword (`return`, `throw`, `synchronized`, ...) can
+                    // never legitimately begin a real type -- without this guard, a cast-and-
+                    // parenthesized-expression statement like `return (T)(cond ? a : b);` or
+                    // `return (J2) withExpression(...);` is misread as the function-pointer
+                    // shape above: "return" as the "type", "(T)"/"(J2)" as the "(*name)" group,
+                    // the trailing parenthesized expression as its "(params)". Found via
+                    // `openrewrite/rewrite`'s `rewrite-kotlin/.../K.java`
+                    // (`ExpressionStatement.withType`, Cluster 5): the misparsed "declaration"
+                    // then merges into an adjacent real declaration's alignment group, padding
+                    // "return" out to that group's type-column width on round1 -- an idempotency
+                    // bug, since round2 (reformatting round1's own padded output) recomputes a
+                    // narrower/different group and collapses the padding back down.
+                    if (isFuncPtrName && i < nameOpenIdx && body.get(i).type == TokenType.KEYWORD
+                            && STATEMENT_LEADING_KEYWORDS.contains(body.get(i).text)) {
+                        isFuncPtrName = false;
                     }
                     if (isFuncPtrName) {
                         final Token nameToken = inner.get(inner.size() - 1);

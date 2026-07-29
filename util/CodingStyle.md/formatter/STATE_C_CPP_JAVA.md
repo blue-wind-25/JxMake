@@ -324,11 +324,9 @@ still available via `git log`/`git show` on the noted commits/fixtures.
     token-pasting tricks)
 (6) `java_syntax_check` — AST-based syntax-only checker. Used when a full javac is not wanted/needed
     (dependency problem) — catches parse errors only, weaker confidence than (4) (no semantic/type
-    checking). Build/run commands:
+    checking). Run (see STATE_COMMON.md's "Verifier toolchain paths" for the `$JDK` env setup and
+    build command):
 ```bash
-JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
-cd util/CodingStyle.md/formatter/tools/verifiers
-"$JDK/bin/javac" java_syntax_check.java
 "$JDK/bin/java" java_syntax_check <file.java> [file2.java ...]
 ```
 
@@ -360,11 +358,9 @@ split by content family:
   dropped or otherwise-corrupted comment still is.
 
 Exit 0 if content is preserved, 1 with a description of each mismatch
-otherwise, 2 if either file fails to parse. Build/run:
+otherwise, 2 if either file fails to parse. Run (see STATE_COMMON.md's
+"Verifier toolchain paths" for the `$JDK` env setup and build command):
 ```bash
-JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
-cd util/CodingStyle.md/formatter/tools/verifiers
-"$JDK/bin/javac" java_content_diff.java
 "$JDK/bin/java" java_content_diff <original.java> <formatted.java>
 ```
 Verified against a hand-crafted good pair (reindentation + import sort +

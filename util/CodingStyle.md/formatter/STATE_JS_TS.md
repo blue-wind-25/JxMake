@@ -92,24 +92,11 @@ convention (`grep -Fm1`, no `-A`).
 
 ## Tools/compiler used
 
-Compiler for dogfood test `node` and `tsc` needs:
-
-```bash
-export LD_LIBRARY_PATH=/opt/gcc-7.5.0/lib64:/opt/gcc-7.5.0/lib:/opt/isl-0.16.1/lib
-export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules:~/mynpm/node_modules
-export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
-```
-
-`LD_LIBRARY_PATH` is required on this system's `node` binary (built against a
-newer libstdc++/glibc than the system default) — without it, `node` fails
-immediately with `libstdc++.so.6: cannot open shared object file` /
-`GLIBCXX_*`/`GLIBC_*` version-not-found errors, even though the binary and
-`PATH` are otherwise correct. `NODE_PATH`'s second entry
-(`~/mynpm/node_modules`) is needed because `npm install --prefix ~/mynpm
-<pkg>` installs into `~/mynpm/node_modules` directly, not
-`~/mynpm/lib/node_modules` (the prior single-entry `NODE_PATH` was wrong for
-locally-`npm install`ed packages, only correct for the two globally-shipped
-scoped packages already under `~/mynpm/lib/node_modules`).
+Compiler for dogfood test `node` and `tsc` needs: see STATE_COMMON.md's
+"Verifier toolchain paths" for the `node` env setup (`LD_LIBRARY_PATH`/
+`NODE_PATH`/`PATH`) and why each variable is needed — canonical copy lives
+there now, shared with `tools/verifiers/*.js` verification for every job,
+not just this one.
 
 **`typescript` package version gotcha:** an unpinned `npm install --prefix
 ~/mynpm typescript` installs **`typescript@7.0.2`** (the native tsgo

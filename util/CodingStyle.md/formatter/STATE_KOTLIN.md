@@ -412,14 +412,11 @@ Tool location: `util/CodingStyle.md/formatter/tools/verifiers/`
 (`kotlin_syntax_check.java` + compiled `.class`; committed, licensed
 project tooling, alongside the other jobs' syntax checkers).
 
-Build/run (JDK 21, matches this compiler's class file version 52 = Java 8
-target, runs fine on 21):
+Build (JDK 21, matches this compiler's class file version 52 = Java 8
+target, runs fine on 21; see STATE_COMMON.md's "Verifier toolchain paths"
+for the `$JDK`/`$KLIB` env setup and why each is needed):
 
 ```bash
-JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
-KLIB=~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib
-cd util/CodingStyle.md/formatter/tools/verifiers
-"$JDK/bin/javac" -cp "$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_syntax_check.java
 "$JDK/bin/java" -cp ".:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_syntax_check <file.kt> [file2.kt ...]
 ```
 
@@ -473,12 +470,9 @@ nodes reachable only through `ASTNode.getChildren(null)`. Switching both
 the canonicalization walk and comment collection to ASTNode traversal
 fixed it.
 
-Build/run (same classpath as `kotlin_syntax_check`):
+Run (same classpath/env as `kotlin_syntax_check` — see STATE_COMMON.md's
+"Verifier toolchain paths"):
 ```bash
-JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
-KLIB=~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib
-cd util/CodingStyle.md/formatter/tools/verifiers
-"$JDK/bin/javac" -cp "$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_content_diff.java
 "$JDK/bin/java" -cp ".:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_content_diff <original.kt> <formatted.kt>
 ```
 Verified against a hand-crafted good pair (reindentation + import sort +

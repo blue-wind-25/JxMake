@@ -320,23 +320,25 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   reputation. Three replacements added: `web-platform-tests/wpt`,
   `WordPress/wordpress-develop`, `alexandersandberg/html5-elements-tester`.
 
-- **WordPress magic-comment capitalization — open design tradeoff, not
-  fixed.** Found during the `WordPress/wordpress-develop` HTML5 dogfood
-  session (2026-07-24): `normalize-comment-start-case=on`'s `normComment` in
-  `XmlSpecificRule.java` unconditionally capitalizes any lowercase-starting
+- **WordPress magic-comment capitalization — RESOLVED 2026-07-30.** Found
+  during the `WordPress/wordpress-develop` HTML5 dogfood session
+  (2026-07-24): `normalize-comment-start-case=on`'s `normComment` in
+  `XmlSpecificRule.java` unconditionally capitalized any lowercase-starting
   comment, with no directive-shape exclusion (unlike CSS's
-  `isSingleTokenDirective`, added for `real_code_regressions_69`).
+  `isSingleTokenDirective`, added for `real_code_regressions_69`), so
   WordPress's own literal magic comments `<!--more-->`/`<!--nextpage-->`
-  (content-splitting directives, not prose) get silently rewritten to
-  `<!--More-->`/`<!--Nextpage-->`. A straight reuse of
-  `isSingleTokenDirective`'s rule (single token containing `:`/`-`) would
-  NOT catch this — `more`/`nextpage` contain neither character. Whether
-  HTML/XML should adopt a broader "any single lowercase word, no interior
-  whitespace" exclusion (risks under-capitalizing genuine one-word prose
-  comments like `<!--fixme-->`), an allow-list, or an HTML5-only scope is an
-  unresolved design tradeoff not specified in `STYLE_DATA_FORMATS.md` §4. No
-  code change made pending a decision. Not blocking — content-correctness
-  caveat only on the otherwise-complete `WordPress/wordpress-develop` run.
+  got silently rewritten to `<!--More-->`/`<!--Nextpage-->`. Decision (user,
+  2026-07-30, after a real-corpus check across
+  `WordPress/wordpress-develop`/`web-platform-tests/wpt`/
+  `alexandersandberg/html5-elements-tester` found zero genuine one-word
+  prose comments in any of the three): went broad rather than an
+  allow-list — `XmlSpecificRule.isSingleWordDirective` now skips
+  capitalization whenever the comment's entire trimmed body is a single
+  word with no interior whitespace (no `:`/`-` requirement, unlike CSS's
+  narrower rule). Accepted false-negative risk (a genuine one-word prose
+  comment outside the sampled corpora, e.g. `<!--fixme-->`, would now also
+  stay lowercase) documented in `README.md`'s "Known Limitations". `make
+  test`: 219/219 forward, 219/219 idempotency.
 
 - **HTML5 optional/implied end tags — RESOLVED in stages (RDD_KEY_198/199/
   200; `alexandersandberg/html5-elements-tester` dogfood, 3 sequential

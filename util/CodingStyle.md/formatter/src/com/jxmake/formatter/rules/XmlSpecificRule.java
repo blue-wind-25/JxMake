@@ -796,10 +796,29 @@ public final class XmlSpecificRule {
         while (i < text.length() && text.charAt(i) == ' ') {
             i++;
         }
-        if (i >= text.length() || !Character.isLowerCase(text.charAt(i))) {
+        if (i >= text.length() || !Character.isLowerCase(text.charAt(i)) || isSingleWordDirective(text)) {
             return text;
         }
         return text.substring(0, i) + Character.toUpperCase(text.charAt(i)) + text.substring(i + 1);
+    }
+
+    /** True iff {@code text} (already trimmed by every {@code normComment} call site) is a single
+     *  word with no interior whitespace anywhere -- e.g. WordPress's magic comments
+     *  {@code <!--more-->}/{@code <!--nextpage-->}/{@code <!--noteaser-->}, which are
+     *  content-splitting directives a third-party tool parses literally, not prose, and must never
+     *  be capitalized. Deliberately broad (unlike CSS's {@code isSingleTokenDirective}, which also
+     *  requires a {@code :}/{@code -} separator): a real corpus check across three real-world HTML5
+     *  dogfood trees (WordPress/wordpress-develop, web-platform-tests/wpt,
+     *  alexandersandberg/html5-elements-tester) found zero genuine one-word English prose comments
+     *  that this would wrongly leave lowercase -- see README.md's "Known Limitations" for the
+     *  accepted false-negative risk on codebases outside that sample. */
+    private static boolean isSingleWordDirective(final String text) {
+        for (int i = 0; i < text.length(); i++) {
+            if (Character.isWhitespace(text.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     // ---- rendering ----

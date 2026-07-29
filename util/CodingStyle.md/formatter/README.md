@@ -464,6 +464,21 @@ third-party client only needs to speak this HTTP protocol, not link against the 
   regression sweep. This is a known, currently-unresolved gap — no workaround exists
   short of avoiding deeply nested short calls inside very long lines.
 
+- **HTML/XML single-word comments are never capitalized, even when they're genuine
+  one-word prose.** `normalize-comment-start-case=on` skips any HTML/XML comment whose
+  entire (trimmed) body is a single word with no interior whitespace — e.g. WordPress's
+  magic comments `<!--more-->`/`<!--nextpage-->`/`<!--noteaser-->`, which are
+  content-splitting directives a third-party tool parses literally and must never be
+  rewritten. This is deliberately broad (any single word, not just a known allow-list): a
+  real-corpus check across three real-world HTML5 dogfood trees
+  (`WordPress/wordpress-develop`, `web-platform-tests/wpt`,
+  `alexandersandberg/html5-elements-tester`) found zero genuine one-word English prose
+  comments that this rule would wrongly leave lowercase, so it was accepted as-is rather
+  than built as a maintained allow-list. The accepted risk: a codebase outside that
+  sample with a real one-word prose comment (e.g. `<!--fixme-->`, `<!--todo-->`) will keep
+  it lowercase instead of capitalizing it — a false negative, not a false positive (no
+  comment is ever wrongly rewritten by this rule, only possibly left as-is).
+
 ---
 
 ## License

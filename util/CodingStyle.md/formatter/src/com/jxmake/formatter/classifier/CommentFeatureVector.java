@@ -32,11 +32,12 @@ public final class CommentFeatureVector {
     public final TokenType commentType;
     public final boolean hasNonLatinScript;
     public final boolean hasLeadingKeywordMatch;
+    public final boolean isDecorativeOnly;
 
     public CommentFeatureVector(final String targetWord, final String previousWord, final String nextWord,
             final boolean nextCharIsOpenParen, final boolean nextTokenIsArrow, final boolean containsSemicolon,
             final boolean containsUrlOrFilenameOrNumber, final TokenType commentType,
-            final boolean hasNonLatinScript, final boolean hasLeadingKeywordMatch) {
+            final boolean hasNonLatinScript, final boolean hasLeadingKeywordMatch, final boolean isDecorativeOnly) {
         this.targetWord = targetWord;
         this.previousWord = previousWord;
         this.nextWord = nextWord;
@@ -47,5 +48,6 @@ public final class CommentFeatureVector {
         this.commentType = commentType;
         this.hasNonLatinScript = hasNonLatinScript;
         this.hasLeadingKeywordMatch = hasLeadingKeywordMatch;
+        this.isDecorativeOnly = isDecorativeOnly;
     }
 }

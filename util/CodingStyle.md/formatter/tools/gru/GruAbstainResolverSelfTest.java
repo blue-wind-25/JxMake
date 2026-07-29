@@ -164,7 +164,7 @@ public final class GruAbstainResolverSelfTest {
 
     private static CommentFeatureVector plainFeatures(String target, String prev, String next) {
         return new CommentFeatureVector(target, prev, next, false, false, false, false,
-                TokenType.COMMENT_LINE, false, false);
+                TokenType.COMMENT_LINE, false, false, false);
     }
 
     private static CommentFeatureVector nonLatinFeatures() {
@@ -172,7 +172,7 @@ public final class GruAbstainResolverSelfTest {
         // regardless of the other fields -- the simplest reliable way to force an ABSTAIN
         // from the rule-based classifier for this test.
         return new CommentFeatureVector("word", null, null, false, false, false, false,
-                TokenType.COMMENT_LINE, true, false);
+                TokenType.COMMENT_LINE, true, false, false);
     }
 
     private static Config configWith(boolean gruClassifierOn, String weightsPath) {

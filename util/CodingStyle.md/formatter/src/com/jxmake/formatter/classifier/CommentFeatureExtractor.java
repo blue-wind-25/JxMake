@@ -45,9 +45,10 @@ public final class CommentFeatureExtractor {
         final boolean containsUrlOrFilenameOrNumber = URL_OR_FILENAME_OR_NUMBER.matcher(commentText).find();
         final boolean hasNonLatinScript = NonLatinScriptGate.containsNonLatinScript(commentText);
         final boolean hasLeadingKeywordMatch = KeywordAmbiguityGate.hasLeadingKeywordMatch(commentText, lang);
+        final boolean isDecorativeOnly = DecorativeSeparatorGate.isDecorativeOnly(commentText);
         return new CommentFeatureVector(targetWord, previousWord, nextWord, nextCharIsOpenParen,
                 nextTokenIsArrow, containsSemicolon, containsUrlOrFilenameOrNumber, commentType,
-                hasNonLatinScript, hasLeadingKeywordMatch);
+                hasNonLatinScript, hasLeadingKeywordMatch, isDecorativeOnly);
     }
 
     /** [start, end) of the first contiguous run of letters/digits/underscore after skipping

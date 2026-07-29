@@ -750,6 +750,47 @@ Also there should be some improvement that can be done to increase the training 
 
 I have attempted some of the above, please check and continue.
 
+### `CommentClassifier` first real NO-producing path: decorative-separator gate
+
+2026-07-29: `CommentClassifier.classify` previously had no code path that
+could ever emit `NO` (RDD_KEY_96's finding — see "Empirical confirmation"
+above). Added the first one: `DecorativeSeparatorGate.isDecorativeOnly`
+(new file, `src/com/jxmake/formatter/classifier/DecorativeSeparatorGate.java`)
+returns true for a comment with no letter or digit anywhere — just
+punctuation/symbol runs like `****...****`, `#####...#####`, `");`, `---`.
+Wired as a new gate in `classify` right after the non-Latin-script gate,
+returning `NO`. Presence-based like `NonLatinScriptGate`, not scored —
+deliberately narrow, doesn't attempt commented-out-code or license-block
+detection (those still need real word content to distinguish from prose,
+left for a future gate). Structurally cannot affect ABSTAIN counts: a
+decorative-only comment (no letters) can never also match the leading-
+keyword gate (which requires a real keyword word), so the two are mutually
+exclusive by construction, not just empirically.
+
+`CommentFeatureVector`/`CommentFeatureExtractor` gained the new
+`isDecorativeOnly` field (constructor signature changed — updated the one
+other call site, `tools/gru/GruAbstainResolverSelfTest.java`).
+
+**Validated** (user's explicit request, not full 14-corpus Item 9 rerun —
+network/scope tradeoff discussed and user chose local-only): re-ran
+`acquire_corpus.sh --only eCxx,SusterCaller,VMA-GIT,TTGO_VGA32_Lite,
+RobotCoding` (the 5 local dogfood repos, no network) + `gru-measure-abstain-
+rate` against the combined 96442-comment corpus. Result: NO=20774 (0 before
+this change), ABSTAIN=1995 (2.1%) — the 2.1% figure is fully explained by
+this batch including the two already-documented outlier repos (TTGO_VGA32_
+Lite/RobotCoding, vendored bitmap-font/zlib content, ~4.6% per Item 9), not
+a regression. Spot-checked 15 real newly-NO comments by hand (separator
+lines, decorative punctuation, no false positives on real prose). `make
+test` clean (219/219 forward + idempotency) throughout.
+
+This means `sample_default.txt`/`GenerateSampleDefault.java`'s "auto-
+labeling can never produce NO" limitation (documented in `tools/gru/
+README.txt` and above) is now only *mostly* true — decorative-only
+comments will auto-label as NO on the next `make gru-acquire-corpus` run.
+Real prose NO ground truth (commented-out code, license blocks, etc.)
+still requires the hand-labeled Pool A/B path — this gate only covers the
+narrow decorative-separator case.
+
 ### Still outstanding
 
 - Improving `CommentClassifier`'s keyword-list accuracy (or otherwise
@@ -757,6 +798,10 @@ I have attempted some of the above, please check and continue.
   `comment-normalization-classifier` can default `on` without regressing
   fixtures is now the concrete next step for actually activating the GRU
   path by default, rather than leaving it real-but-opt-in.
+- Commented-out-code and multi-line-license-block NO gates were discussed
+  alongside the decorative-separator gate above but deferred (higher
+  false-positive risk, need more careful feature design) — not yet
+  implemented.
 
 ### TODO — GruTrainer follow-ups (deferred, not yet scheduled)
 

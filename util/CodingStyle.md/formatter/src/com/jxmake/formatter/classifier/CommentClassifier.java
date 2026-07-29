@@ -22,6 +22,13 @@ public final class CommentClassifier {
         if (features.hasNonLatinScript) {
             return CommentDecision.ABSTAIN;
         }
+        // Gate 1b: decorative/symbol-only separator (e.g. "****...****", "#####...#####") -- no
+        // letter or digit anywhere, so it cannot be prose by construction. First real NO-producing
+        // path in this method (previously every reachable comment resolved YES or ABSTAIN -- see
+        // RDD_KEY_96's note and STATE_AI.md's "why the GRU only ever returns YES/ABSTAIN" finding).
+        if (features.isDecorativeOnly) {
+            return CommentDecision.NO;
+        }
         // Gate 2 (RDD_KEY_96) stage 1: leading-keyword ambiguity. Stage 2
         // (KeywordAmbiguityGate.resolveAmbiguousKeyword) resolves it via its own scoring formula
         // -- see cwg/weights.md for the derivation. Per the hard architectural constraint, a

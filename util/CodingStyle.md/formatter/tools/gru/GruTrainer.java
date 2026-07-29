@@ -329,9 +329,10 @@ public final class GruTrainer {
             return;
         }
 
-        System.out.println("GruTrainer: wrote trained weights file to " + actualWeightsOut
-                + " (vocabSize=" + explicitVocab.size() + ", trainExamples=" + train.size()
-                + ", validationExamples=" + validation.size() + ", bestValidationLoss=" + bestValidationLoss + ")");
+        System.out.println(String.format(
+                "GruTrainer: wrote trained weights file to %s (vocabSize=%d, trainExamples=%d,"
+                        + " validationExamples=%d, bestValidationLoss=%9.7f)",
+                actualWeightsOut, explicitVocab.size(), train.size(), validation.size(), bestValidationLoss));
 
         printConfusionMatrix(actualWeightsOut, vocabulary, validation);
     }

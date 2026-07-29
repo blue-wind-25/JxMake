@@ -203,12 +203,29 @@ worthiness first within each tier.
 
 X. Remove from `util/CodingStyle.md/formatter/tools/gru/sample_default.txt` `AIza...`
 
-0. acquire_corpus.sh: add a secret/API-key filter pass over extracted comment
+X. acquire_corpus.sh: add a secret/API-key filter pass over extracted comment
    text (known provider key patterns + generic high-entropy strings) before
    writing to any corpus file — prevents a leaked key from a scraped source
    repo ending up in a committed sample file (see GH secret-scanning alert,
    2026-07-29). Value: medium (prevents recurrence). Difficulty: low-medium
    (regex/entropy check, no model changes).
+
+0. Check if the comment normalizer successfully normalize this comment:
+```
+// this function must be declared external
+// because the design requires it.
+```
+   into:
+```
+// This function must be declared external
+// because the design requires it
+```
+   or is it incorrectly normalize the comment to:
+```
+// This function must be declared external
+// Because the design requires it
+```
+   Also check the `/* */` variant.
 
 1. GRU: improve `CommentClassifier` keyword-list accuracy so `comment-normalization-
    classifier` can default `on` without regressing fixtures (STATE_AI.md "Still

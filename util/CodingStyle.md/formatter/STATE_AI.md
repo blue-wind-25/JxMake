@@ -626,6 +626,11 @@ decorative-separator case.
 
 ### Still outstanding
 
+- `acquire_corpus.sh` should filter/redact likely API keys (Google, AWS, GitHub,
+  Stripe, OpenAI/Anthropic, generic high-entropy tokens, etc.) from extracted
+  comment text before it lands in any corpus file, so a scraped repo's leaked
+  secret never gets written into `sample_default.txt` or committed. Deferred,
+  not yet scheduled.
 - Improving `CommentClassifier`'s keyword-list accuracy (or otherwise
   reconciling it with the deterministic heuristic) so
   `comment-normalization-classifier` can default `on` without regressing

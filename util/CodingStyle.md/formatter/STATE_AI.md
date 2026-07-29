@@ -798,10 +798,8 @@ narrow decorative-separator case.
   `comment-normalization-classifier` can default `on` without regressing
   fixtures is now the concrete next step for actually activating the GRU
   path by default, rather than leaving it real-but-opt-in.
-- Commented-out-code and multi-line-license-block NO gates were discussed
-  alongside the decorative-separator gate above but deferred (higher
-  false-positive risk, need more careful feature design) — not yet
-  implemented.
+- Commented-out-code and multi-line-license-block NO gates — see the
+  "TODO — further `CommentClassifier` NO-producing gates" section below.
 
 ### TODO — GruTrainer follow-ups (deferred, not yet scheduled)
 
@@ -832,3 +830,21 @@ behavior:
   and a chosen objective (max F1? fixed precision target?) to sweep
   thresholds against; also touches the classifier's runtime abstain logic,
   not just the trainer.
+
+### TODO — further `CommentClassifier` NO-producing gates (deferred, not yet scheduled)
+
+Discussed alongside the decorative-separator gate (see above); higher
+false-positive risk than that gate, so deferred rather than bundled in:
+
+- **Commented-out code.** Comment looks like a code statement (semicolon-
+  terminated, assignment/braces shape) rather than prose. Highest false-
+  positive risk of the two — real prose can legitimately contain a
+  semicolon or braces, so needs careful feature design (e.g. requiring
+  multiple code-like signals together, not just one) before it's safe to
+  return NO confidently rather than ABSTAIN.
+- **Multi-line license/copyright blocks.** 2+ newlines, no trailing
+  sentence-ending period — the same fallback rule Pool B hand-labeling
+  already uses (see the worked example in `tools/gru/README.txt`'s hand-
+  labeling section). Risk: legitimate multi-line prose comments (a real
+  paragraph split across lines) could misfire without a period-position
+  check that's more careful than the hand-labeling shortcut.

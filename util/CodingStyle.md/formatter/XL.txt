@@ -61,8 +61,8 @@ Be careful not to lose important information, especially the `**Tools/compiler u
 Then update `STATE_DOGFOOD.md` about the above dogfood state (keep `Note` short enough).
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_166_inp/out.kt`
-    to   `real_code_regressions_170_inp/out.kt`
+    from `real_code_regressions_171_inp/out.java`
+    to   `...`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -201,47 +201,6 @@ worthiness first within each tier.
 
 --- Tier 1: high value, tractable next steps ---
 
-X. acquire_corpus.sh: add a secret/API-key filter pass over extracted comment
-   text (known provider key patterns + generic high-entropy strings) before
-   writing to any corpus file — prevents a leaked key from a scraped source
-   repo ending up in a committed sample file (see GH secret-scanning alert,
-   2026-07-29). Value: medium (prevents recurrence). Difficulty: low-medium
-   (regex/entropy check, no model changes).
-
-0. Check if the comment normalizer successfully normalize this comment:
-```
-// this function must be declared external
-// because the design requires it.
-```
-   into:
-```
-// This function must be declared external
-// because the design requires it
-```
-   or is it incorrectly normalize the comment to:
-```
-// This function must be declared external
-// Because the design requires it
-```
-   Also check the `/* */` variant.
-
-1. GRU: improve `CommentClassifier` keyword-list accuracy so `comment-normalization-
-   classifier` can default `on` without regressing fixtures (STATE_AI.md "Still
-   outstanding"). This is the single concrete blocker to activating the whole GRU
-   comment-normalization pipeline by default instead of leaving it real-but-opt-in.
-   Value: high (unlocks an already-shipped feature). Difficulty: medium.
-
-2. HTML5: WordPress magic-comment capitalization — an open DESIGN QUESTION, not a
-   bug (STATE_DATA_FORMATS.md, `wordpress/wordpress-develop` DONE - OPEN Q). No
-   engineering needed, just a decision from the user. Value: medium. Difficulty:
-   trivial once decided — best value/effort ratio on this list.
-
-3. C/C++/Java: `openrewrite/rewrite` dogfood Cluster 5 — alignment-group padding
-   collapse (`ExpressionStatement.withType` in `rewrite-kotlin/.../K.java`). Real,
-   unfixed, mid-investigation with a leading hypothesis already narrowed
-   (`GetterSetterRuleCurly`'s one-liner scan possibly crossing nested-class
-   boundaries) and a concrete next step (bisect the 900-1037 line range). Blocks
-   that dogfood entry's full-tree re-run. Value: medium. Difficulty: medium.
 
 4. JS/TS: shared TypeScript cluster #3 / Angular cluster 4 #3 — call-wrap/collapse
    vs. alignment-padding fits-check ordering. Highest file-count value of any open

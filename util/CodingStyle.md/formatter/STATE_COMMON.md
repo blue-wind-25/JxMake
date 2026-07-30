@@ -129,41 +129,49 @@ batch, store the rest in the corresponding state file.
 
 **Verifier toolchain paths** — needed to build/run `tools/verifiers/*` and
 `tools/gru/*` on this system; shared across every job that touches those
-tools (previously duplicated separately in `STATE_KOTLIN.md`,
-`STATE_C_CPP_JAVA.md`, and `STATE_JS_TS.md` — canonical copy lives here
-now, job files should link back rather than restate the raw paths):
+tools. Invoke the verifier helpers via their wrapper scripts rather than
+calling `java`, `node`, or `python3` directly. The wrapper scripts
+encapsulate the required toolchain paths, runtime environment, dependency
+checks, and (for Java) on-demand compilation.
 
-```bash
-# JDK 21 -- needed by java_syntax_check.java/java_content_diff.java (JDK11+
-# APIs: JavacTask, CompilationUnitTree) and as the javac used to compile
-# kotlin_syntax_check.java/kotlin_content_diff.java (class file version 52
-# = Java 8 target, runs fine on 21)
-JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
+Available wrappers:
 
-# Kotlin compiler's own classes -- additionally needed on the classpath for
-# kotlin_syntax_check.java/kotlin_content_diff.java (KtFile,
-# KotlinCoreEnvironment, Disposer, CompilerConfiguration,
-# EnvironmentConfigFiles, KtPsiFactory, PsiErrorElement, PsiTreeUtil).
-# Every needed class is bundled in the single shaded kotlin-compiler.jar (no
-# separate intellij-core/trove4j jars needed).
-KLIB=~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib
-cd util/CodingStyle.md/formatter/tools/verifiers
-"$JDK/bin/javac" -cp "$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_syntax_check.java kotlin_content_diff.java
-"$JDK/bin/javac" java_syntax_check.java java_content_diff.java
-
-# node -- needed for tools/verifiers/*.js and any *_syntax_check.js dogfood
-# run. LD_LIBRARY_PATH is required on this system's node binary (built
-# against a newer libstdc++/glibc than the system default) -- without it,
-# node fails immediately with `libstdc++.so.6: cannot open shared object
-# file` / GLIBCXX_*/GLIBC_*-version-not-found errors, even with an otherwise
-# correct PATH. NODE_PATH's second entry (~/mynpm/node_modules) is needed
-# because `npm install --prefix ~/mynpm <pkg>` installs directly into
-# ~/mynpm/node_modules, not ~/mynpm/lib/node_modules (only the latter holds
-# the two globally-shipped scoped packages).
-export LD_LIBRARY_PATH=/opt/gcc-7.5.0/lib64:/opt/gcc-7.5.0/lib:/opt/isl-0.16.1/lib
-export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules:~/mynpm/node_modules
-export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
 ```
+_exec_java.sh
+_exec_node_env.sh
+_exec_nodejs.sh
+_exec_python.sh
+
+java_syntax_check.sh
+java_content_diff.sh
+
+kotlin_syntax_check.sh
+kotlin_content_diff.sh
+
+json_syntax_check.sh
+json5_syntax_check.sh
+
+css_syntax_check.sh
+css_content_diff.sh
+
+yaml_syntax_check.sh
+yaml_content_diff.sh
+
+toml_syntax_check.sh
+toml_content_diff.sh
+
+xml_syntax_check.sh
+xml_content_diff.sh
+
+html_syntax_check.sh
+html_content_diff.sh
+
+js_ts_content_diff.sh
+
+python_content_diff.sh
+```
+Jobs should invoke the appropriate wrapper script instead of directly
+executing `javac`, `java`, `node`, or `python3`.
 
 **Do NOT use `git stash`.** Back up any files you need to preserve to a
 temporary location, revert your changes for testing, and restore the

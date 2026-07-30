@@ -5,10 +5,17 @@
  * See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
  */
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -90,6 +97,31 @@ public final class GruTrainer {
     private static final double GRADIENT_CLIP_NORM = 5.0;
     private static final String DEFAULT_VOCAB_PATH = "tools/gru/explicit_vocab.txt";
 
+    // ── Checkpointing (break/resume support) ─────────────────────────────────────────────────────
+    //
+    // Two binary checkpoint files, both derived from --out's path and living right next to it:
+    //   <out>.ckpt-current.bin -- overwritten every epoch. Full resumable state: weights, vocab,
+    //     Adam optimizer moment arrays, and scalar run state (epoch, epochsSinceImprovement,
+    //     bestValidationLoss, learningRate/maxEpochs/patience/seed, Adam step counter). This is the
+    //     file --resume=<path> expects.
+    //   <out>.ckpt-best.bin -- overwritten only when validation loss improves. Weights + vocab only
+    //     (no optimizer/run state) -- "give me the best model so far", not a resume target on its
+    //     own, though loadCurrentCheckpoint's caller does read it as a *sibling* of a resume target
+    //     to recover the true best-so-far weight arrays (the current-weights checkpoint alone only
+    //     ever holds the latest epoch's weights, not the best one).
+    // Both are plain java.io.DataOutputStream/DataInputStream over Buffered*Stream -- no external
+    // library, consistent with this codebase's zero-third-party-dependency convention -- chosen over
+    // JSON purely for I/O speed on frequent (every-epoch) writes of a several-MB weights blob.
+    // Written via a temp-file-then-atomic-rename (Files.move + REPLACE_EXISTING) so a process killed
+    // mid-write never leaves a half-written, corrupt checkpoint behind -- exactly the crash scenario
+    // this feature exists to protect against. Both files are deleted on normal successful completion
+    // (see the end of main) -- they are a resume/recovery safety net, never a persistent artifact,
+    // same posture as every other real per-run output this job never commits (RDD_EXT_19-style).
+    private static final int    CHECKPOINT_MAGIC           = 0x47525543; // "GRUC"
+    private static final int    CHECKPOINT_FORMAT_VERSION  = 1;
+    private static final String CHECKPOINT_CURRENT_SUFFIX  = ".ckpt-current.bin";
+    private static final String CHECKPOINT_BEST_SUFFIX     = ".ckpt-best.bin";
+
     public static void main(String[] args)
     {
         if(args.length < 2) {
@@ -135,11 +167,49 @@ public final class GruTrainer {
             hyperparameters.put(key, value);
         } // for
 
-        // RDD_EXT_18 starting defaults, overridable via --key=value
-        double learningRate = Double.parseDouble( hyperparameters.getOrDefault("lr", "0.001") );
-        int    maxEpochs    = Integer.parseInt( hyperparameters.getOrDefault("epochs", "30") );
-        int    patience     = Integer.parseInt( hyperparameters.getOrDefault("patience", "5") );
-        long   seed         = Long.parseLong( hyperparameters.getOrDefault("seed", "42") );
+        // --resume=<checkpoint-path>: loads a previously-written current-weights checkpoint (see
+        // CHECKPOINT_CURRENT_SUFFIX below) and continues training from where it left off, instead of
+        // randomInit. See ResumeState/loadCurrentCheckpoint's javadoc for exactly what is and isn't
+        // faithfully restored. Loaded here (before the RDD_EXT_18 hyperparameter defaults just below)
+        // so lr/epochs/patience/seed can fall back to the checkpoint's own recorded values instead of
+        // the hardcoded starting defaults when resuming and the CLI doesn't explicitly override them.
+        String      resumePath = hyperparameters.get("resume");
+        ResumeState resumed    = null;
+        if(resumePath != null) {
+            File resumeFile = new File(resumePath);
+            if( !resumeFile.isFile() || !resumeFile.canRead() ) {
+                System.err.println( "GruTrainer: --resume checkpoint file not readable: " + resumePath );
+                System.exit(2);
+                return;
+            }
+            try {
+                resumed = loadCurrentCheckpoint(resumeFile);
+            }
+            catch(IOException e) {
+                System.err.println( "GruTrainer: could not load --resume checkpoint " + resumePath
+                        + ": " + e.getMessage() );
+                System.exit(2);
+                return;
+            }
+            System.out.println( "GruTrainer: resuming from " + resumePath + " (epoch=" + resumed.epoch
+                    + ", epochsSinceImprovement=" + resumed.epochsSinceImprovement
+                    + ", bestValidationLoss=" + resumed.bestValidationLoss + ")" );
+        } // if
+
+        // RDD_EXT_18 starting defaults, overridable via --key=value; fall back to the resumed
+        // checkpoint's own recorded values (not the hardcoded RDD_EXT_18 defaults) when resuming.
+        double learningRate = Double.parseDouble( hyperparameters.getOrDefault(
+            "lr", resumed != null ? String.valueOf(resumed.learningRate) : "0.001"
+        ) );
+        int maxEpochs = Integer.parseInt( hyperparameters.getOrDefault(
+            "epochs", resumed != null ? String.valueOf(resumed.maxEpochs) : "30"
+        ) );
+        int patience = Integer.parseInt( hyperparameters.getOrDefault(
+            "patience", resumed != null ? String.valueOf(resumed.patience) : "5"
+        ) );
+        long seed = Long.parseLong( hyperparameters.getOrDefault(
+            "seed", resumed != null ? String.valueOf(resumed.seed) : "42"
+        ) );
         // Progress reporting (2026-07-29): large auto-labeled corpora (100k+ examples) take long
         // enough per epoch that a human watching the process needs mid-epoch feedback, not just a
         // once-per-epoch line. --progress-every=N prints a running line every N training examples
@@ -189,34 +259,53 @@ public final class GruTrainer {
             return;
         } // if
 
-        String       vocabPath = hyperparameters.getOrDefault("vocab", DEFAULT_VOCAB_PATH);
         List<String> explicitVocab;
-        File         vocabFile = new File(vocabPath);
-        if( !vocabPath.isEmpty() && vocabFile.isFile() && vocabFile.canRead() ) {
-            try {
-                explicitVocab = readVocab(vocabFile);
-            }
-            catch(IOException e) {
-                System.err.println(
-                    "GruTrainer: could not read vocab file " + vocabPath + ": " + e.getMessage()
-                );
-                System.exit(2);
-                return;
-            }
+        if(resumed != null) {
+            // Resuming: the vocab is whatever embedding-row layout the checkpoint's own weights were
+            // trained against (embedded in the checkpoint itself, mirroring how GruWeights embeds its
+            // own explicitVocab snapshot in the JSON weights file) -- never re-derived from --vocab/
+            // the examples file, which could silently shift embedding-row indices out from under the
+            // resumed weight arrays.
+            explicitVocab = resumed.explicitVocab;
         } // if
         else {
-            explicitVocab = buildVocab(examples);
-        }
+            String vocabPath = hyperparameters.getOrDefault("vocab", DEFAULT_VOCAB_PATH);
+            File   vocabFile = new File(vocabPath);
+            if( !vocabPath.isEmpty() && vocabFile.isFile() && vocabFile.canRead() ) {
+                try {
+                    explicitVocab = readVocab(vocabFile);
+                }
+                catch(IOException e) {
+                    System.err.println(
+                        "GruTrainer: could not read vocab file " + vocabPath + ": " + e.getMessage()
+                    );
+                    System.exit(2);
+                    return;
+                }
+            } // if
+            else {
+                explicitVocab = buildVocab(examples);
+            }
+        } // else
         Vocabulary vocabulary = new Vocabulary(explicitVocab);
 
         Random     random  = new Random(seed);
-        GruWeights weights = randomInit(explicitVocab, vocabulary, random);
+        GruWeights weights = resumed != null ? resumed.weights : randomInit(explicitVocab, vocabulary, random);
 
         if(checkGradients) {
             checkGradients(weights, vocabulary, examples, random, checkGradientSamples);
             return;
         }
 
+        // NOTE on resume fidelity: `random` is re-seeded from `seed` (the checkpoint's own recorded
+        // seed when resuming) and immediately used for this exact same shuffle+split below, so the
+        // train/validation split itself IS reproduced exactly on resume (deterministic given the same
+        // seed and the same examples file/order). What is NOT reproduced is the *epoch-by-epoch*
+        // shuffle sequence beyond this point: java.util.Random's internal state past this call isn't
+        // itself serialized, only the seed is -- so a resumed run's per-epoch example order diverges
+        // from what an uninterrupted run would have done from this point on. This is a documented,
+        // accepted limitation (STATE_AI.md), not a bug: resume continues training validly, it just
+        // doesn't bit-reproduce a non-interrupted run.
         Collections.shuffle(examples, random);
         int           validationCount = Math.max( 1, examples.size() / 5 );
         List<Example> validation      = examples.subList(0, validationCount);
@@ -227,21 +316,61 @@ public final class GruTrainer {
                 + ", trainExamples=" + train.size() + ", validationExamples=" + validation.size()
                 + ", maxEpochs=" + maxEpochs + ", patience=" + patience + ", lr=" + learningRate );
 
-        AdamState adam               = new AdamState(weights);
-        double    bestValidationLoss = Double.POSITIVE_INFINITY;
+        AdamState adam               = resumed != null ? resumed.adam : new AdamState(weights);
+        double    bestValidationLoss = resumed != null ? resumed.bestValidationLoss : Double.POSITIVE_INFINITY;
         // `weights` is mutated in place by `adam.apply` every step, so a plain `bestWeights =
         // weights` reference assignment would silently drift to whatever `weights` is by the end
         // of training instead of actually preserving the best-validation-loss epoch's numbers.
         // Snapshotting the serialized JSON immediately on improvement sidesteps needing a real
         // deep-copy of GruWeights' nested arrays.
-        String bestWeightsJson        = toJson(weights, explicitVocab);
-        int    epochsSinceImprovement = 0;
-        int    step                   = 0;
-        long   trainingStartNanos     = System.nanoTime();
+        //
+        // On resume, prefer the sibling best-weights checkpoint (see writeBestCheckpoint) if it's
+        // readable -- it holds the actual best-validation-loss weight arrays, which the current-
+        // weights checkpoint alone does not (that one only ever holds the LATEST epoch's weights).
+        // If the sibling file is missing/unreadable, fall back to the resumed (latest-epoch, not
+        // necessarily best) weights and loudly say so -- an accepted, documented gap rather than a
+        // silent wrong result.
+        String bestWeightsJson;
+        if(resumed != null) {
+            File bestCheckpointFile = deriveBestCheckpointFile( new File(resumePath) );
+            String loadedBestJson = null;
+            if( bestCheckpointFile.isFile() && bestCheckpointFile.canRead() ) {
+                try {
+                    LoadedWeights bestLoaded = readBestCheckpoint(bestCheckpointFile);
+                    loadedBestJson = toJson(bestLoaded.weights, bestLoaded.explicitVocab);
+                }
+                catch(IOException e) {
+                    System.err.println( "GruTrainer: could not read sibling best-checkpoint "
+                            + bestCheckpointFile + ": " + e.getMessage()
+                            + " -- falling back to the resumed (latest-epoch) weights as the interim"
+                            + " best-so-far snapshot." );
+                }
+            } // if
+            if(loadedBestJson != null) {
+                bestWeightsJson = loadedBestJson;
+            }
+            else {
+                System.err.println( "GruTrainer: no readable sibling best-checkpoint found at "
+                        + bestCheckpointFile + " -- using the resumed (latest-epoch, not necessarily"
+                        + " best) weights as the interim best-so-far snapshot until the next real"
+                        + " validation improvement." );
+                bestWeightsJson = toJson(weights, explicitVocab);
+            }
+        } // if
+        else {
+            bestWeightsJson = toJson(weights, explicitVocab);
+        }
+        int  epochsSinceImprovement = resumed != null ? resumed.epochsSinceImprovement : 0;
+        int  step                   = resumed != null ? resumed.step : 0;
+        int  startEpoch             = resumed != null ? resumed.epoch + 1 : 1;
+        long trainingStartNanos     = System.nanoTime();
+
+        File currentCheckpointFile = new File( weightsOut.getAbsolutePath() + CHECKPOINT_CURRENT_SUFFIX );
+        File bestCheckpointFile    = deriveBestCheckpointFile(currentCheckpointFile);
 
         ExecutorService executor = threads > 1 ? Executors.newFixedThreadPool(threads) : null;
         try {
-            for(int epoch = 1; epoch <= maxEpochs; ++epoch) {
+            for(int epoch = startEpoch; epoch <= maxEpochs; ++epoch) {
                 Collections.shuffle(train, random);
                 double trainLoss       = 0.0;
                 long   epochStartNanos = System.nanoTime();
@@ -304,15 +433,41 @@ public final class GruTrainer {
                     bestValidationLoss     = validationLoss;
                     bestWeightsJson        = toJson(weights, explicitVocab);
                     epochsSinceImprovement = 0;
+                    try {
+                        writeBestCheckpoint(bestCheckpointFile, weights, explicitVocab, bestValidationLoss);
+                    }
+                    catch(IOException e) {
+                        // A failed checkpoint write must never abort a real training run -- it's a
+                        // safety net, not the run's actual deliverable (the final JSON weights file
+                        // still gets written normally at the end). Warn and keep training.
+                        System.err.println( "GruTrainer: warning -- could not write best-weights"
+                                + " checkpoint to " + bestCheckpointFile + ": " + e.getMessage() );
+                    }
                 }
                 else {
                     ++epochsSinceImprovement;
                     if(epochsSinceImprovement >= patience) {
                         System.out.println("GruTrainer: early stopping at epoch " + epoch
                                 + " (no validation improvement for " + patience + " epochs)");
+                        // Persist the final epoch/patience state to the current-weights checkpoint too,
+                        // same as every other epoch below -- otherwise a resume from right after an
+                        // early stop would see stale epochsSinceImprovement from the second-to-last
+                        // epoch's checkpoint write.
+                        writeCurrentCheckpointQuietly(
+                            currentCheckpointFile, weights, explicitVocab, adam, epoch,
+                            epochsSinceImprovement, bestValidationLoss, learningRate, maxEpochs,
+                            patience, seed, step
+                        );
                         break;
                     }
                 }
+
+                // Current-weights checkpoint: overwritten every epoch (win or not), holding full
+                // resumable state -- see writeCurrentCheckpoint's javadoc for the exact binary layout.
+                writeCurrentCheckpointQuietly(
+                    currentCheckpointFile, weights, explicitVocab, adam, epoch, epochsSinceImprovement,
+                    bestValidationLoss, learningRate, maxEpochs, patience, seed, step
+                );
             } // for epoch
         }
         finally {
@@ -350,6 +505,19 @@ public final class GruTrainer {
             }
             System.exit(1);
             return;
+        }
+
+        // Normal successful completion: the final JSON weights file is now safely on disk, so the
+        // binary checkpoints (a resume/recovery safety net, never a persistent artifact -- see
+        // STATE_AI.md) are no longer needed. Best-effort delete -- a leftover checkpoint file after a
+        // successful run is harmless clutter, not worth failing the run over.
+        try {
+            Files.deleteIfExists( currentCheckpointFile.toPath() );
+            Files.deleteIfExists( bestCheckpointFile.toPath() );
+        }
+        catch(IOException e) {
+            System.err.println( "GruTrainer: warning -- could not delete checkpoint file(s) after"
+                    + " successful completion: " + e.getMessage() );
         }
 
         System.out.println( String.format(
@@ -1244,6 +1412,481 @@ public final class GruTrainer {
         }
 
     } // class AdamState
+
+    // ── Checkpoint binary I/O ────────────────────────────────────────────────────────────────────
+
+    /** {@code weightsOut}-relative path where the current-weights checkpoint's sibling best-weights
+     *  checkpoint lives, given the current-weights checkpoint's own {@code File}. Both are always
+     *  written together from the same {@code weightsOut} base path (see the constant block above), so
+     *  this is a plain suffix swap, not a search.
+     */
+    private static File deriveBestCheckpointFile(File currentCheckpointFile)
+    {
+        String path = currentCheckpointFile.getPath();
+        if( path.endsWith(CHECKPOINT_CURRENT_SUFFIX) ) return new File(
+            path.substring( 0, path.length() - CHECKPOINT_CURRENT_SUFFIX.length() ) + CHECKPOINT_BEST_SUFFIX
+        );
+
+        // Best-effort fallback for a --resume path that doesn't end in the expected suffix (e.g. a
+        // user manually renamed the file) -- still deterministic, just less likely to find a real
+        // sibling; readBestCheckpoint's caller already treats "no sibling found" as a handled,
+        // documented case, not a hard error.
+        return new File(path + CHECKPOINT_BEST_SUFFIX);
+    }
+
+    private static void writeDoubleArray(DataOutputStream out, double[] values) throws IOException
+    {
+        out.writeInt( values.length );
+        for(double v : values) out.writeDouble(v);
+    }
+
+    private static double[] readDoubleArray(DataInputStream in) throws IOException
+    {
+        int      n      = in.readInt();
+        double[] values = new double[n];
+        for(int i = 0; i < n; ++i) values[i] = in.readDouble();
+
+        return values;
+    }
+
+    private static void readDoubleArrayInto(DataInputStream in, double[] target) throws IOException
+    {
+        int n = in.readInt();
+        if(n != target.length) throw new IOException(
+            "checkpoint shape mismatch: expected length " + target.length + ", found " + n
+        );
+        for(int i = 0; i < n; ++i) target[i] = in.readDouble();
+    }
+
+    private static void writeDoubleArray2D(DataOutputStream out, double[][] rows) throws IOException
+    {
+        out.writeInt( rows.length );
+        for( double[] row : rows ) writeDoubleArray(out, row);
+    }
+
+    private static double[][] readDoubleArray2D(DataInputStream in) throws IOException
+    {
+        int        n    = in.readInt();
+        double[][] rows = new double[n][];
+        for(int i = 0; i < n; ++i) rows[i] = readDoubleArray(in);
+
+        return rows;
+    }
+
+    private static void readDoubleArray2DInto(DataInputStream in, double[][] target) throws IOException
+    {
+        int n = in.readInt();
+        if(n != target.length) throw new IOException(
+            "checkpoint shape mismatch: expected " + target.length + " rows, found " + n
+        );
+        for(int i = 0; i < n; ++i) readDoubleArrayInto( in, target[i] );
+    }
+
+    private static void writeDirectionWeights(
+        DataOutputStream out, GruWeights.DirectionWeights w
+    ) throws IOException
+    {
+        writeDoubleArray2D(out, w.Wz);
+        writeDoubleArray2D(out, w.Wr);
+        writeDoubleArray2D(out, w.Wh);
+        writeDoubleArray2D(out, w.Uz);
+        writeDoubleArray2D(out, w.Ur);
+        writeDoubleArray2D(out, w.Uh);
+        writeDoubleArray(out, w.bz);
+        writeDoubleArray(out, w.br);
+        writeDoubleArray(out, w.bh);
+    }
+
+    private static GruWeights.DirectionWeights readDirectionWeights(DataInputStream in) throws IOException
+    {
+        double[][] Wz = readDoubleArray2D(in);
+        double[][] Wr = readDoubleArray2D(in);
+        double[][] Wh = readDoubleArray2D(in);
+        double[][] Uz = readDoubleArray2D(in);
+        double[][] Ur = readDoubleArray2D(in);
+        double[][] Uh = readDoubleArray2D(in);
+        double[]   bz = readDoubleArray(in);
+        double[]   br = readDoubleArray(in);
+        double[]   bh = readDoubleArray(in);
+
+        return new GruWeights.DirectionWeights(Wz, Wr, Wh, Uz, Ur, Uh, bz, br, bh);
+    }
+
+    /** Both checkpoint kinds share this block: schema/architecture scalars, the vocab (needed to
+     *  reconstruct a {@link Vocabulary}), and every {@link GruWeights} array {@code toJsonFields}
+     *  already enumerates -- same field list, not a separately-invented one.
+     */
+    private static void writeWeightsBlock(
+        DataOutputStream out, GruWeights weights, List<String> explicitVocab
+    ) throws IOException
+    {
+        out.writeInt( weights.schemaVersion );
+        out.writeInt( explicitVocab.size() );
+        out.writeInt( weights.hashBuckets );
+        out.writeInt( weights.embeddingDim );
+        out.writeInt( weights.hiddenSize );
+        out.writeInt( weights.sequenceCap );
+        out.writeInt( weights.numClasses );
+        out.writeDouble( weights.abstainThreshold );
+        for( String word : explicitVocab ) out.writeUTF(word);
+        writeDoubleArray2D(out, weights.embeddings);
+        writeDirectionWeights(out, weights.forward);
+        writeDirectionWeights(out, weights.backward);
+        writeDoubleArray2D(out, weights.denseW);
+        writeDoubleArray(out, weights.denseB);
+        writeDoubleArray2D(out, weights.outW);
+        writeDoubleArray(out, weights.outB);
+    }
+
+    /** Loaded {@link GruWeights} plus the {@code explicitVocab} list it was built from -- {@code
+     *  GruWeights} itself only exposes the vocab as a {@code String[]}; callers here generally want
+     *  the {@code List<String>} shape {@link #toJson} etc. already take.
+     */
+    private static final class LoadedWeights {
+
+        final List<String> explicitVocab;
+        final GruWeights    weights;
+
+        LoadedWeights(List<String> explicitVocab, GruWeights weights)
+        {
+            this.explicitVocab = explicitVocab;
+            this.weights        = weights;
+        }
+
+    } // class LoadedWeights
+
+    private static LoadedWeights readWeightsBlock(DataInputStream in) throws IOException
+    {
+        int    schemaVersion    = in.readInt();
+        int    vocabSize        = in.readInt();
+        int    hashBuckets      = in.readInt();
+        int    embeddingDim     = in.readInt();
+        int    hiddenSize       = in.readInt();
+        int    sequenceCap      = in.readInt();
+        int    numClasses       = in.readInt();
+        double abstainThreshold = in.readDouble();
+        List<String> explicitVocab = new ArrayList<>(vocabSize);
+        for(int i = 0; i < vocabSize; ++i) explicitVocab.add( in.readUTF() );
+        double[][] embeddings = readDoubleArray2D(in);
+        GruWeights.DirectionWeights forward  = readDirectionWeights(in);
+        GruWeights.DirectionWeights backward = readDirectionWeights(in);
+        double[][] denseW = readDoubleArray2D(in);
+        double[]   denseB = readDoubleArray(in);
+        double[][] outW   = readDoubleArray2D(in);
+        double[]   outB   = readDoubleArray(in);
+
+        GruWeights weights = new GruWeightsBuilder()
+                .schemaVersion(schemaVersion)
+                .vocabSize(vocabSize)
+                .hashBuckets(hashBuckets)
+                .embeddingDim(embeddingDim)
+                .hiddenSize(hiddenSize)
+                .sequenceCap(sequenceCap)
+                .numClasses(numClasses)
+                .abstainThreshold(abstainThreshold)
+                .explicitVocab( explicitVocab.toArray( new String[0] ) )
+                .embeddings(embeddings)
+                .forward(forward)
+                .backward(backward)
+                .denseW(denseW)
+                .denseB(denseB)
+                .outW(outW)
+                .outB(outB)
+                .build();
+
+        return new LoadedWeights(explicitVocab, weights);
+    }
+
+    /**
+     * Writes the best-weights checkpoint (weights + vocab only, plus the validation loss that earned
+     *  it, for human inspection -- no Adam/run state, this is "give me the best model so far", not a
+     *  resume target on its own). Overwritten only when validation loss improves. Temp-file-then-
+     *  atomic-rename, see the constant block's javadoc.
+     */
+    private static void writeBestCheckpoint(
+        File file, GruWeights weights, List<String> explicitVocab, double bestValidationLoss
+    ) throws IOException
+    {
+        File tmp = new File( file.getPath() + ".tmp" );
+        try( DataOutputStream out = new DataOutputStream( new BufferedOutputStream( new FileOutputStream(tmp) ) ) ) {
+            out.writeInt(CHECKPOINT_MAGIC);
+            out.writeInt(CHECKPOINT_FORMAT_VERSION);
+            out.writeInt(0); // kind = best
+            writeWeightsBlock(out, weights, explicitVocab);
+            out.writeDouble(bestValidationLoss);
+        }
+        Files.move( tmp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING );
+    }
+
+    private static LoadedWeights readBestCheckpoint(File file) throws IOException
+    {
+        try( DataInputStream in = new DataInputStream( new BufferedInputStream( new FileInputStream(file) ) ) ) {
+            int magic = in.readInt();
+            if(magic != CHECKPOINT_MAGIC) throw new IOException(
+                "not a GruTrainer checkpoint file (bad magic): " + file
+            );
+            int formatVersion = in.readInt();
+            if(formatVersion != CHECKPOINT_FORMAT_VERSION) throw new IOException(
+                "unsupported checkpoint format version " + formatVersion + " in " + file
+                        + " (expected " + CHECKPOINT_FORMAT_VERSION + ")"
+            );
+            int kind = in.readInt();
+            if(kind != 0) throw new IOException(
+                "expected a best-weights checkpoint (kind=0) but found kind=" + kind + " in " + file
+            );
+            LoadedWeights loaded = readWeightsBlock(in);
+            in.readDouble(); // bestValidationLoss -- informational only, caller doesn't need it back
+
+            return loaded;
+        }
+    }
+
+    private static void writeDirectionMoments(
+        DataOutputStream out, AdamState.DirectionMoments m
+    ) throws IOException
+    {
+        writeDoubleArray2D(out, m.WzM);
+        writeDoubleArray2D(out, m.WzV);
+        writeDoubleArray2D(out, m.WrM);
+        writeDoubleArray2D(out, m.WrV);
+        writeDoubleArray2D(out, m.WhM);
+        writeDoubleArray2D(out, m.WhV);
+        writeDoubleArray2D(out, m.UzM);
+        writeDoubleArray2D(out, m.UzV);
+        writeDoubleArray2D(out, m.UrM);
+        writeDoubleArray2D(out, m.UrV);
+        writeDoubleArray2D(out, m.UhM);
+        writeDoubleArray2D(out, m.UhV);
+        writeDoubleArray(out, m.bzM);
+        writeDoubleArray(out, m.bzV);
+        writeDoubleArray(out, m.brM);
+        writeDoubleArray(out, m.brV);
+        writeDoubleArray(out, m.bhM);
+        writeDoubleArray(out, m.bhV);
+    }
+
+    private static void readDirectionMomentsInto(
+        DataInputStream in, AdamState.DirectionMoments m
+    ) throws IOException
+    {
+        readDoubleArray2DInto(in, m.WzM);
+        readDoubleArray2DInto(in, m.WzV);
+        readDoubleArray2DInto(in, m.WrM);
+        readDoubleArray2DInto(in, m.WrV);
+        readDoubleArray2DInto(in, m.WhM);
+        readDoubleArray2DInto(in, m.WhV);
+        readDoubleArray2DInto(in, m.UzM);
+        readDoubleArray2DInto(in, m.UzV);
+        readDoubleArray2DInto(in, m.UrM);
+        readDoubleArray2DInto(in, m.UrV);
+        readDoubleArray2DInto(in, m.UhM);
+        readDoubleArray2DInto(in, m.UhV);
+        readDoubleArrayInto(in, m.bzM);
+        readDoubleArrayInto(in, m.bzV);
+        readDoubleArrayInto(in, m.brM);
+        readDoubleArrayInto(in, m.brV);
+        readDoubleArrayInto(in, m.bhM);
+        readDoubleArrayInto(in, m.bhV);
+    }
+
+    private static void writeAdamState(DataOutputStream out, AdamState adam) throws IOException
+    {
+        writeDoubleArray2D(out, adam.embeddingM);
+        writeDoubleArray2D(out, adam.embeddingV);
+        writeDirectionMoments(out, adam.forward);
+        writeDirectionMoments(out, adam.backward);
+        writeDoubleArray2D(out, adam.denseWM);
+        writeDoubleArray2D(out, adam.denseWV);
+        writeDoubleArray(out, adam.denseBM);
+        writeDoubleArray(out, adam.denseBV);
+        writeDoubleArray2D(out, adam.outWM);
+        writeDoubleArray2D(out, adam.outWV);
+        writeDoubleArray(out, adam.outBM);
+        writeDoubleArray(out, adam.outBV);
+    }
+
+    /** Allocates a fresh {@link AdamState} sized to {@code weights} (all-zero moments, same as
+     *  {@code new AdamState(weights)} at the start of a fresh run), then overwrites its arrays'
+     *  contents in place from {@code in} -- the moment arrays are {@code final} references, so this
+     *  fills them rather than reassigning.
+     */
+    private static AdamState readAdamStateInto(DataInputStream in, GruWeights weights) throws IOException
+    {
+        AdamState adam = new AdamState(weights);
+        readDoubleArray2DInto(in, adam.embeddingM);
+        readDoubleArray2DInto(in, adam.embeddingV);
+        readDirectionMomentsInto(in, adam.forward);
+        readDirectionMomentsInto(in, adam.backward);
+        readDoubleArray2DInto(in, adam.denseWM);
+        readDoubleArray2DInto(in, adam.denseWV);
+        readDoubleArrayInto(in, adam.denseBM);
+        readDoubleArrayInto(in, adam.denseBV);
+        readDoubleArray2DInto(in, adam.outWM);
+        readDoubleArray2DInto(in, adam.outWV);
+        readDoubleArrayInto(in, adam.outBM);
+        readDoubleArrayInto(in, adam.outBV);
+
+        return adam;
+    }
+
+    /**
+     * Writes the current-weights checkpoint: full resumable state (weights, vocab, Adam optimizer
+     *  moment arrays -- not just the raw weight arrays, since resuming without them would restart the
+     *  optimizer's momentum from scratch and defeat the point of a faithful resume -- and scalar run
+     *  state). Overwritten once per epoch, after that epoch's Adam updates + validation-loss
+     *  computation. Temp-file-then-atomic-rename, see the constant block's javadoc.
+     *
+     *  <p><b>Resume fidelity caveat</b> (documented here and at the {@code --resume} call site): the
+     *  RNG seed is persisted, not {@code java.util.Random}'s internal state -- resuming reproduces the
+     *  exact original train/validation split (deterministic given the same seed) but not the exact
+     *  per-epoch shuffle sequence beyond that point. Accepted limitation, not a bug.
+     */
+    private static void writeCurrentCheckpoint(
+        File       file,
+        GruWeights weights,
+        List<String> explicitVocab,
+        AdamState  adam,
+        int        epoch,
+        int        epochsSinceImprovement,
+        double     bestValidationLoss,
+        double     learningRate,
+        int        maxEpochs,
+        int        patience,
+        long       seed,
+        int        step
+    ) throws IOException
+    {
+        File tmp = new File( file.getPath() + ".tmp" );
+        try( DataOutputStream out = new DataOutputStream( new BufferedOutputStream( new FileOutputStream(tmp) ) ) ) {
+            out.writeInt(CHECKPOINT_MAGIC);
+            out.writeInt(CHECKPOINT_FORMAT_VERSION);
+            out.writeInt(1); // kind = current
+            writeWeightsBlock(out, weights, explicitVocab);
+            out.writeInt(epoch);
+            out.writeInt(epochsSinceImprovement);
+            out.writeDouble(bestValidationLoss);
+            out.writeDouble(learningRate);
+            out.writeInt(maxEpochs);
+            out.writeInt(patience);
+            out.writeLong(seed);
+            out.writeInt(step);
+            writeAdamState(out, adam);
+        }
+        Files.move( tmp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING );
+    }
+
+    /** {@link #writeCurrentCheckpoint} wrapper for the per-epoch call sites in {@code main}: a failed
+     *  checkpoint write must never abort a real training run (it's a safety net, not the run's actual
+     *  deliverable), so this catches and warns instead of propagating.
+     */
+    private static void writeCurrentCheckpointQuietly(
+        File       file,
+        GruWeights weights,
+        List<String> explicitVocab,
+        AdamState  adam,
+        int        epoch,
+        int        epochsSinceImprovement,
+        double     bestValidationLoss,
+        double     learningRate,
+        int        maxEpochs,
+        int        patience,
+        long       seed,
+        int        step
+    )
+    {
+        try {
+            writeCurrentCheckpoint(
+                file, weights, explicitVocab, adam, epoch, epochsSinceImprovement, bestValidationLoss,
+                learningRate, maxEpochs, patience, seed, step
+            );
+        }
+        catch(IOException e) {
+            System.err.println( "GruTrainer: warning -- could not write current-weights checkpoint to "
+                    + file + ": " + e.getMessage() );
+        }
+    }
+
+    /** Full state restored by {@code --resume=<path>}: weights, vocab, Adam optimizer moments, and
+     *  every scalar the epoch loop needs to continue faithfully (epoch/patience bookkeeping, the
+     *  hyperparameters that were in effect, and the Adam step counter -- needed for bias-correction
+     *  continuity, not just cosmetic).
+     */
+    private static final class ResumeState {
+
+        final List<String> explicitVocab;
+        final GruWeights   weights;
+        final AdamState    adam;
+        final int          epoch;
+        final int          epochsSinceImprovement;
+        final double       bestValidationLoss;
+        final double       learningRate;
+        final int          maxEpochs;
+        final int          patience;
+        final long         seed;
+        final int          step;
+
+        ResumeState(
+            List<String> explicitVocab,
+            GruWeights   weights,
+            AdamState    adam,
+            int          epoch,
+            int          epochsSinceImprovement,
+            double       bestValidationLoss,
+            double       learningRate,
+            int          maxEpochs,
+            int          patience,
+            long         seed,
+            int          step
+        )
+        {
+            this.explicitVocab          = explicitVocab;
+            this.weights                = weights;
+            this.adam                   = adam;
+            this.epoch                  = epoch;
+            this.epochsSinceImprovement = epochsSinceImprovement;
+            this.bestValidationLoss     = bestValidationLoss;
+            this.learningRate           = learningRate;
+            this.maxEpochs              = maxEpochs;
+            this.patience               = patience;
+            this.seed                   = seed;
+            this.step                   = step;
+        }
+
+    } // class ResumeState
+
+    private static ResumeState loadCurrentCheckpoint(File file) throws IOException
+    {
+        try( DataInputStream in = new DataInputStream( new BufferedInputStream( new FileInputStream(file) ) ) ) {
+            int magic = in.readInt();
+            if(magic != CHECKPOINT_MAGIC) throw new IOException(
+                "not a GruTrainer checkpoint file (bad magic): " + file
+            );
+            int formatVersion = in.readInt();
+            if(formatVersion != CHECKPOINT_FORMAT_VERSION) throw new IOException(
+                "unsupported checkpoint format version " + formatVersion + " in " + file
+                        + " (expected " + CHECKPOINT_FORMAT_VERSION + ")"
+            );
+            int kind = in.readInt();
+            if(kind != 1) throw new IOException(
+                "expected a current-weights checkpoint (kind=1) but found kind=" + kind + " in " + file
+            );
+            LoadedWeights loaded                  = readWeightsBlock(in);
+            int           epoch                   = in.readInt();
+            int           epochsSinceImprovement  = in.readInt();
+            double        bestValidationLoss      = in.readDouble();
+            double        learningRate            = in.readDouble();
+            int           maxEpochs               = in.readInt();
+            int           patience                = in.readInt();
+            long          seed                    = in.readLong();
+            int           step                    = in.readInt();
+            AdamState     adam                    = readAdamStateInto(in, loaded.weights);
+
+            return new ResumeState(
+                loaded.explicitVocab, loaded.weights, adam, epoch, epochsSinceImprovement,
+                bestValidationLoss, learningRate, maxEpochs, patience, seed, step
+            );
+        }
+    }
 
     /**
      * Builder for {@link GruWeights} -- its own constructor is package-private (only

@@ -2,3 +2,11 @@ target/
 *.jar
 tools/verifiers/*.class
 tools/verifiers/__pycache__/
+
+# GruTrainer break/resume checkpoints (STATE_AI.md): per-run recovery-only output, derived from
+# whatever --out path a training run used, never a persistent artifact -- deleted automatically on
+# normal successful completion, so any of these found on disk means an interrupted/in-progress run.
+*.ckpt-current.bin
+*.ckpt-current.bin.tmp
+*.ckpt-best.bin
+*.ckpt-best.bin.tmp

@@ -707,6 +707,38 @@ RDD_KEY_88.
   the intervening JS/TS/Python3/data-formats work touches `enforceCallLineBreaking`'s fits-check
   in a way that would make this cheaper to chase. Leaving open per the existing recommendation.
 
+  **2026-07-31 design/scoping pass (XL.txt item 23) — NOT REPRODUCIBLE on current upstream
+  source; root cause could not be (re-)confirmed because the triggering shape is gone.** Fresh
+  shallow clone of `github.com/jenkinsci/jenkins` (`/tmp/jenkins_scope`, current `main` as of
+  2026-07-31) — `core/src/main/java/hudson/PluginManager.java` is now 2697 lines. The originally
+  reported trigger was "an entire multi-statement lambda body crammed onto one extremely long
+  physical line (well past `line-length`, apparently hand-minified)"; that shape no longer exists
+  in the file: the longest physical line today is 237 columns (`awk '{print length}' | sort -rn`),
+  and every `.stream()...map(plugin -> { ... })`-style lambda in the file (e.g. the
+  `.map(plugin -> {...})` block starting around line 1494, closest surviving analogue to the
+  `getPluginPage` JSON-serialization lambda described in the original writeup — `getPluginPage`
+  itself no longer exists under that name) is already broken across many physical lines in the
+  checked-out source, not crammed onto one. Ran the standard round1/round2/round3 idempotency
+  check (`STATE_COMMON.md` methodology) against this file alone with the current
+  `target/code-formatter-1.00.jar`: round1 == round2 == round3, byte-identical, no wrap-decision
+  flap reproduced.
+
+  **Conclusion: the upstream file has evidently been reformatted/refactored since the original
+  dogfood session** (item 25's 1929-file `jenkinsci/jenkins` run) — the pathological single-line
+  shape that triggered the instability is gone from `main`, so there is nothing left to root-cause
+  or scope a fix against on today's corpus. This is not the same as "fixed by us": no formatter
+  code changed, and the bug's original root cause in `enforceCallLineBreaking`'s fits-check is
+  still undiagnosed — only its one known real-world trigger has disappeared upstream. Per
+  `STATE_COMMON.md`'s "evidence over reasoning" rule, not fabricating a root-cause diagnosis
+  against a shape that can no longer be observed. If the archived pre-refactor
+  `PluginManager.java` snapshot that originally triggered this is ever recovered (e.g. via
+  `git log`/an old commit in a fresh non-shallow clone, or the original session's own `/tmp`
+  checkout if still present in a future session), re-run this same round1/round2/round3 check
+  against that snapshot before attempting a real scoping pass — a shallow current-`main` clone
+  cannot substitute. Recommend downgrading this tracker item to "cannot reproduce on current
+  upstream source, re-open only if the shape recurs elsewhere or the original snapshot is
+  recovered" rather than carrying it as an actionable unscoped item indefinitely.
+
 ## Known Gaps — Fixed
 
 Previously-recorded low-priority gaps, now resolved. One-line summaries only — full
@@ -749,6 +781,23 @@ before/after detail available via `git log`/`git show`.
   Fixed by widening the guard to a depth-tracked scan of the whole merged statement for a
   top-level `if`/`while`/`for`/`switch`/`do`/`else` keyword. Verified against the real STL tree
   (all 3 files idempotent), `make test` 169/169. Fixture: `real_code_regressions_120`.
+
+  **2026-07-31 design/scoping pass (XL.txt item 22) — STALE TRACKER ITEM, no code change
+  needed.** XL.txt's item 22 ("microsoft/STL macro-invocation-as-statement glued to a following
+  collapsed `if`") describes this exact bug — same root cause (`splitStatements` merging a bare
+  macro invocation with a following collapsed `if`), same trigger macros
+  (`_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK`), same "glued together one round later" symptom —
+  as still open/unscoped. It is not: the entry immediately above this note already fixed and
+  verified it (fixture `real_code_regressions_120`, `make test` 169/169 at the time). Re-verified
+  today against a fresh checkout of `/tmp/STL` (`stl/inc/istream`, `stl/inc/stacktrace`,
+  `stl/inc/xlocale`, copied to `.hpp` and reformatted with the current `target/code-formatter-1.00.jar`):
+  round1/round2 are byte-identical on all three files (`diff -rq` empty) — the fix holds against
+  the real corpus today, no residual case found. Investigation approach considered and rejected:
+  writing a fresh insertion-point/blast-radius/validation plan as if this were unscoped would
+  duplicate the existing writeup above and imply a live bug where none remains; instead this note
+  exists so the next reader (and XL.txt, updated alongside this commit) doesn't re-open a closed
+  bug from a stale tracker description. No new fixture added (would be identical to
+  `real_code_regressions_120`). No `src/`/`test/` changes this session — confirmation-only.
 
 - **Wrapped constructor signature's parameter-render logic misapplied to its own following
   member-initializer-list entry** — FIXED. Found in `microsoft/STL` (item 26, `mutex.hpp`/

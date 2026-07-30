@@ -51,6 +51,21 @@ clean:
 	@rm -rvf tools/verifiers/__pycache__
 	@rm -vf  tools/verifiers/*.class
 
+# clear && git status && echo && svn stat && echo
+# git stash list
+# git fsck --unreachable --no-reflogs
+
+# svn add util/CodingStyle.md/formatter/test/*
+# svn add util/CodingStyle.md/formatter/test/real_code_regressions*
+# svn commit -m 'Follow GIT changes' && git push && echo && git status && echo && svn stat && echo
+
+# clear && uptime && echo && sensors && free -h && echo && df -h && echo
+# svn update && svn cleanups
+
+# make test
+# make test 2>/dev/null
+# make test 2>&1 | grep -E 'PASS|FAIL'
+
 
 # ── GRU Pool A/Pool B training-data extraction (STATE_AI.md "Training-set
 #    acquisition, verification, fixing") ─────────────────────────────────────
@@ -426,20 +441,6 @@ INP_FILES += real_code_regressions_171_inp.java
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 
-# clear && git status && echo && svn stat && echo
-# git stash list
-# git fsck --unreachable --no-reflogs
-
-# svn add util/CodingStyle.md/formatter/test/*
-# svn add util/CodingStyle.md/formatter/test/real_code_regressions*
-# svn commit -m 'Follow GIT changes' && git push && echo && git status && echo && svn stat && echo
-
-# clear && uptime && echo && sensors && free -h && echo && df -h && echo
-# svn update && svn cleanups
-
-# make test
-# make test 2>/dev/null
-# make test 2>&1 | grep -E 'PASS|FAIL'
 test: $(JAR_FILE)
 	@mkdir -p $(BUILD_DIR)
 	@flock $(TEST_LOCK) $(MAKE) --no-print-directory _test_serial

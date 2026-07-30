@@ -51,10 +51,12 @@ try {
 }
 """
 
+NODE = os.environ.get("NODE", "node")
+
 
 def parse_toml_via_node(path):
     proc = subprocess.run(
-        ["node", "-e", NODE_HELPER, "--", path],
+        [NODE, "-e", NODE_HELPER, "--", path],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
     )
     if proc.returncode != 0: return None, proc.stderr.strip()

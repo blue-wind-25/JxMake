@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+# Common launcher for NodeJS helper applications.
+#
+# Required:
+#     PROGRAM=...
+#
+# Optional:
+#     REQUIRE_MODULES="..."
+
+if [ -z "$PROGRAM" ]; then
+    echo "PROGRAM is not set." >&2
+    exit 1
+fi
+
+. "$(dirname "$0")/_exec_node_env.sh"
+
+if [ -n "$REQUIRE_MODULES" ]; then
+    for m in $REQUIRE_MODULES; do
+        if ! "$NODE" -e "require('$m')" >/dev/null 2>&1; then
+            echo "Required npm package '$m' is not installed." >&2
+            echo >&2
+            echo "Install it with:" >&2
+            echo "    \"$NPM\" install --prefix \"$HOME/mynpm\" \"$m\"" >&2
+            exit 1
+        fi
+    done
+fi
+
+exec "$NODE" "${PROGRAM}.js" "$@"

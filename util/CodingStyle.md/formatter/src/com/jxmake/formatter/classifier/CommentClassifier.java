@@ -38,15 +38,23 @@ public final class CommentClassifier {
         // the accepted cost is a false skip (zero-cost per the asymmetric-risk design), never a
         // wrong capitalize.
         if(features.leadingWordFollowedBySlash) return CommentDecision.NO;
+        // Gate 1d (found 2026-07-30 disagreement-sampling pass, item 6 in STATE_AI.md's "further
+        // NO-producing gates" TODO): a comment ending in ";" combined with a second, independent
+        // code-shape signal (assignment/call/increment-decrement/typed-declaration) reads as
+        // commented-out code, not prose -- e.g. "fmap[j] = a;", "blockNo++;",
+        // "System.out.println(...);", "uint16_t ctr = 0;", "Event event;". A bare trailing ";"
+        // alone was measured unsafe (~8% false-positive rate on real prose that ends a clause with
+        // a semicolon) -- see CommentedOutCodeGate's javadoc for why the second signal is required.
+        if(features.looksLikeCommentedOutCode) return CommentDecision.NO;
         // Gate 2 (RDD_KEY_96) stage 1: leading-keyword ambiguity. Stage 2
         // (KeywordAmbiguityGate.resolveAmbiguousKeyword) resolves it via its own scoring formula
-        // -- see cwg/weights.md for the derivation. Per the hard architectural constraint, a
+        // -- see tools/classifier_weights/weights.md for the derivation. Per the hard architectural constraint, a
         // stage-2 "not prose" result is ABSTAIN, not NO (no NO-producing path exists yet).
         if(features.hasLeadingKeywordMatch) return KeywordAmbiguityGate.resolveAmbiguousKeyword(
             features
         ) ? CommentDecision.YES : CommentDecision.ABSTAIN;
         // Score = w . x + bias: everything reaching this point already cleared both gates, so
-        // this is the non-ambiguous majority case -- BIAS/THRESHOLD are set (cwg/weights.md
+        // this is the non-ambiguous majority case -- BIAS/THRESHOLD are set (tools/classifier_weights/weights.md
         // "Main path") so this always resolves to YES, matching pre-classifier behavior.
         final double score = CommentClassifierWeights.BIAS;
         if(score > CommentClassifierWeights.THRESHOLD) return CommentDecision.YES;

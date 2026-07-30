@@ -100,11 +100,20 @@ public final class CommentFeatureExtractor {
         final boolean leadingWordFollowedBySlash = targetWordIndex == 0&& targetBounds[1] < commentText.length()&& commentText.charAt(
             targetBounds[1]
         ) == '/';
+        // Not targetWordIndex-scoped -- unlike hasLeadingKeywordMatch/leadingWordFollowedBySlash,
+        // this is a whole-comment shape signal (trailing ";" plus a second code-shape signal
+        // anywhere in the text), independent of which token the decision hinges on. See
+        // CommentedOutCodeGate's javadoc and STATE_AI.md's 2026-07-30 disagreement-sampling
+        // findings for the two-signal-required rationale.
+        final boolean looksLikeCommentedOutCode = CommentedOutCodeGate.looksLikeCommentedOutCode(
+            commentText
+        );
 
         return new CommentFeatureVector(
             targetWord, previousWord, nextWord, nextCharIsOpenParen,
             nextTokenIsArrow, containsSemicolon, containsUrlOrFilenameOrNumber, commentType,
-            hasNonLatinScript, hasLeadingKeywordMatch, isDecorativeOnly, leadingWordFollowedBySlash
+            hasNonLatinScript, hasLeadingKeywordMatch, isDecorativeOnly, leadingWordFollowedBySlash,
+            looksLikeCommentedOutCode
         );
     }
 

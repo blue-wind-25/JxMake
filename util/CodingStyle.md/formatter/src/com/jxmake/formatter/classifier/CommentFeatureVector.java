@@ -36,6 +36,7 @@ public final class CommentFeatureVector {
     public final boolean   hasLeadingKeywordMatch;
     public final boolean   isDecorativeOnly;
     public final boolean   leadingWordFollowedBySlash;
+    public final boolean   looksLikeCommentedOutCode;
 
     public CommentFeatureVector(
         final String    targetWord,
@@ -49,7 +50,8 @@ public final class CommentFeatureVector {
         final boolean   hasNonLatinScript,
         final boolean   hasLeadingKeywordMatch,
         final boolean   isDecorativeOnly,
-        final boolean   leadingWordFollowedBySlash
+        final boolean   leadingWordFollowedBySlash,
+        final boolean   looksLikeCommentedOutCode
     )
     {
         this.targetWord                    = targetWord;
@@ -64,6 +66,7 @@ public final class CommentFeatureVector {
         this.hasLeadingKeywordMatch        = hasLeadingKeywordMatch;
         this.isDecorativeOnly              = isDecorativeOnly;
         this.leadingWordFollowedBySlash    = leadingWordFollowedBySlash;
+        this.looksLikeCommentedOutCode     = looksLikeCommentedOutCode;
     }
 
 } // class CommentFeatureVector

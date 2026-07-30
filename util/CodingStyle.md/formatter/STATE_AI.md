@@ -747,18 +747,101 @@ parses correctly with the line removed.
 Discussed alongside the decorative-separator gate (see above); higher
 false-positive risk than that gate, so deferred rather than bundled in:
 
-- **Commented-out code.** Comment looks like a code statement (semicolon-
-  terminated, assignment/braces shape) rather than prose. Highest false-
-  positive risk of the two — real prose can legitimately contain a
-  semicolon or braces, so needs careful feature design (e.g. requiring
-  multiple code-like signals together, not just one) before it's safe to
-  return NO confidently rather than ABSTAIN.
+- **Commented-out code.** DONE — see the "Commented-out-code NO-gate" session
+  below (2026-07-31).
 - **Multi-line license/copyright blocks.** 2+ newlines, no trailing
   sentence-ending period — the same fallback rule Pool B hand-labeling
   already uses (see the worked example in `tools/gru/README.txt`'s hand-
   labeling section). Risk: legitimate multi-line prose comments (a real
   paragraph split across lines) could misfire without a period-position
-  check that's more careful than the hand-labeling shortcut.
+  check that's more careful than the hand-labeling shortcut. Still
+  outstanding, not started.
+
+## 2026-07-31 session: commented-out-code `CommentClassifier` NO-gate (tracker item 11 / former "further NO-producing gates" item 1)
+
+Implemented the gate flagged as actionable by the 2026-07-30
+disagreement-sampling pass (see that section above): a comment ending in
+`;` (the comment's own last non-whitespace character) combined with a
+second, independent code-shape signal now resolves `NO` rather than
+falling through to the scored majority path (which always resolves `YES`).
+A bare trailing `;` alone was confirmed unsafe by that earlier pass (~8%
+false-positive rate on real prose ending a clause with a semicolon,
+e.g. "...cannot be expressed in RFC 3339's 4-digit form;") — the same
+asymmetric-risk shape as the reverted leading-hyphen gate (2026-07-30
+"Bug 2" note) — so this gate requires the second signal, unlike that
+rejected single-signal design.
+
+**New files/fields:**
+- `src/com/jxmake/formatter/classifier/CommentedOutCodeGate.java` (new,
+  mirrors `DecorativeSeparatorGate`'s presence-based-gate shape):
+  `looksLikeCommentedOutCode(String)` returns true only when the text ends
+  with `;` (trailing whitespace ignored) **and** at least one of four
+  regex sub-patterns matches anywhere in the text:
+  - **Call-shape** — an identifier (optionally dotted, e.g.
+    `System.out.println`) immediately followed by `(`, no intervening
+    whitespace (real English essentially never writes "word(" with no
+    space before a parenthetical).
+  - **Assignment-shape** — identifier (optionally array-indexed) followed
+    by a bare `=`, excluding `==`/`!=`/`<=`/`>=` via lookbehind/lookahead.
+  - **Increment/decrement-shape** — `++`/`--` directly adjacent to a word
+    character on at least one side (narrower than a bare `--` so a prose
+    em-dash-style `--` with spaces on both sides doesn't match).
+  - **Typed-declaration-shape** — a type-looking word (known primitive/
+    common-type keyword, a sized-integer alias like `uint16_t`, or a
+    capitalized identifier) followed by a plain identifier then `=` or
+    `;` (e.g. `Event event;`, `uint16_t ctr = 0;`). Requires the *first*
+    word to look like a type specifically to avoid matching ordinary
+    two-word prose endings like "...4-digit form;" (neither "4-digit" nor
+    "form" looks like a type).
+- `CommentFeatureVector.looksLikeCommentedOutCode` (new field, 13th
+  constructor arg — updated both call sites:
+  `CommentFeatureExtractor.extract` and
+  `tools/gru/GruAbstainResolverSelfTest.java`'s two hand-built vectors).
+  Computed in `CommentFeatureExtractor`, **not** `targetWordIndex`-scoped
+  (unlike `hasLeadingKeywordMatch`/`leadingWordFollowedBySlash`) — it's a
+  whole-comment shape signal independent of which token the decision
+  hinges on.
+- `CommentClassifier` **Gate 1d** (between Gate 1c's slash-list gate and
+  Gate 2's keyword-ambiguity gate): returns `NO` whenever
+  `looksLikeCommentedOutCode` is set.
+
+**Testing:**
+- `make test`: 220/220 forward + 220/220 idempotency, unchanged — no
+  regression from the new gate or the constructor-arity change.
+- Unit smoke test (13 hand-picked cases, `/tmp` scratch file, not
+  committed): all 9 real commented-out-code shapes from the disagreement-
+  sampling pass's spot-check correctly resolve `NO`
+  (`fmap[j] = a;`, `blockNo++;`, `--count;`,
+  `System.out.println("hi");`, `mnuToolbox.addSeparator();`,
+  `assertTrue(x);`, `uint16_t ctr = 0;`, `Event event;`, `ch = 0;`); both
+  documented real-prose false-positive examples from that pass correctly
+  resolve `YES` (fall through to the gate, unaffected); two additional
+  prose sanity checks (a plain sentence, a sentence containing an
+  unrelated mid-clause `;`) correctly do not trigger the gate.
+- Real-corpus precision check against `tools/gru/sample_default.txt`
+  (committed default corpus, RDD_KEY_217 exception): of the 91064 YES-
+  labeled lines, 1055 end in `;` after trimming trailing whitespace (close
+  to the disagreement-sampling pass's earlier ~984-candidate estimate on
+  the same shape); the new gate fires `NO` on 739 of those (70%). Manually
+  inspected ~200 of the fired lines (Java, JS, CSS-embedded-markup) — all
+  genuine commented-out code/markup, zero real-English-prose false
+  positives observed. The remaining 30% (ends in `;` but no second signal
+  fires, e.g. bare closing-brace continuation lines, plain trailing-`;`
+  prose) correctly still falls through rather than being force-NO'd —
+  accepted lower recall for the higher-precision two-signal design, same
+  tradeoff already documented for Gate 1c.
+- `GruAbstainResolverSelfTest.java` (recompiled against JDK 21 per
+  `STATE_COMMON.md`'s toolchain note, run standalone — not wired into
+  `make test`): "all checks passed", confirming the constructor-arity
+  change didn't break the existing hand-built `CommentFeatureVector` call
+  sites.
+
+**Not addressed by this session** (unrelated, flagged out of scope by the
+disagreement-sampling pass): the string-literal-fragment-extracted-as-
+comment corpus-generation bug (`Sun Microsystems, Inc.//DTD Enterprise
+JavaBeans 1.1//EN";`-shaped lines) — still not root-caused, still a
+separate `extract_comments.py`/`GenerateSampleDefault.java` concern, not a
+`CommentClassifier` gap.
 
 ## 2026-07-30 session: `gru-classifier` flipped back to default `off` (real-trained weights underperform the linear classifier on ambiguous cases)
 

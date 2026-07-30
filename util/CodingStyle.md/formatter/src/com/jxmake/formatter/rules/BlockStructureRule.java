@@ -387,9 +387,20 @@ public class BlockStructureRule {
                         if(depth == 0) {
                             final List<Token> contents = tokens.subList(next + 1, j - 1);
                             if( isSingleStatementBody(contents) && !anyFrozen(tokens, i, j) ) {
-                                out.append( "else " + renderInline(contents) );
-                                i = j;
-                                continue;
+                                final String candidate = "else " + renderInline(contents);
+                                // JS/TS root cause #3 (STATE_JS_TS.md, "2026-07-30 design/
+                                // scoping pass") -- same gate as `tryCollapse`/
+                                // `collapseBracelessBody`, see `refuseUnrescuableCollapse`'s
+                                // javadoc. This bare-terminal-`else` chain-collapse path builds
+                                // its own candidate inline rather than routing through either of
+                                // those methods, so it needs its own call to the same gate.
+                                if( !refuseUnrescuableCollapse(
+                                    tokens, i, next + 1, j - 2, candidate
+                                ) ) {
+                                    out.append(candidate);
+                                    i = j;
+                                    continue;
+                                } // if
                             }
                         } // if
                     } // if

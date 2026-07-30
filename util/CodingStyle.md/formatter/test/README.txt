@@ -2898,6 +2898,45 @@ Real-code regressions:
                                               clusters -- see `STATE_C_CPP_JAVA.md`'s
                                               `openrewrite/rewrite` entry.
 
+  real_code_regressions_172_inp/out.ts      -- TypeScript, `angular/angular` dogfood cluster 4,
+                                              root cause #3 (call-wrap/collapse vs.
+                                              alignment-padding fits-check ordering): two
+                                              braced `if (...) { return a; } else { return b; }`
+                                              shapes, each collapsing its `else` branch to
+                                              braceless. `checkAttrs` demonstrates the "rescuable"
+                                              case -- the collapsed candidate exceeds
+                                              `lineLengthLimit` but its body contains a breakable
+                                              call, so collapse proceeds and
+                                              `enforceCallLineBreaking` wraps the call's args
+                                              afterward, staying idempotent both rounds.
+                                              `checkFlag` demonstrates the "unrescuable" case --
+                                              the collapsed candidate exceeds `lineLengthLimit`
+                                              with no breakable call anywhere in the candidate
+                                              (condition or body), so collapse is refused and the
+                                              `else` stays braced/multi-line, also idempotent.
+                                              Fixed via `BlockStructureRule.refuseUnrescuableCollapse`
+                                              (new, reuses the existing `hasBreakableCall` +
+                                              raw-width-estimate heuristic already used by
+                                              `JavaSpecificRule.isSingleLineBody`/
+                                              `KotlinSpecificRule`'s analogous method/
+                                              `GetterSetterRuleCurly.parseOneLinerMember`), called
+                                              from `tryCollapse`, `collapseBracelessBody` (shared
+                                              by `tryCollapseBraceless` and the bare-`else`
+                                              braceless-collapse path), and the bare-terminal
+                                              `else { ... }` chain-collapse path in
+                                              `collapseSingleExpressionBlocks` (found via this
+                                              fixture's own construction -- that third site built
+                                              its collapsed candidate inline with no gate at all,
+                                              missed by the original design's two named insertion
+                                              points). `make test`: 220/220 forward + idempotency.
+                                              See `STATE_JS_TS.md`'s root-cause-#3 session
+                                              write-up (angular cluster 4) for the full narrative,
+                                              including the scan-scope deviation and a documented
+                                              residual limitation (the heuristic doesn't guarantee
+                                              the later wrap actually shrinks the line enough,
+                                              confirmed via `format_date.ts`/`checker.ts` in real
+                                              corpora, not reproduced by this fixture).
+
 How Tests Are Run
 -----------------
 

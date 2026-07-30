@@ -631,11 +631,27 @@ first (value = criticality weighed against difficulty):
      reverted naive attempt's failure mode, since that attempt had no
      `hasBreakableCall` gate at all, in either the condition or the body.
 
-     **Test results:** `make test` 220/220 forward + 220/220 idempotency
-     (grew from 196/196 at the top of this file only because intervening
-     sessions/other jobs added fixtures since that count was last recorded;
-     no new fixture was added by this session — see "known residual
-     limitation" below for why none was registered).
+     **Follow-up: third insertion point found and fixed while building the
+     permanent fixture (below).** The original design named two insertion
+     points (`tryCollapse`/`tryCollapseBraceless`), but a third call site —
+     the bare-terminal `else { ... }` chain-collapse path inside
+     `collapseSingleExpressionBlocks` itself (~line 375-393, gated by
+     `chainAllBranchesCollapsible`) — builds its collapsed candidate inline
+     (`"else " + renderInline(contents)`) and routes through neither
+     `tryCollapse` nor `collapseBracelessBody`, so it had no gate at all
+     until this follow-up. Found immediately when constructing a minimal
+     "unrescuable, should refuse" repro for the fixture below: the refusal
+     never took effect for a plain `if (...) { ... } else { longNoCallBody }`
+     shape. Fixed by adding the same `refuseUnrescuableCollapse` call at that
+     site too (falls through to the untouched default single-token append
+     when refused, same "leave input untouched" posture as every other
+     guard in this class).
+
+     **Test results:** `make test` 221/221 forward + 221/221 idempotency
+     (grew from 196/196 at the top of this file partly because intervening
+     sessions/other jobs added fixtures since that count was last recorded,
+     and partly from this session's own new fixture `real_code_regressions_172`
+     — see below).
 
      **Real-corpus validation:**
      - All 5 originally-cited `angular/angular` files
@@ -677,12 +693,18 @@ first (value = criticality weighed against difficulty):
      lift, deferred") — `hasBreakableCall` was always a cheap approximation,
      not a guarantee, and this session's validation is the first real
      evidence of where the approximation's coverage ends. No fixture was
-     added for this residual case (the existing behavior pre- and post-fix is
-     identical for these specific files -- the fix is a strict improvement,
-     never a regression, so there is no *new* bug shape to pin with a
-     fixture; the pre-existing `real_code_regressions_57`/`_81`/`_93`/`_141`
-     fixtures plus the new real-code validation above already cover the fix's
-     own correctness).
+     added for this specific residual case (the existing behavior pre- and
+     post-fix is identical for these specific files -- the fix is a strict
+     improvement, never a regression, so there is no *new* bug shape to pin
+     with a fixture). The fix's own correctness (both the "rescuable,
+     collapse proceeds" and "unrescuable, collapse refused" branches of
+     `refuseUnrescuableCollapse`) is now covered by the new permanent
+     fixture `test/real_code_regressions_172_{inp,out}.ts` (registered in
+     the Makefile's `INP_FILES` and `test/README.txt`, modeled on
+     `checkAttrs`/`checkFlag` shapes derived from the angular real-code
+     validation above), plus the pre-existing `real_code_regressions_57`/
+     `_81`/`_93`/`_141` fixtures (regression coverage for the reverted
+     naive attempt).
 
      **TypeScript corpus (`/tmp/ts-dogfood/TypeScript`, 601 files) re-run:**
      round1→round2 now shows 29 differing files (previously documented as

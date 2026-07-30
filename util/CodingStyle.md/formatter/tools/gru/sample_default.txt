@@ -92301,6 +92301,12 @@ js	YES	0	in this case the callback fires twice
 js	NO	0	in obj checks own and inherited keys
 js	YES	0	void of any side effects, this helper is pure
 js	NO	0	void 0 is the classic undefined idiom
+js	NO	0	function keyword declares this the traditional way, not as an arrow
+js	NO	0	let binding shadows the outer variable of the same name
+js	NO	0	const binding here is never reassigned after this point
+js	NO	0	yield keyword pauses the generator until resumed
+js	NO	0	import statement pulls in the utility module used below
+js	NO	0	export keyword makes this function part of the public API
 kotlin	YES	0	is this the right approach for pagination?
 kotlin	NO	0	is Foo -> handle(foo)
 kotlin	YES	0	object of this exercise is to minimize allocations
@@ -92334,3 +92340,9 @@ ts	YES	0	abstract enough that every subclass must fill in the details
 ts	NO	0	abstract class Shape { abstract area(): number; }
 ts	YES	0	as usual, the edge case is the empty array
 ts	NO	0	as unknown as UserRecord;
+ts	NO	0	type parameter here is inferred by the compiler, not written explicitly
+ts	NO	0	readonly modifier prevents reassignment after construction
+ts	NO	0	private helper lives below the public API surface of this class
+ts	NO	0	namespace groups these utility functions under one qualified name
+ts	NO	0	unknown here forces an explicit narrowing check before use
+ts	NO	0	abstract base class defines the shared contract for every shape

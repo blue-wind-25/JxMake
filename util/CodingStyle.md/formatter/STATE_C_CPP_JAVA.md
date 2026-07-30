@@ -392,8 +392,9 @@ on the noted commits/fixtures)
     struct depth, brace-init, getter padding, K&R/Allman flapping, backslash-continued
     preprocessor corruption, namespace indent fallback, ObjC/attribute mistokenization). Verified
     via idempotency (156-file tree clean). Fixtures: `_12`–`_16`.
-(9) C++20 `fmtlib/fmt` — idempotent at default; at real 2-space convention found
-    `SwitchRule.deriveUnit`'s hardcoded 4-space fallback. No-op at default, no fixture.
+(9) C++20 `fmtlib/fmt` — idempotent at default; **at real 2-space convention (`indent-size = 2`)
+    found `SwitchRule.deriveUnit`'s hardcoded 4-space fallback** — the only known indent-size-2
+    exception case in this codebase. No-op at default, no fixture.
 (10) C++20 `taocpp/PEGTL` (355 `.hpp`) — 1 bug: `reclassifyAngleBrackets`'s `>>`-split
      duplicated a char via `retype()`. Verified (2). Fixture: `real_code_regressions_28`. Also a
      no-op found (`normalizeIndent` non-declaration rounding gap, invisible at default indent).
@@ -412,16 +413,14 @@ on the noted commits/fixtures)
      line-length check (fixture `_7`); `findNameBeforeParen` misparsing `case`/`default` arrow
      arms as one-liner members (fixture `_8`). Verified (4).
 (16) MEDIUM `javaparser/javaparser` (1997 `.java` files, 7 modules) — 6 idempotency bugs found via
-     full-tree round1/round2 (in-place-copy, not `--out DIR` — collides same-named files across
-     modules) + `make test`, all fixed: braceless `if (cond) throw/return ...` misparsed as
-     one-liner getter/setter (excluded control-flow keywords from "return type" spans); comment's
-     sole trailing `.` stripped w/o separating whitespace (`_54`); `else`/`catch`/`finally`
-     force-reindent dropping a real blank line before `}` (`trailingRunNewlineCount`, `_55`);
-     `enforceCallLineBreaking` fits-check ran before `formatNonInlineSwitches` reindented case
-     bodies, causing post-reindent overflow — ordering fix (`_56`); `isCStyleCastClose` missing
-     control-flow exclusion, misread `if(node instanceof RecordPatternExpr)` as a cast
-     (`CONTROL_FLOW_KEYWORDS` set, `_57`); Java enum-constant-list merging into adjacent field's
-     alignment group + drifting indent (`isJavaEnumConstantListShape`, `_58`).
+     full-tree round1/round2 (in-place-copy, not `--out DIR`) + `make test`, all fixed: braceless
+     `if (cond) throw/return ...` misparsed as one-liner getter/setter; comment's sole trailing
+     `.` stripped w/o separating whitespace (`_54`); `else`/`catch`/`finally` force-reindent
+     dropping a real blank line before `}` (`_55`); `enforceCallLineBreaking` fits-check ran
+     before `formatNonInlineSwitches` reindented case bodies — ordering fix (`_56`);
+     `isCStyleCastClose` missing control-flow exclusion, misread `if(node instanceof
+     RecordPatternExpr)` as a cast (`_57`); Java enum-constant-list merging into adjacent field's
+     alignment group + drifting indent (`_58`).
 
      1 gap ACCEPTED not fixed: `ASTParser.java` (JavaCC-generated, ~5500 lines) has one
      switch-case body with internally-inconsistent source indentation causing one non-idempotent
@@ -472,59 +471,51 @@ on the noted commits/fixtures)
      3373-file `openrewrite/rewrite` tree (deferred until all 6 clusters resolved) is now
      unblocked — still NOT yet run, left for a future session.
 (18) Local `VMA-GIT/anemonesoft/` (82 `.java`) — 1 bug: `renderCallCandidate` swallowed a
-     multi-line brace-bodied trailing argument (brace depth not tracked). Verified (4).
-     Fixture: `real_code_regressions_29`.
+     multi-line brace-bodied trailing argument. Verified (4). Fixture: `real_code_regressions_29`.
 (19) Local `ARMCortexMThumbC.java.in` (PCPP template) — no bug found; verified (5), 0-line
      token-stream diff.
 (20) C++20 `ericniebler/range-v3` (311 `.hpp`) — 2 compile-breaking bugs from its
-     concept-emulation-macro convention: `template(...)` macro wrongly pulled onto a
-     declarator line (fixed by gating on `<`); `CPP_ret(void)(...)` mis-rewritten to
-     `CPP_ret()(...)`, deleting the macro's real argument. Verified (2) + full-tree idempotency.
-     Fixture: `real_code_regressions_50`. Follow-up bug (b): a multi-line `//`-banner-commented
-     deletion declaration got collapsed by the function-pointer-detection branch misfiring on
-     the macro-call shape; fixed with a narrow `COMMENT_LINE`-scan guard local to that branch.
-     Verified (2) + `make test` 70/70 + full 318-file tree idempotency. Fixture: `_51`. Bug (a)
-     (the range-v3-item-20 idempotency bug) tracked and resolved separately — see Open Questions
-     / `RDD_KEY_169`.
+     concept-emulation-macro convention: `template(...)` macro wrongly pulled onto a declarator
+     line (fixed by gating on `<`); `CPP_ret(void)(...)` mis-rewritten to `CPP_ret()(...)`,
+     deleting the macro's real argument. Verified (2) + full-tree idempotency. Fixture:
+     `real_code_regressions_50`. Follow-up bug (b): a multi-line `//`-banner-commented deletion
+     declaration got collapsed by the function-pointer-detection branch misfiring on the
+     macro-call shape; fixed with a narrow `COMMENT_LINE`-scan guard. Verified (2) + `make test`
+     70/70 + full 318-file tree idempotency. Fixture: `_51`. Bug (a) (item-20 idempotency bug)
+     tracked/resolved separately — see Open Questions / `RDD_KEY_169`.
 (21) C++20 `boost-ext/ut` (44 files) — 1 idempotency bug: a deduction-guide statement's
-     close-paren misidentified by `findCloseParenBeforeTrailingReturnType`'s backward scan as
-     an unrelated following struct's "function close paren" (scan didn't stop at a depth-0 `;`).
-     Verified with minimal repro, `make test` 72/72, full-tree idempotency, and (2)/(3) compile
-     checks matching baseline. Fixture: `real_code_regressions_52`.
+     close-paren misidentified by `findCloseParenBeforeTrailingReturnType`'s backward scan as an
+     unrelated following struct's close paren (scan didn't stop at a depth-0 `;`). Verified with
+     minimal repro, `make test` 72/72, full-tree idempotency, (2)/(3) compile checks matching
+     baseline. Fixture: `real_code_regressions_52`.
 (22) C++20/23 `microsoft/proxy` (28 `.h`/`.cpp`) — 3 bugs in
-     `CppSpecificRule.enforceRequiresClausePlacement` (trailing `requires` clause after a wrapped
-     multi-line parameter list, RDD_KEY_170): (a)/(b) unstable baseIndent/fit-check derived from
-     the closing-paren's own physical line instead of the parameter list's opening-paren line;
-     (c) a preprocessor directive inside the clause's constraint expression got spliced mid-line,
-     producing invalid C++ — fixed by leaving any clause containing a `PREPROCESSOR` token
-     untouched. Verified with `clang++ -std=c++23 -stdlib=libc++ -fsyntax-only` (0-error baseline
-     unchanged), full round1/round2 idempotency, `make test` 77/77. Fixture: `real_code_regressions_53`.
+     `CppSpecificRule.enforceRequiresClausePlacement` (RDD_KEY_170): unstable baseIndent/fit-check
+     derived from the closing-paren's own line instead of the parameter list's opening-paren line;
+     a preprocessor directive inside the clause's constraint expression got spliced mid-line —
+     fixed by leaving any clause containing a `PREPROCESSOR` token untouched. Verified with
+     `clang++ -std=c++23 -stdlib=libc++ -fsyntax-only` (0-error baseline unchanged), full
+     round1/round2 idempotency, `make test` 77/77. Fixture: `real_code_regressions_53`.
 (23) Local `../../../src/jxm` (~272 files: real `.java` + PCPP `.java.in`/`.java.inc`) — 3
      plain-Java bugs, none PCPP-specific: (a) `reclassifyAngleBrackets` had no `>>>` case
      (RDD_KEY_171); (b) `isSingleLineBody`'s fit-prediction omitted leading indent + trailing
-     comment width, causing K&R/Allman flip-flop (RDD_KEY_172); (c) §8 multi-line param-list
-     renderer inlined a leading `//` comment as a same-line prefix (compile-breaking) and its
-     column-width calc excluded such params, letting `padRight` no-op and merge type+name
-     (RDD_KEY_178). 1 known gap unfixed: second occurrence of the accepted switch-case-reindent
-     gap, `tool/JSONEncoderLite.java` (see "Known Gaps — Open"). Verified: full-tree round1/round2
-     idempotency (clean except the accepted gap); `.java.in` via `pcpp_java`; `java_syntax_check`
-     (32 pre-existing errors, all a pristine U+200B zero-width-space, not formatter-introduced);
-     `make test` 90/90 forward+idempotency (up from 88/88). Fixtures: `real_code_regressions_65`
-     (a+b), `_66` (c).
+     comment width (RDD_KEY_172); (c) §8 multi-line param-list renderer inlined a leading `//`
+     comment as a same-line prefix and its column-width calc excluded such params, letting
+     `padRight` no-op and merge type+name (RDD_KEY_178). 1 known gap unfixed: second occurrence of
+     the accepted switch-case-reindent gap, `tool/JSONEncoderLite.java` (see "Known Gaps — Open").
+     Verified: full-tree round1/round2 idempotency (clean except the accepted gap); `.java.in` via
+     `pcpp_java`; `java_syntax_check` (32 pre-existing errors, all a pristine U+200B
+     zero-width-space, not formatter-introduced); `make test` 90/90. Fixtures:
+     `real_code_regressions_65` (a+b), `_66` (c).
 (24) Local `../../../src` minus `jxm` (item 23) — vendored third-party Java under `src/com/`/
-     `src/org/` (173 files: `com.j256.simplemagic`, `com.intellectualsites.http`, `org.tukaani.xz`,
-     `org.kamranzafar.jtar`, `org.itadaki.bzip2`). Plain `.java`, no PCPP. 2 bugs, same "raw source
-     indent measured before conversion to target indent-style" pattern, only observable on
-     tab-indented source: (a) `enforceCommentStyle` reindented a block comment's continuation
-     lines to raw not-yet-converted indent, baking a literal tab that `convertIndentation` (last
-     in pipeline) never revisits — fixed via `renderIndent` normalization first. (b)
+     `src/org/` (173 files, plain `.java`, no PCPP). 2 bugs, same "raw source indent measured
+     before conversion to target indent-style" pattern, only observable on tab-indented source:
+     (a) `enforceCommentStyle` reindented a block comment's continuation lines to raw
+     not-yet-converted indent — fixed via `renderIndent` normalization first. (b)
      `enforceCallLineBreaking`'s fits-checks measured tab-indent via `String.length()`, understating
-     true width — fixed via new `expandedIndentWidth` helper at both fits-check sites. Verified:
-     round1/round2 over all 173 files (down to 6 pre-existing/deferred diffs — 1 owned by a
-     concurrent JS/TS fix, 5 a separate not-yet-fixed column-padding gap, left undisturbed);
-     `make test` 145/145; `javac` (100 pre-existing errors, all in untouched `jxm/` sibling via
-     transitive imports, identical baseline, zero inside `com`/`org`); `java_syntax_check` 173/173
-     clean. All validation out-of-place; real tree never modified. Fixture: `real_code_regressions_95`.
+     true width — fixed via new `expandedIndentWidth` helper. Verified: round1/round2 over all 173
+     files (down to 6 pre-existing/deferred diffs, left undisturbed); `make test` 145/145; `javac`
+     (100 pre-existing errors, all in untouched `jxm/` sibling, zero inside `com`/`org`);
+     `java_syntax_check` 173/173 clean. Fixture: `real_code_regressions_95`.
 
 (25) **DONE** — `github.com/jenkinsci/jenkins` (1929 `.java` files, plain Java, no PCPP). Baseline
      `java_syntax_check`: 0 pre-existing errors. Full-tree round1 formatted cleanly. 3 bugs found,
@@ -816,56 +807,38 @@ before/after detail available via `git log`/`git show`.
 - **`alignCommentSeparators` false-positives on ordinary English prose** — FIXED (third attempt;
   RDD_KEY_201's two prior attempts — fixed-character-set narrowing, then a 3+-consecutive-line
   threshold — were tried and reverted; see RDD_KEY_201). Root cause: RDD_KEY_50's original rule
-  (*any* single non-alphanumeric character flanked by a space in a trailing `//` comment
-  qualifies as a separator) is purely lexical, unable to distinguish a genuine short §15
-  label/value pair (`// Comment A : 10`) from ordinary prose incidentally containing one
-  punctuation character surrounded by spaces (`// The @ can be used in local-part if quoted
-  correctly`, found in `jenkinsci/jenkins`'s `IdStrategy.java`). Fixed by adding
-  `MiscRuleCore.looksCodeLike(String)`, applied to each candidate line's parsed `label`/`rest`
-  before it may extend/start a separator-alignment run: a fragment must (a) split into at most 4
-  whitespace-separated words, (b) be at most 24 characters, (c) contain no whole word matching a
-  stopword list (`PROSE_STOPWORDS`, case-insensitive, single-letter words exempted). A failing
-  line breaks the run like any other non-qualifying line. Verified: `make test` 172/172 (up from
-  171/171), including `hpp_core_inp.hpp`'s legitimate 2-line §15 case still correctly padded (the
-  case both prior reverted attempts broke). Fixture `real_code_regressions_123` combines the
-  jenkins-style prose repro (untouched) with a genuine 2-line separator pair (still padded). Also
-  hand-stress-tested (not committed): a solo prose comment over the 4-word/24-char cap stays
-  unaligned; a legitimate pair with longer code-like labels still aligns. No local jenkins/STL
-  checkout reachable to spot-check further real-world corpora beyond the unit suite/fixtures.
+  (any single non-alphanumeric char flanked by a space in a trailing `//` comment qualifies as a
+  separator) is purely lexical, can't distinguish a genuine short §15 label/value pair from
+  ordinary prose incidentally containing one punctuation char surrounded by spaces (found in
+  `jenkinsci/jenkins`'s `IdStrategy.java`). Fixed via new `MiscRuleCore.looksCodeLike(String)`
+  gate on each candidate line's label/rest: at most 4 words, at most 24 chars, no whole word
+  matching a stopword list (`PROSE_STOPWORDS`). Verified: `make test` 172/172 (up from 171/171),
+  incl. `hpp_core_inp.hpp`'s legitimate 2-line §15 case still correctly padded. Fixture:
+  `real_code_regressions_123`. See RDD_KEY_202.
 
 - **`GetterSetterRuleCurly.parseOneLinerMember`'s breakable-width pre-check gated only on
-  `isDefinition`** (`filesystem.hpp` `recursive_directory_iterator` assignment-alignment shape)
-  — FIXED (second, independent shape of "Declaration-alignment column-padding non-idempotency",
-  after the `ranges.hpp`/`_Range` `trailingIndent` fix below). Repro (fixture 124): a class with a
-  zero-arg default ctor, a long copy-ctor declaration whose too-long parameter list is later
-  wrapped by `enforceCallLineBreaking` (RDD_KEY_86), a move-ctor, and a destructor, all
-  `= default;` one-liners — round1 pads the `=` column across all 3 remaining one-liners; round2
-  drops the padding entirely. Root cause: `parseOneLinerMember`'s pre-check (excludes a member
-  from its group when predicted width exceeds `lineLengthLimit`, keeping grouping consistent
-  whether a member is still one raw line or already wrapped) was gated `isDefinition &&
-  hasBreakableCall(...)` — a non-definition member's own `(params)` list is exactly the shape
-  `enforceCallLineBreaking` may also wrap, so it had the same unchecked divergence risk: on a
-  fresh format the long un-wrapped copy-ctor wrongly joins the group and sets the `=` column; on
-  reformat the now-wrapped copy-ctor no longer parses as a one-liner and is excluded, shrinking
-  the column. Fixed by adding `hasBreakableParams = !isDefinition && paramsFrom < paramsTo`
-  alongside `hasBreakableCall`. Verified via fixture 124: round1 == round2, surviving group
-  (move-ctor + destructor) aligns `=` at column 75 in both rounds. `make test` 172/172. No local
-  `microsoft/STL` checkout reachable; verified via constructed fixture only. See RDD_KEY_203.
+  `isDefinition`** (`filesystem.hpp` `recursive_directory_iterator` shape) — FIXED (second,
+  independent shape of "Declaration-alignment column-padding non-idempotency", after the
+  `ranges.hpp`/`_Range` `trailingIndent` fix below). Root cause: the pre-check that excludes a
+  member from its alignment group when predicted width exceeds `lineLengthLimit` was gated
+  `isDefinition && hasBreakableCall(...)`, but a non-definition member's own `(params)` list can
+  also be wrapped by `enforceCallLineBreaking` — same unchecked divergence risk, causing the `=`
+  column to pad on round1 and shrink on round2. Fixed by adding `hasBreakableParams =
+  !isDefinition && paramsFrom < paramsTo` alongside `hasBreakableCall`. Verified via fixture 124:
+  round1 == round2. `make test` 172/172. Verified via constructed fixture only (no local
+  `microsoft/STL` checkout reachable). See RDD_KEY_203.
 
 - **`ScopePipelineCore.trailingIndent` sweeping a same-line leading comment into a declaration/
   assignment group's per-line indent** — FIXED (partial fix for "Declaration-alignment
   column-padding non-idempotency", `ranges.hpp`/`_Range` shape only). Found in `microsoft/STL`
   (item 26, `ranges.hpp`'s `chunk_view`/etc.): a same-line leading comment on a group's first
-  member (e.g. `/* [[no_unique_address]] */ _Vw _Range;` with un-commented siblings in the same
-  group) got duplicated onto every sibling line one round later, with the group's column-padding
-  width also changing between rounds. Root cause: `trailingIndent(gap)` returns the text after
-  the gap's last `\n` as-is with no check that it's pure whitespace; when the gap ends in a
-  same-line leading comment, that text was swept into `indent`, used by
-  `applyDeclarationsPass`/`applyAssignmentsPass`/`applyOversizedAggregateInitClosingBracePass` as
-  the per-line join separator — duplicating the comment onto every sibling line. Fixed by
-  truncating `trailingIndent`'s result at the first non-space/non-tab character. Verified against
-  the real STL tree (`ranges.hpp`, all 4 occurrences now idempotent and duplication-free), `make
-  test` 170/170. Fixture: `real_code_regressions_122`.
+  member got duplicated onto every sibling line one round later. Root cause: `trailingIndent(gap)`
+  returned the text after the gap's last `\n` as-is with no check it's pure whitespace, sweeping a
+  same-line leading comment into the per-line join separator used by
+  `applyDeclarationsPass`/`applyAssignmentsPass`/`applyOversizedAggregateInitClosingBracePass`.
+  Fixed by truncating at the first non-space/non-tab char. Verified against the real STL tree
+  (`ranges.hpp`, all 4 occurrences idempotent), `make test` 170/170. Fixture:
+  `real_code_regressions_122`.
 
 ---
 

@@ -208,8 +208,7 @@ change (32/32, zero regressions throughout).
 Every section of `STYLE_KOTLIN.md`/`STYLE_KOTLIN2.md` was cross-checked
 against the already-complete shared rule classes and classified: (a)
 already satisfied as-is, (b) small additive shared-class extension, or (c)
-new method in `KotlinSpecificRule.java`. One flagged shared-class-behavior
-issue is in Open Questions history: `DeclarationAlignmentRule`'s
+new method in `KotlinSpecificRule.java`. `DeclarationAlignmentRule`'s
 `Declaration` model assumes C/Java's `[modifiers] Type name [= init]`
 order, structurally reversed from Kotlin's `[modifiers] val/var name :
 Type [= init]` — resolved by writing `KotlinDeclarationAlignmentRule` as
@@ -501,81 +500,49 @@ commands above. Used when a full Gradle build is not wanted/needed
 (`kotlinx.coroutines`, per explicit user request) — catches parse errors
 only, weaker confidence than (2) (no semantic/type checking).
 
-**Finished dogfood / real-code testing**
+**Finished dogfood / real-code testing** (full bug detail lives in the
+Resolved Design Decisions table above — this list is the per-project
+index: scope, config, which RDD_KEYs, fixtures, verification result).
 
 1. **RobotCoding `gui_frontend_android`** (Android/Gradle app, 46 `.kt`
-   files) — complete, config: default. 9 idempotency bugs (RDD_KEY_134–140:
-   trailing-lambda collapse, call-wrapped-initializer misclassification,
-   lambda-brace indent anchor, if/else-as-value collapse, `&&`-vs-`&`
-   confusion, §9 column-width flap, Allman width-prediction gap). Then
-   `./gradlew compileDebugKotlin` found ~50 compile errors across 9 files
-   (RDD_KEY_141–144: return-type-tail misdetection eating a fluent-chain
-   call, `@Annotation`-vs-label false positive, `when`-arm `else ->`
-   mismatched by braceless-`else` collapse, two unrelated bugs in one
-   statement). Final: `BUILD SUCCESSFUL`, zero errors (2 pre-existing
-   unrelated deprecation warnings). Verified via tool (2).
+   files) — complete, config: default. 9 idempotency bugs (RDD_KEY_134–140)
+   then ~50 compile errors across 9 files found via `./gradlew
+   compileDebugKotlin` (RDD_KEY_141–144). Final: `BUILD SUCCESSFUL`, zero
+   errors (2 pre-existing unrelated deprecation warnings). Verified via
+   tool (2).
 2. **`github.com/square/okio`** — core bugs fixed, config `indent-size=2`
    (matches okio's own `.editorconfig`; RDD_KEY_145 confirmed default
-   `indent-size=4` produces spurious diffs, not a bug). Fixed: RDD_KEY_146
-   (unary minus mis-spacing), RDD_KEY_147 (blank-line signature-tail
-   merge), RDD_KEY_148 (stale-prefix over-wrap of a braceless `if`) —
-   fixture `_30`; RDD_KEY_150 (missing `===`/`!==` tokenizer entries),
-   RDD_KEY_151 (do-while trailing `while` misread as loop-start) —
-   fixture `_31`. Verified via round1/round2 idempotency diffing + tool
-   (1) against `commonMain` only. One bug found but not fixed at the time
-   — RDD_KEY_149 (later resolved by RDD_KEY_163).
+   `indent-size=4` produces spurious diffs, not a bug). Fixed RDD_KEY_146–148
+   (fixture `_30`), RDD_KEY_150–151 (fixture `_31`). Verified via
+   round1/round2 idempotency diffing + tool (1) against `commonMain` only.
+   One bug found but not fixed at the time — RDD_KEY_149 (later resolved by
+   RDD_KEY_163).
 3. **`github.com/Kotlin/kotlinx.coroutines`** — fully closed, config:
    default. Scoped to `kotlinx-coroutines-core`'s `common`+`jvm` source
    sets (163 `.kt` files), tool (3) per user instruction instead of a
    Gradle build. Idempotency: 11 non-idempotent files, resolved across
-   RDD_KEY_154 (baked trailing-space growth) and RDD_KEY_158–162
-   (try/catch-as-expression brace confusion; a shared named-scope-with-
-   wrapped-header root cause across 4 files; a call-argument
-   continuation-indent flap; a dangling braceless-`else` mis-anchoring bare
-   `}` drift; a declaration-alignment padding-width flap). Compile-check: 9
-   of 163 files had genuine syntax errors, resolved via RDD_KEY_155
-   (nesting-unaware block-comment truncation), RDD_KEY_156 (`this@Label`
-   spacing), RDD_KEY_157 (a `synchronized(...)` block's statements fused
-   with no separators). Verified via round1/round2 diffing + tool (3) only
-   (weaker compile-check confidence than `gui_frontend_android`).
+   RDD_KEY_154 and RDD_KEY_158–162. Compile-check: 9 of 163 files had
+   genuine syntax errors, resolved via RDD_KEY_155–157. Verified via
+   round1/round2 diffing + tool (3) only (weaker compile-check confidence
+   than `gui_frontend_android`).
 4. **`github.com/square/kotlinpoet`** — fully closed, all 4 idempotency
    shapes resolved, config `indent-size=2` (matches kotlinpoet's own
-   `.editorconfig`). Initial pass fixed 2 bugs (RDD_KEY_152 stale
-   when-branch brace-indent anchor, RDD_KEY_153 Allman-conversion
-   misfiring on an expr-bodied function's own trailing-lambda body). A
-   later 125-file re-run surfaced a residual 10-file idempotency gap in 4
-   shapes: Shape 1 (6 files) via RDD_KEY_163 (also resolved RDD_KEY_149's
-   deferred `okio` bug); Shape 2 (`AbstractTypesTest.kt`) via RDD_KEY_164;
-   Shape 3 (`ReflectiveClassInspector.kt`/`kmAnnotations.kt`) via
-   RDD_KEY_165; Shape 4 (`KotlinPoetMetadataSpecsTest.kt`) via RDD_KEY_166
-   (also fixed two masked bugs in `signatureLineIndent` found via a
-   from-clean rebuild). Fixtures `_46`–`_49`. `make test`: 68/68
-   clean-rebuild final. Confirmed via a fresh full-125-file re-run,
-   `diff -rq round1 round2` empty.
+   `.editorconfig`). Initial pass: RDD_KEY_152–153. A later 125-file re-run
+   surfaced a residual 10-file idempotency gap in 4 shapes: RDD_KEY_163
+   (also resolved RDD_KEY_149's deferred `okio` bug), RDD_KEY_164,
+   RDD_KEY_165, RDD_KEY_166. Fixtures `_46`–`_49`. `make test`: 68/68.
+   Confirmed via a fresh full-125-file re-run, `diff -rq round1 round2`
+   empty.
 5. **`github.com/arrow-kt/arrow`** — fully closed, all bugs resolved.
    Functional-programming library, scoped to `arrow-core`'s and
    `arrow-optics`'s `commonMain/kotlin` source sets (63 `.kt` files),
    config `indent-size=2`, compile-checked via tool (3) per explicit user
-   instruction instead of the Gradle-copy dance. Compile-breaking bugs:
-   RDD_KEY_171 (generic type-parameter bound `:` corrupting angle-bracket
-   tracking), RDD_KEY_172 (`val`/`var` declaration wrongly collapsed into a
-   braceless `if`), RDD_KEY_173 (annotation `@` sharing its line with a
-   function signature rendering as `@ Foo`), RDD_KEY_176 (`Either.kt`'s
-   `zipOrAccumulate`: `collapseBracelessBody` fused a trailing-lambda
-   call's own multi-line block body with no `;` separators). Idempotency-
-   only flaps: RDD_KEY_174 (`RaiseContext.kt`'s `ensureNotNull`, a
-   `context(...)`-clause paren misdetected as the real signature's
-   paren), RDD_KEY_175 (`Iterable.kt`'s `separateEither`, a
-   `formatWhenExpressions`/`addClosingComments` pipeline-ordering bug),
-   and RDD_KEY_177 (`Comparison.kt`'s `sort2`, the investigation's last
-   open item — an unparenthesized depth-0 if-expression used as an entire
-   expression-bodied function's whole body wasn't exempted from
-   `collapseSingleExpressionBlocks`, plus a sibling bug in its paired bare
-   `else` arm). Fixtures `_59`–`_64`. Verified: a fresh full-scope 63-file
-   reformat is round1/round2 byte-identical; `kotlin_syntax_check` reports
-   0 syntax errors across all 63 files (started at 5 before RDD_KEY_171-
-   173, 1 after RDD_KEY_173, 0 after RDD_KEY_176); `make test` 88/88 clean,
-   zero regressions throughout.
+   instruction instead of the Gradle-copy dance. Compile-breaking:
+   RDD_KEY_171–173, RDD_KEY_176. Idempotency-only: RDD_KEY_174, RDD_KEY_175,
+   RDD_KEY_177 (investigation's last open item). Fixtures `_59`–`_64`.
+   Verified: a fresh full-scope 63-file reformat is round1/round2
+   byte-identical; `kotlin_syntax_check` 0 errors across all 63 files
+   (started at 5); `make test` 88/88 clean, zero regressions throughout.
 
 **Not started / in progress**
 
@@ -635,10 +602,9 @@ needed — all findings reproduce at default config.
 ### 2026-07-28 Re-triage — fresh full-corpus numbers
 
 Reused the same checkout (not re-cloned). True denominator: **16078**
-files (earlier 16268 figure was a stale recount, not worth chasing).
-Batched `--preserve-tree` reformat, one JAR invocation per top-level
-subdirectory (16 subdirs, ~324s round1/~321s round2 wall-clock). No
-`indent-size` override — default config.
+files (earlier 16268 figure was a stale recount). Batched `--preserve-tree`
+reformat, one JAR invocation per top-level subdirectory. No `indent-size`
+override — default config.
 
 - **Category 1 (parse errors), fresh baseline: 10 raw failures on round1**,
   of which 2 are a pre-existing BOM syntax-checker artifact
@@ -653,12 +619,10 @@ subdirectory (16 subdirs, ~324s round1/~321s round2 wall-clock). No
   C1-C6k fixes (those targeted Category 1 crash/corruption, not the D1-D4
   idempotency-flap families, so no overlap expected).
 
-Working files (not committed, `/tmp` only): `/tmp/kt_retriage_round1`,
-`/tmp/kt_retriage_round2`, `/tmp/round1_filelist.txt`,
-`/tmp/round1_syntax_full.log`, `/tmp/round1_cat1_files.txt`,
-`/tmp/c6k_fresh_errors.txt`, `/tmp/kt_retriage_idempotency_diff.txt`,
-`/tmp/idem_r1_files.txt`, `/tmp/idem_sample40.txt`,
-`/tmp/idem_sample40_diffs.txt`.
+Working files (scratch, not committed): round1/round2 output trees and
+syntax/idempotency logs under `/tmp/kt_retriage_*`, `/tmp/round1_*`,
+`/tmp/c6k_fresh_errors.txt`, `/tmp/idem_*` — reused by later sections below
+(e.g. the D3 design session), not re-generated each time.
 
 ### Category 1 — Critical (crash/corruption) — ALL CLOSED (C1-C6k)
 
@@ -685,10 +649,10 @@ Working files (not committed, `/tmp` only): `/tmp/kt_retriage_round1`,
 raw `kotlin_syntax_check` failure list — 70/72 confirmed genuine formatter
 bugs, the other 2/72 are the pre-existing BOM artifact (excluded from 70).
 
-Working files retained in `/tmp` (not committed): `/tmp/c6_remaining.txt`,
-`/tmp/round1c_syntax.log`, `/tmp/c6_70.txt`, `/tmp/all_ctx.txt`,
-`/tmp/REP2.txt`, `/tmp/round1`, `/tmp/round2`, `/tmp/round1_syntax.log`,
-`/tmp/idempotency_diff.txt`, `/tmp/kt_filelist.txt`.
+Working files retained in `/tmp` (not committed): earlier round1/round2
+trees, syntax logs, and C6 triage lists (`/tmp/c6_remaining.txt`,
+`/tmp/c6_70.txt`, `/tmp/round1c_syntax.log`, etc.) — superseded by the
+2026-07-28 re-triage's fresh files above but left in place.
 
 ### Category 2 — Idempotency-only, fresh count 334/16078 files
 

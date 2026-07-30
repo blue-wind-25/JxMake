@@ -1,10 +1,11 @@
 # Derived weights (RDD_KEY_97 / RDD_KEY_98)
 
-Derived over the 62 labeled examples in `examples_c.md`, `examples_cpp.md`, `examples_java.md`,
-`examples_kotlin.md` (40 original + 22 added 2026-07-30, see "2026-07-30 re-derivation" below and
-`STATE_AI.md`'s 2026-07-30 section) by `derive_weights.py` (L2-regularized logistic regression,
-run with `python3 tools/classifier_weights/derive_weights.py` — no dependencies). Two separate linear formulas exist
-in `CommentClassifier`/`CommentClassifierWeights`:
+Derived over the 125 labeled examples in `examples_c.md`, `examples_cpp.md`, `examples_java.md`,
+`examples_kotlin.md`, `examples_js.md`, `examples_ts.md` (62 as of 2026-07-30 + 63 added
+2026-07-31, see "2026-07-31 re-derivation" below and `STATE_AI.md`'s 2026-07-31 section) by
+`derive_weights.py` (L2-regularized logistic regression, run with
+`python3 tools/classifier_weights/derive_weights.py` — no dependencies). Two separate linear
+formulas exist in `CommentClassifier`/`CommentClassifierWeights`:
 
 ## Main path (no leading-keyword ambiguity; both gates already cleared)
 
@@ -40,19 +41,19 @@ below for the fix.
 w_semicolon, w_url_or_number]`) against the labeled rows via gradient descent, with an L2 penalty
 (`lambda=0.1`) on the four feature weights (not the bias) so the run converges to a finite
 optimum instead of diverging on this (near-)separable data — see the script's own comment on
-`L2_LAMBDA` for why that matters. Current output (`lr=0.5`, `5000` epochs, 62 examples):
+`L2_LAMBDA` for why that matters. Current output (`lr=0.5`, `5000` epochs, 125 examples):
 
 ```
-KEYWORD_BIAS                  = -0.20825
-KEYWORD_WEIGHT_PAREN          = -2.28827
-KEYWORD_WEIGHT_ARROW          = -1.51467
-KEYWORD_WEIGHT_SEMICOLON      = -2.96142
-KEYWORD_WEIGHT_URL_OR_NUMBER  = -0.51492
+KEYWORD_BIAS                  = -0.08711
+KEYWORD_WEIGHT_PAREN          = -3.08818
+KEYWORD_WEIGHT_ARROW          = -1.57140
+KEYWORD_WEIGHT_SEMICOLON      = -3.57490
+KEYWORD_WEIGHT_URL_OR_NUMBER  = -0.93665
 KEYWORD_THRESHOLD             =  0.0        (fixed sigmoid decision boundary, not trained)
 ```
 
-Result: 42/62 examples classified as labeled. All 20 mismatches are the accepted asymmetric-risk
-tradeoff (RDD_KEY_98): with the bias now negative, a zero-signal keyword-led comment defaults to
+Result: 82/125 examples classified as labeled. All 43 mismatches are the accepted asymmetric-risk
+tradeoff (RDD_KEY_98): with the bias negative, a zero-signal keyword-led comment defaults to
 ABSTAIN (skip normalization) rather than YES. This means the rare "keyword used as plain English
 adjective, no other signal" examples (`static analysis caught a null deref here`, `void of any
 real logic, this is a stub`, etc.) now resolve to ABSTAIN instead of their labeled YES — a false
@@ -60,6 +61,22 @@ skip, zero-cost per the design philosophy, and the correct tradeoff given real-c
 keyword-led comments are overwhelmingly genuine code references, not prose (see the real
 regression examples added to `examples_cpp.md`/`examples_java.md` and `STATE_AI.md`'s 2026-07-30
 section).
+
+### 2026-07-31 re-derivation
+
+Extending the example sets for the "extend classifier_weights" session (adding `KEYWORDS_JS`/
+`KEYWORDS_TS` coverage plus a handful more rows each to the original four files, 62 → 113
+examples) and re-deriving immediately flipped `KEYWORD_BIAS` positive again (`+0.21890`) —
+reopening the exact 2026-07-30 regression. Root cause: the new `examples_js.md`/`examples_ts.md`
+rows leaned heavily on zero-mechanical-feature YES examples (illustrating ordinary prose) without
+a matching count of zero-feature NO false-friend examples, so the two new files alone shifted the
+dataset's zero-signal split from balanced back to YES-heavy. `derive_weights.py` has no notion of
+real-world class-frequency prior — it fits whatever ratio is literally present in `DATASET` — so
+this is a property of the curated example set, not the underlying language. Fixed the same way as
+2026-07-30: added 6 more zero-feature NO rows to each of `examples_js.md` (rows 19-24) and
+`examples_ts.md` (rows 19-24), bringing the total to 125 examples and the bias back negative
+(`-0.08711`). `make test` re-confirmed passing after the `CommentClassifierWeights.java` update
+(see `STATE_AI.md`'s 2026-07-31 section for the full count).
 
 ### 2026-07-30 re-derivation
 

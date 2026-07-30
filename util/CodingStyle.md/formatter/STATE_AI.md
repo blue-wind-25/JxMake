@@ -1652,3 +1652,39 @@ the linear classifier via `derive_weights.py`), then re-run this exact
 `GruEval` comparison — watch specifically for `noCorrect` climbing past
 21/42 (the point where the GRU would start beating the linear classifier's
 absolute NO-correct count) before considering `gru-classifier=on` again.
+
+## 2026-07-31 session: linear classifier weights re-derived from the extended example sets
+
+Follow-up to the "extend classifier_weights" session above — user asked to re-derive
+`CommentClassifierWeights`'s keyword-ambiguity constants from the now-125-example set (was 62).
+
+**First attempt regressed `KEYWORD_BIAS` back positive** (`+0.21890`, was `-0.20825`) —
+reopened the exact 2026-07-30 zero-signal-bias bug (see that section above). Root cause: the new
+`examples_js.md`/`examples_ts.md` rows (18 each) leaned heavily on zero-mechanical-feature YES
+prose examples without a matching count of zero-feature NO false-friend examples, shifting the
+combined dataset's zero-signal split back toward YES-heavy. `derive_weights.py` has no real-world
+class-frequency prior baked in — it fits whatever ratio is literally present in `DATASET`.
+
+**Fix:** added 6 more zero-feature NO rows to each of `examples_js.md` (rows 19-24: `function`/
+`let`/`const`/`yield`/`import`/`export` named as the actual keyword, not English prose) and
+`examples_ts.md` (rows 19-24: `type`/`readonly`/`private`/`namespace`/`unknown`/`abstract`, same
+pattern) — 125 total examples. Re-ran `derive_weights.py`:
+
+```
+KEYWORD_BIAS                 = -0.08711
+KEYWORD_WEIGHT_PAREN         = -3.08818
+KEYWORD_WEIGHT_ARROW         = -1.57140
+KEYWORD_WEIGHT_SEMICOLON     = -3.57490
+KEYWORD_WEIGHT_URL_OR_NUMBER = -0.93665
+```
+
+82/125 classified as labeled; all 43 mismatches are the same accepted asymmetric-risk tradeoff
+(zero-signal keyword-led comment defaults to NO/ABSTAIN, since real code overwhelmingly uses that
+shape as a code reference). Copied into `CommentClassifierWeights.java`; `weights.md` updated
+with the full story. `make jar` + `make test`: 221/221 forward, 221/221 idempotency (classifier
+defaults `off`, so this alone couldn't have broken `make test`, but confirms no build breakage).
+
+Not re-run: `make gru-acquire-corpus` (the newly-added rows would need folding into
+`sample_default.txt` again via `classifier_weights_examples.tsv` if the GRU corpus should reflect
+them too — not requested this pass) and no GRU training (never in scope for this linear-weights
+task).

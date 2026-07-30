@@ -26,3 +26,16 @@ modifiers that don't exist as keywords in plain JS. Same feature definitions as 
 | 16 | `abstract class Shape { abstract area(): number; }` | yes | no | no | NO | Class declaration, paren fires from `area(`. |
 | 17 | `as usual, the edge case is the empty array` | no | no | no | YES | "as" as an ordinary English conjunction ("as usual"), prose. |
 | 18 | `as unknown as UserRecord;` | no | yes | no | NO | Type-assertion chain, semicolon fires. |
+
+Rows 19-24 added 2026-07-31 (re-derivation follow-up, same session): same rebalancing motivation
+as `examples_js.md`'s rows 19-24 — this file's zero-mechanical-feature rows skewed heavily YES
+(9 zero-signal YES vs. only 1 zero-signal NO, `#10`), which contributed to `KEYWORD_BIAS` flipping
+positive on re-derivation. These add zero-signal NO false-friend cases for keywords not yet
+covered by one in this file.
+
+| 19 | `type parameter here is inferred by the compiler, not written explicitly` | no | no | no | NO | "type" naming the actual keyword being described, code reference despite zero mechanical feature. |
+| 20 | `readonly modifier prevents reassignment after construction` | no | no | no | NO | "readonly" naming the actual modifier keyword. |
+| 21 | `private helper lives below the public API surface of this class` | no | no | no | NO | "private" naming the actual access modifier, not the English adjective. |
+| 22 | `namespace groups these utility functions under one qualified name` | no | no | no | NO | "namespace" naming the actual declaration keyword being described. |
+| 23 | `unknown here forces an explicit narrowing check before use` | no | no | no | NO | "unknown" naming the actual type keyword, not the English adjective. |
+| 24 | `abstract base class defines the shared contract for every shape` | no | no | no | NO | "abstract" naming the actual class modifier, code reference despite zero mechanical feature. |

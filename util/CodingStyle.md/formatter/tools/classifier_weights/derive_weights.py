@@ -23,6 +23,9 @@ DATASET = [
     # rows 13-17 added 2026-07-30 to fix the KEYWORD_BIAS regression (see tools/classifier_weights/examples_c.md).
     ("c", 13, 0, 0, 0, 0, 0), ("c", 14, 0, 0, 0, 0, 0), ("c", 15, 0, 0, 0, 0, 0),
     ("c", 16, 0, 0, 0, 0, 0), ("c", 17, 0, 0, 0, 0, 0),
+    # rows 18-21 added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session).
+    ("c", 18, 0, 0, 0, 0, 1), ("c", 19, 0, 0, 1, 0, 0),
+    ("c", 20, 0, 0, 0, 0, 0), ("c", 21, 0, 0, 0, 0, 1),
     # examples_cpp.md
     ("cpp", 1, 0, 0, 0, 0, 1), ("cpp", 2, 1, 0, 1, 0, 0), ("cpp", 3, 0, 0, 0, 0, 1),
     ("cpp", 4, 1, 0, 0, 1, 0), ("cpp", 5, 0, 0, 0, 0, 1), ("cpp", 6, 1, 0, 1, 0, 0),
@@ -32,6 +35,9 @@ DATASET = [
     # plus hand-authored analogues, added 2026-07-30 (see tools/classifier_weights/examples_cpp.md).
     ("cpp", 11, 0, 0, 0, 0, 0), ("cpp", 12, 0, 0, 0, 0, 0), ("cpp", 13, 0, 0, 0, 0, 0),
     ("cpp", 14, 0, 0, 0, 0, 0), ("cpp", 15, 0, 0, 0, 0, 0),
+    # rows 16-19 added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session).
+    ("cpp", 16, 0, 0, 0, 0, 1), ("cpp", 17, 0, 0, 1, 0, 0),
+    ("cpp", 18, 0, 0, 0, 0, 0), ("cpp", 19, 0, 0, 0, 0, 0),
     # examples_java.md
     ("java", 1, 0, 0, 0, 0, 1), ("java", 2, 0, 0, 1, 0, 0), ("java", 3, 0, 0, 0, 0, 1),
     ("java", 4, 1, 0, 1, 0, 0), ("java", 5, 0, 0, 0, 0, 1), ("java", 6, 0, 0, 1, 1, 0),
@@ -43,6 +49,9 @@ DATASET = [
     ("java", 11, 0, 0, 0, 0, 0), ("java", 12, 0, 0, 0, 0, 0), ("java", 13, 0, 0, 0, 0, 0),
     ("java", 14, 0, 0, 0, 0, 0), ("java", 15, 0, 0, 0, 0, 0), ("java", 16, 0, 0, 0, 0, 0),
     ("java", 17, 0, 0, 0, 0, 0), ("java", 18, 0, 0, 0, 0, 0),
+    # rows 19-22 added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session).
+    ("java", 19, 0, 0, 0, 0, 1), ("java", 20, 1, 0, 0, 0, 0),
+    ("java", 21, 0, 0, 0, 0, 1), ("java", 22, 0, 0, 0, 0, 0),
     # examples_kotlin.md -- row 2 ("is Foo -> handle(foo)") used to be a documented outlier (label
     # NO, no mechanical feature fired) before nextTokenIsArrow existed; now arrow=1 catches it.
     ("kotlin", 1, 0, 0, 0, 0, 1), ("kotlin", 2, 0, 1, 0, 0, 0), ("kotlin", 3, 0, 0, 0, 0, 1),
@@ -51,6 +60,30 @@ DATASET = [
     # rows 9-12 added 2026-07-30, hand-authored analogues (see tools/classifier_weights/examples_kotlin.md).
     ("kotlin", 9, 0, 0, 0, 0, 0), ("kotlin", 10, 0, 0, 0, 0, 0),
     ("kotlin", 11, 0, 0, 0, 0, 0), ("kotlin", 12, 0, 0, 0, 0, 0),
+    # rows 13-15 added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session).
+    ("kotlin", 13, 0, 0, 0, 0, 1), ("kotlin", 14, 1, 0, 0, 0, 0),
+    ("kotlin", 15, 0, 0, 0, 0, 0),
+    # examples_js.md -- added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session).
+    # JS/TS have no `->` operator, so arrow is always 0 for these rows.
+    ("js", 1, 0, 0, 0, 0, 1), ("js", 2, 1, 0, 1, 0, 0), ("js", 3, 0, 0, 0, 0, 1),
+    ("js", 4, 0, 0, 1, 1, 0), ("js", 5, 0, 0, 0, 0, 1), ("js", 6, 1, 0, 1, 0, 0),
+    ("js", 7, 0, 0, 0, 0, 1), ("js", 8, 1, 0, 1, 0, 0), ("js", 9, 0, 0, 0, 0, 1),
+    ("js", 10, 0, 0, 0, 0, 0), ("js", 11, 0, 0, 0, 0, 0), ("js", 12, 0, 0, 0, 0, 0),
+    ("js", 13, 0, 0, 0, 0, 1), ("js", 14, 1, 0, 1, 1, 0), ("js", 15, 0, 0, 0, 0, 1),
+    ("js", 16, 0, 0, 0, 0, 0), ("js", 17, 0, 0, 0, 0, 1), ("js", 18, 0, 0, 0, 1, 0),
+    # rows 19-24 added 2026-07-31, rebalancing follow-up (see examples_js.md's note).
+    ("js", 19, 0, 0, 0, 0, 0), ("js", 20, 0, 0, 0, 0, 0), ("js", 21, 0, 0, 0, 0, 0),
+    ("js", 22, 0, 0, 0, 0, 0), ("js", 23, 0, 0, 0, 0, 0), ("js", 24, 0, 0, 0, 0, 0),
+    # examples_ts.md -- added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session).
+    ("ts", 1, 0, 0, 0, 0, 1), ("ts", 2, 0, 0, 1, 0, 0), ("ts", 3, 0, 0, 0, 0, 1),
+    ("ts", 4, 0, 0, 1, 0, 0), ("ts", 5, 0, 0, 0, 0, 1), ("ts", 6, 0, 0, 1, 0, 0),
+    ("ts", 7, 0, 0, 0, 0, 1), ("ts", 8, 1, 0, 0, 0, 0), ("ts", 9, 0, 0, 0, 0, 1),
+    ("ts", 10, 0, 0, 0, 0, 0), ("ts", 11, 0, 0, 0, 0, 1), ("ts", 12, 1, 0, 0, 0, 0),
+    ("ts", 13, 0, 0, 0, 0, 1), ("ts", 14, 0, 0, 1, 0, 0), ("ts", 15, 0, 0, 0, 0, 1),
+    ("ts", 16, 1, 0, 0, 0, 0), ("ts", 17, 0, 0, 0, 0, 1), ("ts", 18, 0, 0, 1, 0, 0),
+    # rows 19-24 added 2026-07-31, rebalancing follow-up (see examples_ts.md's note).
+    ("ts", 19, 0, 0, 0, 0, 0), ("ts", 20, 0, 0, 0, 0, 0), ("ts", 21, 0, 0, 0, 0, 0),
+    ("ts", 22, 0, 0, 0, 0, 0), ("ts", 23, 0, 0, 0, 0, 0), ("ts", 24, 0, 0, 0, 0, 0),
 ]
 
 LEARNING_RATE = 0.5

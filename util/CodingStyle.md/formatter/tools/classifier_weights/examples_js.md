@@ -28,3 +28,17 @@ surface; `function`/`const`/`let`/`yield`/`await`/... are). Same feature definit
 | 16 | `in obj checks own and inherited keys` | no | no | no | NO | "in" naming the actual `in` operator being explained, code reference despite zero mechanical feature. |
 | 17 | `void of any side effects, this helper is pure` | no | no | no | YES | "void" used as the English adjective ("void of"), mirrors `examples_c.md` row 11's false-friend shape. |
 | 18 | `void 0 is the classic undefined idiom` | no | no | yes | NO | "void" naming the actual `void` operator idiom; the digit `0` fires the url/num feature. |
+
+Rows 19-24 added 2026-07-31 (re-derivation follow-up, same session): the zero-mechanical-feature
+rows above skew heavily YES (8 zero-signal YES vs. only 4 zero-signal NO), which flipped
+`KEYWORD_BIAS` back positive when re-deriving weights across all languages together — reopening
+the exact regression `examples_c.md` rows 13-17 exist to prevent (see that file's note and
+`STATE_AI.md`'s 2026-07-30 section). These add more zero-signal NO false-friend cases across
+keywords not yet covered by a zero-signal NO row in this file, to rebalance.
+
+| 19 | `function keyword declares this the traditional way, not as an arrow` | no | no | no | NO | "function" naming the actual declaration keyword being contrasted, code reference despite zero mechanical feature. |
+| 20 | `let binding shadows the outer variable of the same name` | no | no | no | NO | "let" naming the actual declaration keyword, not the English verb "let". |
+| 21 | `const binding here is never reassigned after this point` | no | no | no | NO | "const" naming the actual declaration keyword being described. |
+| 22 | `yield keyword pauses the generator until resumed` | no | no | no | NO | "yield" naming the actual keyword, code reference despite zero mechanical feature. |
+| 23 | `import statement pulls in the utility module used below` | no | no | no | NO | "import" naming the actual statement being described. |
+| 24 | `export keyword makes this function part of the public API` | no | no | no | NO | "export" naming the actual keyword, not an English verb. |

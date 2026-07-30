@@ -25,21 +25,22 @@ public final class CommentClassifierWeights {
     public static final double THRESHOLD = 0.0;
 
     // Keyword-ambiguity path (KeywordAmbiguityGate.resolveAmbiguousKeyword, stage 2). L2-regularized
-    // logistic regression trained on all 62 labeled examples across
-    // tools/classifier_weights/examples_{c,cpp,java,kotlin}.md by tools/classifier_weights/derive_weights.py (lambda=0.1, 5000 epochs,
-    // lr=0.5) -- see tools/classifier_weights/weights.md "Keyword-ambiguity path" for the derivation and the
-    // per-example verification (42/62; mismatches are all the intentional asymmetric-risk
+    // logistic regression trained on all 125 labeled examples across
+    // tools/classifier_weights/examples_{c,cpp,java,kotlin,js,ts}.md by tools/classifier_weights/derive_weights.py
+    // (lambda=0.1, 5000 epochs, lr=0.5) -- see tools/classifier_weights/weights.md "Keyword-ambiguity path" for the
+    // derivation and the per-example verification (82/125; mismatches are all the intentional asymmetric-risk
     // tradeoff -- a zero-signal keyword-led comment now resolves to NO/ABSTAIN by default, since
     // real code overwhelmingly uses that shape as a code reference rather than English prose, and
     // a false skip is zero-cost while a false positive is a visible bug; see tools/classifier_weights/weights.md and
-    // STATE_AI.md's 2026-07-30 section for the full analysis and the real fixture regressions
-    // that motivated re-deriving these constants). KEYWORD_WEIGHT_ARROW covers a when/match-branch
-    // shape (e.g. "is Foo -> handle(foo)") the other three features can't see on their own.
-    public static final double KEYWORD_BIAS                 = - 0.20825;
-    public static final double KEYWORD_WEIGHT_PAREN         = - 2.28827;
-    public static final double KEYWORD_WEIGHT_ARROW         = - 1.51467;
-    public static final double KEYWORD_WEIGHT_SEMICOLON     = - 2.96142;
-    public static final double KEYWORD_WEIGHT_URL_OR_NUMBER = - 0.51492;
+    // STATE_AI.md's 2026-07-30 and 2026-07-31 sections for the full analysis and the real fixture
+    // regressions that motivated re-deriving these constants). KEYWORD_WEIGHT_ARROW covers a
+    // when/match-branch shape (e.g. "is Foo -> handle(foo)") the other three features can't see on
+    // their own.
+    public static final double KEYWORD_BIAS                 = - 0.08711;
+    public static final double KEYWORD_WEIGHT_PAREN         = - 3.08818;
+    public static final double KEYWORD_WEIGHT_ARROW         = - 1.57140;
+    public static final double KEYWORD_WEIGHT_SEMICOLON     = - 3.57490;
+    public static final double KEYWORD_WEIGHT_URL_OR_NUMBER = - 0.93665;
     public static final double KEYWORD_THRESHOLD            = 0.0;
 
     private CommentClassifierWeights()

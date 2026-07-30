@@ -177,6 +177,52 @@ GruTrainer.java
     machine — pick a value that leaves some cores free if you want to keep
     using the machine for other things while training runs.
 
+    Checkpointing / --resume=<path> (2026-07-31): every epoch, GruTrainer
+    writes a binary checkpoint next to <weights-file> --
+    <weights-file>.ckpt-current.bin (full resumable state: weights, Adam
+    moment arrays, vocab, epoch/patience counters, hyperparameters, seed)
+    and, only when validation loss improves that epoch,
+    <weights-file>.ckpt-best.bin (weights + vocab only). These are binary
+    (DataOutputStream, not JSON) purely for per-epoch write speed on a
+    multi-MB weights blob, and are pure recovery/resume artifacts, not a
+    persistent output: on a normal, uninterrupted run that finishes and
+    writes the final JSON weights file, BOTH checkpoint files are deleted
+    automatically at the very end. They are also gitignored -- never
+    commit them.
+
+    This means an interrupted run (killed, crashed, machine rebooted) is
+    the ONLY situation where a checkpoint file survives to be resumed
+    from. A short, successfully-completing run -- e.g. the Makefile's own
+    default GRU_TRAIN_ARGS ("--threads=3 --epochs=3 --patience=2
+    --progress-every=1000"), which finishes in minutes on any real corpus
+    -- will never leave a checkpoint behind for you to resume from, by
+    design: there is nothing to recover from once the run has already
+    finished and written its real output. If you want to actually
+    exercise --resume, either let a long real run get interrupted
+    (Ctrl-C / kill / crash / reboot) partway through, or deliberately
+    kill a run yourself mid-epoch to leave <weights-file>.ckpt-current.bin
+    on disk.
+
+    To resume an interrupted run:
+
+        java -cp target/classes:<gru-tools-classes> GruTrainer <labeled-file> <weights-file> \
+            --resume=<weights-file>.ckpt-current.bin [other flags...]
+
+    Resume restores the weights, Adam moment arrays (including the Adam
+    step counter, so bias-correction continues seamlessly rather than
+    restarting), vocabulary, and hyperparameters from the checkpoint, and
+    opportunistically loads the sibling .ckpt-best.bin to recover the true
+    best-so-far weights (falls back to the current checkpoint's own
+    weights with a warning if the best-checkpoint is missing). The RNG is
+    re-seeded from the stored seed, which reproduces the identical initial
+    shuffle and train/validation split -- but per-epoch shuffle order
+    beyond that point diverges from what an uninterrupted run would have
+    done, since java.util.Random's live internal state isn't itself
+    serialized, only the seed. This is a documented, accepted limitation,
+    not a bug: a resumed run's exact per-step trajectory won't bit-match
+    an uninterrupted one, but the training/validation split, weights, and
+    optimizer state are all faithfully restored.
+
     If the final weights write to <weights-file> fails (bad path, full
     disk, permissions), the trainer does not discard the trained weights:
     it falls back to writing them to a timestamped file under the system

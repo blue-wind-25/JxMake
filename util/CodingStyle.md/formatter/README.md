@@ -464,6 +464,21 @@ third-party client only needs to speak this HTTP protocol, not link against the 
   regression sweep. This is a known, currently-unresolved gap — no workaround exists
   short of avoiding deeply nested short calls inside very long lines.
 
+- **JS/TS braceless if/else collapse can still be non-idempotent when the rescuing
+  call-wrap doesn't shrink the line enough.** Before collapsing a braceless `if`/`else`
+  body onto one line, the formatter checks whether a later call-wrapping pass could
+  still rescue an over-limit result (`hasBreakableCall`) — but that check only asks
+  "does a rescuable call exist," not "will wrapping it actually bring the line under
+  the length limit." For a collapsed candidate long enough that wrapping its one
+  breakable call's arguments doesn't shrink the joined line far enough (e.g. a long
+  string-concatenation chain where only one of several calls gets wrapped, or wrapping
+  it still leaves the line long), the collapse proceeds anyway, and a second formatting
+  pass can disagree with the first — i.e. formatting is not always idempotent for this
+  narrow shape. This is a known, accepted limitation of the cheap heuristic used (a full
+  two-pass simulation of the later call-wrap pass would close this gap but is a bigger,
+  separately-scoped lift). No workaround exists short of manually keeping such lines
+  braced.
+
 - **HTML/XML single-word comments are never capitalized, even when they're genuine
   one-word prose.** `normalize-comment-start-case=on` skips any HTML/XML comment whose
   entire (trimmed) body is a single word with no interior whitespace — e.g. WordPress's

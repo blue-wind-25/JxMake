@@ -55,7 +55,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Java       | STATE_C_CPP_JAVA.md   | ARMCortexMThumbC.java.in (local)            | DONE                |                                                                                                  |
 | Java       | STATE_C_CPP_JAVA.md   | google/google-java-format                   | DONE                |                                                                                                  |
 | Java       | STATE_C_CPP_JAVA.md   | javaparser/javaparser                       | DONE                |                                                                                                  |
-| Java       | STATE_C_CPP_JAVA.md   | jenkinsci/jenkins                           | DONE - PARTIAL FIX  | PluginManager.java line-wrap instability                                                         |
+| Java       | STATE_C_CPP_JAVA.md   | jenkinsci/jenkins                           | DONE - PARTIAL FIX  | PluginManager.java wrap-flap: trigger shape gone from current upstream, unreproducible as of 2026-07-31 |
 | Java       | STATE_C_CPP_JAVA.md   | openrewrite/rewrite                         | DONE - PARTIAL FIX  | cluster 5 still open                                                                             |
 | Java       | STATE_C_CPP_JAVA.md   | pcpp_java tool (local)                      | DONE                |                                                                                                  |
 | Java       | STATE_C_CPP_JAVA.md   | RobotCoding gui_frontend                    | DONE                |                                                                                                  |
@@ -94,8 +94,8 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | JS         | STATE_JS_TS.md        | expressjs/express                           | DONE                |                                                                                                  |
 | JS         | STATE_JS_TS.md        | lodash/lodash                               | DONE                |                                                                                                  |
 | JS         | STATE_JS_TS.md        | nodejs/node                                 | NOT STARTED         | TOO MASSIVE                                                                                      |
-| TS         | STATE_JS_TS.md        | angular/angular                             | DONE - PARTIAL FIX  | cluster 4 #3 reverted; cluster 5 open                                                            |
-| TS         | STATE_JS_TS.md        | microsoft/TypeScript                        | DONE - PARTIAL FIX  | 3/4 clusters fixed, #3 deferred (same root cause as angular cluster 4), see STATE_JS_TS.md       |
+| TS         | STATE_JS_TS.md        | angular/angular                             | DONE - PARTIAL FIX  | clusters 1-3 fixed; cluster 4 landed but residual files remain; cluster 5 accepted gap, open      |
+| TS         | STATE_JS_TS.md        | microsoft/TypeScript                        | DONE - PARTIAL FIX  | 3/4 clusters fixed; #3's shared shape fixed but most files are a separate, un-root-caused sibling issue |
 | TS         | STATE_JS_TS.md        | nestjs/nest                                 | DONE                |                                                                                                  |
 | TS         | STATE_JS_TS.md        | vuejs/core                                  | DONE - PARTIAL FIX  | switch-fallthrough idempotency bug open                                                          |
 | Python3    | STATE_PYTHON3.md      | django/django                               | DONE                |                                                                                                  |
@@ -104,10 +104,13 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Python3    | STATE_PYTHON3.md      | psf/black                                   | DONE                |                                                                                                  |
 | Python3    | STATE_PYTHON3.md      | python/cpython                              | DONE                |                                                                                                  |
 
-**Note on `microsoft/TypeScript`'s status**: 3 of 4 found clusters have a
-landed fix; the 4th (call-wrap/collapse ordering) is deliberately deferred,
-not abandoned — see `STATE_JS_TS.md`'s "Dogfood: microsoft/TypeScript"
-section for the full cluster list/ranking. Corpus scope: `src/` only (601
+**Note on `microsoft/TypeScript`'s status**: cluster #3's shared braceless-
+collapse root cause (same as `angular/angular` cluster 4) is now fixed, but
+most of this corpus's affected files turned out to be a separate,
+not-yet-root-caused sibling issue — see `STATE_JS_TS.md`'s "Dogfood:
+microsoft/TypeScript" section for the full cluster list/ranking.
+
+Corpus scope: `src/` only (601
 real `.ts` files, 379045 lines) — `tests/cases/**` (20089 files,
 hand-authored compiler test fixtures including deliberately-invalid-syntax
 cases) and `tests/baselines/**` (auto-generated) were excluded as

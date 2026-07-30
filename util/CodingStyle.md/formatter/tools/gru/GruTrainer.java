@@ -13,9 +13,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -114,7 +116,10 @@ public final class GruTrainer {
     // JSON purely for I/O speed on frequent (every-epoch) writes of a several-MB weights blob.
     // Written via a temp-file-then-atomic-rename (Files.move + REPLACE_EXISTING) so a process killed
     // mid-write never leaves a half-written, corrupt checkpoint behind -- exactly the crash scenario
-    // this feature exists to protect against. Both files are deleted on normal successful completion
+    // this feature exists to protect against. The temp file is fsync'd before the rename and the
+    // containing directory is fsync'd after it (see fsyncFile/fsyncParentDirectory), so a real power
+    // failure can lose at most the in-flight checkpoint attempt, never corrupt or silently roll back
+    // a previously-completed one. Both files are deleted on normal successful completion
     // (see the end of main) -- they are a resume/recovery safety net, never a persistent artifact,
     // same posture as every other real per-run output this job never commits (RDD_EXT_19-style).
     private static final int    CHECKPOINT_MAGIC           = 0x47525543; // "GRUC"
@@ -1615,7 +1620,37 @@ public final class GruTrainer {
             writeWeightsBlock(out, weights, explicitVocab);
             out.writeDouble(bestValidationLoss);
         }
+        fsyncFile(tmp);
         Files.move( tmp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING );
+        fsyncParentDirectory(file);
+    }
+
+    /**
+     * Forces {@code f}'s content to durable storage before the caller's atomic rename -- without
+     *  this, the temp file's bytes (and, separately, the rename itself -- see
+     *  {@link #fsyncParentDirectory}) can still be sitting in the OS page cache and lost on a real
+     *  power failure, even though a plain process kill can never corrupt the file (temp-file-then-
+     *  atomic-rename, see the constant block's javadoc).
+     */
+    private static void fsyncFile(File f) throws IOException
+    {
+        try( FileChannel ch = FileChannel.open( f.toPath(), StandardOpenOption.WRITE ) ) {
+            ch.force(true);
+        }
+    }
+
+    /**
+     * Forces the directory entry (the rename itself) to durable storage -- Linux-only (opening a
+     *  directory as a {@link FileChannel} is not portable to Windows), acceptable here since this
+     *  tool only runs on this project's own Linux dev/build hosts.
+     */
+    private static void fsyncParentDirectory(File file) throws IOException
+    {
+        File parent = file.getAbsoluteFile().getParentFile();
+        if(parent == null) return;
+        try( FileChannel ch = FileChannel.open( parent.toPath(), StandardOpenOption.READ ) ) {
+            ch.force(true);
+        }
     }
 
     private static LoadedWeights readBestCheckpoint(File file) throws IOException
@@ -1772,7 +1807,9 @@ public final class GruTrainer {
             out.writeInt(step);
             writeAdamState(out, adam);
         }
+        fsyncFile(tmp);
         Files.move( tmp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING );
+        fsyncParentDirectory(file);
     }
 
     /** {@link #writeCurrentCheckpoint} wrapper for the per-epoch call sites in {@code main}: a failed

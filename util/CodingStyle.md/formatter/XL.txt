@@ -203,6 +203,8 @@ tier.
 
 --- Tier 1: high value, tractable next steps ---
 
+The next job is:
+
 11. GRU: commented-out-code NO-gate (comment that looks like a code statement —
     semicolon-terminated, assignment/call/increment/declaration shape).
     Promoted from Tier 2 (2026-07-30) after a disagreement-sampling pass found
@@ -223,6 +225,22 @@ tier.
     trailing-`;` signal alone is unsafe (same asymmetric-risk shape as this
     session's reverted hyphen-gate) — needs `;` combined with a second
     code-shape signal before it's safe.
+
+However before launching sub-agent for that, lets review these first:
+
+Isn"t `explicit_vocab.txt` supposedly only contains keywords from supported
+programming languages. Why I see: Red, LUTs, OLED, WIZnet, etc. I think my
+first and last names are even there.
+
+`sample_default.txt` is very noisy. I think 10k good samples is better than
+90+k noisy samples. What is the chance that the BIGRU immediately performs
+better than the linear classifier when trained using the sentences in `cwg/*.md`?
+If it indeed better, then maybe using LLM generated corpus will be better.
+If not, then, the noise must be reduced. I expect the size `sample_default.txt`
+can be reduced by up to 50% by removing the very bad noises, that job #11 should
+help, but maybe a better filtering algorithm can be added in the corpus extractor?
+
+
 
 12. JS/TS: shared TypeScript cluster #3 / Angular cluster 4 #3 — call-wrap/collapse
     vs. alignment-padding fits-check ordering. Highest file-count value of any open

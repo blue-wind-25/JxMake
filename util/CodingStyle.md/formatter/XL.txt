@@ -62,7 +62,7 @@ Then update `STATE_DOGFOOD.md` about the above dogfood state (keep `Note` short 
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `...`
-    to   `real_code_regressions_171_inp/out.java`
+    to   `real_code_regressions_172_inp/out.ts`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -203,24 +203,11 @@ tier.
 
 --- Tier 1: high value, tractable next steps ---
 
-12. JS/TS: shared TypeScript cluster #3 / Angular cluster 4 #3 — call-wrap/collapse
-    vs. alignment-padding fits-check ordering. Highest file-count value of any open
-    JS/TS item (28/601 TypeScript files; same root cause hits Angular), but narrower
-    than item 1 above (TS/Angular idempotency only, vs. a live cross-language
-    correctness bug). Difficulty: medium (downgraded from medium-high 2026-07-30 —
-    a design/scoping pass, no code changed, found a cheaper fix than the
-    originally-assumed two-pass simulation: reuse the existing `hasBreakableCall` +
-    raw-width-estimate heuristic already used by `JavaSpecificRule.isSingleLineBody`/
-    `KotlinSpecificRule`'s analog/`GetterSetterRuleCurly.parseOneLinerMember` for the
-    identical "will `enforceCallLineBreaking` still wrap this later" problem, rather
-    than a true simulation of that pass. Full scoped plan — exact insertion points in
-    `BlockStructureRule.java`'s `tryCollapse`/`tryCollapseBraceless`, why the
-    reverted attempt misfired, and the validation plan — is written up in
-    STATE_JS_TS.md under root cause #3, "2026-07-30 design/scoping pass").
-
-Use sub-agent. This can be substantial work.
+ALL DONE
 
 --- Tier 2: meaningful, narrower value or higher difficulty ---
+
+Use sub-agent. This can be a substantial work.
 
 21. Kotlin: `JetBrains/kotlin` dogfood cluster D3 — multi-line-call/condition
     wrap-decision flap (~33 files). Root cause confirmed
@@ -231,13 +218,27 @@ Use sub-agent. This can be substantial work.
     collateral-damage-prone, needs a more surgical anchor than tried so far.
 
 22. C/C++/Java: `microsoft/STL` documented open gaps — macro-invocation-as-statement
-    glued to a following collapsed `if` one round later (root cause already
-    identified: `splitStatements` merges the bare macro with the following `if` into
-    one "statement"). Value: low (narrow shape, 289-file corpus otherwise clean).
-    Difficulty: medium — root cause known, fix not yet scoped.
+    glued to a following collapsed `if` one round later. STALE ITEM, ALREADY FIXED —
+    2026-07-31 scoping pass found this was already fixed (fixture
+    `real_code_regressions_120`, `splitStatements`/`parseDeclaration` guard widened) in
+    a prior session; this tracker entry was never updated after that fix landed.
+    Re-verified 2026-07-31 against a fresh real STL checkout: byte-identical
+    round1/round2 on all 3 originally-affected files. No further action needed. Full
+    write-up: `STATE_C_CPP_JAVA.md` "Known Gaps — Fixed" → "Macro-then-statement
+    line-merge instability..." entry, "2026-07-31 design/scoping pass" note appended.
 
 23. C/C++/Java: `jenkinsci/jenkins` `PluginManager.java` line-wrap instability —
-    explicitly documented as low-priority. Value: low. Difficulty: unscoped.
+    explicitly documented as low-priority. NOT REPRODUCIBLE on current upstream source
+    — 2026-07-31 investigation: fresh clone of current `jenkinsci/jenkins` `main` no
+    longer contains the pathological hand-minified long line that originally triggered
+    this (longest line now 237 cols; the file's lambda-heavy JSON-serialization method
+    is already multi-line in source); round1/round2/round3 now byte-identical. Root
+    cause still undiagnosed (only its one known trigger disappeared upstream, not
+    fixed by us). Difficulty: blocked on recovering the original pre-refactor file
+    snapshot, not further scoping work right now. Full write-up:
+    `STATE_C_CPP_JAVA.md` "Known Gaps — Open" → "Extremely long pre-existing
+    single-physical-line statement wraps differently each round" entry, "2026-07-31
+    design/scoping pass" note appended.
 
 24. HTML5: `apache/ant` `manual/running.html` loses one `<p>` (1/226 files) — needs
     more than RDD_KEY_204's existing fix covers. Value: low (single file).
@@ -279,15 +280,12 @@ Use sub-agent. This can be substantial work.
     rate is already low (0.6%-2.1%) so unclear this is needed. Value: low.
     Difficulty: medium.
 44. GruTrainer: learning-rate warmup + cosine decay. Value: low. Difficulty: medium.
-45. GruTrainer: break/resume checkpointing (weights + Adam state + epoch/step,
-    real serialization). Value: low — current training runs are short
-    (epochs=2-5). Difficulty: high.
-46. GRU: comment sentence-boundary mid-word-dot detection (`.hpp`, `e.g.`, `v1.0`
+45. GRU: comment sentence-boundary mid-word-dot detection (`.hpp`, `e.g.`, `v1.0`
     defeating the sole-trailing-period heuristic) — accepted mechanical-rule
     limitation, feasible only once the GRU has enough mid-word-dot training
     examples; not independently actionable right now. Value: low. Difficulty:
     blocked on more training data, not really "difficulty" in the usual sense.
-47. GRU: LLM-assisted disagreement sampling against `sample_default.txt` (added
+46. GRU: LLM-assisted disagreement sampling against `sample_default.txt` (added
     2026-07-30, first pass done same day, self-judged rather than via a
     separate LLM API call) — not a full relabel (corpus is auto-labeled by the
     existing rule-based classifier itself, so a full relabel would just

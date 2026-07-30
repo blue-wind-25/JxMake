@@ -46,6 +46,16 @@ public final class CommentClassifier {
         // alone was measured unsafe (~8% false-positive rate on real prose that ends a clause with
         // a semicolon) -- see CommentedOutCodeGate's javadoc for why the second signal is required.
         if(features.looksLikeCommentedOutCode) return CommentDecision.NO;
+        // Gate 1e (tracker item 22 / former "further NO-producing gates" item 2): a comment
+        // spanning 2+ newlines, whose last non-whitespace character is not sentence-ending
+        // punctuation, combined with a second, independent license/copyright-specific signal
+        // (named vocabulary like "Copyright"/"SPDX-License-Identifier"/"Licensed under") reads
+        // as a multi-line license/copyright block, not prose --
+        // formalizes tools/gru/README.txt's Pool-B hand-labeling shortcut ("spans 2+ newlines, a
+        // license block not a single sentence -> NO") into a real two-signal gate so genuine
+        // multi-line prose paragraphs (which almost always end in terminal punctuation) don't
+        // misfire. See LicenseBlockGate's javadoc for the full rationale.
+        if(features.looksLikeLicenseBlock) return CommentDecision.NO;
         // Gate 2 (RDD_KEY_96) stage 1: leading-keyword ambiguity. Stage 2
         // (KeywordAmbiguityGate.resolveAmbiguousKeyword) resolves it via its own scoring formula
         // -- see tools/classifier_weights/weights.md for the derivation. Per the hard architectural constraint, a

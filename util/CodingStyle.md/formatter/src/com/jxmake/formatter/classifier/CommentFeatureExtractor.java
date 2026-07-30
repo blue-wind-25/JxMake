@@ -108,12 +108,18 @@ public final class CommentFeatureExtractor {
         final boolean looksLikeCommentedOutCode = CommentedOutCodeGate.looksLikeCommentedOutCode(
             commentText
         );
+        // Not targetWordIndex-scoped, same as looksLikeCommentedOutCode above -- a multi-line
+        // license/copyright block is a whole-comment shape signal (newline count + terminal
+        // punctuation + license vocabulary/border line), independent of which token the decision
+        // hinges on. See LicenseBlockGate's javadoc and STATE_AI.md's "further NO-producing
+        // gates" TODO for the design rationale.
+        final boolean looksLikeLicenseBlock = LicenseBlockGate.looksLikeLicenseBlock(commentText);
 
         return new CommentFeatureVector(
             targetWord, previousWord, nextWord, nextCharIsOpenParen,
             nextTokenIsArrow, containsSemicolon, containsUrlOrFilenameOrNumber, commentType,
             hasNonLatinScript, hasLeadingKeywordMatch, isDecorativeOnly, leadingWordFollowedBySlash,
-            looksLikeCommentedOutCode
+            looksLikeCommentedOutCode, looksLikeLicenseBlock
         );
     }
 

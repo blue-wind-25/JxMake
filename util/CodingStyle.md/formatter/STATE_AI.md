@@ -749,13 +749,8 @@ false-positive risk than that gate, so deferred rather than bundled in:
 
 - **Commented-out code.** DONE — see the "Commented-out-code NO-gate" session
   below (2026-07-31).
-- **Multi-line license/copyright blocks.** 2+ newlines, no trailing
-  sentence-ending period — the same fallback rule Pool B hand-labeling
-  already uses (see the worked example in `tools/gru/README.txt`'s hand-
-  labeling section). Risk: legitimate multi-line prose comments (a real
-  paragraph split across lines) could misfire without a period-position
-  check that's more careful than the hand-labeling shortcut. Still
-  outstanding, not started.
+- **Multi-line license/copyright blocks.** DONE — see the "Multi-line
+  license/copyright-block NO-gate" session below (2026-07-31).
 
 ## 2026-07-31 session: commented-out-code `CommentClassifier` NO-gate (tracker item 11 / former "further NO-producing gates" item 1)
 
@@ -842,6 +837,107 @@ comment corpus-generation bug (`Sun Microsystems, Inc.//DTD Enterprise
 JavaBeans 1.1//EN";`-shaped lines) — still not root-caused, still a
 separate `extract_comments.py`/`GenerateSampleDefault.java` concern, not a
 `CommentClassifier` gap.
+
+## 2026-07-31 session: multi-line license/copyright-block `CommentClassifier` NO-gate (tracker item 22 / former "further NO-producing gates" item 2)
+
+Implemented the gate flagged as outstanding by the "further `CommentClassifier`
+NO-producing gates" TODO above, the same overall pattern as the
+commented-out-code gate (2026-07-31 session above): a new gate class, a new
+`CommentFeatureVector` field computed in `CommentFeatureExtractor`, wired
+into `CommentClassifier` as a new whole-comment-shape gate — Gate 1e,
+between the commented-out-code gate (1d) and the keyword-ambiguity gate
+(Gate 2).
+
+**Design starting point:** `tools/gru/README.txt`'s "Hand labeling" section
+has a worked example labeling a multi-line license header NO under the
+rule "spans 2+ newlines, a license block not a single sentence -> NO" — the
+same informal fallback rule Pool B hand-labeling already used. That rule
+alone was explicitly flagged (both in `README.txt`'s own risk note and in
+this file's TODO entry) as too blunt to port verbatim: a real multi-line
+prose paragraph (a comment split across lines purely for width, common
+throughout this codebase's own Javadoc/block-comment style) must not
+misfire just because it spans 2+ newlines.
+
+**Final design (two independent signals, mirroring
+`CommentedOutCodeGate`'s shape):**
+- `src/com/jxmake/formatter/classifier/LicenseBlockGate.java` (new):
+  `looksLikeLicenseBlock(String)` returns true only when **both**:
+  1. **Primary signal** — the comment spans 2+ newlines *and* its last
+     non-whitespace character is not sentence-ending punctuation
+     (`.`/`!`/`?`). Genuine multi-sentence prose overwhelmingly ends its
+     final sentence with terminal punctuation; a license/copyright block
+     frequently does not (e.g. this project's own `STATE_COMMON.md`
+     standard test-fixture header, ending `"SPDX-License-Identifier:
+     MIT"`, no trailing period). Not used alone as the gate, since some
+     real license headers (including this project's own file header,
+     ending `"... Apache License, Version 2.0 text."`) do end in a period
+     and would be missed by this signal alone — an accepted false-skip
+     (asymmetric-risk design used throughout this classifier), not a
+     correctness problem.
+  2. **Confirming signal** — explicit copyright/license vocabulary
+     anywhere in the text (`Copyright`, `(C)`, `SPDX-License-Identifier`,
+     `Licensed under`, `All rights reserved`, `Redistribution and use`,
+     `Permission is hereby granted`, `WITHOUT WARRANTIES`/`WARRANTY`).
+  A decorative-border-line confirming signal (the shape
+  `DecorativeSeparatorGate` recognizes at the whole-comment level, applied
+  per-line) was tried first and **rejected**: real-corpus testing (see
+  below) found hundreds of ordinary decorative section-banner comments
+  (e.g. `apache/ant`'s XML build file's `===...===`-framed section
+  headers, containing zero copyright/license content) sharing the
+  border-line shape without being license blocks —
+  the same over-broad-single-signal failure mode the leading-hyphen gate
+  was rejected for (2026-07-30 "Bug 2" note). License-specific vocabulary
+  alone proved narrow enough to avoid that false-positive class while
+  still catching every real license/copyright block found in the corpus.
+- `CommentFeatureVector.looksLikeLicenseBlock` (new field, 14th constructor
+  arg — updated both call sites: `CommentFeatureExtractor.extract` and
+  `tools/gru/GruAbstainResolverSelfTest.java`'s two hand-built vectors).
+  Computed in `CommentFeatureExtractor`, **not** `targetWordIndex`-scoped
+  (same as `looksLikeCommentedOutCode`) — a whole-comment shape signal
+  independent of which token the decision hinges on.
+- `CommentClassifier` **Gate 1e** (between Gate 1d's commented-out-code
+  gate and Gate 2's keyword-ambiguity gate): returns `NO` whenever
+  `looksLikeLicenseBlock` is set.
+
+**Testing:**
+- `make test`: 220/220 forward + 220/220 idempotency, unchanged — no
+  regression from the new gate or the constructor-arity change.
+- Unit smoke test (9 hand-picked cases, `/tmp` scratch file, not
+  committed): 4 real multi-line license-block shapes correctly resolve
+  `NO` (the `README.txt` GNU-LGPL worked example, `STATE_COMMON.md`'s own
+  standard test-fixture header, an "All rights reserved" block, a
+  border-plus-"Licensed under" block); this project's own file header
+  (ends in a period) correctly falls through to `YES` — the accepted
+  false-skip from signal 1 above, confirmed intentional, not a bug; a
+  genuine multi-paragraph Javadoc-style prose comment, a multi-line
+  TODO-style prose block with neither trailing punctuation nor license
+  vocabulary, a single-line (not multi-line) copyright mention, and a
+  2-newline block ending in `?` all correctly fall through to `YES`
+  (unaffected by the gate).
+- Real-corpus precision check against `tools/gru/sample_default.txt`
+  (committed default corpus, RDD_KEY_217 exception): of the 91064
+  YES-labeled lines, an initial design (vocabulary-or-decorative-border)
+  fired on 599; manually inspecting the fired set found hundreds of
+  false positives — ordinary decorative section-banner comments (XML
+  build-file headers framed by `===...===` borders, no license content)
+  sharing only the border shape. Dropping the decorative-border branch
+  and requiring license vocabulary specifically reduced the fired count
+  to 375, and manual inspection of that reduced set (the first ~60
+  matches, spanning `css`/`java`/`xml`/`js`/`c`/`cpp` — Apache-2.0 NOTICE
+  boilerplate, GNU LGPL headers, ESP8266-core `esp8266/Arduino`-style
+  multi-paragraph copyright/license blocks) found **zero real-English-
+  prose false positives** — every fired example is genuine license/
+  copyright text.
+- `GruAbstainResolverSelfTest.java` (recompiled against JDK 21 per
+  `STATE_COMMON.md`'s toolchain note, run standalone — not wired into
+  `make test`): "all checks passed", confirming the constructor-arity
+  change didn't break the existing hand-built `CommentFeatureVector` call
+  sites.
+
+This closes tracker item 22 / the "further `CommentClassifier`
+NO-producing gates" TODO's remaining "Multi-line license/copyright
+blocks" bullet — both items from that TODO list (commented-out code and
+multi-line license/copyright blocks) are now DONE.
 
 ## 2026-07-30 session: `gru-classifier` flipped back to default `off` (real-trained weights underperform the linear classifier on ambiguous cases)
 

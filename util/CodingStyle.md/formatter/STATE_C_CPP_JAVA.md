@@ -707,7 +707,7 @@ RDD_KEY_88.
   the intervening JS/TS/Python3/data-formats work touches `enforceCallLineBreaking`'s fits-check
   in a way that would make this cheaper to chase. Leaving open per the existing recommendation.
 
-  **2026-07-31 design/scoping pass (XL.txt item 23) — NOT REPRODUCIBLE on current upstream
+  **2026-07-31 design/scoping pass — NOT REPRODUCIBLE on current upstream
   source; root cause could not be (re-)confirmed because the triggering shape is gone.** Fresh
   shallow clone of `github.com/jenkinsci/jenkins` (`/tmp/jenkins_scope`, current `main` as of
   2026-07-31) — `core/src/main/java/hudson/PluginManager.java` is now 2697 lines. The originally
@@ -782,8 +782,8 @@ before/after detail available via `git log`/`git show`.
   top-level `if`/`while`/`for`/`switch`/`do`/`else` keyword. Verified against the real STL tree
   (all 3 files idempotent), `make test` 169/169. Fixture: `real_code_regressions_120`.
 
-  **2026-07-31 design/scoping pass (XL.txt item 22) — STALE TRACKER ITEM, no code change
-  needed.** XL.txt's item 22 ("microsoft/STL macro-invocation-as-statement glued to a following
+  **2026-07-31 design/scoping pass — STALE TRACKER ITEM, no code change
+  needed.** A tracker item ("microsoft/STL macro-invocation-as-statement glued to a following
   collapsed `if`") describes this exact bug — same root cause (`splitStatements` merging a bare
   macro invocation with a following collapsed `if`), same trigger macros
   (`_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK`), same "glued together one round later" symptom —
@@ -795,7 +795,7 @@ before/after detail available via `git log`/`git show`.
   the real corpus today, no residual case found. Investigation approach considered and rejected:
   writing a fresh insertion-point/blast-radius/validation plan as if this were unscoped would
   duplicate the existing writeup above and imply a live bug where none remains; instead this note
-  exists so the next reader (and XL.txt, updated alongside this commit) doesn't re-open a closed
+  exists so the next reader doesn't re-open a closed
   bug from a stale tracker description. No new fixture added (would be identical to
   `real_code_regressions_120`). No `src/`/`test/` changes this session — confirmation-only.
 

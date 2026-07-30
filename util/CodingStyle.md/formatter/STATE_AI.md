@@ -1152,7 +1152,7 @@ actionable, one a separate corpus-generation bug:
    continuing (e.g. "...cannot be expressed in RFC 3339's 4-digit form;",
    "...is expected to emit an object body (e.g. a map);") — the same
    asymmetric-risk shape as this session's reverted hyphen-gate. **This
-   confirms tracker item 6 (`XL.txt`) is worth building, but the gate must
+   confirms the commented-out-code gate is worth building, but the gate must
    combine trailing `;` with a second signal** (assignment/call/increment/
    declaration shape — e.g. `IDENTIFIER (=|++|--|(...)) ... ;` — not
    semicolon alone) to keep the ~8% prose-false-positive rate out.

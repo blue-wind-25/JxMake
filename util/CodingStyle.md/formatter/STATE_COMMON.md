@@ -58,7 +58,6 @@ are very long, and `-A` context will flood output unnecessarily.
   contain syntax errors (they are the test input files).
 - Never modify `util/CodingStyle.md/formatter/test/*_out.*` unless
   explicitly asked (they are the reference output files).
-- Ignore `XL.txt` — that is the user tracker file.
 - When registering a new local test fixture pair that did **not** come from
   real-code testing (e.g. a hand-authored dogfood pair), add its entry in
   both `test/README.txt` and the `Makefile`'s `INP_FILES` **before** the

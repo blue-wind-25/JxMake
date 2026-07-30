@@ -209,40 +209,48 @@ ALL DONE
 
 Use sub-agent. This can be a substantial work.
 
-21. Kotlin: `JetBrains/kotlin` dogfood cluster D3 — multi-line-call/condition
-    wrap-decision flap (~33 files). Root cause confirmed
-    (`MiscRuleCurly.renderCallCandidate`'s fits-check measures against the whole
-    enclosing physical line instead of a stable per-candidate position), but the
-    one attempted fix regressed 28 fixtures across C/C++/Java/TS/Kotlin and was
-    reverted. Value: medium (single repo, ~33 files). Difficulty: high — proven
-    collateral-damage-prone, needs a more surgical anchor than tried so far.
+21. HTML5: `apache/ant` `manual/running.html` — an orphan `</p>` (no matching open
+    `<p>`) at body level makes the parser cascade-close `<body>`/`<html>` early,
+    dumping the rest of the document outside the document root in the actual
+    formatted output; the content-diff tool's spec-tolerant reparse under-reports
+    this as just "1 `<p>` lost" (82 vs 81). Value: low (single file affected in the
+    226-file corpus, but corrects a real, larger-than-recorded structural-corruption
+    bug). Difficulty: medium (narrower than previously assumed — does NOT need the
+    full open-elements-stack/insertion-mode prerequisite item 1 needs; a lightweight
+    name-only open-tag-name stack in `parseNodes`/`parseElement` suffices). Full
+    scoping write-up: `STATE_DATA_FORMATS.md` Open Questions, HTML5 deep
+    tree-construction item 2, "2026-07-31 full scoping pass" section.
 
-22. C/C++/Java: `microsoft/STL` documented open gaps — macro-invocation-as-statement
-    glued to a following collapsed `if` one round later. STALE ITEM, ALREADY FIXED —
-    2026-07-31 scoping pass found this was already fixed (fixture
-    `real_code_regressions_120`, `splitStatements`/`parseDeclaration` guard widened) in
-    a prior session; this tracker entry was never updated after that fix landed.
-    Re-verified 2026-07-31 against a fresh real STL checkout: byte-identical
-    round1/round2 on all 3 originally-affected files. No further action needed. Full
-    write-up: `STATE_C_CPP_JAVA.md` "Known Gaps — Fixed" → "Macro-then-statement
-    line-merge instability..." entry, "2026-07-31 design/scoping pass" note appended.
-
-23. C/C++/Java: `jenkinsci/jenkins` `PluginManager.java` line-wrap instability —
-    explicitly documented as low-priority. NOT REPRODUCIBLE on current upstream source
-    — 2026-07-31 investigation: fresh clone of current `jenkinsci/jenkins` `main` no
-    longer contains the pathological hand-minified long line that originally triggered
-    this (longest line now 237 cols; the file's lambda-heavy JSON-serialization method
-    is already multi-line in source); round1/round2/round3 now byte-identical. Root
-    cause still undiagnosed (only its one known trigger disappeared upstream, not
-    fixed by us). Difficulty: blocked on recovering the original pre-refactor file
-    snapshot, not further scoping work right now. Full write-up:
+22. C/C++/Java: `jenkinsci/jenkins` `PluginManager.java` line-wrap instability —
+    CANNOT REPRODUCE on current upstream (2026-07-31): the pathological hand-minified
+    long line that originally triggered this is gone from `jenkinsci/jenkins` `main`
+    (longest line now 237 cols, the lambda-heavy method is already multi-line in
+    source); round1/round2/round3 now byte-identical. Not fixed by us — root cause in
+    `enforceCallLineBreaking`'s fits-check is still undiagnosed, only its one known
+    real-world trigger disappeared upstream. Value: n/a. Difficulty: n/a — nothing to
+    scope against right now; re-open only if the shape recurs elsewhere or the
+    original pre-refactor file snapshot is recovered. Full write-up:
     `STATE_C_CPP_JAVA.md` "Known Gaps — Open" → "Extremely long pre-existing
     single-physical-line statement wraps differently each round" entry, "2026-07-31
     design/scoping pass" note appended.
 
-24. HTML5: `apache/ant` `manual/running.html` loses one `<p>` (1/226 files) — needs
-    more than RDD_KEY_204's existing fix covers. Value: low (single file).
-    Difficulty: medium.
+23. Kotlin: `JetBrains/kotlin` dogfood cluster D3 — multi-line-call/condition
+    wrap-decision flap (~33 files). Root cause confirmed
+    (`MiscRuleCurly.renderCallCandidate`'s fits-check measures against the whole
+    enclosing physical line instead of a stable per-candidate position), but the
+    one attempted fix regressed 28 fixtures across C/C++/Java/TS/Kotlin and was
+    reverted. Value: medium (single repo, ~33 files). Difficulty:
+    2026-07-31 scoping pass produced a concrete candidate design (Kotlin-gated
+    depth-0 `;`/`{`/`}` "statement-start" anchor, reusing the
+    `KotlinSpecificRule.signatureLineIndent` precedent, replacing only the
+    no-newline fits-check's `lineStartIndex` call) plus a fast-to-slow
+    validation plan — but one concrete open risk (multi-arm `when`/braceless-
+    body newline-delimited sequences, the exact shape the grounding example
+    came from) was explicitly identified as unvalidated, not assumed safe.
+    Difficulty is now "medium-high, plan exists" rather than "high, no
+    surgical anchor known" — still real implementation + validation work,
+    with one known gap to close first. Full write-up: `STATE_KOTLIN.md`
+    "2026-07-31 — D3 scoping session (design only, not implemented)".
 
 --- Tier 3: big/risky architectural bets ---
 

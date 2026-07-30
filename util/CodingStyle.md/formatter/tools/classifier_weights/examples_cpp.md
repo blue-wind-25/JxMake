@@ -21,3 +21,11 @@ additions on top of that file's shared C keyword cases.
 | 13 | `consteval and constinit` | no | no | no | NO | Real regression, `test/cpp_combined_inp.cpp` — section-banner comment naming two keywords being demonstrated below it, not prose. |
 | 14 | `final specifier here prevents further inheritance` | no | no | no | NO | "final" naming the actual specifier being explained, code reference despite zero mechanical feature. |
 | 15 | `virtual keyword adds a vtable pointer` | no | no | no | NO | "virtual" naming the actual keyword being explained. |
+
+Rows 16-19 added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session), covering a few
+`KEYWORDS_CPP` members that previously had zero example rows in this file.
+
+| 16 | `class of bugs this pattern eliminates is null dereferences` | no | no | no | YES | "class" used loosely as a noun ("the class of bugs"), prose. |
+| 17 | `class Widget final : public Base {};` | no | yes | no | NO | Declaration restated, semicolon fires. |
+| 18 | `private members should not be exposed through this accessor` | no | no | no | NO | "private" naming the actual access-specifier keyword being described, zero mechanical feature fires — same false-friend shape as rows 11-15. |
+| 19 | `this pointer is invalid after the object is destroyed` | no | no | no | NO | "this" referring to the language's actual `this` pointer, a code reference despite zero mechanical feature — not the English demonstrative pronoun opening ordinary prose. |

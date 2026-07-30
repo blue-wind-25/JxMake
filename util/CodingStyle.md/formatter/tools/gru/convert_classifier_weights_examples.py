@@ -42,6 +42,12 @@ LANG_BY_STEM = {
     "examples_cpp": "cpp",
     "examples_java": "java",
     "examples_kotlin": "kotlin",
+    # Added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session): js/ts got their own
+    # examples_*.md files once KeywordAmbiguityGate gained real KEYWORDS_JS/KEYWORDS_TS sets --
+    # a new examples_<lang>.md file is otherwise silently skipped by this script's glob.glob
+    # iteration unless its stem is added here too.
+    "examples_js": "js",
+    "examples_ts": "ts",
 }
 
 CELL_SPLIT_RE = re.compile(r"(?<!\\)\|")

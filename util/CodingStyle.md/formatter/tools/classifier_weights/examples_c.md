@@ -39,3 +39,11 @@ C analogues of that same real-world shape, since no C fixture happened to trip t
 | 15 | `do-while guarantees the body executes at least once` | no | no | no | NO | "do" naming the actual `do`/`while` construct, not the English auxiliary verb. |
 | 16 | `static keyword restricts this symbol to file scope` | no | no | no | NO | "static" naming the actual keyword being explained, a code reference despite zero mechanical feature. |
 | 17 | `default label handles unmatched values` | no | no | no | NO | "default" naming the actual `switch`/`case` label being described, not the English adjective. |
+
+Rows 18-21 added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session), covering a few
+`KEYWORDS_C` members that previously had zero example rows in this file.
+
+| 18 | `enum of every supported color is listed in the docs` | no | no | no | YES | "enum" used loosely as a noun in a sentence ("the enum of..."), prose. |
+| 19 | `enum Color { RED, GREEN, BLUE };` | no | yes | no | NO | Declaration restated, semicolon fires. |
+| 20 | `struct fields are laid out in declaration order here` | no | no | no | NO | "struct" naming the actual construct being described, zero mechanical feature fires — same false-friend shape as rows 13-17. |
+| 21 | `break early once the target is found` | no | no | no | YES | "break" as an ordinary English verb ("break early"), prose. |

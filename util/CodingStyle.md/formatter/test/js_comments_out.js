@@ -11,7 +11,7 @@ import { debounce } from "lodash"; // Utility for rate limiting
 
 /* Widget component */
 @Component({ selector: "app-widget" })
-// Class-level implementation note
+// class-level implementation note
 export class Widget {
 
     // Exposed input

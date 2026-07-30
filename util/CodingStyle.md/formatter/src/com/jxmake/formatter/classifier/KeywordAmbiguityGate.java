@@ -200,6 +200,81 @@ public final class KeywordAmbiguityGate {
         "while"
     );
 
+    // RDD_KEY_96 precedent extended (STATE_AI.md 2026-07-31 "extend classifier_weights"
+    // session): js/ts route through the same curly-brace `MiscRuleCurly.enforceCommentStyle`
+    // call path as c/cpp/java/kotlin (see Lang.isCurly), so they need their own real keyword
+    // sets too -- previously silently fell through to KEYWORDS_C, which is wrong (JS/TS share
+    // almost no keywords with C). json/json5/css/yaml/toml/xml/html5/python3 never reach this
+    // gate at all (only FormatterCurly calls enforceCommentStyle) -- see STATE_AI.md for the
+    // full investigation.
+    private static final Set<String> KEYWORDS_JS = setOf(
+        "async",
+        "await",
+        "break",
+        "case",
+        "catch",
+        "class",
+        "const",
+        "continue",
+        "debugger",
+        "default",
+        "delete",
+        "do",
+        "else",
+        "export",
+        "extends",
+        "false",
+        "finally",
+        "for",
+        "function",
+        "if",
+        "import",
+        "in",
+        "instanceof",
+        "let",
+        "new",
+        "null",
+        "return",
+        "static",
+        "super",
+        "switch",
+        "this",
+        "throw",
+        "true",
+        "try",
+        "typeof",
+        "var",
+        "void",
+        "while",
+        "with",
+        "yield"
+    );
+
+    // TS-only additions layered on top of KEYWORDS_JS, mirroring the isCpp branch's
+    // KEYWORDS_C+KEYWORDS_CPP additive pattern below
+    private static final Set<String> KEYWORDS_TS = setOf(
+        "abstract",
+        "any",
+        "as",
+        "boolean",
+        "declare",
+        "enum",
+        "implements",
+        "interface",
+        "is",
+        "keyof",
+        "namespace",
+        "never",
+        "number",
+        "private",
+        "protected",
+        "public",
+        "readonly",
+        "string",
+        "type",
+        "unknown"
+    );
+
     private KeywordAmbiguityGate()
     {
     }
@@ -220,6 +295,12 @@ public final class KeywordAmbiguityGate {
             leadingWord
         );
         if(lang.isKotlin) return KEYWORDS_KOTLIN.contains(leadingWord);
+        if(lang.isTs) return KEYWORDS_JS.contains(
+            leadingWord
+        ) || KEYWORDS_TS.contains(
+            leadingWord
+        );
+        if(lang.isJs) return KEYWORDS_JS.contains(leadingWord);
 
         return KEYWORDS_C.contains(leadingWord);
     }

@@ -1552,6 +1552,88 @@ gate pipeline, unaffected by any of this) unchanged (`true`).
    optimization problem. Not recommended as the next thing to try before
    growing/reweighting the hard-case corpus.
 
+## 2026-07-31 session: extended `classifier_weights` to every language reaching `KeywordAmbiguityGate`, regenerated `sample_default.txt`
+
+User asked to extend `tools/classifier_weights/*.md` with a new file for every supported
+language, extend the 4 existing files a bit, and regenerate `tools/gru/sample_default.txt` —
+explicitly **no retraining** this session.
+
+**Investigation (done first, per this session's instructions): which of the 14 supported
+languages actually reach `classifyComment`/`KeywordAmbiguityGate`.** Traced the only call path
+into `MiscRuleCore.classifyComment`: `MiscRuleCore.enforceCommentStyle` (the sole caller of
+`capitalizeFirstLetter`/`stripSoleTrailingPeriod`/`applyCommentTextRules`, which are themselves
+the only callers of `classifyComment`), and `enforceCommentStyle` itself has exactly one call
+site in the entire codebase: `FormatterCurly.java:272`. `FormatterCurly` is only ever
+instantiated for curly-brace-family languages (`Lang.isCurly = isC || isCpp || isJava ||
+isKotlin || isJs || isTs`) — confirmed by grepping every `new MiscRuleCurly`/`FormatterCore
+.forLanguage` call site. `MiscRuleIndent` (Python3) and `MiscRuleTags` (XML/HTML5) never call
+`enforceCommentStyle`/`classifyComment` at all — grepped for `applyCommentTextRules`/
+`capitalizeFirstLetter(`/`stripSoleTrailingPeriod(` outside `MiscRuleCore.java` and found zero
+other call sites. **Conclusion: only c, cpp, java, kotlin, js, ts ever reach
+`KeywordAmbiguityGate`.** json/json5/css/yaml/toml/xml/html5/python3 are structurally
+unreachable — no `examples_<lang>.md`/`KEYWORDS_<LANG>` work is meaningful for any of them, and
+none was added.
+
+**`KeywordAmbiguityGate.java` changes:** js and ts previously had no dispatch branch at all in
+`hasLeadingKeywordMatch` and silently fell through to the `KEYWORDS_C` default — wrong, since JS
+shares almost no real keyword vocabulary with C. Added `KEYWORDS_JS` (39 real JS keywords:
+`function`/`const`/`let`/`var`/`class`/`import`/`export`/`async`/`await`/`yield`/etc.) and
+`KEYWORDS_TS` (20 TS-only additions layered additively on top, mirroring the existing
+`isCpp`-branch's `KEYWORDS_C || KEYWORDS_CPP` pattern: `interface`/`type`/`enum`/`namespace`/
+`readonly`/etc.), plus two new dispatch branches (`lang.isTs` checked before `lang.isJs`, same
+ordering convention as `isKotlin` before the bare fallback). c/cpp/java/kotlin's existing
+dispatch and keyword sets untouched.
+
+**New `tools/classifier_weights/examples_js.md`** (18 rows) and **`examples_ts.md`** (18 rows),
+same table format/style/reasoning depth as the existing 4 files — both cover the same
+paren/semi/url-or-number feature set (no arrow column; JS/TS have no `->` operator), both
+include the zero-mechanical-feature-NO shape (e.g. `class Widget extends Base {}`, `enum Status
+{ Active, Inactive }`) that `examples_c.md` rows 13-17/`STATE_AI.md`'s 2026-07-30
+`KEYWORD_BIAS`-regression session established as essential coverage for every language's set.
+
+**Extended the 4 existing files** with a modest number of new rows each, targeting
+`KEYWORDS_*` members that had zero example-row coverage (checked via a small Python script
+matching each keyword against every `` `word `` `` occurrence in each file): `examples_c.md`
++4 rows (18-21: `enum`, `struct`, `break`), `examples_cpp.md` +4 rows (16-19: `class`,
+`private`, `this`), `examples_java.md` +4 rows (19-22: `interface`, `abstract`),
+`examples_kotlin.md` +3 rows (13-15: `class`, `interface`). Total new/changed example rows this
+session: 18 (js) + 18 (ts) + 4 (c) + 4 (cpp) + 4 (java) + 3 (kotlin) = **51 new rows across 6
+files**, plus 2 brand-new files.
+
+**`tools/gru/convert_classifier_weights_examples.py`**: added `"examples_js": "js"` and
+`"examples_ts": "ts"` to `LANG_BY_STEM` — without this a new `examples_<lang>.md` file is
+silently skipped by the script's `glob.glob` iteration (confirmed by re-reading the script
+before editing, per this session's own briefing).
+
+**`tools/classifier_weights/README.md`**: documented the 2 new files and the reachability
+finding above (why json/json5/css/yaml/toml/xml/html5/python3 don't get one), and noted
+`weights.md` was deliberately **not** re-derived this session (explicit no-retraining
+instruction) — the new rows feed `sample_default.txt` via `acquire_corpus.sh`'s
+`classifier_weights_examples.tsv` step, but `CommentClassifierWeights.java`'s constants are
+unchanged, same posture as every other "extend the examples, don't retrain yet" note elsewhere
+in this file.
+
+**Golden-fixture fallout (expected, not a bug):** `make test` initially failed one fixture,
+`test/js_comments_inp.js` — a comment reading `// class-level implementation note` had
+previously defaulted to capitalized (`// Class-level...`) because "class" wasn't recognized as
+an ambiguous keyword for JS at all (fell through to `KEYWORDS_C`, which doesn't contain
+"class"). With the new `KEYWORDS_JS` set, "class" is now correctly recognized as ambiguous, and
+the zero-mechanical-feature case resolves to NO (don't capitalize) per the same asymmetric-risk
+`KEYWORD_BIAS` design documented in the 2026-07-30 session above — exactly the same
+"class-level"/"static helper"/"consteval utility" false-friend shape already accepted for
+c/cpp/java/kotlin. Updated `test/js_comments_out.js` line 14 to match (`// class-level
+implementation note`, lowercase) rather than treating this as a regression — this is the
+intended effect of giving JS a real keyword set. `make test`: **221/221 forward, 221/221
+idempotency** after the fixture update, no other fixtures affected (ts fixtures didn't happen to
+have a zero-signal keyword-led comment in the existing corpus).
+
+**`make gru-acquire-corpus` regeneration:** ran after all the above landed, to fold the new/
+extended example rows into `tools/gru/sample_default.txt` via the existing
+`classifier_weights_examples.tsv` conversion step (`acquire_corpus.sh`'s existing pipeline,
+unmodified this session) — see the commit/session notes immediately following this entry for the
+run's outcome (line counts, per-language `js`/`ts` row confirmation). No training run was
+performed (`GruTrainer`/`make gru-train` not invoked), per explicit user instruction.
+
 **Next step, if pursued:** grow `tools/classifier_weights/examples_*.md` with more
 genuinely-ambiguous hand-labeled cases (same effort that already benefits
 the linear classifier via `derive_weights.py`), then re-run this exact

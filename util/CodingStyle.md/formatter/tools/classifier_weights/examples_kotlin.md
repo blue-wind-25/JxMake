@@ -29,3 +29,10 @@ shape applies to Kotlin's own keyword set.
 | 10 | `var holds the mutable reference` | no | no | no | no | NO | "var" naming the actual declaration keyword being described, not an English noun. |
 | 11 | `when branch order matters here` | no | no | no | no | NO | "when" naming the actual `when` construct being explained, not the English conjunction. |
 | 12 | `object declaration creates a singleton` | no | no | no | no | NO | "object" naming the actual declaration keyword, code reference despite zero mechanical feature. |
+
+Rows 13-15 added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session), covering a few
+`KEYWORDS_KOTLIN` members that previously had zero example rows in this file.
+
+| 13 | `class of problems this solves is input validation` | no | no | no | no | YES | "class" used loosely as a noun ("the class of problems"), prose. |
+| 14 | `class Repository(private val api: Api)` | yes | no | no | no | NO | Real primary-constructor declaration, paren fires. |
+| 15 | `interface segregation keeps this contract small` | no | no | no | no | NO | "interface" naming the actual declaration keyword being described, zero mechanical feature fires — same false-friend shape as rows 9-12. |

@@ -20,3 +20,11 @@
 | 16 | `this is a void method so this is wrong but tests the comment` | no | no | no | NO | Real regression, `test/java_comments_inp.java` — same meta/structural "this", describing the surrounding code shape rather than being ordinary prose. |
 | 17 | `transient fields skip default serialization` | no | no | no | NO | "transient" naming the actual field modifier being explained, code reference despite zero mechanical feature. |
 | 18 | `native methods bridge to platform code` | no | no | no | NO | "native" naming the actual keyword being explained. |
+
+Rows 19-22 added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session), covering a few
+`KEYWORDS_JAVA` members that previously had zero example rows in this file.
+
+| 19 | `interface between the two modules is documented separately` | no | no | no | YES | "interface" used loosely as a noun ("the interface between..."), prose. |
+| 20 | `interface Comparable<T> { int compareTo(T o); }` | yes | no | no | NO | Real declaration, paren fires from `compareTo(`. |
+| 21 | `abstract enough that every subclass fills in the details` | no | no | no | YES | "abstract" used loosely as an adjective in a sentence, prose. |
+| 22 | `abstract methods have no body in this base class` | no | no | no | NO | "abstract" naming the actual method modifier being described, zero mechanical feature fires — same false-friend shape as rows 11/17/18. |

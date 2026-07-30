@@ -66,6 +66,13 @@ public class BlockStructureRule {
      *  it, since this pass runs last).
      */
     private final int lineLengthLimit;
+    /**
+     * Configured `indent-size`, kept alongside the pre-built {@link #indentUnit} string so
+     *  {@link #expandedIndentWidth} can tab-expand a raw (not-yet-converted) leading-whitespace
+     *  run the same way {@code MiscRuleCore.expandedIndentWidth} does -- see that method's own
+     *  javadoc for why a plain {@code String.length()} undercounts a tab.
+     */
+    private final int indentWidth;
 
     public BlockStructureRule(final Lang lang)
     {
@@ -96,6 +103,7 @@ public class BlockStructureRule {
         this.lang                   = lang;
         this.closingCommentMinLines = closingCommentMinLines;
         this.lineLengthLimit        = lineLengthLimit;
+        this.indentWidth            = indentWidth;
         final StringBuilder sb = new StringBuilder();
         for(int i = 0; i < indentWidth; ++i) sb.append(' ');
         this.indentUnit = sb.toString();
@@ -343,7 +351,7 @@ public class BlockStructureRule {
                 final boolean isWhenArrow = next < n&& isOp( tokens.get(next), "->" );
                 if( !isElseIf && !isBraced && !isWhenArrow && !anyFrozen(tokens, i, i + 1) ) {
                     final int[]  bodyEnd   = new int[1];
-                    final String collapsed = collapseBracelessBody(tokens, i + 1, "else", bodyEnd);
+                    final String collapsed = collapseBracelessBody(tokens, i, i + 1, "else", bodyEnd);
                     if(collapsed != null) {
                         out.append(collapsed);
                         i = bodyEnd[0];
@@ -522,9 +530,15 @@ public class BlockStructureRule {
             tokens.get(kwIndex).text,
             renderInline( tokens.subList(kwIndex, block.closeParenIndex + 1) )
         );
-        final String body   = renderInline(contents);
+        final String body      = renderInline(contents);
+        final String candidate = prefix + " " + body;
+        // JS/TS root cause #3 (STATE_JS_TS.md, "2026-07-30 design/scoping pass") -- see
+        // `refuseUnrescuableCollapse`'s javadoc for the full mechanism.
+        if( refuseUnrescuableCollapse(
+            tokens, kwIndex, kwIndex, block.closeBraceIndex - 1, candidate
+        ) ) return null;
 
-        return prefix + " " + body;
+        return candidate;
     }
 
     /**
@@ -867,7 +881,7 @@ public class BlockStructureRule {
             renderInline( tokens.subList(kwIndex, block.closeParenIndex + 1) )
         );
 
-        return collapseBracelessBody(tokens, block.closeParenIndex + 1, prefix, outBodyEnd);
+        return collapseBracelessBody(tokens, kwIndex, block.closeParenIndex + 1, prefix, outBodyEnd);
     }
 
     /**
@@ -881,6 +895,7 @@ public class BlockStructureRule {
      */
     private String collapseBracelessBody(
         final List<Token> tokens,
+        final int         indentAnchorIdx,
         final int         fromIndex,
         final String      prefix,
         final int[]       outBodyEnd
@@ -973,15 +988,24 @@ public class BlockStructureRule {
         // braced path, which never has this loss since it lets the outer loop re-append that
         // untouched whitespace token verbatim rather than folding it into a render). Preserve it by
         // re-appending a single space whenever the source actually had one there.
-        if( bodyEnd < n && isPunct(
+        final boolean restoreTrailingSpace = bodyEnd < n && isPunct(
             tokens.get(bodyEnd), "}"
         ) && bodyEnd > bodyStart && ( tokens.get(
             bodyEnd - 1
         ).type == TokenType.WHITESPACE || tokens.get(
             bodyEnd - 1
-        ).type == TokenType.NEWLINE ) ) return prefix + " " + body + " ";
+        ).type == TokenType.NEWLINE );
+        final String candidate = restoreTrailingSpace ? prefix + " " + body + " " : prefix + " " + body;
+        // JS/TS root cause #3 (STATE_JS_TS.md, "2026-07-30 design/scoping pass"): refuse this
+        // collapse when the joined one-line candidate would exceed `lineLengthLimit` AND nothing
+        // later can rescue it (no breakable call in the body for `MiscRuleCurly
+        // .enforceCallLineBreaking` to wrap across lines afterward) -- see `refuseUnrescuableCollapse`'s
+        // own javadoc for the full mechanism/why a naive width-only guard was reverted before.
+        if( refuseUnrescuableCollapse(
+            tokens, indentAnchorIdx, indentAnchorIdx, bodyEnd - 1, candidate
+        ) ) return null;
 
-        return prefix + " " + body;
+        return candidate;
     }
 
     /**
@@ -1821,6 +1845,134 @@ public class BlockStructureRule {
         ).text;
 
         return "";
+    }
+
+    /**
+     * Column width of a raw (not-yet-converted) leading-whitespace run, expanding each
+     *  {@code '\t'} to the next {@link #indentWidth} tab stop -- duplicated from {@code
+     *  MiscRuleCore.expandedIndentWidth} (this class has no shared ancestor with the `*Curly`
+     *  rule-class hierarchy, same "each rule class matches its own local conventions" duplication
+     *  precedent as {@code JavaSpecificRule.isSingleLineBody}'s own copy).
+     */
+    private int expandedIndentWidth(final String original)
+    {
+        int width = 0;
+        for( int i = 0; i < original.length(); ++i ) width += ( original.charAt(
+            i
+        ) == '\t' ) ? ( indentWidth - (width % indentWidth) ) : 1;
+
+        return width;
+    }
+
+    /**
+     * True if {@code [from, to]} contains at least one {@code name(args)} call with a non-empty
+     *  argument list -- the shape {@code MiscRuleCurly.enforceCallLineBreaking} may later break
+     *  across lines if it doesn't fit (zero-arg calls are never broken). Duplicated from {@code
+     *  JavaSpecificRule}/{@code GetterSetterRuleCurly}'s identical helper, same duplication
+     *  precedent as {@link #expandedIndentWidth} above.
+     */
+    private boolean hasBreakableCall(final List<Token> tokens, final int from, final int to)
+    {
+        for(int i = from; i <= to; ++i) {
+            final Token t = tokens.get(i);
+            if(t.type != TokenType.IDENTIFIER) continue;
+            final int parenIdx = nextSignificantIndexLocal(tokens, i);
+            if( parenIdx < 0 || parenIdx > to || !isPunct( tokens.get(parenIdx), "(" ) ) continue;
+            final int closeIdx = matchParenForwardLocal(tokens, parenIdx);
+            if(closeIdx < 0 || closeIdx > to) continue;
+            final int argsFrom = nextSignificantIndexLocal(tokens, parenIdx);
+            if(argsFrom >= 0 && argsFrom < closeIdx) return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Index of the next non-whitespace/non-newline token after {@code from}, or {@code -1} if
+     *  none -- local copy, see {@link #hasBreakableCall}'s own duplication note.
+     */
+    private int nextSignificantIndexLocal(final List<Token> tokens, final int from)
+    {
+        for( int i = from + 1; i < tokens.size(); ++i ) {
+            final Token t = tokens.get(i);
+            if( t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE ) return i;
+        }
+
+        return -1;
+    }
+
+    /**
+     * Index of the `(` at {@code openIdx}'s matching `)`, or {@code -1} if unmatched within
+     *  {@code tokens} -- local copy, see {@link #hasBreakableCall}'s own duplication note.
+     */
+    private int matchParenForwardLocal(final List<Token> tokens, final int openIdx)
+    {
+        int depth = 0;
+        for( int i = openIdx; i < tokens.size(); ++i ) {
+            final Token t = tokens.get(i);
+            if( isPunct(t, "(") ) ++depth;
+            else if( isPunct(t, ")") ) {
+                --depth;
+                if(depth == 0) return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * JS/TS-only guard for `tryCollapse`/`collapseBracelessBody`'s single-statement-body
+     *  brace/braceless collapse (STATE_JS_TS.md, root cause #3, "2026-07-30 design/scoping pass"):
+     *  refuses the collapse when the joined one-line {@code candidate} would exceed {@link
+     *  #lineLengthLimit} AND nothing later can rescue it. Reuses the same
+     *  {@link #hasBreakableCall}/raw-width-estimate heuristic already used by {@code
+     *  JavaSpecificRule.isSingleLineBody}/{@code KotlinSpecificRule}'s analogous method/{@code
+     *  GetterSetterRuleCurly.parseOneLinerMember} for the identical underlying problem -- not a
+     *  true two-pass simulation of {@code MiscRuleCurly.enforceCallLineBreaking}'s later wrap
+     *  decision (an earlier attempt at a naive width-only guard, with no {@code hasBreakableCall}
+     *  gate, was reverted: it refused to collapse every braceless if/else with a wrappable-call
+     *  body, breaking 5 fixtures -- see the angular cluster-4 root-cause-#3 writeup in
+     *  STATE_JS_TS.md for the full story). If the body contains at least one breakable call,
+     *  collapsing is still safe even when over-limit: {@code enforceCallLineBreaking} will wrap
+     *  that call's arguments across lines afterward (a braceless consequent can legally span
+     *  multiple physical lines as long as it's still one statement), and both round1 and round2
+     *  predict the same "will wrap" outcome from this same heuristic, so idempotency holds.
+     *
+     * <p>Deliberate implementation-detail deviation from the original scoping-pass wording ("...
+     *  and {@code hasBreakableCall} is false over the candidate's body span"): {@code
+     *  hasBreakableCall} here scans the whole candidate span (condition/prefix AND body), not just
+     *  the body. Found necessary against the already-passing `real_code_regressions_141` fixture
+     *  (a braced `if (longCondition-with-a-breakable-call) { x(); }` where `x()` is a zero-arg
+     *  body call with nothing to wrap, but the *condition*'s own `isCssClassMatching(...)` call is
+     *  what `enforceCallLineBreaking` wraps to rescue the line) -- restricting the scan to the body
+     *  alone wrongly refused a collapse that was already correct, working, tested behavior
+     *  (root-cause #2's fix). The same "both round1 and round2 predict the same wrap outcome from
+     *  the same heuristic" idempotency argument applies equally to a rescuing wrap inside the
+     *  condition as inside the body, so widening the scan doesn't reopen the reverted naive
+     *  attempt's failure mode (that attempt had no {@code hasBreakableCall} gate at all).
+     * @param indentAnchorIdx token index on the candidate's own leading physical line (the
+     *     keyword itself), used to measure the candidate's true rendered column width the same
+     *     way {@code enforceCallLineBreaking}'s own fits-check does (indent + collapsed text).
+     * @param scanFrom first token index of the span to scan for a rescuing breakable call,
+     *     inclusive (covers the condition/prefix as well as the body -- see the deviation note
+     *     above).
+     * @param scanTo last token index of the span to scan, inclusive -- may end up
+     *     {@code < scanFrom} for an empty span, which {@link #hasBreakableCall} handles safely
+     *     (no iterations, returns {@code false}).
+     */
+    private boolean refuseUnrescuableCollapse(
+        final List<Token> tokens,
+        final int         indentAnchorIdx,
+        final int         scanFrom,
+        final int         scanTo,
+        final String      candidate
+    )
+    {
+        if( !(lang.isJs || lang.isTs) ) return false;
+        final int width = expandedIndentWidth( lineIndent(tokens, indentAnchorIdx) ) + candidate.length();
+        if( width <= lineLengthLimit ) return false;
+
+        return !hasBreakableCall(tokens, scanFrom, scanTo);
     }
 
     /**

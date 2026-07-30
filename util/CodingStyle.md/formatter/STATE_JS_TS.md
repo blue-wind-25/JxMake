@@ -439,7 +439,7 @@ rewriting a standalone/unused for-loop increment (2 files,
 **Verdict: DONE.** Zero new formatter bugs found. The one idempotency diff
 is a confirming recurrence of the already-tracked `SwitchRule` issue.
 
-### `angular/angular` dogfood pass — clusters 1-3 FIXED, cluster 4 PARTIALLY FIXED (3 of 4 root causes; #3 attempted and reverted), cluster 5 NOT FIXED (accepted gap, no action planned)
+### `angular/angular` dogfood pass — clusters 1-3 FIXED, cluster 4 PARTIALLY FIXED (all 4 named root causes now landed; residual files exist outside the 4 named causes — see 2026-07-31 session below), cluster 5 NOT FIXED (accepted gap, no action planned)
 
 Repo: `/tmp/angular`, shallow clone (`--depth 1`), HEAD `5ad8231`
 (2026-07-24). Scope: 5394 `.ts` files (`.d.ts`/`.tsx` excluded) across
@@ -598,6 +598,118 @@ first (value = criticality weighed against difficulty):
      re-clone) and the `angular/angular` checkout (cluster 4, ~23 remaining
      files) to confirm the cluster actually closes rather than partially
      shifting.
+
+     **2026-07-31 IMPLEMENTED (tracker item 12).** Landed exactly the design
+     above in `BlockStructureRule.java`: a new private `refuseUnrescuableCollapse`
+     (~line 1848, alongside a local `expandedIndentWidth`/`hasBreakableCall`/
+     `nextSignificantIndexLocal`/`matchParenForwardLocal` — this class has no
+     shared ancestor with the `*Curly` hierarchy, so all four are duplicated
+     copies per the established per-class convention, not new shared
+     extractions). Called from `tryCollapse` (after the existing brace-content
+     guards, right before its final `return`) and from `collapseBracelessBody`
+     (the shared core both `tryCollapseBraceless` and the bare-`else` collapse
+     path route through — `collapseBracelessBody` gained a new leading
+     `indentAnchorIdx` parameter, the keyword token index, threaded from both
+     call sites). Gate: `(lang.isJs || lang.isTs)` only; computes the joined
+     candidate's true rendered width (`expandedIndentWidth(lineIndent(...)) +
+     candidate.length()`, mirroring `isSingleLineBody`'s own measurement now
+     that `candidate` is already fully space-collapsed by `renderInline`); if
+     under `lineLengthLimit`, no gate. If over, refuses (returns `null`,
+     leaving the braced/multi-line form untouched) only when `hasBreakableCall`
+     finds no rescuable call.
+
+     **One implementation-detail deviation from the original wording, found
+     necessary and documented in `refuseUnrescuableCollapse`'s own javadoc:**
+     the original design said scan "the candidate's body span"; the actual
+     scan covers the *whole* candidate (condition/prefix AND body). A
+     body-only scan broke the already-passing `real_code_regressions_141`
+     fixture — a braced `if (longCondition-with-a-breakable-call) { x(); }`
+     where the zero-arg body call `x()` has nothing to wrap, but the
+     *condition*'s own call is what a real `enforceCallLineBreaking` pass
+     wraps to rescue the line (this is exactly root-cause #2's own fix,
+     already-tested working behavior). Widening the scan doesn't reopen the
+     reverted naive attempt's failure mode, since that attempt had no
+     `hasBreakableCall` gate at all, in either the condition or the body.
+
+     **Test results:** `make test` 220/220 forward + 220/220 idempotency
+     (grew from 196/196 at the top of this file only because intervening
+     sessions/other jobs added fixtures since that count was last recorded;
+     no new fixture was added by this session — see "known residual
+     limitation" below for why none was registered).
+
+     **Real-corpus validation:**
+     - All 5 originally-cited `angular/angular` files
+       (`create_router_state.ts`, `node_selector_matcher.ts`, `ingest.ts`,
+       `locale_plugin.ts`, `hover.ts`) — confirmed individually idempotent
+       now (were not, before this fix).
+     - `location_shim.ts` (root cause #4's file) and `split.component.ts` —
+       spot-checked, still idempotent (no regression from the new gate).
+     - Full `packages/` re-scan (3900 `.ts`/non-`.d.ts`/non-`.tsx` files,
+       round1→round2): **12 files still differ**, down from the ~23
+       originally cited across the whole 5394-file corpus (packages/ is the
+       majority of that count, so not a strictly apples-to-apples full
+       re-run, but the direction and rough magnitude confirm real
+       reduction). Of the 12: 3 are the already-catalogued, unrelated,
+       accepted cluster 5 architectural gap (`user_metric_spec.ts`,
+       `emit.ts`, `i18n_parse.ts` — pre-existing inconsistent-source
+       reindentation, untouched by this session). The remaining 9
+       (`format_date.ts`, `web_animations_player_spec.ts`, `parser.ts`,
+       `jit_compiler_facade.ts`, `r3_template_transform.ts`, `util.ts`,
+       `node_js_file_system.ts`, `input_transform.ts`, `migration.ts`) are
+       **not fixed** by this session — see "known residual limitation"
+       immediately below.
+
+     **Known residual limitation (not a regression, a real gap in the
+     heuristic's coverage, confirmed via `format_date.ts:519` and
+     `checker.ts:16487` in the TypeScript corpus below):** `hasBreakableCall`
+     only asks "does a rescuable call exist", not "will wrapping it actually
+     bring the line under `lineLengthLimit`". When a collapsed candidate is
+     long enough that wrapping the one breakable call's arguments doesn't
+     shrink the joined line far enough (e.g. a long `+`-concatenation chain
+     with two `padNumber(...)` calls, only one of which — or neither, if the
+     other operands alone already exceed the limit — would be wrapped), the
+     gate still allows the collapse (a rescuable call exists), but the real
+     `enforceCallLineBreaking` pass either doesn't wrap it (still doesn't fit
+     enough to trigger) or wraps it and still leaves the line long — round1
+     and round2 can then genuinely disagree the same way they did before this
+     fix. This is the gap the original design already flagged as the reason a
+     true two-pass simulation would be needed for full coverage ("bigger
+     lift, deferred") — `hasBreakableCall` was always a cheap approximation,
+     not a guarantee, and this session's validation is the first real
+     evidence of where the approximation's coverage ends. No fixture was
+     added for this residual case (the existing behavior pre- and post-fix is
+     identical for these specific files -- the fix is a strict improvement,
+     never a regression, so there is no *new* bug shape to pin with a
+     fixture; the pre-existing `real_code_regressions_57`/`_81`/`_93`/`_141`
+     fixtures plus the new real-code validation above already cover the fix's
+     own correctness).
+
+     **TypeScript corpus (`/tmp/ts-dogfood/TypeScript`, 601 files) re-run:**
+     round1→round2 now shows 29 differing files (previously documented as
+     28/601 for cluster #3 before this fix). This is *not* a regression —
+     spot-checking `commandLineParser.ts` (explicitly named in the original
+     cluster #3 write-up as reproducing config-insensitively) shows its
+     round1→round2 diff is an object-literal/declaration-alignment column-
+     width shift (`useCaseSensitiveFileNames: host.useCaseSensitiveFileNames
+     };` moving the closing `}` to its own line), not a braceless if/else
+     collapse at all -- a sibling root cause in the same "call-wrap vs.
+     column-width-adjusting-pass ordering" family that this session's fix
+     was never scoped to touch (root causes #1/#2/#4, already fixed, don't
+     cover it either). `checker.ts` in this same corpus *does* show the
+     exact root-cause-#3 shape (a braceless `if(...)  <huge-gap>
+     lateBindMember(...)`, same as `format_date.ts`) and is the other
+     confirmed instance of the residual limitation above. **Conclusion: this
+     session's fix is confirmed correctly targeted and effective for its own
+     specific root cause (braceless if/else body collapse rescued by a later
+     call-wrap), but the TypeScript corpus's cluster #3 count barely moved
+     because most of its 28 files turn out to be a different, not-yet-
+     root-caused sibling issue (declaration/class-field-alignment-grid vs.
+     call-wrap ordering) rather than the braceless-collapse shape — a
+     narrower, more specific characterization of "cluster #3" than the
+     original design's "same root cause family" framing assumed.** Left open,
+     not attempted further this session (out of scope for tracker item 12 as
+     scoped -- would need its own root-cause identification pass).
+
    - **Root cause #4 [FIXED] — trailing same-line comment inconsistently
      counted in the collapse fits-check** (`location_shim.ts:461`): fresh
      format counts the trailing comment's width in the fits-check (over
@@ -640,7 +752,7 @@ Next free fixture number unaffected by cluster 4/5 (still open, no new
 fixtures). Full corpus re-run deferred until cluster 4 root cause #3 lands,
 same pattern as `vuejs/core`/`lodash/lodash`.
 
-## `microsoft/TypeScript` dogfood pass — 3 of 4 clusters FIXED; cluster #3 deliberately deferred (ACTIVE WORK, same root cause as angular cluster 4 above)
+## `microsoft/TypeScript` dogfood pass — 3 of 4 clusters FIXED; cluster #3 PARTIALLY addressed 2026-07-31 (see angular cluster 4's root-cause-#3 session write-up — the braceless-collapse shape is fixed, but most of this corpus's 28 files turned out to be a different, not-yet-root-caused sibling issue in the same family; count barely moved, 28→29)
 
 Checkout: `/tmp/ts-dogfood/TypeScript`, shallow clone (`--depth 1`), HEAD
 `cc5c6e2` (2026-07-28) — reuse, do not re-clone. Scope: `src/` only, 601 real

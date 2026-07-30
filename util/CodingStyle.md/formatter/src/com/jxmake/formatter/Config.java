@@ -78,12 +78,12 @@ public final class Config {
     // isCommentNoCapitalizeWord/dot-count heuristics. First tried on 2026-07-29 alongside
     // gruClassifier; make test regressed 9 fixtures (c/cpp/java _comments/_core/_combined +
     // real_code_regressions_22/54) because KeywordAmbiguityGate's stage-2 weights, trained on a
-    // small hand-authored cwg/ example set with no zero-feature NO examples, defaulted to YES
+    // small hand-authored tools/classifier_weights/ example set with no zero-feature NO examples, defaulted to YES
     // (capitalize) for common zero-signal keyword-led comments (consteval/static/while/var/this/
     // const/explicit/public/switch, etc.) that are actually code references. Fixed 2026-07-30 by
     // adding real regression-derived and hand-authored zero-feature NO examples to
-    // cwg/examples_{c,cpp,java,kotlin}.md and re-deriving the weights -- see STATE_AI.md's
-    // 2026-07-30 section and cwg/weights.md.
+    // tools/classifier_weights/examples_{c,cpp,java,kotlin}.md and re-deriving the weights -- see STATE_AI.md's
+    // 2026-07-30 section and tools/classifier_weights/weights.md.
     private boolean      commentNormalizationClassifier = true;
     private boolean      headerGuardRename              = false;
     private List<String> javaImportOrder                = Arrays.asList(
@@ -106,7 +106,7 @@ public final class Config {
 
     /**
      * Step 3 GRU classifier gate (STATE_AI.md) -- default off: evaluated against the 62
-     *  hand-labeled keyword-ambiguity examples in {@code cwg/examples_*.md} (the genuinely-ambiguous
+     *  hand-labeled keyword-ambiguity examples in {@code tools/classifier_weights/examples_*.md} (the genuinely-ambiguous
      *  cases the linear {@code KeywordAmbiguityGate} is tuned for) on 2026-07-30 and found to predict
      *  YES on every single example (0/43 NO correct, 30.6% overall precision) -- worse than the
      *  linear classifier's own 67.7% on the same set. Root cause: {@code sample_default.txt} (the

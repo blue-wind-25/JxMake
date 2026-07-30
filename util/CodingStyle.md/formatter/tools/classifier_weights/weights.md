@@ -3,7 +3,7 @@
 Derived over the 62 labeled examples in `examples_c.md`, `examples_cpp.md`, `examples_java.md`,
 `examples_kotlin.md` (40 original + 22 added 2026-07-30, see "2026-07-30 re-derivation" below and
 `STATE_AI.md`'s 2026-07-30 section) by `derive_weights.py` (L2-regularized logistic regression,
-run with `python3 cwg/derive_weights.py` — no dependencies). Two separate linear formulas exist
+run with `python3 tools/classifier_weights/derive_weights.py` — no dependencies). Two separate linear formulas exist
 in `CommentClassifier`/`CommentClassifierWeights`:
 
 ## Main path (no leading-keyword ambiguity; both gates already cleared)
@@ -72,7 +72,7 @@ failing fixtures (`test/cpp_modern_inp.cpp`, `test/cpp_combined_inp.cpp`,
 `test/java_core_inp.java`, `test/java_combined_inp.java`, `test/java_comments_inp.java`) plus
 hand-authored analogues for keywords/languages that didn't happen to have a failing fixture,
 bringing the zero-feature split from 20 YES / 0 NO to 20 YES / 22 NO. Re-ran
-`python3 cwg/derive_weights.py` and copied the new constants above into
+`python3 tools/classifier_weights/derive_weights.py` and copied the new constants above into
 `CommentClassifierWeights.java`. `make test`: 219/219 forward, 219/219 idempotency, with
 `comment-normalization-classifier` now defaulting `on`.
 
@@ -91,7 +91,7 @@ applies `KEYWORD_WEIGHT_ARROW` when it fires. The general recipe for adding a fe
    `KeywordAmbiguityGate.resolveAmbiguousKeyword`.
 3. Add the new column to every row of `derive_weights.py`'s `DATASET` (0 unless the example's
    comment text actually has the new signal) and to the per-language example tables.
-4. Re-run `python3 cwg/derive_weights.py`, copy the printed constants into
+4. Re-run `python3 tools/classifier_weights/derive_weights.py`, copy the printed constants into
    `CommentClassifierWeights.java`, and update this file's numbers to match.
 5. `make test` must stay unchanged (classifier defaults to `off`); re-run the `/tmp` smoke test
    with the classifier `on` to confirm the new feature fires as expected.
@@ -99,6 +99,6 @@ applies `KEYWORD_WEIGHT_ARROW` when it fires. The general recipe for adding a fe
 ## Extending this
 
 To add a labeled example without a new feature: add rows to the per-language example files and to
-`derive_weights.py`'s `DATASET`, re-run `python3 cwg/derive_weights.py`, then copy the printed
+`derive_weights.py`'s `DATASET`, re-run `python3 tools/classifier_weights/derive_weights.py`, then copy the printed
 constants into `CommentClassifierWeights.java`. Keep this file's numbers in sync with whatever
 constants ship. To add a new feature entirely, see "Adding a feature" above.

@@ -168,7 +168,7 @@ non-Latin/mixed-language examples would be a distinct, unexplored idea.
   resource-file swap.
 
 **Training-set acquisition approach** (measure-first, two-pool design,
-extends the `cwg/` pattern from `RDD_KEY_97`): don't pre-commit to a total
+extends the `tools/classifier_weights/` pattern from `RDD_KEY_97`): don't pre-commit to a total
 corpus size before measuring real ABSTAIN rate (done, see below). Pre-filter
 every extracted comment through `CommentClassifier` first — high-confidence
 YES/NO resolved for free, `ABSTAIN` is the real labeling target. **Two
@@ -632,7 +632,7 @@ decorative-separator case.
 ## 2026-07-30 session: fixed `KeywordAmbiguityGate` weight regression, `comment-normalization-classifier` now defaults `on`
 
 Root cause of the 9-fixture 2026-07-29 regression: the 40-example
-`cwg/examples_{c,cpp,java,kotlin}.md` set had all 20 "zero mechanical
+`tools/classifier_weights/examples_{c,cpp,java,kotlin}.md` set had all 20 "zero mechanical
 feature" rows (no paren/arrow/semicolon/url-or-number signal) labeled YES
 — hand-authored "keyword-used-as-English-word" prose only. That produced
 `KEYWORD_BIAS = +2.48420`, so any real keyword-led comment with none of
@@ -646,7 +646,7 @@ etc. — confirmed real lines from `test/cpp_modern_inp.cpp`,
 Fix: added 22 new zero-feature NO-labeled rows (mix of the real regression
 lines above + hand-authored analogues for languages/keywords without a
 failing fixture) bringing the zero-feature split to 20 YES / 22 NO.
-Re-ran `python3 cwg/derive_weights.py` (62 examples) and copied the new
+Re-ran `python3 tools/classifier_weights/derive_weights.py` (62 examples) and copied the new
 constants into `CommentClassifierWeights.java`:
 
 ```
@@ -847,7 +847,7 @@ separate `extract_comments.py`/`GenerateSampleDefault.java` concern, not a
 
 Evaluated the shipped `code-formatter-ai-assist-weights.json` against the
 62 hand-labeled keyword-ambiguity examples in
-`cwg/examples_{c,cpp,java,kotlin}.md` (the genuinely-ambiguous corpus
+`tools/classifier_weights/examples_{c,cpp,java,kotlin}.md` (the genuinely-ambiguous corpus
 `derive_weights.py` trains the linear `KeywordAmbiguityGate` on), converted
 to `GruEval`'s RDD_EXT_21 schema (`targetWordIndex=0` for all rows). Result
 via `java -cp target/classes:<gru-tools-classes> GruEval
@@ -860,7 +860,7 @@ yesCorrect=19/19  noCorrect=0/43
 
 The GRU predicts **YES on every single example**, including all 43 that
 should be NO — worse than the linear classifier's own 67.7% (42/62, see
-`cwg/weights.md`) on this identical set.
+`tools/classifier_weights/weights.md`) on this identical set.
 
 Root cause: `sample_default.txt` (the GRU's only training corpus) is
 auto-labeled *by the linear classifier itself* via `GenerateSampleDefault`,
@@ -868,7 +868,7 @@ keeping only its own high-confidence YES/NO decisions — so it's dominated
 by clear-cut prose (mostly YES) and never contains the genuinely hard
 ambiguous-keyword-led NO cases (those are exactly the ABSTAIN-path
 comments the linear classifier won't auto-label, and per RDD_EXT_19 the
-hand-labeled `cwg/examples_*.md` set is deliberately never merged into
+hand-labeled `tools/classifier_weights/examples_*.md` set is deliberately never merged into
 `sample_default.txt`). The GRU learned "default to YES" rather than the
 subtle distinction it exists to resolve.
 
@@ -909,7 +909,7 @@ Root cause: none of these leading words (`sizeTokens`, `open`, `val`,
 comments — `.isJava`), so `hasLeadingKeywordMatch` was false and every one
 skipped `KeywordAmbiguityGate` entirely, falling into `CommentClassifier`'s
 "main path" (`BIAS=1.0`, always YES) — designed only for the non-ambiguous
-majority case per `cwg/weights.md`. A leading word directly followed by
+majority case per `tools/classifier_weights/weights.md`. A leading word directly followed by
 `/` (no whitespace) was never checked anywhere, keyword or not.
 
 Fix: new `CommentFeatureVector.leadingWordFollowedBySlash` field (computed
@@ -934,10 +934,10 @@ ruleset — see git history for the resulting diff (71 `src/` files +
 `tools/gru/GruAbstainResolverSelfTest.java` for the new constructor
 argument).
 
-### 2026-07-30 session: extended self-formatting to `tools/*`/`cwg/*`, found and fixed a JS shebang-mangling bug
+### 2026-07-30 session: extended self-formatting to `tools/*`/`tools/classifier_weights/*`, found and fixed a JS shebang-mangling bug
 
 Ran the same dogfood-and-adopt process against the 36 supported-language
-files under `tools/*` and `cwg/*` (Java, Python, JS — the project's own
+files under `tools/*` and `tools/classifier_weights/*` (Java, Python, JS — the project's own
 verifier scripts and GRU training/eval tools, distinct from the `src/`
 formatter JAR itself but still formatter-supported languages). Spot-check
 (step 4) surfaced two separate bugs before adoption:

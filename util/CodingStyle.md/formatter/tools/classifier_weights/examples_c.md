@@ -13,7 +13,7 @@ stage 2 (`resolveAmbiguousKeyword`) must decide.
 | 5 | `default: return -1;` | no | yes | no | NO | Literal code snippet embedded in the comment. |
 | 6 | `short delay before retry, about 50ms` | no | no | yes | YES | Prose; the number (50ms) is incidental, not a code reference. |
 | 7 | `short.java has the same bug, see line 42` | no | no | yes | NO | Filename-shaped token (`short.java`) plus a line number — comment is *about* code, not itself prose starting with "short" as an adjective; low-confidence, ABSTAIN-equivalent is acceptable here even though not a hard NO. |
-| 8 | `register your callback before calling init()` | yes | no | no | NO | `register` immediately followed by "your" is fine prose-wise, but the comment's *next* open-paren (`init(`) is unrelated to the leading word — this example intentionally shows nextCharIsOpenParen only fires on the word directly after target, so paren=no here (correcting: recompute). |
+| 8 | `register your callback before calling init()` | no | no | no | YES | `register` immediately followed by "your" is ordinary prose; the comment's *next* open-paren (`init(`) is unrelated to the leading word — `nextCharIsOpenParen` is scoped to the target word's own end boundary, so paren=no here. See the row-8 note below for the correction history. |
 | 9 | `continue reading the spec before editing this` | no | no | no | YES | "continue" as an English verb, ordinary prose. |
 | 10 | `continue; // fallthrough guard` | no | yes | no | NO | Bare code statement. |
 | 11 | `void of any real logic, this is a stub` | no | no | no | YES | "void" used as the English adjective ("void of"), common false-friend case the classifier must get right for the 99% precision target. |

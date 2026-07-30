@@ -247,7 +247,7 @@ public final class KeywordAmbiguityGate {
      * Stage 2 -- contextual scoring, only invoked when stage 1 ({@link #hasLeadingKeywordMatch})
      *  returns true. Resolves the ambiguity a bare keyword-membership test can't (e.g. "static"
      *  as an English adjective vs. the language keyword). Weights and derivation: see
-     *  {@code cwg/weights.md}. Returns {@code true} only when the comment reads as ordinary
+     *  {@code tools/classifier_weights/weights.md}. Returns {@code true} only when the comment reads as ordinary
      *  prose (safe to normalize); any of {@code nextCharIsOpenParen}, {@code nextTokenIsArrow},
      *  {@code containsSemicolon}, or {@code containsUrlOrFilenameOrNumber} is enough on its own
      *  to push the score below threshold, per that file's "asymmetric risk" rationale -- a false

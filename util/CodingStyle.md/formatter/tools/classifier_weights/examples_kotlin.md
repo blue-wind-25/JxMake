@@ -17,7 +17,7 @@ smaller than C/C++/Java's, but the same paren/arrow/semicolon/url-or-number sign
 
 Row 2 was originally a documented gap (no feature fired, so the linear model resolved it to
 ABSTAIN — safe but low-coverage) until `CommentFeatureVector.nextTokenIsArrow` was added
-specifically to close it (see `cwg/weights.md`'s "Adding a feature" section for the full story).
+specifically to close it (see `tools/classifier_weights/weights.md`'s "Adding a feature" section for the full story).
 It's kept in the table as the worked example that motivated that feature, not as a residual gap.
 
 Rows 9-10 added 2026-07-30, hand-authored analogues of the real `cpp`/`java` zero-feature NO

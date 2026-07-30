@@ -139,6 +139,12 @@ gru-measure-abstain-rate: $(JAR_FILE)
 # nothing here is archived to the personal GruArtifacts directory -- the classifier-labeled
 # `sample_default.txt` output is the artifact going forward.
 #
+# After GenerateSampleDefault runs, this target also appends acquire_corpus.sh's
+# classifier_weights_examples.tsv (the hand-labeled tools/classifier_weights/examples_*.md rows,
+# already RDD_EXT_21 schema) directly onto sample_default.txt, then exact-duplicate-line dedups the
+# result -- these carry a human-reviewed ground-truth label already, so they're appended as-is
+# rather than re-labeled by CommentClassifier (see acquire_corpus.sh's own comment for why).
+#
 # Usage:
 #     make gru-acquire-corpus [GRU_CORPUS_OUT_DIR=/tmp/gru_corpus]
 #
@@ -152,7 +158,9 @@ gru-acquire-corpus: $(JAR_FILE)
 	@mkdir -p $(GRU_TOOLS_CLASSES)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/GenerateSampleDefault.java
 	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GenerateSampleDefault $(GRU_CORPUS_OUT_DIR)/comments_combined.txt $(GRU_SAMPLE_DEFAULT)
-	@echo "gru-acquire-corpus: wrote $(GRU_SAMPLE_DEFAULT) ($(shell wc -l < $(GRU_SAMPLE_DEFAULT) 2>/dev/null || echo '?') line(s))"
+	@cat $(GRU_CORPUS_OUT_DIR)/classifier_weights_examples.tsv >> $(GRU_SAMPLE_DEFAULT)
+	@awk '!seen[$$0]++' $(GRU_SAMPLE_DEFAULT) > $(GRU_SAMPLE_DEFAULT).dedup && mv $(GRU_SAMPLE_DEFAULT).dedup $(GRU_SAMPLE_DEFAULT)
+	@echo "gru-acquire-corpus: wrote $(GRU_SAMPLE_DEFAULT) ($(shell wc -l < $(GRU_SAMPLE_DEFAULT) 2>/dev/null || echo '?') line(s), incl. tools/classifier_weights/examples_*.md hand-labeled rows)"
 
 # ── GRU trainer target ───────────────────────────────────────────────────────
 #

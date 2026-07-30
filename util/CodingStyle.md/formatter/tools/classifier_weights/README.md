@@ -1,4 +1,4 @@
-# cwg — Comment-grammar classifier Weight Generation
+# classifier_weights — Comment-grammar classifier Weight Generation
 
 Reusable inputs for RDD_KEY_97 (frontier-model-assisted weight generation) and RDD_KEY_98
 (threshold-from-precision-target). See `STATE_COMMENT_GRAMMAR.md` for the full architecture;

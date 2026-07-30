@@ -127,7 +127,7 @@ faster):
 Use `tools/verifiers` to syntax check. If there are many errors, work in
 batch, store the rest in the corresponding state file.
 
-**Verifier toolchain paths** — needed to build/run `tools/verifiers/*` and
+**Verifier toolchain** — needed to build/run `tools/verifiers/*` and
 `tools/gru/*` on this system; shared across every job that touches those
 tools. Invoke the verifier helpers via their wrapper scripts rather than
 calling `java`, `node`, or `python3` directly. The wrapper scripts

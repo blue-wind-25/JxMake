@@ -32,6 +32,17 @@
 # ordinary tooling (like extract_comments.py/add_target_index.py), safe to
 # check in.
 #
+# In addition to the per-source unlabeled comment extraction above, this script also converts
+# the hand-labeled tools/classifier_weights/examples_{c,cpp,java,kotlin}.md tables (via
+# convert_classifier_weights_examples.py) into an already-labeled RDD_EXT_21-schema file,
+# $OUT_DIR/classifier_weights_examples.tsv. Unlike comments_*.txt, this is NOT unlabeled input
+# for GenerateSampleDefault's auto-labeling -- these rows already carry a human-reviewed YES/NO
+# ground truth (they're exactly the leading-keyword-ambiguity hard cases sample_default.txt's
+# auto-labeling structurally can't produce, see STATE_AI.md's "GRU predicts YES on every
+# example" finding) and re-labeling them via CommentClassifier would defeat the point. `make
+# gru-acquire-corpus` appends this file directly onto the auto-labeled sample_default.txt after
+# GenerateSampleDefault runs, not before.
+#
 # Usage:
 #   tools/gru/acquire_corpus.sh [--out-dir DIR] [--keep-clones] [--only NAME,...]
 #
@@ -140,7 +151,15 @@ for entry in "${SOURCES[@]}"; do
     fi
 done
 
+CLASSIFIER_WEIGHTS_DIR="$FORMATTER_DIR/tools/classifier_weights"
+CLASSIFIER_WEIGHTS_OUT="$OUT_DIR/classifier_weights_examples.tsv"
+python3 "$SCRIPT_DIR/convert_classifier_weights_examples.py" "$CLASSIFIER_WEIGHTS_DIR" \
+    --out "$CLASSIFIER_WEIGHTS_OUT"
+
 echo
 echo "acquire_corpus: done. Pool A/Pool B candidate files are under $OUT_DIR/ --"
 echo "next step is hand labeling (RDD_EXT_20 schema), same as the first batch;"
 echo "nothing here has been labeled or committed."
+echo "acquire_corpus: also wrote $CLASSIFIER_WEIGHTS_OUT (already hand-labeled,"
+echo "RDD_EXT_21 schema) from tools/classifier_weights/examples_*.md -- gru-acquire-corpus"
+echo "appends this directly onto sample_default.txt without re-labeling it."

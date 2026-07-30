@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Derives CommentClassifierWeights constants from the labeled examples in
-cwg/examples_{c,cpp,java,kotlin}.md via a small logistic regression trained in this script
-(pure Python, no dependencies). Run with: python3 cwg/derive_weights.py
+tools/classifier_weights/examples_{c,cpp,java,kotlin}.md via a small logistic regression trained in this script
+(pure Python, no dependencies). Run with: python3 tools/classifier_weights/derive_weights.py
 
-This is the reusable counterpart to the by-hand derivation in cwg/weights.md -- extend the
+This is the reusable counterpart to the by-hand derivation in tools/classifier_weights/weights.md -- extend the
 DATASET below when adding new labeled examples, re-run, and copy the printed constants into
 src/com/jxmake/formatter/classifier/CommentClassifierWeights.java.
 """
 
 import math
 
-# One row per labeled example across cwg/examples_{c,cpp,java,kotlin}.md.
+# One row per labeled example across tools/classifier_weights/examples_{c,cpp,java,kotlin}.md.
 # (source, index, paren, arrow, semicolon, url_or_number, label) -- label 1 = YES (normalize),
 # 0 = NO. "arrow" is CommentFeatureVector.nextTokenIsArrow -- added to catch a when/match-branch
 # shape like "is Foo -> handle(foo)" that the other three features can't see (kotlin #2 below).
@@ -20,7 +20,7 @@ DATASET = [
     ("c", 4, 0, 0, 0, 0, 1), ("c", 5, 0, 0, 1, 0, 0), ("c", 6, 0, 0, 0, 1, 1),
     ("c", 7, 0, 0, 0, 1, 0), ("c", 8, 0, 0, 0, 0, 1), ("c", 9, 0, 0, 0, 0, 1),
     ("c", 10, 0, 0, 1, 0, 0), ("c", 11, 0, 0, 0, 0, 1), ("c", 12, 1, 0, 0, 0, 0),
-    # rows 13-17 added 2026-07-30 to fix the KEYWORD_BIAS regression (see cwg/examples_c.md).
+    # rows 13-17 added 2026-07-30 to fix the KEYWORD_BIAS regression (see tools/classifier_weights/examples_c.md).
     ("c", 13, 0, 0, 0, 0, 0), ("c", 14, 0, 0, 0, 0, 0), ("c", 15, 0, 0, 0, 0, 0),
     ("c", 16, 0, 0, 0, 0, 0), ("c", 17, 0, 0, 0, 0, 0),
     # examples_cpp.md
@@ -29,7 +29,7 @@ DATASET = [
     ("cpp", 7, 0, 0, 0, 0, 1), ("cpp", 8, 1, 0, 1, 0, 0), ("cpp", 9, 0, 0, 0, 0, 1),
     ("cpp", 10, 0, 0, 0, 1, 0),
     # rows 11-15 are real regressions from test/cpp_modern_inp.cpp and test/cpp_combined_inp.cpp,
-    # plus hand-authored analogues, added 2026-07-30 (see cwg/examples_cpp.md).
+    # plus hand-authored analogues, added 2026-07-30 (see tools/classifier_weights/examples_cpp.md).
     ("cpp", 11, 0, 0, 0, 0, 0), ("cpp", 12, 0, 0, 0, 0, 0), ("cpp", 13, 0, 0, 0, 0, 0),
     ("cpp", 14, 0, 0, 0, 0, 0), ("cpp", 15, 0, 0, 0, 0, 0),
     # examples_java.md
@@ -39,7 +39,7 @@ DATASET = [
     ("java", 10, 0, 0, 1, 0, 0),
     # rows 11-18 are real regressions from test/java_core_inp.java, test/java_combined_inp.java,
     # and test/java_comments_inp.java, plus hand-authored analogues, added 2026-07-30
-    # (see cwg/examples_java.md).
+    # (see tools/classifier_weights/examples_java.md).
     ("java", 11, 0, 0, 0, 0, 0), ("java", 12, 0, 0, 0, 0, 0), ("java", 13, 0, 0, 0, 0, 0),
     ("java", 14, 0, 0, 0, 0, 0), ("java", 15, 0, 0, 0, 0, 0), ("java", 16, 0, 0, 0, 0, 0),
     ("java", 17, 0, 0, 0, 0, 0), ("java", 18, 0, 0, 0, 0, 0),
@@ -48,7 +48,7 @@ DATASET = [
     ("kotlin", 1, 0, 0, 0, 0, 1), ("kotlin", 2, 0, 1, 0, 0, 0), ("kotlin", 3, 0, 0, 0, 0, 1),
     ("kotlin", 4, 1, 0, 1, 0, 0), ("kotlin", 5, 0, 0, 0, 0, 1), ("kotlin", 6, 0, 0, 1, 0, 0),
     ("kotlin", 7, 0, 0, 0, 0, 1), ("kotlin", 8, 1, 0, 1, 0, 0),
-    # rows 9-12 added 2026-07-30, hand-authored analogues (see cwg/examples_kotlin.md).
+    # rows 9-12 added 2026-07-30, hand-authored analogues (see tools/classifier_weights/examples_kotlin.md).
     ("kotlin", 9, 0, 0, 0, 0, 0), ("kotlin", 10, 0, 0, 0, 0, 0),
     ("kotlin", 11, 0, 0, 0, 0, 0), ("kotlin", 12, 0, 0, 0, 0, 0),
 ]
@@ -115,7 +115,7 @@ def report(w):
     print()
     print("Main path (CommentClassifier.classify, no leading-keyword ambiguity): everything")
     print("reaching that path already cleared both gates, so BIAS=1.0 / THRESHOLD=0.0 (always YES)")
-    print("is not derived from this dataset -- see cwg/weights.md 'Main path'.")
+    print("is not derived from this dataset -- see tools/classifier_weights/weights.md 'Main path'.")
     print("====================================================================================================")
     print()
 

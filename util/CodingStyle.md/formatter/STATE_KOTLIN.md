@@ -714,6 +714,196 @@ the full 16078-file corpus before further Category-1-family work — it
 would surface silent content loss undetectable by the syntax checker and
 give a truer denominator. Otherwise, D3 is the next-highest-value open item.
 
+## 2026-07-31 — D3 scoping session (design only, not implemented)
+
+Tracker item 21 asked for a concrete fix design for D3 (RDD_KEY_221), not
+just the existing root-cause confirmation. This section is that design —
+**no `src/`/`test/` files were touched this session.**
+
+### Grounded example (real corpus, not synthetic)
+
+`compiler/ir/backend.js/.../EqualityAndComparisonCallsTransformer.kt`, a
+`when` arm (original source, line 78, 109 chars, over the 100-char limit):
+
+```kotlin
+Name.identifier("compareTo") -> if (doNotIntrinsify) call else transformCompareToMethodCall(call)
+```
+
+Round1 (fresh format) correctly wraps **both** candidates on this one
+logical arm (`Name.identifier(...)` and `transformCompareToMethodCall(...)`)
+since `MiscRuleCurly.enforceCallLineBreaking` evaluates each against the
+same still-unmodified 109-char original line (spans/renders are collected
+and applied only at the end of the scan, so an earlier candidate's own wrap
+never affects a later candidate's measurement within that single scan):
+
+```kotlin
+Name.identifier(
+    "compareTo"
+) -> if(doNotIntrinsify) call else transformCompareToMethodCall(
+    call
+)
+```
+
+Round2 (reformatting round1's own output) re-tokenizes this **already-
+wrapped** text. `MiscRuleCurly.enforceCallLineBreaking` runs a *second*
+time within a single `formatOne` pass too (`FormatterCurly.java` lines 242
+and 267) — same mechanism, not just a round1-vs-round2 issue. By the time
+`transformCompareToMethodCall`'s own candidacy is (re-)evaluated, `lineStartIndex(tokens, nameIdx)`
+walks back only to the nearest **physical** `NEWLINE` token — which is now
+the one baked in by `Name.identifier(...)`'s own prior wrap, a few tokens
+earlier. The "enclosing physical line" it measures against has shrunk to
+just `) -> if(doNotIntrinsify) call else transformCompareToMethodCall(` —
+comfortably under the limit — so the fits-check now says "yes, collapse
+it", undoing round1's own (correct) decision. Confirmed by direct diff of
+`/tmp/kt_retriage_round1` vs `/tmp/kt_retriage_round2` for this exact file
+(paths still on disk, reused, not re-generated this session).
+
+This sharpens RDD_KEY_221's diagnosis: the flap isn't only "the enclosing
+line's length changes across rounds" in the abstract — concretely, **one
+call/condition candidate's own wrap decision changes the measured line
+boundary a *sibling* candidate on the same logical statement sees**, both
+within a single format pass (two `enforceCallLineBreaking` calls) and
+across rounds. `lineStartIndex` tracks the volatile, currently-written
+physical layout, not the stable logical statement.
+
+### Why the reverted `nameIdx`-anchor attempt broke 28 fixtures
+
+Anchoring at `nameIdx` measures only the candidate's own tokens (`transformCompareToMethodCall(call)`
+in isolation), discarding *all* same-line prefix — including prefix that
+is legitimately part of the same statement and must still count toward the
+width: `return `, `if (`, `val x = `, `} -> if(doNotIntrinsify) call else `,
+etc. A statement like `return someReallyLongFunctionNameThatAloneFitsUnder100(x)`
+would then never wrap even when the full rendered line (with `return `
+prepended) exceeds the limit, because the prefix was dropped from
+measurement entirely. This is an *underestimate* failure mode, the mirror
+image of the current bug's *volatile* failure mode — not a subset of it,
+which is why fixing D3 by narrowing to `nameIdx` created a new, disjoint
+regression class instead of just fixing D3.
+
+### Proposed design: statement-start anchor, not physical-line-start or token-start
+
+Replace `lineStartIndex(tokens, nameIdx)` **only at its one load-bearing
+call site for this bug**, `MiscRuleCurly.renderCallCandidate`'s no-newline
+fits-check (currently line ~1396: `collapseToOneLine(tokens, lineStartIndex(tokens, nameIdx), effectiveLineEndIndex(tokens, closeIdx) - 1)`),
+with a new `statementStartIndex(tokens, nameIdx)` that scans backward from
+`nameIdx` tracking paren/bracket/angle-bracket depth (mirroring
+`splitTopLevelCommasBraceAware`'s depth-tracking style already in this same
+file) and stops at the nearest **depth-0** `;`, `{`, or `}` — never at a
+bare `NEWLINE`. This is structurally identical to the backward scan
+`KotlinSpecificRule.signatureLineIndent` already uses (RDD_KEY_164,
+refined by RDD_KEY_215) to solve the *same class* of problem — deriving a
+position from the true, stable statement start instead of the volatile
+physical line of whatever boundary token happens to precede it — for
+indent derivation rather than width measurement. That existing helper's
+own doc comment explicitly names the failure mode being avoided here: "not
+guaranteed to stay stable across repeated formatting rounds." Reusing this
+already-proven pattern (rather than inventing a new one) is the core of
+this design, not a coincidence of convenience — it is direct evidence a
+statement-start anchor can solve an anchor-instability bug in this exact
+codebase without the collateral damage the naive `nameIdx` attempt caused,
+*if* the boundary-detection logic is right.
+
+Why this differs from both failure modes:
+- **Vs. the current bug:** `;`/`{`/`}` are real, depth-0 statement/scope
+  boundaries — stable regardless of how the tokens between them happen to
+  be wrapped across physical lines in the *current* text. A sibling
+  candidate's own wrap never moves a `;`/`{`/`}` token, so it can't distort
+  this anchor the way it distorts `lineStartIndex`.
+- **Vs. the reverted `nameIdx` attempt:** same-line prefix that is part of
+  the *same statement* (`return `, `if (`, `Name.identifier(...) -> if(...) ... else `)
+  is still included in the measured range, because there is no `;`/`{`/`}`
+  between the statement's true start and `nameIdx` — only the *unrelated*
+  preceding-statement text (across a `;`) or *unrelated* enclosing-scope
+  text (across a `{`/`}`) gets excluded, which is exactly the D3 bug shape
+  and never the legitimate-prefix shape the reverted attempt broke.
+
+Scope the change with a `lang.isKotlin` gate at the call site (identical
+precedent already in this exact method: the `sigForRender`
+Kotlin/JS/TS-only branch, and the JS/TS-only fits-check at line ~1291,
+each scoped after an unscoped version regressed another language — RDD_KEY_144,
+this file's own JS/TS-fits-check comment). D3 is tracked as a Kotlin-only,
+single-repo item; gating removes C/C++/Java/TS from this change's blast
+radius entirely by construction, rather than relying only on the new
+anchor logic being correct for them too. `lineStartIndex` stays completely
+untouched for every other language and for this method's other call sites
+(the JS/TS-only branch at line ~1326 has the same latent anchor-instability
+exposure but is out of scope here — a separate future item if it's ever
+observed to actually flap in JS/TS real-code testing).
+
+### Known open risk this design has NOT yet been validated against
+
+The grounded example above is a `when`-arm body — Kotlin `when` arms are
+newline-separated, **not** `;`-separated. If a *preceding* sibling arm in
+the same `when {}` block also has no depth-0 `;` before the current arm,
+the backward scan as sketched would walk past the current arm's own start
+and merge the preceding arm's text into the measurement too, potentially
+over-counting badly (false-positive wraps) rather than under- or
+over-estimating narrowly. `signatureLineIndent`'s own proven usages
+(signature headers, `where` clauses) don't exercise this multi-arm-body
+shape, so this is a real, distinct risk this design borrows the pattern
+into a context it hasn't been proven for. **This must be checked with a
+dedicated multi-arm `when` fixture before trusting the pattern here** — if
+`when`-arm boundaries need their own depth-0-newline-based stop condition
+(distinguishing "top-level newline ending an arm" from "top-level newline
+mid-wrap inside one arm's own already-broken candidate"), that is
+additional design work not yet done, not a small implementation detail.
+Loop bodies (`for`/`while` with no braces), and any other newline-only-
+delimited statement sequence, carry the same open risk. If this turns out
+to need real arm/statement-boundary tracking beyond `;`/`{`/`}` to be
+safe, that pushes this closer to the "General scope-depth reindentation"
+architectural TODO's territory (STATE_COMMON.md) than a self-contained fix
+— worth re-assessing difficulty once the `when`-arm case is actually
+tried, not assumed safe in advance.
+
+### Validation plan (fast-to-slow, catch a regression early)
+
+1. Hand-author a minimal fixture pair reproducing **two** shapes in one
+   file: (a) the grounded `when`-arm-with-two-call-candidates shape above,
+   verbatim-derived from the real corpus line; (b) a synthetic multi-arm
+   `when {}` block stress-testing the open risk above (a short arm
+   immediately followed by the long arm, no `;` between them) — register
+   per STATE_COMMON's fixture convention only once the fix is believed
+   correct, not before.
+2. Build and round1/round2 that fixture alone first — near-instant
+   feedback, must be byte-identical before touching anything else.
+3. `make test` full suite — must stay at the current green count (219/219
+   forward+idempotency as of RDD_KEY_220) with **zero** regressions in any
+   of C/C++/Java/TS, confirming the `lang.isKotlin` gate actually isolates
+   them (verify empirically, don't just trust the gate).
+4. Re-run round1/round2 against just the ~34 already-known D3 files
+   (`GenerateReleaseNotes.kt`/`TypeBridging.kt` plus the D3 sample already
+   diffed in `/tmp/idem_sample40_diffs.txt`/`/tmp/kt_retriage_round1`+`round2`,
+   reused from this session, not re-generated) — fast, targeted, must go
+   idempotent.
+5. Only after 1-4 are clean, re-run the full 16078-file `JetBrains/kotlin`
+   corpus round1/round2 diff (`STATE_COMMON.md` methodology) — checks for
+   *new* flaps in previously-clean files, not just whether the known ones
+   are fixed — plus a full `kotlin_syntax_check` pass to confirm zero new
+   Category 1 parse errors introduced.
+6. Only land the fix, add a new `RDD_KEY_n` (continuing the shared
+   sequence, per STATE_COMMON's lookup convention) once 1-5 are all green;
+   update this file's D3 table row and the Not-Started/Finished dogfood
+   entries accordingly.
+
+### Honest bottom line
+
+This is a real, evidence-grounded candidate design (not the disproven
+`nameIdx` anchor, and not a repeat of the current bug's volatile anchor) —
+the depth-0-`;`/`{`/`}` backward scan already has a working precedent in
+this exact file family for an analogous problem. But it is **not yet
+proven safe** for the `when`-arm/braceless-body newline-delimited-sequence
+shape that the grounding example itself came from — that gap must be
+closed by validation step 1(b) before this is trusted, not assumed away.
+If that check fails and no clean depth-0-newline boundary rule can be
+found for arm/statement sequences without real statement-boundary
+tracking, the honest conclusion is this needs to fold into a larger
+structural investment (see STATE_COMMON.md's "General scope-depth
+reindentation" TODO) rather than land as a self-contained fix — this
+session did not reach that determination either way; it's the next
+session's first validation gate.
+
+---
+
 ## Open Questions
 
 - **C4 — closed, no open question remains.** Was a miscategorized instance

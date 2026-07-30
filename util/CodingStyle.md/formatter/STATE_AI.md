@@ -1447,3 +1447,114 @@ step" and "tokenize once, cache across epochs" items in that list were
 already done before this session (see the class javadoc/`Example` class
 above); this session only adds checkpointing/resume, nothing else from
 that list.
+
+## 2026-07-31 session: real-corpus GRU retrain re-evaluated against the linear classifier — improved (30.6% → 50.0%) but still below the 67.7% baseline
+
+After this session's `explicit_vocab.txt` contamination fix, the new
+`CommentedOutCodeGate`/`LicenseBlockGate` NO-gates, the `tools/classifier_
+weights/examples_*.md` → `sample_default.txt` merge (`acquire_corpus.sh`'s
+`classifier_weights_examples.tsv` step), and a real `make gru-acquire-
+corpus` regeneration (92046 → 92308 lines, NO-labeled rows 975 → 3069 —
+see the corpus-quality comparison earlier in this session), the user ran a
+real training pass: `--threads=3 --epochs=3 --patience=2
+--progress-every=1000` against the regenerated `sample_default.txt`
+(73841 train / 18460 validation examples). Training converged fast and
+correctly triggered early stopping — validation loss bottomed out at
+epoch 1 (0.0393061) and got worse both subsequent epochs (0.0469431,
+0.0417988), a classic single-epoch-convergence-then-overfit curve on this
+corpus, not a still-improving one; `patience=2` caught it correctly at
+epoch 3. Final validation confusion matrix (majority-YES,
+imbalance-dominated): `tp=17763 fp=95 tn=525 fn=77 precision=0.99468
+recall=0.99568 f1=0.99518` — looks excellent, but is measured against a
+validation split where NO is still only ~3.3% of examples (602/18460), so
+it mostly reflects "GRU correctly predicts YES on ordinary prose," not
+resolution of the hard ambiguous-keyword-led cases this whole effort
+exists for.
+
+Re-ran the *same* hard-case benchmark the 2026-07-30 session used —
+`GruEval` against `tools/classifier_weights/examples_{c,cpp,java,kotlin}.md`'s 62
+genuinely-ambiguous hand-labeled examples (converted to RDD_EXT_21 schema
+via `convert_classifier_weights_examples.py`, the same file `acquire_
+corpus.sh` now writes to `$OUT_DIR/classifier_weights_examples.tsv`) —
+against the freshly trained `target/gru/code-formatter-ai-assist-
+weights.json`:
+
+```
+total=62 abstain=0 decided=62 correct=31 precision=0.5
+yesCorrect=20/20  noCorrect=11/42
+```
+
+| | precision | YES correct | NO correct |
+|---|---|---|---|
+| Linear classifier (`KeywordAmbiguityGate`, baseline) | 67.7% (42/62) | — | — |
+| GRU, 2026-07-30 (pre-fix corpus, majority-YES `sample_default.txt` only) | 30.6% (19/62) | 19/19 | 0/43 |
+| **GRU, this session (post-fix corpus, hand-labeled examples merged in)** | **50.0% (31/62)** | 20/20 | 11/42 |
+
+**Real, measurable progress, but still short of the bar.** The GRU no
+longer degenerately predicts YES on every single example (2026-07-30's
+finding) — it now gets 11/42 hard NO cases right, direct evidence that
+merging the 62 hand-labeled examples into the training corpus and adding
+the new rule-based NO-gates (which reshape what `GenerateSampleDefault`
+auto-labels as NO across the wider real corpus, not just the merged 62
+themselves) taught it something real about the hard cases. But it's still
+below the linear classifier's 67.7%, and still wrong on 31/42 NO cases, so
+this does not clear the bar the 2026-07-30 session set for flipping
+`gru-classifier` back to `on` — it stays `off`. `Config.gruClassifier`
+unchanged (`false`); `commentNormalizationClassifier` (linear-classifier
+gate pipeline, unaffected by any of this) unchanged (`true`).
+
+**Why 50% and not higher, and how to improve it further:**
+
+1. **62 hand-labeled examples is a very small, repeated-many-times-over
+   corpus relative to 73841 auto-labeled training examples (~0.08%).**
+   Even merged in verbatim, `GruTrainer`'s online SGD sees each of the 62
+   exactly once per epoch — 3 epochs of exposure to 62 hard cases against
+   73841 easy ones is a tiny gradient signal, easily swamped by the
+   majority-class-YES gradient direction. The single highest-leverage fix
+   is **growing the hand-labeled hard-case set itself** (more entries in
+   `tools/classifier_weights/examples_{c,cpp,java,kotlin}.md`, ideally in the same
+   genuinely-ambiguous style `derive_weights.py` already curates for the
+   linear classifier) rather than anything about training mechanics — the
+   GRU can only learn a distinction that's actually represented with
+   enough weight in what it's shown.
+2. **Consider oversampling/upweighting the hand-labeled hard cases within
+   `sample_default.txt` or within `GruTrainer` itself**, e.g. repeating
+   each of the 62 rows N times (a crude but simple oversampling) or adding
+   a per-example loss weight the trainer doesn't currently have (`GruTrainer`
+   has no notion of per-example weight today — would be a small trainer
+   change, not a corpus change) so the hard cases contribute gradient on
+   par with their actual importance rather than their raw frequency in the
+   corpus.
+3. **62 examples is also a very small held-out-nothing benchmark** — all
+   62 are used for both training (merged into `sample_default.txt`) and
+   evaluation (the `GruEval` run above), so this 50%/67.7% comparison is
+   really "how well did each classifier fit training data it saw," not a
+   true generalization test. A cleaner benchmark would hold out a fraction
+   of the hand-labeled set from training and evaluate only on the held-out
+   slice — this wasn't done this session (`derive_weights.py`'s own 67.7%
+   baseline for the linear classifier has the same caveat, so the
+   comparison is at least apples-to-apples, but neither number is a
+   trustworthy generalization estimate).
+4. **The rule-based NO-gates (commented-out-code, license-block,
+   decorative-separator, slash-list) generalize the corpus's NO population
+   at the "obviously not a sentence" end of the spectrum, not the
+   "ambiguous leading keyword" end the 62 hand-labeled examples target.**
+   Growing `sample_default.txt` further via `acquire_corpus.sh` (more
+   source repos) will keep improving the GRU's grasp of clear-cut cases
+   but won't by itself move this specific 62-example benchmark much
+   further — that benchmark is specifically testing the keyword-ambiguity
+   shape the gates don't touch at all (`KeywordAmbiguityGate`/RDD_EXT_20
+   Pool A is the relevant category, not Pool B or the gate-covered shapes).
+5. **Architecture/training-mechanics changes (mini-batch training,
+   dropout, LR schedule, more epochs) are unlikely to be the bottleneck
+   here** — the fast single-epoch convergence and immediate overfit onset
+   point at a data-representation problem (see 1-3 above), not an
+   optimization problem. Not recommended as the next thing to try before
+   growing/reweighting the hard-case corpus.
+
+**Next step, if pursued:** grow `tools/classifier_weights/examples_*.md` with more
+genuinely-ambiguous hand-labeled cases (same effort that already benefits
+the linear classifier via `derive_weights.py`), then re-run this exact
+`GruEval` comparison — watch specifically for `noCorrect` climbing past
+21/42 (the point where the GRU would start beating the linear classifier's
+absolute NO-correct count) before considering `gru-classifier=on` again.

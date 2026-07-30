@@ -230,21 +230,16 @@ Use sub-agent. This can be substantial work.
     reverted. Value: medium (single repo, ~33 files). Difficulty: high — proven
     collateral-damage-prone, needs a more surgical anchor than tried so far.
 
-22. GRU: multi-line license/copyright-block NO-gate (2+ newlines, no trailing
-    sentence-ending period). Value: low-medium. Difficulty: medium — risk of
-    misfiring on a real multi-line prose paragraph without a careful
-    period-position check.
-
-23. C/C++/Java: `microsoft/STL` documented open gaps — macro-invocation-as-statement
+22. C/C++/Java: `microsoft/STL` documented open gaps — macro-invocation-as-statement
     glued to a following collapsed `if` one round later (root cause already
     identified: `splitStatements` merges the bare macro with the following `if` into
     one "statement"). Value: low (narrow shape, 289-file corpus otherwise clean).
     Difficulty: medium — root cause known, fix not yet scoped.
 
-24. C/C++/Java: `jenkinsci/jenkins` `PluginManager.java` line-wrap instability —
+23. C/C++/Java: `jenkinsci/jenkins` `PluginManager.java` line-wrap instability —
     explicitly documented as low-priority. Value: low. Difficulty: unscoped.
 
-25. HTML5: `apache/ant` `manual/running.html` loses one `<p>` (1/226 files) — needs
+24. HTML5: `apache/ant` `manual/running.html` loses one `<p>` (1/226 files) — needs
     more than RDD_KEY_204's existing fix covers. Value: low (single file).
     Difficulty: medium.
 

@@ -49145,6 +49145,7 @@ js	YES	0	 we know it was accepted.
 js	YES	0	 same as app.listen(0, done)
 js	YES	0	foobar.com')
 js	YES	0	foobar.com', done);
+js	YES	0	 long-running test
 js	YES	0	example.com/foo', method: 'GET' };
 js	YES	0	example.com/foo');
 js	YES	0	example.com/blog/post/1', method: 'GET' };
@@ -49163,7 +49164,6 @@ js	YES	0	')\n      .expect('Content-Type', /plain/)\n      .expect('Location', '
 js	YES	0	example.com/?param=%3Cscript%3Ealert(%22hax%22);%3C/script%3E')
 js	YES	0	example.com/?param=%3Cscript%3Ealert(%22hax%22);%3C/script%3E', done)
 js	YES	0	')\n      .expect('Content-Type', /plain/)\n      .expect('Location', 'http://google.com')\n      .expect(301, 'Moved Permanently. Redirecting to http://google.com', done);\n    })\n  })\n\n  describe('when accepting neither text or html', function(){\n    it('should respond with an empty body', function(done){\n      var app = express();\n\n      app.use(function(req, res){\n        res.redirect('http://google.com');\n      });\n\n      request(app)\n        .get('/')\n        .set('Accept', 'application/octet-stream')\n        .expect(302)\n        .expect('location', 'http://google.com')\n        .expect('content-length', '0')\n        .expect(utils.shouldNotHaveHeader('Content-Type'))\n        .expect(utils.shouldNotHaveBody())\n        .end(done)\n    })\n  })\n})\n
-js	YES	0	 this should not execute
 js	YES	0	, done);
 js	YES	0	 The old node error message modification in body parser is catching this
 js	YES	0	 gzip'd data exceeds 1kb, but deflated below 1kb
@@ -49213,7 +49213,6 @@ js	YES	0	 passing control to the express.static() middleware,
 js	YES	0	 thus it serves the file correctly by ignoring "/static"
 js	YES	0	 several directories, you can use express.static()
 js	YES	0	 multiple times! Here we're passing "./public/css",
-js	YES	0	 this will allow "GET /style.css" instead of "GET /css/style.css":
 js	YES	0	 foo
 js	YES	0	 custom log format
 js	YES	0	 parses request cookies, populating
@@ -49267,7 +49266,6 @@ js	YES	0	 cant find that user
 js	YES	0	 found it, move on to the routes
 js	YES	0	 so either you can deal with different types of formatting
 js	YES	0	 or you could write a tiny middleware like
-js	YES	0	 this to add a layer of abstraction
 js	YES	0	 and make things a bit more declarative:
 js	YES	0	 create an error with .status. we
 js	YES	0	 can then use the property in our
@@ -49297,7 +49295,6 @@ js	YES	0	 example: http://localhost:3000/api/user/tobi/repos/?api-key=foo
 js	YES	0	 middleware with an arity of 4 are considered
 js	YES	0	 error handling middleware. When you next(err)
 js	YES	0	 it will be passed through the defined middleware
-js	YES	0	 in order, but ONLY those with an arity of 4, ignoring
 js	YES	0	 regular middleware.
 js	YES	0	 whatever you want here, feel free to populate
 js	YES	0	 properties on `err` to treat it differently in here.
@@ -49311,13 +49308,11 @@ js	YES	0	 error handling middleware have an arity of 4
 js	YES	0	 instead of the typical (req, res, next),
 js	YES	0	 otherwise they behave exactly like regular
 js	YES	0	 middleware, you may have several of them,
-js	YES	0	 in different orders etc.
 js	YES	0	 respond with 500 "Internal Server Error".
 js	YES	0	 Caught and passed down to the errorHandler middleware
 js	YES	0	 We can also pass exceptions to next()
 js	YES	0	 The reason for process.nextTick() is to show that
 js	YES	0	 next() can be called inside an async operation,
-js	YES	0	 in real life it can be a DB read or HTTP request.
 js	YES	0	 the error handler is placed after routes
 js	YES	0	 from app.get() etc
 js	YES	0	 Example requests:
@@ -49345,13 +49340,10 @@ js	YES	0	 was a real DB query to read all users.
 js	YES	0	 filter ferrets only
 js	YES	0	 naive nesting approach,
 js	YES	0	 delegating errors to next(err)
-js	YES	0	 in order to expose the "count"
 js	YES	0	 and "users" locals
-js	YES	0	 this approach is cleaner,
 js	YES	0	 less nesting and we have
 js	YES	0	 the variables available
 js	YES	0	 on the request object
-js	YES	0	 this approach is much like the last
 js	YES	0	 however we're explicitly exposing
 js	YES	0	 the locals within each middleware
 js	YES	0	 note that this may not always work
@@ -49414,7 +49406,6 @@ js	YES	0	 will be re-created next request
 js	YES	0	 Regenerate session when signing in
 js	YES	0	 to prevent fixation
 js	YES	0	 Store the user's primary key
-js	YES	0	 in the session store to be retrieved,
 js	YES	0	 or in this case the entire user object
 js	YES	0	 add req.session cookie support
 js	YES	0	 Faux database
@@ -49426,9 +49417,10 @@ js	YES	0	*\n * GET users :from - :to.\n
 js	YES	0	*\n * Expose `GithubView`.\n 
 js	YES	0	*\n * Custom view that fetches and renders\n * remove github templates. You could\n * render templates from a database etc.\n 
 js	YES	0	 "root" is the app.set('views') setting, however
-js	YES	0	 in your own implementation you could ignore this
 js	YES	0	*\n * Render the view.\n 
+js	YES	0	 register .md as an engine in express view system
 js	YES	0	 pointing to a particular github repo to load files from it
+js	YES	0	 register a new view constructor
 js	YES	0	 rendering a view relative to the repo.
 js	YES	0	 app.locals, res.locals, and locals passed
 js	YES	0	 work like they normally would
@@ -49641,6 +49633,7 @@ js	YES	0	 content-type
 js	YES	0	*\n * Send JSON response with JSONP callback support.\n *\n * Examples:\n *\n *     res.jsonp(null);\n *     res.jsonp({ user: 'tj' });\n *\n * @param {string|number|boolean|object} obj\n * @public\n 
 js	YES	0	 fixup callback
 js	YES	0	 jsonp
+js	YES	0	 restrict callback charset
 js	YES	0	 empty argument
 js	YES	0	 replace chars not allowed in JavaScript that are in JSON
 js	YES	0	 the /**/ is a specific security mitigation for "Rosetta Flash JSONP abuse"
@@ -51228,19 +51221,11 @@ js	YES	0	 the same name but with a .json extension will be written.
 js	YES	0	 This file is for backward compatibility with v0.5.1.
 js	YES	0	 eslint-disable-next-line node/no-deprecated-api
 js	YES	0	 This code is unreachable.
-js	YES	0	     throw invalidParseState()
 js	NO	0	 }
-js	YES	0	     throw invalidLexState(lexState)
-js	YES	0	     throw invalidLexState(parseState)
 js	YES	0	 This code is unreachable since the default lexState handles eof.
 js	YES	0	 This code is unreachable since it's handled by the default lexState.
 js	YES	0	     read()
 js	YES	0	 This code is unreachable since it's handled by the lexState.
-js	YES	0	     throw invalidToken()
-js	YES	0	 throw invalidToken()
-js	YES	0	 function invalidParseState () {
-js	YES	0	 function invalidLexState (state) {
-js	YES	0	 function invalidToken () {
 js	NO	0	     }
 python3	YES	0	 pyright: strict
 python3	YES	0	# Example\\r?\\n\\r?\\n```cpp\\r?\\n(.*?)\\r?\\n```", re.DOTALL)
@@ -90502,7 +90487,6 @@ js	YES	0	 Get the sticked element height and apply it to the container to "hold 
 js	YES	0	*\n   * Sets the upper and lower breakpoints for the element to become sticky/unsticky.\n   * @param {Number} elemHeight - px value for sticky.$element height, calculated by `_setSizes`.\n   * @param {Function} cb - optional callback function to be called on completion.\n   * @private\n   
 js	YES	0	 topPoint = this.$anchor.offset().top || this.points[0],
 js	YES	0	 bottomPoint = topPoint + this.anchorHeight || this.points[1],
-js	YES	0	this would be the stickTo: both option... tricky
 js	YES	0	*\n   * Destroys the current sticky element.\n   * Resets the element to the top position first.\n   * Removes event listeners, JS-added css properties and classes, and unwraps the $element if the JS added the $container.\n   * @function\n   
 js	YES	0	*\n   * Customizable container template. Add your own classes for styling and sizing.\n   * @option\n   * @type {string}\n   * @default '&lt;div data-sticky-container&gt;&lt;/div&gt;'\n   
 js	YES	0	*\n   * Location in the view the element sticks to. Can be `'top'` or `'bottom'`.\n   * @option\n   * @type {string}\n   * @default 'top'\n   
@@ -90690,7 +90674,6 @@ js	YES	0	 If the touch did not move, consider it as a "tap"
 js	NO	0	 var y = e.touches[0].pageY;
 js	NO	0	 var dy = startPosY - y;
 js	NO	0	   dir = dy > 0 ? 'down' : 'up';
-js	YES	0	 function teardown() {
 js	NO	0	   this.removeEventListener('touchstart', onTouchStart);
 js	YES	0	***************************************************\n * As far as I can tell, both setupSpotSwipe and    *\n * setupTouchHandler should be idempotent,          *\n * because they directly replace functions &        *\n * values, and do not add event handlers directly.  *\n ***************************************************
 js	YES	0	***************************************************\n * Method for adding pseudo drag events to elements *\n **************************************************
@@ -90920,7 +90903,6 @@ js	YES	0	 don't move if the slider has been disabled since its initialization
 js	YES	0	might need to alter that slightly for bars that will have odd number selections.
 js	YES	0	on input change events, convert string to number...grumble.
 js	YES	0	 prevent slider from running out of bounds, if value exceeds the limits set through options, override the value to min/max
-js	YES	0	this block is to prevent 2 handles from crossing eachother. Could/should be improved.
 js	YES	0	percentage of bar min/max value based on click or drag point
 js	YES	0	number of actual pixels to shift the handle, based on the percentage obtained above
 js	YES	0	percentage of bar to shift the handle
@@ -90931,9 +90913,7 @@ js	YES	0	empty variable, will be used for min-height/width for fill bar
 js	YES	0	percentage w/h of the handle compared to the slider bar
 js	YES	0	left or top percentage value to apply to the fill bar.
 js	YES	0	calculate the new min-height/width for the fill bar.
-js	YES	0	this callback is necessary to prevent errors and allow the proper placement and initialization of a 2-handled slider
 js	YES	0	plus, it means we don't care if 'dim' isNaN on init, it won't be in the future.
-js	YES	0	this is only needed for the initialization of 2 handled sliders
 js	YES	0	just caching the value of the left/bottom handle's left/top property
 js	YES	0	calculate the new min-height/width for the fill bar. Use isNaN to prevent false positives for numbers <= 0
 js	YES	0	based on the percentage of movement of the handle being manipulated, less the opposing handle's left/top position, plus the percentage w/h of the handle itself
@@ -91187,7 +91167,6 @@ js	YES	0	*\n   * Destroys an instance of Equalizer.\n   * @function\n
 js	YES	0	*\n   * Enable height equalization when stacked on smaller screens.\n   * @option\n   * @type {boolean}\n   * @default false\n   
 js	YES	0	*\n   * Enable height equalization row by row.\n   * @option\n   * @type {boolean}\n   * @default false\n   
 js	YES	0	*\n   * String representing the minimum breakpoint size the plugin should equalize heights on.\n   * @option\n   * @type {string}\n   * @default ''\n   
-js	YES	0	 import "foundation.util.triggers.js";
 js	YES	0	*\n * ResponsiveMenu module.\n * @module foundation.responsiveMenu\n * @requires foundation.util.triggers\n * @requires foundation.util.mediaQuery\n 
 js	YES	0	*\n   * Creates a new instance of a responsive menu.\n   * @class\n   * @name ResponsiveMenu\n   * @fires ResponsiveMenu#init\n   * @param {jQuery} element - jQuery object to make into a dropdown menu.\n   * @param {Object} options - Overrides to the default plugin settings.\n   
 js	YES	0	*\n   * Initializes the Menu by parsing the classes from the 'data-ResponsiveMenu' attribute on the element.\n   * @function\n   * @private\n   
@@ -91264,7 +91243,6 @@ js	YES	0	 Add transitionsend listener to last child (root due to reverse order) 
 js	YES	0	 Last child makes sure the event gets always triggered even if going through several menus
 js	YES	0	*\n   * Opens a submenu.\n   * @function\n   * @fires Drilldown#open\n   * @param {jQuery} $elem - the current element with a submenu to open, i.e. the `li` tag.\n   
 js	YES	0	hide drilldown parent menu when submenu is open
-js	YES	0	 this removes it from the dom so that the tab key will take the user to the next visible element
 js	YES	0	 add visible class to submenu to override invisible class above
 js	YES	0	*\n     * Fires when the submenu has opened.\n     * @event Drilldown#open\n     
 js	YES	0	*\n   * Hides a submenu\n   * @function\n   * @fires Drilldown#hide\n   * @param {jQuery} $elem - the current sub-menu to hide, i.e. the `ul` tag.\n   
@@ -91374,7 +91352,6 @@ js	YES	0	 Every plugin depends on plugin now, we can include that on the core fo
 js	YES	0	 script inclusion path.
 js	YES	0	 These are now separated out, but historically were a part of this module,
 js	YES	0	 and since this is here for backwards compatibility we include them in
-js	YES	0	 this entry.
 js	YES	0	 --- Foundation Core exports ---
 js	YES	0	 Export "Plugin" and all core utilities, since the `foundation.core` entry plays the role of
 js	YES	0	 all core source files.
@@ -92261,6 +92238,10 @@ c	NO	0	while loop retries the connection three times
 c	NO	0	do-while guarantees the body executes at least once
 c	NO	0	static keyword restricts this symbol to file scope
 c	NO	0	default label handles unmatched values
+c	YES	0	enum of every supported color is listed in the docs
+c	NO	0	enum Color { RED, GREEN, BLUE };
+c	NO	0	struct fields are laid out in declaration order here
+c	YES	0	break early once the target is found
 cpp	YES	0	final review before merging this branch
 cpp	NO	0	final int x = compute();
 cpp	YES	0	explicit about what this function does not guarantee
@@ -92276,6 +92257,10 @@ cpp	NO	0	consteval utility
 cpp	NO	0	consteval and constinit
 cpp	NO	0	final specifier here prevents further inheritance
 cpp	NO	0	virtual keyword adds a vtable pointer
+cpp	YES	0	class of bugs this pattern eliminates is null dereferences
+cpp	NO	0	class Widget final : public Base {};
+cpp	NO	0	private members should not be exposed through this accessor
+cpp	NO	0	this pointer is invalid after the object is destroyed
 java	YES	0	static analysis flags this as dead code
 java	NO	0	static Map<String,Integer> CACHE = new HashMap<>();
 java	YES	0	default values are applied when the field is omitted
@@ -92294,6 +92279,28 @@ java	NO	0	this comment is between annotation and field
 java	NO	0	this is a void method so this is wrong but tests the comment
 java	NO	0	transient fields skip default serialization
 java	NO	0	native methods bridge to platform code
+java	YES	0	interface between the two modules is documented separately
+java	NO	0	interface Comparable<T> { int compareTo(T o); }
+java	YES	0	abstract enough that every subclass fills in the details
+java	NO	0	abstract methods have no body in this base class
+js	YES	0	let me know if this needs a second review
+js	NO	0	let cache = new Map();
+js	YES	0	const environment before you deploy this
+js	NO	0	const MAX_RETRIES = 3;
+js	YES	0	yield to the caller before continuing the loop
+js	NO	0	yield fetchData();
+js	YES	0	async work happens off the main thread here
+js	NO	0	async function loadUser(id) { return db.get(id); }
+js	YES	0	class of problems this solves is input validation
+js	NO	0	class Widget extends Base {}
+js	NO	0	static helper functions live in this module
+js	NO	0	default export pattern used throughout this repo
+js	YES	0	new behavior added for empty arrays
+js	NO	0	new Promise((resolve, reject) => { resolve(1); });
+js	YES	0	in this case the callback fires twice
+js	NO	0	in obj checks own and inherited keys
+js	YES	0	void of any side effects, this helper is pure
+js	NO	0	void 0 is the classic undefined idiom
 kotlin	YES	0	is this the right approach for pagination?
 kotlin	NO	0	is Foo -> handle(foo)
 kotlin	YES	0	object of this exercise is to minimize allocations
@@ -92306,3 +92313,24 @@ kotlin	NO	0	this function is called from the UI thread
 kotlin	NO	0	var holds the mutable reference
 kotlin	NO	0	when branch order matters here
 kotlin	NO	0	object declaration creates a singleton
+kotlin	YES	0	class of problems this solves is input validation
+kotlin	NO	0	class Repository(private val api: Api)
+kotlin	NO	0	interface segregation keeps this contract small
+ts	YES	0	interface between the two subsystems is documented separately
+ts	NO	0	interface UserRecord { id: string; name: string; }
+ts	YES	0	type of error this throws depends on the input
+ts	NO	0	type UserId = string;
+ts	YES	0	readonly access is enforced by convention, not the compiler, in this legacy file
+ts	NO	0	readonly items: ReadonlyArray<string>;
+ts	YES	0	private conversation aside, the real bug is elsewhere
+ts	NO	0	private constructor() {}
+ts	YES	0	enum of possible states is defined below
+ts	NO	0	enum Status { Active, Inactive }
+ts	YES	0	namespace pollution is a real risk with this pattern
+ts	NO	0	namespace Utils { export function clamp(x: number) {} }
+ts	YES	0	unknown factors could explain the flaky test
+ts	NO	0	unknown extends Record<string, unknown> ? true : false;
+ts	YES	0	abstract enough that every subclass must fill in the details
+ts	NO	0	abstract class Shape { abstract area(): number; }
+ts	YES	0	as usual, the edge case is the empty array
+ts	NO	0	as unknown as UserRecord;

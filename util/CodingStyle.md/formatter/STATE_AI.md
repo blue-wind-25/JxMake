@@ -1634,6 +1634,18 @@ unmodified this session) — see the commit/session notes immediately following 
 run's outcome (line counts, per-language `js`/`ts` row confirmation). No training run was
 performed (`GruTrainer`/`make gru-train` not invoked), per explicit user instruction.
 
+**`make gru-acquire-corpus` run outcome:** completed cleanly (full 16-source acquisition,
+`/tmp/gru_corpus`, not kept). `convert_classifier_weights_examples.py` picked up all 6
+`examples_*.md` files this time (up from 4) and wrote **113 hand-labeled examples** (was 62) to
+`classifier_weights_examples.tsv`, appended onto the freshly regenerated
+`tools/gru/sample_default.txt` (92336 lines, incl. 3 header comment lines): 89590 YES / 3081 NO
+auto-labeled from 92671 kept comments (96259 read, 0 malformed). Per-language row counts confirm
+the new js/ts sets landed: `js`=2465, `ts`=72 (both nonzero, includes the new hand-labeled rows
+via `classifier_weights_examples.tsv`); every other language's count is close to but not
+identical to the prior run's (normal corpus-acquisition variance — repo commits move between
+runs, not a bug). Committed `tools/gru/sample_default.txt` per `RDD_KEY_217`'s named exception
+(same policy as every prior regeneration of this file). No training run performed.
+
 **Next step, if pursued:** grow `tools/classifier_weights/examples_*.md` with more
 genuinely-ambiguous hand-labeled cases (same effort that already benefits
 the linear classifier via `derive_weights.py`), then re-run this exact

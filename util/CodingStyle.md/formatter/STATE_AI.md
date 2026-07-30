@@ -1084,3 +1084,112 @@ actionable, one a separate corpus-generation bug:
    how it decides `//` starts a comment without checking string-literal
    context) — flagged here for whoever picks up either this TODO or a
    corpus-generation-quality pass.
+
+### `explicit_vocab.txt` contamination filter: DONE (2026-07-31, same session as scoping)
+
+User inspection of the checked-in `tools/gru/explicit_vocab.txt` found
+personal-name and narrow-domain-jargon tokens in the "common word" section
+(`Aloysius`, `Indrayanto`, `Red`, `LUTs`, `OLED`, `WIZnet`) that have no
+business being ranked as common English comment vocabulary. Root cause:
+`build_vocab.py`'s frequency counter (`Counter()` over every token in every
+line of whatever corpus file it's pointed at) has **no filtering at all**
+beyond the 154 explicit per-language keyword slots — it ranks purely by raw
+token-occurrence count, with no English-wordlist/stopword check and, more
+importantly, no source-diversity requirement. A token that is genuinely
+common in ordinary English comments (`value`, `buffer`, `check`) shows up
+across virtually every one of `acquire_corpus.sh`'s 16 sources, including
+the dozen-plus third-party public repos (`expressjs/express`,
+`pallets/flask`, `apache/ant`, etc.) where a private individual's name or a
+single hobby project's hardware jargon could never appear. By contrast
+`Aloysius`/`Indrayanto` (a copyright-header line repeated across this
+user's own local dogfood repos) and `OLED`/`WIZnet`/`LUTs` (concentrated in
+one or two of those same hardware-firmware repos) are *locally* frequent —
+high raw count within a narrow slice of sources — without being broadly
+common at all. Note also that `acquire_corpus.sh`'s per-source exact-
+duplicate-line dedup (added in the "`acquire_corpus.sh` secret redaction +
+earlier dedup" session above) postdates whenever the current committed
+`explicit_vocab.txt` was generated, so the committed file may additionally
+reflect counts from an earlier, undeduped extraction where a repeated
+boilerplate header line was counted once per source *file* rather than
+once per source *repo* — worth checking `git log` on `explicit_vocab.txt`
+against that dedup fix's commit date before assuming today's pipeline
+alone explains the contamination.
+
+**Scoped fix** (not yet implemented):
+
+1. **Require cross-source diversity, not just raw frequency.** Change
+   `build_vocab.py`'s counting unit from "occurrences across one combined
+   corpus file" to "number of *distinct sources* (per-source
+   `comments_<name>.txt` files, matching `acquire_corpus.sh`'s existing
+   per-source file boundaries) a word appears in at least once," with raw
+   count as a tiebreaker only. This needs `build_vocab.py`'s CLI to accept
+   either a directory of per-source files or multiple `--input` paths
+   instead of (or in addition to) today's single combined-file argument —
+   `acquire_corpus.sh` already produces exactly these per-source files
+   (`$OUT_DIR/comments_<name>.txt`), so no new extraction step is needed,
+   just a different aggregation in `build_vocab.py` itself. A reasonable
+   starting threshold: require a word to appear in at least 2-3 distinct
+   sources (tune against how many of the 16 configured sources are
+   available in a given run — some are the user's own local dogfood repos
+   which won't exist on another machine, so the threshold must not assume
+   all 16 are always present).
+2. **Independently, re-run/verify `acquire_corpus.sh`'s per-source dedup is
+   actually what today's `explicit_vocab.txt` was generated from** — if the
+   checked-in file predates that dedup fix, regenerating against the
+   current pipeline (even before item 1 lands) may already shrink the
+   contamination somewhat, and is a useful sanity check on how much of the
+   problem item 1 alone would fix vs. how much was a stale-generation
+   artifact.
+3. **Regenerate `explicit_vocab.txt` and re-derive/retrain.** Per
+   `RDD_EXT_22`, the vocab is append-only *once a weights file has been
+   trained against it* (reordering/removing lines shifts embedding-row
+   indices). Since `gru-classifier` currently defaults `off` (no trained
+   weights file is live against today's vocab — see the "`gru-classifier`
+   flipped back to default `off`" session above), this is actually a safe
+   window to regenerate `explicit_vocab.txt` from scratch (not merely
+   append) without invalidating anything currently in use. That safety
+   window closes the moment a real trained weights file is committed and
+   `gru-classifier` flips back to `on` — do this before that happens, not
+   after.
+
+**Implemented and verified same session.** `build_vocab.py` now takes a
+directory of per-source `comments_<name>.txt` files (`acquire_corpus.sh`'s
+own output shape) instead of one combined file, computes document
+frequency (number of distinct sources containing the word at least once,
+via a per-source word set) alongside the old raw count, and ranks eligible
+common words by `(doc_freq desc, raw_count desc)` — a word needs
+`--min-sources` (default 2) distinct sources to be eligible at all. Ran the
+real `acquire_corpus.sh` at full 16-source scale (5 local dogfood repos +
+11 public clones) into a scratch dir, then regenerated
+`tools/gru/explicit_vocab.txt` against it: 9684 words were eligible at
+`--min-sources=2`, comfortably filling all 3346 common-word slots (154
+keyword slots unchanged). Verified `Aloysius`/`Indrayanto`/`OLED`/`WIZnet`/
+`LUTs` are all gone from the regenerated file. `Red` survives — spot-
+checked as a genuine cross-source hit (capitalized "Red" occurring in at
+least 2 independent sources, not concentrated in the user's own repos), a
+useful sanity check that the diversity filter doesn't just remove anything
+short/capitalized.
+
+Item 2's premise (checking whether the committed file predated the
+per-source dedup fix) turned out moot — regenerating from a real, current
+`acquire_corpus.sh` run (which already includes that dedup) superseded the
+question either way.
+
+On item 3's safety-window point: confirmed `code-formatter-ai-assist-
+weights.json` is **not** at risk from reordering `explicit_vocab.txt` on
+disk regardless of `gru-classifier`'s config value — `GruWeights`
+(`src/com/jxmake/formatter/classifier/gru/GruWeights.java`) embeds its own
+`explicitVocab` string-array snapshot inside the trained JSON itself, and
+`GruClassifier`/`Vocabulary` build their runtime vocab from that embedded
+snapshot (`GruClassifier.java:95`), not by re-reading
+`tools/gru/explicit_vocab.txt` at inference time. So the on-disk vocab file
+only affects the *next* `make gru-train` run's embedding-row layout, never
+any already-trained/committed weights file — regenerating it from scratch
+was safe unconditionally, not just during today's `gru-classifier=off`
+window. `make test`: 220/220 forward + idempotency, unchanged (vocab
+contents don't affect the rule-based `CommentClassifier` path `make test`
+exercises).
+
+Not committed as part of this write-up alone — see the commit that lands
+alongside this STATE_AI.md update for `build_vocab.py`'s diff and the
+regenerated `tools/gru/explicit_vocab.txt`.

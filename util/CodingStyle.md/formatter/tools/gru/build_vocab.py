@@ -20,11 +20,25 @@ real extracted-comment corpus and keeping only the words themselves (never sente
 individual common words are not copyrightable subject matter (Feist), so this carries no
 licensing risk regardless of the source corpus's own license.
 
+Common-word ranking is by CROSS-SOURCE DOCUMENT FREQUENCY, not raw token count (scoped in
+STATE_AI.md's "TODO -- explicit_vocab.txt contamination filter" section, 2026-07-31): a word
+must appear in at least --min-sources of the per-source comments_<name>.txt files
+acquire_corpus.sh produces (ties broken by raw count) to be eligible. Raw-count-only ranking let
+words that are merely LOCALLY frequent -- concentrated in one or two sources, e.g. a copyright-
+header name repeated across one person's own local dogfood repos, or one hobby project's
+hardware jargon -- outrank words that are genuinely common across the whole corpus but happen to
+occur once per line rather than piling up in a handful of files. Requiring the word to recur
+across multiple independent sources is a much better proxy for "ordinary English comment
+vocabulary" than raw frequency alone.
+
 Usage:
-    python3 build_vocab.py <extracted-comments-path> --out <output-file> [--target-size 3500]
+    python3 build_vocab.py <dir-of-comments_NAME.txt-files> --out <output-file>
+        [--target-size 3500] [--min-sources 2] [--pattern 'comments_*.txt']
 """
 
 import argparse
+import glob
+import os
 import re
 import sys
 from collections import Counter
@@ -146,11 +160,37 @@ def tokenize(text):
     return tokens
 
 
+def words_in_source(path, seen_keywords):
+    """Returns (set of distinct eligible words in this one source file, Counter of their raw
+    counts within it) -- the set is what feeds document frequency, the Counter is the raw-count
+    tiebreaker."""
+    words_here = set()
+    raw_here    = Counter()
+    with open(path, "r", encoding="utf-8") as inp:
+        for line in inp:
+            line = line.rstrip("\n")
+            if not line: continue
+            tab = line.find("\t")
+            if tab < 0: continue
+            comment_text = unescape(line[tab + 1:])
+            for token in tokenize(comment_text):
+                if WORD_RE.match(token) and token not in seen_keywords:
+                    # Case-preserved per the finalized architecture (RDD_EXT_12 note on casing
+                    # being a real signal) -- "Return" and "return" are counted/ranked separately.
+                    words_here.add(token)
+                    raw_here[token] += 1
+    return words_here, raw_here
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("input", help="extract_comments.py-format corpus file to count word frequency over")
+    parser.add_argument("corpus_dir", help="directory of per-source comments_<name>.txt files (acquire_corpus.sh output)")
     parser.add_argument("--out", required=True)
     parser.add_argument("--target-size", type=int, default=3500)
+    parser.add_argument("--min-sources", type=int, default=2,
+                         help="minimum number of distinct source files a word must appear in to be eligible")
+    parser.add_argument("--pattern", default="comments_*.txt",
+                         help="glob pattern (within corpus_dir) selecting per-source files")
     args = parser.parse_args()
 
     explicit_words = []
@@ -162,22 +202,24 @@ def main():
                 explicit_words.append(word)
     keyword_count = len(explicit_words)
 
-    counts = Counter()
-    with open(args.input, "r", encoding="utf-8") as inp:
-        for line in inp:
-            line = line.rstrip("\n")
-            if not line: continue
-            tab = line.find("\t")
-            if tab < 0: continue
-            comment_text = unescape(line[tab + 1:])
-            for token in tokenize(comment_text):
-                if WORD_RE.match(token) and token not in seen:
-                    # Case-preserved per the finalized architecture (RDD_EXT_12 note on casing
-                    # being a real signal) -- "Return" and "return" are counted/ranked separately.
-                    counts[token] += 1
+    source_paths = sorted(glob.glob(os.path.join(args.corpus_dir, args.pattern)))
+    if not source_paths:
+        sys.exit(f"build_vocab: no files matching {args.pattern!r} in {args.corpus_dir}")
+
+    doc_freq  = Counter()
+    raw_count = Counter()
+    for path in source_paths:
+        words_here, raw_here = words_in_source(path, seen)
+        for word in words_here:
+            doc_freq[word] += 1
+        raw_count.update(raw_here)
+
+    eligible = [w for w in doc_freq if doc_freq[w] >= args.min_sources]
+    eligible.sort(key=lambda w: (-doc_freq[w], -raw_count[w], w))
 
     remaining = max(0, args.target_size - keyword_count)
-    for word, _count in counts.most_common(remaining):
+    taken     = eligible[:remaining]
+    for word in taken:
         seen.add(word)
         explicit_words.append(word)
 
@@ -189,14 +231,20 @@ def main():
         out.write("# needs to grow. Generated by tools/gru/build_vocab.py -- see that script's\n")
         out.write("# header for the copyright rationale (no corpus text is reproduced here, only\n")
         out.write("# individual common words and language keywords, neither of which is\n")
-        out.write("# copyrightable subject matter).\n")
+        out.write(f"# copyrightable subject matter). Common words ranked by cross-source document\n")
+        out.write(f"# frequency across {len(source_paths)} source(s), min {args.min_sources} source(s) required.\n")
         for word in explicit_words:
             out.write(word)
             out.write("\n")
 
-    print(f"build_vocab: {keyword_count} keyword(s) + {len(explicit_words) - keyword_count} "
-          f"frequency-derived common word(s) = {len(explicit_words)} total, written to {args.out}",
+    print(f"build_vocab: {keyword_count} keyword(s) + {len(taken)} document-frequency-ranked "
+          f"common word(s) (from {len(eligible)} eligible across {len(source_paths)} source(s), "
+          f"min {args.min_sources} source(s)) = {len(explicit_words)} total, written to {args.out}",
           file=sys.stderr)
+    if len(taken) < remaining:
+        print(f"build_vocab: WARNING -- only {len(taken)}/{remaining} common-word slots filled; "
+              f"not enough words met the --min-sources={args.min_sources} threshold. Consider "
+              f"lowering --min-sources or adding more sources.", file=sys.stderr)
 
 
 if __name__ == "__main__": main()

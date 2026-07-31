@@ -848,6 +848,25 @@ faithfully restored), final weights file had a sane confusion matrix
 (`tp=79 fp=0 tn=1 fn=0 precision=1.00000`), checkpoints cleaned up after.
 Full break/resume/cleanup cycle confirmed working end to end.
 
+**2026-08-01 follow-up: `make gru-train` auto-resume.** `--resume=<path>`
+above only worked when invoked manually — the `gru-train` Makefile target
+never passed it, so a checkpoint left by an interrupted `make gru-train` run
+sat unused; the next `make gru-train` silently started over from scratch.
+Fixed: the target now checks for `$(GRU_WEIGHTS_OUT).ckpt-current.bin`
+before invoking `GruTrainer` and, if present, adds
+`--resume=$(GRU_WEIGHTS_OUT).ckpt-current.bin` automatically (printing
+`gru-train: found ..., resuming` first); `GRU_TRAIN_ARGS` values still
+override the checkpoint's stored hyperparameters (`GruTrainer`'s
+`getOrDefault(key, resumed-value)` pattern is override-priority regardless
+of flag order). No flag change needed for a normal fresh run — absent a
+checkpoint file, behavior is unchanged. Verified end to end (user): killed
+a `make gru-train` run mid-epoch, re-ran `make gru-train`, confirmed it
+detected the checkpoint and resumed. Documented in `tools/gru/README.txt`'s
+`GruTrainer.java` section. Also folded in unrelated cosmetic print-format
+tweaks to `GruTrainer.java`'s progress/summary log lines (comma-separated
+fields, `%2d` epoch padding, quoted output path) made by the user in the
+same session.
+
 **Files changed:** `tools/gru/GruTrainer.java` only (checkpoint constants,
 binary I/O helpers, `ResumeState`/`LoadedWeights` holders, `--resume` CLI
 flag) + `.gitignore` (4 new patterns). No `src/` file touched.

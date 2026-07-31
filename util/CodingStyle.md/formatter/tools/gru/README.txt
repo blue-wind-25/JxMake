@@ -203,7 +203,20 @@ GruTrainer.java
     kill a run yourself mid-epoch to leave <weights-file>.ckpt-current.bin
     on disk.
 
-    To resume an interrupted run:
+    `make gru-train` auto-detects an interrupted run: before invoking
+    GruTrainer, it checks for `<weights-file>.ckpt-current.bin` (i.e.
+    `$(GRU_WEIGHTS_OUT).ckpt-current.bin`) and, if present, automatically
+    adds `--resume=<weights-file>.ckpt-current.bin` to the invocation
+    (printing "gru-train: found ..., resuming" first) — no flag needed on
+    your part. Values in `GRU_TRAIN_ARGS` (e.g. a raised `--epochs=`/
+    `--patience=` to extend the run) still take priority over the
+    checkpoint's stored values, same override rule as a manual --resume
+    below. If no checkpoint file exists, `make gru-train` runs a normal
+    fresh training pass exactly as before.
+
+    To resume an interrupted run manually (e.g. outside the Makefile, or to
+    resume a checkpoint at a path other than the Makefile's own
+    GRU_WEIGHTS_OUT):
 
         java -cp target/classes:<gru-tools-classes> GruTrainer <labeled-file> <weights-file> \
             --resume=<weights-file>.ckpt-current.bin [other flags...]

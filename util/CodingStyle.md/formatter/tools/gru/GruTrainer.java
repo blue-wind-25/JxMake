@@ -430,8 +430,8 @@ public final class GruTrainer {
                 double epochSeconds = ( System.nanoTime() - epochStartNanos ) / 1e9;
                 double totalSeconds = ( System.nanoTime() - trainingStartNanos ) / 1e9;
                 System.out.println( String.format(
-                        "GruTrainer: epoch %d trainLoss=%9.7f validationLoss=%9.7f"
-                                + " epochSeconds=%6.1f totalElapsedSeconds=%8.1f",
+                        "GruTrainer: epoch %2d, trainLoss=%9.7f, validationLoss=%9.7f, "
+                                + "epochSeconds=%6.1f, totalElapsedSeconds=%8.1f",
                         epoch, trainLoss, validationLoss, epochSeconds, totalSeconds) );
 
                 if(validationLoss < bestValidationLoss) {
@@ -526,7 +526,7 @@ public final class GruTrainer {
         }
 
         System.out.println( String.format(
-                "GruTrainer: wrote trained weights file to %s (vocabSize=%d, trainExamples=%d,"
+                "GruTrainer: wrote trained weights file to '%s' (vocabSize=%d, trainExamples=%d,"
                         + " validationExamples=%d, bestValidationLoss=%9.7f)",
                 actualWeightsOut, explicitVocab.size(), train.size(), validation.size(), bestValidationLoss ) );
 
@@ -578,8 +578,8 @@ public final class GruTrainer {
         double f1 = precision + recall == 0 ? 0.0 : 2 * precision * recall / (precision + recall);
 
         System.out.println( String.format(
-                "GruTrainer: validation confusion matrix (positive=YES) tp=%d fp=%d tn=%d fn=%d"
-                        + " precision=%7.5f recall=%7.5f f1=%7.5f",
+                "GruTrainer: validation confusion matrix (positive=YES): tp=%d, fp=%d, tn=%d, fn=%d,"
+                        + " precision=%7.5f, recall=%7.5f, f1=%7.5f",
                 truePositive, falsePositive, trueNegative, falseNegative, precision, recall, f1) );
     }
 
@@ -766,7 +766,7 @@ public final class GruTrainer {
             1e-8, Math.abs(numeric) + Math.abs(analytic)
         );
         System.out.println( "GruTrainer:   " + label + " analytic=" + String.format("%.6f", analytic)
-                + " numeric=" + String.format("%.6f", numeric) + " relError=" + String.format("%.6f", relError) );
+                + ", numeric=" + String.format("%.6f", numeric) + ", relError=" + String.format("%.6f", relError) );
 
         return relError;
     }
@@ -944,8 +944,8 @@ public final class GruTrainer {
         double etaSeconds          = perExampleSeconds* (totalExamples - examplesSeen);
         double totalElapsedSeconds = ( System.nanoTime() - trainingStartNanos ) / 1e9;
         System.out.println( String.format(
-                "GruTrainer: epoch %d progress %6d/%6d (%4.1f%%) avgTrainLoss=%7.5f"
-                        + " epochElapsedSeconds=%6.1f epochEtaSeconds=%6.1f totalElapsedSeconds=%8.1f",
+                "GruTrainer: epoch %2d, progress %6d/%6d (%4.1f%%), avgTrainLoss=%7.5f, "
+                        + "epochElapsedSeconds=%6.1f, epochEtaSeconds=%6.1f, totalElapsedSeconds=%8.1f",
                 epoch, examplesSeen, totalExamples, 100.0 * examplesSeen / totalExamples,
                 lossSoFar / examplesSeen, elapsedSeconds, etaSeconds, totalElapsedSeconds) );
     }

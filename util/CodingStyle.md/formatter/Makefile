@@ -178,20 +178,19 @@ gru-acquire-corpus: $(JAR_FILE)
 #
 GRU_WEIGHTS_FILENAME = code-formatter-ai-assist-weights.json
 GRU_WEIGHTS_OUT      = $(GRU_BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)
+GRU_CKPT_CURRENT     = $(GRU_WEIGHTS_OUT).ckpt-current.bin
 GRU_SAMPLE_EXAMPLES  = $(GRU_SAMPLE_DEFAULT)
 GRU_TRAIN_ARGS      ?= --threads=3 --epochs=5 --patience=3 --progress-every=1000
 #GRU_TRAIN_ARGS      = --threads=3 --epochs=9 --patience=3 --progress-every=3000
 
-GRU_CKPT_CURRENT = $(GRU_WEIGHTS_OUT).ckpt-current.bin
-
 gru-train: $(JAR_FILE)
 	@mkdir -p $(GRU_TOOLS_CLASSES)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/GruTrainer.java
-	@if [ -f $(GRU_CKPT_CURRENT) ]; then \
-		echo "gru-train: found $(GRU_CKPT_CURRENT), resuming"; \
+	@if [ -f $(GRU_CKPT_CURRENT) ]; then                                                                                                                       \
+		echo "gru-train: found $(GRU_CKPT_CURRENT), resuming";                                                                                             \
 		$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT) --resume=$(GRU_CKPT_CURRENT) $(GRU_TRAIN_ARGS); \
-	else \
-		$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT) $(GRU_TRAIN_ARGS); \
+	else                                                                                                                                                       \
+		$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT) $(GRU_TRAIN_ARGS);                              \
 	fi
 	@cp $(GRU_WEIGHTS_OUT) $(CLASS_DIR)
 	@cp $(GRU_WEIGHTS_OUT) .

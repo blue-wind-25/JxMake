@@ -1319,6 +1319,54 @@ work -- see that session below for tracking once new rows land.
 
 ---
 
+## 2026-08-01 session: root-caused and fixed the string-in-comment `extract_comments.py` bug
+
+Root-caused the corpus-generation bug flagged open twice above (2026-07-31
+sessions, "not yet root-caused to `extract_comments.py` or
+`GenerateSampleDefault.java`"): DTD/URL string-literal fragments containing
+a `//` substring (e.g. `Sun Microsystems, Inc.//DTD Enterprise JavaBeans
+1.1//EN";`) were mis-extracted as comment text.
+
+**Root cause, isolated to `extract_comments.py`'s `extract_c_style_comments`
+(`GenerateSampleDefault.java` exonerated)**: the function's single left-to-
+right scan recognizes `"//"`/`"/*"` as comment openers anywhere in the raw
+source text, with no string/char-literal awareness at all -- a `//`
+substring inside a `"..."` string literal was indistinguishable to the
+scanner from a real line-comment opener.
+
+**Fix:** added a third mutually-exclusive span type to the same single-pass
+scan -- `"`/`'`-delimited literals, consuming to the matching unescaped
+quote (or end of line, since no `C_STYLE_LANGS` language has a real string
+literal spanning a newline) -- skipped over without checking for `//`/`/*`
+inside. Backslash-escaped quotes (`\"`) are honored via a 2-char skip.
+Same non-regex single-scan structure as the existing "//"/"/* */" mutual-
+exclusion reasoning already documented in the function's own comment (a
+`//`/`/*` found while inside a string span was already consumed as literal
+text, so it can't be reinterpreted as a comment opener) -- this is that
+same principle extended to a third span kind, not a new mechanism.
+
+**Verified via a standalone smoke test** (scratch dir, not part of `make
+test` -- `extract_comments.py` has no wired-in test suite): a
+`Test.java` fixture combining the exact reported DTD-string shape, a `'/'`
+char literal, a `"https://..."` string followed by a real trailing `//`
+comment, a block comment containing a quoted `"// string"`, and an escaped-
+quote string all extracted exactly the 4 real comments with zero string-
+literal leakage. Also re-verified the function's own pre-existing edge
+case (`///*mlen = n;`, a `//` comment containing a literal `/*`) still
+resolves as one `//`-comment, unaffected by the new literal-skipping logic.
+
+**Not yet done:** `sample_default.txt` was regenerated earlier this session
+(before this fix landed) via `make gru-acquire-corpus`, so it still
+contains whatever string-literal-leakage rows this bug produced from the
+16-source corpus; re-running `make gru-acquire-corpus` now that the fix is
+in would pick up the corrected extraction. No GRU retrain has happened
+against a fix-applied corpus yet.
+
+**Files changed:** `tools/gru/extract_comments.py` only (`extract_c_style_
+comments`'s scan loop) + this file.
+
+---
+
 ## 2026-08-01 session: grew the hand-labeled hard-case set (125 → 173 rows)
 
 Direct follow-up to the "next step" decision above. `KeywordAmbiguityGate`'s

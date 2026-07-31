@@ -106,6 +106,7 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_198 | HTML5 `<ruby>` implied-end-tag support: small, extensible `XmlSpecificRule.OPAQUE_IMPLIED_END_TAG_ELEMENTS` name set (currently just `ruby`) reusing the existing `<script>`/`<style>`/`<pre>` opaque-verbatim-span pattern -- scans from the element's own opening `<` to its own MATCHING `</tag>` (nested same-name depth tracked) and captures the whole span (incl. `<rb>`/`<rt>`/`<rp>`/`<rtc>` children and the outer tags themselves) byte-for-byte verbatim as a new `NodeType.OPAQUE` node; no per-element implied-closing-trigger logic built. Fixture `test/real_code_regressions_104_{inp,out}.html`; `make test` 153/153, zero regressions. |
 | RDD_KEY_199 | HTML5 unquoted attribute value support: `XmlSpecificRule.parseAttr`'s `lang.isHtml5` branch now accepts an unquoted value per the HTML5 spec grammar (no whitespace/`"`/`'`/`=`/`<`/`>`/backtick) instead of requiring `"`/`'`; preserved unquoted on output, no forced normalization to double-quoted (consistent with the codebase's existing "preserve as written" quote-style posture elsewhere); plain XML unchanged, still requires quotes. Fixture `test/real_code_regressions_106_{inp,out}.html`; `make test` 155/155, zero regressions. Unblocked the `alexandersandberg/html5-elements-tester` dogfood run past line 718, but it now hits a distinct, unrelated blocker at line 759 (bare `<option>` tags relying on HTML5's implied-end-tag rule, not yet in `OPAQUE_IMPLIED_END_TAG_ELEMENTS`) -- see HTML5 checklist entry. |
 | RDD_KEY_200 | HTML5 `<option>` implied-closing-trigger support: new, general, reusable `XmlSpecificRule.IMPLIED_CLOSE_TRIGGERS` (`Map<String, Set<String>>`, element name -> sibling start-tag names that implicitly close it), distinct from `OPAQUE_IMPLIED_END_TAG_ELEMENTS` -- a registered element is still parsed as a REAL node (attributes/children/normal rendering), only the "when do children stop" decision changes; only `parseNodes`/`parseElement` were touched, no per-element control-flow. Registered only `option` -> `{option, optgroup}` today. `parseNodes` gained an optional trigger-set parameter that also breaks its loop on an upcoming (non-closing) start tag matching the set; `parseElement` still consumes an explicit `</tag>` when present (regression-safe), otherwise treats the element as implicitly closed with no explicit tag consumed when a trigger set is registered (covering both the sibling-trigger case and the pre-existing parent-close-via-`stopAtCloseTag` case, reused rather than reinvented) -- otherwise the pre-existing hard `XmlParseException` is unchanged. Fixture `test/real_code_regressions_108_{inp,out}.html` (explicit-close regression guard + `<datalist>`/`<optgroup>` implied-close cases). `make test` 157/157, zero regressions. This was the `alexandersandberg/html5-elements-tester` dogfood run's third and final blocker -- the full 42KB file now completes end-to-end (forward pass, round2, idempotency diff, `html_syntax_check.js` syntax-check, `html_content_diff.py` content-preservation all clean); dogfood run for this candidate is DONE. |
+| RDD_KEY_224 | HTML5 commented-out markup-fragment comments (`<!--tr>...</tr-->`, `<!--p>...</p-->`) being corrupted by `normalize-comment-start-case`; new `XmlSpecificRule.isMarkupFragmentDirective`/`MARKUP_FRAGMENT_TAG_NAMES` (see Open Questions below and `RDD_LOG.md` for full evidence and reasoning) |
 
 ---
 
@@ -610,6 +611,69 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      true, no dogfood corpus has hit this in practice). `make test`:
      161/161.
 
+- **HTML5 commented-out markup-fragment comment corruption — RESOLVED
+  (RDD_KEY_224, 2026-08-01).** Re-verifying `real_code_regressions_125`'s 4
+  "comment-capitalization-only" diffs from the `apache/ant manual/` 226-file
+  corpus (assumed benign at the time) directly with
+  `tools/verifiers/html_content_diff.sh` found 2 of the 4 were NOT benign
+  prose capitalization: `Tasks/antlr.html` and `Tasks/attrib.html` each
+  contain a commented-out HTML table row / paragraph
+  (`<!--tr> <td>fork</td>...</tr-->`, `<!--p>By default...</p-->`) where the
+  author's own `<!--`/`<` comment boundary landed mid-tag, leaving the
+  comment's content starting with a bare tag-name-open fragment (`tr>`/
+  `p>`) rather than a real English sentence; `normalize-comment-start-case`
+  was capitalizing these to `Tr>`/`P>`, corrupting the commented-out markup
+  (`attrib.html` had 2 such mismatches, `antlr.html` 1, for 3 total).
+
+  This is a different shape from both existing directive-shape precedents
+  in this file: not a single directive-shaped token (CSS's
+  `isSingleTokenDirective`, `real_code_regressions_69`) and not a
+  whole-comment single word (HTML5's own `isSingleWordDirective`, WordPress
+  magic-comment case) — the comment here is multi-word, just starting with
+  markup syntax rather than prose.
+
+  **Fix:** new `XmlSpecificRule.isMarkupFragmentDirective(text)` — true iff
+  `text`'s leading run of lowercase letters is immediately followed by `>`
+  (no interior whitespace) AND that run is a member of a new closed
+  `MARKUP_FRAGMENT_TAG_NAMES` set of real HTML5 tag names. Wired into
+  `normComment` as an additional `||` condition alongside the existing
+  `isSingleWordDirective` check. The tag-name-set restriction (rather than
+  "any lowercase word immediately followed by `>`") is deliberate — it
+  avoids a false positive on some coincidental short lowercase word that
+  happens to be followed by `>` without actually being a tag fragment.
+
+  **Evidence gathered before committing to the rule:** grepped `apache/ant
+  manual/` plus the still-extant `WordPress/wordpress-develop` and
+  `alexandersandberg/html5-elements-tester` checkouts (`web-platform-tests/wpt`
+  was not re-checked — no `<!--[a-z]+>`-shaped hits found in either
+  available corpus, and the shape is orthogonal to WPT's already-covered
+  tree-construction gaps) for `<!--[a-z]+>` and found exactly 2 `<!--tr>` +
+  1 `<!--p>` occurrences corpus-wide, matching the 3 real diffs found —
+  zero unrelated/false-positive-shaped hits in either corpus, confirming
+  the tag-name-set restriction costs nothing in practice while guarding
+  against coincidental matches.
+
+  The other 2 of the original 4 diffs (`Tasks/imageio.html`/
+  `Tasks/image.html`, both flagging the identical string `attributes
+  inherited from MatchingTask` -> `Attributes inherited from
+  MatchingTask`) were checked separately: `grep`ing the corpus found this
+  exact sentence reused verbatim in both files, sitting between a closing
+  and opening `<tr>` as a section-boundary doc-authoring annotation (both
+  tasks share `MatchingTask`'s inherited attributes) — no unclosed/
+  fragment tag anywhere in it, a genuine (if coincidentally
+  lowercase-starting) English-prose comment. It correctly falls through
+  `isMarkupFragmentDirective` (no `>` immediately after its first word) and
+  stays subject to ordinary capitalization — confirmed as an accepted,
+  unrelated non-bug, not a second instance of this fix's target shape.
+
+  New fixture `test/real_code_regressions_175_{inp,out}.html` (both
+  `tr>`/`p>` shapes in one file, plus a real `<p>` and a real `<tr>` as
+  regression guards proving ordinary content is unaffected). `make test`:
+  223/223 -> 224/224 forward + idempotency, zero regressions.
+  `apache/ant manual/` 226-file corpus re-run: 226/226 forward +
+  idempotency + `html_syntax_check.sh`; content-diff mismatches down from
+  4 to 3 (see Real-Code Testing Results below for the per-file breakdown).
+
 ## Checklist
 
 All six sub-formats DONE, real logic, `make test` green. Per-format
@@ -890,4 +954,14 @@ per-repo dogfood bugs):
         skipped `appendWithTrailing` (RDD_KEY_205). `real_code_regressions_125`.
         Final re-run: 221/226 clean, 4 comment-capitalization-only, 1
         genuine unfixed gap (`running.html` — see Open Questions item 2
-        above).
+        above). **2026-08-01 re-verification (RDD_KEY_224):** direct
+        re-check of the 4 "comment-capitalization-only" diffs found 2 of
+        them (`Tasks/antlr.html`, `Tasks/attrib.html`) were actually
+        commented-out markup fragments (`<!--tr>.../tr-->`,
+        `<!--p>.../p-->`) being corrupted, not benign prose — fixed, see
+        Open Questions below. Re-run after the fix: 226/226 forward +
+        idempotency + `html_syntax_check.sh`; content-diff mismatches down
+        from 4 to 3 (`antlr.html`/`attrib.html` now clean; `imageio.html`/
+        `image.html`'s `attributes inherited from MatchingTask` confirmed a
+        genuine, unrelated doc-authoring convention, not this bug;
+        `running.html`'s RDD_KEY_223 residual gap unchanged).

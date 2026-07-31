@@ -148,6 +148,30 @@ public final class XmlSpecificRule {
             java.util.Arrays.asList("ruby") );
 
     /**
+     * Real HTML5 tag names, used only by {@link #isMarkupFragmentDirective} to recognize a comment
+     *  whose content is a leftover markup fragment (e.g. a commented-out {@code <tr>...</tr>} or
+     *  {@code <p>...</p>} block where the author's {@code <!--}/{@code <} boundary landed mid-tag,
+     *  leaving the fragment's first "word" a bare tag-name-open token like {@code tr>}/{@code p>}
+     *  rather than a capitalizable English sentence). Deliberately a closed set of real tag names
+     *  (not "any lowercase word immediately followed by {@code >}") -- see that method's Javadoc for
+     *  the corpus evidence this restriction is based on.
+     */
+    private static final java.util.Set<String> MARKUP_FRAGMENT_TAG_NAMES = new java.util.HashSet<>(
+        java.util.Arrays.asList(
+            "html", "head", "body", "div", "span", "p", "a", "ul", "ol", "li", "dl", "dt", "dd",
+            "table", "thead", "tbody", "tfoot", "tr", "td", "th", "caption", "colgroup", "col",
+            "form", "input", "button", "select", "option", "optgroup", "label", "textarea",
+            "fieldset", "legend", "img", "br", "hr", "script", "style", "link", "meta", "title",
+            "base", "h1", "h2", "h3", "h4", "h5", "h6", "pre", "code", "blockquote", "section",
+            "article", "header", "footer", "nav", "main", "aside", "figure", "figcaption", "em",
+            "strong", "b", "i", "u", "small", "sub", "sup", "q", "kbd", "var", "samp", "cite",
+            "abbr", "dfn", "time", "mark", "ruby", "rt", "rp", "rb", "rtc", "template", "dialog",
+            "details", "summary", "canvas", "svg", "iframe", "embed", "object", "param", "video",
+            "audio", "source", "track", "map", "area"
+        )
+    );
+
+    /**
      * General, reusable "implied-closing trigger" table: an element name registered here is parsed
      *  as a REAL node (attributes/children/normal rendering, unlike {@link #OPAQUE_IMPLIED_END_TAG_ELEMENTS}'
      *  whole-span opaque capture) whose children stop -- implying an unwritten closing tag -- as soon
@@ -918,6 +942,8 @@ public final class XmlSpecificRule {
             text.charAt(i)
         ) || isSingleWordDirective(
             text
+        ) || isMarkupFragmentDirective(
+            text.substring(i)
         ) ) return text;
 
         return text.substring(
@@ -948,6 +974,38 @@ public final class XmlSpecificRule {
         }
 
         return true;
+    }
+
+    /**
+     * True iff {@code text}'s leading run of lowercase letters is immediately followed by
+     *  {@code >} (no interior whitespace) and that run matches a real HTML tag name in
+     *  {@link #MARKUP_FRAGMENT_TAG_NAMES} -- e.g. {@code tr>}/{@code p>} from a commented-out
+     *  {@code <!-- <tr>...</tr> -->}/{@code <!-- <p>...</p> -->} fragment where the author's own
+     *  {@code <!--}/{@code <} boundary landed mid-tag, leaving the fragment's first "word" a bare
+     *  tag-name-open token rather than a capitalizable English sentence -- capitalizing it (e.g. to
+     *  {@code Tr>}) corrupts commented-out markup, confirmed via real {@code apache/ant} `manual/`
+     *  dogfood input ({@code Tasks/antlr.html}/{@code Tasks/attrib.html}). Deliberately restricted
+     *  to a closed set of real tag names, not "any lowercase word immediately followed by
+     *  {@code >}" -- a corpus grep for {@code <!--[a-z]+>} across {@code apache/ant manual/},
+     *  {@code WordPress/wordpress-develop}, and
+     *  {@code alexandersandberg/html5-elements-tester} found exactly this shape twice
+     *  ({@code <!--tr>}) plus once ({@code <!--p>}), and zero unrelated hits -- so the tag-name
+     *  restriction costs nothing in practice while guarding against a coincidental short lowercase
+     *  word immediately followed by {@code >} that isn't actually a tag fragment. A same-corpus
+     *  lowercase-starting comment that is NOT a markup fragment ({@code attributes inherited from
+     *  MatchingTask}, {@code apache/ant manual/Tasks/imageio.html}/{@code image.html}) correctly
+     *  falls through this check (no {@code >} immediately after its first word) and stays subject to
+     *  ordinary capitalization -- confirmed a genuine, unrelated doc-authoring convention (identical
+     *  string reused verbatim across the two files, not markup-adjacent) rather than another
+     *  instance of this bug.
+     */
+    private static boolean isMarkupFragmentDirective(final String text)
+    {
+        int i = 0;
+        while( i < text.length() && Character.isLowerCase( text.charAt(i) ) ) i++;
+        if( i == 0 || i >= text.length() || text.charAt(i) != '>' ) return false;
+
+        return MARKUP_FRAGMENT_TAG_NAMES.contains( text.substring(0, i) );
     }
 
     // ---- rendering ----

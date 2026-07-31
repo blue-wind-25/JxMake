@@ -2984,6 +2984,22 @@ Real-code regressions:
                                                its enclosing `<div>`'s own closing tag is reached)
                                                still works unchanged after `openTagStack` was added.
 
+  real_code_regressions_175_inp/out.html    -- HTML5, `apache/ant` `manual/` dogfood (Tasks/antlr.html,
+                                               Tasks/attrib.html): commented-out markup fragments
+                                               (`<!--tr>...</tr-->`, `<!--p>...</p-->`) starting with a
+                                               lowercase tag-name-like token immediately followed by `>`
+                                               were being corrupted by `normalize-comment-start-case`
+                                               capitalizing to `Tr>`/`P>`. `XmlSpecificRule`'s new
+                                               `isMarkupFragmentDirective` skips capitalization when a
+                                               comment's leading lowercase-letter run, followed
+                                               immediately by `>`, matches a real HTML tag name in the
+                                               new `MARKUP_FRAGMENT_TAG_NAMES` set -- distinct from and
+                                               narrower than `isSingleWordDirective`'s "whole comment is
+                                               one word" case. A genuinely unrelated lowercase-starting
+                                               prose comment (`attributes inherited from MatchingTask`,
+                                               same corpus) correctly falls through and stays subject to
+                                               ordinary capitalization.
+
 How Tests Are Run
 -----------------
 

@@ -55,6 +55,13 @@ import com.jxmake.formatter.classifier.gru.Vocabulary;
  *  split's cross-entropy loss (patience-based: stop once validation loss hasn't improved for
  *  {@code --patience} epochs, default 5).
  *
+ *  <p><b>Learning-rate schedule (opt-in, default off):</b> {@code --warmup-steps=N} (default 0)
+ *  ramps the LR linearly from 0 up to {@code --lr} over the first N Adam steps, then follows a
+ *  cosine decay down to {@code --lr-min} (default 0.0) over the remaining steps up to the decay
+ *  horizon ({@code stepsPerEpoch * --epochs}). {@code --warmup-steps=0} (the default) disables the
+ *  schedule entirely -- {@code --lr} is used flat throughout, exactly as before this feature
+ *  existed. See {@link #computeScheduledLr}.
+ *
  *  <p>Prints a start-of-run summary line, a mid-epoch progress line every {@code --progress-every}
  *  training examples (default 1000, 0 disables -- added 2026-07-29 once a large, 90k+-example
  *  auto-labeled corpus made a once-per-epoch-only log impractical to watch live), and a per-epoch
@@ -125,12 +132,13 @@ public final class GruTrainer {
     // (see the end of main) -- they are a resume/recovery safety net, never a persistent artifact,
     // same posture as every other real per-run output this job never commits (RDD_EXT_19-style).
     private static final int    CHECKPOINT_MAGIC           = 0x47525543; // "GRUC"
-    // Bumped 1 -> 2 when mini-batch training added a new persisted scalar (batchSize) to the
+    // Bumped 1 -> 2 when mini-batch training added a new persisted scalar (batchSize), then 2 -> 3
+    // when the LR warmup+cosine-decay schedule added two more (warmupSteps, lrMin) to the
     // current-weights checkpoint's run-state block -- see writeCurrentCheckpoint/loadCurrentCheckpoint.
-    // A version-1 checkpoint left over from before this change is simply rejected by the version
-    // check below rather than silently misread; checkpoints are an ephemeral resume/recovery safety
-    // net (never committed, deleted on normal completion), so this is a safe, low-cost break.
-    private static final int    CHECKPOINT_FORMAT_VERSION  = 2;
+    // A checkpoint from an older format version is simply rejected by the version check below rather
+    // than silently misread; checkpoints are an ephemeral resume/recovery safety net (never
+    // committed, deleted on normal completion), so this is a safe, low-cost break.
+    private static final int    CHECKPOINT_FORMAT_VERSION  = 3;
     private static final String CHECKPOINT_CURRENT_SUFFIX  = ".ckpt-current.bin";
     private static final String CHECKPOINT_BEST_SUFFIX     = ".ckpt-best.bin";
 
@@ -263,6 +271,35 @@ public final class GruTrainer {
             System.exit(2);
             return;
         }
+        // --warmup-steps=N (default 0, resumable like --batch-size): learning-rate warmup + cosine
+        // decay, opt-in via this one flag -- 0 (default) means the schedule is disabled entirely and
+        // learningRate is used flat throughout, exactly matching pre-schedule behavior (backward
+        // compatible). N > 0 ramps the LR linearly from 0 up to --lr over the first N Adam steps
+        // (step-granular, not epoch-granular, since training became per-batch-step in the mini-batch
+        // session -- warming up per-step is smoother than per-epoch under mini-batching), then follows
+        // a cosine decay from --lr down to --lr-min over the remaining steps up to the decay horizon
+        // (stepsPerEpoch * --epochs -- reuses --epochs as the horizon rather than inventing a third
+        // duration concept alongside epochs/patience; early stopping via --patience simply cuts the
+        // schedule off early, same as it already does for maxEpochs itself). See
+        // computeScheduledLr/the epoch-loop call site below.
+        int warmupSteps = Integer.parseInt( hyperparameters.getOrDefault(
+            "warmup-steps", resumed != null ? String.valueOf(resumed.warmupSteps) : "0"
+        ) );
+        if(warmupSteps < 0) {
+            System.err.println("GruTrainer: --warmup-steps must be >= 0, got " + warmupSteps);
+            System.exit(2);
+            return;
+        }
+        // --lr-min=N (default 0.0, resumable): the cosine decay's floor. Only meaningful when
+        // --warmup-steps > 0; ignored (schedule disabled) otherwise.
+        double lrMin = Double.parseDouble( hyperparameters.getOrDefault(
+            "lr-min", resumed != null ? String.valueOf(resumed.lrMin) : "0.0"
+        ) );
+        if(lrMin < 0) {
+            System.err.println("GruTrainer: --lr-min must be >= 0, got " + lrMin);
+            System.exit(2);
+            return;
+        }
         // --check-gradients=N (absent by default): diagnostic-only mode, does not train. Picks one
         // random example and N random entries from a representative sample of the weight arrays,
         // compares GruClassifier.backward()'s analytic gradient for each against a numeric
@@ -343,11 +380,20 @@ public final class GruTrainer {
         List<Example> train           = examples.subList( validationCount, examples.size() );
         if( train.isEmpty() ) train = examples;
 
+        // Decay horizon (total scheduled steps): stepsPerEpoch * maxEpochs, reusing --epochs rather
+        // than a separate duration flag (see the --warmup-steps javadoc above). Computed here since
+        // it needs train.size() (fixed at this point) and batchSize; recomputes identically on resume
+        // from the same (resumable) train.size()/batchSize/maxEpochs, so it needs no persisted state
+        // of its own.
+        int stepsPerEpoch      = (train.size() + batchSize - 1) / batchSize;
+        int totalScheduleSteps = stepsPerEpoch * maxEpochs;
+
         System.out.println( String.format(
                 "GruTrainer: starting -- vocabSize=%d, trainExamples=%d, validationExamples=%d,"
-                        + " maxEpochs=%d, patience=%d, lr=%9.7f, batchSize=%d, threads=%d",
+                        + " maxEpochs=%d, patience=%d, lr=%9.7f, batchSize=%d, threads=%d,"
+                        + " warmupSteps=%d, lrMin=%9.7f",
                 explicitVocab.size(), train.size(), validation.size(), maxEpochs, patience,
-                learningRate, batchSize, threads ) );
+                learningRate, batchSize, threads, warmupSteps, lrMin ) );
 
         AdamState adam               = resumed != null ? resumed.adam : new AdamState(weights);
         double    bestValidationLoss = resumed != null ? resumed.bestValidationLoss : Double.POSITIVE_INFINITY;
@@ -409,6 +455,9 @@ public final class GruTrainer {
                 long   epochStartNanos = System.nanoTime();
                 int    examplesSeen    = 0;
                 int    i               = 0;
+                // Last scheduled LR actually applied this epoch (stays == learningRate flat when
+                // warmupSteps == 0, i.e. schedule disabled) -- reported on the epoch summary line.
+                double lrThisEpoch     = learningRate;
                 while( i < train.size() ) {
                     // batchSize controls averaging granularity (one Adam step per this many
                     // examples); threads (passed to computeBatch's executor) controls how many of
@@ -424,7 +473,10 @@ public final class GruTrainer {
                     GruClassifier.Gradients averaged = averageGradients(computed);
                     if(averaged != null) {
                         ++step;
-                        adam.apply(weights, averaged, learningRate, step);
+                        lrThisEpoch = computeScheduledLr(
+                            learningRate, lrMin, step, warmupSteps, totalScheduleSteps
+                        );
+                        adam.apply(weights, averaged, lrThisEpoch, step);
                     }
                     for( ComputedGradient result : computed ) {
                         ++examplesSeen;
@@ -463,9 +515,9 @@ public final class GruTrainer {
                 double epochSeconds = ( System.nanoTime() - epochStartNanos ) / 1e9;
                 double totalSeconds = ( System.nanoTime() - trainingStartNanos ) / 1e9;
                 System.out.println( String.format(
-                        "GruTrainer: epoch %2d, trainLoss=%9.7f, validationLoss=%9.7f, "
+                        "GruTrainer: epoch %2d, trainLoss=%9.7f, validationLoss=%9.7f, lr=%9.7f, "
                                 + "epochSeconds=%6.1f, totalElapsedSeconds=%8.1f",
-                        epoch, trainLoss, validationLoss, epochSeconds, totalSeconds) );
+                        epoch, trainLoss, validationLoss, lrThisEpoch, epochSeconds, totalSeconds) );
 
                 if(validationLoss < bestValidationLoss) {
                     bestValidationLoss     = validationLoss;
@@ -494,7 +546,7 @@ public final class GruTrainer {
                         writeCurrentCheckpointQuietly(
                             currentCheckpointFile, weights, explicitVocab, adam, epoch,
                             epochsSinceImprovement, bestValidationLoss, learningRate, maxEpochs,
-                            patience, seed, step, batchSize
+                            patience, seed, step, batchSize, warmupSteps, lrMin
                         );
                         break;
                     }
@@ -504,7 +556,8 @@ public final class GruTrainer {
                 // resumable state -- see writeCurrentCheckpoint's javadoc for the exact binary layout.
                 writeCurrentCheckpointQuietly(
                     currentCheckpointFile, weights, explicitVocab, adam, epoch, epochsSinceImprovement,
-                    bestValidationLoss, learningRate, maxEpochs, patience, seed, step, batchSize
+                    bestValidationLoss, learningRate, maxEpochs, patience, seed, step, batchSize,
+                    warmupSteps, lrMin
                 );
             } // for epoch
         }
@@ -1038,6 +1091,30 @@ public final class GruTrainer {
         scale(g.denseB, factor);
         scale(g.outW, factor);
         scale(g.outB, factor);
+    }
+
+    /**
+     * Learning-rate warmup + cosine decay schedule (see {@code --warmup-steps}/{@code --lr-min} in
+     *  {@link #main}). {@code warmupSteps <= 0} disables the schedule entirely -- returns {@code
+     *  baseLr} unconditionally, byte-for-byte the pre-schedule flat-lr behavior, so an unmodified
+     *  invocation (default {@code --warmup-steps=0}) is unaffected. Otherwise: linear ramp from 0 to
+     *  {@code baseLr} over {@code [1, warmupSteps]}, then a cosine decay from {@code baseLr} down to
+     *  {@code lrMin} over the remaining steps up to {@code totalSteps} (clamped to {@code lrMin} past
+     *  {@code totalSteps}, e.g. if early stopping never reaches it). {@code step} is the 1-based Adam
+     *  step counter (same counter used for bias-correction), so this is step-granular, matching
+     *  mini-batch training's one-Adam-step-per-batch granularity rather than per-epoch.
+     */
+    private static double computeScheduledLr(
+        double baseLr, double lrMin, int step, int warmupSteps, int totalSteps
+    )
+    {
+        if(warmupSteps <= 0) return baseLr;
+        if(step <= warmupSteps) return baseLr * step / (double) warmupSteps;
+
+        int    decaySteps = Math.max( 1, totalSteps - warmupSteps );
+        double progress    = Math.min( 1.0, (step - warmupSteps) / (double) decaySteps );
+
+        return lrMin + 0.5 * (baseLr - lrMin) * ( 1 + Math.cos(Math.PI * progress) );
     }
 
     /**
@@ -1907,7 +1984,9 @@ public final class GruTrainer {
         int        patience,
         long       seed,
         int        step,
-        int        batchSize
+        int        batchSize,
+        int        warmupSteps,
+        double     lrMin
     ) throws IOException
     {
         File tmp = new File( file.getPath() + ".tmp" );
@@ -1925,6 +2004,8 @@ public final class GruTrainer {
             out.writeLong(seed);
             out.writeInt(step);
             out.writeInt(batchSize);
+            out.writeInt(warmupSteps);
+            out.writeDouble(lrMin);
             writeAdamState(out, adam);
         }
         fsyncFile(tmp);
@@ -1949,13 +2030,15 @@ public final class GruTrainer {
         int        patience,
         long       seed,
         int        step,
-        int        batchSize
+        int        batchSize,
+        int        warmupSteps,
+        double     lrMin
     )
     {
         try {
             writeCurrentCheckpoint(
                 file, weights, explicitVocab, adam, epoch, epochsSinceImprovement, bestValidationLoss,
-                learningRate, maxEpochs, patience, seed, step, batchSize
+                learningRate, maxEpochs, patience, seed, step, batchSize, warmupSteps, lrMin
             );
         }
         catch(IOException e) {
@@ -1983,6 +2066,8 @@ public final class GruTrainer {
         final long         seed;
         final int          step;
         final int          batchSize;
+        final int          warmupSteps;
+        final double       lrMin;
 
         ResumeState(
             List<String> explicitVocab,
@@ -1996,7 +2081,9 @@ public final class GruTrainer {
             int          patience,
             long         seed,
             int          step,
-            int          batchSize
+            int          batchSize,
+            int          warmupSteps,
+            double       lrMin
         )
         {
             this.explicitVocab          = explicitVocab;
@@ -2011,6 +2098,8 @@ public final class GruTrainer {
             this.seed                   = seed;
             this.step                   = step;
             this.batchSize              = batchSize;
+            this.warmupSteps            = warmupSteps;
+            this.lrMin                  = lrMin;
         }
 
     } // class ResumeState
@@ -2041,11 +2130,14 @@ public final class GruTrainer {
             long          seed                    = in.readLong();
             int           step                    = in.readInt();
             int           batchSize               = in.readInt();
+            int           warmupSteps             = in.readInt();
+            double        lrMin                   = in.readDouble();
             AdamState     adam                    = readAdamStateInto(in, loaded.weights);
 
             return new ResumeState(
                 loaded.explicitVocab, loaded.weights, adam, epoch, epochsSinceImprovement,
-                bestValidationLoss, learningRate, maxEpochs, patience, seed, step, batchSize
+                bestValidationLoss, learningRate, maxEpochs, patience, seed, step, batchSize,
+                warmupSteps, lrMin
             );
         }
     }

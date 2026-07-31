@@ -1151,3 +1151,116 @@ automatic abstain-threshold tuning. Per the 2026-07-31 "50%" session's own
 finding #5, none of these (nor mini-batching itself) were expected to
 move the GRU's hard-case precision -- this was a numerics/perf change
 only, no correctness/accuracy claim, matching the task's own framing.
+
+---
+
+## 2026-08-01 session: `GruTrainer` learning-rate warmup + cosine decay (user-commissioned, item 41)
+
+Implements the "Learning-rate warmup + cosine decay" item deferred in the
+2026-07-30 "OPEN -- GruTrainer follow-ups" section, per explicit user
+sign-off. New CLI flags `--warmup-steps=N` (default 0) and `--lr-min=N`
+(default 0.0), both resumable hyperparameters following the exact
+`--batch-size` precedent (override-if-CLI-specified-else-checkpoint-value).
+
+**Step-granularity, not epoch-granularity:** training already takes one
+Adam step per mini-batch (the 2026-08-01 mini-batch session above), so
+warmup/decay is driven by the same 1-based Adam `step` counter used for
+bias-correction, not by epoch number -- smoother and more correct under
+mini-batching than an epoch-granular ramp would be, per the task's own
+reasoning.
+
+**Decay horizon:** reuses `--epochs` (`stepsPerEpoch * maxEpochs`, where
+`stepsPerEpoch = ceil(trainExamples / batchSize)`) rather than introducing
+a third duration concept alongside epochs/patience. Not persisted
+separately in the checkpoint -- it recomputes identically on resume from
+the already-resumable `maxEpochs`/`batchSize`/`trainExamples` (the last is
+deterministic from the examples file + resumed seed). Consequence
+(expected, documented in README.txt): overriding `--epochs` on a
+`--resume` shifts the decay horizon accordingly, the same way raising
+`--epochs` already extends a resumed run today -- not a new class of
+behavior.
+
+**Gating (one flag disables the whole schedule):** `computeScheduledLr`
+returns `baseLr` unconditionally whenever `warmupSteps <= 0` -- the
+default -- so an unmodified invocation is byte-for-byte the pre-existing
+flat-lr behavior. `--lr-min` only has any effect once `--warmup-steps > 0`.
+Formula for step `s` in `(warmupSteps, totalSteps]`:
+`lr = lrMin + 0.5*(baseLr-lrMin)*(1+cos(pi*progress))`,
+`progress = clamp((s-warmupSteps)/(totalSteps-warmupSteps), 0, 1)` -- the
+clamp means a schedule that never reaches `totalSteps` (e.g. early
+stopping) simply gets cut off mid-curve, same posture as `maxEpochs`
+itself being an upper bound today.
+
+**Resumability:** `warmupSteps`/`lrMin` added to the current-weights
+checkpoint's run-state block (`ResumeState`, `writeCurrentCheckpoint`/
+`loadCurrentCheckpoint`), same two call sites as every other scalar there.
+This is a binary-format change, so `CHECKPOINT_FORMAT_VERSION` bumped
+2 -> 3 (same low-cost-break precedent as the 2->1 bump for `batchSize` --
+checkpoints are an ephemeral, never-committed resume/recovery safety net).
+
+**Observability:** the epoch-summary print line gained an `lr=%9.7f` field
+(the last-applied LR that epoch), matching neighboring fields' formatting
+convention -- lets the schedule's actual shape be read directly off the
+log, not just trusted from the formula. The start-of-run summary line
+gained `warmupSteps=%d, lrMin=%9.7f`.
+
+**Validation performed** (all against `/tmp` copies of `GruTrainer.java` +
+`tools/gru/sample_examples.txt` + `tools/gru/explicit_vocab.txt`, compiled
+with `javac -encoding UTF-8 -source 8 -target 8` against the real,
+read-only `target/classes` on the classpath -- never touched the live
+`make gru-train` process, its checkpoints, or `target/`):
+
+1. **Compile:** clean, zero errors/warnings.
+2. **`--check-gradients=5`** against `sample_examples.txt`:
+   `maxRelativeError=0.000001 (PASS)` -- confirms `GruClassifier.backward`
+   is untouched (gradient-check mode has no Adam/LR involvement at all,
+   per the task's own framing, and was left structurally alone).
+3. **Backward-compat run** (default flags, no `--warmup-steps`): LR stayed
+   exactly flat at `0.0010000` across all 5 epochs of a tiny training run
+   -- confirms the opt-in default is truly a no-op.
+4. **Schedule-enabled run** (`--lr=0.01 --warmup-steps=3 --lr-min=0.0001
+   --batch-size=2 --epochs=10`, 12 train examples -> `stepsPerEpoch=6`,
+   `totalSteps=60`): observed per-epoch LR (last step of each epoch)
+   matched hand-computed values from the formula almost exactly at every
+   checked point -- step 3 (end of warmup) hits `baseLr` exactly; step 6
+   (end of epoch 1) hand-calc `0.009933` vs. printed `0.0099325`; step 12
+   (end of epoch 2) hand-calc `0.009403` vs. printed `0.0094034`; step 60
+   (end of epoch 10, `totalSteps`) hand-calc exactly `lrMin=0.0001` vs.
+   printed `0.0001000`. Confirms ramp-up, mid-decay, and floor-at-horizon
+   all match the intended shape, not just "compiles."
+5. **Kill/resume smoke test** (`--epochs=200 --patience=200
+   --batch-size=3 --lr=0.02 --warmup-steps=5 --lr-min=0.001 --seed=7`,
+   `kill -9` ~3s in, mid-epoch-6): both checkpoint files survived, resume
+   printed correct recovered state
+   (`epoch=5, epochsSinceImprovement=4, bestValidationLoss=0.9171171`), and
+   critically the resumed run's LR continued the decay curve smoothly from
+   where it left off (post-warmup, `lr=0.0122256` at the first
+   post-resume epoch, monotonically decreasing every epoch after) rather
+   than jumping back to 0 and restarting warmup -- confirms the
+   resumable-hyperparameter wiring works end-to-end for the schedule, not
+   just that the fields round-trip in isolation. Checkpoints cleaned up
+   after the resumed run completed normally.
+
+**Isolation confirmed, `make test` not run:** change confined entirely to
+`tools/gru/GruTrainer.java` (+ this state-file entry + `README.txt`) --
+same scoping precedent as the two most recent `GruTrainer` sessions above.
+No `src/` file touched; `GruTrainer.java` is a non-shipped tool outside
+`make test`'s fixture suite.
+
+**Files changed:** `tools/gru/GruTrainer.java` only (new `--warmup-steps`/
+`--lr-min` CLI flags/hyperparameters, `computeScheduledLr` helper, epoch-
+loop wiring, checkpoint format version bump + two new persisted scalars in
+`ResumeState`/checkpoint I/O, updated class javadoc, epoch-summary/
+start-of-run print lines) + `tools/gru/README.txt` (documented
+`--warmup-steps`/`--lr-min`, updated the checkpointing section's field
+list) + this file. `Makefile`'s `GRU_TRAIN_ARGS` deliberately left
+untouched -- it doesn't set `--warmup-steps`, so the schedule stays off by
+default there too, and the file had unrelated pre-existing local changes
+outside this session's scope.
+
+**Not attempted this session** (still open from the original
+GruTrainer-follow-ups list): dropout before the dense layer, automatic
+abstain-threshold tuning. Per the 2026-07-31 "50%" session's own finding
+#5, an LR schedule (like mini-batching before it) is not expected to move
+the GRU's hard-case precision on its own -- this was a numerics/
+observability change only, no accuracy claim.

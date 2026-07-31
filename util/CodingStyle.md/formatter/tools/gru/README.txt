@@ -160,7 +160,8 @@ GruTrainer.java
     or invoked directly once compiled:
 
         java -cp target/classes:<gru-tools-classes> GruTrainer <labeled-file> <weights-file> \
-            [--epochs=N] [--patience=N] [--vocab=<path>] [--seed=N] [--threads=N] [--batch-size=N]
+            [--epochs=N] [--patience=N] [--vocab=<path>] [--seed=N] [--threads=N] [--batch-size=N] \
+            [--warmup-steps=N] [--lr-min=N]
 
     --batch-size=N (default 16, must be >= 1) is the mini-batch size:
     gradients from N examples are averaged (never summed -- averaging keeps
@@ -194,11 +195,48 @@ GruTrainer.java
     value that leaves some cores free if you want to keep using the machine
     for other things while training runs.
 
+    --warmup-steps=N (default 0, must be >= 0) and --lr-min=N (default 0.0,
+    must be >= 0) opt into a learning-rate warmup + cosine decay schedule --
+    OFF BY DEFAULT, backward compatible: --warmup-steps=0 (the default)
+    disables the schedule entirely and --lr is used flat throughout
+    training, byte-for-byte the same behavior as before this feature
+    existed. Passing --warmup-steps=N > 0 enables both phases together (one
+    flag gates the whole schedule, --lr-min is only meaningful once
+    warmup is on):
+
+      - Warmup: LR ramps linearly from 0 up to --lr over the first N Adam
+        steps (step-granular, not epoch-granular -- training already takes
+        one Adam step per mini-batch since --batch-size landed, so warming
+        up per-step is the smoother, more correct match for that
+        granularity than per-epoch would be).
+      - Cosine decay: once warmup completes, LR follows a cosine curve
+        from --lr down to --lr-min over the remaining steps up to the
+        decay horizon, defined as stepsPerEpoch * --epochs (reusing
+        --epochs as the schedule's duration rather than inventing a third,
+        separate duration concept alongside epochs/patience). Early
+        stopping via --patience simply cuts the schedule off early if it
+        fires before the horizon is reached -- same as it already does to
+        --epochs itself; not a bug.
+
+    Like --batch-size, both --warmup-steps and --lr-min are resumable
+    hyperparameters (override-if-CLI-specified-else-checkpoint-value) --
+    see the checkpointing section below. Since the decay horizon is
+    derived from --epochs/--batch-size/trainExamples rather than stored
+    separately, overriding --epochs on a --resume changes the decay
+    horizon accordingly, the same way it already changes when maxEpochs
+    itself is raised to extend a run.
+
+    The current epoch's last-applied LR is reported on the per-epoch
+    summary line (see below) so the schedule's actual shape is directly
+    observable during a run, not just trusted from the formula.
+
     Checkpointing / --resume=<path> (2026-07-31, batch-size persistence
-    added 2026-08-01): every epoch, GruTrainer writes a binary checkpoint
+    added 2026-08-01, warmup-steps/lr-min persistence added 2026-08-01):
+    every epoch, GruTrainer writes a binary checkpoint
     next to <weights-file> -- <weights-file>.ckpt-current.bin (full
     resumable state: weights, Adam moment arrays, vocab, epoch/patience
-    counters, hyperparameters incl. --batch-size, seed) and, only when
+    counters, hyperparameters incl. --batch-size/--warmup-steps/--lr-min,
+    seed) and, only when
     validation loss improves that epoch,
     <weights-file>.ckpt-best.bin (weights + vocab only). These are binary
     (DataOutputStream, not JSON) purely for per-epoch write speed on a

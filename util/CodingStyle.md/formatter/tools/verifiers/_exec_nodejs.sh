@@ -23,7 +23,7 @@ if [ -n "$REQUIRE_MODULES" ]; then
             echo "Required npm package '$m' is not installed." >&2
             echo >&2
             echo "Install it with:" >&2
-            echo "    LD_LIBRARY_PATH=\"$LD_LIBRARY_PATH\" \"$NPM\" install --prefix \"$HOME/mynpm\" \"$m\"" >&2
+            echo "    LD_LIBRARY_PATH=\"$LD_LIBRARY_PATH\" \"$NPM\" install --prefix \"$MYNPM_HOME\" \"$m\"" >&2
             exit 1
         fi
     done

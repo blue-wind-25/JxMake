@@ -196,9 +196,10 @@ public final class GruTrainer {
                 System.exit(2);
                 return;
             }
-            System.out.println( "GruTrainer: resuming from " + resumePath + " (epoch=" + resumed.epoch
-                    + ", epochsSinceImprovement=" + resumed.epochsSinceImprovement
-                    + ", bestValidationLoss=" + resumed.bestValidationLoss + ")" );
+            System.out.println( String.format(
+                    "GruTrainer: resuming from '%s' (epoch=%2d, epochsSinceImprovement=%2d,"
+                            + " bestValidationLoss=%9.7f)",
+                    resumePath, resumed.epoch, resumed.epochsSinceImprovement, resumed.bestValidationLoss ) );
         } // if
 
         // RDD_EXT_18 starting defaults, overridable via --key=value; fall back to the resumed
@@ -317,9 +318,11 @@ public final class GruTrainer {
         List<Example> train           = examples.subList( validationCount, examples.size() );
         if( train.isEmpty() ) train = examples;
 
-        System.out.println( "GruTrainer: starting -- vocabSize=" + explicitVocab.size()
-                + ", trainExamples=" + train.size() + ", validationExamples=" + validation.size()
-                + ", maxEpochs=" + maxEpochs + ", patience=" + patience + ", lr=" + learningRate );
+        System.out.println( String.format(
+                "GruTrainer: starting -- vocabSize=%d, trainExamples=%d, validationExamples=%d,"
+                        + " maxEpochs=%d, patience=%d, lr=%9.7f",
+                explicitVocab.size(), train.size(), validation.size(), maxEpochs, patience,
+                learningRate ) );
 
         AdamState adam               = resumed != null ? resumed.adam : new AdamState(weights);
         double    bestValidationLoss = resumed != null ? resumed.bestValidationLoss : Double.POSITIVE_INFINITY;
@@ -634,8 +637,10 @@ public final class GruTrainer {
         GruClassifier.Gradients gradients = GruClassifier.backward(weights, cache, classIndex);
 
         double epsilon = 1e-5;
-        System.out.println("GruTrainer: gradient check against example label=" + example.label
-                + " -- epsilon=" + epsilon + ", samplesPerArray=" + samplesPerArray);
+        System.out.println( String.format(
+                "GruTrainer: gradient check against example label=%s -- epsilon=%9.7f,"
+                        + " samplesPerArray=%d",
+                example.label, epsilon, samplesPerArray ) );
         double maxRelError = 0.0;
         maxRelError = Math.max(
             maxRelError, checkArray2D("denseW", weights.denseW, gradients.denseW, weights, vocabulary, tokens, targetWordIndex, classIndex, random, epsilon, samplesPerArray)
@@ -659,8 +664,8 @@ public final class GruTrainer {
             );
         }
 
-        System.out.println( "GruTrainer: gradient check complete -- maxRelativeError="
-                + String.format("%.6f", maxRelError) + (maxRelError < 1e-2 ? " (PASS)" : " (FAIL)") );
+        System.out.println( String.format( "GruTrainer: gradient check complete -- maxRelativeError=%9.6f",
+                maxRelError ) + (maxRelError < 1e-2 ? " (PASS)" : " (FAIL)") );
         System.exit(maxRelError < 1e-2 ? 0 : 1);
     }
 
@@ -765,8 +770,9 @@ public final class GruTrainer {
         ) / Math.max(
             1e-8, Math.abs(numeric) + Math.abs(analytic)
         );
-        System.out.println( "GruTrainer:   " + label + " analytic=" + String.format("%.6f", analytic)
-                + ", numeric=" + String.format("%.6f", numeric) + ", relError=" + String.format("%.6f", relError) );
+        System.out.println( String.format(
+                "GruTrainer:   %s analytic=%9.6f, numeric=%9.6f, relError=%9.6f",
+                label, analytic, numeric, relError ) );
 
         return relError;
     }

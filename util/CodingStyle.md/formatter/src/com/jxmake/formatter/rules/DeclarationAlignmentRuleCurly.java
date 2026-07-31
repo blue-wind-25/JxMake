@@ -581,6 +581,39 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
     }
 
     /**
+     * True iff {@code initTokens} contains any `{`...`}` pair (at any nesting depth, matched by a
+     *  simple depth counter -- exact partner matching isn't needed, only "some brace pair's
+     *  interior held a NEWLINE token in the original source") whose interior originally spanned
+     *  more than one physical source line. Used by {@link #parseDeclaration} to bail out of
+     *  column-aligning a declaration whose initializer embeds a multi-line lambda/anonymous-class
+     *  body mid-expression (e.g. a `.map(x -> { ...multi-statement... })` call in a stream chain)
+     *  -- this class's {@link DeclarationAlignmentRuleCore#renderInitTokens} has no multi-line
+     *  render path and would otherwise flatten such a body onto one, arbitrarily long physical
+     *  line that no later pass can safely re-wrap. See the call site's own comment for the
+     *  real-code-testing history (`jenkinsci/jenkins`'s `PluginManager.doPluginsSearch`).
+     */
+    private boolean containsMultilineBraceBody(final List<Token> initTokens)
+    {
+        // Stack of "has this open brace level seen a NEWLINE yet" flags, one per currently-open
+        // `{`. A plain List used as a stack (push/pop at the end) -- simpler to reason about here
+        // than java.util.Deque's reversed push/pop-order semantics.
+        final List<Boolean> openLevels = new ArrayList<>();
+        for(final Token t : initTokens) {
+            if( isPunct(t, "{") ) {
+                openLevels.add(Boolean.FALSE);
+            }
+            else if( isPunct(t, "}") ) {
+                if( !openLevels.isEmpty() && openLevels.remove( openLevels.size() - 1 ) ) return true;
+            }
+            else if( t.type == TokenType.NEWLINE && !openLevels.isEmpty() ) {
+                for(int k = 0; k < openLevels.size(); ++k) openLevels.set(k, Boolean.TRUE);
+            }
+        } // for
+
+        return false;
+    }
+
+    /**
      * Estimates the rendered width of a flat `{ a, b, c }` aggregate init on its own, as
      *  `render(group)` would emit it: `{`/`}` padded with one space, elements comma-separated
      *  with one space after each comma. Does not include the declaration's own type/name/`=`
@@ -608,6 +641,38 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
      *  can't be located (should not happen given the identity precondition, but the caller has a
      *  safe fallback).
      */
+    /**
+     * Same open/close-token-identity lookup as {@link #rawSliceBetween}, but returns the
+     *  completely unfiltered inclusive slice (WHITESPACE/NEWLINE tokens included) -- needed by
+     *  {@link #containsMultilineBraceBody}'s caller, which must see real NEWLINE tokens to detect
+     *  a brace body that originally spanned more than one physical source line.
+     */
+    private List<Token> rawSliceBetweenUnfiltered(
+        final List<Token> stmt,
+        final Token       openTok,
+        final Token       closeTok
+    )
+    {
+        int openIdx = - 1;
+        for( int k = 0; k < stmt.size(); ++k ) {
+            if( stmt.get(k) == openTok ) {
+                openIdx = k;
+                break;
+            }
+        }
+        if(openIdx < 0) return null;
+        int closeIdx = - 1;
+        for( int k = stmt.size() - 1; k > openIdx; --k ) {
+            if( stmt.get(k) == closeTok ) {
+                closeIdx = k;
+                break;
+            }
+        }
+        if(closeIdx < 0) return null;
+
+        return new ArrayList<>( stmt.subList(openIdx, closeIdx + 1) );
+    }
+
     private List<Token> rawSliceBetween(
         final List<Token> stmt,
         final Token       openTok,
@@ -908,6 +973,38 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                 // `//`-comment guard above.
                 if( flatAggregateInitRenderedWidth(rawInit) > lineLengthLimit ) return null;
             } // if
+        } // if
+
+        // A non-trailing-brace initializer (e.g. a `.stream()...map(x -> { ... }).collect(...)`
+        // call chain, unlike the trailing-`}`-aggregate-init shapes rejected just above) can still
+        // embed a multi-line, multi-statement lambda/anonymous-class body mid-expression. This
+        // class's `renderInitTokens` flattens every gap to a single space with no line-length
+        // check and no multi-line-render path at all (see that method's own javadoc) -- found via
+        // `jenkinsci/jenkins` real-code testing (`PluginManager.doPluginsSearch`'s `sitePlugins =
+        // site.getAvailables().stream().filter(...).map(plugin -> { <30-line multi-statement body>
+        // }).collect(...)`): flattening produced a single ~1992-character physical line that no
+        // later pass (`MiscRuleCurly.enforceCallLineBreaking` included -- it only ever wraps a
+        // call's own top-level, comma-separated arguments, and this lambda is a single
+        // non-splittable argument) can ever re-wrap back under `lineLengthLimit`. Bail out and
+        // leave the statement completely untouched whenever any brace pair inside `initTokens`
+        // (at any nesting depth, not just a trailing aggregate init) originally spanned more than
+        // one physical source line -- same "can't safely collapse, don't try" posture as the two
+        // aggregate-init bails immediately above. `initTokens` itself is filtered through
+        // `significantOnly` (via `sig`/`body` above) and so never contains a NEWLINE token no
+        // matter how many original physical lines it spanned -- `rawSliceBetween` re-locates the
+        // same span within the original, gap-preserving `stmt` list so the newline-based check
+        // below has real newlines to look for.
+        if( !initTokens.isEmpty() ) {
+            // `rawSliceBetween` (used by the aggregate-init bails just above) itself strips
+            // WHITESPACE/NEWLINE tokens too -- it only preserves comments relative to
+            // `significantOnly`'s own filtering, which is no help here since this check needs the
+            // actual NEWLINE tokens. Locate the same span by identity directly in `stmt` (the
+            // original, completely unfiltered token list) instead.
+            final List<Token> rawInitForBraceCheck = rawSliceBetweenUnfiltered(
+                stmt, initTokens.get(0), initTokens.get( initTokens.size() - 1 )
+            );
+            if( rawInitForBraceCheck != null
+                    && containsMultilineBraceBody(rawInitForBraceCheck) ) return null;
         } // if
 
         // Direct function-pointer declaration (`void (*fp)(int) = NULL;`): shaped as

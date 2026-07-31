@@ -152,6 +152,7 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_202 | `alignCommentSeparators` false-positive -- FIXED via `MiscRuleCore.looksCodeLike`, a structural code-likeness check (word count/length/stopword list) on each candidate line's label/rest; see "Known Gaps -- Fixed" for full detail. |
 | RDD_KEY_203 | `GetterSetterRuleCurly.parseOneLinerMember`'s breakable-width pre-check gated only on `isDefinition`, `filesystem.hpp` `recursive_directory_iterator` assignment-alignment shape -- FIXED via a new `hasBreakableParams` check alongside the existing `hasBreakableCall` check; see "Known Gaps -- Fixed" for full detail. |
 | RDD_KEY_222 | `MiscRuleCore.computeLineCommentGroups`'s §15 consecutive-`//`-comment grouping (RDD_KEY_89) capitalized every group member's line independently, wrongly capitalizing continuation lines of a genuine multi-line `//` comment (unlike the `/* */` path, which correctly capitalizes only content line 0 via `stripSoleTrailingPeriodAcrossLines` + one `capitalizeFirstLetter` call). FIXED by capitalizing only `contents.get(0)`, matching the block-comment path. Applies to all Curly-family languages (`Lang.isCurly` = C/C++/Java/Kotlin/JS/TS); Python3/data-formats/XML/HTML5 have no §15 pass, so unaffected. Surfaced a second latent bug in the same grouping logic: `nextCommentChainLinkIfAdjacent` wrongly chained a trailing end-of-line comment onto the next line's standalone `//` comment as one prose block (found via `test/js_comments_inp.js` and `test/ts_comments_inp.ts` regressing after the first fix). FIXED with a new `isStandaloneCommentLine` helper (true iff alone on its line back to `NEWLINE`/start-of-tokens); `nextCommentChainLinkIfAdjacent` now returns -1 for a non-standalone token, so a trailing comment is still capitalized/period-stripped alone (size-1 group) but never chains onto the next line. 26 pre-existing `*_out` fixtures (Java/C/C++/Kotlin/TS: `real_code_regressions_*`, `c_cpp_decl_gaps`, `java_format_toggle`, `java_preprocessor_method`, `js_comments`, `ts_comments`) had the old buggy per-line capitalization hand-authored as "expected"; updated to match. `make test`: 219/219 forward + idempotency after both fixes, zero unexpected diffs. |
+| RDD_KEY_225 | `jenkinsci/jenkins` `hudson/PluginManager.java` (`doPluginsSearch`'s `sitePlugins` stream-chain declaration) -- root cause was `ScopePipelineCurly.applyDeclarationsPass` -> `DeclarationAlignmentRuleCore.renderInitTokens` (runs before `MiscRuleCurly.enforceCallLineBreaking`) unconditionally flattening a declaration's entire initializer, including an embedded multi-statement lambda body, onto one physical line with no line-length check, producing a real ~1992-char line no later pass could re-wrap. FIXED via a new pre-flight bail-out in `DeclarationAlignmentRuleCurly.parseDeclaration` (new `rawSliceBetweenUnfiltered`/`containsMultilineBraceBody` helpers): if any brace pair in the initializer originally spanned more than one physical source line, leave the statement untouched. See "Known Gaps -- Fixed" for full detail, including the 3 pre-existing fixtures (`real_code_regressions_57`/`129`/`130`) updated to match. New fixture `real_code_regressions_176`. `make test`: 224/224 -> 225/225 forward + idempotency, zero regressions. |
 
 ---
 
@@ -675,73 +676,30 @@ RDD_KEY_88.
   instead of a single relative delta, exactly the change this cleanup pass is instructed not to
   attempt piecemeal. Remains ACCEPTED, not fixed.
 
-- **Extremely long pre-existing single-physical-line statement wraps differently each round** —
-  found in `jenkinsci/jenkins` (item 25), `hudson/PluginManager.java`'s `getPluginPage`/JSON-
-  serialization lambda: the *original* source has an entire multi-statement lambda body crammed
-  onto one extremely long physical line (well past `line-length`, apparently hand-minified).
-  `enforceCallLineBreaking`'s wrap decision for the enclosing `.map(...).collect(...)` chain
-  differs between rounds (round2 additionally breaks the outer `.map(` onto its own line). Not
-  root-caused — affects only 1 file across the 1929-file corpus, a pathological input shape
-  rather than a common pattern. Left open, no fixture.
-  **Follow-up attempt, same session:** a minimal repro mirroring the exact shape (`.stream()
-  .filter(...).map( plugin -> { ...; if(...) jsonObject.put(...); ` + embedded newline + `else
-  jsonObject.put(...); return jsonObject; } ).collect(toList())`) formatted identically and
-  idempotently across two rounds — no divergence reproduced at this smaller scale. The
-  instability appears to need either the real file's full ~2500-character line, or cumulative
-  state from the preceding `.sorted(...)`/`.limit(...)` chain segments, neither captured by a
-  hand-built analog. **Recommendation: leave open, do not chase further** — 1 file affected, on
-  already-pathological hand-mangled input; reproducing precisely would require bisecting the real
-  line, a bigger investment than its impact justifies. Revisit only if a similar shape recurs
-  elsewhere.
-
-  **2026-07-28 cleanup-pass re-assessment:** no similar shape has recurred since, and nothing in
-  the intervening JS/TS/Python3/data-formats work touches `enforceCallLineBreaking`'s fits-check
-  in a way that would make this cheaper to chase. Leaving open per the existing recommendation.
-
-  **2026-07-31 design/scoping pass — initially misdiagnosed as NOT REPRODUCIBLE (see correction
-  below).** A shallow clone of `github.com/jenkinsci/jenkins` (`/tmp/jenkins_scope`, current
-  `main` as of 2026-07-31) was checked against the standard round1/round2/round3 idempotency
-  methodology and came back byte-identical across all three rounds — no wrap-decision flap
-  observed, and the file's on-disk longest line was only 237 columns, so this was written up as
-  "upstream must have refactored the file away, nothing left to reproduce against."
-
-  **2026-07-31 correction, same day:** that conclusion was wrong, caught by comparing
-  `/tmp/jenkins_scope/core/src/main/java/hudson/PluginManager.java` against the original item-25
-  dogfood session's own checkout (found preserved by chance in an unrelated session's orphaned
-  `/tmp` scratch directory) — **the two files are byte-identical** (same md5,
-  `3cdeca6b3ca2bc77fd785690124c8f69`, same 120171 bytes). Upstream never touched this file; the
-  "shallow clone lost the history" framing was also a red herring, since no history was needed —
-  the file itself never changed. Both copies are now preserved outside `/tmp` at
-  `~/Projects/JxMake/0_excluded_directory/formatter_repro_fixtures/jenkinsci_jenkins_PluginManager.java`
-  specifically so this can't happen again if `/tmp` gets cleared between sessions.
-
-  Re-running `--in-place` round1/round2/round3 against that file with the current
-  `target/code-formatter-1.00.jar` (correct CLI invocation: `--in-place`, not a bare jar/file
-  call) confirms the bug is very much still live, just changed shape since the original item-25
-  finding: round1 == round2 == round3 (stable, no flap this time), **but round1's own output
-  contains a single ~1992-character physical line** — the `getPluginPage`-style JSON-serialization
-  lambda body (`else jsonObject.put("wiki", plugin.wiki) ; jsonObject.put( "categories",
-  plugin.getCategoriesStream().filter(...).map(...).collect( toList() ) ) ; if( ... )
-  jsonObject.put(...)...`) crammed onto one line and never wrapped back down despite being wildly
-  over `line-length`. So the original item-25 dogfood run's *idempotency* symptom (round2 wraps
-  differently than round1) has apparently been superseded by a *stability-but-still-wrong*
-  symptom (converges immediately, but to an output that itself violates `line-length`) — something
-  in `enforceCallLineBreaking`'s fits-check changed between the original dogfood session's jar and
-  today's, but whatever changed didn't fix the underlying root cause, it just changed which round
-  the bad output shows up in.
-
-  **Status: reproducible again, root cause still not diagnosed.** Not yet scoped past
-  confirming reproduction and locating the offending line. Next step, if pursued: trace why
-  `enforceCallLineBreaking` accepts a ~1992-char single physical line as "fits" (or otherwise
-  never attempts to re-wrap it) for this specific multi-statement-lambda-body shape — likely the
-  same collapse-then-defer-wrap interaction area as originally suspected, but now with a
-  concrete, durably-preserved repro file to work against instead of a since-lost one.
-
 ## Known Gaps — Fixed
 
 Previously-recorded low-priority gaps, now resolved. One-line summaries only — full
 before/after detail available via `git log`/`git show`.
 
+- **Extremely long pre-existing single-physical-line statement wraps differently each round** —
+  FIXED (see `RDD_KEY_225` for full detail). Root cause was NOT `enforceCallLineBreaking`
+  (already correctly bails for single-lambda-argument calls) but `ScopePipelineCurly
+  .applyDeclarationsPass` -> `DeclarationAlignmentRuleCore.renderInitTokens`, which runs first
+  in the pipeline and unconditionally flattens a declaration's entire initializer (including a
+  multi-statement lambda body embedded mid-expression) onto one line with no line-length check,
+  destroying the original multi-line structure before `enforceCallLineBreaking` ever gets a
+  chance to preserve it. Fixed with a new pre-flight bail-out in `DeclarationAlignmentRuleCurly
+  .parseDeclaration` (new `rawSliceBetweenUnfiltered`/`containsMultilineBraceBody` helpers):
+  if any brace pair in the initializer originally spanned more than one physical source line,
+  leave the whole statement completely untouched. Re-verified against the durable
+  `jenkinsci/jenkins` `hudson/PluginManager.java` repro
+  (`~/Projects/JxMake/0_excluded_directory/formatter_repro_fixtures/jenkinsci_jenkins_PluginManager.java`):
+  round1 == round2 == round3, `sitePlugins` statement no longer flattened. 3 pre-existing
+  fixtures (`real_code_regressions_57`/`129`/`130`) had themselves hand-encoded this same bug
+  class as "expected" output and were updated to match, per `test/README.txt`'s stated
+  fixture-update convention and the RDD_KEY_222 precedent. New fixture
+  `test/real_code_regressions_176_{inp,out}.java`. `make test`: 224/224 -> 225/225 forward +
+  idempotency, zero regressions.
 - **`* const` cosmetic gap in mixed declaration groups** (`DeclarationAlignmentRule`) — FIXED.
   `splitCppType` now always returns `postConst = ""`, folding the whole type+star+const text
   into one uniformly-padded column. East-const (`char const*`) intentionally not normalized.

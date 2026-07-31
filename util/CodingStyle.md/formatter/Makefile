@@ -188,7 +188,7 @@ gru-train: $(JAR_FILE)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/GruTrainer.java
 	@if [ -f $(GRU_CKPT_CURRENT) ]; then                                                                                                                       \
 		echo "gru-train: found $(GRU_CKPT_CURRENT), resuming";                                                                                             \
-		$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT) --resume=$(GRU_CKPT_CURRENT) $(GRU_TRAIN_ARGS); \
+		$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT) $(GRU_TRAIN_ARGS) --resume=$(GRU_CKPT_CURRENT); \
 	else                                                                                                                                                       \
 		$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT) $(GRU_TRAIN_ARGS);                              \
 	fi
@@ -456,6 +456,7 @@ INP_FILES += real_code_regressions_172_inp.ts
 INP_FILES += real_code_regressions_173_inp.html
 INP_FILES += real_code_regressions_174_inp.html
 INP_FILES += real_code_regressions_175_inp.html
+INP_FILES += real_code_regressions_176_inp.java
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

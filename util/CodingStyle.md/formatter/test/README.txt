@@ -3000,6 +3000,26 @@ Real-code regressions:
                                                same corpus) correctly falls through and stays subject to
                                                ordinary capitalization.
 
+  real_code_regressions_176_inp/out.java    -- Java, `jenkinsci/jenkins` real-code repro
+                                               (`hudson/PluginManager.java`'s `doPluginsSearch`): a
+                                               declaration whose initializer is a stream chain with
+                                               multiple multi-statement, brace-bodied lambda stages
+                                               (`.filter(x -> {...}).map(x -> {...})`) was getting its
+                                               ENTIRE initializer unconditionally flattened onto one
+                                               physical line (no line-length check at all) by
+                                               `DeclarationAlignmentRuleCore.renderInitTokens`, run
+                                               before `MiscRuleCurly.enforceCallLineBreaking` in the
+                                               pipeline -- by the time the latter ran, the lambda
+                                               body's original multi-line structure was already
+                                               destroyed and un-rewrappable, producing a real-world
+                                               ~1992-char single physical line that stayed over the
+                                               line-length limit and reformatted differently every
+                                               round (non-idempotent). Fixed with a new pre-flight
+                                               bail-out in `DeclarationAlignmentRuleCurly
+                                               .parseDeclaration`: if any brace pair in the initializer
+                                               originally spanned more than one physical source line,
+                                               leave the whole statement untouched. See `RDD_KEY_225`.
+
 How Tests Are Run
 -----------------
 

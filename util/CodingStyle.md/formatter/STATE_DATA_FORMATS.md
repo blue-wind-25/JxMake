@@ -414,186 +414,56 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      accepted discard-vs-synthesize gap) is an unchanged, expected residual,
      not a regression; 4 other files' pre-existing unrelated comment-
      capitalization mismatches confirmed identical against a pre-fix
-     baseline build. Original full write-up preserved below for reference:
+     baseline build.
 
-     **Reproduced.** `/tmp/ant/manual/running.html` (existing checkout,
-     226-file corpus) round1-formatted via `code-formatter.sh`, diffed with
-     `tools/verifiers/html_content_diff.sh` against the original — confirms
-     the originally-recorded symptom (`<body>` child count 82 vs 81).
-     Isolated to a minimal fixture to see the real shape:
-     ```html
-     <body>
-     <h2 id="tmpdir">Temporary Directories</h2>
+     **Root cause (traced pre-fix in `XmlSpecificRule.java`, minimal
+     `running.html` repro — bare top-level text after `<h2>` closes,
+     ending in an orphan `</p>` with **no matching open `<p>` anywhere**,
+     a different shape than RDD_KEY_204's *open*-`<p>`-closed-by-sibling
+     case):** `parseNodes`'s `stopAtCloseTag` check was unconditional —
+     `if (stopAtCloseTag && startsWith("</")) break;` — with no check
+     whether the closing tag related to the element being parsed. The
+     orphan `</p>` broke out of `<body>`'s children loop; `<body>`'s
+     `closeTok` check failed, and since `lang.isHtml5` it fell into the
+     general "tolerant close" fallback (the same mechanism WPT's
+     `charset/after-bogus.html` needs) — treating `<body>` as implicitly
+     closed **without consuming the `</p>` token**. This cascaded: `<html>`
+     got tolerant-closed the same way, so the formatter's actual output
+     closed `</body></html>` right at the orphan `</p>` and dumped the
+     rest of the real document (hundreds of lines) as raw top-level
+     siblings after `</html>`, outside the document root entirely —
+     confirmed by direct inspection of formatted output, not just the
+     diff tool.
 
-     Some Ant tasks and types need to create temporary files. ...
-     property <code>java.io.tmpdir</code>. The default value of it depends
-     on the platform and the JVM implementation.</p>
+     **Materially bigger than the "1 `<p>` lost" the content-diff
+     originally reported**, because `html_content_diff.py` (via `parse5`)
+     parses both files per the real HTML5 spec before comparing, and the
+     spec's own "after after body" recovery re-parents post-`</html>`
+     content back inside `<body>` almost transparently — masking the true
+     magnitude. **Note for anyone touching `html_content_diff.py`: it can
+     under-report this class of serialization-level structural bug** —
+     spot-check raw output text directly, not just the diff verdict.
 
-     <p>Setting a system property when invoking Ant is not straight forward
-       ...
-     </p>
-     </body>
-     ```
-     After the `<h2>` closes, the following text is bare top-level content
-     directly inside `<body>` (no wrapping `<p>` — same shape RDD_KEY_185
-     already treats as an ordinary sibling). It ends with a literal `</p>`
-     that has **no matching open `<p>` anywhere** — a genuine orphan close
-     tag, a different shape than RDD_KEY_204 (which only covers an *open*
-     `<p>` implicitly closed by a following block-level sibling **start**
-     tag; here there is no open `<p>` at all).
-
-     **Root cause, traced in `XmlSpecificRule.java` (no code changed, read-
-     only trace + minimal-fixture reproduction):** `parseNodes` (`stopAtCloseTag=true`, `impliedCloseTriggers=null` since `body` is not in
-     `IMPLIED_CLOSE_TRIGGERS`) hits the orphan `</p>` while directly parsing
-     `<body>`'s children. Line ~367's check is unconditional — `if(
-     stopAtCloseTag && startsWith("</") ) break;` — it does not check
-     whether the closing tag's name has any relationship to the element
-     currently being parsed; ANY closing tag breaks the children loop.
-     Control returns to `parseElement` for `<body>`, whose `closeTok`
-     check (`</body>` vs `</p>`) fails, `impliedTriggers` is null, and
-     since `lang.isHtml5` it falls into the general "tolerant close"
-     fallback (the same mechanism added for WPT's `charset/after-bogus.html`
-     mismatched-tag case) — treats `<body>` as implicitly closed right
-     there, **without consuming the `</p>` token**. This cascades: the
-     caller parsing `<html>`'s children hits the same still-unconsumed
-     `</p>`, and `<html>` also gets tolerant-closed the same way. Only the
-     outermost, once-per-document `parseNodes(false)` call (the
-     `!stopAtCloseTag` branch, lines ~369-379) has logic to discard a
-     stray closing tag and keep going — but by the time control reaches
-     that level, `</body>` and `</html>` have already been emitted as
-     closed. Confirmed via the minimal fixture: the formatter's actual
-     output literally closes `</body></html>` right at the orphan `</p>`,
-     and dumps **everything after that point in the source — the rest of
-     the real document, hundreds of lines in the real file** — as raw
-     top-level siblings after `</html>`, outside the document root
-     entirely (verified directly: `grep -n 'Setting a system property'
-     /tmp/rh_out/running.html` lands *after* `</html>` at line 1055, with
-     the true `<p>...</p>` for that paragraph, and everything through the
-     genuine end of `<body>`, serialized outside the root).
-
-     **This is a materially bigger bug than the "1 `<p>` lost" the
-     content-diff originally reported.** `html_content_diff.py` (via
-     `parse5`) parses *both* the original and the formatted file per the
-     real HTML5 spec before comparing trees — and the spec's own "after
-     after body" insertion-mode recovery re-parents content that
-     literally appears after a `</html>` back inside `<body>` almost
-     transparently. That's why the diff tool only shows a single missing
-     `<p>` (one real content node lost in the reshuffle, from the implicit
-     empty-`<p>`-then-close the spec mandates for an orphan `</p>` token,
-     which this formatter doesn't synthesize) instead of the true
-     magnitude — a majority of the file emitted outside `<html>` in the
-     actual on-disk output. The content-diff checker's spec-tolerant
-     parse is silently masking a serialization-level structural bug, not
-     validating it away. **Any future dogfood/content-diff session should
-     be aware `html_content_diff.py` can under-report this class of bug**
-     (worth a note for whoever next touches that script, out of scope to
-     fix here).
-
-     **Corrected relationship to item 1 above: item 1's framing does NOT
-     fully apply.** Item 1's four gaps (foster-parenting, misnested
-     `<form>`-in-`<template>`, implicit `<body>` insertion, adoption
-     agency) all genuinely need real HTML5 **insertion-mode** state (mode-
-     dependent tree reshaping rules) — a big, dedicated, high-risk job per
-     `STATE_COMMON.md`'s "general scope-depth reindentation" comparison
-     already noted there. This bug does **not** need insertion-mode
-     state. It needs only enough information to distinguish, at the
-     moment a closing tag is encountered mid-`parseNodes`, "this tag name
-     matches something actually open on the path from the document root to
-     here" (legitimate cascade-close — the mechanism WPT's
-     `charset/after-bogus.html` case relies on and must keep working) from
-     "this tag name matches nothing open anywhere" (a genuine orphan —
-     should be discarded/ignored in place, the same way the existing
-     top-level-only stray-tag discard at lines ~369-379 already does, just
-     not restricted to the top level). That distinction only requires a
-     **lightweight name-only stack of currently-open tag names**, threaded
-     through the existing recursive `parseElement`/`parseNodes` calls (or
-     equivalently, a mutable field on the rule instance, since parsing is
-     single-threaded per `format()` call) — not the full per-insertion-mode
-     tree-construction algorithm. No such stack exists today anywhere in
-     `XmlSpecificRule.java` (confirmed by search — the only structurally
-     similar precedent is the scalar `svgDepth` counter, which tracks one
-     specific case, not a general name stack).
-
-     **Concrete insertion point / narrower fix, if picked up:**
-     - Add a `Deque<String>` (or `List<String>`) of open tag names, pushed
-       in `parseElement` right after a start tag is recognized and popped
-       on every return path (matched close, implied-close-trigger path,
-       and the tolerant-close fallback alike).
-     - In `parseNodes`, when `stopAtCloseTag` is true and the cursor is at
-       `</name>`: if `name` case-insensitively equals the top of stack
-       (the element currently being parsed) — unchanged, break as today.
-       Else if `name` matches **any** entry in the stack (a real ancestor)
-       — unchanged, break as today (preserves the existing tolerant-cascade
-       behavior WPT's bogus-tag fixture needs). Else (matches nothing on
-       the stack — genuine orphan) — do **not** break; consume/discard the
-       stray closing tag (mirroring lines ~369-379's existing discard
-       logic) and continue the same children-parsing loop instead of
-       returning control to the caller.
-     - This is additive to the existing cascade/tolerant-close design, not
-       a replacement of it — every currently-passing "mismatched tag
-       cascades to close ancestors" fixture keeps working unchanged;
-       only the previously-unhandled "matches nothing at all" case
-       changes behavior (from "wrongly close every ancestor up to the
-       document root" to "discard and keep parsing in place").
-     - Per-spec correctness note (documented, not necessarily worth
-       implementing): the true HTML5 "p end tag" algorithm synthesizes an
-       empty `<p></p>` at an orphan `</p>` rather than pure discard. Pure
-       discard is simpler/lower-risk and matches this formatter's existing
-       "preserve as written, don't fabricate tags" posture elsewhere
-       (RDD_KEY_185) — recommend discard-only unless a future dogfood
-       input demonstrates discard itself is observably wrong.
-
-     **Blast radius / regression risk:** touches `parseNodes`/
-     `parseElement`, the same functions every HTML5/XML document passes
-     through — nonzero risk, but scoped and additive as described above
-     (existing match-current / match-ancestor paths untouched, only the
-     previously-mishandled "matches nothing" case changes). Main regression
-     risk is any existing fixture or dogfooded corpus that was
-     *accidentally relying on* the current over-eager cascade (e.g. some
-     other still-undiscovered orphan-tag shape elsewhere in the six HTML5
-     corpora that happens to produce acceptable-looking output today by
-     the same bug this fix targets) — the validation plan below is sized
-     to catch that.
-
-     **Validation plan (if this fix is picked up):**
-     1. New local fixture(s) in `test/`: the minimal `running.html` repro
-        above (orphan `</p>` against bare top-level `<body>` text, no open
-        `<p>`), plus a fixture proving the existing mismatched-tag cascade
-        behavior still works post-fix (an unclosed/bogus nested tag shape
-        matching WPT's `charset/after-bogus.html` idiom) as a regression
-        guard for the "matches an ancestor" path.
-     2. `make test` full run (forward + idempotency), all languages —
-        `parseNodes`/`parseElement` are shared XML/HTML5 code.
-     3. Re-run `apache/ant manual/`'s full 226-file corpus (forward, round2,
-        idempotency, `html_syntax_check.js`, `html_content_diff.py`) —
-        `running.html` should go from 1 genuine gap to clean; the other 225
-        must stay clean.
-     4. Re-run `alexandersandberg/html5-elements-tester` (single 42KB file,
-        heaviest existing user of `IMPLIED_CLOSE_TRIGGERS`/cascade-close
-        paths) — must stay clean on all four checks.
-     5. Re-run `web-platform-tests/wpt` (`html/syntax/`, ~416 files,
-        includes the `charset/after-bogus.html` mismatched-tag shape this
-        fix must not regress) — forward/idempotency/syntax-check must stay
-        at their last-recorded clean counts; content-preservation diff
-        count should not increase.
-     6. Re-run `WordPress/wordpress-develop` and `h5bp/html5-boilerplate`
-        (cheap, already-clean corpora) as a final sanity pass.
-     7. Given `html_content_diff.py`'s spec-tolerant-parse under-reporting
-        found during this scoping pass (see above), also spot-check the
-        raw formatted output text directly (not just the diff tool's
-        verdict) for any `</body>`/`</html>` appearing before genuine
-        end-of-document content, across all re-run corpora — the diff tool
-        alone is not sufficient evidence of a full fix given what this
-        pass found.
-
-     **Difficulty re-assessment:** the tracker's original "medium"
-     difficulty undersold both directions at once — the true bug is larger
-     in impact (structural corruption on more than a single lost `<p>`)
-     but the fix is smaller in scope than "medium" implied by the deferred
-     "same prerequisite as item 1" framing (which would have made it
-     effectively a large/high-risk job). Net: still medium, but for a
-     different reason — a small, well-scoped code change with a wide
-     validation surface, not a large code change.
+     **Why item 1's framing didn't apply:** item 1's four gaps
+     (foster-parenting, misnested `<form>`-in-`<template>`, implicit
+     `<body>` insertion, adoption agency) genuinely need real HTML5
+     insertion-mode state — a big, dedicated, high-risk job. This bug
+     didn't: it only needed a lightweight name-only stack of
+     currently-open tag names (none existed before — only the unrelated
+     scalar `svgDepth` counter) to distinguish "closing tag matches
+     something actually open" (legitimate cascade-close, keep existing
+     behavior — required by WPT's bogus-tag fixture) from "matches
+     nothing open anywhere" (genuine orphan — discard in place, same as
+     the pre-existing top-level-only stray-tag discard, just not
+     restricted to the top level). Discard-only (not per-spec `<p></p>`
+     synthesis) was chosen, matching this formatter's "preserve as
+     written, don't fabricate tags" posture (RDD_KEY_185) — exactly the
+     fix implemented, per the summary at the top of this entry. The
+     original difficulty rating ("medium") undersold impact but
+     oversold fix scope — net still medium, for a different reason: a
+     small, additive, well-scoped code change with a wide validation
+     surface (touches `parseNodes`/`parseElement`, shared by every
+     HTML5/XML document), not a large one.
 
   3. **Tag-name case-folding — DONE, fixed standalone**
      (`real_code_regressions_112`, commit `10b20cf`, user, 2026-07-25). New

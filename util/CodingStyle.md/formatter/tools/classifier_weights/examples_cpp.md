@@ -29,3 +29,16 @@ Rows 16-19 added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session),
 | 17 | `class Widget final : public Base {};` | no | yes | no | NO | Declaration restated, semicolon fires. |
 | 18 | `private members should not be exposed through this accessor` | no | no | no | NO | "private" naming the actual access-specifier keyword being described, zero mechanical feature fires — same false-friend shape as rows 11-15. |
 | 19 | `this pointer is invalid after the object is destroyed` | no | no | no | NO | "this" referring to the language's actual `this` pointer, a code reference despite zero mechanical feature — not the English demonstrative pronoun opening ordinary prose. |
+
+Rows 20-27 added 2026-08-01 (STATE_AI.md's "grow hand-labeled hard-case set" session), covering
+`KEYWORDS_CPP` members that previously had zero example rows in this file: `catch`, `override`,
+`public`, `protected`.
+
+| 20 | `catch me if you can, this race condition is rare` | no | no | no | YES | "catch" as an ordinary English verb ("catch me"), prose. |
+| 21 | `catch block here intentionally swallows the exception` | no | no | no | NO | "catch" naming the actual exception-handling construct being described, code reference despite zero mechanical feature. |
+| 22 | `override my objection, the client insisted on this API shape` | no | no | no | YES | "override" as an ordinary English verb, prose. |
+| 23 | `override here changes the default rounding behavior` | no | no | no | NO | "override" naming the actual virtual-function override being described, code reference despite zero mechanical feature. |
+| 24 | `public opinion on this API design keeps shifting` | no | no | no | YES | "public" used as an ordinary noun ("public opinion"), prose. |
+| 25 | `public members here are intentionally minimal` | no | no | no | NO | "public" naming the actual access-specifier keyword being described, code reference despite zero mechanical feature. |
+| 26 | `protected under the new policy, this endpoint requires auth` | no | no | no | YES | "protected" used as an ordinary adjective ("protected under..."), prose. |
+| 27 | `protected members here are visible to every derived class` | no | no | no | NO | "protected" naming the actual access-specifier keyword being described, code reference despite zero mechanical feature. |

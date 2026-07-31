@@ -36,3 +36,16 @@ Rows 13-15 added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session),
 | 13 | `class of problems this solves is input validation` | no | no | no | no | YES | "class" used loosely as a noun ("the class of problems"), prose. |
 | 14 | `class Repository(private val api: Api)` | yes | no | no | no | NO | Real primary-constructor declaration, paren fires. |
 | 15 | `interface segregation keeps this contract small` | no | no | no | no | NO | "interface" naming the actual declaration keyword being described, zero mechanical feature fires — same false-friend shape as rows 9-12. |
+
+Rows 16-23 added 2026-08-01 (STATE_AI.md's "grow hand-labeled hard-case set" session), covering
+`KEYWORDS_KOTLIN` members that previously had zero example rows in this file: `as`, `fun`, `if`,
+`return`.
+
+| 16 | `as usual, this workaround only masks the symptom` | no | no | no | no | YES | "as" as an ordinary English conjunction ("as usual"), prose. |
+| 17 | `as expression here converts safely between the two types` | no | no | no | no | NO | "as" naming the actual cast/conversion keyword being described, code reference despite zero mechanical feature. |
+| 18 | `fun fact, this bug has been here since the first commit` | no | no | no | no | YES | "fun" as an ordinary English noun ("fun fact"), prose. |
+| 19 | `fun declaration here is only ever called from tests` | no | no | no | no | NO | "fun" naming the actual function-declaration keyword being described, code reference despite zero mechanical feature. |
+| 20 | `if anything, this refactor made the callback harder to follow` | no | no | no | no | YES | "if" as an ordinary English conjunction ("if anything"), prose. |
+| 21 | `if branch here only runs on the first launch` | no | no | no | no | NO | "if" naming the actual conditional construct being described, code reference despite zero mechanical feature. |
+| 22 | `return on investment for this migration was pretty low` | no | no | no | no | YES | "return" used loosely as a noun ("return on investment"), prose. |
+| 23 | `return value here is only valid inside the lambda` | no | no | no | no | NO | "return" naming the actual keyword/value being described, code reference despite zero mechanical feature. |

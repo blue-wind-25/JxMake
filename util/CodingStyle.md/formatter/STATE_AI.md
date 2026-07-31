@@ -1264,3 +1264,107 @@ abstain-threshold tuning. Per the 2026-07-31 "50%" session's own finding
 #5, an LR schedule (like mini-batching before it) is not expected to move
 the GRU's hard-case precision on its own -- this was a numerics/
 observability change only, no accuracy claim.
+
+---
+
+## 2026-08-01 session: real-corpus GRU retrain re-evaluated on the 125-example benchmark — improved (50.0% → 56.0%) but still below the 67.7% baseline
+
+Real training pass with the post-mini-batch, post-schedule `GruTrainer`
+(`--threads=3 --epochs=5 --patience=3 --progress-every=1000`, schedule off
+i.e. `--warmup-steps=0`; interrupted mid-epoch-2 and resumed from checkpoint,
+confirming resume still works under mini-batching): 73873 train/18468
+validation. Best-validation-loss checkpoint landed at epoch 3
+(`validationLoss=0.0356914`); epochs 4-5 got strictly worse
+(0.0479, 0.0595) and were correctly discarded by best-checkpoint selection
+(the written weights file's `bestValidationLoss` matches epoch 3 exactly)
+-- `--epochs=5` simply ran out before `--patience=3` could fire on its own
+(only 2 consecutive non-improving epochs happened, not 3).
+
+Re-ran the hard-case benchmark via `GruEval` against the new weights, using
+`convert_classifier_weights_examples.py` to regenerate the 125-row
+RDD_EXT_21 tsv fresh from `tools/classifier_weights/examples_*.md` (not
+reusing a stale copy):
+
+```
+total=125 abstain=0 decided=125 correct=70 precision=0.56 yesCorrect=40/43 noCorrect=30/82
+```
+
+| | precision | YES correct | NO correct |
+|---|---|---|---|
+| Linear classifier (baseline) | 67.7% (82/125) | — | — |
+| GRU, 2026-07-31 (62-example benchmark, pre-mini-batch/schedule) | 50.0% (31/62) | 20/20 | 11/42 |
+| **GRU, this session (125-example benchmark, post-mini-batch+schedule trainer)** | **56.0% (70/125)** | 40/43 | 30/82 |
+
+Real progress: `noCorrect` climbed from 11/42 (26%) to 30/82 (37%), and
+precision from 50% to 56%. Still below the linear classifier's 67.7% --
+`gru-classifier` stays `off`; `Config.gruClassifier` unchanged (`false`).
+The 62-vs-125 benchmark size differs from the prior comparison (the
+125-example set is the current one, folded into `sample_default.txt` since
+the 2026-07-31 js/ts session), so the 50%→56% delta is directionally
+informative but not a clean apples-to-apples control for what specifically
+moved it -- more hand-labeled rows in the training corpus itself is at
+least as plausible an explanation as the mini-batch/schedule trainer
+changes, and the two weren't isolated from each other in this run.
+
+**Held-out-split caveat still applies unchanged**: this is the same
+125-example set folded into the GRU's own training corpus via
+`sample_default.txt`, so 56%/67.7% is still training-fit, not a verified
+generalization estimate (same open caveat as the 2026-07-31 62-example
+session, item 3 in that session's list).
+
+**Decision:** per user instruction, next step is growing the hand-labeled
+hard-case corpus itself (`tools/classifier_weights/examples_*.md`, item 1
+in the 2026-07-31 session's list) rather than further trainer-mechanics
+work -- see that session below for tracking once new rows land.
+
+---
+
+## 2026-08-01 session: grew the hand-labeled hard-case set (125 → 173 rows)
+
+Direct follow-up to the "next step" decision above. `KeywordAmbiguityGate`'s
+six per-language keyword lists (`KEYWORDS_C`/`KEYWORDS_CPP`/`KEYWORDS_JAVA`/
+`KEYWORDS_KOTLIN`/`KEYWORDS_JS`/`KEYWORDS_TS`) were audited against each
+`tools/classifier_weights/examples_*.md` file's existing rows to find
+keywords with zero example coverage (the auto-labeled bulk corpus can never
+contain these hard cases, since it's labeled by the same rule-based
+classifier being evaluated -- only the hand-labeled files are real signal,
+per this file's Background section). Many zero-coverage keywords exist per
+language (e.g. C alone has ~24: `auto`, `case`, `char`, `const`, `double`,
+`else`, `extern`, `float`, `for`, `goto`, `if`, `inline`, `int`, `long`,
+`restrict`, `return`, `signed`, `sizeof`, `switch`, `typedef`, `union`,
+`unsigned`, `volatile`, plus others already covered); this session targeted
+the highest-value subset per file -- keywords that are also ordinary,
+frequently-used English words (so a genuine prose-vs-code ambiguity exists)
+-- rather than attempting exhaustive coverage in one pass.
+
+**8 new rows per file (48 total, 125 → 173)**, each a YES-prose/NO-code-
+reference pair per targeted keyword, following the zero-mechanical-feature
+NO shape established since the 2026-07-30 KEYWORD_BIAS regression (no
+paren/semi/url-num signal fires on either row of a pair -- the classifier
+must resolve these from context alone, not a mechanical feature):
+
+| File | Keywords targeted (previously zero rows) | Rows added |
+|---|---|---|
+| `examples_c.md` | `case`, `const`, `for`, `return` | 22-29 |
+| `examples_cpp.md` | `catch`, `override`, `public`, `protected` | 20-27 |
+| `examples_java.md` | `case`, `if`, `public`, `record` | 23-30 |
+| `examples_kotlin.md` | `as`, `fun`, `if`, `return` | 16-23 |
+| `examples_js.md` | `case`, `delete`, `throw`, `while` | 25-32 |
+| `examples_ts.md` | `any`, `never`, `number`, `public` | 25-32 |
+
+Existing rows were not renumbered or otherwise touched. Regenerated the
+RDD_EXT_21 tsv via `python3 tools/gru/convert_classifier_weights_examples.py
+tools/classifier_weights --out <scratch-path>` and confirmed a clean parse:
+`wrote 173 hand-labeled example(s)` -- matches 125 + 48 exactly, no silent
+skips, `LANG_BY_STEM` already covered all six stems.
+
+**Not done this session (explicitly out of scope per instruction):**
+`make gru-acquire-corpus` was not run, the GRU was not retrained, `sample_
+default.txt`/`code-formatter-ai-assist-weights.json` were not touched, and
+`weights.md`'s linear-classifier constants were not re-derived. Folding
+these 48 rows into the training corpus, retraining, and re-benchmarking
+against the (now 173-example) hard-case set is the next step for whoever
+picks this up next -- expect the benchmark's `total`/`decided` denominators
+to move from 125 to 173 once that happens, so a future comparison against
+this session's 56.0%-on-125 number needs to account for the larger,
+not-directly-comparable denominator.

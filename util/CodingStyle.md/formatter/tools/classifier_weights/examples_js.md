@@ -42,3 +42,16 @@ keywords not yet covered by a zero-signal NO row in this file, to rebalance.
 | 22 | `yield keyword pauses the generator until resumed` | no | no | no | NO | "yield" naming the actual keyword, code reference despite zero mechanical feature. |
 | 23 | `import statement pulls in the utility module used below` | no | no | no | NO | "import" naming the actual statement being described. |
 | 24 | `export keyword makes this function part of the public API` | no | no | no | NO | "export" naming the actual keyword, not an English verb. |
+
+Rows 25-32 added 2026-08-01 (STATE_AI.md's "grow hand-labeled hard-case set" session), covering
+`KEYWORDS_JS` members that previously had zero example rows in this file: `case`, `delete`,
+`throw`, `while`.
+
+| 25 | `case in point, this hack has outlived three rewrites` | no | no | no | YES | "case" as an ordinary English noun ("case in point"), prose. |
+| 26 | `case label here falls through to the default on purpose` | no | no | no | NO | "case" naming the actual `switch`/`case` label being described, code reference despite zero mechanical feature. |
+| 27 | `delete this comment once the workaround is no longer needed` | no | no | no | YES | "delete" as an ordinary English verb, prose. |
+| 28 | `delete here only removes the key, not the underlying value` | no | no | no | NO | "delete" naming the actual `delete` operator being described, code reference despite zero mechanical feature. |
+| 29 | `throw caution to the wind and ship this on a Friday` | no | no | no | YES | "throw" as an ordinary English verb ("throw caution to the wind"), prose. |
+| 30 | `throw here only fires once the retry budget is exhausted` | no | no | no | NO | "throw" naming the actual exception-raising keyword being described, code reference despite zero mechanical feature. |
+| 31 | `while we're at it, let's also clean up the imports` | no | no | no | YES | "while" as an ordinary English conjunction ("while we're at it"), prose. |
+| 32 | `while loop here intentionally spins until the flag flips` | no | no | no | NO | "while" naming the actual loop construct being described, code reference despite zero mechanical feature. |

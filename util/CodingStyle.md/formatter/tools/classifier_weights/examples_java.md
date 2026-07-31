@@ -28,3 +28,16 @@ Rows 19-22 added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session),
 | 20 | `interface Comparable<T> { int compareTo(T o); }` | yes | no | no | NO | Real declaration, paren fires from `compareTo(`. |
 | 21 | `abstract enough that every subclass fills in the details` | no | no | no | YES | "abstract" used loosely as an adjective in a sentence, prose. |
 | 22 | `abstract methods have no body in this base class` | no | no | no | NO | "abstract" naming the actual method modifier being described, zero mechanical feature fires — same false-friend shape as rows 11/17/18. |
+
+Rows 23-30 added 2026-08-01 (STATE_AI.md's "grow hand-labeled hard-case set" session), covering
+`KEYWORDS_JAVA` members that previously had zero example rows in this file: `case`, `if`,
+`public`, `record`.
+
+| 23 | `case in point, this workaround predates the real fix` | no | no | no | YES | "case" as an ordinary English noun ("case in point"), prose. |
+| 24 | `case label here falls through to the next one on purpose` | no | no | no | NO | "case" naming the actual `switch`/`case` label being described, code reference despite zero mechanical feature. |
+| 25 | `if anything, this change makes the bug more visible` | no | no | no | YES | "if" as an ordinary English conjunction ("if anything"), prose. |
+| 26 | `if block here is only reachable in debug builds` | no | no | no | NO | "if" naming the actual conditional construct being described, code reference despite zero mechanical feature. |
+| 27 | `public opinion on this deprecation has been mixed` | no | no | no | YES | "public" used as an ordinary noun ("public opinion"), prose. |
+| 28 | `public constructor here is only meant for framework use` | no | no | no | NO | "public" naming the actual access modifier being described, code reference despite zero mechanical feature. |
+| 29 | `record label released this album decades before streaming` | no | no | no | YES | "record" used as an ordinary noun ("record label"), prose false-friend case. |
+| 30 | `record type here is only used to carry parsed config values` | no | no | no | NO | "record" naming the actual `record` type keyword being described, code reference despite zero mechanical feature. |

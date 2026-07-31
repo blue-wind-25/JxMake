@@ -39,3 +39,16 @@ covered by one in this file.
 | 22 | `namespace groups these utility functions under one qualified name` | no | no | no | NO | "namespace" naming the actual declaration keyword being described. |
 | 23 | `unknown here forces an explicit narrowing check before use` | no | no | no | NO | "unknown" naming the actual type keyword, not the English adjective. |
 | 24 | `abstract base class defines the shared contract for every shape` | no | no | no | NO | "abstract" naming the actual class modifier, code reference despite zero mechanical feature. |
+
+Rows 25-32 added 2026-08-01 (STATE_AI.md's "grow hand-labeled hard-case set" session), covering
+`KEYWORDS_TS` members that previously had zero example rows in this file: `any`, `never`,
+`number`, `public`.
+
+| 25 | `any concerns about this API shape should go in the review thread` | no | no | no | YES | "any" as an ordinary English adjective ("any concerns"), prose. |
+| 26 | `any here widens the type and defeats the point of this check` | no | no | no | NO | "any" naming the actual escape-hatch type keyword being described, code reference despite zero mechanical feature. |
+| 27 | `never mind the extra logging, it's only on in debug builds` | no | no | no | YES | "never" as an ordinary English adverb ("never mind"), prose. |
+| 28 | `never here signals this branch is unreachable by construction` | no | no | no | NO | "never" naming the actual bottom-type keyword being described, code reference despite zero mechanical feature. |
+| 29 | `number of retries here was picked arbitrarily and should be tuned` | no | no | no | YES | "number" as an ordinary English noun ("number of retries"), prose. |
+| 30 | `number here widens too easily and should probably be a literal type` | no | no | no | NO | "number" naming the actual primitive type keyword being described, code reference despite zero mechanical feature. |
+| 31 | `public opinion on this API design keeps shifting` | no | no | no | YES | "public" used as an ordinary noun ("public opinion"), prose. |
+| 32 | `public members here are intentionally minimal` | no | no | no | NO | "public" naming the actual access modifier being described, code reference despite zero mechanical feature. |

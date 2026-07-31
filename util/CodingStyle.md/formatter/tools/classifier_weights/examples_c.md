@@ -47,3 +47,16 @@ Rows 18-21 added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session),
 | 19 | `enum Color { RED, GREEN, BLUE };` | no | yes | no | NO | Declaration restated, semicolon fires. |
 | 20 | `struct fields are laid out in declaration order here` | no | no | no | NO | "struct" naming the actual construct being described, zero mechanical feature fires — same false-friend shape as rows 13-17. |
 | 21 | `break early once the target is found` | no | no | no | YES | "break" as an ordinary English verb ("break early"), prose. |
+
+Rows 22-29 added 2026-08-01 (STATE_AI.md's "grow hand-labeled hard-case set" session), covering
+`KEYWORDS_C` members that previously had zero example rows in this file: `case`, `const`, `for`,
+`return`.
+
+| 22 | `case in point, this bug reproduces every time` | no | no | no | YES | "case" as an ordinary English noun ("case in point"), prose. |
+| 23 | `case label falls through here on purpose` | no | no | no | NO | "case" naming the actual `switch`/`case` label being described, code reference despite zero mechanical feature. |
+| 24 | `const correctness matters a lot in this codebase's public API` | no | no | no | YES | "const" used loosely as an adjective phrase ("const correctness"), prose. |
+| 25 | `const pointer here cannot be reseated after initialization` | no | no | no | NO | "const" naming the actual qualifier being described, not an adjective in ordinary prose. |
+| 26 | `for the record, this workaround predates the real fix` | no | no | no | YES | "for" as an ordinary English preposition ("for the record"), prose. |
+| 27 | `for loop here intentionally skips the first element` | no | no | no | NO | "for" naming the actual loop construct being described, code reference despite zero mechanical feature. |
+| 28 | `return on investment for this refactor was pretty low` | no | no | no | YES | "return" used loosely as a noun ("return on investment"), prose. |
+| 29 | `return value here is only valid until the next call` | no | no | no | NO | "return" naming the actual keyword/value being described, code reference despite zero mechanical feature. |

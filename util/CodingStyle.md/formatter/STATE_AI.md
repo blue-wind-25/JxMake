@@ -1459,3 +1459,35 @@ are both immediate next steps, tracked separately below.
 
 **Files changed:** `tools/classifier_weights/derive_weights.py` only + this
 file.
+
+---
+
+## 2026-08-01 session: `weights.md`/`CommentClassifierWeights.java` re-derived, `sample_default.txt` regenerated with the `extract_comments.py` fix
+
+Two remaining follow-ups from the sessions above, done together:
+
+**1. Copied `derive_weights.py`'s new 173-example constants** into
+`CommentClassifierWeights.java` and added a "2026-08-01 re-derivation"
+section to `weights.md` following the existing 2026-07-31 section's
+format. `make test`: **225/225 forward, 225/225 idempotency**, no
+regressions from the weight change.
+
+**2. Re-ran `make gru-acquire-corpus`**, now that the `extract_comments.py`
+string-literal fix has landed. Confirms the fix's effect on the real
+16-source corpus: 96836 → 96695 raw comments read (141 fewer spurious
+extractions), auto-labeled NO rows 3103 → 3023 (80 fewer -- consistent
+with the leaked DTD/URL string fragments, which skewed heavily NO given
+their code-like shape, now correctly excluded). `sample_default.txt`:
+92348 → 92952 lines. Confirmed zero remaining instances of the originally-
+reported leakage pattern (`grep -c "DTD Enterprise JavaBeans"` → 0, was
+present before the fix). 173 hand-labeled rows folded in correctly
+(unchanged from the corpus-growing session, this run just regenerates the
+auto-labeled bulk around them).
+
+**Not done this session:** no GRU retrain against this corrected corpus,
+no re-run of the 173-example hard-case benchmark against a fix-applied-
+corpus model. That's the natural next step once picked up.
+
+**Files changed:** `src/com/jxmake/formatter/classifier/
+CommentClassifierWeights.java`, `tools/classifier_weights/weights.md`,
+`tools/gru/sample_default.txt` + this file.

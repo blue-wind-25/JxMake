@@ -171,6 +171,7 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_219 | `JetBrains/kotlin` dogfood cluster **D1** (declaration/accessor column-alignment padding flap) — **PARTIALLY FIXED**: two independent group-width-recompute-instability root causes (RDD_KEY_139/140/162 family). (1) `KotlinDeclarationAlignmentRule.renderAlignedGroup` rendered surviving (non-excluded) rows as one flat shared-width grid even when an excluded, overflowing, brace-bodied-init row sat in the MIDDLE of the group — fixed by rendering surviving rows as maximal contiguous runs instead. (2) The analogous bug in shared `ScopePipelineCurly.applyGetterSetterPass` (Kotlin's one-liner expression-bodied function/accessor grouping) — fixed with new Kotlin-gated `renderKotlinFilteredRuns` helper, C/C++/Java untouched. **Known remaining gap, left open**: a third sub-shape where the offending member's own solo/raw width fits under the limit (so the raw-length parse-time pre-check never excludes it) but the group's own shared-column padding alone pushes it over — `KotlinGetterSetterRule` has no RDD_KEY_162-style budget-aware exclusion mechanism at all. D1's ~100-file estimate likely contains an unknown mix of all three sub-shapes; closure is partial. Fixture `_169`. `make test`: 217/217 forward + idempotency, zero regressions. |
 | RDD_KEY_220 | `JetBrains/kotlin` dogfood cluster **D1**, third sub-shape left open by RDD_KEY_219 — **FIXED, closes D1 fully**: group-padding-induced overflow in `KotlinGetterSetterRule`'s one-liner grouping (member's own raw width fits under `lineLengthLimit`, but shared-column padding alone pushes it over; pre-fix this was silently absorbed by a later `MiscRule.enforceCallLineBreaking` call-argument wrap). Fixed by porting RDD_KEY_162's fixed-point budget-exclusion loop into a new depth-aware 3-arg `GetterSetterRuleCurly.render`/`KotlinGetterSetterRule.render` override, gated on `GetterSetterRuleCore.hasBreakableCall`, reusing RDD_KEY_219's contiguous-run rendering for survivors; `depth` threaded through `ScopePipelineCurly.applyGetterSetterPass`/`renderKotlinFilteredRuns`. Fixture `_170`. `make test`: 218/218 → 219/219 forward + idempotency, zero regressions. |
 | RDD_KEY_221 | `JetBrains/kotlin` dogfood cluster **D3** — root cause confirmed, fix **NOT landed**: `MiscRuleCurly.renderCallCandidate`'s no-newline-branch fits-check measures a candidate against its entire enclosing physical source line (`lineStartIndex(tokens, nameIdx)`) instead of a stable position tied to the candidate itself, causing the wrap decision to flap across rounds as the enclosing line's own length changes. Candidate fix (anchor measurement at `nameIdx`) regressed 28 fixtures across C/C++/Java/TS/Kotlin at `make test` — reverted, not committed. Documented as a `README.md` Known Limitations bullet; D3 remains open. |
+| RDD_KEY_226 | `JetBrains/kotlin` dogfood cluster **D3**, 2026-07-31 design session's `statementStartIndex` (depth-0 `;`/`{`/`}` backward-scan) fix **implemented, validated, and REVERTED** — the design's own documented "Known open risk" (Kotlin statements are usually NEWLINE-, not `;`-separated) materialized: 16 Kotlin fixtures regressed (e.g. `real_code_regressions_20_inp.kt`'s `val display = ...` followed by `showMessage(context, display)` — the backward scan walks past the current statement into the entire preceding sibling statement, inflating the measured width, false-positive wrap), zero regressions in C/C++/Java/TS (gate itself worked). Reverted in full; `make test` back to 225/225. D3 remains open; needs real statement-boundary tracking (depth-0 NEWLINE as a statement end vs. mid-wrap), closer to the "General scope-depth reindentation" architectural TODO than a self-contained fix. |
 
 ---
 
@@ -554,12 +555,23 @@ index: scope, config, which RDD_KEYs, fixtures, verification result).
    (idempotency): D2a (332/334 known-flap files) and D4 (~8 files) both
    fully closed; D1 fully closed (all three group-width-recompute-
    instability sub-shapes fixed); **D3's root cause is confirmed
-   (RDD_KEY_221) but no fix has landed** — a candidate fix was tried and
-   reverted after regressing 28 fixtures across C/C++/Java/TS/Kotlin at
-   `make test`; see `README.md`'s Known Limitations section and
-   RDD_KEY_221. D3 remains open (~34 files total, including 2 files
-   reclassified out of D2a's own former residual:
-   `GenerateReleaseNotes.kt`/`TypeBridging.kt`). Full diagnosis, tool
+   (RDD_KEY_221) but no fix has landed** — a first candidate fix was tried
+   and reverted after regressing 28 fixtures across C/C++/Java/TS/Kotlin at
+   `make test` (RDD_KEY_221); a second, more careful candidate design (the
+   2026-07-31 `statementStartIndex` scoping session) was implemented and
+   validated in a follow-up session, but its own documented "Known open
+   risk" materialized for real — 16 Kotlin fixtures regressed because
+   Kotlin statements are usually NEWLINE-, not `;`-separated, so the
+   backward scan merges an unrelated preceding sibling statement into the
+   measurement — reverted again, not committed (RDD_KEY_226). See
+   `README.md`'s Known Limitations section and RDD_KEY_221/RDD_KEY_226. D3
+   remains open (~34 files total, including 2 files reclassified out of
+   D2a's own former residual: `GenerateReleaseNotes.kt`/`TypeBridging.kt`).
+   A real fix needs actual Kotlin statement-boundary tracking (a depth-0
+   NEWLINE that ends a statement, distinguished from one that's mid-wrap
+   inside the current candidate's own already-broken rendering) — closer to
+   `STATE_COMMON.md`'s "General scope-depth reindentation" architectural
+   TODO's territory than a self-contained fix. Full diagnosis, tool
    commands, and per-cluster fix history: see "Dogfood: JetBrains/kotlin"
    section below.
 
@@ -666,7 +678,7 @@ full 334, **not** exhaustive — treat as directional.
 |---|---|---|---|
 | **D2a.** Chained-fluent-call closing-brace drift (`}.apply {`, `}?.let {`, etc — a span's own `braceIndent`/`spanIndent` read off the volatile physical text of the PRECEDING span's own `}`) | 22 | 332 of 334 known flap files | **FIXED** (RDD_KEY_214/215/216, fixtures `_165`/`_166`/`_167`). Fix: generalized `isChainedCatchFinally` (RDD_KEY_158) into `isChainedFluentCall`, inherits the preceding span's already-resolved `prevEffectiveSpanIndent`. Root-caused against `declarationBuilders.kt`. RDD_KEY_214's own 6-file residual: 5 fixed by a `fun`-with-wrapped-`where`-clause gap (RDD_KEY_215) + a boolean-operator-chained continuation (RDD_KEY_216); the last 2 (`GenerateReleaseNotes.kt`/`TypeBridging.kt`) were misclassified as D2a-adjacent — direct diffing shows they're ordinary D3 wrap-decision-flap instances, left open under D3. `make test`: 214/214 → 215/215 → 216/216, zero regressions. |
 | **D1.** Declaration/accessor column-alignment padding flap (round1 vs round2 disagree on padding width) | 12 | ~100 | **FULLY FIXED** (RDD_KEY_219 fixture `_169`, RDD_KEY_220 fixture `_170`). Same family as RDD_KEY_139/162 (group-width recompute instability). Three independent root causes, all fixed: (1) `renderAlignedGroup` rendered surviving rows as one flat shared-width grid even with an excluded overflowing row mid-group — fixed via maximal contiguous runs. (2) Same bug in `applyGetterSetterPass` — new Kotlin-gated `renderKotlinFilteredRuns`. (3) A member whose own solo width fits but whose group's shared-column padding alone pushes it over (silently absorbed pre-fix by a later `enforceCallLineBreaking` wrap) — fixed by porting RDD_KEY_162's fixed-point budget-exclusion loop into a depth-aware `GetterSetterRuleCurly.render`/`KotlinGetterSetterRule.render` override. |
-| **D3.** Multi-line-call/condition wrap-decision flap (one line in round1, exploded across multiple lines in round2, or vice versa) | 4 | ~33 (broader than the original ~15-20 "lambda header" estimate — includes plain call-argument and `if(...)` condition wraps too) | **OPEN — root cause confirmed (RDD_KEY_221), fix not landed.** `MiscRuleCurly.renderCallCandidate`'s no-newline-branch fits-check measures a candidate against its entire enclosing physical source line (`lineStartIndex(tokens, nameIdx)`) instead of a stable position tied to the candidate itself, so the wrap decision flaps across rounds as the enclosing line's own length changes. A candidate fix (anchor measurement at `nameIdx`) regressed 28 fixtures across C/C++/Java/TS/Kotlin at `make test` — reverted, not committed. Documented in `README.md`'s Known Limitations. Landing a real fix needs a more careful design (distinguishing same-line prefix that must still count toward the limit from unrelated outer-construct text that shouldn't) plus a full four-language regression review — a larger undertaking than a single-session investigation. Includes 2 files reclassified out of D2a's former residual (`GenerateReleaseNotes.kt`/`TypeBridging.kt`). **This is the only remaining open bucket in the whole Kotlin job, and the best-understood unfixed one — next session should start here.** |
+| **D3.** Multi-line-call/condition wrap-decision flap (one line in round1, exploded across multiple lines in round2, or vice versa) | 4 | ~33 (broader than the original ~15-20 "lambda header" estimate — includes plain call-argument and `if(...)` condition wraps too) | **OPEN — root cause confirmed (RDD_KEY_221), TWO candidate fixes tried and reverted, neither landed.** `MiscRuleCurly.renderCallCandidate`'s no-newline-branch fits-check measures a candidate against its entire enclosing physical source line (`lineStartIndex(tokens, nameIdx)`) instead of a stable position tied to the candidate itself, so the wrap decision flaps across rounds as the enclosing line's own length changes. Fix attempt 1 (anchor measurement at `nameIdx`) regressed 28 fixtures across C/C++/Java/TS/Kotlin at `make test` (RDD_KEY_221) — dropped legitimate same-statement prefix. Fix attempt 2 (2026-07-31 design session's `statementStartIndex`, a depth-0 `;`/`{`/`}` backward-scan, Kotlin-gated) was implemented and validated against the grounded `when`-arm example plus a synthetic multi-arm `when` stress fixture (both passed, round1==round2) — but regressed 16 Kotlin fixtures at the full `make test` because Kotlin statements are usually NEWLINE-, not `;`-separated, so the scan merges an unrelated preceding sibling statement into the measurement (RDD_KEY_226; concrete repro `real_code_regressions_20_inp.kt`). Both reverted, not committed. Documented in `README.md`'s Known Limitations. Landing a real fix needs actual Kotlin statement-boundary tracking (recognizing a depth-0 NEWLINE that ends a statement vs. one mid-wrap inside the current candidate's own already-broken rendering) — closer to `STATE_COMMON.md`'s "General scope-depth reindentation" architectural TODO's territory than a self-contained fix. Includes 2 files reclassified out of D2a's former residual (`GenerateReleaseNotes.kt`/`TypeBridging.kt`). **This is the only remaining open bucket in the whole Kotlin job.** |
 | **D4.** Minor adjacent-closing-brace spacing flap (`) }` vs `)}`) | 1 | ~8 | **FIXED** (RDD_KEY_218, fixture `_168`). `collapseBracelessBody` dropped a source-preserved trailing space before an already-braceless body's enclosing `}` via `renderInline`'s no-trailing-whitespace behavior. Reproduced against `JsArgumentsImpl.kt`; also fixed a latent instance already baked into fixture `real_code_regressions_33_out.kt`. |
 
 Sample total: 22+12+4+1 = 39 of 40 (`org.w3c.dom.kt` showed both a D1 and a
@@ -867,6 +879,87 @@ session did not reach that determination either way; it's the next
 session's first validation gate.
 
 ---
+
+## 2026-08-01 — D3 implementation attempt (RDD_KEY_226) — implemented, validated against the design's own risk, then reverted
+
+Implemented the 2026-07-31 design session's `statementStartIndex` fix
+exactly as specified: new `MiscRuleCurly.statementStartIndex(tokens,
+nameIdx)` helper (backward scan tracking `(`/`[`/angle-bracket depth,
+stopping at the nearest depth-0 `;`, `{`, or `}`), swapped in for
+`lineStartIndex(tokens, nameIdx)` only at the one load-bearing call site in
+`renderCallCandidate`'s no-newline fits-check, gated behind `lang.isKotlin`.
+
+**Validation steps 1-2 (fast, targeted) passed clean:**
+- Grounded repro (`EqualityAndComparisonCallsTransformer.kt`'s `when`-arm
+  line, both `Name.identifier(...)` and `transformCompareToMethodCall(...)`
+  candidates) formatted correctly and round1==round2.
+- Synthetic multi-arm `when {}` stress fixture (short arm `1 -> shortArm()`
+  immediately followed by a long arm needing to wrap, no `;` between them —
+  the design's own documented open risk shape) also passed clean,
+  round1==round2, no over-counting from the preceding short arm.
+
+**Validation step 3 (full `make test`) failed — the design's "Known open
+risk" materialized for real, just not in the `when`-arm shape it was
+explicitly checked against.** 16 Kotlin fixtures regressed: `kt_combined_inp.kt`,
+`kt_comments_inp.kt`, and `real_code_regressions_{20,22,27,32,33,39,44,45,
+46,62,156,165,169,170}_inp.kt`. Zero regressions in C/C++/Java/TS — the
+`lang.isKotlin` gate itself isolated the change correctly, as intended.
+
+**Concrete failure**, minimal repro is `real_code_regressions_20_inp.kt`:
+
+```kotlin
+val display = (if (warning != null) "$warning\n\n" else "") + "Done"
+showMessage(context, display)
+```
+
+`showMessage(context, display)` should render unchanged (it already fits).
+But `statementStartIndex`'s backward scan from `showMessage`'s `nameIdx`
+finds no `;` and no `{`/`}` between it and the *previous* statement (Kotlin
+statements are ordinarily NEWLINE-separated, not `;`-separated — `;` is
+optional and usually stripped, RDD_KEY_115) — so it walks straight past
+`showMessage`'s own statement start, through the NEWLINE, and all the way
+back through the entire `val display = (if ...) + "Done"` statement to the
+function body's opening `{`. The fits-check then measures BOTH statements'
+combined text against `lineLengthLimit`, which exceeds it, producing a
+false-positive wrap:
+
+```kotlin
+showMessage(
+    context, display
+)
+```
+
+This is exactly what the 2026-07-31 design session's "Known open risk"
+subsection predicted — a preceding sibling with no depth-0 `;` before the
+current statement gets merged into the measurement — just manifesting as
+an ordinary two-statement sequence rather than the `when`-arm shape that
+subsection specifically called out. The dedicated `when`-arm stress test
+this session ran (per the validation plan's step 1(b)) didn't catch it
+because both arms in that fixture happened to stay self-contained; the
+risk is broader than just `when`-arms — it's any newline-only-delimited
+statement sequence, which in Kotlin is nearly all of them.
+
+**Reverted in full** (`git checkout -- src/com/jxmake/formatter/rules/
+MiscRuleCurly.java`, confirmed `git status` shows no diff in `src/`).
+`make test` reconfirmed clean at 225/225 forward + idempotency (the green
+baseline had moved from 219/219, noted as of RDD_KEY_220, to 225/225 by
+RDD_KEY_225 in the interim — both before and after this session's revert
+are 225/225, zero net change from this session).
+
+**Conclusion, per the design session's own stated fallback:** the
+`when`-arm/braceless-body open risk is real and not fixable with the
+depth-0-`;`/`{`/`}` boundary rule alone. A real fix needs actual Kotlin
+statement-boundary tracking — recognizing a depth-0 NEWLINE that legitimately
+ends a statement, distinguished from a depth-0 NEWLINE that's merely
+mid-wrap inside the current candidate's own already-broken rendering — which
+is real statement-sequence parsing, not a small addition to the existing
+scan. This pushes D3 closer to `STATE_COMMON.md`'s "General scope-depth
+reindentation" architectural TODO's territory than a self-contained fix, as
+that TODO section and the 2026-07-31 design session both anticipated as a
+possible outcome. No fixture was added (nothing to register — the fix was
+never landed). D3 remains open; a future session attempting it again should
+start from actual statement/expression-boundary tracking, not another
+variant of a token-depth-only backward scan.
 
 ## Open Questions
 

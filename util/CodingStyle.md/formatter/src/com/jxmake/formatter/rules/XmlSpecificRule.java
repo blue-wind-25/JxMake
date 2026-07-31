@@ -219,6 +219,20 @@ public final class XmlSpecificRule {
      */
     private int svgDepth;
 
+    /**
+     * Lightweight name-only stack of currently-open element tag names (lowercased), pushed in
+     *  {@link #parseElement} right after a start tag is recognized and popped on every return path
+     *  (matched close, implied-close-trigger path, and the tolerant-close fallback alike). Lets
+     *  {@link #parseNodes} distinguish, at a closing tag encountered mid-children-parse, "this name
+     *  matches something actually open on the path from the document root to here" (a legitimate
+     *  cascade-close -- the mechanism WPT's {@code charset/after-bogus.html} mismatched-tag case
+     *  relies on) from "this name matches nothing open anywhere" (a genuine orphan close tag, e.g.
+     *  apache/ant's `manual/running.html` stray {@code </p>} with no open {@code <p>} at all --
+     *  see STATE_DATA_FORMATS.md's Open Questions item 2). Deliberately NOT the full per-insertion-
+     *  mode HTML5 tree-construction state -- just enough to make that one distinction.
+     */
+    private final java.util.Deque<String> openTagStack = new java.util.ArrayDeque<>();
+
     public XmlSpecificRule(final Lang lang)
     {
         this(lang, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
@@ -364,7 +378,20 @@ public final class XmlSpecificRule {
         while(true) {
             skipWs();
             if( eof() ) break;
-            if( stopAtCloseTag && startsWith("</") ) break;
+            if( stopAtCloseTag && startsWith("</") ) {
+                // See openTagStack's own javadoc / STATE_DATA_FORMATS.md's Open Questions item 2:
+                // a closing tag here either matches the element currently being parsed or one of its
+                // real ancestors (legitimate cascade-close, unchanged from prior behavior -- keep
+                // breaking out to let the caller chain handle it), or it's a genuine orphan (matches
+                // nothing open anywhere) that should be discarded in place rather than incorrectly
+                // cascading a tolerant-close all the way up to <body>/<html>. Only meaningful for
+                // HTML5's error-tolerant posture -- strict XML/XHTML keeps the original unconditional
+                // break (a mismatched close tag there is a real document error, not tolerated).
+                if( !lang.isHtml5 || openTagStack.contains( peekCloseTagNameLower() ) ) break;
+                final int gt = s.indexOf('>', pos);
+                pos = gt >= 0 ? gt + 1 : s.length();
+                continue;
+            } // if
             if( impliedCloseTriggers != null && startsWithTriggerTag(impliedCloseTriggers) ) break;
             if( lang.isHtml5 && !stopAtCloseTag && startsWith("</") ) {
                 // Document-root-level stray closing tag with no corresponding open element anywhere
@@ -404,6 +431,19 @@ public final class XmlSpecificRule {
         final String tag = s.substring(nameStart, i).toLowerCase(java.util.Locale.ROOT);
 
         return triggers.contains(tag);
+    }
+
+    /**
+     * Lowercased tag name of the closing tag at the cursor (which must already be positioned at
+     *  `</`) -- used by {@link #openTagStack}'s ancestor/orphan check.
+     */
+    private String peekCloseTagNameLower()
+    {
+        int              i     = pos + 2;
+        final int        start = i;
+        while( i < s.length() && s.charAt(i) != '>' && !Character.isWhitespace( s.charAt(i) ) ) i++;
+
+        return s.substring(start, i).toLowerCase(java.util.Locale.ROOT);
     }
 
     private void attachTrailingCommentIfAny(final Node node)
@@ -602,48 +642,54 @@ public final class XmlSpecificRule {
         final java.util.Set<String> impliedTriggers = lang.isHtml5 ? IMPLIED_CLOSE_TRIGGERS.get(
             lowerTag
         ) : null;
-        if(isSvg) svgDepth++;
+        openTagStack.push(lowerTag);
         try {
-            n.children = parseNodes(true, impliedTriggers);
+            if(isSvg) svgDepth++;
+            try {
+                n.children = parseNodes(true, impliedTriggers);
+            }
+            finally {
+                if(isSvg) svgDepth--;
+            }
+            final String closeTok         = "</" + n.tagName + ">";
+            final int    beforeTrailingWs = pos;
+            skipInlineWs();
+            if( startsWith(closeTok) || startsWith("</" + n.tagName + " ")
+                    || ( lang.isHtml5 && startsWithCloseTagIgnoreCase(n.tagName) ) ) {
+                final int gt = s.indexOf('>', pos);
+                pos = gt + 1;
+                return n;
+            }
+            if(impliedTriggers != null) {
+                // Implied close (RDD_KEY registered in IMPLIED_CLOSE_TRIGGERS): either an upcoming
+                // sibling trigger tag or the parent's own closing tag ended this element's children --
+                // no explicit closing tag to consume, don't swallow the inline whitespace we peeked past
+                pos = beforeTrailingWs;
+                return n;
+            } // if
+            if(lang.isHtml5) {
+                // HTML5 parsing is spec-mandated to be error-tolerant and never crash (the same posture
+                // html_sc.js's own doc comment already describes for real browsers) -- reaching either
+                // real end-of-input (the spec's "stopped parsing" step implicitly closes every still-open
+                // element, confirmed via real WPT dogfood input: many `syntax/speculative-parsing/**`
+                // fixtures omit `</body>`/`</html>` entirely at EOF) or an upcoming closing tag that
+                // doesn't match ours (an unrecognized/misnested element with no matching close at all,
+                // e.g. a made-up `<bogus>` tag never closed before its ancestor's own closing tag --
+                // confirmed via real WPT dogfood input, `charset/after-bogus.html`) both implicitly close
+                // this element rather than throwing. This is a pragmatic approximation, not the spec's
+                // full per-case adoption-agency/foster-parenting tree-construction algorithm (see
+                // STATE_DATA_FORMATS.md's Open Questions for the cases still deliberately left unhandled
+                // as genuinely out of scope) -- it only prevents a hard crash by treating the element as
+                // closed-with-no-explicit-tag, same as the true-EOF and IMPLIED_CLOSE_TRIGGERS cases above.
+                pos = beforeTrailingWs;
+                return n;
+            } // if
+            throw new XmlParseException( "expected closing tag " + closeTok + " near: "
+                    + s.substring( pos, Math.min( s.length(), pos + 40 ) ) );
         }
         finally {
-            if(isSvg) svgDepth--;
+            openTagStack.pop();
         }
-        final String closeTok         = "</" + n.tagName + ">";
-        final int    beforeTrailingWs = pos;
-        skipInlineWs();
-        if( startsWith(closeTok) || startsWith("</" + n.tagName + " ")
-                || ( lang.isHtml5 && startsWithCloseTagIgnoreCase(n.tagName) ) ) {
-            final int gt = s.indexOf('>', pos);
-            pos = gt + 1;
-            return n;
-        }
-        if(impliedTriggers != null) {
-            // Implied close (RDD_KEY registered in IMPLIED_CLOSE_TRIGGERS): either an upcoming
-            // sibling trigger tag or the parent's own closing tag ended this element's children --
-            // no explicit closing tag to consume, don't swallow the inline whitespace we peeked past
-            pos = beforeTrailingWs;
-            return n;
-        } // if
-        if(lang.isHtml5) {
-            // HTML5 parsing is spec-mandated to be error-tolerant and never crash (the same posture
-            // html_sc.js's own doc comment already describes for real browsers) -- reaching either
-            // real end-of-input (the spec's "stopped parsing" step implicitly closes every still-open
-            // element, confirmed via real WPT dogfood input: many `syntax/speculative-parsing/**`
-            // fixtures omit `</body>`/`</html>` entirely at EOF) or an upcoming closing tag that
-            // doesn't match ours (an unrecognized/misnested element with no matching close at all,
-            // e.g. a made-up `<bogus>` tag never closed before its ancestor's own closing tag --
-            // confirmed via real WPT dogfood input, `charset/after-bogus.html`) both implicitly close
-            // this element rather than throwing. This is a pragmatic approximation, not the spec's
-            // full per-case adoption-agency/foster-parenting tree-construction algorithm (see
-            // STATE_DATA_FORMATS.md's Open Questions for the cases still deliberately left unhandled
-            // as genuinely out of scope) -- it only prevents a hard crash by treating the element as
-            // closed-with-no-explicit-tag, same as the true-EOF and IMPLIED_CLOSE_TRIGGERS cases above.
-            pos = beforeTrailingWs;
-            return n;
-        } // if
-        throw new XmlParseException( "expected closing tag " + closeTok + " near: "
-                + s.substring( pos, Math.min( s.length(), pos + 40 ) ) );
     }
 
     /**

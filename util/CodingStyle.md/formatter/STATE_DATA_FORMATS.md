@@ -384,11 +384,36 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      let it be peeled off cheaply. Tag-name case-folding itself was fixed
      standalone, separately (see item 3 below).
 
-  2. **`apache/ant` `manual/running.html` — full scoping pass done
-     2026-07-31 (tracker item 24). Corrected framing: does NOT need
-     item 1's full prerequisite; a narrower, self-contained fix is
-     possible, but the real bug is much bigger than the "1 `<p>` lost"
-     symptom originally recorded.** Full write-up:
+  2. **`apache/ant` `manual/running.html` — FIXED (RDD_KEY_223, 2026-08-01).**
+     Full scoping pass done 2026-07-31 (tracker item 24); corrected framing
+     confirmed no need for item 1's full insertion-mode-state prerequisite —
+     the narrower, self-contained fix described below was implemented as
+     scoped. `XmlSpecificRule` gained an `openTagStack` (`Deque<String>` of
+     currently-open lowercased tag names, pushed in `parseElement` before
+     parsing children, popped via an enclosing `try`/`finally` covering
+     every return path) and a `peekCloseTagNameLower` helper; `parseNodes`'s
+     `stopAtCloseTag` branch now breaks (cascade-close, unchanged) only if
+     the closing tag's name is found anywhere in the stack when
+     `lang.isHtml5`, else discards the stray/orphan closing tag in place and
+     continues the same children loop instead of returning control to the
+     caller — gated on `lang.isHtml5` (strict XML/XHTML unchanged). Per the
+     write-up's item 4, discard-only (no `<p></p>` synthesis) was used, not
+     the full per-spec behavior — accepted, see full RDD_KEY_223 text.
+     Fixtures `test/real_code_regressions_173_{inp,out}.html` (minimal
+     orphan-`</p>` repro) and `test/real_code_regressions_174_{inp,out}.html`
+     (regression guard for the mismatched-tag-cascades-to-ancestor path,
+     `charset/after-bogus.html`-idiom via an unclosed `<bogus>`/`</div>`).
+     `make test`: 221/221 -> 223/223 forward + idempotency, zero
+     regressions. `apache/ant` `manual/` 226-file corpus re-run: 226/226
+     forward + idempotency, 226/226 `html_syntax_check.sh` clean; content-
+     diff confirms the true structural corruption (content serialized
+     outside `</html>`) is gone (`</body></html>` now at the genuine end of
+     the reformatted file, verified by direct inspection) — the pre-
+     existing "1 `<p>` lost" (`<body>` child count 82 vs 81, from the
+     accepted discard-vs-synthesize gap) is an unchanged, expected residual,
+     not a regression; 4 other files' pre-existing unrelated comment-
+     capitalization mismatches confirmed identical against a pre-fix
+     baseline build. Original full write-up preserved below for reference:
 
      **Reproduced.** `/tmp/ant/manual/running.html` (existing checkout,
      226-file corpus) round1-formatted via `code-formatter.sh`, diffed with

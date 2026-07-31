@@ -2964,6 +2964,26 @@ Real-code regressions:
                                                scan-scope deviation, residual heuristic limitation)
                                                in `STATE_JS_TS.md`'s root-cause-#3 write-up.
 
+  real_code_regressions_173_inp/out.html    -- HTML5, `apache/ant` `manual/running.html` dogfood
+                                               (STATE_DATA_FORMATS.md's Open Questions item 2):
+                                               minimal repro of a genuine orphan `</p>` closing tag
+                                               (bare top-level `<body>` text with no wrapping `<p>`,
+                                               ending in an unmatched `</p>`) that previously
+                                               cascaded a tolerant-close all the way up through
+                                               `<body>` and `<html>` without consuming the stray
+                                               tag, dumping the rest of the real document as raw
+                                               siblings outside `</html>`. `XmlSpecificRule`'s new
+                                               `openTagStack` now distinguishes "matches nothing
+                                               open anywhere" (discard in place) from "matches an
+                                               ancestor" (legitimate cascade-close, unchanged).
+
+  real_code_regressions_174_inp/out.html    -- HTML5, regression guard for the fix above: proves
+                                               the pre-existing mismatched-tag cascade-to-ancestor
+                                               behavior (WPT's `charset/after-bogus.html` idiom --
+                                               an unclosed `<bogus>` tag tolerant-closed only when
+                                               its enclosing `<div>`'s own closing tag is reached)
+                                               still works unchanged after `openTagStack` was added.
+
 How Tests Are Run
 -----------------
 

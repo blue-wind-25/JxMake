@@ -1,11 +1,15 @@
 # Derived weights (RDD_KEY_97 / RDD_KEY_98)
 
-Derived over the 125 labeled examples in `examples_c.md`, `examples_cpp.md`, `examples_java.md`,
+Derived over the 173 labeled examples in `examples_c.md`, `examples_cpp.md`, `examples_java.md`,
 `examples_kotlin.md`, `examples_js.md`, `examples_ts.md` (62 as of 2026-07-30 + 63 added
-2026-07-31, see "2026-07-31 re-derivation" below and `STATE_AI.md`'s 2026-07-31 section) by
-`derive_weights.py` (L2-regularized logistic regression, run with
-`python3 tools/classifier_weights/derive_weights.py` — no dependencies). Two separate linear
-formulas exist in `CommentClassifier`/`CommentClassifierWeights`:
+2026-07-31 + 48 added 2026-08-01, see "2026-07-31 re-derivation"/"2026-08-01 re-derivation" below
+and `STATE_AI.md`'s corresponding sections) by `derive_weights.py` (L2-regularized logistic
+regression, run with `python3 tools/classifier_weights/derive_weights.py` — no dependencies).
+`DATASET` is parsed directly from the `examples_*.md` tables' own feature columns as of
+2026-08-01 (previously a hand-transcribed mirror — see `STATE_AI.md`'s "`derive_weights.py`'s
+`DATASET` made auto-extending" session), so adding rows to those files is now sufficient on its
+own; nothing else needs updating before the next re-run. Two separate linear formulas exist in
+`CommentClassifier`/`CommentClassifierWeights`:
 
 ## Main path (no leading-keyword ambiguity; both gates already cleared)
 
@@ -77,6 +81,33 @@ this is a property of the curated example set, not the underlying language. Fixe
 `examples_ts.md` (rows 19-24), bringing the total to 125 examples and the bias back negative
 (`-0.08711`). `make test` re-confirmed passing after the `CommentClassifierWeights.java` update
 (see `STATE_AI.md`'s 2026-07-31 section for the full count).
+
+### 2026-08-01 re-derivation
+
+Grew the hand-labeled hard-case corpus by 48 rows (8 per file, all zero-mechanical-feature,
+targeting keywords with previously zero example coverage — `case`/`const`/`for`/`return` in
+`examples_c.md`, `catch`/`override`/`public`/`protected` in `examples_cpp.md`, and so on across
+all six files; see `STATE_AI.md`'s "grew the hand-labeled hard-case set" session for the full
+per-file/per-keyword breakdown), bringing the total to 173 examples. Re-ran `derive_weights.py`
+(now auto-parsing `DATASET` from the `.md` files directly, no manual transcription step):
+
+```
+KEYWORD_BIAS                  = -0.05634
+KEYWORD_WEIGHT_PAREN          = -3.10644
+KEYWORD_WEIGHT_ARROW          = -1.55819
+KEYWORD_WEIGHT_SEMICOLON      = -3.59572
+KEYWORD_WEIGHT_URL_OR_NUMBER  = -0.96329
+KEYWORD_THRESHOLD             =  0.0        (fixed sigmoid decision boundary, not trained)
+```
+
+Result: 106/173 examples classified as labeled (61.3%, down from 82/125 = 65.6% — expected, not a
+regression: the 48 new rows are deliberately the hardest zero-mechanical-feature shape, diluting
+the fraction correctly resolved by this 4-feature linear model without changing anything about
+how well it does on the original 125). Bias stayed negative (still the correct asymmetric-risk
+tradeoff — zero-signal keyword-led comments default to ABSTAIN, not YES), and all four feature
+weights stayed within a few percent of their 2026-07-31 values, so the added rows reinforced the
+existing decision boundary rather than shifting it. `CommentClassifierWeights.java` updated to
+match; `make test`: 225/225 forward, 225/225 idempotency, no regressions.
 
 ### 2026-07-30 re-derivation
 

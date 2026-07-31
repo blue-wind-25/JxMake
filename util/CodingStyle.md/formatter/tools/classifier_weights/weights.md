@@ -1,9 +1,10 @@
 # Derived weights (RDD_KEY_97 / RDD_KEY_98)
 
-Derived over the 173 labeled examples in `examples_c.md`, `examples_cpp.md`, `examples_java.md`,
+Derived over the 221 labeled examples in `examples_c.md`, `examples_cpp.md`, `examples_java.md`,
 `examples_kotlin.md`, `examples_js.md`, `examples_ts.md` (62 as of 2026-07-30 + 63 added
-2026-07-31 + 48 added 2026-08-01, see "2026-07-31 re-derivation"/"2026-08-01 re-derivation" below
-and `STATE_AI.md`'s corresponding sections) by `derive_weights.py` (L2-regularized logistic
+2026-07-31 + 48 added 2026-08-01 + 48 more added 2026-08-01, see "2026-07-31
+re-derivation"/"2026-08-01 re-derivation" below and `STATE_AI.md`'s corresponding sections) by
+`derive_weights.py` (L2-regularized logistic
 regression, run with `python3 tools/classifier_weights/derive_weights.py` — no dependencies).
 `DATASET` is parsed directly from the `examples_*.md` tables' own feature columns as of
 2026-08-01 (previously a hand-transcribed mirror — see `STATE_AI.md`'s "`derive_weights.py`'s
@@ -108,6 +109,31 @@ tradeoff — zero-signal keyword-led comments default to ABSTAIN, not YES), and 
 weights stayed within a few percent of their 2026-07-31 values, so the added rows reinforced the
 existing decision boundary rather than shifting it. `CommentClassifierWeights.java` updated to
 match; `make test`: 225/225 forward, 225/225 idempotency, no regressions.
+
+### 2026-08-01 re-derivation (second growth pass, same day)
+
+Grew the corpus by another 48 rows (8 per file: `if`/`long`/`else`/`switch` in `examples_c.md`;
+`friend`/`throw`/`try`/`using` in `examples_cpp.md`; `break`/`catch`/`finally`/`package` in
+`examples_java.md`; `break`/`do`/`else`/`in` in `examples_kotlin.md`; `break`/`catch`/`if`/`return`
+in `examples_js.md`; `declare`/`is`/`protected`/`string` in `examples_ts.md`), bringing the total
+to 221 examples — same balance discipline as prior passes (each new keyword got a matched
+zero-feature YES/NO pair so the batch can't skew `KEYWORD_BIAS`; see `STATE_AI.md`'s corresponding
+session for the full per-file breakdown). Re-ran `derive_weights.py`:
+
+```
+KEYWORD_BIAS                  = -0.04180
+KEYWORD_WEIGHT_PAREN          = -3.10833
+KEYWORD_WEIGHT_ARROW          = -1.52024
+KEYWORD_WEIGHT_SEMICOLON      = -3.60170
+KEYWORD_WEIGHT_URL_OR_NUMBER  = -0.97619
+KEYWORD_THRESHOLD             =  0.0        (fixed sigmoid decision boundary, not trained)
+```
+
+Result: 130/221 examples classified as labeled (58.8%, down from 106/173 = 61.3% — same expected
+dilution pattern as every prior growth pass, not a regression). Bias stayed negative and all four
+feature weights stayed within a few percent of their 2026-08-01-morning values, so the decision
+boundary is stable across four consecutive growth passes now. `CommentClassifierWeights.java`
+updated to match; `make test` re-run pending as part of this same follow-up (see `STATE_AI.md`).
 
 ### 2026-07-30 re-derivation
 

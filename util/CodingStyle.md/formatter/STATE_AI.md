@@ -1461,3 +1461,35 @@ next step for whoever picks this up next — expect the benchmark's
 
 **Files changed:** `tools/classifier_weights/examples_{c,cpp,java,kotlin,
 js,ts}.md` + this file.
+
+---
+
+## 2026-08-01 session: re-derived weights and regenerated the corpus for the 221-row set
+
+Direct follow-up to the "173 → 221 rows" session above — the three steps
+left explicitly out of scope there.
+
+Re-ran `python3 tools/classifier_weights/derive_weights.py`: `KEYWORD_BIAS`
+stayed negative (`-0.04180`, vs `-0.05634` at 173 rows), all four feature
+weights stayed within a few percent of their 173-row values, decision
+boundary stable across four consecutive growth passes now. 130/221
+examples classified as labeled (58.8%, down from 106/173 = 61.3% — same
+expected per-pass dilution as every prior growth session, not a
+regression). Updated `CommentClassifierWeights.java` and `weights.md`'s
+"2026-08-01 re-derivation (second growth pass, same day)" section to
+match.
+
+`make test`: 225/225 forward, 225/225 idempotency, no regressions.
+
+Reran `make gru-acquire-corpus` (extraction pipeline unchanged since the
+last run, so the Pool A/B counts and auto-labeled 93096 YES=90073/NO=3023
+split are the same shape as before): wrote `tools/gru/sample_default.txt`
+at 92809 lines, now including all 221 hand-labeled hard-case rows.
+
+**Not done this session:** no GRU retrain against this corpus, no re-run of
+the hard-case benchmark against a retrained model — both remain the
+natural next step.
+
+**Files changed:** `src/com/jxmake/formatter/classifier/
+CommentClassifierWeights.java`, `tools/classifier_weights/weights.md`,
+`tools/gru/sample_default.txt` + this file.

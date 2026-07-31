@@ -92663,6 +92663,14 @@ c	YES	0	for the record, this workaround predates the real fix
 c	NO	0	for loop here intentionally skips the first element
 c	YES	0	return on investment for this refactor was pretty low
 c	NO	0	return value here is only valid until the next call
+c	YES	0	if only we had caught this bug earlier
+c	NO	0	if block below never executes on release builds
+c	YES	0	long story short, this hack has stuck around for years
+c	NO	0	long here is needed to avoid overflow on 32-bit platforms
+c	YES	0	else the caller has to handle this itself
+c	NO	0	else branch here only runs when the cache misses
+c	YES	0	switch to the new API once the migration lands
+c	NO	0	switch statement here has no default case on purpose
 cpp	YES	0	final review before merging this branch
 cpp	NO	0	final int x = compute();
 cpp	YES	0	explicit about what this function does not guarantee
@@ -92690,6 +92698,14 @@ cpp	YES	0	public opinion on this API design keeps shifting
 cpp	NO	0	public members here are intentionally minimal
 cpp	YES	0	protected under the new policy, this endpoint requires auth
 cpp	NO	0	protected members here are visible to every derived class
+cpp	YES	0	friend of mine hit the exact same crash last week
+cpp	NO	0	friend declaration here grants access to the private internals
+cpp	YES	0	throw in a fallback here just in case the primary call fails
+cpp	NO	0	throw specification here was removed in C++11 and later
+cpp	YES	0	try to reproduce this on a clean checkout before filing a bug
+cpp	NO	0	try block here only wraps the risky allocation, not the whole function
+cpp	YES	0	using a workaround for now until the real fix lands upstream
+cpp	NO	0	using declaration here pulls the base class overloads into scope
 java	YES	0	static analysis flags this as dead code
 java	NO	0	static Map<String,Integer> CACHE = new HashMap<>();
 java	YES	0	default values are applied when the field is omitted
@@ -92720,6 +92736,14 @@ java	YES	0	public opinion on this deprecation has been mixed
 java	NO	0	public constructor here is only meant for framework use
 java	YES	0	record label released this album decades before streaming
 java	NO	0	record type here is only used to carry parsed config values
+java	YES	0	break in on this conversation for a second, that assumption is wrong
+java	NO	0	break here only exits the inner loop, not the outer one
+java	YES	0	catch me up on why this workaround still exists
+java	NO	0	catch block here logs the error before rethrowing it
+java	YES	0	finally got this build green after three days of chasing flaky tests
+java	NO	0	finally block here always runs, even when the try returns early
+java	YES	0	package deal includes both the client and server libraries
+java	NO	0	package declaration here must match the directory structure exactly
 js	YES	0	let me know if this needs a second review
 js	NO	0	let cache = new Map();
 js	YES	0	const environment before you deploy this
@@ -92752,6 +92776,14 @@ js	YES	0	throw caution to the wind and ship this on a Friday
 js	NO	0	throw here only fires once the retry budget is exhausted
 js	YES	0	while we're at it, let's also clean up the imports
 js	NO	0	while loop here intentionally spins until the flag flips
+js	YES	0	break it to them gently, this API is going away next release
+js	NO	0	break here only exits the switch, not the surrounding loop
+js	YES	0	catch you later, this refactor can wait until next sprint
+js	NO	0	catch block here only handles the network-timeout case
+js	YES	0	if only this error message were more descriptive
+js	NO	0	if block here only runs once the feature flag is enabled
+js	YES	0	return trip to this codebase always reveals something new
+js	NO	0	return statement here is unreachable after the early exit above
 kotlin	YES	0	is this the right approach for pagination?
 kotlin	NO	0	is Foo -> handle(foo)
 kotlin	YES	0	object of this exercise is to minimize allocations
@@ -92775,6 +92807,14 @@ kotlin	YES	0	if anything, this refactor made the callback harder to follow
 kotlin	NO	0	if branch here only runs on the first launch
 kotlin	YES	0	return on investment for this migration was pretty low
 kotlin	NO	0	return value here is only valid inside the lambda
+kotlin	YES	0	break it down for me, why does this only fail on Android?
+kotlin	NO	0	break here only exits the innermost when block
+kotlin	YES	0	do yourself a favor and read the migration guide first
+kotlin	NO	0	do block here always executes once before checking the condition
+kotlin	YES	0	else the whole pipeline falls over on the next deploy
+kotlin	NO	0	else branch here only runs when the cache lookup misses
+kotlin	YES	0	in short, this workaround should be temporary
+kotlin	NO	0	in operator here checks membership without allocating a new list
 ts	YES	0	interface between the two subsystems is documented separately
 ts	NO	0	interface UserRecord { id: string; name: string; }
 ts	YES	0	type of error this throws depends on the input
@@ -92807,3 +92847,11 @@ ts	YES	0	number of retries here was picked arbitrarily and should be tuned
 ts	NO	0	number here widens too easily and should probably be a literal type
 ts	YES	0	public opinion on this API design keeps shifting
 ts	NO	0	public members here are intentionally minimal
+ts	YES	0	declare victory too early and the regression tests will bite you
+ts	NO	0	declare statement here only exists to satisfy the ambient type checker
+ts	YES	0	is this actually safe to call before the module finishes loading?
+ts	NO	0	is check here narrows the union before the property access below
+ts	YES	0	protected against every edge case we could think of during review
+ts	NO	0	protected member here is only meant to be used by subclasses
+ts	YES	0	string together a few small fixes before the next release
+ts	NO	0	string here should really be a template literal type instead

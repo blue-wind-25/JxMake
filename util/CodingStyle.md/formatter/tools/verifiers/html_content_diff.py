@@ -227,7 +227,7 @@ def walk(a, b, path, errors):
 
 def main():
     if len(sys.argv) != 3:
-        sys.stderr.write("usage: html_content_diff.py <original.html> <formatted.html>\n")
+        sys.stderr.write("Usage: html_content_diff.sh <original.html> <formatted.html>\n")
         sys.exit(2)
 
     orig_path, fmt_path = sys.argv[1], sys.argv[2]

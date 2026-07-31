@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 PROGRAM=kotlin_content_diff
 . "$(dirname "$0")/_exec_java.sh" "$@"

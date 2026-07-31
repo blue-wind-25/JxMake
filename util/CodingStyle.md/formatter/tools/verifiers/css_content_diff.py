@@ -72,7 +72,7 @@ def vendor_prefix_counts(text):
 
 def main():
     if len(sys.argv) != 3:
-        print("usage: css_content_diff.py <original.css> <formatted.css>")
+        print("Usage: css_content_diff.sh <original.css> <formatted.css>")
         sys.exit(2)
 
     orig_path, fmt_path = sys.argv[1], sys.argv[2]

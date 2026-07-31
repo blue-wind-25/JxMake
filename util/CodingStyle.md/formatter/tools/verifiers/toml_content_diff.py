@@ -68,7 +68,7 @@ def parse_toml_via_node(path):
 
 def main():
     if len(sys.argv) != 3:
-        sys.stderr.write("usage: toml_content_diff.py <original.toml> <formatted.toml>\n")
+        sys.stderr.write("Usage: toml_content_diff.sh <original.toml> <formatted.toml>\n")
         sys.exit(2)
 
     orig_path, fmt_path = sys.argv[1], sys.argv[2]

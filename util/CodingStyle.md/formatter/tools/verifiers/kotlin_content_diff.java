@@ -194,7 +194,7 @@ public class kotlin_content_diff {
     public static void main(String[] args) throws Exception
     {
         if(args.length != 2) {
-            System.err.println("Usage: kotlin_content_diff <original.kt> <formatted.kt>");
+            System.err.println("Usage: kotlin_content_diff.sh <original.kt> <formatted.kt>");
             System.exit(2);
         }
 

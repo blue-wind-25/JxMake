@@ -263,7 +263,7 @@ public class java_content_diff {
     public static void main(String[] args) throws Exception
     {
         if(args.length != 2) {
-            System.err.println("Usage: java_content_diff <original.java> <formatted.java>");
+            System.err.println("Usage: java_content_diff.sh <original.java> <formatted.java>");
             System.exit(2);
         }
 

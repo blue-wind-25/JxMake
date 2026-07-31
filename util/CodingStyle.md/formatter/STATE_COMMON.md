@@ -170,8 +170,10 @@ xml_content_diff.sh
 html_syntax_check.sh
 html_content_diff.sh
 
+js_ts_syntax_check.sh
 js_ts_content_diff.sh
 
+python_syntax_check.sh
 python_content_diff.sh
 ```
 Jobs should invoke the appropriate wrapper script instead of directly

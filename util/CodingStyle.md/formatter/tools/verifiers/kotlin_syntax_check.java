@@ -68,7 +68,7 @@ public class kotlin_syntax_check {
     public static void main(String[] args) throws Exception
     {
         if(args.length < 1) {
-            System.err.println("Usage: kotlin_syntax_check <file.kt> [file2.kt ...]");
+            System.err.println("Usage: kotlin_syntax_check.sh <file.kt> [file2.kt ...]");
             System.exit(2);
         }
 

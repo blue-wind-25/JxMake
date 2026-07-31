@@ -58,7 +58,7 @@ def comment_lines(text):
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: python3 yaml_content_diff.py <original.yaml> <formatted.yaml>", file=sys.stderr)
+        print("Usage: yaml_content_diff.sh <original.yaml> <formatted.yaml>", file=sys.stderr)
         sys.exit(2)
 
     orig_path, fmt_path = sys.argv[1], sys.argv[2]

@@ -56,7 +56,7 @@ function main()
 {
     const args = process.argv.slice(2);
     if(args.length < 1) {
-        console.error('Usage: html_syntax_check.js <file.html> [file2.html ...]');
+        console.error('Usage: html_syntax_check.sh <file.html> [file2.html ...]');
         process.exit(2);
     }
 

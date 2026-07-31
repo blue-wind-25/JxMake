@@ -123,7 +123,7 @@ def walk(a, b, path, errors):
 
 def main():
     if len(sys.argv) != 3:
-        print("usage: xml_content_diff.py <original.xml> <formatted.xml>")
+        print("Usage: xml_content_diff.sh <original.xml> <formatted.xml>")
         sys.exit(2)
 
     orig_path, fmt_path = sys.argv[1], sys.argv[2]

@@ -1,6 +1,3 @@
 #!/usr/bin/env bash
-
-PROGRAM=toml_content_diff
-NODE_ENV=1
-
+PROGRAM=python_syntax_check
 . "$(dirname "$0")/_exec_python.sh" "$@"

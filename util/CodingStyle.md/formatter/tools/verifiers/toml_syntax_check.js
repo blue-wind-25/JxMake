@@ -43,7 +43,7 @@ function main()
 {
     const args = process.argv.slice(2);
     if(args.length < 1) {
-        console.error('Usage: toml_syntax_check.js <file.toml> [file2.toml ...]');
+        console.error('Usage: toml_syntax_check.sh <file.toml> [file2.toml ...]');
         process.exit(2);
     }
 

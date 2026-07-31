@@ -1,3 +1,3 @@
-#!/bin/sh
+#!/usr/bin/env bash
 PROGRAM=css_content_diff
 . "$(dirname "$0")/_exec_python.sh" "$@"

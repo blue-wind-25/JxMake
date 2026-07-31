@@ -43,7 +43,7 @@ function main()
 {
     const args = process.argv.slice(2);
     if(args.length < 1) {
-        console.error('Usage: yaml_syntax_check.js <file.yaml> [file2.yaml ...]');
+        console.error('Usage: yaml_syntax_check.sh <file.yaml> [file2.yaml ...]');
         process.exit(2);
     }
 

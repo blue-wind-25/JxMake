@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 PROGRAM=toml_syntax_check
 REQUIRE_MODULES=smol-toml

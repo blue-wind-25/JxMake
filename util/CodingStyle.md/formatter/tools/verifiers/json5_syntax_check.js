@@ -45,7 +45,7 @@ function main()
 {
     const args = process.argv.slice(2);
     if(args.length < 1) {
-        console.error('Usage: json5_syntax_check.js <file.json5> [file2.json5 ...]');
+        console.error('Usage: json5_syntax_check.sh <file.json5> [file2.json5 ...]');
         process.exit(2);
     }
 

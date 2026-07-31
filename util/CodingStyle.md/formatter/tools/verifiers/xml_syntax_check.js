@@ -58,7 +58,7 @@ function main()
 {
     const args = process.argv.slice(2);
     if(args.length < 1) {
-        console.error('Usage: xml_syntax_check.js <file.xml> [file2.xml ...]');
+        console.error('Usage: xml_syntax_check.sh <file.xml> [file2.xml ...]');
         process.exit(2);
     }
 

@@ -61,7 +61,7 @@ function main()
 {
     const args = process.argv.slice(2);
     if(args.length < 1) {
-        console.error('Usage: json_syntax_check.js <file.json> [file2.json ...]');
+        console.error('Usage: json_syntax_check.sh <file.json> [file2.json ...]');
         process.exit(2);
     }
 

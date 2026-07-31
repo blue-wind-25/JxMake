@@ -49,7 +49,7 @@ def dump(tree):
 
 def main():
     if len(sys.argv) != 3:
-        sys.stderr.write("usage: python_content_diff.py <original.py> <formatted.py>\n")
+        sys.stderr.write("Usage: python_content_diff.sh <original.py> <formatted.py>\n")
         sys.exit(2)
 
     orig_path, fmt_path = sys.argv[1], sys.argv[2]

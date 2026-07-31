@@ -105,7 +105,7 @@ public class java_syntax_check {
     {
 
         if(args.length < 1) {
-            System.err.println("Usage: java_syntax_check <file.java> [file2.java ...]");
+            System.err.println("Usage: java_syntax_check.sh <file.java> [file2.java ...]");
             System.exit(2);
         }
 

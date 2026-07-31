@@ -232,22 +232,22 @@ function diffMultisets(label, a, b)
 
 function main()
 {
-    const args = process.argv.slice(2);
+  const args = process.argv.slice(2);
   if(args.length !== 2) {
-    console.error('Usage: node js_ts_content_diff.js <original.(js|ts)> <formatted.(js|ts)>');
+    console.error('Usage: js_ts_content_diff.sh <original.(js|ts)> <formatted.(js|ts)>');
     process.exit(2);
   }
-    const [origPath, fmtPath] = args;
-    const origSrc             = fs.readFileSync(origPath, 'utf8');
-    const fmtSrc              = fs.readFileSync(fmtPath, 'utf8');
+  const [origPath, fmtPath] = args;
+  const origSrc             = fs.readFileSync(origPath, 'utf8');
+  const fmtSrc              = fs.readFileSync(fmtPath, 'utf8');
 
-    const origFile = parse( origSrc, path.basename(origPath) );
-    const fmtFile  = parse( fmtSrc, path.basename(fmtPath) );
+  const origFile = parse( origSrc, path.basename(origPath) );
+  const fmtFile  = parse( fmtSrc, path.basename(fmtPath) );
 
-    const mismatches = [];
+  const mismatches = [];
 
-    const origBuckets = topLevelBuckets(origFile);
-    const fmtBuckets  = topLevelBuckets(fmtFile);
+  const origBuckets = topLevelBuckets(origFile);
+  const fmtBuckets  = topLevelBuckets(fmtFile);
 
   mismatches.push( ...diffMultisets('imports', origBuckets.imports, fmtBuckets.imports) );
 

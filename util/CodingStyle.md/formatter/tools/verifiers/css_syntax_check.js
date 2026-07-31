@@ -48,7 +48,7 @@ function main()
 {
     const args = process.argv.slice(2);
     if(args.length < 1) {
-        console.error('Usage: css_syntax_check.js <file.css> [file2.css ...]');
+        console.error('Usage: css_syntax_check.sh <file.css> [file2.css ...]');
         process.exit(2);
     }
 

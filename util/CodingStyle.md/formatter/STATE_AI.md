@@ -1409,3 +1409,55 @@ corpus model. That's the natural next step once picked up.
 **Files changed:** `src/com/jxmake/formatter/classifier/
 CommentClassifierWeights.java`, `tools/classifier_weights/weights.md`,
 `tools/gru/sample_default.txt` + this file.
+
+---
+
+## 2026-08-01 session: grew the hand-labeled hard-case set further (173 → 221 rows)
+
+Second corpus-growth pass, direct continuation of the "125 → 173" session
+above. Re-audited `KeywordAmbiguityGate`'s six per-language `KEYWORDS_*`
+sets against each `tools/classifier_weights/examples_*.md` file's *current*
+rows (i.e. after the 173-row pass already landed) to find the next batch of
+zero-coverage keywords, prioritizing (same criterion as last time) keywords
+that are also ordinary, frequently-used English words so a genuine
+prose-vs-code ambiguity exists.
+
+**8 new rows per file (48 total, 173 → 221)**, each a YES-prose/NO-code-
+reference zero-mechanical-feature pair per targeted keyword (no paren/semi/
+url-num signal fires on either row of a pair, same shape as both prior
+growth sessions):
+
+| File | Keywords targeted (zero rows as of the 173-row set) | Rows added |
+|---|---|---|
+| `examples_c.md` | `if`, `long`, `else`, `switch` | 30-37 |
+| `examples_cpp.md` | `friend`, `throw`, `try`, `using` | 28-35 |
+| `examples_java.md` | `break`, `catch`, `finally`, `package` | 31-38 |
+| `examples_kotlin.md` | `break`, `do`, `else`, `in` | 24-31 |
+| `examples_js.md` | `break`, `catch`, `if`, `return` | 33-40 |
+| `examples_ts.md` | `declare`, `is`, `protected`, `string` | 33-40 |
+
+**Balance check:** each file's new batch is exactly 4 zero-feature YES rows
+paired with 4 zero-feature NO rows (one pair per targeted keyword) — the
+same 50/50 discipline the 2026-07-30 KEYWORD_BIAS session and the
+2026-07-31 js/ts re-derivation session both needed to retrofit after a
+YES-heavy batch flipped `KEYWORD_BIAS` positive; this batch can't repeat
+that failure mode on its own since it introduces no skew per file. Existing
+rows were not renumbered or otherwise touched.
+
+Regenerated the RDD_EXT_21 tsv via `python3 tools/gru/
+convert_classifier_weights_examples.py tools/classifier_weights --out
+<scratch-path>` and confirmed a clean parse: `wrote 221 hand-labeled
+example(s)` — matches 173 + 48 exactly, no silent skips.
+
+**Not done this session (explicitly out of scope per instruction):**
+`derive_weights.py` was not re-run, `CommentClassifierWeights.java`/
+`weights.md` were not re-derived, `make gru-acquire-corpus` was not run,
+the GRU was not retrained, and `sample_default.txt`/
+`code-formatter-ai-assist-weights.json` were not touched. Folding these 48
+rows into the linear-weights re-derivation and the GRU training corpus,
+then re-benchmarking against the (now 221-example) hard-case set, is the
+next step for whoever picks this up next — expect the benchmark's
+`total`/`decided` denominators to move from 173 to 221 once that happens.
+
+**Files changed:** `tools/classifier_weights/examples_{c,cpp,java,kotlin,
+js,ts}.md` + this file.

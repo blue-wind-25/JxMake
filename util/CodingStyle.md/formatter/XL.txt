@@ -205,6 +205,8 @@ tier.
 
 ALL DONE
 
+    `make gru-train` and recheck GRU performance.
+
 --- Tier 2: meaningful, narrower value or higher difficulty ---
 
 Use sub-agent. This can be a substantial work.
@@ -222,17 +224,19 @@ Use sub-agent. This can be a substantial work.
     tree-construction item 2, "2026-07-31 full scoping pass" section.
 
 22. C/C++/Java: `jenkinsci/jenkins` `PluginManager.java` line-wrap instability —
-    CANNOT REPRODUCE on current upstream (2026-07-31): the pathological hand-minified
-    long line that originally triggered this is gone from `jenkinsci/jenkins` `main`
-    (longest line now 237 cols, the lambda-heavy method is already multi-line in
-    source); round1/round2/round3 now byte-identical. Not fixed by us — root cause in
-    `enforceCallLineBreaking`'s fits-check is still undiagnosed, only its one known
-    real-world trigger disappeared upstream. Value: n/a. Difficulty: n/a — nothing to
-    scope against right now; re-open only if the shape recurs elsewhere or the
-    original pre-refactor file snapshot is recovered. Full write-up:
-    `STATE_C_CPP_JAVA.md` "Known Gaps — Open" → "Extremely long pre-existing
-    single-physical-line statement wraps differently each round" entry, "2026-07-31
-    design/scoping pass" note appended.
+    REPRODUCIBLE, corrected 2026-07-31 after an earlier same-day "cannot reproduce"
+    writeup turned out to be wrong (the shallow re-clone was byte-identical to the
+    original item-25 checkout, md5 3cdeca6b3ca2bc77fd785690124c8f69 — upstream never
+    changed the file). Re-running round1/round2/round3 with the current jar: no
+    longer an idempotency flap (round1==round2==round3, stable), but round1's own
+    output contains a ~1992-char unwrapped physical line (the getPluginPage-style
+    JSON-serialization lambda body), a clear line-length violation. Root cause in
+    `enforceCallLineBreaking`'s fits-check still undiagnosed. Durable repro copy (in
+    case /tmp gets cleared) at
+    `~/Projects/JxMake/0_excluded_directory/formatter_repro_fixtures/jenkinsci_jenkins_PluginManager.java`.
+    Full write-up: `STATE_C_CPP_JAVA.md` "Known Gaps — Open" → "Extremely long
+    pre-existing single-physical-line statement wraps differently each round" entry,
+    "2026-07-31 correction" note.
 
 23. Kotlin: `JetBrains/kotlin` dogfood cluster D3 — multi-line-call/condition
     wrap-decision flap (~33 files). Root cause confirmed

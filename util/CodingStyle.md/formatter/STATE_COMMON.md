@@ -153,6 +153,7 @@ kotlin_syntax_check.sh
 kotlin_content_diff.sh
 
 json_syntax_check.sh
+
 json5_syntax_check.sh
 
 css_syntax_check.sh

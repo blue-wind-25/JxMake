@@ -738,22 +738,12 @@ before/after detail available via `git log`/`git show`.
   top-level `if`/`while`/`for`/`switch`/`do`/`else` keyword. Verified against the real STL tree
   (all 3 files idempotent), `make test` 169/169. Fixture: `real_code_regressions_120`.
 
-  **2026-07-31 design/scoping pass — STALE TRACKER ITEM, no code change
-  needed.** A tracker item ("microsoft/STL macro-invocation-as-statement glued to a following
-  collapsed `if`") describes this exact bug — same root cause (`splitStatements` merging a bare
-  macro invocation with a following collapsed `if`), same trigger macros
-  (`_TRY_IO_BEGIN`/`_TRY_BEGIN`/`_BEGIN_LOCK`), same "glued together one round later" symptom —
-  as still open/unscoped. It is not: the entry immediately above this note already fixed and
-  verified it (fixture `real_code_regressions_120`, `make test` 169/169 at the time). Re-verified
-  today against a fresh checkout of `/tmp/STL` (`stl/inc/istream`, `stl/inc/stacktrace`,
-  `stl/inc/xlocale`, copied to `.hpp` and reformatted with the current `target/code-formatter-1.00.jar`):
-  round1/round2 are byte-identical on all three files (`diff -rq` empty) — the fix holds against
-  the real corpus today, no residual case found. Investigation approach considered and rejected:
-  writing a fresh insertion-point/blast-radius/validation plan as if this were unscoped would
-  duplicate the existing writeup above and imply a live bug where none remains; instead this note
-  exists so the next reader doesn't re-open a closed
-  bug from a stale tracker description. No new fixture added (would be identical to
-  `real_code_regressions_120`). No `src/`/`test/` changes this session — confirmation-only.
+  **2026-07-31 re-verification — STALE TRACKER ITEM, no code change needed.** A separate tracker
+  item described this exact bug (same root cause/trigger macros/symptom) as still open; it is not
+  — already fixed/verified above (fixture `real_code_regressions_120`). Re-verified against a
+  fresh `/tmp/STL` checkout (`istream`/`stacktrace`/`xlocale`, current JAR): round1/round2
+  byte-identical on all three, no residual case. No new fixture, no `src/`/`test/` changes —
+  confirmation-only, to stop the next reader from re-opening a closed bug.
 
 - **Wrapped constructor signature's parameter-render logic misapplied to its own following
   member-initializer-list entry** — FIXED. Found in `microsoft/STL` (item 26, `mutex.hpp`/

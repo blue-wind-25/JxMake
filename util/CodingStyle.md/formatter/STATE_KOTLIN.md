@@ -744,92 +744,52 @@ physical layout, not the stable logical statement.
 
 ### Why the reverted `nameIdx`-anchor attempt broke 28 fixtures
 
-Anchoring at `nameIdx` measures only the candidate's own tokens (`transformCompareToMethodCall(call)`
-in isolation), discarding *all* same-line prefix — including prefix that
-is legitimately part of the same statement and must still count toward the
-width: `return `, `if (`, `val x = `, `} -> if(doNotIntrinsify) call else `,
-etc. A statement like `return someReallyLongFunctionNameThatAloneFitsUnder100(x)`
-would then never wrap even when the full rendered line (with `return `
-prepended) exceeds the limit, because the prefix was dropped from
-measurement entirely. This is an *underestimate* failure mode, the mirror
-image of the current bug's *volatile* failure mode — not a subset of it,
-which is why fixing D3 by narrowing to `nameIdx` created a new, disjoint
-regression class instead of just fixing D3.
+Anchoring at `nameIdx` measures only the candidate's own tokens in
+isolation, discarding all same-line prefix — including legitimate
+same-statement prefix (`return `, `if (`, `val x = `, etc) that must still
+count toward width. E.g. `return someReallyLongFunctionName(x)` would then
+never wrap even when the full line exceeds the limit. This is an
+*underestimate* failure mode — the mirror image of the current bug's
+*volatile* failure mode, not a subset of it — which is why narrowing to
+`nameIdx` created a new, disjoint regression class instead of fixing D3.
 
 ### Proposed design: statement-start anchor, not physical-line-start or token-start
 
-Replace `lineStartIndex(tokens, nameIdx)` **only at its one load-bearing
-call site for this bug**, `MiscRuleCurly.renderCallCandidate`'s no-newline
-fits-check (currently line ~1396: `collapseToOneLine(tokens, lineStartIndex(tokens, nameIdx), effectiveLineEndIndex(tokens, closeIdx) - 1)`),
-with a new `statementStartIndex(tokens, nameIdx)` that scans backward from
-`nameIdx` tracking paren/bracket/angle-bracket depth (mirroring
-`splitTopLevelCommasBraceAware`'s depth-tracking style already in this same
-file) and stops at the nearest **depth-0** `;`, `{`, or `}` — never at a
-bare `NEWLINE`. This is structurally identical to the backward scan
-`KotlinSpecificRule.signatureLineIndent` already uses (RDD_KEY_164,
-refined by RDD_KEY_215) to solve the *same class* of problem — deriving a
-position from the true, stable statement start instead of the volatile
-physical line of whatever boundary token happens to precede it — for
-indent derivation rather than width measurement. That existing helper's
-own doc comment explicitly names the failure mode being avoided here: "not
-guaranteed to stay stable across repeated formatting rounds." Reusing this
-already-proven pattern (rather than inventing a new one) is the core of
-this design, not a coincidence of convenience — it is direct evidence a
-statement-start anchor can solve an anchor-instability bug in this exact
-codebase without the collateral damage the naive `nameIdx` attempt caused,
-*if* the boundary-detection logic is right.
-
-Why this differs from both failure modes:
-- **Vs. the current bug:** `;`/`{`/`}` are real, depth-0 statement/scope
-  boundaries — stable regardless of how the tokens between them happen to
-  be wrapped across physical lines in the *current* text. A sibling
-  candidate's own wrap never moves a `;`/`{`/`}` token, so it can't distort
-  this anchor the way it distorts `lineStartIndex`.
-- **Vs. the reverted `nameIdx` attempt:** same-line prefix that is part of
-  the *same statement* (`return `, `if (`, `Name.identifier(...) -> if(...) ... else `)
-  is still included in the measured range, because there is no `;`/`{`/`}`
-  between the statement's true start and `nameIdx` — only the *unrelated*
-  preceding-statement text (across a `;`) or *unrelated* enclosing-scope
-  text (across a `{`/`}`) gets excluded, which is exactly the D3 bug shape
-  and never the legitimate-prefix shape the reverted attempt broke.
-
-Scope the change with a `lang.isKotlin` gate at the call site (identical
-precedent already in this exact method: the `sigForRender`
-Kotlin/JS/TS-only branch, and the JS/TS-only fits-check at line ~1291,
-each scoped after an unscoped version regressed another language — RDD_KEY_144,
-this file's own JS/TS-fits-check comment). D3 is tracked as a Kotlin-only,
-single-repo item; gating removes C/C++/Java/TS from this change's blast
-radius entirely by construction, rather than relying only on the new
-anchor logic being correct for them too. `lineStartIndex` stays completely
-untouched for every other language and for this method's other call sites
-(the JS/TS-only branch at line ~1326 has the same latent anchor-instability
-exposure but is out of scope here — a separate future item if it's ever
-observed to actually flap in JS/TS real-code testing).
+Replace `lineStartIndex(tokens, nameIdx)` only at its one load-bearing call
+site, `MiscRuleCurly.renderCallCandidate`'s no-newline fits-check (line
+~1396), with a new `statementStartIndex(tokens, nameIdx)` that scans
+backward from `nameIdx` tracking paren/bracket/angle-bracket depth
+(mirroring `splitTopLevelCommasBraceAware`'s depth-tracking style) and
+stops at the nearest **depth-0** `;`, `{`, or `}` — never a bare `NEWLINE`.
+Structurally identical to the backward scan `KotlinSpecificRule.
+signatureLineIndent` already uses (RDD_KEY_164/215) to solve the same
+class of problem (stable statement start vs. volatile physical line) for
+indent derivation rather than width measurement — reusing a
+already-proven pattern, not inventing a new one. Unlike the current bug,
+`;`/`{`/`}` are real stable depth-0 boundaries a sibling's own wrap can't
+move; unlike the reverted `nameIdx` attempt, legitimate same-statement
+prefix stays included since nothing excludes it before those boundaries.
+Scope with a `lang.isKotlin` gate at the call site (same precedent as the
+`sigForRender`/JS-TS-only fits-check nearby, RDD_KEY_144) so C/C++/Java/TS
+are unaffected by construction; `lineStartIndex` stays untouched elsewhere,
+including this method's other call sites (e.g. line ~1326's JS/TS branch
+has the same latent exposure but is out of scope here).
 
 ### Known open risk this design has NOT yet been validated against
 
-The grounded example above is a `when`-arm body — Kotlin `when` arms are
-newline-separated, **not** `;`-separated. If a *preceding* sibling arm in
-the same `when {}` block also has no depth-0 `;` before the current arm,
-the backward scan as sketched would walk past the current arm's own start
-and merge the preceding arm's text into the measurement too, potentially
-over-counting badly (false-positive wraps) rather than under- or
-over-estimating narrowly. `signatureLineIndent`'s own proven usages
-(signature headers, `where` clauses) don't exercise this multi-arm-body
-shape, so this is a real, distinct risk this design borrows the pattern
-into a context it hasn't been proven for. **This must be checked with a
-dedicated multi-arm `when` fixture before trusting the pattern here** — if
-`when`-arm boundaries need their own depth-0-newline-based stop condition
-(distinguishing "top-level newline ending an arm" from "top-level newline
-mid-wrap inside one arm's own already-broken candidate"), that is
-additional design work not yet done, not a small implementation detail.
-Loop bodies (`for`/`while` with no braces), and any other newline-only-
-delimited statement sequence, carry the same open risk. If this turns out
-to need real arm/statement-boundary tracking beyond `;`/`{`/`}` to be
-safe, that pushes this closer to the "General scope-depth reindentation"
-architectural TODO's territory (STATE_COMMON.md) than a self-contained fix
-— worth re-assessing difficulty once the `when`-arm case is actually
-tried, not assumed safe in advance.
+The grounded example is a `when`-arm body — Kotlin `when` arms are
+newline-separated, not `;`-separated. If a preceding sibling arm also has
+no depth-0 `;` before the current arm, the backward scan would walk past
+the current arm's own start and merge the preceding arm's text into the
+measurement, causing false-positive wraps. `signatureLineIndent`'s proven
+usages (signature headers, `where` clauses) don't exercise this
+multi-arm-body shape — this is a real, distinct, unproven risk. **Must be
+checked with a dedicated multi-arm `when` fixture before trusting the
+pattern.** Loop bodies and any other newline-only-delimited statement
+sequence carry the same risk. If arm/statement-boundary tracking beyond
+`;`/`{`/`}` turns out to be needed, this pushes closer to the "General
+scope-depth reindentation" architectural TODO (STATE_COMMON.md) than a
+self-contained fix.
 
 ### Validation plan (fast-to-slow, catch a regression early)
 
@@ -863,20 +823,18 @@ tried, not assumed safe in advance.
 
 ### Honest bottom line
 
-This is a real, evidence-grounded candidate design (not the disproven
-`nameIdx` anchor, and not a repeat of the current bug's volatile anchor) —
-the depth-0-`;`/`{`/`}` backward scan already has a working precedent in
-this exact file family for an analogous problem. But it is **not yet
-proven safe** for the `when`-arm/braceless-body newline-delimited-sequence
-shape that the grounding example itself came from — that gap must be
-closed by validation step 1(b) before this is trusted, not assumed away.
-If that check fails and no clean depth-0-newline boundary rule can be
-found for arm/statement sequences without real statement-boundary
-tracking, the honest conclusion is this needs to fold into a larger
-structural investment (see STATE_COMMON.md's "General scope-depth
-reindentation" TODO) rather than land as a self-contained fix — this
-session did not reach that determination either way; it's the next
-session's first validation gate.
+A real, evidence-grounded candidate design (not the disproven `nameIdx`
+anchor, not a repeat of the current bug) — the depth-0-`;`/`{`/`}` scan has
+a working precedent in this file family for an analogous problem — but
+**not yet proven safe** for the `when`-arm/braceless-body
+newline-delimited shape the grounding example came from; that gap must be
+closed by validation step 1(b) before trusting it. If that fails and no
+clean depth-0-newline boundary rule exists for arm/statement sequences
+without real statement-boundary tracking, this needs to fold into the
+larger "General scope-depth reindentation" structural investment
+(STATE_COMMON.md) rather than land as a self-contained fix — undetermined
+either way as of this session; it's the next session's first validation
+gate.
 
 ---
 

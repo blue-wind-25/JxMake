@@ -208,15 +208,37 @@ exec  ~/mynpm/bin/claude "$@"
     numbers/status. Value: medium (directly tests whether the corpus fixes
     moved the GRU closer to the linear-classifier baseline). Difficulty: low.
 
+11. GruTrainer speed: profile the per-example forward/backward hot path
+    (computeBatch/computeGradients) and refactor to flat, JIT-auto-
+    vectorizable double[]/float[] loops (no aliasing/branches in the hot
+    loop) — plain-Java win, no toolchain change, orthogonal to the existing
+    --threads parallelism. Considered but explicitly deferred:
+    jdk.incubator.vector (Vector API) — still incubating even on JDK 25, API
+    may still change, so not worth adopting yet; hand-rolled FFM-generated
+    machine code was also considered and rejected as high-effort/high-risk
+    for no clear gain over the Vector API path once that stabilizes. Value:
+    medium (training turnaround, esp. for the planned CM5 run). Difficulty:
+    low-medium (profiling + refactor + `make test`/gradient-check
+    verification, not a redesign).
+
 Use sub-agent. This can be a substantial work.
 
 --- Tier 2: meaningful, narrower value or higher difficulty ---
 
-20. GRU: further grow the hand-labeled hard-case corpus
+20. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
+    further grow the hand-labeled hard-case corpus
     (`tools/classifier_weights/examples_*.md`) — repeatedly identified in
     STATE_AI.md as the highest-leverage lever for closing the GRU/linear-
     classifier precision gap, more so than trainer mechanics. Value:
     medium-high. Difficulty: low-medium (careful hand-labeling, no code).
+
+    Rerun `classifiers/derive_weights.py` to update the linear classifier
+    weights.
+
+    Rerun `make gru-acquire-corpus` so `sample_default.txt` will contains
+    the new hand-labeled hard-case corpus.
+
+    DO NOT REMOVE THIS ITEM. This will be a recurring job.
 
 21. GRU: LLM-assisted disagreement sampling against `sample_default.txt`
     Value: low-medium (corpus-quality improvement/further evidence-gathering, most

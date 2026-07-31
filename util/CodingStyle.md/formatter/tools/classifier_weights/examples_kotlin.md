@@ -49,3 +49,15 @@ Rows 16-23 added 2026-08-01 (STATE_AI.md's "grow hand-labeled hard-case set" ses
 | 21 | `if branch here only runs on the first launch` | no | no | no | no | NO | "if" naming the actual conditional construct being described, code reference despite zero mechanical feature. |
 | 22 | `return on investment for this migration was pretty low` | no | no | no | no | YES | "return" used loosely as a noun ("return on investment"), prose. |
 | 23 | `return value here is only valid inside the lambda` | no | no | no | no | NO | "return" naming the actual keyword/value being described, code reference despite zero mechanical feature. |
+
+Rows 24-31 added 2026-08-01 (second corpus-growth pass this session), covering `KEYWORDS_KOTLIN`
+members that still had zero example rows after rows 16-23 landed: `break`, `do`, `else`, `in`.
+
+| 24 | `break it down for me, why does this only fail on Android?` | no | no | no | no | YES | "break" in the ordinary English idiom ("break it down"), prose. |
+| 25 | `break here only exits the innermost when block` | no | no | no | no | NO | "break" naming the actual break statement being described, code reference despite zero mechanical feature. |
+| 26 | `do yourself a favor and read the migration guide first` | no | no | no | no | YES | "do" as an ordinary English verb ("do yourself a favor"), prose. |
+| 27 | `do block here always executes once before checking the condition` | no | no | no | no | NO | "do" naming the actual do-while construct being described, code reference despite zero mechanical feature. |
+| 28 | `else the whole pipeline falls over on the next deploy` | no | no | no | no | YES | "else" as an ordinary English conjunction, prose. |
+| 29 | `else branch here only runs when the cache lookup misses` | no | no | no | no | NO | "else" naming the actual conditional branch being described, code reference despite zero mechanical feature. |
+| 30 | `in short, this workaround should be temporary` | no | no | no | no | YES | "in" as an ordinary English preposition ("in short"), prose. |
+| 31 | `in operator here checks membership without allocating a new list` | no | no | no | no | NO | "in" naming the actual `in` operator being described, code reference despite zero mechanical feature. |

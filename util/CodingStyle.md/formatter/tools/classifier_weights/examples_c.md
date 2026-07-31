@@ -60,3 +60,15 @@ Rows 22-29 added 2026-08-01 (STATE_AI.md's "grow hand-labeled hard-case set" ses
 | 27 | `for loop here intentionally skips the first element` | no | no | no | NO | "for" naming the actual loop construct being described, code reference despite zero mechanical feature. |
 | 28 | `return on investment for this refactor was pretty low` | no | no | no | YES | "return" used loosely as a noun ("return on investment"), prose. |
 | 29 | `return value here is only valid until the next call` | no | no | no | NO | "return" naming the actual keyword/value being described, code reference despite zero mechanical feature. |
+
+Rows 30-37 added 2026-08-01 (second corpus-growth pass this session), covering `KEYWORDS_C`
+members that still had zero example rows after rows 22-29 landed: `if`, `long`, `else`, `switch`.
+
+| 30 | `if only we had caught this bug earlier` | no | no | no | YES | "if" as an ordinary English conjunction ("if only"), prose. |
+| 31 | `if block below never executes on release builds` | no | no | no | NO | "if" naming the actual conditional construct being described, code reference despite zero mechanical feature. |
+| 32 | `long story short, this hack has stuck around for years` | no | no | no | YES | "long" used in an ordinary English idiom ("long story short"), prose. |
+| 33 | `long here is needed to avoid overflow on 32-bit platforms` | no | no | no | NO | "long" naming the actual integer type keyword being described, code reference despite zero mechanical feature. |
+| 34 | `else the caller has to handle this itself` | no | no | no | YES | "else" as an ordinary English conjunction, prose. |
+| 35 | `else branch here only runs when the cache misses` | no | no | no | NO | "else" naming the actual conditional branch being described, code reference despite zero mechanical feature. |
+| 36 | `switch to the new API once the migration lands` | no | no | no | YES | "switch" as an ordinary English verb ("switch to"), prose. |
+| 37 | `switch statement here has no default case on purpose` | no | no | no | NO | "switch" naming the actual construct being described, code reference despite zero mechanical feature. |

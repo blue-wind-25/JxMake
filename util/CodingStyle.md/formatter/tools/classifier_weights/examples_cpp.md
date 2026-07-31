@@ -42,3 +42,16 @@ Rows 20-27 added 2026-08-01 (STATE_AI.md's "grow hand-labeled hard-case set" ses
 | 25 | `public members here are intentionally minimal` | no | no | no | NO | "public" naming the actual access-specifier keyword being described, code reference despite zero mechanical feature. |
 | 26 | `protected under the new policy, this endpoint requires auth` | no | no | no | YES | "protected" used as an ordinary adjective ("protected under..."), prose. |
 | 27 | `protected members here are visible to every derived class` | no | no | no | NO | "protected" naming the actual access-specifier keyword being described, code reference despite zero mechanical feature. |
+
+Rows 28-35 added 2026-08-01 (second corpus-growth pass this session), covering `KEYWORDS_CPP`
+members that still had zero example rows after rows 20-27 landed: `friend`, `throw`, `try`,
+`using`.
+
+| 28 | `friend of mine hit the exact same crash last week` | no | no | no | YES | "friend" as an ordinary English noun, prose. |
+| 29 | `friend declaration here grants access to the private internals` | no | no | no | NO | "friend" naming the actual friend-declaration keyword being described, code reference despite zero mechanical feature. |
+| 30 | `throw in a fallback here just in case the primary call fails` | no | no | no | YES | "throw" in the ordinary English idiom ("throw in"), prose. |
+| 31 | `throw specification here was removed in C++11 and later` | no | no | no | NO | "throw" naming the actual (now-removed) throw-specification keyword being described, code reference despite zero mechanical feature. |
+| 32 | `try to reproduce this on a clean checkout before filing a bug` | no | no | no | YES | "try" as an ordinary English verb, prose. |
+| 33 | `try block here only wraps the risky allocation, not the whole function` | no | no | no | NO | "try" naming the actual try-block construct being described, code reference despite zero mechanical feature. |
+| 34 | `using a workaround for now until the real fix lands upstream` | no | no | no | YES | "using" as an ordinary English verb ("using a workaround"), prose. |
+| 35 | `using declaration here pulls the base class overloads into scope` | no | no | no | NO | "using" naming the actual using-declaration keyword being described, code reference despite zero mechanical feature. |

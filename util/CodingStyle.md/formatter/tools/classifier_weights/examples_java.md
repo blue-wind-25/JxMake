@@ -41,3 +41,16 @@ Rows 23-30 added 2026-08-01 (STATE_AI.md's "grow hand-labeled hard-case set" ses
 | 28 | `public constructor here is only meant for framework use` | no | no | no | NO | "public" naming the actual access modifier being described, code reference despite zero mechanical feature. |
 | 29 | `record label released this album decades before streaming` | no | no | no | YES | "record" used as an ordinary noun ("record label"), prose false-friend case. |
 | 30 | `record type here is only used to carry parsed config values` | no | no | no | NO | "record" naming the actual `record` type keyword being described, code reference despite zero mechanical feature. |
+
+Rows 31-38 added 2026-08-01 (second corpus-growth pass this session), covering `KEYWORDS_JAVA`
+members that still had zero example rows after rows 23-30 landed: `break`, `catch`, `finally`,
+`package`.
+
+| 31 | `break in on this conversation for a second, that assumption is wrong` | no | no | no | YES | "break" in the ordinary English idiom ("break in on"), prose. |
+| 32 | `break here only exits the inner loop, not the outer one` | no | no | no | NO | "break" naming the actual break statement being described, code reference despite zero mechanical feature. |
+| 33 | `catch me up on why this workaround still exists` | no | no | no | YES | "catch" as an ordinary English verb ("catch me up"), prose. |
+| 34 | `catch block here logs the error before rethrowing it` | no | no | no | NO | "catch" naming the actual catch-block construct being described, code reference despite zero mechanical feature. |
+| 35 | `finally got this build green after three days of chasing flaky tests` | no | no | no | YES | "finally" as an ordinary English adverb, prose. |
+| 36 | `finally block here always runs, even when the try returns early` | no | no | no | NO | "finally" naming the actual finally-block construct being described, code reference despite zero mechanical feature. |
+| 37 | `package deal includes both the client and server libraries` | no | no | no | YES | "package" used as an ordinary noun ("package deal"), prose. |
+| 38 | `package declaration here must match the directory structure exactly` | no | no | no | NO | "package" naming the actual package-declaration keyword being described, code reference despite zero mechanical feature. |

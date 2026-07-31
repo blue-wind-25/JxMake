@@ -52,3 +52,16 @@ Rows 25-32 added 2026-08-01 (STATE_AI.md's "grow hand-labeled hard-case set" ses
 | 30 | `number here widens too easily and should probably be a literal type` | no | no | no | NO | "number" naming the actual primitive type keyword being described, code reference despite zero mechanical feature. |
 | 31 | `public opinion on this API design keeps shifting` | no | no | no | YES | "public" used as an ordinary noun ("public opinion"), prose. |
 | 32 | `public members here are intentionally minimal` | no | no | no | NO | "public" naming the actual access modifier being described, code reference despite zero mechanical feature. |
+
+Rows 33-40 added 2026-08-01 (second corpus-growth pass this session), covering `KEYWORDS_TS`
+members that still had zero example rows after rows 25-32 landed: `declare`, `is`, `protected`,
+`string`.
+
+| 33 | `declare victory too early and the regression tests will bite you` | no | no | no | YES | "declare" in the ordinary English idiom ("declare victory"), prose. |
+| 34 | `declare statement here only exists to satisfy the ambient type checker` | no | no | no | NO | "declare" naming the actual ambient-declaration keyword being described, code reference despite zero mechanical feature. |
+| 35 | `is this actually safe to call before the module finishes loading?` | no | no | no | YES | "is" as an ordinary English verb opening a question, prose. |
+| 36 | `is check here narrows the union before the property access below` | no | no | no | NO | "is" naming the actual type-guard keyword being described, code reference despite zero mechanical feature. |
+| 37 | `protected against every edge case we could think of during review` | no | no | no | YES | "protected" used as an ordinary English verb, prose. |
+| 38 | `protected member here is only meant to be used by subclasses` | no | no | no | NO | "protected" naming the actual access modifier being described, code reference despite zero mechanical feature. |
+| 39 | `string together a few small fixes before the next release` | no | no | no | YES | "string" in the ordinary English idiom ("string together"), prose. |
+| 40 | `string here should really be a template literal type instead` | no | no | no | NO | "string" naming the actual primitive type keyword being described, code reference despite zero mechanical feature. |

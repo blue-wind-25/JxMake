@@ -55,3 +55,16 @@ Rows 25-32 added 2026-08-01 (STATE_AI.md's "grow hand-labeled hard-case set" ses
 | 30 | `throw here only fires once the retry budget is exhausted` | no | no | no | NO | "throw" naming the actual exception-raising keyword being described, code reference despite zero mechanical feature. |
 | 31 | `while we're at it, let's also clean up the imports` | no | no | no | YES | "while" as an ordinary English conjunction ("while we're at it"), prose. |
 | 32 | `while loop here intentionally spins until the flag flips` | no | no | no | NO | "while" naming the actual loop construct being described, code reference despite zero mechanical feature. |
+
+Rows 33-40 added 2026-08-01 (second corpus-growth pass this session), covering `KEYWORDS_JS`
+members that still had zero example rows after rows 25-32 landed: `break`, `catch`, `if`,
+`return`.
+
+| 33 | `break it to them gently, this API is going away next release` | no | no | no | YES | "break" in the ordinary English idiom ("break it to them"), prose. |
+| 34 | `break here only exits the switch, not the surrounding loop` | no | no | no | NO | "break" naming the actual break statement being described, code reference despite zero mechanical feature. |
+| 35 | `catch you later, this refactor can wait until next sprint` | no | no | no | YES | "catch" in the ordinary English idiom ("catch you later"), prose. |
+| 36 | `catch block here only handles the network-timeout case` | no | no | no | NO | "catch" naming the actual catch-block construct being described, code reference despite zero mechanical feature. |
+| 37 | `if only this error message were more descriptive` | no | no | no | YES | "if" as an ordinary English conjunction ("if only"), prose. |
+| 38 | `if block here only runs once the feature flag is enabled` | no | no | no | NO | "if" naming the actual conditional construct being described, code reference despite zero mechanical feature. |
+| 39 | `return trip to this codebase always reveals something new` | no | no | no | YES | "return" used loosely as a noun ("return trip"), prose. |
+| 40 | `return statement here is unreachable after the early exit above` | no | no | no | NO | "return" naming the actual keyword being described, code reference despite zero mechanical feature. |

@@ -1,90 +1,107 @@
 #!/usr/bin/env python3
 """Derives CommentClassifierWeights constants from the labeled examples in
-tools/classifier_weights/examples_{c,cpp,java,kotlin}.md via a small logistic regression trained in this script
-(pure Python, no dependencies). Run with: python3 tools/classifier_weights/derive_weights.py
+tools/classifier_weights/examples_{c,cpp,java,kotlin,js,ts}.md via a small logistic regression
+trained in this script (pure Python, no dependencies). Run with:
+    python3 tools/classifier_weights/derive_weights.py
 
-This is the reusable counterpart to the by-hand derivation in tools/classifier_weights/weights.md -- extend the
-DATASET below when adding new labeled examples, re-run, and copy the printed constants into
-src/com/jxmake/formatter/classifier/CommentClassifierWeights.java.
+This is the reusable counterpart to the by-hand derivation in tools/classifier_weights/weights.md.
+DATASET is parsed directly from the examples_*.md tables' own paren?/arrow?/semi?/url/num?/Label
+columns (see load_dataset() below) -- it is NOT hand-maintained, specifically so adding rows to an
+examples_*.md file (as tools/gru/convert_classifier_weights_examples.py's hand-labeled corpus rows
+already require doing) automatically flows into this script's next run with no separate transcription
+step to remember or get out of sync. After adding examples, just re-run this script and copy the
+printed constants into src/com/jxmake/formatter/classifier/CommentClassifierWeights.java.
 """
 
+import glob
 import math
+import os
+import re
 
-# One row per labeled example across tools/classifier_weights/examples_{c,cpp,java,kotlin}.md.
+# Mirrors tools/gru/convert_classifier_weights_examples.py's LANG_BY_STEM exactly -- kept as a
+# separate copy rather than a shared import since every tool under tools/ is deliberately
+# self-contained (see e.g. extract_comments.py, GenerateSampleDefault.java). A new examples_<lang>.md
+# file needs a stem added here too, same caveat as that script's own LANG_BY_STEM.
+LANG_BY_STEM = {
+    "examples_c": "c",
+    "examples_cpp": "cpp",
+    "examples_java": "java",
+    "examples_kotlin": "kotlin",
+    "examples_js": "js",
+    "examples_ts": "ts",
+}
+
+CELL_SPLIT_RE = re.compile(r"(?<!\\)\|")
+
+# Feature columns located by header name (case-insensitive), like "Comment text"/"Label" in
+# convert_classifier_weights_examples.py. "arrow?" (CommentFeatureVector.nextTokenIsArrow) only
+# exists in examples_kotlin.md today -- absent elsewhere, defaults to 0 (JS/TS/C/C++/Java have no
+# `->` branch-arrow shape in the language). "paren?"/"semi?"/"url/num?" are required in every file.
+FEATURE_COLUMNS = ("paren?", "arrow?", "semi?", "url/num?")
+
+
+def split_row(line):
+    cells = CELL_SPLIT_RE.split(line.strip())
+    if cells and cells[0].strip() == "": cells = cells[1:]
+    if cells and cells[-1].strip() == "": cells = cells[:-1]
+    return [c.strip() for c in cells]
+
+
+def cell_to_bit(cell):
+    return 1 if cell.strip().lower() == "yes" else 0
+
+
+def parse_examples_file(path):
+    stem = os.path.splitext(os.path.basename(path))[0]
+    lang = LANG_BY_STEM.get(stem)
+    if lang is None: return []
+
+    rows      = []
+    col_index = None  # header name -> cell index, once the header row is found
+    label_col = None
+    with open(path, "r", encoding="utf-8") as inp:
+        for line in inp:
+            stripped = line.strip()
+            if not stripped.startswith("|"): continue
+
+            cells = split_row(stripped)
+
+            if col_index is None:
+                lowered = [c.lower() for c in cells]
+                if "label" in lowered and all(c in lowered for c in ("paren?", "semi?", "url/num?")):
+                    label_col = lowered.index("label")
+                    col_index = {name: (lowered.index(name) if name in lowered else None)
+                                 for name in FEATURE_COLUMNS}
+                continue
+
+            # Numbered data row; skip the "|---|...|" separator and anything else non-data.
+            if not cells or not re.fullmatch(r"\d+", cells[0]): continue
+            if len(cells) <= max(label_col, *(i for i in col_index.values() if i is not None)):
+                continue
+
+            label_cell = cells[label_col].strip()
+            if label_cell not in ("YES", "NO"): continue
+
+            index    = int(cells[0])
+            features = [cell_to_bit(cells[col_index[name]]) if col_index[name] is not None else 0
+                        for name in FEATURE_COLUMNS]
+            label    = 1 if label_cell == "YES" else 0
+            rows.append((lang, index) + tuple(features) + (label,))
+
+    return rows
+
+
+def load_dataset(examples_dir):
+    dataset = []
+    for path in sorted(glob.glob(os.path.join(examples_dir, "examples_*.md"))):
+        dataset.extend(parse_examples_file(path))
+    return dataset
+
+
 # (source, index, paren, arrow, semicolon, url_or_number, label) -- label 1 = YES (normalize),
 # 0 = NO. "arrow" is CommentFeatureVector.nextTokenIsArrow -- added to catch a when/match-branch
-# shape like "is Foo -> handle(foo)" that the other three features can't see (kotlin #2 below).
-DATASET = [
-    # examples_c.md
-    ("c", 1, 0, 0, 0, 0, 1), ("c", 2, 0, 0, 1, 0, 0), ("c", 3, 1, 0, 0, 0, 0),
-    ("c", 4, 0, 0, 0, 0, 1), ("c", 5, 0, 0, 1, 0, 0), ("c", 6, 0, 0, 0, 1, 1),
-    ("c", 7, 0, 0, 0, 1, 0), ("c", 8, 0, 0, 0, 0, 1), ("c", 9, 0, 0, 0, 0, 1),
-    ("c", 10, 0, 0, 1, 0, 0), ("c", 11, 0, 0, 0, 0, 1), ("c", 12, 1, 0, 0, 0, 0),
-    # rows 13-17 added 2026-07-30 to fix the KEYWORD_BIAS regression (see tools/classifier_weights/examples_c.md).
-    ("c", 13, 0, 0, 0, 0, 0), ("c", 14, 0, 0, 0, 0, 0), ("c", 15, 0, 0, 0, 0, 0),
-    ("c", 16, 0, 0, 0, 0, 0), ("c", 17, 0, 0, 0, 0, 0),
-    # rows 18-21 added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session).
-    ("c", 18, 0, 0, 0, 0, 1), ("c", 19, 0, 0, 1, 0, 0),
-    ("c", 20, 0, 0, 0, 0, 0), ("c", 21, 0, 0, 0, 0, 1),
-    # examples_cpp.md
-    ("cpp", 1, 0, 0, 0, 0, 1), ("cpp", 2, 1, 0, 1, 0, 0), ("cpp", 3, 0, 0, 0, 0, 1),
-    ("cpp", 4, 1, 0, 0, 1, 0), ("cpp", 5, 0, 0, 0, 0, 1), ("cpp", 6, 1, 0, 1, 0, 0),
-    ("cpp", 7, 0, 0, 0, 0, 1), ("cpp", 8, 1, 0, 1, 0, 0), ("cpp", 9, 0, 0, 0, 0, 1),
-    ("cpp", 10, 0, 0, 0, 1, 0),
-    # rows 11-15 are real regressions from test/cpp_modern_inp.cpp and test/cpp_combined_inp.cpp,
-    # plus hand-authored analogues, added 2026-07-30 (see tools/classifier_weights/examples_cpp.md).
-    ("cpp", 11, 0, 0, 0, 0, 0), ("cpp", 12, 0, 0, 0, 0, 0), ("cpp", 13, 0, 0, 0, 0, 0),
-    ("cpp", 14, 0, 0, 0, 0, 0), ("cpp", 15, 0, 0, 0, 0, 0),
-    # rows 16-19 added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session).
-    ("cpp", 16, 0, 0, 0, 0, 1), ("cpp", 17, 0, 0, 1, 0, 0),
-    ("cpp", 18, 0, 0, 0, 0, 0), ("cpp", 19, 0, 0, 0, 0, 0),
-    # examples_java.md
-    ("java", 1, 0, 0, 0, 0, 1), ("java", 2, 0, 0, 1, 0, 0), ("java", 3, 0, 0, 0, 0, 1),
-    ("java", 4, 1, 0, 1, 0, 0), ("java", 5, 0, 0, 0, 0, 1), ("java", 6, 0, 0, 1, 1, 0),
-    ("java", 7, 0, 0, 0, 0, 1), ("java", 8, 1, 0, 1, 0, 0), ("java", 9, 0, 0, 0, 0, 1),
-    ("java", 10, 0, 0, 1, 0, 0),
-    # rows 11-18 are real regressions from test/java_core_inp.java, test/java_combined_inp.java,
-    # and test/java_comments_inp.java, plus hand-authored analogues, added 2026-07-30
-    # (see tools/classifier_weights/examples_java.md).
-    ("java", 11, 0, 0, 0, 0, 0), ("java", 12, 0, 0, 0, 0, 0), ("java", 13, 0, 0, 0, 0, 0),
-    ("java", 14, 0, 0, 0, 0, 0), ("java", 15, 0, 0, 0, 0, 0), ("java", 16, 0, 0, 0, 0, 0),
-    ("java", 17, 0, 0, 0, 0, 0), ("java", 18, 0, 0, 0, 0, 0),
-    # rows 19-22 added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session).
-    ("java", 19, 0, 0, 0, 0, 1), ("java", 20, 1, 0, 0, 0, 0),
-    ("java", 21, 0, 0, 0, 0, 1), ("java", 22, 0, 0, 0, 0, 0),
-    # examples_kotlin.md -- row 2 ("is Foo -> handle(foo)") used to be a documented outlier (label
-    # NO, no mechanical feature fired) before nextTokenIsArrow existed; now arrow=1 catches it.
-    ("kotlin", 1, 0, 0, 0, 0, 1), ("kotlin", 2, 0, 1, 0, 0, 0), ("kotlin", 3, 0, 0, 0, 0, 1),
-    ("kotlin", 4, 1, 0, 1, 0, 0), ("kotlin", 5, 0, 0, 0, 0, 1), ("kotlin", 6, 0, 0, 1, 0, 0),
-    ("kotlin", 7, 0, 0, 0, 0, 1), ("kotlin", 8, 1, 0, 1, 0, 0),
-    # rows 9-12 added 2026-07-30, hand-authored analogues (see tools/classifier_weights/examples_kotlin.md).
-    ("kotlin", 9, 0, 0, 0, 0, 0), ("kotlin", 10, 0, 0, 0, 0, 0),
-    ("kotlin", 11, 0, 0, 0, 0, 0), ("kotlin", 12, 0, 0, 0, 0, 0),
-    # rows 13-15 added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session).
-    ("kotlin", 13, 0, 0, 0, 0, 1), ("kotlin", 14, 1, 0, 0, 0, 0),
-    ("kotlin", 15, 0, 0, 0, 0, 0),
-    # examples_js.md -- added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session).
-    # JS/TS have no `->` operator, so arrow is always 0 for these rows.
-    ("js", 1, 0, 0, 0, 0, 1), ("js", 2, 1, 0, 1, 0, 0), ("js", 3, 0, 0, 0, 0, 1),
-    ("js", 4, 0, 0, 1, 1, 0), ("js", 5, 0, 0, 0, 0, 1), ("js", 6, 1, 0, 1, 0, 0),
-    ("js", 7, 0, 0, 0, 0, 1), ("js", 8, 1, 0, 1, 0, 0), ("js", 9, 0, 0, 0, 0, 1),
-    ("js", 10, 0, 0, 0, 0, 0), ("js", 11, 0, 0, 0, 0, 0), ("js", 12, 0, 0, 0, 0, 0),
-    ("js", 13, 0, 0, 0, 0, 1), ("js", 14, 1, 0, 1, 1, 0), ("js", 15, 0, 0, 0, 0, 1),
-    ("js", 16, 0, 0, 0, 0, 0), ("js", 17, 0, 0, 0, 0, 1), ("js", 18, 0, 0, 0, 1, 0),
-    # rows 19-24 added 2026-07-31, rebalancing follow-up (see examples_js.md's note).
-    ("js", 19, 0, 0, 0, 0, 0), ("js", 20, 0, 0, 0, 0, 0), ("js", 21, 0, 0, 0, 0, 0),
-    ("js", 22, 0, 0, 0, 0, 0), ("js", 23, 0, 0, 0, 0, 0), ("js", 24, 0, 0, 0, 0, 0),
-    # examples_ts.md -- added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session).
-    ("ts", 1, 0, 0, 0, 0, 1), ("ts", 2, 0, 0, 1, 0, 0), ("ts", 3, 0, 0, 0, 0, 1),
-    ("ts", 4, 0, 0, 1, 0, 0), ("ts", 5, 0, 0, 0, 0, 1), ("ts", 6, 0, 0, 1, 0, 0),
-    ("ts", 7, 0, 0, 0, 0, 1), ("ts", 8, 1, 0, 0, 0, 0), ("ts", 9, 0, 0, 0, 0, 1),
-    ("ts", 10, 0, 0, 0, 0, 0), ("ts", 11, 0, 0, 0, 0, 1), ("ts", 12, 1, 0, 0, 0, 0),
-    ("ts", 13, 0, 0, 0, 0, 1), ("ts", 14, 0, 0, 1, 0, 0), ("ts", 15, 0, 0, 0, 0, 1),
-    ("ts", 16, 1, 0, 0, 0, 0), ("ts", 17, 0, 0, 0, 0, 1), ("ts", 18, 0, 0, 1, 0, 0),
-    # rows 19-24 added 2026-07-31, rebalancing follow-up (see examples_ts.md's note).
-    ("ts", 19, 0, 0, 0, 0, 0), ("ts", 20, 0, 0, 0, 0, 0), ("ts", 21, 0, 0, 0, 0, 0),
-    ("ts", 22, 0, 0, 0, 0, 0), ("ts", 23, 0, 0, 0, 0, 0), ("ts", 24, 0, 0, 0, 0, 0),
-]
+# shape like "is Foo -> handle(foo)" that the other three features can't see (kotlin #2).
+DATASET = load_dataset(os.path.dirname(os.path.abspath(__file__)))
 
 LEARNING_RATE = 0.5
 EPOCHS        = 5000

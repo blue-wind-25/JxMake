@@ -1416,3 +1416,46 @@ picks this up next -- expect the benchmark's `total`/`decided` denominators
 to move from 125 to 173 once that happens, so a future comparison against
 this session's 56.0%-on-125 number needs to account for the larger,
 not-directly-comparable denominator.
+
+---
+
+## 2026-08-01 session: `derive_weights.py`'s `DATASET` made auto-extending from `examples_*.md`
+
+Growing the hand-labeled hard-case set (previous session) exposed a latent
+sync bug: `tools/classifier_weights/derive_weights.py`'s `DATASET` was a
+hand-transcribed Python mirror of each `examples_*.md` row's feature
+vector, not parsed from the files themselves -- the 48 new rows landed in
+the `.md` files but had no `DATASET` entries at all, silently invisible to
+the next re-derivation until someone remembered to transcribe them by hand.
+
+**Fix:** replaced the literal `DATASET` list with `load_dataset()`, which
+parses `examples_*.md` directly using the same header-name-column-lookup
+convention already established by `tools/gru/convert_classifier_weights_
+examples.py` (`LANG_BY_STEM` stem-to-language mapping duplicated rather
+than imported, matching every other tool under `tools/`'s self-contained-
+script precedent). Locates `paren?`/`arrow?`/`semi?`/`url/num?`/`Label`
+columns by header name; `arrow?` defaults to `0` when the column is absent
+(only `examples_kotlin.md` has it -- no other supported language has a
+`->` branch-arrow shape). Row number and YES/NO cells map directly to the
+existing `(source, index, paren, arrow, semi, urlnum, label)` tuple shape,
+so `train()`/`report()` needed no changes.
+
+**Verified:** `load_dataset()` reproduces every one of the previous 125
+hand-transcribed rows identically (spot-checked `c #1`-`#21` and `kotlin
+#2`'s `arrow=1`), and picks up all 173 current rows with zero manual
+transcription. Re-running the script end to end now trains on the full
+173-row set: precision 106/173 (61.3%, down from the old 125-row-set's
+82/125 = 65.6% -- expected, the 48 new rows are deliberately the hardest
+zero-mechanical-feature shape and this is a 4-feature linear model, not a
+regression in the parser). New constants: `KEYWORD_BIAS=-0.05634`,
+`KEYWORD_WEIGHT_PAREN=-3.10644`, `KEYWORD_WEIGHT_ARROW=-1.55819`,
+`KEYWORD_WEIGHT_SEMICOLON=-3.59572`, `KEYWORD_WEIGHT_URL_OR_NUMBER=
+-0.96329`.
+
+**Not done this session:** copying these new constants into
+`CommentClassifierWeights.java`/`weights.md`, and the `make gru-acquire-
+corpus` rerun (now that the `extract_comments.py` fix above has landed)
+are both immediate next steps, tracked separately below.
+
+**Files changed:** `tools/classifier_weights/derive_weights.py` only + this
+file.

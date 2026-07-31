@@ -2965,60 +2965,57 @@ Real-code regressions:
                                                in `STATE_JS_TS.md`'s root-cause-#3 write-up.
 
   real_code_regressions_173_inp/out.html    -- HTML5, `apache/ant` `manual/running.html` dogfood
-                                               (STATE_DATA_FORMATS.md's Open Questions item 2):
-                                               minimal repro of a genuine orphan `</p>` closing tag
-                                               (bare top-level `<body>` text with no wrapping `<p>`,
-                                               ending in an unmatched `</p>`) that previously
-                                               cascaded a tolerant-close all the way up through
-                                               `<body>` and `<html>` without consuming the stray
-                                               tag, dumping the rest of the real document as raw
-                                               siblings outside `</html>`. `XmlSpecificRule`'s new
-                                               `openTagStack` now distinguishes "matches nothing
-                                               open anywhere" (discard in place) from "matches an
-                                               ancestor" (legitimate cascade-close, unchanged).
+                                               (STATE_DATA_FORMATS.md's Open Questions item 2): an
+                                               orphan `</p>` (bare `<body>` text, no wrapping `<p>`)
+                                               used to cascade a tolerant-close up through `<body>`
+                                               and `<html>` without consuming the stray tag, dumping
+                                               the rest of the document outside `</html>`.
+                                               `XmlSpecificRule`'s new `openTagStack` now
+                                               distinguishes "matches nothing open" (discard in
+                                               place) from "matches an ancestor" (legitimate
+                                               cascade-close, unchanged).
 
-  real_code_regressions_174_inp/out.html    -- HTML5, regression guard for the fix above: proves
-                                               the pre-existing mismatched-tag cascade-to-ancestor
-                                               behavior (WPT's `charset/after-bogus.html` idiom --
-                                               an unclosed `<bogus>` tag tolerant-closed only when
-                                               its enclosing `<div>`'s own closing tag is reached)
-                                               still works unchanged after `openTagStack` was added.
+  real_code_regressions_174_inp/out.html    -- HTML5, regression guard for 173: confirms the
+                                               pre-existing mismatched-tag cascade-to-ancestor
+                                               behavior (WPT's `charset/after-bogus.html` idiom: an
+                                               unclosed `<bogus>` tolerant-closed only when its
+                                               enclosing `<div>`'s close is reached) still works
+                                               after `openTagStack` was added.
 
   real_code_regressions_175_inp/out.html    -- HTML5, `apache/ant` `manual/` dogfood (Tasks/antlr.html,
                                                Tasks/attrib.html): commented-out markup fragments
                                                (`<!--tr>...</tr-->`, `<!--p>...</p-->`) starting with a
                                                lowercase tag-name-like token immediately followed by `>`
-                                               were being corrupted by `normalize-comment-start-case`
+                                               were corrupted by `normalize-comment-start-case`
                                                capitalizing to `Tr>`/`P>`. `XmlSpecificRule`'s new
-                                               `isMarkupFragmentDirective` skips capitalization when a
-                                               comment's leading lowercase-letter run, followed
-                                               immediately by `>`, matches a real HTML tag name in the
-                                               new `MARKUP_FRAGMENT_TAG_NAMES` set -- distinct from and
-                                               narrower than `isSingleWordDirective`'s "whole comment is
-                                               one word" case. A genuinely unrelated lowercase-starting
-                                               prose comment (`attributes inherited from MatchingTask`,
-                                               same corpus) correctly falls through and stays subject to
-                                               ordinary capitalization.
+                                               `isMarkupFragmentDirective` skips capitalization when
+                                               the comment's leading lowercase run, immediately
+                                               followed by `>`, matches a real tag name in the new
+                                               `MARKUP_FRAGMENT_TAG_NAMES` set -- narrower than
+                                               `isSingleWordDirective`'s "whole comment is one word"
+                                               case. An unrelated lowercase-starting prose comment
+                                               (`attributes inherited from MatchingTask`, same
+                                               corpus) correctly still falls through to ordinary
+                                               capitalization.
 
   real_code_regressions_176_inp/out.java    -- Java, `jenkinsci/jenkins` real-code repro
                                                (`hudson/PluginManager.java`'s `doPluginsSearch`): a
-                                               declaration whose initializer is a stream chain with
-                                               multiple multi-statement, brace-bodied lambda stages
-                                               (`.filter(x -> {...}).map(x -> {...})`) was getting its
-                                               ENTIRE initializer unconditionally flattened onto one
-                                               physical line (no line-length check at all) by
-                                               `DeclarationAlignmentRuleCore.renderInitTokens`, run
-                                               before `MiscRuleCurly.enforceCallLineBreaking` in the
-                                               pipeline -- by the time the latter ran, the lambda
-                                               body's original multi-line structure was already
-                                               destroyed and un-rewrappable, producing a real-world
-                                               ~1992-char single physical line that stayed over the
-                                               line-length limit and reformatted differently every
-                                               round (non-idempotent). Fixed with a new pre-flight
-                                               bail-out in `DeclarationAlignmentRuleCurly
-                                               .parseDeclaration`: if any brace pair in the initializer
-                                               originally spanned more than one physical source line,
-                                               leave the whole statement untouched. See `RDD_KEY_225`.
+                                               declaration initialized by a stream chain with multiple
+                                               multi-statement, brace-bodied lambda stages
+                                               (`.filter(x -> {...}).map(x -> {...})`) had its ENTIRE
+                                               initializer unconditionally flattened onto one physical
+                                               line (no line-length check) by
+                                               `DeclarationAlignmentRuleCore.renderInitTokens`, which
+                                               runs before `MiscRuleCurly.enforceCallLineBreaking` --
+                                               by then the lambda bodies' original multi-line structure
+                                               was already destroyed and un-rewrappable, producing a
+                                               ~1992-char line that stayed over the limit and
+                                               reformatted differently each round (non-idempotent).
+                                               Fixed with a pre-flight bail-out in
+                                               `DeclarationAlignmentRuleCurly.parseDeclaration`: if any
+                                               brace pair in the initializer originally spanned more
+                                               than one physical source line, leave the statement
+                                               untouched. See `RDD_KEY_225`.
 
 How Tests Are Run
 -----------------

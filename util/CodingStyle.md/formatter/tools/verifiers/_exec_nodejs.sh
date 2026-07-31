@@ -13,7 +13,9 @@ if [ -z "$PROGRAM" ]; then
     exit 1
 fi
 
-. "$(dirname "$0")/_exec_node_env.sh"
+DIR="$(dirname "$0")"
+
+. "$DIR/_exec_node_env.sh"
 
 if [ -n "$REQUIRE_MODULES" ]; then
     for m in $REQUIRE_MODULES; do
@@ -21,10 +23,10 @@ if [ -n "$REQUIRE_MODULES" ]; then
             echo "Required npm package '$m' is not installed." >&2
             echo >&2
             echo "Install it with:" >&2
-            echo "    \"$NPM\" install --prefix \"$HOME/mynpm\" \"$m\"" >&2
+            echo "    LD_LIBRARY_PATH=\"$LD_LIBRARY_PATH\" \"$NPM\" install --prefix \"$HOME/mynpm\" \"$m\"" >&2
             exit 1
         fi
     done
 fi
 
-exec "$NODE" "${PROGRAM}.js" "$@"
+exec "$NODE" "$DIR/${PROGRAM}.js" "$@"

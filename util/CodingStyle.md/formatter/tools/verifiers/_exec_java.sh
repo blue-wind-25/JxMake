@@ -19,13 +19,15 @@ KLIB="$HOME/xsdk/kotlin-compiler-2.4.0/kotlinc/lib"
 JAVAC="$JDK/bin/javac"
 JAVA="$JDK/bin/java"
 
-SRC="${PROGRAM}.java"
+DIR="$(dirname "$0")"
+
+SRC="$DIR/${PROGRAM}.java"
 CLASS="$PROGRAM"
 
 #
-# Build classpath.
+# Build classpath. Class files live alongside the source in $DIR, not CWD.
 #
-CP="."
+CP="$DIR"
 
 case "$PROGRAM" in
 kotlin_*)
@@ -34,20 +36,16 @@ kotlin_*)
 esac
 
 #
-# Compile if needed.
+# Compile if needed. -d puts the .class output back into $DIR regardless
+# of caller's CWD.
 #
-if [ ! -f "$CLASS.class" ] || [ "$SRC" -nt "$CLASS.class" ]; then
-    if [ "$CP" = "." ]; then
-        exec_compile() {
-            "$JAVAC" "$SRC"
-        }
-    else
-        exec_compile() {
-            "$JAVAC" -cp "$CP" "$SRC"
-        }
-    fi
-
-    exec_compile || exit $?
+if [ ! -f "$DIR/$CLASS.class" ] || [ "$SRC" -nt "$DIR/$CLASS.class" ]; then
+    "$JAVAC" -d "$DIR" -cp "$CP" "$SRC" || exit $?
 fi
 
+#
+# Note: CWD is intentionally left as the caller's, so that any relative
+# file arguments in "$@" resolve the way the caller expects. The compiled
+# classes are still found via $CP.
+#
 exec "$JAVA" -cp "$CP" "$CLASS" "$@"

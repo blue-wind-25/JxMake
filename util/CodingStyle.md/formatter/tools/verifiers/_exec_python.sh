@@ -16,8 +16,10 @@ fi
 
 : "${PYTHON:=python3}"
 
+DIR="$(dirname "$0")"
+
 if [ -n "$NODE_ENV" ]; then
-    . "$(dirname "$0")/_exec_node_env.sh"
+    . "$DIR/_exec_node_env.sh"
 fi
 
 if [ -n "$PYTHON_MODULES" ]; then
@@ -32,4 +34,4 @@ if [ -n "$PYTHON_MODULES" ]; then
     done
 fi
 
-exec "$PYTHON" "${PROGRAM}.py" "$@"
+exec "$PYTHON" "$DIR/${PROGRAM}.py" "$@"

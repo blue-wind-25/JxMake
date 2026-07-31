@@ -614,15 +614,15 @@ yet account for: (1) reflowing a single-line Javadoc opener to
 one-sentence-per-line made its naive whitespace-collapse pick up a spurious
 doubled `*` continuation marker as changed text; (2) closing-brace
 annotations (`} // while`, `} // class Foo`) are new, intentional formatter
-output, but got flagged as suspect unmatched additions; (3)
+output, flagged as suspect unmatched additions; (3)
 `normalize-comment-end-period` (STYLE.md #15) legitimately strips a sole
 trailing `.` — same category of expected normalization as the case-folding
-the verifier already exempted, just not implemented for periods. Fixed in
+already exempted, just not implemented for periods. Fixed in
 `java_content_diff.java`: strips the `* ` continuation marker before
 collapsing whitespace, strips a sole trailing `.` on both sides before
 comparing, exempts closing-brace-annotation comments from the "unexplained
 addition" check. Re-ran: all 9 `tools/gru` files report zero comment
 mismatches (remaining `top-level declaration #0 structure/content differs`
 per file is javac's pretty-printer reacting to real, unrelated structural
-reformatting — expected, out of scope). No classifier fix (linear or GRU)
-was needed; nothing was actually misclassified.
+reformatting — expected). No classifier fix (linear or GRU) was needed;
+nothing was actually misclassified.

@@ -45,10 +45,12 @@ import com.jxmake.formatter.classifier.gru.Vocabulary;
  *
  *  <p><b>Current behavior:</b> a real training loop -- random (Xavier/Glorot-style) weight
  *  initialization, per-example forward pass via {@link GruClassifier#forward}, backprop-through-
- *  time via {@link GruClassifier#backward}, and an Adam optimizer step applied immediately per
- *  example (batch size 1, a deliberate simplification of RDD_EXT_18's batch-size-32 starting
- *  default -- revisit once real production training runs show it matters; per-example updates are
- *  simpler to implement correctly and are still a valid, if noisier, SGD variant). Runs for up to
+ *  time via {@link GruClassifier#backward}, gradients averaged (not summed) across a mini-batch of
+ *  {@code --batch-size} examples (default 16, per RDD_EXT_18's batch-size-32 starting default --
+ *  16 chosen as this codebase's own smaller default, see STATE_AI.md's mini-batch session), and a
+ *  single Adam optimizer step applied per batch (the Adam {@code step} counter increments once per
+ *  batch, not once per example -- see {@code --threads} below for how within-batch parallelism
+ *  composes with this). Runs for up to
  *  {@code --epochs} (default from RDD_EXT_18: 30) with early stopping on a held-out validation
  *  split's cross-entropy loss (patience-based: stop once validation loss hasn't improved for
  *  {@code --patience} epochs, default 5).
@@ -123,7 +125,12 @@ public final class GruTrainer {
     // (see the end of main) -- they are a resume/recovery safety net, never a persistent artifact,
     // same posture as every other real per-run output this job never commits (RDD_EXT_19-style).
     private static final int    CHECKPOINT_MAGIC           = 0x47525543; // "GRUC"
-    private static final int    CHECKPOINT_FORMAT_VERSION  = 1;
+    // Bumped 1 -> 2 when mini-batch training added a new persisted scalar (batchSize) to the
+    // current-weights checkpoint's run-state block -- see writeCurrentCheckpoint/loadCurrentCheckpoint.
+    // A version-1 checkpoint left over from before this change is simply rejected by the version
+    // check below rather than silently misread; checkpoints are an ephemeral resume/recovery safety
+    // net (never committed, deleted on normal completion), so this is a safe, low-cost break.
+    private static final int    CHECKPOINT_FORMAT_VERSION  = 2;
     private static final String CHECKPOINT_CURRENT_SUFFIX  = ".ckpt-current.bin";
     private static final String CHECKPOINT_BEST_SUFFIX     = ".ckpt-best.bin";
 
@@ -224,17 +231,35 @@ public final class GruTrainer {
         int progressEvery = Integer.parseInt(
             hyperparameters.getOrDefault("progress-every", "1000")
         );
-        // --threads=N (default 1, i.e. today's plain sequential online SGD): computes forward/
-        // backward for up to N examples in parallel per batch against the same pre-batch weights
-        // snapshot, then applies their Adam updates sequentially afterward in original order (same
-        // per-example step count/schedule as threads=1). This means examples within one batch are
-        // computed against a slightly stale snapshot rather than each other's immediately-preceding
-        // update -- not bit-identical to threads=1, but standard parallel-SGD practice. Left opt-in
-        // (default 1) rather than defaulting to all cores, so a real training run doesn't
-        // unexpectedly saturate the machine.
+        // --threads=N (default 1, i.e. plain sequential per-batch computation): computes forward/
+        // backward for every example in a mini-batch (see --batch-size below) in parallel across N
+        // worker threads, all against the same pre-batch weights snapshot (safe -- forward/backward
+        // only read weights, never mutate it), before the batch's gradients are averaged and a
+        // single Adam update applied. This means threads controls *within-batch* parallelism only --
+        // it composes orthogonally with --batch-size (which controls how many examples' gradients get
+        // averaged per Adam step), not a separate/competing mechanism. Left opt-in (default 1) rather
+        // than defaulting to all cores, so a real training run doesn't unexpectedly saturate the
+        // machine.
         int threads = Integer.parseInt( hyperparameters.getOrDefault("threads", "1") );
         if(threads < 1) {
             System.err.println("GruTrainer: --threads must be >= 1, got " + threads);
+            System.exit(2);
+            return;
+        }
+        // --batch-size=N (default 16): number of examples whose gradients are averaged (not summed --
+        // averaging keeps the effective step size comparable across different batch sizes, matching
+        // standard mini-batch SGD/Adam) before one Adam optimizer step is applied. The Adam `step`
+        // counter (used for bias-correction) increments once per batch, not once per example -- see
+        // AdamState.apply. A resumable hyperparameter, same override-if-specified-else-checkpoint-
+        // value pattern as --lr/--epochs/--patience below. The last partial batch of an epoch (when
+        // trainExamples % batchSize != 0) naturally averages over however many examples it actually
+        // has, since averageGradients divides by the batch's real non-skipped example count, not a
+        // hardcoded batchSize.
+        int batchSize = Integer.parseInt( hyperparameters.getOrDefault(
+            "batch-size", resumed != null ? String.valueOf(resumed.batchSize) : "16"
+        ) );
+        if(batchSize < 1) {
+            System.err.println("GruTrainer: --batch-size must be >= 1, got " + batchSize);
             System.exit(2);
             return;
         }
@@ -320,9 +345,9 @@ public final class GruTrainer {
 
         System.out.println( String.format(
                 "GruTrainer: starting -- vocabSize=%d, trainExamples=%d, validationExamples=%d,"
-                        + " maxEpochs=%d, patience=%d, lr=%9.7f",
+                        + " maxEpochs=%d, patience=%d, lr=%9.7f, batchSize=%d, threads=%d",
                 explicitVocab.size(), train.size(), validation.size(), maxEpochs, patience,
-                learningRate ) );
+                learningRate, batchSize, threads ) );
 
         AdamState adam               = resumed != null ? resumed.adam : new AdamState(weights);
         double    bestValidationLoss = resumed != null ? resumed.bestValidationLoss : Double.POSITIVE_INFINITY;
@@ -385,20 +410,25 @@ public final class GruTrainer {
                 int    examplesSeen    = 0;
                 int    i               = 0;
                 while( i < train.size() ) {
-                    int           batchEnd = Math.min( i + threads, train.size() );
+                    // batchSize controls averaging granularity (one Adam step per this many
+                    // examples); threads (passed to computeBatch's executor) controls how many of
+                    // this batch's forward/backward computations run in parallel -- an orthogonal,
+                    // composing axis, not a competing one. See the --threads/--batch-size javadoc
+                    // above.
+                    int           batchEnd = Math.min( i + batchSize, train.size() );
                     List<Example> batch    = train.subList(i, batchEnd);
                     i = batchEnd;
                     List<ComputedGradient> computed = computeBatch(
                         executor, weights, vocabulary, batch
                     );
-                    for( int b = 0; b < batch.size(); ++b ) {
+                    GruClassifier.Gradients averaged = averageGradients(computed);
+                    if(averaged != null) {
+                        ++step;
+                        adam.apply(weights, averaged, learningRate, step);
+                    }
+                    for( ComputedGradient result : computed ) {
                         ++examplesSeen;
-                        ComputedGradient result = computed.get(b);
-                        if(result != null) {
-                            trainLoss += result.loss;
-                            ++step;
-                            adam.apply(weights, result.gradients, learningRate, step);
-                        }
+                        if(result != null) trainLoss += result.loss;
                         if(progressEvery > 0 && examplesSeen % progressEvery == 0) printProgress(
                             epoch,
                             examplesSeen,
@@ -407,7 +437,7 @@ public final class GruTrainer {
                             epochStartNanos,
                             trainingStartNanos
                         );
-                    } // for b
+                    } // for
                 } // while
                 trainLoss /= train.size();
 
@@ -464,7 +494,7 @@ public final class GruTrainer {
                         writeCurrentCheckpointQuietly(
                             currentCheckpointFile, weights, explicitVocab, adam, epoch,
                             epochsSinceImprovement, bestValidationLoss, learningRate, maxEpochs,
-                            patience, seed, step
+                            patience, seed, step, batchSize
                         );
                         break;
                     }
@@ -474,7 +504,7 @@ public final class GruTrainer {
                 // resumable state -- see writeCurrentCheckpoint's javadoc for the exact binary layout.
                 writeCurrentCheckpointQuietly(
                     currentCheckpointFile, weights, explicitVocab, adam, epoch, epochsSinceImprovement,
-                    bestValidationLoss, learningRate, maxEpochs, patience, seed, step
+                    bestValidationLoss, learningRate, maxEpochs, patience, seed, step, batchSize
                 );
             } // for epoch
         }
@@ -926,6 +956,88 @@ public final class GruTrainer {
         } // for
 
         return results;
+    }
+
+    /**
+     * Averages (not sums) the non-null {@link ComputedGradient}s of one mini-batch into a single
+     *  {@link GruClassifier.Gradients}, mutating and returning the first non-null entry's own
+     *  gradients object as the accumulator (cheaper than allocating a fresh one -- {@code
+     *  GruClassifier.Gradients}'s constructor is package-private and not callable from here anyway).
+     *  Entries skipped by {@link #computeBatch} (out-of-range {@code targetWordIndex}) are excluded
+     *  from both the sum and the divisor, so a mini-batch containing one or more skipped examples
+     *  still averages correctly over its real example count -- the same logic naturally handles the
+     *  last, possibly-partial batch of an epoch (divides by however many examples it actually
+     *  contains, never a hardcoded {@code batchSize}). Returns {@code null} if every entry in the
+     *  batch was skipped, matching the pre-mini-batch behavior of applying no Adam step for an
+     *  all-skipped batch.
+     */
+    private static GruClassifier.Gradients averageGradients(List<ComputedGradient> computed)
+    {
+        GruClassifier.Gradients sum   = null;
+        int                     count = 0;
+        for(ComputedGradient result : computed) {
+            if(result == null) continue;
+            if(sum == null) sum = result.gradients;
+            else addGradientsInto(sum, result.gradients);
+            ++count;
+        } // for
+        if(sum == null) return null;
+        scaleGradients( sum, 1.0 / count );
+
+        return sum;
+    }
+
+    private static void addGradientsInto(GruClassifier.Gradients dst, GruClassifier.Gradients src)
+    {
+        for( Map.Entry<Integer, double[]> entry : src.embeddingGrad.entrySet() ) {
+            double[] existing = dst.embeddingGrad.get( entry.getKey() );
+            if(existing == null) dst.embeddingGrad.put( entry.getKey(), entry.getValue().clone() );
+            else addInto( existing, entry.getValue() );
+        }
+        addInto(dst.forward, src.forward);
+        addInto(dst.backward, src.backward);
+        addInto(dst.denseW, src.denseW);
+        addInto(dst.denseB, src.denseB);
+        addInto(dst.outW, src.outW);
+        addInto(dst.outB, src.outB);
+    }
+
+    private static void addInto(GruWeights.DirectionWeights dst, GruWeights.DirectionWeights src)
+    {
+        addInto(dst.Wz, src.Wz);
+        addInto(dst.Wr, src.Wr);
+        addInto(dst.Wh, src.Wh);
+        addInto(dst.Uz, src.Uz);
+        addInto(dst.Ur, src.Ur);
+        addInto(dst.Uh, src.Uh);
+        addInto(dst.bz, src.bz);
+        addInto(dst.br, src.br);
+        addInto(dst.bh, src.bh);
+    }
+
+    private static void addInto(double[][] dst, double[][] src)
+    {
+        for(int i = 0; i < dst.length; ++i) addInto( dst[i], src[i] );
+    }
+
+    private static void addInto(double[] dst, double[] src)
+    {
+        for(int i = 0; i < dst.length; ++i) dst[i] += src[i];
+    }
+
+    /** Same field walk as {@link #clipGradients}'s scaling half, reused here to divide a summed
+     *  mini-batch gradient by its example count.
+     */
+    private static void scaleGradients(GruClassifier.Gradients g, double factor)
+    {
+        for( double[] row : g.embeddingGrad.values() ) scale(row, factor);
+
+        scale(g.forward, factor);
+        scale(g.backward, factor);
+        scale(g.denseW, factor);
+        scale(g.denseB, factor);
+        scale(g.outW, factor);
+        scale(g.outB, factor);
     }
 
     /**
@@ -1794,7 +1906,8 @@ public final class GruTrainer {
         int        maxEpochs,
         int        patience,
         long       seed,
-        int        step
+        int        step,
+        int        batchSize
     ) throws IOException
     {
         File tmp = new File( file.getPath() + ".tmp" );
@@ -1811,6 +1924,7 @@ public final class GruTrainer {
             out.writeInt(patience);
             out.writeLong(seed);
             out.writeInt(step);
+            out.writeInt(batchSize);
             writeAdamState(out, adam);
         }
         fsyncFile(tmp);
@@ -1834,13 +1948,14 @@ public final class GruTrainer {
         int        maxEpochs,
         int        patience,
         long       seed,
-        int        step
+        int        step,
+        int        batchSize
     )
     {
         try {
             writeCurrentCheckpoint(
                 file, weights, explicitVocab, adam, epoch, epochsSinceImprovement, bestValidationLoss,
-                learningRate, maxEpochs, patience, seed, step
+                learningRate, maxEpochs, patience, seed, step, batchSize
             );
         }
         catch(IOException e) {
@@ -1867,6 +1982,7 @@ public final class GruTrainer {
         final int          patience;
         final long         seed;
         final int          step;
+        final int          batchSize;
 
         ResumeState(
             List<String> explicitVocab,
@@ -1879,7 +1995,8 @@ public final class GruTrainer {
             int          maxEpochs,
             int          patience,
             long         seed,
-            int          step
+            int          step,
+            int          batchSize
         )
         {
             this.explicitVocab          = explicitVocab;
@@ -1893,6 +2010,7 @@ public final class GruTrainer {
             this.patience               = patience;
             this.seed                   = seed;
             this.step                   = step;
+            this.batchSize              = batchSize;
         }
 
     } // class ResumeState
@@ -1922,11 +2040,12 @@ public final class GruTrainer {
             int           patience                = in.readInt();
             long          seed                    = in.readLong();
             int           step                    = in.readInt();
+            int           batchSize               = in.readInt();
             AdamState     adam                    = readAdamStateInto(in, loaded.weights);
 
             return new ResumeState(
                 loaded.explicitVocab, loaded.weights, adam, epoch, epochsSinceImprovement,
-                bestValidationLoss, learningRate, maxEpochs, patience, seed, step
+                bestValidationLoss, learningRate, maxEpochs, patience, seed, step, batchSize
             );
         }
     }

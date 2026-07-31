@@ -147,41 +147,59 @@ build_vocab.py
 
 GruTrainer.java
     Trains a GruClassifier weights file from an RDD_EXT_21-schema labeled
-    file: Xavier/Glorot init, per-example forward+backward+Adam step, 20%
-    held-out validation split with patience-based early stopping. Loads
-    tools/gru/explicit_vocab.txt by default (--vocab= to override; empty/
-    missing path falls back to deriving vocab from the training file itself,
-    useful only for quick smoke tests). Wired as a Makefile target:
+    file: Xavier/Glorot init, per-example forward+backward, mini-batch
+    gradient averaging + one Adam step per batch, 20% held-out validation
+    split with patience-based early stopping. Loads tools/gru/
+    explicit_vocab.txt by default (--vocab= to override; empty/missing path
+    falls back to deriving vocab from the training file itself, useful only
+    for quick smoke tests). Wired as a Makefile target:
 
         make gru-train GRU_TRAIN_INPUT=<labeled-file> GRU_WEIGHTS_OUT=<weights-file> \
-            [GRU_TRAIN_ARGS="--epochs=40 --patience=6 --vocab=<path> --seed=<n> --threads=<n>"]
+            [GRU_TRAIN_ARGS="--epochs=40 --patience=6 --vocab=<path> --seed=<n> --threads=<n> --batch-size=<n>"]
 
     or invoked directly once compiled:
 
         java -cp target/classes:<gru-tools-classes> GruTrainer <labeled-file> <weights-file> \
-            [--epochs=N] [--patience=N] [--vocab=<path>] [--seed=N] [--threads=N]
+            [--epochs=N] [--patience=N] [--vocab=<path>] [--seed=N] [--threads=N] [--batch-size=N]
 
-    --threads=N (default 1, i.e. plain sequential online SGD, same as before
-    this flag existed) parallelizes the expensive forward/backward compute
-    across N worker threads, N examples at a time. Adam updates are still
-    applied one example at a time, in original order, immediately after each
-    batch's compute finishes — same per-example step count/schedule as
-    threads=1 — but the N examples within one batch are computed against the
-    same pre-batch weights snapshot rather than each other's immediately-
-    preceding update, so results are not bit-identical to threads=1 (standard
-    parallel-SGD staleness tradeoff, not a bug). Validation-loss computation
-    is also parallelized under --threads=N, but carries no such tradeoff:
-    weights are frozen during validation, so results there are identical
-    regardless of thread count. Left opt-in at 1 rather than defaulting to
-    all cores, so a real training run doesn't unexpectedly saturate the
-    machine — pick a value that leaves some cores free if you want to keep
-    using the machine for other things while training runs.
+    --batch-size=N (default 16, must be >= 1) is the mini-batch size:
+    gradients from N examples are averaged (never summed -- averaging keeps
+    the effective step size comparable across different batch sizes, the
+    standard mini-batch SGD/Adam definition) before one Adam optimizer step
+    is applied. The Adam step counter (used for bias-correction) increments
+    once per batch, not once per example, so mini-batching changes the
+    bias-correction schedule versus the old per-example-step behavior --
+    expected/correct for mini-batch Adam, not a bug. The last, possibly-
+    partial batch of an epoch (trainExamples % batchSize != 0) still
+    averages correctly over however many examples it actually contains, not
+    the full batchSize. --batch-size=1 degenerates to (numerically close
+    to, not bit-identical to, since gradient clipping is still applied per
+    example before averaging) the old per-example-Adam-step behavior. A
+    resumable hyperparameter -- see the checkpointing section below.
 
-    Checkpointing / --resume=<path> (2026-07-31): every epoch, GruTrainer
-    writes a binary checkpoint next to <weights-file> --
-    <weights-file>.ckpt-current.bin (full resumable state: weights, Adam
-    moment arrays, vocab, epoch/patience counters, hyperparameters, seed)
-    and, only when validation loss improves that epoch,
+    --threads=N (default 1, i.e. plain sequential per-batch compute)
+    parallelizes the expensive forward/backward compute for one mini-
+    batch's N examples across N worker threads, all against the same pre-
+    batch weights snapshot (safe -- forward/backward only read weights,
+    never mutate it) -- an axis that composes orthogonally with
+    --batch-size, not a competing one: --batch-size decides how many
+    examples' gradients get averaged per Adam step, --threads decides how
+    many of that batch's forward/backward computations run in parallel.
+    Validation-loss computation is also parallelized under --threads=N (in
+    its own, separate --threads-sized chunks, unrelated to --batch-size),
+    but carries no staleness tradeoff at all: weights are frozen during
+    validation, so results there are identical regardless of thread count.
+    --threads is left opt-in at 1 rather than defaulting to all cores, so a
+    real training run doesn't unexpectedly saturate the machine — pick a
+    value that leaves some cores free if you want to keep using the machine
+    for other things while training runs.
+
+    Checkpointing / --resume=<path> (2026-07-31, batch-size persistence
+    added 2026-08-01): every epoch, GruTrainer writes a binary checkpoint
+    next to <weights-file> -- <weights-file>.ckpt-current.bin (full
+    resumable state: weights, Adam moment arrays, vocab, epoch/patience
+    counters, hyperparameters incl. --batch-size, seed) and, only when
+    validation loss improves that epoch,
     <weights-file>.ckpt-best.bin (weights + vocab only). These are binary
     (DataOutputStream, not JSON) purely for per-epoch write speed on a
     multi-MB weights blob, and are pure recovery/resume artifacts, not a

@@ -1527,12 +1527,10 @@ public class CppSpecificRule {
      * concerns elsewhere in this file. `renameGuard` stands in for the not-yet-existent
      * `header-guard-rename` config key (default off): when false, or when the existing guard
      * already matches, the existing name is kept and only spacing/the `#endif` comment are
-     * normalized. The actual "warn, don't rename" side effect that default implies has nowhere to
-     * go yet (no `Config`/CLI output mechanism exists) and is deferred to whoever wires this
-     * method into `Main.java`. This method already only ever normalizes within whichever of the
-     * two guard forms (`#ifndef`/`#pragma once`) is already present and never converts between
-     * them -- there used to be a `header-guard-style` config key for this, removed since nothing
-     * ever implemented the conversion; re-add it if that ever happens.
+     * normalized. This method already only ever normalizes within whichever of the two guard
+     * forms (`#ifndef`/`#pragma once`) is already present and never converts between them --
+     * there used to be a `header-guard-style` config key for this, removed since nothing ever
+     * implemented the conversion; re-add it if that ever happens.
      */
     public String enforceHeaderFileStructure(
         final List<Token> tokens,

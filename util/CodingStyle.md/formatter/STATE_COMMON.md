@@ -281,15 +281,17 @@ indent-style                     = spaces      # spaces | tabs | auto
 
 # ── Behavior ──────────────────────────────────────────────────────────────────
 line-endings                     = lf          # lf | crlf | preserve
+
 normalize-comment-start-case     = on          # on | off
 normalize-comment-end-period     = on          # on | off
 comment-normalization-classifier = on          # on | off (flipped on 2026-07-30 after fixing the KeywordAmbiguityGate weight regression, see STATE_AI.md)
 closing-comment-min-lines        = 5
-format-macros                    = off         # off | on
+
 curly-general-scope-reindent     = off         # off | on
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
-header-guard-rename              = off         # off | on (warn only by default)
+header-guard-rename              = off         # off | on
+format-macros                    = off         # off | on
 
 # ── Java ──────────────────────────────────────────────────────────────────────
 java-import-order                = java, com, org, other, local, static

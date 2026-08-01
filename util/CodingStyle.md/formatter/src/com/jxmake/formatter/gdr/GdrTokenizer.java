@@ -21,197 +21,203 @@ import java.util.List;
  */
 public final class GdrTokenizer {
 
-    private final String source;
-    private final int n;
-    private int i;
-    private int line;
-    private boolean atLineStart;
-    private final StringBuilder textBuf = new StringBuilder();
-    private int textStartLine;
-    private final List<GdrToken> tokens = new ArrayList<>();
+    private final String         source;
+    private final int            n;
+    private       int            i;
+    private       int            line;
+    private       boolean        atLineStart;
+    private final StringBuilder  textBuf = new StringBuilder();
+    private       int            textStartLine;
+    private final List<GdrToken> tokens  = new ArrayList<>();
 
-    private GdrTokenizer(String source) {
+    private GdrTokenizer(String source)
+    {
         this.source = source;
-        this.n = source.length();
+        this.n      = source.length();
     }
 
-    public static List<GdrToken> tokenize(String source) {
+    public static List<GdrToken> tokenize(String source)
+    {
         GdrTokenizer t = new GdrTokenizer(source);
+
         return t.run();
     }
 
-    private List<GdrToken> run() {
-        i = 0;
-        line = 0;
-        atLineStart = true;
+    private List<GdrToken> run()
+    {
+        i             = 0;
+        line          = 0;
+        atLineStart   = true;
         textStartLine = 0;
 
-        while (i < n) {
+        while(i < n) {
             char c = source.charAt(i);
 
-            if (c == '\n') {
+            if(c == '\n') {
                 flushText();
-                tokens.add(new GdrToken(GdrTokenType.NEWLINE, "\n", line));
-                line++;
-                i++;
+                tokens.add( new GdrToken(GdrTokenType.NEWLINE, "\n", line) );
+                ++line;
+                ++i;
                 atLineStart = true;
                 continue;
-            }
+            } // if
 
-            if (c == ' ' || c == '\t' || c == '\r') {
+            if(c == ' ' || c == '\t' || c == '\r') {
                 appendText(c);
-                i++;
+                ++i;
                 continue;
             }
 
             boolean isFirstOnLine = atLineStart;
             atLineStart = false;
 
-            if (c == '#' && isFirstOnLine) {
+            if(c == '#' && isFirstOnLine) {
                 scanPreprocessorDirective();
                 continue;
             }
-            if (c == '/' && i + 1 < n && source.charAt(i + 1) == '/') {
+            if( c == '/' && i + 1 < n && source.charAt(i + 1) == '/' ) {
                 scanLineComment();
                 continue;
             }
-            if (c == '/' && i + 1 < n && source.charAt(i + 1) == '*') {
+            if( c == '/' && i + 1 < n && source.charAt(i + 1) == '*' ) {
                 scanBlockComment();
                 continue;
             }
-            if (c == '"' && i + 2 < n && source.charAt(i + 1) == '"' && source.charAt(i + 2) == '"') {
+            if( c == '"' && i + 2 < n && source.charAt(
+                i + 1
+            ) == '"' && source.charAt(
+                i + 2
+            ) == '"' ) {
                 scanTripleQuotedString();
                 continue;
             }
-            if ((c == 'R' || c == 'r') && i + 1 < n && source.charAt(i + 1) == '"' && scanRawStringIfPresent()) {
-                continue;
-            }
-            if (c == '"') {
+            if( (c == 'R' || c == 'r') && i + 1 < n && source.charAt(
+                i + 1
+            ) == '"' && scanRawStringIfPresent() ) continue;
+            if(c == '"') {
                 scanQuoted('"', GdrTokenType.STRING);
                 continue;
             }
-            if (c == '\'') {
+            if(c == '\'') {
                 scanQuoted('\'', GdrTokenType.CHAR);
                 continue;
             }
-            if (c == '`') {
+            if(c == '`') {
                 scanTemplateLiteral();
                 continue;
             }
 
             GdrTokenType bracket = bracketTypeFor(c);
-            if (bracket != null) {
+            if(bracket != null) {
                 flushText();
-                tokens.add(new GdrToken(bracket, String.valueOf(c), line));
-                i++;
+                tokens.add( new GdrToken( bracket, String.valueOf(c), line ) );
+                ++i;
                 continue;
             }
 
             appendText(c);
-            i++;
-        }
+            ++i;
+        } // while
         flushText();
+
         return tokens;
     }
 
-    private static GdrTokenType bracketTypeFor(char c) {
-        switch (c) {
-            case '{': return GdrTokenType.BRACE_OPEN;
-            case '}': return GdrTokenType.BRACE_CLOSE;
-            case '(': return GdrTokenType.PAREN_OPEN;
-            case ')': return GdrTokenType.PAREN_CLOSE;
-            case '[': return GdrTokenType.BRACKET_OPEN;
-            case ']': return GdrTokenType.BRACKET_CLOSE;
-            default: return null;
-        }
+    private static GdrTokenType bracketTypeFor(char c)
+    {
+        switch(c) {
+            case '{' : return GdrTokenType.BRACE_OPEN   ;
+            case '}' : return GdrTokenType.BRACE_CLOSE  ;
+            case '(' : return GdrTokenType.PAREN_OPEN   ;
+            case ')' : return GdrTokenType.PAREN_CLOSE  ;
+            case '[' : return GdrTokenType.BRACKET_OPEN ;
+            case ']' : return GdrTokenType.BRACKET_CLOSE;
+            default  : return null                      ;
+        } // switch
     }
 
-    private void appendText(char c) {
-        if (textBuf.length() == 0) {
-            textStartLine = line;
-        }
+    private void appendText(char c)
+    {
+        if( textBuf.length() == 0 ) textStartLine = line;
         textBuf.append(c);
     }
 
-    private void flushText() {
-        if (textBuf.length() > 0) {
-            tokens.add(new GdrToken(GdrTokenType.TEXT, textBuf.toString(), textStartLine));
+    private void flushText()
+    {
+        if( textBuf.length() > 0 ) {
+            tokens.add( new GdrToken( GdrTokenType.TEXT, textBuf.toString(), textStartLine ) );
             textBuf.setLength(0);
         }
     }
 
-    /** Backslash-newline continues a preprocessor directive onto the next line. */
-    private void scanPreprocessorDirective() {
+    /** Backslash-newline continues a preprocessor directive onto the next line */
+    private void scanPreprocessorDirective()
+    {
         flushText();
-        int start = i;
+        int start     = i;
         int startLine = line;
-        while (i < n) {
+        while(i < n) {
             char cc = source.charAt(i);
-            if (cc == '\n') {
+            if(cc == '\n') {
                 int back = i - 1;
-                if (back >= start && source.charAt(back) == '\r') {
-                    back--;
-                }
-                if (back >= start && source.charAt(back) == '\\') {
-                    line++;
-                    i++;
+                if( back >= start && source.charAt(back) == '\r' ) back--;
+                if( back >= start && source.charAt(back) == '\\' ) {
+                    ++line;
+                    ++i;
                     continue;
                 }
                 break;
-            }
-            i++;
-        }
-        tokens.add(new GdrToken(GdrTokenType.PREPROCESSOR, source.substring(start, i), startLine));
+            } // if
+            ++i;
+        } // while
+        tokens.add(
+            new GdrToken( GdrTokenType.PREPROCESSOR, source.substring(start, i), startLine )
+        );
     }
 
-    private void scanLineComment() {
+    private void scanLineComment()
+    {
         flushText();
-        int start = i;
+        int start     = i;
         int startLine = line;
-        while (i < n && source.charAt(i) != '\n') {
-            i++;
-        }
-        tokens.add(new GdrToken(GdrTokenType.LINE_COMMENT, source.substring(start, i), startLine));
+        while( i < n && source.charAt(i) != '\n' ) i++;
+        tokens.add(
+            new GdrToken( GdrTokenType.LINE_COMMENT, source.substring(start, i), startLine )
+        );
     }
 
-    private void scanBlockComment() {
+    private void scanBlockComment()
+    {
         flushText();
-        int start = i;
+        int start     = i;
         int startLine = line;
         i += 2;
-        while (i < n && !(source.charAt(i) == '*' && i + 1 < n && source.charAt(i + 1) == '/')) {
-            if (source.charAt(i) == '\n') {
-                line++;
-            }
-            i++;
+        while( i < n && !( source.charAt(i) == '*' && i + 1 < n && source.charAt(i + 1) == '/' ) ) {
+            if( source.charAt(i) == '\n' ) line++;
+            ++i;
         }
-        if (i < n) {
-            i += 2;
-        } else {
-            i = n;
-        }
-        tokens.add(new GdrToken(GdrTokenType.BLOCK_COMMENT, source.substring(start, i), startLine));
+        if(i < n) i += 2;
+        else      i = n;
+        tokens.add(
+            new GdrToken( GdrTokenType.BLOCK_COMMENT, source.substring(start, i), startLine )
+        );
     }
 
     /** Kotlin-style {@code """..."""} raw string. */
-    private void scanTripleQuotedString() {
+    private void scanTripleQuotedString()
+    {
         flushText();
-        int start = i;
+        int start     = i;
         int startLine = line;
         i += 3;
-        while (i < n && !(source.charAt(i) == '"' && i + 2 < n
-                && source.charAt(i + 1) == '"' && source.charAt(i + 2) == '"')) {
-            if (source.charAt(i) == '\n') {
-                line++;
-            }
-            i++;
+        while( i < n && !( source.charAt(i) == '"' && i + 2 < n
+                && source.charAt(i + 1) == '"' && source.charAt(i + 2) == '"' ) ) {
+            if( source.charAt(i) == '\n' ) line++;
+            ++i;
         }
-        if (i < n) {
-            i += 3;
-        } else {
-            i = n;
-        }
-        tokens.add(new GdrToken(GdrTokenType.STRING, source.substring(start, i), startLine));
+        if(i < n) i += 3;
+        else      i = n;
+        tokens.add( new GdrToken( GdrTokenType.STRING, source.substring(start, i), startLine ) );
     }
 
     /**
@@ -221,29 +227,31 @@ public final class GdrTokenizer {
      * {@code "} -- so the caller can fall through to ordinary text/string
      * handling instead.
      */
-    private boolean scanRawStringIfPresent() {
-        int j = i + 2;
+    private boolean scanRawStringIfPresent()
+    {
+        int           j     = i + 2;
         StringBuilder delim = new StringBuilder();
-        while (j < n && source.charAt(j) != '(' && source.charAt(j) != '\n' && delim.length() <= 16) {
-            delim.append(source.charAt(j));
-            j++;
+        while( j < n && source.charAt(
+            j
+        ) != '(' && source.charAt(
+            j
+        ) != '\n' && delim.length() <= 16 ) {
+            delim.append( source.charAt(j) );
+            ++j;
         }
-        if (j >= n || source.charAt(j) != '(') {
-            return false;
-        }
+        if( j >= n || source.charAt(j) != '(' ) return false;
         flushText();
-        int start = i;
-        int startLine = line;
-        String closer = ")" + delim + "\"";
-        int idx = source.indexOf(closer, j + 1);
+        int                   start     = i;
+        int                   startLine = line;
+        String                closer    = ")" + delim + "\"";
+        int                   idx       = source.indexOf(closer, j + 1);
         int end = (idx < 0) ? n : idx + closer.length();
-        for (int k = start; k < end; k++) {
-            if (source.charAt(k) == '\n') {
-                line++;
-            }
+        for(int k = start; k < end; ++k) {
+            if( source.charAt(k) == '\n' ) line++;
         }
         i = end;
-        tokens.add(new GdrToken(GdrTokenType.STRING, source.substring(start, end), startLine));
+        tokens.add( new GdrToken( GdrTokenType.STRING, source.substring(start, end), startLine ) );
+
         return true;
     }
 
@@ -255,51 +263,52 @@ public final class GdrTokenizer {
      * quoted string, a template literal legitimately spans multiple physical lines, so this
      * doesn't stop at a bare newline the way {@link #scanQuoted} does.
      */
-    private void scanTemplateLiteral() {
+    private void scanTemplateLiteral()
+    {
         flushText();
-        int start = i;
+        int start     = i;
         int startLine = line;
-        i++;
-        while (i < n) {
+        ++i;
+        while(i < n) {
             char cc = source.charAt(i);
-            if (cc == '\\' && i + 1 < n) {
+            if(cc == '\\' && i + 1 < n) {
                 i += 2;
                 continue;
             }
-            if (cc == '\n') {
-                line++;
-                i++;
+            if(cc == '\n') {
+                ++line;
+                ++i;
                 continue;
             }
-            if (cc == '`') {
-                i++;
+            if(cc == '`') {
+                ++i;
                 break;
             }
-            i++;
-        }
-        tokens.add(new GdrToken(GdrTokenType.STRING, source.substring(start, i), startLine));
+            ++i;
+        } // while
+        tokens.add( new GdrToken( GdrTokenType.STRING, source.substring(start, i), startLine ) );
     }
 
-    private void scanQuoted(char quote, GdrTokenType type) {
+    private void scanQuoted(char quote, GdrTokenType type)
+    {
         flushText();
-        int start = i;
+        int start     = i;
         int startLine = line;
-        i++;
-        while (i < n) {
+        ++i;
+        while(i < n) {
             char cc = source.charAt(i);
-            if (cc == '\\' && i + 1 < n) {
+            if(cc == '\\' && i + 1 < n) {
                 i += 2;
                 continue;
             }
-            if (cc == '\n') {
+            if(cc == '\n') break;
+            if(cc == quote) {
+                ++i;
                 break;
             }
-            if (cc == quote) {
-                i++;
-                break;
-            }
-            i++;
-        }
-        tokens.add(new GdrToken(type, source.substring(start, i), startLine));
+            ++i;
+        } // while
+        tokens.add( new GdrToken( type, source.substring(start, i), startLine ) );
     }
-}
+
+} // class GdrTokenizer

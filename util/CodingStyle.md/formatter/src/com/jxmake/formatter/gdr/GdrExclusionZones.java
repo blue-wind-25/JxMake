@@ -45,68 +45,79 @@ import java.util.regex.Pattern;
  */
 public final class GdrExclusionZones {
 
-    private static final Pattern DIS = Pattern.compile(
-            "^//%\\s*JXM_CFMT_DIS\\s*$|^/\\*%\\s*JXM_CFMT_DIS\\s*\\*/$");
-    private static final Pattern ENA = Pattern.compile(
-            "^//%\\s*JXM_CFMT_ENA\\s*$|^/\\*%\\s*JXM_CFMT_ENA\\s*\\*/$");
+    private static final Pattern DIS     = Pattern.compile(
+        "^//%\\s*JXM_CFMT_DIS\\s*$|^/\\*%\\s*JXM_CFMT_DIS\\s*\\*/$"
+    );
+    private static final Pattern ENA     = Pattern.compile(
+        "^//%\\s*JXM_CFMT_ENA\\s*$|^/\\*%\\s*JXM_CFMT_ENA\\s*\\*/$"
+    );
     private static final Pattern GDR_OFF = Pattern.compile(
-            "^//%\\s*JXM_CFMT_GDR\\s+0\\s*$|^/\\*%\\s*JXM_CFMT_GDR\\s+0\\s*\\*/$");
-    private static final Pattern GDR_ON = Pattern.compile(
-            "^//%\\s*JXM_CFMT_GDR\\s+1\\s*$|^/\\*%\\s*JXM_CFMT_GDR\\s+1\\s*\\*/$");
+        "^//%\\s*JXM_CFMT_GDR\\s+0\\s*$|^/\\*%\\s*JXM_CFMT_GDR\\s+0\\s*\\*/$"
+    );
+    private static final Pattern GDR_ON  = Pattern.compile(
+        "^//%\\s*JXM_CFMT_GDR\\s+1\\s*$|^/\\*%\\s*JXM_CFMT_GDR\\s+1\\s*\\*/$"
+    );
 
-    private GdrExclusionZones() {
+    private GdrExclusionZones()
+    {
     }
 
-    /** Per-line: true if the line falls inside an exclusion zone (or is a marker line itself). */
-    public static List<Boolean> computeExcludedByLine(List<GdrToken> tokens) {
-        List<Boolean> result = new ArrayList<>();
-        boolean frozen = false;
-        boolean gdrOff = false;
-        boolean lineHasMarker = false;
-        int line = 0;
+    /** Per-line: true if the line falls inside an exclusion zone (or is a marker line itself) */
+    public static List<Boolean> computeExcludedByLine(List<GdrToken> tokens)
+    {
+        List<Boolean> result        = new ArrayList<>();
+        boolean       frozen        = false;
+        boolean       gdrOff        = false;
+        boolean       lineHasMarker = false;
+        int           line          = 0;
 
-        for (GdrToken t : tokens) {
-            while (line < t.line) {
+        for(GdrToken t : tokens) {
+            while(line < t.line) {
                 result.add(frozen || gdrOff || lineHasMarker);
-                line++;
+                ++line;
                 lineHasMarker = false;
             }
 
-            if (t.type == GdrTokenType.LINE_COMMENT || t.type == GdrTokenType.BLOCK_COMMENT) {
+            if(t.type == GdrTokenType.LINE_COMMENT || t.type == GdrTokenType.BLOCK_COMMENT) {
                 String trimmed = t.text.trim();
-                if (DIS.matcher(trimmed).matches()) {
-                    frozen = true;
-                    lineHasMarker = true;
-                } else if (ENA.matcher(trimmed).matches()) {
-                    frozen = false;
-                    lineHasMarker = true;
-                } else if (GDR_OFF.matcher(trimmed).matches()) {
-                    gdrOff = true;
-                    lineHasMarker = true;
-                } else if (GDR_ON.matcher(trimmed).matches()) {
-                    gdrOff = false;
+                if( DIS.matcher(trimmed).matches() ) {
+                    frozen        = true;
                     lineHasMarker = true;
                 }
-            }
+                else if( ENA.matcher(trimmed).matches() ) {
+                    frozen        = false;
+                    lineHasMarker = true;
+                }
+                else if( GDR_OFF.matcher(trimmed).matches() ) {
+                    gdrOff        = true;
+                    lineHasMarker = true;
+                }
+                else if( GDR_ON.matcher(trimmed).matches() ) {
+                    gdrOff        = false;
+                    lineHasMarker = true;
+                }
+            } // if
 
             int embeddedNewlines = countNewlines(t.text);
-            for (int k = 0; k < embeddedNewlines; k++) {
+            for(int k = 0; k < embeddedNewlines; ++k) {
                 result.add(frozen || gdrOff || lineHasMarker);
-                line++;
+                ++line;
                 lineHasMarker = false;
             }
-        }
+        } // for t
         result.add(frozen || gdrOff || lineHasMarker);
+
         return result;
     }
 
-    private static int countNewlines(String text) {
+    private static int countNewlines(String text)
+    {
         int count = 0;
-        for (int i = 0; i < text.length(); i++) {
-            if (text.charAt(i) == '\n') {
-                count++;
-            }
+        for( int i = 0; i < text.length(); ++i ) {
+            if( text.charAt(i) == '\n' ) count++;
         }
+
         return count;
     }
-}
+
+} // class GdrExclusionZones

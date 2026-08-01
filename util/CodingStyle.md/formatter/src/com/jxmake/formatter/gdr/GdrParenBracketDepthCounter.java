@@ -21,46 +21,47 @@ import java.util.List;
  */
 public final class GdrParenBracketDepthCounter {
 
-    private GdrParenBracketDepthCounter() {
+    private GdrParenBracketDepthCounter()
+    {
     }
 
-    public static List<GdrLineParenBracketDepth> compute(List<GdrToken> tokens) {
-        List<GdrLineParenBracketDepth> result = new ArrayList<>();
-        int depth = 0;
-        int line = 0;
-        int startOfLineDepth = 0;
+    public static List<GdrLineParenBracketDepth> compute(List<GdrToken> tokens)
+    {
+        List<GdrLineParenBracketDepth> result           = new ArrayList<>();
+        int                            depth            = 0;
+        int                            line             = 0;
+        int                            startOfLineDepth = 0;
 
-        for (GdrToken t : tokens) {
-            while (line < t.line) {
-                result.add(new GdrLineParenBracketDepth(line, startOfLineDepth, depth));
-                line++;
+        for(GdrToken t : tokens) {
+            while(line < t.line) {
+                result.add( new GdrLineParenBracketDepth(line, startOfLineDepth, depth) );
+                ++line;
                 startOfLineDepth = depth;
             }
 
-            if (t.type == GdrTokenType.PAREN_OPEN || t.type == GdrTokenType.BRACKET_OPEN) {
-                depth++;
-            } else if (t.type == GdrTokenType.PAREN_CLOSE || t.type == GdrTokenType.BRACKET_CLOSE) {
-                depth--;
-            }
+            if(t.type == GdrTokenType.PAREN_OPEN || t.type == GdrTokenType.BRACKET_OPEN) depth++;
+            else if(t.type == GdrTokenType.PAREN_CLOSE || t.type == GdrTokenType.BRACKET_CLOSE) depth--;
 
             int embeddedNewlines = countNewlines(t.text);
-            for (int k = 0; k < embeddedNewlines; k++) {
-                result.add(new GdrLineParenBracketDepth(line, startOfLineDepth, depth));
-                line++;
+            for(int k = 0; k < embeddedNewlines; ++k) {
+                result.add( new GdrLineParenBracketDepth(line, startOfLineDepth, depth) );
+                ++line;
                 startOfLineDepth = depth;
             }
-        }
-        result.add(new GdrLineParenBracketDepth(line, startOfLineDepth, depth));
+        } // for t
+        result.add( new GdrLineParenBracketDepth(line, startOfLineDepth, depth) );
+
         return result;
     }
 
-    private static int countNewlines(String text) {
+    private static int countNewlines(String text)
+    {
         int count = 0;
-        for (int i = 0; i < text.length(); i++) {
-            if (text.charAt(i) == '\n') {
-                count++;
-            }
+        for( int i = 0; i < text.length(); ++i ) {
+            if( text.charAt(i) == '\n' ) count++;
         }
+
         return count;
     }
-}
+
+} // class GdrParenBracketDepthCounter

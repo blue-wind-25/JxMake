@@ -381,7 +381,7 @@ public final class Main {
         final String gdrOriginal = com.jxmake.formatter.gdr.GdrPipelineGate.apply(
             original, language, config
         );
-        final String formatted = FormatterCore.forLanguage(
+        final String formatted   = FormatterCore.forLanguage(
             language
         ).formatOne(
             gdrOriginal, path.toString(), config, formatOff
@@ -473,7 +473,7 @@ public final class Main {
     )
     {
         final String targetEnding;
-        if( "crlf".equals(lineEndingsConfig) ) targetEnding = "\r\n";
+             if( "crlf".equals(lineEndingsConfig) ) targetEnding = "\r\n";
         else if( "preserve".equals(
             lineEndingsConfig
         ) ) targetEnding = detectDominantLineEnding(

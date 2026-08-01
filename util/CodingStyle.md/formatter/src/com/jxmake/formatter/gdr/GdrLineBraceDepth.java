@@ -13,18 +13,22 @@ package com.jxmake.formatter.gdr;
  * counter's -- see {@code STATE_CURLY_GDR.md}'s checklist item 4.
  */
 public final class GdrLineBraceDepth {
+
     public final int line;
     public final int depthAtStart;
     public final int depthAtEnd;
 
-    public GdrLineBraceDepth(int line, int depthAtStart, int depthAtEnd) {
-        this.line = line;
+    public GdrLineBraceDepth(int line, int depthAtStart, int depthAtEnd)
+    {
+        this.line         = line;
         this.depthAtStart = depthAtStart;
-        this.depthAtEnd = depthAtEnd;
+        this.depthAtEnd   = depthAtEnd;
     }
 
     @Override
-    public String toString() {
+    public String toString()
+    {
         return "line=" + line + " start=" + depthAtStart + " end=" + depthAtEnd;
     }
-}
+
+} // class GdrLineBraceDepth

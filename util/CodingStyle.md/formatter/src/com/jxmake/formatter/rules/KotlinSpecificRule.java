@@ -206,7 +206,7 @@ public class KotlinSpecificRule {
         int depth = 0;
         for(int i = from; i < limit; ++i) {
             final Token t = tokens.get(i);
-            if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
+                 if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
             else if( depth == 0 && isOp(t, "->") ) return i;
         }
@@ -220,7 +220,7 @@ public class KotlinSpecificRule {
         int depth = 0;
         for(int i = from; i < limit; ++i) {
             final Token t = tokens.get(i);
-            if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
+                 if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
             else if(depth == 0 && t.type == TokenType.NEWLINE) return i;
         }
@@ -402,7 +402,7 @@ public class KotlinSpecificRule {
           int i     = openIdx + 1;
     final int n     = tokens.size();
         while(i < n && depth > 0) {
-            if( isPunct( tokens.get(i), "(" ) ) depth++;
+                 if( isPunct( tokens.get(i), "(" ) ) depth++;
             else if( isPunct( tokens.get(i), ")" ) ) depth--;
             ++i;
         }
@@ -416,7 +416,7 @@ public class KotlinSpecificRule {
           int i     = openIdx + 1;
     final int n     = tokens.size();
         while(i < n && depth > 0) {
-            if( isPunct( tokens.get(i), "{" ) )      depth++;
+                 if( isPunct( tokens.get(i), "{" ) ) depth++;
             else if( isPunct( tokens.get(i), "}" ) ) depth--;
             ++i;
         }
@@ -921,7 +921,7 @@ public class KotlinSpecificRule {
             gap.clear();
             out.append(t.text);
 
-            if( isOp(t, "@") ) state = UseSiteState.AFTER_AT;
+                 if( isOp(t, "@") ) state = UseSiteState.AFTER_AT;
             else if( state == UseSiteState.AFTER_AT && USE_SITE_TARGETS.contains(
                 t.text
             ) ) state = UseSiteState.AFTER_TARGET;

@@ -206,11 +206,11 @@ public final class XmlSpecificRule {
 
     private static final class Node {
 
-        NodeType     type;
-        String       raw;                       // PI / DOCTYPE / CDATA / TEXT: verbatim content
-        String       commentText;               // COMMENT: normalized inner text
-        boolean      commentVerbatim;           // COMMENT: true if commentText must render with no
-                                                // added inner spacing (a `%`-prefixed marker/directive comment)
+        NodeType type;
+        String   raw;             // PI / DOCTYPE / CDATA / TEXT: verbatim content
+        String   commentText;     // COMMENT: normalized inner text
+        boolean  commentVerbatim; // COMMENT: true if commentText must render with no
+                                                // Added inner spacing (a `%`-prefixed marker/directive comment)
         List<String> frozenLines;               // FROZEN: raw lines, verbatim, DIS..ENA inclusive
         String       tagName;
         List<String> attrs = new ArrayList<>();
@@ -461,12 +461,12 @@ public final class XmlSpecificRule {
 
     /**
      * Lowercased tag name of the closing tag at the cursor (which must already be positioned at
-     *  `</`) -- used by {@link #openTagStack}'s ancestor/orphan check.
+     *  `</`) -- used by {@link #openTagStack}'s ancestor/orphan check
      */
     private String peekCloseTagNameLower()
     {
-        int              i     = pos + 2;
-        final int        start = i;
+          int i     = pos + 2;
+    final int start = i;
         while( i < s.length() && s.charAt(i) != '>' && !Character.isWhitespace( s.charAt(i) ) ) i++;
 
         return s.substring(start, i).toLowerCase(java.util.Locale.ROOT);
@@ -548,7 +548,7 @@ public final class XmlSpecificRule {
             //  above, both require `<!--%` with no intervening space).
             n.commentVerbatim = true;
             n.commentText     = s.substring(pos + 4, close);
-        }
+        } // if
         else {
             n.commentText = normComment(inner);
         }
@@ -1042,12 +1042,24 @@ public final class XmlSpecificRule {
                 return;
 
             case COMMENT:
-                if(n.commentVerbatim) {
-                    out.append( indent(depth) ).append("<!--").append(n.commentText).append("-->\n");
-                }
-                else {
-                    out.append( indent(depth) ).append("<!-- ").append(n.commentText).append(" -->\n");
-                }
+                if(n.commentVerbatim) out.append(
+                    indent(depth)
+                ).append(
+                    "<!--"
+                ).append(
+                    n.commentText
+                ).append(
+                    "-->\n"
+                );
+                else out.append(
+                    indent(depth)
+                ).append(
+                    "<!-- "
+                ).append(
+                    n.commentText
+                ).append(
+                    " -->\n"
+                );
                 return;
 
             case CDATA:
@@ -1264,7 +1276,7 @@ public final class XmlSpecificRule {
         boolean sawDis = false;
         for( final String line : raw.split("\n", -1) ) {
             final String t = line.trim();
-            if( "//% JXM_CFMT_DIS".equals(t) )                sawDis = true;
+                 if( "//% JXM_CFMT_DIS".equals(t) )           sawDis = true;
             else if( sawDis && "//% JXM_CFMT_ENA".equals(t) ) return true;
         }
 

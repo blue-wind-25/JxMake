@@ -17,22 +17,23 @@ import com.jxmake.formatter.Config;
  */
 public final class GdrPipelineGate {
 
-    private GdrPipelineGate() {
+    private GdrPipelineGate()
+    {
     }
 
-    public static String apply(String source, String language, Config config) {
-        if (!config.isCurlyGeneralScopeReindent()) {
-            return source;
-        }
-        if (!isCurlyFamily(language)) {
-            return source;
-        }
-        return GdrRewriter.rewrite(source, config.indentSize());
+    public static String apply(String source, String language, Config config)
+    {
+        if( !config.isCurlyGeneralScopeReindent() ) return source;
+        if( !isCurlyFamily(language) ) return source;
+
+        return GdrRewriter.rewrite( source, config.indentSize() );
     }
 
-    private static boolean isCurlyFamily(String language) {
+    private static boolean isCurlyFamily(String language)
+    {
         return "c".equals(language) || "cpp".equals(language)
                 || "java".equals(language) || "kotlin".equals(language)
                 || "js".equals(language) || "ts".equals(language);
     }
-}
+
+} // class GdrPipelineGate

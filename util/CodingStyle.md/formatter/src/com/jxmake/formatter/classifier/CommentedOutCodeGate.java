@@ -37,7 +37,7 @@ public final class CommentedOutCodeGate {
 
     // Assignment-shape: identifier (optionally array-indexed) followed by a bare "=" -- excludes
     // "==", "!=", "<=", ">=" via the lookbehind/lookahead so ordinary comparison-operator
-    // discussion in prose doesn't false-positive.
+    // discussion in prose doesn't false-positive
     private static final Pattern ASSIGNMENT_SHAPE = Pattern.compile(
         "\\b[A-Za-z_]\\w*(?:\\[[^\\]\\n]{0,40}\\])?\\s*(?<![=!<>])=(?!=)"
     );
@@ -56,8 +56,7 @@ public final class CommentedOutCodeGate {
     // words) specifically to avoid matching ordinary two-word prose endings like "...4-digit
     // form;" (neither "4-digit" nor "form" is a type-looking word).
     private static final Pattern DECLARATION_SHAPE = Pattern.compile(
-        "\\b(?:int|long|short|char|float|double|bool|boolean|void|auto|var|const|unsigned|signed"
-        + "|size_t|u?int(?:8|16|32|64)_t|[A-Z][A-Za-z0-9_]*)\\s+[a-z_]\\w*\\s*[=;]"
+        "\\b(?:int|long|short|char|float|double|bool|boolean|void|auto|var|const|unsigned|signed" + "|size_t|u?int(?:8|16|32|64)_t|[A-Z][A-Za-z0-9_]*)\\s+[a-z_]\\w*\\s*[=;]"
     );
 
     private CommentedOutCodeGate()

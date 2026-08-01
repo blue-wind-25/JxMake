@@ -32,69 +32,68 @@ import java.util.List;
  */
 public final class GdrReindenter {
 
-    private GdrReindenter() {
+    private GdrReindenter()
+    {
     }
 
-    public static List<GdrIndentTarget> compute(String source, int indentSize) {
-        List<GdrToken> tokens = GdrTokenizer.tokenize(source);
-        List<GdrLineBraceDepth> braceDepths = GdrBraceDepthCounter.compute(tokens);
-        List<GdrLineParenBracketDepth> pbDepths = GdrParenBracketDepthCounter.compute(tokens);
-        int totalLines = braceDepths.size();
+    public static List<GdrIndentTarget> compute(String source, int indentSize)
+    {
+        List<GdrToken>                 tokens      = GdrTokenizer.tokenize(source);
+        List<GdrLineBraceDepth>        braceDepths = GdrBraceDepthCounter.compute(tokens);
+        List<GdrLineParenBracketDepth> pbDepths    = GdrParenBracketDepthCounter.compute(tokens);
+        int                            totalLines  = braceDepths.size();
 
-        List<Boolean> touchable = GdrLineTouchability.computeTouchableByLine(tokens, totalLines);
-        List<Boolean> excluded = GdrExclusionZones.computeExcludedByLine(tokens);
+        List<Boolean>  touchable   = GdrLineTouchability.computeTouchableByLine(tokens, totalLines);
+        List<Boolean>  excluded    = GdrExclusionZones.computeExcludedByLine(tokens);
         GdrTokenType[] leadingType = computeLeadingTokenTypes(tokens, totalLines);
 
         List<GdrIndentTarget> result = new ArrayList<>(totalLines);
-        for (int line = 0; line < totalLines; line++) {
-            boolean lineExcluded = line < excluded.size() && excluded.get(line);
-            if (!touchable.get(line) || lineExcluded) {
-                result.add(new GdrIndentTarget(line, false, 0, 0));
+        for(int line = 0; line < totalLines; ++line) {
+            boolean lineExcluded = line < excluded.size()&& excluded.get(line);
+            if( !touchable.get(line) || lineExcluded ) {
+                result.add( new GdrIndentTarget(line, false, 0, 0) );
                 continue;
             }
-            GdrLineBraceDepth brace = braceDepths.get(line);
-            GdrLineParenBracketDepth pb = pbDepths.get(line);
-            GdrTokenType leader = leadingType[line];
+            GdrLineBraceDepth        brace  = braceDepths.get(line);
+            GdrLineParenBracketDepth pb     = pbDepths.get(line);
+            GdrTokenType             leader = leadingType[line];
 
-            int braceLevel = (leader == GdrTokenType.BRACE_CLOSE) ? brace.depthAtEnd : brace.depthAtStart;
-            int pbLevel = (leader == GdrTokenType.PAREN_CLOSE || leader == GdrTokenType.BRACKET_CLOSE)
-                    ? pb.depthAtEnd : pb.depthAtStart;
+            int braceLevel = (leader == GdrTokenType.BRACE_CLOSE) ? brace.                                   depthAtEnd : brace.depthAtStart;
+            int pbLevel = (leader == GdrTokenType.PAREN_CLOSE || leader == GdrTokenType.BRACKET_CLOSE) ? pb. depthAtEnd : pb.depthAtStart;
 
             int level = braceLevel + pbLevel;
-            result.add(new GdrIndentTarget(line, true, level, level * indentSize));
-        }
+            result.add( new GdrIndentTarget(line, true, level, level * indentSize) );
+        } // for
+
         return result;
     }
 
     /**
      * First non-whitespace token type on each line, or {@code null} for a
      * line with no non-whitespace content (blank line, or a line entirely
-     * consumed by an untouchable multi-line-token continuation).
+     * consumed by an untouchable multi-line-token continuation)
      */
-    private static GdrTokenType[] computeLeadingTokenTypes(List<GdrToken> tokens, int totalLines) {
+    private static GdrTokenType[] computeLeadingTokenTypes(List<GdrToken> tokens, int totalLines)
+    {
         GdrTokenType[] leading = new GdrTokenType[totalLines];
-        for (GdrToken t : tokens) {
-            if (t.line < 0 || t.line >= totalLines || leading[t.line] != null) {
-                continue;
-            }
-            if (t.type == GdrTokenType.NEWLINE) {
-                continue;
-            }
-            if (t.type == GdrTokenType.TEXT && isAllWhitespace(t.text)) {
-                continue;
-            }
+        for(GdrToken t : tokens) {
+            if( t.line < 0 || t.line >= totalLines || leading[t.line] != null ) continue;
+            if(t.type == GdrTokenType.NEWLINE) continue;
+            if( t.type == GdrTokenType.TEXT && isAllWhitespace(t.text) ) continue;
             leading[t.line] = t.type;
         }
+
         return leading;
     }
 
-    private static boolean isAllWhitespace(String text) {
-        for (int i = 0; i < text.length(); i++) {
+    private static boolean isAllWhitespace(String text)
+    {
+        for( int i = 0; i < text.length(); ++i ) {
             char c = text.charAt(i);
-            if (c != ' ' && c != '\t' && c != '\r') {
-                return false;
-            }
+            if(c != ' ' && c != '\t' && c != '\r') return false;
         }
+
         return true;
     }
-}
+
+} // class GdrReindenter

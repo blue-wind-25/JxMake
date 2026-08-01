@@ -497,7 +497,7 @@ public class CppSpecificRule {
         for(int i = fromIdx; i >= 0; --i) {
             final Token t = tokens.get(i);
             if( isGapToken(t) ) continue;
-            if(t.type == TokenType.ANGLE_BRACKET_CLOSE) { ++depth; }
+                 if(t.type == TokenType.ANGLE_BRACKET_CLOSE) { ++depth; }
             else if(t.type == TokenType.ANGLE_BRACKET_OPEN) { --depth; }
             else if( isPunct(t, ")") ) { ++depth; }
             else if( isPunct(t, "(") ) { --depth; }
@@ -645,7 +645,7 @@ public class CppSpecificRule {
             // and gives the second one a zero-width placeholder token right after, so any space
             // padding inserted between the two must land between two single-char emissions, not
             // after a 2-char one.
-            if(t.type == TokenType.ANGLE_BRACKET_OPEN)       out.append('<');
+                 if(t.type == TokenType.ANGLE_BRACKET_OPEN)  out.append('<');
             else if(t.type == TokenType.ANGLE_BRACKET_CLOSE) out.append('>');
             else                                             out.append(t.text);
             lastSignificant    = t;
@@ -668,7 +668,7 @@ public class CppSpecificRule {
         final Map<Integer, Integer> openToClose = new HashMap<>();
         for( int i = 0; i < tokens.size(); ++i ) {
             final TokenType ty = tokens.get(i).type;
-            if(ty == TokenType.ANGLE_BRACKET_OPEN) openStack.push(i);
+                 if(ty == TokenType.ANGLE_BRACKET_OPEN) openStack.push(i);
             else if( ty == TokenType.ANGLE_BRACKET_CLOSE && !openStack.isEmpty() ) openToClose.put(
                 openStack.pop(), i
             );
@@ -1958,7 +1958,7 @@ public class CppSpecificRule {
         int newlineCount = 0;
         for(int j = prevIdx + 1; j < curIdx; ++j) {
             final TokenType ty = tokens.get(j).type;
-            if(ty == TokenType.NEWLINE)         newlineCount++;
+                 if(ty == TokenType.NEWLINE)    newlineCount++;
             else if(ty != TokenType.WHITESPACE) return false;
         }
 

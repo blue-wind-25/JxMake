@@ -1051,7 +1051,7 @@ public static final class Assignment {
             final Token t = stmt.get(k);
             if( isGapToken(t) ) continue;
             if(scanState == 2) {
-                if( isPunct(t, "[") )      { ++scanDepth; }
+                     if( isPunct(t, "[") ) { ++scanDepth; }
                 else if( isPunct(t, "]") ) { --scanDepth; if(scanDepth == 0) scanState = 0; }
                 else if( isPunct(t, ";") ) { return null; }
                 continue;
@@ -1172,7 +1172,7 @@ public static final class Assignment {
         int depth = 0;
         for( int i = from; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
+                 if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
             else if( depth == 0 && isPunct(t, ";") ) return i;
         }
@@ -1707,16 +1707,16 @@ public static final class Assignment {
         for( int i = 0; i < text.length() - 1; ++i ) {
             final char c = text.charAt(i);
             if(inString) {
-                if(c == '\\')     i++;
-                else if(c == '"') inString = false;
+                     if(c == '\\') i++;
+                else if(c == '"')  inString = false;
                 continue;
             }
             if(inChar) {
-                if(c == '\\')      i++;
+                     if(c == '\\') i++;
                 else if(c == '\'') inChar = false;
                 continue;
             }
-            if(c == '"')                                     inString = true;
+                 if(c == '"')                                inString = true;
             else if(c == '\'')                               inChar = true;
             else if( c == '/' && text.charAt(i + 1) == '/' ) return i;
         } // for

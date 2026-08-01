@@ -9,18 +9,22 @@ package com.jxmake.formatter.gdr;
  * {@code text} themselves.
  */
 public final class GdrToken {
-    public final GdrTokenType type;
-    public final String text;
-    public final int line;
 
-    public GdrToken(GdrTokenType type, String text, int line) {
+    public final GdrTokenType type;
+    public final String       text;
+    public final int          line;
+
+    public GdrToken(GdrTokenType type, String text, int line)
+    {
         this.type = type;
         this.text = text;
         this.line = line;
     }
 
     @Override
-    public String toString() {
+    public String toString()
+    {
         return type + "@" + line + "(" + text.length() + " chars)";
     }
-}
+
+} // class GdrToken

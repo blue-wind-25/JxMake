@@ -164,7 +164,7 @@ public class SwitchRule {
         int depth = 0;
         for(int i = kwIdx + 1; i < limit; ++i) {
             final Token t = tokens.get(i);
-            if( isPunct(t, "(") || isPunct(t, "[") ) depth++;
+                 if( isPunct(t, "(") || isPunct(t, "[") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") ) depth--;
             else if( depth == 0 && isOp(t, ":") ) return i;
             else if( depth == 0 && isPunct(t, ";") ) return -1;
@@ -526,8 +526,8 @@ public class SwitchRule {
         final int           newLen = Math.max( 0, current.length() + delta );
         final StringBuilder sb     = new StringBuilder();
         for(int k = 0; k < newLen; ++k) sb.append(unitChar);
-        if(t.type == TokenType.WHITESPACE) overrides.put( lineStart, sb.toString() );
-        else if(newLen > 0)                overrides.put( lineStart, sb.toString() + t.text );
+             if(t.type == TokenType.WHITESPACE) overrides.put( lineStart, sb.toString() );
+        else if(newLen > 0)                     overrides.put( lineStart, sb.toString() + t.text );
     }
 
     /** The leading whitespace of the line containing the token at idx, or "" if it isn't first on its line */
@@ -751,7 +751,7 @@ public class SwitchRule {
         int depth = 0;
         for(int i = from; i < to; ++i) {
             final Token t = tokens.get(i);
-            if( isPunct(t, "(") || isPunct(t, "[") ) depth++;
+                 if( isPunct(t, "(") || isPunct(t, "[") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") ) depth--;
             else if( depth == 0 && isPunct(t, ";") ) return i;
         }
@@ -908,7 +908,7 @@ public class SwitchRule {
           int i     = openIdx + 1;
     final int n     = tokens.size();
         while(i < n && depth > 0) {
-            if( isPunct( tokens.get(i), "{" ) )      depth++;
+                 if( isPunct( tokens.get(i), "{" ) ) depth++;
             else if( isPunct( tokens.get(i), "}" ) ) depth--;
             ++i;
         }
@@ -922,7 +922,7 @@ public class SwitchRule {
           int i     = openIdx + 1;
     final int n     = tokens.size();
         while(i < n && depth > 0) {
-            if( isPunct( tokens.get(i), "(" ) || isPunct( tokens.get(i), "[" ) ) depth++;
+                 if( isPunct( tokens.get(i), "(" ) || isPunct( tokens.get(i), "[" ) ) depth++;
             else if( isPunct( tokens.get(i), ")" ) || isPunct( tokens.get(i), "]" ) ) depth--;
             ++i;
         }

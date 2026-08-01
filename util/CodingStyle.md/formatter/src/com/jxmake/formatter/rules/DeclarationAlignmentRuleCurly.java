@@ -603,10 +603,12 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                 openLevels.add(Boolean.FALSE);
             }
             else if( isPunct(t, "}") ) {
-                if( !openLevels.isEmpty() && openLevels.remove( openLevels.size() - 1 ) ) return true;
+                if( !openLevels.isEmpty() && openLevels.remove(
+                    openLevels.size() - 1
+                ) ) return true;
             }
             else if( t.type == TokenType.NEWLINE && !openLevels.isEmpty() ) {
-                for(int k = 0; k < openLevels.size(); ++k) openLevels.set(k, Boolean.TRUE);
+                for( int k = 0; k < openLevels.size(); ++k ) openLevels.set(k, Boolean.TRUE);
             }
         } // for
 
@@ -625,7 +627,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         for( int k = 0; k < rawInit.size(); ++k ) {
             final Token t = rawInit.get(k);
             width += t.text.length();
-            if( isPunct(t, "{") || isPunct(t, ",") ) width++; // One space after `{` or `,`
+                 if( isPunct(t, "{") || isPunct(t, ",") ) width++; // One space after `{` or `,`
             else if( k < rawInit.size() - 1 && isPunct(
                 rawInit.get(k + 1), "}"
             ) ) width++; // One space before the closing `}`
@@ -645,7 +647,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
      * Same open/close-token-identity lookup as {@link #rawSliceBetween}, but returns the
      *  completely unfiltered inclusive slice (WHITESPACE/NEWLINE tokens included) -- needed by
      *  {@link #containsMultilineBraceBody}'s caller, which must see real NEWLINE tokens to detect
-     *  a brace body that originally spanned more than one physical source line.
+     *  a brace body that originally spanned more than one physical source line
      */
     private List<Token> rawSliceBetweenUnfiltered(
         final List<Token> stmt,
@@ -723,7 +725,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                 int depth = 1;
                 ++j;
                 while( j < body.size() && depth > 0 ) {
-                    if( isPunct( body.get(j), "(" ) ) depth++;
+                         if( isPunct( body.get(j), "(" ) ) depth++;
                     else if( isPunct( body.get(j), ")" ) ) depth--;
                     ++j;
                 }
@@ -806,7 +808,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         int cfDepth = 0;
         for( int cfI = 1; cfI < body.size(); ++cfI ) {
             final Token cfT = body.get(cfI);
-            if( isPunct(cfT, "(") || isPunct(cfT, "[") || isPunct(cfT, "{") ) cfDepth++;
+                 if( isPunct(cfT, "(") || isPunct(cfT, "[") || isPunct(cfT, "{") ) cfDepth++;
             else if( isPunct(cfT, ")") || isPunct(cfT, "]") || isPunct(cfT, "}") ) cfDepth--;
             else if( cfDepth == 0 && cfT.type == TokenType.KEYWORD && ( "if".equals(
                 cfT.text

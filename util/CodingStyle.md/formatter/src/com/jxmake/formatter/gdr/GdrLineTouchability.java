@@ -31,55 +31,54 @@ import java.util.Set;
  */
 public final class GdrLineTouchability {
 
-    private GdrLineTouchability() {
+    private GdrLineTouchability()
+    {
     }
 
     /**
      * Returns the set of 0-based line numbers that must NOT be reindented:
      * every line strictly after a multi-line token's start line, up to and
-     * including its end line.
+     * including its end line
      */
-    public static Set<Integer> computeUntouchableLines(List<GdrToken> tokens) {
+    public static Set<Integer> computeUntouchableLines(List<GdrToken> tokens)
+    {
         Set<Integer> untouchable = new HashSet<>();
-        for (GdrToken t : tokens) {
-            if (!isPotentiallyMultiline(t.type)) {
-                continue;
-            }
+        for(GdrToken t : tokens) {
+            if( !isPotentiallyMultiline(t.type) ) continue;
             int newlineCount = countNewlines(t.text);
-            if (newlineCount == 0) {
-                continue;
-            }
-            for (int k = 1; k <= newlineCount; k++) {
-                untouchable.add(t.line + k);
-            }
+            if(newlineCount == 0) continue;
+            for(int k = 1; k <= newlineCount; ++k) untouchable.add(t.line + k);
         }
+
         return untouchable;
     }
 
-    /** Convenience: same result as a line-indexed boolean list, 0=touchable. */
-    public static List<Boolean> computeTouchableByLine(List<GdrToken> tokens, int totalLines) {
-        Set<Integer> untouchable = computeUntouchableLines(tokens);
-        List<Boolean> result = new ArrayList<>(totalLines);
-        for (int line = 0; line < totalLines; line++) {
-            result.add(!untouchable.contains(line));
-        }
+    /** Convenience: same result as a line-indexed boolean list, 0=touchable */
+    public static List<Boolean> computeTouchableByLine(List<GdrToken> tokens, int totalLines)
+    {
+        Set<Integer>  untouchable = computeUntouchableLines(tokens);
+        List<Boolean> result      = new ArrayList<>(totalLines);
+        for(int line = 0; line < totalLines; ++line) result.add( !untouchable.contains(line) );
+
         return result;
     }
 
-    private static boolean isPotentiallyMultiline(GdrTokenType type) {
+    private static boolean isPotentiallyMultiline(GdrTokenType type)
+    {
         return type == GdrTokenType.STRING
                 || type == GdrTokenType.CHAR
                 || type == GdrTokenType.BLOCK_COMMENT
                 || type == GdrTokenType.PREPROCESSOR;
     }
 
-    private static int countNewlines(String text) {
+    private static int countNewlines(String text)
+    {
         int count = 0;
-        for (int i = 0; i < text.length(); i++) {
-            if (text.charAt(i) == '\n') {
-                count++;
-            }
+        for( int i = 0; i < text.length(); ++i ) {
+            if( text.charAt(i) == '\n' ) count++;
         }
+
         return count;
     }
-}
+
+} // class GdrLineTouchability

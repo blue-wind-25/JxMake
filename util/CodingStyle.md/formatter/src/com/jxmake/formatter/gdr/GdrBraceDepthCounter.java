@@ -21,52 +21,53 @@ import java.util.List;
  */
 public final class GdrBraceDepthCounter {
 
-    private GdrBraceDepthCounter() {
+    private GdrBraceDepthCounter()
+    {
     }
 
-    public static List<GdrLineBraceDepth> compute(List<GdrToken> tokens) {
-        List<GdrLineBraceDepth> result = new ArrayList<>();
-        int depth = 0;
-        int line = 0;
-        int startOfLineDepth = 0;
+    public static List<GdrLineBraceDepth> compute(List<GdrToken> tokens)
+    {
+        List<GdrLineBraceDepth> result           = new ArrayList<>();
+        int                     depth            = 0;
+        int                     line             = 0;
+        int                     startOfLineDepth = 0;
 
-        for (GdrToken t : tokens) {
+        for(GdrToken t : tokens) {
             // Defensive: normally every '\n' is either its own NEWLINE
             // token or embedded in a multi-line token's text (both
             // handled below), so t.line should never outrun the local
             // `line` cursor -- but don't silently miscount if it does.
-            while (line < t.line) {
-                result.add(new GdrLineBraceDepth(line, startOfLineDepth, depth));
-                line++;
+            while(line < t.line) {
+                result.add( new GdrLineBraceDepth(line, startOfLineDepth, depth) );
+                ++line;
                 startOfLineDepth = depth;
             }
 
-            if (t.type == GdrTokenType.BRACE_OPEN) {
-                depth++;
-            } else if (t.type == GdrTokenType.BRACE_CLOSE) {
-                depth--;
-            }
+                 if(t.type == GdrTokenType.BRACE_OPEN)  depth++;
+            else if(t.type == GdrTokenType.BRACE_CLOSE) depth--;
 
             int embeddedNewlines = countNewlines(t.text);
-            for (int k = 0; k < embeddedNewlines; k++) {
-                result.add(new GdrLineBraceDepth(line, startOfLineDepth, depth));
-                line++;
+            for(int k = 0; k < embeddedNewlines; ++k) {
+                result.add( new GdrLineBraceDepth(line, startOfLineDepth, depth) );
+                ++line;
                 startOfLineDepth = depth;
             }
-        }
+        } // for t
         // Trailing line after the last '\n' (or the sole line, if the
-        // source has none) -- not otherwise recorded by the loop above.
-        result.add(new GdrLineBraceDepth(line, startOfLineDepth, depth));
+        // source has none) -- not otherwise recorded by the loop above
+        result.add( new GdrLineBraceDepth(line, startOfLineDepth, depth) );
+
         return result;
     }
 
-    private static int countNewlines(String text) {
+    private static int countNewlines(String text)
+    {
         int count = 0;
-        for (int i = 0; i < text.length(); i++) {
-            if (text.charAt(i) == '\n') {
-                count++;
-            }
+        for( int i = 0; i < text.length(); ++i ) {
+            if( text.charAt(i) == '\n' ) count++;
         }
+
         return count;
     }
-}
+
+} // class GdrBraceDepthCounter

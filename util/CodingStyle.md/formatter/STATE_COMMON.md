@@ -508,9 +508,15 @@ diff -ru /tmp/fmt_r1b /tmp/fmt_r2b
 diff -ru /tmp/fmt_r1  /tmp/fmt_r1b
 diff -ru /tmp/fmt_r2  /tmp/fmt_r2b
 
+make clean
+cp -Rvf /tmp/fmt_r1/* src
+make test
+make test-server
+make bench
+
 ### GRU tools
 cd tools/gru
-mkdir /tmp/gru_tools
+rm -rvf /tmp/gru_tools
 cp *.java /tmp/gru_tools
 find /tmp/gru_tools    -type f -print0 | xargs -0 ../../code-formatter.sh --out /tmp/gru_tools_r1
 find /tmp/gru_tools_r1 -type f -print0 | xargs -0 ../../code-formatter.sh --out /tmp/gru_tools_r2

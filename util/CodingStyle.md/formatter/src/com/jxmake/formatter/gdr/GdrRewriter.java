@@ -16,49 +16,53 @@ import java.util.List;
  */
 public final class GdrRewriter {
 
-    private GdrRewriter() {
+    private GdrRewriter()
+    {
     }
 
-    public static String rewrite(String source, int indentSize) {
+    public static String rewrite(String source, int indentSize)
+    {
         List<GdrIndentTarget> targets = GdrReindenter.compute(source, indentSize);
-        String[] lines = source.split("\n", -1);
+        String[]              lines   = source.split("\n", - 1);
 
-        StringBuilder result = new StringBuilder(source.length());
-        for (int i = 0; i < lines.length; i++) {
+        StringBuilder result = new StringBuilder( source.length() );
+        for(int i = 0; i < lines.length; ++i) {
             String line = lines[i];
-            GdrIndentTarget target = (i < targets.size()) ? targets.get(i) : null;
+            GdrIndentTarget target = ( i < targets.size() ) ? targets.get(i) : null;
 
-            if (target != null && target.touchable) {
+            if(target != null && target.touchable) {
                 int leadingEnd = leadingWhitespaceEnd(line);
-                if (leadingEnd < line.length()) {
-                    result.append(spaces(target.columns)).append(line.substring(leadingEnd));
-                } else {
-                    result.append(line);
-                }
-            } else {
+                if( leadingEnd < line.length() ) result.append(
+                    spaces(target.columns)
+                ).append(
+                    line.substring(leadingEnd)
+                );
+                else result.append(line);
+            } // if
+            else {
                 result.append(line);
             }
 
-            if (i < lines.length - 1) {
-                result.append('\n');
-            }
-        }
+            if(i < lines.length - 1) result.append('\n');
+        } // for
+
         return result.toString();
     }
 
-    private static int leadingWhitespaceEnd(String line) {
+    private static int leadingWhitespaceEnd(String line)
+    {
         int i = 0;
-        while (i < line.length() && (line.charAt(i) == ' ' || line.charAt(i) == '\t')) {
-            i++;
-        }
+        while( i < line.length() && ( line.charAt(i) == ' ' || line.charAt(i) == '\t' ) ) i++;
+
         return i;
     }
 
-    private static String spaces(int count) {
+    private static String spaces(int count)
+    {
         StringBuilder sb = new StringBuilder(count);
-        for (int i = 0; i < count; i++) {
-            sb.append(' ');
-        }
+        for(int i = 0; i < count; ++i) sb.append(' ');
+
         return sb.toString();
     }
-}
+
+} // class GdrRewriter

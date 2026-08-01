@@ -99,7 +99,7 @@ public class PythonBracketComplexityEvaluator {
     {
         int depth = 0;
         for(final Token t : tokens) {
-            if( isOpenBracket(t) )                             depth++;
+                 if( isOpenBracket(t) )                        depth++;
             else if( isCloseBracket(t) )                       depth--;
             else if( depth == 0 && Token.isKeyword(t, "for") ) return true;
         }
@@ -130,7 +130,7 @@ public class PythonBracketComplexityEvaluator {
     {
         int depth = 0;
         for(final Token t : tokens) {
-            if( isOpenBracket(t) )                         depth++;
+                 if( isOpenBracket(t) )                    depth++;
             else if( isCloseBracket(t) )                   depth--;
             else if( depth == 0 && Token.isPunct(t, ":") ) return true;
         }

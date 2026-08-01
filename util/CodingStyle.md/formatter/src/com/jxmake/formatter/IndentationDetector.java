@@ -90,8 +90,8 @@ public final class IndentationDetector {
                 final String vote = voteForFile(path);
                 if(vote == null) continue;
                 ++filesSignaled;
-                if( "spaces".equals(vote) )    spacesVotes++;
-                else if( "tabs".equals(vote) ) tabsVotes++;
+                     if( "spaces".equals(vote) ) spacesVotes++;
+                else if( "tabs".equals(vote) )   tabsVotes++;
             } // for
         }
         catch(final IOException e) {

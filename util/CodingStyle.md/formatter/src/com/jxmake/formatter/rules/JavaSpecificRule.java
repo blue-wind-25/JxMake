@@ -352,9 +352,9 @@ public class JavaSpecificRule {
         if( i < 0 || tokens.get(i).type != TokenType.IDENTIFIER ) return -1;
         while(i >= 0) {
             final Token t = tokens.get(i);
-            if(t.type == TokenType.IDENTIFIER) i = prevSignificantIndex(tokens, i - 1);
-            else if( isPunct(t, ",") )         i = prevSignificantIndex(tokens, i - 1);
-            else                               break;
+                 if(t.type == TokenType.IDENTIFIER) i = prevSignificantIndex(tokens, i - 1);
+            else if( isPunct(t, ",") )              i = prevSignificantIndex(tokens, i - 1);
+            else                                    break;
         }
         if( i < 0 || tokens.get(
             i
@@ -1211,7 +1211,7 @@ public class JavaSpecificRule {
         int depth = 0;
         for(int i = kwIdx + 1; i < limit; ++i) {
             final Token t = tokens.get(i);
-            if( isPunct(t, "(") || isPunct(t, "[") ) depth++;
+                 if( isPunct(t, "(") || isPunct(t, "[") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") ) depth--;
             else if( depth == 0 && isOp(t, "->") ) return i;
             else if( depth == 0 && isOp(t, ":") ) return COLON_FOUND;

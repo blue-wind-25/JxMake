@@ -729,7 +729,7 @@ public class KotlinSignatureRule extends MiscRuleCurly {
     {
         int braceDepth = 0;
         for(final Token t : slice) {
-            if( t.type == TokenType.PUNCT && "{".equals(t.text) )      braceDepth++;
+                 if( t.type == TokenType.PUNCT && "{".equals(t.text) ) braceDepth++;
             else if( t.type == TokenType.PUNCT && "}".equals(t.text) ) braceDepth--;
             else if(t.type == TokenType.NEWLINE && braceDepth > 0)     return true;
         }

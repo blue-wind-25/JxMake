@@ -1154,7 +1154,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         int eqIdx    = - 1;
         for(int k = nameStart; k < contentEnd; ++k) {
             final Token t = tokens.get(k);
-            if( t.type == TokenType.PUNCT && isOpenBracketText(t.text) ) depth++;
+                 if( t.type == TokenType.PUNCT && isOpenBracketText(t.text) ) depth++;
             else if( t.type == TokenType.PUNCT && isCloseBracketText(t.text) ) depth--;
             else if( depth == 0 && colonIdx < 0 && t.type == TokenType.PUNCT && ":".equals(
                 t.text
@@ -1713,7 +1713,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         for(int k = contentStart; k < contentEnd; ++k) {
             final Token t = tokens.get(k);
             if( t.type == TokenType.KEYWORD && "lambda".equals(t.text) ) return true;
-            if( t.type == TokenType.PUNCT && isOpenBracketText(t.text) )             depth++;
+                 if( t.type == TokenType.PUNCT && isOpenBracketText(t.text) )        depth++;
             else if( t.type == TokenType.PUNCT && isCloseBracketText(t.text) )       depth--;
             else if( depth == 0 && t.type == TokenType.PUNCT && ":".equals(t.text) ) return true;
         } // for

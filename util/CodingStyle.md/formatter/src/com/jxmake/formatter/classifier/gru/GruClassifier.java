@@ -93,7 +93,7 @@ public final class GruClassifier {
         return decide(probabilities, weights.abstainThreshold);
     }
 
-    /** The trained weights file's own {@code abstainThreshold} -- {@link #classify}'s default. */
+    /** The trained weights file's own {@code abstainThreshold} -- {@link #classify}'s default */
     public double abstainThreshold()
     {
         return weights.abstainThreshold;
@@ -114,10 +114,8 @@ public final class GruClassifier {
         if( !weights.hasTrainedWeights() ) return null;
         if( tokens.size() > SEQUENCE_CAP ) tokens = tokens.subList(0, SEQUENCE_CAP);
         if( targetWordIndex < 0 || targetWordIndex >= tokens.size() ) return null;
-        Vocabulary   vocabulary    = new Vocabulary(
-            java.util.Arrays.asList(weights.explicitVocab)
-        );
-        ForwardCache cache = forward(weights, vocabulary, tokens, targetWordIndex);
+        Vocabulary   vocabulary = new Vocabulary( java.util.Arrays.asList(weights.explicitVocab) );
+        ForwardCache cache      = forward(weights, vocabulary, tokens, targetWordIndex);
 
         return softmax(cache.logits);
     }

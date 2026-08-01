@@ -177,7 +177,7 @@ public class MiscRuleCurly extends MiscRuleCore {
                   int           depth   = 0;
             for(int k = openParen + 1; k < closeParen; ++k) {
                 final Token tk = tokens.get(k);
-                if( isPunct(tk, "(") || isPunct(tk, "[") ) depth++;
+                     if( isPunct(tk, "(") || isPunct(tk, "[") ) depth++;
                 else if( isPunct(tk, ")") || isPunct(tk, "]") ) depth--;
                 else if( depth == 0 && isPunct(tk, ";") ) semiIdx.add(k);
             }

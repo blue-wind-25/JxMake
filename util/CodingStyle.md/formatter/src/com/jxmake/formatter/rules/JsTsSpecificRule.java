@@ -604,7 +604,7 @@ public final class JsTsSpecificRule {
         final Deque<Integer>        stack       = new ArrayDeque<>();
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if( isPunct(t, "{") )                          stack.push(i);
+                 if( isPunct(t, "{") )                     stack.push(i);
             else if( isPunct(t, "}") && !stack.isEmpty() ) openToClose.put( stack.pop(), i );
         }
 
@@ -617,7 +617,7 @@ public final class JsTsSpecificRule {
         final Deque<Integer>        stack       = new ArrayDeque<>();
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if( isPunct(t, "(") ) stack.push(i);
+                 if( isPunct(t, "(") ) stack.push(i);
             else if( isPunct(t, ")") && !stack.isEmpty() ) openToClose.put( stack.pop(), i );
         }
 
@@ -1091,8 +1091,8 @@ public final class JsTsSpecificRule {
         int i     = closeIdx - 1;
         while(i >= 0 && depth > 0) {
             final TokenType ty = tokens.get(i).type;
-            if(ty == TokenType.ANGLE_BRACKET_CLOSE)     depth++;
-            else if(ty == TokenType.ANGLE_BRACKET_OPEN) depth--;
+                 if(ty == TokenType.ANGLE_BRACKET_CLOSE) depth++;
+            else if(ty == TokenType.ANGLE_BRACKET_OPEN)  depth--;
             --i;
         }
 
@@ -1904,7 +1904,7 @@ public final class JsTsSpecificRule {
                         // (`Pending=3\n}`), not an actual multi-line value expression
                         break;
                     }
-                    if( isPunct(vt, "(") || isPunct(vt, "[") || isPunct(vt, "{") ) depth++;
+                         if( isPunct(vt, "(") || isPunct(vt, "[") || isPunct(vt, "{") ) depth++;
                     else if( isPunct(vt, ")") || isPunct(vt, "]") || isPunct(vt, "}") ) depth--;
                     valueBuf.append(vt.text);
                     ++i;
@@ -2303,7 +2303,7 @@ public final class JsTsSpecificRule {
                 final Token vt = tokens.get(i);
                 if( depth == 0 && isPunct(vt, ";") ) break;
                 if(vt.type == TokenType.NEWLINE) return null; // Multi-line initializer -- rare, not handled
-                if( isPunct(vt, "(") || isPunct(vt, "[") || isPunct(vt, "{") ) depth++;
+                     if( isPunct(vt, "(") || isPunct(vt, "[") || isPunct(vt, "{") ) depth++;
                 else if( isPunct(vt, ")") || isPunct(vt, "]") || isPunct(vt, "}") ) depth--;
                 valueBuf.append(vt.text);
                 ++i;
@@ -2568,7 +2568,7 @@ public final class JsTsSpecificRule {
 
             gap.clear();
             out.append(t.text);
-            if(t.type == TokenType.ANGLE_BRACKET_OPEN)       angleDepth++;
+                 if(t.type == TokenType.ANGLE_BRACKET_OPEN)  angleDepth++;
             else if(t.type == TokenType.ANGLE_BRACKET_CLOSE) angleDepth = Math.max(
                 0, angleDepth - 1
             );
@@ -3143,7 +3143,7 @@ public final class JsTsSpecificRule {
         for( int i = fromIdx + 1; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
             if( isGapToken(t) ) continue;
-            if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
+                 if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
             else if( depth == 0 && isPunct(t, ",") ) return true;
             else if( depth == 0 && isPunct(t, ";") ) return false;

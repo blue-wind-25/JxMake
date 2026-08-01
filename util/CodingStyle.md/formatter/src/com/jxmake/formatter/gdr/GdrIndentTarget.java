@@ -9,20 +9,24 @@ package com.jxmake.formatter.gdr;
  * meaningless in that case.
  */
 public final class GdrIndentTarget {
-    public final int line;
-    public final boolean touchable;
-    public final int level;
-    public final int columns;
 
-    public GdrIndentTarget(int line, boolean touchable, int level, int columns) {
-        this.line = line;
+    public final int     line;
+    public final boolean touchable;
+    public final int     level;
+    public final int     columns;
+
+    public GdrIndentTarget(int line, boolean touchable, int level, int columns)
+    {
+        this.line      = line;
         this.touchable = touchable;
-        this.level = level;
-        this.columns = columns;
+        this.level     = level;
+        this.columns   = columns;
     }
 
     @Override
-    public String toString() {
+    public String toString()
+    {
         return "line=" + line + " touchable=" + touchable + " level=" + level + " columns=" + columns;
     }
-}
+
+} // class GdrIndentTarget

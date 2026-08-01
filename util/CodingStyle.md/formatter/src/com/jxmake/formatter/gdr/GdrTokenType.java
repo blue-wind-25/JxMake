@@ -7,6 +7,7 @@ package com.jxmake.formatter.gdr;
  * lexer.
  */
 public enum GdrTokenType {
+
     BRACE_OPEN,
     BRACE_CLOSE,
     PAREN_OPEN,
@@ -20,4 +21,5 @@ public enum GdrTokenType {
     PREPROCESSOR,
     NEWLINE,
     TEXT
-}
+
+} // enum GdrTokenType

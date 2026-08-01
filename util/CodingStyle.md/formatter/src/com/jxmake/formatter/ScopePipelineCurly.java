@@ -316,7 +316,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         int     depth               = 0;
         for(int i = spanStart; i < braceIdx; ++i) {
             final Token t = tokens.get(i);
-            if( isPunct(t, "(") || isPunct(t, "[") ) depth++;
+                 if( isPunct(t, "(") || isPunct(t, "[") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") ) depth--;
             else if( depth == 0 && isOp(t, "=") ) return false;
             else if( t.type == TokenType.KEYWORD && isNamedConstructStartKeyword(
@@ -1420,7 +1420,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         int depth = 0;
         for(int i = from; i < to; ++i) {
             final Token t = tokens.get(i);
-            if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
+                 if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
             else if( depth == 0 && isOp(t, opText) ) return true;
         }
@@ -1512,9 +1512,9 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         if( i < 0 || tokens.get(i).type != TokenType.IDENTIFIER ) return -1;
         while(i >= 0) {
             final Token t = tokens.get(i);
-            if(t.type == TokenType.IDENTIFIER) i = prevSignificantIndex(tokens, i - 1);
-            else if( isPunct(t, ",") )         i = prevSignificantIndex(tokens, i - 1);
-            else                               break;
+                 if(t.type == TokenType.IDENTIFIER) i = prevSignificantIndex(tokens, i - 1);
+            else if( isPunct(t, ",") )              i = prevSignificantIndex(tokens, i - 1);
+            else                                    break;
         }
         if( i < 0 || tokens.get(
             i

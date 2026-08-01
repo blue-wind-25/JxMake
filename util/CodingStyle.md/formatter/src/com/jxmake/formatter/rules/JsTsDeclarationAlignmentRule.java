@@ -189,7 +189,7 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
                   int depth     = 0;
             while( i < sig.size() ) {
                 final Token t = sig.get(i);
-                if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
+                     if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
                 else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
                 else if( depth == 0 && ( isOp(
                     t, "="
@@ -214,7 +214,7 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
                   int depth     = 0;
             while( i < sig.size() ) {
                 final Token t = sig.get(i);
-                if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
+                     if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
                 else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
                 else if( depth == 0 && ( isPunct(t, ";") || isPunct(t, ",") ) ) break;
                 ++i;
@@ -296,7 +296,7 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
                   int d         = 0;
             while( i < sig.size() ) {
                 final Token t = sig.get(i);
-                if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) d++;
+                     if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) d++;
                 else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) d--;
                 else if( d == 0 && ( isOp(t, "=") || isPunct(t, ";") || isPunct(t, ",") ) ) break;
                 ++i;
@@ -316,7 +316,7 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
               int d         = 0;
         while( i < sig.size() ) {
             final Token t = sig.get(i);
-            if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) d++;
+                 if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) d++;
             else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) d--;
             else if( d == 0 && ( isPunct(t, ";") || isPunct(t, ",") ) ) break;
             ++i;
@@ -402,7 +402,7 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
               int depth     = 0;
         while( i < sig.size() ) {
             final Token t = sig.get(i);
-            if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
+                 if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
             else if( depth == 0 && isPunct(t, ";") ) break;
             ++i;
@@ -487,7 +487,7 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
         int     braceDepth = 0;
         for(final Token t : stmt) {
             if(seen) {
-                if( isPunct(t, "(") || isPunct(t, "[") ) parenDepth++;
+                     if( isPunct(t, "(") || isPunct(t, "[") ) parenDepth++;
                 else if( isPunct(t, ")") || isPunct(t, "]") ) parenDepth--;
                 else if( isPunct(t, "{") ) braceDepth++;
                 else if( isPunct(t, "}") ) braceDepth--;

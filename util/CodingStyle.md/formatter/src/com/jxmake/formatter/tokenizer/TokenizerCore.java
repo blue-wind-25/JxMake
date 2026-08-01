@@ -35,7 +35,7 @@ public class TokenizerCore {
         COMMENT_LINE,
         COMMENT_BLOCK,
         SHEBANG,             // JS/TS only -- opaque `#!...` first line; Python's `#` is already its
-                             // real comment char and C/C++'s already goes through PREPROCESSOR, so
+                             // Real comment char and C/C++'s already goes through PREPROCESSOR, so
                              // JS/TS is the only curly-family language where `#!` wasn't already
                              // inert (see TokenizerCurly#emitShebangLine)
         WHITESPACE,

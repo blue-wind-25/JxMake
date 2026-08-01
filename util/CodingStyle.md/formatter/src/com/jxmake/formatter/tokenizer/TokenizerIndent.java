@@ -213,7 +213,7 @@ public class TokenizerIndent extends TokenizerCore {
         int width = 0;
         for( int k = 0; k < whitespace.length(); ++k ) {
             final char c = whitespace.charAt(k);
-            if(c == '\t')      width = (width / 8 + 1) * 8;
+                 if(c == '\t') width = (width / 8 + 1) * 8;
             else if(c == '\f') width = 0;
             else               width++;
         }
@@ -503,7 +503,7 @@ public class TokenizerIndent extends TokenizerCore {
                 out.add( emitFStringFormatSpec() );
                 continue;
             }
-            if(c == '(' || c == '[' || c == '{') depth++;
+                 if(c == '(' || c == '[' || c == '{') depth++;
             else if(c == ')' || c == ']' || c == '}') depth--;
             dispatchToken(out);
         } // while

@@ -10,18 +10,22 @@ package com.jxmake.formatter.gdr;
  * rather than the counters conflating them.
  */
 public final class GdrLineParenBracketDepth {
+
     public final int line;
     public final int depthAtStart;
     public final int depthAtEnd;
 
-    public GdrLineParenBracketDepth(int line, int depthAtStart, int depthAtEnd) {
-        this.line = line;
+    public GdrLineParenBracketDepth(int line, int depthAtStart, int depthAtEnd)
+    {
+        this.line         = line;
         this.depthAtStart = depthAtStart;
-        this.depthAtEnd = depthAtEnd;
+        this.depthAtEnd   = depthAtEnd;
     }
 
     @Override
-    public String toString() {
+    public String toString()
+    {
         return "line=" + line + " start=" + depthAtStart + " end=" + depthAtEnd;
     }
-}
+
+} // class GdrLineParenBracketDepth

@@ -573,7 +573,7 @@ public class TokenizerCurly extends TokenizerCore {
             }
 
             final Token t;
-            if(pos == 0 && c == '#' && peek(1) == '!') {
+            if( pos == 0 && c == '#' && peek(1) == '!' ) {
                 t = emitShebangLine();
             }
             else if( isPreprocessorLanguage() && c == '#' && atLineStart ) {
@@ -964,7 +964,7 @@ public class TokenizerCurly extends TokenizerCore {
                   int depth      = 0;
             do {
                 final char c = source.charAt(pos);
-                if(c == '(') depth++;
+                     if(c == '(') depth++;
                 else if(c == ')') depth--;
                 ++pos;
             } while(pos < length && depth > 0);
@@ -1737,7 +1737,7 @@ public class TokenizerCurly extends TokenizerCore {
         for(int i = pos + 2; i < limit; ++i) {
             final char c = source.charAt(i);
             if(c == '\n' || c == '\r' || c == ';' || c == '{' || c == '}' || c == '"' || c == '\'') return false;
-            if(c == '(') depth++;
+                 if(c == '(') depth++;
             else if(c == ')') depth--;
             else if(c == ']' && depth == 0) return i + 1 < length && source.charAt(i + 1) == ']';
         } // for

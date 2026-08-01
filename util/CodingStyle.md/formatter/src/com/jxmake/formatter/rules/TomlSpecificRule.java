@@ -126,11 +126,11 @@ public final class TomlSpecificRule {
                 continue;
             }
             if(inDouble) {
-                if(ch == '\\')     i++;
-                else if(ch == '"') inDouble = false;
+                     if(ch == '\\') i++;
+                else if(ch == '"')  inDouble = false;
                 continue;
             }
-            if(ch == '\'')                   inSingle = true;
+                 if(ch == '\'')              inSingle = true;
             else if(ch == '"')               inDouble = true;
             else if(ch == '{' || ch == '[')  depth++;
             else if(ch == '}' || ch == ']')  depth--;
@@ -156,11 +156,11 @@ public final class TomlSpecificRule {
                 continue;
             }
             if(inDouble) {
-                if(ch == '\\')     i++;
-                else if(ch == '"') inDouble = false;
+                     if(ch == '\\') i++;
+                else if(ch == '"')  inDouble = false;
                 continue;
             }
-            if(ch == '\'') inSingle = true;
+                 if(ch == '\'') inSingle = true;
             else if(ch == '"') inDouble = true;
             else if( ch == '#' && ( i == 0 || s.charAt(
                 i - 1
@@ -229,11 +229,11 @@ public final class TomlSpecificRule {
                 continue;
             }
             if(inDouble) {
-                if(ch == '\\')     i++;
-                else if(ch == '"') inDouble = false;
+                     if(ch == '\\') i++;
+                else if(ch == '"')  inDouble = false;
                 continue;
             }
-            if(ch == '\'')                  inSingle = true;
+                 if(ch == '\'')             inSingle = true;
             else if(ch == '"')              inDouble = true;
             else if(ch == '{' || ch == '[') depth++;
             else if(ch == '}' || ch == ']') depth--;

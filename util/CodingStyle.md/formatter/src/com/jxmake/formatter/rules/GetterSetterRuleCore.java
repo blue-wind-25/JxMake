@@ -335,7 +335,7 @@ public abstract class GetterSetterRuleCore {
     final int n     = tokens.size();
         while(i < n && depth > 0) {
             final Token t = tokens.get(i);
-            if( isPunct(t, open) )       depth++;
+                 if( isPunct(t, open) )  depth++;
             else if( isPunct(t, close) ) depth--;
             ++i;
         }

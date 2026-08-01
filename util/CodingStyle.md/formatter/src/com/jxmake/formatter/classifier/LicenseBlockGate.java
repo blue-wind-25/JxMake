@@ -50,11 +50,9 @@ public final class LicenseBlockGate {
     // Copyright/license-specific vocabulary -- deliberately narrow (named terms that essentially
     // never appear in ordinary code-comment prose outside an actual license/copyright notice),
     // mirroring the same "false match only costs an unnecessary NO" asymmetric-risk acceptance
-    // used by every other gate in this classifier.
+    // used by every other gate in this classifier
     private static final Pattern LICENSE_VOCABULARY = Pattern.compile(
-        "\\bCopyright\\b|\\(C\\)|\\bSPDX-License-Identifier\\b|\\bLicensed under\\b"
-        + "|\\bAll rights reserved\\b|\\bRedistribution and use\\b"
-        + "|\\bPermission is hereby granted\\b|\\bWITHOUT WARRANTIES?\\b"
+        "\\bCopyright\\b|\\(C\\)|\\bSPDX-License-Identifier\\b|\\bLicensed under\\b" + "|\\bAll rights reserved\\b|\\bRedistribution and use\\b" + "|\\bPermission is hereby granted\\b|\\bWITHOUT WARRANTIES?\\b"
     );
 
     private LicenseBlockGate()
@@ -72,7 +70,7 @@ public final class LicenseBlockGate {
     private static int countNewlines(final String commentText)
     {
         int count = 0;
-        for( int i = 0; i < commentText.length(); i++ ) if( commentText.charAt(i) == '\n' ) count++;
+        for( int i = 0; i < commentText.length(); ++i ) if( commentText.charAt(i) == '\n' ) count++;
 
         return count;
     }
@@ -81,7 +79,7 @@ public final class LicenseBlockGate {
     {
         int i = commentText.length() - 1;
         while( i >= 0 && Character.isWhitespace( commentText.charAt(i) ) ) i--;
-        if( i < 0 ) return false;
+        if(i < 0) return false;
         final char last = commentText.charAt(i);
 
         return last == '.' || last == '!' || last == '?';

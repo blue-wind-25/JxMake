@@ -36,12 +36,12 @@ public final class CommentClassifierWeights {
     // real fixture regressions/hand-labeled hard-case growth that motivated re-deriving these
     // constants). KEYWORD_WEIGHT_ARROW covers a when/match-branch shape (e.g. "is Foo ->
     // handle(foo)") the other three features can't see on their own.
-    public static final double KEYWORD_BIAS                 = -0.04180;
-    public static final double KEYWORD_WEIGHT_PAREN         = -3.10833;
-    public static final double KEYWORD_WEIGHT_ARROW         = -1.52024;
-    public static final double KEYWORD_WEIGHT_SEMICOLON     = -3.60170;
-    public static final double KEYWORD_WEIGHT_URL_OR_NUMBER = -0.97619;
-    public static final double KEYWORD_THRESHOLD            =  0.0;
+    public static final double KEYWORD_BIAS                 = - 0.04180;
+    public static final double KEYWORD_WEIGHT_PAREN         = - 3.10833;
+    public static final double KEYWORD_WEIGHT_ARROW         = - 1.52024;
+    public static final double KEYWORD_WEIGHT_SEMICOLON     = - 3.60170;
+    public static final double KEYWORD_WEIGHT_URL_OR_NUMBER = - 0.97619;
+    public static final double KEYWORD_THRESHOLD            = 0.0;
 
     private CommentClassifierWeights()
     {

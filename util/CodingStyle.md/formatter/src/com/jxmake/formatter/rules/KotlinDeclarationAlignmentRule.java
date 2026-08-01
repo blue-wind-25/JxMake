@@ -366,7 +366,7 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
         int     braceDepth = 0;
         for(final Token t : stmt) {
             if(seen) {
-                if( isPunct(t, "(") || isPunct(t, "[") ) parenDepth++;
+                     if( isPunct(t, "(") || isPunct(t, "[") ) parenDepth++;
                 else if( isPunct(t, ")") || isPunct(t, "]") ) parenDepth--;
                 else if( isPunct(t, "{") ) braceDepth++;
                 else if( isPunct(t, "}") ) braceDepth--;

@@ -37,7 +37,8 @@ public final class Config {
         "kotlin-import-order", "kotlin-import-sort", "kotlin-import-depth",
         "kotlin-import-blank-lines",
         "js-import-order", "js-import-sort", "js-import-blank-lines",
-        "gru-classifier", "gru-weights-path"
+        "gru-classifier", "gru-weights-path",
+        "curly-general-scope-reindent"
     };
 
     private static final java.util.Set<String> ALL_KEYS_SET =
@@ -119,6 +120,14 @@ public final class Config {
      */
     private boolean gruClassifier  = false;
     private String  gruWeightsPath = DEFAULT_GRU_WEIGHTS_PATH;
+
+    /**
+     * {@code curly-general-scope-reindent} -- gates the isolated GDR (general scope-depth
+     *  reindentation) pre-pass, see {@code STATE_CURLY_GDR.md}. Default off: the pre-pass never
+     *  runs unless a caller explicitly opts in, so the existing pipeline's output is byte-for-byte
+     *  unchanged on the default path.
+     */
+    private boolean curlyGeneralScopeReindent = false;
 
     private Config()
     {
@@ -242,6 +251,11 @@ public final class Config {
     public String gruWeightsPath()
     {
         return gruWeightsPath;
+    }
+
+    public boolean isCurlyGeneralScopeReindent()
+    {
+        return curlyGeneralScopeReindent;
     }
 
     /**
@@ -434,6 +448,9 @@ public final class Config {
         );
         config.gruWeightsPath                 = parseString(
             raw, "gru-weights-path", config.gruWeightsPath
+        );
+        config.curlyGeneralScopeReindent      = parseBoolean(
+            raw, "curly-general-scope-reindent", config.curlyGeneralScopeReindent
         );
 
         return config;

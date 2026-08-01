@@ -451,6 +451,24 @@ plan, not a placeholder.
       `ServerMode` entry points) — confirm the off/default path is
       byte-for-byte unchanged by diffing pre-pass-on-vs-off code paths, not
       just by reasoning about the gate.
+      Sub-step 1/3 done: added the `curly-general-scope-reindent` config
+      key to `Config.java` (field, getter `isCurlyGeneralScopeReindent()`,
+      `ALL_KEYS`, and the `parseBoolean` call — same on/off convention as
+      every other boolean key, default `false`), and added
+      `com.jxmake.formatter.gdr.GdrRewriter.rewrite(source, indentSize)`,
+      the first class in this package that actually rewrites source text:
+      it calls `GdrReindenter.compute`, then for each touchable line
+      replaces that line's existing leading whitespace run with
+      `target.columns` spaces, leaving everything from the first
+      non-whitespace character onward byte-for-byte untouched; untouchable
+      lines and blank/all-whitespace lines are copied through verbatim.
+      Smoke-tested against a small nested-brace + wrapped-call-args
+      snippet — output matched hand-derived expected indentation exactly
+      (`void f() {` / `    if (x) {` / `        foo(a,` /
+      `            b);` / `    }` / `}`). `make` builds clean. Still
+      pending: actually calling `GdrRewriter` from `Main`/`ServerMode`
+      behind the new config flag (sub-steps 2-3), and the byte-for-byte
+      off-path diff check this item requires.
 - [ ] Author the "New test fixtures needed" pair(s) above (config-acceptance
       only, no-op expected output if the reindenter isn't ready) — or the
       real reindent-shape fixtures once the pre-pass itself is implemented.

@@ -553,8 +553,19 @@ plan, not a placeholder.
       Registered in `Makefile` after `html_comments_inp.html`, documented
       in `test/README.txt` after that neighbor. `make test`: 228/228
       forward, 228/228 idempotency.
-- [ ] Update `README.md` (and re-verify whether `../README.txt` needs an
-      edit — see "When implemented" section) once the above lands.
+- [x] Update `README.md` (and re-verify whether `../README.txt` needs an
+      edit — see "When implemented" section) once the above lands. Done
+      2026-08-02: rewrote the stale "Known Limitations" bullet (previously
+      said GDR "is not supported"; now describes it as opt-in via
+      `curly-general-scope-reindent = on`, including the js/ts + embedded
+      HTML5 `<script>` scope and the flush-left case it fixes). Added a new
+      "GDR in-file directive" subsection right after "In-file config
+      overrides" documenting `JXM_CFMT_GDR 0`/`1` (line/block forms,
+      anywhere-in-file placement, flat-toggle semantics, unmatched-trailing-
+      `0`-at-EOF is a no-op, silent no-op when the feature is globally off)
+      per RDD_KEY_227. Checked `../README.txt`: still has no formatter
+      config-keys section, confirmed the "When implemented" note's
+      assumption still held, so no edit needed there.
 - [ ] Real-code test the pre-pass, `curly-general-scope-reindent = on`,
       against at least `javaparser/javaparser`, local
       `tool/JSONEncoderLite.java`, and `serge-sans-paille/frozen` (the three

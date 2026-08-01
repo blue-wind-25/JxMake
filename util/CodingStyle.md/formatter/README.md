@@ -174,6 +174,40 @@ copyright header. For example, this is *not* detected:
 Only one `JXM_CFMT_CFG` directive is allowed per file; a second occurrence is a hard
 error (nonzero exit, no output), not a "last one wins" merge.
 
+### GDR in-file directive
+
+When `curly-general-scope-reindent = on` (see Configuration below), a source file can
+disable and re-enable the GDR reindentation pre-pass for specific regions via a
+`JXM_CFMT_GDR` directive — distinct from, and unrelated in syntax to, `JXM_CFMT_CFG`
+above:
+
+```java
+//% JXM_CFMT_GDR 0
+//% JXM_CFMT_GDR 1
+```
+
+The block-comment form works the same way:
+
+```c
+/*% JXM_CFMT_GDR 0 */
+/*% JXM_CFMT_GDR 1 */
+```
+
+`0` disables GDR reindentation for the region following the directive; `1` re-enables
+it. Unlike `JXM_CFMT_CFG`, this directive is not limited to a top-of-file preamble — it
+can appear anywhere, any number of times, to bracket exactly the region that needs
+manual/inconsistent indentation preserved (e.g. a hand-indented block deliberately kept
+shallower than its ancestors) without a whole-file config flip. The line the directive
+itself appears on is excluded from reindentation the same as the region it controls.
+
+It is a **flat toggle, not a nesting counter**: a single `1` always re-enables
+regardless of how many `0`s preceded it, and a redundant `0` while already disabled is a
+harmless no-op. An unmatched trailing `0` at end of file is not an error — there is
+nothing left in that file to reindent either way, and the next file (if any) starts
+fresh from its own config, unaffected by a prior file's unclosed directive. The
+directive parses without error even when `curly-general-scope-reindent` is off
+globally, so a file can be prepared for GDR ahead of a project-wide flag flip.
+
 ### Makefile integration
 
 ```makefile
@@ -409,14 +443,19 @@ third-party client only needs to speak this HTTP protocol, not link against the 
 
 ## Known Limitations
 
-- **General scope‑depth reindentation is not supported for curly-family languages (C/C++/
-  Java/Kotlin/JavaScript/TypeScript).** These languages preserve the original whitespace by
-  default (only narrow, targeted passes, reindent anything — see below); therefore,
-  **jxmake‑code‑formatter** cannot properly format badly indented machine‑generated code,
-  obfuscated code, or code copy‑pasted from emails and forums that lost their indentation.
-  This does **not** apply to JSON/JSON5/CSS/YAML/TOML/XML/HTML5, which parse into a real
-  tree and print indentation fresh from structural nesting depth regardless of source
-  formatting (however it **does** apply to embedded JavaScript in HTML5).
+- **General scope‑depth reindentation for curly-family languages (C/C++/Java/Kotlin/
+  JavaScript/TypeScript, including embedded JavaScript inside HTML5 `<script>` tags) is
+  opt-in, not the default.** These languages otherwise preserve the original whitespace by
+  default (only narrow, targeted passes reindent anything). Setting
+  `curly-general-scope-reindent = on` (config key, or per-file via `JXM_CFMT_CFG`) runs an
+  isolated pre-pass ahead of the normal pipeline that derives each line's indentation from
+  absolute brace/paren/bracket nesting depth, so badly indented machine‑generated code,
+  obfuscated code, or code copy‑pasted from emails and forums that lost their indentation
+  can still be reindented correctly — including from fully flush-left (zero-indentation)
+  input, which the base pipeline's relative-delta reindentation cannot fix on its own. This
+  key does **not** apply to JSON/JSON5/CSS/YAML/TOML/XML/HTML5, which parse into a real tree
+  and print indentation fresh from structural nesting depth regardless of source formatting
+  already, independent of this key.
 
 - **Non-idempotent reindent on internally-inconsistent generated source, for any pass using
   a relative-delta technique.** Two known call sites share this root cause:

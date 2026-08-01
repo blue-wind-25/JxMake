@@ -358,9 +358,30 @@ plan, not a placeholder.
             handled by the brace counter instead since that example's
             actual continuation was via `{`). `make` builds clean, zero
             changes to any existing file.
-      - [ ] Line-touchability classifier (skip lines that are interior
+      - [x] Line-touchability classifier (skip lines that are interior
             continuation of a multi-line STRING/BLOCK_COMMENT/
             PREPROCESSOR token — content that must never be reindented).
+            `GdrLineTouchability.java`: `computeUntouchableLines` (raw
+            `Set<Integer>` of untouchable 0-based line numbers) and
+            `computeTouchableByLine` (convenience line-indexed
+            `List<Boolean>`), both derived directly from `GdrToken`s whose
+            type is `STRING`/`CHAR`/`BLOCK_COMMENT`/`PREPROCESSOR` and
+            whose text spans `>0` embedded newlines — every line strictly
+            after such a token's start line, up to and including its end
+            line, is untouchable; the start line itself stays touchable
+            (its leading whitespace is still a normal statement-level
+            indent target). This is an inherent correctness requirement
+            distinct from the later opt-in exclusion-zone checklist item
+            (`frozen`/`JXM_CFMT_GDR 0`/`1`) — this is content the
+            reindenter could never safely touch at all, not a
+            user-requested exclusion. Smoke-tested against one line each
+            of: plain statement, multi-line block comment (start
+            touchable, interior lines not), preprocessor continuation
+            (start touchable, continued line not), single-line string
+            (touchable — doesn't span lines), multi-line C++ raw string
+            (start touchable, continuation not) — all 9 lines matched
+            expectations. `make` builds clean, zero changes to any
+            existing file.
       - [ ] Combine brace depth + paren/bracket depth into a single
             per-line absolute indent target, with the leading-closer
             dedent rule (a line whose first significant token is a

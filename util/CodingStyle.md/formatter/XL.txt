@@ -201,6 +201,8 @@ exec  ~/mynpm/bin/claude "$@"
 
 Continue with the `curly reindent job`.
 
+Rerun `### Formatter self-formatting (dogfood-and-adopt) process`.
+
 --- Tier 1: high value, tractable next steps ---
 
 10. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
@@ -236,7 +238,7 @@ Use sub-agent. This can be a substantial work.
 
 --- Tier 2: meaningful, narrower value or higher difficulty ---
 
-20. Rerun `### Formatter self-formatting (dogfood-and-adopt) process`.
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 

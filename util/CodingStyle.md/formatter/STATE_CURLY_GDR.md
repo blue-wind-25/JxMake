@@ -339,15 +339,18 @@ plan, not a placeholder.
       a throwaway `/tmp` harness — depth tracked correctly across the
       comment's embedded newlines (no spurious depth change) and matched
       expected nesting at every line.
-- [~] Implement the pre-pass's own reindenter: derive each line's absolute
+- [x] Implement the pre-pass's own reindenter: derive each line's absolute
       indent target from structural depth, merging in a continuation-vs-
       block second axis (STYLE.md §8's wrapped-call/declaration
       convention — checked directly, since STYLE.md §2 is "Line Length"
       and has no continuation-indent rule of its own; §8 is the actual
       source of the "one level in from the opening line, closer dedents
       back to the opening line's own indent" convention this reindenter
-      follows) rather than a naive one-level-per-`{` model. In progress,
-      sub-steps:
+      follows) rather than a naive one-level-per-`{` model. Landed as
+      `GdrIndentTarget`/`GdrReindenter`, computing per-line absolute
+      levels/column targets only — does not yet rewrite source text (that
+      wiring is the separate pipeline-integration checklist item below).
+      Sub-steps:
       - [x] Paren/bracket depth counter (the continuation axis) —
             `GdrLineParenBracketDepth.java`/`GdrParenBracketDepthCounter.java`,
             same structure as the brace counter, `(`/`[` counted together
@@ -382,11 +385,38 @@ plan, not a placeholder.
             (start touchable, continuation not) — all 9 lines matched
             expectations. `make` builds clean, zero changes to any
             existing file.
-      - [ ] Combine brace depth + paren/bracket depth into a single
+      - [x] Combine brace depth + paren/bracket depth into a single
             per-line absolute indent target, with the leading-closer
             dedent rule (a line whose first significant token is a
             closing bracket reindents to the depth *after* that close,
             matching the opening line, not the body depth).
+            `GdrIndentTarget.java` (line/touchable/level/columns) and
+            `GdrReindenter.java` (`compute(String, int indentSize) ->
+            List<GdrIndentTarget>`, self-contained — runs the tokenizer
+            once internally and derives both counters plus touchability
+            from that same token list). Per line: each axis (brace,
+            paren/bracket) independently uses its own `depthAtEnd`
+            instead of `depthAtStart` only when that specific axis's
+            closing token type leads the line (first non-whitespace
+            token) — computed via a new `computeLeadingTokenTypes`
+            helper — so a `)`-led line only dedents the paren/bracket
+            axis and a `}`-led line only dedents the brace axis; the
+            other axis keeps its normal start-of-line value. `level =
+            braceLevel + pbLevel`, `columns = level * indentSize`.
+            Untouchable lines (per `GdrLineTouchability`) get a
+            `touchable=false` placeholder target instead of a computed
+            column count. Smoke-tested a wrapped function signature
+            (paren continuation) containing a nested `if` block (brace
+            continuation): every line's computed level matched hand-
+            derived expectations exactly, including both the
+            paren-led-closer (`) {` at level 0, not the level-1 body it
+            follows) and brace-led-closer (`}` at level 1 and level 0)
+            cases. `make` builds clean, zero changes to any existing
+            file. This produces target levels/columns only — it does
+            not yet rewrite any source text; that wiring (and the
+            opt-in exclusion-zone handling for `frozen`/`JXM_CFMT_GDR
+            0`/`1`) remains for the still-separate "content exclusions"
+            and pipeline-wiring checklist items below.
 - [ ] Implement content exclusions: raw string literals, block-comment
       interior lines, preprocessor directives (column-0, own continuation
       rules), `frozen`/JXM_CFMT_DIS-ENA spans, and any region bracketed by

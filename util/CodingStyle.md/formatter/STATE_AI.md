@@ -1493,3 +1493,78 @@ natural next step.
 **Files changed:** `src/com/jxmake/formatter/classifier/
 CommentClassifierWeights.java`, `tools/classifier_weights/weights.md`,
 `tools/gru/sample_default.txt` + this file.
+
+---
+
+## 2026-08-02 session: hot-path flat-array/fused-gate refactor benchmarked (no measurable speedup); float vs double evaluated and REJECTED
+
+**Context:** user-commissioned perf investigation. `GruTrainer.java`'s own
+per-example loop only orchestrates batching/threading; the actual forward/
+backward math lives in the shared `src/com/jxmake/formatter/classifier/gru/
+GruClassifier.java` (`forward`/`backward`, used identically by both the
+trainer and the shipped inference runtime). Auditing it found it was already
+almost entirely flat `double[]`/`double[][]` (no `List<Double>`, no boxed
+`Double`, no per-timestep objects) — `matVecInto`-style dot-product loops
+already existed for the trainer's per-token scratch sums. So "Step 2" (flat-
+array conversion) had little left to convert; the only real remaining waste
+was that each GRU gate (`z`, `r`, `hTilde`) was computed via a 4-call chain
+(`matVecInto` twice + `addVecInto` + `sigmoidVec`/`tanhVec`), each allocating
+or looping over the full hidden dimension separately.
+
+**Benchmark methodology (Step 0/1/3):** synthetic 288-train/72-validation-
+example dataset (session-scratch only, `/tmp/.../gru_bench_small.tsv`, never
+committed, never touches `sample_default.txt`), RDD_EXT_21 schema, 6
+languages, mix of prose (YES) and code-shaped (NO) lines templated around 25
+`KeywordAmbiguityGate` keywords. Ran `GruTrainer` directly (not via `make
+gru-train`) with `--threads=1 --batch-size=1 --epochs=8 --patience=8
+--seed=1` (single-threaded, single-example-per-step, to get a low-noise
+per-example timing without thread-pool/batch-averaging variance), reporting
+each epoch's `epochSeconds`.
+
+**Baseline (pre-refactor):** epoch 1 (JIT warmup) 3.9s, epochs 2-8 steady at
+3.6-3.7s/epoch (288 examples/epoch ⇒ ~12.5ms/example steady-state); total
+run 32.8s (epochs 1-8).
+
+**Step 2 refactor:** new `GruClassifier.gateInto(W, x, U, hPrev, b, out,
+useSigmoid)` — one flat, straight-line, non-aliased loop per output row
+(`out[i] = activation(dot(W[i],x) + dot(U[i],hPrev) + b[i])`), replacing the
+4-call chain and its `wx`/`uh`/`az`/`ar`/`ah` scratch buffers entirely.
+Deliberately preserves the exact original per-element operation order (Wx
+row-dot, then Uh row-dot, then +bias, then activation — matching the old
+`matVecInto`+`matVecInto`+`addVecInto`+`sigmoidVec`/`tanhVec` chain exactly)
+so results are bit-identical, not a reassociation. Applied to both the
+forward and backward biGRU passes' three gates. Dead code removed:
+`matVecInto`, `addVecInto`, `sigmoidVec`, `tanhVec` (no longer called
+anywhere after the fusion; `matVec`/`matTVec`/`addVec`/`hadamard` remain,
+still used elsewhere).
+
+**Correctness verified two ways:** (1) `--check-gradients=8` against the
+same synthetic dataset: `maxRelativeError=0.000000 (PASS)` on all 8 sampled
+parameters (embedding rows), confirming `backward` (unchanged) still agrees
+with the refactored `forward` via numerical differentiation. (2) Re-ran the
+exact same baseline training command post-refactor: every epoch's
+`trainLoss`/`validationLoss` matched the baseline run to all printed digits
+(e.g. epoch 8 `validationLoss=0.0000007` both runs, final confusion matrix
+`tp=27 fp=0 tn=45 fn=0` identical) — confirms bit-identical numerics, not
+just "close enough."
+
+**Step 3 result — no measurable speedup:** post-refactor epochs 2-8 ran
+3.6-3.7s/epoch, same 32.8s total as baseline. **Speedup ratio ≈1.00x.**
+Root cause, diagnosed from the refactor itself: at this architecture's size
+(hidden=224, embedding=16), the O(h²) `Uh` and O(h·e) `Wx` dot-product
+inner loops already dominate wall-clock cost, and those loops were already
+flat/branch-free/non-aliased before this session (`matVecInto` already did
+exactly that). The 4-call-chain waste this session removed was array
+allocation/pass overhead on the *cheaper* O(h) bias-add/activation step, not
+the dominant O(h²) compute — real but small relative to total per-token
+cost, and apparently within measurement noise at 8-epoch/288-example scale.
+**Kept anyway**: fewer allocations, one loop instead of four per gate, and
+it's still a real (if here-unmeasurable) improvement with zero behavior
+risk (bit-identical, gradient-check-verified) — not reverted.
+
+**`make test`: 225/225 forward, 225/225 idempotency, unchanged** (GRU
+package is off the main formatter pipeline, confirmed not to be, per
+`STATE_COMMON.md`'s testing methodology, rather than assumed).
+
+**Committed:** `src/com/jxmake/formatter/classifier/gru/GruClassifier.java`
+(the fused-gate refactor) — see commit log for hash.

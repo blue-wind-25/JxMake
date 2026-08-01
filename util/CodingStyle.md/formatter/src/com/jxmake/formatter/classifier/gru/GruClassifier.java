@@ -288,33 +288,25 @@ public final class GruClassifier {
             x[i]        = weights.embeddings[ tokenRow[i] ];
         }
 
-        // wx/uh/az/ar/ah are short-lived per-token scratch (pre-activation sums) that were
-        // previously re-allocated fresh via matVec/addVec on every token; none of them are
-        // retained in ForwardCache (only their sigmoid/tanh/hadamard *outputs* z/r/hTilde/rh are),
-        // so they're safe to reuse across the token loop -- local to this one forward() call/
-        // thread, never shared, so this stays thread-safe under concurrent forward() calls
-        double[] wx = new double[h];
-        double[] uh = new double[h];
-        double[] az = new double[h];
-        double[] ar = new double[h];
-        double[] ah = new double[h];
+        // z/r/hTilde are computed by gateInto -- a single fused, flat, straight-line loop per gate
+        // (dot-product-with-x, dot-product-with-h, +bias, activation, all in one pass over the
+        // hidden dimension) replacing the previous matVecInto+matVecInto+addVecInto+sigmoidVec/
+        // tanhVec four-call chain. Same operation order per output element (Wx-row-dot-product,
+        // then Uh-row-dot-product, then +bias, then activation) as the code it replaces, so results
+        // are bit-identical -- purely fewer intermediate array allocations/passes, not a
+        // reassociation. rh (r-hadamard-hPrev/hNext) is still materialized separately since it
+        // feeds into a *different* matrix (Wh/Uh) than r itself.
 
         double[][] fZ    = new double[t][], fR = new double[t][], fHTilde = new double[t][], fH = new double[t][], fRH = new double[t][];
         double[]   hPrev = new double[h];
         for(int i = 0; i <= targetIndex; ++i) {
-            matVecInto( weights.forward.Wz, x[i], wx );
-            matVecInto(weights.forward.Uz, hPrev, uh);
-            addVecInto(wx, uh, weights.forward.bz, az);
-            double[] z = sigmoidVec(az);
-            matVecInto( weights.forward.Wr, x[i], wx );
-            matVecInto(weights.forward.Ur, hPrev, uh);
-            addVecInto(wx, uh, weights.forward.br, ar);
-            double[] r  = sigmoidVec(ar);
+            double[] z = new double[h];
+            gateInto( weights.forward.Wz, x[i], weights.forward.Uz, hPrev, weights.forward.bz, z, true );
+            double[] r = new double[h];
+            gateInto( weights.forward.Wr, x[i], weights.forward.Ur, hPrev, weights.forward.br, r, true );
             double[] rh = hadamard(r, hPrev);
-            matVecInto( weights.forward.Wh, x[i], wx );
-            matVecInto(weights.forward.Uh, rh, uh);
-            addVecInto(wx, uh, weights.forward.bh, ah);
-            double[] hTilde = tanhVec(ah);
+            double[] hTilde = new double[h];
+            gateInto( weights.forward.Wh, x[i], weights.forward.Uh, rh, weights.forward.bh, hTilde, false );
             double[] hNew   = new double[h];
             for(int k = 0; k < h; ++k) hNew[k] = ( 1 - z[k] ) * hPrev[k] + z[k] * hTilde[k];
             fZ[i]      = z;
@@ -328,19 +320,13 @@ public final class GruClassifier {
         double[][] bZ    = new double[t][], bR = new double[t][], bHTilde = new double[t][], bH = new double[t][], bRH = new double[t][];
         double[]   hNext = new double[h];
         for(int i = t - 1; i >= targetIndex; --i) {
-            matVecInto( weights.backward.Wz, x[i], wx );
-            matVecInto(weights.backward.Uz, hNext, uh);
-            addVecInto(wx, uh, weights.backward.bz, az);
-            double[] z = sigmoidVec(az);
-            matVecInto( weights.backward.Wr, x[i], wx );
-            matVecInto(weights.backward.Ur, hNext, uh);
-            addVecInto(wx, uh, weights.backward.br, ar);
-            double[] r  = sigmoidVec(ar);
+            double[] z = new double[h];
+            gateInto( weights.backward.Wz, x[i], weights.backward.Uz, hNext, weights.backward.bz, z, true );
+            double[] r = new double[h];
+            gateInto( weights.backward.Wr, x[i], weights.backward.Ur, hNext, weights.backward.br, r, true );
             double[] rh = hadamard(r, hNext);
-            matVecInto( weights.backward.Wh, x[i], wx );
-            matVecInto(weights.backward.Uh, rh, uh);
-            addVecInto(wx, uh, weights.backward.bh, ah);
-            double[] hTilde = tanhVec(ah);
+            double[] hTilde = new double[h];
+            gateInto( weights.backward.Wh, x[i], weights.backward.Uh, rh, weights.backward.bh, hTilde, false );
             double[] hNew   = new double[h];
             for(int k = 0; k < h; ++k) hNew[k] = ( 1 - z[k] ) * hNext[k] + z[k] * hTilde[k];
             bZ[i]      = z;
@@ -549,24 +535,29 @@ public final class GruClassifier {
     }
 
     /**
-     * Same computation as {@link #matVec} but writes into a caller-provided buffer instead of
-     *  allocating a new array -- used by {@link #forward}'s per-token scratch sums, which are
-     *  reused across the token loop rather than freshly allocated every token
+     * Fused GRU gate computation: {@code out[i] = activation( dot(W[i], x) + dot(U[i], hPrev) +
+     *  b[i] )} for every {@code i}, {@code activation} = sigmoid when {@code useSigmoid}, tanh
+     *  otherwise. Replaces the previous {@code matVecInto}+{@code matVecInto}+{@code addVecInto}+
+     *  {@code sigmoidVec}/{@code tanhVec} four-call chain with a single flat, straight-line,
+     *  non-aliased pass per output row (no intermediate {@code wx}/{@code uh}/pre-activation
+     *  arrays) -- same per-element operation order as the code it replaces (W-row dot product,
+     *  then U-row dot product, then +bias, then activation), so results are bit-identical, not a
+     *  reassociation. {@code out} must not alias {@code x} or {@code hPrev}.
      */
-    private static void matVecInto(double[][] w, double[] x, double[] out)
+    private static void gateInto(
+        double[][] w, double[] x, double[][] u, double[] hPrev, double[] b, double[] out, boolean useSigmoid
+    )
     {
-        for(int i = 0; i < w.length; ++i) {
-            double[] row = w[i];
-            double   sum = 0.0;
-            for(int j = 0; j < x.length; ++j) sum += row[j] * x[j];
-            out[i] = sum;
-        }
-    }
-
-    /** Same computation as the 3-arg {@link #addVec} but writes into a caller-provided buffer */
-    private static void addVecInto(double[] a, double[] b, double[] c, double[] out)
-    {
-        for(int i = 0; i < out.length; ++i) out[i] = a[i] + b[i] + c[i];
+        for(int i = 0; i < out.length; ++i) {
+            double[] wRow = w[i];
+            double   wx   = 0.0;
+            for(int j = 0; j < x.length; ++j) wx += wRow[j] * x[j];
+            double[] uRow = u[i];
+            double   uh   = 0.0;
+            for(int j = 0; j < hPrev.length; ++j) uh += uRow[j] * hPrev[j];
+            double pre = wx + uh + b[i];
+            out[i] = useSigmoid ? 1.0 / ( 1.0 + Math.exp(-pre) ) : Math.tanh(pre);
+        } // for
     }
 
     /**
@@ -607,20 +598,5 @@ public final class GruClassifier {
         return r;
     }
 
-    private static double[] sigmoidVec(double[] v)
-    {
-        double[] r = new double[v.length];
-        for(int i = 0; i < v.length; ++i) r[i] = 1.0 / ( 1.0 + Math.exp( -v[i] ) );
-
-        return r;
-    }
-
-    private static double[] tanhVec(double[] v)
-    {
-        double[] r = new double[v.length];
-        for(int i = 0; i < v.length; ++i) r[i] = Math.tanh( v[i] );
-
-        return r;
-    }
 
 } // class GruClassifier

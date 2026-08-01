@@ -273,10 +273,11 @@ Configurable values with their in-class defaults. All overridable via config fil
 
 ```properties
 # ── Structural constants ──────────────────────────────────────────────────────
+server-port                      = 17173
+
 line-length                      = 100
 indent-size                      = 4
 indent-style                     = spaces      # spaces | tabs | auto
-server-port                      = 17173
 
 # ── Behavior ──────────────────────────────────────────────────────────────────
 line-endings                     = lf          # lf | crlf | preserve
@@ -285,6 +286,7 @@ normalize-comment-end-period     = on          # on | off
 comment-normalization-classifier = on          # on | off (flipped on 2026-07-30 after fixing the KeywordAmbiguityGate weight regression, see STATE_AI.md)
 closing-comment-min-lines        = 5
 format-macros                    = off         # off | on
+curly-general-scope-reindent     = off         # off | on
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
 header-guard-rename              = off         # off | on (warn only by default)

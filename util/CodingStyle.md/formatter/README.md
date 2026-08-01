@@ -218,10 +218,11 @@ with.
 
 ```properties
 # ── Structural constants ──────────────────────────────────────────────────────
+server-port                      = 17173
+
 line-length                      = 100
 indent-size                      = 4
 indent-style                     = spaces      # spaces | tabs | auto
-server-port                      = 17173
 
 # ── Behavior ──────────────────────────────────────────────────────────────────
 line-endings                     = lf          # lf | crlf | preserve
@@ -229,6 +230,7 @@ normalize-comment-start-case     = on          # on | off
 normalize-comment-end-period     = on          # on | off
 comment-normalization-classifier = on          # on | off
 closing-comment-min-lines        = 5
+curly-general-scope-reindent     = off         # off | on
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
 header-guard-rename              = off         # off | on (warn only by default)

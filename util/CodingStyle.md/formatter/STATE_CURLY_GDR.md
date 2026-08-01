@@ -417,10 +417,35 @@ plan, not a placeholder.
             opt-in exclusion-zone handling for `frozen`/`JXM_CFMT_GDR
             0`/`1`) remains for the still-separate "content exclusions"
             and pipeline-wiring checklist items below.
-- [ ] Implement content exclusions: raw string literals, block-comment
+- [x] Implement content exclusions: raw string literals, block-comment
       interior lines, preprocessor directives (column-0, own continuation
       rules), `frozen`/JXM_CFMT_DIS-ENA spans, and any region bracketed by
-      `JXM_CFMT_GDR 0`/`1`.
+      `JXM_CFMT_GDR 0`/`1`. The first three (raw strings, block-comment
+      interiors, preprocessor continuation) were already covered by
+      checklist item 4's `GdrLineTouchability` sub-step — inherent
+      untouchability, not opt-in. This item's actual remaining scope was
+      the two opt-in marker-comment families: new
+      `GdrExclusionZones.computeExcludedByLine(List<GdrToken>) ->
+      List<Boolean>`, independently reimplementing (not sharing code
+      with) the existing pipeline's line-anchored
+      `//% JXM_CFMT_DIS`/`ENA` (+ block-comment equivalent) frozen-span
+      regex convention (confirmed exact pattern by reading
+      `TokenizerCore.FORMAT_DIS_MARKER`/`FORMAT_ENA_MARKER` — read-only,
+      no changes to that file or any other existing file), plus the new
+      `//% JXM_CFMT_GDR 0`/`1` directive using the same line-anchored
+      shape and `RDD_KEY_227`'s flat-toggle semantics. Both families
+      independently toggle (OR'd together); the marker comment's own
+      line is always excluded regardless of which state it's toggling
+      into, matching the existing frozen-span convention exactly. Wired
+      into `GdrReindenter.compute`: a line's final `touchable` is now
+      false if either `GdrLineTouchability` or `GdrExclusionZones` says
+      so. Smoke-tested `GdrExclusionZones` standalone (DIS/ENA and GDR
+      0/1 marker lines, each correctly excluding only their own span)
+      and again wired end-to-end through `GdrReindenter` (a
+      `JXM_CFMT_DIS`/`ENA`-bracketed span inside a function body
+      correctly excluded, with correct levels resuming immediately after
+      on both sides). `make` builds clean, zero changes to any existing
+      file.
 - [ ] Wire `curly-general-scope-reindent = on` to actually invoke the
       pre-pass ahead of the existing formatter pipeline (`Main`/
       `ServerMode` entry points) — confirm the off/default path is

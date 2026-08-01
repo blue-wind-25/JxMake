@@ -24,6 +24,11 @@ import java.util.List;
  * affected -- e.g. a line leading with {@code )} adjusts only the
  * paren/bracket axis; the brace axis for that same line still uses its
  * ordinary {@code depthAtStart}.
+ *
+ * <p>A line's final {@code touchable} flag is false if EITHER
+ * {@link GdrLineTouchability} (content that can never safely be touched)
+ * OR {@link GdrExclusionZones} (opt-in frozen/{@code JXM_CFMT_GDR}
+ * exclusion zones) says so.
  */
 public final class GdrReindenter {
 
@@ -37,11 +42,13 @@ public final class GdrReindenter {
         int totalLines = braceDepths.size();
 
         List<Boolean> touchable = GdrLineTouchability.computeTouchableByLine(tokens, totalLines);
+        List<Boolean> excluded = GdrExclusionZones.computeExcludedByLine(tokens);
         GdrTokenType[] leadingType = computeLeadingTokenTypes(tokens, totalLines);
 
         List<GdrIndentTarget> result = new ArrayList<>(totalLines);
         for (int line = 0; line < totalLines; line++) {
-            if (!touchable.get(line)) {
+            boolean lineExcluded = line < excluded.size() && excluded.get(line);
+            if (!touchable.get(line) || lineExcluded) {
                 result.add(new GdrIndentTarget(line, false, 0, 0));
                 continue;
             }

@@ -316,8 +316,29 @@ plan, not a placeholder.
       C/C++/Java/Kotlin (this job's explicit scope, see "Scoping" section
       below) or for malformed/unterminated literals beyond falling back to
       end-of-line/end-of-file.
-- [ ] Implement the pre-pass's own brace-depth counter, independent of
-      `ScopePipelineCurly`'s.
+- [x] Implement the pre-pass's own brace-depth counter, independent of
+      `ScopePipelineCurly`'s. Landed `GdrLineBraceDepth.java` (per-line
+      `depthAtStart`/`depthAtEnd`) and `GdrBraceDepthCounter.java`
+      (`compute(List<GdrToken>) -> List<GdrLineBraceDepth>`) in the same
+      `com.jxmake.formatter.gdr` package. Consumes `GdrTokenizer`'s output
+      directly — every `BRACE_OPEN`/`BRACE_CLOSE` token it sees is already
+      real structural code (strings/comments/preprocessor interiors were
+      excluded by the tokenizer), so the counter itself is a simple
+      running increment/decrement, with `depthAtStart` recorded before a
+      line's own brace tokens are applied and `depthAtEnd` after. Scoped
+      to brace depth only, matching the checklist item's own wording —
+      paren/bracket depth for the continuation-vs-block second axis is
+      deferred to the reindenter (next item), not duplicated here.
+      Deliberately does not attempt the closing-brace-dedent decision
+      (whether a line led by `}` should reindent to `depthAtStart` or
+      `depthAtEnd`) — that's the reindenter's job per this job's own
+      "Continuation vs. block depth is a second axis" background note;
+      this counter just exposes both numbers per line. `make` builds
+      clean, zero changes to any existing file. Manually smoke-tested
+      (nested `if` inside `main`, embedded multi-line block comment) via
+      a throwaway `/tmp` harness — depth tracked correctly across the
+      comment's embedded newlines (no spurious depth change) and matched
+      expected nesting at every line.
 - [ ] Implement the pre-pass's own reindenter: derive each line's absolute
       indent target from structural depth, merging in a continuation-vs-
       block second axis (STYLE.md §2) rather than a naive
@@ -334,6 +355,8 @@ plan, not a placeholder.
 - [ ] Author the "New test fixtures needed" pair(s) above (config-acceptance
       only, no-op expected output if the reindenter isn't ready) — or the
       real reindent-shape fixtures once the pre-pass itself is implemented.
+- [ ] Update `README.md` (and re-verify whether `../README.txt` needs an
+      edit — see "When implemented" section) once the above lands.
 - [ ] Real-code test the pre-pass, `curly-general-scope-reindent = on`,
       against at least `javaparser/javaparser`, local
       `tool/JSONEncoderLite.java`, and `serge-sans-paille/frozen` (the three
@@ -344,8 +367,6 @@ plan, not a placeholder.
       land a real fix in `MiscRuleCurly`/wherever the fix ends up living,
       record a new `RDD_KEY_n`, update `STATE_KOTLIN.md`'s D3 entries to
       point at it.
-- [ ] Update `README.md` (and re-verify whether `../README.txt` needs an
-      edit — see "When implemented" section) once the above lands.
 
 Do the above checklist one by one. Test, commit, and ask me whether to continue or pause.
 

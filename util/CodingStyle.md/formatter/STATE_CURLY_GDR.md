@@ -267,17 +267,32 @@ reindentation logic yet to exercise).
 
 ---
 
+## Open Questions
+
+- **`JXM_CFMT_GDR` directive semantics** (blocks checklist item 1): three
+  sub-questions, none resolvable as a free implementation choice —
+  1. Does `JXM_CFMT_GDR 0`/`1` nest (e.g. can `0` appear twice before a
+     matching `1`, requiring two `1`s to re-enable), or is it a flat
+     on/off toggle where a second `0` is a no-op and a single `1` always
+     re-enables regardless of how many `0`s preceded it?
+  2. If a file ends with an unmatched trailing `0` (no closing `1`), is
+     that a hard error (matching `InFileConfig`'s hard-error posture for
+     malformed directives), or an implicit end-of-file `1` restore
+     (silently tolerated)?
+  3. Is it an error/warning to use `JXM_CFMT_GDR 0`/`1` in a file where
+     `curly-general-scope-reindent` is `off` (directive present but the
+     feature it toggles is globally disabled), or does it silently parse
+     and simply have no effect in that case?
+
 ## Checklist
 
 Status: **not started.** No item below is checked off; this is the initial
 concrete plan, not a placeholder.
 
-- [ ] Design/finalize `JXM_CFMT_GDR 0`/`1` directive semantics (nesting?
-      unmatched-`0`-at-EOF behavior? interaction/precedence with
-      `curly-general-scope-reindent = off`?) — likely needs its own
-      Resolved Design Decision (`RDD_KEY_n`) once concretely designed,
-      following STATE_COMMON.md's ambiguity-handling protocol if any part
-      of it is genuinely ambiguous rather than a free implementation choice.
+- [~] Design/finalize `JXM_CFMT_GDR 0`/`1` directive semantics — BLOCKED,
+      see Open Questions above. Once resolved: record as a new `RDD_KEY_n`
+      row in `RDD_LOG.md`, add it to a Resolved Design Decisions index in
+      this file, remove from Open Questions, then unblock.
 - [ ] Implement the pre-pass's own minimal tokenizer — independent of
       `TokenizerCore`/`TokenizerCurly`, scoped only to what the reindenter
       needs (brace/paren/bracket depth, string/char/comment/raw-string/
@@ -312,6 +327,8 @@ concrete plan, not a placeholder.
       point at it.
 - [ ] Update `README.md` (and re-verify whether `../README.txt` needs an
       edit — see "When implemented" section) once the above lands.
+
+Do the above checklist one by one. Test, commit, and ask me whether to continue or pause.
 
 ## Scoping
 

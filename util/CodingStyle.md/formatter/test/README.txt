@@ -56,27 +56,6 @@ Java:
                                                and without blank lines and a `throws` clause, must
                                                not be joined onto the method's own modifier line.
 
-  java_flush_left_inp/out.java               -- Every line of the input is flushed to column 0
-                                               (no leading indentation at all), with
-                                               curly-general-scope-reindent=on via in-file config --
-                                               proves the GDR pre-pass (STATE_CURLY_GDR.md) reindents
-                                               correctly from a fully unindented starting point, which
-                                               the base pipeline's own relative-delta reindentation
-                                               cannot do on its own.
-                                               Also covers the PCPP-preprocessed Java pattern used
-                                               in `src/jxm/ugc/ARMCortexMThumbC.java.in` (a
-                                               `.java.in` file run through a C-macro preprocessor
-                                               before compilation, per README.md's "C-preprocessor
-                                               directives in Java source" note): a `#define`-style
-                                               function-like macro precedes a class and is invoked
-                                               with loosely-spaced call arguments
-                                               (`__GEN_CXI_NPR_NPR__( clrex, ... )`). Confirms the
-                                               `#define` line itself passes through untouched
-                                               (recognized/skipped like any other preprocessor
-                                               directive) while the macro invocation lines still get
-                                               normal call-padding tightening (`(clrex, ...)`) and
-                                               are idempotent.
-
 Kotlin:
   kt_combined_inp/out.kt                    -- Kotlin STYLE_KOTLIN.md + STYLE_KOTLIN2.md end-to-end
                                                coverage: enum class with members, sealed classes,
@@ -191,11 +170,6 @@ In-file config directive:
                                                a hard-erroring input has no formatted result to diff
                                                against, and would always show as a spurious FAIL.
                                                See the file itself for how to exercise it manually.
-
-  curly_general_scope_reindent_inp/out.hpp  -- Proves `curly-general-scope-reindent=on` is accepted
-                                               as an in-file config key (JXM_CFMT_CFG) and produces a
-                                               correctly formatted result, not an error -- see
-                                               STATE_CURLY_GDR.md.
 
 JSON/JSON5:
   json_core_inp/out.json                    -- Plain RFC 8259 JSON: colon-alignment groups, tight
@@ -414,16 +388,6 @@ HTML5:
                                                `<script type="application/json">` block staying
                                                fully opaque.
 
-  html_js_flush_left_inp/out.html           -- Entire document flushed to column 0, multiple tags
-                                               on a single line (`<head>...</head>`, stacked
-                                               `<span>`/`<li>` siblings), and an embedded `<script>`
-                                               block whose JS body is also flushed to column 0 --
-                                               real-code-regression-style coverage of the HTML5/JS
-                                               dispatch pipeline's behavior on fully unindented input
-                                               (idempotent, but not a GDR fixture -- GDR's scope is
-                                               limited to the curly-brace family c/cpp/java/kotlin,
-                                               not HTML/JS, see STATE_CURLY_GDR.md's Scoping section).
-
 Python3:
   py_combined_inp/out.py                    -- Bracket-complexity categories, assignment alignment
                                                (augmented assignment, both continuation-break
@@ -441,6 +405,50 @@ Python3:
                                                byte-for-byte-preserved docstring, a comment between
                                                two `case` blocks, and a comment breaking a compact
                                                `case`-line alignment group.
+
+General Scope-Depth Reindentation:
+
+  curly_general_scope_reindent_inp/out.hpp  -- Proves `curly-general-scope-reindent=on` is accepted
+                                               as an in-file config key (JXM_CFMT_CFG) and produces a
+                                               correctly formatted result, not an error -- see
+                                               STATE_CURLY_GDR.md.
+
+  java_flush_left_inp/out.java               -- Every line of the input is flushed to column 0
+                                               (no leading indentation at all), with
+                                               curly-general-scope-reindent=on via in-file config --
+                                               proves the GDR pre-pass (STATE_CURLY_GDR.md) reindents
+                                               correctly from a fully unindented starting point, which
+                                               the base pipeline's own relative-delta reindentation
+                                               cannot do on its own.
+                                               Also covers the PCPP-preprocessed Java pattern used
+                                               in `src/jxm/ugc/ARMCortexMThumbC.java.in` (a
+                                               `.java.in` file run through a C-macro preprocessor
+                                               before compilation, per README.md's "C-preprocessor
+                                               directives in Java source" note): a `#define`-style
+                                               function-like macro precedes a class and is invoked
+                                               with loosely-spaced call arguments
+                                               (`__GEN_CXI_NPR_NPR__( clrex, ... )`). Confirms the
+                                               `#define` line itself passes through untouched
+                                               (recognized/skipped like any other preprocessor
+                                               directive) while the macro invocation lines still get
+                                               normal call-padding tightening (`(clrex, ...)`) and
+                                               are idempotent.
+
+  html_js_flush_left_inp/out.html           -- Entire document flushed to column 0, multiple tags
+                                               on a single line (`<head>...</head>`, stacked
+                                               `<span>`/`<li>` siblings), and an embedded `<script>`
+                                               block whose JS body is also flushed to column 0, with
+                                               curly-general-scope-reindent=on via in-file config
+                                               (`<!--% JXM_CFMT_CFG ... -->`) -- proves the GDR
+                                               pre-pass reaches embedded JS through the HTML5
+                                               `<script>` dispatch (`XmlSpecificRule.renderScriptOrStyle`)
+                                               and correctly reindents it from a fully unindented
+                                               starting point, while the surrounding HTML element
+                                               nesting (not itself GDR's concern) is handled by the
+                                               base HTML5 pipeline as usual. Also incidentally covers
+                                               the `%`-prefixed marker-comment convention: the
+                                               directive comment itself must render byte-for-byte
+                                               unchanged, not gain a corrupting inner space.
 
 Real-code regressions:
   real_code_regressions_1_inp/out.cpp       -- Distilled from tinyexpr-plusplus: same-line-sibling

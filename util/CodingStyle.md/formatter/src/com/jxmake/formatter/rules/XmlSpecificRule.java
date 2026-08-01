@@ -209,6 +209,9 @@ public final class XmlSpecificRule {
         NodeType     type;
         String       raw;                       // PI / DOCTYPE / CDATA / TEXT: verbatim content
         String       commentText;               // COMMENT: normalized inner text
+        boolean      commentVerbatim;           // COMMENT: true if commentText must render with no
+                                                  // added inner spacing (a `%`-prefixed marker/directive
+                                                  // comment, e.g. `<!--% JXM_CFMT_CFG ... -->`)
         List<String> frozenLines;               // FROZEN: raw lines, verbatim, DIS..ENA inclusive
         String       tagName;
         List<String> attrs = new ArrayList<>();
@@ -535,10 +538,23 @@ public final class XmlSpecificRule {
         } // if
         final int close = s.indexOf("-->", pos + 4);
         if(close < 0) throw new XmlParseException("unterminated comment");
-        final Node n = new Node();
-        n.type        = NodeType.COMMENT;
-        n.commentText = normComment( s.substring(pos + 4, close).trim() );
-        pos           = close + 3;
+        final Node   n     = new Node();
+        final String inner = s.substring(pos + 4, close).trim();
+        n.type = NodeType.COMMENT;
+        if( inner.startsWith("%") ) {
+            // A `%`-prefixed marker/directive comment (e.g. `<!--% JXM_CFMT_CFG ... -->`) must
+            //  survive byte-for-byte -- normal comment rendering always inserts a space after
+            //  `<!--`, which would turn `<!--%` into `<!-- %` and permanently break the marker's
+            //  required exact prefix on any subsequent parse (InFileConfig.java's own regex, and
+            //  this method's own DIS/ENA literal-string checks above, both require `<!--%` with no
+            //  intervening space).
+            n.commentVerbatim = true;
+            n.commentText     = s.substring(pos + 4, close);
+        }
+        else {
+            n.commentText = normComment(inner);
+        }
+        pos = close + 3;
 
         return n;
     }
@@ -1028,7 +1044,12 @@ public final class XmlSpecificRule {
                 return;
 
             case COMMENT:
-                out.append( indent(depth) ).append("<!-- ").append(n.commentText).append(" -->\n");
+                if(n.commentVerbatim) {
+                    out.append( indent(depth) ).append("<!--").append(n.commentText).append("-->\n");
+                }
+                else {
+                    out.append( indent(depth) ).append("<!-- ").append(n.commentText).append(" -->\n");
+                }
                 return;
 
             case CDATA:
@@ -1189,10 +1210,13 @@ public final class XmlSpecificRule {
                     "<![CDATA[".length(), dedented.length() - "]]>".length()
                 ).trim()
                 : dedented;
+        final String gdrJsSource = com.jxmake.formatter.gdr.GdrPipelineGate.apply(
+            jsSource, "js", jsConfig
+        );
         final String jsFormatted = FormatterCore.forLanguage(
             "js"
         ).formatOne(
-            jsSource, "<script>", jsConfig, false
+            gdrJsSource, "<script>", jsConfig, false
         );
         final String spliced = isCdata
                 ? "<![CDATA[\n" + jsFormatted.replaceAll("\\s+$", "") + "\n]]>\n"

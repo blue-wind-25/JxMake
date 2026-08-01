@@ -32,6 +32,7 @@ public final class GdrPipelineGate {
 
     private static boolean isCurlyFamily(String language) {
         return "c".equals(language) || "cpp".equals(language)
-                || "java".equals(language) || "kotlin".equals(language);
+                || "java".equals(language) || "kotlin".equals(language)
+                || "js".equals(language) || "ts".equals(language);
     }
 }

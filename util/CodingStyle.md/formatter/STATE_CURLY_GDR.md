@@ -277,6 +277,14 @@ reindentation logic yet to exercise).
   directive while `curly-general-scope-reindent` is globally `off` is a
   **silent no-op** (parses fine, lets a file be prepared for GDR ahead of a
   project-wide flag flip). Full text: `RDD_KEY_227` in `RDD_LOG.md`.
+- `RDD_KEY_228` — Scope expanded to include JS/TS (user-directed): both
+  plain `.js`/`.ts` files and embedded HTML `<script>` content are now
+  reindented by GDR when on. Also fixed an independent HTML-formatter bug
+  found while testing this: a `%`-prefixed marker/directive HTML comment
+  (e.g. `<!--% JXM_CFMT_CFG ... -->`) was being corrupted into
+  `<!-- % ... -->` by ordinary comment rendering, permanently breaking the
+  marker's required exact prefix on any subsequent parse. Full text:
+  `RDD_KEY_228` in `RDD_LOG.md`.
 
 ## Checklist
 
@@ -599,8 +607,23 @@ fix** — nothing else. Concretely:
   small/incremental task even though the default-off path is now
   zero-risk. Treat any single session's progress on the `on` path as
   partial by default; do not assume a quick win.
+- **Scope expanded 2026-08-02 per `RDD_KEY_228` (user-directed): JS/TS are
+  in scope.** JS/TS are curly-brace-family too, same reindentation problem
+  as C/C++/Java/Kotlin, and `GdrPipelineGate.isCurlyFamily` now includes
+  `"js"`/`"ts"` — both plain `.js`/`.ts` files AND embedded HTML
+  `<script>` content (via `XmlSpecificRule.renderScriptOrStyle`'s own
+  `GdrPipelineGate.apply` call) are reindented when
+  `curly-general-scope-reindent` is on. `GdrTokenizer` gained
+  `scanTemplateLiteral` (backtick `` ` `` template literals) to avoid
+  misreading `${...}` interpolation content as real bracket depth.
+  **Known gap, not yet fixed:** a JS/TS regex literal (e.g. `/[{]/`) is
+  still tokenized as ordinary `TEXT`, not a string-like unit, so a
+  bracket-family character inside one can still miscount depth — see
+  `RDD_KEY_228` for detail.
 - Out of scope entirely for this job: any change to data-format
-  (JSON/YAML/etc.), JS/TS, or Python3 indentation logic — GDR as scoped
-  here is specifically the curly-brace-family (C/C++/Java/Kotlin)
-  `"cpp"`-pipeline-adjacent reindentation problem, matching where the old
-  `STATE_COMMON.md` TODO lived before this split.
+  (JSON/YAML/etc.) or Python3 indentation logic, and HTML/XML's own
+  element-nesting indentation (structurally indent-based already, not a
+  brace-depth problem) — GDR as scoped here is the curly-brace-family
+  (C/C++/Java/Kotlin, plus JS/TS per the expansion above)
+  reindentation problem, matching where the old `STATE_COMMON.md` TODO
+  lived before this split.

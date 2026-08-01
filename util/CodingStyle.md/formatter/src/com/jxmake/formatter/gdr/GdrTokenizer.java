@@ -94,6 +94,10 @@ public final class GdrTokenizer {
                 scanQuoted('\'', GdrTokenType.CHAR);
                 continue;
             }
+            if (c == '`') {
+                scanTemplateLiteral();
+                continue;
+            }
 
             GdrTokenType bracket = bracketTypeFor(c);
             if (bracket != null) {
@@ -244,6 +248,38 @@ public final class GdrTokenizer {
     }
 
     /** Ordinary {@code "..."}/{@code '...'} literal; unterminated at a bare newline. */
+    /**
+     * JS/TS template literal ({@code `...`}), treated as a single opaque {@code STRING} token --
+     * this deliberately does not parse {@code ${...}} interpolation (any brace/paren inside an
+     * interpolation is swallowed as literal text, not counted for depth). Unlike an ordinary
+     * quoted string, a template literal legitimately spans multiple physical lines, so this
+     * doesn't stop at a bare newline the way {@link #scanQuoted} does.
+     */
+    private void scanTemplateLiteral() {
+        flushText();
+        int start = i;
+        int startLine = line;
+        i++;
+        while (i < n) {
+            char cc = source.charAt(i);
+            if (cc == '\\' && i + 1 < n) {
+                i += 2;
+                continue;
+            }
+            if (cc == '\n') {
+                line++;
+                i++;
+                continue;
+            }
+            if (cc == '`') {
+                i++;
+                break;
+            }
+            i++;
+        }
+        tokens.add(new GdrToken(GdrTokenType.STRING, source.substring(start, i), startLine));
+    }
+
     private void scanQuoted(char quote, GdrTokenType type) {
         flushText();
         int start = i;

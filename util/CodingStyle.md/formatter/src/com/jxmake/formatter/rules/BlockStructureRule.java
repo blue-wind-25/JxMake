@@ -654,12 +654,23 @@ public class BlockStructureRule {
     /**
      * After a chain member (`if`/`else if`) has just been collapsed to one line, forces the
      * following `else` (if the next significant token is one) onto its own line at
-     * {@code indent}, discarding whatever whitespace/newline previously separated them --
-     * K&R input has `} else` sitting on the same physical line as the closing brace, which
-     * {@link #collapseSingleExpressionBlocks} would otherwise reproduce verbatim, joining the
-     * whole chain onto a single line instead of the Allman-per-branch, column-aligned shape
-     * {@link #alignBracelessElseIfChain} expects to align. Returns the index to resume
-     * scanning from (unchanged if the next token is not `else`).
+     * {@code indent} -- K&R input has `} else` sitting on the same physical line as the closing
+     * brace, which {@link #collapseSingleExpressionBlocks} would otherwise reproduce verbatim,
+     * joining the whole chain onto a single line instead of the Allman-per-branch,
+     * column-aligned shape {@link #alignBracelessElseIfChain} expects to align. Returns the
+     * index to resume scanning from (unchanged if the next token is not `else`).
+     *
+     * <p>If the gap between {@code from} and the `else` already contains a real {@code NEWLINE}
+     * (the already-braceless, second-round-or-later case -- the previous round's
+     * {@link #alignBracelessElseIfChain} may have left-padded the *preceding* `if`/`else if`
+     * line's own indent to column-align its keyword, per RDD_KEY's keyword-alignment extension),
+     * that gap's own text is copied through verbatim instead of being discarded and resynthesized
+     * from {@code indent} -- {@code indent} is derived from the `if`/`else if` statement's own
+     * current line ({@link #mostRecentLineIndent}), which is exactly the line that padding may
+     * have widened, so blindly reusing it here would leak that cosmetic padding onto the
+     * following `else`'s own, already-correct, unpadded indent -- a non-idempotency bug. Only
+     * synthesize a fresh `indent` when there is no pre-existing newline to preserve (the classic
+     * same-line K&R `} else` case this method was originally written for).
      */
     private int appendChainNewlineBeforeElse(
         final List<Token>   tokens,
@@ -675,7 +686,20 @@ public class BlockStructureRule {
         ).type == TokenType.KEYWORD && "else".equals(
             tokens.get(next).text
         ) ) {
-            out.append('\n').append(indent);
+            boolean hasNewline = false;
+            for( int g = from; g < next; ++g ) {
+                if( tokens.get(g).type == TokenType.NEWLINE ) {
+                    hasNewline = true;
+                    break;
+                }
+            }
+            if(hasNewline) {
+                for( int g = from; g < next; ++g ) out.append( tokens.get(g).text );
+            }
+            else {
+                out.append('\n').append(indent);
+            }
+
             return next;
         }
 
@@ -3061,7 +3085,7 @@ public class BlockStructureRule {
         final String[] lines = joinVerbatim(tokens).split("\n", - 1);
               int      i     = 0;
         while(i < lines.length) {
-            final int indentLen = leadingWhitespaceLength( lines[i] );
+                  int indentLen = leadingWhitespaceLength( lines[i] );
             if( !lines[i].regionMatches(indentLen, "if(", 0, 3) ) {
                 ++i;
                 continue;
@@ -3069,14 +3093,42 @@ public class BlockStructureRule {
             final List<Integer> chain = new ArrayList<>();
             chain.add(i);
             int j = i + 1;
-            while( j < lines.length && leadingWhitespaceLength( lines[j] ) == indentLen ) {
-                if( lines[j].regionMatches(indentLen, "else if(", 0, 8) ) {
+            while( j < lines.length ) {
+                final int  jIndent   = leadingWhitespaceLength( lines[j] );
+                      int  matchAt   = jIndent;
+                if( jIndent != indentLen ) {
+                    // The `if` line above may itself already be left-padded (this same method,
+                    // a previous round) to column-align its keyword with `else if` -- its own
+                    // leading whitespace then legitimately runs wider than its sibling `else
+                    // if`/`else` lines' shared, un-padded base indent. Recognize that specific,
+                    // generically-derived shape (this chain's very first member only, `k == 0`,
+                    // widened by exactly `"else if(".length() - "if(".length()`, the same delta
+                    // the left-padding step below derives) and re-anchor `indentLen` on the
+                    // sibling's own (narrower, canonical) indent instead of rejecting the whole
+                    // chain outright -- otherwise every subsequent reformat loses the chain
+                    // (and, with it, both alignments) the moment the first round's left-padding
+                    // makes indentLen stop matching verbatim.
+                    if( chain.size() != 1 || jIndent >= indentLen
+                            || indentLen - jIndent != "else if(".length() - "if(".length() ) {
+                        break;
+                    }
+                    // Strip the stale left-padding back off `lines[i]` so every later step
+                    // (kwLen/leftPad computation, prefixEnd measurement) operates on a fresh,
+                    // un-padded baseline exactly like a first-round chain -- re-deriving the pad
+                    // from scratch below, rather than re-detecting "already correctly padded" as
+                    // a special case, is both simpler and immune to the pad amount ever silently
+                    // drifting out of sync with the current chain's own widths.
+                    lines[i] = lines[i].substring(0, jIndent) + lines[i].substring(indentLen);
+                    indentLen = jIndent;
+                    matchAt   = jIndent;
+                } // if
+                if( lines[j].regionMatches(matchAt, "else if(", 0, 8) ) {
                     chain.add(j);
                     ++j;
                     continue;
                 }
-                if( lines[j].regionMatches(indentLen, "else ", 0, 5)
-                        && !lines[j].regionMatches(indentLen, "else if", 0, 7) ) {
+                if( lines[j].regionMatches(matchAt, "else ", 0, 5)
+                        && !lines[j].regionMatches(matchAt, "else if", 0, 7) ) {
                     chain.add(j);
                     ++j;
                 }
@@ -3086,6 +3138,45 @@ public class BlockStructureRule {
                 ++i;
                 continue;
             }
+
+            // Left-pad the leading keyword of every non-bare-else branch (in practice always
+            // just the lone `if`) up to the widest keyword prefix in the chain, so the
+            // keyword/condition portion also starts at a shared column -- same "never the bare
+            // final else's" exclusion as the body-column target below, since a bare else has no
+            // condition of its own to align against. Derived generically (never hardcoded)
+            // so it stays correct for a plain two-branch if/else chain (no `else if` at all --
+            // both widths already equal, leftPad is 0, no churn) as well as any wider chain.
+            final int[] kwLen  = new int[ chain.size() ];
+            int         maxKwLen = - 1;
+            for( int k = 0; k < chain.size(); ++k ) {
+                final String  line       = lines[ chain.get(k) ];
+                final boolean isElseIf   = line.regionMatches(indentLen, "else if(", 0, 8);
+                final boolean isBareElse = line.regionMatches(
+                    indentLen, "else ", 0, 5
+                )&& ! isElseIf;
+                if(isBareElse) {
+                    kwLen[k] = - 1; // sentinel: bare else never contributes/receives left-padding
+                    continue;
+                }
+                kwLen[k] = isElseIf ? "else if".length() : "if".length();
+                maxKwLen = Math.max(maxKwLen, kwLen[k]);
+            } // for k
+            final int[] leftPad = new int[ chain.size() ];
+            for( int k = 0; k < chain.size(); ++k ) {
+                if( kwLen[k] < 0 ) continue; // bare else: leftPad stays 0
+                final int pad = maxKwLen - kwLen[k];
+                if( pad <= 0 ) continue;
+                final int lineIdx = chain.get(k);
+                // Same lineLengthLimit guard as the body-column padding below -- left-padding
+                // also makes the line longer, so a branch whose line would overflow the limit
+                // once padded is left at its own natural (unpadded) keyword column instead.
+                if( lines[lineIdx].length() + pad > lineLengthLimit ) continue;
+                leftPad[k] = pad;
+                final StringBuilder sb = new StringBuilder( lines[lineIdx].substring(0, indentLen) );
+                for(int s = 0; s < pad; ++s) sb.append(' ');
+                sb.append( lines[lineIdx].substring(indentLen) );
+                lines[lineIdx] = sb.toString();
+            } // for k
 
             final int[]   prefixEnd = new int[ chain.size() ];
                   int     target    = - 1;
@@ -3100,7 +3191,9 @@ public class BlockStructureRule {
                     prefixEnd[k] = indentLen + "else".length();
                     continue;
                 }
-                final int openParen = isElseIf ? indentLen + "else if".length() : indentLen + 2;
+                final int openParen = isElseIf
+                    ? indentLen + "else if".length()
+                    : indentLen + leftPad[k] + 2;
                 int depth      = 0;
                 int closeParen = - 1;
                 for( int c = openParen; c < line.length(); ++c ) {

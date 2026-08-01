@@ -130,7 +130,7 @@ class Widget(
         }
 
         val classified = "123".let {
-            if( it.isEmpty() )          0
+                 if( it.isEmpty() )     0
             else if(it.length > 2)      1
             else if(it.length > 100000) 2
             else                        it.toInt() // Parsed value

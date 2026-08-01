@@ -30,7 +30,7 @@ namespace Outer {
 
     void g()
     {
-        if(cond)       doA();
+             if(cond)  doA();
         else if(other) doB();
         else           doC();
     }

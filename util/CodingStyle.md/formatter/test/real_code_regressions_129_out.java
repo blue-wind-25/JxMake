@@ -14,7 +14,7 @@ public class M {
         List<JavaType> parameterTypeList = Stream.of(parameterTypes)
             .map( name -> {
                 JavaType.Primitive primitive = JavaType.Primitive.fromKeyword(name);
-                if(primitive != null)          return primitive;
+                     if(primitive != null)     return primitive;
                 else if( "int".equals(name) )  return JavaType.Primitive.Int;
                 else if( "long".equals(name) ) return JavaType.Primitive.Long;
                 else                           return JavaType.ShallowClass.build(name);

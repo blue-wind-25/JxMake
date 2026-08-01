@@ -347,6 +347,22 @@ if(x) continue;
 if(x) break;
 ```
 
+When an `if`/`else if`/`else` chain has every branch qualifying for this
+single-expression omission, column-align the chain: right-pad each
+condition so every branch's body starts at the same column (the widest
+`if(...)`/`else if(...)` condition in the chain), and left-pad the leading
+`if` keyword (and a bare final `else`, if any of those exist) so the
+keyword/condition portion also starts at a shared column matching
+`else if`'s width:
+```c
+     if(a)           xxx;
+else if(b)           yyy;
+else if(c && d && e) zzz;
+else                 qqq;
+```
+A plain two-branch `if`/`else` chain (no `else if` at all) needs no
+left-padding, since `if` and `else` are then already the same width.
+
 ---
 
 ## 11. Non-function Block Brace Style

@@ -267,32 +267,25 @@ reindentation logic yet to exercise).
 
 ---
 
-## Open Questions
+## Resolved Design Decisions
 
-- **`JXM_CFMT_GDR` directive semantics** (blocks checklist item 1): three
-  sub-questions, none resolvable as a free implementation choice —
-  1. Does `JXM_CFMT_GDR 0`/`1` nest (e.g. can `0` appear twice before a
-     matching `1`, requiring two `1`s to re-enable), or is it a flat
-     on/off toggle where a second `0` is a no-op and a single `1` always
-     re-enables regardless of how many `0`s preceded it?
-  2. If a file ends with an unmatched trailing `0` (no closing `1`), is
-     that a hard error (matching `InFileConfig`'s hard-error posture for
-     malformed directives), or an implicit end-of-file `1` restore
-     (silently tolerated)?
-  3. Is it an error/warning to use `JXM_CFMT_GDR 0`/`1` in a file where
-     `curly-general-scope-reindent` is `off` (directive present but the
-     feature it toggles is globally disabled), or does it silently parse
-     and simply have no effect in that case?
+- `RDD_KEY_227` — `JXM_CFMT_GDR 0`/`1` directive semantics: **flat toggle**
+  (a single `1` always re-enables, redundant `0`s are no-ops, no nesting
+  counter); an unmatched trailing `0` at EOF is **neither an error nor an
+  implicit restore** — it's moot, since nothing remains to format past EOF
+  and the next file starts fresh from its own config regardless; using the
+  directive while `curly-general-scope-reindent` is globally `off` is a
+  **silent no-op** (parses fine, lets a file be prepared for GDR ahead of a
+  project-wide flag flip). Full text: `RDD_KEY_227` in `RDD_LOG.md`.
 
 ## Checklist
 
-Status: **not started.** No item below is checked off; this is the initial
-concrete plan, not a placeholder.
+Status: **directive semantics resolved (RDD_KEY_227); no code yet.** No
+implementation item below is checked off — this is the initial concrete
+plan, not a placeholder.
 
-- [~] Design/finalize `JXM_CFMT_GDR 0`/`1` directive semantics — BLOCKED,
-      see Open Questions above. Once resolved: record as a new `RDD_KEY_n`
-      row in `RDD_LOG.md`, add it to a Resolved Design Decisions index in
-      this file, remove from Open Questions, then unblock.
+- [x] Design/finalize `JXM_CFMT_GDR 0`/`1` directive semantics — resolved,
+      see Resolved Design Decisions above (`RDD_KEY_227`).
 - [ ] Implement the pre-pass's own minimal tokenizer — independent of
       `TokenizerCore`/`TokenizerCurly`, scoped only to what the reindenter
       needs (brace/paren/bracket depth, string/char/comment/raw-string/

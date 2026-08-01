@@ -301,13 +301,19 @@ public final class GruClassifier {
         double[]   hPrev = new double[h];
         for(int i = 0; i <= targetIndex; ++i) {
             double[] z = new double[h];
-            gateInto( weights.forward.Wz, x[i], weights.forward.Uz, hPrev, weights.forward.bz, z, true );
+            gateInto(
+                weights.forward.Wz, x[i], weights.forward.Uz, hPrev, weights.forward.bz, z, true
+            );
             double[] r = new double[h];
-            gateInto( weights.forward.Wr, x[i], weights.forward.Ur, hPrev, weights.forward.br, r, true );
-            double[] rh = hadamard(r, hPrev);
+            gateInto(
+                weights.forward.Wr, x[i], weights.forward.Ur, hPrev, weights.forward.br, r, true
+            );
+            double[] rh     = hadamard(r, hPrev);
             double[] hTilde = new double[h];
-            gateInto( weights.forward.Wh, x[i], weights.forward.Uh, rh, weights.forward.bh, hTilde, false );
-            double[] hNew   = new double[h];
+            gateInto(
+                weights.forward.Wh, x[i], weights.forward.Uh, rh, weights.forward.bh, hTilde, false
+            );
+            double[] hNew = new double[h];
             for(int k = 0; k < h; ++k) hNew[k] = ( 1 - z[k] ) * hPrev[k] + z[k] * hTilde[k];
             fZ[i]      = z;
             fR[i]      = r;
@@ -321,13 +327,25 @@ public final class GruClassifier {
         double[]   hNext = new double[h];
         for(int i = t - 1; i >= targetIndex; --i) {
             double[] z = new double[h];
-            gateInto( weights.backward.Wz, x[i], weights.backward.Uz, hNext, weights.backward.bz, z, true );
+            gateInto(
+                weights.backward.Wz, x[i], weights.backward.Uz, hNext, weights.backward.bz, z, true
+            );
             double[] r = new double[h];
-            gateInto( weights.backward.Wr, x[i], weights.backward.Ur, hNext, weights.backward.br, r, true );
-            double[] rh = hadamard(r, hNext);
+            gateInto(
+                weights.backward.Wr, x[i], weights.backward.Ur, hNext, weights.backward.br, r, true
+            );
+            double[] rh     = hadamard(r, hNext);
             double[] hTilde = new double[h];
-            gateInto( weights.backward.Wh, x[i], weights.backward.Uh, rh, weights.backward.bh, hTilde, false );
-            double[] hNew   = new double[h];
+            gateInto(
+                weights.backward.Wh,
+                x[i],
+                weights.backward.Uh,
+                rh,
+                weights.backward.bh,
+                hTilde,
+                false
+            );
+            double[] hNew = new double[h];
             for(int k = 0; k < h; ++k) hNew[k] = ( 1 - z[k] ) * hNext[k] + z[k] * hTilde[k];
             bZ[i]      = z;
             bR[i]      = r;
@@ -545,7 +563,13 @@ public final class GruClassifier {
      *  reassociation. {@code out} must not alias {@code x} or {@code hPrev}.
      */
     private static void gateInto(
-        double[][] w, double[] x, double[][] u, double[] hPrev, double[] b, double[] out, boolean useSigmoid
+        double[][] w,
+        double[]   x,
+        double[][] u,
+        double[]   hPrev,
+        double[]   b,
+        double[]   out,
+        boolean    useSigmoid
     )
     {
         for(int i = 0; i < out.length; ++i) {

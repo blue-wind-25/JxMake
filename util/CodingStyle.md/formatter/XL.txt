@@ -199,6 +199,33 @@ exec  ~/mynpm/bin/claude "$@"
 ####################################################################################################
 ####################################################################################################
 
+GRU_TRAIN_ARGS ?= --threads=3 --epochs=9 --patience=3 --batch-size=16 --progress-every=1000
+
+[aloysius@devel formatter]$ make gru-train
+GruTrainer: starting -- vocabSize=3500, trainExamples=74280, validationExamples=18570, maxEpochs=9, patience=3, lr=0.0010000, batchSize=16, threads=3, warmupSteps=0, lrMin=0.0000000
+GruTrainer: epoch  1, progress   1000/ 74280 ( 1.3%), avgTrainLoss=0.56434, epochElapsedSeconds=   5.4, epochEtaSeconds= 398.6, totalElapsedSeconds=     5.4
+...
+GruTrainer: epoch  1, progress  74000/ 74280 (99.6%), avgTrainLoss=0.07304, epochElapsedSeconds= 350.8, epochEtaSeconds=   1.3, totalElapsedSeconds=   350.8
+GruTrainer: epoch  1, trainLoss=0.0728747, validationLoss=0.0422321, lr=0.0010000, epochSeconds= 390.6, totalElapsedSeconds=   390.6
+GruTrainer: epoch  2, progress   1000/ 74280 ( 1.3%), avgTrainLoss=0.04525, epochElapsedSeconds=   4.6, epochEtaSeconds= 337.3, totalElapsedSeconds=   395.7
+...
+GruTrainer: epoch  2, progress  74000/ 74280 (99.6%), avgTrainLoss=0.03674, epochElapsedSeconds= 355.8, epochEtaSeconds=   1.3, totalElapsedSeconds=   746.9
+GruTrainer: epoch  2, trainLoss=0.0368411, validationLoss=0.0322115, lr=0.0010000, epochSeconds= 396.1, totalElapsedSeconds=   787.2
+GruTrainer: epoch  3, progress   1000/ 74280 ( 1.3%), avgTrainLoss=0.02288, epochElapsedSeconds=   4.7, epochEtaSeconds= 343.9, totalElapsedSeconds=   792.4
+...
+GruTrainer: epoch  3, progress  74000/ 74280 (99.6%), avgTrainLoss=0.02618, epochElapsedSeconds= 367.3, epochEtaSeconds=   1.4, totalElapsedSeconds=  1155.0
+GruTrainer: epoch  3, trainLoss=0.0262327, validationLoss=0.0335036, lr=0.0010000, epochSeconds= 409.1, totalElapsedSeconds=  1196.8
+GruTrainer: epoch  4, progress   1000/ 74280 ( 1.3%), avgTrainLoss=0.00790, epochElapsedSeconds=   5.7, epochEtaSeconds= 417.4, totalElapsedSeconds=  1202.7
+...
+GruTrainer: epoch  4, progress  74000/ 74280 (99.6%), avgTrainLoss=0.02035, epochElapsedSeconds= 375.0, epochEtaSeconds=   1.4, totalElapsedSeconds=  1572.0
+GruTrainer: epoch  4, trainLoss=0.0203728, validationLoss=0.0330830, lr=0.0010000, epochSeconds= 421.3, totalElapsedSeconds=  1618.3
+GruTrainer: epoch  5, progress   1000/ 74280 ( 1.3%), avgTrainLoss=0.01820, epochElapsedSeconds=   4.8, epochEtaSeconds= 349.3, totalElapsedSeconds=  1623.3
+...
+GruTrainer: epoch  5, trainLoss=0.0175982, validationLoss=0.0422797, lr=0.0010000, epochSeconds= 433.3, totalElapsedSeconds=  2051.8
+GruTrainer: early stopping at epoch 5 (no validation improvement for 3 epochs)
+GruTrainer: wrote trained weights file to 'target/gru/code-formatter-ai-assist-weights.json' (vocabSize=3500, trainExamples=74280, validationExamples=18570, bestValidationLoss=0.0322115)
+GruTrainer: validation confusion matrix (positive=YES): tp=17913, fp=105, tn=512, fn=40, precision=0.99417, recall=0.99777, f1=0.99597
+
 --- Tier 1: high value, tractable next steps ---
 
 10. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
@@ -232,7 +259,7 @@ Use sub-agent. This can be a substantial work.
 
 --- Tier 2: meaningful, narrower value or higher difficulty ---
 
-NONE FOR NOW
+20. Rerun `### Formatter self-formatting (dogfood-and-adopt) process`.
 
 Use sub-agent. This can be a substantial work.
 

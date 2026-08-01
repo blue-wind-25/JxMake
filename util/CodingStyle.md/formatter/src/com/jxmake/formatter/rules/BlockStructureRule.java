@@ -3085,7 +3085,7 @@ public class BlockStructureRule {
         final String[] lines = joinVerbatim(tokens).split("\n", - 1);
               int      i     = 0;
         while(i < lines.length) {
-                  int indentLen = leadingWhitespaceLength( lines[i] );
+            int indentLen = leadingWhitespaceLength( lines[i] );
             if( !lines[i].regionMatches(indentLen, "if(", 0, 3) ) {
                 ++i;
                 continue;

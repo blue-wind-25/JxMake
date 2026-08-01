@@ -87,17 +87,39 @@ public final class GruClassifier {
      */
     public CommentDecision classify(String commentText, int targetWordIndex)
     {
+        double[] probabilities = probabilities(commentText, targetWordIndex);
+        if(probabilities == null) return CommentDecision.ABSTAIN;
+
+        return decide(probabilities, weights.abstainThreshold);
+    }
+
+    /** The trained weights file's own {@code abstainThreshold} -- {@link #classify}'s default. */
+    public double abstainThreshold()
+    {
+        return weights.abstainThreshold;
+    }
+
+    /**
+     * Returns the raw softmax class-probability distribution for a comment's target word, or
+     *  {@code null} if classification cannot proceed at all (untrained weights, or an
+     *  out-of-range target index) -- the same fail-safe conditions {@link #classify} treats as an
+     *  unconditional ABSTAIN before even reaching {@link #decide}. Exposed so eval/tuning tooling
+     *  (e.g. a --threshold sweep) can try multiple {@code abstainThreshold} values against the
+     *  same forward pass without recomputing it or retraining -- {@link #classify} itself still
+     *  only ever uses {@link GruWeights#abstainThreshold}.
+     */
+    public double[] probabilities(String commentText, int targetWordIndex)
+    {
         List<String> tokens = tokenize(commentText);
-        if( !weights.hasTrainedWeights() ) return CommentDecision.ABSTAIN;
+        if( !weights.hasTrainedWeights() ) return null;
         if( tokens.size() > SEQUENCE_CAP ) tokens = tokens.subList(0, SEQUENCE_CAP);
-        if( targetWordIndex < 0 || targetWordIndex >= tokens.size() ) return CommentDecision.ABSTAIN;
+        if( targetWordIndex < 0 || targetWordIndex >= tokens.size() ) return null;
         Vocabulary   vocabulary    = new Vocabulary(
             java.util.Arrays.asList(weights.explicitVocab)
         );
-        ForwardCache cache         = forward(weights, vocabulary, tokens, targetWordIndex);
-        double[]     probabilities = softmax(cache.logits);
+        ForwardCache cache = forward(weights, vocabulary, tokens, targetWordIndex);
 
-        return decide(probabilities, weights.abstainThreshold);
+        return softmax(cache.logits);
     }
 
     /**

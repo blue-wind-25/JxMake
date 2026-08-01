@@ -29,11 +29,29 @@ public final class GruEval {
     {
     }
 
-    private static final String USAGE = "Usage: GruEval <weights-path> <rdd-ext-21-examples-path>";
+    private static final String USAGE =
+        "Usage: GruEval <weights-path> <rdd-ext-21-examples-path> [threshold ...]";
+
+    /**
+     * A single labeled example plus its pre-computed softmax probabilities, cached so a
+     *  --threshold sweep (below) evaluates every candidate threshold against the exact same
+     *  forward-pass outputs instead of recomputing them once per threshold.
+     */
+    private static final class Scored {
+        final String   label;
+        final double[] probabilities; // null => classifier.probabilities() returned null (ABSTAIN
+                                       // unconditionally, e.g. out-of-range target index)
+
+        Scored(String label, double[] probabilities)
+        {
+            this.label         = label;
+            this.probabilities = probabilities;
+        }
+    } // class Scored
 
     public static void main(String[] args) throws IOException
     {
-        if(args.length != 2) {
+        if(args.length < 2) {
             System.err.println(USAGE);
             System.exit(2);
             return;
@@ -43,7 +61,27 @@ public final class GruEval {
         Path          examplesPath = Paths.get( args[1] );
         GruClassifier classifier   = GruClassifier.load(weightsPath);
 
-        int yesCorrect = 0, yesIncorrect = 0, noCorrect = 0, noIncorrect = 0, abstain = 0, total = 0;
+        // args[2..]: optional threshold sweep (see GruClassifier.probabilities/decide) -- if none
+        // given, evaluate at the weights file's own trained abstainThreshold only, matching this
+        // tool's original (pre-sweep) single-line-output behavior exactly.
+        double[] thresholds;
+        if(args.length > 2) {
+            thresholds = new double[args.length - 2];
+            for(int i = 2; i < args.length; ++i) {
+                double t = Double.parseDouble( args[i] );
+                if(t < 0.0 || t > 1.0) {
+                    System.err.println("GruEval: threshold must be within [0.0, 1.0], got " + t);
+                    System.exit(2);
+                    return;
+                }
+                thresholds[i - 2] = t;
+            } // for
+        } // if
+        else {
+            thresholds = new double[] { classifier.abstainThreshold() };
+        }
+
+        List<Scored> scored = new java.util.ArrayList<>();
         for( String line : Files.readAllLines(examplesPath, StandardCharsets.UTF_8) ) {
             if( line.isEmpty() ) continue;
             String[] parts = line.split("\t", 4);
@@ -51,15 +89,27 @@ public final class GruEval {
             String label       = parts[1];
             int    targetIndex = Integer.parseInt( parts[2] );
             String text        = unescape( parts[3] );
-            ++total;
+            scored.add( new Scored( label, classifier.probabilities(text, targetIndex) ) );
+        } // for
 
-            CommentDecision verdict = classifier.classify(text, targetIndex);
+        for(double threshold : thresholds) {
+            evaluateAt(scored, threshold);
+        }
+    }
+
+    private static void evaluateAt(List<Scored> scored, double threshold)
+    {
+        int yesCorrect = 0, yesIncorrect = 0, noCorrect = 0, noIncorrect = 0, abstain = 0;
+        int total = scored.size();
+        for(Scored s : scored) {
+            CommentDecision verdict = s.probabilities == null
+                    ? CommentDecision.ABSTAIN : GruClassifier.decide(s.probabilities, threshold);
             if(verdict == CommentDecision.ABSTAIN) {
                 ++abstain;
                 continue;
             }
             boolean predictedYes = verdict == CommentDecision.YES;
-            boolean actualYes    = label.equals("YES");
+            boolean actualYes    = s.label.equals("YES");
             if(actualYes) {
                 if(predictedYes) yesCorrect++;
                 else             yesIncorrect++;
@@ -73,7 +123,8 @@ public final class GruEval {
         int decided = total - abstain;
         int correct = yesCorrect + noCorrect;
         double precision = decided == 0 ? 0.0 : (double) correct / decided;
-        System.out.println("total=" + total + " abstain=" + abstain + " decided=" + decided
+        System.out.println("threshold=" + threshold
+                + " total=" + total + " abstain=" + abstain + " decided=" + decided
                 + " correct=" + correct + " precision=" + precision
                 + " yesCorrect=" + yesCorrect + " yesIncorrect=" + yesIncorrect
                 + " noCorrect=" + noCorrect + " noIncorrect=" + noIncorrect);

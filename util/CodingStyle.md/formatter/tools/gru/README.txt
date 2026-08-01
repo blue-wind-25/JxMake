@@ -230,6 +230,35 @@ GruTrainer.java
     summary line (see below) so the schedule's actual shape is directly
     observable during a run, not just trusted from the formula.
 
+    --hand-labeled=<path> + --hand-labeled-repeat=N (both opt-in, default
+    disabled -- N defaults to 0): oversamples a small hand-labeled set
+    against the bulk auto-labeled training corpus. Per STATE_AI.md's
+    2026-08-02 GRU-improvement session: the hand-labeled
+    classifier_weights_examples rows (already folded into the main
+    labeled-examples file via `make gru-acquire-corpus`) are a ~0.3%
+    minority there, so online SGD/Adam sees each one once per epoch,
+    easily swamped by the majority-YES auto-labeled gradient. This adds N
+    *extra* copies of every example in --hand-labeled's file into the
+    training split only -- never validation, so held-out validation-loss
+    numbers stay comparable to a non-oversampled run. --hand-labeled's file
+    must be in the same RDD_EXT_20/21 schema as the main labeled-examples
+    file (e.g. the direct output of convert_classifier_weights_examples.py
+    against tools/classifier_weights/examples_*.md). Passing
+    --hand-labeled-repeat=N > 0 without --hand-labeled is a hard error;
+    passing --hand-labeled without a repeat count > 0 is a no-op (prints a
+    warning, does not fail) -- both defaults mean this feature is fully
+    inert unless both flags are set together:
+
+        java -cp target/classes:<gru-tools-classes> GruTrainer \
+            tools/gru/sample_default.txt <weights-file> \
+            --hand-labeled=/tmp/gru_hardcase_examples.txt --hand-labeled-repeat=5
+
+    Not a resumable hyperparameter (unlike --batch-size/--warmup-steps/
+    --lr-min above) -- a --resume run re-reads whatever --hand-labeled/
+    --hand-labeled-repeat the current CLI invocation specifies, not a
+    checkpoint-stored value; keep them consistent across an interrupted
+    run's resume invocations yourself if you rely on this flag.
+
     Checkpointing / --resume=<path> (2026-07-31, batch-size persistence
     added 2026-08-01, warmup-steps/lr-min persistence added 2026-08-01):
     every epoch, GruTrainer writes a binary checkpoint

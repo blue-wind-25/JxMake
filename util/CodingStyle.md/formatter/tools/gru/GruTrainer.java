@@ -329,6 +329,71 @@ public final class GruTrainer {
             return;
         } // if
 
+        // --hand-labeled=<path> + --hand-labeled-repeat=N (both opt-in, default disabled):
+        // oversamples a small set of hand-labeled hard cases against the bulk auto-labeled corpus.
+        // Per STATE_AI.md's 2026-08-02 GRU-improvement session -- the hand-labeled
+        // classifier_weights_examples rows are already folded into the main labeled-examples file
+        // (sample_default.txt, via `make gru-acquire-corpus`) but are a ~0.3% minority there, so
+        // online SGD/Adam sees each one once per epoch, easily swamped by the majority-YES
+        // auto-labeled gradient. This adds N *extra* copies of every example in --hand-labeled's file
+        // into the training split only (never validation, so the held-out validation-loss numbers
+        // stay comparable to a non-oversampled run) -- the file is expected to be in the same
+        // RDD_EXT_20/21 schema as the main labeled-examples file (e.g. the output of
+        // convert_classifier_weights_examples.py), typically the same rows already present once in
+        // the main file. Default 0 means fully disabled (identical behavior to before this flag
+        // existed, even if --hand-labeled is passed without a repeat count).
+        String handLabeledPath = hyperparameters.get("hand-labeled");
+        int handLabeledRepeat = Integer.parseInt(
+            hyperparameters.getOrDefault("hand-labeled-repeat", "0")
+        );
+        if(handLabeledRepeat < 0) {
+            System.err.println(
+                "GruTrainer: --hand-labeled-repeat must be >= 0, got " + handLabeledRepeat
+            );
+            System.exit(2);
+            return;
+        }
+        if(handLabeledPath != null && handLabeledRepeat == 0) {
+            System.err.println(
+                "GruTrainer: --hand-labeled given without --hand-labeled-repeat > 0 -- this is a"
+                    + " no-op; did you mean to also pass --hand-labeled-repeat=N?"
+            );
+        }
+        List<Example> handLabeledExamples = Collections.emptyList();
+        if(handLabeledRepeat > 0) {
+            if(handLabeledPath == null) {
+                System.err.println(
+                    "GruTrainer: --hand-labeled-repeat > 0 requires --hand-labeled=<path>"
+                );
+                System.exit(2);
+                return;
+            }
+            File handLabeledFile = new File(handLabeledPath);
+            if( !handLabeledFile.isFile() || !handLabeledFile.canRead() ) {
+                System.err.println(
+                    "GruTrainer: --hand-labeled file not readable: " + handLabeledPath
+                );
+                System.exit(2);
+                return;
+            }
+            try {
+                handLabeledExamples = readExamples(handLabeledFile);
+            }
+            catch(IOException e) {
+                System.err.println( "GruTrainer: could not read --hand-labeled file "
+                        + handLabeledPath + ": " + e.getMessage() );
+                System.exit(2);
+                return;
+            }
+            if( handLabeledExamples.isEmpty() ) {
+                System.err.println(
+                    "GruTrainer: --hand-labeled file " + handLabeledPath + " has no examples"
+                );
+                System.exit(2);
+                return;
+            } // if
+        } // if
+
         List<String> explicitVocab;
         if(resumed != null) {
             // Resuming: the vocab is whatever embedding-row layout the checkpoint's own weights were
@@ -380,9 +445,25 @@ public final class GruTrainer {
         // doesn't bit-reproduce a non-interrupted run.
         Collections.shuffle(examples, random);
         int           validationCount = Math.max( 1, examples.size() / 5 );
-        List<Example> validation      = examples.subList(0, validationCount);
-        List<Example> train           = examples.subList( validationCount, examples.size() );
-        if( train.isEmpty() ) train = examples;
+        List<Example> validation      = new ArrayList<>( examples.subList(0, validationCount) );
+        List<Example> train           = new ArrayList<>(
+            examples.subList( validationCount, examples.size() )
+        );
+        if( train.isEmpty() ) train = new ArrayList<>(examples);
+
+        // Hand-labeled oversampling (see the --hand-labeled/--hand-labeled-repeat javadoc above):
+        // added to `train` only, after the split, so `validation`'s held-out set is unaffected and
+        // its loss stays comparable across oversampled vs. non-oversampled runs.
+        if( !handLabeledExamples.isEmpty() ) {
+            for(int r = 0; r < handLabeledRepeat; ++r) {
+                train.addAll(handLabeledExamples);
+            }
+            System.out.println( String.format(
+                    "GruTrainer: oversampled %d hand-labeled example(s) x%d repeat(s) = %d extra"
+                            + " training row(s) from '%s' (trainExamples now %d)",
+                    handLabeledExamples.size(), handLabeledRepeat,
+                    handLabeledExamples.size() * handLabeledRepeat, handLabeledPath, train.size() ) );
+        } // if
 
         // Decay horizon (total scheduled steps): stepsPerEpoch * maxEpochs, reusing --epochs rather
         // than a separate duration flag (see the --warmup-steps javadoc above). Computed here since

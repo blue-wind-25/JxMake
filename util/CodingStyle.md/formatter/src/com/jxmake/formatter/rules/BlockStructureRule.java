@@ -151,7 +151,7 @@ public class BlockStructureRule {
         while(i < n) {
             final Token t = tokens.get(i);
             if(lang.isKotlin) {
-                if( isPunct(t, "(") || isPunct(t, "[") ) kotlinParenDepth++;
+                     if( isPunct(t, "(") || isPunct(t, "[") ) kotlinParenDepth++;
                 else if( isPunct(t, ")") || isPunct(t, "]") ) kotlinParenDepth--;
             }
             // Kotlin-only: unlike C/C++/Java, `if` doubles as a value expression (`val x = if
@@ -351,7 +351,9 @@ public class BlockStructureRule {
                 final boolean isWhenArrow = next < n&& isOp( tokens.get(next), "->" );
                 if( !isElseIf && !isBraced && !isWhenArrow && !anyFrozen(tokens, i, i + 1) ) {
                     final int[]  bodyEnd   = new int[1];
-                    final String collapsed = collapseBracelessBody(tokens, i, i + 1, "else", bodyEnd);
+                    final String collapsed = collapseBracelessBody(
+                        tokens, i, i + 1, "else", bodyEnd
+                    );
                     if(collapsed != null) {
                         out.append(collapsed);
                         i = bodyEnd[0];
@@ -380,7 +382,7 @@ public class BlockStructureRule {
                         int j     = next + 1;
                         while(j < n && depth > 0) {
                             final Token tk = tokens.get(j);
-                            if( isPunct(tk, "{") )      depth++;
+                                 if( isPunct(tk, "{") ) depth++;
                             else if( isPunct(tk, "}") ) depth--;
                             ++j;
                         }
@@ -401,7 +403,7 @@ public class BlockStructureRule {
                                     i = j;
                                     continue;
                                 } // if
-                            }
+                            } // if
                         } // if
                     } // if
                 } // if
@@ -446,7 +448,7 @@ public class BlockStructureRule {
         ++i;
         while(i < n && depth > 0) {
             final Token tk = tokens.get(i);
-            if( isPunct(tk, "(") || isPunct(tk, "[") ) depth++;
+                 if( isPunct(tk, "(") || isPunct(tk, "[") ) depth++;
             else if( isPunct(tk, ")") || isPunct(tk, "]") ) depth--;
             ++i;
         }
@@ -464,7 +466,7 @@ public class BlockStructureRule {
         int j      = afterParen + 1;
         while(j < n && bdepth > 0) {
             final Token tk = tokens.get(j);
-            if( isPunct(tk, "{") )      bdepth++;
+                 if( isPunct(tk, "{") ) bdepth++;
             else if( isPunct(tk, "}") ) bdepth--;
             ++j;
         }
@@ -537,7 +539,7 @@ public class BlockStructureRule {
         // vuejs/core real-code testing, `parser.ts`'s `onCloseTag`'s `inlineTemplateProp.value =
         // { ... }` and `compiler-sfc/resolveType.ts`'s analogous shape).
         if( containsBrace(contents) ) return null;
-        final String prefix = tightenParenPrefix(
+        final String prefix    = tightenParenPrefix(
             tokens.get(kwIndex).text,
             renderInline( tokens.subList(kwIndex, block.closeParenIndex + 1) )
         );
@@ -687,21 +689,21 @@ public class BlockStructureRule {
             tokens.get(next).text
         ) ) {
             boolean hasNewline = false;
-            for( int g = from; g < next; ++g ) {
+            for(int g = from; g < next; ++g) {
                 if( tokens.get(g).type == TokenType.NEWLINE ) {
                     hasNewline = true;
                     break;
                 }
             }
             if(hasNewline) {
-                for( int g = from; g < next; ++g ) out.append( tokens.get(g).text );
+                for(int g = from; g < next; ++g) out.append( tokens.get(g).text );
             }
             else {
                 out.append('\n').append(indent);
             }
 
             return next;
-        }
+        } // if
 
         return from;
     }
@@ -808,7 +810,7 @@ public class BlockStructureRule {
         for(final Token t : contents) {
             if(t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) return false;
             if(t.type == TokenType.PUNCT) {
-                if( "(".equals(t.text) || "[".equals(t.text) || "{".equals(t.text) ) depth++;
+                     if( "(".equals(t.text) || "[".equals(t.text) || "{".equals(t.text) ) depth++;
                 else if( ")".equals(t.text) || "]".equals(t.text) || "}".equals(t.text) ) depth--;
             }
             if( ( t.type == TokenType.NEWLINE || isPunct(t, ";") ) && depth == 0 ) {
@@ -835,7 +837,7 @@ public class BlockStructureRule {
     {
         int braceDepth = 0;
         for(final Token t : contents) {
-            if( t.type == TokenType.PUNCT && "{".equals(t.text) )      braceDepth++;
+                 if( t.type == TokenType.PUNCT && "{".equals(t.text) ) braceDepth++;
             else if( t.type == TokenType.PUNCT && "}".equals(t.text) ) braceDepth--;
             else if(t.type == TokenType.NEWLINE && braceDepth > 0)     return true;
         }
@@ -916,7 +918,9 @@ public class BlockStructureRule {
             renderInline( tokens.subList(kwIndex, block.closeParenIndex + 1) )
         );
 
-        return collapseBracelessBody(tokens, kwIndex, block.closeParenIndex + 1, prefix, outBodyEnd);
+        return collapseBracelessBody(
+            tokens, kwIndex, block.closeParenIndex + 1, prefix, outBodyEnd
+        );
     }
 
     /**
@@ -1023,9 +1027,9 @@ public class BlockStructureRule {
         // braced path, which never has this loss since it lets the outer loop re-append that
         // untouched whitespace token verbatim rather than folding it into a render). Preserve it by
         // re-appending a single space whenever the source actually had one there.
-        final boolean restoreTrailingSpace = bodyEnd < n && isPunct(
+        final boolean restoreTrailingSpace = bodyEnd < n&& isPunct(
             tokens.get(bodyEnd), "}"
-        ) && bodyEnd > bodyStart && ( tokens.get(
+        )&& bodyEnd > bodyStart&& ( tokens.get(
             bodyEnd - 1
         ).type == TokenType.WHITESPACE || tokens.get(
             bodyEnd - 1
@@ -1162,7 +1166,7 @@ public class BlockStructureRule {
                     int j     = next + 1;
                     while(j < n && depth > 0) {
                         final Token tk = tokens.get(j);
-                        if( isPunct(tk, "{") )      depth++;
+                             if( isPunct(tk, "{") ) depth++;
                         else if( isPunct(tk, "}") ) depth--;
                         ++j;
                     }
@@ -1232,7 +1236,7 @@ public class BlockStructureRule {
         int k     = closeBraceIdx - 1;
         while(k >= 0 && depth > 0) {
             final Token tk = tokens.get(k);
-            if( isPunct(tk, "}") )      depth++;
+                 if( isPunct(tk, "}") ) depth++;
             else if( isPunct(tk, "{") ) depth--;
             --k;
         }
@@ -1244,7 +1248,7 @@ public class BlockStructureRule {
         int m      = beforeOpen - 1;
         while(m >= 0 && pdepth > 0) {
             final Token tk = tokens.get(m);
-            if( isPunct(tk, ")") ) pdepth++;
+                 if( isPunct(tk, ")") ) pdepth++;
             else if( isPunct(tk, "(") ) pdepth--;
             --m;
         }
@@ -1527,7 +1531,7 @@ public class BlockStructureRule {
         int j     = closeBraceIdx - 1;
         while(j >= 0 && depth > 0) {
             final Token tk = tokens.get(j);
-            if( isPunct(tk, "}") )      depth++;
+                 if( isPunct(tk, "}") ) depth++;
             else if( isPunct(tk, "{") ) depth--;
             --j;
         }
@@ -1596,7 +1600,7 @@ public class BlockStructureRule {
         int i     = closeParenIdx - 1;
         while(i >= 0 && depth > 0) {
             final Token tk = tokens.get(i);
-            if( isPunct(tk, ")") || isPunct(tk, "]") ) depth++;
+                 if( isPunct(tk, ")") || isPunct(tk, "]") ) depth++;
             else if( isPunct(tk, "(") || isPunct(tk, "[") ) depth--;
             --i;
         }
@@ -1778,7 +1782,7 @@ public class BlockStructureRule {
         final Deque<Integer>        braceStack = new ArrayDeque<>();
         for(int i = 0; i < n; ++i) {
             final Token t = tokens.get(i);
-            if( isPunct(t, "{") ) braceStack.push(i);
+                 if( isPunct(t, "{") ) braceStack.push(i);
             else if( isPunct(
                 t, "}"
             ) && !braceStack.isEmpty() ) matchClose.put(
@@ -1917,20 +1921,20 @@ public class BlockStructureRule {
             if(closeIdx < 0 || closeIdx > to) continue;
             final int argsFrom = nextSignificantIndexLocal(tokens, parenIdx);
             if(argsFrom >= 0 && argsFrom < closeIdx) return true;
-        }
+        } // for
 
         return false;
     }
 
     /**
      * Index of the next non-whitespace/non-newline token after {@code from}, or {@code -1} if
-     *  none -- local copy, see {@link #hasBreakableCall}'s own duplication note.
+     *  none -- local copy, see {@link #hasBreakableCall}'s own duplication note
      */
     private int nextSignificantIndexLocal(final List<Token> tokens, final int from)
     {
         for( int i = from + 1; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if( t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE ) return i;
+            if(t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) return i;
         }
 
         return -1;
@@ -1938,19 +1942,19 @@ public class BlockStructureRule {
 
     /**
      * Index of the `(` at {@code openIdx}'s matching `)`, or {@code -1} if unmatched within
-     *  {@code tokens} -- local copy, see {@link #hasBreakableCall}'s own duplication note.
+     *  {@code tokens} -- local copy, see {@link #hasBreakableCall}'s own duplication note
      */
     private int matchParenForwardLocal(final List<Token> tokens, final int openIdx)
     {
         int depth = 0;
         for( int i = openIdx; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if( isPunct(t, "(") ) ++depth;
+                 if( isPunct(t, "(") ) ++depth;
             else if( isPunct(t, ")") ) {
                 --depth;
                 if(depth == 0) return i;
             }
-        }
+        } // for
 
         return -1;
     }
@@ -2004,8 +2008,10 @@ public class BlockStructureRule {
     )
     {
         if( !(lang.isJs || lang.isTs) ) return false;
-        final int width = expandedIndentWidth( lineIndent(tokens, indentAnchorIdx) ) + candidate.length();
-        if( width <= lineLengthLimit ) return false;
+        final int width = expandedIndentWidth(
+            lineIndent(tokens, indentAnchorIdx)
+        ) + candidate.length();
+        if(width <= lineLengthLimit) return false;
 
         return !hasBreakableCall(tokens, scanFrom, scanTo);
     }
@@ -2700,8 +2706,8 @@ public class BlockStructureRule {
         int i     = closeIdx - 1;
         while(i >= 0 && depth > 0) {
             final TokenType ty = tokens.get(i).type;
-            if(ty == TokenType.ANGLE_BRACKET_CLOSE)     depth++;
-            else if(ty == TokenType.ANGLE_BRACKET_OPEN) depth--;
+                 if(ty == TokenType.ANGLE_BRACKET_CLOSE) depth++;
+            else if(ty == TokenType.ANGLE_BRACKET_OPEN)  depth--;
             --i;
         }
 
@@ -2755,8 +2761,8 @@ public class BlockStructureRule {
                     --i;
                     continue;
                 }
-                if(t.type == TokenType.ANGLE_BRACKET_CLOSE)     depth++;
-                else if(t.type == TokenType.ANGLE_BRACKET_OPEN) depth--;
+                     if(t.type == TokenType.ANGLE_BRACKET_CLOSE) depth++;
+                else if(t.type == TokenType.ANGLE_BRACKET_OPEN)  depth--;
                 --i;
             } // while
             i = prevSignificantIndex(tokens, i);
@@ -2838,7 +2844,7 @@ public class BlockStructureRule {
         final List<Integer> semiIdx  = new ArrayList<>();
         for( int k = 0; k < body.size(); ++k ) {
             final Token t = body.get(k);
-            if( isPunct(t, "(") || isPunct(t, "[") ) depth++;
+                 if( isPunct(t, "(") || isPunct(t, "[") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") ) depth--;
             else if( depth == 0 && isPunct(t, ";") ) semiIdx.add(k);
             else if( depth == 0 && colonIdx < 0 && isOp(t, ":") ) colonIdx = k;
@@ -3093,10 +3099,10 @@ public class BlockStructureRule {
             final List<Integer> chain = new ArrayList<>();
             chain.add(i);
             int j = i + 1;
-            while( j < lines.length ) {
-                final int  jIndent   = leadingWhitespaceLength( lines[j] );
-                      int  matchAt   = jIndent;
-                if( jIndent != indentLen ) {
+            while(j < lines.length) {
+                final int jIndent = leadingWhitespaceLength( lines[j] );
+                      int matchAt = jIndent;
+                if(jIndent != indentLen) {
                     // The `if` line above may itself already be left-padded (this same method,
                     // a previous round) to column-align its keyword with `else if` -- its own
                     // leading whitespace then legitimately runs wider than its sibling `else
@@ -3108,17 +3114,14 @@ public class BlockStructureRule {
                     // chain outright -- otherwise every subsequent reformat loses the chain
                     // (and, with it, both alignments) the moment the first round's left-padding
                     // makes indentLen stop matching verbatim.
-                    if( chain.size() != 1 || jIndent >= indentLen
-                            || indentLen - jIndent != "else if(".length() - "if(".length() ) {
-                        break;
-                    }
+                    if( chain.size() != 1 || jIndent >= indentLen || indentLen - jIndent != "else if(".length() - "if(".length() ) break;
                     // Strip the stale left-padding back off `lines[i]` so every later step
                     // (kwLen/leftPad computation, prefixEnd measurement) operates on a fresh,
                     // un-padded baseline exactly like a first-round chain -- re-deriving the pad
                     // from scratch below, rather than re-detecting "already correctly padded" as
                     // a special case, is both simpler and immune to the pad amount ever silently
-                    // drifting out of sync with the current chain's own widths.
-                    lines[i] = lines[i].substring(0, jIndent) + lines[i].substring(indentLen);
+                    // drifting out of sync with the current chain's own widths
+                    lines[i]  = lines[i].substring(0, jIndent) + lines[i].substring(indentLen);
                     indentLen = jIndent;
                     matchAt   = jIndent;
                 } // if
@@ -3146,8 +3149,8 @@ public class BlockStructureRule {
             // condition of its own to align against. Derived generically (never hardcoded)
             // so it stays correct for a plain two-branch if/else chain (no `else if` at all --
             // both widths already equal, leftPad is 0, no churn) as well as any wider chain.
-            final int[] kwLen  = new int[ chain.size() ];
-            int         maxKwLen = - 1;
+            final int[] kwLen    = new int[ chain.size() ];
+                  int   maxKwLen = - 1;
             for( int k = 0; k < chain.size(); ++k ) {
                 final String  line       = lines[ chain.get(k) ];
                 final boolean isElseIf   = line.regionMatches(indentLen, "else if(", 0, 8);
@@ -3155,28 +3158,30 @@ public class BlockStructureRule {
                     indentLen, "else ", 0, 5
                 )&& ! isElseIf;
                 if(isBareElse) {
-                    kwLen[k] = - 1; // sentinel: bare else never contributes/receives left-padding
+                    kwLen[k] = -1; // Sentinel: bare else never contributes/receives left-padding
                     continue;
                 }
                 kwLen[k] = isElseIf ? "else if".length() : "if".length();
-                maxKwLen = Math.max(maxKwLen, kwLen[k]);
-            } // for k
+                maxKwLen = Math.max( maxKwLen, kwLen[k] );
+            } // for
             final int[] leftPad = new int[ chain.size() ];
             for( int k = 0; k < chain.size(); ++k ) {
-                if( kwLen[k] < 0 ) continue; // bare else: leftPad stays 0
+                if( kwLen[k] < 0 ) continue; // Bare else: leftPad stays 0
                 final int pad = maxKwLen - kwLen[k];
-                if( pad <= 0 ) continue;
+                if(pad <= 0) continue;
                 final int lineIdx = chain.get(k);
                 // Same lineLengthLimit guard as the body-column padding below -- left-padding
                 // also makes the line longer, so a branch whose line would overflow the limit
-                // once padded is left at its own natural (unpadded) keyword column instead.
+                // once padded is left at its own natural (unpadded) keyword column instead
                 if( lines[lineIdx].length() + pad > lineLengthLimit ) continue;
                 leftPad[k] = pad;
-                final StringBuilder sb = new StringBuilder( lines[lineIdx].substring(0, indentLen) );
+                final StringBuilder sb = new StringBuilder(
+                    lines[lineIdx].substring(0, indentLen)
+                );
                 for(int s = 0; s < pad; ++s) sb.append(' ');
                 sb.append( lines[lineIdx].substring(indentLen) );
                 lines[lineIdx] = sb.toString();
-            } // for k
+            } // for
 
             final int[]   prefixEnd = new int[ chain.size() ];
                   int     target    = - 1;

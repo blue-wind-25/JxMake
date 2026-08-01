@@ -33,7 +33,7 @@
 # check in.
 #
 # In addition to the per-source unlabeled comment extraction above, this script also converts
-# the hand-labeled tools/classifier_weights/examples_{c,cpp,java,kotlin}.md tables (via
+# the hand-labeled tools/classifier_weights/examples_{c,cpp,java,kotlin,js,ts}.md tables (via
 # convert_classifier_weights_examples.py) into an already-labeled RDD_EXT_21-schema file,
 # $OUT_DIR/classifier_weights_examples.tsv. Unlike comments_*.txt, this is NOT unlabeled input
 # for GenerateSampleDefault's auto-labeling -- these rows already carry a human-reviewed YES/NO

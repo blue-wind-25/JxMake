@@ -61,3 +61,46 @@ members that still had zero example rows after rows 16-23 landed: `break`, `do`,
 | 29 | `else branch here only runs when the cache lookup misses` | no | no | no | no | NO | "else" naming the actual conditional branch being described, code reference despite zero mechanical feature. |
 | 30 | `in short, this workaround should be temporary` | no | no | no | no | YES | "in" as an ordinary English preposition ("in short"), prose. |
 | 31 | `in operator here checks membership without allocating a new list` | no | no | no | no | NO | "in" naming the actual `in` operator being described, code reference despite zero mechanical feature. |
+
+Rows 32-67 added 2026-08-02 (GRU misclassification-driven corpus growth, same session as
+`examples_c.md`'s rows 38-76 — see that file's note and `/tmp/gru_misclassified.txt`). Rows 32-55
+add paraphrased variants of the keywords the GRU model got wrong on this exact zero-feature NO
+shape (`is`, `this`, `var`, `when`, `object`, `class`, `interface`, `as`, `fun`, `break`, `else`,
+`in`); rows 56-67 cover `KEYWORDS_KOTLIN` members that still had zero example rows in this file.
+
+| 32 | `is check here narrows the sealed type before the branch below runs` | no | no | no | no | NO | "is" naming the actual type-check keyword being described, code reference despite zero mechanical feature. |
+| 33 | `is here smart-casts the variable for the rest of this block` | no | no | no | no | NO | "is" naming the actual operator being described, not the English verb. |
+| 34 | `this reference here is captured by the closure passed to launch` | no | no | no | no | NO | "this" referring to the language's actual `this` reference, code reference despite zero mechanical feature. |
+| 35 | `this receiver here refers to the outer class, not the lambda` | no | no | no | no | NO | "this" naming the actual receiver being described, not the English demonstrative. |
+| 36 | `var here is only needed because the loop counter is reassigned` | no | no | no | no | NO | "var" naming the actual declaration keyword being described, code reference despite zero mechanical feature. |
+| 37 | `var property here triggers the custom setter on every assignment` | no | no | no | no | NO | "var" naming the actual keyword being described, not an English noun. |
+| 38 | `when here was rewritten as an expression to drop the fallthrough bug` | no | no | no | no | NO | "when" naming the actual construct being described, code reference despite zero mechanical feature. |
+| 39 | `when statement here has no else arm, which is intentional` | no | no | no | no | NO | "when" naming the actual construct being described, not the English conjunction. |
+| 40 | `object here is lazily initialized on first access, not eagerly` | no | no | no | no | NO | "object" naming the actual singleton declaration being described, code reference despite zero mechanical feature. |
+| 41 | `object expression here creates a one-off anonymous implementation` | no | no | no | no | NO | "object" naming the actual keyword being described, not an English noun. |
+| 42 | `class here intentionally has no public constructor` | no | no | no | no | NO | "class" naming the actual type keyword being described, code reference despite zero mechanical feature. |
+| 43 | `class here is open so a test double can extend it` | no | no | no | no | NO | "class" naming the actual declaration keyword being described, not an English noun. |
+| 44 | `interface here declares only the contract, no default implementation` | no | no | no | no | NO | "interface" naming the actual declaration keyword being described, code reference despite zero mechanical feature. |
+| 45 | `interface here is implemented by three different adapters` | no | no | no | no | NO | "interface" naming the actual declaration keyword being described, not an English noun. |
+| 46 | `as here fails fast instead of silently returning null on mismatch` | no | no | no | no | NO | "as" naming the actual cast keyword being described, code reference despite zero mechanical feature. |
+| 47 | `as cast here was changed to the safe variant after a crash report` | no | no | no | no | NO | "as" naming the actual keyword being contrasted, not the English conjunction. |
+| 48 | `fun here is marked inline to avoid the lambda allocation overhead` | no | no | no | no | NO | "fun" naming the actual function-declaration keyword being described, code reference despite zero mechanical feature. |
+| 49 | `fun signature here changed to accept a nullable parameter` | no | no | no | no | NO | "fun" naming the actual keyword being described, not the English noun. |
+| 50 | `break here only exits the enclosing for loop, not the outer when` | no | no | no | no | NO | "break" naming the actual break statement being described, code reference despite zero mechanical feature. |
+| 51 | `break here was labeled to escape the nested loop directly` | no | no | no | no | NO | "break" naming the actual keyword being described, not the English idiom. |
+| 52 | `else here only runs when none of the earlier when branches matched` | no | no | no | no | NO | "else" naming the actual conditional branch being described, code reference despite zero mechanical feature. |
+| 53 | `else clause here was added later to handle the timeout case` | no | no | no | no | NO | "else" naming the actual branch keyword being described, not the English conjunction. |
+| 54 | `in here iterates the range without ever allocating a list` | no | no | no | no | NO | "in" naming the actual operator being described, code reference despite zero mechanical feature. |
+| 55 | `in check here is evaluated once before entering the loop body` | no | no | no | no | NO | "in" naming the actual `in` operator being described, not the English preposition. |
+| 56 | `continue here skips straight to the next iteration's condition check` | no | no | no | no | NO | "continue" naming the actual loop-control keyword being described, code reference despite zero mechanical feature. |
+| 57 | `false here is the safe default before the first health check completes` | no | no | no | no | NO | "false" naming the actual literal being described, not an English adjective. |
+| 58 | `for here iterates the map's entries directly to avoid boxing keys twice` | no | no | no | no | NO | "for" naming the actual loop construct being described, code reference despite zero mechanical feature. |
+| 59 | `null here is the sentinel returned when the lookup finds nothing` | no | no | no | no | NO | "null" naming the actual literal being described, not an English adjective. |
+| 60 | `package here must match this file's directory exactly` | no | no | no | no | NO | "package" naming the actual declaration keyword being described, code reference despite zero mechanical feature. |
+| 61 | `super here calls the base class's constructor before this one runs` | no | no | no | no | NO | "super" naming the actual keyword being described, code reference despite zero mechanical feature. |
+| 62 | `throw here only fires once the retry budget is exhausted` | no | no | no | no | NO | "throw" naming the actual keyword being described, code reference despite zero mechanical feature. |
+| 63 | `true here is the default until the feature flag is flipped off` | no | no | no | no | NO | "true" naming the actual literal being described, not an English adjective. |
+| 64 | `try here wraps only the risky call, not the whole function body` | no | no | no | no | NO | "try" naming the actual block keyword being described, code reference despite zero mechanical feature. |
+| 65 | `typealias here shortens the long generic type used throughout this file` | no | no | no | no | NO | "typealias" naming the actual declaration keyword being described, code reference despite zero mechanical feature. |
+| 66 | `typeof here is only valid inside a reified generic function` | no | no | no | no | NO | "typeof" naming the actual keyword being described, code reference despite zero mechanical feature. |
+| 67 | `val here is preferred over var whenever the reference never changes` | no | no | no | no | NO | "val" naming the actual immutable-declaration keyword being described, code reference despite zero mechanical feature. |

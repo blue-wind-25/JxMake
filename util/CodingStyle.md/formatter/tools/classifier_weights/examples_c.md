@@ -72,3 +72,50 @@ members that still had zero example rows after rows 22-29 landed: `if`, `long`, 
 | 35 | `else branch here only runs when the cache misses` | no | no | no | NO | "else" naming the actual conditional branch being described, code reference despite zero mechanical feature. |
 | 36 | `switch to the new API once the migration lands` | no | no | no | YES | "switch" as an ordinary English verb ("switch to"), prose. |
 | 37 | `switch statement here has no default case on purpose` | no | no | no | NO | "switch" naming the actual construct being described, code reference despite zero mechanical feature. |
+
+Rows 38-76 added 2026-08-02 (GRU misclassification-driven corpus growth: the retrained GRU model
+scored 65.2% precision on this 221-row hand-labeled set with all 77 errors being false positives
+on exactly this zero-mechanical-feature NO shape — see `/tmp/gru_misclassified.txt`). Rows 38-57
+add paraphrased variants of the keywords the model got wrong (`short`, `void`, `static`, `while`,
+`do`, `default`, `struct`, `case`, `for`, `else`); rows 58-76 cover `KEYWORDS_C` members that still
+had zero example rows in this file after rows 22-37.
+
+| 38 | `short here holds the packet length field on the wire` | no | no | no | NO | "short" naming the actual integer type keyword being used, code reference despite zero mechanical feature. |
+| 39 | `short saves memory here compared to a full int for this counter` | no | no | no | NO | "short" naming the actual type keyword chosen for this field, not an English adjective. |
+| 40 | `void return type here means the caller cannot get a result back` | no | no | no | NO | "void" naming the actual return-type keyword being described, code reference despite zero mechanical feature. |
+| 41 | `void pointer here is cast to the real type before use` | no | no | no | NO | "void" naming the actual `void *` type being described, not the English adjective sense. |
+| 42 | `static linkage here keeps this symbol out of the exported table` | no | no | no | NO | "static" naming the actual linkage specifier being described, code reference despite zero mechanical feature. |
+| 43 | `static storage duration means this variable keeps its value between calls` | no | no | no | NO | "static" naming the actual storage-duration keyword being described, not an English adjective. |
+| 44 | `while condition here is re-checked before every iteration` | no | no | no | NO | "while" naming the actual loop condition being described, code reference despite zero mechanical feature. |
+| 45 | `while here was chosen over recursion to avoid stack growth` | no | no | no | NO | "while" naming the actual loop construct being contrasted with recursion, not the English conjunction. |
+| 46 | `do block here always runs once even if the condition starts false` | no | no | no | NO | "do" naming the actual `do`/`while` construct being described, code reference despite zero mechanical feature. |
+| 47 | `do keyword here pairs with the while at the bottom of the loop` | no | no | no | NO | "do" naming the actual keyword being explained, not the English auxiliary verb. |
+| 48 | `default here is only reached when none of the case labels match` | no | no | no | NO | "default" naming the actual switch label being described, code reference despite zero mechanical feature. |
+| 49 | `default branch here logs an error before returning` | no | no | no | NO | "default" naming the actual switch branch being described, not the English adjective. |
+| 50 | `struct here is packed to avoid padding between the fields` | no | no | no | NO | "struct" naming the actual type being described, code reference despite zero mechanical feature. |
+| 51 | `struct definition here mirrors the on-disk record layout` | no | no | no | NO | "struct" naming the actual construct being described, not an English noun. |
+| 52 | `case here intentionally omits a break to fall through to the next` | no | no | no | NO | "case" naming the actual switch label being described, code reference despite zero mechanical feature. |
+| 53 | `case block here only runs for the error path` | no | no | no | NO | "case" naming the actual switch case being described, not the English noun. |
+| 54 | `for here iterates backwards to simplify the removal logic` | no | no | no | NO | "for" naming the actual loop construct being described, code reference despite zero mechanical feature. |
+| 55 | `for loop here was unrolled once for a small speedup` | no | no | no | NO | "for" naming the actual loop construct being described, not the English preposition. |
+| 56 | `else here only fires when the lookup table has no match` | no | no | no | NO | "else" naming the actual conditional branch being described, code reference despite zero mechanical feature. |
+| 57 | `else clause here was added later to handle the timeout case` | no | no | no | NO | "else" naming the actual conditional branch being described, not the English conjunction. |
+| 58 | `auto here lets the compiler deduce the iterator's real type` | no | no | no | NO | "auto" naming the actual type-deduction keyword being described, code reference despite zero mechanical feature. |
+| 59 | `char here holds a single byte, not a full Unicode code point` | no | no | no | NO | "char" naming the actual type keyword being described, not an English noun. |
+| 60 | `continue here skips straight to the next iteration's increment` | no | no | no | NO | "continue" naming the actual loop-control keyword being described, code reference despite zero mechanical feature. |
+| 61 | `double here gives enough precision for the accumulated total` | no | no | no | NO | "double" naming the actual floating-point type keyword being described, not an English adjective. |
+| 62 | `enum here lists every valid state the machine can be in` | no | no | no | NO | "enum" naming the actual enumeration type being described, code reference despite zero mechanical feature. |
+| 63 | `extern here declares the symbol without defining it in this file` | no | no | no | NO | "extern" naming the actual linkage keyword being described, code reference despite zero mechanical feature. |
+| 64 | `float here loses precision that double would have kept` | no | no | no | NO | "float" naming the actual type keyword being described, not an English adjective. |
+| 65 | `goto here jumps straight to the cleanup label on error` | no | no | no | NO | "goto" naming the actual jump keyword being described, code reference despite zero mechanical feature. |
+| 66 | `inline here is only a hint, the compiler can still ignore it` | no | no | no | NO | "inline" naming the actual keyword being described, not an English adjective. |
+| 67 | `int here defaults to the platform's native word size` | no | no | no | NO | "int" naming the actual type keyword being described, code reference despite zero mechanical feature. |
+| 68 | `register here is a hint the compiler is free to ignore today` | no | no | no | NO | "register" naming the actual storage-class keyword being described, code reference despite zero mechanical feature (contrast with row 8's "register your callback", the English-verb sense). |
+| 69 | `restrict here promises the compiler these pointers never alias` | no | no | no | NO | "restrict" naming the actual qualifier keyword being described, code reference despite zero mechanical feature. |
+| 70 | `signed here allows the counter to go negative during underflow` | no | no | no | NO | "signed" naming the actual type qualifier being described, not an English adjective. |
+| 71 | `sizeof here returns the padded size, not the sum of the fields` | no | no | no | NO | "sizeof" naming the actual operator being described, code reference despite zero mechanical feature. |
+| 72 | `typedef here gives the anonymous struct a usable name` | no | no | no | NO | "typedef" naming the actual keyword being described, code reference despite zero mechanical feature. |
+| 73 | `union here overlays the two representations in the same memory` | no | no | no | NO | "union" naming the actual type keyword being described, not an English noun. |
+| 74 | `unsigned here means this counter can never go negative` | no | no | no | NO | "unsigned" naming the actual type qualifier being described, code reference despite zero mechanical feature. |
+| 75 | `volatile here tells the compiler this value can change outside its control` | no | no | no | NO | "volatile" naming the actual qualifier keyword being described, code reference despite zero mechanical feature. |
+| 76 | `break here only exits the innermost loop, not the outer one` | no | no | no | NO | "break" naming the actual break statement being described, code reference despite zero mechanical feature. |

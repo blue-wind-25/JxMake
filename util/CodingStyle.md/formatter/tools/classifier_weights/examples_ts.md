@@ -65,3 +65,39 @@ members that still had zero example rows after rows 25-32 landed: `declare`, `is
 | 38 | `protected member here is only meant to be used by subclasses` | no | no | no | NO | "protected" naming the actual access modifier being described, code reference despite zero mechanical feature. |
 | 39 | `string together a few small fixes before the next release` | no | no | no | YES | "string" in the ordinary English idiom ("string together"), prose. |
 | 40 | `string here should really be a template literal type instead` | no | no | no | NO | "string" naming the actual primitive type keyword being described, code reference despite zero mechanical feature. |
+
+Rows 41-68 added 2026-08-02 (GRU misclassification-driven corpus growth, same session as
+`examples_c.md`'s rows 38-76 — see that file's note and `/tmp/gru_misclassified.txt`). Rows 41-64
+add paraphrased variants of the keywords the GRU model got wrong on this exact zero-feature NO
+shape (`enum`, `type`, `readonly`, `private`, `namespace`, `abstract`, `as`, `any`, `number`,
+`declare`, `is`, `string`); rows 65-68 cover `KEYWORDS_TS` members that still had zero example
+rows in this file.
+
+| 41 | `enum here lists every valid status the workflow can be in` | no | no | no | NO | "enum" naming the actual enumeration type being described, code reference despite zero mechanical feature. |
+| 42 | `enum member here was renamed without updating the serialized values` | no | no | no | NO | "enum" naming the actual keyword being described, not an English noun. |
+| 43 | `type here is narrowed by the guard before the property access below` | no | no | no | NO | "type" naming the actual declaration keyword being described, code reference despite zero mechanical feature. |
+| 44 | `type alias here shortens the long union used throughout this file` | no | no | no | NO | "type" naming the actual keyword being described, not an English noun. |
+| 45 | `readonly here only prevents reassignment, not deep mutation` | no | no | no | NO | "readonly" naming the actual modifier keyword being described, code reference despite zero mechanical feature. |
+| 46 | `readonly array here is only enforced at compile time, not runtime` | no | no | no | NO | "readonly" naming the actual keyword being described, not an English adjective. |
+| 47 | `private here keeps this helper hidden from every other module` | no | no | no | NO | "private" naming the actual access modifier being described, not an English adjective. |
+| 48 | `private field here uses the hash-prefix syntax, not the TS modifier` | no | no | no | NO | "private" naming the actual keyword being contrasted, code reference despite zero mechanical feature. |
+| 49 | `namespace here was kept only for backward compatibility with older imports` | no | no | no | NO | "namespace" naming the actual declaration keyword being described, code reference despite zero mechanical feature. |
+| 50 | `namespace merging here combines the interface and the value declaration` | no | no | no | NO | "namespace" naming the actual keyword being described, not an English noun. |
+| 51 | `abstract method here has no body and must be implemented by every subclass` | no | no | no | NO | "abstract" naming the actual class modifier being described, code reference despite zero mechanical feature. |
+| 52 | `abstract here forces every subclass to supply its own implementation` | no | no | no | NO | "abstract" naming the actual keyword being described, not an English adjective. |
+| 53 | `as here fails fast instead of silently returning undefined on mismatch` | no | no | no | NO | "as" naming the actual assertion keyword being described, code reference despite zero mechanical feature. |
+| 54 | `as assertion here was changed to the safer variant after a crash report` | no | no | no | NO | "as" naming the actual keyword being contrasted, not the English conjunction. |
+| 55 | `any here was left in temporarily until the real type gets written` | no | no | no | NO | "any" naming the actual escape-hatch type keyword being described, code reference despite zero mechanical feature. |
+| 56 | `any type here disables checking for the rest of this expression` | no | no | no | NO | "any" naming the actual keyword being described, not the English adjective. |
+| 57 | `number here is widened from the literal type the compiler inferred` | no | no | no | NO | "number" naming the actual primitive type keyword being described, code reference despite zero mechanical feature. |
+| 58 | `number literal here should really be a union of allowed values` | no | no | no | NO | "number" naming the actual type keyword being described, not the English noun. |
+| 59 | `declare here only describes the ambient shape, it has no runtime body` | no | no | no | NO | "declare" naming the actual ambient-declaration keyword being described, code reference despite zero mechanical feature. |
+| 60 | `declare global here augments the ambient scope for this module` | no | no | no | NO | "declare" naming the actual keyword being described, not the English verb. |
+| 61 | `is here narrows the parameter to the specific subtype for the rest of the block` | no | no | no | NO | "is" naming the actual type-guard keyword being described, code reference despite zero mechanical feature. |
+| 62 | `is predicate here lets the compiler trust the runtime check` | no | no | no | NO | "is" naming the actual keyword being described, not the English verb. |
+| 63 | `string here should really be a branded type to avoid mixing ids` | no | no | no | NO | "string" naming the actual primitive type keyword being described, code reference despite zero mechanical feature. |
+| 64 | `string literal here is narrowed to one of three allowed values` | no | no | no | NO | "string" naming the actual type keyword being described, not the English noun. |
+| 65 | `boolean here defaults to false when the flag is left unset` | no | no | no | NO | "boolean" naming the actual primitive type being described, not an English noun. |
+| 66 | `implements here brings in the interface's members to fill in` | no | no | no | NO | "implements" naming the actual keyword being described, code reference despite zero mechanical feature. |
+| 67 | `interface here declares only the shape, no implementation at all` | no | no | no | NO | "interface" naming the actual declaration keyword being described, code reference despite zero mechanical feature. |
+| 68 | `keyof here produces a union of the object's own property names` | no | no | no | NO | "keyof" naming the actual operator being described, code reference despite zero mechanical feature. |

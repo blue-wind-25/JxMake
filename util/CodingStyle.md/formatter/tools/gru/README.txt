@@ -354,7 +354,16 @@ GruEval.java
     an RDD_EXT_21-schema examples file (usually a held-out split the
     training run never saw).
 
-        java -cp target/classes:<gru-tools-classes> GruEval <weights-file> <examples-file>
+        java -cp target/classes:<gru-tools-classes> GruEval <weights-file> <examples-file> [threshold ...]
+
+    With no threshold args, evaluates once at the weights file's own trained
+    abstainThreshold. One or more threshold values (each in [0.0, 1.0]) can
+    be passed to sweep multiple abstain thresholds against the same
+    forward-pass probabilities in a single run, printing one summary line
+    per threshold — useful for judging whether raising the abstain bar
+    trades away correct decisions faster than it fixes wrong ones. Example:
+
+        java -cp target/classes:<gru-tools-classes> GruEval <weights-file> <examples-file> 0.5 0.6 0.7 0.8 0.9
 
 acquire_corpus.sh
     Automates acquisition + extraction only (steps 1+3 above) across a

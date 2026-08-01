@@ -4,7 +4,7 @@
 # This file is part of the JxMake build system and is distributed under the Apache License, Version 2.0.
 # See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
 
-"""Converts the hand-labeled `tools/classifier_weights/examples_{c,cpp,java,kotlin}.md` markdown
+"""Converts the hand-labeled `tools/classifier_weights/examples_{c,cpp,java,kotlin,js,ts}.md` markdown
 tables (the corpus `CommentClassifierWeights`' linear-classifier constants are derived from, see
 `tools/classifier_weights/weights.md`) into RDD_EXT_21-schema rows
 (`<lang>\\t<label:YES|NO>\\t<targetWordIndex>\\t<escaped-text>`) so they can be folded into the
@@ -125,7 +125,7 @@ def convert_file(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("input_dir", help="directory holding examples_{c,cpp,java,kotlin}.md")
+    parser.add_argument("input_dir", help="directory holding examples_{c,cpp,java,kotlin,js,ts}.md")
     parser.add_argument("--out", required=True)
     args = parser.parse_args()
 

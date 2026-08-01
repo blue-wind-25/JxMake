@@ -61387,11 +61387,17 @@ cpp	YES	0	   - std::function members, which is how a call with typed parameters 
 cpp	YES	0	     the only way to reach the reader that parses arguments
 cpp	YES	0	   - a variant, whose resolution re-parses speculatively -- the path where a reader is most
 cpp	YES	0	     likely to walk off the end of a buffer it does not own
+cpp	YES	0	 The fuzzer supplies these arguments, so every one of them arrives at its own extremes.
+cpp	YES	0	 Signed overflow in the body of a target is undefined behavior in the target, not a finding
+cpp	YES	0	 about the registry, and UBSan stops the run on it either way -- so the arithmetic here goes
+cpp	YES	0	 through unsigned, where wrapping is defined and the result is still a function of the input.
 cpp	YES	0	 Member functions listed in a glz::meta reach different endpoint registrations than the
 cpp	YES	0	 std::function members above -- register_member_function_endpoint and its with_params variant.
 cpp	YES	0	 The with_params one parks its argument in a `static thread_local`, which is the kind of state
 cpp	YES	0	 that survives between inputs and turns a crash into one that will not reproduce, so it is
 cpp	YES	0	 worth having under the fuzzer rather than only under the unit tests.
+cpp	YES	0	 Wraps rather than overflows, for the reason given on `doubled` above. `counter` accumulates
+cpp	YES	0	 across inputs, so it reaches its extremes on its own even when no single argument is large.
 cpp	YES	0	 Exactly sized, so there is no slack after the message for an over-read to land in harmlessly.
 cpp	YES	0	 The registry echoes a request that already carries an error back to the sender without
 cpp	YES	0	 dispatching it. Nothing else in this target sets ec, so without this that branch is dead.
@@ -63201,6 +63207,20 @@ cpp	YES	0	 Generate a schema with complex items (shared_ptr<schema> path)
 cpp	YES	0	 Read it back
 cpp	YES	0	 Verify structural fields survived the round-trip
 cpp	YES	0	 Re-serialize and compare
+cpp	YES	0	 A user options struct that derives from glz::opts to carry an extra field, which is the
+cpp	YES	0	 pattern glz::opts documents ("Add these fields to a custom options struct if you want to
+cpp	YES	0	 use them"). The lazy API must instantiate on the exact type so the derived field survives.
+cpp	YES	0	 Streaming cursor option matrix. Every cursor test is differential: the same traversal is run
+cpp	YES	0	 with the cursor on and off and the two results must agree, so the cursor can only ever be a
+cpp	YES	0	 speed difference, never a behavior difference.
+cpp	YES	0	 Non-null-terminated input, the mode a caller feeding bounded string_views uses.
+cpp	YES	0	 partial_read leaves the parser short of the value's true end. The cursor must not mistake
+cpp	YES	0	 that stopping point for the end of the element.
+cpp	YES	0	 Wide number skip. Like the cursor, it is only ever a speed difference, so its tests compare
+cpp	YES	0	 the option on against the option off. Non-null-terminated only, which is where it applies.
+cpp	YES	0	 A reader that deliberately stops inside the value: it takes '[' and the first element, leaving
+cpp	YES	0	 the iterator on an interior comma without reporting an error. Glaze's own readers do not behave
+cpp	NO	0	 '['
 cpp	YES	0	 Access values lazily
 cpp	YES	0	 Big integers
 cpp	YES	0	 For simple strings without escapes, string_view works
@@ -63397,6 +63417,124 @@ cpp	YES	0	 '\\0' at index 2 == json_end_
 cpp	NO	0	 "[@"
 cpp	YES	0	 '@' scalar, then bounded by json_end_
 cpp	YES	0	 nothing past the lone scalar
+cpp	YES	0	 Regression coverage for the lazy API taking `opts` (a concrete base-class NTTP) rather than
+cpp	YES	0	 `auto`, which sliced any derived user options struct down to glz::opts and silently dropped
+cpp	YES	0	 every extra field.
+cpp	YES	0	 Sliced to glz::opts, these would collapse to the same instantiation.
+cpp	YES	0	 bools_as_numbers only exists on the derived struct, so it reaches the parser only if
+cpp	YES	0	 the lazy API instantiated on custom_lazy_opts rather than on a sliced glz::opts.
+cpp	YES	0	 Streaming cursor (lazy_streaming_cursor)
+cpp	YES	0	 Each helper renders a traversal to a string so cursor-on and cursor-off runs can be compared
+cpp	YES	0	 exactly. Any divergence - a skipped element, a bogus extra one, a changed value - shows up as
+cpp	YES	0	 a string mismatch rather than a silently equal checksum.
+cpp	YES	0	 Nested containers: the inner loop runs to completion, which is what lets the outer advance
+cpp	YES	0	 jump. Exercises the self-composing extent.
+cpp	YES	0	 Mixes the access patterns that produce and consume extents: read_into on some rows, keyed
+cpp	YES	0	 access (which drives parse_pos_ instead) on others, and rows left entirely untouched.
+cpp	YES	0	 Every shape below is run through both option sets and must agree.
+cpp	YES	0	 A trailing tail past the logical end catches any read beyond json_end().
+cpp	YES	0	 partial_read stops the parser inside the object once its known keys are filled, and
+cpp	YES	0	 finalize_read_context downgrades that to success. Recording `it` as the element end
+cpp	YES	0	 would land the next advance in the middle of the object and desynchronize iteration.
+cpp	YES	0	 Two live iterators over the same document write to the same extent slot. The
+cpp	YES	0	 pointer-identity check must keep each advance honest.
+cpp	YES	0	 The extent is stored as offsets, so a copied or moved document rebases onto its own
+cpp	YES	0	 buffer pointer rather than dangling into the original.
+cpp	YES	0	 leaves a live extent on the document
+cpp	YES	0	 copy with the extent live
+cpp	YES	0	 A second pass over the same document must see the same elements: an extent left over
+cpp	YES	0	 from the first pass may not leak into the second.
+cpp	YES	0	 glz::text swallows everything from the value start to the end of the buffer and reports
+cpp	YES	0	 success. Taking its stopping point as the element end would record an extent covering the
+cpp	YES	0	 rest of the document and silently end iteration after one element.
+cpp	YES	0	 FirstOfPair stops on an interior comma. That looks exactly like a legitimate element
+cpp	YES	0	 boundary from the outside, so the extent has to be rejected when it is recorded rather
+cpp	YES	0	 than when it is used.
+cpp	YES	0	 Scalars are deliberately never recorded, so this exercises the un-accelerated path
+cpp	YES	0	 through the same loop.
+cpp	YES	0	 The cursor must stay a pure speed difference on input that is not well formed, where the
+cpp	YES	0	 parser and the structural skip can disagree about where a token ends.
+cpp	YES	0	 An unclosed container never reaches its close bracket, so no container extent is
+cpp	YES	0	 published. Bounded buffers only, since that is the mode with no sentinel to stop on.
+cpp	YES	0	 The disabled slot is an empty type under GLZ_NO_UNIQUE_ADDRESS, so opting out must not
+cpp	YES	0	 grow lazy_document at all.
+cpp	YES	0	 Wide number skip (lazy_wide_number_skip)
+cpp	YES	0	 Renders a full traversal of {"a":[ ... ]} so both option settings can be compared exactly.
+cpp	YES	0	 Elements are rendered by raw_json() so container elements and scalars alike are covered, and
+cpp	YES	0	 any misplaced skip shows up as a shifted or truncated slice rather than a silent miscount.
+cpp	YES	0	 glz::find_first_of is a shared SWAR primitive, so it is worth pinning down directly rather
+cpp	YES	0	 than only through its caller. The 8-byte chunking means the interesting cases are matches
+cpp	YES	0	 straddling a chunk boundary and inputs shorter than one chunk.
+cpp	YES	0	 no match: lands on end
+cpp	YES	0	 match at the very start
+cpp	YES	0	 match at the very end
+cpp	YES	0	 Byte 7 is the last of the first chunk, byte 8 the first of the second.
+cpp	YES	0	 no match across many chunks
+cpp	YES	0	 Several matches inside one chunk must resolve to the first, not merely any.
+cpp	YES	0	 A match sitting just past the end must not be seen.
+cpp	YES	0	 The escalation threshold is 8 bytes into a numeric run, so the interesting cases sit either
+cpp	YES	0	 side of it and exactly on it. numeric_table also accepts . + - e E, so runs are not just
+cpp	YES	0	 digits.
+cpp	YES	0	 shorter than the threshold
+cpp	YES	0	 7, 8 and 9 bytes: straddles the boundary
+cpp	YES	0	 far past it
+cpp	YES	0	 full numeric alphabet
+cpp	YES	0	 runs nested in containers
+cpp	YES	0	 runs inside objects
+cpp	YES	0	 The skip escalates 8 bytes into a run, so a run of exactly 9 digits ends the moment it
+cpp	YES	0	 escalates. Only a container element routes through that code, and only a closing bracket
+cpp	YES	0	 (rather than a comma) is lost if the escalated scan starts one byte late - so these are
+cpp	YES	0	 the shapes where an off-by-one at the boundary actually changes the parse.
+cpp	YES	0	 boundary at two levels of nesting
+cpp	YES	0	 A long run immediately before each kind of structural byte. Runs followed only by a
+cpp	YES	0	 closing bracket cannot tell whether the scan still stops at '"', '[' and '{', so this
+cpp	YES	0	 puts a string, a nested array and a nested object directly after long numbers - and the
+cpp	YES	0	 string carries ']' and '}' so a scan that ignored quotes would miscount depth.
+cpp	YES	0	 mixed with strings
+cpp	YES	0	 The skip feeds iteration, so read_into over a long-run document must land on the same
+cpp	YES	0	 elements with the option on as with it off.
+cpp	YES	0	 A long run butted right up against the logical end, with a numeric tail past it. If the
+cpp	YES	0	 scan overran json_end() it would swallow the tail and change the last element.
+cpp	YES	0	 Truncated mid-number: both settings must stop rather than run off the end.
+cpp	YES	0	 The shapes every writer test runs over. Each string is a complete document, so writing its
+cpp	YES	0	 root must reproduce it byte for byte.
+cpp	YES	0	 validate_skipped routes skip_value down its validating path, which the writer must not
+cpp	YES	0	 undermine when it settles a scalar sitting at the document edge.
+cpp	YES	0	 A document held in an exactly-sized heap allocation: no '\\0' sentinel, and a sanitizer
+cpp	YES	0	 redzone immediately after the last byte. Any read past json_end() trips ASAN here, which is
+cpp	YES	0	 what makes these tests a memory-safety guard rather than only a behavior check.
+cpp	YES	0	 Deliberately excludes `trailing`: the writer must never reach past this.
+cpp	YES	0	 The regression this suite exists for: the writer skipped with a default-constructed
+cpp	YES	0	 `opts{}`, whose null_terminated = true made it scan past json_end() for a sentinel that
+cpp	YES	0	 a bounded buffer does not have. Scalars were the reachable case -- `42` was written out
+cpp	YES	0	 as `429187` when those digits happened to follow in memory.
+cpp	YES	0	 Bounded and null-terminated documents describe the same value, so the writer must not
+cpp	YES	0	 be able to tell them apart. This is the property that keeps the two skip paths honest.
+cpp	YES	0	 raw_json() and the writer are two implementations of "the bytes of this value". They
+cpp	YES	0	 are reached through different skips, so they are only equal if both agree on the extent
+cpp	YES	0	 -- including for a scalar sitting at the very end of the buffer.
+cpp	YES	0	 A nested view's json_end() is the whole document's end, so an element that over-skips
+cpp	YES	0	 swallows its siblings instead of running off the buffer. Bounded and terminated modes
+cpp	YES	0	 must both stop at the element.
+cpp	YES	0	 Settling a scalar at the document edge must not settle a container or string that never
+cpp	YES	0	 reached its terminator: those are genuinely truncated and the writer has to say so.
+cpp	YES	0	 rejected at construction is also a refusal
+cpp	YES	0	 Navigation to a key with no value leaves the view on the closing brace, where the skip
+cpp	YES	0	 consumes nothing. Emitting zero bytes and reporting success would splice invalid JSON
+cpp	YES	0	 into whatever the caller is building, so the writer has to refuse.
+cpp	YES	0	 rejecting the document outright is also a refusal
+cpp	YES	0	 Reporting success here is the failure mode: glz::write only truncates the buffer to
+cpp	YES	0	 the bytes written once the write succeeds, so a zero-byte success is an empty value
+cpp	YES	0	 the caller would go on to treat as JSON.
+cpp	YES	0	 The settle keys off unexpected_end, which is what skip_value reports when it simply runs
+cpp	YES	0	 out of bytes. A caller who opted into validate_skipped gets syntax_error for a malformed
+cpp	YES	0	 scalar instead, so the settle never sees it and their validation still holds.
+cpp	YES	0	 Only inputs the validating skip actually rejects. "01" is not one of them: skip_number
+cpp	YES	0	 stops cleanly after the leading zero, so the view is a complete "0" with trailing bytes
+cpp	YES	0	 the lazy API never claims to check.
+cpp	YES	0	 Well-formed scalars at the document edge still write under the same options.
+cpp	YES	0	 The writer skips under the document's own options. Instantiating on a derived struct
+cpp	YES	0	 must compile and behave, which it cannot if the option pack is sliced back to glz::opts.
 cpp	YES	0	 Comprehensive tests for the allocate_raw_pointers option
 cpp	YES	0	 Tests raw pointer allocation during deserialization across JSON, BEVE, CBOR, and MSGPACK formats
 cpp	YES	0	 CBOR not included in glaze.hpp by default
@@ -64197,6 +64335,19 @@ cpp	YES	0	 "alpha"
 cpp	YES	0	 "beta"
 cpp	YES	0	 "gamma"
 cpp	YES	0	 Booleans and nulls return 0 for size
+cpp	YES	0	 allow_conversions only exists on the derived struct and defaults to true when absent, so
+cpp	YES	0	 the double -> float read is refused only if the lazy API instantiated on the exact type.
+cpp	YES	0	 glz::write_beve on a lazy BEVE view did not compile: the null branch called
+cpp	YES	0	 dump_type<tag::null>(b, ix), and dump_type takes its value as a function argument rather than
+cpp	YES	0	 a template parameter. Nothing in the suite instantiated the writer, so the whole public path
+cpp	YES	0	 stayed broken. These tests exist to instantiate it.
+cpp	YES	0	 The rewritten bytes have to be BEVE a reader still accepts, not merely equal-length.
+cpp	YES	0	 The branch that failed to compile. A view with no data writes BEVE null, which is the
+cpp	YES	0	 single tag byte 0, and a reader has to accept it as such.
+cpp	YES	0	 A member view's beve_end() is the whole document's end, so writing one must emit that
+cpp	YES	0	 member alone rather than everything that follows it.
+cpp	YES	0	 Instantiating the writer on a derived option struct has to compile too; the skip inside
+cpp	YES	0	 it used a default-constructed opts{}, which sliced the pack away.
 cpp	YES	0	 Tests for skip_null_members_on_read option in BEVE format
 cpp	YES	0	 Struct with optional fields for writing null values
 cpp	YES	0	 Custom options with skip_null_members_on_read enabled for BEVE
@@ -64410,6 +64561,15 @@ cpp	YES	0	 absolute time, which varies far too much across CI machines.
 cpp	YES	0	 Depth is capped at 200 because the reader rejects anything past max_recursive_depth_limit
 cpp	YES	0	 (256), one level per nested object. Each buffer is read many times so the ratio does not
 cpp	YES	0	 rest on a single sub-millisecond sample.
+cpp	YES	0	 The growth is then measured as the median of several rounds rather than from one sample of
+cpp	YES	0	 each depth. Timing each depth once put the ratio at 8.6x on a busy CI runner, close enough
+cpp	YES	0	 to the 8x threshold to fail a build that had not touched this code path. Both depths are
+cpp	YES	0	 timed back-to-back within a round so that interference lands on numerator and denominator
+cpp	YES	0	 together and largely divides out; the median then discards whichever rounds it skewed
+cpp	YES	0	 anyway. Note that taking the fastest round of each depth separately does not work here --
+cpp	YES	0	 the shallow loop is a quarter of the work and finds a clean window far more easily than
+cpp	YES	0	 the deep one, so independent minima bias the ratio apart instead of converging it.
+cpp	YES	0	 odd, so the median is the middle element
 cpp	YES	0	 4x the depth
 cpp	YES	0	 Correctness of the read itself, separately from the timing.
 cpp	YES	0	 warm both paths before timing
@@ -65609,11 +65769,19 @@ cpp	YES	0	 Requests arriving off the wire end where the buffer ends: there is no
 cpp	YES	0	 reader to stop on. make_request returns a std::string, whose data()[size()] is a terminator, so
 cpp	YES	0	 these tests copy the message into an exactly sized vector to reproduce the wire shape.
 cpp	YES	0	 A type deduced by shape rather than by a tag: resolving it walks to the end of the buffer.
+cpp	YES	0	 A std::function member registers as a call with typed parameters, which is the one endpoint kind
+cpp	YES	0	 that reads a body without first checking whether there is one.
 cpp	YES	0	 Every registry read runs without a terminator, so a body that ends with containers still
 cpp	YES	0	 open reports end_reached internally. That code is documented as a non-error, so putting it
 cpp	YES	0	 in a response header would tell the client the request parsed and merely stopped early.
 cpp	YES	0	 A variant alternative that resolves at the end of the buffer rewinds its iterator, so the
 cpp	YES	0	 read completes having reported zero bytes consumed. read_params must report that as success.
+cpp	YES	0	 A parameterized function endpoint has nothing to call its function with when the body is
+cpp	YES	0	 empty, so it reads without the has_body() guard the value endpoints use. read_params returned
+cpp	YES	0	 The other half of the same rule: a notification is a request the sender has said it will not
+cpp	YES	0	 read a reply to, so a read that fails on one is reported by not answering it.
+cpp	YES	0	 The registry echoes a request that already carries an error back to its sender. A notification
+cpp	YES	0	 has no sender waiting on that echo, so it is dropped like every other unanswerable request.
 cpp	YES	0	 A registry that accepts comments must reject a body that holds nothing but one, for the same
 cpp	YES	0	 reason it rejects a body that holds nothing but whitespace.
 cpp	YES	0	 plugin_call hands the registry a raw pointer and length across an FFI boundary, so its bytes
@@ -66814,7 +66982,7 @@ cpp	YES	0	 The three ways a non-streaming read is legitimate. Each one must keep
 cpp	YES	0	 the check keys on whether the source was exhausted rather than on whether the window was.
 cpp	YES	0	 second document left unread in the same window
 cpp	YES	0	 The trait is what exempts JSON, so pin that the exemption is live.
-cpp	YES	0	 Reflection needs external linkage, so this cannot live in the anonymous namespace below.
+cpp	YES	0	 Reflection needs external linkage, so these cannot live in the anonymous namespace below.
 cpp	YES	0	 Records wide enough that a 512 byte window holds only a handful, so the read has to refill
 cpp	YES	0	 many times to get through the document.
 cpp	YES	0	 NDJSON records are independent, so the gap between two of them is a refill point. Before there
@@ -66848,6 +67016,26 @@ cpp	YES	0	 Reading into a container that already holds elements takes the fixed-
 cpp	YES	0	 fills what is there before growing. It needs its own refill points.
 cpp	YES	0	 ...and shrinks to the records that were actually there when the document is shorter.
 cpp	YES	0	 The fixed-arity reader is a third loop over the same records and refills the same way.
+cpp	YES	0	 The chrono readers borrow a view of the string they just parsed and turn it into a date before
+cpp	YES	0	 returning, so nothing refills while they hold it. Streaming these must keep compiling: the guard
+cpp	YES	0	 sits on the reader, and a reader that borrows a view for itself is not what it is aimed at.
+cpp	YES	0	 A refill moves the window, so a view handed out before one points at bytes that have since been
+cpp	YES	0	 overwritten, while the read still reports success. There is no runtime signal to check, so the
+cpp	YES	0	 readers that alias the buffer refuse at compile time instead.
+cpp	YES	0	 This suite pins the direction that must keep working: a guard that over-triggers would reject
+cpp	YES	0	 ordinary code, and that failure is as bad as the one it prevents. The rejection direction cannot
+cpp	YES	0	 be asserted from here -- the binary would not build -- and lives in tests/streaming_view_rejection.
+cpp	YES	0	 Only std::span<const T> ever aliases the input; the BEVE zero-copy reader is constrained to
+cpp	YES	0	 keep streaming -- there is no owning type to redirect such a user to.
+cpp	YES	0	 A chrono reader fills a std::string_view from the window and parses a date out of it before it
+cpp	YES	0	 returns. Nothing refills in between, so that view cannot go stale, and rejecting it would cost
+cpp	YES	0	 every streaming read of a time_point or a year_month_day for a hazard it does not have.
+cpp	YES	0	 The records are wide enough that a 512 byte window holds only a couple, so the read refills
+cpp	YES	0	 between them: a view that did outlive its window would surface here as a wrong date rather
+cpp	YES	0	 than as a crash.
+cpp	YES	0	 glz::date_format reaches the same reader through a wrapper, so it has to stay streamable too.
+cpp	YES	0	 The guard only applies to streaming. A buffered read owns its whole document for the duration
+cpp	YES	0	 of the call, so views into it stay valid and remain a supported zero-copy idiom.
 cpp	NO	0	 expect(glz::buffer_to_file(s, GLZ_TEST_DIRECTORY "/json/stock_trades_out.json") == glz::error_code::none);
 cpp	NO	0	 expect(glz::buffer_to_file(s, GLZ_TEST_DIRECTORY "/json/twitter_out.json") == glz::error_code::none);
 cpp	YES	0	 Structs must be defined at namespace scope for Glaze reflection to work
@@ -67593,6 +67781,14 @@ cpp	YES	0	 Check JSON format (approximate)
 cpp	YES	0	 Test JSON serialization with pretty print
 cpp	YES	0	 Should include newlines and indentation
 cpp	YES	0	 Should still deserialize correctly
+cpp	YES	0	 Each GLZ_REJECT_CASE_* below must FAIL to compile. The build target for each case is driven by
+cpp	YES	0	 a ctest entry marked WILL_FAIL, so a guard that stops firing turns into a failing test rather
+cpp	YES	0	 than into silently wrong data at runtime.
+cpp	YES	0	 A streaming read that fills a non-owning view reports success and hands back bytes a later
+cpp	YES	0	 refill has overwritten. That cannot be detected at runtime -- the pointer stays inside the
+cpp	YES	0	 buffer's allocation -- so the readers that alias the input refuse at compile time instead. These
+cpp	YES	0	 cases cover the shapes a destination-type walk would have to re-enumerate to find: a view behind
+cpp	YES	0	 a tuple, behind a custom setter, or nested past any fixed depth bound.
 cpp	YES	0	 YAML conformance tests generated from https://github.com/yaml/yaml-test-suite.
 cpp	YES	0	 Concrete-struct variant: tests parse behavior into explicit C++ structs.
 cpp	NO	0	9/X17unp5WZmZgAAAOfn515eXvPz7Y6OjuDg4J+fn5\\
@@ -70983,7 +71179,12 @@ cpp	YES	0	 Length mismatch, or query/body lengths that overflow the total
 cpp	YES	0	 (overflow-safe: query_length/body_length are attacker-controlled).
 cpp	YES	0	 Look up endpoint (transparent comparison avoids allocation)
 cpp	YES	0	 Silent ignore for unknown notifications (buffer stays empty)
-cpp	YES	0	 If request has an error, just echo it back
+cpp	YES	0	 If request has an error, just echo it back -- unless it is a notification, whose sender
+cpp	YES	0	 has said it will not read a reply, so answering one desynchronizes the connection: the
+cpp	YES	0	 client takes the echo as the answer to its next call. The header parsed and validated
+cpp	YES	0	 cleanly to reach here, so its notify bit can be trusted, which is what separates this
+cpp	YES	0	 from the malformed-header paths above.
+cpp	YES	0	 Silent ignore for a notification that carries an error (buffer stays empty)
 cpp	YES	0	 Zero-copy call: state_view references the parsed request and response builder directly
 cpp	YES	0	 For notifications, response buffer stays empty (no response sent)
 cpp	YES	0	 Function to call methods - only available for JSONRPC protocol
@@ -71152,13 +71353,25 @@ cpp	NO	0	/ @param message The error message text
 cpp	NO	0	/ @param id Optional message ID
 cpp	NO	0	/ @return String containing the complete error response
 cpp	YES	0	 Single template storage for all protocol-specific storage
-cpp	YES	0	 Returns false on error. The byte count the reader reports cannot stand in for success here:
-cpp	YES	0	 without a null terminator a variant alternative that resolves at the end of the buffer rewinds
-cpp	YES	0	 its iterator, so a completed read can report zero bytes consumed.
+cpp	YES	0	 Returns false on error, having written the error response -- unless the request is a
+cpp	YES	0	 notification, which is answered by silence whether the read succeeds or fails. A caller that
+cpp	YES	0	 returns immediately on false is correct in both cases; one that inspects state.out afterwards
+cpp	YES	0	 has to allow for it being untouched.
+cpp	YES	0	 The byte count the reader reports cannot stand in for success here: without a null terminator
+cpp	YES	0	 a variant alternative that resolves at the end of the buffer rewinds its iterator, so a
+cpp	YES	0	 completed read can report zero bytes consumed.
+cpp	YES	0	 An empty body is a failure like any other and has to answer like one. Returning early left
+cpp	YES	0	 a non-notify request with no response at all: every caller is told the error response is
+cpp	YES	0	 written whenever this returns false, and every registered endpoint returns immediately on
+cpp	YES	0	 it. A parameterized function endpoint reads without a has_body() guard -- it has nothing to
+cpp	YES	0	 call the function with otherwise -- so an empty body reached here and the client was left
+cpp	YES	0	 waiting on a reply that was never sent.
 cpp	YES	0	 This bypasses glz::read, so the bookkeeping glz::read performs after the parse has to be
 cpp	YES	0	 repeated here: a value that finishes exactly at the end of the body reports end_reached,
 cpp	YES	0	 which is a completed read rather than an error, while a body that held no value at all is
 cpp	YES	0	 not. finalize_top_level_read draws that line.
+cpp	YES	0	 A notification is a request the sender has said it will not read a reply to, so a failed
+cpp	YES	0	 read of one is reported by not answering, exactly as a successful read of one is.
 cpp	YES	0	 TODO: Handle potential write errors and put in msg
 cpp	YES	0	 View Types (zero-copy for query/body, stack-copy for header)
 cpp	NO	0	/ View into a REPE request buffer
@@ -71206,8 +71419,10 @@ cpp	NO	0	/ Zero-copy state for RPC procedures
 cpp	NO	0	/ Input is a view into the original request buffer
 cpp	NO	0	/ Output writes directly to the response buffer
 cpp	NO	0	/ Read parameters from state_view (zero-copy from input buffer)
-cpp	NO	0	/ Returns false on error (error set in state.out); see the note on the overload above for why
-cpp	NO	0	/ this is not a byte count.
+cpp	NO	0	/ Returns false on error, with the error set in state.out -- except for a notification, which
+cpp	NO	0	/ is left unanswered and so leaves state.out untouched. See the note on the overload above for
+cpp	NO	0	/ why this is not a byte count.
+cpp	YES	0	 An empty body answers like any other failure; see the note in the message overload above.
 cpp	YES	0	 See the note in the message overload above for why glz::read's bookkeeping is repeated.
 cpp	NO	0	/ Write response with a value (zero-copy to output buffer)
 cpp	NO	0	/ Write response without a value (null body)
@@ -73287,6 +73502,7 @@ cpp	YES	0	 Invalid UTF-8 start byte, replace with U+FFFD
 cpp	YES	0	 BMP character
 cpp	YES	0	 Supplementary character (needs surrogate pair)
 cpp	YES	0	 + 1 for null character
+cpp	YES	0	 GLZ_NO_UNIQUE_ADDRESS
 cpp	YES	0	 Forward declarations (needed for circular references)
 cpp	YES	0	 Truly Lazy JSON Parser - No upfront processing
 cpp	YES	0	 Skip string - returns position after closing quote
@@ -73295,8 +73511,31 @@ cpp	YES	0	 unclosed string
 cpp	YES	0	 Count preceding backslashes to check if escaped
 cpp	YES	0	 even backslashes = real quote
 cpp	YES	0	 odd backslashes = escaped quote, continue searching
+cpp	YES	0	 The escalated scan below jumps to the next byte the depth loops actually act on, so its
+cpp	YES	0	 character set must be exactly the bytes lazy_char_class does not classify as `other`.
+cpp	YES	0	 The two live in different headers, and that equality IS the correctness argument for
+cpp	YES	0	 escalating, so pin it here rather than leaving it to a comment.
+cpp	YES	0	 Scans to the next byte the depth loops act on. Expanded from lazy_structural_chars so the
+cpp	YES	0	 scan and the assertion below cannot describe different sets.
+cpp	YES	0	 `number` bytes are non-`other` but are consumed by the run walk, not the scan.
+cpp	YES	0	 Skip a number inside a container, where the only bytes that matter are the structural
+cpp	YES	0	 ones. Returns the position just past the numeric run.
+cpp	YES	0	 The default walk is a byte-at-a-time table lookup, which is what most JSON wants: typical
+cpp	YES	0	 numbers are a few bytes long and a wide scan cannot amortize its setup over them. The
+cpp	YES	0	 lazy_wide_number_skip option targets documents built from long numeric runs, where it
+cpp	YES	0	 escalates to the SWAR scan once a run is still going after 8 bytes. Escalating is always
+cpp	YES	0	 semantically safe - inside a container every non-structural byte is ignorable either way -
+cpp	YES	0	 so the option changes only how fast the same position is reached.
+cpp	YES	0	 A null-terminated buffer stops on its own sentinel, and end may be absent entirely
 cpp	YES	0	 Skip from current position to depth zero (end of enclosing container)
 cpp	YES	0	 Used after partial scanning to find container end efficiently
+cpp	YES	0	 skip_value stops a scalar on the byte that follows it, so a scalar occupying the tail of
+cpp	YES	0	 a document reports unexpected_end: it runs out of buffer (bounded) or reaches the '\\0'
+cpp	YES	0	 sentinel (null-terminated) with nothing left to look at. Nothing is truncated at the
+cpp	YES	0	 document edge, so that report is spurious and the value is complete -- the same
+cpp	YES	0	 situation finalize_read_context settles for readers that land there.
+cpp	YES	0	 Containers and strings are deliberately excluded. Each carries its own terminator, so
+cpp	YES	0	 reaching the edge without one is genuine truncation and must stay an error.
 cpp	YES	0	 Skip any JSON value - optimized container skip
 cpp	YES	0	 Returns pointer after the value
 cpp	YES	0	 Non-null-terminated buffers have no '\\0' sentinel, so a caller can reach here
@@ -73310,6 +73549,20 @@ cpp	YES	0	 authoritative message end: a byte within it is safe to step over, whi
 cpp	YES	0	 end we must not move (the caller's own p >= end guard then stops the loop). On
 cpp	YES	0	 valid input p is always a real value start, so this branch never fires - no
 cpp	YES	0	 behavior change.
+cpp	YES	0	 Streaming cursor storage (lazy_streaming_cursor option)
+cpp	YES	0	 A single slot on lazy_document remembering the byte extent of the most recently
+cpp	YES	0	 consumed value. lazy_iterator::operator++ jumps to the recorded end instead of
+cpp	YES	0	 re-scanning, but only when the recorded extent starts exactly at the element the
+cpp	YES	0	 iterator is sitting on. That pointer-identity check is what makes a stale slot
+cpp	YES	0	 harmless: a byte offset in the buffer identifies exactly one value, so an extent
+cpp	YES	0	 that starts where the iterator stands always describes the value it is about to
+cpp	YES	0	 skip. Anything else falls back to a normal scan.
+cpp	YES	0	 Disabled: an empty type, so lazy_document pays nothing under GLZ_NO_UNIQUE_ADDRESS.
+cpp	YES	0	 Offsets rather than pointers so a copied/moved document rebases onto its own buffer.
+cpp	YES	0	 end_off == 0 means "no extent recorded" - a real value can never end at offset 0.
+cpp	YES	0	 The extent describes some other value; leave it in place, it may still match a
+cpp	YES	0	 later advance (an inner iterator can record before an outer one asks).
+cpp	YES	0	 consumed exactly once
 cpp	YES	0	 lazy_json_view - Truly lazy view with on-demand scanning
 cpp	YES	0	*\n    * @brief A truly lazy view into JSON data.\n    *\n    * No upfront processing - all navigation uses SWAR-accelerated scanning.\n    *\n    * For objects, parse_pos_ tracks the current scan position to enable\n    * efficient sequential key access (O(n) total instead of O(n²)).\n    *\n    * Memory layout (48 bytes on 64-bit, 24 bytes on 32-bit):\n    * - doc_: pointer to document (8/4 bytes)\n    * - data_: pointer to value start in JSON (8/4 bytes)\n    * - parse_pos_: current scan position for progressive parsing (8/4 bytes)\n    * - key_: stored key for iteration (16/8 bytes - string_view)\n    * - error_: error code (4 bytes)\n    * - padding: 4/0 bytes\n    
 cpp	YES	0	 Type checking - direct from JSON byte
@@ -73324,6 +73577,28 @@ cpp	NO	0	/ @return Error context (check error_ctx.error for success/failure)
 cpp	NO	0	/ @note This is more efficient than raw_json() + read_json() as it avoids scanning twice
 cpp	YES	0	 Use parse<JSON>::op which naturally stops at value end
 cpp	YES	0	 This avoids the need to pre-scan to find the value's extent
+cpp	YES	0	 Capture completeness before finalize_read_context, which downgrades
+cpp	YES	0	 partial_read_complete and a depth-zero end_reached to success. Those leave `it`
+cpp	YES	0	 reported nothing at all.
+cpp	YES	0	 Streaming cursor: the value spans [data_, it). Record it so a subsequent iterator
+cpp	YES	0	 advance over this element can jump rather than re-scan. Under partial_read the
+cpp	YES	0	 parse deliberately stops early, so nothing is recorded and iteration falls back to
+cpp	YES	0	 scanning - correct, just not accelerated.
+cpp	YES	0	 doc_ is null only for detached subviews; lazy_json() views always carry it.
+cpp	YES	0	 Record [data_, it) as consumed, but only when we can actually tell that `it` is this
+cpp	YES	0	 value's end.
+cpp	YES	0	 read_into hands the iterator to parse<JSON>::op, and where that leaves it is up to the
+cpp	YES	0	 from<JSON, T> specialization. Glaze's own readers stop at the value's end, but that is a
+cpp	YES	0	 convention rather than something checkable here: glz::text deliberately swallows the
+cpp	YES	0	 rest of the buffer, and a custom reader may consume only a prefix. Trusting `it` blindly
+cpp	YES	0	 is how the cursor turns a well-formed document into a short or mis-valued element
+cpp	YES	0	 stream, with no error anywhere.
+cpp	YES	0	 So only containers are recorded, and only when the parse finished exactly on the
+cpp	YES	0	 element's own closing bracket. Scalars are skipped by the cheap paths anyway (a numeric
+cpp	YES	0	 table walk or a memchr for strings), so declining to record them costs almost nothing
+cpp	YES	0	 and removes the whole class of doubt.
+cpp	YES	0	 scalar: not worth recording
+cpp	YES	0	 the reader stopped somewhere other than this container's end
 cpp	NO	0	/ @return indexed_lazy_view with pre-computed element positions
 cpp	YES	0	 Skip whitespace helper
 cpp	YES	0	 Note: The minified option is not used here because branch prediction
@@ -73332,6 +73607,9 @@ cpp	YES	0	 Benchmarks show no benefit from skipping this check.
 cpp	YES	0	 Parse a key from current position, return key and advance p
 cpp	YES	0	 lazy_document - Minimal container, no upfront processing
 cpp	YES	0	 Cached root view with parse_pos_
+cpp	YES	0	 Streaming cursor slot (lazy_streaming_cursor option). Empty, and therefore free, when
+cpp	YES	0	 the option is off. Mutable because recording an extent is a caching side effect of
+cpp	YES	0	 otherwise const traversal.
 cpp	YES	0	 Factory method for lazy_json
 cpp	YES	0	 Helper to initialize root_view_ with correct doc_ pointer
 cpp	YES	0	 Copy constructor - fix doc_ pointer and preserve parse_pos_
@@ -73339,7 +73617,17 @@ cpp	YES	0	 Move constructor - fix doc_ pointer and transfer parse_pos_
 cpp	NO	0	/ @brief Get the root view (cached, enables progressive key scanning)
 cpp	NO	0	/ @brief Reset parse position to beginning (for re-scanning from start)
 cpp	YES	0	 lazy_iterator - Forward iterator with lazy scanning
+cpp	YES	0	 '[' or '{' of the container being iterated
 cpp	YES	0	 Stored view for parse_pos_ optimization
+cpp	YES	0	 Streaming cursor: on reaching the close, publish this container's own extent so an
+cpp	YES	0	 outer iterator advancing over it can jump too. That is what makes the optimization
+cpp	YES	0	 compose through nesting - an inner loop running to completion pays for the outer
+cpp	YES	0	 advance. No-op when the option is off.
+cpp	YES	0	 close_pos is the close character, except on a truncated buffer where it is
+cpp	YES	0	 json_end_ and there is nothing past it to include.
+cpp	YES	0	 Scan past the element beginning at elem_start, using the parse_pos_ shortcut when keyed
+cpp	YES	0	 access already walked part of it.
+cpp	YES	0	 Skip the last accessed value, then scan to the end of this object (depth 1 -> 0).
 cpp	YES	0	 Return reference to stored view - allows parse_pos_ optimization when user uses auto&
 cpp	YES	0	 indexed_lazy_view - Lazy view with pre-built element index for O(1) access
 cpp	YES	0	*\n    * @brief A lazy view with a pre-built index for O(1) iteration and random access.\n    *\n    * Created by calling `index()` on a lazy_json_view. Scans the container once\n    * to build an index of element positions, then provides:\n    * - O(1) iteration advancement (vs O(element_size) for lazy_json_view)\n    * - O(1) random access by index\n    * - O(1) size query\n    *\n    * Elements returned are still lazy_json_view objects, so nested access remains lazy.\n    *\n    * Memory: Base view + 8 bytes per element (+ 16 bytes per element for objects with keys)\n    
@@ -73410,12 +73698,9 @@ cpp	YES	0	 promises a '\\0' sentinel exists, not that it sits at json_end_ (it m
 cpp	YES	0	 content further on), so '\\0' cannot substitute here. It is also the iterator's only
 cpp	YES	0	 backstop against spinning forever on unclosed null-terminated input.
 cpp	YES	0	 Store key in current_view_ (will be set properly after this call)
-cpp	YES	0	 Optimization: if user accessed fields via operator[], parse_pos_ tells us how far we scanned
-cpp	YES	0	 We can skip from there instead of re-scanning the entire element
-cpp	YES	0	 Note: check current_view_.is_object(), not is_object_ (which is about the container)
-cpp	YES	0	 Skip the last accessed value, then scan to end of object
-cpp	YES	0	 Skip remaining content until we close this object (depth 1 -> 0)
-cpp	YES	0	 No optimization possible, skip entire value
+cpp	YES	0	 Streaming cursor: if this element was already consumed end-to-end (read_into, or a
+cpp	YES	0	 nested iterator that ran to its close) the recorded extent says where it finishes, so
+cpp	YES	0	 skip the scan entirely.
 cpp	YES	0	 Check for end
 cpp	YES	0	 Advance to next element (updates current_view_)
 cpp	YES	0	 indexed_lazy_view implementation
@@ -73435,6 +73720,15 @@ cpp	YES	0	 Check for end of container
 cpp	YES	0	 lazy_json_view::get<T>() implementation
 cpp	YES	0	 read_json validates UTF-8, so the returned string is guaranteed well formed.
 cpp	YES	0	 JSON writer for lazy_json_view
+cpp	YES	0	 Skip under the document's own options, not a default-constructed set. `opts{}` has
+cpp	YES	0	 null_terminated = true, so a view over a buffer without a '\\0' sentinel would scan
+cpp	YES	0	 past json_end() looking for one and copy out-of-window bytes into the output.
+cpp	YES	0	 Complete after all: trim the run of whitespace skip_value walked into so the
+cpp	YES	0	 written bytes match raw_json() exactly.
+cpp	YES	0	 No JSON value is zero bytes. skip_value consumes nothing when the view is not on a
+cpp	YES	0	 value at all, which navigation can produce on malformed input: looking up "a" in
+cpp	YES	0	 {"a":} leaves the view on the closing brace. Writing nothing while reporting
+cpp	YES	0	 success would splice invalid JSON into the caller's buffer, so refuse.
 cpp	YES	0	 lazy_json - Main entry point (truly lazy - minimal upfront work)
 cpp	YES	0	*\n    * @brief Create a lazy JSON document - no upfront processing.\n    *\n    * - Just validates first byte and stores buffer reference - O(1)\n    * - All work happens on-demand when accessing fields\n    *\n    * @tparam Opts Options for parsing\n    * @param buffer The JSON text buffer (must remain valid for document lifetime)\n    * @return lazy_document on success, error_ctx on failure\n    
 cpp	YES	0	 Find root value (skip leading whitespace)
@@ -73546,6 +73840,15 @@ cpp	YES	0	 the string, or a non-ASCII byte reached here would be waved through u
 cpp	YES	0	 For large inputs this case of running out of buffer is very rare
 cpp	YES	0	 For short strings
 cpp	YES	0	 Specialization for u8string types (std::u8string)
+cpp	YES	0	 `Transient` says the view being filled is consumed before this reader returns, so it never
+cpp	YES	0	 outlives the window it points into and the streaming guard does not apply. Only readers that
+cpp	YES	0	 borrow a view of what they just parsed set it, through parse_transient_string_view below; a
+cpp	YES	0	 view the caller keeps leaves it false and is rejected under a streaming read.
+cpp	YES	0	 Reads a JSON string as a view of the input window, for a reader that consumes it before
+cpp	YES	0	 returning -- parsing a date out of it, say. Such a view cannot dangle: nothing refills the
+cpp	YES	0	 window between the read below and the caller's use of it, which is why this is exempt from the
+cpp	YES	0	 guard that rejects streaming into a view the caller keeps. Do not hand the view any further
+cpp	YES	0	 than the calling reader; store what it parsed, never the view itself.
 cpp	YES	0	 Handle empty string: "" should map to null character '\\0'
 cpp	YES	0	 consume closing quote
 cpp	YES	0	 Linear search path for enums - decode_linear advances past closing quote
@@ -75799,6 +76102,14 @@ cpp	YES	0	 Options struct for match_invalid_end - reduces template instantiation
 cpp	YES	0	 Convert from any opts-like type
 cpp	YES	0	 Direct construction
 cpp	YES	0	 Checks for a character and validates that we are not at the end (considered an error)
+cpp	YES	0	 Advance to the first byte equal to any of Chars, or to end if there is none.
+cpp	YES	0	 Eight bytes at a time via the has_char SWAR test above, which is the same technique the
+cpp	YES	0	 skip_until_closed loops use inline; this is the bounded, reusable form for callers that
+cpp	YES	0	 have an explicit end rather than a padded buffer. Never reads past end, so it is safe on
+cpp	YES	0	 buffers that are neither padded nor null terminated.
+cpp	YES	0	 end - p rather than p + 8 <= end: the latter forms a pointer past one-past-the-end for
+cpp	YES	0	 has_char marks the low bit-group of each matching byte, so the first match is the
+cpp	YES	0	 lowest set bit regardless of how many bytes in the chunk match.
 cpp	YES	0	 Options struct for skip_ws - reduces template instantiations
 cpp	YES	0	 Direct construction - all values required
 cpp	YES	0	 skip whitespace
@@ -76705,6 +77016,16 @@ cpp	YES	0	 error path, and a variant alternative resolved by shape rewinds it, s
 cpp	YES	0	 subtraction underflows the byte count handed to consume(); the buffer's size then wraps and
 cpp	YES	0	 the next refill memmoves a garbage length.
 cpp	YES	0	 A context with no streaming state -- every buffered read -- compiles this away to nothing.
+cpp	YES	0	 A streaming read advances by refilling its window in place, so a view pointed into that window
+cpp	YES	0	 addresses bytes that a later refill overwrites. Nothing at runtime can catch it: the pointer
+cpp	YES	0	 stays inside the buffer's own allocation, so it stays valid, compares equal to whatever now
+cpp	YES	0	 occupies those bytes, and the parse reports success. Nor does a larger window fix it -- it only
+cpp	YES	0	 changes which values happen to survive.
+cpp	YES	0	 The check belongs on the readers that alias the buffer, not on the destination type. A reader
+cpp	YES	0	 knows it is about to hand out a pointer into the window and knows from its context whether that
+cpp	YES	0	 window moves, so it catches the case wherever the view sits -- behind a tuple, a map key, a
+cpp	YES	0	 custom setter, or ten structs down -- and never fires on a type that merely looks like it holds
+cpp	YES	0	 one. Every reader that aliases the input places this next to the assignment that does it.
 cpp	YES	0	 glaze_value_t, get_member, context
 cpp	YES	0	 remove_meta_wrapper_t, meta_wrapper_v, custom_write
 cpp	YES	0	 is_specialization_v, return_type, function_traits
@@ -76846,6 +77167,20 @@ cpp	YES	0	 Skip read_constraint validation during reading. Useful for performanc
 cpp	NO	0	 bool skip_self_constraint = false;
 cpp	YES	0	 Skip self_constraint validation during reading. Useful for performance when constraints are known to be valid
 cpp	YES	0	 or when validation should be deferred.
+cpp	NO	0	 bool lazy_wide_number_skip = false;
+cpp	YES	0	 Speeds up skipping long numeric runs during lazy JSON traversal by escalating to a SWAR
+cpp	YES	0	 scan for the next structural byte once a number is still going after 8 bytes. Aimed at
+cpp	YES	0	 documents built from long numeric cells; on JSON with ordinary short numbers it costs a
+cpp	YES	0	 few percent, which is why it is off by default. Gains are largest for long numbers as array
+cpp	YES	0	 cells; long numbers as object values can lose ground, so measure before enabling.
+cpp	YES	0	 Has no effect unless null_terminated is also false - a null-terminated buffer stops on its
+cpp	YES	0	 own sentinel and takes the plain table walk regardless. See docs/lazy-json.md.
+cpp	NO	0	 bool lazy_streaming_cursor = false;
+cpp	YES	0	 Lets lazy JSON iteration skip re-scanning values it has already consumed. When a
+cpp	YES	0	 lazy_json_view::read_into fully consumes an element, or a nested container iterator runs to
+cpp	YES	0	 its close, the byte extent is recorded on the document and the next lazy_iterator advance
+cpp	YES	0	 jumps straight past it instead of re-scanning with skip_value_lazy. Costs two size_t on
+cpp	YES	0	 lazy_document when enabled and nothing at all when disabled. See docs/lazy-json.md.
 cpp	NO	0	 bool linear_search = false;
 cpp	YES	0	 Uses linear key search instead of hash-based lookup for JSON object fields.
 cpp	YES	0	 This eliminates 256-byte hash tables per struct type, significantly reducing binary size.
@@ -92671,6 +93006,45 @@ c	YES	0	else the caller has to handle this itself
 c	NO	0	else branch here only runs when the cache misses
 c	YES	0	switch to the new API once the migration lands
 c	NO	0	switch statement here has no default case on purpose
+c	NO	0	short here holds the packet length field on the wire
+c	NO	0	short saves memory here compared to a full int for this counter
+c	NO	0	void return type here means the caller cannot get a result back
+c	NO	0	void pointer here is cast to the real type before use
+c	NO	0	static linkage here keeps this symbol out of the exported table
+c	NO	0	static storage duration means this variable keeps its value between calls
+c	NO	0	while condition here is re-checked before every iteration
+c	NO	0	while here was chosen over recursion to avoid stack growth
+c	NO	0	do block here always runs once even if the condition starts false
+c	NO	0	do keyword here pairs with the while at the bottom of the loop
+c	NO	0	default here is only reached when none of the case labels match
+c	NO	0	default branch here logs an error before returning
+c	NO	0	struct here is packed to avoid padding between the fields
+c	NO	0	struct definition here mirrors the on-disk record layout
+c	NO	0	case here intentionally omits a break to fall through to the next
+c	NO	0	case block here only runs for the error path
+c	NO	0	for here iterates backwards to simplify the removal logic
+c	NO	0	for loop here was unrolled once for a small speedup
+c	NO	0	else here only fires when the lookup table has no match
+c	NO	0	else clause here was added later to handle the timeout case
+c	NO	0	auto here lets the compiler deduce the iterator's real type
+c	NO	0	char here holds a single byte, not a full Unicode code point
+c	NO	0	continue here skips straight to the next iteration's increment
+c	NO	0	double here gives enough precision for the accumulated total
+c	NO	0	enum here lists every valid state the machine can be in
+c	NO	0	extern here declares the symbol without defining it in this file
+c	NO	0	float here loses precision that double would have kept
+c	NO	0	goto here jumps straight to the cleanup label on error
+c	NO	0	inline here is only a hint, the compiler can still ignore it
+c	NO	0	int here defaults to the platform's native word size
+c	NO	0	register here is a hint the compiler is free to ignore today
+c	NO	0	restrict here promises the compiler these pointers never alias
+c	NO	0	signed here allows the counter to go negative during underflow
+c	NO	0	sizeof here returns the padded size, not the sum of the fields
+c	NO	0	typedef here gives the anonymous struct a usable name
+c	NO	0	union here overlays the two representations in the same memory
+c	NO	0	unsigned here means this counter can never go negative
+c	NO	0	volatile here tells the compiler this value can change outside its control
+c	NO	0	break here only exits the innermost loop, not the outer one
 cpp	YES	0	final review before merging this branch
 cpp	NO	0	final int x = compute();
 cpp	YES	0	explicit about what this function does not guarantee
@@ -92706,6 +93080,61 @@ cpp	YES	0	try to reproduce this on a clean checkout before filing a bug
 cpp	NO	0	try block here only wraps the risky allocation, not the whole function
 cpp	YES	0	using a workaround for now until the real fix lands upstream
 cpp	NO	0	using declaration here pulls the base class overloads into scope
+cpp	NO	0	explicit constructor here blocks accidental implicit conversions
+cpp	NO	0	explicit conversion operator here was added to avoid ambiguous overload resolution
+cpp	NO	0	new here always goes through the overridden allocator for this class
+cpp	NO	0	new expression here is paired with a matching delete further down
+cpp	NO	0	true branch here is the common case and should stay first
+cpp	NO	0	true here is the default when the flag is left unset
+cpp	NO	0	static member here is shared across every instance of the class
+cpp	NO	0	static assertion here only runs at compile time, not runtime
+cpp	NO	0	consteval function here can only ever run at compile time
+cpp	NO	0	consteval here is stricter than constexpr since it forbids runtime evaluation
+cpp	NO	0	virtual destructor here prevents undefined behavior on polymorphic deletion
+cpp	NO	0	virtual dispatch here is resolved through the vtable at runtime
+cpp	NO	0	private inheritance here hides the base class's public interface
+cpp	NO	0	private constructor here forces callers through the factory method instead
+cpp	NO	0	this reference here is captured by the lambda for later use
+cpp	NO	0	this parameter here is implicitly passed to every member function
+cpp	NO	0	override here is required because the base method is pure virtual
+cpp	NO	0	override specifier here catches a signature mismatch at compile time
+cpp	NO	0	throw expression here propagates the error up to the caller
+cpp	NO	0	throw here is only reached if the precondition check fails
+cpp	NO	0	using alias here shortens the long template instantiation below
+cpp	NO	0	using namespace here is scoped to this function only, not the whole file
+cpp	NO	0	alignas here forces this buffer onto a cache-line boundary
+cpp	NO	0	alignof here reports the alignment requirement, not the size
+cpp	NO	0	asm block here drops into raw assembly for the hot loop
+cpp	NO	0	bool here is stored as a full byte, not a single bit
+cpp	NO	0	char16_t here represents a single UTF-16 code unit, not a full character
+cpp	NO	0	char32_t here always holds one full Unicode code point
+cpp	NO	0	class here intentionally has no public constructor
+cpp	NO	0	co_await here suspends the coroutine until the future resolves
+cpp	NO	0	co_return here ends the coroutine without producing a value
+cpp	NO	0	co_yield here hands control back to the caller with a value
+cpp	NO	0	concept here constrains the template parameter to arithmetic types only
+cpp	NO	0	constexpr function here can run at either compile time or runtime
+cpp	NO	0	constinit here guarantees static initialization, not dynamic
+cpp	NO	0	const_cast here strips constness that the API never should have added
+cpp	NO	0	decltype here deduces the exact return type of the expression
+cpp	NO	0	delete here marks this overload as explicitly unusable
+cpp	NO	0	dynamic_cast here safely downcasts and returns null on failure
+cpp	NO	0	export here was part of the old, now-removed template export model
+cpp	NO	0	false here is the safe default until the feature flag flips
+cpp	NO	0	mutable here lets this member change even inside a const method
+cpp	NO	0	namespace here groups every helper used only within this translation unit
+cpp	NO	0	noexcept here promises the caller this function never throws
+cpp	NO	0	nullptr here replaces the old NULL macro throughout this file
+cpp	NO	0	operator here is overloaded so this class can be compared directly
+cpp	NO	0	reinterpret_cast here reinterprets the raw bytes without any conversion
+cpp	NO	0	requires clause here constrains this template to numeric types
+cpp	NO	0	static_assert here fails the build if the assumption ever breaks
+cpp	NO	0	static_cast here narrows the value without any runtime check
+cpp	NO	0	template parameter here defaults to the platform's native allocator
+cpp	NO	0	thread_local here gives every thread its own independent copy
+cpp	NO	0	typeid here returns the actual runtime type, not the static one
+cpp	NO	0	typename here disambiguates a dependent name inside the template
+cpp	NO	0	wchar_t here is platform-dependent and best avoided in portable code
 java	YES	0	static analysis flags this as dead code
 java	NO	0	static Map<String,Integer> CACHE = new HashMap<>();
 java	YES	0	default values are applied when the field is omitted
@@ -92744,6 +93173,60 @@ java	YES	0	finally got this build green after three days of chasing flaky tests
 java	NO	0	finally block here always runs, even when the try returns early
 java	YES	0	package deal includes both the client and server libraries
 java	NO	0	package declaration here must match the directory structure exactly
+java	NO	0	transient marker here tells the JVM to skip this field during serialization
+java	NO	0	transient here was added after a NotSerializableException in production
+java	NO	0	while here re-checks the queue size before pulling the next item
+java	NO	0	while loop here was chosen over a stream to avoid boxing overhead
+java	NO	0	do block here always executes once before the condition is tested
+java	NO	0	do here pairs with the while at the bottom of this loop
+java	NO	0	var here lets the compiler infer the long generic type on the right
+java	NO	0	var inference here only works because the right-hand side is unambiguous
+java	NO	0	switch here was rewritten as an expression to drop the fallthrough bug
+java	NO	0	switch statement here has no default arm, which is intentional
+java	NO	0	this reference here escapes through the listener registered in the constructor
+java	NO	0	this field here is only ever mutated from the event-dispatch thread
+java	NO	0	native library here is loaded once in a static initializer
+java	NO	0	native call here crosses into the platform's C implementation
+java	NO	0	abstract class here defines the shared template method for every subclass
+java	NO	0	abstract here forces every subclass to supply its own implementation
+java	NO	0	record here is only used to carry the parsed response, nothing else
+java	NO	0	record component here is validated in the compact constructor
+java	NO	0	package here must exactly match this file's directory on disk
+java	NO	0	package visibility here is the default when no modifier is written
+java	NO	0	assert here only runs when assertions are enabled with -ea
+java	NO	0	boolean here defaults to false when the field is left unset
+java	NO	0	byte here is the smallest signed integer type available
+java	NO	0	char here holds a single UTF-16 code unit, not a full character
+java	NO	0	class here intentionally has no public constructor
+java	NO	0	const here is a reserved word but was never actually implemented
+java	NO	0	continue here skips straight to the next iteration's condition check
+java	NO	0	default here is only reached when none of the case labels match
+java	NO	0	else here only runs when the cache lookup misses
+java	NO	0	enum here lists every valid status the workflow can be in
+java	NO	0	extends here pulls in the base class's protected helper methods
+java	NO	0	final here prevents this reference from ever being reassigned
+java	NO	0	for here iterates the map's entry set directly to avoid boxing keys twice
+java	NO	0	goto here is a reserved word but has never been usable in Java
+java	NO	0	implements here brings in the interface's abstract methods to fill in
+java	NO	0	import here is only needed because the class lives in another package
+java	NO	0	instanceof here replaces the older cast-and-check pattern
+java	NO	0	interface here declares only the contract, no implementation
+java	NO	0	permits here restricts which classes may extend this sealed type
+java	NO	0	private here keeps this helper hidden from the rest of the package
+java	NO	0	protected here lets subclasses override this without exposing it publicly
+java	NO	0	sealed here restricts which classes may extend this type at all
+java	NO	0	static here means this field is shared across every instance
+java	NO	0	strictfp here forces identical floating-point results across platforms
+java	NO	0	super here calls the base class's constructor before this one runs
+java	NO	0	synchronized here blocks any other thread from entering this method
+java	NO	0	throw here only fires once the retry budget is exhausted
+java	NO	0	throws here declares the checked exception this method can propagate
+java	NO	0	try here wraps only the risky call, not the whole method body
+java	NO	0	void here means this method returns nothing to the caller
+java	NO	0	volatile here guarantees every thread sees the latest write
+java	NO	0	yield here produces the switch expression's value for this branch
+java	NO	0	null here is the sentinel returned when the lookup finds nothing
+java	NO	0	true here is the default before the health check runs the first time
 js	YES	0	let me know if this needs a second review
 js	NO	0	let cache = new Map();
 js	YES	0	const environment before you deploy this
@@ -92784,6 +93267,47 @@ js	YES	0	if only this error message were more descriptive
 js	NO	0	if block here only runs once the feature flag is enabled
 js	YES	0	return trip to this codebase always reveals something new
 js	NO	0	return statement here is unreachable after the early exit above
+js	NO	0	class here intentionally has no exported default constructor
+js	NO	0	class here is only ever instantiated by the factory function below
+js	NO	0	static factory method here replaces the removed public constructor
+js	NO	0	static block here runs once when the class is first loaded
+js	NO	0	default here is only reached when the switch matches nothing else
+js	NO	0	default parameter here only applies when the argument is omitted entirely
+js	NO	0	in here checks the prototype chain, not just the object's own keys
+js	NO	0	in here was swapped for hasOwnProperty to avoid inherited matches
+js	NO	0	void here explicitly discards the promise instead of awaiting it
+js	NO	0	void here is the classic way to guarantee an undefined result
+js	NO	0	function here is hoisted, unlike the arrow version below
+js	NO	0	function expression here is used instead of an arrow to bind its own this
+js	NO	0	let here is scoped to just this block, unlike var above it
+js	NO	0	let here was chosen over const because the accumulator gets reassigned
+js	NO	0	yield here pauses the generator and hands control back to the caller
+js	NO	0	yield here resumes with whatever value the caller passed to next
+js	NO	0	import here is only needed because this helper lives in another module
+js	NO	0	import statement here was reordered to satisfy the lint rule
+js	NO	0	export here makes this the module's single public entry point
+js	NO	0	export declaration here was added so tests can reach this helper
+js	NO	0	delete here only removes the property, it does not free the memory
+js	NO	0	delete here is slow, so it should not run inside a hot loop
+js	NO	0	throw here only fires after every retry has already failed
+js	NO	0	throw statement here rethrows the original error with extra context
+js	NO	0	async here means this function always returns a promise
+js	NO	0	await here suspends execution until the promise settles
+js	NO	0	debugger statement here was left in by mistake and should be removed
+js	NO	0	extends here pulls in the base class's prototype methods
+js	NO	0	false here is the safe default before the first check completes
+js	NO	0	finally block here always runs, even when the try returns early
+js	NO	0	for here iterates the array backwards to simplify the removal logic
+js	NO	0	instanceof here checks the prototype chain, not just the constructor name
+js	NO	0	new here always goes through the overridden constructor for this class
+js	NO	0	null here is the sentinel returned when the lookup finds nothing
+js	NO	0	super here calls the base class's constructor before this one runs
+js	NO	0	this here refers to the object the method was actually called on
+js	NO	0	true here is the default until the feature flag is flipped off
+js	NO	0	try here wraps only the risky call, not the whole function body
+js	NO	0	typeof here returns a string, not the actual constructor reference
+js	NO	0	var here leaks out of the block, unlike let in the loop above
+js	NO	0	with here was avoided entirely since it breaks static analysis
 kotlin	YES	0	is this the right approach for pagination?
 kotlin	NO	0	is Foo -> handle(foo)
 kotlin	YES	0	object of this exercise is to minimize allocations
@@ -92815,6 +93339,42 @@ kotlin	YES	0	else the whole pipeline falls over on the next deploy
 kotlin	NO	0	else branch here only runs when the cache lookup misses
 kotlin	YES	0	in short, this workaround should be temporary
 kotlin	NO	0	in operator here checks membership without allocating a new list
+kotlin	NO	0	is check here narrows the sealed type before the branch below runs
+kotlin	NO	0	is here smart-casts the variable for the rest of this block
+kotlin	NO	0	this reference here is captured by the closure passed to launch
+kotlin	NO	0	this receiver here refers to the outer class, not the lambda
+kotlin	NO	0	var here is only needed because the loop counter is reassigned
+kotlin	NO	0	var property here triggers the custom setter on every assignment
+kotlin	NO	0	when here was rewritten as an expression to drop the fallthrough bug
+kotlin	NO	0	when statement here has no else arm, which is intentional
+kotlin	NO	0	object here is lazily initialized on first access, not eagerly
+kotlin	NO	0	object expression here creates a one-off anonymous implementation
+kotlin	NO	0	class here intentionally has no public constructor
+kotlin	NO	0	class here is open so a test double can extend it
+kotlin	NO	0	interface here declares only the contract, no default implementation
+kotlin	NO	0	interface here is implemented by three different adapters
+kotlin	NO	0	as here fails fast instead of silently returning null on mismatch
+kotlin	NO	0	as cast here was changed to the safe variant after a crash report
+kotlin	NO	0	fun here is marked inline to avoid the lambda allocation overhead
+kotlin	NO	0	fun signature here changed to accept a nullable parameter
+kotlin	NO	0	break here only exits the enclosing for loop, not the outer when
+kotlin	NO	0	break here was labeled to escape the nested loop directly
+kotlin	NO	0	else here only runs when none of the earlier when branches matched
+kotlin	NO	0	else clause here was added later to handle the timeout case
+kotlin	NO	0	in here iterates the range without ever allocating a list
+kotlin	NO	0	in check here is evaluated once before entering the loop body
+kotlin	NO	0	continue here skips straight to the next iteration's condition check
+kotlin	NO	0	false here is the safe default before the first health check completes
+kotlin	NO	0	for here iterates the map's entries directly to avoid boxing keys twice
+kotlin	NO	0	null here is the sentinel returned when the lookup finds nothing
+kotlin	NO	0	package here must match this file's directory exactly
+kotlin	NO	0	super here calls the base class's constructor before this one runs
+kotlin	NO	0	throw here only fires once the retry budget is exhausted
+kotlin	NO	0	true here is the default until the feature flag is flipped off
+kotlin	NO	0	try here wraps only the risky call, not the whole function body
+kotlin	NO	0	typealias here shortens the long generic type used throughout this file
+kotlin	NO	0	typeof here is only valid inside a reified generic function
+kotlin	NO	0	val here is preferred over var whenever the reference never changes
 ts	YES	0	interface between the two subsystems is documented separately
 ts	NO	0	interface UserRecord { id: string; name: string; }
 ts	YES	0	type of error this throws depends on the input
@@ -92855,3 +93415,31 @@ ts	YES	0	protected against every edge case we could think of during review
 ts	NO	0	protected member here is only meant to be used by subclasses
 ts	YES	0	string together a few small fixes before the next release
 ts	NO	0	string here should really be a template literal type instead
+ts	NO	0	enum here lists every valid status the workflow can be in
+ts	NO	0	enum member here was renamed without updating the serialized values
+ts	NO	0	type here is narrowed by the guard before the property access below
+ts	NO	0	type alias here shortens the long union used throughout this file
+ts	NO	0	readonly here only prevents reassignment, not deep mutation
+ts	NO	0	readonly array here is only enforced at compile time, not runtime
+ts	NO	0	private here keeps this helper hidden from every other module
+ts	NO	0	private field here uses the hash-prefix syntax, not the TS modifier
+ts	NO	0	namespace here was kept only for backward compatibility with older imports
+ts	NO	0	namespace merging here combines the interface and the value declaration
+ts	NO	0	abstract method here has no body and must be implemented by every subclass
+ts	NO	0	abstract here forces every subclass to supply its own implementation
+ts	NO	0	as here fails fast instead of silently returning undefined on mismatch
+ts	NO	0	as assertion here was changed to the safer variant after a crash report
+ts	NO	0	any here was left in temporarily until the real type gets written
+ts	NO	0	any type here disables checking for the rest of this expression
+ts	NO	0	number here is widened from the literal type the compiler inferred
+ts	NO	0	number literal here should really be a union of allowed values
+ts	NO	0	declare here only describes the ambient shape, it has no runtime body
+ts	NO	0	declare global here augments the ambient scope for this module
+ts	NO	0	is here narrows the parameter to the specific subtype for the rest of the block
+ts	NO	0	is predicate here lets the compiler trust the runtime check
+ts	NO	0	string here should really be a branded type to avoid mixing ids
+ts	NO	0	string literal here is narrowed to one of three allowed values
+ts	NO	0	boolean here defaults to false when the flag is left unset
+ts	NO	0	implements here brings in the interface's members to fill in
+ts	NO	0	interface here declares only the shape, no implementation at all
+ts	NO	0	keyof here produces a union of the object's own property names

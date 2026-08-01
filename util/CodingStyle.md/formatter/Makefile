@@ -26,7 +26,7 @@ TEST_LOCK     = $(BUILD_DIR)/.test.lock
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
 
-.PHONY: all build jar clean gru-extract-pool-a gru-extract-pool-b gru-measure-abstain-rate gru-acquire-corpus gru-train test _test_serial bench test-server
+.PHONY: all build jar clean gru-extract-pool-a gru-extract-pool-b gru-measure-abstain-rate gru-acquire-corpus gru-hand-labeled-examples gru-train test _test_serial bench test-server
 
 
 all build jar:
@@ -145,6 +145,17 @@ gru-measure-abstain-rate: $(JAR_FILE)
 # result -- these carry a human-reviewed ground-truth label already, so they're appended as-is
 # rather than re-labeled by CommentClassifier (see acquire_corpus.sh's own comment for why).
 #
+# This single baked-in copy is DELIBERATELY a separate, smaller guarantee than gru-train's
+# GRU_HAND_LABELED_REPEAT oversampling (below) -- the two stack, they aren't the same mechanism
+# twice. This append makes the hard cases present at least once in the committed base corpus, so
+# even a bare `make gru-train` with GRU_HAND_LABELED_REPEAT unset still trains on them. Repeat
+# oversampling exists because presence alone wasn't enough: the hard cases are only ~0.3% of
+# sample_default.txt's ~74000 rows, so a single copy's gradient signal gets swamped by the
+# majority-YES auto-labeled examples (see STATE_AI.md's 65.2%-precision retrain finding, which
+# trained on this one baked-in copy with no oversampling). Setting GRU_HAND_LABELED_REPEAT=N on
+# top adds N further copies for that run, so the hard cases end up appearing 1 (this baseline) + N
+# (oversample) times total -- intentional amplification, not double-counting the same thing.
+#
 # Usage:
 #     make gru-acquire-corpus [GRU_CORPUS_OUT_DIR=/tmp/gru_corpus]
 #
@@ -160,7 +171,25 @@ gru-acquire-corpus: $(JAR_FILE)
 	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GenerateSampleDefault $(GRU_CORPUS_OUT_DIR)/comments_combined.txt $(GRU_SAMPLE_DEFAULT)
 	@cat $(GRU_CORPUS_OUT_DIR)/classifier_weights_examples.tsv >> $(GRU_SAMPLE_DEFAULT)
 	@awk '!seen[$$0]++' $(GRU_SAMPLE_DEFAULT) > $(GRU_SAMPLE_DEFAULT).dedup && mv $(GRU_SAMPLE_DEFAULT).dedup $(GRU_SAMPLE_DEFAULT)
-	@echo "gru-acquire-corpus: wrote $(GRU_SAMPLE_DEFAULT) ($(shell wc -l < $(GRU_SAMPLE_DEFAULT) 2>/dev/null || echo '?') line(s), incl. tools/classifier_weights/examples_*.md hand-labeled rows)"
+	@LINES=$$(wc -l < $(GRU_SAMPLE_DEFAULT) 2>/dev/null || echo '?'); \
+	echo "gru-acquire-corpus: wrote $(GRU_SAMPLE_DEFAULT) ($$LINES line(s), incl. tools/classifier_weights/examples_*.md hand-labeled rows)"
+
+# ── GRU hand-labeled examples (RDD_EXT_21) target ─────────────────────────────
+#
+# Converts tools/classifier_weights/examples_{c,cpp,java,kotlin,js,ts}.md (the same hand-labeled
+# hard-case tables `make gru-acquire-corpus` folds into sample_default.txt) into a standalone
+# RDD_EXT_21-schema file via convert_classifier_weights_examples.py, without running the rest of
+# corpus acquisition (no cloning/extraction needed -- these rows are already human-labeled). This
+# is the file `gru-train`'s optional --hand-labeled oversampling (below) points at. Per RDD_EXT_19
+# this derived artifact is never committed -- it's written under $(GRU_BUILD_DIR), not the repo.
+#
+GRU_HAND_LABELED_EXAMPLES = $(GRU_BUILD_DIR)/classifier_weights_examples.tsv
+
+gru-hand-labeled-examples:
+	@mkdir -p $(GRU_BUILD_DIR)
+	@python3 $(GRU_TOOLS_DIR)/convert_classifier_weights_examples.py tools/classifier_weights --out $(GRU_HAND_LABELED_EXAMPLES)
+	@LINES=$$(wc -l < $(GRU_HAND_LABELED_EXAMPLES) 2>/dev/null || echo '?'); \
+	echo "gru-hand-labeled-examples: wrote $(GRU_HAND_LABELED_EXAMPLES) ($$LINES line(s))"
 
 # ── GRU trainer target ───────────────────────────────────────────────────────
 #
@@ -176,20 +205,35 @@ gru-acquire-corpus: $(JAR_FILE)
 # expected filename, so `make test`/developer runs against `$(CLASS_DIR)` can find it, and into the formatter
 # root (`code-formatter-ai-assist-weights.json`) so it can be committed alongside `sample_default.txt`.
 #
-GRU_WEIGHTS_FILENAME = code-formatter-ai-assist-weights.json
-GRU_WEIGHTS_OUT      = $(GRU_BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)
-GRU_CKPT_CURRENT     = $(GRU_WEIGHTS_OUT).ckpt-current.bin
-GRU_SAMPLE_EXAMPLES  = $(GRU_SAMPLE_DEFAULT)
-GRU_TRAIN_ARGS      ?= --threads=3 --epochs=9 --patience=3 --batch-size=16 --progress-every=1000
+# GRU_HAND_LABELED_REPEAT (default 0, i.e. off) wires GruTrainer's --hand-labeled/--hand-labeled-repeat
+# oversampling (see tools/gru/README.txt) to the hard-case set gru-hand-labeled-examples produces --
+# set it to a positive integer to repeat those rows N extra times in the training split, e.g.
+# `make gru-train GRU_HAND_LABELED_REPEAT=3`. Left at 0, gru-train's behavior is unchanged from before
+# oversampling support existed.
+#
+# This stacks with, rather than duplicates, gru-acquire-corpus's single baked-in copy of the same
+# hand-labeled rows in sample_default.txt (see that target's comment for why the baseline copy
+# alone isn't enough) -- with GRU_HAND_LABELED_REPEAT=N, a hard-case row appears 1 + N times in
+# that training run: once from sample_default.txt, N more from this oversampling pass.
+#
+GRU_WEIGHTS_FILENAME     = code-formatter-ai-assist-weights.json
+GRU_WEIGHTS_OUT          = $(GRU_BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)
+GRU_CKPT_CURRENT         = $(GRU_WEIGHTS_OUT).ckpt-current.bin
+GRU_SAMPLE_EXAMPLES      = $(GRU_SAMPLE_DEFAULT)
+GRU_TRAIN_ARGS          ?= --threads=3 --epochs=9 --patience=3 --batch-size=16 --progress-every=1000
+GRU_HAND_LABELED_REPEAT ?= 3
 
 gru-train: $(JAR_FILE)
 	@mkdir -p $(GRU_TOOLS_CLASSES)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/GruTrainer.java
-	@if [ -f $(GRU_CKPT_CURRENT) ]; then                                                                                                                       \
-		echo "gru-train: found $(GRU_CKPT_CURRENT), resuming";                                                                                             \
-		$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT) $(GRU_TRAIN_ARGS) --resume=$(GRU_CKPT_CURRENT); \
-	else                                                                                                                                                       \
-		$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT) $(GRU_TRAIN_ARGS);                              \
+	@if [ "$(GRU_HAND_LABELED_REPEAT)" != "0" ]; then \
+		$(MAKE) gru-hand-labeled-examples; \
+	fi
+	@if [ -f $(GRU_CKPT_CURRENT) ]; then                                                                                                                                                                                        \
+		echo "gru-train: found $(GRU_CKPT_CURRENT), resuming";                                                                                                                                                             \
+		$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT) $(GRU_TRAIN_ARGS) --resume=$(GRU_CKPT_CURRENT) $(if $(filter-out 0,$(GRU_HAND_LABELED_REPEAT)),--hand-labeled=$(GRU_HAND_LABELED_EXAMPLES) --hand-labeled-repeat=$(GRU_HAND_LABELED_REPEAT)); \
+	else                                                                                                                                                                                                                        \
+		$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT) $(GRU_TRAIN_ARGS) $(if $(filter-out 0,$(GRU_HAND_LABELED_REPEAT)),--hand-labeled=$(GRU_HAND_LABELED_EXAMPLES) --hand-labeled-repeat=$(GRU_HAND_LABELED_REPEAT));                              \
 	fi
 	@cp $(GRU_WEIGHTS_OUT) $(CLASS_DIR)
 	@cp $(GRU_WEIGHTS_OUT) .

@@ -1639,3 +1639,46 @@ the float conversion (correctly — code was reverted, not shipped).
 revert. **`code-formatter-ai-assist-weights.json`: byte-unchanged throughout
 this entire session** (`git status --porcelain` on the file shows nothing;
 it was only ever read by `GruEval`, never written).
+
+## 2026-08-02 session: `make gru-train` re-run (default `GRU_TRAIN_ARGS`), re-evaluated on the 221-example benchmark — improved (56.0% → 65.2%), still below the 67.7% baseline
+
+Ran `make gru-train` with the Makefile's default `GRU_TRAIN_ARGS`
+(`--threads=3 --epochs=9 --patience=3 --batch-size=16
+--progress-every=1000`) against `tools/gru/sample_default.txt`
+(74280 train / 18570 validation examples, vocabSize=3500 per RDD_EXT_22).
+Early-stopped at epoch 5 (no validation-loss improvement for 3 epochs, per
+`--patience=3`), best epoch 2: `trainLoss=0.0368411,
+validationLoss=0.0322115`. Validation confusion matrix (positive=YES, this
+is the auto-labeled 18570-row held-out split, not the hand-labeled
+hard-case set below): `tp=17913 fp=105 tn=512 fn=40 precision=0.99417
+recall=0.99777 f1=0.99597`.
+
+That validation split is auto-labeled by the rule-based classifier itself
+(same caveat as every prior session in this file), so it says nothing about
+hard-case accuracy on its own — re-ran the real signal, `tools/gru/GruEval`
+against the 221-row hand-labeled hard-case set
+(`tools/classifier_weights/examples_{c,cpp,java,kotlin,js,ts}.md` via
+`convert_classifier_weights_examples.py`, written to
+`/tmp/gru_hardcase_examples.txt`, not committed per RDD_EXT_19):
+
+| weights | precision | correct/total | yesIncorrect | noIncorrect |
+|---|---|---|---|---|
+| previously committed (this session's pre-retrain baseline, `git show HEAD:...`) | 53.8% | 119/221 | 3 | 99 |
+| freshly retrained (`make gru-train` output, copied to `code-formatter-ai-assist-weights.json`) | **65.2%** | 144/221 | 0 | 77 |
+
+Best 221-example precision measured for any GRU retrain so far (prior
+recorded numbers in this file: 30.6% → 50.0% → 56.0%, see the 2026-08-01
+sessions above). `yesIncorrect` dropped to 0 (no false positives against
+this set at all); `noIncorrect` (77/91 NO-labeled examples misclassified as
+YES) remains the dominant error mode and the main gap versus the 67.7%
+linear-classifier baseline (`RDD_EXT_17`'s bar). No code was changed this
+session — training-corpus/hyperparameter re-run only, using the existing
+`gru-train`/`GruEval` tooling as-is. `gru-classifier` stays `off` (still
+below the 67.7% bar).
+
+`code-formatter-ai-assist-weights.json` was overwritten by `make gru-train`
+itself (the user's own action, not mine) — I did not edit it, only read it
+(and a `git show HEAD:...` copy for the pre-retrain comparison) via
+`GruEval`. Per RDD_EXT_19 the derived benchmark file
+(`/tmp/gru_hardcase_examples.txt`) and the pre-retrain comparison copy
+(`/tmp/gru_weights_prev_committed.json`) are scratch-only, not committed.

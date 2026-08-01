@@ -1,4 +1,4 @@
-Use debug prints and `make test` rather than relying only on static analysis to reduce quota usage
+²Use debug prints and `make test` rather than relying only on static analysis to reduce quota usage
 and prevent regressions on `(PASS)` tests and previous bug fixes.
 
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer
@@ -254,9 +254,12 @@ be no regression, at least when the above config is not enabled.
 Does the job `JetBrains/kotlin` dogfood cluster D3 really needs to be folded
 to `General scope-depth reindentation`? If so, fold the job.
 
-Write the result of this (1x) discussions to the proper state files with
-instructions to update README.md when it is already implemented. Update also
-the `Tier 3` items in XL.txt but do not commit XL.txt.
+Write the result of this (1x) discussions to the proper state files with the
+instructions to update `README.md`, state files, erc. when this feature is
+already implemented. Ensure the instruction to also include a task to generate
+new test fixtures for this (use `JXM_CFMT_CFG` to turn on `enable-curly-gdr`
+from the in-file config). Update also the `Tier 3` items in XL.txt but do not
+commit XL.txt.
 
 -----
 

@@ -201,31 +201,7 @@ exec  ~/mynpm/bin/claude "$@"
 
 --- Tier 1: high value, tractable next steps ---
 
-10. GRU: retrain against the regenerated `sample_default.txt` (post
-    extract_comments.py fix + post hard-case corpus growth) and re-run the
-    hard-case benchmark. Tooling already built end to end (`make gru-train` +
-    `GruEval`), see STATE_AI.md's most recent sessions for exact current
-    numbers/status. Value: medium (directly tests whether the corpus fixes
-    moved the GRU closer to the linear-classifier baseline). Difficulty: low.
-
-11. GruTrainer speed: profile the per-example forward/backward hot path
-    (computeBatch/computeGradients) and refactor to flat, JIT-auto-
-    vectorizable double[]/float[] loops (no aliasing/branches in the hot
-    loop) — plain-Java win, no toolchain change, orthogonal to the existing
-    --threads parallelism. Considered but explicitly deferred:
-    jdk.incubator.vector (Vector API) — still incubating even on JDK 25, API
-    may still change, so not worth adopting yet; hand-rolled FFM-generated
-    machine code was also considered and rejected as high-effort/high-risk
-    for no clear gain over the Vector API path once that stabilizes. Value:
-    medium (training turnaround, esp. for the planned CM5 run). Difficulty:
-    low-medium (profiling + refactor + `make test`/gradient-check
-    verification, not a redesign).
-
-Use sub-agent. This can be a substantial work.
-
---- Tier 2: meaningful, narrower value or higher difficulty ---
-
-20. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
+10. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
     further grow the hand-labeled hard-case corpus
     (`tools/classifier_weights/examples_*.md`) — repeatedly identified in
     STATE_AI.md as the highest-leverage lever for closing the GRU/linear-
@@ -238,28 +214,41 @@ Use sub-agent. This can be a substantial work.
     Rerun `make gru-acquire-corpus` so `sample_default.txt` will contains
     the new hand-labeled hard-case corpus.
 
-    DO NOT REMOVE THIS ITEM. This will be a recurring job.
+11. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
+    retrain against the regenerated `sample_default.txt` (post
+    extract_comments.py fix + post hard-case corpus growth) and re-run the
+    hard-case benchmark. Tooling already built end to end (`make gru-train` +
+    `GruEval`), see STATE_AI.md's most recent sessions for exact current
+    numbers/status. Value: medium (directly tests whether the corpus fixes
+    moved the GRU closer to the linear-classifier baseline). Difficulty: low.
 
-21. GRU: LLM-assisted disagreement sampling against `sample_default.txt`
+12. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
+    LLM-assisted disagreement sampling against `sample_default.txt`
     Value: low-medium (corpus-quality improvement/further evidence-gathering, most
     of the high-value finding already extracted). Difficulty: low (reading/judging
     text, no code).
 
 Use sub-agent. This can be a substantial work.
 
+--- Tier 2: meaningful, narrower value or higher difficulty ---
+
+NONE FOR NOW
+
+Use sub-agent. This can be a substantial work.
+
 --- Tier 3: big/risky architectural bets ---
 
-30. JSX/TSX support — currently out of scope entirely (not merely deferred),
-    pending a future embedding-aware dispatcher (STATE_JS_TS.md). Value: high (real
-    coverage gap, analogous to HTML5's `<script>` dispatch but harder). Difficulty:
-    high — new dispatch architecture, not an incremental rule.
-
-31. HTML5 deep tree-construction gaps (foster-parenting, case-folding, adoption
+30. HTML5 deep tree-construction gaps (foster-parenting, case-folding, adoption
     agency algorithm) — only bites `web-platform-tests/wpt`'s deliberately
     pathological conformance fixtures, not real-world content (STATE_DATA_FORMATS.md
     confirms no real WPT syntax-page is affected). Value: low. Difficulty: high —
     full tree-construction algorithm work for edge cases that don't occur in
     practice.
+
+31. JSX/TSX support — currently out of scope entirely (not merely deferred),
+    pending a future embedding-aware dispatcher (STATE_JS_TS.md). Value: high (real
+    coverage gap, analogous to HTML5's `<script>` dispatch but harder). Difficulty:
+    high — new dispatch architecture, not an incremental rule.
 
 Use sub-agent. This can be a substantial work.
 
@@ -269,29 +258,18 @@ Use sub-agent. This can be a substantial work.
     labeled validation slice, not yet built, + a chosen objective — see
     STATE_AI.md for why the existing hard-case set isn't yet suitable).
     Value: low-medium. Difficulty: medium. Update `gru/README.txt` too.
+
 41. GruTrainer: dropout before dense layer — regularization only; STATE_AI.md's
     diagnosis is this isn't the bottleneck (a data-representation problem, not
     an optimization one) so value is unclear until that's re-tested. Value:
     low. Difficulty: medium. Update `gru/README.txt` too.
+
 42. GRU: comment sentence-boundary mid-word-dot detection (`.hpp`, `e.g.`, `v1.0`
     defeating the sole-trailing-period heuristic) — accepted mechanical-rule
     limitation, feasible only once the GRU has enough mid-word-dot training
     examples; not independently actionable right now. Value: low. Difficulty:
     blocked on more training data, not really "difficulty" in the usual sense.
 
-Use sub-agent. This can be a substantial work.
-
---- Others ---
-
-`make gru-train`
-Continue with GRU work: recheck GRU performance with new weights.
-
-GRU: further grow the hand-labeled hard-case corpus.
-Rerun `classifiers/derive_weights.py` to update the linear classifier weights.
-Rerun `make gru-acquire-corpus` so `sample_default.txt` will contains the new hand-labeled hard-case corpus.
-
-Still waiting for GRU-training to complete, please implement:
-    ...
 Use sub-agent. This can be a substantial work.
 
 --- Not worth pursuing / explicitly no action planned ---

@@ -13,9 +13,12 @@ Tracks implementation of Kotlin support in the deterministic JAR formatter
 (`util/CodingStyle.md/formatter/`), per `STYLE_KOTLIN.md` / `STYLE_KOTLIN2.md`.
 
 **Overall status: implementation complete (Steps 0-4 all DONE, `make test`
-green). Step 5 dogfood: core goal (dogfood tree compiles clean) met. Only
-open item is bucket D3 (see "Dogfood: JetBrains/kotlin" below) — root cause
-confirmed, fix attempted and reverted, currently unfixed.**
+green). Step 5 dogfood: core goal (dogfood tree compiles clean) met. Bucket
+D3 (see "Dogfood: JetBrains/kotlin" below) — root cause confirmed, two fix
+attempts tried and reverted — was, as of 2026-08-02, folded into the new
+`STATE_CURLY_GDR.md` "General scope-depth reindentation" (GDR) job; it is
+no longer tracked as an independently open item in this file. The Kotlin
+job itself now has no independently-open item.**
 
 ---
 
@@ -355,8 +358,10 @@ the formatter should be unchanged).
 
 **Status: dogfood tree now compiles clean end-to-end — Step 5's core goal
 is met.** Any future session picking this up should treat it as
-regression-watching / further polish, not a known-broken state. Only open
-item: bucket D3 (see "Dogfood: JetBrains/kotlin" below).
+regression-watching / further polish, not a known-broken state. Bucket D3
+(see "Dogfood: JetBrains/kotlin" below) is **folded into `STATE_CURLY_GDR.md`
+as of 2026-08-02** — see that section for the pointer; this job has no
+independently-open item of its own.
 
 Applied STATE_COMMON.md's real-code-testing methodology (clone a real,
 compiling Kotlin project → format → idempotency round1 vs round2 →
@@ -569,11 +574,14 @@ index: scope, config, which RDD_KEYs, fixtures, verification result).
    D2a's own former residual: `GenerateReleaseNotes.kt`/`TypeBridging.kt`).
    A real fix needs actual Kotlin statement-boundary tracking (a depth-0
    NEWLINE that ends a statement, distinguished from one that's mid-wrap
-   inside the current candidate's own already-broken rendering) — closer to
-   `STATE_COMMON.md`'s "General scope-depth reindentation" architectural
-   TODO's territory than a self-contained fix. Full diagnosis, tool
-   commands, and per-cluster fix history: see "Dogfood: JetBrains/kotlin"
-   section below.
+   inside the current candidate's own already-broken rendering).
+   **As of 2026-08-02, D3 is folded into `STATE_CURLY_GDR.md`'s "General
+   scope-depth reindentation" (GDR) job rather than tracked as a
+   standalone open item here** — both investigation sessions below already
+   concluded this is closer to that job's territory than a self-contained
+   fix; see `STATE_CURLY_GDR.md`'s "D3 fold" section for the summary and
+   next steps. Full diagnosis, tool commands, and per-cluster fix history
+   remain below in "Dogfood: JetBrains/kotlin" for reference.
 
 **When a test completes:** move/compact its entry from "Not started" into
 "Finished dogfood / real-code testing", and add a new numbered entry to
@@ -591,7 +599,9 @@ formatter, are the only remaining `kotlin_syntax_check` hits). Category 2
 the remaining 2, `GenerateReleaseNotes.kt`/`TypeBridging.kt`, re-triaged as
 ordinary D3 instances, not a distinct D2a shape); D4 **fully closed** (~8
 files, RDD_KEY_218); D1 **fully closed** (RDD_KEY_219 fixture `_169` +
-RDD_KEY_220 fixture `_170`); **D3 still fully open.**
+RDD_KEY_220 fixture `_170`); **D3 still fully open — folded into
+`STATE_CURLY_GDR.md` as of 2026-08-02, no longer independently open here
+(see that file's "D3 fold" section).**
 
 Checkout: `/tmp/jb_kotlin_kt/kotlin-master` (fresh `.kt`-only tarball
 extraction from `codeload.github.com/JetBrains/kotlin/tar.gz/refs/heads/master`
@@ -678,7 +688,7 @@ full 334, **not** exhaustive — treat as directional.
 |---|---|---|---|
 | **D2a.** Chained-fluent-call closing-brace drift (`}.apply {`, `}?.let {`, etc — a span's own `braceIndent`/`spanIndent` read off the volatile physical text of the PRECEDING span's own `}`) | 22 | 332 of 334 known flap files | **FIXED** (RDD_KEY_214/215/216, fixtures `_165`/`_166`/`_167`). Fix: generalized `isChainedCatchFinally` (RDD_KEY_158) into `isChainedFluentCall`, inherits the preceding span's already-resolved `prevEffectiveSpanIndent`. Root-caused against `declarationBuilders.kt`. RDD_KEY_214's own 6-file residual: 5 fixed by a `fun`-with-wrapped-`where`-clause gap (RDD_KEY_215) + a boolean-operator-chained continuation (RDD_KEY_216); the last 2 (`GenerateReleaseNotes.kt`/`TypeBridging.kt`) were misclassified as D2a-adjacent — direct diffing shows they're ordinary D3 wrap-decision-flap instances, left open under D3. `make test`: 214/214 → 215/215 → 216/216, zero regressions. |
 | **D1.** Declaration/accessor column-alignment padding flap (round1 vs round2 disagree on padding width) | 12 | ~100 | **FULLY FIXED** (RDD_KEY_219 fixture `_169`, RDD_KEY_220 fixture `_170`). Same family as RDD_KEY_139/162 (group-width recompute instability). Three independent root causes, all fixed: (1) `renderAlignedGroup` rendered surviving rows as one flat shared-width grid even with an excluded overflowing row mid-group — fixed via maximal contiguous runs. (2) Same bug in `applyGetterSetterPass` — new Kotlin-gated `renderKotlinFilteredRuns`. (3) A member whose own solo width fits but whose group's shared-column padding alone pushes it over (silently absorbed pre-fix by a later `enforceCallLineBreaking` wrap) — fixed by porting RDD_KEY_162's fixed-point budget-exclusion loop into a depth-aware `GetterSetterRuleCurly.render`/`KotlinGetterSetterRule.render` override. |
-| **D3.** Multi-line-call/condition wrap-decision flap (one line in round1, exploded across multiple lines in round2, or vice versa) | 4 | ~33 (broader than the original ~15-20 "lambda header" estimate — includes plain call-argument and `if(...)` condition wraps too) | **OPEN — root cause confirmed (RDD_KEY_221), TWO candidate fixes tried and reverted, neither landed.** `MiscRuleCurly.renderCallCandidate`'s no-newline-branch fits-check measures a candidate against its entire enclosing physical source line (`lineStartIndex(tokens, nameIdx)`) instead of a stable position tied to the candidate itself, so the wrap decision flaps across rounds as the enclosing line's own length changes. Fix attempt 1 (anchor measurement at `nameIdx`) regressed 28 fixtures across C/C++/Java/TS/Kotlin at `make test` (RDD_KEY_221) — dropped legitimate same-statement prefix. Fix attempt 2 (2026-07-31 design session's `statementStartIndex`, a depth-0 `;`/`{`/`}` backward-scan, Kotlin-gated) was implemented and validated against the grounded `when`-arm example plus a synthetic multi-arm `when` stress fixture (both passed, round1==round2) — but regressed 16 Kotlin fixtures at the full `make test` because Kotlin statements are usually NEWLINE-, not `;`-separated, so the scan merges an unrelated preceding sibling statement into the measurement (RDD_KEY_226; concrete repro `real_code_regressions_20_inp.kt`). Both reverted, not committed. Documented in `README.md`'s Known Limitations. Landing a real fix needs actual Kotlin statement-boundary tracking (recognizing a depth-0 NEWLINE that ends a statement vs. one mid-wrap inside the current candidate's own already-broken rendering) — closer to `STATE_COMMON.md`'s "General scope-depth reindentation" architectural TODO's territory than a self-contained fix. Includes 2 files reclassified out of D2a's former residual (`GenerateReleaseNotes.kt`/`TypeBridging.kt`). **This is the only remaining open bucket in the whole Kotlin job.** |
+| **D3.** Multi-line-call/condition wrap-decision flap (one line in round1, exploded across multiple lines in round2, or vice versa) | 4 | ~33 (broader than the original ~15-20 "lambda header" estimate — includes plain call-argument and `if(...)` condition wraps too) | **FOLDED INTO `STATE_CURLY_GDR.md` as of 2026-08-02 — no longer independently open here.** Root cause confirmed (RDD_KEY_221), TWO candidate fixes tried and reverted, neither landed. `MiscRuleCurly.renderCallCandidate`'s no-newline-branch fits-check measures a candidate against its entire enclosing physical source line (`lineStartIndex(tokens, nameIdx)`) instead of a stable position tied to the candidate itself, so the wrap decision flaps across rounds as the enclosing line's own length changes. Fix attempt 1 (anchor measurement at `nameIdx`) regressed 28 fixtures across C/C++/Java/TS/Kotlin at `make test` (RDD_KEY_221) — dropped legitimate same-statement prefix. Fix attempt 2 (2026-07-31 design session's `statementStartIndex`, a depth-0 `;`/`{`/`}` backward-scan, Kotlin-gated) was implemented and validated against the grounded `when`-arm example plus a synthetic multi-arm `when` stress fixture (both passed, round1==round2) — but regressed 16 Kotlin fixtures at the full `make test` because Kotlin statements are usually NEWLINE-, not `;`-separated, so the scan merges an unrelated preceding sibling statement into the measurement (RDD_KEY_226; concrete repro `real_code_regressions_20_inp.kt`). Both reverted, not committed. Documented in `README.md`'s Known Limitations. Landing a real fix needs actual Kotlin statement-boundary tracking (recognizing a depth-0 NEWLINE that ends a statement vs. one mid-wrap inside the current candidate's own already-broken rendering) — closer to `STATE_COMMON.md`'s "General scope-depth reindentation" architectural TODO's territory than a self-contained fix. Includes 2 files reclassified out of D2a's former residual (`GenerateReleaseNotes.kt`/`TypeBridging.kt`). **Folded into `STATE_CURLY_GDR.md` as of 2026-08-02 — the Kotlin job itself now has no independently-open bucket.** |
 | **D4.** Minor adjacent-closing-brace spacing flap (`) }` vs `)}`) | 1 | ~8 | **FIXED** (RDD_KEY_218, fixture `_168`). `collapseBracelessBody` dropped a source-preserved trailing space before an already-braceless body's enclosing `}` via `renderInline`'s no-trailing-whitespace behavior. Reproduced against `JsArgumentsImpl.kt`; also fixed a latent instance already baked into fixture `real_code_regressions_33_out.kt`. |
 
 Sample total: 22+12+4+1 = 39 of 40 (`org.w3c.dom.kt` showed both a D1 and a
@@ -691,6 +701,11 @@ would surface silent content loss undetectable by the syntax checker and
 give a truer denominator. Otherwise, D3 is the next-highest-value open item.
 
 ## 2026-07-31 — D3 scoping session (design only, not implemented)
+
+**Folded into `STATE_CURLY_GDR.md` as of 2026-08-02 — D3 is no longer
+tracked as an independently open item in this file; see that file's "D3
+fold" section for the current pointer.** This section's history is kept
+in full below for reference, not deleted.
 
 Tracker item 21 asked for a concrete fix design for D3 (RDD_KEY_221), not
 just the existing root-cause confirmation. This section is that design —
@@ -839,6 +854,11 @@ gate.
 ---
 
 ## 2026-08-01 — D3 implementation attempt (RDD_KEY_226) — implemented, validated against the design's own risk, then reverted
+
+**Folded into `STATE_CURLY_GDR.md` as of 2026-08-02 — D3 is no longer
+tracked as an independently open item in this file; see that file's "D3
+fold" section for the current pointer.** This section's history is kept
+in full below for reference, not deleted.
 
 Implemented the 2026-07-31 design session's `statementStartIndex` fix
 exactly as specified: new `MiscRuleCurly.statementStartIndex(tokens,

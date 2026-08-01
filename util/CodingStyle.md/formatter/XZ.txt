@@ -35,72 +35,7 @@ Use sub-agent for the actual job execution.
 
 -----
 
-Let's discuss:
-
-(1a)
-When `General scope-depth reindentation` is implemented, it will reindent
-code that on-purpose made to have different indentations such as:
-```
-            if(...) {
-                ...
-                ...
-   if(_A_FLAG) {
-       ...
-    }
-                ...
-                ...
-            }
-```
-This means something like:
-```
-//% JXM_CFMT_GDR 0
-//% JXM_CFMT_GDR 1
-```
-is needed (along with the `/* */` variant).
-
-(1b)
-To make `General scope-depth reindentation` safe, how if it is implemented
-as if C preprocessor?
-
-If enabled via (the default is off):
-```
-curly-general-scope-reindent = on
-```
-Then a pre-pass with its own simpler tokenizer, depth counter, and reindenter
-will be applied to the source code before then sent to the current formatter
-flow.
-
-This way the current formatter code/flow is not modified and there will be no
-regression, at least when the above config is not enabled.
-
-(1c)
-Does the job `JetBrains/kotlin` dogfood cluster D3 really needs to be folded
-to `General scope-depth reindentation`? If so, fold the job and update
-`STATE_KOTLIN.md` as needed.
-
-Based on the result of this (1a-c) discussions, create `STATE_CURLY_GDR.md`
-that contains:
-- The updated text from `General scope-depth reindentation (not started — high risk, read before attempting)`
-. from `STATE_COMMON.md`. Remove the old text from `STATE_COMMON.md` after that.
-- The result of the above discussion.
-- Instructions to update `README.md`, and other related documentations when this feature is finally implemented.
-- Instruction to generate one or two new test fixtures for this (use
-..`JXM_CFMT_CFG` to turn on `curly-general-scope-reindent` from the in-file config). The
- selected language should not matter, but put them after `in_file_config_error_inp.hpp`
-in `Makefile` and under `in_file_config_error_inp/out.hpp` in `test/README.txt`.
-
-Like the other state files, `STATE_CURLY_GDR.md` must:
-- Reference `STATE_COMMON.md`.
-- Gated from `CLAUDE.md`, marked as `curly reindent` job.
-However, `STATE_COMMON.md` must NOT reference `STATE_CURLY_GDR.md`.
-
-Then fill-in the checklist and scoping in `STATE_CURLY_GDR.md`.
-
-Use sub-agent for the actual job execution.
-
------
-
-(2) The current formatter format if-else to something like:
+(2) The current formatter format `if-else` to something like:
 
 if(...) xxx;
 else    yyy;
@@ -126,6 +61,3 @@ If it is not difficult, launch a sub-agent to:
   already share the code).
 - Then to update the affected `*_out.*` fixtures, and
   `SYTLE*.md`, `AI_PREAMBLE_*.md`, `../README.txt`, etc.
-
-You may want to wait for the previous sub-agent to complete,
-because the previous sub-agent will also modify the MD files.

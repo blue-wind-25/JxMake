@@ -424,66 +424,6 @@ promoting this pass.
 
 ## Architectural TODOs
 
-### General scope-depth reindentation (not started — high risk, read before attempting)
-
-**Current state** (confirmed by direct testing, C++26 session): the
-formatter does not reindent ordinary body statements from scratch —
-original whitespace is preserved except for specific recognized rewrites
-(brace placement, spacing, alignment). Only
-`SwitchRule.applyNonInlineCaseIndent` and
-`ScopePipeline.applyDeclarationsPass` reindent anything, and both apply one
-**relative delta** from a single reference line, not an absolute target
-derived from brace-nesting depth. `STATE_C_CPP_JAVA.md`'s "Known Gaps —
-Open" documents two real bugs from this shape (`ASTParser.java` in
-`javaparser/javaparser`; local `tool/JSONEncoderLite.java`) —
-non-idempotent reindentation on internally-inconsistent source, both
-ACCEPTED-not-fixed: the real fix (derive each line's absolute target from
-structural depth, not a raw-source delta) is nontrivial with real
-regression risk for a narrow shape.
-
-**Why a *general* version is much harder/riskier than those two narrow passes:**
-- **Blast radius inversion.** Current invariant: don't touch indentation
-  unless a specific construct requires it — why every real-code bug found
-  so far (~20+ external repos) has been narrow/isolated. A general pass
-  makes every line in every file a candidate for a wrong result (currently
-  ~1/2000 files in `javaparser`) — would become the default risk surface
-  for the whole corpus.
-- **Continuation vs. block depth is a second axis, not a free extension.**
-  Brace/paren/bracket depth alone isn't enough — wrapped expressions,
-  chained calls, multi-line initializers each have their own
-  continuation-indent conventions (STYLE.md §2) that don't reduce to "one
-  level per `{`". Any real implementation must merge two indent models
-  without them fighting.
-- **Content that must never be touched.** Raw string literals, block-comment
-  interior lines, preprocessor directives (column-0 regardless of depth,
-  own continuation rules), and `frozen` spans all need exclusion — each has
-  already been a real bug source under the current narrower passes; a
-  general pass multiplies where these exclusions must be reapplied.
-- **Ordering interacts with every other pass.** Brace-placement (Allman),
-  line-wrapping (`enforceCallLineBreaking`), switch-case handling all run at
-  specific `FormatterCurly` phase points because their output affects what
-  "correct" indentation even is afterward (see the
-  `formatNonInlineSwitches`/`enforceCallLineBreaking` ordering bug, fixture
-  `_56`). A general reindent pass needs to run after every line-count/brace
-  decision is final; an ordering bug here produces plausible-looking-wrong
-  output, not a crash.
-
-**If ever attempted:**
-- Treat as its own dedicated multi-session job with its own `STATE_*.md` —
-  do not fold into an existing job's file. Likely touches
-  `ScopePipelineCurly.java` primarily, potentially subsuming/replacing
-  `SwitchRule.applyNonInlineCaseIndent`'s relative-delta logic (would retire
-  the two open Known Gaps above as a side effect).
-- `make test`'s fixture corpus is a floor, not a substitute, for validation
-  — fixtures were tuned under the current indentation-preserving model.
-  Re-run real-code testing against at least `javaparser/javaparser`, local
-  `tool/JSONEncoderLite.java`, `serge-sans-paille/frozen` (where the
-  existing indent bugs surfaced), plus a fresh untested large corpus
-  (full-tree idempotency, not `--out DIR`) — neither open gap was caught by
-  `make test` alone, both came from one-off real-code-testing sessions.
-- Expect this to be the single riskiest change ever made to this
-  formatter's core; budget accordingly, not as an incremental fix.
-
 ### Project refactoring/cleanup pass
 
 After `angular/angular` and `python/cpython` dogfood runs (the last
@@ -510,8 +450,8 @@ than immediately starting the next >1000 kLOC candidate. Candidate scope:
   actual shipped code state.
 
 This is intentionally scoped as housekeeping, not a rewrite — do not let it
-grow into an attempt at the "General scope-depth reindentation" item above;
-that stays its own separate, dedicated, much riskier future job.
+grow into an attempt at any separate, dedicated, much riskier architectural
+job.
 
 ### Formatter self-formatting (dogfood-and-adopt) process
 

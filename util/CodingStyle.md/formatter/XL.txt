@@ -249,35 +249,12 @@ Use sub-agent. This can be a substantial work.
 
 --- Tier 3: big/risky architectural bets ---
 
-30. `JetBrains/kotlin` dogfood cluster D3 — multi-line-call/condition
-    wrap-decision flap (`MiscRuleCurly.renderCallCandidate`'s fits-check
-    measures against the whole enclosing physical line instead of a stable
-    per-candidate position). Value: medium (single repo). Difficulty: high —
-    two separate anchor designs have each been tried and cleanly reverted; the
-    real fix needs actual statement-boundary tracking, same shape of problem
-    as item 31 below, not a self-contained surgical fix. Do not re-attempt with
-    another narrow anchor tweak; either fold into a combined design pass with
-    item 31, or leave parked until item 31 is seriously scoped. Full history
-    and root-cause detail: STATE_KOTLIN.md's "D3 implementation attempt"
-    sections, RDD_KEY_226.
-
-31. General scope-depth reindentation (STATE_COMMON.md "Architectural TODOs",
-    cross-cutting — not owned by one job). Would close two ACCEPTED-not-fixed gaps
-    (`javaparser/javaparser`'s `ASTParser.java`, local `JSONEncoderLite.java`) and
-    any future bug of the same shape. Value: potentially high (removes a whole bug
-    class) but the file itself flags this as high-risk: blast-radius inversion
-    (every line in every file becomes a candidate for a wrong result, vs. today's
-    ~1/2000-file exposure), a second continuation-vs-block-depth axis to merge,
-    exclusion zones (raw strings, comments, preprocessor, `frozen` spans) that
-    multiply, and ordering interactions with every other pass. Difficulty: very
-    high. Do not attempt without a dedicated design pass first.
-
-32. JSX/TSX support — currently out of scope entirely (not merely deferred),
+30. JSX/TSX support — currently out of scope entirely (not merely deferred),
     pending a future embedding-aware dispatcher (STATE_JS_TS.md). Value: high (real
     coverage gap, analogous to HTML5's `<script>` dispatch but harder). Difficulty:
     high — new dispatch architecture, not an incremental rule.
 
-33. HTML5 deep tree-construction gaps (foster-parenting, case-folding, adoption
+31. HTML5 deep tree-construction gaps (foster-parenting, case-folding, adoption
     agency algorithm) — only bites `web-platform-tests/wpt`'s deliberately
     pathological conformance fixtures, not real-world content (STATE_DATA_FORMATS.md
     confirms no real WPT syntax-page is affected). Value: low. Difficulty: high —

@@ -339,10 +339,33 @@ plan, not a placeholder.
       a throwaway `/tmp` harness — depth tracked correctly across the
       comment's embedded newlines (no spurious depth change) and matched
       expected nesting at every line.
-- [ ] Implement the pre-pass's own reindenter: derive each line's absolute
+- [~] Implement the pre-pass's own reindenter: derive each line's absolute
       indent target from structural depth, merging in a continuation-vs-
-      block second axis (STYLE.md §2) rather than a naive
-      one-level-per-`{` model.
+      block second axis (STYLE.md §8's wrapped-call/declaration
+      convention — checked directly, since STYLE.md §2 is "Line Length"
+      and has no continuation-indent rule of its own; §8 is the actual
+      source of the "one level in from the opening line, closer dedents
+      back to the opening line's own indent" convention this reindenter
+      follows) rather than a naive one-level-per-`{` model. In progress,
+      sub-steps:
+      - [x] Paren/bracket depth counter (the continuation axis) —
+            `GdrLineParenBracketDepth.java`/`GdrParenBracketDepthCounter.java`,
+            same structure as the brace counter, `(`/`[` counted together
+            per §8's identical treatment of both. Smoke-tested: a wrapped
+            `foo(\n    arg1,\n    arg2\n);` call correctly shows depth 1
+            on its interior lines and 0 once closed; same-line
+            `arr[3]`/`a[0]` pairs correctly net to 0 (not a continuation,
+            handled by the brace counter instead since that example's
+            actual continuation was via `{`). `make` builds clean, zero
+            changes to any existing file.
+      - [ ] Line-touchability classifier (skip lines that are interior
+            continuation of a multi-line STRING/BLOCK_COMMENT/
+            PREPROCESSOR token — content that must never be reindented).
+      - [ ] Combine brace depth + paren/bracket depth into a single
+            per-line absolute indent target, with the leading-closer
+            dedent rule (a line whose first significant token is a
+            closing bracket reindents to the depth *after* that close,
+            matching the opening line, not the body depth).
 - [ ] Implement content exclusions: raw string literals, block-comment
       interior lines, preprocessor directives (column-0, own continuation
       rules), `frozen`/JXM_CFMT_DIS-ENA spans, and any region bracketed by

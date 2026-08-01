@@ -363,62 +363,55 @@ curly-brace-family (C/C++/Java/Kotlin) logic. Ahead of Python3/data-format/
 JS-TS jobs landing real logic, each was split into a slim `*Core` base plus
 family siblings (`*Curly`, and skeletons for `*Indent`/`*Tags`) so each
 future job gets a clean landing file. Mechanical rename/move only, no
-behavior change.
+behavior change. `Lang.java` gained `isCurly`/`isIndentBased`/`isTagBased`
+predicates first; `FormatterCore.forLanguage(String)` is the static
+dispatcher factory (picks `Curly`/`Indent`/`Tags` by family) —
+`Main.java`/`ServerMode.java` need no if/else on language.
 
 **Scoping:** `DeclarationAlignmentRule`/`GetterSetterRule` got
 Core+Curly(+Indent skeleton) only, no `Tags` — XML/HTML have no
 declaration/getter-setter concept. `TokenizerCore`/`Formatter`/
 `ScopePipeline`/`MiscRule` got the full Core+Curly+Indent+Tags split.
 `ComplexityPaddingEvaluator.java` not split (extend in place when needed).
-`Lang.java` gained `isCurly`/`isIndentBased`/`isTagBased` predicates first.
-`FormatterCore.forLanguage(String)` is the static dispatcher factory (picks
-`Curly`/`Indent`/`Tags` by family) — `Main.java`/`ServerMode.java` need no
-if/else on language.
 
 **Plan deviations** (when a "Core" method called a "Curly" one, the callee
-moved to Core alongside its caller instead):
-- `DeclarationAlignmentRule`: `renderTokens`/`renderInitTokens`/
-  `needsSpaceBetween`/`isTightToken`/`isCStyleCastClose` (+
-  `CONTROL_FLOW_KEYWORDS`) kept together in Core.
-- `MiscRule`: `needsSpaceBetween`/`isTightToken`, `capitalizeFirstLetter`/
-  `isCommentNoCapitalizeWord` (+ `COMMENT_NO_CAPITALIZE_C/CPP/JAVA`),
-  `renderTokens`/`templateAngleTokens`, and generic scan helpers
-  (`matchParenForward/Backward`, `next/prevSignificantIndex`, `anyFrozen`,
-  `significantOnly`/`significantWithComments`) all kept in Core.
-  `splitTopLevelCommas` moved to Curly despite its generic name — used only
-  by Curly's signature/call-rendering methods.
-- `KotlinDeclarationAlignmentRule`/`KotlinGetterSetterRule`/
-  `KotlinSignatureRule` extend `*Curly` (not `Core`) — they reuse
-  Curly-side protected members.
+moved to Core alongside its caller instead): `DeclarationAlignmentRule`'s
+`renderTokens`/`renderInitTokens`/`needsSpaceBetween`/`isTightToken`/
+`isCStyleCastClose` (+ `CONTROL_FLOW_KEYWORDS`) stayed together in Core;
+`MiscRule`'s `needsSpaceBetween`/`isTightToken`, `capitalizeFirstLetter`/
+`isCommentNoCapitalizeWord` (+ language-specific no-capitalize sets),
+`renderTokens`/`templateAngleTokens`, and generic scan helpers
+(`matchParenForward/Backward`, `next/prevSignificantIndex`, `anyFrozen`,
+`significantOnly`/`significantWithComments`) all stayed in Core
+(`splitTopLevelCommas` moved to Curly despite its generic name — only used
+by Curly's signature/call-rendering). `KotlinDeclarationAlignmentRule`/
+`KotlinGetterSetterRule`/`KotlinSignatureRule` extend `*Curly` (not `Core`)
+— they reuse Curly-side protected members.
 
-**Reusable gotchas for future similar splits:**
-- A Python script masking `//`/`/* */`/string/char-literal spans before
-  brace-counting mechanically extracted method bodies into Core vs Curly
-  files (byte-identical); scale marker count to file size.
-- An inherited static nested class must be imported via its declaring
-  class's canonical name, not the subclass (e.g. `MiscRuleCore.Assignment`
-  not `MiscRuleCurly.Assignment`) — javac rejects the subclass import form.
-- Bulk `private`→`protected` fixes needed wherever a Core method is now
-  called from a Curly sibling.
-- `git rm` (not `rm` + `git add`) needed to stage a deletion on this
-  system's old git version.
-- Watch for extraction scripts starting a marker mid-declaration and
-  dropping a `public/private static` modifier prefix — verify each
-  extracted nested class's modifiers against the original.
+**Reusable gotchas for future similar splits:** a Python script masking
+`//`/`/* */`/string/char-literal spans before brace-counting mechanically
+extracted method bodies into Core vs Curly files (byte-identical) — scale
+marker count to file size; an inherited static nested class must be
+imported via its declaring class's canonical name, not the subclass (javac
+rejects the subclass import form); bulk `private`→`protected` fixes needed
+wherever a Core method is now called from a Curly sibling; `git rm` (not
+`rm` + `git add`) needed to stage a deletion on this system's old git
+version; watch for extraction scripts dropping a `public/private static`
+modifier prefix when a marker starts mid-declaration — verify each
+extracted nested class's modifiers against the original.
 
 **Result:** every file group landed as its own checkpoint commit, `make
 test` green (90/90 forward + 90/90 idempotency) after each.
 
 **2026-07-28 cleanup-pass follow-up:** swept every `*Curly`/`*Indent`/
 `*Tags` sibling for independently re-derived helpers. Found one
-byte-identical case: `TokenizerCurly` and `TokenizerIndent` had each
-defined their own private `setOf(String...)` — promoted to `TokenizerCore`
-as `protected static`, both duplicates deleted. Left three other
-same-named `setOf` copies alone (`DeclarationAlignmentRuleCore`,
-`MiscRuleCore`, `BlockStructureRule`, `KeywordAmbiguityGate`) — unrelated
-class hierarchies with no common ancestor short of a bigger, riskier new
-shared-utility-class move. No other duplicated helper found worth
-promoting this pass.
+byte-identical case: `TokenizerCurly`/`TokenizerIndent` had each defined
+their own private `setOf(String...)` — promoted to `TokenizerCore` as
+`protected static`, duplicates deleted. Left three other same-named `setOf`
+copies alone (`DeclarationAlignmentRuleCore`, `MiscRuleCore`,
+`BlockStructureRule`, `KeywordAmbiguityGate`) — unrelated hierarchies, no
+common ancestor short of a bigger, riskier shared-utility-class move. No
+other duplicated helper found worth promoting.
 
 ---
 
@@ -548,23 +541,14 @@ done
 ```
 
 No syntax errors found; AST differed only in comments. `java_content_diff`
-initially flagged **INCORRECT COMMENT NORMALIZATION** on `tools/gru/*.java`.
-
-**RESOLVED (2026-07-29):** false alarm in `tools/verifiers/java_content_diff.java`
-itself, not a formatter bug — three expected/intentional behaviors it didn't
-yet account for: (1) reflowing a single-line Javadoc opener to
-one-sentence-per-line made its naive whitespace-collapse pick up a spurious
-doubled `*` continuation marker as changed text; (2) closing-brace
-annotations (`} // while`, `} // class Foo`) are new, intentional formatter
-output, flagged as suspect unmatched additions; (3)
-`normalize-comment-end-period` (STYLE.md #15) legitimately strips a sole
-trailing `.` — same category of expected normalization as the case-folding
-already exempted, just not implemented for periods. Fixed in
-`java_content_diff.java`: strips the `* ` continuation marker before
-collapsing whitespace, strips a sole trailing `.` on both sides before
-comparing, exempts closing-brace-annotation comments from the "unexplained
-addition" check. Re-ran: all 9 `tools/gru` files report zero comment
-mismatches (remaining `top-level declaration #0 structure/content differs`
-per file is javac's pretty-printer reacting to real, unrelated structural
-reformatting — expected). No classifier fix (linear or GRU) was needed;
-nothing was actually misclassified.
+initially flagged **INCORRECT COMMENT NORMALIZATION** on `tools/gru/*.java`,
+**resolved (2026-07-29) as a false alarm in `java_content_diff.java` itself**
+(not a formatter bug) — three expected behaviors it didn't yet account for:
+reflowed single-line Javadoc openers tripping its naive whitespace-collapse
+on the doubled `*` continuation marker; new closing-brace annotations
+(`} // while`) flagged as suspect additions; `normalize-comment-end-period`
+(STYLE.md #15) legitimately stripping a sole trailing `.`. Fixed in
+`java_content_diff.java` (strips the `* ` marker before collapsing
+whitespace, strips a sole trailing `.` on both sides, exempts closing-brace
+annotations from the "unexplained addition" check); re-ran clean, all 9
+`tools/gru` files zero comment mismatches. No classifier fix was needed.

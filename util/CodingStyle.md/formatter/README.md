@@ -260,10 +260,12 @@ indent-style                     = spaces      # spaces | tabs | auto
 
 # ── Behavior ──────────────────────────────────────────────────────────────────
 line-endings                     = lf          # lf | crlf | preserve
+
 normalize-comment-start-case     = on          # on | off
 normalize-comment-end-period     = on          # on | off
 comment-normalization-classifier = on          # on | off
 closing-comment-min-lines        = 5
+
 curly-general-scope-reindent     = off         # off | on
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
@@ -384,10 +386,6 @@ See [`../README.txt`](../README.txt) for the full workflow, including two pass m
 - [`../STYLE_JAVA.md`](../STYLE_JAVA.md) — Java extensions
 - [`../STYLE_KOTLIN.md`](../STYLE_KOTLIN.md) — Kotlin extensions (baseline)
 - [`FORMATTER_DISCUSSION.md`](FORMATTER_DISCUSSION.md) — design rationale
-- [`STATE.md`](STATE.md) — implementation progress tracker (all phases, including
-  Java 17+/C++20+ support and the call/declaration line-breaking work)
-
-Newer-language-construct support:
 - [`../STYLE_JAVA17.md`](../STYLE_JAVA17.md) — Java 17+ (`record`, sealed
   classes, switch expressions, text blocks, pattern matching)
 - [`../STYLE_CPP20.md`](../STYLE_CPP20.md) — C++17/20/23 (structured bindings,

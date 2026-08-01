@@ -18,21 +18,6 @@ Files in this directory
   AI_PREAMBLE_AESTHETIC.md  Preamble for layout judgment pass (post-JAR files)
   README.txt                This file
 
-  NOTE — STYLE_DATA_FORMATS.md (JSON/JSON5, CSS, YAML, TOML, XML, HTML5) is
-  now implemented in the deterministic JAR, on the same footing as C/C++/
-  Java/Kotlin (see formatter/STATE_DATA_FORMATS.md for per-language notes
-  and RDD_LOG.md for implementation history), including HTML5's `<script>`
-  embedded-content dispatch to JS/TS (STYLE_JS_TS.md itself is now
-  JAR-implemented too — see below). STYLE_CPP26.md is rule coverage on the
-  existing C/C++ JAR pipeline, not a separate language (see
-  formatter/STATE_CPP26.md). STYLE_JS_TS.md and STYLE_PYTHON3.md are now
-  both JAR-implemented as well (JSX/TSX syntax itself remains out of scope
-  — see formatter/STATE_JS_TS.md's Open Questions; a `.jsx`/`.tsx` file
-  with no actual JSX tag syntax formats fine through the `js`/`ts`
-  dispatch). The full-file AI pass below is now a fallback for these
-  languages (a one-off migration, or a construct the JAR doesn't yet
-  handle), not the only option.
-
   The deterministic JAR formatter (formatter/code-formatter-1.00.jar, replace
   1.00 with your built version) handles all Tier-1 and Tier-2 rules
   mechanically for C, C++, Java, Kotlin, JSON/JSON5, CSS, YAML, TOML, XML,
@@ -49,20 +34,16 @@ Files in this directory
       §4, so this decision doesn't arise there — see AI_PREAMBLE_AESTHETIC.md's
       Scope section)
 
-  NOTE — Kotlin: the deterministic JAR's Kotlin support (STYLE_KOTLIN.md /
-  STYLE_KOTLIN2.md, `.kt`/`.kts` auto-detected) is on the same footing as
-  C/C++/Java — same dogfood-testing process, same regression-fix cadence (see
-  formatter/STATE_KOTLIN.md and formatter/RDD_LOG.md). Both AI passes below
-  apply to Kotlin the same way they apply to C/C++/Java. The one real
-  exception: three specific property-accessor shapes — block-bodied accessors
-  (`get() {...}`/`set(v) {...}`), a property pairing a getter with a setter,
-  and a property with both an initializer and a custom accessor — are left
-  preserved-as-written by the JAR rather than grouped/aligned. This is a
-  deliberate scope boundary (these shapes are considerably more complex to
-  group correctly than the plain one-liner cases the JAR already handles),
-  not an immaturity gap — see formatter/STATE_KOTLIN.md's Open Questions.
-  AI_PREAMBLE_AESTHETIC.md's Rule 2 covers aligning these three shapes
-  manually when you hit one.
+  NOTE — Kotlin: Both AI passes below apply to Kotlin the same way they apply
+  to C/C++/Java. The one real exception: three specific property-accessor shapes
+  — block-bodied accessors (`get() {...}`/`set(v) {...}`), a property pairing
+  a getter with a setter, and a property with both an initializer and a custom
+  accessor — are left preserved-as-written by the JAR rather than grouped/aligned.
+  This is a deliberate scope boundary (these shapes are considerably more complex
+  to group correctly than the plain one-liner cases the JAR already handles), not
+  an immaturity gap.
+  AI_PREAMBLE_AESTHETIC.md's Rule 2 covers aligning these three shapes manually
+  when you hit one.
 
   There are two AI passes, described below. Use only one per file per run.
 

@@ -121,41 +121,32 @@ requirement**, not yet implemented.
 
 ## Proposed pre-pass architecture (reduces default-off regression risk to zero)
 
-**Proposal, not yet implemented:** build GDR as a separate pre-pass that
-runs BEFORE the source ever reaches the existing formatter pipeline,
-entirely gated behind `curly-general-scope-reindent = on` (default `off`,
-already present in `STATE_COMMON.md`'s Config Keys and Defaults table).
+Build GDR as a separate pre-pass that runs BEFORE the source ever reaches
+the existing formatter pipeline, entirely gated behind
+`curly-general-scope-reindent = on` (default `off`, in `STATE_COMMON.md`'s
+Config Keys and Defaults table). When on, the pre-pass runs first with its
+own minimal tokenizer (not `TokenizerCore`/`TokenizerCurly`), its own
+brace-depth counter (independent of `ScopePipelineCurly`'s), and its own
+reindenter (absolute target from structural depth) — entirely independent
+of the existing `ScopePipelineCurly`/`FormatterCurly` machinery. Only after
+the pre-pass runs does the (possibly rewritten) source proceed into the
+normal, unmodified formatter pipeline exactly as it does today.
 
-When `curly-general-scope-reindent = on`, the pre-pass runs first, with:
-- its own minimal tokenizer (does not reuse `TokenizerCore`/`TokenizerCurly`),
-- its own brace-depth counter (independent of `ScopePipelineCurly`'s),
-- its own reindenter (derives each line's absolute target from structural
-  depth, per this job's whole purpose),
+**Rationale / risk-profile change:** when off (the default), the existing
+formatter code path is completely untouched — the pre-pass never runs, so
+it can't share a bug with or regress the existing pipeline. This changes
+the risk profile from "modifies shared core pipeline code" (very high risk,
+per the Background analysis above — every line in every file becomes a
+candidate for a wrong result) to "isolated additive pre-pass, only active
+opt-in" — zero blast radius on the default-off path, which stays the entire
+~20+ external-repo-validated regression surface as-is.
 
-entirely independent of the existing `ScopePipelineCurly`/`FormatterCurly`
-machinery. Only after this pre-pass runs does the (possibly rewritten)
-source proceed into the normal, unmodified formatter pipeline exactly as it
-does today.
-
-**Rationale / risk-profile change:** when `curly-general-scope-reindent` is
-off (the default), the existing formatter code path is completely
-untouched — the pre-pass never runs, so it can't share a bug with, or
-regress, the existing pipeline. This changes the risk profile from
-"modifies shared core pipeline code" (very high risk, per the original risk
-analysis above — every line in every file becomes a candidate for a wrong
-result) to "isolated additive pre-pass, only active opt-in" — zero blast
-radius on the default-off path, which stays the entire ~20+
-external-repo-validated regression surface as-is.
-
-**This does not make the pre-pass's own correctness free.** All of the
-hard sub-problems listed in the Background section above — continuation-vs-
-block depth as a second axis, raw-string/comment/preprocessor-directive/
-`frozen`-span exclusion, ordering relative to (in this case, entirely
-before) every other pass — still apply in full to the pre-pass's own
-implementation. The architecture change only removes the risk of
-regressing the *existing* pipeline when the feature is off; it does not
-reduce the inherent difficulty of getting the pre-pass itself right when
-the feature is on.
+**This does not make the pre-pass's own correctness free** — all the hard
+sub-problems in the Background section (continuation-vs-block depth as a
+second axis, raw-string/comment/preprocessor-directive/`frozen`-span
+exclusion, ordering entirely before every other pass) still apply in full
+to the pre-pass's own implementation. The architecture change only removes
+regression risk to the *existing* pipeline when the feature is off.
 
 ---
 
@@ -295,264 +286,162 @@ plan, not a placeholder.
 - [x] Design/finalize `JXM_CFMT_GDR 0`/`1` directive semantics — resolved,
       see Resolved Design Decisions above (`RDD_KEY_227`).
 - [x] Implement the pre-pass's own minimal tokenizer — independent of
-      `TokenizerCore`/`TokenizerCurly`, scoped only to what the reindenter
-      needs (brace/paren/bracket depth, string/char/comment/raw-string/
-      preprocessor-directive recognition for exclusion purposes). Landed as
-      new isolated package `com.jxmake.formatter.gdr`: `GdrTokenType.java`
-      (enum), `GdrToken.java` (type/text/start-line), `GdrTokenizer.java`
-      (`GdrTokenizer.tokenize(String) -> List<GdrToken>`). Recognizes
-      single-char bracket tokens (`{}()[]`, depth counting itself deferred
-      to the next checklist item's dedicated counter), `//` line comments,
-      `/* */` block comments (multi-line), `"..."`/`'...'` literals with
-      backslash-escape handling, C++11 `R"delim(...)delim"` raw strings
-      (up to 16-char delimiter, falls through to ordinary text/string
-      handling if not actually followed by `(` so a bare `R`/`r` identifier
-      isn't misdetected), Kotlin `"""..."""` triple-quoted strings, and
-      preprocessor directives (line starting with `#` after only
-      leading whitespace, backslash-newline continuation). Everything else
-      is opaque `TEXT` runs — no identifier/keyword/operator recognition,
-      not needed for this job's scope. `make` (full-project `javac` via
-      the `SOURCES` glob) builds clean with the new files added — zero
-      changes to any existing file. Manually smoke-tested (preprocessor
-      continuation, comments, escaped quotes, char literal, C++ raw
-      string, nested `(){}[]`) via a throwaway `/tmp` harness against
-      `target/classes`; all token boundaries and line numbers correct,
-      brace depth balanced to 0 on a nested sample. Known gap, acceptable
-      at this stage per the checklist's own scoping (exclusion zones like
-      `frozen`/`JXM_CFMT_GDR 0`/`1` spans are a later checklist item, not
-      this one): no handling yet for languages/literal shapes outside
-      C/C++/Java/Kotlin (this job's explicit scope, see "Scoping" section
-      below) or for malformed/unterminated literals beyond falling back to
-      end-of-line/end-of-file.
+      `TokenizerCore`/`TokenizerCurly`, scoped to what the reindenter needs
+      (bracket tokens, string/char/comment/raw-string/preprocessor
+      recognition for exclusion). Landed as new isolated package
+      `com.jxmake.formatter.gdr`: `GdrTokenType.java`, `GdrToken.java`,
+      `GdrTokenizer.java` (`tokenize(String) -> List<GdrToken>`).
+      Recognizes single-char bracket tokens (`{}()[]`, depth counting
+      deferred to the next item), `//`/`/* */` comments, `"..."`/`'...'`
+      literals (backslash-escape aware), C++11 `R"delim(...)delim"` raw
+      strings (falls through to ordinary handling if not followed by `(`),
+      Kotlin `"""..."""` triple-quoted strings, and preprocessor
+      directives (leading-whitespace-then-`#`, backslash-newline
+      continuation); everything else is opaque `TEXT`. `make` builds
+      clean, zero existing-file changes. Smoke-tested via a `/tmp` harness
+      (preprocessor continuation, comments, escapes, char literal, C++ raw
+      string, nested brackets) — all boundaries/line numbers correct,
+      brace depth balanced to 0. **Known gap, acceptable at this stage:**
+      no handling for languages/literal shapes outside C/C++/Java/Kotlin,
+      or malformed/unterminated literals beyond falling back to
+      end-of-line/file.
 - [x] Implement the pre-pass's own brace-depth counter, independent of
       `ScopePipelineCurly`'s. Landed `GdrLineBraceDepth.java` (per-line
-      `depthAtStart`/`depthAtEnd`) and `GdrBraceDepthCounter.java`
-      (`compute(List<GdrToken>) -> List<GdrLineBraceDepth>`) in the same
-      `com.jxmake.formatter.gdr` package. Consumes `GdrTokenizer`'s output
-      directly — every `BRACE_OPEN`/`BRACE_CLOSE` token it sees is already
-      real structural code (strings/comments/preprocessor interiors were
-      excluded by the tokenizer), so the counter itself is a simple
-      running increment/decrement, with `depthAtStart` recorded before a
-      line's own brace tokens are applied and `depthAtEnd` after. Scoped
-      to brace depth only, matching the checklist item's own wording —
-      paren/bracket depth for the continuation-vs-block second axis is
-      deferred to the reindenter (next item), not duplicated here.
-      Deliberately does not attempt the closing-brace-dedent decision
-      (whether a line led by `}` should reindent to `depthAtStart` or
-      `depthAtEnd`) — that's the reindenter's job per this job's own
-      "Continuation vs. block depth is a second axis" background note;
-      this counter just exposes both numbers per line. `make` builds
-      clean, zero changes to any existing file. Manually smoke-tested
-      (nested `if` inside `main`, embedded multi-line block comment) via
-      a throwaway `/tmp` harness — depth tracked correctly across the
-      comment's embedded newlines (no spurious depth change) and matched
-      expected nesting at every line.
+      `depthAtStart`/`depthAtEnd`) + `GdrBraceDepthCounter.java`
+      (`compute(List<GdrToken>) -> List<GdrLineBraceDepth>`). Consumes
+      `GdrTokenizer`'s output directly (strings/comments/preprocessor
+      interiors already excluded), so it's a simple running
+      increment/decrement. Brace depth only — paren/bracket depth is the
+      next item's job. Deliberately does not decide the closing-brace-
+      dedent question (that's the reindenter's job); just exposes both
+      numbers per line. `make` builds clean. Smoke-tested (nested `if`
+      inside `main`, embedded multi-line block comment) — depth tracked
+      correctly, no spurious change across the comment's embedded
+      newlines.
 - [x] Implement the pre-pass's own reindenter: derive each line's absolute
       indent target from structural depth, merging in a continuation-vs-
       block second axis (STYLE.md §8's wrapped-call/declaration
-      convention — checked directly, since STYLE.md §2 is "Line Length"
-      and has no continuation-indent rule of its own; §8 is the actual
-      source of the "one level in from the opening line, closer dedents
-      back to the opening line's own indent" convention this reindenter
-      follows) rather than a naive one-level-per-`{` model. Landed as
-      `GdrIndentTarget`/`GdrReindenter`, computing per-line absolute
-      levels/column targets only — does not yet rewrite source text (that
-      wiring is the separate pipeline-integration checklist item below).
-      Sub-steps:
-      - [x] Paren/bracket depth counter (the continuation axis) —
+      convention — "one level in from the opening line, closer dedents
+      back to the opening line's own indent"; §2 is "Line Length" and has
+      no continuation rule) rather than a naive one-level-per-`{` model.
+      Landed as `GdrIndentTarget`/`GdrReindenter`, computing per-line
+      absolute levels/columns only (does not yet rewrite source text —
+      that's the pipeline-integration item below). Sub-steps:
+      - [x] Paren/bracket depth counter (continuation axis) —
             `GdrLineParenBracketDepth.java`/`GdrParenBracketDepthCounter.java`,
-            same structure as the brace counter, `(`/`[` counted together
-            per §8's identical treatment of both. Smoke-tested: a wrapped
-            `foo(\n    arg1,\n    arg2\n);` call correctly shows depth 1
-            on its interior lines and 0 once closed; same-line
-            `arr[3]`/`a[0]` pairs correctly net to 0 (not a continuation,
-            handled by the brace counter instead since that example's
-            actual continuation was via `{`). `make` builds clean, zero
-            changes to any existing file.
+            same shape as the brace counter, `(`/`[` counted together per
+            §8. Smoke-tested: wrapped call args show depth 1 on interior
+            lines / 0 once closed; same-line `arr[3]`/`a[0]` pairs net to
+            0. `make` builds clean.
       - [x] Line-touchability classifier (skip lines that are interior
             continuation of a multi-line STRING/BLOCK_COMMENT/
-            PREPROCESSOR token — content that must never be reindented).
-            `GdrLineTouchability.java`: `computeUntouchableLines` (raw
-            `Set<Integer>` of untouchable 0-based line numbers) and
-            `computeTouchableByLine` (convenience line-indexed
-            `List<Boolean>`), both derived directly from `GdrToken`s whose
-            type is `STRING`/`CHAR`/`BLOCK_COMMENT`/`PREPROCESSOR` and
-            whose text spans `>0` embedded newlines — every line strictly
-            after such a token's start line, up to and including its end
-            line, is untouchable; the start line itself stays touchable
-            (its leading whitespace is still a normal statement-level
-            indent target). This is an inherent correctness requirement
-            distinct from the later opt-in exclusion-zone checklist item
-            (`frozen`/`JXM_CFMT_GDR 0`/`1`) — this is content the
-            reindenter could never safely touch at all, not a
-            user-requested exclusion. Smoke-tested against one line each
-            of: plain statement, multi-line block comment (start
-            touchable, interior lines not), preprocessor continuation
-            (start touchable, continued line not), single-line string
-            (touchable — doesn't span lines), multi-line C++ raw string
-            (start touchable, continuation not) — all 9 lines matched
-            expectations. `make` builds clean, zero changes to any
-            existing file.
+            PREPROCESSOR token — content that must never be reindented,
+            an inherent correctness requirement distinct from the later
+            opt-in exclusion-zone item below). `GdrLineTouchability.java`:
+            `computeUntouchableLines`/`computeTouchableByLine`, derived
+            from `GdrToken`s spanning `>0` embedded newlines — every line
+            strictly after such a token's start line through its end line
+            is untouchable; the start line itself stays touchable.
+            Smoke-tested against block-comment/preprocessor-continuation/
+            single-line-string/C++-raw-string cases (9 lines), all
+            matched expectations.
       - [x] Combine brace depth + paren/bracket depth into a single
             per-line absolute indent target, with the leading-closer
             dedent rule (a line whose first significant token is a
             closing bracket reindents to the depth *after* that close,
-            matching the opening line, not the body depth).
-            `GdrIndentTarget.java` (line/touchable/level/columns) and
+            matching the opening line). `GdrIndentTarget.java` +
             `GdrReindenter.java` (`compute(String, int indentSize) ->
-            List<GdrIndentTarget>`, self-contained — runs the tokenizer
-            once internally and derives both counters plus touchability
-            from that same token list). Per line: each axis (brace,
-            paren/bracket) independently uses its own `depthAtEnd`
-            instead of `depthAtStart` only when that specific axis's
-            closing token type leads the line (first non-whitespace
-            token) — computed via a new `computeLeadingTokenTypes`
-            helper — so a `)`-led line only dedents the paren/bracket
-            axis and a `}`-led line only dedents the brace axis; the
-            other axis keeps its normal start-of-line value. `level =
+            List<GdrIndentTarget>`, self-contained). Per line, each axis
+            independently uses its own `depthAtEnd` instead of
+            `depthAtStart` only when that axis's own closing token leads
+            the line (via new `computeLeadingTokenTypes`); `level =
             braceLevel + pbLevel`, `columns = level * indentSize`.
-            Untouchable lines (per `GdrLineTouchability`) get a
-            `touchable=false` placeholder target instead of a computed
-            column count. Smoke-tested a wrapped function signature
-            (paren continuation) containing a nested `if` block (brace
-            continuation): every line's computed level matched hand-
-            derived expectations exactly, including both the
-            paren-led-closer (`) {` at level 0, not the level-1 body it
-            follows) and brace-led-closer (`}` at level 1 and level 0)
-            cases. `make` builds clean, zero changes to any existing
-            file. This produces target levels/columns only — it does
-            not yet rewrite any source text; that wiring (and the
-            opt-in exclusion-zone handling for `frozen`/`JXM_CFMT_GDR
-            0`/`1`) remains for the still-separate "content exclusions"
-            and pipeline-wiring checklist items below.
+            Untouchable lines get a `touchable=false` placeholder.
+            Smoke-tested a wrapped signature containing a nested `if`
+            block: every line's level matched hand-derived expectations,
+            including both paren-led-closer and brace-led-closer cases.
 - [x] Implement content exclusions: raw string literals, block-comment
-      interior lines, preprocessor directives (column-0, own continuation
-      rules), `frozen`/JXM_CFMT_DIS-ENA spans, and any region bracketed by
-      `JXM_CFMT_GDR 0`/`1`. The first three (raw strings, block-comment
-      interiors, preprocessor continuation) were already covered by
-      checklist item 4's `GdrLineTouchability` sub-step — inherent
-      untouchability, not opt-in. This item's actual remaining scope was
-      the two opt-in marker-comment families: new
-      `GdrExclusionZones.computeExcludedByLine(List<GdrToken>) ->
-      List<Boolean>`, independently reimplementing (not sharing code
-      with) the existing pipeline's line-anchored
-      `//% JXM_CFMT_DIS`/`ENA` (+ block-comment equivalent) frozen-span
-      regex convention (confirmed exact pattern by reading
-      `TokenizerCore.FORMAT_DIS_MARKER`/`FORMAT_ENA_MARKER` — read-only,
-      no changes to that file or any other existing file), plus the new
-      `//% JXM_CFMT_GDR 0`/`1` directive using the same line-anchored
-      shape and `RDD_KEY_227`'s flat-toggle semantics. Both families
-      independently toggle (OR'd together); the marker comment's own
-      line is always excluded regardless of which state it's toggling
-      into, matching the existing frozen-span convention exactly. Wired
-      into `GdrReindenter.compute`: a line's final `touchable` is now
-      false if either `GdrLineTouchability` or `GdrExclusionZones` says
-      so. Smoke-tested `GdrExclusionZones` standalone (DIS/ENA and GDR
-      0/1 marker lines, each correctly excluding only their own span)
-      and again wired end-to-end through `GdrReindenter` (a
-      `JXM_CFMT_DIS`/`ENA`-bracketed span inside a function body
-      correctly excluded, with correct levels resuming immediately after
-      on both sides). `make` builds clean, zero changes to any existing
-      file.
+      interior lines, preprocessor directives, `frozen`/JXM_CFMT_DIS-ENA
+      spans, and any region bracketed by `JXM_CFMT_GDR 0`/`1`. The first
+      three were already covered by the touchability sub-step above
+      (inherent, not opt-in). Remaining scope: the two opt-in
+      marker-comment families — new `GdrExclusionZones.
+      computeExcludedByLine(List<GdrToken>) -> List<Boolean>`,
+      independently reimplementing (not sharing code with) the existing
+      pipeline's line-anchored `//% JXM_CFMT_DIS`/`ENA` (+ block-comment
+      form) regex convention (confirmed exact pattern by reading
+      `TokenizerCore.FORMAT_DIS_MARKER`/`FORMAT_ENA_MARKER`, read-only),
+      plus the new `//% JXM_CFMT_GDR 0`/`1` directive per `RDD_KEY_227`'s
+      flat-toggle semantics. Both families independently toggle (OR'd
+      together); the marker comment's own line is always excluded, same
+      as the existing frozen-span convention. Wired into
+      `GdrReindenter.compute`. Smoke-tested standalone (DIS/ENA and GDR
+      0/1 marker lines each correctly excluding only their own span) and
+      end-to-end (a DIS/ENA-bracketed span inside a function body
+      correctly excluded, levels resuming correctly on both sides).
 - [x] Wire `curly-general-scope-reindent = on` to actually invoke the
       pre-pass ahead of the existing formatter pipeline (`Main`/
       `ServerMode` entry points) — confirm the off/default path is
-      byte-for-byte unchanged by diffing pre-pass-on-vs-off code paths, not
-      just by reasoning about the gate.
-      Sub-step 1/3 done: added the `curly-general-scope-reindent` config
-      key to `Config.java` (field, getter `isCurlyGeneralScopeReindent()`,
-      `ALL_KEYS`, and the `parseBoolean` call — same on/off convention as
-      every other boolean key, default `false`), and added
+      byte-for-byte unchanged, not just by reasoning about the gate.
+      Added `curly-general-scope-reindent` to `Config.java` (field, getter
+      `isCurlyGeneralScopeReindent()`, `ALL_KEYS`, `parseBoolean` — default
+      `false`, same convention as every other boolean key) and
       `com.jxmake.formatter.gdr.GdrRewriter.rewrite(source, indentSize)`,
-      the first class in this package that actually rewrites source text:
-      it calls `GdrReindenter.compute`, then for each touchable line
-      replaces that line's existing leading whitespace run with
-      `target.columns` spaces, leaving everything from the first
-      non-whitespace character onward byte-for-byte untouched; untouchable
-      lines and blank/all-whitespace lines are copied through verbatim.
-      Smoke-tested against a small nested-brace + wrapped-call-args
-      snippet — output matched hand-derived expected indentation exactly
-      (`void f() {` / `    if (x) {` / `        foo(a,` /
-      `            b);` / `    }` / `}`). `make` builds clean.
-
-      Sub-steps 2-3 done: added `GdrPipelineGate.apply(source, language,
-      config)` (single decision point — off or non-curly-family language
-      returns `source` unchanged; on + curly-family calls
-      `GdrRewriter.rewrite`), and called it from both entry points right
-      before the existing `FormatterCore.forLanguage(language).formatOne`
-      call: `Main.formatStandalone` (feeds `gdrOriginal` instead of
-      `original`) and `ServerMode`'s request handler (feeds `gdrContent`
-      instead of `content`). Verified the off/default path is
-      byte-for-byte unchanged not just by reasoning about the gate but by
-      asserting `GdrPipelineGate.apply` returns the exact same `String`
-      reference (`==`) when `curly-general-scope-reindent` is unset;
-      verified the on path returns a changed, correctly-reindented string
-      for a badly-indented snippet via a direct harness against
-      `Config.resolve`. Also confirmed via `--standalone --diff` CLI runs
-      that turning the flag on/off (via
-      `JXMAKE_CODE_FORMATTER_CURLY_GENERAL_SCOPE_REINDENT`) produces
-      identical final CLI output for an already-correctly-indented input
-      — expected, since the existing pipeline's own brace-style/spacing
-      rules dominate the final result regardless of GDR; the direct-`==`
-      harness above is the actual proof of the off-path's byte-for-byte
-      guarantee, not the CLI diff. `make` builds clean, zero changes to
-      any existing pipeline class's own logic (only the two call sites in
-      `Main.java`/`ServerMode.java`, plus the new `Config.java` key from
-      sub-step 1). Checklist item 6 complete.
+      the first class in this package to actually rewrite source: calls
+      `GdrReindenter.compute`, replaces each touchable line's leading
+      whitespace with `target.columns` spaces, leaves the rest of the line
+      byte-for-byte untouched; untouchable/blank lines copied verbatim.
+      Smoke-tested a nested-brace + wrapped-call-args snippet — output
+      matched hand-derived expected indentation exactly. Then added
+      `GdrPipelineGate.apply(source, language, config)` (off or
+      non-curly-family → unchanged; on + curly-family → `GdrRewriter.
+      rewrite`), called from both entry points right before
+      `FormatterCore.forLanguage(language).formatOne`
+      (`Main.formatStandalone`, `ServerMode`'s request handler). Verified
+      the off-path is byte-for-byte unchanged by asserting `GdrPipelineGate
+      .apply` returns the exact same `String` reference (`==`) when the key
+      is unset; verified the on-path via a direct harness against
+      `Config.resolve`. Also confirmed via `--standalone --diff` that
+      toggling `JXMAKE_CODE_FORMATTER_CURLY_GENERAL_SCOPE_REINDENT`
+      produces identical CLI output for already-correctly-indented input
+      (expected — the direct-`==` harness is the real proof of the
+      off-path guarantee, not this CLI diff). `make` builds clean, zero
+      changes to any existing pipeline class's own logic (only the two
+      call sites plus the new `Config.java` key).
 - [x] Author the "New test fixtures needed" pair(s) above (config-acceptance
-      only, no-op expected output if the reindenter isn't ready) — or the
-      real reindent-shape fixtures once the pre-pass itself is implemented.
-      Added `test/curly_general_scope_reindent_inp.hpp`/`_out.hpp`,
-      registered in `Makefile`'s `INP_FILES` immediately after the
-      commented-out `in_file_config_error_inp.hpp` line as instructed, and
-      documented in `test/README.txt` immediately after that same
-      neighbor's entry. Input uses `JXM_CFMT_CFG
-      curly-general-scope-reindent=on;indent-size=2` (same directive
-      syntax as `in_file_config_inp.hpp`) on a badly-indented `struct`
-      body. Chose a config-acceptance-style fixture rather than a
-      reindent-shape one that isolates GDR's own contribution: empirically
-      confirmed (via `--standalone --diff` on a hand-built wrapped-call-
-      args snippet) that the existing pipeline already fully reformats/
-      reindents braces and call args on its own regardless of GDR, so
-      final CLI output is pipeline-dominated either way — there's no
-      surviving-to-output shape that isolates GDR's own effect at this
-      level (that's proven instead by the direct-harness `==`/rewrite
-      assertions already recorded under checklist item 6). This fixture's
-      job is narrower and still real: prove the key parses without error
-      via in-file config and the file formats correctly end-to-end.
-      Expected output generated by running the real CLI
-      (`--standalone --in-place`) and confirming `--standalone --check`
-      reports idempotent (exit 0) before saving it as the fixture.
-      `make test`: 226/226 forward, 226/226 idempotency, including the
-      new fixture.
+      only if the reindenter isn't ready) — or the real reindent-shape
+      fixtures once the pre-pass is implemented. Added
+      `test/curly_general_scope_reindent_inp.hpp`/`_out.hpp` (registered in
+      `Makefile`/`test/README.txt` right after the `in_file_config_error_*`
+      neighbor), using `JXM_CFMT_CFG curly-general-scope-reindent=on;
+      indent-size=2` on a badly-indented `struct` body. Chose
+      config-acceptance framing over a reindent-isolating one: empirically
+      confirmed (via `--standalone --diff`) that the existing pipeline
+      already fully reformats braces/call-args regardless of GDR, so final
+      CLI output is pipeline-dominated either way — GDR's own effect is
+      proven instead by the direct-harness `==`/rewrite assertions in the
+      wiring item above. Expected output generated via
+      `--standalone --in-place`, confirmed idempotent via
+      `--standalone --check` (exit 0). `make test`: 226/226
+      forward+idempotency including the new fixture.
 
-      Follow-up: added `test/java_flush_left_inp.java`/`_out.java`, a
-      second GDR fixture with `curly-general-scope-reindent=on` where
-      *every* line of the input is flushed to column 0 (no indentation at
-      all). This one does isolate GDR's own contribution end-to-end at
-      the CLI level, unlike the `.hpp` fixture above: confirmed by
-      running the same input through the CLI *without* the in-file
-      config directive first — the base pipeline alone leaves the class
-      body completely unindented (its reindentation is relative-delta
-      based, not absolute-depth based, so it has nothing to anchor to
-      when the input has no indentation anywhere), while turning GDR on
-      produces fully correct nested indentation. This is a concrete,
-      reproducible demonstration of exactly the "narrower relative-delta
-      reindent bug" this whole job exists to fix. Registered in
-      `Makefile` immediately after `java_preprocessor_method_inp.java`,
-      documented in `test/README.txt` after that same neighbor. Also
-      added `test/html_js_flush_left_inp.html`/`_out.html` — NOT a GDR
-      fixture (GDR's scope excludes HTML/JS, see Scoping section below)
-      but a real-code-regression-style fixture requested alongside it:
-      an entire HTML document flushed to column 0, multiple tags per
-      line, and a flushed-left embedded `<script>` block, exercising the
-      existing HTML5/JS dispatch pipeline. Output is idempotent but
-      surfaces the same relative-delta limitation inside the dispatched
-      JS body (out of scope to fix here — documented as such in
-      `test/README.txt` so it isn't mistaken for a GDR gap later).
-      Registered in `Makefile` after `html_comments_inp.html`, documented
-      in `test/README.txt` after that neighbor. `make test`: 228/228
-      forward, 228/228 idempotency.
+      **Follow-up:** added `test/java_flush_left_inp.java`/`_out.java` —
+      `curly-general-scope-reindent=on` where every input line is flushed
+      to column 0. This one *does* isolate GDR's own contribution
+      end-to-end: without the directive, the base pipeline leaves the body
+      completely unindented (relative-delta reindentation has nothing to
+      anchor to with no indentation anywhere), while GDR-on produces fully
+      correct nested indentation — a concrete demonstration of the bug
+      this job exists to fix. Registered after `java_preprocessor_method_
+      inp.java`. Also added `test/html_js_flush_left_inp.html`/`_out.html`
+      — NOT a GDR fixture (GDR excludes HTML/JS, see Scoping) but a
+      real-code-regression-style fixture: an HTML document flushed to
+      column 0 including a flushed-left `<script>` block, exercising the
+      existing HTML5/JS dispatch pipeline. Idempotent, but surfaces the
+      same relative-delta limitation inside the dispatched JS body (out of
+      scope here, documented in `test/README.txt` so it isn't mistaken for
+      a GDR gap). Registered after `html_comments_inp.html`. `make test`:
+      228/228 forward+idempotency.
 - [x] Update `README.md` (and re-verify whether `../README.txt` needs an
       edit — see "When implemented" section) once the above lands. Done
       2026-08-02: rewrote the stale "Known Limitations" bullet (previously
@@ -592,20 +481,16 @@ fix** — nothing else. Concretely:
   pre-pass architecture (see above) is that the on/off gate lives entirely
   outside those classes, at the point where a source file first enters the
   pipeline.
-- **Likely primary implementation surface is a brand-new, isolated pre-pass
-  module** (e.g. something like a new top-level package/class such as
-  `com.jxmake.formatter.gdr.GeneralScopeDepthReindenter` or similar — exact
-  naming is an implementation-time decision, not fixed here) — **NOT**
-  `ScopePipelineCurly.java`. This explicitly supersedes the old
-  (pre-2026-08-02) `STATE_COMMON.md` text's speculation that a general
-  reindent pass would "likely touch `ScopePipelineCurly.java` primarily,
-  potentially subsuming/replacing `SwitchRule.applyNonInlineCaseIndent`'s
-  relative-delta logic" — that assumption predates the pre-pass proposal
-  and no longer holds. The two existing narrow relative-delta reindenters
-  (`SwitchRule.applyNonInlineCaseIndent`, `ScopePipeline.applyDeclarationsPass`)
-  are left untouched by this job; whether they're ever retired in favor of
-  the pre-pass's absolute-target model is an open question for whenever
-  the pre-pass is mature, not part of this job's initial scope.
+- **Primary implementation surface is the new isolated `com.jxmake.
+  formatter.gdr` pre-pass package** (already landed, see checklist above)
+  — **NOT** `ScopePipelineCurly.java`. This supersedes old
+  (pre-2026-08-02) speculation that a general reindent pass would touch
+  `ScopePipelineCurly.java`/`SwitchRule.applyNonInlineCaseIndent` directly;
+  that assumption predates the pre-pass proposal. The two existing narrow
+  relative-delta reindenters (`SwitchRule.applyNonInlineCaseIndent`,
+  `ScopePipeline.applyDeclarationsPass`) are left untouched by this job;
+  whether they're ever retired in favor of the pre-pass's absolute-target
+  model is an open question for whenever the pre-pass is mature.
 - **D3's eventual fix is in scope**, but only once the pre-pass's
   statement-boundary/structural-depth infrastructure exists to build it on
   — it is not a standalone task to attempt in isolation again (both prior

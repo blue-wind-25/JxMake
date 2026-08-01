@@ -243,6 +243,7 @@ INP_FILES += in_file_config_inp.kt
 # - It is kept commented out so `make test` stays green; uncomment to exercise its hard-error path manually.
 # - See `test/in_file_config_error_out.hpp` for the expected error message.
 #INP_FILES += in_file_config_error_inp.hpp
+INP_FILES += curly_general_scope_reindent_inp.hpp
 
 INP_FILES += json_core_inp.json
 INP_FILES += json5_core_inp.json5

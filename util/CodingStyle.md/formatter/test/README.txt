@@ -184,6 +184,11 @@ In-file config directive:
                                                against, and would always show as a spurious FAIL.
                                                See the file itself for how to exercise it manually.
 
+  curly_general_scope_reindent_inp/out.hpp  -- Proves `curly-general-scope-reindent=on` is accepted
+                                               as an in-file config key (JXM_CFMT_CFG) and produces a
+                                               correctly formatted result, not an error -- see
+                                               STATE_CURLY_GDR.md.
+
 JSON/JSON5:
   json_core_inp/out.json                    -- Plain RFC 8259 JSON: colon-alignment groups, tight
                                                atoms-only arrays, loose arrays containing objects,

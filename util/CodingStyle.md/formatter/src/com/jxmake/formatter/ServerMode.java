@@ -386,10 +386,13 @@ public final class ServerMode {
                 final Config              config          = Config.resolve(
                     targetFile, inlineConfig.isEmpty() ? null : inlineConfig, inFileOverrides
                 );
+                final String              gdrContent      = com.jxmake.formatter.gdr.GdrPipelineGate.apply(
+                    content, language, config
+                );
                 final String              formatted       = FormatterCore.forLanguage(
                     language
                 ).formatOne(
-                    content, path == null ? "" : path, config, formatOff
+                    gdrContent, path == null ? "" : path, config, formatOff
                 );
                 respond(exchange, 200, formatted);
             }

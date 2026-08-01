@@ -378,10 +378,13 @@ public final class Main {
             merged.put("indent-style", resolvedStyle);
             config = Config.resolve(path, merged, inFileOverrides);
         }
+        final String gdrOriginal = com.jxmake.formatter.gdr.GdrPipelineGate.apply(
+            original, language, config
+        );
         final String formatted = FormatterCore.forLanguage(
             language
         ).formatOne(
-            original, path.toString(), config, formatOff
+            gdrOriginal, path.toString(), config, formatOff
         );
 
         return applyLineEndings( formatted, original, config.lineEndings() );

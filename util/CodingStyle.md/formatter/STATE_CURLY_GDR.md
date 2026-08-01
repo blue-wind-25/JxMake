@@ -446,7 +446,7 @@ plan, not a placeholder.
       correctly excluded, with correct levels resuming immediately after
       on both sides). `make` builds clean, zero changes to any existing
       file.
-- [ ] Wire `curly-general-scope-reindent = on` to actually invoke the
+- [x] Wire `curly-general-scope-reindent = on` to actually invoke the
       pre-pass ahead of the existing formatter pipeline (`Main`/
       `ServerMode` entry points) — confirm the off/default path is
       byte-for-byte unchanged by diffing pre-pass-on-vs-off code paths, not
@@ -465,10 +465,32 @@ plan, not a placeholder.
       Smoke-tested against a small nested-brace + wrapped-call-args
       snippet — output matched hand-derived expected indentation exactly
       (`void f() {` / `    if (x) {` / `        foo(a,` /
-      `            b);` / `    }` / `}`). `make` builds clean. Still
-      pending: actually calling `GdrRewriter` from `Main`/`ServerMode`
-      behind the new config flag (sub-steps 2-3), and the byte-for-byte
-      off-path diff check this item requires.
+      `            b);` / `    }` / `}`). `make` builds clean.
+
+      Sub-steps 2-3 done: added `GdrPipelineGate.apply(source, language,
+      config)` (single decision point — off or non-curly-family language
+      returns `source` unchanged; on + curly-family calls
+      `GdrRewriter.rewrite`), and called it from both entry points right
+      before the existing `FormatterCore.forLanguage(language).formatOne`
+      call: `Main.formatStandalone` (feeds `gdrOriginal` instead of
+      `original`) and `ServerMode`'s request handler (feeds `gdrContent`
+      instead of `content`). Verified the off/default path is
+      byte-for-byte unchanged not just by reasoning about the gate but by
+      asserting `GdrPipelineGate.apply` returns the exact same `String`
+      reference (`==`) when `curly-general-scope-reindent` is unset;
+      verified the on path returns a changed, correctly-reindented string
+      for a badly-indented snippet via a direct harness against
+      `Config.resolve`. Also confirmed via `--standalone --diff` CLI runs
+      that turning the flag on/off (via
+      `JXMAKE_CODE_FORMATTER_CURLY_GENERAL_SCOPE_REINDENT`) produces
+      identical final CLI output for an already-correctly-indented input
+      — expected, since the existing pipeline's own brace-style/spacing
+      rules dominate the final result regardless of GDR; the direct-`==`
+      harness above is the actual proof of the off-path's byte-for-byte
+      guarantee, not the CLI diff. `make` builds clean, zero changes to
+      any existing pipeline class's own logic (only the two call sites in
+      `Main.java`/`ServerMode.java`, plus the new `Config.java` key from
+      sub-step 1). Checklist item 6 complete.
 - [ ] Author the "New test fixtures needed" pair(s) above (config-acceptance
       only, no-op expected output if the reindenter isn't ready) — or the
       real reindent-shape fixtures once the pre-pass itself is implemented.

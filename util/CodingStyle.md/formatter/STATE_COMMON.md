@@ -495,6 +495,7 @@ MANIFEST=/tmp/manifest.txt
 MAIN_CLASS=com.jxmake.formatter.Main
 
 mkdir -p "$CLASS_DIR"
+printf 'Main-Class: %s\n' $MAIN_CLASS > $MANIFEST
 find /tmp/fmt_r1 -type f -name "*.java" -print0 | xargs -0 javac -encoding UTF-8 -source "$JAVA_VERSION" -target "$JAVA_VERSION" -d "$CLASS_DIR"
 jar cfm "$JAR_FILE" "$MANIFEST" -C "$CLASS_DIR" .
 
@@ -503,7 +504,7 @@ make _test_serial JAR_FILE=$JAR_FILE
 rm -rvf /tmp/fmt_r1b /tmp/fmt_r2b
 find src          -type f -print0 | xargs -0 java -jar $JAR_FILE --out /tmp/fmt_r1b --preserve-tree --root src
 find /tmp/fmt_r1b -type f -print0 | xargs -0 java -jar $JAR_FILE --out /tmp/fmt_r2b --preserve-tree --root /tmp/fmt_r1b
-diff -ru /tmp/fmt_r1b /tmp/fmt_r1b
+diff -ru /tmp/fmt_r1b /tmp/fmt_r2b
 diff -ru /tmp/fmt_r1  /tmp/fmt_r1b
 diff -ru /tmp/fmt_r2  /tmp/fmt_r2b
 

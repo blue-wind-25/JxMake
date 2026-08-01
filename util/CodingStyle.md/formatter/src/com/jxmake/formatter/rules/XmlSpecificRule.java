@@ -210,8 +210,7 @@ public final class XmlSpecificRule {
         String       raw;                       // PI / DOCTYPE / CDATA / TEXT: verbatim content
         String       commentText;               // COMMENT: normalized inner text
         boolean      commentVerbatim;           // COMMENT: true if commentText must render with no
-                                                  // added inner spacing (a `%`-prefixed marker/directive
-                                                  // comment, e.g. `<!--% JXM_CFMT_CFG ... -->`)
+                                                // added inner spacing (a `%`-prefixed marker/directive comment)
         List<String> frozenLines;               // FROZEN: raw lines, verbatim, DIS..ENA inclusive
         String       tagName;
         List<String> attrs = new ArrayList<>();
@@ -542,12 +541,11 @@ public final class XmlSpecificRule {
         final String inner = s.substring(pos + 4, close).trim();
         n.type = NodeType.COMMENT;
         if( inner.startsWith("%") ) {
-            // A `%`-prefixed marker/directive comment (e.g. `<!--% JXM_CFMT_CFG ... -->`) must
-            //  survive byte-for-byte -- normal comment rendering always inserts a space after
-            //  `<!--`, which would turn `<!--%` into `<!-- %` and permanently break the marker's
-            //  required exact prefix on any subsequent parse (InFileConfig.java's own regex, and
-            //  this method's own DIS/ENA literal-string checks above, both require `<!--%` with no
-            //  intervening space).
+            // A `%`-prefixed marker/directive comment must survive byte-for-byte -- normal comment
+            //  rendering always inserts a space after `<!--`, which would turn `<!--%` into `<!-- %`
+            //  and permanently break the marker's required exact prefix on any subsequent parse
+            //  (InFileConfig.java's own regex, and //  this method's own DIS/ENA literal-string checks
+            //  above, both require `<!--%` with no intervening space).
             n.commentVerbatim = true;
             n.commentText     = s.substring(pos + 4, close);
         }

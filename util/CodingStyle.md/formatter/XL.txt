@@ -199,7 +199,7 @@ exec  ~/mynpm/bin/claude "$@"
 ####################################################################################################
 ####################################################################################################
 
-Continue with the `curly reindent job`.
+Continue with the `curly reindent job` - `Real-code test the pre-pass`.
 
 Rerun `### Formatter self-formatting (dogfood-and-adopt) process`.
 

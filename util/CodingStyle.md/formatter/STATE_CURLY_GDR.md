@@ -517,6 +517,34 @@ plan, not a placeholder.
       reports idempotent (exit 0) before saving it as the fixture.
       `make test`: 226/226 forward, 226/226 idempotency, including the
       new fixture.
+
+      Follow-up: added `test/java_flush_left_inp.java`/`_out.java`, a
+      second GDR fixture with `curly-general-scope-reindent=on` where
+      *every* line of the input is flushed to column 0 (no indentation at
+      all). This one does isolate GDR's own contribution end-to-end at
+      the CLI level, unlike the `.hpp` fixture above: confirmed by
+      running the same input through the CLI *without* the in-file
+      config directive first — the base pipeline alone leaves the class
+      body completely unindented (its reindentation is relative-delta
+      based, not absolute-depth based, so it has nothing to anchor to
+      when the input has no indentation anywhere), while turning GDR on
+      produces fully correct nested indentation. This is a concrete,
+      reproducible demonstration of exactly the "narrower relative-delta
+      reindent bug" this whole job exists to fix. Registered in
+      `Makefile` immediately after `java_preprocessor_method_inp.java`,
+      documented in `test/README.txt` after that same neighbor. Also
+      added `test/html_js_flush_left_inp.html`/`_out.html` — NOT a GDR
+      fixture (GDR's scope excludes HTML/JS, see Scoping section below)
+      but a real-code-regression-style fixture requested alongside it:
+      an entire HTML document flushed to column 0, multiple tags per
+      line, and a flushed-left embedded `<script>` block, exercising the
+      existing HTML5/JS dispatch pipeline. Output is idempotent but
+      surfaces the same relative-delta limitation inside the dispatched
+      JS body (out of scope to fix here — documented as such in
+      `test/README.txt` so it isn't mistaken for a GDR gap later).
+      Registered in `Makefile` after `html_comments_inp.html`, documented
+      in `test/README.txt` after that neighbor. `make test`: 228/228
+      forward, 228/228 idempotency.
 - [ ] Update `README.md` (and re-verify whether `../README.txt` needs an
       edit — see "When implemented" section) once the above lands.
 - [ ] Real-code test the pre-pass, `curly-general-scope-reindent = on`,

@@ -55,6 +55,14 @@ Java:
                                                directly before a method inside a class body, with
                                                and without blank lines and a `throws` clause, must
                                                not be joined onto the method's own modifier line.
+
+  java_flush_left_inp/out.java               -- Every line of the input is flushed to column 0
+                                               (no leading indentation at all), with
+                                               curly-general-scope-reindent=on via in-file config --
+                                               proves the GDR pre-pass (STATE_CURLY_GDR.md) reindents
+                                               correctly from a fully unindented starting point, which
+                                               the base pipeline's own relative-delta reindentation
+                                               cannot do on its own.
                                                Also covers the PCPP-preprocessed Java pattern used
                                                in `src/jxm/ugc/ARMCortexMThumbC.java.in` (a
                                                `.java.in` file run through a C-macro preprocessor
@@ -405,6 +413,16 @@ HTML5:
                                                dispatched to JS formatting and re-wrapped, and a
                                                `<script type="application/json">` block staying
                                                fully opaque.
+
+  html_js_flush_left_inp/out.html           -- Entire document flushed to column 0, multiple tags
+                                               on a single line (`<head>...</head>`, stacked
+                                               `<span>`/`<li>` siblings), and an embedded `<script>`
+                                               block whose JS body is also flushed to column 0 --
+                                               real-code-regression-style coverage of the HTML5/JS
+                                               dispatch pipeline's behavior on fully unindented input
+                                               (idempotent, but not a GDR fixture -- GDR's scope is
+                                               limited to the curly-brace family c/cpp/java/kotlin,
+                                               not HTML/JS, see STATE_CURLY_GDR.md's Scoping section).
 
 Python3:
   py_combined_inp/out.py                    -- Bracket-complexity categories, assignment alignment

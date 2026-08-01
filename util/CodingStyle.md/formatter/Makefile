@@ -231,6 +231,7 @@ INP_FILES += java_combined_inp.java
 INP_FILES += java_comments_inp.java
 INP_FILES += java_format_toggle_inp.java
 INP_FILES += java_preprocessor_method_inp.java
+INP_FILES += java_flush_left_inp.java
 
 INP_FILES += kt_combined_inp.kt
 INP_FILES += kt_comments_inp.kt
@@ -243,6 +244,7 @@ INP_FILES += in_file_config_inp.kt
 # - It is kept commented out so `make test` stays green; uncomment to exercise its hard-error path manually.
 # - See `test/in_file_config_error_out.hpp` for the expected error message.
 #INP_FILES += in_file_config_error_inp.hpp
+
 INP_FILES += curly_general_scope_reindent_inp.hpp
 
 INP_FILES += json_core_inp.json
@@ -277,6 +279,7 @@ INP_FILES += ts_decl_grid_ext_inp.ts
 
 INP_FILES += html_combined_inp.html
 INP_FILES += html_comments_inp.html
+INP_FILES += html_js_flush_left_inp.html
 
 INP_FILES += py_combined_inp.py
 INP_FILES += py_comments_inp.py

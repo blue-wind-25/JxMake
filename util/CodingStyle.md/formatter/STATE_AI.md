@@ -1568,3 +1568,74 @@ package is off the main formatter pipeline, confirmed not to be, per
 
 **Committed:** `src/com/jxmake/formatter/classifier/gru/GruClassifier.java`
 (the fused-gate refactor) — see commit log for hash.
+
+**Step 5 — float vs double precision, evaluated and REJECTED (kept double
+end-to-end):**
+
+Methodology: (a) baseline — ran `tools/gru/GruEval.java` (unmodified) with
+the currently-committed real weights file
+(`code-formatter-ai-assist-weights.json`, untouched throughout) against the
+221-row hand-labeled hard-case set (`tools/classifier_weights/examples_*.md`
+converted via `convert_classifier_weights_examples.py`), using the
+unmodified double-typed inference code. Result: `total=221 abstain=0
+decided=221 correct=119 precision=0.5384615384615384 yesCorrect=88
+yesIncorrect=3 noCorrect=31 noIncorrect=99`.
+
+(b) Converted `GruWeights.java` (`embeddings`/`denseW`/`outW`/`denseB`/
+`outB`/`DirectionWeights` fields, `abstainThreshold`) and `GruClassifier.java`
+(`matVec`/`matTVec`/`gateInto` parameter types, with a new `widenToDouble`
+helper on read) to float-typed weight *storage*, keeping the JSON loader's
+underlying scan/`parseNumber` (`Double.parseDouble`) completely unchanged —
+narrowing to `float` happens only at array-construction time, so the loader
+reads the SAME existing double-formatted JSON text unmodified, per the
+task's requirement. `Vocabulary.java` needed no changes (no numeric
+fields). Confirmed this compiles clean and (c) re-ran the identical
+`GruEval` command against the identical committed weights file through the
+float-typed code: `total=221 abstain=0 decided=221 correct=119
+precision=0.5384615384615384 yesCorrect=88 yesIncorrect=3 noCorrect=31
+noIncorrect=99` — **byte-identical decision-for-decision** to the double
+baseline. Zero accuracy impact from narrowing stored weights to float32
+against this benchmark.
+
+(d)/(e) Per the task's own decision tree, an accuracy-neutral result should
+proceed to converting the trainer to float and re-benchmarking (Step 5e).
+Attempting this surfaced an architectural coupling this codebase's design
+doesn't cleanly allow to split: `GruClassifier.Gradients` (the backprop
+gradient accumulator) reuses `GruWeights.DirectionWeights` as its own field
+type (`Gradients.forward`/`.backward` are declared `GruWeights.
+DirectionWeights`, the identical class used for trained-weight storage) —
+so converting `DirectionWeights`'s fields to `float` for the storage use
+case *also* forces the mini-batch gradient-accumulation and Adam-update
+math (`GruTrainer.java`'s `checkArray2D`/`checkArray1D`/`addInto` and its
+direct `dst.Wz`/`src.Wz`-style field access) into float at the same time,
+with no narrow-on-write seam available without first splitting
+`DirectionWeights` into two distinct types (a float-typed weights-storage
+struct and a separate double-typed gradient-accumulator struct) and
+updating every trainer call site (Adam moment arrays, gradient clipping,
+mini-batch averaging, `--check-gradients` numerical-diff harness,
+checkpoint format version bump + resume compatibility) to match.
+
+**Decision: reverted the float conversion in full, kept double end-to-end**
+(`GruWeights.java`/`GruClassifier.java` restored from pre-conversion
+backups; `git diff` confirms these two files are byte-identical to the
+pre-session committed version). Reasoning: this is not an accuracy call —
+the measured accuracy impact was exactly zero on the real committed
+weights against the real hard-case benchmark — it's a scope/risk call. The
+`DirectionWeights`/`Gradients` type-sharing means "just the trainer" is not
+a bounded follow-up the way Step 5e's framing assumes; it requires a real
+struct-splitting refactor across `GruTrainer.java`'s Adam optimizer,
+gradient clipping, mini-batch averaging, gradient-checking, and checkpoint
+format (a version bump, since the binary layout would need two precisions
+where one exists today) before the code compiles again, let alone before
+it's re-validated. Given there is no accuracy upside motivating that risk
+today (float storage alone, if ever wanted later for e.g. weights-file
+size, could be revisited as its own narrowly-scoped task that also splits
+`DirectionWeights` from `Gradients` up front), reverting was the
+conservative, defensible choice rather than pushing a large, exploratory
+struct-split through under this session's scope. No commit was made for
+the float conversion (correctly — code was reverted, not shipped).
+
+**`make test` reconfirmed: 225/225 forward, 225/225 idempotency** after the
+revert. **`code-formatter-ai-assist-weights.json`: byte-unchanged throughout
+this entire session** (`git status --porcelain` on the file shows nothing;
+it was only ever read by `GruEval`, never written).

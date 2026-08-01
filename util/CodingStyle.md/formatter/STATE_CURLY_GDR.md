@@ -286,10 +286,36 @@ plan, not a placeholder.
 
 - [x] Design/finalize `JXM_CFMT_GDR 0`/`1` directive semantics — resolved,
       see Resolved Design Decisions above (`RDD_KEY_227`).
-- [ ] Implement the pre-pass's own minimal tokenizer — independent of
+- [x] Implement the pre-pass's own minimal tokenizer — independent of
       `TokenizerCore`/`TokenizerCurly`, scoped only to what the reindenter
       needs (brace/paren/bracket depth, string/char/comment/raw-string/
-      preprocessor-directive recognition for exclusion purposes).
+      preprocessor-directive recognition for exclusion purposes). Landed as
+      new isolated package `com.jxmake.formatter.gdr`: `GdrTokenType.java`
+      (enum), `GdrToken.java` (type/text/start-line), `GdrTokenizer.java`
+      (`GdrTokenizer.tokenize(String) -> List<GdrToken>`). Recognizes
+      single-char bracket tokens (`{}()[]`, depth counting itself deferred
+      to the next checklist item's dedicated counter), `//` line comments,
+      `/* */` block comments (multi-line), `"..."`/`'...'` literals with
+      backslash-escape handling, C++11 `R"delim(...)delim"` raw strings
+      (up to 16-char delimiter, falls through to ordinary text/string
+      handling if not actually followed by `(` so a bare `R`/`r` identifier
+      isn't misdetected), Kotlin `"""..."""` triple-quoted strings, and
+      preprocessor directives (line starting with `#` after only
+      leading whitespace, backslash-newline continuation). Everything else
+      is opaque `TEXT` runs — no identifier/keyword/operator recognition,
+      not needed for this job's scope. `make` (full-project `javac` via
+      the `SOURCES` glob) builds clean with the new files added — zero
+      changes to any existing file. Manually smoke-tested (preprocessor
+      continuation, comments, escaped quotes, char literal, C++ raw
+      string, nested `(){}[]`) via a throwaway `/tmp` harness against
+      `target/classes`; all token boundaries and line numbers correct,
+      brace depth balanced to 0 on a nested sample. Known gap, acceptable
+      at this stage per the checklist's own scoping (exclusion zones like
+      `frozen`/`JXM_CFMT_GDR 0`/`1` spans are a later checklist item, not
+      this one): no handling yet for languages/literal shapes outside
+      C/C++/Java/Kotlin (this job's explicit scope, see "Scoping" section
+      below) or for malformed/unterminated literals beyond falling back to
+      end-of-line/end-of-file.
 - [ ] Implement the pre-pass's own brace-depth counter, independent of
       `ScopePipelineCurly`'s.
 - [ ] Implement the pre-pass's own reindenter: derive each line's absolute

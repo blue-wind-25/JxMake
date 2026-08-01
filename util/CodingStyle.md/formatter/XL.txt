@@ -213,9 +213,11 @@ Launch a sub-agent for:
     same/similar performance than the old, prefer the raw array `[]`.
     Do NOT profile with combination of changes, unless absolutely required.
     If need to choose between `double` and `float`, use whatever the current
-    code use first.
+    code use first (should be `double`). Try `float` only if all conversion
+    to raw array `[]` have been completed, however, do not try `float` if
+    you predicted that the precision will not be enough.
 
-Then, while waiting let's discuss:
+Let's discuss:
 
 (1a)
 When `General scope-depth reindentation` is implemented, it will reindent
@@ -277,9 +279,9 @@ else                 qqq;
 
 If it is not difficult, launch a sub-agent to implement it for all
 curly languages. Then to update the affected `*_out.*` fixtures, and
-`SYTLE*.md`, `AI_PREAMBLE_*.md`, `../README.txt`, etc. Ensure it
-does not conflict with the GruTrainer sub-agent (or wait until it is
-complete). If deemed difficult, put as TODO in `Tier 1` in XL.txt.
+`SYTLE*.md`, `AI_PREAMBLE_*.md`, `../README.txt`, etc. If it deemed
+to be difficult, put as a TODO in `Tier 1` items in XL.txt but do not
+commit XL.txt.
 
 
 

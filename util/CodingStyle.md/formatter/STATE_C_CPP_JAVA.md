@@ -268,8 +268,15 @@ bug-by-bug root-cause narratives have been compacted out of this file — availa
 - [x] `combined.cpp` (PASS) — 4 bugs: destructor `~` vs. return type, class-template member
   tight brackets + layout, structured-binding misparse, trailing comment duplication on
   group-gap trim.
-- [x] `combined.java` (PASS) — 3 bugs: multi-line `//` prose period-stripping, enum
-  constant-list `;` detached, blank line before final `return` in a `throws`-clause method.
+- [x] `combined.java` (PASS) — 5 bugs: multi-line `//` prose period-stripping, enum
+  constant-list `;` detached, blank line before final `return` in a `throws`-clause method,
+  `InFileConfig`'s `JXM_CFMT_CFG` directive regex unanchored (false-triggered on the directive
+  syntax merely mentioned in an unrelated comment's prose instead of requiring it to start the
+  comment), `DeclarationAlignmentRuleCurly.parseDeclaration`'s bitfield-colon scan not stopping
+  at the first top-level `=` (misdetected a ternary's `:` inside a declaration initializer as a
+  C++ bitfield-width colon, misrouting the whole declaration into `parseBitfield` and corrupting
+  its rendering, e.g. `Foo.BAR` → `Foo. BAR`); found via GRU-trainer dogfood adoption, fixture
+  hand-edited by the user to capture both.
 - [x] `c_comments` (PASS) — 6 bugs: mid-param `//` comment reattachment (brace-depth desync),
   compound-assignment misparse, one-param-per-line padding, `hasCommentBefore` group-break
   guard, last-param comment alignment, `#define` trailing-comment capitalization. 1

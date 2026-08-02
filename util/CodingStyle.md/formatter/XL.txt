@@ -203,6 +203,8 @@ Continue with the `curly reindent job` - `Real-code test the pre-pass`.
 
 Rerun `### Formatter self-formatting (dogfood-and-adopt) process`.
 
+How about JXM_CFMT_CFG regex for the other languange families?
+
 I found a new formatter error, check with:
     `make test INP_FILES=java_combined_inp.java`
 Basically the `%` comment directive can be triggered in non directive comments.

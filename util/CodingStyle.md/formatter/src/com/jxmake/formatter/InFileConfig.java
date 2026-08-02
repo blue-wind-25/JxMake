@@ -24,8 +24,8 @@ import java.util.regex.Pattern;
 public final class InFileConfig {
 
     private static final Pattern DIRECTIVE = Pattern.compile(
-        "//%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|/\\*%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*\\*/" + "|#%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|<!--%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*-->",
-        Pattern.DOTALL
+        "^[ \\t]*//%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|^[ \\t]*/\\*%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*\\*/" + "|^[ \\t]*#%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|^[ \\t]*<!--%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*-->",
+        Pattern.DOTALL | Pattern.MULTILINE
     );
 
     // Consumes a run of leading blank lines and whole comments (//, /* */, YAML/TOML's #, or XML's

@@ -874,6 +874,11 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         // statements into parseBitfield, which has no multi-line render path and collapsed the
         // entire embedded body onto one line (see the `frozen`/`catch.hpp` real-code-testing
         // notes in STATE.md).
+        // A bitfield's `:` always precedes any initializer `=` (even C++20's `int x : 3 = 5;`
+        // has the bitfield colon first), so the scan must stop at the first depth-0 `=` --
+        // otherwise a ternary `:` inside an initializer expression (`int x = cond ? a : b;`)
+        // gets misdetected as a bitfield-width colon and the whole declaration is misrouted
+        // into parseBitfield, corrupting its rendering.
         int colonIdx       = - 1;
         int colonScanDepth = 0;
         for( int j = i; j < body.size(); ++j ) {
@@ -883,6 +888,9 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             }
             else if( isPunct(bt, ")") || isPunct(bt, "]") || isPunct(bt, "}") ) {
                 --colonScanDepth;
+            }
+            else if( colonScanDepth == 0 && isOp(bt, "=") ) {
+                break;
             }
             else if( colonScanDepth == 0 && isOp(bt, ":") ) {
                 colonIdx = j;

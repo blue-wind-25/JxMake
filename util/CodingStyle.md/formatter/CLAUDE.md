@@ -19,7 +19,7 @@ state file.
 | Python3 support (implemented) | `STATE_COMMON.md` | `STATE_PYTHON3.md` |
 | AI-assist Step 3: GRU comment-classifier abstain resolution (skeleton started — `com.jxmake.formatter.classifier.gru` package) | `STATE_COMMON.md` | `STATE_AI.md` |
 | General scope-depth reindentation (curly reindent job; pre-pass architecture landed, default off, behind `curly-general-scope-reindent = on` — high risk, a real pass-ordering bug was found during real-code validation, read `STATE_CURLY_GDR.md` before attempting) | `STATE_COMMON.md` | `STATE_CURLY_GDR.md` |
-| HTML5 deep tree-construction gaps (tc gap job; not started — high risk, read `STATE_HTML5_TCG.md` before attempting) | `STATE_COMMON.md` | `STATE_HTML5_TCG.md` |
+| HTML5 deep tree-construction gaps (tc gap job; design decisions landed (`RDD_KEY_230`), no implementation yet — high risk, read `STATE_HTML5_TCG.md` before attempting) | `STATE_COMMON.md` | `STATE_HTML5_TCG.md` |
 
 `STATE_COMMON.md` holds the shared commit workflow, ambiguity-handling
 protocol, file-exclusion rules, and real-code-testing methodology used by

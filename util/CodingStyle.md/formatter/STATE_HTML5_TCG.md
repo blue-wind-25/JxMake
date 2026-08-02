@@ -17,13 +17,15 @@ implicit `<body>` start-tag insertion, and the adoption agency algorithm —
 rather than the ad hoc, locally-scoped fixes that have closed every other
 HTML5 parsing bug found so far.
 
-**Overall status: not started (scoping/planning only, 2026-08-02).** This
-job was split out of `STATE_DATA_FORMATS.md`'s "HTML5 deep tree-
-construction edge cases" section (item 1: the still-open
+**Overall status: not started (scoping/planning + design decisions only,
+2026-08-02).** This job was split out of `STATE_DATA_FORMATS.md`'s "HTML5
+deep tree-construction edge cases" section (item 1: the still-open
 `web-platform-tests/wpt` residual gaps) on 2026-08-02. No implementation
 has landed — this file now has a full **Scoping** section (grounded in the
-actual current `XmlSpecificRule.java` code shape) and a **Checklist** a
-future session can execute from directly, starting at item 1.
+actual current `XmlSpecificRule.java` code shape), a **Resolved Design
+Decisions** section (item 2's insertion-mode-state question, settled
+2026-08-02 as `RDD_KEY_230` — see below), and a **Checklist** a future
+session can execute from directly, starting at item 2a.
 
 ---
 
@@ -54,20 +56,48 @@ conformance gaps do not close under this model:
    (`<b>`/`<i>`/etc.) recovery algorithm; generally regarded as the most
    fiddly of the four and the one to tackle last if this job proceeds.
 
+**Why this job is still high-risk, even though the design landed lighter
+than originally scoped:** `RDD_KEY_230` (2026-08-02) rejected the original
+framing below of one large shared insertion-mode state machine — the
+actual design is three independent, narrow, config-gated pieces of state,
+each closer in size to `RDD_KEY_223`'s fix than to a structural rewrite.
+That does *not* make this job low-risk, for three reasons specific to the
+new design:
+- **Gap 1 (foster-parenting) still requires genuine tree mutation**, not
+  just new state — a `FosterBuffer` node has to be spliced into an
+  ancestor frame's children list from several `parseElement` frames deep,
+  which is real tree surgery regardless of how the triggering condition is
+  detected.
+- **Gap 3 (implicit `<body>`) is the first fabricated-node path** in an
+  otherwise strictly preserve-as-written formatter — a posture change with
+  no precedent in this codebase, independent of how small its own flag is.
+- **Four independently-gated behaviors stacked behind one config axis**
+  (`html5-tc-gap-level`) still means four separate new code paths touching
+  real HTML5 parsing, each shipped and dogfooded before the next lands —
+  narrow *individually* does not mean low-risk *cumulatively*, and gap 4
+  (adoption agency) remains, on its own, one of the fiddlier corners of
+  the HTML5 spec to get right regardless of how it's wired in.
+
+The paragraphs below describing "one shared prerequisite" reflect the
+*original* scoping framing (pre-`RDD_KEY_230`) and are kept for historical
+context on why this job was split out and sized the way it was — see
+`RDD_KEY_230` for the design that actually superseded them.
+
 **Why these four need the same prerequisite, and why that prerequisite is
-large:** all four are defined in the HTML5 spec in terms of an explicit
-open-elements stack plus a current insertion-mode value that switches
-behavior contextually (`"in table"`, `"in template"`, `"in body"`, etc.).
-The formatter has neither — "what's open" is implicit in Java call-stack
-recursion, and there is no insertion-mode concept at all. Building both is
-a structural change to the traversal at the core of `parseNodes`/
-`parseElement`, touching every HTML5/XML document processed, not a narrow
-addition. **Comparable in size/risk to the "General scope-depth
-reindentation" (GDR) job** (`STATE_CURLY_GDR.md`) — both require
-introducing an explicit state-tracking structure to replace something
-currently implicit in ordinary recursive/sequential code, and both carry
-blast-radius risk proportional to "every document/line becomes a candidate
-for a different result," not a narrow recognized-construct risk surface.
+large** *(original framing, superseded by `RDD_KEY_230` — see above)*: all
+four are defined in the HTML5 spec in terms of an explicit open-elements
+stack plus a current insertion-mode value that switches behavior
+contextually (`"in table"`, `"in template"`, `"in body"`, etc.). The
+formatter has neither — "what's open" is implicit in Java call-stack
+recursion, and there is no insertion-mode concept at all. Building both
+was originally scoped as a structural change to the traversal at the core
+of `parseNodes`/`parseElement`, touching every HTML5/XML document
+processed — comparable in size/risk to the "General scope-depth
+reindentation" (GDR) job (`STATE_CURLY_GDR.md`) on that mechanism. That
+specific mechanism comparison no longer holds (no shared state-tracking
+structure is being built), but the *outcome* — new tree-shaping behavior
+with real regression risk once any level above `0` is turned on — still
+does, per the three reasons above.
 
 **Real-world impact: low.** All four gaps are WPT's own deliberately
 pathological conformance fixtures, designed to probe spec corner cases
@@ -100,19 +130,24 @@ machine — two precedents show narrower fixes sufficed:
 See `STATE_DATA_FORMATS.md`'s "HTML5 deep tree-construction edge cases"
 section for the original combined writeup (items 1-3) this job was split
 out of; items 2 and 3 above (the FIXED precedents) remain documented there
-as they are closed and out of this job's scope. `RDD_LOG.md` has no key
-yet for this job specifically — the relevant history is under the keys
-cited above.
+as they are closed and out of this job's scope. `RDD_LOG.md`'s
+`RDD_KEY_230` records this job's own insertion-mode-state design decision
+(2026-08-02); the narrower precedent fixes above are recorded under the
+keys cited with them.
 
-**Comparative risk note (2026-08-02, from direct discussion):** of the two
-"comparable in size" jobs, GDR is currently the more dangerous of the two
-in practice — it has a demonstrated architectural collision with
-already-shipped pipeline logic (`RDD_KEY_229`, a real circular dependency
-between GDR's depth-based indent and the pipeline's width-based wrap
-decisions). This tc gap job has no such demonstrated collision; it is an
-inert, unbuilt feature with explicitly low real-world impact, whose main
-cost is the size of the prerequisite state-machine work, not a known
-collision with anything already shipped.
+**Comparative risk note (2026-08-02, from direct discussion):** GDR
+remains the more dangerous of the two jobs in practice — it has a
+demonstrated architectural collision with already-shipped pipeline logic
+(`RDD_KEY_229`, a real circular dependency between GDR's depth-based
+indent and the pipeline's width-based wrap decisions). This tc gap job has
+no such demonstrated collision; it is an inert, unbuilt feature with
+explicitly low real-world impact. Its cost is no longer "a large shared
+prerequisite state-machine" (superseded by `RDD_KEY_230` — see Background
+above), but the job still carries real risk of its own: genuine tree
+mutation for foster-parenting, a precedent-setting fabricated-node path
+for implicit `<body>`, and four independently-gated behaviors accumulating
+behind one config axis, each needing its own dogfood validation before the
+next level lands.
 
 ---
 
@@ -203,21 +238,21 @@ All XML/HTML5 tree-walking lives in one file, gated internally on
    Confirmed lowest priority — do last, only after the shared prerequisite
    has already been built and proven on gaps 1-3.
 
-**Why one shared prerequisite, not four independent fixes:** all four are
-defined by the HTML5 spec in terms of (a) an explicit open-elements stack
-(exists today, but name-only — `openTagStack` would need to carry more
-than a tag name, e.g. a per-frame insertion-mode-relevant marker or a
-reference to the actual constructed `Node`, not just its name), and (b) a
+**Why one shared prerequisite, not four independent fixes** *(original
+framing — superseded by `RDD_KEY_230`, kept for historical context; see
+the Background section's "Why this job is still high-risk" note above for
+the current risk framing)*: all four are defined by the HTML5 spec in
+terms of (a) an explicit open-elements stack (exists today, but name-only
+— `openTagStack` would need to carry more than a tag name, e.g. a
+per-frame insertion-mode-relevant marker or a reference to the actual
+constructed `Node`, not just its name), and (b) a
 current insertion-mode value (`"initial"`, `"before html"`, `"before
 head"`, `"in head"`, `"after head"`, `"in body"`, `"in table"`, `"in
 template"`, `"after body"`, `"after after body"`, etc. — the full HTML5
-insertion-mode list is ~23 states, though this job almost certainly does
-not need all 23 modeled explicitly; only the subset that actually
-distinguishes gap 1-4 behavior needs real states, with everything else
-collapsible into a generic "in body"-like default). Building the mode
-concept from scratch is the large, shared, structural part of the work;
-each individual gap's own behavior on top of that state machine is
-comparatively small.
+insertion-mode list is ~23 states). This was the original justification
+for treating the four gaps as one large structural prerequisite; `RDD_KEY_230`
+found each gap's actual need was narrower and independent (see Resolved
+Design Decisions below), so no such shared structure is being built.
 
 ### What real-world HTML this affects
 
@@ -241,13 +276,55 @@ effort into it, in case priorities have shifted.
   ancestor-cascade-close logic) unless a specific gap's fix requires it —
   extend, don't replace, unless proven necessary.
 - No attempt to model the full ~23-state HTML5 insertion-mode list
-  up front. Model only the modes gaps 1-4 actually need; treat everything
-  else as the current implicit default behavior.
-- No changes to XML/XHTML (non-`lang.isHtml5`) parsing behavior — every
-  new code path must stay `lang.isHtml5`-gated, matching every other
-  HTML5-tolerant-parsing addition so far.
-- Do not attempt all four gaps in one pass — land the prerequisite plus
-  gap 3 (narrowest) first, checkpoint, then proceed one gap at a time.
+  up front, and (per the Resolved Design Decisions below) no generic
+  insertion-mode enum/frame stack at all — each gap gets its own narrow,
+  independent piece of state.
+- No changes to XML/XHTML parsing behavior. Unlike every prior
+  HTML5-tolerant-parsing addition, new code paths for this job are gated
+  on the `html5-tc-gap-level` config value alone (see below), not an
+  additional `lang.isHtml5 &&` check — `html5-tc-gap-level` only has
+  effect when `lang.isHtml5` is already true elsewhere in the pipeline,
+  same as every other HTML5-only config value, so a second explicit
+  `lang.isHtml5` guard on top would be redundant.
+- Do not attempt all four gaps in one pass — land one level at a time, in
+  level order (see Config below), checkpointing after each.
+
+### Config: `html5-tc-gap-level`
+
+New integer config key, default **`0`** (today's behavior — RDD_KEY_223-
+style heuristics only, none of the four gaps active). Handled exactly like
+any other config value (same resolution precedence chain as RDD_KEY_15,
+same "instance field read once per file" shape as other config-gated
+rules) — no special-casing beyond that.
+
+Levels are cumulative and strictly ordered from simplest to most complex,
+matching the checklist's build order below:
+
+| Level | Gap enabled | What it adds |
+|---|---|---|
+| 0 | none | Current behavior only — no change. |
+| 1 | Gap 3 — implicit `<body>` insertion | First fabricated-node path; `bodyInserted` guard flag. |
+| 2 | + Gap 1 — foster-parenting tree reshaping | `isInTableInsertionMode()` + `FosterBuffer`/`fosterBufferStack` relocation. |
+| 3 | + Gap 2 — misnested `<form>` in `<template>` | `currentFormElementPointer`, scoped per `<template>` boundary. |
+| 4 | + Gap 4 — adoption agency algorithm | Full active-formatting-elements reparenting loop. |
+
+Each gap's new code path is guarded by a single `config.html5TcGapLevel()
+>= N` check (`N` = the level introducing it) — no interaction between
+levels beyond that, since each gap's state (per `RDD_KEY_230`) is
+independent of the others. `README.md` and `STATE_COMMON.md` both need
+updating once level 1 lands — see checklist item 2a below.
+
+---
+
+## Resolved Design Decisions
+
+Full text lives in `RDD_LOG.md` (shared across all jobs — do not read that
+file in full; look up one key at a time per `STATE_COMMON.md`'s
+convention: `grep -Fm1 'RDD_KEY_230' util/CodingStyle.md/formatter/RDD_LOG.md`).
+
+| Key | Topic |
+|---|---|
+| RDD_KEY_230 | Insertion-mode state design: no generic enum/frame stack — three independent narrow state pieces (`bodyInserted`; `isInTableInsertionMode()` + `FosterBuffer`/`fosterBufferStack`; `currentFormElementPointer`), plus the `html5-tc-gap-level` config key (default `0`, levels `1`-`4`). |
 
 ---
 
@@ -305,61 +382,81 @@ item *N-1* is committed and `make test` is green.
       Every residual mismatch found traces to an already-documented,
       already-accepted, unrelated cause. Proceed to item 2 in the existing
       recommended order (no reprioritization).
-- [ ] 2. **Design the insertion-mode state object** (spike/design-only, no
-      behavior change yet): decide its shape (a small enum plus a
-      per-`parseElement`-frame or explicit-stack-of-frames representation
-      — needs a concrete decision, not just "some state"), decide how it
-      threads through `parseNodes`/`parseElement` (extra parameter vs.
-      instance field vs. a small explicit `Deque<Frame>` mirroring
-      `openTagStack`), and decide the minimal mode subset needed to serve
-      gaps 3, 1, 2 (in that recommended order) without modeling all ~23
-      spec modes. Record the decision, once settled, as a new `RDD_KEY_n`
-      entry in `RDD_LOG.md` plus this file's own Resolved Design Decisions
-      index (add that index section once the first decision lands) —
-      treat this as an ambiguity/design decision under `STATE_COMMON.md`'s
-      protocol, not something to just start coding.
-- [ ] 3. **Implicit `<body>` start-tag insertion** (narrowest gap, do
-      first — per the 2026-07-26 investigation cited in Background). Land
-      the tag-synthesis path (first fabricated-node case in an otherwise
+- [x] 2. **Design the insertion-mode state object** (spike/design-only, no
+      behavior change yet) — **RESOLVED 2026-08-02, `RDD_KEY_230`** (see
+      Resolved Design Decisions above and `RDD_LOG.md`). No generic
+      insertion-mode object: three independent narrow pieces of state
+      (gap 3's `bodyInserted` flag, gap 1's `isInTableInsertionMode()` +
+      `FosterBuffer`/`fosterBufferStack`, gap 2's
+      `currentFormElementPointer`), plus the `html5-tc-gap-level` config
+      key (default `0`, levels `0`-`4` strictly ordered
+      simplest-to-most-complex).
+- [ ] 2a. **Document the new config key.** Update `README.md` (wherever
+      other config keys are documented, matching existing entry style)
+      and `STATE_COMMON.md` (if it maintains any config-key index/list —
+      check first) to describe `html5-tc-gap-level`: integer, default `0`,
+      levels `0`-`4`, cumulative, meaning per the Config table above (0 =
+      off, 1 = implicit `<body>`, 2 = +foster-parenting, 3 = +form
+      pointer, 4 = +adoption agency = full). Do this once level 1 (item 3
+      below) actually lands — don't document a config value with no
+      implemented effect yet.
+- [ ] 3. **Level 1 — Implicit `<body>` start-tag insertion** (narrowest
+      gap, do first — per the 2026-07-26 investigation cited in
+      Background). Guard the new code path on `config.html5TcGapLevel()
+      >= 1` (no separate `lang.isHtml5` check — see Non-goals). Land the
+      tag-synthesis path (first fabricated-node case in an otherwise
       preserve-as-written formatter — needs its own explicit design
       sign-off given how large a posture change that is) plus the
-      double-insertion guard flag. New fixture(s) under
+      `bodyInserted` double-insertion guard flag. New fixture(s) under
       `test/real_code_regressions_N_{inp,out}.html` reproducing a
-      no-explicit-`<body>` document. `make test` green, zero regressions
-      on the existing 223+ suite.
-- [ ] 4. **Re-run the WPT residual gap catalogue for gap 3** specifically
+      no-explicit-`<body>` document, run at `html5-tc-gap-level=1`. Also
+      add/confirm a level-`0` fixture proving default behavior is
+      unchanged. `make test` green, zero regressions on the existing
+      223+ suite.
+- [ ] 4. **Re-run the WPT residual gap catalogue for level 1** specifically
       (the relevant `html/syntax/` WPT fixtures cited in
       `STATE_DATA_FORMATS.md`'s item 1, if still reachable — no network
       access was available as of the last check, confirm current
       availability first) to verify the fix is spec-accurate, not just
       "doesn't crash."
-- [ ] 5. **Foster-parenting-driven tree reshaping** (`foreign_content_009/
-      010.html` and similar). Extend the insertion-mode state from item 2
-      to recognize `"in table"`-family modes; implement the relocation
-      behavior (decide bottom-up-mutable-tree vs. two-pass approach per
-      the Scoping section's item-1 writeup — this choice has real blast-
-      radius implications for every HTML5 document processed, treat as an
-      ambiguity needing sign-off if it's not obviously forced by the
-      state-object design from item 2). New fixture(s) reproducing the
-      minimal foster-parenting case. `make test` green.
-- [ ] 6. **Misnested `<form>` reconstruction inside `<template>`.** Add
-      the single-slot form-element-pointer state, scoped per `<template>`
-      boundary; implement the mode-specific insertion rule. New
-      fixture(s). `make test` green.
-- [ ] 7. **Adoption agency algorithm** (do last — most fiddly, per
-      Background). Add the "list of active formatting elements" state
-      (distinct from `openTagStack`); implement the spec's bounded-
-      iteration reparenting loop for misnested `<b>`/`<i>`/etc. New
-      fixture(s) covering at least one classic misnested-formatting-
-      element WPT case. `make test` green.
-- [ ] 8. **Full-suite real-code re-validation** once all four gaps are
+- [ ] 5. **Level 2 — Foster-parenting-driven tree reshaping**
+      (`foreign_content_009/010.html` and similar). Guard on
+      `config.html5TcGapLevel() >= 2`. Implement `isInTableInsertionMode()`
+      and the `FosterBuffer`/`fosterBufferStack` relocation mechanism per
+      the Resolved Design Decisions above. New fixture(s) reproducing the
+      minimal foster-parenting case, run at `html5-tc-gap-level=2` (and
+      confirm unchanged at `1`/`0`). `make test` green.
+- [ ] 6. **Level 3 — Misnested `<form>` reconstruction inside
+      `<template>`.** Guard on `config.html5TcGapLevel() >= 3`. Add
+      `currentFormElementPointer`, scoped per `<template>` boundary
+      (reassess whether nesting needs a `Deque` instead of a single field
+      — see `RDD_KEY_230`); implement the mode-specific
+      insertion rule. New fixture(s). `make test` green.
+- [ ] 7. **Level 4 — Adoption agency algorithm** (do last — most fiddly,
+      per Background). Guard on `config.html5TcGapLevel() >= 4`. Add the
+      "list of active formatting elements" state (distinct from
+      `openTagStack`); implement the spec's bounded-iteration reparenting
+      loop for misnested `<b>`/`<i>`/etc. New fixture(s) covering at least
+      one classic misnested-formatting-element WPT case. `make test`
+      green.
+- [ ] 8. **Full-suite real-code re-validation** once all four levels are
       landed: re-run all three dogfood corpora from item 1 end-to-end
       (forward, round2, idempotency diff, `html_syntax_check.sh`,
-      `html_content_diff.py`) plus the full local `make test` suite. Fix
-      any regression before considering the job complete.
-- [ ] 9. **Update `CLAUDE.md`'s top-level routing table** row for this job
-      from "not started — high risk" to whatever the true landed state is
-      (only once real progress exists — do not touch it during pure
-      planning work).
+      `html_content_diff.py`) at both the default (`0`) and max (`4`)
+      levels, plus the full local `make test` suite. Fix any regression
+      before considering the job complete.
+- [x] 9. **Keep `CLAUDE.md`'s top-level routing table row in sync with true
+      job status** — a resolved design decision is real progress and
+      belongs in the routing table just as much as landed implementation;
+      don't gate the row on "code shipped" specifically. Update it after
+      any checkpoint that changes the job's actual state (a resolved
+      `RDD_KEY_n`, a level landing, a level's dogfood validation
+      completing), not only at job completion.
+
+      **2026-08-02:** updated from "not started — high risk" to "design
+      decisions landed (`RDD_KEY_230`), no implementation yet — high risk"
+      to reflect that the insertion-mode-state question is resolved even
+      though no code has landed. Update again once level 1 (checklist item
+      3) actually ships.
 
 ---

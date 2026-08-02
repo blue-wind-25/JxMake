@@ -775,6 +775,21 @@ plan, not a placeholder.
         `RDD_KEY_229` failure data to compare against. `make test`:
         237/237 forward + idempotency (unaffected, this was `/tmp`-only
         real-code testing, no fixture changes).
+
+      **2026-08-03 session (continued), corpus 1 of the remaining 3 —
+      local `tool/JSONEncoderLite.java`** (path:
+      `/home/aloysius/Projects/JxMake/src/jxm/tool/JSONEncoderLite.java`,
+      one of the two files `STATE_C_CPP_JAVA.md`'s "Known Gaps" cites as
+      an accepted-not-fixed relative-delta-reindent bug): single-pass
+      `curly-general-scope-reindent=on` reproduced non-idempotency (112
+      diff lines between round1/round2). **`curly-general-scope-reindent-
+      multipass=on` fully fixes it — zero-line round1/round2 diff.**
+      Multipass output passes `tools/verifiers/java_syntax_check.sh` (exit
+      0). `make test`: 237/237 forward + idempotency (unaffected, no
+      fixture/source changes this step, `/tmp`-only real-code testing).
+      **Result: PASS.** Remaining corpora for this checklist item:
+      `serge-sans-paille/frozen`, `javaparser/javaparser`'s main
+      `javaparser-core` module.
 - [~] Revisit Kotlin dogfood cluster D3 (see "D3 fold" section above) using
       the pre-pass's statement-boundary/structural-depth infrastructure;
       land a real fix in `MiscRuleCurly`/wherever the fix ends up living,

@@ -19,14 +19,15 @@ state file.
 | Python3 support (implemented) | `STATE_COMMON.md` | `STATE_PYTHON3.md` |
 | AI-assist Step 3: GRU comment-classifier abstain resolution (skeleton started — `com.jxmake.formatter.classifier.gru` package) | `STATE_COMMON.md` | `STATE_AI.md` |
 | General scope-depth reindentation (curly reindent job; not started — high risk, read `STATE_CURLY_GDR.md` before attempting) | `STATE_COMMON.md` | `STATE_CURLY_GDR.md` |
+| HTML5 deep tree-construction gaps (tc gap job; not started — high risk, read `STATE_HTML5_TCG.md` before attempting) | `STATE_COMMON.md` | `STATE_HTML5_TCG.md` |
 
 `STATE_COMMON.md` holds the shared commit workflow, ambiguity-handling
 protocol, file-exclusion rules, and real-code-testing methodology used by
 every job. `STATE_C_CPP_JAVA.md` is authoritative for the C/C++/Java job's
 progress, implementation protocol, and "Resolved Design Decisions" table.
 `STATE_KOTLIN.md`, `STATE_CPP26.md`, `STATE_DATA_FORMATS.md`,
-`STATE_JS_TS.md`, `STATE_PYTHON3.md`, `STATE_AI.md`, and `STATE_CURLY_GDR.md`
-are each job's own equivalent.
+`STATE_JS_TS.md`, `STATE_PYTHON3.md`, `STATE_AI.md`, `STATE_CURLY_GDR.md`,
+and `STATE_HTML5_TCG.md` are each job's own equivalent.
 
 **Current implementation status:** no language this codebase recognizes is
 scaffold-only any more (`Lang.SCAFFOLD_ONLY_LANGUAGES` is now an empty

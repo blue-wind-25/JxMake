@@ -385,6 +385,13 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      let it be peeled off cheaply. Tag-name case-folding itself was fixed
      standalone, separately (see item 3 below).
 
+     **2026-08-02: split out into its own job, `STATE_HTML5_TCG.md`** (tc
+     gap job in `CLAUDE.md`'s routing table), mirroring how the "general
+     scope-depth reindentation" Architectural TODO this item was compared
+     to above was itself split into `STATE_CURLY_GDR.md`. This item's text
+     is left as-is above for history; `STATE_HTML5_TCG.md` is now
+     authoritative for this gap's background/status going forward.
+
   2. **`apache/ant` `manual/running.html` — FIXED (RDD_KEY_223, 2026-08-01).**
      Full scoping pass done 2026-07-31 (tracker item 24); corrected framing
      confirmed no need for item 1's full insertion-mode-state prerequisite —

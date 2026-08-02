@@ -54,17 +54,17 @@ def parse_entry(line):
 def format_entries(lines):
     entries = []
 
-    # Detect the current description column automatically
-    desc_col = 0
+    # Compute the column for "-- " based on the longest filename.
+    # This ensures the separator can shift left if filenames become shorter.
+    max_filename_len = 0
     for line in lines:
-        if parse_entry(line) is None:
+        entry = parse_entry(line)
+        if entry is None:
             continue
+        _, filename, _ = entry
+        max_filename_len = max(max_filename_len, len(filename))
 
-        pos = line.find(" -- ")
-        if pos > desc_col:
-            desc_col = pos
-
-    desc_col -= 1
+    desc_col = max_filename_len + 1  # +1 for the space before "--"
 
     i = 0
     while i < len(lines):

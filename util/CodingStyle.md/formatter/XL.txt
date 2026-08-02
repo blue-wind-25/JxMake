@@ -106,7 +106,7 @@ Do NOT perform any bug fix yet, instead categorize and note the bugs inside
 `....md` and `....md` into two categories:
     1. Critical bugs that cause formatter error/crash and output file corruption (syntax
        error, unwanted content change, etc.).
-    2. Idempotency bugs only. Try reformat with `indent-size = 2` if the idempotency test
+    2. Idempotency bugs eonly. Try reformat with `indent-size = 2` if the idempotency test
        failed.
 For each category, cluster the bugs based on the types/appearance. Sort the clusters based on
 the estimated criticality/the value of fixing the bug and the estimated difficulty (weigh them).
@@ -212,6 +212,14 @@ format the code in 4 pass:
   - Normal formatting pass.
 Do not implement yet, this is only a discussion, and if make sense write the discussion result
 in `STATE_CURLY_GDR.md`.
+
+Please verify the bug and fix it if it does present. The formatter may format code into
+something like:
+```
+int aaa = + 1;
+int b   = - 1;
+```
+See the extra space before `1`.
 
 
 

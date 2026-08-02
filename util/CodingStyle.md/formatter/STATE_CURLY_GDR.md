@@ -646,7 +646,7 @@ plan, not a placeholder.
       per RDD_KEY_227. Checked `../README.txt`: still has no formatter
       config-keys section, confirmed the "When implemented" note's
       assumption still held, so no edit needed there.
-- [ ] Real-code test the pre-pass, `curly-general-scope-reindent = on`,
+- [x] Real-code test the pre-pass, `curly-general-scope-reindent = on`,
       against at least `javaparser/javaparser`, local
       `tool/JSONEncoderLite.java`, and `serge-sans-paille/frozen` (the three
       corpora where the current narrower relative-delta reindent bugs

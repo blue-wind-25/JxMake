@@ -865,7 +865,8 @@ public final class XmlSpecificRule {
         final int close = s.indexOf("-->", pos + 4);
         if(close < 0) throw new XmlParseException("unterminated comment");
         final Node   n     = new Node();
-        final String inner = s.substring(pos + 4, close).trim();
+        final String raw   = s.substring(pos + 4, close);
+        final String inner = raw.trim();
         n.type = NodeType.COMMENT;
         if( inner.startsWith("%") ) {
             // A `%`-prefixed marker/directive comment must survive byte-for-byte -- normal comment
@@ -874,8 +875,19 @@ public final class XmlSpecificRule {
             //  (InFileConfig.java's own regex, and //  this method's own DIS/ENA literal-string checks
             //  above, both require `<!--%` with no intervening space).
             n.commentVerbatim = true;
-            n.commentText     = s.substring(pos + 4, close);
+            n.commentText     = raw;
         } // if
+        else if( raw.indexOf('\n') >= 0 ) {
+            // Multi-line comment (interior contains a newline, checked on the RAW pre-trim content):
+            //  freeze the interior byte-for-byte, same posture as PI/CDATA "opaque, preserved verbatim"
+            //  (STYLE_DATA_FORMATS.md SS2.3/2.4) -- do not trim, reindent, or apply any content-inspecting
+            //  normalization (normalize-comment-start-case/isSingleWordDirective/etc.). Reuses the
+            //  existing commentVerbatim render path (RDD_KEY_232) rather than inventing a parallel
+            //  mechanism -- it already renders with zero added inner spacing, which is exactly the
+            //  "no added/stripped whitespace around the content" behavior this case also needs.
+            n.commentVerbatim = true;
+            n.commentText     = raw;
+        } // else if
         else {
             n.commentText = normComment(inner);
         }

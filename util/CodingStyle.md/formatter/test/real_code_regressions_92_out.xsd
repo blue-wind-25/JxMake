@@ -1,5 +1,7 @@
-<!-- Copyright (C) 2024 Example Corp.
-SPDX-License-Identifier: MIT -->
+<!--
+Copyright (C) 2024 Example Corp.
+SPDX-License-Identifier: MIT
+-->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
     <xs:element name="root">
         <xs:complexType>

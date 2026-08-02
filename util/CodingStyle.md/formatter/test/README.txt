@@ -261,10 +261,10 @@ XML:
                                                          and case-normalized, now also exercised two levels
                                                          deep inside a nested block; an inline trailing
                                                          comment gaining a leading space before `<!--`; a
-                                                         multi-line `<!-- -->` comment whose opening line
-                                                         reindents and capitalizes while its interior/closing
-                                                         line is folded onto the same line as the closing
-                                                         `-->`; a `<!--% JXM_CFMT_DIS -->`/`ENA` marker pair
+                                                         multi-line `<!-- -->` comment (raw interior contains a
+                                                         newline) preserved byte-for-byte verbatim, including
+                                                         its own interior indentation and `-->` on its own line
+                                                         (RDD_KEY_232); a `<!--% JXM_CFMT_DIS -->`/`ENA` marker pair
                                                          freezing a malformed-spacing tag verbatim; and a
                                                          trailing comment right before the closing tag.
 
@@ -387,6 +387,15 @@ HTML5:
                                                          dispatched to JS formatting and re-wrapped, and a
                                                          `<script type="application/json">` block staying
                                                          fully opaque.
+
+  html5_multiline_comment_verbatim_inp/out.html       -- A `<!-- -->` comment whose raw interior contains a
+                                                         newline (copyright-block style, indented interior
+                                                         lines, `-->` on its own line) preserved byte-for-byte;
+                                                         a sibling `<p>` immediately before AND after the
+                                                         multi-line comment reindented normally; a single-line
+                                                         comment nearby still gets normal trim/capitalization,
+                                                         proving the newline-detection gate discriminates
+                                                         correctly (RDD_KEY_232).
 
   html5_tc_gap_level0_body_unchanged_inp/out.html     -- Same no-explicit-`<body>` shape as above, but at the
                                                          default `html5-tc-gap-level=0` (unset, no in-file

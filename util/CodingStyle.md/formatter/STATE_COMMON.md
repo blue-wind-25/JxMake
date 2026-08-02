@@ -273,54 +273,54 @@ Configurable values with their in-class defaults. All overridable via config fil
 
 ```properties
 # ── Structural constants ──────────────────────────────────────────────────────
-server-port                      = 17173
+server-port                            = 17173
 
-line-length                      = 100
-indent-size                      = 4
-indent-style                     = spaces      # spaces | tabs | auto
+line-length                            = 100
+indent-size                            = 4
+indent-style                           = spaces      # spaces | tabs | auto
 
 # ── Behavior ──────────────────────────────────────────────────────────────────
-line-endings                     = lf          # lf | crlf | preserve
+line-endings                           = lf          # lf | crlf | preserve
 
-normalize-comment-start-case     = on          # on | off
-normalize-comment-end-period     = on          # on | off
-comment-normalization-classifier = on          # on | off (flipped on 2026-07-30 after fixing the KeywordAmbiguityGate weight regression, see STATE_AI.md)
-closing-comment-min-lines        = 5
+normalize-comment-start-case           = on          # on | off
+normalize-comment-end-period           = on          # on | off
+comment-normalization-classifier       = on          # on | off (flipped on 2026-07-30 after fixing the KeywordAmbiguityGate weight regression, see STATE_AI.md)
+closing-comment-min-lines              = 5
 
-curly-general-scope-reindent     = off         # off | on
-curly-general-scope-reindent-multipass = off   # off | on, only takes effect when the above is also on (see STATE_CURLY_GDR.md, RDD_KEY_233/RDD_KEY_234)
+curly-general-scope-reindent           = off         # off | on
+curly-general-scope-reindent-multipass = off         # off | on, only takes effect when the above is also on (see STATE_CURLY_GDR.md, RDD_KEY_233/RDD_KEY_234)
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
-header-guard-rename              = off         # off | on
-format-macros                    = off         # off | on
+header-guard-rename                    = off         # off | on
+format-macros                          = off         # off | on
 
 # ── Java ──────────────────────────────────────────────────────────────────────
-java-import-order                = java, com, org, other, local, static
-java-import-sort                 = on
-java-import-depth                = 2
-java-import-blank-lines          = 1
+java-import-order                      = java, com, org, other, local, static
+java-import-sort                       = on
+java-import-depth                      = 2
+java-import-blank-lines                = 1
 
 # ── Kotlin ────────────────────────────────────────────────────────────────────
-kotlin-import-order              = kotlin, java, android, com, org, other, local
-kotlin-import-sort               = on
-kotlin-import-depth              = 2
-kotlin-import-blank-lines        = 1
+kotlin-import-order                    = kotlin, java, android, com, org, other, local
+kotlin-import-sort                     = on
+kotlin-import-depth                    = 2
+kotlin-import-blank-lines              = 1
 
 # ── JS/TS ─────────────────────────────────────────────────────────────────────
-js-import-order                  = builtin, third-party, local
-js-import-sort                   = on
-js-import-blank-lines            = 1
+js-import-order                        = builtin, third-party, local
+js-import-sort                         = on
+js-import-blank-lines                  = 1
 
 # ── Python 3 ──────────────────────────────────────────────────────────────────
-python-import-sort               = on
-python-import-blank-lines        = 1
+python-import-sort                     = on
+python-import-blank-lines              = 1
 
 # ── HTML5 ─────────────────────────────────────────────────────────────────────
-html5-tc-gap-level               = 0           # 0 | 1 | 2 | 3 | 4, cumulative (level 1 implemented, see STATE_HTML5_TCG.md)
+html5-tc-gap-level                     = 0           # 0 | 1 | 2 | 3 | 4, cumulative (level 1 implemented, see STATE_HTML5_TCG.md)
 
 # ── AI-assist (GRU) ───────────────────────────────────────────────────────────
-gru-classifier                   = on          # on | off (default on 2026-08-02 -- held-out cross-validation confirmed abstainThreshold=0.7 keeps the NO false-positive rate low enough to trust, see STATE_AI.md)
-gru-weights-path                 =             # empty = derive from program dir, see STATE_AI.md
+gru-classifier                         = on          # on | off (default on 2026-08-02 -- held-out cross-validation confirmed abstainThreshold=0.7 keeps the NO false-positive rate low enough to trust, see STATE_AI.md)
+gru-weights-path                       =             # empty = derive from program dir, see STATE_AI.md
 ```
 
 For every added, deleted, or modified configuration item,

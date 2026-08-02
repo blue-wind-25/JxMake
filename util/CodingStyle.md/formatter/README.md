@@ -257,54 +257,54 @@ with.
 
 ```properties
 # ── Structural constants ──────────────────────────────────────────────────────
-server-port                      = 17173
+server-port                            = 17173
 
-line-length                      = 100
-indent-size                      = 4
-indent-style                     = spaces      # spaces | tabs | auto
+line-length                            = 100
+indent-size                            = 4
+indent-style                           = spaces      # spaces | tabs | auto
 
 # ── Behavior ──────────────────────────────────────────────────────────────────
-line-endings                     = lf          # lf | crlf | preserve
+line-endings                           = lf          # lf | crlf | preserve
 
-normalize-comment-start-case     = on          # on | off
-normalize-comment-end-period     = on          # on | off
-comment-normalization-classifier = on          # on | off
-closing-comment-min-lines        = 5
+normalize-comment-start-case           = on          # on | off
+normalize-comment-end-period           = on          # on | off
+comment-normalization-classifier       = on          # on | off
+closing-comment-min-lines              = 5
 
-curly-general-scope-reindent     = off         # off | on
-curly-general-scope-reindent-multipass = off   # off | on, only takes effect when the above is also on (see STATE_CURLY_GDR.md, RDD_KEY_233/RDD_KEY_234)
+curly-general-scope-reindent           = off         # off | on
+curly-general-scope-reindent-multipass = off         # off | on, only takes effect when the above is also on
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
-header-guard-rename              = off         # off | on
-format-macros                    = off         # off | on
+header-guard-rename                    = off         # off | on
+format-macros                          = off         # off | on
 
 # ── Java ──────────────────────────────────────────────────────────────────────
-java-import-order                = java, com, org, other, local, static
-java-import-sort                 = on
-java-import-depth                = 2
-java-import-blank-lines          = 1
+java-import-order                      = java, com, org, other, local, static
+java-import-sort                       = on
+java-import-depth                      = 2
+java-import-blank-lines                = 1
 
 # ── Kotlin ────────────────────────────────────────────────────────────────────
-kotlin-import-order              = kotlin, java, android, com, org, other, local
-kotlin-import-sort               = on
-kotlin-import-depth              = 2
-kotlin-import-blank-lines        = 1
+kotlin-import-order                    = kotlin, java, android, com, org, other, local
+kotlin-import-sort                     = on
+kotlin-import-depth                    = 2
+kotlin-import-blank-lines              = 1
 
 # ── JS/TS ─────────────────────────────────────────────────────────────────────
-js-import-order                  = builtin, third-party, local
-js-import-sort                   = on
-js-import-blank-lines            = 1
+js-import-order                        = builtin, third-party, local
+js-import-sort                         = on
+js-import-blank-lines                  = 1
 
 # ── Python 3 ──────────────────────────────────────────────────────────────────
-python-import-sort               = on
-python-import-blank-lines        = 1
+python-import-sort                     = on
+python-import-blank-lines              = 1
 
 # ── HTML5 ─────────────────────────────────────────────────────────────────────
-html5-tc-gap-level               = 0           # 0 | 1 | 2 | 3 | 4, cumulative
+html5-tc-gap-level                     = 0           # 0 | 1 | 2 | 3 | 4, cumulative
 
 # ── AI-assist (GRU) ───────────────────────────────────────────────────────────
-gru-classifier                   = on          # on | off (default on since the 2026-08-02 abstainThreshold=0.7 retune -- see STATE_AI.md)
-gru-weights-path                 =             # empty = derive from program dir (code-formatter-ai-assist-weights.json)
+gru-classifier                         = on          # on | off
+gru-weights-path                       =             # empty = derive from program dir (code-formatter-ai-assist-weights.json)
 ```
 
 ### Comment classifier (GRU)

@@ -205,11 +205,11 @@ GRU trainer in the `Makefile` because all the training so far always plateaued o
 I have retrained the GRU. Check the GRU % with the new weights.
 Update the `properties` - `AI-assist (GRU)` explanation in `README.md` and `STATE_COMMON.md`.
 
-Continue with the `tc gap job`.
+Continue with the `curly reindent job`.
 Use one sub-agent. Ask the sub-agent to do it bit by bit and commit after each implementation
 or bug fix. Pause after several implementation or bug fixes.
 
-Continue with the `curly reindent job` - `**Plausible and worth prototyping**`.
+Continue with the `tc gap job`.
 Use one sub-agent. Ask the sub-agent to do it bit by bit and commit after each implementation
 or bug fix. Pause after several implementation or bug fixes.
 

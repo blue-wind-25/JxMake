@@ -821,6 +821,42 @@ plan, not a placeholder.
       fixture/source changes this step). Remaining corpus for this
       checklist item: `javaparser/javaparser`'s main `javaparser-core`
       module.
+
+      **2026-08-03 session (continued), corpus 3 of the remaining 3 —
+      `javaparser/javaparser`'s main `javaparser-core` module** (reused
+      existing `/tmp/javaparser_gdr` clone, 576 `.java` files, the large
+      main module the earlier `javaparser-core-generators` session
+      deliberately deferred). Full-tree idempotency,
+      `--preserve-tree --root`: single-pass `curly-general-scope-
+      reindent=on` reproduced non-idempotency on **93 of 576 files**
+      (`diff -rq` round1 vs round2) — consistent with the earlier
+      `javaparser-core-generators` finding that this is the dominant
+      failure mode across ordinary Allman-reflow/call-wrap activity in
+      this codebase, not a rare edge case. **`curly-general-scope-
+      reindent-multipass=on` drops this to 0 of 576 — every file
+      idempotent** (`diff -rq` round1 vs round2 across the whole module
+      empty). All 576 multipass-output files individually pass
+      `tools/verifiers/java_syntax_check.sh` (batched into a single
+      invocation per the "invoke once per batch" convention rather than
+      576 separate JVM starts — exit 0, all 576 report "OK: no syntax
+      errors"). **Result: PASS.** `make test`: 237/237 forward +
+      idempotency (unaffected, no fixture/source changes this step).
+
+      **All three remaining originally-scoped real-code corpora for this
+      checklist item are now done: `tool/JSONEncoderLite.java` (PASS),
+      `serge-sans-paille/frozen` (PASS, 7/20 → 0/20), `javaparser-core`
+      (PASS, 93/576 → 0/576) — combined with the earlier `javaparser-core-
+      generators` (13/43 → 0/43) and `angular/angular` TS cluster-5
+      (2/3 files fixed, 1/3 already passing) results, `curly-general-
+      scope-reindent-multipass=on` has now resolved every confirmed
+      `RDD_KEY_229`-shape non-idempotency across every corpus this job has
+      tested it against, with zero newly-introduced syntax/compile errors
+      in any of them.** This is now a substantial, multi-corpus evidence
+      base for the design, not just the original two angular files. The
+      one still-open, explicitly-flagged caveat from the design write-up
+      remains: this is evidence the "second-order oscillation" risk
+      hasn't manifested on any tested input, not a proof it structurally
+      cannot on some other input.
 - [~] Revisit Kotlin dogfood cluster D3 (see "D3 fold" section above) using
       the pre-pass's statement-boundary/structural-depth infrastructure;
       land a real fix in `MiscRuleCurly`/wherever the fix ends up living,

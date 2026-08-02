@@ -341,6 +341,37 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   File now completes end-to-end on all four checks (forward, round2,
   idempotency, syntax-check, content-diff).
 
+- **HTML5 multi-line `<!-- -->` comments collapse to a tight single/
+  pulled-up-`-->` form — NOT DESIGNED, undocumented gap, found 2026-08-03.**
+  A comment written as:
+  ```
+  <!--
+      Copyright (C) 2024 Example Corp.
+      SPDX-License-Identifier: MIT
+  -->
+  ```
+  currently renders as `<!-- Copyright (C) 2024 Example Corp.\nSPDX-License-
+  Identifier: MIT -->` — interior line breaks survive, but the outer
+  leading/trailing whitespace and each line's own indentation do not, and
+  `-->` gets pulled up onto the last content line. Root cause:
+  `XmlSpecificRule.parseCommentOrFrozen`'s content extraction is a single
+  whole-string `.trim()` (no per-line reindent logic), and the `COMMENT`
+  render case unconditionally wraps with `"<!-- " + commentText + " -->"`.
+  Unlike `<?...?>` PIs/`<![CDATA[...]]>`, which `STYLE_DATA_FORMATS.md`
+  explicitly documents as "opaque, preserved verbatim... never reflowed or
+  reindented," ordinary `<!-- -->` comments have no equivalent documented
+  rule — this is an inherited implementation gap from RDD_KEY_193's XML
+  character-cursor parser, not a chosen design, though it is currently
+  pinned by the `test/xml_comments_inp.xml`/`_out.xml` fixture pair. No
+  `normalize-comment-*`/`closing-comment-min-lines` config key controls
+  this. **Existing working opt-out** (no code change needed): wrap the
+  block in `<!--% JXM_CFMT_DIS -->` / `<!--% JXM_CFMT_ENA -->`
+  (`STYLE_DATA_FORMATS.md`, `XmlSpecificRule.java:734-748`) to freeze it
+  verbatim. Not yet triaged for a real fix (preserve interior
+  indentation/line breaks in the render path) — flag for a future
+  cleanup pass per `STATE_COMMON.md`'s "Project refactoring/cleanup pass"
+  Architectural TODO, or address directly if a corpus hit ever surfaces it.
+
 - **HTML5 deep tree-construction edge cases — three still-open items,
   full diagnosis below (mostly deferred as a grouped future job; tag-name
   case-folding already fixed standalone).**

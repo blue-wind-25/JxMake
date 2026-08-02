@@ -1133,3 +1133,18 @@ test`: 228/228 unchanged. Re-ran `GruEval` with no explicit threshold arg
 (so it reads the file's own trained value): `threshold=0.7 total=522
 abstain=3 decided=519 correct=518 precision=99.81%` — confirms the file
 now round-trips at 0.7 correctly.
+
+**README.md gained a "Comment classifier (GRU)" prose subsection**
+(between the Configuration properties table and "`.jxmake-code-formatter`
+inheritance") — the feature previously only had its config-table comment
+line documenting it. Explains the rules-then-GRU pipeline, the fail-safe
+posture, and states `abstainThreshold = 0.7` explicitly with the
+false-positive-rate rationale (linking to this file for the full
+cross-validation history). `gru_classifier = on` was already the shipped
+default since 2026-08-02 — no code change needed to "make it live",
+only this documentation gap.
+
+**`gru_log.txt` deleted** (was `git rm`'d — it had been committed
+directly by the user alongside a prior weights update, outside this
+job's normal workflow; RDD_EXT_19's policy is that real training
+artifacts/logs are never committed, scratch-only).

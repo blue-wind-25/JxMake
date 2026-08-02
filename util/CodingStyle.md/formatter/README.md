@@ -298,6 +298,30 @@ gru-classifier                   = on          # on | off (default on since the 
 gru-weights-path                 =             # empty = derive from program dir (code-formatter-ai-assist-weights.json)
 ```
 
+### Comment classifier (GRU)
+
+`gru-classifier = on` (default) resolves the rule-based comment classifier's
+`ABSTAIN` cases — an ambiguous leading keyword (e.g. does `return` start a
+sentence or introduce a real code reference?) or an ambiguous trailing
+period — via a small purpose-trained bidirectional GRU
+(`code-formatter-ai-assist-weights.json`, ~425k parameters, loaded once at
+startup from `gru-weights-path`, or the program directory if unset). The
+GRU only ever runs after the deterministic rules already fired and
+abstained; it never overrides a rule-based `YES`/`NO`. If the weights file
+is missing or unreadable, the classifier fails safe to `ABSTAIN`
+(equivalent to `gru-classifier = off` for that comment) — formatting is
+never blocked on it.
+
+`abstainThreshold = 0.7` is baked into the shipped weights file (not a
+separate config key): the GRU itself abstains below this softmax
+confidence cutoff rather than forcing a low-confidence guess. `0.7` was
+chosen over the trainer's raw default of `0.5` via a held-out
+cross-validation sweep — it cuts the false-positive rate (wrongly
+capitalizing a real code-reference comment) roughly in half versus `0.5`,
+at little cost to how many genuinely ambiguous comments get resolved. See
+`STATE_AI.md` for the full accuracy history and the cross-validation
+numbers behind that choice.
+
 ### `.jxmake-code-formatter` inheritance
 
 A `.jxmake-code-formatter` file in a subdirectory fully inherits from the nearest `.jxmake-code-formatter`

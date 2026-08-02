@@ -890,3 +890,23 @@ training-corpus/hyperparameter re-run only. `gru-classifier` stays `off`
 overwritten by `make gru-train` itself (the user's own action); the
 pre-retrain comparison copy and the 221-row benchmark tsv are scratch-only,
 not committed, per RDD_EXT_19.
+
+**User-retrained weights: 65.2% → 98.7%, clears the 67.7%/90% bars.**
+User re-ran `make gru-train` again (weights file changed per `git diff`,
+confirming a fresh retrain, not a stale copy). Evaluated via `GruEval`
+against the current `make gru-hand-labeled-examples` benchmark (now 474
+rows — the hand-labeled set continued growing past 221 in the interim, per
+this file's own growth-pass entries above, so this isn't a strict
+apples-to-apples control against the 65.2%/221-row figure):
+`threshold=0.5 total=474 abstain=1 decided=473 correct=467
+precision=98.73% yesCorrect=91/91 noCorrect=376/382`. First measurement to
+clear both RDD_EXT_17's 90% bar and the 67.7% linear-classifier baseline.
+Decision: flip `gru-classifier` default to `on` and re-run `make test`
+(next entry below).
+
+**`Config.gruClassifier` default flipped `false` → `true`.** `make build` +
+`make test`: **228/228 forward, 228/228 idempotency** — clean, no
+regressions from enabling the GRU path live. `gru-classifier` is now `on`
+by default alongside `comment-normalization-classifier` (already `on`
+since 2026-07-30). `code-formatter-ai-assist-weights.json` is the
+user-retrained file evaluated above (98.7%/474 rows).

@@ -213,7 +213,10 @@ Continue with the `tc gap job`.
 Use one sub-agent. Ask the sub-agent to do it bit by bit and commit after each implementation
 or bug fix. Pause after several implementation or bug fixes.
 
-Update `STATE_DOGFOOD.md`.
+Update `STATE_DOGFOOD.md` as needed.
+
+Git commit with your contribution and special e-mail in the commit message.
+Co-authored-by: Grok <grok@x.ai>
 
 ####################################################################################################
 ####################################################################################################
@@ -255,8 +258,6 @@ Use sub-agent. This can be a substantial work.
 --- Tier 2: meaningful, narrower value or higher difficulty ---
 
 NONE FOR NOW
-
-Use sub-agent. This can be a substantial work.
 
 --- Tier 3: big/risky architectural bets ---
 

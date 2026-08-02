@@ -130,7 +130,7 @@ C/C++:
     [X] `github.com/llvm/llvm-project` [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
 C++26:
 Java:
-    [X] `**Cluster 5 — alignment-group padding collapse**: `rewrite-kotlin/.../K.java`, ...`
+    [X] `Cluster 5 (alignment-group padding collapse, `rewrite-kotlin/.../K.java`'s`
     [X] `**Extremely long pre-existing single-physical-line statement wraps differently each round**`
 Kotlin:
 JSON:
@@ -139,13 +139,10 @@ CSS:
 YAML:
 TOML:
 XML:
-
 HTML5:
-    [X] `**Remaining TODO — adoption agency, foster-parenting, implicit ...`
-    [X] `**Known gap found (2026-07-26, `apache/ant` `manual/` dogfood run):**`
 JS:
     [X] `github.com/nodejs/node` [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
-    [X] `**TODO (low priority):** teach `js_ts_content_diff.js` ...`
+    [X] `**Content-preservation** (`js_ts_content_diff.js`, original vs. round1):`
 TS:
 Python3:
 
@@ -199,9 +196,14 @@ exec  ~/mynpm/bin/claude "$@"
 ####################################################################################################
 ####################################################################################################
 
-Check the GRU % with the new weights.
+I have retrained the GRU. Check the GRU % with the new weights.
+Update the `properties` - `AI-assist (GRU)` explanation in `README.md` and `STATE_COMMON.md`.
 
 Continue with the `curly reindent job` - `Real-code test the pre-pass`.
+Use one sub-agent. Ask the sub-agent to do it bit by bit and commit after each bug fix.
+Pause after several bug fixes.
+
+Continue with the `tc gap job`.
 
 --- Tier 1: high value, tractable next steps ---
 
@@ -215,7 +217,7 @@ Continue with the `curly reindent job` - `Real-code test the pre-pass`.
     Rerun `classifiers/derive_weights.py` to update the linear classifier
     weights.
 
-    Rerun `make gru-acquire-corpus` so `sample_default.txt` will contains
+    Rerun `make gru-acquire-corpus` so `sample_default.txt` will contain
     the new hand-labeled hard-case corpus.
 
 11. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
@@ -244,12 +246,18 @@ Use sub-agent. This can be a substantial work.
 
 --- Tier 3: big/risky architectural bets ---
 
-30. HTML5 deep tree-construction gaps (foster-parenting, case-folding, adoption
-    agency algorithm) — only bites `web-platform-tests/wpt`'s deliberately
-    pathological conformance fixtures, not real-world content (STATE_DATA_FORMATS.md
-    confirms no real WPT syntax-page is affected). Value: low. Difficulty: high —
-    full tree-construction algorithm work for edge cases that don't occur in
-    practice.
+30. Curly reindent (GDR): decide remediation for `RDD_KEY_229`'s
+    pass-ordering bug (GDR computes indent before brace-placement/line-wrap,
+    so a re-split/re-joined closing `}`/`)` loses its correct target) — now
+    confirmed to reproduce in plain Java, not just TS as previously believed.
+    Two candidate fixes already identified (bounded fixpoint iteration; feed
+    GDR's indent into the wrap fits-check), both previously judged too risky
+    to attempt unilaterally — needs explicit sign-off before further
+    real-code testing is worth continuing (see `STATE_CURLY_GDR.md`). Same
+    root cause already blocks 2 of TS cluster 5's 3 files (`STATE_JS_TS.md`
+    line 405) — not an isolated new risk, fixing it would unblock that too.
+    Value: high (blocks the whole job's real-code validation, plus TS
+    cluster 5). Difficulty: unknown until a direction is chosen.
 
 31. JSX/TSX support — currently out of scope entirely (not merely deferred),
     pending a future embedding-aware dispatcher (STATE_JS_TS.md). Value: high (real

@@ -166,6 +166,33 @@ is handed to the same script/style dispatch logic described in §4.2 below, then
 re-wrapped in `<![CDATA[ ]]>` on output. This is a check inside the existing
 dispatcher, not a separate CDATA formatter class.
 
+### 2.5 Multi-line Comments
+
+A `<!-- ... -->` comment whose raw interior (the text between `<!--` and `-->`, before
+any trimming) contains a newline is **opaque, preserved verbatim** — same treatment as
+the DOCTYPE/PI (§2.3) and CDATA (§2.4) content above: no reindentation, no reflow, no
+`normalize-comment-start-case`/single-word-directive detection or any other
+content-inspecting normalization applied to it. This includes each interior line's own
+leading whitespace and the position of the closing `-->`:
+
+```xml
+<!--
+    Copyright (C) 2024 Example Corp.
+    SPDX-License-Identifier: MIT
+-->
+```
+
+renders byte-for-byte identically to how it appears in the source. This applies to
+HTML5 as well (§4), since HTML5 shares XML's comment syntax and parser.
+
+**Scoping — this only affects the comment's own interior content.** A single-line
+comment (no interior newline, regardless of unusual internal spacing/dashes) is
+unaffected and still goes through the normal path (trim, case-normalize, etc.). The
+comment node's own placement/indentation (where `<!--` itself starts) is unaffected —
+it's still placed at the current indent depth like any other sibling node; sibling
+nodes immediately before or after the comment reindent normally, exactly as if the
+comment weren't there.
+
 ---
 
 ## 3. CSS

@@ -107,6 +107,7 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_199 | HTML5 unquoted attribute value support: `XmlSpecificRule.parseAttr`'s `lang.isHtml5` branch now accepts an unquoted value per the HTML5 spec grammar (no whitespace/`"`/`'`/`=`/`<`/`>`/backtick) instead of requiring `"`/`'`; preserved unquoted on output, no forced normalization to double-quoted (consistent with the codebase's existing "preserve as written" quote-style posture elsewhere); plain XML unchanged, still requires quotes. Fixture `test/real_code_regressions_106_{inp,out}.html`; `make test` 155/155, zero regressions. Unblocked the `alexandersandberg/html5-elements-tester` dogfood run past line 718, but it now hits a distinct, unrelated blocker at line 759 (bare `<option>` tags relying on HTML5's implied-end-tag rule, not yet in `OPAQUE_IMPLIED_END_TAG_ELEMENTS`) -- see HTML5 checklist entry. |
 | RDD_KEY_200 | HTML5 `<option>` implied-closing-trigger support: new, general, reusable `XmlSpecificRule.IMPLIED_CLOSE_TRIGGERS` (`Map<String, Set<String>>`, element name -> sibling start-tag names that implicitly close it), distinct from `OPAQUE_IMPLIED_END_TAG_ELEMENTS` -- a registered element is still parsed as a REAL node (attributes/children/normal rendering), only the "when do children stop" decision changes; only `parseNodes`/`parseElement` were touched, no per-element control-flow. Registered only `option` -> `{option, optgroup}` today. `parseNodes` gained an optional trigger-set parameter that also breaks its loop on an upcoming (non-closing) start tag matching the set; `parseElement` still consumes an explicit `</tag>` when present (regression-safe), otherwise treats the element as implicitly closed with no explicit tag consumed when a trigger set is registered (covering both the sibling-trigger case and the pre-existing parent-close-via-`stopAtCloseTag` case, reused rather than reinvented) -- otherwise the pre-existing hard `XmlParseException` is unchanged. Fixture `test/real_code_regressions_108_{inp,out}.html` (explicit-close regression guard + `<datalist>`/`<optgroup>` implied-close cases). `make test` 157/157, zero regressions. This was the `alexandersandberg/html5-elements-tester` dogfood run's third and final blocker -- the full 42KB file now completes end-to-end (forward pass, round2, idempotency diff, `html_syntax_check.js` syntax-check, `html_content_diff.py` content-preservation all clean); dogfood run for this candidate is DONE. |
 | RDD_KEY_224 | HTML5 commented-out markup-fragment comments (`<!--tr>...</tr-->`, `<!--p>...</p-->`) being corrupted by `normalize-comment-start-case`; new `XmlSpecificRule.isMarkupFragmentDirective`/`MARKUP_FRAGMENT_TAG_NAMES` (see Open Questions below and `RDD_LOG.md` for full evidence and reasoning) |
+| RDD_KEY_232 | Multi-line `<!-- -->` comments (raw interior contains a newline) now freeze byte-for-byte verbatim, reusing the existing `commentVerbatim` render mechanism; sibling/node-tree indentation unaffected; shared XML/HTML5 code path |
 
 ---
 
@@ -342,35 +343,23 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   idempotency, syntax-check, content-diff).
 
 - **HTML5 multi-line `<!-- -->` comments collapse to a tight single/
-  pulled-up-`-->` form — NOT DESIGNED, undocumented gap, found 2026-08-03.**
-  A comment written as:
-  ```
-  <!--
-      Copyright (C) 2024 Example Corp.
-      SPDX-License-Identifier: MIT
-  -->
-  ```
-  currently renders as `<!-- Copyright (C) 2024 Example Corp.\nSPDX-License-
-  Identifier: MIT -->` — interior line breaks survive, but the outer
-  leading/trailing whitespace and each line's own indentation do not, and
-  `-->` gets pulled up onto the last content line. Root cause:
-  `XmlSpecificRule.parseCommentOrFrozen`'s content extraction is a single
-  whole-string `.trim()` (no per-line reindent logic), and the `COMMENT`
-  render case unconditionally wraps with `"<!-- " + commentText + " -->"`.
-  Unlike `<?...?>` PIs/`<![CDATA[...]]>`, which `STYLE_DATA_FORMATS.md`
-  explicitly documents as "opaque, preserved verbatim... never reflowed or
-  reindented," ordinary `<!-- -->` comments have no equivalent documented
-  rule — this is an inherited implementation gap from RDD_KEY_193's XML
-  character-cursor parser, not a chosen design, though it is currently
-  pinned by the `test/xml_comments_inp.xml`/`_out.xml` fixture pair. No
-  `normalize-comment-*`/`closing-comment-min-lines` config key controls
-  this. **Existing working opt-out** (no code change needed): wrap the
-  block in `<!--% JXM_CFMT_DIS -->` / `<!--% JXM_CFMT_ENA -->`
-  (`STYLE_DATA_FORMATS.md`, `XmlSpecificRule.java:734-748`) to freeze it
-  verbatim. Not yet triaged for a real fix (preserve interior
-  indentation/line breaks in the render path) — flag for a future
-  cleanup pass per `STATE_COMMON.md`'s "Project refactoring/cleanup pass"
-  Architectural TODO, or address directly if a corpus hit ever surfaces it.
+  pulled-up-`-->` form — RESOLVED (RDD_KEY_232, 2026-08-03).** Fixed by
+  detecting a newline in the comment's raw (pre-trim) interior and, when
+  found, freezing that interior byte-for-byte, reusing the existing
+  `Node.commentVerbatim`/verbatim-`commentText` mechanism (originally added
+  for `%`-prefixed directive comments) rather than inventing a parallel
+  one — its `COMMENT` render case already emits `<!--` + text + `-->` with
+  zero added spacing, exactly what a frozen multi-line comment needs. Only
+  the comment's own interior content freezes; the comment node's placement/
+  indentation and sibling reindentation are unaffected. Single-line
+  comments are unaffected (still trim/normalize as before). Shared
+  `XmlSpecificRule.java` code path, so both XML and HTML5 got the fix.
+  `test/xml_comments_out.xml` and every other pre-existing fixture whose
+  copyright-header comment had pinned the old collapsed-form bug were
+  updated to the new, correct output; new fixture
+  `test/html5_multiline_comment_verbatim_{inp,out}.html` added. `make
+  test`: 237/237 forward + idempotency, zero regressions. Full text:
+  `RDD_KEY_232`.
 
 - **HTML5 deep tree-construction edge cases — three still-open items,
   full diagnosis below (mostly deferred as a grouped future job; tag-name

@@ -125,6 +125,11 @@ Formatting resumes immediately after `JXM_CFMT_ENA`. The marker comments themsel
 never modified or removed by a later run, so this is safe to leave in checked-in source
 permanently, and idempotent across repeated formatting passes.
 
+For HTML/XML, a multi-line `<!-- -->` comment (its raw interior contains a newline —
+e.g. a copyright-header block) is now automatically preserved byte-for-byte, same as
+PI/CDATA content, with no marker needed — `JXM_CFMT_DIS`/`ENA` remains available and
+useful for other cases (e.g. freezing a region of tags/attributes).
+
 To disable formatting for an entire file from the command line (as if `JXM_CFMT_DIS`
 were present at the very top), without editing the file itself:
 

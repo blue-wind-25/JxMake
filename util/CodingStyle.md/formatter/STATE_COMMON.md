@@ -446,6 +446,24 @@ than immediately starting the next >1000 kLOC candidate. Candidate scope:
   `../AI_PREAMBLE_FULL.md`, and `../AI_PREAMBLE_AESTHETIC.md`.
   **2026-07-28: checked, none needed a fix** — all five already track
   actual shipped code state.
+  **2026-08-03 (tc gap job doc cleanup, post-completion): re-checked all
+  five for staleness now that `html5-tc-gap-level` levels 1-4 landed.**
+  `README.md` needed a fix — its `html5-tc-gap-level` explanation (what
+  the key is, its levels, cumulative meaning) had been placed entirely
+  under "Known Limitations" instead of Configuration; moved the
+  config-key documentation to a new Configuration subsection (mirroring
+  the GRU classifier's subsection pattern) and trimmed "Known
+  Limitations" to only the genuine accepted-gap caveats for levels 1, 2,
+  and 4 (level 3 has none) — see `README.md`'s Configuration section and
+  `STATE_HTML5_TCG.md`'s checklist items 3, 5, 7 for the source material.
+  `CLAUDE.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`, and
+  `../AI_PREAMBLE_AESTHETIC.md` needed no change — none of them make any
+  HTML5-tree-construction-specific completeness claim that the tc gap
+  job's opt-in, off-by-default levels made stale; their general
+  "HTML5 is JAR-implemented" statements remain accurate. This job's own
+  "Config Keys and Defaults" block (below) and `STATE_HTML5_TCG.md`
+  checklist item 2a already carried `html5-tc-gap-level` correctly —
+  only `README.md`'s section placement was wrong.
 
 This is intentionally scoped as housekeeping, not a rewrite — do not let it
 grow into an attempt at any separate, dedicated, much riskier architectural

@@ -205,6 +205,20 @@ public final class XmlSpecificRule {
         )
     );
 
+    /**
+     * Level-4 tc-gap (RDD_KEY_230, adoption agency): the HTML5 spec's own "formatting elements"
+     *  vocabulary -- the element names the adoption agency algorithm exists to recover misnesting
+     *  for (e.g. {@code <b>1<i>2</b>3</i>}). See {@link #reconstructFormattingElement} for the
+     *  narrow, single-level approximation actually implemented -- NOT the spec's full "list of
+     *  active formatting elements" + "furthest block" + "bookmark" algorithm.
+     */
+    private static final java.util.Set<String> FORMATTING_ELEMENTS = new java.util.HashSet<>(
+        java.util.Arrays.asList(
+            "a", "b", "big", "code", "em", "font", "i", "nobr", "s", "small", "strike", "strong",
+            "tt", "u"
+        )
+    );
+
     private static final java.util.Map<String, java.util.Set<String>> IMPLIED_CLOSE_TRIGGERS = new java.util.HashMap<>();
     static {
         IMPLIED_CLOSE_TRIGGERS.put(
@@ -355,6 +369,32 @@ public final class XmlSpecificRule {
      *  own now-ignored wrapping element). Always {@code null} again immediately after being consumed.
      */
     private Node pendingSuppressedFormNode;
+
+    /**
+     * Level-4 tc-gap (RDD_KEY_230, adoption agency) side channel, part 1: set by {@link #parseElement}
+     *  the instant a formatting element (see {@link #FORMATTING_ELEMENTS}) is implicitly closed
+     *  because the very next token is a closing tag belonging to one of ITS OWN ancestors (the
+     *  classic {@code <b>1<i>2</b>3</i>} misnesting -- {@code <i>} is implicitly closed here because
+     *  {@code </b>} is next, not {@code </i>}), paired with {@link #pendingAdoptionOuterTagLower}
+     *  (the ancestor tag name that triggered it). Cleared the moment that ancestor's own real
+     *  closing tag is actually matched (see {@link #pendingReconstructFormattingTemplate}) or left
+     *  set (and simply never consumed) if that never happens -- deliberately only tracks the single
+     *  most-recently-orphaned formatting element, not a full stack of simultaneous misnestings; see
+     *  STATE_HTML5_TCG.md checklist item 7's own note on what subset of the spec algorithm this is.
+     */
+    private Node   pendingAdoptionNode;
+    private String pendingAdoptionOuterTagLower;
+
+    /**
+     * Level-4 tc-gap (RDD_KEY_230, adoption agency) side channel, part 2: set by {@link #parseElement}
+     *  in the {@code closeTok}-match branch when the element that just genuinely closed is the same
+     *  ancestor recorded in {@link #pendingAdoptionOuterTagLower}. Consumed by {@link #parseNodes}
+     *  immediately after adding that ancestor node to its own children list -- a clone of the
+     *  orphaned formatting element (see {@link #reconstructFormattingElement}) is parsed as the next
+     *  sibling, reconstructing the spec's "reopen the formatting element after the misnesting
+     *  ancestor closes" recovery. Always {@code null} again immediately after being consumed.
+     */
+    private Node pendingReconstructFormattingTemplate;
 
     public XmlSpecificRule(final Lang lang)
     {
@@ -575,6 +615,62 @@ public final class XmlSpecificRule {
         bodyInserted = true;
     }
 
+    /**
+     * Level-4 tc-gap (RDD_KEY_230, adoption agency): reconstructs a clone of an orphaned
+     *  {@code template} formatting element as a fresh sibling, parsing forward from the current
+     *  cursor position exactly like {@link #parseElement} would for a freshly-encountered start tag
+     *  of the same name (push {@link #openTagStack}, parse children via {@link #parseNodes}, consume
+     *  a matching real close tag if one appears, pop {@link #openTagStack}) -- except the open tag
+     *  itself is synthesized (copied from {@code template}, which is never re-added to any children
+     *  list itself) rather than read from source text, since the source's own open tag for it was
+     *  already consumed the first time it was parsed.
+     *  <p>
+     *  <b>What subset of the spec's adoption agency algorithm this is, and why (STATE_HTML5_TCG.md
+     *  checklist item 7):</b> the full spec algorithm maintains an explicit "list of active
+     *  formatting elements" plus a "furthest block"/"bookmark"-tracking bounded-iteration loop
+     *  capable of correctly resolving arbitrarily deep and/or multiple SIMULTANEOUS misnestings in
+     *  one pass. This formatter builds its tree via plain recursive descent (no reified, mutable,
+     *  randomly-addressable tree the way the spec's algorithm assumes), so implementing that full
+     *  generality was judged too large/risky a change for one checkpoint (per this checklist item's
+     *  own documented allowance) and was not attempted. What's implemented instead: {@link
+     *  #pendingAdoptionNode} tracks only the SINGLE most-recently-orphaned formatting element at a
+     *  time (a plain field, not a stack/list), detected only for the narrow "next token is a real
+     *  closing tag belonging to one of my own ancestors" case (not the spec's full furthest-block
+     *  search), and reconstructed as a plain next-sibling clone (not spliced back into the original
+     *  misnesting position via a bookmark). This correctly handles the classic single-level case
+     *  (e.g. {@code <b>1<i>2</b>3</i>}), but a second, simultaneous misnesting (e.g. two formatting
+     *  elements both orphaned by the same ancestor close) only reconstructs the innermost/most-recent
+     *  one -- the outer one is silently dropped, same accepted-limitation posture as level 1's
+     *  head-less-document gap and level 2's single-level table check.
+     */
+    private Node reconstructFormattingElement(final Node template)
+    {
+        final Node   clone    = new Node();
+        clone.type            = NodeType.ELEMENT;
+        clone.tagName         = template.tagName;
+        clone.attrs           = new ArrayList<>(template.attrs);
+        clone.selfClosing     = false;
+        final String lowerTag = clone.tagName.toLowerCase(java.util.Locale.ROOT);
+        openTagStack.push(lowerTag);
+        try {
+            clone.children = parseNodes(true, null);
+            final String closeTok = "</" + clone.tagName + ">";
+            skipInlineWs();
+            if( startsWith(closeTok) || startsWith("</" + clone.tagName + " ")
+                    || startsWithCloseTagIgnoreCase(clone.tagName) ) {
+                final int gt = s.indexOf('>', pos);
+                pos = gt + 1;
+            } // if
+            // else: no real closing tag followed (EOF, or an ancestor's close instead) -- tolerate
+            // silently, same posture as parseElement's own lang.isHtml5 implicit-close fallback.
+        }
+        finally {
+            openTagStack.pop();
+        }
+
+        return clone;
+    }
+
     private List<Node> parseNodes(final boolean stopAtCloseTag)
     {
         return parseNodes(stopAtCloseTag, null);
@@ -634,16 +730,36 @@ public final class XmlSpecificRule {
             // <table> (outside a <td>/<th>/<caption> cell) that isn't part of the table's own
             // structural vocabulary gets relocated to just before the table instead of nested inside
             // it -- redirect it into the innermost FosterBuffer rather than this frame's own nodes.
-            if( html5TcGapLevel >= 2 && !fosterBufferStack.isEmpty()
-                    && isInTableInsertionMode() && shouldFosterParent(node) ) {
+            // (Kept as a boolean rather than an early `continue` so the level-4 reconstruction check
+            // below still runs for a fostered node too -- a real bug found via smoke-testing before
+            // this item's own fixtures were authored: with an early `continue` here, a formatting
+            // element reconstructed by adoption agency while directly inside a <table> was silently
+            // dropped instead of being foster-parented itself.)
+            final boolean fostered = html5TcGapLevel >= 2 && !fosterBufferStack.isEmpty()
+                    && isInTableInsertionMode() && shouldFosterParent(node);
+            if(fostered) {
                 fosterBufferStack.peek().nodes.add(node);
-                continue;
+            }
+            else {
+                if(pendingFosterBuffer != null) {
+                    nodes.addAll(pendingFosterBuffer.nodes);
+                    pendingFosterBuffer = null;
+                } // if
+                nodes.add(node);
+            }
+            // Level-4 tc-gap (RDD_KEY_230, adoption agency): the node just added (or fostered) closed
+            // an ancestor that had orphaned a formatting element inside it (see pendingAdoptionNode's
+            // own javadoc) -- reconstruct that formatting element as this node's own next sibling (in
+            // whichever destination -- fosterBufferStack or nodes -- the ancestor itself just landed
+            // in) so the content that follows continues to render as if the formatting element had
+            // never been misnested-closed early.
+            if( html5TcGapLevel >= 4 && pendingReconstructFormattingTemplate != null ) {
+                final Node template = pendingReconstructFormattingTemplate;
+                pendingReconstructFormattingTemplate = null;
+                final Node reconstructed = reconstructFormattingElement(template);
+                if(fostered) fosterBufferStack.peek().nodes.add(reconstructed);
+                else nodes.add(reconstructed);
             } // if
-            if(pendingFosterBuffer != null) {
-                nodes.addAll(pendingFosterBuffer.nodes);
-                pendingFosterBuffer = null;
-            } // if
-            nodes.add(node);
         } // while
 
         return nodes;
@@ -902,6 +1018,9 @@ public final class XmlSpecificRule {
         final boolean isForm         = html5TcGapLevel >= 3 && "form".equals(lowerTag);
         final boolean formSuppressed = isForm && currentFormElementPointer != null;
         final Node    savedFormPointer = currentFormElementPointer;
+        // Level-4 tc-gap (RDD_KEY_230, adoption agency): see FORMATTING_ELEMENTS/pendingAdoptionNode's
+        // own javadocs.
+        final boolean isFormatting = html5TcGapLevel >= 4 && FORMATTING_ELEMENTS.contains(lowerTag);
         openTagStack.push(lowerTag);
         if(isTable) fosterBufferStack.push( new FosterBuffer() );
         if(isTemplate) currentFormElementPointer = null;
@@ -921,6 +1040,16 @@ public final class XmlSpecificRule {
                     || ( lang.isHtml5 && startsWithCloseTagIgnoreCase(n.tagName) ) ) {
                 final int gt = s.indexOf('>', pos);
                 pos = gt + 1;
+                // Level-4 tc-gap (RDD_KEY_230, adoption agency): this element (n) is the ancestor
+                // recorded in pendingAdoptionOuterTagLower and it just genuinely closed -- hand off
+                // to parseNodes (see pendingReconstructFormattingTemplate's own javadoc) to
+                // reconstruct the formatting element it had orphaned, as n's own next sibling.
+                if( html5TcGapLevel >= 4 && pendingAdoptionNode != null
+                        && lowerTag.equals(pendingAdoptionOuterTagLower) ) {
+                    pendingReconstructFormattingTemplate = pendingAdoptionNode;
+                    pendingAdoptionNode                  = null;
+                    pendingAdoptionOuterTagLower         = null;
+                } // if
                 return n;
             }
             if(impliedTriggers != null) {
@@ -929,6 +1058,16 @@ public final class XmlSpecificRule {
                 // no explicit closing tag to consume, don't swallow the inline whitespace we peeked past
                 pos = beforeTrailingWs;
                 return n;
+            } // if
+            // Level-4 tc-gap (RDD_KEY_230, adoption agency): n (a formatting element) is about to be
+            // implicitly closed below because the very next token is a closing tag that isn't n's own
+            // -- if that next token is a real closing tag (not just EOF) belonging to one of n's own
+            // ancestors, this is the classic <b>1<i>2</b>3</i> misnesting shape. Record n plus the
+            // ancestor's tag name so the ancestor's own eventual real close (see the closeTok-match
+            // branch above) can trigger reconstructing n as the ancestor's next sibling.
+            if( html5TcGapLevel >= 4 && isFormatting && startsWith("</") ) {
+                pendingAdoptionNode          = n;
+                pendingAdoptionOuterTagLower = peekCloseTagNameLower();
             } // if
             if(lang.isHtml5) {
                 // HTML5 parsing is spec-mandated to be error-tolerant and never crash (the same posture

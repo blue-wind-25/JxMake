@@ -200,6 +200,151 @@ Step-5/dogfood summary lines for the pointer back to this file.
 
 ---
 
+## Open design proposal: bounded multi-pass remediation for RDD_KEY_229 (discussion only, NOT decided/implemented)
+
+**User proposal (2026-08-03):** since GDR is a pre-pass, it can't see brace-
+placement/line-wrap decisions the normal pipeline hasn't made yet, and a
+post-pass ordering trades that bug for a different one (indentation-width
+changes flipping wrap fits-checks) — see `RDD_KEY_229`'s full writeup for
+both failure modes. Proposed remediation: a new config key,
+**`curly-gs-reindent-multipass`** (`off` default, `on`), that — only when
+`curly-general-scope-reindent` is also `on` — runs a fixed 4-stage sequence
+instead of GDR's current single pre-pass-then-pipeline order:
+
+1. GDR (pre-pass, as today)
+2. Normal formatting pass (pipeline, as today)
+3. GDR again
+4. Normal formatting pass again
+
+This is a **concrete instantiation of one of the two remediation options
+`RDD_KEY_229` already named but explicitly did not attempt** ("iterate
+pipeline+GDR to a bounded fixpoint") — this section is not a new idea from
+scratch, it's picking that option back up with a specific, boundable shape
+(fixed 4 stages, not an open-ended loop-until-stable) instead of the
+unbounded fixpoint iteration `RDD_KEY_229` left unscoped.
+
+### Why this plausibly resolves the circular dependency
+
+Stage 1 (GDR-1) computes depth from the *original* source's brace/paren
+nesting — wrong for any line the pipeline is about to split or join (the
+`RDD_KEY_229`/javaparser dominant-failure-mode case: a joined `} else if
+(...) {` later Allman-split into two lines, where the newly split-out line
+never got its own GDR target). Stage 2 (pipeline-1) makes all of its
+brace-placement/line-wrap decisions using GDR-1's already-mostly-correct
+indentation as input — closer to final width than an unindented or
+relative-delta-indented source, so fewer wrap-decision errors than today's
+plain post-pass ordering (which starts pipeline from arbitrary/original
+indentation, not GDR-adjusted). Stage 3 (GDR-2) now runs on already-
+finalized brace placement and line splits/joins (pipeline-1's output), so
+every line — including ones newly created by stage 2's own Allman-splitting
+— gets a correct absolute depth-based target this time, since the structure
+it's measuring is the *actual final* structure, not a pre-reflow guess.
+Stage 4 (pipeline-2) exists because stage 3's reindentation can still change
+line widths enough to flip a wrap fits-check that stage 2 decided under
+stage-1's slightly-different widths (this is the exact circular-dependency
+mechanism `RDD_KEY_229`'s post-pass-ordering experiment found) — one more
+pipeline pass lets those decisions re-settle against the now-correct
+widths.
+
+Because GDR only ever rewrites leading whitespace (never moves, splits, or
+joins tokens/lines — confirmed by `GdrRewriter.rewrite`'s existing
+implementation, "replaces each touchable line's leading whitespace ...
+leaves the rest of the line byte-for-byte untouched"), and the pipeline's
+own passes are what own all structural reflow, the two alternate cleanly
+without either one undoing the other's *kind* of edit — GDR's edits can't
+un-split what the pipeline joined or vice versa, they only ever adjust the
+number learned from whatever structure currently exists.
+
+### Whether this achieves true idempotency (not just "closer")
+
+This is a heuristic, not a proof. Assuming stage 4 reaches a stable
+width/wrap-decision state (no residual oscillation), a *second* full
+4-stage application of the same source should be a no-op end to end: GDR is
+a pure function of current brace/paren structure (independent of whatever
+indentation was already there), so GDR-1 of round 2 recomputes the same
+targets stage 3 already wrote; pipeline-1 of round 2 re-decides the same
+wraps stage 4 already settled on (same widths in, same decisions out);
+GDR-2/pipeline-2 of round 2 are then no-ops on an already-fixed-point
+source. This composes correctly with `make test`'s existing round1/round2
+idempotency check — no special-casing needed there, a file that reaches a
+true fixed point by stage 4 will simply pass idempotency as-is, and one
+that doesn't will fail it exactly the way any other idempotency bug does
+today.
+
+**What is NOT proven, and would need real-code validation before trusting
+this generally:** whether 4 stages is *always* enough. The known failure
+mode this is meant to fix is a **first-order** effect (one missed target on
+a newly-split line); the residual risk is a **second-order** oscillation —
+a wrap decision whose own flip (stage 4) changes width in a way that would
+still disagree with a hypothetical stage-5 GDR pass. `RDD_KEY_229`'s own
+post-pass-ordering experiment found real flapping of exactly this shape
+between GDR and the pipeline, so it is not purely theoretical; the open
+question is whether it damps out after one extra round (this proposal) or
+needs more. This can only be answered by re-running the same real-code
+corpora `RDD_KEY_229` already exposed the bug against
+(`javaparser/javaparser`'s `javaparser-core-generators` 13/43 non-idempotent
+files, plus the `angular/angular` TS cluster-5 files) with multipass wired
+up — a residual non-idempotent file after 4 stages, if any remain, would at
+least narrow from "the dominant failure mode across ordinary code" (today)
+to "a smaller residual set", which is progress either way, not a
+prerequisite this proposal needs to fully close to be worth landing.
+
+### Other open questions this proposal surfaces (not yet answered)
+
+- **Interaction with the pipeline's OWN relative-delta reindenters**
+  (`SwitchRule.applyNonInlineCaseIndent`, `ScopePipeline.
+  applyDeclarationsPass`, and STYLE.md §8's multi-line param-list/
+  declaration continuation-indent renderer in `MiscRuleCurly`) — these
+  already run inside "normal formatting pass" (stages 2/4) and use their
+  own indent models, not GDR's absolute-depth-plus-paren-axis model
+  directly. `GdrReindenter`'s Background section already claims its
+  continuation-vs-block axis matches STYLE.md §8's convention (see the
+  "Implement the pre-pass's own reindenter" checklist item), but that
+  claim was validated via smoke tests, not against these specific passes'
+  actual output shapes. Stage 3 (GDR-2) running on the pipeline's already-
+  rendered switch-case bodies / wrapped declarations needs to *agree* with
+  what those passes just wrote, or it will silently overwrite
+  correctly-STYLE.md-compliant indentation with GDR's own (possibly
+  differently-shaped) target on the second pass — this is a real,
+  unverified risk, not a formality.
+- **Whether `curly-gs-reindent-multipass = on` while `curly-general-scope-
+  reindent = off` is a no-op, a usage error, or silently ignored** — same
+  category of question `RDD_KEY_227` already resolved for the `JXM_CFMT_GDR`
+  directive's interaction with the master flag; needs the same kind of
+  explicit resolution before implementation, not an assumption.
+- **Naming.** The user's suggested `curly-gs-reindent-multipass` uses a
+  different abbreviation style (`gs-reindent`) than the existing
+  `curly-general-scope-reindent` key it depends on (spelled out in full).
+  Worth deciding at implementation time whether to match the existing key's
+  full-word style (e.g. `curly-general-scope-reindent-multipass`) for
+  config-key consistency, or keep the shorter suggested form — flagged
+  here, not decided.
+- **Cost.** Opt-in only, so zero cost on the default-off path (same
+  guarantee as the base `curly-general-scope-reindent` flag), but doubles
+  wall-clock cost of the already-expensive GDR-pre-pass-plus-full-pipeline
+  combination for any file that does enable it — worth a one-line
+  `README.md` mention once/if implemented, not a blocker.
+
+### Verdict
+
+**Plausible and worth prototyping** — it directly targets the confirmed
+root cause (`RDD_KEY_229`) with a bounded, cheap-to-reason-about shape
+(GdrRewriter's whitespace-only edits mean the two pass kinds can't
+structurally fight each other), and composes with the existing idempotency
+test with no special-casing. It is not a proven fix (see "second-order
+oscillation" above) and has at least one real unverified risk (the
+relative-delta-reindenter interaction). **Per `RDD_KEY_229`'s own note**
+("both remediation paths too risky to attempt this session... a future
+session should ask before attempting either remediation path"), this
+write-up is the "ask" — implementation should wait for an explicit go-ahead
+in a future session, at which point it should be scoped as its own
+checklist item here (new `RDD_KEY_n` once real design decisions are made,
+e.g. the no-op/error question above), validated first via the same
+`javaparser-core-generators`/`angular` cluster-5 files `RDD_KEY_229` already
+has failure data for before calling it done.
+
+---
+
 ## When implemented: documentation to update
 
 A future implementer landing real GDR pre-pass logic (or the D3 revisit

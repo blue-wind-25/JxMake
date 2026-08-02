@@ -189,6 +189,22 @@ public final class XmlSpecificRule {
      *  speculatively without similar real dogfood evidence -- see STATE_DATA_FORMATS.md's Open
      *  Questions/RDD_LOG.md for the rationale.
      */
+    /**
+     * Level-2 tc-gap (RDD_KEY_230, foster-parenting): element names allowed to remain as direct
+     *  children of a {@code <table>} without being relocated -- the HTML5 spec's own "in table"
+     *  insertion-mode structural set (row-group/row/cell-boundary elements, plus {@code <script>}/
+     *  {@code <style>}/{@code <template>}, which the spec also exempts from foster-parenting). Any
+     *  other element, or non-whitespace text, encountered directly inside {@code <table>} (i.e. while
+     *  {@link #isInTableInsertionMode()} is true) gets foster-parented instead -- see
+     *  {@link #shouldFosterParent}.
+     */
+    private static final java.util.Set<String> TABLE_STRUCTURE_CHILDREN = new java.util.HashSet<>(
+        java.util.Arrays.asList(
+            "caption", "colgroup", "col", "tbody", "tfoot", "thead", "tr", "td", "th", "script",
+            "style", "template"
+        )
+    );
+
     private static final java.util.Map<String, java.util.Set<String>> IMPLIED_CLOSE_TRIGGERS = new java.util.HashMap<>();
     static {
         IMPLIED_CLOSE_TRIGGERS.put(
@@ -219,6 +235,18 @@ public final class XmlSpecificRule {
         String       trailingComment;           // Normalized text of a same-line trailing comment, or null
 
     } // class Node
+
+    /**
+     * Level-2 tc-gap (RDD_KEY_230, foster-parenting): holds nodes relocated out of a {@code <table>}
+     *  while it's being parsed, pending splice into the table's own parent's children list (just
+     *  before the table node itself) once the table element finishes parsing -- see
+     *  {@link #fosterBufferStack} and {@link #pendingFosterBuffer}.
+     */
+    private static final class FosterBuffer {
+
+        final List<Node> nodes = new ArrayList<>();
+
+    } // class FosterBuffer
 
     private final Lang    lang;
     private final int     lineLengthLimit;
@@ -276,6 +304,27 @@ public final class XmlSpecificRule {
      *  head-adjacent content nodes only ever gets one synthetic {@code <body>} inserted.
      */
     private boolean bodyInserted;
+
+    /**
+     * Level-2 tc-gap (RDD_KEY_230, foster-parenting): one {@link FosterBuffer} per currently-open
+     *  {@code <table>} ancestor, pushed/popped in {@link #parseElement} alongside {@link #openTagStack}
+     *  on {@code <table>} open/close. A {@code Deque}-of-buffers (not one flat buffer) so a fostered
+     *  node inside a nested {@code <table>} splices into its own immediately-enclosing table's
+     *  relocation point, not an outer table's. Asserted empty at the end of {@link #format} as a leak
+     *  guard (every push must be matched by a pop in {@code parseElement}'s {@code finally}).
+     */
+    private final java.util.Deque<FosterBuffer> fosterBufferStack = new java.util.ArrayDeque<>();
+
+    /**
+     * Level-2 tc-gap (RDD_KEY_230) side channel (Option B): set by {@link #parseElement} the instant
+     *  a {@code <table>} with non-empty buffered foster content finishes parsing, consumed by the
+     *  immediate caller in {@link #parseNodes} right before it would otherwise add the just-returned
+     *  {@code <table>} node to its own children list -- the buffered nodes are spliced in first, so
+     *  they land immediately before the table in that ancestor's children, matching the spec's "insert
+     *  immediately before the table" requirement. Always {@code null} again immediately after being
+     *  consumed.
+     */
+    private FosterBuffer pendingFosterBuffer;
 
     public XmlSpecificRule(final Lang lang)
     {
@@ -399,10 +448,52 @@ public final class XmlSpecificRule {
             "trailing content after document, near: " + s.substring( pos, Math.min( s.length(), pos + 40 ) )
         );
         if( html5TcGapLevel >= 1 ) insertImplicitBodyIfNeeded(nodes);
+        assert fosterBufferStack.isEmpty() : "fosterBufferStack leaked "
+            + fosterBufferStack.size() + " unclosed buffer(s)";
         final StringBuilder out = new StringBuilder();
         renderNodes(nodes, 0, out);
 
         return out.toString();
+    }
+
+    /**
+     * Level-2 tc-gap (RDD_KEY_230, foster-parenting trigger detection): true iff the node about to
+     *  be added is a DIRECT child of an open {@code <table>} -- i.e. {@link #openTagStack}'s innermost
+     *  (top) entry is exactly {@code "table"}. Deliberately NOT a full ancestor scan: once any
+     *  structural child (a {@code <tr>}, a stray {@code <div>}, etc.) is itself pushed onto
+     *  {@code openTagStack}, that child's own descendants are no longer being evaluated in the "in
+     *  table" insertion mode -- they're in whatever nested mode that child established (e.g. "in row"
+     *  inside a {@code <tr>}, or plain "in body" inside a fostered {@code <div>}) and must NOT be
+     *  independently re-evaluated for fostering, or a fostered element's own children would be
+     *  incorrectly stripped back out of it. This single-level check is what makes that distinction:
+     *  {@code openTagStack.peek()} only equals {@code "table"} while {@link #parseNodes} is building
+     *  the table's own direct children list.
+     */
+    private boolean isInTableInsertionMode()
+    {
+        return "table".equals( openTagStack.peek() );
+    }
+
+    /**
+     * Level-2 tc-gap (RDD_KEY_230): true iff {@code node}, encountered directly inside a
+     *  {@code <table>} (i.e. while {@link #isInTableInsertionMode()} is true), must be foster-parented
+     *  rather than left as a direct child of the table -- any element not in
+     *  {@link #TABLE_STRUCTURE_CHILDREN}, or non-whitespace text. Comments/PIs/frozen spans are never
+     *  fostered (they carry no visible tree-shape content the spec's foster-parenting rule cares
+     *  about).
+     */
+    private boolean shouldFosterParent(final Node node)
+    {
+        if(node.type == NodeType.TEXT) return node.raw != null && !node.raw.trim().isEmpty();
+        if(node.type == NodeType.ELEMENT) {
+            final String lowerTag = node.tagName != null
+                ? node.tagName.toLowerCase(java.util.Locale.ROOT)
+                : "";
+
+            return !TABLE_STRUCTURE_CHILDREN.contains(lowerTag);
+        } // if
+
+        return false;
     }
 
     /**
@@ -501,6 +592,19 @@ public final class XmlSpecificRule {
             } // if
             final Node node = parseSingleNode();
             attachTrailingCommentIfAny(node);
+            // Level-2 tc-gap (RDD_KEY_230, foster-parenting): a node encountered directly inside a
+            // <table> (outside a <td>/<th>/<caption> cell) that isn't part of the table's own
+            // structural vocabulary gets relocated to just before the table instead of nested inside
+            // it -- redirect it into the innermost FosterBuffer rather than this frame's own nodes.
+            if( html5TcGapLevel >= 2 && !fosterBufferStack.isEmpty()
+                    && isInTableInsertionMode() && shouldFosterParent(node) ) {
+                fosterBufferStack.peek().nodes.add(node);
+                continue;
+            } // if
+            if(pendingFosterBuffer != null) {
+                nodes.addAll(pendingFosterBuffer.nodes);
+                pendingFosterBuffer = null;
+            } // if
             nodes.add(node);
         } // while
 
@@ -749,7 +853,11 @@ public final class XmlSpecificRule {
         final java.util.Set<String> impliedTriggers = lang.isHtml5 ? IMPLIED_CLOSE_TRIGGERS.get(
             lowerTag
         ) : null;
+        // Level-2 tc-gap (RDD_KEY_230, foster-parenting): a new FosterBuffer per <table> ancestor,
+        // pushed/popped alongside openTagStack -- see fosterBufferStack's own javadoc.
+        final boolean isTable = html5TcGapLevel >= 2 && "table".equals(lowerTag);
         openTagStack.push(lowerTag);
+        if(isTable) fosterBufferStack.push( new FosterBuffer() );
         try {
             if(isSvg) svgDepth++;
             try {
@@ -796,6 +904,10 @@ public final class XmlSpecificRule {
         }
         finally {
             openTagStack.pop();
+            if(isTable) {
+                final FosterBuffer fb = fosterBufferStack.pop();
+                if( !fb.nodes.isEmpty() ) pendingFosterBuffer = fb;
+            } // if
         }
     }
 

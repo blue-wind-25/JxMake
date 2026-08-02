@@ -515,13 +515,80 @@ item *N-1* is committed and `make test` is green.
       no malformed output — purely a spec-accuracy gap in the synthesis
       point, consistent with "verify spec-accurate, not just doesn't
       crash" surfacing exactly this kind of finding.
-- [ ] 5. **Level 2 — Foster-parenting-driven tree reshaping**
+- [x] 5. **Level 2 — Foster-parenting-driven tree reshaping**
       (`foreign_content_009/010.html` and similar). Guard on
       `config.html5TcGapLevel() >= 2`. Implement `isInTableInsertionMode()`
       and the `FosterBuffer`/`fosterBufferStack` relocation mechanism per
       the Resolved Design Decisions above. New fixture(s) reproducing the
       minimal foster-parenting case, run at `html5-tc-gap-level=2` (and
       confirm unchanged at `1`/`0`). `make test` green.
+
+      **2026-08-03: DONE.** `XmlSpecificRule.java`: new
+      `TABLE_STRUCTURE_CHILDREN` static lookup set (`caption`, `colgroup`,
+      `col`, `tbody`, `tfoot`, `thead`, `tr`, `td`, `th`, `script`, `style`,
+      `template` — the spec's own "in table" structural vocabulary plus
+      `td`/`th` added defensively so a malformed `<td>` with no `<tr>`
+      wrapper directly under `<table>` isn't itself treated as fosterable);
+      a `FosterBuffer` static nested class (`List<Node> nodes`); a
+      `private final Deque<FosterBuffer> fosterBufferStack` field, pushed/
+      popped in `parseElement` alongside `openTagStack` exactly on
+      `<table>` open/close (guarded on `html5TcGapLevel >= 2`); a
+      `private FosterBuffer pendingFosterBuffer` side-channel field
+      (RDD_KEY_230's Option B) set the instant a `<table>` with non-empty
+      buffered content finishes parsing, consumed by the immediate caller
+      in `parseNodes` right before it would add the just-returned `<table>`
+      node to its own children list (the buffered nodes are spliced in
+      first, landing immediately before the table); `isInTableInsertionMode()`
+      and `shouldFosterParent(Node)` helper methods; a leak-guard `assert
+      fosterBufferStack.isEmpty()` at the end of `format()`.
+
+      **Judgment call / simplification not in the original RDD_KEY_230
+      text:** `isInTableInsertionMode()` was implemented as a **single-level
+      check** (`"table".equals(openTagStack.peek())` — true only while
+      `parseNodes` is building the `<table>` element's own DIRECT children
+      list), not the full ancestor ("is `table` anywhere above me before
+      `td`/`th`/`caption`") scan RDD_KEY_230's text originally sketched.
+      Caught via manual smoke-testing before committing: the ancestor-scan
+      version fostered every descendant of a fostered element too (e.g. a
+      stray `<div>text</div>` directly in a table had its own text child
+      independently re-evaluated against "am I under a table," ripping the
+      text back out of the `<div>` that had just been fostered whole), and
+      also incorrectly fostered a `<td>` that's a legitimate child of a
+      `<tr>` (the ancestor scan hit `table` before noticing `tr` isn't
+      `td`/`th`/`caption` and doesn't block it). The single-level `peek()`
+      check is exactly "in table insertion mode building THIS table's own
+      direct children," which is what foster-parenting is actually
+      triggered by per spec — once any child (a `<tr>`, or a fostered
+      `<div>`) is itself pushed onto `openTagStack`, its own descendants are
+      being parsed in a different (nested) insertion context and must not
+      be independently re-evaluated. Verified via manual `/tmp` smoke tests
+      (stray text + `<div>` + real `<tr><td>` row) before authoring
+      fixtures, then confirmed level-1+level-2 cumulative interaction
+      (implicit `<body>` insertion active at the same time as
+      foster-parenting) also lands correctly.
+
+      **Fixtures (hand-authored, `test/README.txt`'s `HTML5:` group, same
+      convention as level 1's fixtures):**
+      - `test/html5_tc_gap_level2_foster_parenting_{inp,out}.html` —
+        `html5-tc-gap-level=2` via in-file `JXM_CFMT_CFG`; a `<table>` with
+        stray text, a stray `<div>` (with its own content), and a real
+        `<tr><td>` row — confirms the stray text/`<div>` relocate to just
+        before the `<table>` while the real row stays nested inside it.
+      - `test/html5_tc_gap_level1_foster_unchanged_{inp,out}.html` — same
+        table-with-stray-content shape, `html5-tc-gap-level=1` — confirms
+        foster-parenting stays fully inert one level below its own `>= 2`
+        gate (formats in place, unchanged, same as level `0`'s existing
+        behavior).
+
+      Both registered in the Makefile's `INP_FILES` (HTML5 group, after the
+      level-1 fixture) and in `test/README.txt`'s `HTML5:` section. `make
+      test`: 232/232 forward, 232/232 idempotency (230 existing + these 2
+      new fixtures), zero regressions. Level 1's own `bodyInserted`
+      behavior and `>= 1` guard confirmed untouched — re-verified via a
+      manual smoke test combining both gaps at `html5-tc-gap-level=2` on a
+      document with neither explicit `<body>` nor `<tr>`/`<td>` wrapping
+      (both the implicit `<body>` and the foster-parenting relocation fired
+      correctly together, in the right order).
 - [ ] 6. **Level 3 — Misnested `<form>` reconstruction inside
       `<template>`.** Guard on `config.html5TcGapLevel() >= 3`. Add
       `currentFormElementPointer`, scoped per `<template>` boundary
@@ -535,13 +602,15 @@ item *N-1* is committed and `make test` is green.
       loop for misnested `<b>`/`<i>`/etc. New fixture(s) covering at least
       one classic misnested-formatting-element WPT case. `make test`
       green.
-- [ ] 8. **Full-suite real-code re-validation** once all four levels are
+- [ ] 8. Update `README.md` to explain the meaning of the levels of
+      `html5-tc-gap-level`
+- [ ] 9. **Full-suite real-code re-validation** once all four levels are
       landed: re-run all three dogfood corpora from item 1 end-to-end
       (forward, round2, idempotency diff, `html_syntax_check.sh`,
       `html_content_diff.py`) at both the default (`0`) and max (`4`)
       levels, plus the full local `make test` suite. Fix any regression
       before considering the job complete.
-- [x] 9. **Keep `CLAUDE.md`'s top-level routing table row in sync with true
+- [x] 10. **Keep `CLAUDE.md`'s top-level routing table row in sync with true
       job status** — a resolved design decision is real progress and
       belongs in the routing table just as much as landed implementation;
       don't gate the row on "code shipped" specifically. Update it after
@@ -560,5 +629,10 @@ item *N-1* is committed and `make test` is green.
       (`RDD_KEY_230`), no implementation yet" to "level 1 (implicit
       `<body>` insertion) landed, levels 2-4 not yet implemented — high
       risk". Update again once level 2 lands.
+
+      **2026-08-03 (later):** level 2 (foster-parenting-driven tree
+      reshaping) shipped — `CLAUDE.md`'s row updated to "levels 1-2
+      (implicit `<body>` insertion, foster-parenting) landed, levels 3-4
+      not yet implemented — high risk". Update again once level 3 lands.
 
 ---

@@ -322,6 +322,8 @@ INP_FILES += html_combined_inp.html
 INP_FILES += html_comments_inp.html
 INP_FILES += html5_tc_gap_level0_body_unchanged_inp.html
 INP_FILES += html5_tc_gap_level1_body_insertion_inp.html
+INP_FILES += html5_tc_gap_level1_foster_unchanged_inp.html
+INP_FILES += html5_tc_gap_level2_foster_parenting_inp.html
 
 INP_FILES += py_combined_inp.py
 INP_FILES += py_comments_inp.py

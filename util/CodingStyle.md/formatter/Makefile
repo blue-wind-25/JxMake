@@ -326,6 +326,8 @@ INP_FILES += html5_tc_gap_level1_foster_unchanged_inp.html
 INP_FILES += html5_tc_gap_level2_foster_parenting_inp.html
 INP_FILES += html5_tc_gap_level2_form_unchanged_inp.html
 INP_FILES += html5_tc_gap_level3_form_template_inp.html
+INP_FILES += html5_tc_gap_level3_adoption_unchanged_inp.html
+INP_FILES += html5_tc_gap_level4_adoption_agency_inp.html
 
 INP_FILES += py_combined_inp.py
 INP_FILES += py_comments_inp.py

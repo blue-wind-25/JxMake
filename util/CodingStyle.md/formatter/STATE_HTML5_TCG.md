@@ -663,13 +663,110 @@ item *N-1* is committed and `make test` is green.
       nested-form-in-template-in-form shape above): implicit `<body>`
       insertion, foster-parenting relocation, and form-pointer suppression
       all fired correctly together, in the right order.
-- [ ] 7. **Level 4 — Adoption agency algorithm** (do last — most fiddly,
+- [x] 7. **Level 4 — Adoption agency algorithm** (do last — most fiddly,
       per Background). Guard on `config.html5TcGapLevel() >= 4`. Add the
       "list of active formatting elements" state (distinct from
       `openTagStack`); implement the spec's bounded-iteration reparenting
       loop for misnested `<b>`/`<i>`/etc. New fixture(s) covering at least
       one classic misnested-formatting-element WPT case. `make test`
       green.
+
+      **2026-08-03: DONE.** `XmlSpecificRule.java`: new
+      `FORMATTING_ELEMENTS` static lookup set (the spec's own formatting-
+      element vocabulary: `a`, `b`, `big`, `code`, `em`, `font`, `i`,
+      `nobr`, `s`, `small`, `strike`, `strong`, `tt`, `u`); new
+      `pendingAdoptionNode`/`pendingAdoptionOuterTagLower` side-channel
+      pair (set in `parseElement` the instant a formatting element is
+      implicitly closed because the very next token is a real closing tag
+      belonging to one of its own ancestors -- the classic
+      `<b>1<i>2</b>3</i>` shape); new `pendingReconstructFormattingTemplate`
+      side channel (same Option-B shape as `pendingFosterBuffer`/
+      `pendingSuppressedFormNode`), set when that recorded ancestor's own
+      real closing tag is genuinely matched, consumed by `parseNodes`
+      right after adding that ancestor node to reconstruct a clone of the
+      orphaned formatting element as its next sibling via the new
+      `reconstructFormattingElement` helper (mirrors `parseElement`'s own
+      tail logic -- push `openTagStack`, parse children via `parseNodes`,
+      consume a matching real close tag if present, pop `openTagStack` --
+      but for a synthesized open tag copied from the template rather than
+      one read from source text).
+
+      **What subset of the spec's adoption agency algorithm was
+      implemented vs. skipped, and why (same "document the deviation"
+      pattern as levels 2 and 3):** the full spec algorithm maintains an
+      explicit "list of active formatting elements" plus a bounded-
+      iteration loop with "furthest block" search and "bookmark"-based
+      re-insertion, capable of correctly resolving arbitrarily deep and/or
+      multiple SIMULTANEOUS misnestings in one pass. This formatter builds
+      its tree via plain recursive descent with no reified, randomly-
+      addressable mutable tree structure the way the spec's algorithm
+      assumes -- attempting that full generality was judged too large/
+      risky a change for one checkpoint (per this checklist item's own
+      documented allowance to implement a narrower, formatter-appropriate
+      approximation instead). What's actually implemented: `pendingAdoptionNode`
+      tracks only the SINGLE most-recently-orphaned formatting element at a
+      time (a plain field, not a stack/list of "active formatting
+      elements"), detected only for the narrow "next token is a real
+      closing tag belonging to one of my own ancestors" case (not the
+      spec's full furthest-block search across the whole open-elements
+      stack), and reconstructed as a plain next-sibling clone via ordinary
+      recursive-descent continuation (not spliced back into the original
+      misnesting position via a bookmark). **Known limitation:** this
+      correctly handles the classic single-level case (confirmed via the
+      new fixture below), but a second, simultaneous misnesting (e.g. two
+      formatting elements both orphaned by the same ancestor's close) only
+      reconstructs the innermost/most-recently-orphaned one -- an outer
+      one would be silently dropped (the plain field gets overwritten, not
+      queued). Same accepted-limitation posture as level 1's head-less-
+      document gap and level 2's single-level table check -- not fixed
+      here, logged as a known limitation for a future session if this ever
+      needs to be revisited.
+
+      **Real bug found and fixed via smoke-testing before authoring
+      fixtures (per this job's established "verify each mechanism against
+      actual nested/combined-level behavior before committing" pattern):**
+      the level-2 foster-parenting branch in `parseNodes` used an early
+      `continue` once a node was redirected into `fosterBufferStack`,
+      which bypassed the level-4 reconstruction check entirely -- a
+      formatting element reconstructed by adoption agency while directly
+      inside a `<table>` (e.g. `<table>stray<b>1<i>2</b>3</i><tr>...`) was
+      silently dropped instead of being foster-parented itself, confirmed
+      via a manual `/tmp` smoke test combining all four levels on one
+      document. Fixed by turning the foster-parenting branch from an early
+      `continue` into a `fostered` boolean so the level-4 reconstruction
+      check always runs afterward and routes its own result (a
+      reconstructed clone) into whichever destination -- `fosterBufferStack`
+      or `nodes` -- the triggering ancestor node itself just landed in.
+      Re-verified via the same combined smoke test after the fix: the
+      reconstructed `<i>3</i>` now correctly lands in the foster buffer
+      alongside `<b>`, both relocated to just before the `<table>`, while
+      the table's own legitimate `<tr><td>` row stays nested inside it.
+
+      **Fixtures (hand-authored, `test/README.txt`'s `HTML5:` group, same
+      convention as levels 1-3's fixtures):**
+      - `test/html5_tc_gap_level4_adoption_agency_{inp,out}.html` --
+        `html5-tc-gap-level=4` via in-file `JXM_CFMT_CFG`; the classic
+        misnesting `<b>one<i>two</b>three</i>` -- confirms `three` lands
+        wrapped in a reconstructed `<i>` as `<b>`'s own next sibling.
+      - `test/html5_tc_gap_level3_adoption_unchanged_{inp,out}.html` --
+        same misnesting shape, `html5-tc-gap-level=3` -- confirms adoption
+        agency reconstruction stays fully inert one level below its own
+        `>= 4` gate (`three` remains plain text, unchanged from level 0's
+        existing behavior).
+
+      Both registered in the Makefile's `INP_FILES` (HTML5 group, after the
+      level-3 fixtures) and in `test/README.txt`'s `HTML5:` section. `make
+      test`: 236/236 forward, 236/236 idempotency (234 existing + these 2
+      new fixtures), zero regressions. Levels 1-3's own guards/behavior
+      confirmed untouched -- re-verified via the combined all-four-levels
+      smoke test above (implicit `<body>` insertion, foster-parenting
+      relocation, form-pointer suppression, and adoption agency
+      reconstruction all fired correctly together, in the right order, on
+      one document exercising all four gaps at once). Idempotency
+      double-checked manually on both the isolated adoption-agency case and
+      the combined-all-four-levels case (round1/round2 byte-identical in
+      both), in addition to `make test`'s own idempotency pass over the
+      registered fixtures.
 - [ ] 8. Update `README.md` to explain the meaning of the levels of
       `html5-tc-gap-level`.
 - [ ] 9. **Full-suite real-code re-validation** once all four levels are

@@ -603,7 +603,7 @@ item *N-1* is committed and `make test` is green.
       one classic misnested-formatting-element WPT case. `make test`
       green.
 - [ ] 8. Update `README.md` to explain the meaning of the levels of
-      `html5-tc-gap-level`
+      `html5-tc-gap-level`.
 - [ ] 9. **Full-suite real-code re-validation** once all four levels are
       landed: re-run all three dogfood corpora from item 1 end-to-end
       (forward, round2, idempotency diff, `html_syntax_check.sh`,

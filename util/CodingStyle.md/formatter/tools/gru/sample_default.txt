@@ -93045,6 +93045,14 @@ c	NO	0	union here overlays the two representations in the same memory
 c	NO	0	unsigned here means this counter can never go negative
 c	NO	0	volatile here tells the compiler this value can change outside its control
 c	NO	0	break here only exits the innermost loop, not the outer one
+c	NO	0	static here is only visible within this translation unit, not exported
+c	NO	0	static was the wrong choice here since other files needed the symbol
+c	YES	0	static analysis flagged this function for a possible buffer overrun
+c	YES	0	static electricity was the actual cause of the sensor glitch, not this code
+c	NO	0	return here skips the cleanup block entirely, which is intentional
+c	NO	0	return was added late in review after the original bug report
+c	YES	0	return to this file once the dependency issue upstream is resolved
+c	YES	0	return on this investment was never clearly measured by the team
 cpp	YES	0	final review before merging this branch
 cpp	NO	0	final int x = compute();
 cpp	YES	0	explicit about what this function does not guarantee
@@ -93135,6 +93143,13 @@ cpp	NO	0	thread_local here gives every thread its own independent copy
 cpp	NO	0	typeid here returns the actual runtime type, not the static one
 cpp	NO	0	typename here disambiguates a dependent name inside the template
 cpp	NO	0	wchar_t here is platform-dependent and best avoided in portable code
+cpp	NO	0	this pointer here is captured by value in the lambda's closure
+cpp	NO	0	this overload was added after the original ambiguity bug was reported
+cpp	YES	0	this is exactly the kind of edge case the reviewer warned us about
+cpp	YES	0	this file grew too large and needs to be split before the next release
+cpp	NO	0	static was chosen here specifically to avoid an extra allocation per call
+cpp	YES	0	static analysis in CI caught this null-pointer dereference before merge
+cpp	YES	0	static cling was blamed for the intermittent hardware fault, not this driver
 java	YES	0	static analysis flags this as dead code
 java	NO	0	static Map<String,Integer> CACHE = new HashMap<>();
 java	YES	0	default values are applied when the field is omitted
@@ -93227,6 +93242,14 @@ java	NO	0	volatile here guarantees every thread sees the latest write
 java	NO	0	yield here produces the switch expression's value for this branch
 java	NO	0	null here is the sentinel returned when the lookup finds nothing
 java	NO	0	true here is the default before the health check runs the first time
+java	NO	0	this reference here escapes the constructor before the object is fully built
+java	NO	0	this builder was refactored last sprint to avoid the mutable-state bug
+java	YES	0	this is the third time this exact race condition has come up in review
+java	YES	0	this module needs its own changelog entry before the release goes out
+java	NO	0	static field here is initialized once per classloader, not per instance
+java	NO	0	static was picked here deliberately to avoid a per-request allocation
+java	YES	0	static analysis flagged this resource leak during the nightly build
+java	YES	0	static electricity kept tripping the sensor, not anything in this code
 js	YES	0	let me know if this needs a second review
 js	NO	0	let cache = new Map();
 js	YES	0	const environment before you deploy this
@@ -93308,6 +93331,14 @@ js	NO	0	try here wraps only the risky call, not the whole function body
 js	NO	0	typeof here returns a string, not the actual constructor reference
 js	NO	0	var here leaks out of the block, unlike let in the loop above
 js	NO	0	with here was avoided entirely since it breaks static analysis
+js	NO	0	this binding here is why the callback needed an arrow function instead
+js	NO	0	this context was lost here the moment the method got passed as a callback
+js	YES	0	this is probably the trickiest part of the whole module to get right
+js	YES	0	this component re-renders far more often than it really needs to
+js	NO	0	class field here is shared across every instance created from this constructor
+js	NO	0	class was chosen here over a plain object to get private fields for free
+js	YES	0	class act on the reviewer's part, catching this edge case before merge
+js	YES	0	class of bugs like this one keeps slipping through the review process
 kotlin	YES	0	is this the right approach for pagination?
 kotlin	NO	0	is Foo -> handle(foo)
 kotlin	YES	0	object of this exercise is to minimize allocations
@@ -93375,6 +93406,14 @@ kotlin	NO	0	try here wraps only the risky call, not the whole function body
 kotlin	NO	0	typealias here shortens the long generic type used throughout this file
 kotlin	NO	0	typeof here is only valid inside a reified generic function
 kotlin	NO	0	val here is preferred over var whenever the reference never changes
+kotlin	NO	0	this receiver was captured accidentally when the lambda moved outside the class body
+kotlin	NO	0	this scope function here was chosen specifically to avoid an extra null check
+kotlin	YES	0	this is honestly the cleanest workaround anyone on the team has found so far
+kotlin	YES	0	this file has grown unwieldy and should probably be split before the next release
+kotlin	NO	0	object here was made a singleton specifically to avoid re-parsing the config
+kotlin	NO	0	object expression was preferred here over a full class for a one-off listener
+kotlin	YES	0	object of the exercise was never really to minimize allocations, just readability
+kotlin	YES	0	object permanence is a concept every toddler eventually figures out, unlike this bug
 ts	YES	0	interface between the two subsystems is documented separately
 ts	NO	0	interface UserRecord { id: string; name: string; }
 ts	YES	0	type of error this throws depends on the input
@@ -93443,3 +93482,11 @@ ts	NO	0	boolean here defaults to false when the flag is left unset
 ts	NO	0	implements here brings in the interface's members to fill in
 ts	NO	0	interface here declares only the shape, no implementation at all
 ts	NO	0	keyof here produces a union of the object's own property names
+ts	NO	0	this parameter here lets the method be called unbound without losing typing
+ts	NO	0	this type was added here specifically to make the builder chain fluent
+ts	YES	0	this is honestly the trickiest generic constraint in the whole file
+ts	YES	0	this interface has grown too broad and should probably be split up
+ts	NO	0	interface here was preferred over a type alias to allow declaration merging
+ts	NO	0	interface was picked here deliberately since consumers need to extend it
+ts	YES	0	interface between the two teams has been the real bottleneck, not this code
+ts	YES	0	interface design matters as much as implementation quality in a library like this

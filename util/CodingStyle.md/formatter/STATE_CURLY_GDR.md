@@ -417,6 +417,13 @@ reindentation logic yet to exercise).
   directive while `curly-general-scope-reindent` is globally `off` is a
   **silent no-op** (parses fine, lets a file be prepared for GDR ahead of a
   project-wide flag flip). Full text: `RDD_KEY_227` in `RDD_LOG.md`.
+- `RDD_KEY_233` — `curly-general-scope-reindent-multipass` naming: full-word
+  style (matching the base `curly-general-scope-reindent` key), not the
+  originally-suggested `curly-gs-reindent-multipass` abbreviation. Full
+  text: `RDD_KEY_233` in `RDD_LOG.md`.
+- `RDD_KEY_234` — `curly-general-scope-reindent-multipass = on` while
+  `curly-general-scope-reindent = off`: **silent no-op**, same resolution
+  category as `RDD_KEY_227`. Full text: `RDD_KEY_234` in `RDD_LOG.md`.
 - `RDD_KEY_228` — Scope expanded to include JS/TS (user-directed): both
   plain `.js`/`.ts` files and embedded HTML `<script>` content are now
   reindented by GDR when on. Also fixed an independent HTML-formatter bug
@@ -687,6 +694,36 @@ plan, not a placeholder.
       `/tmp/gdr_r2` (round1/round2 output for the tested module) were left
       in place for reuse by the next session per the "search `/tmp` for an
       existing checkout" convention.
+- [x] **Prototype bounded multi-pass remediation for `RDD_KEY_229`** (user
+      go-ahead given 2026-08-03, see the "Open design proposal" section
+      above). Resolved the two flagged open design questions first, as new
+      `RDD_LOG.md` entries: naming (`RDD_KEY_233`, full-word style —
+      `curly-general-scope-reindent-multipass`, not the shorter
+      `curly-gs-reindent-multipass`) and the multipass-on/base-off
+      interaction (`RDD_KEY_234`, silent no-op, same resolution category as
+      `RDD_KEY_227`). Implemented: `Config.java` gained the new key (field
+      `curlyGeneralScopeReindentMultipass`, getter
+      `isCurlyGeneralScopeReindentMultipass()`, `ALL_KEYS`, `parseBoolean`,
+      default `false`). `GdrPipelineGate` gained `applyAndFormat(source,
+      language, config, filePath, formatOff)`, the new single entry point
+      both `Main.formatStandalone` and `ServerMode`'s request handler now
+      call instead of separately calling `apply` then
+      `FormatterCore.forLanguage(...).formatOne(...)`: runs GDR once then
+      `formatOne` once (unchanged behavior) when multipass is off or the
+      base flag is off; when both flags are on and the language is
+      curly-family, runs the full 4-stage sequence (GDR, pipeline, GDR,
+      pipeline) by calling `apply`/`formatOne` a second time on the first
+      pipeline pass's own output. `make` builds clean; `make test`:
+      237/237 forward + idempotency, zero regressions on the existing
+      (default-off) suite — the new path is exercised only when both flags
+      are explicitly turned on. No new local fixture added yet (deferred
+      to the next checklist sub-item); `STATE_COMMON.md`'s Config Keys
+      table and `README.md`'s Configuration section both updated with the
+      new key. **Next sub-items (not yet done this pass):** a small smoke
+      fixture proving the 4-stage sequence actually runs with both flags
+      on, and real-code validation against the `angular/angular` TS
+      cluster-5 files and `javaparser-core-generators`
+      (`/tmp/javaparser_gdr`) that originally exposed `RDD_KEY_229`.
 - [ ] Revisit Kotlin dogfood cluster D3 (see "D3 fold" section above) using
       the pre-pass's statement-boundary/structural-depth infrastructure;
       land a real fix in `MiscRuleCurly`/wherever the fix ends up living,

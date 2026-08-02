@@ -39,6 +39,7 @@ public final class Config {
         "js-import-order", "js-import-sort", "js-import-blank-lines",
         "gru-classifier", "gru-weights-path",
         "curly-general-scope-reindent",
+        "curly-general-scope-reindent-multipass",
         "html5-tc-gap-level"
     };
 
@@ -129,6 +130,17 @@ public final class Config {
      *  unchanged on the default path.
      */
     private boolean curlyGeneralScopeReindent = false;
+
+    /**
+     * {@code curly-general-scope-reindent-multipass} -- see {@code STATE_CURLY_GDR.md}'s "Open
+     *  design proposal: bounded multi-pass remediation for RDD_KEY_229" section and
+     *  {@code RDD_KEY_233}/{@code RDD_KEY_234}. Only takes effect when
+     *  {@code curly-general-scope-reindent} is also on; runs a fixed 4-stage sequence (GDR,
+     *  pipeline, GDR, pipeline) instead of the base feature's single pre-pass-then-pipeline order.
+     *  Default off. Per {@code RDD_KEY_234}, turning this on while the base flag is off is a
+     *  silent no-op, not an error -- lets a project stage this flag ahead of flipping the base one.
+     */
+    private boolean curlyGeneralScopeReindentMultipass = false;
 
     /**
      * {@code html5-tc-gap-level} -- gates the "tc gap" job's HTML5 deep tree-construction-gap
@@ -267,6 +279,11 @@ public final class Config {
     public boolean isCurlyGeneralScopeReindent()
     {
         return curlyGeneralScopeReindent;
+    }
+
+    public boolean isCurlyGeneralScopeReindentMultipass()
+    {
+        return curlyGeneralScopeReindentMultipass;
     }
 
     public int html5TcGapLevel()
@@ -467,6 +484,9 @@ public final class Config {
         );
         config.curlyGeneralScopeReindent      = parseBoolean(
             raw, "curly-general-scope-reindent", config.curlyGeneralScopeReindent
+        );
+        config.curlyGeneralScopeReindentMultipass = parseBoolean(
+            raw, "curly-general-scope-reindent-multipass", config.curlyGeneralScopeReindentMultipass
         );
         config.html5TcGapLevel                = parseInt(
             raw, "html5-tc-gap-level", config.html5TcGapLevel

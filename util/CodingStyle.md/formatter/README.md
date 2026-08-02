@@ -272,6 +272,7 @@ comment-normalization-classifier = on          # on | off
 closing-comment-min-lines        = 5
 
 curly-general-scope-reindent     = off         # off | on
+curly-general-scope-reindent-multipass = off   # off | on, only takes effect when the above is also on (see STATE_CURLY_GDR.md, RDD_KEY_233/RDD_KEY_234)
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
 header-guard-rename              = off         # off | on

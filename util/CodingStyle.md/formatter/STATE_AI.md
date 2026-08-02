@@ -951,11 +951,42 @@ progress (62% YES-resolution from 0% is real) — the 90% bar exists
 specifically as a conservative proxy for "false-positive rate low enough
 to trust automatically," and 7.1% doesn't clear it. `make build` + `make
 test`: 228/228 forward+idempotency after the revert, confirmed clean.
-**Open item for a future session:** sweep `GruEval`'s optional threshold
-args (e.g. 0.6/0.7/0.8) against held-out folds to see whether a higher
-abstain-confidence cutoff drives the false-positive rate down while still
-resolving a useful fraction of ABSTAIN cases, before assuming corpus
-growth alone is the next lever. `code-formatter-ai-assist-weights.json`
-is the user-retrained file evaluated above; left as-is (still the best
-weights measured so far, just not enabled by default) — `gru-weights-path`
-can still be pointed at it manually for further eval/threshold-sweep work.
+**Threshold sweep, same day — re-enabled at `abstainThreshold=0.7`.**
+Followed the open item above: swept `GruEval`'s optional threshold args
+(0.5/0.6/0.7/0.8/0.9) against the 5 already-trained cross-validation
+rounds' held-out test sets (no retraining — `GruEval` caches each
+example's forward-pass probabilities and re-evaluates the decision
+boundary per threshold for free). Aggregated NO false-positive rate and
+YES-resolution rate across all 5 rounds per threshold:
+
+| threshold | YES resolved (of decided) | NO false-positive rate |
+|---|---|---|
+| 0.5 | 61/99 = 61.6% | 26/368 = 7.1% |
+| 0.6 | 51/77 = 66.2% | 17/354 = 4.8% |
+| **0.7** | **43/65 = 66.2%** | **9/336 = 2.7%** |
+| 0.8 | 29/47 = 61.7% | 4/320 = 1.3% |
+| 0.9 | 19/27 = 70.4% | 2/304 = 0.7% |
+
+0.7 cuts the false-positive rate from 7.1% to 2.7% at essentially no cost
+to YES-resolution rate (still 66.2%) — a materially better trade-off than
+the trained default of 0.5, and cheap since it's a pure inference-time
+cutoff change, no retraining. **Applied:** `code-formatter-ai-assist-
+weights.json`'s `abstainThreshold` field changed `0.5` → `0.7` (only that
+one field; weight arrays untouched — pre-change copy kept scratch-only,
+not committed, per RDD_EXT_19). Re-verified via `GruEval` against the
+production weights + 474-row benchmark: `abstain=4 decided=470 correct=467
+precision=99.4% noIncorrect=3` (down from `noIncorrect=6` at 0.5, on this
+same non-held-out benchmark — directionally consistent with the held-out
+sweep). **`Config.gruClassifier` flipped back `false` → `true`** now that
+the false-positive rate at this threshold is materially better than the
+7.1% that motivated the earlier revert. `make build` + `make test`:
+**228/228 forward, 228/228 idempotency** — clean. `gru-classifier` is now
+`on` by default at `abstainThreshold=0.7`, alongside
+`comment-normalization-classifier` (on since 2026-07-30). **Not done:** a
+fresh 5-round cross-validation specifically at 0.7 (the sweep above reused
+existing 0.5-trained models' probabilities, which is valid for picking a
+decision threshold but doesn't confirm 0.7 as trained-in-from-scratch
+would behave identically) — the existing sweep is expected to generalize
+since threshold-only changes don't affect what the network learned, but a
+from-scratch confirmation is a reasonable low-cost follow-up if this
+default is revisited again.

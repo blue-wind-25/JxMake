@@ -118,7 +118,7 @@ public final class Config {
      *  file; when off (or when the file is missing/unreadable), no filesystem access is attempted /
      *  the resolver fails safe to the rule-based result alone.
      */
-    private boolean gruClassifier  = false;
+    private boolean gruClassifier  = true;
     private String  gruWeightsPath = DEFAULT_GRU_WEIGHTS_PATH;
 
     /**

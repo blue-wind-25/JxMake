@@ -402,7 +402,7 @@ rewriting a standalone/unused for-loop increment (2 files,
 **Verdict: DONE.** Zero new formatter bugs found. The one idempotency diff
 is a confirming recurrence of the already-tracked `SwitchRule` issue.
 
-### `angular/angular` dogfood pass — clusters 1-3 FIXED, cluster 4 PARTIALLY FIXED (all 4 named root causes now landed; residual files exist outside the 4 named causes — see 2026-07-31 session below), cluster 5 NOT FIXED (accepted gap, no action planned)
+### `angular/angular` dogfood pass — clusters 1-3 FIXED, cluster 4 PARTIALLY FIXED (all 4 named root causes now landed; residual files exist outside the 4 named causes — see 2026-07-31 session below), cluster 5 STILL OPEN (revisited 2026-08-02 after GDR landed — 1 of 3 files fixable via opt-in GDR, 2 of 3 blocked on a newly-found GDR ordering bug, no fixture/code change made; see below)
 
 Repo: `/tmp/angular`, shallow clone (`--depth 1`), HEAD `5ad8231`
 (2026-07-24). Scope: 5394 `.ts` files (`.d.ts`/`.tsx` excluded) across
@@ -688,6 +688,28 @@ first (value = criticality weighed against difficulty):
    as its own future dedicated high-risk job in `STATE_COMMON.md` — do not
    attempt piecemeal. **2026-07-28 re-assessment:** unchanged, still out of
    scope for any housekeeping pass.
+
+   **2026-08-02 re-assessment (`RDD_KEY_229`), after the GDR job
+   (`STATE_CURLY_GDR.md`) landed its opt-in pre-pass and expanded scope to
+   JS/TS (`RDD_KEY_228`):** re-ran all 3 files with
+   `curly-general-scope-reindent = on`. `emit.ts` is now idempotent —
+   GDR's absolute structural-depth indent correctly overrides the
+   inconsistent source indentation for that file's shape. `user_metric_spec.ts`
+   and `i18n_parse.ts` are still NOT idempotent even with GDR on, but for a
+   different reason than the original architectural gap: both contain
+   one-true-brace-style joins (`} else if (...) {`) that this formatter's
+   own brace-placement pass splits into separate `}`/`else if (...) {`
+   lines — GDR computes its indent target before that split happens, so
+   the split-out line has no GDR target of its own and can render wrong. A
+   candidate fix (run GDR after brace-placement instead of before) was
+   confirmed to fix this specific case but introduces a different
+   non-idempotency (indentation change flips the pipeline's own line-wrap
+   decisions on the next round) — see `RDD_KEY_229` and
+   `STATE_CURLY_GDR.md`'s checklist for the full investigation. **User
+   judged both remediation paths too risky to attempt this session — no
+   code change landed.** No new fixture added. This item stays open;
+   revisit together with `STATE_CURLY_GDR.md`'s still-unchecked real-code-
+   test checklist item, not standalone.
 
 Next free fixture number unaffected by cluster 4/5 (still open, no new
 fixtures). Full corpus re-run deferred until cluster 4 root cause #3 lands,

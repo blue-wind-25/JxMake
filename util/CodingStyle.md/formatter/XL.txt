@@ -199,6 +199,8 @@ exec  ~/mynpm/bin/claude "$@"
 ####################################################################################################
 ####################################################################################################
 
+Check the GRU % with the new weights.
+
 Continue with the `curly reindent job` - `Real-code test the pre-pass`.
 
 --- Tier 1: high value, tractable next steps ---

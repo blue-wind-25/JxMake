@@ -15,10 +15,14 @@ ordinary body statements to an absolute target derived from structural
 whitespace except where a specific recognized rewrite (brace placement,
 spacing, alignment) requires touching it.
 
-**Overall status: NOT STARTED.** This file was split out of
-`STATE_COMMON.md`'s old "Architectural TODOs" section (which held only a
-risk-analysis writeup, no implementation) on 2026-08-02, with the design
-expanded per the discussion below. No `src/` code exists for this job yet.
+**Overall status: pre-pass architecture landed and wired up behind
+`curly-general-scope-reindent = on` (default off); real-code validation
+against its originally-scoped corpora not yet done, and a real
+pass-ordering bug was found during a first, differently-scoped real-code
+test (`RDD_KEY_229`) — see the Checklist's last two items below.** This
+file was split out of `STATE_COMMON.md`'s old "Architectural TODOs"
+section (which held only a risk-analysis writeup, no implementation) on
+2026-08-02, with the design expanded per the discussion below.
 
 ---
 
@@ -459,7 +463,35 @@ plan, not a placeholder.
       against at least `javaparser/javaparser`, local
       `tool/JSONEncoderLite.java`, and `serge-sans-paille/frozen` (the three
       corpora where the current narrower relative-delta reindent bugs
-      surfaced) — full-tree idempotency, not `--out DIR` sampling.
+      surfaced) — full-tree idempotency, not `--out DIR` sampling. **Not yet
+      done against these three.** A first real-code test WAS run instead
+      (2026-08-02, `RDD_KEY_229`) against `angular/angular`'s TS dogfood
+      cluster-5 accepted-gap files (`STATE_JS_TS.md`), since GDR's scope
+      expanded to JS/TS (`RDD_KEY_228`) after this item was originally
+      written. Result: 1 of 3 files (`emit.ts`) fixed cleanly; 2 of 3
+      (`user_metric_spec.ts`, `i18n_parse.ts`) exposed a real, confirmed
+      **pass-ordering bug**, not yet fixed — see `RDD_KEY_229` for full
+      detail. Summary: GDR's pre-pass computes indent depth before
+      brace-placement runs, so source using joined one-true-brace style
+      (`} else if (...) {`) gets a wrong/non-idempotent indent once
+      brace-placement later splits that line into `}` / `else if (...) {`
+      to match this formatter's Allman style — the split-out line never
+      gets its own GDR target. A post-pass ordering (GDR after the
+      pipeline instead of before) was tried as a candidate fix and DOES
+      resolve this specific case, but was confirmed to introduce a
+      different non-idempotency: GDR's indentation change alters line
+      width, which flips the pipeline's own line-wrap fits-check decision
+      on the next round — a genuine circular dependency between GDR's
+      depth-based indent and the pipeline's width-based wrap decisions.
+      **User explicitly judged both remediation paths (bounded fixpoint
+      iteration; feeding GDR's indent into the wrap fits-check) too risky
+      to attempt this session — no source code changed.** `README.md`'s
+      Known Limitations GDR bullet now documents the joined-brace-style
+      gap for users. This item stays open/unchecked; a future session
+      picking it up should read `RDD_KEY_229` in full before attempting
+      either remediation path, and should still run the original
+      `javaparser`/`JSONEncoderLite`/`frozen` real-code pass this item was
+      written for.
 - [ ] Revisit Kotlin dogfood cluster D3 (see "D3 fold" section above) using
       the pre-pass's statement-boundary/structural-depth infrastructure;
       land a real fix in `MiscRuleCurly`/wherever the fix ends up living,

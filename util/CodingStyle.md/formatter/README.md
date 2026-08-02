@@ -455,6 +455,16 @@ third-party client only needs to speak this HTTP protocol, not link against the 
   and print indentation fresh from structural nesting depth regardless of source formatting
   already, independent of this key.
 
+  **Known remaining gap:** because this pre-pass computes each line's target depth before
+  the normal pipeline's own brace-placement pass runs, source written in one-true-brace
+  style (`} else {`, `} else if (...) {`, `} catch (...) {`, `} finally {` all joined onto
+  the closing line) can still end up incorrectly indented. The pre-pass measures depth for
+  that single joined line as it exists at the time it runs; when brace-placement later
+  splits it into separate `}` / `else if (...) {` lines to match this formatter's brace
+  style, the newly split-out line no longer has the pre-pass's own computed target applied
+  to it. Reindented output is correct once the input already uses one-clause-per-line
+  bracing; the gap is specific to sources using the joined `} else`-style form.
+
 - **Non-idempotent reindent on internally-inconsistent generated source, for any pass using
   a relative-delta technique.** Two known call sites share this root cause:
   `SwitchRule.applyNonInlineCaseIndent` (`case` bodies) and

@@ -199,11 +199,11 @@ exec  ~/mynpm/bin/claude "$@"
 I have retrained the GRU. Check the GRU % with the new weights.
 Update the `properties` - `AI-assist (GRU)` explanation in `README.md` and `STATE_COMMON.md`.
 
-Continue with the `curly reindent job` - `Real-code test the pre-pass`.
+Continue with the `tc gap job`.
+
+Continue with the `curly reindent job`.
 Use one sub-agent. Ask the sub-agent to do it bit by bit and commit after each bug fix.
 Pause after several bug fixes.
-
-Continue with the `tc gap job`.
 
 --- Tier 1: high value, tractable next steps ---
 

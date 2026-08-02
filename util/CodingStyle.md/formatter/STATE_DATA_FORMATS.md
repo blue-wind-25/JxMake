@@ -357,7 +357,7 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   `test/xml_comments_out.xml` and every other pre-existing fixture whose
   copyright-header comment had pinned the old collapsed-form bug were
   updated to the new, correct output; new fixture
-  `test/html5_multiline_comment_verbatim_{inp,out}.html` added. `make
+  `test/html_multiline_comment_verbatim_{inp,out}.html` added. `make
   test`: 237/237 forward + idempotency, zero regressions. Full text:
   `RDD_KEY_232`.
 

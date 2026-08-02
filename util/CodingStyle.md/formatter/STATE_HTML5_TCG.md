@@ -469,13 +469,13 @@ item *N-1* is committed and `make test` is green.
       `real_code_regressions_N` despite this item's own wording above;
       `STATE_COMMON.md`'s rule is authoritative for fixture-origin naming,
       the wording above was just loose):**
-      - `test/html5_tc_gap_level1_body_insertion_{inp,out}.html` —
+      - `test/html_tc_gap_level1_body_insertion_{inp,out}.html` —
         `html5-tc-gap-level=1` via in-file `JXM_CFMT_CFG`, a document with
         `<head>` but no explicit `<body>`, and three head-adjacent content
         siblings (`<h1>`, `<p>`, `<h2>`) — confirms all three land inside
         one synthesized `<body>` (the `bodyInserted` guard fires at most
         once, not once per sibling).
-      - `test/html5_tc_gap_level0_body_unchanged_{inp,out}.html` — same
+      - `test/html_tc_gap_level0_body_unchanged_{inp,out}.html` — same
         no-explicit-`<body>` shape, default `html5-tc-gap-level=0`
         (unset), confirms current behavior is unchanged (no `<body>`
         fabricated).
@@ -574,12 +574,12 @@ item *N-1* is committed and `make test` is green.
 
       **Fixtures (hand-authored, `test/README.txt`'s `HTML5:` group, same
       convention as level 1's fixtures):**
-      - `test/html5_tc_gap_level2_foster_parenting_{inp,out}.html` —
+      - `test/html_tc_gap_level2_foster_parenting_{inp,out}.html` —
         `html5-tc-gap-level=2` via in-file `JXM_CFMT_CFG`; a `<table>` with
         stray text, a stray `<div>` (with its own content), and a real
         `<tr><td>` row — confirms the stray text/`<div>` relocate to just
         before the `<table>` while the real row stays nested inside it.
-      - `test/html5_tc_gap_level1_foster_unchanged_{inp,out}.html` — same
+      - `test/html_tc_gap_level1_foster_unchanged_{inp,out}.html` — same
         table-with-stray-content shape, `html5-tc-gap-level=1` — confirms
         foster-parenting stays fully inert one level below its own `>= 2`
         gate (formats in place, unchanged, same as level `0`'s existing
@@ -646,14 +646,14 @@ item *N-1* is committed and `make test` is green.
 
       **Fixtures (hand-authored, `test/README.txt`'s `HTML5:` group, same
       convention as levels 1 and 2's fixtures):**
-      - `test/html5_tc_gap_level3_form_template_{inp,out}.html` —
+      - `test/html_tc_gap_level3_form_template_{inp,out}.html` —
         `html5-tc-gap-level=3` via in-file `JXM_CFMT_CFG`; an outer
         `<form id="outer">` containing a `<template>` with its own nested
         `<form id="inner">` plus a direct second sibling
         `<form id="second-direct">` — confirms the templated inner form is
         preserved and the direct second form is suppressed (its wrapper
         dropped, its `<p>` content spliced into the outer form).
-      - `test/html5_tc_gap_level2_form_unchanged_{inp,out}.html` — same
+      - `test/html_tc_gap_level2_form_unchanged_{inp,out}.html` — same
         shape, `html5-tc-gap-level=2` — confirms the whole gap 2 mechanism
         stays fully inert one level below its own `>= 3` gate (both forms
         format in place, unchanged).
@@ -749,11 +749,11 @@ item *N-1* is committed and `make test` is green.
 
       **Fixtures (hand-authored, `test/README.txt`'s `HTML5:` group, same
       convention as levels 1-3's fixtures):**
-      - `test/html5_tc_gap_level4_adoption_agency_{inp,out}.html` --
+      - `test/html_tc_gap_level4_adoption_agency_{inp,out}.html` --
         `html5-tc-gap-level=4` via in-file `JXM_CFMT_CFG`; the classic
         misnesting `<b>one<i>two</b>three</i>` -- confirms `three` lands
         wrapped in a reconstructed `<i>` as `<b>`'s own next sibling.
-      - `test/html5_tc_gap_level3_adoption_unchanged_{inp,out}.html` --
+      - `test/html_tc_gap_level3_adoption_unchanged_{inp,out}.html` --
         same misnesting shape, `html5-tc-gap-level=3` -- confirms adoption
         agency reconstruction stays fully inert one level below its own
         `>= 4` gate (`three` remains plain text, unchanged from level 0's

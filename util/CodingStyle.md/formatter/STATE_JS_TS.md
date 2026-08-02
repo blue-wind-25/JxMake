@@ -120,10 +120,9 @@ statement/declaration in original relative order via leaf-token
 canonicalization (terminal tokens joined with single spaces, whitespace
 collapsed, so alignment padding/reindent are never flagged); comments as a
 MULTISET, whitespace-normalized and lowercased (case-only diff is expected
-`normalize-comment-start-case` behavior, not a bug). Comments are recovered
-separately from raw source via `ts.getLeadingCommentRanges` (TS's AST doesn't
-attach them as tree nodes), scanned at every node's `getFullStart()` plus
-position 0/EOF, deduplicated by `[pos, end)`.
+`normalize-comment-start-case` behavior, not a bug). Comments recovered separately via `ts.getLeadingCommentRanges` (TS AST
+doesn't attach them as tree nodes), scanned at every node's `getFullStart()`
+plus position 0/EOF, deduplicated by `[pos, end)`.
 
 Exit 0 if content is preserved, 1 with a description of each mismatch
 otherwise, 2 on usage error. No build step — plain `.js`, run directly:
@@ -260,7 +259,7 @@ line before a leading-commented group).
 **expressjs/express (141 `.js` files, HEAD `ae6dd37`):** two bugs via
 `node --check`, both fixed (fixture `real_code_regressions_77`): ASI
 leading-continuation-operator/comma bug (`maybeInsertSemicolon` only
-checked the previous line's trailing token; fixed via
+checked previous line's trailing token; fixed via
 `LEADING_CONTINUATION_OPS` + leading-`,` check); no JS/TS regex-literal
 tokenizing (fixed via `TokenizerCurly.emitRegexLiteral` +
 `isRegexLiteralAllowedHere`). Final: zero crashes, idempotent, `node
@@ -277,13 +276,13 @@ Kotlin fixture updated); (2) dot+space corruption in
 whose every arg is a bare dotted member-access (fixed: force
 `sigForRender` to `null` for JS/TS, fixture `real_code_regressions_81`);
 (3) content duplication in `enforceClassFieldAlignmentGrid` on nested
-`class` braces (fixed: only grid the outermost brace per nesting level,
-fixture `_82`); (4) comment-continuation-indent drift on an
-object-shaped intersection alias (fixed: `enforceUnionTypeContinuationIndent`
-only reindents at depth 0, fixture `_84`); (5) `join(...)` call-wrap/
-collapse non-idempotency at exactly `lineLengthLimit` (fixed: added
-fits-check to multi-line-source branch of `renderCallCandidate`, JS/TS-
-scoped, fixture `_85`). `make test` reached 134/134 by end of pass.
+`class` braces (fixed: only grid outermost brace per nesting level,
+fixture `_82`); (4) comment-continuation-indent drift on an object-shaped
+intersection alias (fixed: `enforceUnionTypeContinuationIndent` only
+reindents at depth 0, fixture `_84`); (5) `join(...)` call-wrap/collapse
+non-idempotency at exactly `lineLengthLimit` (fixed: fits-check on
+multi-line-source branch of `renderCallCandidate`, JS/TS-scoped, fixture
+`_85`). `make test` reached 134/134 by end of pass.
 
 ### `vuejs/core` dogfood pass — DONE
 
@@ -301,11 +300,11 @@ files differing.
    Resolved 15/20 files.
 2. `collectionHandlers.ts` — `GENERIC_SAFE_KEYWORDS` missing `symbol`/
    `bigint`, `isGenericSafeToken`'s OP case missing `|` (fixture `_88`).
-3. `componentOptions.ts` — same symbol/bigint/`|` bug, plus a
-   type-parameter-default clause silently dropped by `parseTypeAlias`'s
-   generic-clause skip loop, plus an unconditional `]`-followed-by-`]`
-   branch (meant for C++11 attributes) misfiring on a TS mapped type,
-   desyncing bracket-depth tracking (fixture `_89`).
+3. `componentOptions.ts` — same symbol/bigint/`|` bug, plus type-parameter-
+   default clause silently dropped by `parseTypeAlias`'s generic-clause skip
+   loop, plus unconditional `]`-followed-by-`]` branch (meant for C++11
+   attributes) misfiring on a TS mapped type, desyncing bracket-depth
+   tracking (fixture `_89`).
 4. `ref.test-d.ts`/`watch.test-d.ts` — `classifyBraces`'s `isValue`
    prev-token list missing `|`/`&`, misclassifying an inline object type's
    `{` after a union/intersection op as a statement-body brace (fixture `_90`).
@@ -317,10 +316,10 @@ files differing.
    fits-check measured candidate width *before* `JsTsDeclarationAlignmentRule`'s
    column-alignment pass ran. Fixed (ancestor of the still-open angular/
    TypeScript "cluster 4"/"cluster 3" ordering bug — see those sections).
-7–15. Nine further bugs surfaced via `tsc --noEmit` diff (0 vs. new errors),
-   each root-caused/fixed (fixtures `_101`, `_102`, `_105` [5 sub-bugs],
-   `_107`): `GENERIC_SAFE_KEYWORDS` missing `true`/`false`; nested-brace-
-   depth clear-all guard over-firing on a legit nested object-type arg;
+7–15. Nine further bugs via `tsc --noEmit` diff (0 vs. new errors), each
+   root-caused/fixed (fixtures `_101`, `_102`, `_105` [5 sub-bugs], `_107`):
+   `GENERIC_SAFE_KEYWORDS` missing `true`/`false`; nested-brace-depth
+   clear-all guard over-firing on a legit nested object-type arg;
    `GENERIC_SAFE_KEYWORDS` missing `keyof`/`is`/`infer`/`asserts`/`readonly`/
    `unique`/`as`/`satisfies`; parenthesized-ternary `:` misclassified as
    return-type colon (new `isGroupingExpressionParen` helper); `typeof`/
@@ -390,9 +389,9 @@ re-fixed here — see "Known open issues").
 initially 17/27 "MISMATCH", all decomposing into two intentional, non-lossy
 transformations the checker didn't yet tolerate (comment trailing-period
 stripping; §10 single-expression-block brace omission) — both became checker
-tolerances (see Dogfood Output Validation above). After the checker was
-improved (follow-up session): **22/27 clean** (up from 10/27 pre-first-round
-of tolerances). Remaining 5 files are two further confirmed-intentional,
+tolerances (see Dogfood Output Validation above). After checker improvement
+(follow-up session): **22/27 clean** (up from 10/27 pre-first-round of
+tolerances). Remaining 5 files are two further confirmed-intentional,
 non-lossy classes, left unfixed (checker gap, not formatter bug, low
 priority TODO): bare single-param arrows gaining parens (3 files, documented
 §6 behavior); STYLE.md §4 pre-increment-except-when-post-required correctly
@@ -426,9 +425,9 @@ first (value = criticality weighed against difficulty):
    of a preceding **dotted** type-predicate/return-type (existing bail-out
    only special-cased `is`/`typeof`/`keyof` as immediate `prevPrev`, not a
    multi-segment dotted path). **Fix:** walk backward over any number of
-   `IDENTIFIER '.'` pairs before `prevIdx` to find the dotted chain's first
-   segment, then apply the existing bail-out against what precedes THAT.
-   Fixture `real_code_regressions_134`. `make test`: 183/183.
+   `IDENTIFIER '.'` pairs before `prevIdx`, then apply existing bail-out
+   against what precedes the chain's first segment. Fixture
+   `real_code_regressions_134`. `make test`: 183/183.
 2. **[CRITICAL] [FIXED]** Old-style angle-bracket cast (`<Type>{...}`)
    misparsed as a generic, injecting a bogus `;` inside the following object
    literal — 1 file (`testability.ts:229`). Root cause one level downstream
@@ -445,7 +444,7 @@ first (value = criticality weighed against difficulty):
    (`utils.ts:103-105`, `Promise<\n (typeof import(...))['default'] |
    null\n>`). Root cause: TS dynamic-import type-query operand (`import` as
    a type-operand keyword) wasn't in `GENERIC_SAFE_KEYWORDS`, invalidating
-   the enclosing `<...>` tracking — same gap class as the existing
+   the enclosing `<...>` tracking — same gap class as existing
    `keyof`/`is`/`infer`/etc. entries. **Fix:** add `"import"` to
    `GENERIC_SAFE_KEYWORDS`. Fixture `real_code_regressions_136`. `make
    test`: 185/185.
@@ -502,35 +501,35 @@ first (value = criticality weighed against difficulty):
      2026-07-28 re-assessment: unchanged, not reattempted.
 
      **Design (2026-07-30, landed 2026-07-31 — tracker item 12):** cheaper
-     design than a true two-pass simulation, reusing an existing precedent
+     than a true two-pass simulation; reuses existing precedent
      (`JavaSpecificRule.isSingleLineBody` ~line 244-309, `KotlinSpecificRule`'s
      analogous method ~line 1736-1782, `GetterSetterRuleCurly
-     .parseOneLinerMember`'s length pre-check ~line 684-715 all solve the same
-     "will `enforceCallLineBreaking` still wrap this later" problem via a
-     cheap heuristic, not a real simulation): (1) `hasBreakableCall(tokens,
+     .parseOneLinerMember`'s length pre-check ~line 684-715 — all solve the
+     same "will `enforceCallLineBreaking` still wrap this later" problem via
+     a cheap heuristic, not a real simulation): (1) `hasBreakableCall(tokens,
      from, to)` — true iff the span contains a `name(args)` call with a
      non-empty argument list (the only shape ever wrapped); (2) a raw-width
      estimate (`expandedIndentWidth(lineIndent(...))` + collapsed-whitespace
      text length, matching `enforceCallLineBreaking`'s own measurement)
      compared against `lineLengthLimit`. Key insight the reverted naive
-     attempt (above) missed: refusing collapse whenever over-limit is only
-     correct when nothing later can rescue the line — if a breakable call
-     exists, collapsing is still safe since `enforceCallLineBreaking` will
-     wrap it later and both rounds predict the same outcome. Refusal applies
-     only when over-limit **and** `hasBreakableCall` is false.
+     attempt missed: refuse collapse only when over-limit **and**
+     `hasBreakableCall` is false — if a breakable call exists, collapsing is
+     still safe since `enforceCallLineBreaking` will wrap later and both
+     rounds predict the same outcome.
 
-     **2026-07-31 IMPLEMENTED.** Landed in `BlockStructureRule.java`: a new private `refuseUnrescuableCollapse`
-     (~line 1848, alongside a local `expandedIndentWidth`/`hasBreakableCall`/
-     `nextSignificantIndexLocal`/`matchParenForwardLocal` — this class has no
-     shared ancestor with the `*Curly` hierarchy, so all four are duplicated
-     copies per the established per-class convention, not new shared
-     extractions). Called from `tryCollapse` (after the existing brace-content
-     guards, right before its final `return`) and from `collapseBracelessBody`
-     (the shared core both `tryCollapseBraceless` and the bare-`else` collapse
-     path route through — `collapseBracelessBody` gained a new leading
-     `indentAnchorIdx` parameter, the keyword token index, threaded from both
-     call sites). Gate: `(lang.isJs || lang.isTs)` only; computes the joined
-     candidate's true rendered width (`expandedIndentWidth(lineIndent(...)) +
+     **2026-07-31 IMPLEMENTED** in `BlockStructureRule.java`: private
+     `refuseUnrescuableCollapse` (~line 1848, alongside local
+     `expandedIndentWidth`/`hasBreakableCall`/`nextSignificantIndexLocal`/
+     `matchParenForwardLocal` — this class has no shared ancestor with the
+     `*Curly` hierarchy, so all four are duplicated copies per the
+     established per-class convention, not new shared extractions). Called
+     from `tryCollapse` (after existing brace-content guards, right before
+     its final `return`) and from `collapseBracelessBody` (shared core both
+     `tryCollapseBraceless` and the bare-`else` collapse path route through
+     — `collapseBracelessBody` gained a new leading `indentAnchorIdx`
+     parameter, the keyword token index, threaded from both call sites).
+     Gate: `(lang.isJs || lang.isTs)` only; computes the joined candidate's
+     true rendered width (`expandedIndentWidth(lineIndent(...)) +
      candidate.length()`, mirroring `isSingleLineBody`'s own measurement now
      that `candidate` is already fully space-collapsed by `renderInline`); if
      under `lineLengthLimit`, no gate. If over, refuses (returns `null`,
@@ -793,8 +792,8 @@ parse-checking + raw `diff`, not `js_ts_content_diff.js`).
 
 ### Known false positives (no source change needed, fixture-only)
 
-- A spurious-looking blank line after a class's opening `{` in older `.js`
-  fixture drafts, and a doubled trailing space before a one-liner getter
+- Spurious-looking blank line after a class's opening `{` in older `.js`
+  fixture drafts, and doubled trailing space before a one-liner getter
   body's closing `}` — both confirmed correct, existing behavior (STYLE.md
   §7 named-construct blank line; `GetterSetterRuleCurly`'s group-width body
   padding), matching passing C++/Java/Kotlin fixtures byte-for-byte. Only

@@ -1,15 +1,14 @@
 # STATE_KOTLIN.md — Kotlin JAR Implementation Tracker
 
-Read `STATE_COMMON.md` first — it has the shared commit/ambiguity/testing
-conventions this file assumes. `STATE_C_CPP_JAVA.md` (the other job's file)
-is NOT required reading for this one — only `STATE_COMMON.md` is.
+Read `STATE_COMMON.md` first — shared commit/ambiguity/testing conventions.
+`STATE_C_CPP_JAVA.md` is NOT required reading — only `STATE_COMMON.md` is.
 Dogfood corpus status: see `STATE_DOGFOOD.md`.
 
 ---
 
 ## Purpose
 
-Tracks implementation of Kotlin support in the deterministic JAR formatter
+Tracks Kotlin support in the deterministic JAR formatter
 (`util/CodingStyle.md/formatter/`), per `STYLE_KOTLIN.md` / `STYLE_KOTLIN2.md`.
 
 **Overall status: implementation complete (Steps 0-4 all DONE, `make test`
@@ -75,14 +74,14 @@ util/CodingStyle.md/formatter/
     kt_comments_inp.kt / kt_comments_out.kt
 ```
 
-Existing shared files listed under Hard Constraint above are modified
-in-place, additively, when Kotlin needs a shared capability they don't yet
-have (e.g. a new operator token) — they are not duplicated per-language.
+Existing shared files under Hard Constraint are modified in-place,
+additively, when Kotlin needs a shared capability they don't yet have
+(e.g. a new operator token) — not duplicated per-language.
 
-New Kotlin-only rule classes that grew large enough to warrant their own
-file (beyond `KotlinSpecificRule.java`): `KotlinDeclarationAlignmentRule`
-(extends `DeclarationAlignmentRule`), `KotlinSignatureRule` (extends
-`MiscRule`), `KotlinGetterSetterRule` (extends `GetterSetterRule`).
+New Kotlin-only rule classes beyond `KotlinSpecificRule.java`:
+`KotlinDeclarationAlignmentRule` (extends `DeclarationAlignmentRule`),
+`KotlinSignatureRule` (extends `MiscRule`), `KotlinGetterSetterRule`
+(extends `GetterSetterRule`).
 
 ---
 
@@ -182,9 +181,8 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 
 ### Step 0 — Tokenizer Support (shared file, additive only) — DONE
 
-`TokenizerCore.java` is shared with C/C++/Java; every addition below was
-additive, verified against the full C/C++/Java suite before/after each
-change (32/32, zero regressions throughout).
+`TokenizerCore.java` shared with C/C++/Java; every addition additive,
+verified full C/C++/Java suite before/after (32/32, zero regressions).
 
 - [x] `MULTI_CHAR_OPS`: `?.`, `?:`, `!!`, `..<`, `..` added (longest-prefix
       rule). Bug found/fixed: `emitNumber()` consumed every `.`
@@ -198,27 +196,27 @@ change (32/32, zero regressions throughout).
       (`Box<out T>`) as a generic pair, not a comparison. RDD_KEY_113.
 - [x] §19: Kotlin-only interpolation-aware string scan
       (`skipKotlinString`/`skipKotlinInterpolationBlock`/`skipKotlinChar`)
-      inside `emitString()` — the shared naive scan misread a nested string
+      inside `emitString()` — shared naive scan misread nested string
       inside `${...}` as three tokens instead of one. RDD_KEY_116.
 - [x] §19.1: Kotlin-only raw-string support (`isKotlinRawStringOpener`/
       `emitKotlinRawString`/`skipKotlinRawString`) for `"""..."""`, checked
-      ahead of the plain-`"` and C/C++ raw-string branches. No
-      backslash-escape processing by design; terminates greedily at first
-      `"""` (later found insufficient for a 4+-quote trailing run — see
-      RDD_KEY_213). RDD_KEY_117.
+      ahead of plain-`"` and C/C++ raw-string branches. No backslash-escape
+      processing by design; terminates greedily at first `"""` (later found
+      insufficient for a 4+-quote trailing run — see RDD_KEY_213).
+      RDD_KEY_117.
 
 ### Step 1 — Scoping Pass (mirrors `JavaSpecificRule.java`, RDD_KEY_59) — DONE
 
-Every section of `STYLE_KOTLIN.md`/`STYLE_KOTLIN2.md` was cross-checked
-against the already-complete shared rule classes and classified: (a)
-already satisfied as-is, (b) small additive shared-class extension, or (c)
-new method in `KotlinSpecificRule.java`. `DeclarationAlignmentRule`'s
-`Declaration` model assumes C/Java's `[modifiers] Type name [= init]`
-order, structurally reversed from Kotlin's `[modifiers] val/var name :
-Type [= init]` — resolved by writing `KotlinDeclarationAlignmentRule` as
-its own model rather than forcing the shared one (RDD_KEY_103).
+Every section of `STYLE_KOTLIN.md`/`STYLE_KOTLIN2.md` cross-checked against
+shared rule classes and classified: (a) already satisfied as-is, (b) small
+additive shared-class extension, or (c) new method in
+`KotlinSpecificRule.java`. `DeclarationAlignmentRule`'s `Declaration` model
+assumes C/Java's `[modifiers] Type name [= init]` order, reversed from
+Kotlin's `[modifiers] val/var name : Type [= init]` — resolved by writing
+`KotlinDeclarationAlignmentRule` as its own model (RDD_KEY_103).
 
-**Scoping table** (section numbers match `STYLE_KOTLIN.md`; `K2.N` = `STYLE_KOTLIN2.md` §N). All DONE/verified; RDD_KEY column is authoritative detail.
+**Scoping table** (section numbers match `STYLE_KOTLIN.md`; `K2.N` =
+`STYLE_KOTLIN2.md` §N). All DONE/verified; RDD_KEY column is authoritative.
 
 | § | Topic | Outcome | RDD_KEY |
 |---|---|---|---|
@@ -303,9 +301,8 @@ through the same pipeline as Java/C++. Config uses `.jxmake-code-formatter`
 Both `kt_combined_inp.kt`/`kt_combined_out.kt` and `kt_comments_inp.kt`/
 `kt_comments_out.kt` fully pass, both enabled in the `Makefile`.
 **Fixtures are handwritten and may have syntax errors — confirm with the
-user as needed.** Methodology: format the input, diff against the
-reference to find bugs, plus an idempotency check (output re-run through
-the formatter should be unchanged).
+user as needed.** Methodology: format input, diff against reference; plus
+idempotency check (output re-run through formatter should be unchanged).
 
 - [x] `kt_combined_inp/out.kt` — STYLE_KOTLIN.md + STYLE_KOTLIN2.md
       end-to-end coverage. Round-trips clean, forward + idempotency. 9
@@ -318,7 +315,7 @@ the formatter should be unchanged).
       fixtures, plus both Kotlin fixtures, forward and idempotency both
       green).
 
-**`kt_combined` punch list** (all resolved, one-line summary each):
+**`kt_combined` punch list** (all resolved):
 1. Missing blank line/closing comment on `class`/`enum class` with primary
    constructor — RDD_KEY_119 (tokenizer, Kotlin-gated).
 2. `for(...) { stmt }` not collapsing (no `;` to count) — RDD_KEY_120.
@@ -347,21 +344,20 @@ the formatter should be unchanged).
    in `MiscRule.insertBlankLineBeforeReturn`.
 3. Leading blank line inside a body not stripped when first statement
    isn't a declaration — new `stripLeadingBlankBeforeNonDeclarationStatement`.
-4. Outermost class missing closing blank line + comment — an unrelated
-   frozen (JXM_CFMT_DIS/ENA) region nested inside suppressed the outer
-   class's own blank line/comment; shared-class fix, also fixed a latent
-   identical bug in `java_format_toggle_out.java`.
+4. Outermost class missing closing blank line + comment — nested frozen
+   (JXM_CFMT_DIS/ENA) region suppressed the outer class's blank line/comment;
+   shared-class fix, also fixed latent identical bug in
+   `java_format_toggle_out.java`.
 
 ---
 
 ## Step 5 — Dogfood / Real-Code Testing
 
 **Status: dogfood tree now compiles clean end-to-end — Step 5's core goal
-is met.** Any future session picking this up should treat it as
-regression-watching / further polish, not a known-broken state. Bucket D3
-(see "Dogfood: JetBrains/kotlin" below) is **folded into `STATE_CURLY_GDR.md`
-as of 2026-08-02** — see that section for the pointer; this job has no
-independently-open item of its own.
+is met.** Future sessions: regression-watching / further polish, not a
+known-broken state. Bucket D3 (see "Dogfood: JetBrains/kotlin" below) is
+**folded into `STATE_CURLY_GDR.md` as of 2026-08-02** — see that section
+for the pointer; this job has no independently-open item of its own.
 
 Applied STATE_COMMON.md's real-code-testing methodology (clone a real,
 compiling Kotlin project → format → idempotency round1 vs round2 →
@@ -401,16 +397,17 @@ export PATH=/opt/openjdk-21_linux-x64_bin/jdk-21/bin:$PATH
 ends by `exec bash`-ing into an interactive session — source only its
 `export`/`cd` lines for a scripted run.)
 
-**Lightweight PSI-based syntax-only checker (`kotlin_syntax_check`) — viable, distinct
-from the rejected full-compilation recipe above.** The rejected K2JVMCompiler
-note is about a bare classpath doing a *full compile*, which can't resolve
-`android.*`/AndroidX imports without Gradle's dependency graph.
-`kotlin_syntax_check` is lighter: parses a `.kt` file to a PSI/AST via
-`KotlinCoreEnvironment`/`KtPsiFactory` and reports `PsiErrorElement` nodes
-(parse errors only, no semantic/type checking) — never resolves `android.*`
-imports, so the AndroidX objection doesn't apply. Plain classpath-based
-standalone Java program; every needed class is bundled in the single
-shaded `~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib/kotlin-compiler.jar`
+**Lightweight PSI-based syntax-only checker (`kotlin_syntax_check`) —
+viable, distinct from the rejected full-compilation recipe above.** The
+rejected K2JVMCompiler note is about a bare classpath doing a *full
+compile*, which can't resolve `android.*`/AndroidX without Gradle's
+dependency graph. `kotlin_syntax_check` is lighter: parses a `.kt` file to
+a PSI/AST via `KotlinCoreEnvironment`/`KtPsiFactory` and reports
+`PsiErrorElement` nodes (parse errors only, no semantic/type checking) —
+never resolves `android.*` imports, so the AndroidX objection doesn't
+apply. Plain classpath-based standalone Java program; every needed class is
+bundled in the single shaded
+`~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib/kotlin-compiler.jar`
 (confirmed via `unzip -l`, no separate intellij-core/trove4j jars needed).
 
 Tool location: `util/CodingStyle.md/formatter/tools/verifiers/`
@@ -442,34 +439,32 @@ registered in `Makefile`'s `INP_FILES`, documented in `test/README.txt`,
 standard copyright header) — same precedent as the `indent-size = 2`
 config-wiring no-op exception noted there.
 
-**Dogfood Output Validation — `kotlin_content_diff`.** A content-preservation
-checker for Kotlin, complementing `kotlin_syntax_check` (which only proves
-"still parses", same `java_content_diff`/`css_content_diff.py`/
-`xml_content_diff.py` precedent). Reuses `kotlin_syntax_check`'s
-`KotlinCoreEnvironment`/`KtPsiFactory` infrastructure, modeled on
-`java_content_diff`'s design split by content family (import sorting,
-declaration-alignment whitespace, comment-case normalization are all
+**Dogfood Output Validation — `kotlin_content_diff`.** Content-preservation
+checker complementing `kotlin_syntax_check` (same
+`java_content_diff`/`css_content_diff.py`/`xml_content_diff.py` precedent).
+Reuses `kotlin_syntax_check`'s `KotlinCoreEnvironment`/`KtPsiFactory`,
+modeled on `java_content_diff`'s content-family split (import sorting,
+declaration-alignment whitespace, comment-case normalization are
 legitimate transforms, not corruption):
-- **imports** — compared as a multiset (`getImportedFqName()` +
-  `isAllUnder()`/alias, sorted) since reordering is legitimate.
-- **every top-level declaration** — compared in original relative order,
-  each canonicalized by a hand-rolled leaf-token walk (whitespace/comment/
-  KDoc skipped, remaining leaf text joined with single spaces) rather than
-  a pretty-printer, since IntelliJ PSI is a lossless CST with no built-in
-  canonical form to lean on.
-- **comments** (line/block/KDoc) — extracted separately, compared as a
-  multiset, whitespace-normalized and lowercased, so a case-only change
-  isn't flagged but a dropped/corrupted comment still is.
+- **imports** — multiset (`getImportedFqName()` + `isAllUnder()`/alias,
+  sorted) since reordering is legitimate.
+- **every top-level declaration** — original relative order; each
+  canonicalized by hand-rolled leaf-token walk (whitespace/comment/KDoc
+  skipped, remaining leaf text joined with single spaces) rather than a
+  pretty-printer (IntelliJ PSI is a lossless CST with no built-in
+  canonical form).
+- **comments** (line/block/KDoc) — multiset, whitespace-normalized and
+  lowercased (case-only change not flagged; dropped/corrupted comment is).
 
-**Gotcha hit and fixed during verification:** the leaf-token walk and
-comment extraction MUST use `ASTNode.getChildren(null)` (via
-`PsiElement.getNode()`), not `PsiElement.getChildren()` or
-`PsiTreeUtil.findChildrenOfType()`. For stub-based elements (`KtClass`,
-`KtProperty`, `KtNamedFunction`), `PsiElement.getChildren()` silently omits
-plain leaf tokens — identifiers, keywords, and critically comments
-(confirmed via an ASTNode-level dump showing `BLOCK_COMMENT`/`EOL_COMMENT`
-reachable only through `ASTNode.getChildren(null)`). Switching both the
-canonicalization walk and comment collection to ASTNode traversal fixed it.
+**Gotcha hit and fixed during verification:** leaf-token walk and comment
+extraction MUST use `ASTNode.getChildren(null)` (via `PsiElement.getNode()`),
+not `PsiElement.getChildren()` or `PsiTreeUtil.findChildrenOfType()`. For
+stub-based elements (`KtClass`, `KtProperty`, `KtNamedFunction`),
+`PsiElement.getChildren()` silently omits plain leaf tokens — identifiers,
+keywords, and critically comments (confirmed via ASTNode-level dump:
+`BLOCK_COMMENT`/`EOL_COMMENT` reachable only through
+`ASTNode.getChildren(null)`). Switching both canonicalization walk and
+comment collection to ASTNode traversal fixed it.
 
 Run (same classpath/env as `kotlin_syntax_check` — see STATE_COMMON.md's
 "Verifier toolchain paths"):
@@ -479,8 +474,9 @@ Run (same classpath/env as `kotlin_syntax_check` — see STATE_COMMON.md's
 Verified against a hand-crafted good pair (reindentation + import sort +
 one comment recapitalization — passes clean) and two bad pairs, a dropped
 statement and a corrupted comment (both correctly flagged), after the
-ASTNode-traversal fix above. Test fixtures kept in `/tmp` only (hand-crafted
-verification pairs, not registered as permanent `test/` fixtures).
+ASTNode-traversal fix above. Test fixtures kept in `/tmp` only
+(hand-crafted verification pairs, not registered as permanent `test/`
+fixtures).
 
 **Tools/compiler used**
 
@@ -490,11 +486,11 @@ PATH=/opt/openjdk-21_linux-x64_bin/jdk-21/bin:$PATH \
   ~/xsdk/kotlin-compiler-2.4.0/kotlinc/bin/kotlinc <file(s)-or-source-set>
 ```
 Sufficient for a non-Android/non-Gradle candidate's own source set (e.g.
-okio's `commonMain`, kotlinpoet's `jvmMain`) since it needs no external
-dependency graph beyond the stdlib; `expect`/`actual`/unresolved-reference
-noise from checking one source set in isolation is expected and ignored.
-Cannot resolve AndroidX or a multi-module Gradle project's own dependencies
-— see the rejected K2JVMCompiler note above and use (2) instead for those.
+okio's `commonMain`, kotlinpoet's `jvmMain`) — needs no external dependency
+graph beyond the stdlib; `expect`/`actual`/unresolved-reference noise from
+checking one source set in isolation is expected and ignored. Cannot
+resolve AndroidX or a multi-module Gradle project's own dependencies — see
+the rejected K2JVMCompiler note above and use (2) instead for those.
 
 (2) `./gradlew compileDebugKotlin` — full command block above (with
 `ANDROID_HOME`/JDK 21 on `PATH`, run against a persistent dogfood copy,
@@ -506,16 +502,15 @@ commands above. Used when a full Gradle build is not wanted/needed
 (`kotlinx.coroutines`, per explicit user request) — catches parse errors
 only, weaker confidence than (2) (no semantic/type checking).
 
-**Finished dogfood / real-code testing** (full bug detail lives in the
-Resolved Design Decisions table above — this list is the per-project
-index: scope, config, which RDD_KEYs, fixtures, verification result).
+**Finished dogfood / real-code testing** (full bug detail in Resolved
+Design Decisions above — this list is the per-project index: scope, config,
+RDD_KEYs, fixtures, verification result).
 
 1. **RobotCoding `gui_frontend_android`** (Android/Gradle app, 46 `.kt`
    files) — complete, config: default. 9 idempotency bugs (RDD_KEY_134–140)
-   then ~50 compile errors across 9 files found via `./gradlew
-   compileDebugKotlin` (RDD_KEY_141–144). Final: `BUILD SUCCESSFUL`, zero
-   errors (2 pre-existing unrelated deprecation warnings). Verified via
-   tool (2).
+   then ~50 compile errors across 9 files via `./gradlew compileDebugKotlin`
+   (RDD_KEY_141–144). Final: `BUILD SUCCESSFUL`, zero errors (2 pre-existing
+   unrelated deprecation warnings). Verified via tool (2).
 2. **`github.com/square/okio`** — core bugs fixed, config `indent-size=2`
    (matches okio's own `.editorconfig`; RDD_KEY_145 confirmed default
    `indent-size=4` produces spurious diffs, not a bug). Fixed RDD_KEY_146–148
@@ -720,17 +715,17 @@ fold" section for the current pointer.** Kept below for reference.
 Name.identifier("compareTo") -> if (doNotIntrinsify) call else transformCompareToMethodCall(call)
 ```
 Round1 correctly wraps both call candidates (`Name.identifier(...)` and
-`transformCompareToMethodCall(...)`) since both are measured against the
-same still-unmodified original line. Round2 (reformatting round1's own
-output, and also within a single `formatOne` pass — `enforceCallLineBreaking`
-runs twice) re-measures `transformCompareToMethodCall` against
+`transformCompareToMethodCall(...)`) measured against the still-unmodified
+original line. Round2 (reformatting round1's output, and also within a
+single `formatOne` pass — `enforceCallLineBreaking` runs twice)
+re-measures `transformCompareToMethodCall` against
 `lineStartIndex(tokens, nameIdx)`, which now walks back only to the nearest
 physical `NEWLINE` — the one baked in by `Name.identifier(...)`'s own prior
-wrap — so the "enclosing line" it sees has shrunk to fit, and it wrongly
-un-wraps. Root cause (RDD_KEY_221): one candidate's own wrap decision
-changes the measured line boundary a *sibling* candidate on the same
-logical statement sees; `lineStartIndex` tracks volatile physical layout,
-not the stable logical statement.
+wrap — so the "enclosing line" has shrunk and it wrongly un-wraps. Root
+cause (RDD_KEY_221): one candidate's wrap decision changes the measured
+line boundary a *sibling* candidate on the same logical statement sees;
+`lineStartIndex` tracks volatile physical layout, not the stable logical
+statement.
 
 **Fix attempt 1 (`nameIdx`-anchor) — reverted, regressed 28 fixtures.**
 Anchoring at `nameIdx` discards legitimate same-statement prefix (`return
@@ -745,17 +740,17 @@ backward scan (mirroring `splitTopLevelCommasBraceAware`'s depth-tracking,
 and `KotlinSpecificRule.signatureLineIndent`'s RDD_KEY_164/215 precedent)
 that tracks paren/bracket/angle-bracket depth and stops at the nearest
 depth-0 `;`, `{`, or `}` — never a bare `NEWLINE`. Gated `lang.isKotlin`,
-scoped to the one call site. The design's own documented open risk: Kotlin
+scoped to the one call site. Design's own documented open risk: Kotlin
 `when` arms (and most Kotlin statements generally, RDD_KEY_115) are
 NEWLINE-separated, not `;`-separated, so a preceding sibling with no
 depth-0 `;` could get merged into the backward scan.
 
-Implemented and validated: the grounded repro and a dedicated synthetic
-multi-arm `when{}` stress fixture (targeting the open risk directly) both
-passed, round1==round2, zero regressions in C/C++/Java/TS. But the full
-`make test` run still regressed 16 Kotlin fixtures — the risk materialized
-in an *ordinary two-statement sequence*, not the `when`-arm shape the
-stress test checked. Minimal repro (`real_code_regressions_20_inp.kt`):
+Implemented and validated: grounded repro and a dedicated synthetic
+multi-arm `when{}` stress fixture (targeting the open risk) both passed,
+round1==round2, zero regressions in C/C++/Java/TS. Full `make test` still
+regressed 16 Kotlin fixtures — risk materialized in an *ordinary
+two-statement sequence*, not the `when`-arm shape the stress test checked.
+Minimal repro (`real_code_regressions_20_inp.kt`):
 ```kotlin
 val display = (if (warning != null) "$warning\n\n" else "") + "Done"
 showMessage(context, display)
@@ -764,8 +759,8 @@ showMessage(context, display)
 but the backward scan from `showMessage`'s `nameIdx` finds no depth-0
 `;`/`{`/`}` before it, walks past its own statement start through the
 NEWLINE, and merges the entire preceding `val display = ...` statement
-into the width measurement — producing a false-positive wrap. Reverted in
-full (`git checkout -- src/com/jxmake/formatter/rules/MiscRuleCurly.java`,
+into the width measurement — false-positive wrap. Reverted in full
+(`git checkout -- src/com/jxmake/formatter/rules/MiscRuleCurly.java`,
 confirmed clean); `make test` back to 225/225, zero net change.
 
 **Conclusion:** the `;`/`{`/`}` depth-0 boundary rule alone can't handle

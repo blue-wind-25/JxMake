@@ -181,13 +181,13 @@ Question here since real implementation hasn't started.
       `TokenizerCurly.java`'s `MULTI_CHAR_OPS` array (lines 114-120): `^^`,
       `[:`, `:]` were absent, so they mis-split into single-char
       constituents (`^^` → `^`+`^`, `[:` → `[`+`:`, `:]` → `:`+`]`) — no
-      crash, no swallowing. CLI run against a hand-written `/tmp` snippet
-      confirmed the mis-split was actively **corrupting**, not inert
-      passthrough (`^^SomeType` rendered `^ ^ SomeType`; `[:r:]` vs.
-      `[: computeRefl(x) :]` got inconsistent interior spacing, since
-      `[`/`:` were each independently re-spaced by ordinary bracket/colon
-      rules rather than treated as one splice-bracket unit). No secondary
-      cascading corruption found. Assessment: expected, contained finding.
+      crash, no swallowing. CLI `/tmp` snippet confirmed the mis-split was
+      actively **corrupting**, not inert passthrough (`^^SomeType` rendered
+      `^ ^ SomeType`; `[:r:]` vs. `[: computeRefl(x) :]` got inconsistent
+      interior spacing, since `[`/`:` were each independently re-spaced by
+      ordinary bracket/colon rules rather than treated as one splice-bracket
+      unit). No secondary cascading corruption found. Assessment: expected,
+      contained finding.
 - [x] Tokenizer support pass for §5 Reflection done: `TokenizerCurly.java`'s
       `MULTI_CHAR_OPS` array gained `"^^"`, `"[:"`, `":]"` entries (none a
       strict prefix of any other existing entry, so no new ordering
@@ -207,17 +207,17 @@ Question here since real implementation hasn't started.
       (still deliberately provisional/draft per Scope §5) — that's a
       separate, later step.
 - [x] §5 tight/loose padding rules implemented, in `CppSpecificRule.java` +
-      `FormatterCurly.java`'s Phase 4 block (`lang.isCpp`-gated), with one
-      correction to STYLE_CPP26.md itself: empirical testing found
-      STYLE_CPP26.md §5's claim that splice-bracket padding "mirrors the
-      existing JAR-verified `[[ assume(a >= 0) ]]` case" was **false** —
-      `[[ ]]` attributes were left completely verbatim/unformatted, no
-      tight/loose rule existed at all (confirmed with user via
-      `AskUserQuestion`: the coincidental interior padding seen in an
-      earlier smoke test came from the unrelated generic paren-complexity
-      rule firing on `assume(...)`'s own `(...)`, not attribute-aware
-      logic). Per user's explicit decision (implement both together since
-      the precedent was coincidental, not truly pre-existing), added:
+      `FormatterCurly.java`'s Phase 4 block (`lang.isCpp`-gated). One
+      correction to STYLE_CPP26.md itself: empirical testing found §5's
+      claim that splice-bracket padding "mirrors the existing JAR-verified
+      `[[ assume(a >= 0) ]]` case" was **false** — `[[ ]]` attributes were
+      left completely verbatim/unformatted, no tight/loose rule existed
+      (confirmed with user via `AskUserQuestion`: coincidental interior
+      padding in an earlier smoke test came from the unrelated generic
+      paren-complexity rule firing on `assume(...)`'s own `(...)`, not
+      attribute-aware logic). Per user's explicit decision (implement both
+      together since the precedent was coincidental, not truly
+      pre-existing), added:
       - `CppSpecificRule.enforceAttributeAndSpliceBracketPadding` —
         handles both `[[ ]]` and `[: :]` with one shared implementation:
         forward-scans for matched OP-token pairs (small stack keyed on
@@ -243,8 +243,8 @@ Question here since real implementation hasn't started.
       `FormatterCurly`'s Phase 4 cosmetic-spacing block, `lang.isCpp`-gated)
       collapses the gaps on both sides of an `...` token whenever
       immediately followed by `[` (scoped to that exact adjacency, so
-      ordinary variadic `Args...)`/`Args...,` uses are untouched). `make
-      test`: 101/101 forward + idempotency, zero regressions. §2
+      ordinary variadic `Args...)`/`Args...,` uses are untouched).
+      `make test`: 101/101 forward + idempotency, zero regressions. §2
       (`= delete("reason")`) and §3 (placeholder `_`) confirmed to need no
       new code — both already format correctly via existing ordinary
       call-argument/identifier handling (verified against
@@ -288,19 +288,18 @@ Question here since real implementation hasn't started.
       inlinable lone clause.
 
       Verifying the fixture against the real JAR surfaced several *other*,
-      unrelated mismatches between the fixture's expected output and
-      actual behavior — none bugs in this fix, confirmed by reproducing
-      each with plain non-C++26 snippets: blank lines the fixture wrongly
-      inserted between consecutive `using` declarations (fixed expected
-      output); `if(init; cond) { ... }` staying K&R-brace is correct,
-      established behavior (fixed expected output which wrongly assumed
-      Allman); input's function bodies needed added indentation since the
-      formatter doesn't reindent (same convention as other cpp26
-      fixtures). **Investigated, not a bug:** structured bindings
-      collapsing a trailing same-line comment's original gap to a single
-      space, via `DeclarationAlignmentRuleCurly.java`'s grid rendering path
-      — attempted a fix and reverted it, since it broke five already-
-      passing fixtures (`c_comments`, `cpp_comments`, `java_comments`,
+      unrelated mismatches (none bugs in this fix; each reproduced with
+      plain non-C++26 snippets): blank lines the fixture wrongly inserted
+      between consecutive `using` declarations (fixed expected output);
+      `if(init; cond) { ... }` staying K&R-brace is correct, established
+      behavior (fixed expected output which wrongly assumed Allman);
+      input's function bodies needed added indentation since the formatter
+      doesn't reindent (same convention as other cpp26 fixtures).
+      **Investigated, not a bug:** structured bindings collapsing a
+      trailing same-line comment's original gap to a single space, via
+      `DeclarationAlignmentRuleCurly.java`'s grid rendering path —
+      attempted a fix and reverted it, since it broke five already-passing
+      fixtures (`c_comments`, `cpp_comments`, `java_comments`,
       `cpp_combined`, plus this one) that all expect exactly one space in
       this grid path regardless of source gap width, confirming single-
       space normalization here is established, intentional behavior. No
@@ -346,12 +345,12 @@ Question here since real implementation hasn't started.
       `CppSpecificRule.enforceAttributeAndSpliceBracketPadding` (can grow a
       line via its loose `[: expr :]` padding) in Phase 4, *after*
       `MiscRuleCurly.enforceCallLineBreaking`'s fits-check in Phase 1 had
-      already decided not to wrap — a fresh format measured the
-      pre-padding (98-char, fits) width, reformatting the already-padded
-      output measured the post-padding (102-char) width and wrapped. Same
-      bug shape already fixed once for `enforceComplexityPadding` and
-      flagged generically in `STATE_COMMON.md`'s Architectural TODOs
-      ("Ordering interacts with every other pass"). Fixed by pulling
+      already decided not to wrap — fresh format measured pre-padding
+      (98-char, fits); reformat of already-padded output measured
+      post-padding (102-char) and wrapped. Same bug shape already fixed
+      once for `enforceComplexityPadding` and flagged generically in
+      `STATE_COMMON.md`'s Architectural TODOs ("Ordering interacts with
+      every other pass"). Fixed by pulling
       `enforceAttributeAndSpliceBracketPadding` forward to run right
       before `enforceCallLineBreaking`, alongside `enforceComplexityPadding`
       (both `lang.isCpp`-gated there instead of Phase 4).

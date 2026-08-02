@@ -256,33 +256,31 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       wired into any caller at this point; that lands with §2/§6/§7).
 - [x] §2–9 rule-by-rule (each its own checkpoint commit):
 
-      **§2 (Assignment Alignment).** Fixed a tokenizer gap found while
-      implementing this: `TokenizerIndent.emitOperator` only consumed one
-      char, so compound-assignment operators (`+=` etc.) came out as
-      multiple tokens — fixed via new `MULTI_CHAR_OPS` array (mirrors
-      `TokenizerCurly`'s). New `MiscRuleIndent.PyAssignment`/`renderPyGroup`
-      (padded `name (op)= value`, no trailing-comment alignment per
+      **§2 (Assignment Alignment).** Fixed tokenizer gap:
+      `TokenizerIndent.emitOperator` only consumed one char, so compound
+      assignment (`+=` etc.) split into multiple tokens — fixed via
+      `MULTI_CHAR_OPS` (mirrors `TokenizerCurly`). New
+      `MiscRuleIndent.PyAssignment`/`renderPyGroup` (padded
+      `name (op)= value`, no trailing-comment alignment per
       STYLE_PYTHON3.md §2) plus `ScopePipelineIndent
       .applyAssignmentAlignment`, a from-scratch NEWLINE/INDENT/DEDENT-aware
       logical-line splitter; groups break on blank line, comment, depth
       change, or unrecognized statement. **Gap:** multi-line RHS
       (bracket/backslash continuation) never a candidate; bare-IDENTIFIER-
       target-only (matches C-family's own exclusion of `self.x = 1`/
-      tuple-assignment). Verified via 5-case smoke test + full `make test`
-      (114/114, zero regressions).
+      tuple-assignment). Verified: 5-case smoke + `make test` 114/114.
 
       **§3 (Import Ordering).** New `MiscRuleIndent.PyImport` (`Kind` enum
       `FUTURE < IMPORT < FROM`) plus `ScopePipelineIndent.applyImportSort`,
-      reusing a generalized shared `RawLine`/`splitRawLines` (shared with
-      §2). Groups break on blank line, comment, depth change, or any
-      non-import statement. §3.1's own worked example required
-      within-clause name sorting too — `flushImportGroup` rebuilds a `FROM`
-      import's own name-list span when out of order, even in an otherwise-
-      unchanged/singleton group. **Gaps:** multi-physical-line import
-      untouched; parenthesized `from X import (...)` rejected entirely;
-      multi-module `import a, b` rejected/deferred (only single-module
-      `import a.b.c[ as alias]` recognized). Verified via 6-case smoke test
-      + full `make test` (114/114, zero regressions).
+      reusing generalized shared `RawLine`/`splitRawLines` (shared with §2).
+      Groups break on blank line, comment, depth change, or any non-import
+      statement. §3.1's worked example required within-clause name sorting
+      too — `flushImportGroup` rebuilds a `FROM` import's own name-list
+      span when out of order, even in an otherwise-unchanged/singleton
+      group. **Gaps:** multi-physical-line import untouched; parenthesized
+      `from X import (...)` rejected entirely; multi-module `import a, b`
+      rejected/deferred (only single-module `import a.b.c[ as alias]`
+      recognized). Verified: 6-case smoke + `make test` 114/114.
 
       **§4 (Decorators).** New `ScopePipelineIndent.applyDecoratorSpacing`
       + helpers (`applyBracketPadding`/`classifyLoose`/`isOpenBracketText`/
@@ -295,11 +293,10 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       Multi-physical-line decorators completely skipped. **Gap:
       decorator-call overflow/line-wrapping not implemented** — no general
       line-length-based call-argument-wrapping mechanism exists anywhere yet
-      (C-family's `enforceCallLineBreaking` is Curly-only, not ported). One
-      bug fixed during verification: `normalizeGap` wrongly no-op'd on
-      already-tight `from == to`, skipping the loose case's needed
-      zero-width insertion; fixed to only guard on `from > to`. Verified
-      via 7-case smoke test + full `make test` (114/114, zero regressions).
+      (C-family's `enforceCallLineBreaking` is Curly-only, not ported). Bug
+      fixed: `normalizeGap` wrongly no-op'd on already-tight `from == to`,
+      skipping the loose case's needed zero-width insertion; fixed to only
+      guard on `from > to`. Verified: 7-case smoke + `make test` 114/114.
 
       **§5 (F-Strings).** New `ScopePipelineIndent.applyFStringSpacing` +
       helpers (`processFString`/`processField`/`isFStringConversion`/
@@ -316,8 +313,8 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       `and`/`or`/`not`/comprehension `for`/`if`. When an f-string sits
       inside a span another pass (e.g. §2's assignment RHS) already fully
       replaces, that pass's wider, earlier-`start` replacement wins and
-      this pass's narrower one is silently dropped, not corrupted. Verified
-      via 8-case smoke test + full `make test` (114/114, zero regressions).
+      this pass's narrower one is silently dropped, not corrupted. Verified:
+      8-case smoke + `make test` 114/114.
 
       **§6 (Function Signature Wrapping) — alignment-only slice.** The
       inline-vs-one-per-line *decision* has no home anywhere in
@@ -336,8 +333,8 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       local bracket depth so nested type hints (`List[Dict[str, int]]`)
       work correctly. Return-type arrow untouched by construction. **Gap:
       inline-vs-one-per-line decision not implemented** (blocked on same
-      missing wrap-decision infra as §4). Verified via 5-case smoke test +
-      full `make test` (114/114, zero regressions).
+      missing wrap-decision infra as §4). Verified: 5-case smoke +
+      `make test` 114/114.
 
       **§8 (Single-Statement Bodies) — a join operation** (unlike §2-§7,
       which never join/split lines). Precedent: `BlockStructureRule
@@ -356,12 +353,11 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       shallower depth. **Ambiguity resolved conservatively:** a body
       containing `lambda` is always treated as "opens a new block" (never
       joined). A nested compound statement's own header still independently
-      gets its own join opportunity. Verified via a 17-case smoke test +
-      full `make test` (114/114, zero regressions). **Gaps:** header/body
-      spanning multiple physical lines never a candidate; body with own
-      trailing comment conservatively skipped; never expands an
-      already-compact line back to block form; no `;`-chaining ever
-      produced.
+      gets its own join opportunity. Verified: 17-case smoke + `make test`
+      114/114. **Gaps:** header/body spanning multiple physical lines never
+      a candidate; body with own trailing comment conservatively skipped;
+      never expands an already-compact line back to block form; no
+      `;`-chaining ever produced.
 
       **§7 (Structural Pattern Matching) — `:` column alignment-only
       slice.** New `ScopePipelineIndent.CaseLine`/`applyCaseColonAlignment`/
@@ -381,8 +377,8 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       `PythonBracketComplexityEvaluator` (exists but not wired into
       case-pattern rendering) — narrowing to `:`-alignment-only was this
       checkpoint's pre-agreed scope. No closing-comment mechanism exists
-      (confirmed via full-tree grep, out of scope). Verified via 8-case
-      smoke test + full `make test` (114/114, zero regressions).
+      (confirmed via full-tree grep, out of scope). Verified: 8-case smoke +
+      `make test` 114/114.
 
       **§9 (Control Flow Blank Lines).** New `ScopePipelineIndent
       .ControlFlowFrame`/`applyControlFlowBlankLines`/`isDefHeaderLine`/
@@ -404,9 +400,8 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       function-body-opening; semicolon-chained statements never recognized
       by either half; a §8-compact preceding block ending in
       return/break/continue never recognized by §9.2; `try`/`except`/
-      `finally` blank-line placement entirely out of scope. Verified via a
-      14-case smoke test + full `make test` (114/114 forward + idempotency,
-      zero regressions).
+      `finally` blank-line placement entirely out of scope. Verified:
+      14-case smoke + `make test` 114/114 forward + idempotency.
 
 - [x] Local test fixtures authored and registered: `py_combined_inp/out.py`
       and `py_comments_inp/out.py` in `test/`, documented in
@@ -431,24 +426,21 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
 
       Four real bugs found via non-idempotency (`diff -r round1 round2`),
       none via `py_compile`/AST-diff:
-      1. `ScopePipelineIndent.render`'s replacement-merge loop advanced its
-         cursor `r` only on exact `start == i`; two legitimately
-         overlapping replacements (§8 join + §2 alignment on the same
-         nested statement) stalled `r` and silently dropped every later
-         replacement. Fixed by skipping stale entries instead of stalling.
-         Fixture `real_code_regressions_78_{inp,out}.py`.
+      1. `ScopePipelineIndent.render` replacement-merge loop advanced cursor
+         `r` only on exact `start == i`; overlapping replacements (§8 join
+         + §2 alignment) stalled `r` and dropped later replacements. Fixed:
+         skip stale entries instead of stalling. Fixture
+         `real_code_regressions_78_{inp,out}.py`.
       2. §6 `trySignatureGroup` split params on raw `NEWLINE` only, not
-         bracket-depth-aware — a type hint spanning multiple physical lines
-         via a still-open nested bracket was misclassified instead of
-         triggering the "leave whole signature untouched" gap, producing
-         non-convergent trailing whitespace. Fixed by only splitting at
-         depth-0 `NEWLINE`s.
-      3. §9.2's zero-width blank-line insertion and §8's join could both
-         start at the same token index; stable sort left the zero-width
-         entry second, so §8's wider replacement jumped over it, silently
-         dropping the blank line (a forward-pass bug, not just
-         idempotency). Fixed by sorting equal-`start` zero-width entries
-         first. Bugs 2+3 combined into fixture
+         bracket-depth-aware — multi-line type hints via open nested
+         brackets misclassified instead of "leave whole signature
+         untouched", producing non-convergent trailing whitespace. Fixed:
+         only split at depth-0 `NEWLINE`s.
+      3. §9.2 zero-width blank-line insertion and §8 join could share the
+         same start index; stable sort left zero-width second, so §8's
+         wider replacement jumped over it (forward-pass bug, not just
+         idempotency). Fixed: sort equal-`start` zero-width entries first.
+         Bugs 2+3 combined into fixture
          `real_code_regressions_79_{inp,out}.py`.
 
       Final numbers (after all four fixes, full 83-file corpus): zero
@@ -462,14 +454,14 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       **`pallets/click` — DONE.** 78 `.py` files (fresh clone `/tmp/click`).
       Zero crashes on forward pass.
 
-      One bug found via non-idempotency: `ScopePipelineIndent
-      .applyBracketPadding` (§4) couldn't distinguish an f-string field's
-      own `{`/`}` from an actual dict/set literal, padding an f-string
-      nested in a decorator's lambda default arg (`tests/test_basic.py`'s
+      One bug via non-idempotency: `ScopePipelineIndent.applyBracketPadding`
+      (§4) couldn't distinguish an f-string field's `{`/`}` from a dict/set
+      literal, padding an f-string nested in a decorator's lambda default
+      arg (`tests/test_basic.py`'s
       `@click.custom_version_option(lambda ctx: f"{ctx.info_name} 1.0")` →
-      `f"{ ctx.info_name }"` on forward pass; §5 trimmed it back next
-      round). Fixed by skipping a `{`/`}` pair whenever `{` is immediately
-      preceded by `FSTRING_START`/`FSTRING_MIDDLE`. Fixture
+      `f"{ ctx.info_name }"` on forward; §5 trimmed it back next round).
+      Fixed: skip a `{`/`}` pair whenever `{` is immediately preceded by
+      `FSTRING_START`/`FSTRING_MIDDLE`. Fixture
       `real_code_regressions_80_{inp,out}.py`.
 
       Final numbers: zero crashes; idempotency empty (78/78) after fix;
@@ -485,23 +477,22 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       `scripts/`).
 
       Forward pass: 1 crash (337/338) — FIXED.
-      `tests/data/cases/pep_701.py` threw `IndexOutOfBoundsException` from
+      `tests/data/cases/pep_701.py`: `IndexOutOfBoundsException` from
       `ScopePipelineIndent.processField`/`applyFStringSpacing`. Minimal
-      repro: `f"{1}\{{"`. Root cause: `TokenizerIndent.emitFString`'s
-      backslash-escape handling always skipped 2 chars even when next was
-      `{`/`}`, orphaning the second `{` of a doubled-brace escape right
-      after a field close. Fixed: only skip the backslash itself when
-      followed by `{`/`}`, so that char is re-evaluated fresh. Verified
-      against real CPython semantics. `make test` 163/163 forward + 163/163
-      idempotency. Fixture: `real_code_regressions_114_{inp,out}.py`
-      (identity-pass).
+      repro: `f"{1}\{{"`. Root cause: `TokenizerIndent.emitFString`
+      backslash-escape always skipped 2 chars even when next was `{`/`}`,
+      orphaning the second `{` of a doubled-brace escape right after a
+      field close. Fixed: only skip the backslash itself when followed by
+      `{`/`}`, so that char is re-evaluated fresh. Verified against real
+      CPython semantics. Fixture `real_code_regressions_114_{inp,out}.py`
+      (identity-pass). `make test` 163/163 forward + 163/163 idempotency.
 
       Round2 idempotency (337 files): 3/337 differed — 2 bugs, both fixed
       in a follow-up session:
       1. **§7/§8 join-then-align ordering.** Block-form `match`/`case`
-         skips §7's colon-alignment on round1, then §8 joins each case body
-         onto its header; round2 sees the now-compact form and applies
-         column alignment round1 never had. Affected:
+         skips §7 colon-alignment on round1; §8 joins each case body onto
+         its header; round2 sees compact form and applies column alignment
+         round1 never had. Affected:
          `tests/data/cases/pattern_matching_simple.py`,
          `tests/data/line_ranges_formatted/pattern_matching.py`. FIXED:
          `classifyCaseLine` gained `tryQualifyJoinBody` to predict within
@@ -538,13 +529,13 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       `addBraceTrim` (§5) — FIXED (follow-up session):**
       - (a) **Nested-brace field fusion.** A field followed by a nested `{`
         (e.g. `f"{ {a for a in (1, 2, 3)}}"`) had its close-gap trimmed to
-        zero, fusing with the following literal `{{` and silently deleting
-        the nested expression (`ast.dump` confirmed the node is gone).
-        Repro: `tests/data/cases/fstring.py` line 8. Fixed: `addBraceTrim`
+        zero, fusing with following literal `{{` and silently deleting the
+        nested expression (`ast.dump` confirmed the node is gone). Repro:
+        `tests/data/cases/fstring.py` line 8. Fixed: `addBraceTrim`
         normalizes that gap to exactly one space whenever the next
         significant token's text is `{`.
-      - (b) **Self-documenting `{expr=}` debug fields.** The leading gap
-        was trimmed even though Python reproduces `expr`'s exact original
+      - (b) **Self-documenting `{expr=}` debug fields.** Leading gap was
+        trimmed even though Python reproduces `expr`'s exact original
         whitespace verbatim at runtime for a `=`-suffixed field. Repro:
         `tests/data/cases/preview_long_strings.py` line 327. Fixed:
         `addBraceTrim` detects a bare trailing `=` OP token as the field's
@@ -565,20 +556,19 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
       `--preserve-tree --root /tmp/django --out <scratch>/round1`, then
       round2 from round1). Zero crashes on forward pass.
 
-      One bug found via non-idempotency, but actual content corruption on
-      the forward pass itself: `django/utils/json.py`'s `case Sequence():
-      # str and bytes were already handled.` — a §8 single-statement-body
-      `match`/`case` header carrying its own trailing comment still
-      qualified for the join (only a *body* trailing comment was guarded
-      against, not a *header* one). `applySingleStatementBody`'s
-      `headerText` construction stopped at the header's own `:`, silently
-      deleting the comment on the forward pass itself (genuine data loss).
-      Root cause: `classifySingleStatementHeaderColon`'s loop and
-      `classifyCaseLine`'s compact/`virtualJoin` computation both
-      explicitly permitted a trailing comment after the header colon to
-      still qualify, with no "don't lose it" step at join time. Fixed:
-      `classifySingleStatementHeaderColon` now returns `-1` immediately on
-      any header trailing comment; `classifyCaseLine` tracks
+      One bug via non-idempotency, but actual content corruption on the
+      forward pass itself: `django/utils/json.py`'s
+      `case Sequence(): # str and bytes were already handled.` — a §8
+      single-statement-body `match`/`case` header carrying its own trailing
+      comment still qualified for the join (only a *body* trailing comment
+      was guarded against, not a *header* one).
+      `applySingleStatementBody`'s `headerText` stopped at the header's
+      own `:`, silently deleting the comment (genuine data loss). Root
+      cause: `classifySingleStatementHeaderColon` and `classifyCaseLine`'s
+      compact/`virtualJoin` both permitted a trailing comment after the
+      header colon to still qualify, with no "don't lose it" step at join
+      time. Fixed: `classifySingleStatementHeaderColon` returns `-1`
+      immediately on any header trailing comment; `classifyCaseLine` tracks
       `headerHasTrailingComment` separately from `compact` and never sets
       `virtualJoin` when true; the `case` delegation additionally requires
       `c.virtualJoin` before returning a joinable `colonIdx` — mirrors the
@@ -612,7 +602,7 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
 
       1. **[CRITICAL, FIXED] f-string nested-format-spec crash**
          (`IndexOutOfBoundsException`, `ScopePipelineIndent.processField`).
-         `Lib/test/test_fstring.py` crashed outright on cases like
+         `Lib/test/test_fstring.py` crashed on cases like
          `f'{2:{"{"}>10}'`/`f'{3:{"}"}>10}'`/
          `f'{10:#{3 != {4:5} and width}x}'`
          (`test_format_specifier_expressions`). Root cause narrower than
@@ -643,45 +633,43 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
          alphabetize inter-statement order when one group had multiple
          `from X import ...` lines for the *same* `X`; round2
          self-corrected. Root cause: `MiscRuleIndent.PyImport.compareTo`
-         keyed on `this.names`/`other.names`, populated from the
-         as-parsed (pre within-clause-sort) name order — only after one
-         round-trip did re-parsing yield a matching sorted form.
-         Reproduced identically at `indent-size=2` (pure sort-key bug, not
-         indent-sensitive). FIXED: `PyImport.compareTo` now sorts a copy of
-         each side's `names` before the element-by-element comparison
-         (leaving `names` itself untouched, in source order, for
-         `sortedNameUnits`'s separate within-clause-rebuild use) — matches
-         §3.1 point 3's "sort by the first imported name" read as "the
-         first name after within-clause alphabetization." Verified against
-         `Lib/random.py:53-56` directly (correctly ordered and idempotent
-         on first format) plus a minimal repro at `indent-size=2`. Fixture:
-         `real_code_regressions_137`. `make test`: 186/186 forward +
-         186/186 idempotency.
+         keyed on `this.names`/`other.names` from as-parsed (pre
+         within-clause-sort) name order — only after one round-trip did
+         re-parsing yield a matching sorted form. Reproduced identically at
+         `indent-size=2` (pure sort-key bug, not indent-sensitive). FIXED:
+         `PyImport.compareTo` now sorts a copy of each side's `names`
+         before the element-by-element comparison (leaving `names` itself
+         untouched, in source order, for `sortedNameUnits`'s separate
+         within-clause-rebuild use) — matches §3.1 point 3's "sort by the
+         first imported name" read as "the first name after within-clause
+         alphabetization." Verified against `Lib/random.py:53-56` directly
+         (correctly ordered and idempotent on first format) plus a minimal
+         repro at `indent-size=2`. Fixture: `real_code_regressions_137`.
+         `make test`: 186/186 forward + 186/186 idempotency.
       3. **[IDEMPOTENCY, FIXED] §7/§8 join-then-align ordering, recurrence
          adjacent to a preceding block-form `case`** (2 files:
-         `Lib/turtle.py` ~line 3930, `Lib/typing.py` ~line 2974). A run of
-         already-compact `case X: stmt` lines stayed unpadded on round1 but
-         got `:`-column-aligned on round2 (both valid Python,
-         cosmetic-only) — second occurrence of the bug class already fixed
-         for `psf/black` (`real_code_regressions_115`). Root cause was one
-         step removed from the initial "preceding block-form `case (...)`"
-         guess: the preceding block-form header correctly breaks the group
-         boundary and has no bearing. Real cause: every member after it
-         (`VAR_POSITIONAL`/`KEYWORD_ONLY`/`VAR_KEYWORD`/`_`) is itself
-         `virtualJoin`-eligible, and `case _:`'s very short pattern needed
-         enough padding to match its much longer sibling that the
-         padded+joined line overflowed `line-length` — correctly making
-         round1's §7 abandon alignment for the whole group (all-or-nothing),
-         leaving §8 to join each member individually, unaligned. Round2
-         then saw those now-compact members and realigned them, because
-         `flushCaseGroup`'s pre-commit length-budget check only ever
-         examined `virtualJoin` members, never already-compact ones. Fixed
-         by extending that check uniformly to every group member (added a
-         `lineEnd` field to `CaseLine`). Verified against both cited files
-         (idempotent, `py_compile`-clean save for `typing.py`'s
-         pre-existing unrelated `lazy import` error, confirmed identical on
-         the unformatted original). Fixture: `real_code_regressions_138`.
-         `make test`: 187/187 forward + 187/187 idempotency.
+         `Lib/turtle.py` ~line 3930, `Lib/typing.py` ~line 2974). Already-
+         compact `case X: stmt` lines stayed unpadded on round1 but got
+         `:`-column-aligned on round2 (cosmetic-only) — second occurrence
+         of the bug class already fixed for `psf/black`
+         (`real_code_regressions_115`). Preceding block-form header
+         correctly breaks the group boundary and has no bearing. Real
+         cause: every member after it (`VAR_POSITIONAL`/`KEYWORD_ONLY`/
+         `VAR_KEYWORD`/`_`) is itself `virtualJoin`-eligible, and
+         `case _:`'s very short pattern needed enough padding to match its
+         much longer sibling that the padded+joined line overflowed
+         `line-length` — correctly making round1's §7 abandon alignment
+         for the whole group (all-or-nothing), leaving §8 to join each
+         member individually, unaligned. Round2 then saw those now-compact
+         members and realigned them, because `flushCaseGroup`'s pre-commit
+         length-budget check only ever examined `virtualJoin` members,
+         never already-compact ones. Fixed by extending that check
+         uniformly to every group member (added a `lineEnd` field to
+         `CaseLine`). Verified against both cited files (idempotent,
+         `py_compile`-clean save for `typing.py`'s pre-existing unrelated
+         `lazy import` error, confirmed identical on the unformatted
+         original). Fixture: `real_code_regressions_138`. `make test`:
+         187/187 forward + 187/187 idempotency.
       4. **[IDEMPOTENCY, FIXED] §4/§5 decorator-call bracket-padding leaks
          into a nested f-string field's own braces** (1 file:
          `Lib/test/test_ctypes/test_generated_structs.py` lines 278, 284).
@@ -691,21 +679,22 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
          field back but left the outer paren padding — non-idempotent. Same
          bug class already fixed for `pallets/click`
          (`real_code_regressions_80`). Root cause was **not** nesting depth
-         as originally guessed (same top-level-call-argument shape as the
-         click case) — it was field **adjacency**: `{signedness}{n}` has no
-         literal text between the two fields, so `TokenizerIndent
-         .emitFString` (mirroring CPython's own FSTRING_START/MIDDLE/END
-         scheme) never emits an FSTRING_MIDDLE token between them, leaving
-         the second field's opening `{` directly preceded by the first
-         field's closing `}` (plain PUNCT) — `applyBracketPadding`'s
-         adjacency guard only checked for FSTRING_START/MIDDLE, missing
-         this case. Fixed by tracking the previous f-string field's close
-         position across `applyBracketPadding`'s loop iterations and
-         treating a `{` immediately following it as another field open.
-         Verified via minimal repro and the real
-         `test_generated_structs.py` (idempotent, `py_compile`-clean).
-         Fixture: `real_code_regressions_139`. `make test`: 188/188
-         forward + 188/188 idempotency.
+         (same top-level-call-argument shape as the click case) — it was
+         field **adjacency**: `{signedness}{n}` has no literal text between
+         the two fields, so `TokenizerIndent.emitFString` (mirroring
+         CPython's FSTRING_START/MIDDLE/END scheme) never emits an
+         FSTRING_MIDDLE token between them, leaving the second field's
+         opening `{` directly preceded by the first field's closing `}`
+         (plain PUNCT) — `applyBracketPadding`'s adjacency guard only
+         checked for FSTRING_START/MIDDLE, missing this case. Fixed by
+         tracking the previous f-string field's close position across
+         `applyBracketPadding`'s loop iterations and treating a `{`
+         immediately following it as another field open. Verified via
+         minimal repro and the real `test_generated_structs.py`
+         (idempotent, `py_compile`-clean). Fixture:
+         `real_code_regressions_139`. `make test`: 188/188 forward +
+         188/188 idempotency.
 
       All four clusters fixed; full corpus re-run deferred until
       requested, same pattern as every prior dogfood entry in this file.
+

@@ -143,23 +143,26 @@ licensed project tooling; `java_syntax_check`/`kotlin_syntax_check` also
 live in `tools/verifiers/`, unrelated to this campaign):
 
 **Syntax checkers** (six Node.js scripts, parse-only, `line:col: message` on
-error, exit 1 if any file errors, else exit 0) — `json_syntax_check.js`
-(`JSON.parse`, plain `.json` only), `json5_syntax_check.js` (`json5`),
-`yaml_syntax_check.js` (`js-yaml`, `loadAll()` for multi-doc streams),
-`toml_syntax_check.js` (`smol-toml`), `css_syntax_check.js` (`postcss`, NOT
-`css-tree` — css-tree silently auto-closes an unclosed `{` at EOF instead of
-erroring, confirmed by direct testing; `postcss.parse()` throws
-`CssSyntaxError` with line/column instead), `xml_syntax_check.js`
-(`@xmldom/xmldom`, custom `onError` to capture warnings the default handler
-only logs, plus try/catch around `parseFromString` since `fatalError`
-throws regardless of `onError`). `html_syntax_check.js` (`parse5`,
-`onParseError`) also exists for HTML5 but is a weaker signal — HTML5
-parsing is spec-mandated error-tolerant (auto-closes mismatched tags), so
-it only catches the narrow set of spec-defined parse errors, not general
-malformed markup the way the XML checker does (documented as a caveat in
-the script). All six verified against hand-crafted good/bad pairs
-(malformed trailing comma, unclosed brace, mismatched tag, etc.) before
-trusted for dogfood use.
+error, exit 1 if any file errors, else exit 0):
+- `json_syntax_check.js` (`JSON.parse`, plain `.json` only)
+- `json5_syntax_check.js` (`json5`)
+- `yaml_syntax_check.js` (`js-yaml`, `loadAll()` for multi-doc streams)
+- `toml_syntax_check.js` (`smol-toml`)
+- `css_syntax_check.js` (`postcss`, NOT `css-tree` — css-tree silently
+  auto-closes an unclosed `{` at EOF instead of erroring, confirmed by
+  direct testing; `postcss.parse()` throws `CssSyntaxError` with
+  line/column instead)
+- `xml_syntax_check.js` (`@xmldom/xmldom`, custom `onError` to capture
+  warnings the default handler only logs, plus try/catch around
+  `parseFromString` since `fatalError` throws regardless of `onError`)
+- `html_syntax_check.js` (`parse5`, `onParseError`) also exists for HTML5
+  but is a weaker signal — HTML5 parsing is spec-mandated error-tolerant
+  (auto-closes mismatched tags), so it only catches the narrow set of
+  spec-defined parse errors, not general malformed markup the way the XML
+  checker does (documented as a caveat in the script).
+
+All six verified against hand-crafted good/bad pairs (malformed trailing
+comma, unclosed brace, mismatched tag, etc.) before trusted for dogfood use.
 
 **Content-preservation checkers** (Python; proves "still means the same
 thing," not just "still parses" — motivated by the CSS `twbs/bootstrap`
@@ -173,8 +176,7 @@ caught its bad case:
   byte-identical in order; comment-stripped/colon-normalized token stream
   identical; `!important` count matches; vendor-prefixed property counts
   match per distinct prefixed string. First used ad hoc during
-  `twbs/bootstrap`, promoted to a permanent script during
-  `necolas/normalize.css`.
+  `twbs/bootstrap`, promoted to permanent during `necolas/normalize.css`.
 - `xml_content_diff.py` — stdlib `xml.dom.minidom` (no extra dependency).
   Walks both DOMs in parallel (skipping pure-whitespace text nodes):
   element names + attribute name/value pairs **in order** (XML preserves
@@ -205,7 +207,10 @@ caught its bad case:
   byte-compared (legitimately dispatched to JS/TS/CSS pipelines which may
   reformat them) — only checked for surviving at the same tree position
   with the same attributes and a non-empty body. Written during
-  `h5bp/html5-boilerplate`.
+  `h5bp/html5-boilerplate`. **Note:** can under-report serialization-level
+  structural bugs (e.g. content dumped after `</html>`) because `parse5`
+  re-parents per the HTML5 "after after body" recovery before comparing —
+  spot-check raw output text directly, not just the diff verdict.
 
 Exit codes: 0 = match, 1 = mismatch (description printed), 2 = a file
 doesn't parse at all (n/a in practice — files are syntax-checked first).
@@ -315,21 +320,21 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   `WordPress/wordpress-develop`, `alexandersandberg/html5-elements-tester`.
 
 - **WordPress magic-comment capitalization — RESOLVED 2026-07-30.**
-  `normalize-comment-start-case=on`'s `normComment` in `XmlSpecificRule.java`
-  unconditionally capitalized lowercase-starting comments, no directive-shape
-  exclusion (unlike CSS's `isSingleTokenDirective` from
-  `real_code_regressions_69`) — silently rewriting WordPress's literal magic
-  comments `<!--more-->`/`<!--nextpage-->` to `<!--More-->`/`<!--Nextpage-->`
-  (found during the `WordPress/wordpress-develop` HTML5 dogfood, 2026-07-24).
-  Decision (user, 2026-07-30): went broad rather than an allow-list —
-  `XmlSpecificRule.isSingleWordDirective` now skips capitalization whenever a
-  comment's entire trimmed body is one word with no interior whitespace (no
-  `:`/`-` requirement, unlike CSS's narrower rule), after a real-corpus check
-  across `WordPress/wordpress-develop`/`web-platform-tests/wpt`/
-  `alexandersandberg/html5-elements-tester` found zero genuine one-word prose
-  comments. Accepted false-negative risk (e.g. a genuine `<!--fixme-->` now
-  also stays lowercase) documented in `README.md`'s Known Limitations. `make
-  test`: 219/219 forward, 219/219 idempotency.
+  Found: `normalize-comment-start-case=on`'s `normComment` in
+  `XmlSpecificRule.java` unconditionally capitalized lowercase-starting
+  comments (no directive-shape exclusion, unlike CSS's
+  `isSingleTokenDirective` from `real_code_regressions_69`) — rewriting
+  WordPress magic comments `<!--more-->`/`<!--nextpage-->` to
+  `<!--More-->`/`<!--Nextpage-->` (`WordPress/wordpress-develop` HTML5
+  dogfood, 2026-07-24).
+  Fix (user, 2026-07-30): went broad rather than an allow-list —
+  `XmlSpecificRule.isSingleWordDirective` now skips capitalization whenever
+  a comment's entire trimmed body is one word with no interior whitespace
+  (no `:`/`-` requirement, unlike CSS's narrower rule), after a real-corpus
+  check across `WordPress/wordpress-develop`/`web-platform-tests/wpt`/
+  `alexandersandberg/html5-elements-tester` found zero genuine one-word
+  prose comments. Accepted false-negative risk (e.g. a genuine
+  `<!--todo-->` now also stays lowercase) documented in `README.md`'s Known Limitations. `make test`: 219/219 forward, 219/219 idempotency.
 
 - **HTML5 optional/implied end tags — RESOLVED in stages (RDD_KEY_198/199/
   200; `alexandersandberg/html5-elements-tester` dogfood, 3 sequential
@@ -343,23 +348,19 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   idempotency, syntax-check, content-diff).
 
 - **HTML5 multi-line `<!-- -->` comments collapse to a tight single/
-  pulled-up-`-->` form — RESOLVED (RDD_KEY_232, 2026-08-03).** Fixed by
-  detecting a newline in the comment's raw (pre-trim) interior and, when
-  found, freezing that interior byte-for-byte, reusing the existing
-  `Node.commentVerbatim`/verbatim-`commentText` mechanism (originally added
-  for `%`-prefixed directive comments) rather than inventing a parallel
-  one — its `COMMENT` render case already emits `<!--` + text + `-->` with
-  zero added spacing, exactly what a frozen multi-line comment needs. Only
-  the comment's own interior content freezes; the comment node's placement/
-  indentation and sibling reindentation are unaffected. Single-line
-  comments are unaffected (still trim/normalize as before). Shared
-  `XmlSpecificRule.java` code path, so both XML and HTML5 got the fix.
-  `test/xml_comments_out.xml` and every other pre-existing fixture whose
-  copyright-header comment had pinned the old collapsed-form bug were
-  updated to the new, correct output; new fixture
-  `test/html_multiline_comment_verbatim_{inp,out}.html` added. `make
-  test`: 237/237 forward + idempotency, zero regressions. Full text:
-  `RDD_KEY_232`.
+  pulled-up-`-->` form — RESOLVED (RDD_KEY_232, 2026-08-03).** Fix: detect
+  a newline in the comment's raw (pre-trim) interior and freeze that
+  interior byte-for-byte, reusing existing `Node.commentVerbatim`/
+  verbatim-`commentText` (originally for `%`-prefixed directive comments) —
+  its `COMMENT` render case already emits `<!--` + text + `-->` with zero
+  added spacing. Only the comment's own interior freezes; node placement/
+  indentation and sibling reindentation unaffected. Single-line comments
+  unaffected (still trim/normalize). Shared `XmlSpecificRule.java` path
+  (XML and HTML5). Updated `test/xml_comments_out.xml` and every other
+  pre-existing fixture whose copyright-header comment had pinned the old
+  collapsed-form bug; new fixture
+  `test/html_multiline_comment_verbatim_{inp,out}.html`. `make test`:
+  237/237 forward + idempotency, zero regressions. Full text: `RDD_KEY_232`.
 
 - **HTML5 deep tree-construction edge cases — three still-open items,
   full diagnosis below (mostly deferred as a grouped future job; tag-name
@@ -415,82 +416,58 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   2. **`apache/ant` `manual/running.html` — FIXED (RDD_KEY_223, 2026-08-01).**
      Full scoping pass done 2026-07-31 (tracker item 24); corrected framing
      confirmed no need for item 1's full insertion-mode-state prerequisite —
-     the narrower, self-contained fix described below was implemented as
-     scoped. `XmlSpecificRule` gained an `openTagStack` (`Deque<String>` of
+     narrower self-contained fix implemented as scoped.
+     **Found:** bare top-level text after `<h2>` closes, ending in an orphan
+     `</p>` with **no matching open `<p>` anywhere** (different shape than
+     RDD_KEY_204's *open*-`<p>`-closed-by-sibling case). `parseNodes`'s
+     `stopAtCloseTag` was unconditional —
+     `if (stopAtCloseTag && startsWith("</")) break;` — with no check
+     whether the closing tag related to the element being parsed. Orphan
+     `</p>` broke out of `<body>`'s children loop; `<body>`'s `closeTok`
+     check failed, and since `lang.isHtml5` fell into the general "tolerant
+     close" fallback (same mechanism WPT's `charset/after-bogus.html`
+     needs) — treating `<body>` as implicitly closed **without consuming
+     the `</p>` token**. Cascaded: `<html>` got tolerant-closed the same
+     way, so output closed `</body></html>` at the orphan `</p>` and dumped
+     the rest of the real document as raw top-level siblings after
+     `</html>`. **Materially bigger than the "1 `<p>` lost" content-diff
+     originally reported**, because `html_content_diff.py` (via `parse5`)
+     re-parents post-`</html>` content back inside `<body>` almost
+     transparently — masking magnitude. **Note for anyone touching
+     `html_content_diff.py`: it can under-report this class of
+     serialization-level structural bug** — spot-check raw output text
+     directly, not just the diff verdict.
+     **Fix:** `XmlSpecificRule` gained an `openTagStack` (`Deque<String>` of
      currently-open lowercased tag names, pushed in `parseElement` before
-     parsing children, popped via an enclosing `try`/`finally` covering
-     every return path) and a `peekCloseTagNameLower` helper; `parseNodes`'s
+     parsing children, popped via enclosing `try`/`finally` covering every
+     return path) and a `peekCloseTagNameLower` helper; `parseNodes`'s
      `stopAtCloseTag` branch now breaks (cascade-close, unchanged) only if
      the closing tag's name is found anywhere in the stack when
      `lang.isHtml5`, else discards the stray/orphan closing tag in place and
-     continues the same children loop instead of returning control to the
-     caller — gated on `lang.isHtml5` (strict XML/XHTML unchanged). Per the
-     write-up's item 4, discard-only (no `<p></p>` synthesis) was used, not
-     the full per-spec behavior — accepted, see full RDD_KEY_223 text.
+     continues the same children loop — gated on `lang.isHtml5` (strict
+     XML/XHTML unchanged). Discard-only (no `<p></p>` synthesis) was used,
+     not the full per-spec behavior — accepted, see full RDD_KEY_223 text.
+     Matches "preserve as written, don't fabricate tags" posture
+     (RDD_KEY_185). Why item 1's framing didn't apply: item 1's four gaps
+     genuinely need real HTML5 insertion-mode state; this only needed a
+     lightweight name-only open-tag stack (none existed before — only the
+     unrelated scalar `svgDepth` counter) to distinguish "closing tag
+     matches something actually open" from "matches nothing open anywhere".
      Fixtures `test/real_code_regressions_173_{inp,out}.html` (minimal
      orphan-`</p>` repro) and `test/real_code_regressions_174_{inp,out}.html`
-     (regression guard for the mismatched-tag-cascades-to-ancestor path,
-     `charset/after-bogus.html`-idiom via an unclosed `<bogus>`/`</div>`).
+     (regression guard for mismatched-tag-cascades-to-ancestor path,
+     `charset/after-bogus.html`-idiom via unclosed `<bogus>`/`</div>`).
      `make test`: 221/221 -> 223/223 forward + idempotency, zero
      regressions. `apache/ant` `manual/` 226-file corpus re-run: 226/226
-     forward + idempotency, 226/226 `html_syntax_check.sh` clean; content-
-     diff confirms the true structural corruption (content serialized
-     outside `</html>`) is gone (`</body></html>` now at the genuine end of
-     the reformatted file, verified by direct inspection) — the pre-
-     existing "1 `<p>` lost" (`<body>` child count 82 vs 81, from the
-     accepted discard-vs-synthesize gap) is an unchanged, expected residual,
-     not a regression; 4 other files' pre-existing unrelated comment-
+     forward + idempotency, 226/226 `html_syntax_check.sh` clean;
+     content-diff confirms structural corruption (content serialized
+     outside `</html>`) is gone (`</body></html>` now at genuine end,
+     verified by direct inspection) — the pre-existing "1 `<p>` lost"
+     (`<body>` child count 82 vs 81, from the accepted
+     discard-vs-synthesize gap) is an unchanged, expected residual, not a
+     regression; 4 other files' pre-existing unrelated comment-
      capitalization mismatches confirmed identical against a pre-fix
      baseline build.
-
-     **Root cause (traced pre-fix in `XmlSpecificRule.java`, minimal
-     `running.html` repro — bare top-level text after `<h2>` closes,
-     ending in an orphan `</p>` with **no matching open `<p>` anywhere**,
-     a different shape than RDD_KEY_204's *open*-`<p>`-closed-by-sibling
-     case):** `parseNodes`'s `stopAtCloseTag` check was unconditional —
-     `if (stopAtCloseTag && startsWith("</")) break;` — with no check
-     whether the closing tag related to the element being parsed. The
-     orphan `</p>` broke out of `<body>`'s children loop; `<body>`'s
-     `closeTok` check failed, and since `lang.isHtml5` it fell into the
-     general "tolerant close" fallback (the same mechanism WPT's
-     `charset/after-bogus.html` needs) — treating `<body>` as implicitly
-     closed **without consuming the `</p>` token**. This cascaded: `<html>`
-     got tolerant-closed the same way, so the formatter's actual output
-     closed `</body></html>` right at the orphan `</p>` and dumped the
-     rest of the real document (hundreds of lines) as raw top-level
-     siblings after `</html>`, outside the document root entirely —
-     confirmed by direct inspection of formatted output, not just the
-     diff tool.
-
-     **Materially bigger than the "1 `<p>` lost" the content-diff
-     originally reported**, because `html_content_diff.py` (via `parse5`)
-     parses both files per the real HTML5 spec before comparing, and the
-     spec's own "after after body" recovery re-parents post-`</html>`
-     content back inside `<body>` almost transparently — masking the true
-     magnitude. **Note for anyone touching `html_content_diff.py`: it can
-     under-report this class of serialization-level structural bug** —
-     spot-check raw output text directly, not just the diff verdict.
-
-     **Why item 1's framing didn't apply:** item 1's four gaps
-     (foster-parenting, misnested `<form>`-in-`<template>`, implicit
-     `<body>` insertion, adoption agency) genuinely need real HTML5
-     insertion-mode state — a big, dedicated, high-risk job. This bug
-     didn't: it only needed a lightweight name-only stack of
-     currently-open tag names (none existed before — only the unrelated
-     scalar `svgDepth` counter) to distinguish "closing tag matches
-     something actually open" (legitimate cascade-close, keep existing
-     behavior — required by WPT's bogus-tag fixture) from "matches
-     nothing open anywhere" (genuine orphan — discard in place, same as
-     the pre-existing top-level-only stray-tag discard, just not
-     restricted to the top level). Discard-only (not per-spec `<p></p>`
-     synthesis) was chosen, matching this formatter's "preserve as
-     written, don't fabricate tags" posture (RDD_KEY_185) — exactly the
-     fix implemented, per the summary at the top of this entry. The
-     original difficulty rating ("medium") undersold impact but
-     oversold fix scope — net still medium, for a different reason: a
-     small, additive, well-scoped code change with a wide validation
-     surface (touches `parseNodes`/`parseElement`, shared by every
-     HTML5/XML document), not a large one.
 
   3. **Tag-name case-folding — DONE, fixed standalone**
      (`real_code_regressions_112`, commit `10b20cf`, user, 2026-07-25). New
@@ -509,66 +486,52 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      161/161.
 
 - **HTML5 commented-out markup-fragment comment corruption — RESOLVED
-  (RDD_KEY_224, 2026-08-01).** Re-verifying `real_code_regressions_125`'s 4
-  "comment-capitalization-only" diffs from the `apache/ant manual/` 226-file
-  corpus (assumed benign at the time) directly with
-  `tools/verifiers/html_content_diff.sh` found 2 of the 4 were NOT benign
-  prose capitalization: `Tasks/antlr.html` and `Tasks/attrib.html` each
-  contain a commented-out HTML table row / paragraph
-  (`<!--tr> <td>fork</td>...</tr-->`, `<!--p>By default...</p-->`) where the
-  author's own `<!--`/`<` comment boundary landed mid-tag, leaving the
-  comment's content starting with a bare tag-name-open fragment (`tr>`/
-  `p>`) rather than a real English sentence; `normalize-comment-start-case`
-  was capitalizing these to `Tr>`/`P>`, corrupting the commented-out markup
-  (`attrib.html` had 2 such mismatches, `antlr.html` 1, for 3 total).
-
-  This is a different shape from both existing directive-shape precedents
-  in this file: not a single directive-shaped token (CSS's
-  `isSingleTokenDirective`, `real_code_regressions_69`) and not a
-  whole-comment single word (HTML5's own `isSingleWordDirective`, WordPress
-  magic-comment case) — the comment here is multi-word, just starting with
-  markup syntax rather than prose.
-
+  (RDD_KEY_224, 2026-08-01).** Found: re-verifying
+  `real_code_regressions_125`'s 4 "comment-capitalization-only" diffs from
+  the `apache/ant manual/` 226-file corpus with
+  `tools/verifiers/html_content_diff.sh` showed 2 of 4 were NOT benign:
+  `Tasks/antlr.html` and `Tasks/attrib.html` each contain a commented-out
+  HTML table row / paragraph (`<!--tr> <td>fork</td>...</tr-->`,
+  `<!--p>By default...</p-->`) where the author's `<!--`/`<` boundary
+  landed mid-tag, leaving the comment content starting with a bare
+  tag-name-open fragment (`tr>`/`p>`); `normalize-comment-start-case` was
+  capitalizing these to `Tr>`/`P>`, corrupting the commented-out markup
+  (`attrib.html` 2 mismatches, `antlr.html` 1, for 3 total). Different
+  shape from both existing directive-shape precedents: not a single
+  directive-shaped token (CSS's `isSingleTokenDirective`,
+  `real_code_regressions_69`) and not a whole-comment single word (HTML5's
+  `isSingleWordDirective`, WordPress magic-comment case) — multi-word, just
+  starting with markup syntax rather than prose.
   **Fix:** new `XmlSpecificRule.isMarkupFragmentDirective(text)` — true iff
   `text`'s leading run of lowercase letters is immediately followed by `>`
   (no interior whitespace) AND that run is a member of a new closed
   `MARKUP_FRAGMENT_TAG_NAMES` set of real HTML5 tag names. Wired into
-  `normComment` as an additional `||` condition alongside the existing
-  `isSingleWordDirective` check. The tag-name-set restriction (rather than
-  "any lowercase word immediately followed by `>`") is deliberate — it
-  avoids a false positive on some coincidental short lowercase word that
-  happens to be followed by `>` without actually being a tag fragment.
-
-  **Evidence gathered before committing to the rule:** grepped `apache/ant
-  manual/` plus the still-extant `WordPress/wordpress-develop` and
-  `alexandersandberg/html5-elements-tester` checkouts (`web-platform-tests/wpt`
-  was not re-checked — no `<!--[a-z]+>`-shaped hits found in either
-  available corpus, and the shape is orthogonal to WPT's already-covered
-  tree-construction gaps) for `<!--[a-z]+>` and found exactly 2 `<!--tr>` +
-  1 `<!--p>` occurrences corpus-wide, matching the 3 real diffs found —
-  zero unrelated/false-positive-shaped hits in either corpus, confirming
-  the tag-name-set restriction costs nothing in practice while guarding
-  against coincidental matches.
-
+  `normComment` as an additional `||` alongside existing
+  `isSingleWordDirective`. Tag-name-set restriction (rather than "any
+  lowercase word immediately followed by `>`") is deliberate — avoids false
+  positive on coincidental short lowercase word followed by `>` without
+  being a tag fragment.
+  **Evidence:** grepped `apache/ant manual/` plus still-extant
+  `WordPress/wordpress-develop` and `alexandersandberg/html5-elements-tester`
+  checkouts (`web-platform-tests/wpt` not re-checked — no `<!--[a-z]+>`-
+  shaped hits in either available corpus; shape orthogonal to WPT's
+  already-covered tree-construction gaps) for `<!--[a-z]+>` — exactly 2
+  `<!--tr>` + 1 `<!--p>` corpus-wide, matching the 3 real diffs; zero
+  unrelated/false-positive-shaped hits.
   The other 2 of the original 4 diffs (`Tasks/imageio.html`/
-  `Tasks/image.html`, both flagging the identical string `attributes
-  inherited from MatchingTask` -> `Attributes inherited from
-  MatchingTask`) were checked separately: `grep`ing the corpus found this
-  exact sentence reused verbatim in both files, sitting between a closing
-  and opening `<tr>` as a section-boundary doc-authoring annotation (both
-  tasks share `MatchingTask`'s inherited attributes) — no unclosed/
-  fragment tag anywhere in it, a genuine (if coincidentally
-  lowercase-starting) English-prose comment. It correctly falls through
-  `isMarkupFragmentDirective` (no `>` immediately after its first word) and
-  stays subject to ordinary capitalization — confirmed as an accepted,
-  unrelated non-bug, not a second instance of this fix's target shape.
-
+  `Tasks/image.html`, both flagging identical string `attributes inherited
+  from MatchingTask` -> `Attributes inherited from MatchingTask`) checked
+  separately: exact sentence reused verbatim in both files between a
+  closing and opening `<tr>` as a section-boundary doc-authoring annotation
+  — no unclosed/fragment tag, genuine (if coincidentally lowercase-starting)
+  English-prose comment. Correctly falls through
+  `isMarkupFragmentDirective` (no `>` immediately after first word) and
+  stays subject to ordinary capitalization — accepted, unrelated non-bug.
   New fixture `test/real_code_regressions_175_{inp,out}.html` (both
-  `tr>`/`p>` shapes in one file, plus a real `<p>` and a real `<tr>` as
-  regression guards proving ordinary content is unaffected). `make test`:
-  223/223 -> 224/224 forward + idempotency, zero regressions.
-  `apache/ant manual/` 226-file corpus re-run: 226/226 forward +
-  idempotency + `html_syntax_check.sh`; content-diff mismatches down from
+  `tr>`/`p>` shapes plus a real `<p>` and real `<tr>` as regression
+  guards). `make test`: 223/223 -> 224/224 forward + idempotency, zero
+  regressions. `apache/ant manual/` 226-file corpus re-run: 226/226 forward
+  + idempotency + `html_syntax_check.sh`; content-diff mismatches down from
   4 to 3 (see Real-Code Testing Results below for the per-file breakdown).
 
 ## Checklist

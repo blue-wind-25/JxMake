@@ -38,22 +38,20 @@ day as `RDD_KEY_230` (see Resolved Design Decisions below).
 
 **Current state**: the formatter's HTML5 handling (`XmlSpecificRule` /
 `parseNodes`/`parseElement`) walks markup with an implicit tree model —
-nesting and "what's currently open" are represented by the Java call
-stack's own recursion, not by an explicit HTML5 open-elements stack or
-insertion-mode state variable. This has been sufficient for every real
-HTML5 bug found in dogfood corpora so far, including some that look
-tree-construction-shaped at first glance (see "Contrast: fixes that did
-NOT need this" below) — but four residual `web-platform-tests/wpt`
-conformance gaps do not close under this model:
+nesting/"what's currently open" live on the Java call stack's recursion,
+not an explicit HTML5 open-elements stack or insertion-mode state
+variable. Sufficient for every real HTML5 bug found in dogfood corpora so
+far (including some that look tree-construction-shaped — see "Contrast"
+below), but four residual `web-platform-tests/wpt` conformance gaps do not
+close under this model:
 
 1. **Foster-parenting-driven tree reshaping**
-   (`foreign_content_009/010.html` and similar WPT fixtures) — content that
-   the HTML5 spec requires to be relocated out of a `<table>` and inserted
-   *before* the table in the tree, rather than nested inside it where the
-   source text placed it.
+   (`foreign_content_009/010.html` and similar WPT fixtures) — content the
+   HTML5 spec requires relocated out of a `<table>` and inserted *before*
+   the table in the tree, not nested where the source text placed it.
 2. **Misnested `<form>` reconstruction inside `<template>`** — spec-defined
-   recovery behavior when a `<form>` start tag appears somewhere the
-   current insertion mode doesn't allow it directly.
+   recovery when a `<form>` start tag appears where the current insertion
+   mode doesn't allow it directly.
 3. **Implicit `<body>` start-tag insertion** — documents that never write
    an explicit `<body>` tag still get spec-defined implicit element
    insertion at a specific point in the tree.
@@ -63,27 +61,23 @@ conformance gaps do not close under this model:
 
 **Why this job is still high-risk, even though the design landed lighter
 than originally scoped:** `RDD_KEY_230` (2026-08-02) rejected the original
-framing below of one large shared insertion-mode state machine — the
-actual design is three independent, narrow, config-gated pieces of state,
-each closer in size to `RDD_KEY_223`'s fix than to a structural rewrite.
-That does *not* make this job low-risk, for three reasons specific to the
-new design:
-- **Gap 1 (foster-parenting) still requires genuine tree mutation**, not
-  just new state — a `FosterBuffer` node has to be spliced into an
-  ancestor frame's children list from several `parseElement` frames deep,
-  which is real tree surgery regardless of how the triggering condition is
-  detected.
+framing of one large shared insertion-mode state machine — the actual
+design is three independent, narrow, config-gated pieces of state, each
+closer in size to `RDD_KEY_223`'s fix than to a structural rewrite. That
+does *not* make this job low-risk:
+- **Gap 1 (foster-parenting) still requires genuine tree mutation** — a
+  `FosterBuffer` node has to be spliced into an ancestor frame's children
+  list from several `parseElement` frames deep.
 - **Gap 3 (implicit `<body>`) is the first fabricated-node path** in an
   otherwise strictly preserve-as-written formatter — a posture change with
-  no precedent in this codebase, independent of how small its own flag is.
+  no precedent in this codebase.
 - **Four independently-gated behaviors stacked behind one config axis**
   (`html5-tc-gap-level`) still means four separate new code paths touching
   real HTML5 parsing, each shipped and dogfooded before the next lands —
   narrow *individually* does not mean low-risk *cumulatively*, and gap 4
-  (adoption agency) remains, on its own, one of the fiddlier corners of
-  the HTML5 spec to get right regardless of how it's wired in.
+  (adoption agency) remains one of the fiddlier corners of the HTML5 spec.
 
-The paragraphs below describing "one shared prerequisite" reflect the
+Paragraphs below describing "one shared prerequisite" reflect the
 *original* scoping framing (pre-`RDD_KEY_230`) and are kept for historical
 context on why this job was split out and sized the way it was — see
 `RDD_KEY_230` for the design that actually superseded them.
@@ -93,20 +87,17 @@ large** *(original framing, superseded by `RDD_KEY_230` — see above)*: all
 four are defined in the HTML5 spec in terms of an explicit open-elements
 stack plus a current insertion-mode value that switches behavior
 contextually (`"in table"`, `"in template"`, `"in body"`, etc.). The
-formatter has neither — "what's open" is implicit in Java call-stack
-recursion, and there is no insertion-mode concept at all. Building both
-was originally scoped as a structural change to the traversal at the core
-of `parseNodes`/`parseElement`, touching every HTML5/XML document
-processed — comparable in size/risk to the "General scope-depth
-reindentation" (GDR) job (`STATE_CURLY_GDR.md`) on that mechanism. That
-specific mechanism comparison no longer holds (no shared state-tracking
-structure is being built), but the *outcome* — new tree-shaping behavior
-with real regression risk once any level above `0` is turned on — still
-does, per the three reasons above.
+formatter has neither. Building both was originally scoped as a structural
+change to the traversal at the core of `parseNodes`/`parseElement`,
+touching every HTML5/XML document processed — comparable in size/risk to
+the "General scope-depth reindentation" (GDR) job (`STATE_CURLY_GDR.md`)
+on that mechanism. That specific mechanism comparison no longer holds (no
+shared state-tracking structure is being built), but the *outcome* — new
+tree-shaping behavior with real regression risk once any level above `0`
+is turned on — still does, per the three reasons above.
 
 **Real-world impact: low.** All four gaps are WPT's own deliberately
-pathological conformance fixtures, designed to probe spec corner cases
-most real-world HTML doesn't exercise. Every dogfood corpus checked so far
+pathological conformance fixtures. Every dogfood corpus checked so far
 (`apache/ant manual/`, `WordPress/wordpress-develop`,
 `alexandersandberg/html5-elements-tester`) has formatted cleanly with
 respect to these four gaps — no real-world regression has ever been
@@ -114,23 +105,17 @@ attributed to them. 2026-07-28 re-assessment (carried over from
 `STATE_DATA_FORMATS.md`): unchanged, nothing landed, no corpus has hit
 this in practice.
 
-**Contrast: fixes that did NOT need this prerequisite.** Not every
-tree-shaped-looking HTML5 bug requires the full insertion-mode-state
-machine — two precedents show narrower fixes sufficed:
-- `apache/ant manual/running.html` (`RDD_KEY_223`, 2026-08-01, FIXED) — an
-  orphan `</p>` cascading all the way to the document root. Looked
-  tree-construction-shaped, but only needed a lightweight
-  name-only `Deque<String> openTagStack` in `XmlSpecificRule` (tracking
-  just "what tag names are currently open," no insertion-mode value) to
-  find the correct matching open element instead of over-closing. This
-  job's four gaps are different in kind, not just degree — they need
-  mode-dependent *behavior* switches (e.g. "relocate this node before the
-  table" or "implicitly insert a `<body>`"), which a name-only stack
-  cannot express.
+**Contrast: fixes that did NOT need this prerequisite.**
+- `apache/ant manual/running.html` (`RDD_KEY_223`, 2026-08-01, FIXED) —
+  orphan `</p>` cascading to document root. Looked tree-construction-
+  shaped, but only needed a lightweight name-only `Deque<String>
+  openTagStack` in `XmlSpecificRule` (no insertion-mode value). This job's
+  four gaps are different in kind — they need mode-dependent *behavior*
+  switches (e.g. "relocate this node before the table" or "implicitly
+  insert a `<body>`"), which a name-only stack cannot express.
 - Tag-name case-folding (`real_code_regressions_112`, commit `10b20cf`,
-  2026-07-25, DONE) — a self-contained lookup-table fixup
-  (`XmlSpecificRule.SVG_TAG_NAME_CASE_FIXUP`), unrelated to tree shape at
-  all.
+  2026-07-25, DONE) — self-contained lookup-table fixup
+  (`XmlSpecificRule.SVG_TAG_NAME_CASE_FIXUP`), unrelated to tree shape.
 
 See `STATE_DATA_FORMATS.md`'s "HTML5 deep tree-construction edge cases"
 section for the original combined writeup (items 1-3) this job was split
@@ -161,87 +146,83 @@ next level lands.
 ### Current code shape (as of 2026-08-02, `src/com/jxmake/formatter/rules/XmlSpecificRule.java`, 1364 lines)
 
 All XML/HTML5 tree-walking lives in one file, gated internally on
-`lang.isHtml5`. The pieces most relevant to this job:
+`lang.isHtml5`. Pieces most relevant to this job:
 
 - `parseNodes(boolean stopAtCloseTag, Set<String> impliedCloseTriggers)`
-  (~line 398) — the children-collecting loop. Already has three HTML5-
-  specific tolerant-parsing branches bolted on: (a) `stopAtCloseTag` +
+  (~line 398) — children-collecting loop. Already has three HTML5-specific
+  tolerant-parsing branches: (a) `stopAtCloseTag` +
   `openTagStack.contains(...)` ancestor check (RDD_KEY_223) to distinguish
-  a legitimate cascade-close from an orphan close tag; (b)
+  legitimate cascade-close from orphan close tag; (b)
   `impliedCloseTriggers`/`startsWithTriggerTag` (RDD_KEY_200) for sibling-
   start-tag-implies-close (`option`/`optgroup` etc., see
-  `IMPLIED_CLOSE_TRIGGERS`); (c) a document-root-level stray-closing-tag
-  discard when `!stopAtCloseTag`. None of these are insertion-mode-aware —
-  they're all name-matching heuristics against a single flat
-  `openTagStack`.
+  `IMPLIED_CLOSE_TRIGGERS`); (c) document-root-level stray-closing-tag
+  discard when `!stopAtCloseTag`. None are insertion-mode-aware — all
+  name-matching heuristics against a single flat `openTagStack`.
 - `parseElement(...)` (~line 639) pushes/pops `openTagStack` (a
   `Deque<String>` of lowercased currently-open tag names — name-only, no
   associated insertion-mode or "which table/template this is inside"
   context) around child parsing via `try`/`finally`.
 - `openTagStack` (private field, ~line 260) is the *only* explicit tree-
-  shape state that exists today. It answers "is tag X open somewhere
-  above me" — nothing else. There is no insertion-mode variable, no
-  distinct "list of active formatting elements" (needed for adoption
-  agency), no notion of foster-parenting's table/template boundaries.
+  shape state that exists today. Answers "is tag X open somewhere above
+  me" — nothing else. No insertion-mode variable, no distinct "list of
+  active formatting elements" (needed for adoption agency), no notion of
+  foster-parenting's table/template boundaries.
 - `OPAQUE_IMPLIED_END_TAG_ELEMENTS` (~line 147) and
   `IMPLIED_CLOSE_TRIGGERS` (~line 192) are element-name lookup tables for
   two narrow, already-solved sub-problems (verbatim-capture elements like
   `<ruby>`, and sibling-implies-close pairs) — precedent for "table-driven,
   not spec-transcribing" fixes, but neither generalizes to this job's four
-  gaps, which are behavior-shape changes, not table entries.
-- The overall parse is classic recursive descent: `parseElement` calls
-  `parseNodes` which calls `parseSingleNode`/`parseElement` again for each
-  child. "What's currently open" beyond `openTagStack`'s tag names (e.g.
-  "am I inside a `<table>`," "am I inside a `<template>`," "what's the
-  active insertion mode") is implicit in which Java stack frame is
-  executing — there is no reified state object a mode-dependent decision
-  could consult or mutate mid-parse.
+  gaps (behavior-shape changes, not table entries).
+- Overall parse is classic recursive descent: `parseElement` → `parseNodes`
+  → `parseSingleNode`/`parseElement` per child. "What's currently open"
+  beyond `openTagStack`'s tag names (e.g. "am I inside a `<table>`," "am I
+  inside a `<template>`," "what's the active insertion mode") is implicit
+  in which Java stack frame is executing — no reified state object a
+  mode-dependent decision could consult or mutate mid-parse.
 
 ### The four gaps, what each needs, and why the prerequisite is shared
 
 1. **Foster-parenting-driven tree reshaping** (`foreign_content_009/010.html`
-   and similar WPT fixtures). Spec requirement: certain content
-   encountered while the insertion mode is `"in table"` (etc.) must be
-   inserted into the tree *before* the table, not as the table's child,
-   even though the source text places it between `<table>` and `</table>`.
-   This is a genuine tree-shape rewrite — the naive recursive-descent
-   model builds `Node` children in source order as it recurses, so
-   "insert this node into an ancestor's child list at a position already
-   fixed by the time we're three frames deep inside `<table>`" cannot be
-   expressed without either (a) a mutable, explicit node-tree structure
-   built bottom-up with post-hoc relocation, or (b) a two-pass approach
-   (build tree normally, then a foster-parenting relocation pass keyed off
-   an explicit "was this text/node encountered while insertion mode was
-   in-table" marker). Needs: insertion-mode tracking at minimum; likely
-   also a reification of "the tree built so far" as a mutable structure
+   and similar WPT fixtures). Spec: certain content encountered while
+   insertion mode is `"in table"` (etc.) must be inserted *before* the
+   table, not as the table's child, even though source text places it
+   between `<table>` and `</table>`. Genuine tree-shape rewrite — naive
+   recursive-descent builds `Node` children in source order, so "insert
+   this node into an ancestor's child list at a position already fixed by
+   the time we're three frames deep inside `<table>`" cannot be expressed
+   without either (a) a mutable, explicit node-tree structure built
+   bottom-up with post-hoc relocation, or (b) a two-pass approach (build
+   tree normally, then foster-parenting relocation keyed off an explicit
+   "was this text/node encountered while insertion mode was in-table"
+   marker). Needs: insertion-mode tracking at minimum; likely also a
+   reification of "the tree built so far" as a mutable structure
    parseElement can reach past its own immediate parent.
-2. **Misnested `<form>` reconstruction inside `<template>`.** Spec
-   requirement: a `<form>` start tag encountered where the current
-   insertion mode doesn't allow it directly triggers specific recovery
-   (roughly: track a single "form element pointer," suppress a second one
-   inside a `<template>` context, insert according to a mode-specific
-   rule). Needs: insertion-mode tracking plus a new single-slot "form
-   element pointer" piece of state, scoped per `<template>` boundary.
-3. **Implicit `<body>` start-tag insertion.** Spec requirement: a document
-   with no explicit `<body>` start tag anywhere still gets one implicitly
-   inserted at a specific point (when the first "in body"-eligible content
-   is seen after `<head>` closes). This is the narrowest of the four —
-   confirmed in the 2026-07-26 investigation (see Background above) it
-   cannot be peeled off standalone: it requires (a) the first tag-
-   synthesis path in an otherwise strictly preserve-as-written formatter
-   (fabricating a `<body>` node absent from source text), and (b)
-   threading a "have I already inserted the implicit `<body>`" flag across
-   recursive `parseNodes`/`parseElement` calls to avoid double-insertion —
-   which is already a lightweight version of the insertion-mode state the
-   other three gaps need in full.
+2. **Misnested `<form>` reconstruction inside `<template>`.** Spec: a
+   `<form>` start tag where the current insertion mode doesn't allow it
+   directly triggers specific recovery (roughly: track a single "form
+   element pointer," suppress a second one inside a `<template>` context,
+   insert according to a mode-specific rule). Needs: insertion-mode
+   tracking plus a new single-slot "form element pointer" piece of state,
+   scoped per `<template>` boundary.
+3. **Implicit `<body>` start-tag insertion.** Spec: a document with no
+   explicit `<body>` start tag still gets one implicitly inserted at a
+   specific point (when the first "in body"-eligible content is seen after
+   `<head>` closes). Narrowest of the four — confirmed in the 2026-07-26
+   investigation (see Background above) it cannot be peeled off standalone:
+   requires (a) the first tag-synthesis path in an otherwise strictly
+   preserve-as-written formatter (fabricating a `<body>` node absent from
+   source text), and (b) threading a "have I already inserted the implicit
+   `<body>`" flag across recursive `parseNodes`/`parseElement` calls to
+   avoid double-insertion — already a lightweight version of the
+   insertion-mode state the other three gaps need in full.
 4. **Adoption agency algorithm** (misnested `<b>`/`<i>`/formatting-element
-   recovery). The most complex of the four — the spec algorithm
-   maintains an explicit "list of active formatting elements" (distinct
-   from the open-elements stack) and a bounded-iteration reparenting loop.
-   Widely regarded (including by the WHATWG spec's own prose) as the
-   fiddliest part of HTML5 tree construction to implement correctly.
-   Confirmed lowest priority — do last, only after the shared prerequisite
-   has already been built and proven on gaps 1-3.
+   recovery). Most complex of the four — spec algorithm maintains an
+   explicit "list of active formatting elements" (distinct from the
+   open-elements stack) and a bounded-iteration reparenting loop. Widely
+   regarded (including by the WHATWG spec's own prose) as the fiddliest
+   part of HTML5 tree construction to implement correctly. Confirmed
+   lowest priority — do last, only after the shared prerequisite has
+   already been built and proven on gaps 1-3.
 
 **Why one shared prerequisite, not four independent fixes** *(original
 framing — superseded by `RDD_KEY_230`, kept for historical context; see
@@ -250,14 +231,14 @@ the current risk framing)*: all four are defined by the HTML5 spec in
 terms of (a) an explicit open-elements stack (exists today, but name-only
 — `openTagStack` would need to carry more than a tag name, e.g. a
 per-frame insertion-mode-relevant marker or a reference to the actual
-constructed `Node`, not just its name), and (b) a
-current insertion-mode value (`"initial"`, `"before html"`, `"before
-head"`, `"in head"`, `"after head"`, `"in body"`, `"in table"`, `"in
-template"`, `"after body"`, `"after after body"`, etc. — the full HTML5
-insertion-mode list is ~23 states). This was the original justification
-for treating the four gaps as one large structural prerequisite; `RDD_KEY_230`
-found each gap's actual need was narrower and independent (see Resolved
-Design Decisions below), so no such shared structure is being built.
+constructed `Node`, not just its name), and (b) a current insertion-mode
+value (`"initial"`, `"before html"`, `"before head"`, `"in head"`,
+`"after head"`, `"in body"`, `"in table"`, `"in template"`, `"after body"`,
+`"after after body"`, etc. — the full HTML5 insertion-mode list is ~23
+states). This was the original justification for treating the four gaps as
+one large structural prerequisite; `RDD_KEY_230` found each gap's actual
+need was narrower and independent (see Resolved Design Decisions below),
+so no such shared structure is being built.
 
 ### What real-world HTML this affects
 
@@ -269,11 +250,10 @@ fixtures (foreign-content/table foster-parenting edge cases, misnested
 `<form>`-in-`<template>` edge cases, documents that never write `<body>`
 at all, deliberately-misnested `<b>`/`<i>` chains) — real-world authored
 HTML essentially never exercises them because browsers' own error recovery
-already normalizes the common cases before anyone hand-writes malformed
-markup like this. This job exists for spec conformance completeness, not
-because a real corpus has hit a bug — re-confirm this is still true (rerun
-the dogfood corpora already on hand, see checklist) before sinking large
-effort into it, in case priorities have shifted.
+already normalizes the common cases. This job exists for spec conformance
+completeness, not because a real corpus has hit a bug — re-confirm this is
+still true (rerun the dogfood corpora already on hand, see checklist)
+before sinking large effort into it, in case priorities have shifted.
 
 ### Non-goals
 
@@ -349,25 +329,22 @@ item *N-1* is committed and `make test` is green.
       attributable to one of the four gaps has appeared, re-prioritize
       that gap first regardless of the "recommended order" below.
 
-      **2026-08-02 re-run (verification only, no code changes).** All three
-      existing `/tmp` checkouts found and reused (`/tmp/ant`,
-      `/tmp/wordpress-develop`, `/tmp/html5-elements-tester`); current build
-      (`target/code-formatter-1.00.jar`, already up to date, `git log -1` =
-      `98ce069`) used directly.
+      **2026-08-02 re-run (verification only, no code changes).** Reused
+      `/tmp/ant`, `/tmp/wordpress-develop`, `/tmp/html5-elements-tester`;
+      build `target/code-formatter-1.00.jar`, `git log -1` = `98ce069`.
       - `apache/ant manual/` (226 files): forward + round2 + idempotency
         226/226 clean; `html_syntax_check.sh` 226/226 clean; content-diff
-        223/226 clean, 3 mismatches — all 3 already documented/accepted in
+        223/226 clean, 3 mismatches — all already documented/accepted in
         `STATE_DATA_FORMATS.md` (`running.html`'s known discard-vs-synthesize
         `<p>` gap, RDD_KEY_223; `Tasks/imageio.html`/`Tasks/image.html`'s
-        known lowercase-prose-comment non-bug). No new mismatch, no gap-1/2/
-        3/4-attributable regression.
+        known lowercase-prose-comment non-bug). No new mismatch, no
+        gap-1/2/3/4-attributable regression.
       - `WordPress/wordpress-develop` (303 `.html` files found under the
         checkout, superset of the 263/73 "real markup" counts previously
-        recorded — ran all 303 as a superset check rather than
-        re-deriving the exact prior filter): forward + round2 + idempotency
-        303/303 clean. `html_syntax_check.sh`: 2/303 clean full documents
-        (`src/readme.html`, `tests/qunit/index.html`, both OK) plus 301
-        `missing-doctype` results on the remaining files — spot-checked
+        recorded — ran all 303 as a superset check): forward + round2 +
+        idempotency 303/303 clean. `html_syntax_check.sh`: 2/303 clean full
+        documents (`src/readme.html`, `tests/qunit/index.html`, both OK)
+        plus 301 `missing-doctype` on the remaining files — spot-checked
         (`tests/phpunit/data/blocks/do-blocks-original.html`) and confirmed
         these are bare markup *fragments* in the original source too (no
         `<!DOCTYPE>` in the un-formatted input either), i.e. an inherent
@@ -429,12 +406,12 @@ item *N-1* is committed and `make test` is green.
 
       **2026-08-03: DONE.** `Config.java`: new `html5TcGapLevel` int field
       (default `0`), `html5TcGapLevel()` getter, `"html5-tc-gap-level"`
-      added to `ALL_KEYS`, parsed in `fromRawMap` via the existing
-      `parseInt` helper — same precedence chain as every other key (config
-      file → env var → per-directory `.jxmake-code-formatter` →
-      `cliOverrides` → `inFileOverrides`/`JXM_CFMT_CFG`, highest
-      priority), verified via an in-file `JXM_CFMT_CFG
-      html5-tc-gap-level=1` directive in the new level-1 fixture (below).
+      added to `ALL_KEYS`, parsed in `fromRawMap` via existing `parseInt`
+      helper — same precedence chain as every other key (config file → env
+      var → per-directory `.jxmake-code-formatter` → `cliOverrides` →
+      `inFileOverrides`/`JXM_CFMT_CFG`, highest priority), verified via
+      in-file `JXM_CFMT_CFG html5-tc-gap-level=1` directive in the new
+      level-1 fixture (below).
 
       `XmlSpecificRule.java`: new `private final int html5TcGapLevel`
       field, read once from `enclosingConfig` in the constructor
@@ -548,29 +525,25 @@ item *N-1* is committed and `make test` is green.
       fosterBufferStack.isEmpty()` at the end of `format()`.
 
       **Judgment call / simplification not in the original RDD_KEY_230
-      text:** `isInTableInsertionMode()` was implemented as a **single-level
-      check** (`"table".equals(openTagStack.peek())` — true only while
-      `parseNodes` is building the `<table>` element's own DIRECT children
-      list), not the full ancestor ("is `table` anywhere above me before
+      text (deviation from design):** `isInTableInsertionMode()` was
+      implemented as a **single-level check**
+      (`"table".equals(openTagStack.peek())` — true only while `parseNodes`
+      is building the `<table>` element's own DIRECT children list), not
+      the full ancestor ("is `table` anywhere above me before
       `td`/`th`/`caption`") scan RDD_KEY_230's text originally sketched.
-      Caught via manual smoke-testing before committing: the ancestor-scan
-      version fostered every descendant of a fostered element too (e.g. a
-      stray `<div>text</div>` directly in a table had its own text child
-      independently re-evaluated against "am I under a table," ripping the
-      text back out of the `<div>` that had just been fostered whole), and
-      also incorrectly fostered a `<td>` that's a legitimate child of a
-      `<tr>` (the ancestor scan hit `table` before noticing `tr` isn't
-      `td`/`th`/`caption` and doesn't block it). The single-level `peek()`
-      check is exactly "in table insertion mode building THIS table's own
-      direct children," which is what foster-parenting is actually
-      triggered by per spec — once any child (a `<tr>`, or a fostered
-      `<div>`) is itself pushed onto `openTagStack`, its own descendants are
-      being parsed in a different (nested) insertion context and must not
-      be independently re-evaluated. Verified via manual `/tmp` smoke tests
-      (stray text + `<div>` + real `<tr><td>` row) before authoring
-      fixtures, then confirmed level-1+level-2 cumulative interaction
-      (implicit `<body>` insertion active at the same time as
-      foster-parenting) also lands correctly.
+      **Found via smoke-test:** ancestor-scan version fostered every
+      descendant of a fostered element too (e.g. stray `<div>text</div>`
+      in a table had its text child independently re-evaluated, ripping
+      text back out of the just-fostered `<div>`), and also incorrectly
+      fostered a `<td>` that's a legitimate child of a `<tr>`. **Fix /
+      current status:** single-level `peek()` check is exactly "in table
+      insertion mode building THIS table's own direct children" — what
+      foster-parenting is actually triggered by per spec; once any child
+      is pushed onto `openTagStack`, its descendants are in a different
+      nested insertion context and must not be independently re-evaluated.
+      Verified via manual `/tmp` smoke tests (stray text + `<div>` + real
+      `<tr><td>` row); level-1+level-2 cumulative interaction also lands
+      correctly.
 
       **Fixtures (hand-authored, `test/README.txt`'s `HTML5:` group, same
       convention as level 1's fixtures):**
@@ -626,23 +599,17 @@ item *N-1* is committed and `make test` is green.
 
       **Single field vs `Deque` — tested, single field confirmed
       sufficient, no deviation from RDD_KEY_230's sketch needed (unlike
-      level 2's).** Per this item's own instruction, stress-tested a
-      `<form>` nested inside a `<template>` that is itself inside another
-      `<form>`'s content *before* committing to the single-field shape (see
-      manual `/tmp` smoke test with `id="outer"`/`id="inner"`/
-      `id="second-direct"`). Result: the inner templated form is correctly
-      preserved (not suppressed) and the direct second sibling form is
-      correctly suppressed. This works with a single field — no separate
-      `Deque` — because the `<template>` boundary's save/restore uses a
-      plain Java local variable (`savedFormPointer`) inside `parseElement`,
-      and `parseElement` is itself called recursively once per nesting
-      level; each recursive invocation gets its own independent copy of
-      that local on the JVM call stack, which already provides exactly the
-      push/pop nesting semantics an explicit `Deque` would, for free — the
-      same reasoning that already makes `isSvg`/`svgDepth`'s pattern work
-      elsewhere in this file. A `Deque` would only be needed if the
-      save/restore had to cross a boundary the call stack doesn't already
-      track (it doesn't, here).
+      level 2's).** Stress-tested (manual `/tmp` smoke:
+      `id="outer"`/`id="inner"`/`id="second-direct"`) a `<form>` nested
+      inside a `<template>` that is itself inside another `<form>`'s
+      content before committing. Result: inner templated form correctly
+      preserved (not suppressed); direct second sibling form correctly
+      suppressed. Works with a single field because the `<template>`
+      boundary's save/restore uses a plain Java local (`savedFormPointer`)
+      inside recursive `parseElement` — each invocation gets its own copy
+      on the JVM call stack (same pattern as `isSvg`/`svgDepth`). A `Deque`
+      would only be needed if save/restore had to cross a boundary the
+      call stack doesn't already track (it doesn't, here).
 
       **Fixtures (hand-authored, `test/README.txt`'s `HTML5:` group, same
       convention as levels 1 and 2's fixtures):**
@@ -708,41 +675,38 @@ item *N-1* is committed and `make test` is green.
       assumes -- attempting that full generality was judged too large/
       risky a change for one checkpoint (per this checklist item's own
       documented allowance to implement a narrower, formatter-appropriate
-      approximation instead). What's actually implemented: `pendingAdoptionNode`
-      tracks only the SINGLE most-recently-orphaned formatting element at a
-      time (a plain field, not a stack/list of "active formatting
-      elements"), detected only for the narrow "next token is a real
-      closing tag belonging to one of my own ancestors" case (not the
-      spec's full furthest-block search across the whole open-elements
-      stack), and reconstructed as a plain next-sibling clone via ordinary
-      recursive-descent continuation (not spliced back into the original
-      misnesting position via a bookmark). **Known limitation:** this
-      correctly handles the classic single-level case (confirmed via the
-      new fixture below), but a second, simultaneous misnesting (e.g. two
-      formatting elements both orphaned by the same ancestor's close) only
-      reconstructs the innermost/most-recently-orphaned one -- an outer
-      one would be silently dropped (the plain field gets overwritten, not
-      queued). Same accepted-limitation posture as level 1's head-less-
-      document gap and level 2's single-level table check -- not fixed
-      here, logged as a known limitation for a future session if this ever
-      needs to be revisited.
+      approximation instead). What's actually implemented:
+      `pendingAdoptionNode` tracks only the SINGLE most-recently-orphaned
+      formatting element at a time (a plain field, not a stack/list of
+      "active formatting elements"), detected only for the narrow "next
+      token is a real closing tag belonging to one of my own ancestors"
+      case (not the spec's full furthest-block search across the whole
+      open-elements stack), and reconstructed as a plain next-sibling
+      clone via ordinary recursive-descent continuation (not spliced back
+      into the original misnesting position via a bookmark). **Known limitation:**
+      this correctly handles the classic single-level case
+      (confirmed via the new fixture below), but a second, simultaneous
+      misnesting (e.g. two formatting elements both orphaned by the same
+      ancestor's close) only reconstructs the innermost/most-recently-
+      orphaned one -- an outer one would be silently dropped (the plain
+      field gets overwritten, not queued). Same accepted-limitation
+      posture as level 1's head-less-document gap and level 2's
+      single-level table check -- not fixed here, logged as a known
+      limitation for a future session if this ever needs to be revisited.
 
       **Real bug found and fixed via smoke-testing before authoring
-      fixtures (per this job's established "verify each mechanism against
-      actual nested/combined-level behavior before committing" pattern):**
-      the level-2 foster-parenting branch in `parseNodes` used an early
-      `continue` once a node was redirected into `fosterBufferStack`,
+      fixtures:** level-2 foster-parenting branch in `parseNodes` used an
+      early `continue` once a node was redirected into `fosterBufferStack`,
       which bypassed the level-4 reconstruction check entirely -- a
       formatting element reconstructed by adoption agency while directly
       inside a `<table>` (e.g. `<table>stray<b>1<i>2</b>3</i><tr>...`) was
-      silently dropped instead of being foster-parented itself, confirmed
-      via a manual `/tmp` smoke test combining all four levels on one
-      document. Fixed by turning the foster-parenting branch from an early
-      `continue` into a `fostered` boolean so the level-4 reconstruction
-      check always runs afterward and routes its own result (a
-      reconstructed clone) into whichever destination -- `fosterBufferStack`
-      or `nodes` -- the triggering ancestor node itself just landed in.
-      Re-verified via the same combined smoke test after the fix: the
+      silently dropped instead of being foster-parented itself. **Root
+      cause:** early `continue` skipped post-foster level-4 check. **Fix:**
+      turned the foster-parenting branch from an early `continue` into a
+      `fostered` boolean so the level-4 reconstruction check always runs
+      afterward and routes its result (a reconstructed clone) into
+      whichever destination -- `fosterBufferStack` or `nodes` -- the
+      triggering ancestor node itself just landed in. Re-verified: the
       reconstructed `<i>3</i>` now correctly lands in the foster buffer
       alongside `<b>`, both relocated to just before the `<table>`, while
       the table's own legitimate `<tr><td>` row stays nested inside it.
@@ -788,10 +752,9 @@ item *N-1* is committed and `make test` is green.
       levels, plus the full local `make test` suite. Fix any regression
       before considering the job complete.
 
-      **2026-08-03: DONE.** All three existing `/tmp` checkouts found and
-      reused (`/tmp/ant`, `/tmp/wordpress-develop`,
-      `/tmp/html5-elements-tester`), current build
-      (`target/code-formatter-1.00.jar`, commit `7ff30b5`) used directly.
+      **2026-08-03: DONE.** Reused `/tmp/ant`, `/tmp/wordpress-develop`,
+      `/tmp/html5-elements-tester`; build `target/code-formatter-1.00.jar`,
+      commit `7ff30b5`.
       - `apache/ant manual/` (232 `.html` files, superset of item 1's 226):
         forward + round2 + idempotency clean at both level `0` and level
         `4`. `html_syntax_check.sh` clean at level 4 except the two
@@ -800,12 +763,12 @@ item *N-1* is committed and `make test` is green.
         unrelated to any tc-gap). `html_content_diff.sh`: 228/232 clean,
         the same 4 already-documented/accepted mismatches as item 1's
         re-run (`manual/index.html`'s frameset now visibly getting wrapped
-        in a synthetic `<body>` at level 4 -- confirmed via a direct level-1-
-        only re-run to be pre-existing level-1 behavior newly surfaced by
-        this level-4 pass, NOT a level-4/adoption-agency-attributable
-        regression; `manual/running.html`'s RDD_KEY_223 gap; `Tasks/
-        image.html`/`Tasks/imageio.html`'s lowercase-prose-comment non-bug).
-        No new mismatch.
+        in a synthetic `<body>` at level 4 -- confirmed via a direct
+        level-1-only re-run to be pre-existing level-1 behavior newly
+        surfaced by this level-4 pass, NOT a level-4/adoption-agency-
+        attributable regression; `manual/running.html`'s RDD_KEY_223 gap;
+        `Tasks/image.html`/`Tasks/imageio.html`'s lowercase-prose-comment
+        non-bug). No new mismatch.
       - `WordPress/wordpress-develop` (303 `.html` files, matching item 1's
         count): forward + round2 + idempotency clean at both levels. 249
         files differ between level 0 and level 4 output -- confirmed via a
@@ -821,8 +784,8 @@ item *N-1* is committed and `make test` is green.
       - `alexandersandberg/html5-elements-tester` (`index.html`): forward +
         round2 + idempotency clean at both levels, level-0 output
         byte-identical to level-4 output (no misnested-formatting-element
-        shapes in this corpus to trigger adoption agency), `html_syntax_check.sh`
-        and `html_content_diff.sh` both clean.
+        shapes in this corpus to trigger adoption agency),
+        `html_syntax_check.sh` and `html_content_diff.sh` both clean.
 
       **Conclusion: no regression found, full-suite `make test` green
       (236/236 forward + idempotency).** Every mismatch/diff traced to an
@@ -839,33 +802,24 @@ item *N-1* is committed and `make test` is green.
       `RDD_KEY_n`, a level landing, a level's dogfood validation
       completing), not only at job completion.
 
-      **2026-08-02:** updated from "not started — high risk" to "design
-      decisions landed (`RDD_KEY_230`), no implementation yet — high risk"
-      to reflect that the insertion-mode-state question is resolved even
-      though no code has landed. Update again once level 1 (checklist item
-      3) actually ships.
-
-      **2026-08-03:** level 1 (implicit `<body>` insertion) shipped —
-      `CLAUDE.md`'s row updated from "design decisions landed
-      (`RDD_KEY_230`), no implementation yet" to "level 1 (implicit
-      `<body>` insertion) landed, levels 2-4 not yet implemented — high
-      risk". Update again once level 2 lands.
-
-      **2026-08-03 (later):** level 2 (foster-parenting-driven tree
-      reshaping) shipped — `CLAUDE.md`'s row updated to "levels 1-2
-      (implicit `<body>` insertion, foster-parenting) landed, levels 3-4
-      not yet implemented — high risk". Update again once level 3 lands.
-
-      **2026-08-03 (later still):** level 3 (misnested `<form>`
-      reconstruction inside `<template>`) shipped — `CLAUDE.md`'s row
-      updated to "levels 1-3 landed, level 4 not yet implemented — high
-      risk". Update again once level 4 lands.
-
-      **2026-08-03 (final):** level 4 (adoption agency algorithm) shipped
-      and full-suite dogfood re-validation (checklist item 9) came back
-      clean, no regression — `CLAUDE.md`'s row updated to reflect all four
-      levels landed, full-suite re-validated, still off by default. This
-      was this job's last unchecked checklist item; the checklist is now
-      fully complete.
+      **2026-08-02 → 2026-08-03 progressive updates** (each checkpoint
+      re-confirmed the routing-table sync rule):
+      - 2026-08-02: "not started — high risk" → "design decisions landed
+        (`RDD_KEY_230`), no implementation yet — high risk"
+      - 2026-08-03: level 1 shipped — updated from "design decisions landed
+        (`RDD_KEY_230`), no implementation yet" to "level 1 (implicit
+        `<body>` insertion) landed, levels 2-4 not yet implemented — high
+        risk"
+      - 2026-08-03 (later): level 2 shipped → "levels 1-2 (implicit
+        `<body>` insertion, foster-parenting) landed, levels 3-4 not yet
+        implemented — high risk"
+      - 2026-08-03 (later still): level 3 shipped → "levels 1-3 landed,
+        level 4 not yet implemented — high risk"
+      - **2026-08-03 (final):** level 4 (adoption agency algorithm) shipped
+        and full-suite dogfood re-validation (checklist item 9) came back
+        clean, no regression — `CLAUDE.md`'s row updated to reflect all
+        four levels landed, full-suite re-validated, still off by default.
+        This was this job's last unchecked checklist item; the checklist
+        is now fully complete.
 
 ---

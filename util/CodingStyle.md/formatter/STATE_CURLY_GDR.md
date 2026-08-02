@@ -492,6 +492,56 @@ plan, not a placeholder.
       either remediation path, and should still run the original
       `javaparser`/`JSONEncoderLite`/`frozen` real-code pass this item was
       written for.
+
+      **2026-08-02 session, partial progress:** ran the originally-scoped
+      real-code pass against `javaparser/javaparser` (fresh clone,
+      `/tmp/javaparser_gdr`), starting with its smallest module
+      (`javaparser-core-generators`, 43 files) per this file's "work bit by
+      bit" convention, `curly-general-scope-reindent=on`, full-tree
+      idempotency (round1 vs round2, not `--out DIR` sampling). Result: 13
+      of 43 files non-idempotent. Inspected every failing file's diff (not
+      just a sample) — **all 13 are the same root cause as `RDD_KEY_229`**,
+      not 13 distinct bugs: a closing `}`/`)` on a line the pipeline's own
+      brace-placement/line-wrap passes later re-split or re-joined loses
+      its GDR-computed indent target, landing at the pre-split line's depth
+      instead of the post-split one (e.g. `GrammarLetterGenerator.java`'s
+      `else {` block closer measured at the wrong depth after the
+      pipeline's wrap decision moved it). This confirms `RDD_KEY_229`'s
+      pass-ordering bug is not TS-specific — it reproduces identically in
+      plain Java under normal Allman-reflow/call-wrap activity, so it is
+      the dominant (likely majority) failure mode across ordinary curly-
+      family code, not a rare edge case. No independently-fixable bug was
+      found in this batch; every failure traces to the one already-deferred
+      design issue, so per `RDD_KEY_229`'s note ("both remediation paths
+      too risky to attempt this session") and `STATE_COMMON.md`'s
+      ambiguity-handling protocol, **no source code was changed this
+      session either** — attempting either remediation path is a new
+      design judgment call, not a bug fix, and the user's prior explicit
+      risk judgment on it stands until revisited directly. `JSONEncoderLite.
+      java` and `serge-sans-paille/frozen` were not yet reached this
+      session (stopped after the first module to avoid spending the rest of
+      the corpus pass on restating the same finding).
+
+      **Left off here:** the rest of `javaparser/javaparser` (`javaparser-
+      core` is the large main module, not yet run), local `tool/
+      JSONEncoderLite.java`, and `serge-sans-paille/frozen` are still
+      untested this cycle — but given 13/13 failures in the first module
+      trace to one root cause, expect the same dominant failure mode there
+      too rather than new bug categories. **Before spending more real-code-
+      testing cycles on this corpus, the higher-leverage next step is
+      revisiting `RDD_KEY_229`'s remediation options directly** (bounded
+      fixpoint iteration between GDR and the pipeline; or feeding GDR's
+      precomputed indent into `MiscRuleCurly.renderCallCandidate`'s wrap
+      fits-check instead of the line's raw current indentation) — continuing
+      to run more corpora without addressing the root cause will keep
+      surfacing the same already-documented bug rather than new, actionable
+      ones. That said, this is a real design decision with prior explicit
+      user risk judgment against attempting it, so a future session should
+      ask before attempting either remediation path rather than proceeding
+      unilaterally. `/tmp/javaparser_gdr` (fresh clone) and `/tmp/gdr_r1`/
+      `/tmp/gdr_r2` (round1/round2 output for the tested module) were left
+      in place for reuse by the next session per the "search `/tmp` for an
+      existing checkout" convention.
 - [ ] Revisit Kotlin dogfood cluster D3 (see "D3 fold" section above) using
       the pre-pass's statement-boundary/structural-depth infrastructure;
       land a real fix in `MiscRuleCurly`/wherever the fix ends up living,

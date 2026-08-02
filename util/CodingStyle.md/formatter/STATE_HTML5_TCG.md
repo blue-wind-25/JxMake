@@ -258,7 +258,7 @@ checkpoint commit (or a small cluster if trivially connected, per
 `STATE_COMMON.md`'s ~50-line-diff guidance). Do not start item *N* before
 item *N-1* is committed and `make test` is green.
 
-- [ ] 1. **Re-confirm real-world impact is still low** before investing
+- [x] 1. **Re-confirm real-world impact is still low** before investing
       further: re-run the three dogfood corpora already on hand
       (`apache/ant manual/`, `WordPress/wordpress-develop`,
       `alexandersandberg/html5-elements-tester` — reuse existing `/tmp`
@@ -266,6 +266,45 @@ item *N-1* is committed and `make test` is green.
       found) against the current build. If a new real-world regression
       attributable to one of the four gaps has appeared, re-prioritize
       that gap first regardless of the "recommended order" below.
+
+      **2026-08-02 re-run (verification only, no code changes).** All three
+      existing `/tmp` checkouts found and reused (`/tmp/ant`,
+      `/tmp/wordpress-develop`, `/tmp/html5-elements-tester`); current build
+      (`target/code-formatter-1.00.jar`, already up to date, `git log -1` =
+      `98ce069`) used directly.
+      - `apache/ant manual/` (226 files): forward + round2 + idempotency
+        226/226 clean; `html_syntax_check.sh` 226/226 clean; content-diff
+        223/226 clean, 3 mismatches — all 3 already documented/accepted in
+        `STATE_DATA_FORMATS.md` (`running.html`'s known discard-vs-synthesize
+        `<p>` gap, RDD_KEY_223; `Tasks/imageio.html`/`Tasks/image.html`'s
+        known lowercase-prose-comment non-bug). No new mismatch, no gap-1/2/
+        3/4-attributable regression.
+      - `WordPress/wordpress-develop` (303 `.html` files found under the
+        checkout, superset of the 263/73 "real markup" counts previously
+        recorded — ran all 303 as a superset check rather than
+        re-deriving the exact prior filter): forward + round2 + idempotency
+        303/303 clean. `html_syntax_check.sh`: 2/303 clean full documents
+        (`src/readme.html`, `tests/qunit/index.html`, both OK) plus 301
+        `missing-doctype` results on the remaining files — spot-checked
+        (`tests/phpunit/data/blocks/do-blocks-original.html`) and confirmed
+        these are bare markup *fragments* in the original source too (no
+        `<!DOCTYPE>` in the un-formatted input either), i.e. an inherent
+        property of these PHPUnit block/template fixture files, not
+        something the formatter introduced and not tree-construction-gap-
+        related — consistent with this corpus's prior characterization as
+        "mostly thin Gutenberg block-theme templates."
+      - `alexandersandberg/html5-elements-tester` (`index.html`, 42KB):
+        forward + round2 + idempotency clean; `html_syntax_check.sh` OK;
+        `html_content_diff.sh` OK (content preserved). Still fully clean
+        end-to-end, matching its prior DONE status.
+
+      **Conclusion: still low impact, no reprioritization needed.** No new
+      real-world regression attributable to any of the four gaps (foster-
+      parenting, misnested `<form>`-in-`<template>`, implicit `<body>`
+      insertion, adoption agency) surfaced in any of the three corpora.
+      Every residual mismatch found traces to an already-documented,
+      already-accepted, unrelated cause. Proceed to item 2 in the existing
+      recommended order (no reprioritization).
 - [ ] 2. **Design the insertion-mode state object** (spike/design-only, no
       behavior change yet): decide its shape (a small enum plus a
       per-`parseElement`-frame or explicit-stack-of-frames representation

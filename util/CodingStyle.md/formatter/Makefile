@@ -91,7 +91,7 @@ GRU_POOL_A_OUT    ?=
 GRU_POOL_B_OUT    ?=
 
 gru-extract-pool-a: $(JAR_FILE)
-	@if [ -z "$(GRU_ABSTAIN_INPUT)" ] || [ -z "$(GRU_POOL_A_OUT)" ]; then                                              \
+	@if [ -z "$(GRU_ABSTAIN_INPUT)" ] || [ -z "$(GRU_POOL_A_OUT)" ]; then                                                  \
 		echo "gru-extract-pool-a: set GRU_ABSTAIN_INPUT=<path from extract_comments.py> GRU_POOL_A_OUT=<output path>"; \
 		exit 2;                                                                                                        \
 	fi
@@ -100,7 +100,7 @@ gru-extract-pool-a: $(JAR_FILE)
 	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) ExtractPoolA $(GRU_ABSTAIN_INPUT) $(GRU_POOL_A_OUT)
 
 gru-extract-pool-b:
-	@if [ -z "$(GRU_ABSTAIN_INPUT)" ] || [ -z "$(GRU_POOL_B_OUT)" ]; then                                              \
+	@if [ -z "$(GRU_ABSTAIN_INPUT)" ] || [ -z "$(GRU_POOL_B_OUT)" ]; then                                                  \
 		echo "gru-extract-pool-b: set GRU_ABSTAIN_INPUT=<path from extract_comments.py> GRU_POOL_B_OUT=<output path>"; \
 		exit 2;                                                                                                        \
 	fi
@@ -227,12 +227,12 @@ gru-train: $(JAR_FILE)
 	@mkdir -p $(GRU_TOOLS_CLASSES)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/GruTrainer.java
 	@if [ "$(GRU_HAND_LABELED_REPEAT)" != "0" ]; then \
-		$(MAKE) gru-hand-labeled-examples; \
+		$(MAKE) gru-hand-labeled-examples;        \
 	fi
-	@if [ -f $(GRU_CKPT_CURRENT) ]; then                                                                                                                                                                                        \
-		echo "gru-train: found $(GRU_CKPT_CURRENT), resuming";                                                                                                                                                             \
+	@if [ -f $(GRU_CKPT_CURRENT) ]; then                                                                                                                                                                                                                                                                     \
+		echo "gru-train: found $(GRU_CKPT_CURRENT), resuming";                                                                                                                                                                                                                                           \
 		$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT) $(GRU_TRAIN_ARGS) --resume=$(GRU_CKPT_CURRENT) $(if $(filter-out 0,$(GRU_HAND_LABELED_REPEAT)),--hand-labeled=$(GRU_HAND_LABELED_EXAMPLES) --hand-labeled-repeat=$(GRU_HAND_LABELED_REPEAT)); \
-	else                                                                                                                                                                                                                        \
+	else                                                                                                                                                                                                                                                                                                     \
 		$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT) $(GRU_TRAIN_ARGS) $(if $(filter-out 0,$(GRU_HAND_LABELED_REPEAT)),--hand-labeled=$(GRU_HAND_LABELED_EXAMPLES) --hand-labeled-repeat=$(GRU_HAND_LABELED_REPEAT));                              \
 	fi
 	@cp $(GRU_WEIGHTS_OUT) $(CLASS_DIR)
@@ -516,6 +516,9 @@ test: $(JAR_FILE)
 # would race on it (one invocation's `rm $(TEST_TMP)/*` deleting another's in-flight results). `flock` makes
 # a second concurrent call block and queue instead of racing.
 _test_serial:
+	@if [ ! -f "$(BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)" ] && [ -f "$(GRU_WEIGHTS_FILENAME)" ]; then \
+		cp "$(GRU_WEIGHTS_FILENAME)" "$(BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)";                  \
+	fi
 	@(                                                                             \
 		export JXMAKE_CODE_FORMATTER_FORMAT_MACROS=on;                         \
 		mkdir -p $(TEST_TMP);                                                  \

@@ -138,9 +138,9 @@ public abstract class ScopePipelineCore {
      */
     protected String trailingIndent(final String gap)
     {
-        final int nl = gap.lastIndexOf('\n');
+        final int    nl           = gap.lastIndexOf('\n');
         final String afterNewline = nl >= 0 ? gap.substring(nl + 1) : gap;
-        int end = 0;
+              int    end          = 0;
         while( end < afterNewline.length() && ( afterNewline.charAt(
             end
         ) == ' ' || afterNewline.charAt(

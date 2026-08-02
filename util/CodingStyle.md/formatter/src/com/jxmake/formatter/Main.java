@@ -41,7 +41,7 @@ public final class Main {
      * in this case, or it would tear the just-started server down immediately. Distinct from
      * every real exit code (0/1/2), which are all non-negative.
      */
-    private static final int SERVER_STARTED_KEEP_ALIVE = - 1;
+    private static final int SERVER_STARTED_KEEP_ALIVE = -1;
 
     private Main()
     {
@@ -401,15 +401,14 @@ public final class Main {
      */
     private static String resolveAutoIndentStyle(final Path path) throws IOException
     {
-        final Path fileDir     = path.toAbsolutePath().getParent();
-        final Path boundaryDir = IndentationDetector.findBoundaryDir(fileDir);
+        final Path fileDir              = path.toAbsolutePath().getParent();
+        final Path boundaryDir          = IndentationDetector.findBoundaryDir(fileDir);
         final long boundaryLastModified = Files.exists(
             boundaryDir
         ) ? Files.getLastModifiedTime(
             boundaryDir
-        )
-                .toMillis() : 0L;
-        final Path cacheFile = Paths.get(
+        ).toMillis() : 0L;
+        final Path cacheFile            = Paths.get(
             "/tmp", "jxmake-code-formatter-indent-" + sha256Hex( boundaryDir.toString() ) + ".cache"
         );
 
@@ -550,10 +549,9 @@ public final class Main {
         try ( final OutputStream out = connection.getOutputStream() ) {
             out.write( content.getBytes(StandardCharsets.UTF_8) );
         }
-        final int status = connection.getResponseCode();
-        final InputStream responseStream = status >= 200 && status < 300 ? connection.getInputStream()
-                : connection.getErrorStream();
-        final String body = readStream(responseStream);
+        final int         status         = connection.getResponseCode();
+        final InputStream responseStream = status >= 200&& status < 300 ? connection.getInputStream() : connection.getErrorStream();
+        final String      body           = readStream(responseStream);
         connection.disconnect();
         if(status < 200 || status >= 300) throw new IOException(
             "server returned " + status + ": " + body
@@ -616,7 +614,7 @@ public final class Main {
 
     private static List<String> splitLines(final String text)
     {
-        final List<String> lines = new ArrayList<String>( Arrays.asList( text.split("\n", - 1) ) );
+        final List<String> lines = new ArrayList<String>( Arrays.asList( text.split("\n", -1) ) );
         if( !lines.isEmpty() && lines.get(
             lines.size() - 1
         ).isEmpty() ) lines.remove(
@@ -693,8 +691,8 @@ public final class Main {
         final List<String>  b    = splitLines(formatted);
         final List<DiffRun> runs = computeDiffRuns(a, b);
 
-        int firstChange = - 1;
-        int lastChange  = - 1;
+        int firstChange = -1;
+        int lastChange  = -1;
         for( int idx = 0; idx < runs.size(); ++idx ) {
             if( runs.get(idx).type != ' ' ) {
                 if(firstChange < 0) firstChange = idx;

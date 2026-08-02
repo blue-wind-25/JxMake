@@ -481,16 +481,16 @@ public final class GruClassifier {
         int      h  = weights.bz.length;
         double[] dh = dhAtTarget;
 
-        int start = isForward ? cache. targetIndex : cache.targetIndex;
-        int end = isForward ? 0 : cache.tokens.size() - 1;
-        int step = isForward ? -1 : 1;
+        int start = isForward ? cache.targetIndex : cache.targetIndex;
+        int end   = isForward ? 0 : cache.tokens.size() - 1;
+        int step  = isForward ? -1 : 1;
 
         for(int t = start; isForward ? t >= end : t <= end; t += step) {
-            double[] z = isForward ? cache.fZ[t] : cache.bZ[t];
-            double[] r = isForward ? cache.fR[t] : cache.bR[t];
+            double[] z      = isForward ? cache.fZ[t] : cache.bZ[t];
+            double[] r      = isForward ? cache.fR[t] : cache.bR[t];
             double[] hTilde = isForward ? cache.fHTilde[t] : cache.bHTilde[t];
-            double[] hPrev = prevHidden(cache, t, isForward);
-            double[] x     = cache.x[t];
+            double[] hPrev  = prevHidden(cache, t, isForward);
+            double[] x      = cache.x[t];
 
             double[] dz           = new double[h];
             double[] dhTilde      = new double[h];
@@ -552,7 +552,7 @@ public final class GruClassifier {
 
     private static double[] prevHidden(ForwardCache cache, int t, boolean isForward)
     {
-        int h = isForward ? cache.fH[0]. length : cache.bH[ cache.tokens.size() - 1 ].length;
+        int h = isForward ? cache.fH[0].length : cache.bH[ cache.tokens.size() - 1 ].length;
         if(isForward) return t == 0 ? new double[h] : cache.fH[t - 1];
 
         return t == cache.tokens.size() - 1 ? new double[h] : cache.bH[t + 1];

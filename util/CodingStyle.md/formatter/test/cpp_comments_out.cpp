@@ -43,12 +43,12 @@ concept HasDraw = requires(T t /* The object */) {
 }; // concept HasDraw
 
 // Comment between class specifier and base
-class /* Derived */ Derived /* From */ : /* public */ public Base {
+class /* Derived */ Derived /* From */ : /* Public */ public Base {
 
 public:
     // Comment before constructor
-    Derived(); // default ctor
-    /* explicit */ explicit Derived(int v); // Value ctor
+    Derived(); // Default ctor
+    /* Explicit */ explicit Derived(int v); // Value ctor
     ~Derived(); // Dtor
 
     // Inline methods with trailing comments
@@ -64,7 +64,7 @@ private:
 // Comment inside function definition with complex params
 void complexFunction(
     int                      a, // Plain int
-    const std::string&       b, /* const ref string */
+    const std::string&       b, /* Const ref string */
     std::vector<int>         c, // Vector by value
     std::function<void(int)> d  /* Callback */
 )

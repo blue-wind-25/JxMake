@@ -68,7 +68,7 @@ public final class ServerMode {
             }
         } // if
 
-        final int port = config.serverPort() > 0 ? config.serverPort() : DEFAULT_PORT;
+        final int        port = config.serverPort() > 0 ? config.serverPort() : DEFAULT_PORT;
         final HttpServer httpServer;
         try {
             httpServer = HttpServer.create( new InetSocketAddress("localhost", port), 0 );
@@ -379,9 +379,11 @@ public final class ServerMode {
                     language
                 );
 
-                final boolean formatOff = "true".equals( params.get("format-off") );
-                final String  content   = readBody( exchange.getRequestBody() );
-                final Path targetFile = path == null ? null : Paths.get(path);
+                final boolean             formatOff       = "true".equals(
+                    params.get("format-off")
+                );
+                final String              content         = readBody( exchange.getRequestBody() );
+                final Path                targetFile      = path == null ? null : Paths.get(path);
                 final Map<String, String> inFileOverrides = InFileConfig.parse(content);
                 final Config              config          = Config.resolve(
                     targetFile, inlineConfig.isEmpty() ? null : inlineConfig, inFileOverrides

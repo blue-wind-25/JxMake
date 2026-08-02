@@ -196,7 +196,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
               int        depth    = 0;
               int        start    = 0;
               int        idx      = 0;
-              int        braceIdx = - 1;               // this span's own top-level `{`, if any
+              int        braceIdx = -1;                // This span's own top-level `{`, if any
 
         while(idx < n) {
             final Token t = tokens.get(idx);
@@ -342,7 +342,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         final int         colonIdx
     )
     {
-        int only = - 1;
+        int only = -1;
         for(int i = start; i < colonIdx; ++i) {
             if( !isGapToken( tokens.get(i) ) ) {
                 if(only >= 0) return false;
@@ -813,14 +813,19 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         final List<Replacement>       replacements = new ArrayList<>();
 
         for(final List<Declaration> group : groups) {
-            final Declaration first = group.get(0);
-            final Declaration last  = group.get( group.size() - 1 );
-            final Token firstAnchor = !first.templatePrefix.isEmpty() ? first.templatePrefix.get(0)
-                    : first.modifiers.isEmpty() ? first.typeTokens.get(0) : first.modifiers.get(0);
-            final int  firstIdx  = indexOf.get(firstAnchor);
-            final int  lastIdx   = indexOf.get(last.name);
-            final Span firstSpan = findSpanContaining(spans, firstIdx);
-            final Span lastSpan  = findSpanContaining(spans, lastIdx);
+            final Declaration first       = group.get(0);
+            final Declaration last        = group.get( group.size() - 1 );
+            final Token       firstAnchor = ! first.templatePrefix.isEmpty() ? first.templatePrefix.get(
+                0
+            ) : first.modifiers.isEmpty() ? first.typeTokens.get(
+                0
+            ) : first.modifiers.get(
+                0
+            );
+            final int         firstIdx    = indexOf.get(firstAnchor);
+            final int         lastIdx     = indexOf.get(last.name);
+            final Span        firstSpan   = findSpanContaining(spans, firstIdx);
+            final Span        lastSpan    = findSpanContaining(spans, lastIdx);
             // Use firstIdx (the declaration's own first real token), not firstSpan.start: the
             // span's leading gap can contain a previous statement's trailing JXM_CFMT_ENA/DIS
             // marker (always itself stamped frozen -- see markFrozenSpans), which must not cause
@@ -858,14 +863,12 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             // accepting the strip when its result is already indentWidth-aligned.
             final String strippedCandidate = stripTrailingSpaces(rawLeadingGapFull, freshPad);
             final int    strippedWidth     = trailingIndent(strippedCandidate).length();
-            final String rawLeadingGap     = trailingSpaces >= freshPad
-                    && strippedWidth % indentWidth == 0
-                    ? strippedCandidate : rawLeadingGapFull;
-            final String rawIndent   = trailingIndent(rawLeadingGap);
-            final String indent      = normalizeIndent(rawIndent);
-            final String leadingGap  = normalizeLeadingGap(rawLeadingGap, rawIndent, indent);
-            final String text        = leadingGap + String.join("\n" + indent, lines);
-                  int    lastTermEnd = lastSpan.end;
+            final String rawLeadingGap     = trailingSpaces >= freshPad&& strippedWidth % indentWidth == 0 ? strippedCandidate : rawLeadingGapFull;
+            final String rawIndent         = trailingIndent(rawLeadingGap);
+            final String indent            = normalizeIndent(rawIndent);
+            final String leadingGap        = normalizeLeadingGap(rawLeadingGap, rawIndent, indent);
+            final String text              = leadingGap + String.join("\n" + indent, lines);
+                  int    lastTermEnd       = lastSpan.end;
             while( lastTermEnd > lastSpan.start && isWhitespaceOrNewline(
                 tokens.get(lastTermEnd - 1)
             ) ) lastTermEnd--;
@@ -965,12 +968,13 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         final int    trailingSpaces    = leadingSpaceCount(
             new StringBuilder(rawLeadingGapFull).reverse().toString()
         );
-        final String rawLeadingGap = trailingSpaces >= freshPad
-                ? stripTrailingSpaces(rawLeadingGapFull, freshPad) : rawLeadingGapFull;
-        final String rawIndent  = trailingIndent(rawLeadingGap);
-        final String indent     = normalizeIndent(rawIndent);
-        final String leadingGap = normalizeLeadingGap(rawLeadingGap, rawIndent, indent);
-        final String text       = leadingGap + String.join("\n" + indent, lines);
+        final String rawLeadingGap     = trailingSpaces >= freshPad ? stripTrailingSpaces(
+            rawLeadingGapFull, freshPad
+        ) : rawLeadingGapFull;
+        final String rawIndent         = trailingIndent(rawLeadingGap);
+        final String indent            = normalizeIndent(rawIndent);
+        final String leadingGap        = normalizeLeadingGap(rawLeadingGap, rawIndent, indent);
+        final String text              = leadingGap + String.join("\n" + indent, lines);
         replacements.add( new Replacement(gapStart, lastIdx + 1, text) );
     }
 
@@ -1120,7 +1124,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             // signature's -- redirect back to the `)` immediately before the list's introducing
             // top-level `:` when one is found, so the signature-parsing below sees the real
             // parameter list instead of misparsing the last initializer as a bogus signature
-            int memberInitColonIdx = - 1;
+            int memberInitColonIdx = -1;
             if(lang.isCpp) {
                 final int colonIdx = findTopLevelMemberInitColon(
                     tokens, span.start, span.openBraceIdx
@@ -1134,11 +1138,11 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 } // if
             } // if
             // For Java: handle a `throws` clause between `)` and `{`
-            int throwsEndIdx = - 1;
+            int throwsEndIdx = -1;
             // For Kotlin: handle an explicit `: ReturnType` between `)` and `{` (STYLE_KOTLIN.md
             // §9) -- absent entirely for a `Unit`-inferred function/constructor, where closeParenIdx
             // above is already the real `)` and this is a no-op.
-            int kotlinTailEndIdx = - 1;
+            int kotlinTailEndIdx = -1;
             if( !isPunct( tokens.get(closeParenIdx), ")" ) ) {
                 if(lang.isKotlin) {
                     final int realCloseParen = findLastTopLevelCloseParen(
@@ -1248,7 +1252,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 final int nameIdx = prevSignificantIndex(tokens, openParenIdx);
                 if(nameIdx >= 0) {
                     // Find the last NEWLINE within the span (before nameIdx)
-                    int newlineIdx = - 1;
+                    int newlineIdx = -1;
                     for(int j = nameIdx - 1; j >= leadStart; --j) {
                         if( tokens.get(j).type == TokenType.NEWLINE ) { newlineIdx = j; break; }
                     }
@@ -1273,10 +1277,10 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                     tokens.subList(sigLeadStart, closeParenIdx + 1)
                 );
                 if(kotlinSig == null) continue;
-                final int tailEnd = kotlinTailEndIdx >= 0 ? kotlinTailEndIdx : prevSignificantIndex(
+                final int          tailEnd = kotlinTailEndIdx >= 0 ? kotlinTailEndIdx : prevSignificantIndex(
                     tokens, span.openBraceIdx
                 );
-                final FunctionTail                          tail = kotlinSignatureRule.parseFunctionTail(
+                final FunctionTail tail    = kotlinSignatureRule.parseFunctionTail(
                     tokens.subList(closeParenIdx + 1, tailEnd + 1)
                 );
                 if(tail == null) continue;
@@ -1399,7 +1403,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     private int findLastTopLevelCloseParen(final List<Token> tokens, final int from, final int to)
     {
         int depth = 0;
-        int found = - 1;
+        int found = -1;
         for(int i = from; i < to; ++i) {
             final Token t = tokens.get(i);
             if( isPunct(t, "(") ) {
@@ -1571,15 +1575,15 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         for(final List<Member> group : groups) {
             final List<Member> filtered = getterSetterRule.excludeOutliers(tokens, group);
             if( filtered.isEmpty() ) continue;
-            final List<String> lines = lang.isKotlin
-                    ? renderKotlinFilteredRuns(tokens, group, filtered, depth)
-                    : getterSetterRule.render(tokens, filtered);
+            final List<String> lines = lang.isKotlin ? renderKotlinFilteredRuns(
+                tokens, group, filtered, depth
+            ) : getterSetterRule.render(
+                tokens, filtered
+            );
             for( int i = 0; i < filtered.size(); ++i ) {
-                final Member                                                         m = filtered.get(
-                    i
-                );
-                final int startIdx = m.templatePrefixFrom != m.templatePrefixTo ? m. templatePrefixFrom : m.returnTypeFrom;
-                final int sigIdx = m.modifiers.isEmpty() ?                           startIdx           : indexOf.get(
+                final Member m        = filtered.get(i);
+                final int    startIdx = m.templatePrefixFrom != m.templatePrefixTo ? m.templatePrefixFrom : m.returnTypeFrom;
+                final int    sigIdx   = m.modifiers.isEmpty() ? startIdx : indexOf.get(
                     m.modifiers.get(0)
                 );
                 // Use sigIdx (the member's own first real token), not m.memberFrom: memberFrom's
@@ -1669,7 +1673,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
         final List<Span>        spans                   = splitTopLevelSpans(current);
         final List<Replacement> replacements            = new ArrayList<>();
-              int               prevCloseBraceIdx       = - 1;
+              int               prevCloseBraceIdx       = -1;
               String            prevEffectiveSpanIndent = null;
         for(final Span span : spans) {
             if(span.openBraceIdx < 0) continue;
@@ -1839,10 +1843,10 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 // examples show namespace content flush with the namespace itself), unlike
                 // every other named construct (class/struct/enum) or function/loop body -- so
                 // it must not consume an indentation level the way `depth + 1` otherwise would.
-                final int childDepth = isNamespaceScope(
+                final int    childDepth     = isNamespaceScope(
                     current, span.openBraceIdx
                 ) ? depth : depth + 1;
-                final String                                                          rawChildResult = processScope(
+                final String rawChildResult = processScope(
                     tokenize(childSource, childStartFrozen),
                     childDepth,
                     childStartFrozen,
@@ -1935,18 +1939,18 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             // `cur`'s own line is separated from the line above it by the NEWLINE directly
             // preceding `cur` (`ownLineSep`) -- the previous line's own first token sits between
             // the NEWLINE *before that* (`prevLineSep`) and `ownLineSep`
-            int ownLineSep = - 1;
+            int ownLineSep = -1;
             for(int j = cur - 1; j >= leadStart; --j) {
                 if( tokens.get(j).type == TokenType.NEWLINE ) { ownLineSep = j; break; }
             }
             if(ownLineSep < 0) break;
-            int prevLineSep = - 1;
+            int prevLineSep = -1;
             for(int j = ownLineSep - 1; j >= leadStart; --j) {
                 if( tokens.get(j).type == TokenType.NEWLINE ) { prevLineSep = j; break; }
             }
-            final int prevLineFirst = prevLineSep >= 0
-                    ? nextSignificantIndex(tokens, prevLineSep)
-                    : (leadStart < ownLineSep ? leadStart : -1);
+            final int prevLineFirst = prevLineSep >= 0 ? nextSignificantIndex(
+                tokens, prevLineSep
+            ) : (leadStart < ownLineSep ? leadStart : -1);
             if(prevLineFirst < 0 || prevLineFirst >= cur) break;
             final Token first = tokens.get(prevLineFirst);
             // A trailing `//` line comment on this line (its own last significant token,
@@ -1958,7 +1962,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             // the same hazard -- it's self-terminating, so joining more code after it on the
             // same rendered line is safe (and is the existing, intended behavior exercised by
             // `cpp_comments_inp.cpp`'s `requires /* numeric */ ... /* constraint */` case).
-            int lastOnPrevLine = - 1;
+            int lastOnPrevLine = -1;
             for(int j = ownLineSep - 1; j >= prevLineFirst; --j) {
                 final TokenType tt = tokens.get(j).type;
                 if(tt != TokenType.WHITESPACE && tt != TokenType.NEWLINE) { lastOnPrevLine = j; break; }

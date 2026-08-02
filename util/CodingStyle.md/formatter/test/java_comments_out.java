@@ -46,7 +46,7 @@ public class CommentEdgeCases {
         if(x < 0) {
             System.out.println("negative");
         }
-        /* else block */
+        /* Else block */
         else {
             System.out.println("non-negative");
         }

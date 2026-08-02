@@ -733,7 +733,7 @@ public class BlockStructureRule {
         if( "final".equals( sig.get(0).text ) || "const".equals( sig.get(0).text ) ) return false;
 
         int semiCount = 0;
-        int semiIdx   = - 1;
+        int semiIdx   = -1;
         for( int k = 0; k < sig.size(); ++k ) {
             if( isPunct( sig.get(k), ";" ) ) {
                 ++semiCount;
@@ -946,7 +946,7 @@ public class BlockStructureRule {
         int     depth              = 0;
         boolean sawContent         = false;
         boolean sawTrailingComment = false;
-        int     bodyEnd            = - 1;
+        int     bodyEnd            = -1;
         for(int k = bodyStart; k < n; ++k) {
             final Token t = tokens.get(k);
             if(t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
@@ -1034,7 +1034,7 @@ public class BlockStructureRule {
         ).type == TokenType.WHITESPACE || tokens.get(
             bodyEnd - 1
         ).type == TokenType.NEWLINE );
-        final String candidate = restoreTrailingSpace ? prefix + " " + body + " " : prefix + " " + body;
+        final String  candidate            = restoreTrailingSpace ? prefix + " " + body + " " : prefix + " " + body;
         // JS/TS root cause #3 (STATE_JS_TS.md, "2026-07-30 design/scoping pass"): refuse this
         // collapse when the joined one-line candidate would exceed `lineLengthLimit` AND nothing
         // later can rescue it (no breakable call in the body for `MiscRuleCurly
@@ -1659,7 +1659,7 @@ public class BlockStructureRule {
         final StringBuilder out        = new StringBuilder();
         final List<Token>   gap        = new ArrayList<>();
         final int           n          = tokens.size();
-              int           lastSigIdx = - 1;
+              int           lastSigIdx = -1;
               int           i          = 0;
 
         while(i < n) {
@@ -1721,7 +1721,7 @@ public class BlockStructureRule {
         final StringBuilder out        = new StringBuilder();
         final List<Token>   gap        = new ArrayList<>();
         final int           n          = tokens.size();
-              int           lastSigIdx = - 1;
+              int           lastSigIdx = -1;
               int           i          = 0;
 
         while(i < n) {
@@ -1835,7 +1835,7 @@ public class BlockStructureRule {
 
         final StringBuilder out             = new StringBuilder();
         final List<Token>   gap             = new ArrayList<>();
-              int           lastSignificant = - 1;
+              int           lastSignificant = -1;
         for(int i = 0; i < n; ++i) {
             final Token t = tokens.get(i);
             if( isGap(t) ) {
@@ -1847,10 +1847,13 @@ public class BlockStructureRule {
                 lastSignificant
             );
             if(needBefore || needAfter) {
-                final String indentIfNoNewline = needBefore ? blankBeforeIndent.get(i)
-                        : blankAfterIndent.get(lastSignificant);
+                final String indentIfNoNewline = needBefore ? blankBeforeIndent.get(
+                    i
+                ) : blankAfterIndent.get(
+                    lastSignificant
+                );
                 out.append( ensureBlankLine(gap, indentIfNoNewline) );
-            }
+            } // if
             else {
                 for(final Token g : gap) out.append(g.text);
             }
@@ -1869,7 +1872,7 @@ public class BlockStructureRule {
      */
     private String lineIndent(final List<Token> tokens, final int idx)
     {
-        int newlineIdx = - 1;
+        int newlineIdx = -1;
         for(int i = idx; i >= 0; --i) {
             if( tokens.get(i).type == TokenType.NEWLINE ) {
                 newlineIdx = i;
@@ -2110,7 +2113,7 @@ public class BlockStructureRule {
      */
     private String ensureBlankLine(final List<Token> gap, final String indentIfNoNewline)
     {
-        int     firstCommentIdx           = - 1;
+        int     firstCommentIdx           = -1;
         boolean newlineBeforeFirstComment = false;
         for( int i = 0; i < gap.size(); ++i ) {
             final Token g = gap.get(i);
@@ -2133,8 +2136,8 @@ public class BlockStructureRule {
             return sb.toString();
         } // if
 
-        final int prefixEnd = firstCommentIdx < 0 ? gap.size() : firstCommentIdx;
-        int newlineCount = 0;
+        final int prefixEnd    = firstCommentIdx < 0 ? gap.size() : firstCommentIdx;
+              int newlineCount = 0;
         for(int i = 0; i < prefixEnd; ++i) {
             if( gap.get(i).type == TokenType.NEWLINE ) newlineCount++;
         }
@@ -2413,7 +2416,7 @@ public class BlockStructureRule {
         } // if
         if( isPunct(prev, ")") ) {
             final int openParen = matchOpenBackward(tokens, prevIdx);
-            final int kwIdx = openParen >= 0 ? prevSignificantIndex(tokens, openParen - 1) : -1;
+            final int kwIdx     = openParen >= 0 ? prevSignificantIndex(tokens, openParen - 1) : -1;
             if( kwIdx >= 0 && tokens.get(kwIdx).type == TokenType.KEYWORD ) {
                 final String kw = tokens.get(kwIdx).text;
                 if( "if".equals(kw) ) {
@@ -2492,8 +2495,8 @@ public class BlockStructureRule {
                 // `record Name(...) [implements TypeList] {` -- the component list (and an optional
                 // implements clause) sits between the name and the body brace, so the name isn't the
                 // token directly before `{` like it is for class/interface/enum.
-                final int openParen = matchOpenBackward(tokens, recordCloseParen);
-                final int nameIdx = openParen >= 0 ? prevSignificantIndex(
+                final int openParen   = matchOpenBackward(tokens, recordCloseParen);
+                final int nameIdx     = openParen >= 0 ? prevSignificantIndex(
                     tokens, openParen - 1
                 ) : -1;
                 final int recordKwIdx = nameIdx >= 0 ? prevSignificantIndex(
@@ -2840,7 +2843,7 @@ public class BlockStructureRule {
     {
         final List<Token>   body     = tokens.subList(openParen + 1, closeParen);
               int           depth    = 0;
-              int           colonIdx = - 1;
+              int           colonIdx = -1;
         final List<Integer> semiIdx  = new ArrayList<>();
         for( int k = 0; k < body.size(); ++k ) {
             final Token t = body.get(k);
@@ -2898,7 +2901,7 @@ public class BlockStructureRule {
         for(int i = 0; i < n; ++i) {
             final Token t = tokens.get(i);
             if( !isPunct(t, "{") || t.name == null ) continue;
-            int headerStart = - 1;
+            int headerStart = -1;
             for(int j = i - 1; j >= 0; --j) {
                 final Token     prev = tokens.get(j);
                 final TokenType ty   = prev.type;
@@ -3088,7 +3091,7 @@ public class BlockStructureRule {
      */
     public String alignBracelessElseIfChain(final List<Token> tokens)
     {
-        final String[] lines = joinVerbatim(tokens).split("\n", - 1);
+        final String[] lines = joinVerbatim(tokens).split("\n", -1);
               int      i     = 0;
         while(i < lines.length) {
             int indentLen = leadingWhitespaceLength( lines[i] );
@@ -3150,7 +3153,7 @@ public class BlockStructureRule {
             // so it stays correct for a plain two-branch if/else chain (no `else if` at all --
             // both widths already equal, leftPad is 0, no churn) as well as any wider chain.
             final int[] kwLen    = new int[ chain.size() ];
-                  int   maxKwLen = - 1;
+                  int   maxKwLen = -1;
             for( int k = 0; k < chain.size(); ++k ) {
                 final String  line       = lines[ chain.get(k) ];
                 final boolean isElseIf   = line.regionMatches(indentLen, "else if(", 0, 8);
@@ -3184,7 +3187,7 @@ public class BlockStructureRule {
             } // for
 
             final int[]   prefixEnd = new int[ chain.size() ];
-                  int     target    = - 1;
+                  int     target    = -1;
                   boolean ok        = true;
             for( int k = 0; k < chain.size(); ++k ) {
                 final String  line       = lines[ chain.get(k) ];
@@ -3196,11 +3199,9 @@ public class BlockStructureRule {
                     prefixEnd[k] = indentLen + "else".length();
                     continue;
                 }
-                final int openParen = isElseIf
-                    ? indentLen + "else if".length()
-                    : indentLen + leftPad[k] + 2;
-                int depth      = 0;
-                int closeParen = - 1;
+                final int openParen  = isElseIf ? indentLen + "else if".length() : indentLen + leftPad[k] + 2;
+                      int depth      = 0;
+                      int closeParen = -1;
                 for( int c = openParen; c < line.length(); ++c ) {
                     final char ch = line.charAt(c);
                     if(ch == '(') {

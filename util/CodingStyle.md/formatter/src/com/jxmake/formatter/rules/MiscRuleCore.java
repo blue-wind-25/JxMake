@@ -334,10 +334,10 @@ public abstract class MiscRuleCore {
      */
     protected String indentText(final int level, final String indentStyle)
     {
-        final boolean tabs = "tabs".equals(indentStyle);
-        final char unit = tabs ? '\t' : ' ';
-        final int count = tabs ? level : level* indentWidth;
-        final StringBuilder      sb = new StringBuilder(count);
+        final boolean       tabs  = "tabs".equals(indentStyle);
+        final char          unit  = tabs ? '\t' : ' ';
+        final int           count = tabs ? level : level * indentWidth;
+        final StringBuilder sb    = new StringBuilder(count);
         for(int i = 0; i < count; ++i) sb.append(unit);
 
         return sb.toString();
@@ -463,7 +463,7 @@ public abstract class MiscRuleCore {
         final StringBuilder out                = new StringBuilder();
         final List<Token>   gap                = new ArrayList<>();
               Token         lastSignificant    = null;
-              int           lastSignificantIdx = - 1;
+              int           lastSignificantIdx = -1;
               int           i                  = 0;
 
         while(i < n) {
@@ -474,14 +474,16 @@ public abstract class MiscRuleCore {
                 continue;
             }
 
-            final boolean lastIsOpen = isPunct(
+            final boolean lastIsOpen    = isPunct(
                 lastSignificant, "("
             ) || isPunct(
                 lastSignificant, "["
             );
-            final boolean curIsClose = isPunct(t, ")") || isPunct(t, "]");
-            final Boolean afterOpen = lastIsOpen ? looseByOpenIdx.get(lastSignificantIdx) : null;
-            final Boolean beforeClose = curIsClose ? looseByCloseIdx.get(i) : null;
+            final boolean curIsClose    = isPunct(t, ")") || isPunct(t, "]");
+            final Boolean afterOpen     = lastIsOpen ? looseByOpenIdx.get(
+                lastSignificantIdx
+            ) : null;
+            final Boolean beforeClose   = curIsClose ? looseByCloseIdx.get(i) : null;
             final boolean gapHasBlocker = gap.stream().anyMatch(
                 this:: isCommentOrNewline
             ) || t.frozen || (lastSignificant != null&& lastSignificant.frozen) || gap.stream().anyMatch(
@@ -954,8 +956,8 @@ public static final class Assignment {
         ) + "=";
         final String line1 = lhs + " " + joinVerbatim(a.firstLineValueTokens);
 
-        final int indentLen = a.breakBeforeOperator ? lhsWidth - 1 : lhsWidth + 1;
-        final StringBuilder line2 = new StringBuilder( padRight("", indentLen) );
+        final int           indentLen = a.breakBeforeOperator ? lhsWidth - 1 : lhsWidth + 1;
+        final StringBuilder line2     = new StringBuilder( padRight("", indentLen) );
         line2.append( joinVerbatim(a.secondLineValueTokens) ).append(';');
         if(a.trailingComment != null) line2.append(' ').append(a.trailingComment.text);
 
@@ -1044,7 +1046,7 @@ public static final class Assignment {
         // State 0: after target/field, expecting op or member-access operator.
         // State 1: after . or ->, expecting the field-name IDENTIFIER.
         // State 2: inside [...] subscript (depth-tracked).
-        int opIdx     = - 1;
+        int opIdx     = -1;
         int scanState = 0;
         int scanDepth = 0;
         for( int k = targetIdx + 1; k < stmt.size(); ++k ) {
@@ -1092,7 +1094,7 @@ public static final class Assignment {
         }
 
         int newlineCount = 0;
-        int newlineIdx   = - 1;
+        int newlineIdx   = -1;
         for(int i = valueFrom; i < valueTo; ++i) {
             final Token t = stmt.get(i);
             if(t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) return null;
@@ -1497,7 +1499,7 @@ public static final class Assignment {
     {
         if( tokens == null || parenIdx < 0 || parenIdx >= tokens.size() ) return false;
         int depth    = 0;
-        int closeIdx = - 1;
+        int closeIdx = -1;
         for( int k = parenIdx; k < tokens.size(); ++k ) {
             final Token t = tokens.get(k);
             if( isPunct(t, "(") ) {
@@ -1907,7 +1909,7 @@ public static final class Assignment {
     protected SepMatch parseSeparatorComment(final String commentText, final int tokenIndex)
     {
         final String content = commentText.substring(2);
-              int    sepPos  = - 1;
+              int    sepPos  = -1;
         for( int i = 1; i < content.length() - 1; ++i ) {
             final char c = content.charAt(i);
             if( Character.isWhitespace(c) || Character.isLetterOrDigit(c) ) continue;
@@ -2121,7 +2123,7 @@ public static final class Assignment {
      */
     protected String reformatMultiLineBlockComment(final String text, final String indent)
     {
-        final String[] rawLines = text.split("\r\n|\r|\n", - 1);
+        final String[] rawLines = text.split("\r\n|\r|\n", -1);
         final int      n        = rawLines.length;
         for(int i = 1; i < n; ++i) {
             if( !stripLeadingWhitespace( rawLines[i] ).startsWith("*") ) return text;

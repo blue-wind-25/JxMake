@@ -283,8 +283,8 @@ public final class CssSpecificRule {
             // turns out to be a declaration.
             final StringBuilder text               = new StringBuilder();
                   int           parenDepth         = 0;
-                  int           colonOffset        = - 1;
-                  int           terminator         = - 1;
+                  int           colonOffset        = -1;
+                  int           terminator         = -1;
             final List<String>  preColonComments   = new ArrayList<>();
             final List<Integer> preColonCommentPos = new ArrayList<>();
             while(true) {
@@ -367,8 +367,9 @@ public final class CssSpecificRule {
             else {
                 final String full = text.toString().trim();
                 if(colonOffset >= 0) {
-                    final String midComment = preColonComments.isEmpty() ? null
-                            : preColonComments.get( preColonComments.size() - 1 );
+                    final String midComment = preColonComments.isEmpty() ? null : preColonComments.get(
+                        preColonComments.size() - 1
+                    );
                     item.decl = new Decl(
                         full.substring(0, colonOffset).trim(),
                         full.substring(colonOffset + 1).trim(), true, midComment
@@ -408,7 +409,7 @@ public final class CssSpecificRule {
     {
         final List<String> keys       = new ArrayList<>();
         final String[]     padding    = new String[ items.size() ];
-              int          groupStart = - 1;
+              int          groupStart = -1;
         for( int i = 0; i <= items.size(); ++i ) {
             final boolean atEnd           = i == items.size();
             final boolean isAlignableDecl = ! atEnd&& items.get(

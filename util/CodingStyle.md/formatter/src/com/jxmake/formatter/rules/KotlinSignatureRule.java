@@ -160,8 +160,8 @@ public class KotlinSignatureRule extends MiscRuleCurly {
         final java.util.Set<Token> lineStartComments = findLineStartComments(sigTokens);
         final java.util.Set<Token> standaloneComments = findStandaloneComments(sigTokens);
         final List<Token> sig       = significantWithComments(sigTokens);
-              int         openParen = - 1;
-              int         nameIdx   = - 1;
+              int         openParen = -1;
+              int         nameIdx   = -1;
               int         depth     = 0;
         for( int i = 0; i < sig.size(); ++i ) {
             final Token t = sig.get(i);
@@ -445,10 +445,12 @@ public class KotlinSignatureRule extends MiscRuleCurly {
         final List<Integer> gridParamIdx = new ArrayList<>();
         final String[]      soloLine     = new String[ sig.params.size() ];
         for( int idx = 0; idx < sig.params.size(); ++idx ) {
-            final KotlinParam p      = sig.params.get(idx);
-            final boolean     isLast = idx == sig.params.size() - 1;
-            final String modPrefix = p.modifiers.isEmpty() ? "" : renderTokens(p.modifiers) + " ";
-            final String comma = (!isLast || sig.trailingComma) ? "," : "";
+            final KotlinParam p         = sig.params.get(idx);
+            final boolean     isLast    = idx == sig.params.size() - 1;
+            final String      modPrefix = p.modifiers.isEmpty() ? "" : renderTokens(
+                p.modifiers
+            ) + " ";
+            final String      comma     = (! isLast || sig.trailingComma) ? "," : "";
             // The comma is never its own grid column -- appending it as a bare cell would make
             // `ColumnGrid` pad every row's type cell out to the widest sibling before the comma
             // (an extra stray gap, e.g. "id    : Long   ,"), since only a row's own true *last*

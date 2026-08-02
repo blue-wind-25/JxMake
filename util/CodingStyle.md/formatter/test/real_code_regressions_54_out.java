@@ -12,7 +12,7 @@ public class Range {
     }
 
     /*
-     *  return true if at least one of the method's type parameters has the same type as the specified type
+     *  Return true if at least one of the method's type parameters has the same type as the specified type
      */
     private boolean hasParameterwithSameTypeThanResultType()
     {

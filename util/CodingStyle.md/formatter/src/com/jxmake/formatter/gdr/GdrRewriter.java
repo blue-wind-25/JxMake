@@ -23,11 +23,11 @@ public final class GdrRewriter {
     public static String rewrite(String source, int indentSize)
     {
         List<GdrIndentTarget> targets = GdrReindenter.compute(source, indentSize);
-        String[]              lines   = source.split("\n", - 1);
+        String[]              lines   = source.split("\n", -1);
 
         StringBuilder result = new StringBuilder( source.length() );
         for(int i = 0; i < lines.length; ++i) {
-            String line = lines[i];
+            String          line   = lines[i];
             GdrIndentTarget target = ( i < targets.size() ) ? targets.get(i) : null;
 
             if(target != null && target.touchable) {

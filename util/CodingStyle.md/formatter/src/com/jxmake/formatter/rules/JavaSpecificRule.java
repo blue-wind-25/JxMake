@@ -474,7 +474,7 @@ public class JavaSpecificRule {
         }
         final StringBuilder out             = new StringBuilder();
         final List<Token>   gap             = new ArrayList<>();
-              int           lastSignificant = - 1;
+              int           lastSignificant = -1;
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
             if( isGapToken(t) ) {
@@ -638,9 +638,9 @@ public class JavaSpecificRule {
         final List<String> localPrefix = findLocalPrefix(tokens, importDepth);
 
           int                depth            = 0;
-          int                firstImportIdx   = - 1;
-          int                prevSemicolonIdx = - 1;
-          int                lastSemicolonIdx = - 1;
+          int                firstImportIdx   = -1;
+          int                prevSemicolonIdx = -1;
+          int                lastSemicolonIdx = -1;
           boolean            blocked          = false;
     final List<ParsedImport> imports          = new ArrayList<>();
     final int                n                = tokens.size();
@@ -903,9 +903,11 @@ public class JavaSpecificRule {
             final String collapsedFull = baseIndent + collapseToOneLine(
                 tokens, declStart, openBraceIdx
             );
-            final String rendered = collapsedFull.length() <= lineLengthLimit
-                    ? renderPermitsInline(types)
-                    : renderPermitsWrapped(tokens, baseIndent, openBraceIdx, types);
+            final String rendered      = collapsedFull.length() <= lineLengthLimit ? renderPermitsInline(
+                types
+            ) : renderPermitsWrapped(
+                tokens, baseIndent, openBraceIdx, types
+            );
 
             spans.add( new int[] { prevSigIdx + 1, openBraceIdx + 1 } );
             renders.add(rendered);
@@ -1062,13 +1064,13 @@ public class JavaSpecificRule {
      * Sentinel returned by {@link #findCaseArrowOrColon} when a label's top-level `:` is found
      *  instead of `->` -- the switch is colon-form, owned by {@code SwitchRule}, never touched here
      */
-    private static final int COLON_FOUND = - 2;
+    private static final int COLON_FOUND = -2;
 
     /**
      * Sentinel returned by {@link #findCaseArrowOrColon} when neither terminator is found before
      *  hitting a depth-0 `;`/`{` boundary first -- a malformed/unrecognized label shape
      */
-    private static final int ARROW_NOT_FOUND = - 1;
+    private static final int ARROW_NOT_FOUND = -1;
 
     /**
      * STYLE_JAVA17.md §3: column-aligns the `->` across every case of an arrow-labeled switch
@@ -1251,7 +1253,7 @@ public class JavaSpecificRule {
             // reformatting the already-joined (over-length) output lets enforceCallLineBreaking
             // finally see and break the too-long call -- not idempotent. Same
             // predict-before-committing posture as isSingleLineBody above.
-            final int bodyEndIdx = i + 1 < cases.size() ? cases.get(
+            final int    bodyEndIdx  = i + 1 < cases.size() ? cases.get(
                 i + 1
             ).kwIdx - 1 : closeBraceIdx - 1;
             final int    indent      = lineIndentWidth(tokens, c.kwIdx);
@@ -1341,7 +1343,7 @@ public class JavaSpecificRule {
     /** Index of the first significant token on the same physical line as {@code idx} */
     private int lineStartIndex(final List<Token> tokens, final int idx)
     {
-        int newlineIdx = - 1;
+        int newlineIdx = -1;
         for(int i = idx; i >= 0; --i) {
             if( tokens.get(i).type == TokenType.NEWLINE ) {
                 newlineIdx = i;
@@ -1408,7 +1410,7 @@ public class JavaSpecificRule {
      */
     private String lineIndent(final List<Token> tokens, final int idx)
     {
-        int newlineIdx = - 1;
+        int newlineIdx = -1;
         for(int i = idx; i >= 0; --i) {
             if( tokens.get(i).type == TokenType.NEWLINE ) {
                 newlineIdx = i;

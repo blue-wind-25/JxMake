@@ -58,8 +58,8 @@ public final class GdrReindenter {
             GdrLineParenBracketDepth pb     = pbDepths.get(line);
             GdrTokenType             leader = leadingType[line];
 
-            int braceLevel = (leader == GdrTokenType.BRACE_CLOSE) ? brace.                                   depthAtEnd : brace.depthAtStart;
-            int pbLevel = (leader == GdrTokenType.PAREN_CLOSE || leader == GdrTokenType.BRACKET_CLOSE) ? pb. depthAtEnd : pb.depthAtStart;
+            int braceLevel = (leader == GdrTokenType.BRACE_CLOSE) ? brace.depthAtEnd : brace.depthAtStart;
+            int pbLevel    = (leader == GdrTokenType.PAREN_CLOSE || leader == GdrTokenType.BRACKET_CLOSE) ? pb.depthAtEnd : pb.depthAtStart;
 
             int level = braceLevel + pbLevel;
             result.add( new GdrIndentTarget(line, true, level, level * indentSize) );

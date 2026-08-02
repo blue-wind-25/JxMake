@@ -137,7 +137,7 @@ public class java_content_diff {
      */
     static String normalizeCommentBody(String s)
     {
-        String[]      lines = s.split("\n", - 1);
+        String[]      lines = s.split("\n", -1);
         StringBuilder out   = new StringBuilder();
         for(String line : lines) out.append( line.replaceFirst("^\\s*\\*\\s?", "") ).append(' ');
 
@@ -293,7 +293,7 @@ public class java_content_diff {
 
         // Package name must be unchanged
         String origPkg = origCu.getPackageName() == null ? "" : origCu.getPackageName().toString();
-        String fmtPkg = fmtCu.getPackageName() == null ? "" : fmtCu.getPackageName().toString();
+        String fmtPkg  = fmtCu.getPackageName() == null ? "" : fmtCu.getPackageName().toString();
         if( !origPkg.equals(
             fmtPkg
         ) ) mismatches.add(

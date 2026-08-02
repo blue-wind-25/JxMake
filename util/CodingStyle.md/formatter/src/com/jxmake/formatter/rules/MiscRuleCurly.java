@@ -286,8 +286,8 @@ public static final class Signature {
     public Signature parseSignature(final List<Token> sigTokens)
     {
         final List<Token> sig       = significantWithComments(sigTokens);
-              int         openParen = - 1;
-              int         nameIdx   = - 1;
+              int         openParen = -1;
+              int         nameIdx   = -1;
               int         depth     = 0;
         for( int i = 0; i < sig.size(); ++i ) {
             final Token t = sig.get(i);
@@ -528,13 +528,13 @@ public static final class Signature {
         for(final Token t : slice) {
             if( isOp(
                 t, "="
-            ) ) return null; // default value -- no STYLE.md worked example, bail the whole signature
+            ) ) return null; // Default value -- no STYLE.md worked example, bail the whole signature
         }
           int         end        = slice.size();
     final List<Token> sizeTokens = new ArrayList<>();
         while( end > 0 && isPunct( slice.get(end - 1), "]" ) ) {
             int depth   = 0;
-            int openIdx = - 1;
+            int openIdx = -1;
             for(int k = end - 1; k >= 0; --k) {
                 final Token t = slice.get(k);
                 if( isPunct(t, "]") ) {
@@ -668,18 +668,14 @@ public static final class Signature {
         lines.add(head);
         final String paramIndent = indentText(indentLevel + 1, indentStyle);
         for( int i = 0; i < sig.params.size(); ++i ) {
-            final Param                                                                                             p             = sig.params.get(
-                i
-            );
-            final String                                                                                            typeText      = renderTokens(
-                p.typeTokens
-            );
-            final String                                                                                            nameCommaText = p.name.text + renderTokens(
+            final Param  p             = sig.params.get(i);
+            final String typeText      = renderTokens(p.typeTokens);
+            final String nameCommaText = p.name.text + renderTokens(
                 p.sizeTokens
             ) + ( i < sig.params.size() - 1 ? "," : "" );
-            final String nameText = p.comment != null ? padRight(
+            final String nameText      = p.comment != null ? padRight(
                 nameCommaText, maxNameCommaLen
-            ) + " " + p.comment. text : nameCommaText;
+            ) + " " + p.comment.text : nameCommaText;
             // A `//` line comment can never share a physical line with anything after it -- it
             // extends to end-of-line, so inlining it as a prefix before the type/name would
             // silently swallow this param's own declaration (and, once re-tokenized on a later
@@ -690,8 +686,7 @@ public static final class Signature {
             // (`/* ... */`, which is self-terminating within the line) is safe to inline this way.
             final boolean leadingIsLineComment = p.leadingComment != null&& p.leadingComment.type == TokenType.COMMENT_LINE;
             if(leadingIsLineComment) lines.add(paramIndent + p.leadingComment.text);
-            final String leadPrefix = (p.leadingComment != null && !leadingIsLineComment)
-                    ? p.leadingComment.text + " " : "";
+            final String leadPrefix = (p.leadingComment != null&& ! leadingIsLineComment) ? p.leadingComment.text + " " : "";
             // `typeColWidth` is derived only from params with no leadingComment at all (see the
             // `maxTypeLen` loop above), so a param preceded by a line comment -- excluded from
             // that computation -- can have a `typeText` as long as or longer than `typeColWidth`.
@@ -700,10 +695,9 @@ public static final class Signature {
             // token on reformat (found via `src/jxm` real-code testing: `STM32QSPI.newQSPICmd`'s
             // `// Instruction` comment before its first param). Guarantee at least one space by
             // never padding to less than `typeText.length() + 1`.
-            final String typeCell = (p.leadingComment != null && !leadingIsLineComment)
-                    ? typeText + " " : padRight(
-                        typeText, Math.max( typeColWidth, typeText.length() + 1 )
-                    );
+            final String typeCell = (p.leadingComment != null&& ! leadingIsLineComment) ? typeText + " " : padRight(
+                typeText, Math.max( typeColWidth, typeText.length() + 1 )
+            );
             lines.add(paramIndent + leadPrefix + typeCell + nameText);
         } // for
         lines.add( indentText(indentLevel, indentStyle) + ")" );
@@ -858,7 +852,7 @@ public static final class Signature {
         final List<Token>   gap
     )
     {
-        int lastCommentIdx = - 1;
+        int lastCommentIdx = -1;
         for( int k = 0; k < gap.size(); ++k ) {
             final Token g = gap.get(k);
             if(g.type == TokenType.COMMENT_LINE || g.type == TokenType.COMMENT_BLOCK) lastCommentIdx = k;
@@ -1157,7 +1151,7 @@ public static final class Signature {
             final int afterClose = nextSignificantIndex(tokens, closeIdx + 1);
             if( afterClose >= 0 && isPunct(
                 tokens.get(afterClose), "{"
-            ) ) continue; // true signature -- ScopePipeline's concern, not ours
+            ) ) continue; // True signature -- ScopePipeline's concern, not ours
             if( lang.isKotlin && afterClose >= 0 && isOp( tokens.get(afterClose), ":" )
                     && isKotlinReturnTypeThenBlockBody(tokens, afterClose) ) {
                 // Kotlin function signature with an explicit `: ReturnType` tail followed by a
@@ -1172,7 +1166,7 @@ public static final class Signature {
                 // tail is deliberately NOT exempted here -- that shape's untouched trailing
                 // expression body is exactly what this pass still needs to account for when
                 // deciding whether the signature's own params must wrap (see effectiveLineEndIndex).
-                continue; // true signature -- ScopePipeline's concern, not ours
+                continue; // True signature -- ScopePipeline's concern, not ours
             } // if
             if( hasCommentBetween(tokens, i, closeIdx) ) continue; // See "Comments" above
             if( anyFrozen(
@@ -1386,9 +1380,11 @@ public static final class Signature {
             for( final List<Token> arg : splitTopLevelCommasBraceAware(paramsSlice) ) {
                 if( containsInternalNewline(arg) && containsBrace(arg) ) return null;
             }
-            final List<String> lines = (sigForRender != null)
-                    ? renderDeclarationPreserveGroups(paramsSlice, baseIndent)
-                    : renderCallPreserveGroups(paramsSlice, baseIndent);
+            final List<String> lines = (sigForRender != null) ? renderDeclarationPreserveGroups(
+                paramsSlice, baseIndent
+            ) : renderCallPreserveGroups(
+                paramsSlice, baseIndent
+            );
             return lines == null ? null : "(\n" + String.join("\n", lines);
         } // if
 
@@ -1404,7 +1400,7 @@ public static final class Signature {
         ) : renderCallDropped(
             paramsSlice, baseIndent
         );
-        final List<String> lines = (dropped != null) ? dropped : (sigForRender != null) ? renderOnePerLine(
+        final List<String> lines   = (dropped != null) ? dropped : (sigForRender != null) ? renderOnePerLine(
             sigForRender, baseIndent
         ) : renderCallOnePerLine(
             paramsSlice, baseIndent
@@ -1454,30 +1450,24 @@ public static final class Signature {
 
         final List<String> lines = new ArrayList<>();
         for( int i = 0; i < sig.params.size(); ++i ) {
-            final Param                                                                                             p             = sig.params.get(
-                i
-            );
-            final String                                                                                            typeText      = renderTokens(
-                p.typeTokens
-            );
-            final String                                                                                            nameCommaText = p.name.text + renderTokens(
+            final Param  p             = sig.params.get(i);
+            final String typeText      = renderTokens(p.typeTokens);
+            final String nameCommaText = p.name.text + renderTokens(
                 p.sizeTokens
             ) + ( i < sig.params.size() - 1 ? "," : "" );
-            final String nameText = p.comment != null ? padRight(
+            final String nameText      = p.comment != null ? padRight(
                 nameCommaText, maxNameCommaLen
-            ) + " " + p.comment. text : nameCommaText;
+            ) + " " + p.comment.text : nameCommaText;
             // Same `//` line-comment-can't-share-a-line fix as `render`'s identical loop above --
             // see that method's doc comment for the full root-cause narrative
             final boolean leadingIsLineComment = p.leadingComment != null&& p.leadingComment.type == TokenType.COMMENT_LINE;
             if(leadingIsLineComment) lines.add(paramIndent + p.leadingComment.text);
-            final String leadPrefix = (p.leadingComment != null && !leadingIsLineComment)
-                    ? p.leadingComment.text + " " : "";
+            final String leadPrefix = (p.leadingComment != null&& ! leadingIsLineComment) ? p.leadingComment.text + " " : "";
             // Same guaranteed-minimum-space fix as `render`'s identical loop above -- see that
             // method's doc comment for the full root-cause narrative
-            final String typeCell = (p.leadingComment != null && !leadingIsLineComment)
-                    ? typeText + " " : padRight(
-                        typeText, Math.max( typeColWidth, typeText.length() + 1 )
-                    );
+            final String typeCell = (p.leadingComment != null&& ! leadingIsLineComment) ? typeText + " " : padRight(
+                typeText, Math.max( typeColWidth, typeText.length() + 1 )
+            );
             lines.add(paramIndent + leadPrefix + typeCell + nameText);
         } // for
         lines.add(baseIndent + ")");
@@ -1669,8 +1659,8 @@ public static final class Signature {
      */
     private boolean containsInternalNewline(final List<Token> tokens)
     {
-        int first = - 1;
-        int last  = - 1;
+        int first = -1;
+        int last  = -1;
         for( int i = 0; i < tokens.size(); ++i ) {
             if( !isGapToken( tokens.get(i) ) ) {
                 if(first < 0) first = i;
@@ -1913,7 +1903,7 @@ public static final class Signature {
      */
     private int lineStartIndex(final List<Token> tokens, final int idx)
     {
-        int newlineIdx = - 1;
+        int newlineIdx = -1;
         for(int i = idx; i >= 0; --i) {
             if( tokens.get(i).type == TokenType.NEWLINE ) {
                 newlineIdx = i;
@@ -2009,7 +1999,7 @@ public static final class Signature {
      */
     private String lineIndent(final List<Token> tokens, final int idx)
     {
-        int newlineIdx = - 1;
+        int newlineIdx = -1;
         for(int i = idx; i >= 0; --i) {
             if( tokens.get(i).type == TokenType.NEWLINE ) {
                 newlineIdx = i;

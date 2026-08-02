@@ -307,9 +307,10 @@ public final class GruTrainer {
         // compares GruClassifier.backward()'s analytic gradient for each against a numeric
         // finite-difference estimate, and exits. Use this to sanity-check backward() before relying
         // on it for further changes -- it never runs during normal training.
-        boolean checkGradients = hyperparameters.containsKey("check-gradients");
-        int checkGradientSamples = checkGradients
-                ? Integer.parseInt( hyperparameters.get("check-gradients") ) : 0;
+        boolean checkGradients       = hyperparameters.containsKey("check-gradients");
+        int     checkGradientSamples = checkGradients ? Integer.parseInt(
+            hyperparameters.get("check-gradients")
+        ) : 0;
 
         List<Example> examples;
         try {
@@ -421,8 +422,8 @@ public final class GruTrainer {
         } // else
         Vocabulary vocabulary = new Vocabulary(explicitVocab);
 
-        Random                                          random = new Random(seed);
-        GruWeights weights = resumed != null ? resumed. weights : randomInit(
+        Random     random  = new Random(seed);
+        GruWeights weights = resumed != null ? resumed.weights : randomInit(
             explicitVocab, vocabulary, random
         );
 
@@ -475,10 +476,8 @@ public final class GruTrainer {
                 explicitVocab.size(), train.size(), validation.size(), maxEpochs, patience,
                 learningRate, batchSize, threads, warmupSteps, lrMin ) );
 
-        AdamState adam = resumed != null ? resumed.            adam               : new AdamState(
-            weights
-        );
-        double bestValidationLoss = resumed != null ? resumed. bestValidationLoss : Double.POSITIVE_INFINITY;
+        AdamState adam               = resumed != null ? resumed.adam : new AdamState(weights);
+        double    bestValidationLoss = resumed != null ? resumed.bestValidationLoss : Double.POSITIVE_INFINITY;
         // `weights` is mutated in place by `adam.apply` every step, so a plain `bestWeights =
         // weights` reference assignment would silently drift to whatever `weights` is by the end
         // of training instead of actually preserving the best-validation-loss epoch's numbers.
@@ -521,10 +520,10 @@ public final class GruTrainer {
         else {
             bestWeightsJson = toJson(weights, explicitVocab);
         }
-        int epochsSinceImprovement = resumed != null ? resumed. epochsSinceImprovement : 0;
-        int step = resumed != null ? resumed.                   step                   : 0;
+        int  epochsSinceImprovement = resumed != null ? resumed.epochsSinceImprovement : 0;
+        int  step                   = resumed != null ? resumed.step : 0;
         int  startEpoch             = resumed != null ? resumed.epoch + 1 : 1;
-        long trainingStartNanos = System.nanoTime();
+        long trainingStartNanos     = System.nanoTime();
 
         File currentCheckpointFile = new File(
             weightsOut.getAbsolutePath() + CHECKPOINT_CURRENT_SUFFIX
@@ -743,11 +742,9 @@ public final class GruTrainer {
             else                               trueNegative++;
         } // for
 
-        double precision = truePositive + falsePositive == 0 ? 0.0
-                : (double) truePositive / (truePositive + falsePositive);
-        double recall = truePositive + falseNegative == 0 ? 0.0
-                : (double) truePositive / (truePositive + falseNegative);
-        double f1 = precision + recall == 0 ? 0.0 : 2 * precision * recall / (precision + recall);
+        double precision = truePositive + falsePositive == 0 ? 0.0 : (double)truePositive / (truePositive + falsePositive);
+        double recall    = truePositive + falseNegative == 0 ? 0.0 : (double)truePositive / (truePositive + falseNegative);
+        double f1        = precision + recall == 0 ? 0.0 : 2* precision * recall / (precision + recall);
 
         System.out.println( String.format(
                 "GruTrainer: validation confusion matrix (positive=YES): tp=%d, fp=%d, tn=%d, fn=%d,"

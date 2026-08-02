@@ -242,7 +242,7 @@ public final class JsonSpecificRule {
     {
         c.i++; // Consume '{' or '['
         final Container container = new Container(isObject);
-        final String closer = isObject ? "}" : "]";
+        final String    closer    = isObject ? "}" : "]";
         while(true) {
             final Item      item  = new Item();
             final boolean[] blank = { false };
@@ -427,11 +427,11 @@ public final class JsonSpecificRule {
     {
         // Compute colon-alignment groups (object only): a run of consecutive real items (not
         // dangling trailing-comment placeholders) with no leading comment/blank line between them
-        final List<String> keys = isObject ? new ArrayList<>() : null;
-        String[] padding = null;
+        final List<String> keys    = isObject ? new ArrayList<>() : null;
+              String[]     padding = null;
         if(isObject) {
             padding = new String[ items.size() ];
-            int groupStart = - 1; // -1 = no open group
+            int groupStart = -1; // -1 = no open group
             for( int i = 0; i <= items.size(); ++i ) {
                 final boolean atEnd      = i == items.size();
                 final boolean isDangling = ! atEnd&& items.get(i).value == null;

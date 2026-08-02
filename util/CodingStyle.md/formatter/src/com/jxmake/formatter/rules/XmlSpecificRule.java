@@ -215,7 +215,7 @@ public final class XmlSpecificRule {
         String       tagName;
         List<String> attrs = new ArrayList<>();
         boolean      selfClosing;
-        List<Node>   children;                  // null if self-closing; empty list if open/close-with-nothing
+        List<Node>   children;                  // Null if self-closing; empty list if open/close-with-nothing
         String       trailingComment;           // Normalized text of a same-line trailing comment, or null
 
     } // class Node
@@ -812,7 +812,7 @@ public final class XmlSpecificRule {
         final String closeTok   = "</" + lowerTag;
               int    depth      = 1;
               int    scan       = openTagEnd + 1;
-              int    closeStart = - 1;
+              int    closeStart = -1;
         while(depth > 0) {
             final int nextOpen  = indexOfTagBoundary(s, openTok, scan);
             final int nextClose = indexOfTagBoundary(s, closeTok, scan);
@@ -1114,11 +1114,11 @@ public final class XmlSpecificRule {
         }
         final String openTightNoAngle = "<" + n.tagName + attrsInline(n.attrs);
         if(n.selfClosing) {
-            final boolean isVoid = lang.isHtml5&& VOID_ELEMENTS.contains(
+            final boolean isVoid    = lang.isHtml5&& VOID_ELEMENTS.contains(
                 n.tagName.toLowerCase(java.util.Locale.ROOT)
             );
-            final String close = isVoid ? ">" : "/>";
-            final String tightLine = indent(depth) + openTightNoAngle + close;
+            final String  close     = isVoid ? ">" : "/>";
+            final String  tightLine = indent(depth) + openTightNoAngle + close;
             if( tightLine.length() <= lineLengthLimit || n.attrs.isEmpty() ) {
                 appendWithTrailing(out, tightLine, n.trailingComment);
             }
@@ -1140,9 +1140,8 @@ public final class XmlSpecificRule {
             // `onlyChild` may itself carry a same-line trailing comment (e.g. `<td>text<!-- c
             // --></td>`) -- this inline fast path bypasses renderNode(onlyChild), so that comment
             // must be spliced in here too or it's silently dropped (found via apache/ant dogfood).
-            final String childSuffix = onlyChild.trailingComment != null
-                    ? " <!-- " + onlyChild.trailingComment + " -->" : "";
-            final String inline = indent(
+            final String childSuffix = onlyChild.trailingComment != null ? " <!-- " + onlyChild.trailingComment + " -->" : "";
+            final String inline      = indent(
                 depth
             ) + openTightNoAngle + ">" + onlyChild.raw + childSuffix + "</" + n.tagName + ">";
             appendWithTrailing(out, inline, n.trailingComment);
@@ -1213,24 +1212,22 @@ public final class XmlSpecificRule {
             overrides.put("normalize-comment-start-case", normalizeCommentStartCase ? "on" : "off");
             jsConfig = Config.resolve(null, overrides);
         }
-        final String  dedented = dedent(n.raw).trim();
-        final boolean isCdata  = dedented.startsWith("<![CDATA[")&& dedented.endsWith("]]>");
-        final String jsSource = isCdata
-                ? dedented.substring(
-                    "<![CDATA[".length(), dedented.length() - "]]>".length()
-                ).trim()
-                : dedented;
-        final String gdrJsSource = com.jxmake.formatter.gdr.GdrPipelineGate.apply(
+        final String  dedented    = dedent(n.raw).trim();
+        final boolean isCdata     = dedented.startsWith("<![CDATA[")&& dedented.endsWith("]]>");
+        final String  jsSource    = isCdata ? dedented.substring(
+            "<![CDATA[".length(), dedented.length() - "]]>".length()
+        ).trim() : dedented;
+        final String  gdrJsSource = com.jxmake.formatter.gdr.GdrPipelineGate.apply(
             jsSource, "js", jsConfig
         );
-        final String jsFormatted = FormatterCore.forLanguage(
+        final String  jsFormatted = FormatterCore.forLanguage(
             "js"
         ).formatOne(
             gdrJsSource, "<script>", jsConfig, false
         );
-        final String spliced = isCdata
-                ? "<![CDATA[\n" + jsFormatted.replaceAll("\\s+$", "") + "\n]]>\n"
-                : jsFormatted;
+        final String  spliced     = isCdata ? "<![CDATA[\n" + jsFormatted.replaceAll(
+            "\\s+$", ""
+        ) + "\n]]>\n" : jsFormatted;
         out.append(openTag).append('\n');
         out.append( reindent(spliced, depth + 1) );
         out.append( indent(depth) ).append("</").append(n.tagName).append(">\n");
@@ -1247,7 +1244,7 @@ public final class XmlSpecificRule {
      */
     private String dedent(final String text)
     {
-        final String[] lines     = text.split("\n", - 1);
+        final String[] lines     = text.split("\n", -1);
               int      minIndent = Integer.MAX_VALUE;
         for(final String line : lines) {
             if( line.trim().isEmpty() ) continue;
@@ -1311,7 +1308,7 @@ public final class XmlSpecificRule {
     private String reindent(final String text, final int depth)
     {
         final String   prefix = indent(depth);
-        final String[] lines  = text.split("\n", - 1);
+        final String[] lines  = text.split("\n", -1);
               int      count  = lines.length;
         if( count > 0 && lines[count - 1].isEmpty() ) count--; // Drop the single trailing empty element from text's final newline
         final StringBuilder sb = new StringBuilder();

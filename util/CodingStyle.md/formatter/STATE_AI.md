@@ -1148,3 +1148,49 @@ only this documentation gap.
 directly by the user alongside a prior weights update, outside this
 job's normal workflow; RDD_EXT_19's policy is that real training
 artifacts/logs are never committed, scratch-only).
+
+**Formatter self-formatting (dogfood-and-adopt) re-run**, prompted by the
+user flagging `CommentClassifierWeights.java`'s hand-edited negative
+literals (`= - 1.18218`) as legacy unformatted style. While debugging why
+a self-formatted trial jar disagreed with `target/code-formatter-1.00.jar`
+on 6 comment-classifier-sensitive fixtures (`c_comments`, `cpp_modern`,
+`cpp_comments`, `java_comments`, `js_comments`,
+`real_code_regressions_54`), found the real cause: `GruAbstainResolver`
+resolves its default weights path to the *jar's own parent directory*
+(`target/`, since `JAR_FILE = target/code-formatter-1.00.jar`), but
+`make gru-train` only ever copied the trained weights file to
+`$(CLASS_DIR)` (`target/classes`) and the repo root — never to `target/`
+itself. So `make test`/`_test_serial` against the real shipped jar has
+been silently running with the GRU permanently fail-safe-ABSTAINed this
+whole time (rule-based-only fallback), and the 6 fixtures were last
+hand-verified against that GRU-inactive behavior. Fixed by adding an
+auto-copy step to `_test_serial` in the `Makefile` (copies the repo-root
+`code-formatter-ai-assist-weights.json` into `$(BUILD_DIR)` if not
+already present there) so `make test` now exercises the GRU for real.
+Re-verified the 6 disagreeing fixtures' new (GRU-active) output by hand —
+all are legitimate sentence-start capitalizations the GRU newly resolves
+correctly (e.g. `/* inline on case */` → `/* Inline on case */`, `//
+default case` → `// Default case`, `// if constexpr` → `// If
+constexpr`) — and updated those 6 `test/*_out.*` fixtures to match.
+`make test`: 228/228 clean with the GRU genuinely active. Documented the
+GRU-active-vs-inactive behavioral difference (and the auto-copy) in
+README.md's "Comment classifier (GRU)" subsection so a future missing-
+weights setup doesn't silently pass `make test` while under-testing the
+GRU path again.
+
+With the corrected baseline, completed the full self-formatting
+dogfood-and-adopt procedure end to end: round1/round2 idempotent, trial
+jar built from round1 passed `make _test_serial` 228/228, round1b/round2b
+fixed-point check against the original `src/` confirmed (round1≡round1b,
+round2≡round2b), round1 adopted back into `src/` (37 files — all diffs
+spot-checked as cosmetic: unary-minus spacing, missing binary-operator
+spacing, declaration-alignment padding, line-wrap reflow, and comment
+capitalization from the now-active GRU), rebuilt, and `make test` /
+`make test-server` / `make bench` all re-ran clean against the adopted
+tree. Also re-ran the parallel `tools/gru`/`tools/verifiers`
+self-formatting procedure (round1/round2 idempotent, `java_syntax_check`
+clean on orig/r1/r2, `java_content_diff` confirmed AST-equivalent
+content on both orig-vs-r1 and r1-vs-r2 for all 9 `tools/gru` + 4
+`tools/verifiers` files) and adopted round1 into both directories (2 of 9
+`tools/gru` files and 2 of 4 `tools/verifiers` files actually changed;
+the rest were already formatter-clean).

@@ -483,7 +483,7 @@ public final class TomlSpecificRule {
     public String format(final String content)
     {
         final boolean      endsWithNewline = content.endsWith("\n");
-        final String[]     rawLines        = content.split("\n", - 1);
+        final String[]     rawLines        = content.split("\n", -1);
         final List<String> lines           = new ArrayList<>( java.util.Arrays.asList(rawLines) );
         if( endsWithNewline && !lines.isEmpty() ) lines.remove( lines.size() - 1 );
 
@@ -611,7 +611,7 @@ public final class TomlSpecificRule {
     private void renderItems(final List<Item> items, final StringBuilder out)
     {
         final String[] padding    = new String[ items.size() ];
-              int      groupStart = - 1;
+              int      groupStart = -1;
         for( int i = 0; i <= items.size(); ++i ) {
             final boolean atEnd        = i == items.size();
             final boolean breaksBefore = atEnd || ! items.get(

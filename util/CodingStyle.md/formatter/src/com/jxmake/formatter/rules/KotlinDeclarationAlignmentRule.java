@@ -178,7 +178,7 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
             if(depth == 0 && t.type == TokenType.NEWLINE && sawSignificant) {
                 statements.add(current);
                 current = new ArrayList<>();
-                current.add(t); // this newline becomes the next statement's leading gap
+                current.add(t); // This newline becomes the next statement's leading gap
                 sawSignificant = false;
                 continue;
             } // if
@@ -319,7 +319,7 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      */
     private boolean hasCommentAfter(final List<Token> stmt, final Token afterToken)
     {
-        int lastSigIdx = - 1;
+        int lastSigIdx = -1;
         for( int k = 0; k < stmt.size(); ++k ) {
             if( !isGapToken( stmt.get(k) ) ) lastSigIdx = k;
         }
@@ -767,7 +767,7 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      */
     private Row toRow(final KotlinDecl d)
     {
-        final Token lastAnchor = d.trailingComment != null ? d. trailingComment : ! d.initTokens.isEmpty() ? d.initTokens.get(
+        final Token lastAnchor = d.trailingComment != null ? d.trailingComment : ! d.initTokens.isEmpty() ? d.initTokens.get(
             d.initTokens.size() - 1
         ) : ! d.typeTokens.isEmpty() ? d.typeTokens.get(
             d.typeTokens.size() - 1
@@ -787,7 +787,7 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      */
     private Row toRow(final DestructuringDecl d)
     {
-        final Token lastAnchor = d.trailingComment != null ? d. trailingComment : d.initTokens.get(
+        final Token lastAnchor = d.trailingComment != null ? d.trailingComment : d.initTokens.get(
             d.initTokens.size() - 1
         );
 
@@ -909,7 +909,7 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
             for(final int idx : safeIndices) safeRows.add( group.get(idx) );
             final List<String> safeLines = renderAlignedGroupRaw(safeRows);
 
-            int overflowAt = - 1;
+            int overflowAt = -1;
             for( int k = 0; k < safeRows.size(); ++k ) {
                 final Row r = safeRows.get(k);
                 if( !hasBraceBodiedInit(r.initTokens) ) continue;

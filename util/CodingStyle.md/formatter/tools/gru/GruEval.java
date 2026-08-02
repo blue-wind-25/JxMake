@@ -39,7 +39,7 @@ public final class GruEval {
     private static final class Scored {
 
         final String   label;
-        final double[] probabilities; // null => classifier.probabilities() returned null (ABSTAIN
+        final double[] probabilities; // Null => classifier.probabilities() returned null (ABSTAIN
                                        // Unconditionally, e.g. out-of-range target index)
 
         Scored(String label, double[] probabilities)
@@ -101,7 +101,7 @@ public final class GruEval {
         int yesCorrect = 0, yesIncorrect = 0, noCorrect = 0, noIncorrect = 0, abstain = 0;
         int total      = scored.size();
         for(Scored s : scored) {
-            CommentDecision verdict = s.probabilities == null ? CommentDecision. ABSTAIN : GruClassifier.decide(
+            CommentDecision verdict = s.probabilities == null ? CommentDecision.ABSTAIN : GruClassifier.decide(
                 s.probabilities, threshold
             );
             if(verdict == CommentDecision.ABSTAIN) {
@@ -120,9 +120,9 @@ public final class GruEval {
             }
         } // for
 
-        int decided = total - abstain;
-        int correct = yesCorrect + noCorrect;
-        double precision = decided == 0 ? 0.0 : (double) correct / decided;
+        int    decided   = total - abstain;
+        int    correct   = yesCorrect + noCorrect;
+        double precision = decided == 0 ? 0.0 : (double)correct / decided;
         System.out.println("threshold=" + threshold
                 + " total=" + total + " abstain=" + abstain + " decided=" + decided
                 + " correct=" + correct + " precision=" + precision

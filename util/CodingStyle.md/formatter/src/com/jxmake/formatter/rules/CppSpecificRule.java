@@ -214,7 +214,7 @@ public class CppSpecificRule {
         final int         closeIdx
     )
     {
-        int sigIdx = - 1;
+        int sigIdx = -1;
         for(int i = openIdx + 1; i < closeIdx; ++i) {
             if( isGapToken( tokens.get(i) ) ) continue;
             if(sigIdx != -1) return false;
@@ -352,8 +352,8 @@ public class CppSpecificRule {
         while( i < tokens.size() ) {
             final Integer braceIdx = gapToBrace.get(i);
             if(braceIdx != null) {
-                final String                                   overrideIndent = gapToIndent.get(i);
-                final String indent = overrideIndent != null ? overrideIndent : lineIndent(
+                final String overrideIndent = gapToIndent.get(i);
+                final String indent         = overrideIndent != null ? overrideIndent : lineIndent(
                     tokens, i - 1
                 );
                 out.append('\n').append(indent);
@@ -551,7 +551,7 @@ public class CppSpecificRule {
      */
     private String lineIndent(final List<Token> tokens, final int idx)
     {
-        int newlineIdx = - 1;
+        int newlineIdx = -1;
         for(int i = idx; i >= 0; --i) {
             if( tokens.get(i).type == TokenType.NEWLINE ) {
                 newlineIdx = i;
@@ -608,7 +608,7 @@ public class CppSpecificRule {
         final StringBuilder out                = new StringBuilder();
         final List<Token>   gap                = new ArrayList<>();
               Token         lastSignificant    = null;
-              int           lastSignificantIdx = - 1;
+              int           lastSignificantIdx = -1;
         final int           n                  = tokens.size();
               int           i                  = 0;
 
@@ -852,12 +852,14 @@ public class CppSpecificRule {
                 } // if
                 break;
             } // while
-            final int declLineStartIdx = openParenIdx >= 0
-                    ? lineStartIndex(tokens, openParenIdx)
-                    : lineStartIndex(tokens, closeParenIdx);
-            final String baseIndent = lineIndent(tokens, declLineStartIdx);
-            final String clauseExpr = collapseToOneLine(tokens, i + 1, clauseEndIdx - 1);
-            final String combined   = baseIndent + collapseToOneLine(
+            final int    declLineStartIdx = openParenIdx >= 0 ? lineStartIndex(
+                tokens, openParenIdx
+            ) : lineStartIndex(
+                tokens, closeParenIdx
+            );
+            final String baseIndent       = lineIndent(tokens, declLineStartIdx);
+            final String clauseExpr       = collapseToOneLine(tokens, i + 1, clauseEndIdx - 1);
+            final String combined         = baseIndent + collapseToOneLine(
                 tokens, declLineStartIdx, closeParenIdx
             ) + " requires " + clauseExpr;
 
@@ -992,10 +994,12 @@ public class CppSpecificRule {
                 } // if
                 break;
             } // while
-            final int declLineStartIdx = openParenForIndent >= 0
-                    ? lineStartIndex(tokens, openParenForIndent)
-                    : lineStartIndex(tokens, anchorCloseParenIdx);
-            final String baseIndent = lineIndent(tokens, declLineStartIdx);
+            final int    declLineStartIdx = openParenForIndent >= 0 ? lineStartIndex(
+                tokens, openParenForIndent
+            ) : lineStartIndex(
+                tokens, anchorCloseParenIdx
+            );
+            final String baseIndent       = lineIndent(tokens, declLineStartIdx);
 
             final List<String>      clauseRenders         = new ArrayList<>();
             final List<List<Token>> clauseLeadingComments = new ArrayList<>();
@@ -1008,10 +1012,10 @@ public class CppSpecificRule {
                 );
                 clauseRenders.add( clauseKinds.get(c) + "(" + inner + ")" );
 
-                final int boundaryStart = c == 0 ? anchorCloseParenIdx : clauseParenSpans.get(
+                final int         boundaryStart = c == 0 ? anchorCloseParenIdx : clauseParenSpans.get(
                     c - 1
                 )[1];
-                final List<Token>                  leading = collectComments(
+                final List<Token> leading       = collectComments(
                     tokens, boundaryStart, clauseKeywordIdx.get(c)
                 );
                 clauseLeadingComments.add(leading);
@@ -1038,11 +1042,9 @@ public class CppSpecificRule {
                 final StringBuilder wrapped = new StringBuilder();
                 for( int c = 0; c < clauseRenders.size(); ++c ) {
                     for( final Token commentToken : clauseLeadingComments.get(c) ) {
-                        final String text = commentToken.type == TokenType.COMMENT_BLOCK
-                                ? FormatterSimpleBraced.reindentBlockComment(
-                                    commentToken.text, baseIndent + indentUnit
-                                )
-                                : commentToken.text;
+                        final String text = commentToken.type == TokenType.COMMENT_BLOCK ? FormatterSimpleBraced.reindentBlockComment(
+                            commentToken.text, baseIndent + indentUnit
+                        ) : commentToken.text;
                         wrapped.append('\n').append(baseIndent).append(indentUnit).append(text);
                     } // for commentToken
                     wrapped.append(
@@ -1196,8 +1198,8 @@ public class CppSpecificRule {
                 if( !isGapToken( tokens.get(i) ) ) content.add( tokens.get(i) );
             }
             if( content.isEmpty() ) continue;
-            final boolean loose = ATTRIBUTE_COMPLEXITY_EVALUATOR.isLoose(content);
-            final String desiredPad = loose ? " " : "";
+            final boolean loose      = ATTRIBUTE_COMPLEXITY_EVALUATOR.isLoose(content);
+            final String  desiredPad = loose ? " " : "";
 
             final int           firstSigIdx = nextSignificantIndex(tokens, openIdx);
             final int           lastSigIdx  = prevSignificantIndex(tokens, closeIdx);
@@ -1330,7 +1332,7 @@ public class CppSpecificRule {
         final boolean     isPost
     )
     {
-        int colonIdx = - 1;
+        int colonIdx = -1;
         if(isPost) {
             int depth = 0;
             for(int i = fromInclusive; i <= toInclusive; ++i) {
@@ -1414,7 +1416,7 @@ public class CppSpecificRule {
      */
     private int lineStartIndex(final List<Token> tokens, final int idx)
     {
-        int newlineIdx = - 1;
+        int newlineIdx = -1;
         for(int i = idx; i >= 0; --i) {
             if( tokens.get(i).type == TokenType.NEWLINE ) {
                 newlineIdx = i;
@@ -1447,7 +1449,7 @@ public class CppSpecificRule {
                 // a space here corrupted the expression (e.g. `_Other.\n_Owns` -> `_Other. _Owns`,
                 // found via microsoft/STL real-code testing). Same fix as
                 // MiscRuleCurly.collapseToOneLine's own identical gap.
-                final Token next = i + 1 <= toInclusive ? nextSignificantForCollapse(
+                final Token   next      = i + 1 <= toInclusive ? nextSignificantForCollapse(
                     tokens, i, toInclusive
                 ) : null;
                 final boolean tightJoin = ( prevSignificant != null&& ( isOp(
@@ -1556,9 +1558,7 @@ public class CppSpecificRule {
             return out.toString();
         }
 
-        final String                                                                            expectedGuard = deriveGuardName(
-            filePath
-        );
+        final String expectedGuard  = deriveGuardName(filePath);
         final String effectiveGuard = renameGuard&& ! expectedGuard.equals(
             z.actualGuardName
         ) ? expectedGuard : z.actualGuardName;
@@ -1585,7 +1585,7 @@ public class CppSpecificRule {
         boolean isPragmaOnce;
         int     guardOpenIdx;
         int     guardDefineIdx;  // == guardOpenIdx for the pragma-once form
-        String  actualGuardName; // null for the pragma-once form
+        String  actualGuardName; // Null for the pragma-once form
         int     bodyStart;
         int     bodyEnd;         // Exclusive
         int     endifIdx;        // -1 for the pragma-once form
@@ -1638,7 +1638,7 @@ public class CppSpecificRule {
         }
 
         int depth    = 1;
-        int endifIdx = - 1;
+        int endifIdx = -1;
         for(int p = z.guardDefineIdx + 1; p < n; ++p) {
             final Token t = tokens.get(p);
             if(t.type != TokenType.PREPROCESSOR) continue;

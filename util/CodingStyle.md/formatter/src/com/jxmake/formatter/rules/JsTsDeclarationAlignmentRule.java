@@ -234,10 +234,8 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
         ++i;
         if( i != sig.size() ) return null; // Trailing tokens this parser doesn't understand -- never guess
 
-        final Token                                        trailingComment = findTrailingComment(
-            stmt
-        );
-        final Token lastAnchor = trailingComment != null ? trailingComment : semi;
+        final Token trailingComment = findTrailingComment(stmt);
+        final Token lastAnchor      = trailingComment != null ? trailingComment : semi;
 
         return new Row(
             keyword, name, name.text, typeTokens, initTokens, trailingComment, lastAnchor, false
@@ -261,10 +259,10 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
         final int         patternStart
     )
     {
-        final String open = sig.get(patternStart).text;
+        final String open  = sig.get(patternStart).text;
         final String close = "{".equals(open) ? "}" : "]";
-        int i     = patternStart;
-        int depth = 0;
+              int    i     = patternStart;
+              int    depth = 0;
         while( i < sig.size() ) {
             final Token t = sig.get(i);
             if( isPunct(t, "{") || isPunct(t, "[") ) {
@@ -336,10 +334,8 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
         ++i;
         if( i != sig.size() ) return null;
 
-        final Token                                        trailingComment = findTrailingComment(
-            stmt
-        );
-        final Token lastAnchor = trailingComment != null ? trailingComment : semi;
+        final Token trailingComment = findTrailingComment(stmt);
+        final Token lastAnchor      = trailingComment != null ? trailingComment : semi;
 
         return new Row(
             keyword, anchorName, renderTokens(patternTokens), typeTokens, initTokens,
@@ -393,8 +389,9 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
         // OP tokens here, not ANGLE_BRACKET_OPEN/CLOSE, precisely because something inside
         // invalidated the tokenizer's own reclassification), so it would otherwise space them
         // like an ordinary comparison operator (`< T = ... >`).
-        final String genericClauseText = i > genericStart
-                ? "<" + renderTokens( sig.subList(genericStart + 1, i - 1) ) + ">" : "";
+        final String genericClauseText = i > genericStart ? "<" + renderTokens(
+            sig.subList(genericStart + 1, i - 1)
+        ) + ">" : "";
         if( i >= sig.size() || !isOp( sig.get(i), "=" ) ) return null;
         final Token eqToken = sig.get(i);
         ++i;
@@ -424,10 +421,8 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
         ++i;
         if( i != sig.size() ) return null;
 
-        final Token                                        trailingComment = findTrailingComment(
-            stmt
-        );
-        final Token lastAnchor = trailingComment != null ? trailingComment : semi;
+        final Token trailingComment = findTrailingComment(stmt);
+        final Token lastAnchor      = trailingComment != null ? trailingComment : semi;
 
         return new Row(
             keyword, name, name.text + genericClauseText, new ArrayList<>(), initTokens,
@@ -460,7 +455,7 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
      */
     private boolean hasCommentAfter(final List<Token> stmt, final Token afterToken)
     {
-        int lastSigIdx = - 1;
+        int lastSigIdx = -1;
         for( int k = 0; k < stmt.size(); ++k ) {
             if( !isGapToken( stmt.get(k) ) ) lastSigIdx = k;
         }

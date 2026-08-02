@@ -28,7 +28,7 @@ public abstract class ModifierPriority {
     /** Number of fixed modifier columns for this language's grid model (max rank + 1) */
     public final int columnCount()
     {
-        int max = - 1;
+        int max = -1;
         for( final int rank : priorityMap().values() ) max = Math.max(max, rank);
 
         return max + 1;

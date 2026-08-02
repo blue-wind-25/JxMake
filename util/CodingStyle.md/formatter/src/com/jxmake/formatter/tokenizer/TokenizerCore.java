@@ -59,7 +59,7 @@ public class TokenizerCore {
         public       String    text;
         public final int       braceDepth;
         public final int       parenDepth;
-        public final String    name;       // for `{`/`}` only: pushed/popped construct name, else null
+        public final String    name;       // For `{`/`}` only: pushed/popped construct name, else null
         public       boolean   frozen;     // set by markFrozenSpans; true = opaque pass-through, never transformed
 
         public Token(

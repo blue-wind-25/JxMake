@@ -312,6 +312,18 @@ is missing or unreadable, the classifier fails safe to `ABSTAIN`
 (equivalent to `gru-classifier = off` for that comment) — formatting is
 never blocked on it.
 
+An `ABSTAIN` on a leading-keyword or trailing-period comment leaves that
+comment untouched, so whether the GRU is actually active changes real
+output: with it active, more ambiguous comments get resolved to a
+capitalize-first-letter/strip-trailing-period `YES` than with it inactive.
+`make test`'s fixtures assume the weights file is reachable (deployed next
+to `$(JAR_FILE)`, e.g. by `_test_serial`'s auto-copy from the repo-root
+`code-formatter-ai-assist-weights.json` into `$(BUILD_DIR)` — see the
+Makefile); running against a jar with no weights file next to it silently
+falls back to the less-aggressive `ABSTAIN`-only behavior instead of
+failing, so a missing-weights setup won't show up as a test failure on its
+own.
+
 `abstainThreshold = 0.7` is baked into the shipped weights file (not a
 separate config key): the GRU itself abstains below this softmax
 confidence cutoff rather than forcing a low-confidence guess. `0.7` was

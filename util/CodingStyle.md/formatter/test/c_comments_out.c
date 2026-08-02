@@ -73,9 +73,9 @@ int switchy(int v)
 {
     switch(v) {
         // Before case 1
-        case 1: /* inline on case */ return 1;
+        case 1: /* Inline on case */ return 1;
         /* Before default */
-        default: return 0; // default case
+        default: return 0; // Default case
     }
 }
 

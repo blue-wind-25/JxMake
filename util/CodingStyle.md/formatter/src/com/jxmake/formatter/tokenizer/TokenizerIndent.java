@@ -316,12 +316,10 @@ public class TokenizerIndent extends TokenizerCore {
     {
         final int start = pos;
         while( pos < length && isIdentifierPart( source.charAt(pos) ) ) pos++;
-        final String                                                       text = source.substring(
-            start, pos
-        );
+        final String    text = source.substring(start, pos);
         final TokenType type = KEYWORDS_PYTHON.contains(
             text
-        ) ? TokenType. KEYWORD : TokenType.IDENTIFIER;
+        ) ? TokenType.KEYWORD : TokenType.IDENTIFIER;
 
         return new Token(type, text, braceDepth, parenDepth, null);
     }
@@ -408,9 +406,9 @@ public class TokenizerIndent extends TokenizerCore {
      */
     private List<Token> emitFString(final char quote, final boolean triple)
     {
-        final List<Token> out = new ArrayList<>();
-        final int quoteLen = triple ? 3 : 1;
-        final int openStart = pos;
+        final List<Token> out       = new ArrayList<>();
+        final int         quoteLen  = triple ? 3 : 1;
+        final int         openStart = pos;
         pos += quoteLen;
         out.add( new Token( TokenType.FSTRING_START, source.substring(openStart, pos), braceDepth,
                 parenDepth, null ) );

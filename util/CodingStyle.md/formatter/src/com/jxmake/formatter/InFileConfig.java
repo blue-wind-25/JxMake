@@ -31,9 +31,7 @@ public final class InFileConfig {
     // fallback already swallowed on the way to ITS first close) is never independently visited
     // and can never be mistaken for the comment's own opening delimiter (RDD_KEY_167).
     private static final Pattern DIRECTIVE = Pattern.compile(
-        "^[ \\t]*//%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|^[ \\t]*/\\*%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*\\*/"
-        + "|^[ \\t]*#%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|^[ \\t]*<!--%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*-->"
-        + "|^[ \\t]*//[^\\r\\n]*|^[ \\t]*/\\*.*?\\*/|^[ \\t]*#[^\\r\\n]*|^[ \\t]*<!--.*?-->",
+        "^[ \\t]*//%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|^[ \\t]*/\\*%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*\\*/" + "|^[ \\t]*#%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|^[ \\t]*<!--%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*-->" + "|^[ \\t]*//[^\\r\\n]*|^[ \\t]*/\\*.*?\\*/|^[ \\t]*#[^\\r\\n]*|^[ \\t]*<!--.*?-->",
         Pattern.DOTALL | Pattern.MULTILINE
     );
 
@@ -60,22 +58,25 @@ public final class InFileConfig {
     {
         final Matcher m          = DIRECTIVE.matcher(source);
               int     count      = 0;
-              int     matchStart = - 1;
+              int     matchStart = -1;
               String  body       = null;
         while( m.find() ) {
-            final String directiveBody = m.group(1) != null ? m.group(1)
-                                        : ( m.group(
-                                            2
-                                        ) != null ? m.group(
-                                            2
-                                        ) : ( m.group(
-                                            3
-                                        ) != null ? m.group(
-                                            3
-                                        ) : m.group(
-                                            4
-                                        ) ) );
-            if(directiveBody == null) continue; // plain-comment fallback -- not a directive
+            final String directiveBody = m.group(
+                1
+            ) != null ? m.group(
+                1
+            ) : ( m.group(
+                2
+            ) != null ? m.group(
+                2
+            ) : ( m.group(
+                3
+            ) != null ? m.group(
+                3
+            ) : m.group(
+                4
+            ) ) );
+            if(directiveBody == null) continue; // Plain-comment fallback -- not a directive
             ++count;
             if(count == 1) {
                 matchStart = m.start();

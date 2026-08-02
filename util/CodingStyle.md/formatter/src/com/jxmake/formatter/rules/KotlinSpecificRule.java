@@ -249,16 +249,16 @@ public class KotlinSpecificRule {
         final Map<Integer, String> insertAfter
     )
     {
-        int firstCommentIdx = - 1;
+        int firstCommentIdx = -1;
         for(int i = fromIdx; i < toExclusive; ++i) {
             if( isComment( tokens.get(i) ) && startsOwnLine(tokens, i, fromIdx - 1) ) {
                 firstCommentIdx = i;
                 break;
             }
         }
-        final int scanEnd = firstCommentIdx < 0 ? toExclusive : firstCommentIdx;
-              int                                 newlineCount    = 0;
-              int                                 firstNewlineIdx = - 1;
+        final int scanEnd         = firstCommentIdx < 0 ? toExclusive : firstCommentIdx;
+              int newlineCount    = 0;
+              int firstNewlineIdx = -1;
         for(int i = fromIdx; i < scanEnd; ++i) {
             if( tokens.get(i).type == TokenType.NEWLINE ) {
                 ++newlineCount;
@@ -792,7 +792,7 @@ public class KotlinSpecificRule {
         final StringBuilder out                = new StringBuilder();
         final List<Token>   gap                = new ArrayList<>();
               Token         lastSignificant    = null;
-              int           lastSignificantIdx = - 1;
+              int           lastSignificantIdx = -1;
         final int           n                  = tokens.size();
               int           i                  = 0;
 
@@ -1020,8 +1020,8 @@ public class KotlinSpecificRule {
             for( int j = i - 1; j >= 0 && isGapToken( tokens.get(j) ); --j ) suppressed.add(j);
             for( int j = i + 1; j < bounds.get(0).start; ++j ) suppressed.add(j);
             for( int k = 0; k < bounds.size(); ++k ) {
-                final WhereBound b = bounds.get(k);
-                final String prefix = k == 0 ? " " : "\n" + boundIndent;
+                final WhereBound b      = bounds.get(k);
+                final String     prefix = k == 0 ? " " : "\n" + boundIndent;
                 overrides.put( b.start, prefix + boundTexts.get(k) );
                 for(int j = b.start + 1; j <= b.end; ++j) suppressed.add(j);
                 if( k < bounds.size() - 1 ) {
@@ -1069,7 +1069,7 @@ public class KotlinSpecificRule {
         final List<WhereBound> bounds  = new ArrayList<>();
               int              depth   = 0;
               int              start   = nextSignificantIndex(tokens, fromInclusive);
-              int              lastSig = - 1;
+              int              lastSig = -1;
         for(int i = start; i >= 0 && i < toExclusive; ++i) {
             final Token t = tokens.get(i);
             if( isGapToken(t) ) continue;
@@ -1174,7 +1174,7 @@ public class KotlinSpecificRule {
      */
     private int lineStartIndex(final List<Token> tokens, final int idx)
     {
-        int newlineIdx = - 1;
+        int newlineIdx = -1;
         for(int i = idx; i >= 0; --i) {
             if( tokens.get(i).type == TokenType.NEWLINE ) {
                 newlineIdx = i;
@@ -1193,7 +1193,7 @@ public class KotlinSpecificRule {
      */
     private String lineIndent(final List<Token> tokens, final int idx)
     {
-        int newlineIdx = - 1;
+        int newlineIdx = -1;
         for(int i = idx; i >= 0; --i) {
             if( tokens.get(i).type == TokenType.NEWLINE ) {
                 newlineIdx = i;
@@ -1289,7 +1289,7 @@ public class KotlinSpecificRule {
         }
         final StringBuilder out             = new StringBuilder();
         final List<Token>   gap             = new ArrayList<>();
-              int           lastSignificant = - 1;
+              int           lastSignificant = -1;
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
             if( isGapToken(t) ) {
@@ -1386,7 +1386,7 @@ public class KotlinSpecificRule {
                   Integer              target      = null;
             for( final Integer p : terminators.keySet() ) {
                 int scan  = p + 1;
-                int wsIdx = - 1;
+                int wsIdx = -1;
                 if( scan < tokens.size() && tokens.get(scan).type == TokenType.WHITESPACE ) {
                     wsIdx = scan;
                     ++scan;
@@ -1400,7 +1400,7 @@ public class KotlinSpecificRule {
             if(target == null) return tokens;
             final int p     = target;
                   int scan  = p + 1;
-                  int wsIdx = - 1;
+                  int wsIdx = -1;
             if( scan < tokens.size() && tokens.get(scan).type == TokenType.WHITESPACE ) {
                 wsIdx = scan;
                 ++scan;
@@ -1920,9 +1920,9 @@ public class KotlinSpecificRule {
         final List<String> localPrefix = findLocalPackagePrefix(tokens, importDepth);
 
           int                      depth          = 0;
-          int                      firstImportIdx = - 1;
-          int                      prevEndIdx     = - 1;
-          int                      lastEndIdx     = - 1;
+          int                      firstImportIdx = -1;
+          int                      prevEndIdx     = -1;
+          int                      lastEndIdx     = -1;
           boolean                  blocked        = false;
     final List<ParsedKotlinImport> imports        = new ArrayList<>();
     final int                      n              = tokens.size();
@@ -2233,7 +2233,7 @@ public class KotlinSpecificRule {
             ) ) ) continue; // Declaration-led -- keep any existing leading blank line
             boolean hasComment      = false;
             int     newlineCount    = 0;
-            int     firstNewlineIdx = - 1;
+            int     firstNewlineIdx = -1;
             for(int k = i + 1; k < firstSig; ++k) {
                 final Token g = tokens.get(k);
                 if( isComment(g) ) {

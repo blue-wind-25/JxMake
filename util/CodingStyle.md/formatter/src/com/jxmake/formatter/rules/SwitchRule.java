@@ -332,16 +332,16 @@ public class SwitchRule {
         final Map<Integer, String> insertAfter
     )
     {
-        int firstCommentIdx = - 1;
+        int firstCommentIdx = -1;
         for(int i = fromIdx; i < toIdxExclusive; ++i) {
             if( isComment( tokens.get(i) ) && startsOwnLine(tokens, i, fromIdx - 1) ) {
                 firstCommentIdx = i;
                 break;
             }
         }
-        final int scanEnd = firstCommentIdx < 0 ? toIdxExclusive : firstCommentIdx;
-              int                                 newlineCount    = 0;
-              int                                 firstNewlineIdx = - 1;
+        final int scanEnd         = firstCommentIdx < 0 ? toIdxExclusive : firstCommentIdx;
+              int newlineCount    = 0;
+              int firstNewlineIdx = -1;
         for(int i = fromIdx; i < scanEnd; ++i) {
             final Token t = tokens.get(i);
             if(t.type == TokenType.NEWLINE) {
@@ -391,7 +391,7 @@ public class SwitchRule {
             final String bodyIndent = caseIndent + unit + unit;
             final String tailIndent = caseIndent + unit;
 
-            int firstBodyLine = - 1;
+            int firstBodyLine = -1;
             for(int j = braceIdx; j < braceClose; ++j) {
                 if( tokens.get(j).type == TokenType.NEWLINE ) {
                     firstBodyLine = j + 1;
@@ -520,11 +520,11 @@ public class SwitchRule {
         final Map<Integer, String> overrides
     )
     {
-        final Token                                                t = tokens.get(lineStart);
-        final String current = t.type == TokenType.WHITESPACE ? t. text : "";
-        final char unitChar = current.isEmpty() ? ' ' : current.charAt(0);
-        final int           newLen = Math.max( 0, current.length() + delta );
-        final StringBuilder sb     = new StringBuilder();
+        final Token         t        = tokens.get(lineStart);
+        final String        current  = t.type == TokenType.WHITESPACE ? t.text : "";
+        final char          unitChar = current.isEmpty() ? ' ' : current.charAt(0);
+        final int           newLen   = Math.max( 0, current.length() + delta );
+        final StringBuilder sb       = new StringBuilder();
         for(int k = 0; k < newLen; ++k) sb.append(unitChar);
              if(t.type == TokenType.WHITESPACE) overrides.put( lineStart, sb.toString() );
         else if(newLen > 0)                     overrides.put( lineStart, sb.toString() + t.text );
@@ -678,8 +678,9 @@ public class SwitchRule {
     private CaseRow classify(final List<Token> tokens, final CaseLabel c, final boolean isLast)
     {
         final boolean isDefault = "default".equals( tokens.get(c.kwIdx).text );
-        final String label = isDefault ? "default"
-                : "case " + literalSlice(tokens, c.kwIdx + 1, c.colonIdx).trim();
+        final String  label     = isDefault ? "default" : "case " + literalSlice(
+            tokens, c.kwIdx + 1, c.colonIdx
+        ).trim();
 
         final int from      = c.colonIdx + 1;
         final int to        = c.bodyEnd;
@@ -777,7 +778,7 @@ public class SwitchRule {
      */
     private int findFallthroughMarker(final List<Token> tokens, final int from, final int to)
     {
-        int found = - 1;
+        int found = -1;
         for(int i = from; i < to; ++i) {
             final Token t = tokens.get(i);
             if( isComment(t) ) {

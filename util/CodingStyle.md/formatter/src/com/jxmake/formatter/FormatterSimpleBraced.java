@@ -66,7 +66,7 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
     public static String capitalizeCommentStart(final String commentText)
     {
         final int delimLen = commentText.startsWith("//") || commentText.startsWith("/*") ? 2 : 0;
-        int i = delimLen;
+              int i        = delimLen;
         while( i < commentText.length() && commentText.charAt(i) == ' ' ) i++;
         if( i < commentText.length() ) {
             final char c = commentText.charAt(i);
@@ -137,7 +137,7 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
     public static String reindentBlockComment(final String commentText, final String indentPrefix)
     {
         if( commentText.indexOf('\n') < 0 ) return commentText;
-        final String[]      lines = commentText.split("\n", - 1);
+        final String[]      lines = commentText.split("\n", -1);
         final StringBuilder sb    = new StringBuilder( lines[0] );
         for(int i = 1; i < lines.length; ++i) {
             // If this line already starts with exactly indentPrefix (e.g. re-formatting
@@ -147,8 +147,7 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
                 indentPrefix
             ) ? lines[i].substring(
                 indentPrefix.length()
-            )
-                    : lines[i];
+            ) : lines[i];
             sb.append('\n').append(indentPrefix).append(line);
         } // for
 

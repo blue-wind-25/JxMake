@@ -464,7 +464,7 @@ public class TokenizerCurly extends TokenizerCore {
     private       boolean       syntaxError;
     private final Deque<String> nameStack         = new LinkedList<>();
     private final Deque<Token>  recentSignificant = new ArrayDeque<>();
-    // record header tracking (`record Name(` ... `)` -- the component list sits between the
+    // Record header tracking (`record Name(` ... `)` -- the component list sits between the
     // keyword+name and the body brace, so the simple 2-token `computeConstructName` lookback
     // can't see across it). `bracketNameStack` mirrors every `(`/`[` open/close 1:1 so it stays
     // balanced regardless of nested unrelated brackets (e.g. an annotation argument list inside
@@ -1713,10 +1713,8 @@ public class TokenizerCurly extends TokenizerCore {
     {
         final int start = pos;
         while( pos < length && isIdentifierPart( source.charAt(pos) ) ) pos++;
-        final String                                                text = source.substring(
-            start, pos
-        );
-        final TokenType type = keywords.contains(text) ? TokenType. KEYWORD : TokenType.IDENTIFIER;
+        final String    text = source.substring(start, pos);
+        final TokenType type = keywords.contains(text) ? TokenType.KEYWORD : TokenType.IDENTIFIER;
 
         return new Token(type, text, braceDepth, parenDepth, null);
     }

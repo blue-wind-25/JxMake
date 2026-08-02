@@ -655,7 +655,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         final Token       closeTok
     )
     {
-        int openIdx = - 1;
+        int openIdx = -1;
         for( int k = 0; k < stmt.size(); ++k ) {
             if( stmt.get(k) == openTok ) {
                 openIdx = k;
@@ -663,7 +663,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             }
         }
         if(openIdx < 0) return null;
-        int closeIdx = - 1;
+        int closeIdx = -1;
         for( int k = stmt.size() - 1; k > openIdx; --k ) {
             if( stmt.get(k) == closeTok ) {
                 closeIdx = k;
@@ -681,7 +681,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         final Token       closeTok
     )
     {
-        int openIdx = - 1;
+        int openIdx = -1;
         for( int k = 0; k < stmt.size(); ++k ) {
             if( stmt.get(k) == openTok ) {
                 openIdx = k;
@@ -689,7 +689,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             }
         }
         if(openIdx < 0) return null;
-        int closeIdx = - 1;
+        int closeIdx = -1;
         for( int k = stmt.size() - 1; k > openIdx; --k ) {
             if( stmt.get(k) == closeTok ) {
                 closeIdx = k;
@@ -879,7 +879,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         // otherwise a ternary `:` inside an initializer expression (`int x = cond ? a : b;`)
         // gets misdetected as a bitfield-width colon and the whole declaration is misrouted
         // into parseBitfield, corrupting its rendering.
-        int colonIdx       = - 1;
+        int colonIdx       = -1;
         int colonScanDepth = 0;
         for( int j = i; j < body.size(); ++j ) {
             final Token bt = body.get(j);
@@ -901,7 +901,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             modifiers, body, i, colonIdx, trailingComment, blankBefore
         );
 
-        int eqIdx = - 1;
+        int eqIdx = -1;
         for( int j = i; j < body.size(); ++j ) {
             if( isOp( body.get(j), "=" ) ) {
                 eqIdx = j;
@@ -933,7 +933,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             final int lastSig = lastSignificantIdx(body, i, end);
             if( lastSig >= 0 && isPunct( body.get(lastSig), "}" ) ) {
                 int braceDepth = 0;
-                int openIdx    = - 1;
+                int openIdx    = -1;
                 for(int k = lastSig; k >= i; --k) {
                     final Token bt = body.get(k);
                     if( isPunct(bt, "}") ) {
@@ -1027,7 +1027,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         // plain variables in the same group exactly like STATE.md's gap example requires.
         if( end > i && isPunct( body.get(end - 1), ")" ) ) {
             int depth         = 0;
-            int paramsOpenIdx = - 1;
+            int paramsOpenIdx = -1;
             for(int k = end - 1; k >= i; --k) {
                 final Token t = body.get(k);
                 if( isPunct(t, ")") ) {
@@ -1043,7 +1043,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             } // for
             if( paramsOpenIdx > i && isPunct( body.get(paramsOpenIdx - 1), ")" ) ) {
                 int depth2      = 0;
-                int nameOpenIdx = - 1;
+                int nameOpenIdx = -1;
                 for(int k = paramsOpenIdx - 1; k >= i; --k) {
                     final Token t = body.get(k);
                     if( isPunct(t, ")") ) {
@@ -1154,7 +1154,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         }
         while( sizeEnd > i && isPunct( body.get(sizeEnd - 1), "]" ) ) {
             int depth   = 0;
-            int openIdx = - 1;
+            int openIdx = -1;
             for(int k = sizeEnd - 1; k >= i; --k) {
                 final Token t = body.get(k);
                 if( isPunct(t, "]") ) {
@@ -1179,7 +1179,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         if( sizeEnd > i && isPunct( body.get(sizeEnd - 1), ")" )
                 && ( initTokens.isEmpty() || isFuncDeclSpecifier(initTokens) ) ) {
             int depth2       = 0;
-            int parenOpenIdx = - 1;
+            int parenOpenIdx = -1;
             for(int k = sizeEnd - 1; k >= i; --k) {
                 final Token t = body.get(k);
                 if( isPunct(t, ")") ) {
@@ -1274,7 +1274,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         final boolean     blankBefore
     )
     {
-        int bracketStart = - 1;
+        int bracketStart = -1;
         for( int j = typeStart; j < body.size(); ++j ) {
             final Token t = body.get(j);
             if( isPunct(t, "[") ) {
@@ -1286,7 +1286,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         if(bracketStart < 0 || bracketStart <= typeStart) return null;
 
         int depth      = 0;
-        int bracketEnd = - 1;
+        int bracketEnd = -1;
         for( int j = bracketStart; j < body.size(); ++j ) {
             final Token t = body.get(j);
             if( isPunct(t, "[") ) {
@@ -1308,7 +1308,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             firstType.text
         ) ) return null;
 
-        int eqIdx = - 1;
+        int eqIdx = -1;
         for( int j = bracketEnd + 1; j < body.size(); ++j ) {
             if( isOp( body.get(j), "=" ) ) {
                 eqIdx = j;
@@ -1327,9 +1327,11 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         final Token       bindingName  = body.get(bracketStart);
         final Token       bracketClose = body.get(bracketEnd);
         final List<Token> rawBracket   = rawSliceBetween(stmt, bindingName, bracketClose);
-        final List<Token> bracketRest = rawBracket != null
-                ? new ArrayList<>( rawBracket.subList( 1, rawBracket.size() ) )
-                : new ArrayList<>( body.subList(bracketStart + 1, bracketEnd + 1) );
+        final List<Token> bracketRest  = rawBracket != null ? new ArrayList<>( rawBracket.subList(
+            1, rawBracket.size()
+        ) ) : new ArrayList<>( body.subList(
+            bracketStart + 1, bracketEnd + 1
+        ) );
 
         return new Declaration(
             modifiers, typeTokens, bindingName, bracketRest,

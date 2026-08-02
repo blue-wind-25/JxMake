@@ -49,7 +49,7 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
         "synchronized"
     ) );
 
-    private final ModifierPriority modifierPriority; // null for C/C++ -- no modifier column there
+    private final ModifierPriority modifierPriority; // Null for C/C++ -- no modifier column there
 
     public GetterSetterRuleCurly(final Lang lang)
     {
@@ -135,9 +135,9 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
     {
         final List<Member> remaining = new ArrayList<>(group);
         while( remaining.size() >= 2 ) {
-            int maxWidth    = - 1;
-            int secondWidth = - 1;
-            int maxIdx      = - 1;
+            int maxWidth    = -1;
+            int secondWidth = -1;
+            int maxIdx      = -1;
             for( int i = 0; i < remaining.size(); ++i ) {
                 final int w = bodyWidth( tokens, remaining.get(i) );
                 if(w > maxWidth) {
@@ -217,8 +217,8 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
         }
 
         // Modifier columns (Java only)
-        final int modifierColumns = lang.isJava ? modifierPriority.columnCount() : 0;
-        final boolean[] modifierActive = new boolean[modifierColumns];
+        final int       modifierColumns = lang.isJava ? modifierPriority.columnCount() : 0;
+        final boolean[] modifierActive  = new boolean[modifierColumns];
         if(lang.isJava) {
             for(final Member m : group) {
                 for(final Token mod : m.modifiers) {
@@ -250,7 +250,7 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
                     continue;
                 }
                 // Find the last IDENTIFIER in the params range as the param name
-                int nameTokenIdx = - 1;
+                int nameTokenIdx = -1;
                 for(int k = m.paramsTo - 1; k >= m.paramsFrom; --k) {
                     final Token tk = tokens.get(k);
                     if(tk.type == TokenType.IDENTIFIER) {
@@ -472,7 +472,7 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
                 final int ltIdx = nextSignificant(tokens, templateKwIdx + 1, to);
                 if( ltIdx >= 0 && isOp( tokens.get(ltIdx), "<" ) ) {
                     int depth    = 0;
-                    int closeIdx = - 1;
+                    int closeIdx = -1;
                     for(int k = ltIdx; k < to; ++k) {
                         final Token tk = tokens.get(k);
                         if( isOp(tk, "<") ) {
@@ -524,7 +524,7 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
             // class-name identifier before it.
             if( tokens.get(prevB).type == TokenType.ANGLE_BRACKET_CLOSE ) {
                 int depth   = 0;
-                int openIdx = - 1;
+                int openIdx = -1;
                 for(int k = prevB; k >= returnTypeFrom; --k) {
                     final Token tk = tokens.get(k);
                     if(tk.type == TokenType.ANGLE_BRACKET_CLOSE) {
@@ -554,7 +554,7 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
         final boolean noReturnType = nameFrom == returnTypeFrom;
 
         final int effectiveReturnTypeFrom = noReturnType ? nameFrom : returnTypeFrom;
-        final int                                          returnTypeTo = trimTrailingWs(
+        final int returnTypeTo            = trimTrailingWs(
             tokens, effectiveReturnTypeFrom, nameFrom
         );
         if( returnTypeTo < effectiveReturnTypeFrom || (!noReturnType && returnTypeTo <= returnTypeFrom) ) return null;
@@ -678,7 +678,7 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
             trailingComment = foundComment;
         }
         else {
-            return null; // throws clause or other unrecognised form
+            return null; // Throws clause or other unrecognised form
         }
 
         // A body containing a non-empty-arg call (as opposed to a trivial `return x;`/`x = y;`

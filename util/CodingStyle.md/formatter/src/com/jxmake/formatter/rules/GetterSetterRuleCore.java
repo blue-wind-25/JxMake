@@ -142,7 +142,7 @@ public abstract class GetterSetterRuleCore {
         // a parameter list or array/computed-member expression
         int parenDepth = 0;
         int i          = 0;
-        int lastSigIdx = - 1;
+        int lastSigIdx = -1;
 
         while(i < n) {
             final Token t = scopeTokens.get(i);

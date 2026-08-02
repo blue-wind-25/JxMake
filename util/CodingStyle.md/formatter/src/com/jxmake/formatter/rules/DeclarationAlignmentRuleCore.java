@@ -204,7 +204,7 @@ public abstract class DeclarationAlignmentRuleCore {
     {
         final StringBuilder sb = new StringBuilder();
         for( int i = 0; i < tokens.size(); ++i ) {
-            final Token t = tokens.get(i);
+            final Token t    = tokens.get(i);
             final Token prev = i > 0 ? tokens.get(i - 1) : null;
             final Token next = i < tokens.size() - 1 ? tokens.get(i + 1) : null;
             if(prev != null) {
@@ -217,7 +217,11 @@ public abstract class DeclarationAlignmentRuleCore {
                         sb.append(' '); // Binary * or & in expression context
                     }
                 } // if
-                else if( !isUnaryMinusOperand(tokens, i) && needsSpaceBetween(prev, t, tokens, i) ) {
+                else if( !isUnaryMinusOperand(
+                    tokens, i
+                ) && needsSpaceBetween(
+                    prev, t, tokens, i
+                ) ) {
                     final Token prev2 = i > 1 ? tokens.get(i - 2) : null;
                     if( t.type == TokenType.IDENTIFIER && Token.isRepOp(prev, '*')
                         && (prev2 == null || prev2.type == TokenType.OP)
@@ -247,7 +251,7 @@ public abstract class DeclarationAlignmentRuleCore {
     protected boolean isCStyleCastClose(final List<Token> tokens, final int closeIdx)
     {
         int depth   = 0;
-        int openIdx = - 1;
+        int openIdx = -1;
         for(int k = closeIdx; k >= 0; --k) {
             final Token t = tokens.get(k);
             if( isPunct(t, ")") ) {
@@ -476,7 +480,7 @@ public abstract class DeclarationAlignmentRuleCore {
     {
         if( tokens == null || parenIdx < 0 || parenIdx >= tokens.size() ) return false;
         int depth    = 0;
-        int closeIdx = - 1;
+        int closeIdx = -1;
         for( int k = parenIdx; k < tokens.size(); ++k ) {
             final Token t = tokens.get(k);
             if( isPunct(t, "(") ) {

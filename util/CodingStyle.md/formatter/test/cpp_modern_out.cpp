@@ -368,7 +368,7 @@ consteval int always42()
 
 constexpr int compute()
 {
-    // if consteval (no condition)
+    // If consteval (no condition)
     if consteval {
         return always42();
     }
@@ -380,7 +380,7 @@ constexpr int compute()
 template <typename T>
 constexpr int value(T v)
 {
-    // if constexpr (with condition)
+    // If constexpr (with condition)
     if constexpr(std::is_integral_v<T>) {
         return static_cast<int>(v);
     }

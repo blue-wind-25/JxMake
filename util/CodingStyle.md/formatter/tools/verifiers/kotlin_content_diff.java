@@ -121,7 +121,7 @@ public class kotlin_content_diff {
     {
         List<String> out = new ArrayList<>();
         for( KtImportDirective imp : file.getImportDirectives() ) {
-            String fq = imp.getImportedFqName() == null ? "" : imp.getImportedFqName().asString();
+            String fq    = imp.getImportedFqName() == null ? "" : imp.getImportedFqName().asString();
             String alias = imp.getAliasName() == null ? "" : ( " as " + imp.getAliasName() );
             out.add( fq + ( imp.isAllUnder() ? ".*" : "" ) + alias );
         }
@@ -165,7 +165,7 @@ public class kotlin_content_diff {
     static String stripCommentDelims(String text)
     {
         String t = text.trim();
-        if( t.startsWith("///") )      t = t.substring(3);
+             if( t.startsWith("///") ) t = t.substring(3);
         else if( t.startsWith("//") )  t = t.substring(2);
         else if( t.startsWith("/**") ) t = t.substring( 3, Math.max( 3, t.length() - 2 ) );
         else if( t.startsWith("/*") )  t = t.substring( 2, Math.max( 2, t.length() - 2 ) );

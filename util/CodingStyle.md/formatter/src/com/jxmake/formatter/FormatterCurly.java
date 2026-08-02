@@ -67,14 +67,18 @@ public final class FormatterCurly extends FormatterCore {
             indentWidth,
             lineLengthLimit
         );
-        final CppSpecificRule cppRule = isCOrCpp
-                ? new CppSpecificRule(lang, lineLengthLimit, indentWidth) : null;
-        final JavaSpecificRule javaRule = lang.isJava
-                ? new JavaSpecificRule(lang, lineLengthLimit, indentWidth) : null;
-        final KotlinSpecificRule kotlinRule = lang.isKotlin
-                ? new KotlinSpecificRule(lang, lineLengthLimit, indentWidth) : null;
-        final JsTsSpecificRule jsTsRule = (lang.isJs || lang.isTs)
-                ? new JsTsSpecificRule(lang, lineLengthLimit, indentWidth) : null;
+        final CppSpecificRule    cppRule         = isCOrCpp ? new CppSpecificRule(
+            lang, lineLengthLimit, indentWidth
+        ) : null;
+        final JavaSpecificRule   javaRule        = lang.isJava ? new JavaSpecificRule(
+            lang, lineLengthLimit, indentWidth
+        ) : null;
+        final KotlinSpecificRule kotlinRule      = lang.isKotlin ? new KotlinSpecificRule(
+            lang, lineLengthLimit, indentWidth
+        ) : null;
+        final JsTsSpecificRule   jsTsRule        = (lang.isJs || lang.isTs) ? new JsTsSpecificRule(
+            lang, lineLengthLimit, indentWidth
+        ) : null;
 
         // Phase 0: §5/§6/§8/§14 grouping rules, recursive.
         // Pre-pad complexity spacing (§3.1) before grouping/column-width computation -- otherwise

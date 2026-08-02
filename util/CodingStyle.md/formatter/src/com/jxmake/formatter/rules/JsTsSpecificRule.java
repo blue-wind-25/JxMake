@@ -218,7 +218,7 @@ public final class JsTsSpecificRule {
         final Map<Integer, String> overrides  = new HashMap<>();
         final Deque<Integer>       depthStack = new ArrayDeque<>();
               int                  depth      = 0;
-              int                  lastSigIdx = - 1;
+              int                  lastSigIdx = -1;
         final int                  n          = tokens.size();
 
         for(int i = 0; i < n; ++i) {
@@ -446,8 +446,8 @@ public final class JsTsSpecificRule {
     )
     {
         for( final Integer openIdx : openToClose.keySet() ) {
-            final int prevIdx = prevSignificantIndex(tokens, openIdx - 1);
-            final Token prev = prevIdx >= 0 ? tokens.get(prevIdx) : null;
+            final int     prevIdx             = prevSignificantIndex(tokens, openIdx - 1);
+            final Token   prev                = prevIdx >= 0 ? tokens.get(prevIdx) : null;
             final boolean isImportBraceHeader = prev != null&& ( ( prev.type == TokenType.KEYWORD&& "import".equals(
                 prev.text
             ) ) || ( "type".equals(
@@ -482,8 +482,8 @@ public final class JsTsSpecificRule {
                 // a plain named export (`export { Foo, Bar };`) are both legal -- only the former
                 // has its real statement terminator after the `from` clause; the latter's own `}`
                 // really is the statement's last token and does need a trailing `;`.
-                final Integer closeIdx = openToClose.get(openIdx);
-                final int afterClose = closeIdx != null ? nextSignificantIndex(
+                final Integer closeIdx      = openToClose.get(openIdx);
+                final int     afterClose    = closeIdx != null ? nextSignificantIndex(
                     tokens, closeIdx + 1
                 ) : -1;
                 final boolean hasFromClause = afterClose >= 0&& tokens.get(
@@ -1224,7 +1224,7 @@ public final class JsTsSpecificRule {
     )
     {
         if( commentText.indexOf('\n') < 0 ) return commentText;
-        final String[]      lines = commentText.split("\n", - 1);
+        final String[]      lines = commentText.split("\n", -1);
         final StringBuilder sb    = new StringBuilder( lines[0] );
         for(int i = 1; i < lines.length; ++i) {
             int j = 0;
@@ -1241,7 +1241,7 @@ public final class JsTsSpecificRule {
      */
     private String lineIndent(final List<Token> tokens, final int idx)
     {
-        int newlineIdx = - 1;
+        int newlineIdx = -1;
         for(int i = idx; i >= 0; --i) {
             if( tokens.get(i).type == TokenType.NEWLINE ) {
                 newlineIdx = i;
@@ -1435,7 +1435,9 @@ public final class JsTsSpecificRule {
                 ) || isOp(
                     tokens.get(k), "&"
                 ) );
-                final int indent = breaksBeforeOperator ? Math.max(0, rhsCol - 2) : rhsCol;
+                final int     indent               = breaksBeforeOperator ? Math.max(
+                    0, rhsCol - 2
+                ) : rhsCol;
                 for(int s = 0; s < indent; ++s) out.append(' ');
                 continue;
             } // if
@@ -1948,7 +1950,7 @@ public final class JsTsSpecificRule {
         private final String       name;
         private final String       type;
         private final boolean      hasValue;
-        private final String       value;           // null unless hasValue
+        private final String       value;           // Null unless hasValue
         private       String       trailingComment;
         private final int          startIdx;
         private final int          endIdx;          // Exclusive: index of the first token of whatever follows
@@ -2016,7 +2018,7 @@ public final class JsTsSpecificRule {
         // posture as the rest of this method -- extending the grid into nested class bodies is
         // future work, not a regression from before this fix).
         final List<Integer> classOpens   = new ArrayList<>();
-              int           coveredUntil = - 1;
+              int           coveredUntil = -1;
         for(final int openIdx : allClassOpens) {
             if(openIdx < coveredUntil) continue; // Nested inside an already-selected outer class -- skip
             classOpens.add(openIdx);
@@ -2060,7 +2062,7 @@ public final class JsTsSpecificRule {
         // preservation below can stop before it -- flushClassFieldGroup renders each leading
         // comment with its own trailing newline, so counting the newline after it here too
         // would double it up
-        int leadingCommentsStartIdx = - 1;
+        int leadingCommentsStartIdx = -1;
         while(i < closeIdx) {
             final Token t = tokens.get(i);
             if(t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE) {
@@ -2485,7 +2487,7 @@ public final class JsTsSpecificRule {
         final StringBuilder out             = new StringBuilder();
         final List<Token>   gap             = new ArrayList<>();
               Token         lastSignificant = null;
-              int           lastSigIdx      = - 1;
+              int           lastSigIdx      = -1;
         final int           n               = tokens.size();
               int           i               = 0;
 
@@ -2663,7 +2665,7 @@ public final class JsTsSpecificRule {
         ) && !isGroupingExpressionParen(
             tokens, prevIdx, parenCloseToOpen
         );
-        int idIdx = - 1;
+        int idIdx = -1;
         if(prev.type == TokenType.IDENTIFIER) {
             idIdx = prevIdx;
         }
@@ -2672,8 +2674,8 @@ public final class JsTsSpecificRule {
             if( maybeId >= 0 && tokens.get(maybeId).type == TokenType.IDENTIFIER ) idIdx = maybeId;
         }
         if(idIdx < 0) return false;
-        final int ctxIdx = prevSignificantIndex(tokens, idIdx - 1);
-        final Token ctx = ctxIdx >= 0 ? tokens.get(ctxIdx) : null;
+        final int     ctxIdx   = prevSignificantIndex(tokens, idIdx - 1);
+        final Token   ctx      = ctxIdx >= 0 ? tokens.get(ctxIdx) : null;
         final boolean paramCtx = "PAREN".equals(
             stack.peek()
         )&& ctx != null&& ( isPunct(
@@ -2836,7 +2838,7 @@ public final class JsTsSpecificRule {
         // through to the ordinary isValue-brace classification below instead (conservative: no
         // member `;`-alignment for a union member's object type, but no depth corruption either).
         int matchDepth = 0;
-        int closeIdx   = - 1;
+        int closeIdx   = -1;
         for( int i = braceIdx; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
             if( isPunct(t, "{") ) {
@@ -3208,8 +3210,8 @@ public final class JsTsSpecificRule {
      */
     private boolean isValuePrecededBrace(final List<Token> tokens, final int openIdx)
     {
-        final int prevIdx = prevSignificantIndex(tokens, openIdx - 1);
-        final Token prev = prevIdx >= 0 ? tokens.get(prevIdx) : null;
+        final int   prevIdx = prevSignificantIndex(tokens, openIdx - 1);
+        final Token prev    = prevIdx >= 0 ? tokens.get(prevIdx) : null;
         if(prev == null) return false;
 
         return isOp(prev, "=>") || isOp(prev, "=") || isPunct(prev, "(") || isPunct(prev, "[")
@@ -3307,8 +3309,8 @@ public final class JsTsSpecificRule {
         while(i < n) {
             final Token t = tokens.get(i);
             if( isOp(t, "@") && !t.frozen ) {
-                final int decoratorEnd = findDecoratorEnd(tokens, i, parenOpenToClose);
-                final int nextSig = decoratorEnd >= 0 ? nextSignificantIndex(
+                final int     decoratorEnd   = findDecoratorEnd(tokens, i, parenOpenToClose);
+                final int     nextSig        = decoratorEnd >= 0 ? nextSignificantIndex(
                     tokens, decoratorEnd + 1
                 ) : -1;
                 final boolean alreadyOwnLine = nextSig >= 0&& hasNewlineBetween(
@@ -3563,9 +3565,9 @@ public final class JsTsSpecificRule {
         );
 
         int     depth          = 0;
-        int     firstImportIdx = - 1;
-        int     prevEndIdx     = - 1;
-        int     lastEndIdx     = - 1;
+        int     firstImportIdx = -1;
+        int     prevEndIdx     = -1;
+        int     lastEndIdx     = -1;
         boolean blocked        = false;
         // RDD_KEY_197: a standalone comment between two imports no longer bails the whole pass --
         // it segments the import list instead (same "blank line breaks the group" precedent used
@@ -3716,8 +3718,8 @@ public final class JsTsSpecificRule {
     private ParsedJsImport parseJsImportStatement(final List<Token> tokens, final int importIdx)
     {
         final int n            = tokens.size();
-              int stringIdx    = - 1;
-              int semicolonIdx = - 1;
+              int stringIdx    = -1;
+              int semicolonIdx = -1;
               int p            = importIdx + 1;
         while(p < n) {
             final Token t = tokens.get(p);
@@ -3798,7 +3800,7 @@ public final class JsTsSpecificRule {
     private String classifyJsImportGroup(final String path)
     {
         if( path.startsWith("node:") ) return "builtin";
-        final int                                 slash = path.indexOf('/');
+        final int    slash          = path.indexOf('/');
         final String leadingSegment = slash < 0 ? path : path.substring(0, slash);
         if( NODE_BUILTIN_MODULES.contains(leadingSegment) ) return "builtin";
         if( path.startsWith("./") || path.startsWith("../") ) return "local";

@@ -643,7 +643,7 @@ public final class YamlSpecificRule {
             // content at all), let this and any subsequent comment lines fall through as this block's
             // own trailing/dangling comments once the loop ends, same as before.
             final boolean isComment = ln.content.startsWith("#");
-            final Line nextReal = isComment && ln.indent != blockIndent ? peekNonBlank() : null;
+            final Line    nextReal  = isComment&& ln.indent != blockIndent ? peekNonBlank() : null;
             if( isComment && (ln.indent == blockIndent || nextReal == null || nextReal.indent == blockIndent) ) {
                 if( "#% JXM_CFMT_DIS".equals(ln.content) ) {
                     final Item item = new Item();
@@ -853,7 +853,7 @@ public final class YamlSpecificRule {
     {
         ++pos;
         item.isSeq = true;
-        final String rest = ln.content.equals("-") ? "" : ln.content.substring(2);
+        final String rest     = ln.content.equals("-") ? "" : ln.content.substring(2);
         final String restTrim = rest.trim();
         final int    innerCol = ln.indent + 2;
         if( restTrim.isEmpty() || restTrim.startsWith("#") ) {
@@ -1023,7 +1023,7 @@ public final class YamlSpecificRule {
     {
         final Item first = new Item();
         first.isSeq = true;
-        final String rest = dashLine.equals("-") ? "" : dashLine.substring(2);
+        final String rest     = dashLine.equals("-") ? "" : dashLine.substring(2);
         final String restTrim = rest.trim();
         if( restTrim.equals(
             "-"
@@ -1072,7 +1072,7 @@ public final class YamlSpecificRule {
         // Colon-alignment groups: a run of adjacent keyed items with no leading comment/blank/
         // frozen-span break between them, same shape as JSON's §1.1 grouping.
         final String[] padding    = new String[ items.size() ];
-              int      groupStart = - 1;
+              int      groupStart = -1;
         for( int i = 0; i <= items.size(); ++i ) {
             final boolean atEnd        = i == items.size();
             final boolean breaksBefore = atEnd || ! items.get(
@@ -1403,7 +1403,7 @@ public final class YamlSpecificRule {
     public String format(final String content)
     {
         final boolean      endsWithNewline = content.endsWith("\n");
-        final String[]     rawLines        = content.split("\n", - 1);
+        final String[]     rawLines        = content.split("\n", -1);
         final List<String> allLines        = new ArrayList<>( Arrays.asList(rawLines) );
         if( endsWithNewline && !allLines.isEmpty() ) allLines.remove( allLines.size() - 1 );
         final StringBuilder out      = new StringBuilder();

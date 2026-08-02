@@ -191,7 +191,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final List<Replacement>  replacements = new ArrayList<>();
               List<PyAssignment> group        = new ArrayList<>();
               List<int[]>        groupSpans   = new ArrayList<>(); // [assignStart, assignEnd] per group member
-              int                groupDepth   = - 1;
+              int                groupDepth   = -1;
         for(final RawLine line : rawLines) {
             final PyAssignment a = line.multiPhysicalLine ? null : classifyAssignment(tokens, line);
             if( a != null && ( group.isEmpty() || line.depth == groupDepth ) ) {
@@ -271,7 +271,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         ) ) return null;
         final int valueFrom = nextSignificant(tokens, opIdx + 1, line.end);
         if(valueFrom < 0) return null;
-        int lastValueIdx = - 1;
+        int lastValueIdx = -1;
         for(int k = line.end - 1; k >= valueFrom; --k) {
             final Token t = tokens.get(k);
             if(t.type == TokenType.IDENTIFIER || t.type == TokenType.KEYWORD || t.type == TokenType.NUMBER
@@ -311,7 +311,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final List<Replacement> replacements = new ArrayList<>();
               List<RawLine>     group        = new ArrayList<>();
               List<PyImport>    groupImports = new ArrayList<>();
-              int               groupDepth   = - 1;
+              int               groupDepth   = -1;
         for(final RawLine line : rawLines) {
             final PyImport imp = line.multiPhysicalLine ? null : classifyImport(tokens, line);
             if( imp != null && ( group.isEmpty() || line.depth == groupDepth ) ) {
@@ -620,7 +620,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     )
     {
         int i                     = from;
-        int lastFStringFieldClose = - 1;
+        int lastFStringFieldClose = -1;
         while(i < to) {
             final Token t = tokens.get(i);
             if( t.type == TokenType.PUNCT && isOpenBracketText(t.text) ) {
@@ -656,8 +656,8 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                 } // if
                 final int contentFirst = nextSignificant(tokens, i + 1, close);
                 if(contentFirst >= 0) {
-                    final boolean loose = classifyLoose(t.text, tokens, i + 1, close);
-                    final String desired = loose ? " " : "";
+                    final boolean     loose   = classifyLoose(t.text, tokens, i + 1, close);
+                    final String      desired = loose ? " " : "";
                     final Replacement openGap = normalizeGap(tokens, i + 1, contentFirst, desired);
                     if(openGap != null) out.add(openGap);
                     final int         lastSig  = prevSignificant(tokens, close - 1, i);
@@ -706,9 +706,9 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      */
     private int matchBracket(final List<Token> tokens, final int openIdx, final int limit)
     {
-        final String open = tokens.get(openIdx).text;
+        final String open  = tokens.get(openIdx).text;
         final String close = "(".equals(open) ? ")" : "[".equals(open) ? "]" : "}";
-        int depth = 0;
+              int    depth = 0;
         for(int j = openIdx; j < limit; ++j) {
             final Token t = tokens.get(j);
             if(t.type != TokenType.PUNCT) continue;
@@ -875,7 +875,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     {
         int i       = openIdx + 1;
         int depth   = 0;
-        int exprEnd = - 1;
+        int exprEnd = -1;
         while(true) {
             final Token t = tokens.get(i);
             if(t.type == TokenType.FSTRING_START) {
@@ -1135,23 +1135,23 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             startTok.text
         ) ) );
         if(!validParamStart) return null;
-        int lastSig = - 1;
+        int lastSig = -1;
         for(int k = segEnd - 1; k >= segStart; --k) {
             if( !isGapToken( tokens.get(k) ) ) {
                 lastSig = k;
                 break;
             }
         }
-        final boolean                          trailingComma = tokens.get(
+        final boolean trailingComma = tokens.get(
             lastSig
         ).type == TokenType.PUNCT&& ",".equals(
             tokens.get(lastSig).text
         );
-        final int contentEnd = trailingComma ? lastSig : lastSig + 1;
+        final int     contentEnd    = trailingComma ? lastSig : lastSig + 1;
         if(contentEnd <= nameStart) return null;
         int depth    = 0;
-        int colonIdx = - 1;
-        int eqIdx    = - 1;
+        int colonIdx = -1;
+        int eqIdx    = -1;
         for(int k = nameStart; k < contentEnd; ++k) {
             final Token t = tokens.get(k);
                  if( t.type == TokenType.PUNCT && isOpenBracketText(t.text) ) depth++;
@@ -1163,17 +1163,15 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                 t.text
             ) ) eqIdx = k;
         } // for
-        final int nameEnd = colonIdx >= 0 ? colonIdx : (eqIdx >= 0 ? eqIdx : contentEnd);
-        final int                           nameEndTrimmed = trimEndIdx(tokens, nameStart, nameEnd);
+        final int nameEnd        = colonIdx >= 0 ? colonIdx : (eqIdx >= 0 ? eqIdx : contentEnd);
+        final int nameEndTrimmed = trimEndIdx(tokens, nameStart, nameEnd);
         if(nameEndTrimmed <= nameStart) return null;
         final List<Token> nameTokens    = tokens.subList(nameStart, nameEndTrimmed);
               List<Token> typeTokens    = new ArrayList<>();
               List<Token> defaultTokens = new ArrayList<>();
         if(colonIdx >= 0) {
-            final int typeEnd = eqIdx >= 0 ? eqIdx : contentEnd;
-            final int                        typeStart = nextSignificant(
-                tokens, colonIdx + 1, typeEnd
-            );
+            final int typeEnd   = eqIdx >= 0 ? eqIdx : contentEnd;
+            final int typeStart = nextSignificant(tokens, colonIdx + 1, typeEnd);
             if(typeStart >= 0 && typeStart < typeEnd) typeTokens = tokens.subList(
                 typeStart, trimEndIdx(tokens, typeStart, typeEnd)
             );
@@ -1290,7 +1288,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         caseJoinAlignedHeaders.clear();
         final List<Replacement> replacements = new ArrayList<>();
               List<CaseLine>    group        = new ArrayList<>();
-              int               groupDepth   = - 1;
+              int               groupDepth   = -1;
         for( int i = 0; i < rawLines.size(); ++i ) {
             final RawLine  line = rawLines.get(i);
             final CaseLine c    = classifyCaseLine(tokens, rawLines, i);
@@ -1345,7 +1343,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final int patternStart = nextSignificant(tokens, caseIdx + 1, line.end);
         if(patternStart < 0) return null;
         int depth    = 0;
-        int colonIdx = - 1;
+        int colonIdx = -1;
         for(int k = patternStart; k < line.end; ++k) {
             final Token t = tokens.get(k);
             if( t.type == TokenType.PUNCT && isOpenBracketText(t.text) ) {
@@ -1375,8 +1373,8 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             }
         } // for
         boolean virtualJoin      = false;
-        int     bodyContentStart = - 1;
-        int     bodyContentEnd   = - 1;
+        int     bodyContentStart = -1;
+        int     bodyContentEnd   = -1;
         // A block-form header carrying its own trailing comment must never virtual-join --
         // headerPrefix below stops at patternEnd (before the colon/comment), so joining would
         // silently drop that comment (real content loss, not just reformatting; same fix as
@@ -1659,7 +1657,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             kw.text
         ) ) return -1;
         int depth    = 0;
-        int colonIdx = - 1;
+        int colonIdx = -1;
         for(int k = kwIdx + 1; k < line.end; ++k) {
             final Token t = tokens.get(k);
             if( t.type == TokenType.KEYWORD && "lambda".equals(

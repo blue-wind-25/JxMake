@@ -241,11 +241,11 @@ public final class GdrTokenizer {
         }
         if( j >= n || source.charAt(j) != '(' ) return false;
         flushText();
-        int                   start     = i;
-        int                   startLine = line;
-        String                closer    = ")" + delim + "\"";
-        int                   idx       = source.indexOf(closer, j + 1);
-        int end = (idx < 0) ? n : idx + closer.length();
+        int    start     = i;
+        int    startLine = line;
+        String closer    = ")" + delim + "\"";
+        int    idx       = source.indexOf(closer, j + 1);
+        int    end       = (idx < 0) ? n : idx + closer.length();
         for(int k = start; k < end; ++k) {
             if( source.charAt(k) == '\n' ) line++;
         }

@@ -401,7 +401,7 @@ public class KotlinGetterSetterRule extends GetterSetterRuleCurly {
             final int typeStart = nextSignificant(tokens, colonIdx + 1, to);
             if(typeStart < 0) return null;
             int angleDepth = 0;
-            int typeEnd    = - 1;
+            int typeEnd    = -1;
             for(int k = typeStart; k < to; ++k) {
                 final Token tk = tokens.get(k);
                 if( isPunct(tk, "(") || tk.type == TokenType.ANGLE_BRACKET_OPEN ) {
@@ -549,10 +549,13 @@ public class KotlinGetterSetterRule extends GetterSetterRuleCurly {
             if( safeIndices.size() <= 1 ) break; // Nothing left to budget-check against
             final List<Member> safeRows = new ArrayList<>();
             for(final int idx : safeIndices) safeRows.add( group.get(idx) );
-            final List<String> safeLines = accessorShape
-                    ? renderAccessorGroupRaw(tokens, safeRows) : renderRaw(tokens, safeRows);
+            final List<String> safeLines = accessorShape ? renderAccessorGroupRaw(
+                tokens, safeRows
+            ) : renderRaw(
+                tokens, safeRows
+            );
 
-            int overflowAt = - 1;
+            int overflowAt = -1;
             for( int k = 0; k < safeRows.size(); ++k ) {
                 final Member m = safeRows.get(k);
                 if( !hasBreakableCall(tokens, m.bodyFrom, m.bodyTo) ) continue;
@@ -585,8 +588,11 @@ public class KotlinGetterSetterRule extends GetterSetterRuleCurly {
                 runRows.add( group.get(j) );
                 ++j;
             }
-            final List<String> runLines = accessorShape
-                    ? renderAccessorGroupRaw(tokens, runRows) : renderRaw(tokens, runRows);
+            final List<String> runLines = accessorShape ? renderAccessorGroupRaw(
+                tokens, runRows
+            ) : renderRaw(
+                tokens, runRows
+            );
             for( int k = 0; k < runLines.size(); ++k ) result.set( i + k, runLines.get(k) );
             i = j;
         } // while

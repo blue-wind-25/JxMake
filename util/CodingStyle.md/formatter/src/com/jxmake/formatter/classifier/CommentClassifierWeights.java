@@ -25,10 +25,10 @@ public final class CommentClassifierWeights {
     public static final double THRESHOLD = 0.0;
 
     // Keyword-ambiguity path (KeywordAmbiguityGate.resolveAmbiguousKeyword, stage 2). L2-regularized
-    // logistic regression trained on all 221 labeled examples across
+    // logistic regression trained on all 522 labeled examples across
     // tools/classifier_weights/examples_{c,cpp,java,kotlin,js,ts}.md by tools/classifier_weights/derive_weights.py
     // (lambda=0.1, 5000 epochs, lr=0.5) -- see tools/classifier_weights/weights.md "Keyword-ambiguity path" for the
-    // derivation and the per-example verification (130/221; mismatches are all the intentional asymmetric-risk
+    // derivation and the per-example verification (407/522; mismatches are all the intentional asymmetric-risk
     // tradeoff -- a zero-signal keyword-led comment now resolves to NO/ABSTAIN by default, since
     // real code overwhelmingly uses that shape as a code reference rather than English prose, and
     // a false skip is zero-cost while a false positive is a visible bug; see tools/classifier_weights/weights.md and
@@ -36,11 +36,11 @@ public final class CommentClassifierWeights {
     // real fixture regressions/hand-labeled hard-case growth that motivated re-deriving these
     // constants). KEYWORD_WEIGHT_ARROW covers a when/match-branch shape (e.g. "is Foo ->
     // handle(foo)") the other three features can't see on their own.
-    public static final double KEYWORD_BIAS                 = - 0.04180;
-    public static final double KEYWORD_WEIGHT_PAREN         = - 3.10833;
-    public static final double KEYWORD_WEIGHT_ARROW         = - 1.52024;
-    public static final double KEYWORD_WEIGHT_SEMICOLON     = - 3.60170;
-    public static final double KEYWORD_WEIGHT_URL_OR_NUMBER = - 0.97619;
+    public static final double KEYWORD_BIAS                 = - 1.18218;
+    public static final double KEYWORD_WEIGHT_PAREN         = - 2.17830;
+    public static final double KEYWORD_WEIGHT_ARROW         = - 0.64725;
+    public static final double KEYWORD_WEIGHT_SEMICOLON     = - 2.66553;
+    public static final double KEYWORD_WEIGHT_URL_OR_NUMBER = - 0.03338;
     public static final double KEYWORD_THRESHOLD            = 0.0;
 
     private CommentClassifierWeights()

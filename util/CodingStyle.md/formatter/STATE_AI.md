@@ -1063,3 +1063,55 @@ folded in) still misses this specific pattern, at which point revisit.
 **User re-ran `make gru-acquire-corpus`** to fold the grown 522-row
 hand-labeled set into the training corpus; retrain deferred to the user's
 own session tomorrow (2026-08-03). No other changes this turn.
+
+---
+
+**2026-08-03 — linear classifier re-derived against the 522-row set;
+compared against the user's fresh GRU retrain.** `derive_weights.py`
+hadn't been re-run since the 221-row set (2026-08-02); re-ran against the
+now-current 522 rows across all six `examples_*.md` files:
+
+```
+KEYWORD_BIAS                  = -1.18218
+KEYWORD_WEIGHT_PAREN          = -2.17830
+KEYWORD_WEIGHT_ARROW          = -0.64725
+KEYWORD_WEIGHT_SEMICOLON      = -2.66553
+KEYWORD_WEIGHT_URL_OR_NUMBER  = -0.03338
+```
+
+407/522 (77.97%) classified as labeled, same accepted asymmetric-risk
+mismatch pattern as every prior pass. Copied into
+`CommentClassifierWeights.java` + `tools/classifier_weights/weights.md`.
+`make jar` + `make test`: **228/228 forward, 228/228 idempotency**.
+
+**GRU comparison.** User trained overnight on CM5 (`gru_log.txt`,
+`GRU_TRAIN_ARGS` back to `--epochs=9 --patience=3` per the user's own
+Makefile edit this session, reasoning: prior runs — including the
+2026-08-02 widened `--epochs=20 --patience=5` run recorded in this same
+log — consistently plateaued by epoch 3 anyway, confirmed again here:
+`bestValidationLoss=0.0321558` at epoch 3, early-stopped epoch 8 after 5
+epochs with no improvement). Ran `GruEval` (`tools/gru/GruEval.java`,
+compiled ad hoc, not part of `make test`) against the current 522-row
+`make gru-hand-labeled-examples` benchmark:
+
+| | precision | correct/total |
+|---|---|---|
+| Linear classifier (freshly re-derived, 522 rows) | 77.97% | 407/522 |
+| GRU, fresh retrain, threshold=0.5 | 99.43% | 519/522 |
+| GRU, fresh retrain, threshold=0.7 | 99.81% | 518/519 (3 abstain) |
+
+**Caveat (same as every prior on-benchmark GRU figure in this file):**
+this is a training-fit number, not held-out — the 522 hand-labeled rows
+are folded directly into `sample_default.txt` (with repeat oversampling)
+that the GRU was just trained on, same shape as the 98.7%-vs-86.3%
+training-fit/held-out gap found on 2026-08-02. Not directly comparable to
+the linear classifier's 77.97%, which *is* a genuine same-set fit number
+(the linear classifier isn't trained against `sample_default.txt` at
+all). A fair GRU-vs-linear comparison needs a fresh `cross_validate.py`
+run against the grown 522-row set — not done this session (not
+requested; a 5-round cross-validation at this corpus size runs many
+hours per the epoch timings in `gru_log.txt`, ~792s/epoch). `code-
+formatter-ai-assist-weights.json`'s `abstainThreshold` field reset to
+`0.5` by this retrain (the previously-applied `0.7` override from
+2026-08-02's threshold sweep was not carried over — flagging in case the
+user wants to reapply it before this weights file goes live).

@@ -135,6 +135,25 @@ feature weights stayed within a few percent of their 2026-08-01-morning values, 
 boundary is stable across four consecutive growth passes now. `CommentClassifierWeights.java`
 updated to match; `make test` re-run pending as part of this same follow-up (see `STATE_AI.md`).
 
+### 2026-08-03 re-derivation (522-example set)
+
+The hand-labeled hard-case set grew past 221 (up through the 2026-08-02 growth passes recorded in
+`STATE_AI.md`) to 522 rows across `examples_{c,cpp,java,kotlin,js,ts}.md`, but `derive_weights.py`
+hadn't been re-run against the grown set yet. Re-ran it:
+
+```
+KEYWORD_BIAS                  = -1.18218
+KEYWORD_WEIGHT_PAREN          = -2.17830
+KEYWORD_WEIGHT_ARROW          = -0.64725
+KEYWORD_WEIGHT_SEMICOLON      = -2.66553
+KEYWORD_WEIGHT_URL_OR_NUMBER  = -0.03338
+KEYWORD_THRESHOLD             =  0.0        (fixed sigmoid decision boundary, not trained)
+```
+
+Result: 407/522 examples classified as labeled (77.97%), all mismatches the same accepted
+asymmetric-risk tradeoff as every prior pass. Bias stayed negative. `CommentClassifierWeights.java`
+updated to match.
+
 ### 2026-07-30 re-derivation
 
 The original 40-example set had no zero-feature NO example at all, so the bias trained

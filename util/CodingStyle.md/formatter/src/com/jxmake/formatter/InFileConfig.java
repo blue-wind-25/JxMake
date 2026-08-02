@@ -23,8 +23,17 @@ import java.util.regex.Pattern;
  */
 public final class InFileConfig {
 
+    // Alternation order matters: at each candidate line-start position, the directive form of a
+    // given comment style is tried before that style's plain-comment fallback, so a genuine
+    // directive comment is still recognized as one. But once a comment (directive or plain) is
+    // matched, find() resumes scanning only after its close -- so directive-looking text quoted
+    // inside the interior of a larger block comment (nested `<!--`/`/*` sequences the plain
+    // fallback already swallowed on the way to ITS first close) is never independently visited
+    // and can never be mistaken for the comment's own opening delimiter (RDD_KEY_167).
     private static final Pattern DIRECTIVE = Pattern.compile(
-        "^[ \\t]*//%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|^[ \\t]*/\\*%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*\\*/" + "|^[ \\t]*#%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|^[ \\t]*<!--%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*-->",
+        "^[ \\t]*//%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|^[ \\t]*/\\*%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*\\*/"
+        + "|^[ \\t]*#%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|^[ \\t]*<!--%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*-->"
+        + "|^[ \\t]*//[^\\r\\n]*|^[ \\t]*/\\*.*?\\*/|^[ \\t]*#[^\\r\\n]*|^[ \\t]*<!--.*?-->",
         Pattern.DOTALL | Pattern.MULTILINE
     );
 
@@ -54,22 +63,24 @@ public final class InFileConfig {
               int     matchStart = - 1;
               String  body       = null;
         while( m.find() ) {
+            final String directiveBody = m.group(1) != null ? m.group(1)
+                                        : ( m.group(
+                                            2
+                                        ) != null ? m.group(
+                                            2
+                                        ) : ( m.group(
+                                            3
+                                        ) != null ? m.group(
+                                            3
+                                        ) : m.group(
+                                            4
+                                        ) ) );
+            if(directiveBody == null) continue; // plain-comment fallback -- not a directive
             ++count;
             if(count == 1) {
                 matchStart = m.start();
-                body       = m.group(1) != null ? m.group(1)
-                           : ( m.group(
-                               2
-                           ) != null ? m.group(
-                               2
-                           ) : ( m.group(
-                               3
-                           ) != null ? m.group(
-                               3
-                           ) : m.group(
-                               4
-                           ) ) );
-            } // if
+                body       = directiveBody;
+            }
         } // while
         if(count == 0) return java.util.Collections.emptyMap();
         if(count > 1) throw new IOException(

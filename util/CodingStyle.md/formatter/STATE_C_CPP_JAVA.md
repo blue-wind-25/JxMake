@@ -276,7 +276,15 @@ bug-by-bug root-cause narratives have been compacted out of this file — availa
   at the first top-level `=` (misdetected a ternary's `:` inside a declaration initializer as a
   C++ bitfield-width colon, misrouting the whole declaration into `parseBitfield` and corrupting
   its rendering, e.g. `Foo.BAR` → `Foo. BAR`); found via GRU-trainer dogfood adoption, fixture
-  hand-edited by the user to capture both.
+  hand-edited by the user to capture both. A follow-up round (user-prompted, not from this
+  fixture) found `InFileConfig`'s anchored regex still matched directive-looking text if it
+  merely started a line INSIDE a larger already-open block comment (`/* */`/`<!-- -->`), since
+  raw-text line-anchoring alone can't tell it isn't the comment's own opening delimiter --
+  violates RDD_KEY_167's documented design ("never recognized if pasted inside the interior of
+  another comment"). Fixed by changing `DIRECTIVE` into a single sequential-scan pattern with a
+  plain-comment fallback alternative per style, so `Matcher.find()`'s non-overlapping resume-
+  after-match semantics naturally skip over a block comment's interior once its outer open is
+  consumed by the fallback.
 - [x] `c_comments` (PASS) — 6 bugs: mid-param `//` comment reattachment (brace-depth desync),
   compound-assignment misparse, one-param-per-line padding, `hasCommentBefore` group-break
   guard, last-param comment alignment, `#define` trailing-comment capitalization. 1

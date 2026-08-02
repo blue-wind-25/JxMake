@@ -1048,3 +1048,18 @@ more epochs headroom (9→20) and more patience to ride out a longer
 plateau (3→5), consistent with RDD_EXT_18's original 20-50-epoch starting
 guidance. `Makefile` only; no training run performed this session per
 user instruction ("do not retrain, I will do that later").
+
+**`GRU_HAND_LABELED_REPEAT` left at 3, not increased.** User asked whether
+to raise it alongside the epochs/patience widening above. Recommendation:
+no — the training-fit/held-out gap this session already traced (98.7%
+training vs. 86.3% held-out, both measured against the *same* hand-labeled
+rows) is a direct symptom of over-weighting those rows relative to the
+rest of the corpus; raising repeat count further would push the model to
+fit the exact hand-labeled sentences harder, not generalize the pattern
+better, and risks widening the same gap rather than closing it. Leave at
+3 unless a future cross-validation run (after this corpus growth is
+folded in) still misses this specific pattern, at which point revisit.
+
+**User re-ran `make gru-acquire-corpus`** to fold the grown 522-row
+hand-labeled set into the training corpus; retrain deferred to the user's
+own session tomorrow (2026-08-03). No other changes this turn.

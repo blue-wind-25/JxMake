@@ -196,6 +196,25 @@ exec  ~/mynpm/bin/claude "$@"
 ####################################################################################################
 ####################################################################################################
 
+The GRU has new weights, trained using CM5 yesterday. The training log is `gru_log.txt`, do NOT 
+read the log in full, read ONLY THE LAST FEW LINES and then use `grep` for the other lines as
+needed. Update the linear classifier weights to ensure they are up to date and calculate its %,
+then compare it with the GRU % with the new weights. I have reduced the epoch and patience of the
+GRU trainer in the `Makefile` because all the training so far always plateaued on epoch 3.
+
+About `Curly reindent (GDR)`, because it is a pre-pass, the formatter cannot achieve idempotency
+due to circular dependency with the other pass. How about designing another config
+(e.g, `curly-gs-reindent-multipass` with value `off` (default) and `on`), so the formatter will
+format the code in 4 pass:
+  - GDR 
+  - Normal formatting pass.
+  - GDR.
+  - Normal formatting pass.
+Do not implement yet, this is only a discussion, and if make sense write the discussion result
+in `STATE_CURLY_GDR.md`.
+
+
+
 I have retrained the GRU. Check the GRU % with the new weights.
 Update the `properties` - `AI-assist (GRU)` explanation in `README.md` and `STATE_COMMON.md`.
 

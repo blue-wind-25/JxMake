@@ -1115,3 +1115,21 @@ formatter-ai-assist-weights.json`'s `abstainThreshold` field reset to
 `0.5` by this retrain (the previously-applied `0.7` override from
 2026-08-02's threshold sweep was not carried over — flagging in case the
 user wants to reapply it before this weights file goes live).
+
+**`abstainThreshold` restored to `0.7`, both in the trainer default and
+the committed weights file.** Confirmed first (per user question) that
+`abstainThreshold` is pure inference-time metadata — `GruTrainer`'s
+training loop (loss/gradients/early-stopping) never reads it; it's only
+written once, verbatim, into the output JSON (`GruTrainer.java` build
+call around line 1396). So a 0.5-trained run and a 0.7-trained run with
+the same seed produce byte-identical weight/embedding arrays, differing
+in only that one field — no retrain needed to change it.
+`GruTrainer.java`'s `ABSTAIN_THRESHOLD` constant changed `0.5` → `0.7`
+(so all future `make gru-train` runs bake in `0.7` by default), and the
+already-committed `code-formatter-ai-assist-weights.json`'s
+`abstainThreshold` field hand-edited `0.5` → `0.7` directly (single-line
+`sed`, diffed to confirm no other byte changed). `make jar` + `make
+test`: 228/228 unchanged. Re-ran `GruEval` with no explicit threshold arg
+(so it reads the file's own trained value): `threshold=0.7 total=522
+abstain=3 decided=519 correct=518 precision=99.81%` — confirms the file
+now round-trips at 0.7 correctly.

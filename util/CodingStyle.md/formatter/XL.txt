@@ -221,6 +221,8 @@ int b   = - 1;
 ```
 See the extra space before `1`.
 
+Update `STATE_DOGFOOD.md`. Use very short notes.
+
 
 
 I have retrained the GRU. Check the GRU % with the new weights.

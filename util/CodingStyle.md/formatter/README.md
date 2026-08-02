@@ -293,6 +293,9 @@ js-import-blank-lines            = 1
 python-import-sort               = on
 python-import-blank-lines        = 1
 
+# ── HTML5 ─────────────────────────────────────────────────────────────────────
+html5-tc-gap-level               = 0           # 0 | 1 | 2 | 3 | 4, cumulative
+
 # ── AI-assist (GRU) ───────────────────────────────────────────────────────────
 gru-classifier                   = on          # on | off (default on since the 2026-08-02 abstainThreshold=0.7 retune -- see STATE_AI.md)
 gru-weights-path                 =             # empty = derive from program dir (code-formatter-ai-assist-weights.json)
@@ -490,6 +493,16 @@ third-party client only needs to speak this HTTP protocol, not link against the 
   key does **not** apply to JSON/JSON5/CSS/YAML/TOML/XML/HTML5, which parse into a real tree
   and print indentation fresh from structural nesting depth regardless of source formatting
   already, independent of this key.
+
+- **HTML5 deep tree-construction gap coverage (`html5-tc-gap-level`) is opt-in and partial.**
+  Default `0`: current, strictly preserve-as-written HTML5 parsing, unchanged. Levels are
+  cumulative and only have effect when `lang.isHtml5` is already true (no separate opt-in
+  needed beyond this key). Level `1` (implemented): a document with no explicit `<body>`
+  start tag anywhere gets one synthesized around the first non-head content and everything
+  after it — the first fabricated-node path in this otherwise preserve-as-written formatter.
+  Levels `2`-`4` (foster-parenting tree reshaping, misnested `<form>` reconstruction inside
+  `<template>`, and the adoption agency algorithm, respectively) are designed but not yet
+  implemented — see `STATE_HTML5_TCG.md`.
 
   **Known remaining gap:** because this pre-pass computes each line's target depth before
   the normal pipeline's own brace-placement pass runs, source written in one-true-brace

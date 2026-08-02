@@ -38,7 +38,8 @@ public final class Config {
         "kotlin-import-blank-lines",
         "js-import-order", "js-import-sort", "js-import-blank-lines",
         "gru-classifier", "gru-weights-path",
-        "curly-general-scope-reindent"
+        "curly-general-scope-reindent",
+        "html5-tc-gap-level"
     };
 
     private static final java.util.Set<String> ALL_KEYS_SET =
@@ -128,6 +129,16 @@ public final class Config {
      *  unchanged on the default path.
      */
     private boolean curlyGeneralScopeReindent = false;
+
+    /**
+     * {@code html5-tc-gap-level} -- gates the "tc gap" job's HTML5 deep tree-construction-gap
+     *  fixes (see {@code STATE_HTML5_TCG.md}, {@code RDD_KEY_230}). Cumulative levels 0-4: 0 =
+     *  off (default, current behavior unchanged), 1 = implicit {@code <body>} start-tag
+     *  insertion, 2 = + foster-parenting tree reshaping, 3 = + misnested {@code <form>}
+     *  reconstruction, 4 = + adoption agency algorithm. Only levels 0-1 have landed real effect
+     *  so far.
+     */
+    private int html5TcGapLevel = 0;
 
     private Config()
     {
@@ -256,6 +267,11 @@ public final class Config {
     public boolean isCurlyGeneralScopeReindent()
     {
         return curlyGeneralScopeReindent;
+    }
+
+    public int html5TcGapLevel()
+    {
+        return html5TcGapLevel;
     }
 
     /**
@@ -451,6 +467,9 @@ public final class Config {
         );
         config.curlyGeneralScopeReindent      = parseBoolean(
             raw, "curly-general-scope-reindent", config.curlyGeneralScopeReindent
+        );
+        config.html5TcGapLevel                = parseInt(
+            raw, "html5-tc-gap-level", config.html5TcGapLevel
         );
 
         return config;

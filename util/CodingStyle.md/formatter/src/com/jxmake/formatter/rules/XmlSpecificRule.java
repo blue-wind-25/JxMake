@@ -259,6 +259,24 @@ public final class XmlSpecificRule {
      */
     private final java.util.Deque<String> openTagStack = new java.util.ArrayDeque<>();
 
+    /**
+     * {@code html5-tc-gap-level} (tc gap job, {@code STATE_HTML5_TCG.md}, {@code RDD_KEY_230}),
+     *  read once per file from {@link #enclosingConfig} (which may be null -- legacy/test
+     *  constructors -- in which case this falls back to {@code 0}, same as the config default).
+     *  Guards this class's tc-gap code paths on their own (`>= N` for the level introducing
+     *  each gap) -- deliberately NOT ANDed with {@code lang.isHtml5} on top, since the config key
+     *  only has effect when {@code lang.isHtml5} is already true elsewhere in the pipeline (see
+     *  STATE_HTML5_TCG.md's Non-goals).
+     */
+    private final int html5TcGapLevel;
+
+    /**
+     * Level-1 tc-gap guard (RDD_KEY_230): set once an implicit {@code <body>} has been
+     *  synthesized for the document currently being parsed, so a document with multiple
+     *  head-adjacent content nodes only ever gets one synthetic {@code <body>} inserted.
+     */
+    private boolean bodyInserted;
+
     public XmlSpecificRule(final Lang lang)
     {
         this(lang, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
@@ -300,6 +318,7 @@ public final class XmlSpecificRule {
         this.useTabs                   = "tabs".equals(indentStyle);
         this.normalizeCommentStartCase = normalizeCommentStartCase;
         this.enclosingConfig           = enclosingConfig;
+        this.html5TcGapLevel           = enclosingConfig != null ? enclosingConfig.html5TcGapLevel() : 0;
     }
 
     private String indent(final int depth)
@@ -379,10 +398,60 @@ public final class XmlSpecificRule {
         if( !eof() ) throw new XmlParseException(
             "trailing content after document, near: " + s.substring( pos, Math.min( s.length(), pos + 40 ) )
         );
+        if( html5TcGapLevel >= 1 ) insertImplicitBodyIfNeeded(nodes);
         final StringBuilder out = new StringBuilder();
         renderNodes(nodes, 0, out);
 
         return out.toString();
+    }
+
+    /**
+     * Level-1 tc-gap fix (RDD_KEY_230, STATE_HTML5_TCG.md checklist item 3): a document with no
+     *  explicit {@code <body>} start tag anywhere still gets one implicitly inserted at the point
+     *  the spec calls "in body"-eligible content. Simplification (noted in STATE_HTML5_TCG.md):
+     *  rather than modeling "head closed" as a distinct insertion-mode transition, this treats the
+     *  first non-whitespace, non-comment, non-DOCTYPE, non-{@code <head>} sibling encountered
+     *  (searching the {@code <html>} element's children if one exists, else the top-level document
+     *  nodes) as the synthesis point, and wraps it plus every sibling after it in a synthesized
+     *  {@code <body>} element. This is the first fabricated-node path in this otherwise strictly
+     *  preserve-as-written formatter -- see RDD_KEY_230. Guarded by {@link #bodyInserted} so a
+     *  document is never given more than one synthetic {@code <body>}, even if this were ever
+     *  called more than once for the same parse.
+     */
+    private void insertImplicitBodyIfNeeded(final List<Node> nodes)
+    {
+        if(bodyInserted) return;
+        Node htmlNode = null;
+        for(final Node n : nodes) {
+            if( n.type == NodeType.ELEMENT && n.tagName != null && n.tagName.equalsIgnoreCase("html") ) {
+                htmlNode = n;
+                break;
+            } // if
+        } // for
+        final List<Node> target = htmlNode != null && htmlNode.children != null ? htmlNode.children : nodes;
+        for(final Node n : target) {
+            // Explicit <body> already present somewhere in the target sibling list -- nothing to do.
+            if( n.type == NodeType.ELEMENT && n.tagName != null && n.tagName.equalsIgnoreCase("body") ) return;
+        } // for
+        int firstContentIdx = -1;
+        for(int i = 0; i < target.size(); i++) {
+            final Node n = target.get(i);
+            if(n.type == NodeType.DOCTYPE || n.type == NodeType.COMMENT) continue;
+            if( n.type == NodeType.ELEMENT && n.tagName != null && n.tagName.equalsIgnoreCase("head") ) continue;
+            if( n.type == NodeType.TEXT && ( n.raw == null || n.raw.trim().isEmpty() ) ) continue;
+            firstContentIdx = i;
+            break;
+        } // for
+        if(firstContentIdx < 0) return; // nothing eligible to wrap -- e.g. head-only document
+
+        final Node body = new Node();
+        body.type        = NodeType.ELEMENT;
+        body.tagName     = "body";
+        body.selfClosing = false;
+        body.children    = new ArrayList<>( target.subList( firstContentIdx, target.size() ) );
+        for(int i = target.size() - 1; i >= firstContentIdx; i--) target.remove(i);
+        target.add(body);
+        bodyInserted = true;
     }
 
     private List<Node> parseNodes(final boolean stopAtCloseTag)

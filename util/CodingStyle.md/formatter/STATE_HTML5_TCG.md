@@ -391,7 +391,7 @@ item *N-1* is committed and `make test` is green.
       `currentFormElementPointer`), plus the `html5-tc-gap-level` config
       key (default `0`, levels `0`-`4` strictly ordered
       simplest-to-most-complex).
-- [ ] 2a. **Document the new config key.** Update `README.md` (wherever
+- [x] 2a. **Document the new config key.** Update `README.md` (wherever
       other config keys are documented, matching existing entry style)
       and `STATE_COMMON.md` (if it maintains any config-key index/list —
       check first) to describe `html5-tc-gap-level`: integer, default `0`,
@@ -400,7 +400,15 @@ item *N-1* is committed and `make test` is green.
       pointer, 4 = +adoption agency = full). Do this once level 1 (item 3
       below) actually lands — don't document a config value with no
       implemented effect yet.
-- [ ] 3. **Level 1 — Implicit `<body>` start-tag insertion** (narrowest
+
+      **2026-08-03: DONE, folded into item 3's commit.** `README.md`
+      gained an `# ── HTML5 ──` group in the config-key block
+      (`html5-tc-gap-level = 0`) plus a "Known Limitations" paragraph
+      describing level 1's landed behavior and levels 2-4's not-yet-
+      implemented status. `STATE_COMMON.md`'s "Config Keys and Defaults"
+      properties block gained the matching entry in its own `# ── HTML5 ──`
+      section, between Python 3 and AI-assist (GRU).
+- [x] 3. **Level 1 — Implicit `<body>` start-tag insertion** (narrowest
       gap, do first — per the 2026-07-26 investigation cited in
       Background). Guard the new code path on `config.html5TcGapLevel()
       >= 1` (no separate `lang.isHtml5` check — see Non-goals). Land the
@@ -413,6 +421,65 @@ item *N-1* is committed and `make test` is green.
       add/confirm a level-`0` fixture proving default behavior is
       unchanged. `make test` green, zero regressions on the existing
       223+ suite.
+
+      **2026-08-03: DONE.** `Config.java`: new `html5TcGapLevel` int field
+      (default `0`), `html5TcGapLevel()` getter, `"html5-tc-gap-level"`
+      added to `ALL_KEYS`, parsed in `fromRawMap` via the existing
+      `parseInt` helper — same precedence chain as every other key (config
+      file → env var → per-directory `.jxmake-code-formatter` →
+      `cliOverrides` → `inFileOverrides`/`JXM_CFMT_CFG`, highest
+      priority), verified via an in-file `JXM_CFMT_CFG
+      html5-tc-gap-level=1` directive in the new level-1 fixture (below).
+
+      `XmlSpecificRule.java`: new `private final int html5TcGapLevel`
+      field, read once from `enclosingConfig` in the constructor
+      (null-guarded — `enclosingConfig` can be `null` on legacy/test
+      constructors, falls back to `0`), and a new mutable `private boolean
+      bodyInserted` field alongside `openTagStack`/`svgDepth`. `format()`
+      calls a new `insertImplicitBodyIfNeeded(nodes)` helper, guarded on
+      `html5TcGapLevel >= 1` only (no `lang.isHtml5` check, per Non-goals),
+      right after `parseNodes(false)` returns and before `renderNodes`.
+
+      **Simplification (per this item's own allowance):** rather than
+      modeling "head closed" as a distinct insertion-mode transition, the
+      implementation finds the `<html>` element's children (or the
+      top-level document node list if there's no `<html>` element),
+      confirms no explicit `<body>` element is already present among them,
+      then treats the first non-whitespace, non-comment, non-DOCTYPE,
+      non-`<head>` sibling as the synthesis point and wraps it plus every
+      sibling after it in one synthesized `<body>` element (`Node` with
+      `type=ELEMENT`, `tagName="body"`, empty `attrs`, `selfClosing=false`,
+      `children` = the wrapped sublist, `trailingComment=null`, `raw=null`
+      — confirmed via reading `renderElement` that no field beyond these
+      is read for a plain `ELEMENT` node, so this renders identically to a
+      parsed `<body>`). `bodyInserted` is set `true` once the synthetic
+      node is spliced in, matching RDD_KEY_230's guard-flag design and
+      also acting as a defensive no-op guard against
+      `insertImplicitBodyIfNeeded` ever being called twice for the same
+      parse.
+
+      **Fixtures (hand-authored, not from real-code testing, so
+      registered under `test/README.txt`'s `HTML5:` group per
+      `STATE_COMMON.md`'s fixture-registration rule — NOT named
+      `real_code_regressions_N` despite this item's own wording above;
+      `STATE_COMMON.md`'s rule is authoritative for fixture-origin naming,
+      the wording above was just loose):**
+      - `test/html5_tc_gap_level1_body_insertion_{inp,out}.html` —
+        `html5-tc-gap-level=1` via in-file `JXM_CFMT_CFG`, a document with
+        `<head>` but no explicit `<body>`, and three head-adjacent content
+        siblings (`<h1>`, `<p>`, `<h2>`) — confirms all three land inside
+        one synthesized `<body>` (the `bodyInserted` guard fires at most
+        once, not once per sibling).
+      - `test/html5_tc_gap_level0_body_unchanged_{inp,out}.html` — same
+        no-explicit-`<body>` shape, default `html5-tc-gap-level=0`
+        (unset), confirms current behavior is unchanged (no `<body>`
+        fabricated).
+
+      Both registered in the Makefile's `INP_FILES` (HTML5 group, after
+      `html_comments_inp.html`) and in `test/README.txt`'s `HTML5:`
+      section (after the `html_comments_inp/out.html` entry, before
+      `Python3:`). `make test`: 230/230 forward, 230/230 idempotency
+      (223+ suite plus these 2 new fixtures), zero regressions.
 - [ ] 4. **Re-run the WPT residual gap catalogue for level 1** specifically
       (the relevant `html/syntax/` WPT fixtures cited in
       `STATE_DATA_FORMATS.md`'s item 1, if still reachable — no network
@@ -458,5 +525,11 @@ item *N-1* is committed and `make test` is green.
       to reflect that the insertion-mode-state question is resolved even
       though no code has landed. Update again once level 1 (checklist item
       3) actually ships.
+
+      **2026-08-03:** level 1 (implicit `<body>` insertion) shipped —
+      `CLAUDE.md`'s row updated from "design decisions landed
+      (`RDD_KEY_230`), no implementation yet" to "level 1 (implicit
+      `<body>` insertion) landed, levels 2-4 not yet implemented — high
+      risk". Update again once level 2 lands.
 
 ---

@@ -260,20 +260,7 @@ Use sub-agent. This can be a substantial work.
 
 --- Tier 3: big/risky architectural bets ---
 
-30. Curly reindent (GDR): decide remediation for `RDD_KEY_229`'s
-    pass-ordering bug (GDR computes indent before brace-placement/line-wrap,
-    so a re-split/re-joined closing `}`/`)` loses its correct target) — now
-    confirmed to reproduce in plain Java, not just TS as previously believed.
-    Two candidate fixes already identified (bounded fixpoint iteration; feed
-    GDR's indent into the wrap fits-check), both previously judged too risky
-    to attempt unilaterally — needs explicit sign-off before further
-    real-code testing is worth continuing (see `STATE_CURLY_GDR.md`). Same
-    root cause already blocks 2 of TS cluster 5's 3 files (`STATE_JS_TS.md`
-    line 405) — not an isolated new risk, fixing it would unblock that too.
-    Value: high (blocks the whole job's real-code validation, plus TS
-    cluster 5). Difficulty: unknown until a direction is chosen.
-
-31. JSX/TSX support — currently out of scope entirely (not merely deferred),
+30. JSX/TSX support — currently out of scope entirely (not merely deferred),
     pending a future embedding-aware dispatcher (STATE_JS_TS.md). Value: high (real
     coverage gap, analogous to HTML5's `<script>` dispatch but harder). Difficulty:
     high — new dispatch architecture, not an incremental rule.
@@ -282,21 +269,14 @@ Use sub-agent. This can be a substantial work.
 
 --- Tier 4: ML/infra nice-to-haves — defer until a real training/tuning cycle needs them ---
 
-40. GruTrainer: automatic abstain-threshold tuning (needs a genuine held-out
-    labeled validation slice, not yet built, + a chosen objective — see
-    STATE_AI.md for why the existing hard-case set isn't yet suitable).
-    Value: low-medium. Difficulty: medium. Update `gru/README.txt` too.
-
-41. GruTrainer: dropout before dense layer — regularization only; STATE_AI.md's
-    diagnosis is this isn't the bottleneck (a data-representation problem, not
-    an optimization one) so value is unclear until that's re-tested. Value:
-    low. Difficulty: medium. Update `gru/README.txt` too.
-
-42. GRU: comment sentence-boundary mid-word-dot detection (`.hpp`, `e.g.`, `v1.0`
+40. GRU: comment sentence-boundary mid-word-dot detection (`.hpp`, `e.g.`, `v1.0`
     defeating the sole-trailing-period heuristic) — accepted mechanical-rule
-    limitation, feasible only once the GRU has enough mid-word-dot training
-    examples; not independently actionable right now. Value: low. Difficulty:
-    blocked on more training data, not really "difficulty" in the usual sense.
+    limitation. Not just a training-data problem: first needs confirming/adding
+    whether `MiscRule.stripSoleTrailingPeriod`'s `dotCount != 1` path even
+    routes through the GRU yet (see STATE_AI.md's 2026-08-03 TODO note) — a real
+    gate/wiring change, before any mid-word-dot training rows would matter.
+    Value: low. Difficulty: medium (wiring confirmation/change first, then
+    blocked on training data same as before).
 
 Use sub-agent. This can be a substantial work.
 

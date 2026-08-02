@@ -219,6 +219,22 @@ FEASIBLE — feasible via Step 3's GRU once trained on this shape; until then,
 remains an accepted mechanical-rule limitation (`dotCount != 1` → leave
 as-is). Still open — no GRU work has targeted this shape specifically yet.
 
+**TODO before attempting (2026-08-03):** unlike the keyword-ambiguity growth
+passes (which add balanced rows to an already-wired path,
+`KeywordAmbiguityGate`), it is not yet confirmed that `MiscRule.
+stripSoleTrailingPeriod`'s `dotCount != 1` case actually calls
+`GruAbstainResolver`/routes through the GRU at all, vs. unconditionally
+leaving the period alone. **First step: confirm/add that wiring** (a real
+gate/feature change, same weight-class as `CommentedOutCodeGate`/
+`LicenseBlockGate`'s own design+real-corpus-false-positive-check process, not
+a drop-in corpus-growth pass) before hand-labeling any mid-word-dot training
+rows. Once wired, follow the established balanced-YES/NO-row growth-pass
+pattern (see the 125→522-row session-log entries above), and re-run
+`cross_validate.py` specifically checking this shape's held-out accuracy
+(not just the aggregate number) — the training-fit-vs-held-out gap already
+found on 2026-08-02 (98.7% vs 86.3%, traced to `GRU_HAND_LABELED_REPEAT`
+oversampling) is a real risk for a new pattern with only a few examples.
+
 ---
 
 ## OPEN — corpus-generation and benchmarking follow-ups

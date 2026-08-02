@@ -17,15 +17,20 @@ implicit `<body>` start-tag insertion, and the adoption agency algorithm —
 rather than the ad hoc, locally-scoped fixes that have closed every other
 HTML5 parsing bug found so far.
 
-**Overall status: not started (scoping/planning + design decisions only,
-2026-08-02).** This job was split out of `STATE_DATA_FORMATS.md`'s "HTML5
-deep tree-construction edge cases" section (item 1: the still-open
-`web-platform-tests/wpt` residual gaps) on 2026-08-02. No implementation
-has landed — this file now has a full **Scoping** section (grounded in the
-actual current `XmlSpecificRule.java` code shape), a **Resolved Design
-Decisions** section (item 2's insertion-mode-state question, settled
-2026-08-02 as `RDD_KEY_230` — see below), and a **Checklist** a future
-session can execute from directly, starting at item 2a.
+**Overall status: COMPLETE (2026-08-03).** All four gaps (levels 1-4:
+implicit `<body>` insertion, foster-parenting tree reshaping, misnested
+`<form>` reconstruction inside `<template>`, adoption agency algorithm)
+are landed behind the cumulative `html5-tc-gap-level` config key (default
+`0`, still off by default). Full-suite dogfood re-validation (checklist
+item 9) at both level `0` and level `4` across all three corpora
+(`apache/ant manual/`, `WordPress/wordpress-develop`,
+`alexandersandberg/html5-elements-tester`) came back clean — no
+regression attributable to any of the four gaps. `make test`: 236/236
+forward + idempotency. This job was originally split out of
+`STATE_DATA_FORMATS.md`'s "HTML5 deep tree-construction edge cases"
+section (item 1: the then-still-open `web-platform-tests/wpt` residual
+gaps) on 2026-08-02, with its insertion-mode-state design settled the same
+day as `RDD_KEY_230` (see Resolved Design Decisions below).
 
 ---
 
@@ -767,14 +772,65 @@ item *N-1* is committed and `make test` is green.
       the combined-all-four-levels case (round1/round2 byte-identical in
       both), in addition to `make test`'s own idempotency pass over the
       registered fixtures.
-- [ ] 8. Update `README.md` to explain the meaning of the levels of
+- [x] 8. Update `README.md` to explain the meaning of the levels of
       `html5-tc-gap-level`.
-- [ ] 9. **Full-suite real-code re-validation** once all four levels are
+
+      **2026-08-03: DONE.** The "HTML5 deep tree-construction gap coverage"
+      bullet in `README.md`'s Known Limitations section rewritten to
+      describe all four levels (each level's own mechanism and known
+      limitation, cumulative ordering), replacing the prior text that only
+      described level 1 as implemented and levels 2-4 as "designed but not
+      yet implemented."
+- [x] 9. **Full-suite real-code re-validation** once all four levels are
       landed: re-run all three dogfood corpora from item 1 end-to-end
       (forward, round2, idempotency diff, `html_syntax_check.sh`,
       `html_content_diff.py`) at both the default (`0`) and max (`4`)
       levels, plus the full local `make test` suite. Fix any regression
       before considering the job complete.
+
+      **2026-08-03: DONE.** All three existing `/tmp` checkouts found and
+      reused (`/tmp/ant`, `/tmp/wordpress-develop`,
+      `/tmp/html5-elements-tester`), current build
+      (`target/code-formatter-1.00.jar`, commit `7ff30b5`) used directly.
+      - `apache/ant manual/` (232 `.html` files, superset of item 1's 226):
+        forward + round2 + idempotency clean at both level `0` and level
+        `4`. `html_syntax_check.sh` clean at level 4 except the two
+        pre-existing `lib/optional/LICENSE.junit{,4}.html` non-HTML-content
+        false positives (confirmed present in the unformatted source too,
+        unrelated to any tc-gap). `html_content_diff.sh`: 228/232 clean,
+        the same 4 already-documented/accepted mismatches as item 1's
+        re-run (`manual/index.html`'s frameset now visibly getting wrapped
+        in a synthetic `<body>` at level 4 -- confirmed via a direct level-1-
+        only re-run to be pre-existing level-1 behavior newly surfaced by
+        this level-4 pass, NOT a level-4/adoption-agency-attributable
+        regression; `manual/running.html`'s RDD_KEY_223 gap; `Tasks/
+        image.html`/`Tasks/imageio.html`'s lowercase-prose-comment non-bug).
+        No new mismatch.
+      - `WordPress/wordpress-develop` (303 `.html` files, matching item 1's
+        count): forward + round2 + idempotency clean at both levels. 249
+        files differ between level 0 and level 4 output -- confirmed via a
+        direct level-1-only re-run to be BYTE-IDENTICAL to the level-4
+        output across the entire corpus (`diff -rq` empty), i.e. every one
+        of those 249 diffs is level 1's own pre-existing "wraps bare
+        Gutenberg block-theme fragment templates in a synthetic `<body>`"
+        behavior (already known, see level 1's own limitation note above)
+        -- level 4's adoption agency contributes zero additional changes on
+        this corpus. `html_syntax_check.sh` at level 4: 2/303 clean full
+        documents, 301 `missing-doctype` on fragments -- identical
+        breakdown to item 1's prior re-run, not tc-gap-related.
+      - `alexandersandberg/html5-elements-tester` (`index.html`): forward +
+        round2 + idempotency clean at both levels, level-0 output
+        byte-identical to level-4 output (no misnested-formatting-element
+        shapes in this corpus to trigger adoption agency), `html_syntax_check.sh`
+        and `html_content_diff.sh` both clean.
+
+      **Conclusion: no regression found, full-suite `make test` green
+      (236/236 forward + idempotency).** Every mismatch/diff traced to an
+      already-documented, already-accepted level-1 (or pre-existing,
+      unrelated) cause -- none attributable to level 4's adoption agency
+      addition specifically. Confirms real-world safety at max level
+      despite the job's inherent riskiness, consistent with this job's
+      prior "low real-world impact" assessment (item 1).
 - [x] 10. **Keep `CLAUDE.md`'s top-level routing table row in sync with true
       job status** — a resolved design decision is real progress and
       belongs in the routing table just as much as landed implementation;
@@ -804,5 +860,12 @@ item *N-1* is committed and `make test` is green.
       reconstruction inside `<template>`) shipped — `CLAUDE.md`'s row
       updated to "levels 1-3 landed, level 4 not yet implemented — high
       risk". Update again once level 4 lands.
+
+      **2026-08-03 (final):** level 4 (adoption agency algorithm) shipped
+      and full-suite dogfood re-validation (checklist item 9) came back
+      clean, no regression — `CLAUDE.md`'s row updated to reflect all four
+      levels landed, full-suite re-validated, still off by default. This
+      was this job's last unchecked checklist item; the checklist is now
+      fully complete.
 
 ---

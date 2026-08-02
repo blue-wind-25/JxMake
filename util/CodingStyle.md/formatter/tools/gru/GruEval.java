@@ -29,24 +29,25 @@ public final class GruEval {
     {
     }
 
-    private static final String USAGE =
-        "Usage: GruEval <weights-path> <rdd-ext-21-examples-path> [threshold ...]";
+    private static final String USAGE = "Usage: GruEval <weights-path> <rdd-ext-21-examples-path> [threshold ...]";
 
     /**
      * A single labeled example plus its pre-computed softmax probabilities, cached so a
      *  --threshold sweep (below) evaluates every candidate threshold against the exact same
-     *  forward-pass outputs instead of recomputing them once per threshold.
+     *  forward-pass outputs instead of recomputing them once per threshold
      */
     private static final class Scored {
+
         final String   label;
         final double[] probabilities; // null => classifier.probabilities() returned null (ABSTAIN
-                                       // unconditionally, e.g. out-of-range target index)
+                                       // Unconditionally, e.g. out-of-range target index)
 
         Scored(String label, double[] probabilities)
         {
             this.label         = label;
             this.probabilities = probabilities;
         }
+
     } // class Scored
 
     public static void main(String[] args) throws IOException
@@ -61,7 +62,7 @@ public final class GruEval {
         Path          examplesPath = Paths.get( args[1] );
         GruClassifier classifier   = GruClassifier.load(weightsPath);
 
-        // args[2..]: optional threshold sweep (see GruClassifier.probabilities/decide) -- if none
+        // Args[2..]: optional threshold sweep (see GruClassifier.probabilities/decide) -- if none
         // given, evaluate at the weights file's own trained abstainThreshold only, matching this
         // tool's original (pre-sweep) single-line-output behavior exactly.
         double[] thresholds;
@@ -92,18 +93,17 @@ public final class GruEval {
             scored.add( new Scored( label, classifier.probabilities(text, targetIndex) ) );
         } // for
 
-        for(double threshold : thresholds) {
-            evaluateAt(scored, threshold);
-        }
+        for(double threshold : thresholds) evaluateAt(scored, threshold);
     }
 
     private static void evaluateAt(List<Scored> scored, double threshold)
     {
         int yesCorrect = 0, yesIncorrect = 0, noCorrect = 0, noIncorrect = 0, abstain = 0;
-        int total = scored.size();
+        int total      = scored.size();
         for(Scored s : scored) {
-            CommentDecision verdict = s.probabilities == null
-                    ? CommentDecision.ABSTAIN : GruClassifier.decide(s.probabilities, threshold);
+            CommentDecision verdict = s.probabilities == null ? CommentDecision. ABSTAIN : GruClassifier.decide(
+                s.probabilities, threshold
+            );
             if(verdict == CommentDecision.ABSTAIN) {
                 ++abstain;
                 continue;

@@ -171,4 +171,21 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
         public int getPort() { return port; }
     }
 
+    private static void evaluateAt(List<Scored> scored, double threshold)
+    {
+        int yesCorrect = 0, yesIncorrect = 0, noCorrect = 0, noIncorrect = 0, abstain = 0;
+        int total = scored.size();
+        for(Scored s : scored) {
+            CommentDecision verdict = s.probabilities == null
+                    ? CommentDecision.ABSTAIN : GruClassifier.decide(s.probabilities, threshold);
+            if(verdict == CommentDecision.ABSTAIN) {
+                ++abstain;
+                continue;
+            }
+        } // for
+
+        // A `%`-prefixed marker/directive comment such as `<!--% JXM_CFMT_CFG indent-size=2;line-length=80 -->`
+        // must survive byte-for-byte -- normal comment
+    }
+
 } // end AudioEngine

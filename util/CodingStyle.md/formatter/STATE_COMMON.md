@@ -517,14 +517,16 @@ make bench
 ### GRU tools
 cd tools/gru
 rm -rvf /tmp/gru_tools
+mkdir /tmp/gru_tools
 cp *.java /tmp/gru_tools
 find /tmp/gru_tools    -type f -print0 | xargs -0 ../../code-formatter.sh --out /tmp/gru_tools_r1
 find /tmp/gru_tools_r1 -type f -print0 | xargs -0 ../../code-formatter.sh --out /tmp/gru_tools_r2
 diff -ru /tmp/gru_tools_r1 /tmp/gru_tools_r2
 
 JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
-$JDK/bin/javac ../verifiers/java_syntax_check.java
-$JDK/bin/javac ../verifiers/java_content_diff.java
+KLIB="$HOME/xsdk/kotlin-compiler-2.4.0/kotlinc/lib"
+CP="$CP:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar"
+$JDK/bin/javac -cp $CP ../verifiers/*.java
 
 find /tmp/gru_tools    -type f -print0 | xargs -0 $JDK/bin/java -cp ../verifiers java_syntax_check
 find /tmp/gru_tools_r1 -type f -print0 | xargs -0 $JDK/bin/java -cp ../verifiers java_syntax_check
@@ -547,6 +549,8 @@ for orig in /tmp/gru_tools_r1/*.java; do \
         "$JDK/bin/java" -cp ../verifiers java_content_diff "$orig" "$fmt"; \
     fi; \
 done
+
+cp -vf /tmp/gru_tools_r1/*.java .
 ```
 
 No syntax errors found; AST differed only in comments. `java_content_diff`

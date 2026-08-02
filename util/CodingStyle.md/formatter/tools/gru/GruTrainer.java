@@ -342,8 +342,8 @@ public final class GruTrainer {
         // convert_classifier_weights_examples.py), typically the same rows already present once in
         // the main file. Default 0 means fully disabled (identical behavior to before this flag
         // existed, even if --hand-labeled is passed without a repeat count).
-        String handLabeledPath = hyperparameters.get("hand-labeled");
-        int handLabeledRepeat = Integer.parseInt(
+        String handLabeledPath   = hyperparameters.get("hand-labeled");
+        int    handLabeledRepeat = Integer.parseInt(
             hyperparameters.getOrDefault("hand-labeled-repeat", "0")
         );
         if(handLabeledRepeat < 0) {
@@ -352,13 +352,10 @@ public final class GruTrainer {
             );
             System.exit(2);
             return;
-        }
-        if(handLabeledPath != null && handLabeledRepeat == 0) {
-            System.err.println(
-                "GruTrainer: --hand-labeled given without --hand-labeled-repeat > 0 -- this is a"
-                    + " no-op; did you mean to also pass --hand-labeled-repeat=N?"
-            );
-        }
+        } // if
+        if(handLabeledPath != null && handLabeledRepeat == 0) System.err.println(
+            "GruTrainer: --hand-labeled given without --hand-labeled-repeat > 0 -- this is a" + " no-op; did you mean to also pass --hand-labeled-repeat=N?"
+        );
         List<Example> handLabeledExamples = Collections.emptyList();
         if(handLabeledRepeat > 0) {
             if(handLabeledPath == null) {
@@ -367,7 +364,7 @@ public final class GruTrainer {
                 );
                 System.exit(2);
                 return;
-            }
+            } // if
             File handLabeledFile = new File(handLabeledPath);
             if( !handLabeledFile.isFile() || !handLabeledFile.canRead() ) {
                 System.err.println(
@@ -375,7 +372,7 @@ public final class GruTrainer {
                 );
                 System.exit(2);
                 return;
-            }
+            } // if
             try {
                 handLabeledExamples = readExamples(handLabeledFile);
             }
@@ -446,18 +443,16 @@ public final class GruTrainer {
         Collections.shuffle(examples, random);
         int           validationCount = Math.max( 1, examples.size() / 5 );
         List<Example> validation      = new ArrayList<>( examples.subList(0, validationCount) );
-        List<Example> train           = new ArrayList<>(
-            examples.subList( validationCount, examples.size() )
-        );
+        List<Example> train           = new ArrayList<>( examples.subList(
+            validationCount, examples.size()
+        ) );
         if( train.isEmpty() ) train = new ArrayList<>(examples);
 
         // Hand-labeled oversampling (see the --hand-labeled/--hand-labeled-repeat javadoc above):
         // added to `train` only, after the split, so `validation`'s held-out set is unaffected and
         // its loss stays comparable across oversampled vs. non-oversampled runs.
         if( !handLabeledExamples.isEmpty() ) {
-            for(int r = 0; r < handLabeledRepeat; ++r) {
-                train.addAll(handLabeledExamples);
-            }
+            for(int r = 0; r < handLabeledRepeat; ++r) train.addAll(handLabeledExamples);
             System.out.println( String.format(
                     "GruTrainer: oversampled %d hand-labeled example(s) x%d repeat(s) = %d extra"
                             + " training row(s) from '%s' (trainExamples now %d)",

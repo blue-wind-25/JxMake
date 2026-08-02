@@ -188,13 +188,13 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
         // must survive byte-for-byte -- normal comment
 
         int aaa = +1;
-        int b = -1;
+        int b = - 1;
         int ccccc = +10;
     }
 
     private static void evaluateAt2(List<Scored> scored, double threshold)
     {
-        int aaa = +1;
+        int aaa = + 1;
         final int b = -1;
         int ccccc = +10;
     }

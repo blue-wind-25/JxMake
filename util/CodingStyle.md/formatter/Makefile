@@ -335,6 +335,7 @@ INP_FILES += py_comments_inp.py
 
 INP_FILES += curly_general_scope_reindent_inp.hpp
 INP_FILES += java_flush_left_inp.java
+INP_FILES += curly_gdr_multipass_inp.java
 INP_FILES += html_js_flush_left_inp.html
 
 INP_FILES += real_code_regressions_1_inp.cpp

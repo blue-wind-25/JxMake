@@ -608,6 +608,31 @@ plan, not a placeholder.
       scope here, documented in `test/README.txt` so it isn't mistaken for
       a GDR gap). Registered after `html_comments_inp.html`. `make test`:
       228/228 forward+idempotency.
+
+      **2026-08-03 follow-up (multipass-specific fixture):** added
+      `test/curly_gdr_multipass_inp.java`/`_out.java` — a one-true-brace-
+      style joined `} else if (...) {` / `} else {` chain with
+      multi-statement bodies, `JXM_CFMT_CFG curly-general-scope-
+      reindent=on; curly-general-scope-reindent-multipass=on` via in-file
+      config. This is the minimal isolated repro of the confirmed
+      `RDD_KEY_229` root cause: a single GDR pre-pass measures each line's
+      depth against the joined source as it exists BEFORE brace-placement
+      splits it into separate Allman-style lines, so a single GDR pass
+      alone is non-idempotent on this exact shape (confirmed via a `/tmp`
+      dev harness before authoring the fixture: single-pass GDR round1 vs
+      round2 differs on the `else`/`else if` lines' brace placement and
+      indent); with both flags on, the 4-stage sequence resolves it
+      cleanly. Expected output generated via `--standalone --in-place`,
+      confirmed idempotent via `--standalone --check` (exit 0). Registered
+      in `Makefile`'s `INP_FILES` right after `java_flush_left_inp.java`
+      (before `html_js_flush_left_inp.html`) and in `test/README.txt`
+      immediately after the `java_flush_left_inp/out.java` entry, under
+      the same "General Scope-Depth Reindentation" heading, with wording
+      distinguishing it from the base single-pass fixture and
+      cross-referencing the real-code validation entries (angular,
+      javaparser-core(-generators), JSONEncoderLite.java, frozen) that
+      confirm the same fix at scale. `make test`: 238/238
+      forward+idempotency, zero regressions.
 - [x] Update `README.md` (and re-verify whether `../README.txt` needs an
       edit — see "When implemented" section) once the above lands. Done
       2026-08-02: rewrote the stale "Known Limitations" bullet (previously

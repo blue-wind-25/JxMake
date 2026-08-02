@@ -519,6 +519,23 @@ General Scope-Depth Reindentation:
                                                         normal call-padding tightening (`(clrex, ...)`) and
                                                         are idempotent.
 
+  curly_gdr_multipass_inp/out.java                   -- One-true-brace-style joined `} else if (...) {` /
+                                                        `} else {` chain with multi-statement bodies, with
+                                                        BOTH curly-general-scope-reindent=on AND
+                                                        curly-general-scope-reindent-multipass=on via in-file
+                                                        config -- isolates the confirmed RDD_KEY_229 root
+                                                        cause (a single GDR pre-pass measures depth against
+                                                        the joined line as it exists BEFORE brace-placement
+                                                        splits it into separate Allman-style lines, so a
+                                                        single GDR pass alone is non-idempotent on this exact
+                                                        shape) and proves the 4-stage GDR/pipeline/GDR/
+                                                        pipeline multipass sequence (RDD_KEY_233/RDD_KEY_234)
+                                                        resolves it -- see STATE_CURLY_GDR.md's real-code
+                                                        validation entries for the same fix confirmed at
+                                                        scale against angular/angular, javaparser-core(-
+                                                        generators), tool/JSONEncoderLite.java, and
+                                                        serge-sans-paille/frozen.
+
   html_js_flush_left_inp/out.html                    -- Entire document flushed to column 0, multiple tags on
                                                         a single line (`<head>...</head>`, stacked
                                                         `<span>`/`<li>` siblings), and an embedded `<script>`

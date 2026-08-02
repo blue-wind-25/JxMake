@@ -589,12 +589,80 @@ item *N-1* is committed and `make test` is green.
       document with neither explicit `<body>` nor `<tr>`/`<td>` wrapping
       (both the implicit `<body>` and the foster-parenting relocation fired
       correctly together, in the right order).
-- [ ] 6. **Level 3 — Misnested `<form>` reconstruction inside
+- [x] 6. **Level 3 — Misnested `<form>` reconstruction inside
       `<template>`.** Guard on `config.html5TcGapLevel() >= 3`. Add
       `currentFormElementPointer`, scoped per `<template>` boundary
       (reassess whether nesting needs a `Deque` instead of a single field
       — see `RDD_KEY_230`); implement the mode-specific
       insertion rule. New fixture(s). `make test` green.
+
+      **2026-08-03: DONE.** `XmlSpecificRule.java`: new `private Node
+      currentFormElementPointer` field (the active `<form>` node, or
+      `null`) and a `private Node pendingSuppressedFormNode` side-channel
+      field (same Option-B shape as `pendingFosterBuffer`). In
+      `parseElement`: `isTemplate`/`isForm`/`formSuppressed` locals
+      computed alongside the existing `isTable` local (all gated
+      `html5TcGapLevel >= 3`); a `<template>` open saves
+      `currentFormElementPointer` into a local (`savedFormPointer`) and
+      resets the field to `null` for its own fresh scope, restored in the
+      existing `finally` block on close; a `<form>` open sets the field to
+      the new node `n` only if no form pointer was already active
+      (`!formSuppressed`), cleared back to `null` in `finally` once that
+      same form closes (`currentFormElementPointer == n` guard, so a
+      suppressed form never clobbers an outer pointer it never set). A
+      suppressed form (`formSuppressed`, i.e. the pointer was already
+      non-null when this `<form>` was opened) still parses its tag/children
+      normally but is recorded via `pendingSuppressedFormNode = n` in
+      `finally`; `parseNodes` checks `node == pendingSuppressedFormNode`
+      right after `parseSingleNode()` returns and, if so, splices `node`'s
+      own children into its own children list instead of adding `node`
+      itself — the spec's "ignore the start tag" recovery, minus actually
+      dropping the form's content.
+
+      **Single field vs `Deque` — tested, single field confirmed
+      sufficient, no deviation from RDD_KEY_230's sketch needed (unlike
+      level 2's).** Per this item's own instruction, stress-tested a
+      `<form>` nested inside a `<template>` that is itself inside another
+      `<form>`'s content *before* committing to the single-field shape (see
+      manual `/tmp` smoke test with `id="outer"`/`id="inner"`/
+      `id="second-direct"`). Result: the inner templated form is correctly
+      preserved (not suppressed) and the direct second sibling form is
+      correctly suppressed. This works with a single field — no separate
+      `Deque` — because the `<template>` boundary's save/restore uses a
+      plain Java local variable (`savedFormPointer`) inside `parseElement`,
+      and `parseElement` is itself called recursively once per nesting
+      level; each recursive invocation gets its own independent copy of
+      that local on the JVM call stack, which already provides exactly the
+      push/pop nesting semantics an explicit `Deque` would, for free — the
+      same reasoning that already makes `isSvg`/`svgDepth`'s pattern work
+      elsewhere in this file. A `Deque` would only be needed if the
+      save/restore had to cross a boundary the call stack doesn't already
+      track (it doesn't, here).
+
+      **Fixtures (hand-authored, `test/README.txt`'s `HTML5:` group, same
+      convention as levels 1 and 2's fixtures):**
+      - `test/html5_tc_gap_level3_form_template_{inp,out}.html` —
+        `html5-tc-gap-level=3` via in-file `JXM_CFMT_CFG`; an outer
+        `<form id="outer">` containing a `<template>` with its own nested
+        `<form id="inner">` plus a direct second sibling
+        `<form id="second-direct">` — confirms the templated inner form is
+        preserved and the direct second form is suppressed (its wrapper
+        dropped, its `<p>` content spliced into the outer form).
+      - `test/html5_tc_gap_level2_form_unchanged_{inp,out}.html` — same
+        shape, `html5-tc-gap-level=2` — confirms the whole gap 2 mechanism
+        stays fully inert one level below its own `>= 3` gate (both forms
+        format in place, unchanged).
+
+      Both registered in the Makefile's `INP_FILES` (HTML5 group, after the
+      level-2 fixtures) and in `test/README.txt`'s `HTML5:` section. `make
+      test`: 234/234 forward, 234/234 idempotency (232 existing + these 2
+      new fixtures), zero regressions. Levels 1 and 2's own guards/behavior
+      confirmed untouched — re-verified via a manual smoke test combining
+      all three gaps at `html5-tc-gap-level=3` on one document (no explicit
+      `<body>`, a `<table>` with stray foster-parenting content, and the
+      nested-form-in-template-in-form shape above): implicit `<body>`
+      insertion, foster-parenting relocation, and form-pointer suppression
+      all fired correctly together, in the right order.
 - [ ] 7. **Level 4 — Adoption agency algorithm** (do last — most fiddly,
       per Background). Guard on `config.html5TcGapLevel() >= 4`. Add the
       "list of active formatting elements" state (distinct from
@@ -634,5 +702,10 @@ item *N-1* is committed and `make test` is green.
       reshaping) shipped — `CLAUDE.md`'s row updated to "levels 1-2
       (implicit `<body>` insertion, foster-parenting) landed, levels 3-4
       not yet implemented — high risk". Update again once level 3 lands.
+
+      **2026-08-03 (later still):** level 3 (misnested `<form>`
+      reconstruction inside `<template>`) shipped — `CLAUDE.md`'s row
+      updated to "levels 1-3 landed, level 4 not yet implemented — high
+      risk". Update again once level 4 lands.
 
 ---

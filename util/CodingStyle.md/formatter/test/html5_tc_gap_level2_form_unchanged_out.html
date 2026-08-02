@@ -1,0 +1,22 @@
+<!-- Copyright (C) 2024 Example Corp.
+SPDX-License-Identifier: MIT -->
+<!--% JXM_CFMT_CFG html5-tc-gap-level=2 -->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Form Template</title>
+    </head>
+    <body>
+        <form id="outer">
+            <p>outer content</p>
+            <template>
+                <form id="inner">
+                    <p>inner content</p>
+                </form>
+            </template>
+            <form id="second-direct">
+                <p>should be suppressed</p>
+            </form>
+        </form>
+    </body>
+</html>

@@ -413,6 +413,28 @@ HTML5:
                                                        `<tr>`/`<td>` row stays nested inside the table
                                                        unchanged.
 
+  html5_tc_gap_level2_form_unchanged_inp/out.html   -- Same nested-`<form>`-in-`<template>`-in-`<form>`
+                                                       shape as the level-3 fixture below, but at
+                                                       `html5-tc-gap-level=2` via in-file config -- proves
+                                                       misnested-`<form>` reconstruction stays fully inert
+                                                       one level below its own gate (`>= 3`), i.e. the direct
+                                                       second `<form id="second-direct">` sibling still
+                                                       formats in place, unchanged, at level 2.
+
+  html5_tc_gap_level3_form_template_inp/out.html    -- STATE_HTML5_TCG.md tc gap job, level 3
+                                                       (`html5-tc-gap-level=3` via in-file config,
+                                                       RDD_KEY_230): an outer `<form id="outer">` contains a
+                                                       `<template>` with its own nested `<form id="inner">`
+                                                       plus a direct second sibling `<form id="second-direct">`
+                                                       -- proves `currentFormElementPointer` correctly
+                                                       distinguishes the two cases: the `<template>`-scoped
+                                                       inner form is preserved (a `<template>` boundary gets
+                                                       its own fresh form-pointer scope), while the direct
+                                                       second `<form>` sibling (same scope as the still-active
+                                                       outer form) is suppressed -- its wrapping element
+                                                       dropped, only its own `<p>` content spliced into the
+                                                       outer form's children.
+
 Python3:
   py_combined_inp/out.py                            -- Bracket-complexity categories, assignment alignment
                                                        (augmented assignment, both continuation-break styles),

@@ -326,6 +326,36 @@ public final class XmlSpecificRule {
      */
     private FosterBuffer pendingFosterBuffer;
 
+    /**
+     * Level-3 tc-gap (RDD_KEY_230, misnested {@code <form>} reconstruction): the "form element
+     *  pointer" -- the currently active {@code <form>} {@link Node}, or {@code null} if none. A
+     *  {@code <form>} start tag encountered while this is non-null is suppressed (see
+     *  {@link #pendingSuppressedFormNode}) instead of creating a second nested form element, per the
+     *  spec's own single-slot form-pointer concept. Scoped per {@code <template>} boundary via a plain
+     *  local-variable save/restore in {@link #parseElement} (the same pattern {@code isSvg}/
+     *  {@code svgDepth} and {@code isTable}/{@code fosterBufferStack} already use) rather than a
+     *  separate explicit {@code Deque} field -- the Java call stack itself already provides the
+     *  correct nesting behavior for a save/restore-shaped local, confirmed via a manual smoke test of
+     *  a {@code <form>} nested inside a {@code <template>} that is itself inside another
+     *  {@code <form>}'s content (the inner form is correctly allowed, not suppressed, because
+     *  entering the {@code <template>} resets this field to {@code null} for its own local scope and
+     *  restores the outer form's pointer on exit) before this field's shape was settled -- see
+     *  STATE_HTML5_TCG.md checklist item 6's own note.
+     */
+    private Node currentFormElementPointer;
+
+    /**
+     * Level-3 tc-gap (RDD_KEY_230) side channel: set by {@link #parseElement}, in its {@code finally}
+     *  block, to the just-finished {@code <form>} {@link Node} when that form was suppressed (a second
+     *  {@code <form>} encountered while {@link #currentFormElementPointer} was already non-null).
+     *  Consumed by {@link #parseNodes} immediately after receiving that same node back from
+     *  {@link #parseSingleNode} -- rather than adding the suppressed wrapper element itself, its own
+     *  children are spliced directly into the caller's children list instead, matching the spec's
+     *  "ignore the start tag" recovery (the form's content still appears in the tree, just without its
+     *  own now-ignored wrapping element). Always {@code null} again immediately after being consumed.
+     */
+    private Node pendingSuppressedFormNode;
+
     public XmlSpecificRule(final Lang lang)
     {
         this(lang, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
@@ -592,6 +622,14 @@ public final class XmlSpecificRule {
             } // if
             final Node node = parseSingleNode();
             attachTrailingCommentIfAny(node);
+            // Level-3 tc-gap (RDD_KEY_230, misnested <form>): a suppressed second <form> (see
+            // pendingSuppressedFormNode's own javadoc) contributes its own children directly to this
+            // frame's children list instead of its own now-ignored wrapping element.
+            if( node == pendingSuppressedFormNode ) {
+                pendingSuppressedFormNode = null;
+                if(node.children != null) nodes.addAll(node.children);
+                continue;
+            } // if
             // Level-2 tc-gap (RDD_KEY_230, foster-parenting): a node encountered directly inside a
             // <table> (outside a <td>/<th>/<caption> cell) that isn't part of the table's own
             // structural vocabulary gets relocated to just before the table instead of nested inside
@@ -856,8 +894,18 @@ public final class XmlSpecificRule {
         // Level-2 tc-gap (RDD_KEY_230, foster-parenting): a new FosterBuffer per <table> ancestor,
         // pushed/popped alongside openTagStack -- see fosterBufferStack's own javadoc.
         final boolean isTable = html5TcGapLevel >= 2 && "table".equals(lowerTag);
+        // Level-3 tc-gap (RDD_KEY_230, misnested <form>): a <template> gets its own fresh form-pointer
+        // scope (saved/restored via the plain local below -- see currentFormElementPointer's own
+        // javadoc for why this doesn't need a separate Deque); a second <form> seen while a form
+        // pointer is already active is suppressed rather than nested.
+        final boolean isTemplate     = html5TcGapLevel >= 3 && "template".equals(lowerTag);
+        final boolean isForm         = html5TcGapLevel >= 3 && "form".equals(lowerTag);
+        final boolean formSuppressed = isForm && currentFormElementPointer != null;
+        final Node    savedFormPointer = currentFormElementPointer;
         openTagStack.push(lowerTag);
         if(isTable) fosterBufferStack.push( new FosterBuffer() );
+        if(isTemplate) currentFormElementPointer = null;
+        if(isForm && !formSuppressed) currentFormElementPointer = n;
         try {
             if(isSvg) svgDepth++;
             try {
@@ -908,6 +956,9 @@ public final class XmlSpecificRule {
                 final FosterBuffer fb = fosterBufferStack.pop();
                 if( !fb.nodes.isEmpty() ) pendingFosterBuffer = fb;
             } // if
+            if(isTemplate) currentFormElementPointer = savedFormPointer;
+            if( isForm && !formSuppressed && currentFormElementPointer == n ) currentFormElementPointer = null;
+            if(formSuppressed) pendingSuppressedFormNode = n;
         }
     }
 

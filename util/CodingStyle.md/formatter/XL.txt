@@ -200,6 +200,7 @@ I have retrained the GRU. Check the GRU % with the new weights.
 Update the `properties` - `AI-assist (GRU)` explanation in `README.md` and `STATE_COMMON.md`.
 
 Continue with the `tc gap job`.
+Use one sub-agent. Ask the sub-agent to do it bit by bit and commit after each implementation.
 
 Continue with the `curly reindent job`.
 Use one sub-agent. Ask the sub-agent to do it bit by bit and commit after each bug fix.

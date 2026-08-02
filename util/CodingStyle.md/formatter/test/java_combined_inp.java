@@ -186,6 +186,17 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
 
         // A `%`-prefixed marker/directive comment such as `<!--% JXM_CFMT_CFG indent-size=2;line-length=80 -->`
         // must survive byte-for-byte -- normal comment
+
+        int aaa = +1;
+        int b = -1;
+        int ccccc = +10;
+    }
+
+    private static void evaluateAt2(List<Scored> scored, double threshold)
+    {
+        int aaa = +1;
+        final int b = -1;
+        int ccccc = +10;
     }
 
 } // end AudioEngine

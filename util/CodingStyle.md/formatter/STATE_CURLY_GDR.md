@@ -417,6 +417,16 @@ reindentation logic yet to exercise).
   directive while `curly-general-scope-reindent` is globally `off` is a
   **silent no-op** (parses fine, lets a file be prepared for GDR ahead of a
   project-wide flag flip). Full text: `RDD_KEY_227` in `RDD_LOG.md`.
+- `RDD_KEY_235` — Kotlin dogfood cluster D3 revisited: turning on
+  `curly-general-scope-reindent`/`-multipass` does **NOT** resolve D3's
+  wrap-decision flap (tested on the grounded repro and the real
+  `EqualityAndComparisonCallsTransformer.kt` file) — negative result, no
+  code changed. GDR only ever runs *between* whole pipeline passes and
+  can't reach `MiscRuleCurly.renderCallCandidate`'s sibling-candidate
+  volatility, which happens *inside* a single pipeline pass. A real D3 fix
+  still needs a direct change to `renderCallCandidate`'s fits-check itself
+  (consulting GDR's structural-depth infra as a library), not just
+  flipping GDR on. Full text: `RDD_KEY_235` in `RDD_LOG.md`.
 - `RDD_KEY_233` — `curly-general-scope-reindent-multipass` naming: full-word
   style (matching the base `curly-general-scope-reindent` key), not the
   originally-suggested `curly-gs-reindent-multipass` abbreviation. Full
@@ -765,11 +775,46 @@ plan, not a placeholder.
         `RDD_KEY_229` failure data to compare against. `make test`:
         237/237 forward + idempotency (unaffected, this was `/tmp`-only
         real-code testing, no fixture changes).
-- [ ] Revisit Kotlin dogfood cluster D3 (see "D3 fold" section above) using
+- [~] Revisit Kotlin dogfood cluster D3 (see "D3 fold" section above) using
       the pre-pass's statement-boundary/structural-depth infrastructure;
       land a real fix in `MiscRuleCurly`/wherever the fix ends up living,
       record a new `RDD_KEY_n`, update `STATE_KOTLIN.md`'s D3 entries to
       point at it.
+
+      **2026-08-03 session, negative result — tested the cheap hypothesis
+      first, real fix still not attempted.** Per the coordinator's explicit
+      request, tested whether simply turning on
+      `curly-general-scope-reindent` (alone, then with
+      `curly-general-scope-reindent-multipass` too) resolves D3 as a side
+      effect of the just-landed multipass work, before attempting any new
+      `MiscRuleCurly` code. Reused `/tmp/d3_test.kt` (the grounded repro
+      from the original D3 sessions) and the real
+      `EqualityAndComparisonCallsTransformer.kt` file (existing
+      `/tmp/kotlin-master` clone). **Result: does NOT resolve — both files
+      stay non-idempotent under all three configurations (GDR off, GDR-on
+      single-pass, GDR-on multipass).** Under GDR off / single-pass the
+      flap is the original full wrap/unwrap shape; under multipass the
+      symptom narrows to a pure indentation-column drift on the same
+      already-wrapped line (still non-idempotent, just a smaller diff) —
+      notable but not a fix. Root cause of *why* GDR can't reach this:
+      `MiscRuleCurly.renderCallCandidate`'s fits-check volatility
+      (`RDD_KEY_221`) is driven by a sibling wrap candidate's effect on the
+      physical line *within a single pipeline pass*; GDR only ever runs
+      *between* whole pipeline passes (even doubled via multipass) and has
+      no visibility into a decision made mid-pass against sibling
+      candidates. Full writeup: `RDD_KEY_235`. **This confirms the "D3
+      fold" section's original conclusion still holds — the only real fix
+      path is a direct change to `renderCallCandidate`'s own fits-check
+      (consulting GDR's structural-depth infra as a library, replacing the
+      volatile `lineStartIndex` anchor), not achievable by toggling GDR on
+      around the existing pipeline.** That implementation is a real
+      design/code decision (two prior narrow-patch attempts,
+      `RDD_KEY_221`/`RDD_KEY_226`, already regressed other fixtures when
+      tried without this infra) — per `STATE_COMMON.md`'s ambiguity-
+      handling protocol, deferred for an explicit go-ahead before
+      attempting rather than started unilaterally this session. No source
+      code changed. `make test` unaffected (237/237, no fixture/source
+      changes this step).
 
 Do the above checklist one by one. Test, commit, and ask me whether to continue or pause.
 

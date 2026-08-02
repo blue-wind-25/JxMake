@@ -580,8 +580,16 @@ index: scope, config, which RDD_KEYs, fixtures, verification result).
    standalone open item here** — both investigation sessions below already
    concluded this is closer to that job's territory than a self-contained
    fix; see `STATE_CURLY_GDR.md`'s "D3 fold" section for the summary and
-   next steps. Full diagnosis, tool commands, and per-cluster fix history
-   remain below in "Dogfood: JetBrains/kotlin" for reference.
+   next steps. **2026-08-03 update: revisited per that fold's plan — tested
+   whether simply turning on `curly-general-scope-reindent`/
+   `curly-general-scope-reindent-multipass` resolves D3 as a side effect;
+   it does NOT (negative result, root-caused, no code changed) — see
+   `RDD_KEY_235` and `STATE_CURLY_GDR.md`'s checklist entry for full
+   detail. D3 still remains open; a real fix still needs a direct change to
+   `MiscRuleCurly.renderCallCandidate`'s fits-check itself, not achievable
+   by toggling GDR on around the pipeline.** Full diagnosis, tool commands,
+   and per-cluster fix history remain below in "Dogfood: JetBrains/kotlin"
+   for reference.
 
 **When a test completes:** move/compact its entry from "Not started" into
 "Finished dogfood / real-code testing", and add a new numbered entry to

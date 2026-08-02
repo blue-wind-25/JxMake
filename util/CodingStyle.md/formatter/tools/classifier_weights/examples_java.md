@@ -116,3 +116,11 @@ file.
 | 90 | `yield here produces the switch expression's value for this branch` | no | no | no | NO | "yield" naming the actual keyword being described, code reference despite zero mechanical feature. |
 | 91 | `null here is the sentinel returned when the lookup finds nothing` | no | no | no | NO | "null" naming the actual literal being described, not an English adjective. |
 | 92 | `true here is the default before the health check runs the first time` | no | no | no | NO | "true" naming the actual literal being described, not an English adjective. |
+| 93 | `this reference here escapes the constructor before the object is fully built` | no | no | no | NO | "this" naming the actual `this` reference being described in flowing prose, code reference despite zero mechanical feature. |
+| 94 | `this builder was refactored last sprint to avoid the mutable-state bug` | no | no | no | NO | "this" naming the specific builder class under discussion, a code-referencing usage despite reading as an ordinary demonstrative pronoun. |
+| 95 | `this is the third time this exact race condition has come up in review` | no | no | no | YES | "this" as an ordinary English demonstrative pronoun opening a sentence, prose. |
+| 96 | `this module needs its own changelog entry before the release goes out` | no | no | no | YES | "this" as an ordinary English demonstrative pronoun, prose about the module, not a code construct. |
+| 97 | `static field here is initialized once per classloader, not per instance` | no | no | no | NO | "static" naming the actual field-storage keyword being described, code reference despite zero mechanical feature. |
+| 98 | `static was picked here deliberately to avoid a per-request allocation` | no | no | no | NO | "static" naming the actual keyword under retrospective discussion, code reference despite zero mechanical feature. |
+| 99 | `static analysis flagged this resource leak during the nightly build` | no | no | no | YES | "static" as part of the ordinary English phrase "static analysis", not the modifier keyword. |
+| 100 | `static electricity kept tripping the sensor, not anything in this code` | no | no | no | YES | "static" as an ordinary English noun (static electricity), prose unrelated to the keyword. |

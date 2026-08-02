@@ -101,3 +101,11 @@ rows in this file.
 | 66 | `implements here brings in the interface's members to fill in` | no | no | no | NO | "implements" naming the actual keyword being described, code reference despite zero mechanical feature. |
 | 67 | `interface here declares only the shape, no implementation at all` | no | no | no | NO | "interface" naming the actual declaration keyword being described, code reference despite zero mechanical feature. |
 | 68 | `keyof here produces a union of the object's own property names` | no | no | no | NO | "keyof" naming the actual operator being described, code reference despite zero mechanical feature. |
+| 69 | `this parameter here lets the method be called unbound without losing typing` | no | no | no | NO | "this" naming the actual `this`-parameter TypeScript construct being described, code reference despite zero mechanical feature. |
+| 70 | `this type was added here specifically to make the builder chain fluent` | no | no | no | NO | "this" naming the actual `this`-return type under retrospective discussion, code reference despite zero mechanical feature. |
+| 71 | `this is honestly the trickiest generic constraint in the whole file` | no | no | no | YES | "this" as an ordinary English demonstrative pronoun opening a sentence, prose. |
+| 72 | `this interface has grown too broad and should probably be split up` | no | no | no | YES | "this" as an ordinary English demonstrative pronoun, prose about the interface, not a code construct. |
+| 73 | `interface here was preferred over a type alias to allow declaration merging` | no | no | no | NO | "interface" naming the actual declaration construct being described, code reference despite zero mechanical feature. |
+| 74 | `interface was picked here deliberately since consumers need to extend it` | no | no | no | NO | "interface" naming the actual language construct under retrospective discussion, code reference despite zero mechanical feature. |
+| 75 | `interface between the two teams has been the real bottleneck, not this code` | no | no | no | YES | "interface" as an ordinary English noun (a working relationship), prose unrelated to the keyword. |
+| 76 | `interface design matters as much as implementation quality in a library like this` | no | no | no | YES | "interface" as an ordinary English noun ("interface design"), prose. |

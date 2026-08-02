@@ -117,3 +117,11 @@ this file.
 | 79 | `typeof here returns a string, not the actual constructor reference` | no | no | no | NO | "typeof" naming the actual operator being described, code reference despite zero mechanical feature. |
 | 80 | `var here leaks out of the block, unlike let in the loop above` | no | no | no | NO | "var" naming the actual declaration keyword being described, code reference despite zero mechanical feature. |
 | 81 | `with here was avoided entirely since it breaks static analysis` | no | no | no | NO | "with" naming the actual (discouraged) statement keyword being described, code reference despite zero mechanical feature. |
+| 82 | `this binding here is why the callback needed an arrow function instead` | no | no | no | NO | "this" naming the actual dynamic-binding keyword being described in flowing prose, code reference despite zero mechanical feature. |
+| 83 | `this context was lost here the moment the method got passed as a callback` | no | no | no | NO | "this" naming the actual runtime binding under retrospective discussion, code reference despite zero mechanical feature. |
+| 84 | `this is probably the trickiest part of the whole module to get right` | no | no | no | YES | "this" as an ordinary English demonstrative pronoun opening a sentence, prose. |
+| 85 | `this component re-renders far more often than it really needs to` | no | no | no | YES | "this" as an ordinary English demonstrative pronoun, prose about the component, not a code construct. |
+| 86 | `class field here is shared across every instance created from this constructor` | no | no | no | NO | "class" naming the actual field-declaration construct being described, code reference despite zero mechanical feature. |
+| 87 | `class was chosen here over a plain object to get private fields for free` | no | no | no | NO | "class" naming the actual language construct under retrospective discussion, code reference despite zero mechanical feature. |
+| 88 | `class act on the reviewer's part, catching this edge case before merge` | no | no | no | YES | "class" as part of the ordinary English idiom ("class act"), prose. |
+| 89 | `class of bugs like this one keeps slipping through the review process` | no | no | no | YES | "class" as an ordinary English noun ("class of bugs"), prose unrelated to the keyword. |

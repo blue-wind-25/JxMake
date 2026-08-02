@@ -1006,3 +1006,45 @@ Numbers match the earlier reused-probabilities sweep exactly (aggregate:
 artifact of reusing the 0.5-trained models. `abstainThreshold=0.7` stands
 confirmed as the production default. `tools/gru/README.txt`'s
 `cross_validate.py` section documents the new `--eval-threshold` flag.
+
+---
+
+**2026-08-02 (later) — grew the hand-labeled hard-case set targeting the
+miss-inspection pattern: 474 → 522 rows.** The miss inspection above found
+every held-out error was the known `NO`→`YES` mode, clustered on
+meta-keyword-discussion sentences (a sentence *describing* a keyword's
+code meaning while still reading as fluent, non-templated English —
+`this`/`object` in Kotlin were the worst offenders, 4/7 misses). Prior
+growth passes covered this shape mainly via a single repeated `"<keyword>
+here <verb>..."` template; this pass instead targeted **naturalistic,
+non-templated phrasing** of the same ambiguity, 8 rows per file (4 NO
+meta-discussion / 4 YES ordinary-English, balanced per the established
+anti-KEYWORD_BIAS-flip precedent), 48 total across all six
+`examples_*.md` files:
+
+| File | Keywords targeted | Rows added |
+|---|---|---|
+| `examples_c.md` | `static`, `return` | 77-84 |
+| `examples_cpp.md` | `this`, `static` | 91-98 |
+| `examples_java.md` | `this`, `static` | 93-100 |
+| `examples_kotlin.md` | `this`, `object` | 68-75 |
+| `examples_js.md` | `this`, `class` | 82-89 |
+| `examples_ts.md` | `this`, `interface` | 69-76 |
+
+`make gru-hand-labeled-examples`: `wrote 522 hand-labeled example(s)` —
+matches 474+48 exactly, no silent skips. **Not done this session
+(explicitly out of scope, per user instruction):** `derive_weights.py`
+re-run, `CommentClassifierWeights.java`/`weights.md` re-derivation, `make
+gru-acquire-corpus`, GRU retrain — all deferred to a later session/the
+user's own retrain.
+
+**`GRU_TRAIN_ARGS` updated: `--epochs=9 --patience=3` →
+`--epochs=20 --patience=5`.** The 2026-08-01 production run
+(`STATE_AI.md`'s "`make gru-train` re-run" entry, 65.2%→98.7%→86.3%
+held-out progression above) early-stopped at epoch 6 without exhausting
+the epoch budget — patience=3 was tight enough to plausibly cut off
+runs that would have kept improving past a short plateau. Widened both:
+more epochs headroom (9→20) and more patience to ride out a longer
+plateau (3→5), consistent with RDD_EXT_18's original 20-50-epoch starting
+guidance. `Makefile` only; no training run performed this session per
+user instruction ("do not retrain, I will do that later").

@@ -118,3 +118,11 @@ this file.
 | 88 | `typeid here returns the actual runtime type, not the static one` | no | no | no | NO | "typeid" naming the actual operator being described, code reference despite zero mechanical feature. |
 | 89 | `typename here disambiguates a dependent name inside the template` | no | no | no | NO | "typename" naming the actual disambiguation keyword being described, code reference despite zero mechanical feature. |
 | 90 | `wchar_t here is platform-dependent and best avoided in portable code` | no | no | no | NO | "wchar_t" naming the actual wide-character type being described, code reference despite zero mechanical feature. |
+| 91 | `this pointer here is captured by value in the lambda's closure` | no | no | no | NO | "this" naming the actual `this` pointer being described in flowing prose, code reference despite zero mechanical feature. |
+| 92 | `this overload was added after the original ambiguity bug was reported` | no | no | no | NO | "this" naming the specific overload under discussion, a code-referencing usage despite reading as an ordinary demonstrative pronoun. |
+| 93 | `this is exactly the kind of edge case the reviewer warned us about` | no | no | no | YES | "this" as an ordinary English demonstrative pronoun opening a sentence, prose. |
+| 94 | `this file grew too large and needs to be split before the next release` | no | no | no | YES | "this" as an ordinary English demonstrative pronoun, prose about the file itself, not a code construct. |
+| 95 | `static member here is shared across every instance of the class` | no | no | no | NO | "static" naming the actual member-storage keyword being described, code reference despite zero mechanical feature. |
+| 96 | `static was chosen here specifically to avoid an extra allocation per call` | no | no | no | NO | "static" naming the actual keyword under retrospective discussion, code reference despite zero mechanical feature. |
+| 97 | `static analysis in CI caught this null-pointer dereference before merge` | no | no | no | YES | "static" as part of the ordinary English phrase "static analysis", not the storage-class keyword. |
+| 98 | `static cling was blamed for the intermittent hardware fault, not this driver` | no | no | no | YES | "static" as an ordinary English noun (static cling), prose unrelated to the keyword. |

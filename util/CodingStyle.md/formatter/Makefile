@@ -220,7 +220,7 @@ GRU_WEIGHTS_FILENAME     = code-formatter-ai-assist-weights.json
 GRU_WEIGHTS_OUT          = $(GRU_BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)
 GRU_CKPT_CURRENT         = $(GRU_WEIGHTS_OUT).ckpt-current.bin
 GRU_SAMPLE_EXAMPLES      = $(GRU_SAMPLE_DEFAULT)
-GRU_TRAIN_ARGS          ?= --threads=3 --epochs=9 --patience=3 --batch-size=16 --progress-every=1000
+GRU_TRAIN_ARGS          ?= --threads=3 --epochs=20 --patience=5 --batch-size=16 --progress-every=1000
 GRU_HAND_LABELED_REPEAT ?= 3
 
 gru-train: $(JAR_FILE)

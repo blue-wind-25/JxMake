@@ -119,3 +119,11 @@ had zero example rows in this file after rows 22-37.
 | 74 | `unsigned here means this counter can never go negative` | no | no | no | NO | "unsigned" naming the actual type qualifier being described, code reference despite zero mechanical feature. |
 | 75 | `volatile here tells the compiler this value can change outside its control` | no | no | no | NO | "volatile" naming the actual qualifier keyword being described, code reference despite zero mechanical feature. |
 | 76 | `break here only exits the innermost loop, not the outer one` | no | no | no | NO | "break" naming the actual break statement being described, code reference despite zero mechanical feature. |
+| 77 | `static here is only visible within this translation unit, not exported` | no | no | no | NO | "static" naming the actual linkage-restricting keyword being described, code reference despite zero mechanical feature. |
+| 78 | `static was the wrong choice here since other files needed the symbol` | no | no | no | NO | "static" naming the actual linkage keyword being described in a natural-sounding retrospective sentence, code reference despite zero mechanical feature. |
+| 79 | `static analysis flagged this function for a possible buffer overrun` | no | no | no | YES | "static" as part of the ordinary English phrase "static analysis" (a tool/process), not the storage-class keyword. |
+| 80 | `static electricity was the actual cause of the sensor glitch, not this code` | no | no | no | YES | "static" as an ordinary English adjective (electricity), prose unrelated to the keyword. |
+| 81 | `return here skips the cleanup block entirely, which is intentional` | no | no | no | NO | "return" naming the actual control-flow keyword being described in flowing prose, code reference despite zero mechanical feature. |
+| 82 | `return was added late in review after the original bug report` | no | no | no | NO | "return" naming the actual keyword being discussed retrospectively, code reference despite zero mechanical feature. |
+| 83 | `return to this file once the dependency issue upstream is resolved` | no | no | no | YES | "return" as an ordinary English verb (come back to), prose. |
+| 84 | `return on this investment was never clearly measured by the team` | no | no | no | YES | "return" as an ordinary English noun (an investment return), prose unrelated to the keyword. |

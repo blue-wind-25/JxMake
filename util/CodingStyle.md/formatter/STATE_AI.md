@@ -910,3 +910,52 @@ regressions from enabling the GRU path live. `gru-classifier` is now `on`
 by default alongside `comment-normalization-classifier` (already `on`
 since 2026-07-30). `code-formatter-ai-assist-weights.json` is the
 user-retrained file evaluated above (98.7%/474 rows).
+
+**REVERTED same day — 98.7% was a training-fit number, not a held-out
+one; corrected via 5-round cross-validation.** Inspecting the 7 misses on
+the 474-row on-training-set eval found no single fixable mechanical shape
+(all 6 wrong-decisions were `NO`→`YES`, the known error mode; 4 of 7
+clustered on Kotlin `this`/`object`/`is` meta-keyword-discussion sentences
+that read as fluent prose while still meaning the keyword — a genuine
+semantic-ambiguity case, not a gate-able pattern). That null result
+motivated running `tools/gru/cross_validate.py` (5 rounds, 80/20 splits,
+retrained from scratch per round on the 474-row hand-labeled file only,
+`--epochs=40 --patience=6`) to get a generalization-honest number instead
+of the training-fit 98.7%:
+
+```
+round 0: precision=87.2% (82/94, 1 abstain)
+round 1: precision=84.8% (78/92, 3 abstain)
+round 2: precision=88.4% (84/95, 0 abstain)
+round 3: precision=85.9% (79/92, 3 abstain)
+round 4: precision=85.1% (80/94, 1 abstain)
+mean=86.3%  stdev=1.5%  min=84.8%  max=88.4%
+```
+
+**True held-out precision is ~86.3%, below RDD_EXT_17's 90% bar** — the
+98.7% figure overstated generalization because the production training
+corpus folds these same hand-labeled rows in directly (not held out).
+86.3% does beat the 67.7% forced-linear-classifier baseline and a naive
+always-`NO` default (~80% raw accuracy on this benchmark's class balance,
+trivially safe: 0% false positives, 100% missed YES) on raw precision —
+but the risk-relevant number is the false-positive rate, not raw
+precision, given this job's asymmetric-risk design (false skip = zero
+cost, false positive = visible bug, RDD_EXT_11). Aggregating the 5 rounds:
+`yesCorrect=61/99 (62%) yesIncorrect=38/99 noCorrect=342/368
+noIncorrect=26/368 (7.1%)` — GRU-on resolves 62% of genuinely ambiguous
+YES/prose comments correctly, at a cost of a **7.1% false-positive rate**
+(wrongly capitalizing a real code-reference-style comment) on NO cases,
+versus 0% under today's always-abstain-through default. **Decision:
+reverted `Config.gruClassifier` back to `false`.** Not a rejection of the
+progress (62% YES-resolution from 0% is real) — the 90% bar exists
+specifically as a conservative proxy for "false-positive rate low enough
+to trust automatically," and 7.1% doesn't clear it. `make build` + `make
+test`: 228/228 forward+idempotency after the revert, confirmed clean.
+**Open item for a future session:** sweep `GruEval`'s optional threshold
+args (e.g. 0.6/0.7/0.8) against held-out folds to see whether a higher
+abstain-confidence cutoff drives the false-positive rate down while still
+resolving a useful fraction of ABSTAIN cases, before assuming corpus
+growth alone is the next lever. `code-formatter-ai-assist-weights.json`
+is the user-retrained file evaluated above; left as-is (still the best
+weights measured so far, just not enabled by default) — `gru-weights-path`
+can still be pointed at it manually for further eval/threshold-sweep work.

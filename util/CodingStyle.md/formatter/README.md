@@ -337,6 +337,30 @@ at little cost to how many genuinely ambiguous comments get resolved. See
 `STATE_AI.md` for the full accuracy history and the cross-validation
 numbers behind that choice.
 
+### HTML5 tree-construction gap levels (`html5-tc-gap-level`)
+
+`html5-tc-gap-level` (default `0`, integer `0`-`4`) enables an increasing, cumulative set of
+narrow, formatter-appropriate approximations of specific HTML5 spec tree-construction
+algorithms. Each level's code path is guarded independently on `config.html5TcGapLevel() >= N`
+and only has effect when `lang.isHtml5` is already true (no separate opt-in needed beyond this
+key). Default `0`: current, strictly preserve-as-written HTML5 parsing, unchanged.
+
+- **Level `1`** — implicit `<body>` start-tag insertion: a document with no explicit `<body>`
+  start tag anywhere gets one synthesized around the first non-head content and everything after
+  it — the first fabricated-node path in this otherwise preserve-as-written formatter.
+- **Level `2`** (+ level 1) — foster-parenting: content the spec requires relocated out of an
+  open `<table>` and inserted immediately before it, rather than nested inside where the source
+  text placed it.
+- **Level `3`** (+ levels 1-2) — misnested `<form>` reconstruction inside `<template>`: a
+  single-slot "form element pointer," scoped per `<template>` boundary via plain Java
+  call-stack local-variable save/restore.
+- **Level `4`** (+ levels 1-3) — adoption agency algorithm: reconstructs a misnested formatting
+  element (e.g. `<b>`/`<i>`, as in `<b>1<i>2</b>3</i>`) as a next-sibling clone once its
+  misnesting ancestor's own close tag is matched.
+
+See "Known Limitations" below for each level's documented gap, and `STATE_HTML5_TCG.md` for the
+full design history (`RDD_KEY_230`) and each level's own implementation notes.
+
 ### `.jxmake-code-formatter` inheritance
 
 A `.jxmake-code-formatter` file in a subdirectory fully inherits from the nearest `.jxmake-code-formatter`
@@ -494,39 +518,29 @@ third-party client only needs to speak this HTTP protocol, not link against the 
   and print indentation fresh from structural nesting depth regardless of source formatting
   already, independent of this key.
 
-- **HTML5 deep tree-construction gap coverage (`html5-tc-gap-level`) is opt-in, off by
-  default, and each level is a narrow, documented approximation of its corresponding HTML5
-  spec algorithm, not a full spec-faithful implementation.** Default `0`: current, strictly
-  preserve-as-written HTML5 parsing, unchanged. Levels are cumulative and strictly ordered
-  simplest-to-most-complex, and only have effect when `lang.isHtml5` is already true (no
-  separate opt-in needed beyond this key). All four levels are implemented:
-  - **Level `1`** — a document with no explicit `<body>` start tag anywhere gets one
-    synthesized around the first non-head content and everything after it — the first
-    fabricated-node path in this otherwise preserve-as-written formatter. Known limitation:
-    the synthesis point is a simplified heuristic (first non-whitespace/non-comment/
-    non-DOCTYPE/non-`<head>` sibling), not a true "head insertion mode closed" transition —
-    can misfire on documents with no explicit `<head>` either, and fires even on bare markup
-    *fragments* (no full document structure at all), wrapping them in a `<body>` too.
-  - **Level `2`** (+ level 1) — foster-parenting: content that the spec requires to be
-    relocated out of a `<table>` and inserted immediately before it, rather than nested
-    inside where the source text placed it. Implemented as a single-level "direct child of an
-    open `<table>`" check, not a full ancestor scan (verified via smoke-testing that the
+- **HTML5 deep tree-construction gap coverage (`html5-tc-gap-level`) is a narrow, documented
+  approximation of each corresponding HTML5 spec algorithm, not a full spec-faithful
+  implementation** (see Configuration above for what the key is and what each level enables).
+  Known gaps in the shipped levels 1-4 behavior:
+  - **Level `1`** — the synthesis point is a simplified heuristic (first non-whitespace/
+    non-comment/non-DOCTYPE/non-`<head>` sibling), not a true "head insertion mode closed"
+    transition — can misfire on documents with no explicit `<head>` either (wraps
+    `<meta>`/`<title>`/`<script>` into the synthesized `<body>` too early), and fires even on
+    bare markup *fragments* (no full document structure at all), wrapping them in a `<body>`
+    too.
+  - **Level `2`** — `isInTableInsertionMode()` is implemented as a single-level "direct child
+    of an open `<table>`" check, not a full ancestor scan — an implemented deviation from
+    `RDD_KEY_230`'s original design sketch, found necessary via smoke-testing (the
     ancestor-scan form incorrectly re-evaluates a fostered element's own already-relocated
     descendants).
-  - **Level `3`** (+ levels 1-2) — misnested `<form>` reconstruction inside `<template>`: a
-    single-slot "form element pointer," scoped per `<template>` boundary via plain Java
-    call-stack local-variable save/restore (no separate stack needed — verified sufficient
-    via smoke-testing nested `<form>`-in-`<template>`-in-`<form>` shapes).
-  - **Level `4`** (+ levels 1-3) — adoption agency algorithm (misnested `<b>`/`<i>`/etc., e.g.
-    `<b>1<i>2</b>3</i>`): a narrow, formatter-appropriate approximation, not the spec's full
-    "list of active formatting elements" + "furthest block" + "bookmark" algorithm. Tracks
-    only the single most-recently-orphaned formatting element at a time and reconstructs it
-    as a plain next-sibling clone once its misnesting ancestor's own close tag is matched.
-    Correctly handles the classic single-level misnesting case; a second, simultaneous
-    misnesting is a known limitation (only the innermost one is reconstructed).
+  - **Level `4`** — tracks only the single most-recently-orphaned formatting element at a
+    time, not the spec's full "list of active formatting elements" + "furthest block" +
+    "bookmark" algorithm. Correctly handles the classic single-level misnesting case; a
+    second, simultaneous misnesting under the same ancestor is not reconstructed — only the
+    innermost/most-recently-orphaned one is (the plain field gets overwritten, not queued).
 
   See `STATE_HTML5_TCG.md` for the full design history (`RDD_KEY_230`) and each level's
-  own implementation notes/known limitations.
+  own implementation notes.
 
   **Known remaining gap:** because this pre-pass computes each line's target depth before
   the normal pipeline's own brace-placement pass runs, source written in one-true-brace

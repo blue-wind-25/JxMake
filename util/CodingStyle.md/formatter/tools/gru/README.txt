@@ -429,7 +429,14 @@ cross_validate.py
     rounds instead of trusting one split.
 
         python3 tools/gru/cross_validate.py <combined-labeled-file> [--rounds 5] \
-            [--work-dir /tmp/gru_cv] [--epochs 40] [--patience 6] [--vocab <path>]
+            [--work-dir /tmp/gru_cv] [--epochs 40] [--patience 6] [--vocab <path>] \
+            [--eval-threshold <t>]
+
+    --eval-threshold evaluates each round's freshly-trained weights via
+    GruEval at that fixed abstain-confidence cutoff instead of the weights
+    file's own trained abstainThreshold -- use this to confirm a threshold
+    picked via a GruEval sweep (see GruEval above) holds up under a fresh
+    from-scratch retrain, not just against already-trained models.
 
 Optional: chat-LLM synthetic augmentation (NOT the real corpus)
 -----------------------------------------------------------------

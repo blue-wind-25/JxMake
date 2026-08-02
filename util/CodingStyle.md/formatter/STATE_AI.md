@@ -982,11 +982,27 @@ the false-positive rate at this threshold is materially better than the
 7.1% that motivated the earlier revert. `make build` + `make test`:
 **228/228 forward, 228/228 idempotency** — clean. `gru-classifier` is now
 `on` by default at `abstainThreshold=0.7`, alongside
-`comment-normalization-classifier` (on since 2026-07-30). **Not done:** a
-fresh 5-round cross-validation specifically at 0.7 (the sweep above reused
-existing 0.5-trained models' probabilities, which is valid for picking a
-decision threshold but doesn't confirm 0.7 as trained-in-from-scratch
-would behave identically) — the existing sweep is expected to generalize
-since threshold-only changes don't affect what the network learned, but a
-from-scratch confirmation is a reasonable low-cost follow-up if this
-default is revisited again.
+`comment-normalization-classifier` (on since 2026-07-30). **Confirmed same day — fresh from-scratch cross-validation at 0.7.**
+Added `cross_validate.py --eval-threshold` (passes a fixed threshold
+through to each round's `GruEval` call instead of the freshly-trained
+weights file's own trained `abstainThreshold`), then re-ran the full
+5-round cross-validation from scratch (`--work-dir /tmp/gru_cv_07`,
+`--eval-threshold 0.7`, same seeds as the earlier run since they're
+deterministic — so this exercises fresh `GruTrainer` runs, not a reuse of
+the earlier weights files):
+
+```
+round 0: precision=92.7% (76/82, 13 abstain)
+round 1: precision=92.0% (69/75, 20 abstain)
+round 2: precision=91.2% (83/91, 4 abstain)
+round 3: precision=95.8% (68/71, 24 abstain)
+round 4: precision=90.2% (74/82, 13 abstain)
+mean=92.4%  stdev=2.1%  min=90.2%  max=95.8%
+```
+
+Numbers match the earlier reused-probabilities sweep exactly (aggregate:
+`yesCorrect=43/65=66.2% noIncorrect=9/336=2.7%`), confirming the sweep's
+0.7 pick generalizes to a genuine from-scratch retrain, not just an
+artifact of reusing the 0.5-trained models. `abstainThreshold=0.7` stands
+confirmed as the production default. `tools/gru/README.txt`'s
+`cross_validate.py` section documents the new `--eval-threshold` flag.

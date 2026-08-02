@@ -294,7 +294,7 @@ python-import-sort               = on
 python-import-blank-lines        = 1
 
 # ── AI-assist (GRU) ───────────────────────────────────────────────────────────
-gru-classifier                   = off         # on | off (default off -- see STATE_AI.md's 2026-07-30 eval)
+gru-classifier                   = on          # on | off (default on since the 2026-08-02 abstainThreshold=0.7 retune -- see STATE_AI.md)
 gru-weights-path                 =             # empty = derive from program dir (code-formatter-ai-assist-weights.json)
 ```
 

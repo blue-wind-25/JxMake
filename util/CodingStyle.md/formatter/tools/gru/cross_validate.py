@@ -53,6 +53,9 @@ def main():
     parser.add_argument("--epochs", default="40")
     parser.add_argument("--patience", default="6")
     parser.add_argument("--vocab", default=None, help="passed through to GruTrainer's --vocab=, omit to use its default")
+    parser.add_argument("--eval-threshold", type=float, default=None,
+                         help="evaluate GruEval at this abstain-confidence threshold instead of the "
+                              "freshly-trained weights file's own trained abstainThreshold")
     args = parser.parse_args()
 
     formatter_dir = Path(__file__).resolve().parent.parent.parent
@@ -94,8 +97,10 @@ def main():
         if args.vocab is not None: train_cmd.append(f"--vocab={args.vocab}")
         subprocess.run(train_cmd, cwd=formatter_dir, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
+        eval_cmd = ["java", "-cp", classpath, "GruEval", str(weights_path), str(test_path)]
+        if args.eval_threshold is not None: eval_cmd.append(str(args.eval_threshold))
         eval_result = subprocess.run(
-            ["java", "-cp", classpath, "GruEval", str(weights_path), str(test_path)],
+            eval_cmd,
             cwd=formatter_dir, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,
         )
         match = PRECISION_RE.search(eval_result.stdout)

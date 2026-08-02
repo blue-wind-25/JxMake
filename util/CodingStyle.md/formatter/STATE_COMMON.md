@@ -315,7 +315,7 @@ python-import-sort               = on
 python-import-blank-lines        = 1
 
 # ── AI-assist (GRU) ───────────────────────────────────────────────────────────
-gru-classifier                   = off         # on | off (default off 2026-07-30 -- shipped weights predict YES on every ambiguous-keyword eval example, see STATE_AI.md)
+gru-classifier                   = on          # on | off (default on 2026-08-02 -- held-out cross-validation confirmed abstainThreshold=0.7 keeps the NO false-positive rate low enough to trust, see STATE_AI.md)
 gru-weights-path                 =             # empty = derive from program dir, see STATE_AI.md
 ```
 

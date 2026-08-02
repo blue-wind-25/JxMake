@@ -716,14 +716,55 @@ plan, not a placeholder.
       pipeline pass's own output. `make` builds clean; `make test`:
       237/237 forward + idempotency, zero regressions on the existing
       (default-off) suite — the new path is exercised only when both flags
-      are explicitly turned on. No new local fixture added yet (deferred
-      to the next checklist sub-item); `STATE_COMMON.md`'s Config Keys
-      table and `README.md`'s Configuration section both updated with the
-      new key. **Next sub-items (not yet done this pass):** a small smoke
-      fixture proving the 4-stage sequence actually runs with both flags
-      on, and real-code validation against the `angular/angular` TS
-      cluster-5 files and `javaparser-core-generators`
-      (`/tmp/javaparser_gdr`) that originally exposed `RDD_KEY_229`.
+      are explicitly turned on. `STATE_COMMON.md`'s Config Keys table and
+      `README.md`'s Configuration section both updated with the new key.
+
+      **2026-08-03 session, smoke proof + real-code validation (PASS on
+      both corpora RDD_KEY_229 already had failure data for):** rather
+      than author a synthetic smoke fixture, used the real `RDD_KEY_229`
+      failure cases themselves as the proof the 4-stage path actually
+      executes — a `/tmp` harness only (no permanent fixture added; the
+      real-code files are the smoke test, and this session's actual result
+      is the real content, not a throwaway repro that would just restate
+      the same bug in miniature).
+      - **`angular/angular` TS cluster-5** (`/tmp/angular`, reused
+        existing checkout): `user_metric_spec.ts` and `i18n_parse.ts` —
+        both confirmed non-idempotent under single-pass GDR (14 and 71
+        diff lines respectively between round1/round2, matching
+        `RDD_KEY_229`'s original finding) — **both become fully
+        idempotent (zero-line round1/round2 diff) with
+        `curly-general-scope-reindent-multipass=on`.** `emit.ts` (the
+        file that already passed under single-pass) re-checked and stays
+        idempotent under multipass too — no new regression on the file
+        that already worked. All three multipass outputs pass
+        `tools/verifiers/js_ts_syntax_check.sh` (exit 0).
+      - **`javaparser-core-generators`** (`/tmp/javaparser_gdr`, reused
+        existing clone, all 43 files, `--preserve-tree --root`):
+        single-pass GDR reproduced the original 13/43 non-idempotent
+        finding exactly; **multipass drops this to 0/43 non-idempotent**
+        (`diff -rq` round1 vs round2 across the whole module empty). All
+        43 multipass-output files individually pass
+        `tools/verifiers/java_syntax_check.sh` (exit 0, no failures).
+      - **Result: PASS on every case `RDD_KEY_229` had failure data for.**
+        This is real evidence the bounded 4-stage design resolves the
+        confirmed root cause (a closing-brace/line-split losing its GDR
+        target when the pipeline's own brace-placement/line-wrap passes
+        re-split or re-join a line) on the actual corpora that exposed
+        it, not just a plausibility argument. **What this does NOT prove:**
+        the "second-order oscillation" risk the design write-up flagged
+        (whether 4 stages is *always* enough, vs. only enough for the
+        specific failure instances tested) — these corpora are evidence
+        against that risk actually manifesting in practice so far, not a
+        proof it can never occur on some other input. The rest of
+        `javaparser/javaparser` (`javaparser-core`, the large main
+        module), local `tool/JSONEncoderLite.java`, and
+        `serge-sans-paille/frozen` — the original three corpora the base
+        (non-multipass) real-code-testing checklist item below was
+        written for — were not run this session; time was spent on the
+        cluster-5/generators corpora since those are the ones with actual
+        `RDD_KEY_229` failure data to compare against. `make test`:
+        237/237 forward + idempotency (unaffected, this was `/tmp`-only
+        real-code testing, no fixture changes).
 - [ ] Revisit Kotlin dogfood cluster D3 (see "D3 fold" section above) using
       the pre-pass's statement-boundary/structural-depth infrastructure;
       land a real fix in `MiscRuleCurly`/wherever the fix ends up living,

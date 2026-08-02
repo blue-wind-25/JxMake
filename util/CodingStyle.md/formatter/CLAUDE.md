@@ -18,7 +18,7 @@ state file.
 | JS/TS support (implemented; JSX/TSX still need their own future embedding-aware dispatcher) | `STATE_COMMON.md` | `STATE_JS_TS.md` |
 | Python3 support (implemented) | `STATE_COMMON.md` | `STATE_PYTHON3.md` |
 | AI-assist Step 3: GRU comment-classifier abstain resolution (skeleton started — `com.jxmake.formatter.classifier.gru` package) | `STATE_COMMON.md` | `STATE_AI.md` |
-| General scope-depth reindentation (curly reindent job; not started — high risk, read `STATE_CURLY_GDR.md` before attempting) | `STATE_COMMON.md` | `STATE_CURLY_GDR.md` |
+| General scope-depth reindentation (curly reindent job; pre-pass architecture landed, default off, behind `curly-general-scope-reindent = on` — high risk, a real pass-ordering bug was found during real-code validation, read `STATE_CURLY_GDR.md` before attempting) | `STATE_COMMON.md` | `STATE_CURLY_GDR.md` |
 | HTML5 deep tree-construction gaps (tc gap job; not started — high risk, read `STATE_HTML5_TCG.md` before attempting) | `STATE_COMMON.md` | `STATE_HTML5_TCG.md` |
 
 `STATE_COMMON.md` holds the shared commit workflow, ambiguity-handling

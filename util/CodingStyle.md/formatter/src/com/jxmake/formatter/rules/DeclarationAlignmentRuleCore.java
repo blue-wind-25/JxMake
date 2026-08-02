@@ -88,6 +88,8 @@ public abstract class DeclarationAlignmentRuleCore {
             if(prev != null) {
                 if( !jsObjectPropertyColons.contains(
                     t
+                ) && !isUnaryMinusOperand(
+                    tokens, i
                 ) && needsSpaceBetween(
                     prev, t, tokens, i
                 ) ) sb.append(
@@ -99,6 +101,29 @@ public abstract class DeclarationAlignmentRuleCore {
         } // for
 
         return sb.toString();
+    }
+
+    /**
+     * True iff {@code tokens.get(index)} is the operand immediately following a unary
+     *  `-`/`+` at {@code tokens.get(index - 1)} -- i.e. that `-`/`+` is not itself preceded by
+     *  another operand (identifier/number/closing `)`/`]`), which would make it binary instead.
+     *  {@code needsSpaceBetween}'s strictly pairwise (prev, cur) signature has no way to see the
+     *  token before `prev`, so without this check a leading unary sign in an initializer
+     *  (`int aaa = +1;`) rendered with a spurious space (`= + 1`). Shared by {@link
+     *  #renderTokens} and {@link #renderInitTokens} for every curly-family language except
+     *  Kotlin, which has its own equivalent override.
+     */
+    protected boolean isUnaryMinusOperand(final List<Token> tokens, final int index)
+    {
+        if(index == 0) return false;
+        final Token prevTok = tokens.get(index - 1);
+        if( !( isOp(prevTok, "-") || isOp(prevTok, "+") ) ) return false;
+        if(index - 2 < 0) return true; // Nothing before the sign -- must be unary
+        final Token beforeSign = tokens.get(index - 2);
+
+        return !( beforeSign.type == TokenType.IDENTIFIER || beforeSign.type == TokenType.NUMBER
+                || beforeSign.type == TokenType.STRING || beforeSign.type == TokenType.CHAR
+                || isPunct(beforeSign, ")") || isPunct(beforeSign, "]") );
     }
 
     /**
@@ -192,7 +217,7 @@ public abstract class DeclarationAlignmentRuleCore {
                         sb.append(' '); // Binary * or & in expression context
                     }
                 } // if
-                else if( needsSpaceBetween(prev, t, tokens, i) ) {
+                else if( !isUnaryMinusOperand(tokens, i) && needsSpaceBetween(prev, t, tokens, i) ) {
                     final Token prev2 = i > 1 ? tokens.get(i - 2) : null;
                     if( t.type == TokenType.IDENTIFIER && Token.isRepOp(prev, '*')
                         && (prev2 == null || prev2.type == TokenType.OP)

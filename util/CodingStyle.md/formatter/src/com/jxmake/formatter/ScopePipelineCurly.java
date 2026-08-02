@@ -847,8 +847,20 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             final int trailingSpaces = leadingSpaceCount(
                 new StringBuilder(rawLeadingGapFull).reverse().toString()
             );
-            final String rawLeadingGap = trailingSpaces >= freshPad
-                    ? stripTrailingSpaces(rawLeadingGapFull, freshPad) : rawLeadingGapFull;
+            // A genuine re-format's raw gap is trueIndent + freshPad, where trueIndent is
+            // itself always a valid multiple of indentWidth (the previous pass's own written
+            // indent) -- so stripping freshPad off a real re-format always lands back on a
+            // multiple-of-indentWidth boundary with no rounding needed. A first-time format
+            // whose true indent merely happens to be numerically >= freshPad (e.g. an 8-space
+            // method body vs. a 6-wide "final "-column pad, `java_combined_inp.java`'s
+            // `evaluateAt2`) strips into a non-multiple remainder that `normalizeIndent` then
+            // has to round back up, silently eating a real indent level. Guard by only
+            // accepting the strip when its result is already indentWidth-aligned.
+            final String strippedCandidate = stripTrailingSpaces(rawLeadingGapFull, freshPad);
+            final int    strippedWidth     = trailingIndent(strippedCandidate).length();
+            final String rawLeadingGap     = trailingSpaces >= freshPad
+                    && strippedWidth % indentWidth == 0
+                    ? strippedCandidate : rawLeadingGapFull;
             final String rawIndent   = trailingIndent(rawLeadingGap);
             final String indent      = normalizeIndent(rawIndent);
             final String leadingGap  = normalizeLeadingGap(rawLeadingGap, rawIndent, indent);

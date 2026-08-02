@@ -480,12 +480,41 @@ item *N-1* is committed and `make test` is green.
       section (after the `html_comments_inp/out.html` entry, before
       `Python3:`). `make test`: 230/230 forward, 230/230 idempotency
       (223+ suite plus these 2 new fixtures), zero regressions.
-- [ ] 4. **Re-run the WPT residual gap catalogue for level 1** specifically
+- [x] 4. **Re-run the WPT residual gap catalogue for level 1** specifically
       (the relevant `html/syntax/` WPT fixtures cited in
       `STATE_DATA_FORMATS.md`'s item 1, if still reachable — no network
       access was available as of the last check, confirm current
       availability first) to verify the fix is spec-accurate, not just
       "doesn't crash."
+
+      **2026-08-03: DONE.** Live network fetch (`curl` to
+      `raw.githubusercontent.com`) is still blocked in this sandbox (404
+      from the environment's own proxy, not upstream). A prior session's
+      WPT checkout already exists at `/tmp/wpt-src` (per
+      `STATE_COMMON.md`'s corpus-reuse convention) — reused directly, no
+      re-clone needed.
+
+      Ran two real `syntax/parsing/*.html` WPT fixtures with no explicit
+      `<body>` and, notably, no explicit `<head>` either
+      (`the-end.html`, `no-doctype-name.html`) through the formatter at
+      `html5-tc-gap-level=1` via `JXMAKE_CODE_FORMATTER_HTML5_TC_GAP_LEVEL=1`.
+      `the-end.html` (has a `<head>`-eligible-only preamble followed by a
+      long `<script>` body) wraps correctly. `no-doctype-name.html`
+      surfaces a **known residual gap in level 1's own simplification**:
+      because the source has no explicit `<head>` tag at all, the
+      "first non-whitespace/non-comment/non-DOCTYPE/non-`<head>` sibling"
+      heuristic (checklist item 3's own documented simplification) treats
+      `<meta>`/`<title>`/`<script>` as body content and wraps them
+      immediately, whereas the real spec would implicitly open `<head>`
+      first and keep head-eligible elements (`<meta>`, `<title>`,
+      `<script>`, etc.) there, only switching to body on the first
+      non-head-eligible token. **Not fixed here** — out of scope for this
+      item (which is verification, not a level-1 rework) and out of scope
+      for item 5 (foster-parenting only); logged here as a known limitation
+      for a future session to pick up if level 1 is revisited. No crash,
+      no malformed output — purely a spec-accuracy gap in the synthesis
+      point, consistent with "verify spec-accurate, not just doesn't
+      crash" surfacing exactly this kind of finding.
 - [ ] 5. **Level 2 — Foster-parenting-driven tree reshaping**
       (`foreign_content_009/010.html` and similar). Guard on
       `config.html5TcGapLevel() >= 2`. Implement `isInTableInsertionMode()`

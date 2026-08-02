@@ -790,6 +790,37 @@ plan, not a placeholder.
       **Result: PASS.** Remaining corpora for this checklist item:
       `serge-sans-paille/frozen`, `javaparser/javaparser`'s main
       `javaparser-core` module.
+
+      **2026-08-03 session (continued), corpus 2 of the remaining 3 —
+      `serge-sans-paille/frozen`** (fresh clone, `/tmp/frozen` — no prior
+      checkout found in `/tmp`, this repo's own real-code-testing
+      methodology's first narrower relative-delta reindent bugs originally
+      surfaced here per this file's Background section). Full-tree
+      idempotency on all 20 `.hpp`/`.h` files under `include/`,
+      `--preserve-tree --root`: single-pass `curly-general-scope-
+      reindent=on` reproduced non-idempotency on **7 of 20 files**.
+      **`curly-general-scope-reindent-multipass=on` drops this to 0 of 20
+      — every file idempotent.** No C/C++ syntax-check wrapper exists in
+      `tools/verifiers` (that list only covers Java/Kotlin/JSON/JSON5/CSS/
+      YAML/TOML/XML/HTML/JS-TS/Python), so verification used direct
+      `g++ -std=c++17 -fsyntax-only` per file instead, per
+      `STATE_COMMON.md`'s "appropriate toolchain" real-code-testing
+      methodology step. Baseline (unmodified originals): 7 of the 20
+      headers (`map.h`, `set.h`, `algorithm.h`, `string.h`, `random.h`,
+      `unordered_set.h`, `unordered_map.h`) each have exactly 1
+      pre-existing syntax-only compile error (these headers depend on
+      other headers/template context not visible in a single-TU
+      syntax-only check — not a real bug, a baseline limitation of
+      checking a template-heavy header standalone); the other 13 compile
+      clean standalone. Compared error count per file between baseline and
+      multipass round1 output for **all 20 files**: every file's error
+      count matches its baseline exactly (the 7 baseline-erroring files
+      still show exactly 1 error each, same error text; the 13 clean files
+      stay clean) — **zero new, formatter-induced errors**. **Result:
+      PASS.** `make test`: 237/237 forward + idempotency (unaffected, no
+      fixture/source changes this step). Remaining corpus for this
+      checklist item: `javaparser/javaparser`'s main `javaparser-core`
+      module.
 - [~] Revisit Kotlin dogfood cluster D3 (see "D3 fold" section above) using
       the pre-pass's statement-boundary/structural-depth infrastructure;
       land a real fix in `MiscRuleCurly`/wherever the fix ends up living,

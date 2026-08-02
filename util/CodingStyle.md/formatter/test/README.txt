@@ -261,12 +261,13 @@ XML:
                                                          and case-normalized, now also exercised two levels
                                                          deep inside a nested block; an inline trailing
                                                          comment gaining a leading space before `<!--`; a
-                                                         multi-line `<!-- -->` comment (raw interior contains a
-                                                         newline) preserved byte-for-byte verbatim, including
-                                                         its own interior indentation and `-->` on its own line
-                                                         (RDD_KEY_232); a `<!--% JXM_CFMT_DIS -->`/`ENA` marker pair
-                                                         freezing a malformed-spacing tag verbatim; and a
-                                                         trailing comment right before the closing tag.
+                                                         multi-line `<!-- -->` comment (raw interior contains
+                                                         a newline) preserved byte-for-byte verbatim,
+                                                         including its own interior indentation and `-->` on
+                                                         its own line (RDD_KEY_232); a `<!--% JXM_CFMT_DIS
+                                                         -->`/`ENA` marker pair freezing a malformed-spacing
+                                                         tag verbatim; and a trailing comment right before the
+                                                         closing tag.
 
 C++26:
   cpp26_core_inp/out.cpp                              -- Pack indexing (`T...[N]` tight vs. going loose when
@@ -388,22 +389,22 @@ HTML5:
                                                          `<script type="application/json">` block staying
                                                          fully opaque.
 
-  html5_multiline_comment_verbatim_inp/out.html       -- A `<!-- -->` comment whose raw interior contains a
+  html_multiline_comment_verbatim_inp/out.html        -- A `<!-- -->` comment whose raw interior contains a
                                                          newline (copyright-block style, indented interior
-                                                         lines, `-->` on its own line) preserved byte-for-byte;
-                                                         a sibling `<p>` immediately before AND after the
-                                                         multi-line comment reindented normally; a single-line
-                                                         comment nearby still gets normal trim/capitalization,
-                                                         proving the newline-detection gate discriminates
-                                                         correctly (RDD_KEY_232).
+                                                         lines, `-->` on its own line) preserved
+                                                         byte-for-byte; a sibling `<p>` immediately before AND
+                                                         after the multi-line comment reindented normally; a
+                                                         single-line comment nearby still gets normal
+                                                         trim/capitalization, proving the newline-detection
+                                                         gate discriminates correctly (RDD_KEY_232).
 
-  html5_tc_gap_level0_body_unchanged_inp/out.html     -- Same no-explicit-`<body>` shape as above, but at the
+  html_tc_gap_level0_body_unchanged_inp/out.html      -- Same no-explicit-`<body>` shape as above, but at the
                                                          default `html5-tc-gap-level=0` (unset, no in-file
                                                          override) -- proves the level-1 fabricated- node path
                                                          stays fully inert unless explicitly opted into, i.e.
                                                          current behavior is unchanged by default.
 
-  html5_tc_gap_level1_body_insertion_inp/out.html     -- STATE_HTML5_TCG.md tc gap job, level 1
+  html_tc_gap_level1_body_insertion_inp/out.html      -- STATE_HTML5_TCG.md tc gap job, level 1
                                                          (`html5-tc-gap-level=1` via in-file config,
                                                          RDD_KEY_230): a document with no explicit `<body>`
                                                          start tag anywhere gets one synthesized around the
@@ -413,7 +414,7 @@ HTML5:
                                                          synthesized `<body>`, proving the `bodyInserted`
                                                          guard fires at most once per document).
 
-  html5_tc_gap_level1_foster_unchanged_inp/out.html   -- Same table-with-stray-content shape as the level-2
+  html_tc_gap_level1_foster_unchanged_inp/out.html    -- Same table-with-stray-content shape as the level-2
                                                          fixture below, but at `html5-tc-gap-level=1` via
                                                          in-file config -- proves foster-parenting stays fully
                                                          inert one level below its own gate (`>= 2`), i.e. a
@@ -421,7 +422,7 @@ HTML5:
                                                          inside it (outside any `<tr>`/`<td>`/ `<caption>`)
                                                          still formats in place, unchanged, at level 1.
 
-  html5_tc_gap_level2_foster_parenting_inp/out.html   -- STATE_HTML5_TCG.md tc gap job, level 2
+  html_tc_gap_level2_foster_parenting_inp/out.html    -- STATE_HTML5_TCG.md tc gap job, level 2
                                                          (`html5-tc-gap-level=2` via in-file config,
                                                          RDD_KEY_230): a `<table>` with stray text and a stray
                                                          `<div>` directly inside it (outside any
@@ -433,7 +434,7 @@ HTML5:
                                                          `<tr>`/`<td>` row stays nested inside the table
                                                          unchanged.
 
-  html5_tc_gap_level2_form_unchanged_inp/out.html     -- Same nested-`<form>`-in-`<template>`-in-`<form>`
+  html_tc_gap_level2_form_unchanged_inp/out.html      -- Same nested-`<form>`-in-`<template>`-in-`<form>`
                                                          shape as the level-3 fixture below, but at
                                                          `html5-tc-gap-level=2` via in-file config -- proves
                                                          misnested-`<form>` reconstruction stays fully inert
@@ -441,7 +442,7 @@ HTML5:
                                                          direct second `<form id="second-direct">` sibling
                                                          still formats in place, unchanged, at level 2.
 
-  html5_tc_gap_level3_form_template_inp/out.html      -- STATE_HTML5_TCG.md tc gap job, level 3
+  html_tc_gap_level3_form_template_inp/out.html       -- STATE_HTML5_TCG.md tc gap job, level 3
                                                          (`html5-tc-gap-level=3` via in-file config,
                                                          RDD_KEY_230): an outer `<form id="outer">` contains a
                                                          `<template>` with its own nested `<form id="inner">`
@@ -456,7 +457,7 @@ HTML5:
                                                          its own `<p>` content spliced into the outer form's
                                                          children.
 
-  html5_tc_gap_level3_adoption_unchanged_inp/out.html -- Same misnested-`<b>`/`<i>` shape as the level-4
+  html_tc_gap_level3_adoption_unchanged_inp/out.html  -- Same misnested-`<b>`/`<i>` shape as the level-4
                                                          fixture below (`<b>one<i>two</b>three</i>`), but at
                                                          `html5-tc-gap-level=3` via in-file config -- proves
                                                          adoption agency reconstruction stays fully inert one
@@ -464,7 +465,7 @@ HTML5:
                                                          remains plain text after `</b>` closes, not wrapped
                                                          in a reconstructed `<i>`.
 
-  html5_tc_gap_level4_adoption_agency_inp/out.html    -- STATE_HTML5_TCG.md tc gap job, level 4
+  html_tc_gap_level4_adoption_agency_inp/out.html     -- STATE_HTML5_TCG.md tc gap job, level 4
                                                          (`html5-tc-gap-level=4` via in-file config,
                                                          RDD_KEY_230): the classic adoption-agency misnesting
                                                          `<b>one<i>two</b>three</i>` -- `</b>` closes while

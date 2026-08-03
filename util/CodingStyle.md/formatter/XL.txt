@@ -238,29 +238,17 @@ Update `STATE_DOGFOOD.md` as needed.
 
    Check the GRU % with the new weights.
 
-3. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
-   LLM-assisted disagreement sampling against `sample_default.txt`.
-
 Use sub-agent. This can be a substantial work.
 
 === TIER 1: Analysis/docs/testing only — ~zero regression risk ===
 
-1. [CPP26] Diff STYLE_CPP26.md vs STYLE_CPP20.md/STYLE_C_CPP.md to confirm
-   which sections are genuinely C++26-specific vs already covered (§1-3
-   suspected already covered; §4/§5 confirmed new). Last unchecked
-   checklist item in that job.
-
-2. [C_CPP_JAVA] Investigate reported clang C++23 vs gcc C++20 syntax-check
-   mismatch on some passing fixtures — unconfirmed whether it's a real
-   fixture/version issue or just stricter-parser noise.
-
-3. [PYTHON3] Run the deferred full-corpus re-run (psf/black / django) now
-   that all four known dogfood clusters are fixed.
-
-4. [AI] Finish LLM-assisted disagreement-sampling steps 2-4 against
+1. [AI] Finish LLM-assisted disagreement-sampling steps 2-4 against
    sample_default.txt (design agreed 2026-07-30, not yet executed).
 
-5. [COMMON] Do the cross-job housekeeping/cleanup pass (re-check "Known
+2. [PYTHON3] Run the deferred full-corpus re-run (psf/black / django) now
+   that all four known dogfood clusters are fixed.
+
+3. [COMMON] Do the cross-job housekeeping/cleanup pass (re-check "Known
    Gaps" for now-cheaper fixes, dead files, duplicated *Curly/*Indent/*Tags
    helpers, stale STATE_*.md notes) — scoped explicitly as housekeeping,
    not a rewrite.

@@ -26,7 +26,15 @@ TEST_LOCK     = $(BUILD_DIR)/.test.lock
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
 
-.PHONY: all build jar clean gru-extract-pool-a gru-extract-pool-b gru-measure-abstain-rate gru-acquire-corpus gru-hand-labeled-examples gru-train test _test_serial bench test-server
+.PHONY: all build jar clean                 \
+        gru-extract-pool-a                   \
+        gru-extract-pool-b                   \
+        gru-measure-abstain-rate             \
+        gru-acquire-corpus                   \
+        gru-hand-labeled-examples            \
+        gru-train                            \
+        gru-sync-weights                     \
+        test _test_serial bench test-server
 
 
 all build jar:
@@ -521,14 +529,20 @@ test: $(JAR_FILE)
 	@mkdir -p $(BUILD_DIR)
 	@flock $(TEST_LOCK) $(MAKE) --no-print-directory _test_serial
 
+# Copies the root-level weights file into $(BUILD_DIR) so tests/bench/server have
+# something to load. Guarded so a fresher copy already sitting in $(BUILD_DIR) --
+# e.g. one `gru-train` just produced there, even if `gru-train` itself then failed
+# to propagate it up to the root -- is never overwritten by this sync.
+gru-sync-weights:
+	@if [ ! -f "$(BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)" ] && [ -f "$(GRU_WEIGHTS_FILENAME)" ]; then \
+		cp "$(GRU_WEIGHTS_FILENAME)" "$(BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)";                  \
+	fi
+
 # Actual `test` body, run one-at-a-time under `test`'s `flock` -- concurrent # `make test` invocations
 # (e.g. from parallel dogfood sessions) share the same `$(TEST_TMP)` directory, so running them simultaneously
 # would race on it (one invocation's `rm $(TEST_TMP)/*` deleting another's in-flight results). `flock` makes
 # a second concurrent call block and queue instead of racing.
-_test_serial:
-	@if [ ! -f "$(BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)" ] && [ -f "$(GRU_WEIGHTS_FILENAME)" ]; then \
-		cp "$(GRU_WEIGHTS_FILENAME)" "$(BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)";                  \
-	fi
+_test_serial: gru-sync-weights
 	@(                                                                             \
 		export JXMAKE_CODE_FORMATTER_FORMAT_MACROS=on;                         \
 		mkdir -p $(TEST_TMP);                                                  \
@@ -612,7 +626,7 @@ _test_serial:
 #
 # Override `JAVA` or `JAR_FILE` on the command line if needed, same as `make test`.
 #
-bench: $(JAR_FILE)
+bench: $(JAR_FILE) gru-sync-weights
 	@(                                                                                                                                              \
 		mkdir -p $(TEST_TMP);                                                                                                                   \
 		files="$(addprefix $(TEST_DIR)/,$(INP_FILES))";                                                                                         \
@@ -687,7 +701,7 @@ bench: $(JAR_FILE)
 TEST_SERVER_PORT := 17999
 TEST_SERVER_TMP   = $(BUILD_DIR)/test-server-out
 
-test-server: $(JAR_FILE)
+test-server: $(JAR_FILE) gru-sync-weights
 	@(                                                                                                                        \
 		mkdir -p $(TEST_SERVER_TMP);                                                                                      \
 		fail=0;                                                                                                           \

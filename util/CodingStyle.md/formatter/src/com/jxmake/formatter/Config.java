@@ -413,82 +413,82 @@ public final class Config {
     private static Config fromRawMap(final Map<String, String> raw)
     {
         final Config config = new Config();
-        config.lineLength                     = parseInt(raw, "line-length", config.lineLength);
-        config.indentSize                     = parseInt(raw, "indent-size", config.indentSize);
-        config.indentStyle                    = parseChoice(
+        config.lineLength                         = parseInt(raw, "line-length", config.lineLength);
+        config.indentSize                         = parseInt(raw, "indent-size", config.indentSize);
+        config.indentStyle                        = parseChoice(
             raw, "indent-style", config.indentStyle, INDENT_STYLE_CHOICES
         );
-        config.serverPort                     = parseInt(raw, "server-port", config.serverPort);
-        config.closingCommentMinLines         = parseInt(
+        config.serverPort                         = parseInt(raw, "server-port", config.serverPort);
+        config.closingCommentMinLines             = parseInt(
             raw, "closing-comment-min-lines", config.closingCommentMinLines
         );
-        config.formatMacros                   = parseBoolean(
+        config.formatMacros                       = parseBoolean(
             raw, "format-macros", config.formatMacros
         );
-        config.lineEndings                    = parseChoice(
+        config.lineEndings                        = parseChoice(
             raw, "line-endings", config.lineEndings, LINE_ENDINGS_CHOICES
         );
-        config.normalizeCommentStartCase      = parseBoolean(
+        config.normalizeCommentStartCase          = parseBoolean(
             raw, "normalize-comment-start-case",
             config.normalizeCommentStartCase
         );
-        config.normalizeCommentEndPeriod      = parseBoolean(
+        config.normalizeCommentEndPeriod          = parseBoolean(
             raw, "normalize-comment-end-period",
             config.normalizeCommentEndPeriod
         );
-        config.commentNormalizationClassifier = parseBoolean(
+        config.commentNormalizationClassifier     = parseBoolean(
             raw, "comment-normalization-classifier",
             config.commentNormalizationClassifier
         );
-        config.headerGuardRename              = parseBoolean(
+        config.headerGuardRename                  = parseBoolean(
             raw, "header-guard-rename", config.headerGuardRename
         );
-        config.javaImportOrder                = parseStringList(
+        config.javaImportOrder                    = parseStringList(
             raw, "java-import-order", config.javaImportOrder
         );
-        config.javaImportSort                 = parseBoolean(
+        config.javaImportSort                     = parseBoolean(
             raw, "java-import-sort", config.javaImportSort
         );
-        config.javaImportDepth                = parseInt(
+        config.javaImportDepth                    = parseInt(
             raw, "java-import-depth", config.javaImportDepth
         );
-        config.javaImportBlankLines           = parseInt(
+        config.javaImportBlankLines               = parseInt(
             raw, "java-import-blank-lines", config.javaImportBlankLines
         );
-        config.kotlinImportOrder              = parseStringList(
+        config.kotlinImportOrder                  = parseStringList(
             raw, "kotlin-import-order", config.kotlinImportOrder
         );
-        config.kotlinImportSort               = parseBoolean(
+        config.kotlinImportSort                   = parseBoolean(
             raw, "kotlin-import-sort", config.kotlinImportSort
         );
-        config.kotlinImportDepth              = parseInt(
+        config.kotlinImportDepth                  = parseInt(
             raw, "kotlin-import-depth", config.kotlinImportDepth
         );
-        config.kotlinImportBlankLines         = parseInt(
+        config.kotlinImportBlankLines             = parseInt(
             raw, "kotlin-import-blank-lines", config.kotlinImportBlankLines
         );
-        config.jsImportOrder                  = parseStringList(
+        config.jsImportOrder                      = parseStringList(
             raw, "js-import-order", config.jsImportOrder
         );
-        config.jsImportSort                   = parseBoolean(
+        config.jsImportSort                       = parseBoolean(
             raw, "js-import-sort", config.jsImportSort
         );
-        config.jsImportBlankLines             = parseInt(
+        config.jsImportBlankLines                 = parseInt(
             raw, "js-import-blank-lines", config.jsImportBlankLines
         );
-        config.gruClassifier                  = parseBoolean(
+        config.gruClassifier                      = parseBoolean(
             raw, "gru-classifier", config.gruClassifier
         );
-        config.gruWeightsPath                 = parseString(
+        config.gruWeightsPath                     = parseString(
             raw, "gru-weights-path", config.gruWeightsPath
         );
-        config.curlyGeneralScopeReindent      = parseBoolean(
+        config.curlyGeneralScopeReindent          = parseBoolean(
             raw, "curly-general-scope-reindent", config.curlyGeneralScopeReindent
         );
         config.curlyGeneralScopeReindentMultipass = parseBoolean(
             raw, "curly-general-scope-reindent-multipass", config.curlyGeneralScopeReindentMultipass
         );
-        config.html5TcGapLevel                = parseInt(
+        config.html5TcGapLevel                    = parseInt(
             raw, "html5-tc-gap-level", config.html5TcGapLevel
         );
 

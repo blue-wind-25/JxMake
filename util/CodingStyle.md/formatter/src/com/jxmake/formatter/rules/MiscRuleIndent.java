@@ -331,10 +331,10 @@ public final class MiscRuleIndent extends MiscRuleCore {
             "convertIndentation only handles spaces|tabs, got: " + indentStyle
         );
         final StringBuilder out         = new StringBuilder();
-        final int            n           = tokens.size();
-              int            i           = 0;
-              int            depth       = 0;
-              boolean        atLineStart = true;
+        final int           n           = tokens.size();
+              int           i           = 0;
+              int           depth       = 0;
+              boolean       atLineStart = true;
 
         while(i < n) {
             if(atLineStart) {
@@ -357,19 +357,24 @@ public final class MiscRuleIndent extends MiscRuleCore {
                 // meaning at all, unlike its depth) -- done via the width-preserving {@link
                 // #renderIndent} (same primitive {@link MiscRuleCore#convertIndentation} uses),
                 // keeping the whole file visually consistent in the target style.
-                final boolean blankOrComment = i >= n || tokens.get(i).type == TokenType.NEWLINE
-                        || tokens.get(i).type == TokenType.COMMENT_LINE;
+                final boolean blankOrComment = i >= n || tokens.get(
+                    i
+                ).type == TokenType.NEWLINE || tokens.get(
+                    i
+                ).type == TokenType.COMMENT_LINE;
                 while( i < n && ( tokens.get(i).type == TokenType.INDENT
                         || tokens.get(i).type == TokenType.DEDENT ) ) {
-                    if(tokens.get(i).type == TokenType.INDENT) ++depth;
-                    else                                       --depth;
+                    if( tokens.get(i).type == TokenType.INDENT ) ++depth;
+                    else                                         --depth;
                     ++i;
                 }
                 if(wsIdx < 0) {
-                    // nothing to rewrite
+                    // Nothing to rewrite
                 }
                 else if( tokens.get(wsIdx).frozen ) out.append( tokens.get(wsIdx).text );
-                else if(blankOrComment) out.append( renderIndent( tokens.get(wsIdx).text, indentStyle ) );
+                else if(blankOrComment) out.append(
+                    renderIndent( tokens.get(wsIdx).text, indentStyle )
+                );
                 else out.append( indentText(depth, indentStyle) );
                 atLineStart = false;
                 continue;
@@ -394,8 +399,11 @@ public final class MiscRuleIndent extends MiscRuleCore {
                 // (found via real-code testing: `real_code_regressions_79/116/138_inp.py`'s
                 // multi-line signatures/union-type wraps).
                 final boolean insideBrackets = t.parenDepth > 0;
-                final boolean backslash      = i > 0 && tokens.get(i - 1).type == TokenType.OP
-                        && "\\".equals( tokens.get(i - 1).text );
+                final boolean backslash      = i > 0&& tokens.get(
+                    i - 1
+                ).type == TokenType.OP&& "\\".equals(
+                    tokens.get(i - 1).text
+                );
                 atLineStart = !insideBrackets && !backslash;
             } // if
             ++i;

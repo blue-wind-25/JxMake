@@ -48,18 +48,22 @@ public final class GdrPipelineGate {
      * itself already no-ops in that case).
      */
     public static String applyAndFormat(
-        String source, String language, Config config, String filePath, boolean formatOff
+        String  source,
+        String  language,
+        Config  config,
+        String  filePath,
+        boolean formatOff
     )
     {
         final FormatterCore formatter = FormatterCore.forLanguage(language);
 
-        final String gdr1       = apply(source, language, config);
-        final String pipeline1  = formatter.formatOne(gdr1, filePath, config, formatOff);
+        final String gdr1      = apply(source, language, config);
+        final String pipeline1 = formatter.formatOne(gdr1, filePath, config, formatOff);
 
-        final boolean multipass = config.isCurlyGeneralScopeReindent()
-                && config.isCurlyGeneralScopeReindentMultipass()
-                && isCurlyFamily(language);
-        if( !multipass ) return pipeline1;
+        final boolean multipass = config.isCurlyGeneralScopeReindent()&& config.isCurlyGeneralScopeReindentMultipass()&& isCurlyFamily(
+            language
+        );
+        if(!multipass) return pipeline1;
 
         final String gdr2      = apply(pipeline1, language, config);
         final String pipeline2 = formatter.formatOne(gdr2, filePath, config, formatOff);

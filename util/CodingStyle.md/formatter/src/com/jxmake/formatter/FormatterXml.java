@@ -25,10 +25,12 @@ public final class FormatterXml extends FormatterCore {
     )
     {
         if(formatOff) return content;
-        final String resolvedIndentStyle = "auto".equals( config.indentStyle() )
-            ? IndentationDetector.detectFromContent(content)
-            : config.indentStyle();
-        final XmlSpecificRule rule = new XmlSpecificRule(
+        final String          resolvedIndentStyle = "auto".equals(
+            config.indentStyle()
+        ) ? IndentationDetector.detectFromContent(
+            content
+        ) : config.indentStyle();
+        final XmlSpecificRule rule                = new XmlSpecificRule(
             lang,
             config.lineLength(),
             config.indentSize(),

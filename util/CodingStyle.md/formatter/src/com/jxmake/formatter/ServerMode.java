@@ -392,7 +392,7 @@ public final class ServerMode {
                     "jxmake-code-formatter: processing " + (path == null ? "(no path, lang=" + language + ")" : path)
                 );
                 System.err.flush();
-                final String              formatted       = com.jxmake.formatter.gdr.GdrPipelineGate.applyAndFormat(
+                final String formatted = com.jxmake.formatter.gdr.GdrPipelineGate.applyAndFormat(
                     content, language, config, path == null ? "" : path, formatOff
                 );
                 respond(exchange, 200, formatted);

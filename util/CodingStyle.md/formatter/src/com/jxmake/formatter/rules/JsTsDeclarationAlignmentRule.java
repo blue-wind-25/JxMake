@@ -571,9 +571,10 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
 
         final ColumnGrid grid = new ColumnGrid();
         for(final Row r : group) {
-            final List<String> cells  = new ArrayList<>();
-            final String       typeText = r.typeTokens.isEmpty(
-            ) ? "" : ": " + renderTokens(r.typeTokens);
+            final List<String> cells    = new ArrayList<>();
+            final String       typeText = r.typeTokens.isEmpty() ? "" : ": " + renderTokens(
+                r.typeTokens
+            );
             cells.add(r.keyword.text);
             if(singleRow) {
                 cells.add(r.nameText + typeText);

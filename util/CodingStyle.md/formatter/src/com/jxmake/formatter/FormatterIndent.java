@@ -47,11 +47,13 @@ public final class FormatterIndent extends FormatterCore {
 
         // Final phase, mirroring FormatterCurly's own "Phase 6: final whitespace normalization,
         // last" placement of MiscRuleCore#convertIndentation -- see MiscRuleIndent#convertIndentation
-        // for why this is depth-based rather than a raw-width-ratio rescale.
+        // for why this is depth-based rather than a raw-width-ratio rescale
         final MiscRuleIndent miscRule = new MiscRuleIndent(
             lang, false, false, false, config.indentSize(), config.lineLength()
         );
-        text = miscRule.convertIndentation( new TokenizerIndent(lang).tokenize(text), config.indentStyle() );
+        text = miscRule.convertIndentation(
+            new TokenizerIndent(lang).tokenize(text), config.indentStyle()
+        );
 
         return text;
     }

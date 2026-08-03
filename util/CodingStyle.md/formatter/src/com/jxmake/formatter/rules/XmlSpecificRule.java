@@ -271,7 +271,7 @@ public final class XmlSpecificRule {
      * Level-2 tc-gap (RDD_KEY_230, foster-parenting): holds nodes relocated out of a {@code <table>}
      *  while it's being parsed, pending splice into the table's own parent's children list (just
      *  before the table node itself) once the table element finishes parsing -- see
-     *  {@link #fosterBufferStack} and {@link #pendingFosterBuffer}.
+     *  {@link #fosterBufferStack} and {@link #pendingFosterBuffer}
      */
     private static final class FosterBuffer {
 
@@ -332,7 +332,7 @@ public final class XmlSpecificRule {
     /**
      * Level-1 tc-gap guard (RDD_KEY_230): set once an implicit {@code <body>} has been
      *  synthesized for the document currently being parsed, so a document with multiple
-     *  head-adjacent content nodes only ever gets one synthetic {@code <body>} inserted.
+     *  head-adjacent content nodes only ever gets one synthetic {@code <body>} inserted
      */
     private boolean bodyInserted;
 
@@ -534,7 +534,7 @@ public final class XmlSpecificRule {
         if( !eof() ) throw new XmlParseException(
             "trailing content after document, near: " + s.substring( pos, Math.min( s.length(), pos + 40 ) )
         );
-        if( html5TcGapLevel >= 1 ) insertImplicitBodyIfNeeded(nodes);
+        if(html5TcGapLevel >= 1) insertImplicitBodyIfNeeded(nodes);
         assert fosterBufferStack.isEmpty() : "fosterBufferStack leaked "
             + fosterBufferStack.size() + " unclosed buffer(s)";
         final StringBuilder out = new StringBuilder();
@@ -573,9 +573,9 @@ public final class XmlSpecificRule {
     {
         if(node.type == NodeType.TEXT) return node.raw != null && !node.raw.trim().isEmpty();
         if(node.type == NodeType.ELEMENT) {
-            final String lowerTag = node.tagName != null
-                ? node.tagName.toLowerCase(java.util.Locale.ROOT)
-                : "";
+            final String lowerTag = node.tagName != null ? node.tagName.toLowerCase(
+                java.util.Locale.ROOT
+            ) : "";
 
             return !TABLE_STRUCTURE_CHILDREN.contains(lowerTag);
         } // if
@@ -601,33 +601,39 @@ public final class XmlSpecificRule {
         if(bodyInserted) return;
         Node htmlNode = null;
         for(final Node n : nodes) {
-            if( n.type == NodeType.ELEMENT && n.tagName != null && n.tagName.equalsIgnoreCase("html") ) {
+            if( n.type == NodeType.ELEMENT && n.tagName != null && n.tagName.equalsIgnoreCase(
+                "html"
+            ) ) {
                 htmlNode = n;
                 break;
             } // if
         } // for
-        final List<Node> target = htmlNode != null && htmlNode.children != null ? htmlNode.children : nodes;
+        final List<Node> target = htmlNode != null&& htmlNode.children != null ? htmlNode.children : nodes;
         for(final Node n : target) {
-            // Explicit <body> already present somewhere in the target sibling list -- nothing to do.
-            if( n.type == NodeType.ELEMENT && n.tagName != null && n.tagName.equalsIgnoreCase("body") ) return;
+            // Explicit <body> already present somewhere in the target sibling list -- nothing to do
+            if( n.type == NodeType.ELEMENT && n.tagName != null && n.tagName.equalsIgnoreCase(
+                "body"
+            ) ) return;
         } // for
         int firstContentIdx = -1;
-        for(int i = 0; i < target.size(); i++) {
+        for( int i = 0; i < target.size(); ++i ) {
             final Node n = target.get(i);
             if(n.type == NodeType.DOCTYPE || n.type == NodeType.COMMENT) continue;
-            if( n.type == NodeType.ELEMENT && n.tagName != null && n.tagName.equalsIgnoreCase("head") ) continue;
+            if( n.type == NodeType.ELEMENT && n.tagName != null && n.tagName.equalsIgnoreCase(
+                "head"
+            ) ) continue;
             if( n.type == NodeType.TEXT && ( n.raw == null || n.raw.trim().isEmpty() ) ) continue;
             firstContentIdx = i;
             break;
         } // for
-        if(firstContentIdx < 0) return; // nothing eligible to wrap -- e.g. head-only document
+        if(firstContentIdx < 0) return; // Nothing eligible to wrap -- e.g. head-only document
 
         final Node body = new Node();
         body.type        = NodeType.ELEMENT;
         body.tagName     = "body";
         body.selfClosing = false;
         body.children    = new ArrayList<>( target.subList( firstContentIdx, target.size() ) );
-        for(int i = target.size() - 1; i >= firstContentIdx; i--) target.remove(i);
+        for( int i = target.size() - 1; i >= firstContentIdx; --i ) target.remove(i);
         target.add(body);
         bodyInserted = true;
     }
@@ -662,11 +668,11 @@ public final class XmlSpecificRule {
      */
     private Node reconstructFormattingElement(final Node template)
     {
-        final Node   clone    = new Node();
-        clone.type            = NodeType.ELEMENT;
-        clone.tagName         = template.tagName;
-        clone.attrs           = new ArrayList<>(template.attrs);
-        clone.selfClosing     = false;
+        final Node clone = new Node();
+        clone.type        = NodeType.ELEMENT;
+        clone.tagName     = template.tagName;
+        clone.attrs       = new ArrayList<>(template.attrs);
+        clone.selfClosing = false;
         final String lowerTag = clone.tagName.toLowerCase(java.util.Locale.ROOT);
         openTagStack.push(lowerTag);
         try {
@@ -678,7 +684,7 @@ public final class XmlSpecificRule {
                 final int gt = s.indexOf('>', pos);
                 pos = gt + 1;
             } // if
-            // else: no real closing tag followed (EOF, or an ancestor's close instead) -- tolerate
+            // Else: no real closing tag followed (EOF, or an ancestor's close instead) -- tolerate
             // silently, same posture as parseElement's own lang.isHtml5 implicit-close fallback.
         }
         finally {
@@ -743,8 +749,8 @@ public final class XmlSpecificRule {
             attachTrailingCommentIfAny(node);
             // Level-3 tc-gap (RDD_KEY_230, misnested <form>): a suppressed second <form> (see
             // pendingSuppressedFormNode's own javadoc) contributes its own children directly to this
-            // frame's children list instead of its own now-ignored wrapping element.
-            if( node == pendingSuppressedFormNode ) {
+            // frame's children list instead of its own now-ignored wrapping element
+            if(node == pendingSuppressedFormNode) {
                 pendingSuppressedFormNode = null;
                 if(node.children != null) nodes.addAll(node.children);
                 continue;
@@ -758,8 +764,9 @@ public final class XmlSpecificRule {
             // this item's own fixtures were authored: with an early `continue` here, a formatting
             // element reconstructed by adoption agency while directly inside a <table> was silently
             // dropped instead of being foster-parented itself.)
-            final boolean fostered = html5TcGapLevel >= 2 && !fosterBufferStack.isEmpty()
-                    && isInTableInsertionMode() && shouldFosterParent(node);
+            final boolean fostered = html5TcGapLevel >= 2&& ! fosterBufferStack.isEmpty()&& isInTableInsertionMode()&& shouldFosterParent(
+                node
+            );
             if(fostered) {
                 fosterBufferStack.peek().nodes.add(node);
             }
@@ -775,8 +782,8 @@ public final class XmlSpecificRule {
             // own javadoc) -- reconstruct that formatting element as this node's own next sibling (in
             // whichever destination -- fosterBufferStack or nodes -- the ancestor itself just landed
             // in) so the content that follows continues to render as if the formatting element had
-            // never been misnested-closed early.
-            if( html5TcGapLevel >= 4 && pendingReconstructFormattingTemplate != null ) {
+            // never been misnested-closed early
+            if(html5TcGapLevel >= 4 && pendingReconstructFormattingTemplate != null) {
                 final Node template = pendingReconstructFormattingTemplate;
                 pendingReconstructFormattingTemplate = null;
                 skipWs();
@@ -793,7 +800,7 @@ public final class XmlSpecificRule {
                 if( !startsWithTriggerTag( java.util.Collections.singleton(lowerTemplateTag) ) ) {
                     final Node reconstructed = reconstructFormattingElement(template);
                     if(fostered) fosterBufferStack.peek().nodes.add(reconstructed);
-                    else nodes.add(reconstructed);
+                    else         nodes.add(reconstructed);
                 } // if
             } // if
         } // while
@@ -1070,19 +1077,19 @@ public final class XmlSpecificRule {
             lowerTag
         ) : null;
         // Level-2 tc-gap (RDD_KEY_230, foster-parenting): a new FosterBuffer per <table> ancestor,
-        // pushed/popped alongside openTagStack -- see fosterBufferStack's own javadoc.
-        final boolean isTable = html5TcGapLevel >= 2 && "table".equals(lowerTag);
+        // pushed/popped alongside openTagStack -- see fosterBufferStack's own javadoc
+        final boolean isTable = html5TcGapLevel >= 2&& "table".equals(lowerTag);
         // Level-3 tc-gap (RDD_KEY_230, misnested <form>): a <template> gets its own fresh form-pointer
         // scope (saved/restored via the plain local below -- see currentFormElementPointer's own
         // javadoc for why this doesn't need a separate Deque); a second <form> seen while a form
-        // pointer is already active is suppressed rather than nested.
-        final boolean isTemplate     = html5TcGapLevel >= 3 && "template".equals(lowerTag);
-        final boolean isForm         = html5TcGapLevel >= 3 && "form".equals(lowerTag);
-        final boolean formSuppressed = isForm && currentFormElementPointer != null;
+        // pointer is already active is suppressed rather than nested
+        final boolean isTemplate       = html5TcGapLevel >= 3&& "template".equals(lowerTag);
+        final boolean isForm           = html5TcGapLevel >= 3&& "form".equals(lowerTag);
+        final boolean formSuppressed   = isForm&& currentFormElementPointer != null;
         final Node    savedFormPointer = currentFormElementPointer;
         // Level-4 tc-gap (RDD_KEY_230, adoption agency): see FORMATTING_ELEMENTS/pendingAdoptionNode's
-        // own javadocs.
-        final boolean isFormatting = html5TcGapLevel >= 4 && FORMATTING_ELEMENTS.contains(lowerTag);
+        // own javadocs
+        final boolean isFormatting = html5TcGapLevel >= 4&& FORMATTING_ELEMENTS.contains(lowerTag);
         openTagStack.push(lowerTag);
         if(isTable) fosterBufferStack.push( new FosterBuffer() );
         if(isTemplate) currentFormElementPointer = null;
@@ -1109,7 +1116,7 @@ public final class XmlSpecificRule {
                 // pre-existing per-sibling reindentation behavior (RDD_KEY_185) instead of being
                 // forced onto one (possibly very long) line.
                 if( candidate.indexOf('\n') < 0 ) n.mixedContentRaw = candidate;
-            }
+            } // if
             skipInlineWs();
             if( startsWith(closeTok) || startsWith("</" + n.tagName + " ")
                     || ( lang.isHtml5 && startsWithCloseTagIgnoreCase(n.tagName) ) ) {
@@ -1118,7 +1125,7 @@ public final class XmlSpecificRule {
                 // Level-4 tc-gap (RDD_KEY_230, adoption agency): this element (n) is the ancestor
                 // recorded in pendingAdoptionOuterTagLower and it just genuinely closed -- hand off
                 // to parseNodes (see pendingReconstructFormattingTemplate's own javadoc) to
-                // reconstruct the formatting element it had orphaned, as n's own next sibling.
+                // reconstruct the formatting element it had orphaned, as n's own next sibling
                 if( html5TcGapLevel >= 4 && pendingAdoptionNode != null
                         && lowerTag.equals(pendingAdoptionOuterTagLower) ) {
                     pendingReconstructFormattingTemplate = pendingAdoptionNode;
@@ -1126,7 +1133,7 @@ public final class XmlSpecificRule {
                     pendingAdoptionOuterTagLower         = null;
                 } // if
                 return n;
-            }
+            } // if
             if(impliedTriggers != null) {
                 // Implied close (RDD_KEY registered in IMPLIED_CLOSE_TRIGGERS): either an upcoming
                 // sibling trigger tag or the parent's own closing tag ended this element's children --
@@ -1171,7 +1178,7 @@ public final class XmlSpecificRule {
                 if( !fb.nodes.isEmpty() ) pendingFosterBuffer = fb;
             } // if
             if(isTemplate) currentFormElementPointer = savedFormPointer;
-            if( isForm && !formSuppressed && currentFormElementPointer == n ) currentFormElementPointer = null;
+            if(isForm && !formSuppressed && currentFormElementPointer == n) currentFormElementPointer = null;
             if(formSuppressed) pendingSuppressedFormNode = n;
         }
     }
@@ -1650,7 +1657,9 @@ public final class XmlSpecificRule {
             final String  dedentedStyle = dedent(n.raw).trim();
             final boolean isCdataStyle  = dedentedStyle.startsWith(
                 "<![CDATA["
-            )&& dedentedStyle.endsWith("]]>");
+            )&& dedentedStyle.endsWith(
+                "]]>"
+            );
             final String  cssSource     = isCdataStyle ? dedentedStyle.substring(
                 "<![CDATA[".length(), dedentedStyle.length() - "]]>".length()
             ).trim() : n.raw.trim();

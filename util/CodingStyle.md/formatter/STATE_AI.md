@@ -1024,3 +1024,27 @@ tree. Also parallel `tools/gru`/`tools/verifiers` self-formatting
 for all 9 `tools/gru` + 4 `tools/verifiers` files); adopted round1 into both
 dirs (2 of 9 `tools/gru` and 2 of 4 `tools/verifiers` actually changed; rest
 already formatter-clean).
+
+---
+
+**GRU weights loaded once per process, not once per comment (user-commissioned
+efficiency fix).** `GruAbstainResolver.resolve` previously called
+`GruClassifier.load(weightsPath)` -- a fresh read+parse of the weights JSON --
+on every single rule-based-ABSTAIN comment/target-word, in both multi-file
+batch runs and server mode. **Fix:** `GruAbstainResolver.CLASSIFIER_CACHE`, a
+`ConcurrentHashMap<Path, Optional<GruClassifier>>` keyed by the resolved
+weights path; `loadCached` uses `computeIfAbsent` so the weights file is
+loaded at most once per distinct path for the process's lifetime, shared
+safely across concurrent server-mode requests (`computeIfAbsent` makes the
+single load thread-safe without an explicit lock). A failed load (missing/
+corrupt file) is cached too (as `Optional.empty()`), so it isn't retried per
+comment -- same "attempt once, fail-safe ABSTAIN forever after" posture as
+`RDD_EXT_9`'s AI-decision-client endpoint-dead cache. **Design note (why not a
+literal `GruClassifier` singleton):** `gru-weights-path` is a per-invocation/
+per-request config override, so the cache is keyed by weights path rather
+than making `GruClassifier` itself a single global instance -- a real
+classic singleton would either ignore path overrides or need the same
+keyed-cache machinery anyway, just relocated. `GruClassifier` itself stays an
+ordinary immutable class; nothing about its own code needed to change.
+Confined to `GruAbstainResolver.java`. `make test`: 238/238 forward +
+238/238 idempotency, unchanged.

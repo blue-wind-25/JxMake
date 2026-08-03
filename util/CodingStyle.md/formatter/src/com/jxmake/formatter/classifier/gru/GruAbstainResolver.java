@@ -14,6 +14,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.CodeSource;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.jxmake.formatter.Config;
 import com.jxmake.formatter.classifier.CommentClassifier;
@@ -36,6 +38,20 @@ import com.jxmake.formatter.classifier.CommentFeatureVector;
  *  Tier-1/Tier-2 rule behavior may change when the feature is off or the weights file is absent.
  */
 public final class GruAbstainResolver {
+
+    /**
+     * Cache of loaded {@link GruClassifier} instances keyed by resolved weights-file path, so the
+     *  weights JSON is parsed at most once per distinct path for the lifetime of the process --
+     *  {@link #resolve} previously called {@link GruClassifier#load} on every single ABSTAIN
+     *  comment, re-reading and re-parsing the same file over and over in both multi-file batch runs
+     *  and server mode. An absent {@link Optional} value (from a failed load) is cached too, so a
+     *  missing/corrupt weights file is only attempted once, not retried per comment -- consistent
+     *  with RDD_EXT_9's "skip for process lifetime after first failure" fail-safe pattern used
+     *  elsewhere in this codebase (see STATE_AI.md). {@link ConcurrentHashMap#computeIfAbsent} makes the single
+     *  load thread-safe without a separate lock, so a single shared {@link GruClassifier} per
+     *  weights path is also safe to hand out to concurrent server-mode requests.
+     */
+    private static final ConcurrentHashMap<Path, Optional<GruClassifier>> CLASSIFIER_CACHE = new ConcurrentHashMap<>();
 
     /**
      * Filename of the GRU weights file expected in the "program directory" (see
@@ -122,17 +138,38 @@ public final class GruAbstainResolver {
             // determined -- ABSTAIN, never blocks formatting
             return CommentDecision.ABSTAIN;
         }
-        final GruClassifier gru;
-        try {
-            gru = GruClassifier.load(weightsPath);
-        }
-        catch(final IOException e) {
+        final GruClassifier gru = loadCached(weightsPath).orElse(null);
+        if(gru == null) {
             // Fail-safe: missing/unreadable/corrupt weights file -> ABSTAIN, never blocks
             // formatting
             return CommentDecision.ABSTAIN;
         }
 
         return gru.classify(commentText, targetWordIndex);
+    }
+
+    /**
+     * Returns the cached {@link GruClassifier} for {@code weightsPath}, loading and caching it on
+     *  first use ({@link #CLASSIFIER_CACHE}) -- at most one {@link GruClassifier#load} call (and
+     *  thus one weights-file read/parse) per distinct path for the process's lifetime, shared
+     *  safely across every caller including concurrent server-mode requests. An empty
+     *  {@link Optional} means loading failed (and is cached too, so it isn't retried) --
+     *  {@link IOException} is the only checked exception {@link GruClassifier#load} declares, so it
+     *  is caught here and folded into that empty result.
+     */
+    private static Optional<GruClassifier> loadCached(final Path weightsPath)
+    {
+        return CLASSIFIER_CACHE.computeIfAbsent(
+            weightsPath,
+            path-> {
+                try {
+                    return Optional.of( GruClassifier.load(path) );
+                }
+                catch(final IOException e) {
+                    return Optional.empty();
+                }
+            }
+        );
     }
 
     /**

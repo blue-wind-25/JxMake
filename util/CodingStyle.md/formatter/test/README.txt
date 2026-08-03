@@ -262,17 +262,17 @@ XML:
                                                         pair freezing a malformed-spacing tag verbatim; and a
                                                         trailing comment right before the closing tag.
 
-  xml_indent_auto_tabs_inp/out.xml                   -- `indent-style = auto` (via `<!--%
-                                                        JXM_CFMT_CFG -->`) on a tab-indented input,
-                                                        reusing `IndentationDetector.detectFromContent`
-                                                        to detect and preserve tabs.
+  xml_indent_auto_tabs_inp/out.xml                   -- `indent-style = auto` (via `<!--% JXM_CFMT_CFG -->`)
+                                                        on a tab-indented input, reusing
+                                                        `IndentationDetector.detectFromContent` to detect and
+                                                        preserve tabs.
 
   xml_indent_auto_spaces_inp/out.xml                 -- same `indent-style = auto` directive on a
-                                                        space-indented input, detecting and normalizing
-                                                        to the configured space width.
+                                                        space-indented input, detecting and normalizing to the
+                                                        configured space width.
 
-  xml_indent_auto_fallback_inp/out.xml               -- same directive on a single-line/minified input
-                                                        with no indentation hint at all, falling back to
+  xml_indent_auto_fallback_inp/out.xml               -- same directive on a single-line/minified input with no
+                                                        indentation hint at all, falling back to
                                                         `Config.DEFAULT_INDENT_STYLE` (spaces) exactly like
                                                         `IndentationDetector.detectFromContent`'s own
                                                         no-indented-line fallback.
@@ -394,9 +394,8 @@ HTML5:
                                                         `<style>` block, the CDATA-wrapped `<style>` idiom
                                                         dispatched to CSS formatting and re-wrapped, the
                                                         CDATA-wrapped `<script>` idiom dispatched to JS
-                                                        formatting and re-wrapped, and a
-                                                        `<script type="application/json">` block staying fully
-                                                        opaque.
+                                                        formatting and re-wrapped, and a `<script
+                                                        type="application/json">` block staying fully opaque.
 
   html_multiline_comment_verbatim_inp/out.html       -- A `<!-- -->` comment whose raw interior contains a
                                                         newline (copyright-block style, indented interior
@@ -3126,24 +3125,19 @@ Real-code regressions:
                                                         more than one physical source line, leave the
                                                         statement untouched. See `RDD_KEY_225`.
 
-  real_code_regressions_177_inp/out.ts               -- JS/TS, single-declarator colon-spacing
-                                                        bug: `const x: number = 1;` rendered with a
-                                                        stray space before the colon
-                                                        (`const x : number = 1;`) whenever the
-                                                        declaration had no alignment-group
-                                                        neighbors, because
-                                                        `JsTsDeclarationAlignmentRule.
-                                                        renderAlignedGroup` always put the `: type`
-                                                        text in its own `ColumnGrid` cell and
-                                                        `ColumnGrid` always joins adjacent cells
-                                                        with a single space, even for a one-row
-                                                        "group". Fixed by merging the name and
-                                                        `: type` text into one cell whenever
-                                                        `group.size() == 1`; a real (`size() > 1`)
-                                                        alignment group keeps the separate-cell/
-                                                        grid-padding behavior with its deliberately
-                                                        documented space before `:`
-                                                        (STYLE_JS_TS.md §11.2's `DEFAULT : string`
+  real_code_regressions_177_inp/out.ts               -- JS/TS, single-declarator colon-spacing bug: `const x:
+                                                        number = 1;` rendered with a stray space before the
+                                                        colon (`const x : number = 1;`) whenever the
+                                                        declaration had no alignment-group neighbors, because
+                                                        `JsTsDeclarationAlignmentRule. renderAlignedGroup`
+                                                        always put the `: type` text in its own `ColumnGrid`
+                                                        cell and `ColumnGrid` always joins adjacent cells with
+                                                        a single space, even for a one-row "group". Fixed by
+                                                        merging the name and `: type` text into one cell
+                                                        whenever `group.size() == 1`; a real (`size() > 1`)
+                                                        alignment group keeps the separate-cell/ grid-padding
+                                                        behavior with its deliberately documented space before
+                                                        `:` (STYLE_JS_TS.md §11.2's `DEFAULT : string`
                                                         example).
 
 How Tests Are Run

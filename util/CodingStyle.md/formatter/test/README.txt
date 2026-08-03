@@ -279,11 +279,11 @@ XML:
 
   xml_mixed_content_inp/out.xml                      -- mixed text+element content (a text node and an element
                                                         node interleaved) stays inline on one line, preserved
-                                                        exactly as written, incl. nested mixed content
-                                                        (`<i>` containing its own `<em>`); a second paragraph
-                                                        long enough that its reconstructed single line exceeds
-                                                        `line-length` stays on that one (long) line rather than
-                                                        being wrapped/reflowed; a text-only element and a
+                                                        exactly as written, incl. nested mixed content (`<i>`
+                                                        containing its own `<em>`); a second paragraph long
+                                                        enough that its reconstructed single line exceeds
+                                                        `line-length` stays on that one (long) line rather
+                                                        than being wrapped/reflowed; a text-only element and a
                                                         child-element-only list confirm both pre-existing
                                                         shapes are unaffected.
 

@@ -163,10 +163,32 @@ Question here since real implementation hasn't started.
 
 ## Checklist
 
-- [ ] Diff `STYLE_CPP26.md` against `STYLE_CPP20.md`/`STYLE_C_CPP.md` to
+- [x] Diff `STYLE_CPP26.md` against `STYLE_CPP20.md`/`STYLE_C_CPP.md` to
       enumerate exactly which rules are C++26-specific vs. already covered
       (§1–3 look like they may already be structurally covered; §4/§5 look
       genuinely new — confirm by diffing, don't assume).
+
+      **Confirmed 2026-08-03 (direct read-only diff of all three files, no
+      edits).** §1 (pack indexing), §2 (`= delete("reason")`), §3
+      (placeholder `_`) are correctly thin wrappers pointing at pre-existing
+      general baseline rules in `STYLE.md` (§3.1 bracket tight/loose, §5
+      declaration-alignment grid) and ordinary call-argument spacing — not
+      duplicates of `STYLE_CPP20.md`/`STYLE_C_CPP.md` content; those two
+      files' own sections (`STYLE_CPP20.md` §1–4: structured bindings,
+      concepts/requires, consteval/constinit/constexpr, other; `STYLE_C_CPP.md`
+      §1–11: empty param lists, brace style, templates, pointer/const,
+      incr/decr, bitfields, comments, mixed declarations, preserve-as-is,
+      dividers, header structure) have no overlapping content with §1–3.
+      §4 (Contracts) and §5 (Reflection) confirmed genuinely new — neither
+      `pre`/`post`/`contract_assert` nor `^^`/`[:`/`:]` appear in either
+      other file; §4 only compares its overflow-wrap *shape* to
+      `STYLE_CPP20.md`'s `requires` handling, §5 only reuses `STYLE_CPP20.md
+      §4.4`'s tight/loose bracket-complexity *mechanism* — neither is
+      duplicated content. No per-file section-numbering collision either
+      (each file numbers independently, no stale cross-references found).
+      No doc edits made — the existing duplication-by-reference (prose
+      pointers, not copied text) was confirmed intentional and safe to
+      keep as-is, not something this item's scope calls for removing.
 - [x] **Language-selection mechanism resolved (RDD_KEY_180, reversing
       RDD_KEY_179).** C++26 is NOT a separate selectable language — no
       `Lang.isCpp26` flag, no `--lang cpp26`/`lang=cpp26` selector, no

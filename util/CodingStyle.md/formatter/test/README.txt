@@ -3150,6 +3150,37 @@ Real-code regressions:
                                                         `:` (STYLE_JS_TS.md §11.2's `DEFAULT : string`
                                                         example).
 
+  real_code_regressions_178_inp/out.py               -- Python3, indent-style conversion (Python analog of
+                                                        `MiscRuleCore#convertIndentation`, new
+                                                        `MiscRuleIndent#convertIndentation`): tab-indented
+                                                        `match`/`case` and `if`/comment source (pattern
+                                                        modeled on `test/py_comments_inp.py`'s own
+                                                        `match`/`case`-adjacent comments, confirmed absent as
+                                                        real in-code drift in `psf/black`/`django/django`/
+                                                        `python/cpython` -- only 3 tab-indented files found
+                                                        anywhere in those corpora, all inside already-opaque
+                                                        triple-quoted docstrings) converted to the default
+                                                        `indent-style = spaces` target. Exercises: real
+                                                        statement lines rewritten from the tokenizer's own
+                                                        INDENT/DEDENT-derived depth (never a raw per-line
+                                                        width guess, since Python's indentation is itself the
+                                                        only block-structure signal); a `case`-adjacent
+                                                        comment line intentionally dedented to visually group
+                                                        with the following, shallower `case` (comment/blank
+                                                        lines are never depth-rewritten -- only
+                                                        width-converted in place via `MiscRuleCore#renderIndent`,
+                                                        since their true depth is ambiguous but their width is
+                                                        always safe to re-style); the file's own final line
+                                                        (no trailing newline) exercising the EOF DEDENT-run
+                                                        fix (a synthesized end-of-file DEDENT token's `text`
+                                                        field is a literal width number for internal use only,
+                                                        never source text -- found corrupting output as a
+                                                        stray trailing digit during the `psf/black` corpus
+                                                        idempotency check, on `tests/data/cases/comments3.py`/
+                                                        `annotations.py`). See STATE_PYTHON3.md's Resolved
+                                                        Design Decisions for the granularity decision this
+                                                        resolves.
+
 How Tests Are Run
 -----------------
 

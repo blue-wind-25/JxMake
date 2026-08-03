@@ -92,6 +92,7 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 |---|---|
 | RDD_KEY_184 | §1.4/§1.5 non-empty `{}` (dict/set) is always loose per §3.3, no unpacking-only carve-out; fixed stale tight example |
 | RDD_KEY_186 | New §10 — triple-quoted docstrings/multiline strings are opaque, preserved verbatim beyond the opening line (extends §4's precedent) |
+| RDD_KEY_237 | Indent-size/style conversion (Python analog of `MiscRuleCore#convertIndentation`) — granularity resolved per real statement line via the tokenizer's own INDENT/DEDENT depth, not per-block width-guessing; see "Indent-Size/Style Conversion" section below |
 
 ---
 
@@ -193,24 +194,90 @@ bracket-complexity → §2–9 → fixtures → real-code testing.
 `STYLE_PYTHON3.md`'s own "Known Open Items" (§10) states its prior open
 items (decorators, f-strings, type-hint signature wrapping) were already
 resolved via Q&A and folded into §4–§6; nothing is left unresolved in the
-style doc itself. One open item remains at the implementation-architecture
-level, below.
+style doc itself. The former implementation-architecture-level open item
+(indent-size/style conversion granularity) is now resolved — see "Indent-
+Size/Style Conversion" below. No open items remain.
 
-**Indent-size/style conversion is per-block, not whole-file.** Unlike
-Curly-family languages, Python's indentation is the only signal of block
-depth (no braces to re-derive it from), so general scope-depth
-reindentation is architecturally unavailable here, not merely hard — there's
-nothing independent to recompute *from*. Indent-size/style conversion (the
-Python analog of `MiscRuleCore.convertIndentation`) must therefore operate
-per-block: rescale a block's indentation if its width is a clean multiple of
-the presumed original unit, leave that block's lines untouched otherwise —
-never reject the whole file for one inconsistent block, since CPython itself
-only requires per-block internal consistency, not file-wide uniformity.
-**Open:** exact block-boundary granularity (each `def`/`class`/
-control-structure body independently vs. the whole contiguous indent-run at
-a given depth) is undecided — resolve against real-world drift patterns in
-the `psf/black`/`django` fixture repos once `FormatterIndent`/
-`MiscRuleIndent`'s reindentation path is actually implemented.
+---
+
+## Indent-Size/Style Conversion — DONE (RDD_KEY_237)
+
+Python analog of `MiscRuleCore#convertIndentation`, implemented 2026-08-04.
+**Granularity decision (resolved against real evidence, superseding the
+prior "per-block, rescale if clean multiple" hypothesis):** real-code
+checks across the existing `/tmp/black`/`/tmp/django`/`/tmp/cpython`
+checkouts found **zero in-code indentation drift** anywhere in
+`django/django` or `python/cpython`, and the only 3 tab-indented files
+found anywhere (in `psf/black`) were entirely inside already-opaque
+triple-quoted docstrings — never real block indentation. Real disciplined
+Python code essentially never has intra-file, in-code indent-style/size
+drift, so the per-block width-guessing plan was solving a hypothetical
+that doesn't occur in practice, and was strictly less safe than the
+alternative actually implemented: reconstruct each **real statement
+line's** indentation directly from `TokenizerIndent#synthesizeIndentation`'s
+own already-authoritative INDENT/DEDENT depth stack (the same mechanism
+Python's own grammar uses to decide block membership — proven internally
+consistent by the fact that the file tokenized at all), rather than
+re-deriving depth by guessing from raw per-line width. This sidesteps the
+block-boundary-granularity question entirely: there is no heuristic
+boundary to choose, because the depth is already known per line.
+
+New `MiscRuleIndent#convertIndentation` (mirrors `MiscRuleCore
+#convertIndentation`'s name/shape/signature): walks the token stream with a
+running `depth` counter incremented/decremented by each INDENT/DEDENT
+marker encountered; each real statement line's leading whitespace renders
+as `depth` indent units in the target style. A blank/comment-only line
+(no INDENT/DEDENT of its own — e.g. a comment deliberately dedented early
+to visually group with a following shallower block, confirmed via this
+job's own `test/py_comments_inp.py` fixture) is never depth-rewritten —
+its true depth is ambiguous — but its own width is still safely re-styled
+in place via the inherited `MiscRuleCore#renderIndent`/
+`expandedIndentWidth` (changes no width, only character choice, so it's
+always safe regardless of true depth). An interior continuation line of a
+multi-physical-line statement (bracket/backslash continuation) is left
+completely untouched, mirroring `TokenizerIndent#synthesizeIndentation`'s
+own `insideBrackets`/backslash check for what counts as a new logical line.
+
+Wired into `FormatterIndent#formatOne` as a final phase (re-tokenize the
+fully-formatted text via `TokenizerIndent`, then convert) — exactly mirrors
+`FormatterCurly`'s own "Phase 6: final whitespace normalization, last"
+placement of the C-family original. No new config key: reuses the existing
+shared `indent-style` key (already resolved from `auto` to a concrete
+`spaces`/`tabs` choice upstream in `Main.formatStandalone`/`ServerMode`
+before either family's formatter runs — same precedent the C-family
+original already relies on).
+
+Two real bugs found and fixed during implementation (same real-code
+idempotency methodology used throughout this job):
+1. A `match`/`case`-adjacent comment line initially got rewritten to the
+   carried-over (deeper) depth instead of its own written (shallower)
+   width. Repro: `test/py_comments_inp.py`. Fixed by exempting
+   blank/comment-only lines from depth-based rewriting (width-convert
+   only, per above).
+2. A synthesized end-of-file DEDENT-run token's `text` field (a literal
+   width number for internal use, per `TokenizerIndent
+   #synthesizeIndentation`'s own javadoc) was appended verbatim as real
+   source text whenever it landed outside the `atLineStart` branch (a
+   file with no trailing newline on its last line) — corrupted
+   `psf/black`'s `tests/data/cases/comments3.py`/`annotations.py` with a
+   stray trailing digit, growing further each idempotency round. Fixed by
+   explicitly skipping INDENT/DEDENT token text in the general
+   (non-`atLineStart`) append branch.
+
+New fixture `test/real_code_regressions_178_{inp,out}.py`: tab-indented
+`match`/`case`/comment source (pattern modeled on `py_comments`, confirmed
+absent as real in-code drift per the corpus check above) converted to the
+default `indent-style = spaces` target — exercises depth-based statement
+rewriting, comment-width-only conversion, and the EOF-no-trailing-newline
+DEDENT fix together.
+
+**Final validation:** `make test` 244/244 forward + idempotency. Full
+corpus re-run after both fixes: `psf/black` (338 files), `django/django`
+(2927 files), `python/cpython` (`Lib/`, ~1500 files) — zero crashes, zero
+non-idempotency (`diff -rq round1 round2` empty on all three), zero new
+`python3.12 -m py_compile` errors (only pre-existing, formatter-unrelated
+failures reproduced identically on the unformatted originals, e.g.
+`annotationlib.py`'s t-string syntax not yet supported by python3.12).
 
 ---
 
@@ -697,4 +764,8 @@ the `psf/black`/`django` fixture repos once `FormatterIndent`/
 
       All four clusters fixed; full corpus re-run deferred until
       requested, same pattern as every prior dogfood entry in this file.
+- [x] Indent-size/style conversion (Python analog of `MiscRuleCore
+      #convertIndentation`) — see "Indent-Size/Style Conversion — DONE
+      (RDD_KEY_237)" section above for the full design-decision/
+      implementation narrative, bug fixes, and corpus validation.
 

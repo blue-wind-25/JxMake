@@ -13,6 +13,7 @@ import java.util.List;
 
 import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
+import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
 /**
  * Landing spot for the indent-based language family's (Python3) statement-level rules -- see
@@ -277,6 +278,130 @@ public final class MiscRuleIndent extends MiscRuleCore {
         } // for
 
         return out;
+    }
+
+    /**
+     * Python analog of {@link MiscRuleCore#convertIndentation} -- converts every line's leading
+     *  indentation run to the requested `spaces`/`tabs` style, per STYLE.md §1 / STATE_PYTHON3.md's
+     *  "Open Questions" entry this resolves. Deliberately NOT a per-line raw-width-ratio rescale
+     *  like the C-family version: since Python's indentation is itself the only block-structure
+     *  signal (no braces to independently re-derive depth from), rewriting purely off *measured*
+     *  width per line risks changing block membership if a line's own width is irregular relative
+     *  to {@link #indentWidth} (a naive `width / indentWidth` guess could round two genuinely
+     *  different depths to the same target width, silently merging blocks).
+     *
+     * <p>Instead this rebuilds each real (non-blank, non-comment-only) statement line's indentation
+     *  from the depth already established by {@link
+     *  com.jxmake.formatter.tokenizer.TokenizerIndent#synthesizeIndentation}'s own INDENT/DEDENT
+     *  synthesis -- the same mechanism Python's own grammar uses to decide block membership from
+     *  the source being formatted, already proven internally consistent by the fact that the file
+     *  tokenized at all. A running `depth` counter is incremented/decremented by each INDENT/DEDENT
+     *  marker actually encountered; the target text is always exactly `depth * indentWidth` (or
+     *  `depth` tabs), so two statement lines can never collapse to the same rendered width unless
+     *  they were already at the same depth. Blank/comment-only lines are deliberately left
+     *  untouched (never rewritten) -- they carry no INDENT/DEDENT of their own, so their "depth" is
+     *  ambiguous (a comment is free to sit at whatever column the author chose, independent of the
+     *  depth carried over from the preceding real statement; found via real-code testing against
+     *  this job's own `test/py_comments_inp.py` fixture, a `match`/`case`-adjacent comment
+     *  deliberately dedented to visually group with a following, shallower block). This granularity
+     *  question -- whole-file uniform target vs. per-block drift-tracking -- was resolved as
+     *  "neither, in the C-family sense": real-code evidence (`psf/black`/`django/django`/
+     *  `python/cpython` checkouts, 2026-08-04) found zero in-code (non-string-literal) indentation
+     *  drift in any of the three -- the only tab-indented lines found anywhere (3 files in
+     *  `psf/black`) were entirely inside already-opaque triple-quoted docstrings (§10,
+     *  RDD_KEY_186), never touched by this or any other pass. Depth-based rewriting sidesteps the
+     *  need to choose a block-boundary granularity at all: it operates per physical line using
+     *  structure Python's own grammar already resolved, not a heuristic re-guess of it.
+     *
+     * <p>A line with no leading {@code WHITESPACE} token (column-0 statements) is left alone --
+     *  there is nothing to rewrite. Multi-physical-line statements (bracket/backslash
+     *  continuation): only the first physical line's own leading indentation is touched; interior
+     *  continuation lines' whitespace is not itself indentation (Python's grammar assigns it no
+     *  block-structure meaning inside an open bracket/continuation) and is left untouched, same
+     *  "documented gap, not a guess" posture used throughout this job. A frozen {@code WHITESPACE}
+     *  token (inside an already-opaque span) is never rewritten.
+     */
+    public String convertIndentation(final List<Token> tokens, final String indentStyle)
+    {
+        if( !"spaces".equals(
+            indentStyle
+        ) && !"tabs".equals(
+            indentStyle
+        ) ) throw new IllegalArgumentException(
+            "convertIndentation only handles spaces|tabs, got: " + indentStyle
+        );
+        final StringBuilder out         = new StringBuilder();
+        final int            n           = tokens.size();
+              int            i           = 0;
+              int            depth       = 0;
+              boolean        atLineStart = true;
+
+        while(i < n) {
+            if(atLineStart) {
+                int wsIdx = -1;
+                if( tokens.get(i).type == TokenType.WHITESPACE ) {
+                    wsIdx = i;
+                    ++i;
+                }
+                // Blank/comment-only lines never get INDENT/DEDENT synthesized (TokenizerIndent
+                // #synthesizeIndentation's own "blankOrComment" check) precisely because they carry
+                // no grammatical depth of their own -- a comment is free to sit at whatever column
+                // the author chose (e.g. dedented early to visually group with a following, shallower
+                // block), independent of the depth carried over from the preceding real statement.
+                // Rewriting such a line to the carried-over `depth`'s canonical WIDTH would silently
+                // override that authorial choice (found via real-code testing: `test/py_comments_inp.py`'s
+                // `match`/`case`-adjacent comments). So depth-based reconstruction below only ever
+                // applies to a real (non-blank, non-comment-only) statement line -- exactly the same
+                // lines TokenizerIndent itself treats as depth-affecting. A blank/comment-only line's
+                // own WIDTH is still safe to re-express in the target style, though (it changes no
+                // meaning at all, unlike its depth) -- done via the width-preserving {@link
+                // #renderIndent} (same primitive {@link MiscRuleCore#convertIndentation} uses),
+                // keeping the whole file visually consistent in the target style.
+                final boolean blankOrComment = i >= n || tokens.get(i).type == TokenType.NEWLINE
+                        || tokens.get(i).type == TokenType.COMMENT_LINE;
+                while( i < n && ( tokens.get(i).type == TokenType.INDENT
+                        || tokens.get(i).type == TokenType.DEDENT ) ) {
+                    if(tokens.get(i).type == TokenType.INDENT) ++depth;
+                    else                                       --depth;
+                    ++i;
+                }
+                if(wsIdx < 0) {
+                    // nothing to rewrite
+                }
+                else if( tokens.get(wsIdx).frozen ) out.append( tokens.get(wsIdx).text );
+                else if(blankOrComment) out.append( renderIndent( tokens.get(wsIdx).text, indentStyle ) );
+                else out.append( indentText(depth, indentStyle) );
+                atLineStart = false;
+                continue;
+            } // if
+            final Token t = tokens.get(i);
+            // A trailing INDENT/DEDENT run synthesized at EOF (closing every still-open block once
+            // the source ends) lands here rather than under the `atLineStart` branch above, since
+            // the preceding real content line never ended in a NEWLINE (no trailing newline at EOF)
+            // or ended one that's still `insideBrackets`. Its own `text` field is a literal width
+            // number for informational use (see TokenizerIndent#synthesizeIndentation's javadoc),
+            // never source text to render -- appending it unconditionally here corrupted output
+            // (found via real-code testing: `psf/black`'s `tests/data/cases/comments3.py`/
+            // `annotations.py`, whose last line has no trailing newline, appended a stray digit).
+            if(t.type != TokenType.INDENT && t.type != TokenType.DEDENT) out.append(t.text);
+            if(t.type == TokenType.NEWLINE) {
+                // Mirrors TokenizerIndent#synthesizeIndentation's own insideBrackets/backslash
+                // check -- an interior continuation line of a multi-physical-line statement
+                // (bracket or backslash continuation) never starts a new logical line, so its own
+                // leading whitespace is not indentation at all (see this method's own javadoc's
+                // "documented gap" note) and must not be treated as line-start here either; doing
+                // so would erase an earlier pass's own cosmetic continuation-indent rendering
+                // (found via real-code testing: `real_code_regressions_79/116/138_inp.py`'s
+                // multi-line signatures/union-type wraps).
+                final boolean insideBrackets = t.parenDepth > 0;
+                final boolean backslash      = i > 0 && tokens.get(i - 1).type == TokenType.OP
+                        && "\\".equals( tokens.get(i - 1).text );
+                atLineStart = !insideBrackets && !backslash;
+            } // if
+            ++i;
+        } // while
+
+        return out.toString();
     }
 
 } // class MiscRuleIndent

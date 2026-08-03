@@ -7,6 +7,9 @@
 
 package com.jxmake.formatter;
 
+import com.jxmake.formatter.rules.MiscRuleIndent;
+import com.jxmake.formatter.tokenizer.TokenizerIndent;
+
 /**
  * Indentation-block-family formatter (Python3 -- see STATE_PYTHON3.md). Currently a statement/
  * indentation skeleton only -- delegates straight to {@link ScopePipelineIndent}'s identity
@@ -36,11 +39,21 @@ public final class FormatterIndent extends FormatterCore {
     {
         if(formatOff) return content;
 
-        return new ScopePipelineIndent(
+        String text = new ScopePipelineIndent(
             lang, config.indentSize(), config.lineLength()
         ).process(
             content
         );
+
+        // Final phase, mirroring FormatterCurly's own "Phase 6: final whitespace normalization,
+        // last" placement of MiscRuleCore#convertIndentation -- see MiscRuleIndent#convertIndentation
+        // for why this is depth-based rather than a raw-width-ratio rescale.
+        final MiscRuleIndent miscRule = new MiscRuleIndent(
+            lang, false, false, false, config.indentSize(), config.lineLength()
+        );
+        text = miscRule.convertIndentation( new TokenizerIndent(lang).tokenize(text), config.indentStyle() );
+
+        return text;
     }
 
 } // class FormatterIndent

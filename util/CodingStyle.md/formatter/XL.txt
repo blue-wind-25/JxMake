@@ -219,9 +219,6 @@ Update `STATE_DOGFOOD.md` as needed.
 ####################################################################################################
 ####################################################################################################
 
-Ensure the GRU weights is only loaded once in multi-file and server modes. It may also make sense
-to make the GRU inference class singleton.
-
 Re-execute `Formatter self-formatting (dogfood-and-adopt) process`.
 
 === TIER 0: Recurring job ===
@@ -246,6 +243,8 @@ Re-execute `Formatter self-formatting (dogfood-and-adopt) process`.
 Use sub-agent. This can be a substantial work.
 
 === TIER 1: Analysis/docs/testing only — ~zero regression risk ===
+
+tools/synthetic_out_grok.txt
 
 1. [AI] Finish LLM-assisted disagreement-sampling steps 2-4 against
    sample_default.txt (design agreed 2026-07-30, not yet executed).

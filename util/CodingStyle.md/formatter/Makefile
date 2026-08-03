@@ -26,7 +26,7 @@ TEST_LOCK     = $(BUILD_DIR)/.test.lock
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
 
-.PHONY: all build jar clean                 \
+.PHONY: all build jar clean                  \
         gru-extract-pool-a                   \
         gru-extract-pool-b                   \
         gru-measure-abstain-rate             \

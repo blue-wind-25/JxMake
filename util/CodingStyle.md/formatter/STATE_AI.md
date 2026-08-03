@@ -328,6 +328,68 @@ oversampling) is a real risk for a new pattern with only a few examples.
   held-out CV precision at `abstainThreshold=0.7`, 2.7% NO false-positive
   rate — see the 2026-08-02 threshold-sweep entry below), actually running
   steps 2-4 to populate this file is now optional polish, not a blocker.
+  **2026-08-04 — retrained, verified via wrong-scope CV, then reverted
+  pending a real corpus-level CV.** After the 44 corrections landed, ran
+  `make gru-acquire-corpus` (applied cleanly, 44/44) then the user ran
+  `make gru-train` in a separate console (full retrain, `GRU_TRAIN_ARGS`
+  default). Checked two ways:
+  1. `GruEval` (training-fit, not held-out) against the 522-row bench,
+     before vs. after: 99.8%→99.4% precision, 1→3 NO false positives — a
+     tiny apparent regression, but training-fit numbers on a 44-row/93k-line
+     perturbation are noise-dominated, not a real signal either way.
+  2. A fresh 5-round `cross_validate.py` CV (`--epochs 40 --patience 6
+     --eval-threshold 0.7`) — but pointed at the wrong file:
+     `target/gru/classifier_weights_examples.tsv` (the 522-row hand-labeled
+     bench), which **cross_validate.py trains from scratch on directly** and
+     never touches `sample_default.txt`/`disagreement_corrections.txt` at
+     all. So this run (mean=88.78%, stdev=4.81%, min=81.91%, max=94.67%,
+     5×105-row test splits) measures **only** the hand-labeled bench's own
+     held-out generalization at its current 522-row size, not the
+     corrections' effect. Notable in its own right: the bench grew 474→522
+     rows in a prior session (2026-08-03) and had never had a fresh CV run
+     at 522 rows before — the drop from the previously-documented
+     474-row figure (92.4%±2.1%) to this one (88.78%±4.81%) is a real,
+     separate finding about the grown bench being both harder and higher-
+     variance, unrelated to today's corrections.
+  Conclusion: neither check actually isolates the 44 corrections' effect —
+  that requires a CV run against the full `sample_default.txt` itself (each
+  of 5 rounds retraining from scratch on an 80% split of the ~93k-line
+  corpus), which is a multi-hour job per round (single full `gru-train` runs
+  take ~2700-4050s locally), not something to block this session on. Added
+  a `make gru-cv-corpus` Makefile target (`GRU_CV_ROUNDS`/`GRU_CV_WORK_DIR`/
+  `GRU_CV_LOG`/`GRU_CV_ARGS` overridable) that runs exactly this against
+  `tools/gru/sample_default.txt`, logging to `target/gru/cv_corpus.log`, for
+  the user to kick off unattended on a separate, faster machine ("CM5").
+  **Reverted the retrained production artifacts pending that real
+  measurement** — `code-formatter-ai-assist-weights.json` and
+  `tools/gru/sample_default.txt` were `git checkout --`'d back to their
+  pre-retrain committed state. The retrained/regenerated versions are
+  preserved, not lost, as untracked snapshot files so they can be restored
+  if the CM5 corpus-level CV later shows they're actually better:
+  - `code-formatter-ai-assist-weights.2026-08-04-grok-corrections.json` —
+    the weights `make gru-train` produced from the corrections-applied
+    corpus.
+  - `tools/gru/sample_default.2026-08-04-grok-corrections.txt` — the
+    corrections-applied corpus itself (output of `make gru-acquire-corpus`
+    with the 44 corrections in `disagreement_corrections.txt` applied).
+  **To revert to (i.e. adopt) the Grok-corrections result later**, once a
+  real `gru-cv-corpus` run on a matching corpus confirms it's an
+  improvement:
+  ```bash
+  cp code-formatter-ai-assist-weights.2026-08-04-grok-corrections.json code-formatter-ai-assist-weights.json
+  cp tools/gru/sample_default.2026-08-04-grok-corrections.txt tools/gru/sample_default.txt
+  cp code-formatter-ai-assist-weights.json target/classes/   # if target/classes exists from a prior build
+  git add code-formatter-ai-assist-weights.json tools/gru/sample_default.txt
+  git commit
+  ```
+  (`disagreement_corrections.txt` itself is already committed either way —
+  it's the corpus/weights snapshots derived from it that were reverted.) If
+  instead `gru-cv-corpus` shows the corrections made things worse, the two
+  `*-2026-08-04-grok-corrections.*` snapshot files can simply be deleted,
+  and `disagreement_corrections.txt`'s 44 rows should be reviewed row-by-row
+  (not blanket-reverted — some may still be individually correct even if the
+  aggregate metric moved the wrong way) or the whole batch reverted via
+  `git log`/`git revert` on commit `ff73261`.
 - **[SEPARATE, still open]** A cluster of extracted comments are DTD/URL
   string-literal fragments with no leading space (e.g. `Sun Microsystems,
   Inc.//DTD Enterprise JavaBeans 1.1//EN";`) that look like `//` inside a

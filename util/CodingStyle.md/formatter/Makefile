@@ -167,8 +167,9 @@ gru-measure-abstain-rate: $(JAR_FILE)
 # Usage:
 #     make gru-acquire-corpus [GRU_CORPUS_OUT_DIR=/tmp/gru_corpus]
 #
-GRU_CORPUS_OUT_DIR ?= /tmp/gru_corpus
-GRU_SAMPLE_DEFAULT  = $(GRU_TOOLS_DIR)/sample_default.txt
+GRU_CORPUS_OUT_DIR       ?= /tmp/gru_corpus
+GRU_SAMPLE_DEFAULT        = $(GRU_TOOLS_DIR)/sample_default.txt
+GRU_DISAGREEMENT_CORRECTIONS = $(GRU_TOOLS_DIR)/disagreement_corrections.txt
 
 gru-acquire-corpus: $(JAR_FILE)
 	@rm -rf $(GRU_CORPUS_OUT_DIR)
@@ -178,9 +179,10 @@ gru-acquire-corpus: $(JAR_FILE)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/GenerateSampleDefault.java
 	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GenerateSampleDefault $(GRU_CORPUS_OUT_DIR)/comments_combined.txt $(GRU_SAMPLE_DEFAULT)
 	@cat $(GRU_CORPUS_OUT_DIR)/classifier_weights_examples.tsv >> $(GRU_SAMPLE_DEFAULT)
+	@python3 $(GRU_TOOLS_DIR)/apply_disagreement_corrections.py $(GRU_SAMPLE_DEFAULT) $(GRU_DISAGREEMENT_CORRECTIONS)
 	@awk '!seen[$$0]++' $(GRU_SAMPLE_DEFAULT) > $(GRU_SAMPLE_DEFAULT).dedup && mv $(GRU_SAMPLE_DEFAULT).dedup $(GRU_SAMPLE_DEFAULT)
 	@LINES=$$(wc -l < $(GRU_SAMPLE_DEFAULT) 2>/dev/null || echo '?'); \
-	echo "gru-acquire-corpus: wrote $(GRU_SAMPLE_DEFAULT) ($$LINES line(s), incl. tools/classifier_weights/examples_*.md hand-labeled rows)"
+	echo "gru-acquire-corpus: wrote $(GRU_SAMPLE_DEFAULT) ($$LINES line(s), incl. tools/classifier_weights/examples_*.md hand-labeled rows + tools/gru/disagreement_corrections.txt)"
 
 # ── GRU hand-labeled examples (RDD_EXT_21) target ─────────────────────────────
 #

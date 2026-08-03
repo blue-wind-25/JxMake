@@ -1,0 +1,30 @@
+# tools/gru/disagreement_corrections.txt -- hand-verified label corrections for
+# sample_default.txt, committed (same named exception to RDD_EXT_19 as
+# sample_default.txt/code-formatter-ai-assist-weights.json -- traceable
+# MIT/Apache-2.0/BSD-3-Clause provenance, short quoted excerpts).
+#
+# Populated by the "LLM-assisted disagreement sampling against
+# sample_default.txt" process (STATE_AI.md open item, design agreed
+# 2026-07-30): pull a stratified sample of sample_default.txt's rows, label
+# them independently with an LLM without showing the existing auto-label,
+# diff against the existing label, hand-verify only the disagreements, and
+# append here ONLY the ones a human confirmed correct. Never append an
+# unverified LLM label.
+#
+# Schema: same RDD_EXT_20/21 4-column format as sample_default.txt --
+# <lang>\t<label:YES|NO>\t<targetWordIndex>\t<escaped-comment-text> -- each
+# row's <lang>/<targetWordIndex>/<escaped-comment-text> must match verbatim
+# the sample_default.txt row it's correcting (same comment text, same
+# target-word index), differing only in <label>.
+#
+# `make gru-acquire-corpus` applies these on every run via
+# apply_disagreement_corrections.py, AFTER regenerating sample_default.txt
+# from scratch: any sample_default.txt row whose <lang>/<targetWordIndex>/
+# <escaped-comment-text> matches a row here is dropped, and this file's
+# (corrected) row is kept instead -- so a correction survives regeneration
+# instead of being silently overwritten by the next auto-labeling pass. Do
+# not hand-edit sample_default.txt directly to "fix" a label; add the
+# correction here instead.
+#
+# Empty (append-only) until steps 2-4 of the disagreement-sampling process
+# are actually executed and confirmed -- see STATE_AI.md.

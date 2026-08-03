@@ -420,6 +420,37 @@ GenerateSampleDefault.java
     per-source by acquire_corpus.sh) and additionally runs this auto-labeling
     step into tools/gru/sample_default.txt.
 
+apply_disagreement_corrections.py / disagreement_corrections.txt
+    disagreement_corrections.txt is a permanent, committed file (same named
+    exception to RDD_EXT_19 as sample_default.txt/
+    code-formatter-ai-assist-weights.json) holding hand-verified label
+    corrections produced by the "LLM-assisted disagreement sampling against
+    sample_default.txt" process (STATE_AI.md open item): sample a stratified
+    slice of sample_default.txt, label independently via LLM blind to the
+    existing label, diff, hand-verify only the disagreements, append here
+    only the confirmed ones. Same RDD_EXT_20/21 schema as sample_default.txt
+    — a correction row must match the row it corrects on everything except
+    <label> (<lang>, <targetWordIndex>, <escaped-comment-text> verbatim).
+
+    Exists because `make gru-acquire-corpus` regenerates sample_default.txt
+    from scratch every run (re-extract, re-auto-label via
+    GenerateSampleDefault) — hand-editing a correction directly into
+    sample_default.txt would be silently wiped out by the next run.
+    apply_disagreement_corrections.py re-applies disagreement_corrections.txt
+    on every `make gru-acquire-corpus`, right after the
+    classifier_weights_examples.tsv append and before the final
+    exact-duplicate-line dedup: any sample_default.txt row whose
+    <lang>/<targetWordIndex>/<escaped-comment-text> matches a correction is
+    dropped (not just appended alongside, which would leave both the old
+    wrong-labeled row and the new corrected row present since they differ
+    only in <label>, so plain line-dedup wouldn't collapse them), then every
+    correction row is appended — the correction always wins. A no-op when
+    disagreement_corrections.txt has no data rows yet (its committed template
+    is empty until the disagreement-sampling process actually produces
+    confirmed corrections). Can also be run standalone:
+
+        python3 tools/gru/apply_disagreement_corrections.py <sample-default-path> <corrections-path>
+
 cross_validate.py
     Bounds the variance on a single held-out-split precision estimate via
     repeated Monte Carlo cross-validation: reshuffles a combined

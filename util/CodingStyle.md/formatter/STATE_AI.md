@@ -250,6 +250,32 @@ oversampling) is a real risk for a new pattern with only a few examples.
   LLM-assisted labeling) are still not done — a first pass was done **by
   hand** instead (2026-07-30, no LLM call), see next item, which directly
   motivated the commented-out-code gate.
+  **2026-08-04 — persistence plumbing built (user-commissioned), so
+  confirmed corrections survive `make gru-acquire-corpus` regenerating
+  `sample_default.txt` from scratch every run (previously, a hand-edited
+  correction would have been silently wiped out by the very next run —
+  flagged before any real corrections existed, so nothing was lost).** New
+  committed file `tools/gru/disagreement_corrections.txt` (named exception to
+  RDD_EXT_19, same footing as `sample_default.txt`/
+  `code-formatter-ai-assist-weights.json` per RDD_KEY_217 — user confirmed
+  this placement over a scratch-only alternative), empty until the
+  disagreement-sampling process actually produces confirmed rows. New
+  `tools/gru/apply_disagreement_corrections.py`, wired into
+  `gru-acquire-corpus` right after the existing
+  `classifier_weights_examples.tsv` append and before the final
+  exact-duplicate-line dedup: does an *override* merge keyed on
+  `<lang>/<targetWordIndex>/<escaped-comment-text>` (everything but
+  `<label>`) — a plain append wouldn't work here since a correction and the
+  auto-labeled row it corrects share the same comment text and differ only
+  in `<label>`, so exact-line dedup can't collapse them; this script drops
+  the conflicting auto-labeled row instead of leaving both present. No-op
+  today since the corrections file has zero data rows. Smoke-tested
+  standalone (override case, new-row case, empty-file no-op case) against
+  synthetic scratch files, not `make test` (Python tool, no `src/` change).
+  Given current production numbers already clear both bars (92.4% mean
+  held-out CV precision at `abstainThreshold=0.7`, 2.7% NO false-positive
+  rate — see the 2026-08-02 threshold-sweep entry below), actually running
+  steps 2-4 to populate this file is now optional polish, not a blocker.
 - **[SEPARATE, still open]** A cluster of extracted comments are DTD/URL
   string-literal fragments with no leading space (e.g. `Sun Microsystems,
   Inc.//DTD Enterprise JavaBeans 1.1//EN";`) that look like `//` inside a

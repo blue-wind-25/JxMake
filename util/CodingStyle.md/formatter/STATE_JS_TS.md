@@ -358,19 +358,44 @@ pre-existing, out of scope, tracked below.
   (against `STATE_C_CPP_JAVA.md`'s "Known Gaps"): no fix landed there since;
   same risk class as the reindentation architectural gap this job is scoped
   to avoid touching piecemeal. Still deferred, not cheap.
-- **Single-declarator colon spacing**: `const x: number = 1;` renders as
-  `const x : number = 1;` (space inserted before the colon) at plain top
-  level with no function-type involved. Root cause:
-  `JsTsDeclarationAlignmentRule`'s single-declarator grid-alignment handling
-  — `classifyTypeColons` deliberately suppresses its own colon-spacing pass
-  for a single-declarator statement, deferring to the alignment rule, whose
-  spacing doesn't fully match `classifyTypeColons`'s for the ungridded case.
-  Spacing-only, no tsc error; confirmed widespread via `grep -rn "const
-  [a-zA-Z_]* : "`. **2026-07-28 re-assessment:** looked cheap at first
-  glance, but the real fix requires reconciling two independent spacing
-  decisions without disturbing the multi-declarator grid path that already
-  depends on the alignment rule's spacing — not low-risk enough for a
-  cleanup pass. Left as a re-assessment note, not attempted.
+- **Single-declarator colon spacing** — **FIXED 2026-08-04.** `const x:
+  number = 1;` rendered as `const x : number = 1;` (space inserted before
+  the colon) whenever the declaration had no alignment-group neighbors.
+  Root cause: `JsTsDeclarationAlignmentRule.renderAlignedGroup` always put
+  the `: type` text in its own `ColumnGrid` cell; `ColumnGrid.flush()`
+  always joins adjacent cells with a single space, even for a one-row
+  "group" of size 1 — so `x`/`: number` joined as `x : number` even though
+  there was nothing to actually align a column against. STYLE.md §5's "a
+  lone variable with no group neighbors...align trivially with itself, do
+  not leave it awkwardly padded" rule means a singleton declaration should
+  never pay the grid-join space. **Fix:** `renderAlignedGroup` now checks
+  `group.size() == 1`; for that case the name and `: type` text are merged
+  into one cell before being added to the row (no separate type-column cell
+  at all), so the join space lands after the identifier as normal TS
+  spacing instead of before the colon. A real (`size() > 1`) alignment
+  group is untouched — it keeps the separate-cell/grid-padding path, whose
+  space-before-`:` is the deliberately documented alignment look
+  (STYLE_JS_TS.md §11.2's `DEFAULT : string` example) and must stay as-is.
+  The `=` init column and trailing-comment handling were not touched (no
+  reported bug there — a lone variable's `=` spacing was already correct).
+
+  One pre-existing fixture had baked in the old buggy spacing:
+  `test/real_code_regressions_107_out.ts`'s `let server : ReturnType<typeof
+  createServer>;` (a genuine singleton, no group neighbors) was updated to
+  `let server: ReturnType<typeof createServer>;` to match the now-correct
+  behavior — this is the fixture's own file, not a hand-rolled special
+  case, so no separate `RDD_KEY_*` was needed for it.
+
+  New permanent fixture `test/real_code_regressions_177_{inp,out}.ts`
+  (registered in the Makefile's `INP_FILES` and `test/README.txt`) covers
+  both paths side by side: two singleton declarations (`const x: number =
+  1;`, `let y: string;`, each isolated by a blank line) prove the fix, and
+  a real 3-row `const` group inside a function body proves the alignment
+  grid path (space before `:`) is unchanged.
+
+  **Test result:** `make test` 239/239 forward + 239/239 idempotency (was
+  238/238 before this fixture was added) — zero regressions, fix kept (not
+  reverted).
 
 ### `lodash/lodash` dogfood pass — DONE
 

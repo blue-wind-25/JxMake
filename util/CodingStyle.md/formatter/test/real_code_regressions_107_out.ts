@@ -15,7 +15,7 @@ function instrumentArr(rawTarget: any[])
 // Same root cause, single-line form: losing the '<...>' tracking left the
 // closing '>' a plain OP token, which then defeated statement-boundary
 // detection entirely and merged the following statement onto the same line.
-let server : ReturnType<typeof createServer>;
+let server: ReturnType<typeof createServer>;
 beforeAll( async () => {
     server = createServer( (req, res) => {
         return 1;

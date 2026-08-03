@@ -545,6 +545,18 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
      * column (`:` type, `=` init, trailing comment) is only emitted at all if some row in the
      * group actually uses it, same "only emit active columns" precedent used throughout this
      * codebase's grid renderers.
+     *
+     * <p><b>Single-declarator groups (`group.size() == 1`) never get a real alignment grid</b> --
+     * STYLE.md §5's "a lone variable with no group neighbors...align trivially with itself, do
+     * not leave it awkwardly padded" rule. {@link ColumnGrid} always joins adjacent cells with a
+     * single space, so putting the `:` type annotation in its own cell (as multi-row groups need,
+     * to line the `:` column up across rows) would leave a stray space before the colon for a
+     * single row (`x : number` instead of plain TS's `x: number`) even though there is nothing to
+     * align against. Fixed by merging the name and `: type` text into one cell whenever
+     * {@code group.size() == 1}, so the join space lands after the identifier as usual instead of
+     * before the colon; a real (`size() > 1`) group keeps the separate-cell/grid-padding behavior,
+     * where a leading space before `:` is the deliberately-documented alignment look
+     * (STYLE_JS_TS.md §11.2's `DEFAULT : string` example).
      */
     public List<String> renderAlignedGroup(final List<Row> group)
     {
@@ -555,14 +567,21 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
             anyInit = anyInit || !r.initTokens.isEmpty();
         }
 
+        final boolean singleRow = group.size() == 1;
+
         final ColumnGrid grid = new ColumnGrid();
         for(final Row r : group) {
-            final List<String> cells = new ArrayList<>();
+            final List<String> cells  = new ArrayList<>();
+            final String       typeText = r.typeTokens.isEmpty(
+            ) ? "" : ": " + renderTokens(r.typeTokens);
             cells.add(r.keyword.text);
-            cells.add(r.nameText);
-            if(anyType) cells.add(
-                r.typeTokens.isEmpty() ? "" : ": " + renderTokens(r.typeTokens)
-            );
+            if(singleRow) {
+                cells.add(r.nameText + typeText);
+            }
+            else {
+                cells.add(r.nameText);
+                if(anyType) cells.add(typeText);
+            }
             if(anyInit) cells.add(
                 r.initTokens.isEmpty() ? "" : "= " + renderTokens(r.initTokens)
             );

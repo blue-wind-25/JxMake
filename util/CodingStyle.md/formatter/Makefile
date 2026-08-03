@@ -249,25 +249,22 @@ gru-train: $(JAR_FILE)
 	@cp $(GRU_WEIGHTS_OUT) $(CLASS_DIR)
 	@cp $(GRU_WEIGHTS_OUT) .
 
-
 # ── GRU cross-validation on the full corpus ──────────────────────────────────
 #
-# Runs tools/gru/cross_validate.py's Monte Carlo 5-round CV directly against
-# the full sample_default.txt corpus (run gru-acquire-corpus first at least
-# once) instead of the small 522-row hand-labeled bench -- this is the only
-# way to directly measure whether a sample_default.txt/disagreement_corrections.txt
-# change (e.g. the 2026-08-04 44-row correction batch) actually moved held-out
-# precision, since cross_validate.py trains purely from whatever file it's
-# pointed at. Each of the 5 rounds retrains from scratch on an 80% split of the
-# FULL corpus, i.e. is roughly one full `gru-train`-sized training run (the
-# ~2700-4050s single run you already timed) -- so the whole target is a
-# multi-hour job. Logs everything to $(GRU_CV_LOG) so it can be kicked off
-# unattended (e.g. `nohup make gru-cv-corpus &`, or just run it directly on a
-# machine you don't need back for a while) and checked on later.
+# Runs tools/gru/cross_validate.py's Monte Carlo 5-round CV directly agains the full `sample_default.txt`
+# corpus (run `gru-acquire-corpus` first at least once) instead of the small 522-row hand-labeled bench --
+# this is the only way to directly measure whether a `sample_default.txt/disagreement_corrections.txt`
+# change (e.g. the 2026-08-04 44-row correction batch) actually moved held-out precision, since `cross_validate.py`
+# trains purely from whatever file it's pointed at. Each of the 5 rounds retrains from scratch on an 80%
+# split of the FULL corpus, i.e. is roughly one full `gru-train`-sized training run (the ~2700-4050s single run
+# you already timed) -- so the whole target is a multi-hour job. Logs everything to $(GRU_CV_LOG) so it
+# can be kicked off unattended (e.g. `nohup make gru-cv-corpus &`, or just run it directly on a machine you
+# don't need back for a while) and checked on later.
 #
 # Usage:
 #     make gru-cv-corpus
 #     make gru-cv-corpus GRU_CV_ROUNDS=3 GRU_CV_LOG=/tmp/my_cv.log
+#     ( make gru-cv-corpus cd ~; data-ro.sh ) < /dev/null > /tmp/gru_cv_corpus.out 2>&1 &
 #
 GRU_CV_ROUNDS      ?= 5
 GRU_CV_WORK_DIR    ?= $(GRU_BUILD_DIR)/cv_corpus

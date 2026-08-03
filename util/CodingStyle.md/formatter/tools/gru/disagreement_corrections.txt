@@ -26,5 +26,54 @@
 # not hand-edit sample_default.txt directly to "fix" a label; add the
 # correction here instead.
 #
-# Empty (append-only) until steps 2-4 of the disagreement-sampling process
-# are actually executed and confirmed -- see STATE_AI.md.
+# 2026-08-04: first batch, steps 2-4 executed via a 300-row stratified sample
+# (150 unique-text YES + 150 unique-text NO, random.Random(42)) labeled blind
+# by grok-4.3 (xAI Grok CLI, headless/-p mode). 74/300 disagreed with the
+# existing auto-label; hand-verified by the user one at a time (see
+# STATE_AI.md for the full process note). 44 confirmed as genuine corrections
+# (43 YES, 1 NO); the other 30 disagreements were either skipped as too
+# ambiguous or the user confirmed the original auto-label was already right.
+cpp	YES	0	/ @brief Parse this value directly into a C++ type (single-pass, no double scanning)
+cpp	NO	0	\n * Copyright (c) 2023 Lee Howes, Lucian Radu Teodorescu\n * Copyright (c) 2026 NVIDIA Corporation\n *\n * Licensed under the Apache License Version 2.0 with LLVM Exceptions\n * (the "License"); you may not use this file except in compliance with\n * the License. You may obtain a copy of the License at\n *\n *   https://llvm.org/LICENSE.txt\n *\n * Unless required by applicable law or agreed to in writing, software\n * distributed under the License is distributed on an "AS IS" BASIS,\n * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n * See the License for the specific language governing permissions and\n * limitations under the License.\n 
+c	YES	0	short here holds the packet length field on the wire
+c	YES	0	 Current/last certificate signature. 
+c	YES	0	char here holds a single byte, not a full Unicode code point
+cpp	YES	0	 is_string/is_atom accept the raw, un-normalized tag, and term_to_json_value re-reads
+kotlin	YES	0	object declaration creates a singleton
+cpp	YES	0	/ Serialize a repe::message to an existing buffer
+c	YES	0	/ Low-level wrappers v1->v2 ///
+c	YES	0	while condition here is re-checked before every iteration
+c	YES	0	return value here is only valid until the next call
+cpp	YES	0	template parameter here defaults to the platform's native allocator
+ts	YES	0	namespace merging here combines the interface and the value declaration
+java	YES	0	/ Another very long line of text, also long enough that it will need to be wrapped to fit within
+cpp	YES	0	/ Thread-safe buffer pool for coroutine-based servers.
+cpp	YES	0	/ We shall distribute IRK and address using identity information
+java	YES	0	continue here skips straight to the next iteration's condition check
+c	YES	0	           // (will not be compiled in when newer api is usable)
+js	YES	0	for here iterates the array backwards to simplify the removal logic
+cpp	YES	0	/ Concept that matches `bulk_chunked` and `bulk_unchunked` senders.
+cpp	YES	0	    // Check that the JSON contains kebab-cased keys
+c	YES	0	// PROVIDED TO USER
+java	YES	0	import here is only needed because the class lives in another package
+cpp	YES	0	/ Query the receiver for a property of type `_Query`.
+cpp	YES	0	/ Calls `set_error()` on the final receiver of the bulk operation, passing `__ex`.
+c	YES	0	continue here skips straight to the next iteration's increment
+xml	YES	0	  Import/package path                                      
+cpp	YES	0	/ Derived class that properly forwards the arguments received from `_Previous` to the receiver methods.
+kotlin	YES	0	do block here always executes once before checking the condition
+c	YES	0	 Enable/disable the timer
+java	YES	0	goto here is a reserved word but has never been usable in Java
+java	YES	0	else here only runs when the cache lookup misses
+ts	YES	0	enum member here was renamed without updating the serialized values
+c	YES	0	 Request/response data uses REPE binary format
+c	YES	0	/// Host test environment ////////////////////////////////////////////////////////////////////////
+c	YES	0	\n Print.h - Base class that provides print() and println()\n Copyright (c) 2008 David A. Mellis.  All right reserved.\n\n This library is free software; you can redistribute it and/or\n modify it under the terms of the GNU Lesser General Public\n License as published by the Free Software Foundation; either\n version 2.1 of the License, or (at your option) any later version.\n\n This library is distributed in the hope that it will be useful,\n but WITHOUT ANY WARRANTY; without even the implied warranty of\n MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU\n Lesser General Public License for more details.\n\n You should have received a copy of the GNU Lesser General Public\n License along with this library; if not, write to the Free Software\n Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA\n 
+c	YES	0	\n  esp8266_waveform - General purpose waveform generation and control,\n                     supporting outputs on all pins in parallel.\n\n  -- Default, PWM locked version --\n  Copyright (c) 2018 Earle F. Philhower, III.  All rights reserved.\n\n  The core idea is to have a programmable waveform generator with a unique\n  high and low period (defined in microseconds or CPU clock cycles).  TIMER1 is\n  set to 1-shot mode and is always loaded with the time until the next edge\n  of any live waveforms.\n\n  Up to one waveform generator per pin supported.\n\n  Each waveform generator is synchronized to the ESP clock cycle counter, not the\n  timer.  This allows for removing interrupt jitter and delay as the counter\n  always increments once per 80MHz clock.  Changes to a waveform are\n  contiguous and only take effect on the next waveform transition,\n  allowing for smooth transitions.\n\n  This replaces older tone(), analogWrite(), and the Servo classes.\n\n  Everywhere in the code where "cycles" is used, it means ESP.getCycleCount()\n  clock cycle count, or an interval measured in CPU clock cycles, but not TIMER1\n  cycles (which may be 2 CPU clock cycles @ 160MHz).\n  ----------\n\n  -- Phase locked version --\n  Copyright (c) 2020 Dirk O. Kaar.\n\n  The core idea is to have a programmable waveform generator with a unique\n  high and low period (defined in microseconds or CPU clock cycles).  TIMER1 is\n  set to 1-shot mode and is always loaded with the time until the next edge\n  of any live waveforms.\n\n  Up to one waveform generator per pin supported.\n\n  Each waveform generator is synchronized to the ESP clock cycle counter, not the\n  timer.  This allows for removing interrupt jitter and delay as the counter\n  always increments once per 80MHz clock.  Changes to a waveform are\n  contiguous and only take effect on the next waveform transition,\n  allowing for smooth transitions.\n\n  This replaces older tone(), analogWrite(), and the Servo classes.\n\n  Everywhere in the code where "ccy" or "ccys" is used, it means ESP.getCycleCount()\n  clock cycle count, or an interval measured in CPU clock cycles, but not TIMER1\n  cycles (which may be 2 CPU clock cycles @ 160MHz).\n  ----------\n\n  This library is free software; you can redistribute it and/or\n  modify it under the terms of the GNU Lesser General Public\n  License as published by the Free Software Foundation; either\n  version 2.1 of the License, or (at your option) any later version.\n\n  This library is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU\n  Lesser General Public License for more details.\n\n  You should have received a copy of the GNU Lesser General Public\n  License along with this library; if not, write to the Free Software\n  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA\n
+cpp	YES	0	/ Buffers are borrowed by each connection and automatically returned
+cpp	YES	0	/ Interface for completing a sender operation. Backend will call frontend though this interface
+cpp	YES	0	/ Gets the environment of this sender.
+cpp	YES	0	 Write/update the configuration file
+java	YES	0	/ - item that unnecessarily
+js	YES	0	var here leaks out of the block, unlike let in the loop above
+cpp	YES	0	/ function like this:

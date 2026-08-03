@@ -268,10 +268,36 @@ oversampling) is a real risk for a new pattern with only a few examples.
   `<label>`) — a plain append wouldn't work here since a correction and the
   auto-labeled row it corrects share the same comment text and differ only
   in `<label>`, so exact-line dedup can't collapse them; this script drops
-  the conflicting auto-labeled row instead of leaving both present. No-op
-  today since the corrections file has zero data rows. Smoke-tested
-  standalone (override case, new-row case, empty-file no-op case) against
-  synthetic scratch files, not `make test` (Python tool, no `src/` change).
+  the conflicting auto-labeled row instead of leaving both present. Smoke-
+  tested standalone (override case, new-row case, empty-file no-op case)
+  against synthetic scratch files, not `make test` (Python tool, no `src/`
+  change).
+  **2026-08-04 — steps 2-4 actually executed, via the `grok` CLI (xAI Grok,
+  headless `-p` mode + `--json-schema`/`--output-format json`/`--no-plan`
+  /`--disable-web-search`/`--permission-mode dontAsk`) instead of the
+  literal "existing NO lines + `shuf -n 300`" wording above: sampled 150
+  unique-text YES + 150 unique-text NO rows (`random.Random(42)`) from
+  `sample_default.txt`'s full unique-by-text pools (89305 YES / 3292 NO),
+  since NO rows are now produced almost entirely by the three high-precision
+  explicit gates added after the 2026-07-30 design note, making "all unique
+  NO lines" low marginal value relative to cost. `grok-4.3` labeled all 300
+  blind to the existing label (cost $0.057, no truncation). 74/300 (24.7%)
+  disagreed with the existing auto-label — a high rate against a
+  92.4%-precision classifier, flagged to the user rather than treated as
+  ground truth. Every disagreement was hand-verified by the user
+  (worksheet-based: skip/YES/NO per row, `TEXT=` newline-rendered for
+  multi-line comments). Result: 44 confirmed genuine corrections (43 YES, 1
+  NO) appended to `tools/gru/disagreement_corrections.txt`; the other 30
+  disagreements were either skipped as too ambiguous or the user confirmed
+  the original auto-label was already right (Grok wrong) — those never
+  touch the corrections file. Applying the 44 corrections via
+  `apply_disagreement_corrections.py` against the real, current
+  `sample_default.txt` was verified clean (44/44 keys matched, 44 conflicting
+  auto-labeled rows overridden, 0 mismatches). Not yet re-run through
+  `make gru-acquire-corpus`/cross-validation to measure the resulting
+  precision delta — that's the natural next step if this job is picked up
+  again, but 44 corrections against a 93492-line corpus is a small enough
+  perturbation that a follow-up CV run is optional polish, not a blocker.
   Given current production numbers already clear both bars (92.4% mean
   held-out CV precision at `abstainThreshold=0.7`, 2.7% NO false-positive
   rate — see the 2026-08-02 threshold-sweep entry below), actually running

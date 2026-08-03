@@ -313,6 +313,9 @@ INP_FILES += toml_comments_inp.toml
 
 INP_FILES += xml_combined_inp.xml
 INP_FILES += xml_comments_inp.xml
+INP_FILES += xml_indent_auto_tabs_inp.xml
+INP_FILES += xml_indent_auto_spaces_inp.xml
+INP_FILES += xml_indent_auto_fallback_inp.xml
 
 INP_FILES += cpp26_core_inp.cpp
 INP_FILES += cpp26_comments_inp.cpp

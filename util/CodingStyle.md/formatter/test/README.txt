@@ -262,6 +262,21 @@ XML:
                                                         pair freezing a malformed-spacing tag verbatim; and a
                                                         trailing comment right before the closing tag.
 
+  xml_indent_auto_tabs_inp/out.xml                   -- `indent-style = auto` (via `<!--%
+                                                        JXM_CFMT_CFG -->`) on a tab-indented input,
+                                                        reusing `IndentationDetector.detectFromContent`
+                                                        to detect and preserve tabs.
+
+  xml_indent_auto_spaces_inp/out.xml                 -- same `indent-style = auto` directive on a
+                                                        space-indented input, detecting and normalizing
+                                                        to the configured space width.
+
+  xml_indent_auto_fallback_inp/out.xml               -- same directive on a single-line/minified input
+                                                        with no indentation hint at all, falling back to
+                                                        `Config.DEFAULT_INDENT_STYLE` (spaces) exactly like
+                                                        `IndentationDetector.detectFromContent`'s own
+                                                        no-indented-line fallback.
+
 C++26:
   cpp26_core_inp/out.cpp                             -- Pack indexing (`T...[N]` tight vs. going loose when
                                                         the index contains a call or a nested bracket), `=

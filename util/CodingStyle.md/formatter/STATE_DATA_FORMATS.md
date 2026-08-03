@@ -588,10 +588,37 @@ per-repo dogfood bugs):
       `make test`: 202/202. **Known simplifications, not exercised by
       current fixtures:** no text reflow (only attributes wrap); mixed
       text+element content splits onto separate lines rather than staying
-      inline; `indent-style = auto` not detected from existing indentation;
-      §2.4's CDATA-inside-`<script>`/`<style>` dispatch exception not
+      inline; §2.4's CDATA-inside-`<script>`/`<style>` dispatch exception not
       implemented (needs JS/TS or CSS dispatch from inside the XML
       pipeline).
+
+      **`indent-style = auto` — IMPLEMENTED (2026-08-04).** Previously
+      unhandled: `FormatterXml.formatOne` passed `config.indentStyle()`
+      straight through to `XmlSpecificRule`'s constructor, which only checks
+      `"tabs".equals(indentStyle)` for its `useTabs` flag — a literal
+      `"auto"` string silently fell through to spaces. (`Main.java`'s own
+      `formatStandalone` "auto" resolution, which runs before any language's
+      `formatOne`, does NOT cover this case for XML: it calls
+      `IndentationDetector.detect`, whose directory-sampling only looks at
+      `.java`/`.c`/`.h`/`.cpp`/etc. source files — it never samples `.xml`,
+      so on a directory with no curly-family files it silently falls back to
+      `Config.DEFAULT_INDENT_STYLE` regardless of the XML file's own actual
+      indentation.) Fixed by resolving `"auto"` at the `XmlSpecificRule`
+      construction call site in `FormatterXml.formatOne`: when
+      `config.indentStyle()` is `"auto"`, calls
+      `IndentationDetector.detectFromContent(content)` (previously-unused,
+      already-existing single-file self-detection helper — scans for the
+      first indented line's leading character, falling back to
+      `Config.DEFAULT_INDENT_STYLE` if none found or on I/O error) and passes
+      the resolved concrete style into the rule constructor instead. New
+      fixtures `test/xml_indent_auto_tabs_{inp,out}.xml` (tab-indented input
+      via `<!--% JXM_CFMT_CFG indent-style=auto -->`, tabs preserved),
+      `test/xml_indent_auto_spaces_{inp,out}.xml` (space-indented input,
+      same directive, spaces preserved/normalized), and
+      `test/xml_indent_auto_fallback_{inp,out}.xml` (single-line/minified
+      input with no indentation hint at all, same directive, falls back to
+      `Config.DEFAULT_INDENT_STYLE` = spaces). `make test`: 239/239 ->
+      242/242 forward + idempotency, zero regressions.
 - [x] **CSS (§3).** `CssTokenizer` (extends `TokenizerSimpleBraced`)
       deliberately coarse-grained (WHITESPACE/NEWLINE/COMMENT_BLOCK/
       STRING/PUNCT + one OP run for everything else); `CssSpecificRule`'s

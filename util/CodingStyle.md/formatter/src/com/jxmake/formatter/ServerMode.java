@@ -388,6 +388,10 @@ public final class ServerMode {
                 final Config              config          = Config.resolve(
                     targetFile, inlineConfig.isEmpty() ? null : inlineConfig, inFileOverrides
                 );
+                System.err.println(
+                    "jxmake-code-formatter: processing " + (path == null ? "(no path, lang=" + language + ")" : path)
+                );
+                System.err.flush();
                 final String              formatted       = com.jxmake.formatter.gdr.GdrPipelineGate.applyAndFormat(
                     content, language, config, path == null ? "" : path, formatOff
                 );

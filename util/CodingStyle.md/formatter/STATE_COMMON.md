@@ -142,6 +142,18 @@ was stuck — see STATE_C_CPP_JAVA.md's Tier-4-escalation entry for that
 incident). This is a plain unconditional stderr trace, not gated behind a
 flag — stderr isn't diffed by `make test`, so it can't affect pass/fail.
 
+**Diagnosing a hung server (`--server`/`make test-server`)**:
+`ServerMode.FormatHandler.handle` similarly prints
+`jxmake-code-formatter: processing <path>` (or `(no path, lang=<lang>)` for
+inline-content requests with no `path` param) to stderr right before calling
+`GdrPipelineGate.applyAndFormat`, added the same day for the same reason.
+This one matters more than the batch case: `HttpServer` is created with no
+explicit executor (`HttpServer.create(...)`'s default), so requests dispatch
+on a single internal thread — one hung request blocks every subsequent
+request to that server instance indefinitely, not just its own. Verified via
+`make test-server` (still passes; trace lines visible per request) and
+`make test` (still 243/243 — unrelated code path).
+
 **Verifier toolchain** — needed to build/run `tools/verifiers/*` and
 `tools/gru/*` on this system; shared across every job that touches those
 tools. Invoke the verifier helpers via their wrapper scripts rather than

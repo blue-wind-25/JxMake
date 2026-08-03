@@ -519,9 +519,9 @@ General Scope-Depth Reindentation:
                                                         normal call-padding tightening (`(clrex, ...)`) and
                                                         are idempotent.
 
-  curly_gdr_multipass_inp/out.java                   -- One-true-brace-style joined `} else if (...) {` /
-                                                        `} else {` chain with multi-statement bodies, with
-                                                        BOTH curly-general-scope-reindent=on AND
+  curly_gdr_multipass_inp/out.java                   -- One-true-brace-style joined `} else if (...) {` / `}
+                                                        else {` chain with multi-statement bodies, with BOTH
+                                                        curly-general-scope-reindent=on AND
                                                         curly-general-scope-reindent-multipass=on via in-file
                                                         config -- isolates the confirmed RDD_KEY_229 root
                                                         cause (a single GDR pre-pass measures depth against
@@ -531,8 +531,8 @@ General Scope-Depth Reindentation:
                                                         shape) and proves the 4-stage GDR/pipeline/GDR/
                                                         pipeline multipass sequence (RDD_KEY_233/RDD_KEY_234)
                                                         resolves it -- see STATE_CURLY_GDR.md's real-code
-                                                        validation entries for the same fix confirmed at
-                                                        scale against angular/angular, javaparser-core(-
+                                                        validation entries for the same fix confirmed at scale
+                                                        against angular/angular, javaparser-core(-
                                                         generators), tool/JSONEncoderLite.java, and
                                                         serge-sans-paille/frozen.
 

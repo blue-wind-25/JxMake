@@ -215,79 +215,134 @@ or bug fix. Pause after several implementation or bug fixes.
 
 Update `STATE_DOGFOOD.md` as needed.
 
-Git commit with your contribution and special e-mail in the commit message.
-Co-authored-by: Grok <grok@x.ai>
-
 ####################################################################################################
 ####################################################################################################
 ####################################################################################################
 
---- Tier 1: high value, tractable next steps ---
+=== TIER 0: Recurring job ===
 
-10. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
-    further grow the hand-labeled hard-case corpus
-    (`tools/classifier_weights/examples_*.md`) — repeatedly identified in
-    STATE_AI.md as the highest-leverage lever for closing the GRU/linear-
-    classifier precision gap, more so than trainer mechanics. Value:
-    medium-high. Difficulty: low-medium (careful hand-labeling, no code).
+1. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
+   Further grow the hand-labeled hard-case corpus
+   (`tools/classifier_weights/examples_*.md`).
 
-    Rerun `classifiers/derive_weights.py` to update the linear classifier
-    weights.
+   Rerun `classifiers/derive_weights.py` to update the linear classifier
+   weights.
 
-    Rerun `make gru-acquire-corpus` so `sample_default.txt` will contain
-    the new hand-labeled hard-case corpus.
+   Check the linear classifier % with the new weights.
 
-11. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
-    retrain against the regenerated `sample_default.txt` (post
-    extract_comments.py fix + post hard-case corpus growth) and re-run the
-    hard-case benchmark. Tooling already built end to end (`make gru-train` +
-    `GruEval`), see STATE_AI.md's most recent sessions for exact current
-    numbers/status. Value: medium (directly tests whether the corpus fixes
-    moved the GRU closer to the linear-classifier baseline). Difficulty: low.
+   Rerun `make gru-acquire-corpus` so `sample_default.txt` will contain
+   the new hand-labeled hard-case corpus.
 
-    Check the GRU % with the new weights.
+2. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
+   Retrain against the regenerated `sample_default.txt`
 
-12. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
-    LLM-assisted disagreement sampling against `sample_default.txt`
-    Value: low-medium (corpus-quality improvement/further evidence-gathering, most
-    of the high-value finding already extracted). Difficulty: low (reading/judging
-    text, no code).
+   Check the GRU % with the new weights.
+
+3. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
+   LLM-assisted disagreement sampling against `sample_default.txt`.
 
 Use sub-agent. This can be a substantial work.
 
---- Tier 2: meaningful, narrower value or higher difficulty ---
+=== TIER 1: Analysis/docs/testing only — ~zero regression risk ===
 
-NONE FOR NOW
+1. [CPP26] Diff STYLE_CPP26.md vs STYLE_CPP20.md/STYLE_C_CPP.md to confirm
+   which sections are genuinely C++26-specific vs already covered (§1-3
+   suspected already covered; §4/§5 confirmed new). Last unchecked
+   checklist item in that job.
 
---- Tier 3: big/risky architectural bets ---
+2. [C_CPP_JAVA] Investigate reported clang C++23 vs gcc C++20 syntax-check
+   mismatch on some passing fixtures — unconfirmed whether it's a real
+   fixture/version issue or just stricter-parser noise.
 
-30. JSX/TSX support — currently out of scope entirely (not merely deferred),
-    pending a future embedding-aware dispatcher (STATE_JS_TS.md). Value: high (real
-    coverage gap, analogous to HTML5's `<script>` dispatch but harder). Difficulty:
-    high — new dispatch architecture, not an incremental rule.
+3. [PYTHON3] Run the deferred full-corpus re-run (psf/black / django) now
+   that all four known dogfood clusters are fixed.
 
-Use sub-agent. This can be a substantial work.
+4. [AI] Finish LLM-assisted disagreement-sampling steps 2-4 against
+   sample_default.txt (design agreed 2026-07-30, not yet executed).
 
---- Tier 4: ML/infra nice-to-haves — defer until a real training/tuning cycle needs them ---
-
-40. GRU: comment sentence-boundary mid-word-dot detection (`.hpp`, `e.g.`, `v1.0`
-    defeating the sole-trailing-period heuristic) — accepted mechanical-rule
-    limitation. Not just a training-data problem: first needs confirming/adding
-    whether `MiscRule.stripSoleTrailingPeriod`'s `dotCount != 1` path even
-    routes through the GRU yet (see STATE_AI.md's 2026-08-03 TODO note) — a real
-    gate/wiring change, before any mid-word-dot training rows would matter.
-    Value: low. Difficulty: medium (wiring confirmation/change first, then
-    blocked on training data same as before).
+5. [COMMON] Do the cross-job housekeeping/cleanup pass (re-check "Known
+   Gaps" for now-cheaper fixes, dead files, duplicated *Curly/*Indent/*Tags
+   helpers, stale STATE_*.md notes) — scoped explicitly as housekeeping,
+   not a rewrite.
 
 Use sub-agent. This can be a substantial work.
 
---- Not worth pursuing / explicitly no action planned ---
+=== TIER 2: Narrow/cosmetic fixes — low risk ===
+
+1. [JS_TS] Fix single-declarator colon spacing bug: `const x: number = 1;`
+   renders with a stray space before the colon (`const x : number`).
+
+2. [AI] Confirm/wire `MiscRule.stripSoleTrailingPeriod`'s `dotCount != 1`
+   case through the GRU classifier, then add mid-word-dot training rows
+   (e.g. "Combined .hpp test ... extern C.") so sentence-ending periods
+   aren't left in by mistake.
+
+3. [DATA_FORMATS] `running.html` residual gap (RDD_KEY_223, discard-vs-
+   synthesize `<p>`) — narrow, single known file, currently accepted.
+
+4. [AI] GRU comment sentence-boundary mid-word-dot detection (`.hpp`, `e.g.`, `v1.0`
+   defeating the sole-trailing-period heuristic) — accepted mechanical-rule
+   limitation. Not just a training-data problem: first needs confirming/adding
+   whether `MiscRule.stripSoleTrailingPeriod`'s `dotCount != 1` path even
+   routes through the GRU yet (see STATE_AI.md's 2026-08-03 TODO note) — a real
+   gate/wiring change, before any mid-word-dot training rows would matter.
+   Value: low. Difficulty: medium (wiring confirmation/change first, then
+   blocked on training data same as before).
+
+Use sub-agent. This can be a substantial work.
+
+=== TIER 3: Real feature gaps — medium risk ===
+
+1. [DATA_FORMATS/XML] Implement XML known simplifications: text reflow,
+   inline mixed text+element content, `indent-style = auto` detection,
+   and §2.4's CDATA-inside-`<script>`/`<style>` dispatch exception.
+
+2. [PYTHON3] Implement per-block indent-size/style conversion (Python
+   analog of `MiscRuleCore.convertIndentation`) — block-boundary
+   granularity still undecided, needs resolving against real drift
+   patterns in psf/black/django fixtures first.
+
+3. [C_CPP_JAVA] Fix non-idempotent switch-case re-indent on internally-
+   inconsistent generated source (`SwitchRule.applyNonInlineCaseIndent`)
+   — rare (1-2 files per large corpus so far), same root cause class as
+   Tier 4 item 3 (curly-general-scope-reindent) below.
+
+Use sub-agent. This can be a substantial work.
+
+=== TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
+
+1. [JS_TS / C_CPP_JAVA, shared root cause] Fix call-wrap/collapse vs.
+   declaration-alignment/padding fits-check ordering
+   (`enforceCallLineBreaking` measuring width before other passes finish
+   adjusting columns) — highest file-count impact seen (28/601 TS files,
+   23/5394 angular files, plus a `SwitchRule`-adjacent case in
+   lodash/lodash), user-deferred, no low-risk fix found yet.
+
+2. [KOTLIN / CURLY_GDR, shared] Kotlin statement-boundary tracking for
+   `MiscRuleCurly.renderCallCandidate`'s wrap-decision flap (D3) — two
+   prior fix attempts each regressed fixtures (28, then 16); needs real
+   statement/expression-boundary tracking, explicit go-ahead required
+   before starting.
+
+3. [CURLY_GDR] Broader adoption of `curly-general-scope-reindent` (still
+   off by default) — multipass mode has cleared every corpus tested so
+   far, but the "second-order oscillation" risk is only absent-so-far,
+   not proven impossible; job's own instructions call this high risk.
+
+4. JSX/TSX support — currently out of scope entirely (not merely deferred).
+
+Use sub-agent. This can be a substantial work.
+
+=== TIER X: Not worth pursuing / explicitly no action planned ===
 
 - C/C++: `gcc-mirror/gcc`, `llvm/llvm-project` dogfood — NOT STARTED, too massive
   to even LOC-count, let alone dogfood in one pass.
+
 - JS: `nodejs/node` dogfood — same, TOO MASSIVE.
+
 - TS: Angular dogfood cluster 5 — accepted gap, no action planned (per
   STATE_JS_TS.md's own text).
+
 - AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM) — permanently
   NOT FEASIBLE, no tractable grouping-intent heuristic exists at any model size
   tested. Reference-only, not a live TODO.
@@ -297,7 +352,8 @@ Use sub-agent. This can be a substantial work.
 ####################################################################################################
 
 You are an expert repository archivist working on JxMake's `formatter/` process
-documentation: `CLAUDE.md`, `RDD_LOG.md`, and the `STATE_*.md` files.
+documentation: `CLAUDE.md`, `RDD_LOG.md`, and the `STATE_*.md` files
+(EXCEPT `STATE_DOGFOOD.md`).
 
 Read `CLAUDE.md` FIRST. It is the routing table: each `STATE_*.md` file belongs
 to exactly one independent tracked job, and jobs are meant to be read/compacted
@@ -399,3 +455,7 @@ After finishing all files, produce one extra file, `out/COMPACTION_REPORT.md`,
 listing: original vs. new line/byte count per file, and a bullet list of
 every RDD_KEY_n / status word / config key you were unsure whether to keep
 verbatim vs. condense, so a human can spot-check exactly those spots first.
+
+After I am reviewing them, and OK, I will ask you to overwrite the original files
+and hit commit with your contribution and special e-mail in the commit message.
+`Co-authored-by: Grok <grok@x.ai>`

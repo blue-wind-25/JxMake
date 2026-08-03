@@ -1,0 +1,13 @@
+<!--
+Copyright (C) 2024 Example Corp.
+SPDX-License-Identifier: MIT
+-->
+<doc>
+<p>Click <a href="x">here</a> to continue.</p>
+<p>This paragraph mixes <b>bold</b> and <i>italic <em>nested</em> markup</i> together with plain words scattered in between so that the fully reconstructed single line comfortably exceeds the configured line-length limit of one hundred characters.</p>
+<textonly>Just plain text, no child elements at all.</textonly>
+<childrenonly>
+<item>one</item>
+<item>two</item>
+</childrenonly>
+</doc>

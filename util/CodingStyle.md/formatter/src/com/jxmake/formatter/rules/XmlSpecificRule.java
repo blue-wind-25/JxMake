@@ -247,6 +247,23 @@ public final class XmlSpecificRule {
         boolean      selfClosing;
         List<Node>   children;                  // Null if self-closing; empty list if open/close-with-nothing
         String       trailingComment;           // Normalized text of a same-line trailing comment, or null
+        /**
+         * Set (non-null) only when this ELEMENT's children are "mixed content" -- at least one
+         *  non-whitespace-only TEXT node AND at least one ELEMENT node interleaved (e.g.
+         *  {@code <p>Click <a href="x">here</a> to continue.</p>}). Holds the ORIGINAL source text of
+         *  the element's content, verbatim (leading/trailing whitespace trimmed only at the outer
+         *  boundary, nothing normalized/reflowed internally), captured at parse time rather than
+         *  re-derived by recursing through the pretty-printer -- XML text-node whitespace can be
+         *  semantically significant (XHTML-like prose, Android string resources with embedded
+         *  {@code <b>}/{@code <a>} markup, DocBook, SVG {@code <text>}), so inserting any
+         *  reflow/reindentation between text and inline elements would silently change the represented
+         *  value. Rendered inline as a single line with no wrapping, even if it overflows
+         *  {@code line-length} -- deliberately mirrors the existing opaque/preserve-verbatim posture
+         *  already used for DOCTYPE/PI (§2.3), CDATA (§2.4 default case), and multi-line comments
+         *  (§2.5). {@code null} for every other element (pure-text/CDATA-only or
+         *  pure-child-element-only content).
+         */
+        String mixedContentRaw;
 
     } // class Node
 
@@ -762,9 +779,22 @@ public final class XmlSpecificRule {
             if( html5TcGapLevel >= 4 && pendingReconstructFormattingTemplate != null ) {
                 final Node template = pendingReconstructFormattingTemplate;
                 pendingReconstructFormattingTemplate = null;
-                final Node reconstructed = reconstructFormattingElement(template);
-                if(fostered) fosterBufferStack.peek().nodes.add(reconstructed);
-                else nodes.add(reconstructed);
+                skipWs();
+                final String lowerTemplateTag = template.tagName.toLowerCase(java.util.Locale.ROOT);
+                // If the cursor already sits at a literal start tag matching the template's own name,
+                // this is very likely a re-parse of already-reconstructed output from a prior format
+                // round (idempotency) -- reconstructing a NEW wrapper here would double-nest the
+                // literal element that follows (found via the mixed-content fix: preserving a
+                // misnested formatting element's raw, unclosed source verbatim -- required by
+                // §2.2's mixed-content rule -- means the same misnesting is still literally present
+                // for the parser to re-detect on round2, unlike before when every child was always
+                // re-emitted well-formed). Skip synthesizing a second wrapper in that case; the
+                // literal element that follows IS the reconstruction.
+                if( !startsWithTriggerTag( java.util.Collections.singleton(lowerTemplateTag) ) ) {
+                    final Node reconstructed = reconstructFormattingElement(template);
+                    if(fostered) fosterBufferStack.peek().nodes.add(reconstructed);
+                    else nodes.add(reconstructed);
+                } // if
             } // if
         } // while
 
@@ -1057,6 +1087,7 @@ public final class XmlSpecificRule {
         if(isTable) fosterBufferStack.push( new FosterBuffer() );
         if(isTemplate) currentFormElementPointer = null;
         if(isForm && !formSuppressed) currentFormElementPointer = n;
+        final int childStart = pos;
         try {
             if(isSvg) svgDepth++;
             try {
@@ -1067,6 +1098,18 @@ public final class XmlSpecificRule {
             }
             final String closeTok         = "</" + n.tagName + ">";
             final int    beforeTrailingWs = pos;
+            if( isMixedContent(n.children) ) {
+                final String candidate = s.substring(childStart, beforeTrailingWs).trim();
+                // Only collapse to a single inline line when the ORIGINAL source already wrote this
+                // element's whole content on one line (e.g. `<p>Click <a href="x">here</a> to
+                // continue.</p>`) -- a block-level container that already spans multiple source lines
+                // (e.g. a <div> with a bare "Here is a list of items:" sibling line before a <ul>) is
+                // "mixed" by the same non-whitespace-text + element definition but is NOT the
+                // text-flow-prose shape this fix targets; its bare text-node siblings keep the
+                // pre-existing per-sibling reindentation behavior (RDD_KEY_185) instead of being
+                // forced onto one (possibly very long) line.
+                if( candidate.indexOf('\n') < 0 ) n.mixedContentRaw = candidate;
+            }
             skipInlineWs();
             if( startsWith(closeTok) || startsWith("</" + n.tagName + " ")
                     || ( lang.isHtml5 && startsWithCloseTagIgnoreCase(n.tagName) ) ) {
@@ -1538,6 +1581,13 @@ public final class XmlSpecificRule {
             }
             return;
         } // if
+        if(n.mixedContentRaw != null) {
+            final String inline = indent(
+                depth
+            ) + openTightNoAngle + ">" + n.mixedContentRaw + "</" + n.tagName + ">";
+            appendWithTrailing(out, inline, n.trailingComment);
+            return;
+        } // if
         final Node onlyChild = soleContentChild(n.children);
         if( onlyChild != null && (onlyChild.type == NodeType.TEXT || onlyChild.type == NodeType.CDATA) ) {
             // `onlyChild` may itself carry a same-line trailing comment (e.g. `<td>text<!-- c
@@ -1760,6 +1810,27 @@ public final class XmlSpecificRule {
         out.append(line);
         if(trailingComment != null) out.append(" <!-- ").append(trailingComment).append(" -->");
         out.append('\n');
+    }
+
+    /**
+     * True iff `children` is "mixed content" per §2.2's mixed-content rule: at least one
+     *  non-whitespace-only TEXT node AND at least one ELEMENT node among the same sibling list. A
+     *  nested mixed-content element (an ELEMENT child whose own content is itself mixed) still just
+     *  counts as "an ELEMENT node" here -- its own inner text/markup is part of the literal source
+     *  span this outer element's {@link Node#mixedContentRaw} captures, so nested mixed content falls
+     *  out naturally without any recursive handling.
+     */
+    private boolean isMixedContent(final List<Node> children)
+    {
+        if( children == null || children.size() < 2 ) return false;
+        boolean sawNonWhitespaceText = false;
+        boolean sawElement           = false;
+        for(final Node c : children) {
+            if( c.type == NodeType.TEXT && c.raw != null && !c.raw.trim().isEmpty() ) sawNonWhitespaceText = true;
+            else if(c.type == NodeType.ELEMENT) sawElement = true;
+        }
+
+        return sawNonWhitespaceText && sawElement;
     }
 
     private Node soleContentChild(final List<Node> children)

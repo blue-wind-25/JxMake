@@ -585,10 +585,84 @@ per-repo dogfood bugs):
       `indentStyle` (unlike YAML/TOML — §2.1 has no ignored-setting
       exception). Fixtures: `xml_combined_*`, `xml_comments_*`. Local bug
       found+fixed: childless overflowing tags never checked line length.
-      `make test`: 202/202. **Known simplifications, not exercised by
-      current fixtures:** no text reflow (only attributes wrap); mixed
-      text+element content splits onto separate lines rather than staying
-      inline.
+      `make test`: 202/202. **Known simplification, not exercised by
+      current fixtures:** no text reflow (only attributes wrap) — see
+      below, this one is intentionally out of scope, do not implement.
+
+      **Mixed text+element content splitting onto separate lines —
+      FIXED (2026-08-04).** Previously a real correctness bug, not just a
+      style choice: an element whose content interleaves a non-whitespace
+      TEXT node and an ELEMENT node (e.g. `<p>Click <a href="x">here</a>
+      to continue.</p>`) was rendered with each child on its own indented
+      line — inserting newlines/indentation into content whose whitespace
+      can be semantically significant (XHTML-like prose, Android string
+      resources with embedded `<b>`/`<a>` markup, DocBook, SVG `<text>`),
+      silently changing the represented value for any plain XML consumer
+      (unlike an HTML renderer, which collapses whitespace).
+      **Design decision (already made with the user, not re-litigated):**
+      such mixed content now renders **inline, exactly as originally
+      written, with no reflow** — even if the resulting line exceeds
+      `line-length`, mirroring the existing opaque/preserve-verbatim
+      posture already used for DOCTYPE/PI (§2.3), CDATA (§2.4 default
+      case), and multi-line comments (§2.5). An overflowing mixed-content
+      line is an **intentional accepted limitation, not a bug** — no
+      wrapping/reflow logic was implemented for this case.
+      **Fix:** `XmlSpecificRule.parseElement` now captures a new
+      `Node.mixedContentRaw` field: right after an element's opening tag
+      is consumed, it remembers that cursor position (`childStart`); once
+      `parseNodes` returns, if the resulting children are "mixed" (a new
+      `isMixedContent` helper — at least one non-whitespace-only TEXT node
+      AND at least one ELEMENT node among the same sibling list) AND the
+      raw source span from `childStart` to just before the closing tag
+      contains no newline, that trimmed raw span is stored verbatim as
+      `mixedContentRaw`. `renderElement` checks this field before its
+      existing `soleContentChild` (text/CDATA-only) fast path and, when
+      set, emits `<tag attrs>` + the verbatim raw span + `</tag>` as one
+      line, bypassing the normal per-child recursive render entirely —
+      reconstructing from the original source span (not re-deriving child
+      strings by recursing through the pretty-printer) is what makes
+      nested mixed content (a mixed-content element containing another
+      mixed-content element, e.g. `<i>` containing its own `<em>`) fall
+      out naturally with no special-case handling: the inner markup is
+      just part of the literal text captured for the outer element.
+      **The no-newline-in-original-span condition is deliberate, not
+      incidental** — without it, a block-level container whose bare
+      text-node siblings already spanned multiple source lines (e.g. a
+      `<div>` with a `Here is a list of items:` sibling line before a
+      `<ul>`) would ALSO match the same non-whitespace-text + element
+      definition of "mixed" and get incorrectly collapsed onto one long
+      line; found via `test/html_combined_*`'s own pre-existing fixture
+      regressing when this condition was first omitted. Restricting to
+      already-single-line content means only genuine inline text-flow
+      prose (the shape RDD asked to fix) collapses, while RDD_KEY_185's
+      pre-existing "bare text-node siblings reindent to parent structural
+      depth like any content line" behavior for block-level mixed
+      containers is preserved unchanged.
+      **Interaction found+fixed with HTML5 tc-gap level 4 (adoption
+      agency):** preserving a misnested formatting element's raw span
+      verbatim (e.g. `<b>one<i>two</b>` from the classic `<b>1<i>2</b>3</i>`
+      misnesting) means the SAME misnesting is still literally present in
+      the formatter's own round1 output, so reparsing it (round2) could
+      re-trigger `reconstructFormattingElement`'s reconstruction a second
+      time — but the sibling that now follows is already the real,
+      well-formed element the first round's reconstruction produced (e.g.
+      a literal `<i>three</i>`), so the second reconstruction wrapped that
+      literal element in ANOTHER synthetic clone of the same tag,
+      breaking idempotency (`html_tc_gap_level4_adoption_agency_out.html`
+      caught this). Fixed in `parseNodes`' `pendingReconstructFormattingTemplate`
+      consumption: before calling `reconstructFormattingElement`, skip
+      whitespace and check (via the existing `startsWithTriggerTag`
+      helper) whether the cursor already sits at a literal start tag
+      matching the template's own tag name — if so, this is a re-parse of
+      already-reconstructed output, so no new wrapper is synthesized (the
+      literal element that follows already IS the reconstruction).
+      Fixtures updated to their new correct (inline, not split)
+      expected output: `xml_mixed_content_*` (new), plus
+      `html_combined_out.html`, `html_tc_gap_level3_adoption_unchanged_out.html`,
+      and `html_tc_gap_level4_adoption_agency_out.html` (pre-existing
+      fixtures whose `<p>`/`<b>` mixed-content children had been pinned
+      to the old split-lines bug). `make test`: 242/242 -> 243/243 forward
+      + idempotency, zero regressions.
 
       **§2.4 CDATA-inside-`<style>` dispatch exception — IMPLEMENTED
       (2026-08-04).** The `<script>` side of this exception (unwrap CDATA,

@@ -194,7 +194,33 @@ random-sample) extraction for Pool A/B.
 
 ---
 
-## OPEN — Comment sentence-boundary detection defeated by mid-word dots (Step 3 candidate)
+## CANCELED — Comment sentence-boundary detection defeated by mid-word dots (Step 3 candidate)
+
+**2026-08-04 — canceled, not just deferred.** Reassessed while deciding
+whether to run this alongside the disagreement-corrections work above.
+`MiscRuleCore.classifyComment` (comment-grammar normalization decisions:
+capitalize-first-letter, strip-trailing-period) routes through the exact
+same `GruAbstainResolver.resolve` / same trained weights
+(`code-formatter-ai-assist-weights.json`, trained on `sample_default.txt`)
+as the main Step 3 "is this a real explanatory comment" job — there is no
+separate model or `task` dimension in the RDD_EXT_20/21 schema (`lang`/
+`label`/`targetWordIndex`/`escaped-text`) distinguishing the two. Training
+this shape means adding rows answering "does this trailing dot end a
+sentence, vs. sit mid-token (`.hpp`, `e.g.`, `v1.0`)?" into the same
+label column the main job uses to answer a completely different question
+("is this comment substantive prose vs. noise?") for the same text. Those
+two YES/NO questions can disagree on the same comment, so mid-word-dot
+training rows risk actively degrading the main job's 92.4% mean held-out
+precision, not just failing to help this shape — worse than the original
+"Value: low, Difficulty: medium" framing suggested, since that framing
+treated it as an independent, merely-low-value add rather than a
+correctness risk to the already-shipped classifier. Combined with the
+wiring even being unconfirmed (see TODO below, never resolved), the
+risk/reward doesn't justify attempting this without first designing real
+task separation (e.g. a second model/weights file, or a task field added
+to the schema) — out of scope unless a future job explicitly commissions
+that separation. Original open-item text and TODO preserved below for
+that future reference.
 
 `MiscRule.stripSoleTrailingPeriod` (§15) strips a comment's trailing `.` only
 when it's the *sole* `.` in the text — conservative, to avoid mangling an

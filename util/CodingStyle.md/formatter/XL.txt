@@ -289,11 +289,6 @@ Use sub-agent. This can be a substantial work.
    granularity still undecided, needs resolving against real drift
    patterns in psf/black/django fixtures first.
 
-2. [C_CPP_JAVA] Fix non-idempotent switch-case re-indent on internally-
-   inconsistent generated source (`SwitchRule.applyNonInlineCaseIndent`)
-   — rare (1-2 files per large corpus so far), same root cause class as
-   Tier 4 item 3 (curly-general-scope-reindent) below.
-
 Use sub-agent. This can be a substantial work.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
@@ -317,6 +312,15 @@ Use sub-agent. This can be a substantial work.
    not proven impossible; job's own instructions call this high risk.
 
 4. [JS_TS] JSX/TSX support — currently out of scope entirely (not merely deferred).
+
+5. [C_CPP_JAVA] Fix non-idempotent switch-case re-indent on internally-
+   inconsistent generated source (`SwitchRule.applyNonInlineCaseIndent`)
+   — a depth-derived-absolute-indent rewrite attempt hung (never
+   converged in `formatNonInlineSwitches`'s own while(true) fixed-point
+   loop, worse than a mere regression) on a minimal nested-case-body
+   fixture even after fixing an off-by-one in the same attempt, direct
+   evidence of the same cross-pass/convergence fragility as item 3 above;
+   reverted, no low-risk fix found yet.
 
 Use sub-agent. This can be a substantial work.
 

@@ -685,6 +685,45 @@ RDD_KEY_88.
   instead of a single relative delta, exactly the change this cleanup pass is instructed not to
   attempt piecemeal. Remains ACCEPTED, not fixed.
 
+  **2026-08-04 real-fix attempt — FAILED, escalated to `XL.txt` Tier 4 (moved from Tier 3).**
+  Attempted the "real fix" sketched above: replaced `applyNonInlineCaseIndent`'s single-relative-
+  delta `shiftLines` body-shift with a new `applyDepthDerivedBodyIndent` that derives each line's
+  *absolute* target indent from its own `{`/`}` nesting depth relative to the case body's own
+  brace (0 = directly inside, closing-`}` lines one level shallower), instead of one delta computed
+  from the body's first line only. Two rounds within this single attempt:
+
+  - Round A: unconditionally wrote every line's target into the `overrides` map regardless of
+    whether it already matched. `formatNonInlineSwitches`'s own `while(true)` fixed-point loop
+    (`pickInnermostNeedingWork` → `needsWork` → re-tokenize → repeat until no switch reports work)
+    treats a non-empty `overrides` map as "still has work to do" — since `overrides` was *never*
+    empty, this hung indefinitely (`make test` had to be killed) on the very first non-inline
+    switch fixture tried (`test/real_code_regressions_56_inp.java`, a small 2-case switch with a
+    braced `case TYPE: { ... }` body containing a nested `for`/`if`).
+  - Round B: fixed Round A's bug (only write an override when the computed target actually differs
+    from current text) plus an off-by-one in the depth counter (the scan included the case body's
+    own opening brace token, inflating every line's depth by 1). Still hung on the same minimal
+    fixture after the fix — i.e. even a corrected depth-derived-absolute-indent computation does
+    not reach a fixed point under `formatNonInlineSwitches`'s repeated re-tokenize-and-recompute
+    loop. Root cause not further isolated (out of scope for this session per the escalation
+    protocol below) but not simply another one-line bug: the loop re-tokenizes the whole switch
+    after every case's edit and recomputes depth/target from scratch each time, so any sensitivity
+    of the depth/target computation to incidental re-tokenization detail (e.g. whitespace-token
+    boundary shifts across the render→retokenize round trip) is enough to prevent convergence —
+    this is the identical "recomputation-across-passes doesn't reach a fixed point" failure mode
+    already flagged as the shared high-risk class with `curly-general-scope-reindent`
+    (`STATE_CURLY_GDR.md`, not read per job-isolation rules, only referenced via `STATE_COMMON.md`/
+    `XL.txt`'s existing cross-references) — except here it manifested as a hang, not merely a
+    regressed fixture, which is a *stronger* confirmation of the risk than what the item's Tier 3
+    description assumed going in.
+
+  All code changes reverted cleanly (`git checkout -- SwitchRule.java`); working tree left as
+  found. Per user instruction, this item is escalated: moved from `XL.txt`'s Tier 3 (real feature
+  gaps — medium risk) to Tier 4 (architectural, cross-pass-ordering — high risk, prior attempts
+  regressed fixtures) as its own new entry, alongside the existing `curly-general-scope-reindent`
+  entry it already cross-referenced. Remains ACCEPTED, not fixed; no fixture added (the repro used
+  was `test/real_code_regressions_56_inp.java`, already tracked as `real_code_regressions_56` for
+  an unrelated bug per item (16) above — not modified).
+
 ## Known Gaps — Fixed
 
 Previously-recorded low-priority gaps, now resolved. One-line summaries only — full

@@ -1,4 +1,4 @@
-²Use debug prints and `make test` rather than relying only on static analysis to reduce quota usage
+Use debug prints and `make test` rather than relying only on static analysis to reduce quota usage
 and prevent regressions on `(PASS)` tests and previous bug fixes.
 
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer
@@ -65,8 +65,8 @@ Be careful not to lose important information, especially the `**Tools/compiler u
 Then update `STATE_DOGFOOD.md` about the above dogfood state (keep `Note` short enough).
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_177_inp/out.ts`
-    to   `...`
+    from `real_code_regressions_176_inp/out.java`
+    to   `real_code_regressions_178_inp/out.py`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -124,27 +124,6 @@ If there are many errors, work in batch. Commit after each batch.
 Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
 
 
-
-C/C++:
-    [X] `github.com/gcc-mirror/gcc`    [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
-    [X] `github.com/llvm/llvm-project` [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
-C++26:
-Java:
-    [X] `Cluster 5 (alignment-group padding collapse, `rewrite-kotlin/.../K.java`'s`
-    [X] `**Extremely long pre-existing single-physical-line statement wraps differently each round**`
-Kotlin:
-JSON:
-JSON5:
-CSS:
-YAML:
-TOML:
-XML:
-HTML5:
-JS:
-    [X] `github.com/nodejs/node` [TOO MASSIVE - ghloc.vercel.app CANNOT EVEN COUNT THE LOC]
-    [X] `**Content-preservation** (`js_ts_content_diff.js`, original vs. round1):`
-TS:
-Python3:
 
 ####################################################################################################
 ####################################################################################################
@@ -213,35 +192,10 @@ Update `STATE_DOGFOOD.md` as needed.
 ####################################################################################################
 ####################################################################################################
 
-GruTrainer: oversampled 522 hand-labeled example(s) x3 repeat(s) = 1566 extra training row(s) from 'target/gru/classifier_weights_examples.tsv' (trainExamples now 76533)
-GruTrainer: starting -- vocabSize=3500, trainExamples=76533, validationExamples=18741, maxEpochs=9, patience=3, lr=0.0010000, batchSize=16, threads=3, warmupSteps=0, lrMin=0.0000000
-GruTrainer: epoch  1, progress   1000/ 76533 ( 1.3%), avgTrainLoss=0.52154, epochElapsedSeconds=   5.7, epochEtaSeconds= 428.2, totalElapsedSeconds=     5.8
-...
-GruTrainer: epoch  1, progress  76000/ 76533 (99.3%), avgTrainLoss=0.07469, epochElapsedSeconds= 418.8, epochEtaSeconds=   2.9, totalElapsedSeconds=   418.9
-GruTrainer: epoch  1, trainLoss=0.0744977, validationLoss=0.0512859, lr=0.0010000, epochSeconds= 461.8, totalElapsedSeconds=   461.9
-GruTrainer: epoch  2, progress   1000/ 76533 ( 1.3%), avgTrainLoss=0.02791, epochElapsedSeconds=  10.5, epochEtaSeconds= 790.1, totalElapsedSeconds=   472.9
-...
-GruTrainer: epoch  2, progress  76000/ 76533 (99.3%), avgTrainLoss=0.03282, epochElapsedSeconds= 412.5, epochEtaSeconds=   2.9, totalElapsedSeconds=   875.0
-GruTrainer: epoch  2, trainLoss=0.0327521, validationLoss=0.0332096, lr=0.0010000, epochSeconds= 454.1, totalElapsedSeconds=   916.6
-GruTrainer: epoch  3, progress   1000/ 76533 ( 1.3%), avgTrainLoss=0.01766, epochElapsedSeconds=   5.4, epochEtaSeconds= 404.4, totalElapsedSeconds=   922.4
-...
-GruTrainer: epoch  3, progress  76000/ 76533 (99.3%), avgTrainLoss=0.02456, epochElapsedSeconds= 419.6, epochEtaSeconds=   2.9, totalElapsedSeconds=  1336.7
-GruTrainer: epoch  3, trainLoss=0.0245304, validationLoss=0.0442173, lr=0.0010000, epochSeconds= 464.8, totalElapsedSeconds=  1381.8
-GruTrainer: epoch  4, progress   1000/ 76533 ( 1.3%), avgTrainLoss=0.04287, epochElapsedSeconds=   5.6, epochEtaSeconds= 423.0, totalElapsedSeconds=  1387.6
-...
-GruTrainer: epoch  4, progress  76000/ 76533 (99.3%), avgTrainLoss=0.01957, epochElapsedSeconds= 441.0, epochEtaSeconds=   3.1, totalElapsedSeconds=  1823.0
-GruTrainer: epoch  4, trainLoss=0.0195781, validationLoss=0.0343925, lr=0.0010000, epochSeconds= 485.7, totalElapsedSeconds=  1867.8
-GruTrainer: epoch  5, progress   1000/ 76533 ( 1.3%), avgTrainLoss=0.00782, epochElapsedSeconds=   5.8, epochEtaSeconds= 436.5, totalElapsedSeconds=  1873.7
-...
-GruTrainer: epoch  5, progress  76000/ 76533 (99.3%), avgTrainLoss=0.01598, epochElapsedSeconds= 443.4, epochEtaSeconds=   3.1, totalElapsedSeconds=  2311.3
-GruTrainer: epoch  5, trainLoss=0.0159284, validationLoss=0.0476223, lr=0.0010000, epochSeconds= 486.6, totalElapsedSeconds=  2354.5
-GruTrainer: early stopping at epoch 5 (no validation improvement for 3 epochs)
-GruTrainer: wrote trained weights file to 'target/gru/code-formatter-ai-assist-weights.json' (vocabSize=3500, trainExamples=76533, validationExamples=18741, bestValidationLoss=0.0332096)
-GruTrainer: validation confusion matrix (positive=YES): tp=18005, fp=106, tn=573, fn=57, precision=0.99415, recall=0.99684, f1=0.99549
-
 === TIER 0: Recurring job ===
 
-1. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
+1. [GRU] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
+
    Further grow the hand-labeled hard-case corpus
    (`tools/classifier_weights/examples_*.md`).
 
@@ -250,29 +204,26 @@ GruTrainer: validation confusion matrix (positive=YES): tp=18005, fp=106, tn=573
 
    Check the linear classifier % with the new weights.
 
-   Rerun `make gru-acquire-corpus` so `sample_default.txt` will contain
+   Re-run `make gru-acquire-corpus` so `sample_default.txt` will contain
    the new hand-labeled hard-case corpus.
 
-2. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
+2. [GRU] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
+
    Retrain (`make gru-train`) against the regenerated `sample_default.txt`
 
    Run GRU cross validation and check the GRU % with the new weights.
+
+3. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
+
+   Re-execute `Formatter self-formatting (dogfood-and-adopt) process`.
+
+   Update `STATE_DOGFOOD.md` as needed.
 
 Use sub-agent. This can be a substantial work.
 
 === TIER 1: Analysis/docs/testing only — ~zero regression risk ===
 
-1. [PYTHON3] Run the deferred full-corpus re-run (psf/black / django) now
-   that all four known dogfood clusters are fixed.
-
-2. [COMMON] Do the cross-job housekeeping/cleanup pass (re-check "Known
-   Gaps" for now-cheaper fixes, dead files, duplicated *Curly/*Indent/*Tags
-   helpers, stale STATE_*.md notes) — scoped explicitly as housekeeping,
-   not a rewrite.
-
-   Re-execute `Formatter self-formatting (dogfood-and-adopt) process`.
-
-   Update `STATE_DOGFOOD.md` as needed.
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 
@@ -284,10 +235,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 3: Real feature gaps — medium risk ===
 
-1. [PYTHON3] Implement per-block indent-size/style conversion (Python
-   analog of `MiscRuleCore.convertIndentation`) — block-boundary
-   granularity still undecided, needs resolving against real drift
-   patterns in psf/black/django fixtures first.
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 
@@ -311,9 +259,7 @@ Use sub-agent. This can be a substantial work.
    far, but the "second-order oscillation" risk is only absent-so-far,
    not proven impossible; job's own instructions call this high risk.
 
-4. [JS_TS] JSX/TSX support — currently out of scope entirely (not merely deferred).
-
-5. [C_CPP_JAVA] Fix non-idempotent switch-case re-indent on internally-
+4. [C_CPP_JAVA] Fix non-idempotent switch-case re-indent on internally-
    inconsistent generated source (`SwitchRule.applyNonInlineCaseIndent`)
    — a depth-derived-absolute-indent rewrite attempt hung (never
    converged in `formatNonInlineSwitches`'s own while(true) fixed-point
@@ -321,6 +267,8 @@ Use sub-agent. This can be a substantial work.
    fixture even after fixing an off-by-one in the same attempt, direct
    evidence of the same cross-pass/convergence fragility as item 3 above;
    reverted, no low-risk fix found yet.
+
+5. [JS_TS] JSX/TSX support — currently out of scope entirely (not merely deferred).
 
 Use sub-agent. This can be a substantial work.
 
@@ -337,116 +285,3 @@ Use sub-agent. This can be a substantial work.
 - AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM) — permanently
   NOT FEASIBLE, no tractable grouping-intent heuristic exists at any model size
   tested. Reference-only, not a live TODO.
-
-####################################################################################################
-####################################################################################################
-####################################################################################################
-
-You are an expert repository archivist working on JxMake's `formatter/` process
-documentation: `CLAUDE.md`, `RDD_LOG.md`, and the `STATE_*.md` files
-(EXCEPT `STATE_DOGFOOD.md`).
-
-Read `CLAUDE.md` FIRST. It is the routing table: each `STATE_*.md` file belongs
-to exactly one independent tracked job, and jobs are meant to be read/compacted
-in isolation from each other — do not let context from one job's file leak
-into, merge with, or get cross-referenced into another job's file. Preserve
-that isolation in your output: one job's STATE file must still stand alone
-after compaction, readable with no other STATE file open.
-
-Process files one at a time, in this order: `CLAUDE.md`, then `STATE_COMMON.md`
-(the shared process file every job depends on), then each remaining
-`STATE_*.md` file individually. Do NOT combine any of them into a single
-output. Do NOT touch `RDD_LOG.md` itself except as a read-only reference for
-understanding what an `RDD_KEY_n` citation means — never inline, paraphrase,
-or duplicate its content into a STATE file's own text.
-
-CRITICAL RULES — violating any of these makes the output unusable:
-
-1. **Never resolve or inline an `RDD_KEY_n` reference.** These are pointers
-   into `RDD_LOG.md`, looked up one key at a time, on demand, by a future
-   session — that is a deliberate token-budget design, not an oversight.
-   Every `RDD_KEY_n` citation in the input must appear, verbatim (same key
-   number, same surrounding one-line topic gloss), in the output. Do not
-   summarize what a key "says" beyond the gloss already present in the
-   input. If a paragraph names 3 keys, keep all 3 named — do not collapse
-   them into "several design decisions were made."
-
-2. **Never blur or resolve cross-job references.** If a STATE file mentions
-   another job's file only as a pointer (e.g. "see STATE_JS_TS.md's Dogfood
-   section"), keep it as a pointer. Do not pull in or summarize the other
-   file's content to "help." Each job's file must remain readable in
-   isolation, per `CLAUDE.md`'s explicit routing rule.
-
-3. **Preserve every stated status distinction exactly**, especially these,
-   which recur constantly and must never be flattened into each other:
-   "done", "not started", "in progress", "accepted gap" / "known
-   limitation" (deliberately left unfixed, not a bug), "deferred",
-   "deviation from design" (differs from an earlier RDD decision, with a
-   reason), "open question" (blocking, unresolved). A compaction that turns
-   "known limitation, not yet fixed" into "fixed" or drops the "not yet"
-   is a correctness bug in your output, not a style choice. When in doubt,
-   quote the original status wording rather than paraphrase it.
-
-4. **Do not launder aspirational or future-tense language into
-   present-tense fact.** Several files are explicit that they describe
-   only current, actually-landed code state — not documentation-writer
-   intent, not what a doc *should* eventually say. If the input hedges
-   ("no implementation yet", "design decisions landed but nothing shipped",
-   "if this job proceeds"), your output must keep the same hedge. Never
-   upgrade a design decision to "implemented" or a plan to "done."
-
-5. **Never drop an explicit system/environment constraint.** Examples from
-   this corpus: git flag incompatibilities, forbidden commands (e.g. "never
-   run a filesystem-wide find", "never use `git worktree`" ,"never use
-   `git stash`"), required wrapper scripts instead of calling a compiler/
-   runtime directly, required grep discipline (e.g. "look up one RDD_KEY at
-   a time, never add `-A` context"). These read like small process notes
-   but are load-bearing — cutting one causes a future session to run an
-   unsafe or broken command. Keep the constraint AND its stated reason if
-   one is given.
-
-6. **Keep every unresolved item completely intact, verbatim if needed:**
-   open questions, active checklist items (checked and unchecked — do not
-   drop completed items either, since a checklist's shape shows how much
-   work led to the current state), current bugs, in-progress work, and any
-   state variable a future session would need to resume work (e.g. current
-   config defaults, active file:line references, fixture names actively
-   registered in a Makefile/README).
-
-7. **Config keys, defaults, and fixture/file names are data, not prose —
-   never paraphrase them.** A key name, its default value, a file path, a
-   fixture pair name, a commit hash, a function/class name: copy these
-   character-for-character. Summarizing "various config keys were added"
-   instead of naming them is a data-loss bug.
-
-What you MAY condense, and how:
-- Long historical narratives about HOW a now-resolved bug was found/fixed/
-  investigated across multiple dogfood sessions may be shortened to: what
-  was found, the root cause, the fix, and its current status — drop blow-
-  by-blow investigation narrative once the outcome is stated. Keep any
-  numeric result the input reports (e.g. "230/230 forward, 230/230
-  idempotency") since these are gating evidence of "still green," not
-  narrative color.
-- Repeated/templated status log entries (e.g. a dogfood corpus re-run
-  producing the same "clean, no new regressions" outcome across sessions)
-  may be collapsed into one entry noting it was re-confirmed on the stated
-  dates, rather than restating the full corpus-by-corpus breakdown each
-  time — but keep the corpus names and file counts from at least the most
-  recent run.
-- Prose may be tightened for length as long as no rule above is violated.
-
-Output format: one clean markdown file per input file, same filename,
-written to an `out/` subdirectory next to the input files (e.g.
-`out/STATE_HTML5_TCG.md`). No chat commentary, no preamble, no "here is the
-compacted version" — just the file content itself. Preserve each file's
-existing top-level heading structure (H1 title, `##` section headings) so a
-human diffing old vs. new can still map sections 1:1.
-
-After finishing all files, produce one extra file, `out/COMPACTION_REPORT.md`,
-listing: original vs. new line/byte count per file, and a bullet list of
-every RDD_KEY_n / status word / config key you were unsure whether to keep
-verbatim vs. condense, so a human can spot-check exactly those spots first.
-
-After I am reviewing them, and OK, I will ask you to overwrite the original files
-and hit commit with your contribution and special e-mail in the commit message.
-`Co-authored-by: Grok <grok@x.ai>`

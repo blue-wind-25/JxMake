@@ -687,10 +687,10 @@ before/after detail available via `git log`/`git show`.
   line-length check before `enforceCallLineBreaking` can preserve it. Fixed: pre-flight bail-out
   in `DeclarationAlignmentRuleCurly.parseDeclaration` (`rawSliceBetweenUnfiltered`/
   `containsMultilineBraceBody`) — if any brace pair in the initializer originally spanned >1
-  physical source line, leave statement untouched. Re-verified durable
-  `jenkinsci/jenkins` `hudson/PluginManager.java` repro
-  (`~/Projects/JxMake/0_excluded_directory/formatter_repro_fixtures/jenkinsci_jenkins_PluginManager.java`):
-  round1 == round2 == round3, `sitePlugins` no longer flattened. 3 pre-existing fixtures
+  physical source line, leave statement untouched. Re-verified durable against a
+  `jenkinsci/jenkins` `hudson/PluginManager.java` repro (external copy since deleted,
+  permanently covered by the fixture below): round1 == round2 == round3, `sitePlugins`
+  no longer flattened. 3 pre-existing fixtures
   (`real_code_regressions_57`/`129`/`130`) hand-encoded this as "expected" — updated per
   `test/README.txt` and RDD_KEY_222 precedent. New fixture
   `test/real_code_regressions_176_{inp,out}.java`. `make test`: 224/224 -> 225/225, zero

@@ -700,8 +700,10 @@ public final class XmlSpecificRule {
                 // HTML5's error-tolerant posture -- strict XML/XHTML keeps the original unconditional
                 // break (a mismatched close tag there is a real document error, not tolerated).
                 if( !lang.isHtml5 || openTagStack.contains( peekCloseTagNameLower() ) ) break;
-                final int gt = s.indexOf('>', pos);
+                final String orphanTag = peekCloseTagNameLower();
+                final int    gt        = s.indexOf('>', pos);
                 pos = gt >= 0 ? gt + 1 : s.length();
+                if( "p".equals(orphanTag) ) nodes.add( synthesizeEmptyElement("p") );
                 continue;
             } // if
             if( impliedCloseTriggers != null && startsWithTriggerTag(impliedCloseTriggers) ) break;
@@ -711,9 +713,13 @@ public final class XmlSpecificRule {
                 // gaps documented in STATE_DATA_FORMATS.md's Open Questions -- adoption agency,
                 // foreign-content foster-parenting -- can leave one of these bubbling all the way up).
                 // Per the same "HTML5 parsing must never crash" posture as parseElement's implicit-close
-                // fallback, silently discard the stray tag and keep going rather than throwing.
-                final int gt = s.indexOf('>', pos);
+                // fallback, silently discard the stray tag and keep going rather than throwing -- except
+                // an orphan `</p>` (RDD_KEY_223's spec note), where the real HTML5 "p end tag" algorithm
+                // synthesizes an empty `<p></p>` rather than discarding, so match that here too.
+                final String orphanTag = peekCloseTagNameLower();
+                final int    gt        = s.indexOf('>', pos);
                 pos = gt >= 0 ? gt + 1 : s.length();
+                if( "p".equals(orphanTag) ) nodes.add( synthesizeEmptyElement("p") );
                 continue;
             } // if
             final Node node = parseSingleNode();
@@ -797,6 +803,20 @@ public final class XmlSpecificRule {
         while( i < s.length() && s.charAt(i) != '>' && !Character.isWhitespace( s.charAt(i) ) ) i++;
 
         return s.substring(start, i).toLowerCase(java.util.Locale.ROOT);
+    }
+
+    /**
+     * Builds a synthetic empty (open/close-with-nothing) element node, e.g. for an orphan
+     *  {@code </p>} -- see the "p end tag" spec note in {@code RDD_LOG.md}'s {@code RDD_KEY_223}.
+     */
+    private Node synthesizeEmptyElement(final String tagNameLower)
+    {
+        final Node n = new Node();
+        n.type     = NodeType.ELEMENT;
+        n.tagName  = tagNameLower;
+        n.children = new ArrayList<>();
+
+        return n;
     }
 
     private void attachTrailingCommentIfAny(final Node node)

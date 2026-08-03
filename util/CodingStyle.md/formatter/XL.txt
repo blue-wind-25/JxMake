@@ -270,24 +270,20 @@ Use sub-agent. This can be a substantial work.
 === TIER 2: Narrow/cosmetic fixes — low risk ===
 
 1. [JS_TS] Fix single-declarator colon spacing bug: `const x: number = 1;`
-   renders with a stray space before the colon (`const x : number`).
+   renders with a stray space before the colon (`const x : number`) — only
+   a bug when the declaration is NOT part of an alignment group; when
+   alignment grouping applies, the space before the colon is required by
+   STYLE and must stay.
 
-2. [AI] Confirm/wire `MiscRule.stripSoleTrailingPeriod`'s `dotCount != 1`
-   case through the GRU classifier, then add mid-word-dot training rows
-   (e.g. "Combined .hpp test ... extern C.") so sentence-ending periods
-   aren't left in by mistake.
-
-3. [DATA_FORMATS] `running.html` residual gap (RDD_KEY_223, discard-vs-
-   synthesize `<p>`) — narrow, single known file, currently accepted.
-
-4. [AI] GRU comment sentence-boundary mid-word-dot detection (`.hpp`, `e.g.`, `v1.0`
-   defeating the sole-trailing-period heuristic) — accepted mechanical-rule
-   limitation. Not just a training-data problem: first needs confirming/adding
-   whether `MiscRule.stripSoleTrailingPeriod`'s `dotCount != 1` path even
-   routes through the GRU yet (see STATE_AI.md's 2026-08-03 TODO note) — a real
-   gate/wiring change, before any mid-word-dot training rows would matter.
-   Value: low. Difficulty: medium (wiring confirmation/change first, then
-   blocked on training data same as before).
+2. [AI] GRU comment sentence-boundary mid-word-dot detection (`.hpp`, `e.g.`, `v1.0`
+   defeating the sole-trailing-period heuristic, e.g. "Combined .hpp test
+   ... extern C.") — accepted mechanical-rule limitation. Not just a
+   training-data problem: first needs confirming/adding whether
+   `MiscRule.stripSoleTrailingPeriod`'s `dotCount != 1` path even routes
+   through the GRU classifier yet (see STATE_AI.md's 2026-08-03 TODO note)
+   — a real gate/wiring change — before any mid-word-dot training rows
+   would matter. Value: low. Difficulty: medium (wiring confirmation/change
+   first, then blocked on training data same as before).
 
 Use sub-agent. This can be a substantial work.
 
@@ -329,7 +325,7 @@ Use sub-agent. This can be a substantial work.
    far, but the "second-order oscillation" risk is only absent-so-far,
    not proven impossible; job's own instructions call this high risk.
 
-4. JSX/TSX support — currently out of scope entirely (not merely deferred).
+4. [JS_TS] JSX/TSX support — currently out of scope entirely (not merely deferred).
 
 Use sub-agent. This can be a substantial work.
 

@@ -469,6 +469,25 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      capitalization mismatches confirmed identical against a pre-fix
      baseline build.
 
+     **Residual gap now closed too (RDD_KEY_236, 2026-08-03, user-directed).**
+     The discard-only choice above was superseded: browsers don't discard an
+     orphan `</p>` — the real HTML5 "p end tag" algorithm synthesizes an
+     empty `<p></p>` at that point (spec-mandated for parser-state
+     interoperability, not primarily a rendering concern — though the
+     default UA-stylesheet `<p>` margin means it can be visible too). New
+     `XmlSpecificRule.synthesizeEmptyElement` builds a synthetic empty
+     `ELEMENT` node; both orphan-close-tag discard sites in `parseNodes`
+     (the `stopAtCloseTag` branch and the document-root-level stray-tag
+     branch) now call it when the discarded tag name is `"p"`, leaving every
+     other orphan tag name's discard-only behavior unchanged. Fixture
+     `real_code_regressions_173_out.html` updated (gained the synthesized
+     `<p></p>`). `make test`: 238/238 forward + idempotency. Full
+     `apache/ant manual/` 226-file re-run: 226/226 forward + idempotency +
+     `html_syntax_check.sh` clean; direct `<p` tag-count check on
+     `running.html` confirms exactly one `<p></p>` synthesized (60 vs. the
+     original 59). `<body>` child count now matches the browser's 82 — the
+     "1 `<p>` lost" residual this item originally accepted is gone.
+
   3. **Tag-name case-folding — DONE, fixed standalone**
      (`real_code_regressions_112`, commit `10b20cf`, user, 2026-07-25). New
      `XmlSpecificRule.SVG_TAG_NAME_CASE_FIXUP` map holds the spec's "Adjust

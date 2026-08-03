@@ -131,6 +131,17 @@ faster):
 Use `tools/verifiers` to syntax check. If there are many errors, work in
 batch, store the rest in the corresponding state file.
 
+**Diagnosing a hung `make test` / batch run**: `Main.main`'s per-file loop
+(shared by every job — `--standalone` batch mode, used by `make test`,
+processes every fixture in one JVM invocation) prints
+`jxmake-code-formatter: processing <file>` to stderr immediately before each
+file, so a hang shows exactly which file it's stuck on instead of just
+silence (2026-08-04, added after a real switch-case-reindent fix attempt
+caused an infinite loop mid-`make test` with no way to tell which fixture
+was stuck — see STATE_C_CPP_JAVA.md's Tier-4-escalation entry for that
+incident). This is a plain unconditional stderr trace, not gated behind a
+flag — stderr isn't diffed by `make test`, so it can't affect pass/fail.
+
 **Verifier toolchain** — needed to build/run `tools/verifiers/*` and
 `tools/gru/*` on this system; shared across every job that touches those
 tools. Invoke the verifier helpers via their wrapper scripts rather than

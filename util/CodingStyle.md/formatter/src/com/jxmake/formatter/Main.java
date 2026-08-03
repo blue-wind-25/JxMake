@@ -178,6 +178,8 @@ public final class Main {
         boolean anyChanged = false;
         boolean anyError   = false;
         for(final String file : files) {
+            System.err.println("jxmake-code-formatter: processing " + file);
+            System.err.flush();
             try {
                 if( processFile(
                     Paths.get(file),

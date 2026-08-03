@@ -362,9 +362,9 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   `test/html_multiline_comment_verbatim_{inp,out}.html`. `make test`:
   237/237 forward + idempotency, zero regressions. Full text: `RDD_KEY_232`.
 
-- **HTML5 deep tree-construction edge cases — three still-open items,
-  full diagnosis below (mostly deferred as a grouped future job; tag-name
-  case-folding already fixed standalone).**
+- **HTML5 deep tree-construction edge cases — one still-open item (item 1,
+  deferred to the grouped `STATE_HTML5_TCG.md` job); items 2 and 3 below are
+  now both FIXED. Full diagnosis kept below for history.**
 
   1. **`web-platform-tests/wpt` residual gaps — DEFERRED, grouped future
      job.** After 4 bugs fixed in the initial `html/syntax/` session

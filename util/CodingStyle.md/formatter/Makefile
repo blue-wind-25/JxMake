@@ -529,10 +529,9 @@ test: $(JAR_FILE)
 	@mkdir -p $(BUILD_DIR)
 	@flock $(TEST_LOCK) $(MAKE) --no-print-directory _test_serial
 
-# Copies the root-level weights file into $(BUILD_DIR) so tests/bench/server have
-# something to load. Guarded so a fresher copy already sitting in $(BUILD_DIR) --
-# e.g. one `gru-train` just produced there, even if `gru-train` itself then failed
-# to propagate it up to the root -- is never overwritten by this sync.
+# Copies the root-level weights file into $(BUILD_DIR) so tests/bench/server have something to load.
+# Guarded so a fresher copy already sitting in $(BUILD_DIR) -- e.g. one `gru-train` just produced there,
+# even if `gru-train` itself then failed to propagate it up to the root -- is never overwritten by this sync.
 gru-sync-weights:
 	@if [ ! -f "$(BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)" ] && [ -f "$(GRU_WEIGHTS_FILENAME)" ]; then \
 		cp "$(GRU_WEIGHTS_FILENAME)" "$(BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)";                  \

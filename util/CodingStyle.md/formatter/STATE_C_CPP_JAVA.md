@@ -163,10 +163,21 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   `utility/any.hpp`, `iterator/common_iterator.hpp`, `meta.hpp`. Root cause/fix: entry (20) in
   "Finished dogfood / real-code testing" below. Full narrative: `RDD_KEY_169` in `RDD_LOG.md`.
 
-- **OPEN, unconfirmed, not conflated with the above:** some already-passing fixtures reportedly
-  fail syntax-check under `clang` C++23 mode while passing under `gcc 12` C++20 mode — may be a
-  real fixture language-version mismatch, or the formatter's output triggering stricter-parser-only
-  diagnostics. Needs its own investigation; not yet linked to bug (a).
+- **NOT REPRODUCED, 2026-08-03 — closed as unconfirmed/stale, not conflated with the above.**
+  Investigated: ran every registered `test/*_out.cpp`/`test/*_out.hpp` fixture (37 files) through
+  both `g++ -std=c++20 -fsyntax-only` and `clang++ -std=c++23 -fsyntax-only` (tools (2)/(3) above,
+  including the `-stdlib=libc++` variant) — zero mismatches; every fixture passing gcc also passes
+  clang, with or without `-stdlib=libc++`. The wider set of `-stdlib=libc++`-only failures found
+  (standalone header-fragment fixtures missing includes/full context, e.g. `platform.hpp`) is
+  expected fixture-snippet noise, not a version-mismatch signal, and none of those fixtures pass
+  gcc either. No other finished dogfood entry records a clang/gcc discrepancy — item (22)
+  `microsoft/proxy` explicitly used `clang++ -std=c++23 -stdlib=libc++` and matched its gcc
+  baseline cleanly. The adjacent item (20) `range-v3` corpus (likely origin of this report) was
+  only ever verified against gcc, never cross-checked with clang, and its original `/tmp` checkout
+  is now empty (directory structure only, unusable for re-verification) — no specific filenames
+  were ever recorded for this report to re-target a fresh clone against. Closed as not
+  reproducible against the current, complete local fixture set under any documented invocation;
+  re-open with concrete filenames if it resurfaces against a live corpus.
 
 ---
 

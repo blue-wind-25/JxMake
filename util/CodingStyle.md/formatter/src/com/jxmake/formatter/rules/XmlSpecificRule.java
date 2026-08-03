@@ -1590,8 +1590,26 @@ public final class XmlSpecificRule {
                 useTabs ? "tabs" : "spaces",
                 normalizeCommentStartCase
             );
+            // §2.4's XHTML idiom exception: `<style><![CDATA[ ... ]]></style>` unwraps, dispatches
+            //  its inner text through the same CSS formatter as the plain (non-CDATA) case, then
+            //  re-wraps the formatted result in `<![CDATA[ ]]>` -- mirrors `<script>`'s identical
+            //  handling below. Same known limitation as the `<script>` path: if the formatted CSS
+            //  ever happened to contain the literal sequence `]]>` (extremely unlikely for CSS
+            //  content), the naive re-wrap would prematurely terminate the CDATA section -- not
+            //  worth defensive escaping machinery for so rare an edge case.
+            final String  dedentedStyle = dedent(n.raw).trim();
+            final boolean isCdataStyle  = dedentedStyle.startsWith(
+                "<![CDATA["
+            )&& dedentedStyle.endsWith("]]>");
+            final String  cssSource     = isCdataStyle ? dedentedStyle.substring(
+                "<![CDATA[".length(), dedentedStyle.length() - "]]>".length()
+            ).trim() : n.raw.trim();
+            final String  cssFormatted  = css.format(cssSource);
+            final String  spliceStyle   = isCdataStyle ? "<![CDATA[\n" + cssFormatted.replaceAll(
+                "\\s+$", ""
+            ) + "\n]]>\n" : cssFormatted;
             out.append(openTag).append('\n');
-            out.append( reindent( css.format( n.raw.trim() ), depth + 1 ) );
+            out.append( reindent(spliceStyle, depth + 1) );
             out.append( indent(depth) ).append("</").append(n.tagName).append(">\n");
             return;
         } // if

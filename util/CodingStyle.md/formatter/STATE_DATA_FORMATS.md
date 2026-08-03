@@ -588,9 +588,48 @@ per-repo dogfood bugs):
       `make test`: 202/202. **Known simplifications, not exercised by
       current fixtures:** no text reflow (only attributes wrap); mixed
       text+element content splits onto separate lines rather than staying
-      inline; §2.4's CDATA-inside-`<script>`/`<style>` dispatch exception not
-      implemented (needs JS/TS or CSS dispatch from inside the XML
-      pipeline).
+      inline.
+
+      **§2.4 CDATA-inside-`<style>` dispatch exception — IMPLEMENTED
+      (2026-08-04).** The `<script>` side of this exception (unwrap CDATA,
+      dispatch to JS/TS, re-wrap) already landed earlier alongside the
+      `<script>`/`<style>` dispatcher itself (see the HTML5 checklist entry
+      below, commits `a3c5c81`/`7cca3a4`/`679fafb`) — `renderScriptOrStyle`'s
+      JS branch already string-detects a `dedent(n.raw).trim()` starting with
+      `<![CDATA[`/ending with `]]>`, unwraps, dispatches to
+      `FormatterCore.forLanguage("js")`, and re-wraps. The `<style>` branch,
+      however, had no such check at all — it always fed `n.raw.trim()`
+      straight to `CssSpecificRule.format` with no CDATA detection, so a
+      `<style><![CDATA[ ... ]]></style>` block would get the literal
+      `<![CDATA[`/`]]>` markers fed into the CSS parser as bogus content.
+      Fixed by adding the identical detection/unwrap/re-wrap logic to the
+      `<style>` branch of `XmlSpecificRule.renderScriptOrStyle` — same
+      `dedent`+`trim`+prefix/suffix-strip check, same
+      `"<![CDATA[\n" + formatted.replaceAll("\\s+$", "") + "\n]]>\n"` re-wrap
+      shape, then `reindent(..., depth + 1)` into the surrounding markup —
+      chosen specifically to look identical to the already-shipped
+      `<script>` CDATA handling rather than inventing a second convention.
+      Whitespace/rewrap convention: matches the plain (non-CDATA)
+      `<script>`/`<style>` dispatch's existing `reindent(formatted, depth +
+      1)` splice, with the `<![CDATA[`/`]]>` markers each on their own line
+      at that same reindented depth (consistent with how a real, opaque,
+      non-script/style CDATA node already renders its markers inline with
+      its content on one line via the general `CDATA` render case — the
+      script/style case differs because its content is multi-line formatted
+      output, so each marker gets its own line, matching the existing
+      `<script>` precedent rather than the single-line opaque-CDATA one).
+      Known limitation carried over from the `<script>` precedent (not
+      newly introduced): if formatted CSS output ever happened to contain
+      the literal sequence `]]>`, the naive re-wrap would prematurely
+      terminate the CDATA section — accepted as a documented, extremely rare
+      edge case (a defensive code comment notes it), not worth escaping
+      machinery. Fixture: extended the existing `test/html_comments_inp.html`
+      /`_out.html` pair with a `<style id="cdata-style"><![CDATA[
+      .badge{color:red;font-weight:bold;} ]]></style>` block (that fixture
+      already covered the CDATA-wrapped `<script>` idiom and opaque CDATA in
+      a non-script/style tag, so this closes the last of the three cases in
+      the same pair rather than adding a new one). `make test`: 242/242
+      forward + idempotency, zero regressions.
 
       **`indent-style = auto` — IMPLEMENTED (2026-08-04).** Previously
       unhandled: `FormatterXml.formatOne` passed `config.indentStyle()`

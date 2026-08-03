@@ -391,8 +391,10 @@ HTML5:
                                                         trailing comment, opaque CDATA in a non-script tag, a
                                                         `data:` URI attribute overflowing by length (not
                                                         count), a comment as sole content inside a spliced
-                                                        `<style>` block, the CDATA-wrapped `<script>` idiom
-                                                        dispatched to JS formatting and re-wrapped, and a
+                                                        `<style>` block, the CDATA-wrapped `<style>` idiom
+                                                        dispatched to CSS formatting and re-wrapped, the
+                                                        CDATA-wrapped `<script>` idiom dispatched to JS
+                                                        formatting and re-wrapped, and a
                                                         `<script type="application/json">` block staying fully
                                                         opaque.
 

@@ -219,6 +219,9 @@ Update `STATE_DOGFOOD.md` as needed.
 ####################################################################################################
 ####################################################################################################
 
+Ensure the GRU weights is only loaded once in multi-file and server modes. It may also make sense
+to make the GRU inference class singleton.
+
 === TIER 0: Recurring job ===
 
 1. GRU: **DO NOT REMOVE THIS ITEM. This will be a recurring job.**

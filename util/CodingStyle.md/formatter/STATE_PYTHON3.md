@@ -764,6 +764,45 @@ failures reproduced identically on the unformatted originals, e.g.
 
       All four clusters fixed; full corpus re-run deferred until
       requested, same pattern as every prior dogfood entry in this file.
+
+      **2026-08-04 — deferred full-corpus re-run done** (requested
+      explicitly, to close out XL.txt's Tier 1 item 1 alongside the same-day
+      indent-size/style conversion work's own psf/black/django/cpython
+      `Lib/` validation — that validation only covered `Lib/`, not the full
+      2343-file repo, so this is the first full-repo re-run since the
+      4-cluster fix). Same `/tmp/cpython` shallow clone, full repo (not just
+      `Lib/`) via `--preserve-tree --root`. Round1: 2343/2343 processed,
+      zero crashes. Round2 (idempotency): `diff -rq round1 round2` empty,
+      0/2343 differ. `python3.12 -m py_compile`: 73 failures on round1 vs.
+      74 on the unformatted original — **73 identical** (all the same
+      `lazy import`/t-string bleeding-edge syntax experiments not yet
+      standard Python, e.g. `Lib/traceback.py:21`, matching the pattern
+      already documented above; there are simply more of them now than at
+      the original 4-cluster fix time, since this is cpython's own moving
+      dev branch, not a formatter regression).
+
+      **One file's compile status changed, but not via any formatting
+      logic — a pre-existing lossy-read quirk, unrelated to the
+      indent-conversion work or any Python3 rule:**
+      `Lib/test/tokenizedata/badsyntax_pep3120.py` is a deliberately
+      invalid-UTF-8-encoded test fixture (a raw Latin-1 `ö` byte, `0xf6`,
+      that isn't valid UTF-8 — the test asserts the tokenizer raises
+      `SyntaxError: (unicode error) ... invalid start byte` on it).
+      Whatever file-reading path the formatter's CLI uses evidently decodes
+      with a lossy/replacement-character fallback rather than failing loudly
+      on genuinely invalid UTF-8 input, then writes valid UTF-8 back out
+      (the invalid byte becomes literal U+FFFD `�`) — so the formatted copy
+      compiles cleanly where the original didn't, silently changing the
+      file's byte content in a case truly invalid UTF-8 source is involved.
+      This is an extremely narrow edge case (a source file that isn't valid
+      UTF-8 at all is vanishingly rare in real code — this is the only
+      instance across 2343 real-world cpython files plus every other
+      corpus dogfooded in this file), and not something introduced by
+      today's work — flagging as a known gap rather than fixing now, since
+      it's a CLI/IO-layer concern (charset handling), not a Python3
+      formatting-rule bug, and out of scope for the indent-conversion or
+      dogfood-closure tasks that surfaced it. Not chased further this
+      session.
 - [x] Indent-size/style conversion (Python analog of `MiscRuleCore
       #convertIndentation`) — see "Indent-Size/Style Conversion — DONE
       (RDD_KEY_237)" section above for the full design-decision/

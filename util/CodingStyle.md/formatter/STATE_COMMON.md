@@ -316,7 +316,7 @@ python-import-sort                     = on
 python-import-blank-lines              = 1
 
 # ── HTML5 ─────────────────────────────────────────────────────────────────────
-html5-tc-gap-level                     = 0           # 0 | 1 | 2 | 3 | 4, cumulative (level 1 implemented, see STATE_HTML5_TCG.md)
+html5-tc-gap-level                     = 0           # 0 | 1 | 2 | 3 | 4, cumulative (levels 1-4 implemented, see STATE_HTML5_TCG.md)
 
 # ── AI-assist (GRU) ───────────────────────────────────────────────────────────
 gru-classifier                         = on          # on | off (default on 2026-08-02 -- held-out cross-validation confirmed abstainThreshold=0.7 keeps the NO false-positive rate low enough to trust, see STATE_AI.md)

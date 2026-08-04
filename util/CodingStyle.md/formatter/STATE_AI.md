@@ -391,6 +391,61 @@ oversampling) is a real risk for a new pattern with only a few examples.
   aggregate metric moved the wrong way) or the whole batch reverted via
   `git log`/`git revert` on commit `ff73261`.
 
+  **2026-08-05 — CLOSED via the CM5 `gru-cv-corpus` run.** `cvc.zip`
+  (`cv_corpus.log`, `gru_cv_corpus.out`, per-round `train_round*.txt`/
+  `test_round*.txt`/`weights_round*.json`) landed from the CM5 run kicked
+  off above. **Confirmed the corpus used was the pre-corrections one, not
+  the Grok-corrections variant**: a known correction's row
+  (`cpp NO 0 / @brief Parse this value directly into a C++ type
+  (single-pass, no double scanning)`) is labeled `NO` in every
+  `train_round*.txt`/`test_round*.txt`, matching the reverted, committed
+  `sample_default.txt` — the corrections snapshot would have flipped this
+  row to `YES`. Real 5-round full-corpus CV result (`--eval-threshold 0.7`,
+  74793 train / 18699 test per round):
+
+  ```
+  round 0: precision=99.32% (18472/18598, 101 abstain)
+  round 1: precision=99.26% (18464/18602, 97 abstain)
+  round 2: precision=99.36% (18483/18602, 97 abstain)
+  round 3: precision=99.30% (18469/18600, 99 abstain)
+  round 4: precision=99.40% (18489/18600, 96 abstain)
+  mean=99.33%  stdev=0.06%  min=99.26%  max=99.40%
+  ```
+
+  Far above every prior figure (which all measured the small, all-ambiguous
+  hand-labeled bench, not the real corpus distribution) — confirms the
+  currently-shipped, without-Grok-corrections weights/corpus already clear
+  production bars by a wide margin. Also swept `abstainThreshold` 0.7/0.75/
+  0.8 against the same 5 rounds' cached weights (`GruEval`, no retrain
+  needed — threshold is pure inference-time metadata): aggregate NO
+  false-positive rate only drifts 12.43%→12.22%→11.94% while abstains grow
+  ~48% (98→145/round average) — a much flatter trade-off than the earlier
+  hand-labeled-bench sweep (7.1%→1.3%) at full-corpus scale. **Decision:
+  `abstainThreshold` stays `0.7`**, no config change.
+
+  **Decision: do not adopt the Grok-corrections weights/corpus.** The
+  question this whole thread was blocked on (whether the 44-row batch is a
+  real improvement) is now answered by measuring the un-corrected corpus
+  directly at production-bar-clearing precision — there's no remaining
+  reason to pull in the reverted snapshot. **Moved to
+  `tools/gru/unused/`** (retired, not part of any live pipeline; see
+  `tools/gru/README.txt`'s new "tools/gru/unused/" section):
+  `code-formatter-ai-assist-weights.2026-08-04-grok-corrections.json`,
+  `tools/gru/sample_default.2026-08-04-grok-corrections.txt`. The 44-row
+  correction batch itself was archived to
+  `tools/gru/unused/disagreement_corrections.2026-08-04-grok.txt` and the
+  live `tools/gru/disagreement_corrections.txt` was emptied back to its
+  pre-Grok header-only state (confirmed via `apply_disagreement_corrections.py`
+  producing a byte-identical `sample_default.txt`, i.e. a true no-op) — the
+  mechanism itself (script + Makefile wiring in `gru-acquire-corpus`) is
+  untouched and stays live for any future correction pass, Grok-sourced or
+  otherwise; only this one batch's content was retired. Also moved (unused,
+  never wired into any Makefile target): `tools/gru/gen_synthetic_prompt.py`,
+  `tools/gru/regroup_synthetic.py` (+ their `.gen_synthetic_*` sidecar state
+  files), `tools/synthetic_out_grok.txt` → all under `tools/gru/unused/`.
+  `cvc.zip`/`cv_corpus.log`/per-round CV files were session-scratch only
+  (`/tmp`), never committed, per `RDD_EXT_19`.
+
 - **[SEPARATE, closed]** A cluster of extracted comments are DTD/URL
   string-literal fragments with no leading space (e.g. `Sun Microsystems,
   Inc.//DTD Enterprise JavaBeans 1.1//EN";`) that look like `//` inside a

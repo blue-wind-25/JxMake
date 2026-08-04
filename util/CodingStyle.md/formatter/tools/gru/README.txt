@@ -469,38 +469,32 @@ cross_validate.py
     picked via a GruEval sweep (see GruEval above) holds up under a fresh
     from-scratch retrain, not just against already-trained models.
 
-Optional: chat-LLM synthetic augmentation (NOT the real corpus)
+tools/gru/unused/ — retired tooling (not part of any live pipeline)
 -----------------------------------------------------------------
-See STATE_AI.md's "Optional synthetic-augmentation tooling" note for the
-rationale/caveats. These two scripts let you pad Pool A/B via a manually
-copy-pasted prompt to a free-tier chat LLM (Gemini, Grok, etc.) instead of
-the API — no upload needed, the prompt is self-contained. Keep any resulting
-file clearly labeled as synthetic; do not merge it into the real combined
-corpus without review.
+Files here are kept for reference/possible future revisit only; nothing in
+`make gru-acquire-corpus`/`make gru-train`/etc. reads them. See
+STATE_AI.md's "Moved to tools/gru/unused/" note for the full rationale.
 
-gen_synthetic_prompt.py
-    Reads explicit_vocab.txt and prints a copy/paste-ready prompt asking a
-    chat LLM for Pool A + Pool B lines in RDD_EXT_20/21 schema, using the
-    next unused slice of the vocab as Pool A's leading-keyword list. Tracks
-    which word index to resume from in a small state file next to the
-    script, so repeated runs walk forward through the vocab (wrapping at
-    the end) instead of asking for the same words twice.
-
-        python3 tools/gru/gen_synthetic_prompt.py [--words-per-batch 20] \
-            [--vocab <path>] [--state <path>] [--langs c cpp java ...] [--reset] [--out <file>]
-
-    Paste the printed prompt into the chat LLM, then paste its full reply
-    (Pool A + Pool B lines together, in any order) into one file for the
-    next tool.
-
-regroup_synthetic.py
-    Splits a pasted-in file containing scattered Pool A/B lines (including
-    concatenated replies from more than one chat/model) back into separate
-    pool_a.tsv / pool_b.tsv files. Tolerates inconsistent space/tab spacing
-    between fields. Anything it can't confidently classify (bad label,
-    non-integer index, or a targetWordIndex it can't match to Pool A's 0 or
-    Pool B's last token) goes to unresolved.tsv for manual review rather
-    than being dropped or guessed at — see the known tokenizer-mismatch
-    caveat in STATE_AI.md before assuming unresolved lines are errors.
-
-        python3 tools/gru/regroup_synthetic.py --input <pasted-file> --outdir <dir>
+- gen_synthetic_prompt.py / regroup_synthetic.py (+ their .gen_synthetic_*
+  sidecar state files): optional chat-LLM synthetic-augmentation tooling
+  (RDD_EXT_23) — padded Pool A/B via a manually copy-pasted prompt to a
+  free-tier chat LLM instead of the API. Never wired into any Makefile
+  target; unused now that the real acquire_corpus.sh + hand-labeling
+  pipeline plus the disagreement-correction mechanism below cover the same
+  ground with real (not synthetic) data.
+- disagreement_corrections.2026-08-04-grok.txt: the 44-row Grok-sourced
+  correction batch that used to live in the real, still-live
+  tools/gru/disagreement_corrections.txt. Superseded once the CM5
+  gru-cv-corpus run showed the corpus WITHOUT these corrections already
+  clears production bars (99.33% mean held-out precision at
+  abstainThreshold=0.7) — see STATE_AI.md. The live
+  disagreement_corrections.txt file and apply_disagreement_corrections.py
+  mechanism are unaffected and still run on every `make gru-acquire-corpus`
+  (currently a no-op, 0 data rows) — this is only about this one batch's
+  content, not the mechanism.
+- sample_default.2026-08-04-grok-corrections.txt / repo-root
+  code-formatter-ai-assist-weights.2026-08-04-grok-corrections.json: the
+  corpus/weights snapshots produced from the above batch, superseded for the
+  same reason.
+- synthetic_out_grok.txt (moved from tools/): a chat-LLM synthetic-
+  augmentation output file, never merged into the real corpus.

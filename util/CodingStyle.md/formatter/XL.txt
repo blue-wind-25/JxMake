@@ -203,10 +203,14 @@ exec  ~/mynpm/bin/claude "$@"
    check, syntax check, and content diff check. If all OK, copy back the formatted round1
    to `tools/*` subdirectories.
 
+   Maybe make them simpler:
+   - No need to test reformat using the round2 JAR for `(dogfood-and-adopt)`.
+   - No need to many syntax-check again only content-diff check for `tools/*`.
+
    Update `STATE_DOGFOOD.md` as needed.
 
    Update and fix `CLAUDE.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`,
-   `../AI_PREAMBLE_AESTHETIC.md`, etc.
+   `../AI_PREAMBLE_AESTHETIC.md`, etc. as needed.
 
 Use sub-agent. This can be a substantial work.
 
@@ -230,12 +234,10 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
 
-#1. [JS_TS / C_CPP_JAVA, shared root cause] Fix call-wrap/collapse vs.
-   declaration-alignment/padding fits-check ordering
-   (`enforceCallLineBreaking` measuring width before other passes finish
-   adjusting columns) — highest file-count impact seen (28/601 TS files,
-   23/5394 angular files, plus a `SwitchRule`-adjacent case in
-   lodash/lodash), user-deferred, no low-risk fix found yet.
+1. [CURLY_GDR] Broader adoption of `curly-general-scope-reindent` (still
+   off by default) — multipass mode has cleared every corpus tested so
+   far, but the "second-order oscillation" risk is only absent-so-far,
+   not proven impossible; job's own instructions call this high risk.
 
 2. [KOTLIN / CURLY_GDR, shared] Kotlin statement-boundary tracking for
    `MiscRuleCurly.renderCallCandidate`'s wrap-decision flap (D3) — two
@@ -243,12 +245,7 @@ Use sub-agent. This can be a substantial work.
    statement/expression-boundary tracking, explicit go-ahead required
    before starting.
 
-3. [CURLY_GDR] Broader adoption of `curly-general-scope-reindent` (still
-   off by default) — multipass mode has cleared every corpus tested so
-   far, but the "second-order oscillation" risk is only absent-so-far,
-   not proven impossible; job's own instructions call this high risk.
-
-4. [C_CPP_JAVA] Fix non-idempotent switch-case re-indent on internally-
+3. [C_CPP_JAVA] Fix non-idempotent switch-case re-indent on internally-
    inconsistent generated source (`SwitchRule.applyNonInlineCaseIndent`)
    — a depth-derived-absolute-indent rewrite attempt hung (never
    converged in `formatNonInlineSwitches`'s own while(true) fixed-point
@@ -257,20 +254,38 @@ Use sub-agent. This can be a substantial work.
    evidence of the same cross-pass/convergence fragility as item 3 above;
    reverted, no low-risk fix found yet.
 
-5. [JS_TS] JSX/TSX support — currently out of scope entirely (not merely deferred).
+4. [JS_TS / C_CPP_JAVA, shared root cause] Fix call-wrap/collapse vs.
+   declaration-alignment/padding fits-check ordering — highest file-count
+   impact seen (28/601 TS files, 23/5394 angular files, plus a
+   `SwitchRule`-adjacent case in lodash/lodash), user-deferred, no low-risk
+   fix found yet. Re-investigated: real root cause is NOT
+   `enforceCallLineBreaking` width-measurement ordering — it's
+   `ScopePipelineCurly.processScope` double-running its per-scope passes
+   (outer-first over the flat token list, then again on each recursed
+   child span), which re-aligns already-touched declarations from two
+   different intermediate states. Shared load-bearing infra across every
+   curly-family language; same class of risk as the GDR pre-pass/post-pass
+   circular dependency (RDD_KEY_229). No fix landed; see STATE_JS_TS.md's
+   Open Questions.
+
+5. [JS_TS] JS/TS braceless if/else collapse can still be non-idempotent
+   when the rescuing call-wrap doesn't shrink the line enough (cluster 5).
+
+6. [JS_TS] JSX/TSX support — currently out of scope entirely (not merely
+   deferred).
+
+Check and update the `## Known Limitations` items in `README.md` and group sort them
+by impact (highest first).
 
 Use sub-agent. This can be a substantial work.
 
 === TIER X: Not worth pursuing / explicitly no action planned ===
 
-- C/C++: `gcc-mirror/gcc`, `llvm/llvm-project` dogfood — NOT STARTED, too massive
+- [C_CPP_JAVA] `gcc-mirror/gcc`, `llvm/llvm-project` dogfood — NOT STARTED, TOO MASSIVE
   to even LOC-count, let alone dogfood in one pass.
 
-- JS: `nodejs/node` dogfood — same, TOO MASSIVE.
+- [JS] `nodejs/node` dogfood — same, TOO MASSIVE.
 
-- TS: Angular dogfood cluster 5 — accepted gap, no action planned (per
-  STATE_JS_TS.md's own text).
-
-- AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM) — permanently
+- [AI] AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM) — permanently
   NOT FEASIBLE, no tractable grouping-intent heuristic exists at any model size
   tested. Reference-only, not a live TODO.

@@ -615,10 +615,10 @@ public static final class Signature {
         // shared `isTightToken` only special-cases the token being joined *to* (`cur`), never a
         // bare `*` as `prev`. Scoped narrowly to lead-token-is-bare-`*` so it can't affect any
         // other lead-token join.
-        final boolean leadEndsWithGeneratorStar = (lang.isJs || lang.isTs) && ! sig.leadTokens.isEmpty() && isOp(
+        final boolean leadEndsWithGeneratorStar = (lang.isJs || lang.isTs) && !sig.leadTokens.isEmpty() && isOp(
             sig.leadTokens.get( sig.leadTokens.size() - 1 ), "*"
         );
-        final boolean leadNeedsSpace            = ! sig.leadTokens.isEmpty() && ! leadEndsWithGeneratorStar && needsSpaceBetween(
+        final boolean leadNeedsSpace            = !sig.leadTokens.isEmpty() && !leadEndsWithGeneratorStar && needsSpaceBetween(
             sig.leadTokens.get( sig.leadTokens.size() - 1 ),
             sig.name,
             Collections.< Token > emptySet(),
@@ -686,7 +686,7 @@ public static final class Signature {
             // (`/* ... */`, which is self-terminating within the line) is safe to inline this way.
             final boolean leadingIsLineComment = p.leadingComment != null && p.leadingComment.type == TokenType.COMMENT_LINE;
             if(leadingIsLineComment) lines.add(paramIndent + p.leadingComment.text);
-            final String leadPrefix = (p.leadingComment != null && ! leadingIsLineComment) ? p.leadingComment.text + " " : "";
+            final String leadPrefix = (p.leadingComment != null && !leadingIsLineComment) ? p.leadingComment.text + " " : "";
             // `typeColWidth` is derived only from params with no leadingComment at all (see the
             // `maxTypeLen` loop above), so a param preceded by a line comment -- excluded from
             // that computation -- can have a `typeText` as long as or longer than `typeColWidth`.
@@ -695,7 +695,7 @@ public static final class Signature {
             // token on reformat (found via `src/jxm` real-code testing: `STM32QSPI.newQSPICmd`'s
             // `// Instruction` comment before its first param). Guarantee at least one space by
             // never padding to less than `typeText.length() + 1`.
-            final String typeCell = (p.leadingComment != null && ! leadingIsLineComment) ? typeText + " " : padRight(
+            final String typeCell = (p.leadingComment != null && !leadingIsLineComment) ? typeText + " " : padRight(
                 typeText, Math.max( typeColWidth, typeText.length() + 1 )
             );
             lines.add(paramIndent + leadPrefix + typeCell + nameText);
@@ -1462,10 +1462,10 @@ public static final class Signature {
             // see that method's doc comment for the full root-cause narrative
             final boolean leadingIsLineComment = p.leadingComment != null && p.leadingComment.type == TokenType.COMMENT_LINE;
             if(leadingIsLineComment) lines.add(paramIndent + p.leadingComment.text);
-            final String leadPrefix = (p.leadingComment != null && ! leadingIsLineComment) ? p.leadingComment.text + " " : "";
+            final String leadPrefix = (p.leadingComment != null && !leadingIsLineComment) ? p.leadingComment.text + " " : "";
             // Same guaranteed-minimum-space fix as `render`'s identical loop above -- see that
             // method's doc comment for the full root-cause narrative
-            final String typeCell = (p.leadingComment != null && ! leadingIsLineComment) ? typeText + " " : padRight(
+            final String typeCell = (p.leadingComment != null && !leadingIsLineComment) ? typeText + " " : padRight(
                 typeText, Math.max( typeColWidth, typeText.length() + 1 )
             );
             lines.add(paramIndent + leadPrefix + typeCell + nameText);

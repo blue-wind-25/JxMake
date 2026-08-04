@@ -815,7 +815,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         for(final List<Declaration> group : groups) {
             final Declaration first       = group.get(0);
             final Declaration last        = group.get( group.size() - 1 );
-            final Token       firstAnchor = ! first.templatePrefix.isEmpty() ? first.templatePrefix.get(
+            final Token       firstAnchor = !first.templatePrefix.isEmpty() ? first.templatePrefix.get(
                 0
             ) : first.modifiers.isEmpty() ? first.typeTokens.get(
                 0
@@ -1763,7 +1763,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             ) || "&&".equals(
                 current.get(chainKwIdx).text
             ) );
-            final boolean isChainedFluentCall = ! isChainedCatchFinally && lang.isKotlin && prevEffectiveSpanIndent != null && prevCloseBraceIdx >= 0 && nextSignificantIndex(
+            final boolean isChainedFluentCall = !isChainedCatchFinally && lang.isKotlin && prevEffectiveSpanIndent != null && prevCloseBraceIdx >= 0 && nextSignificantIndex(
                 current, prevCloseBraceIdx
             ) == chainKwIdx && chainKwIdx >= 0 && chainKwIdx < current.size() && ( isChainedBooleanOp || ( current.get(
                 chainKwIdx

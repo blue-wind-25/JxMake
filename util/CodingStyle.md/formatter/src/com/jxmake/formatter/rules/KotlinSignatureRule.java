@@ -450,7 +450,7 @@ public class KotlinSignatureRule extends MiscRuleCurly {
             final String      modPrefix = p.modifiers.isEmpty() ? "" : renderTokens(
                 p.modifiers
             ) + " ";
-            final String      comma     = (! isLast || sig.trailingComma) ? "," : "";
+            final String      comma     = (!isLast || sig.trailingComma) ? "," : "";
             // The comma is never its own grid column -- appending it as a bare cell would make
             // `ColumnGrid` pad every row's type cell out to the widest sibling before the comma
             // (an extra stray gap, e.g. "id    : Long   ,"), since only a row's own true *last*

@@ -773,7 +773,7 @@ public final class XmlSpecificRule {
             // this item's own fixtures were authored: with an early `continue` here, a formatting
             // element reconstructed by adoption agency while directly inside a <table> was silently
             // dropped instead of being foster-parented itself.)
-            final boolean fostered = html5TcGapLevel >= LEVEL_TABLE_FOSTER && ! fosterBufferStack.isEmpty() && isInTableInsertionMode() && shouldFosterParent(
+            final boolean fostered = html5TcGapLevel >= LEVEL_TABLE_FOSTER && !fosterBufferStack.isEmpty() && isInTableInsertionMode() && shouldFosterParent(
                 node
             );
             if(fostered) {

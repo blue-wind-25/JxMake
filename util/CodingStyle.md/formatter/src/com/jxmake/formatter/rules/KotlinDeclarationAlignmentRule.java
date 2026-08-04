@@ -767,9 +767,9 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      */
     private Row toRow(final KotlinDecl d)
     {
-        final Token lastAnchor = d.trailingComment != null ? d.trailingComment : ! d.initTokens.isEmpty() ? d.initTokens.get(
+        final Token lastAnchor = d.trailingComment != null ? d.trailingComment : !d.initTokens.isEmpty() ? d.initTokens.get(
             d.initTokens.size() - 1
-        ) : ! d.typeTokens.isEmpty() ? d.typeTokens.get(
+        ) : !d.typeTokens.isEmpty() ? d.typeTokens.get(
             d.typeTokens.size() - 1
         ) : d.name;
 

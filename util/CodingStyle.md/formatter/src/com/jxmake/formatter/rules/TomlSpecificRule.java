@@ -614,9 +614,9 @@ public final class TomlSpecificRule {
               int      groupStart = -1;
         for( int i = 0; i <= items.size(); ++i ) {
             final boolean atEnd        = i == items.size();
-            final boolean breaksBefore = atEnd || ! items.get(
+            final boolean breaksBefore = atEnd || !items.get(
                 i
-            ).isKeyed() || ! items.get(
+            ).isKeyed() || !items.get(
                 i
             ).leadingComments.isEmpty() || items.get(
                 i
@@ -628,7 +628,7 @@ public final class TomlSpecificRule {
                     final String[] groupPad = FormatterSimpleBraced.padKeysForColonAlignment(keys);
                     for(int g = groupStart; g < i; ++g) padding[g] = groupPad[g - groupStart];
                 }
-                groupStart = ( ! atEnd&& items.get(i).isKeyed() ) ? i : - 1;
+                groupStart = ( !atEnd && items.get(i).isKeyed() ) ? i : -1;
             } // if
             else if(groupStart < 0) {
                 groupStart = i;

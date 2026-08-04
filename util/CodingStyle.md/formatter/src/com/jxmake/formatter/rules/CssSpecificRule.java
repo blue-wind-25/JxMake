@@ -412,14 +412,14 @@ public final class CssSpecificRule {
               int          groupStart = -1;
         for( int i = 0; i <= items.size(); ++i ) {
             final boolean atEnd           = i == items.size();
-            final boolean isAlignableDecl = ! atEnd && items.get(
+            final boolean isAlignableDecl = !atEnd && items.get(
                 i
             ).decl != null && items.get(
                 i
             ).decl.hasColon && items.get(
                 i
             ).decl.midComment == null;
-            final boolean breaksBefore    = atEnd || ! isAlignableDecl || ! items.get(
+            final boolean breaksBefore    = atEnd || !isAlignableDecl || !items.get(
                 i
             ).leadingComments.isEmpty() || items.get(
                 i
@@ -431,7 +431,7 @@ public final class CssSpecificRule {
                     final String[] groupPad = FormatterSimpleBraced.padKeysForColonAlignment(keys);
                     for(int g = groupStart; g < i; ++g) padding[g] = groupPad[g - groupStart];
                 }
-                groupStart = (! atEnd&& isAlignableDecl) ? i : - 1;
+                groupStart = (!atEnd && isAlignableDecl) ? i : -1;
             } // if
             else if(groupStart < 0) {
                 groupStart = i;

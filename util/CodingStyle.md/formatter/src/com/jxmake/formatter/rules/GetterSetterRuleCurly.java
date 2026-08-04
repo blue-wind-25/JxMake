@@ -707,7 +707,7 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
         // narrowing the group and its alignment column between rounds). A zero-arg `name()` is
         // never broken by that pass (mirroring `hasBreakableCall`'s own doc comment), so only a
         // non-empty parameter list needs this check.
-        final boolean hasBreakableParams = ! isDefinition && paramsFrom < paramsTo;
+        final boolean hasBreakableParams = !isDefinition && paramsFrom < paramsTo;
         if( ( isDefinition && hasBreakableCall(tokens, bodyFrom, bodyTo) ) || hasBreakableParams ) {
             final int estimatedColumn = nestDepth * indentWidth;
             final int estimatedWidth  = estimatedColumn + cellText(tokens, firstSig, to).length();

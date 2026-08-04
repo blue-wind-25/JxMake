@@ -309,7 +309,7 @@ public final class Main {
         final String  formatted = format(
             path, language, original, standalone, formatOff, cliOverrides
         );
-        final boolean changed   = ! formatted.equals(original);
+        final boolean changed   = !formatted.equals(original);
 
         switch(outputMode) {
 

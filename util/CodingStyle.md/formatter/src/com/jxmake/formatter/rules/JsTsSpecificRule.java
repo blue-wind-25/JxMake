@@ -735,7 +735,7 @@ public final class JsTsSpecificRule {
             ) || isOptionalChain(
                 t
             );
-            final boolean adjacentToNullish = ! adjacentToTightOp && ( isNullishCoalesce(
+            final boolean adjacentToNullish = !adjacentToTightOp && ( isNullishCoalesce(
                 lastSignificant
             ) || isNullishCoalesce(
                 t
@@ -3639,7 +3639,7 @@ public final class JsTsSpecificRule {
         } // while
         segments.add(currentSegment);
 
-        final boolean anyImports = segments.stream().anyMatch( seg->! seg.isEmpty() );
+        final boolean anyImports = segments.stream().anyMatch( seg->!seg.isEmpty() );
         if(blocked || !anyImports) return render( tokens, java.util.Collections.emptyMap() );
 
         final StringBuilder body = new StringBuilder();

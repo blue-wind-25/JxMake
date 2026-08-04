@@ -431,7 +431,7 @@ public class TokenizerIndent extends TokenizerCore {
                 pos += 2;
                 continue;
             } // if
-            final boolean atClosingQuote = c == quote && ( ! triple || ( peek(
+            final boolean atClosingQuote = c == quote && ( !triple || ( peek(
                 1
             ) == quote && peek(
                 2

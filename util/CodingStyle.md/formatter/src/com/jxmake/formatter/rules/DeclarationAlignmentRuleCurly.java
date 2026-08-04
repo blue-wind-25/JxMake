@@ -327,7 +327,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         final List<Declaration> group = lang.isJava ? reorderStatics(originalGroup) : originalGroup;
 
         // Function forward declarations use a simpler 2-column layout (no modifier columns)
-        boolean allAreFuncDecls = ! group.isEmpty();
+        boolean allAreFuncDecls = !group.isEmpty();
         for(final Declaration d : group) {
             if( d.sizeTokens.isEmpty() || !isPunct( d.sizeTokens.get(0), "(" ) ) {
                 allAreFuncDecls = false;
@@ -1061,7 +1061,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                     final List<Token> inner         = body.subList(
                         nameOpenIdx + 1, paramsOpenIdx - 1
                     );
-                          boolean     isFuncPtrName = ! inner.isEmpty() && inner.get(
+                          boolean     isFuncPtrName = !inner.isEmpty() && inner.get(
                               inner.size() - 1
                           ).type == TokenType.IDENTIFIER;
                     for( int k = 0; isFuncPtrName && k < inner.size() - 1; ++k ) {

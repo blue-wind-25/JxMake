@@ -1559,7 +1559,7 @@ public class CppSpecificRule {
         }
 
         final String expectedGuard  = deriveGuardName(filePath);
-        final String effectiveGuard = renameGuard && ! expectedGuard.equals(
+        final String effectiveGuard = renameGuard && !expectedGuard.equals(
             z.actualGuardName
         ) ? expectedGuard : z.actualGuardName;
 

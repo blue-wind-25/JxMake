@@ -306,7 +306,7 @@ public class KotlinSpecificRule {
         while( i < tokens.size() && tokens.get(i).type == TokenType.WHITESPACE ) i++;
         if( i < tokens.size() && tokens.get(i).type != TokenType.NEWLINE ) return;
         if( tokens.get(closeBrace).frozen ) return;
-        final String label = subject != null && ! subject.isEmpty() ? "when " + subject : "when";
+        final String label = subject != null && !subject.isEmpty() ? "when " + subject : "when";
         overrides.put( closeBrace, tokens.get(closeBrace).text + " // " + label );
     }
 
@@ -506,7 +506,7 @@ public class KotlinSpecificRule {
             final boolean adjacentToTightOp = isTightNullOp(
                 t
             ) || dotTightOnRight || bangTightOnRight;
-            final boolean adjacentToElvis   = ! adjacentToTightOp && ( isElvisOp(
+            final boolean adjacentToElvis   = !adjacentToTightOp && ( isElvisOp(
                 lastSignificant
             ) || isElvisOp(
                 t
@@ -807,10 +807,10 @@ public class KotlinSpecificRule {
             final boolean blocked          = gap.stream().anyMatch(
                 g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
             ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
-            final boolean forceSpaceBefore = ! blocked && isOp(t, "->") && ! whenArrows.contains(i);
-            final boolean forceSpaceAfter  = ! blocked && lastSignificant != null && isOp(
+            final boolean forceSpaceBefore = !blocked && isOp(t, "->") && !whenArrows.contains(i);
+            final boolean forceSpaceAfter  = !blocked && lastSignificant != null && isOp(
                 lastSignificant, "->"
-            ) && ! whenArrows.contains(
+            ) && !whenArrows.contains(
                 lastSignificantIdx
             );
 

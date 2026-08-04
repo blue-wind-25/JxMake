@@ -3159,7 +3159,7 @@ public class BlockStructureRule {
                 final boolean isElseIf   = line.regionMatches(indentLen, "else if(", 0, 8);
                 final boolean isBareElse = line.regionMatches(
                     indentLen, "else ", 0, 5
-                ) && ! isElseIf;
+                ) && !isElseIf;
                 if(isBareElse) {
                     kwLen[k] = -1; // Sentinel: bare else never contributes/receives left-padding
                     continue;
@@ -3194,7 +3194,7 @@ public class BlockStructureRule {
                 final boolean isElseIf   = line.regionMatches(indentLen, "else if(", 0, 8);
                 final boolean isBareElse = line.regionMatches(
                     indentLen, "else ", 0, 5
-                ) && ! isElseIf;
+                ) && !isElseIf;
                 if(isBareElse) {
                     prefixEnd[k] = indentLen + "else".length();
                     continue;

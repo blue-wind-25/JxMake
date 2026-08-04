@@ -177,28 +177,26 @@ caught its bad case:
   identical; `!important` count matches; vendor-prefixed property counts
   match per distinct prefixed string. First used ad hoc during
   `twbs/bootstrap`, promoted to permanent during `necolas/normalize.css`.
-- `xml_content_diff.py` — stdlib `xml.dom.minidom` (no extra dependency).
-  Walks both DOMs in parallel (skipping pure-whitespace text nodes):
-  element names + attribute name/value pairs **in order** (XML preserves
-  attribute order per §2.2, so reordering is a real bug here); text/comment
-  content whitespace-normalized; CDATA byte-identical. Node-type mismatch
-  at the same tree position = structural mismatch. Written during
-  `apache/maven`.
+- `xml_content_diff.py` — stdlib `xml.dom.minidom`. Walks both DOMs in
+  parallel (skipping pure-whitespace text nodes): element names +
+  attribute name/value pairs **in order** (XML preserves attribute order
+  per §2.2, so reordering is a real bug here); text/comment content
+  whitespace-normalized; CDATA byte-identical. Node-type mismatch at the
+  same tree position = structural mismatch. Written during `apache/maven`.
 - `toml_content_diff.py` — this system's Python (3.6) has no stdlib
   `tomllib`/`toml`/`tomli`, so it shells out to an inline Node helper (`node
   -e ... -- <path>`, note `<path>` lands at `argv[1]` not `argv[2]` with
-  `-e` — a gotcha hit during verification) using `smol-toml` to parse to
-  JSON, then deep-compares the resulting Python structures. Written during
-  `rust-lang/cargo`. Needs the same `LD_LIBRARY_PATH`/`NODE_PATH`/`PATH` env
-  as the `*_syntax_check.js` scripts (unlike the stdlib-only Python
-  checkers).
-- `yaml_content_diff.py` — PyYAML is installed, so parses directly via
-  `yaml.safe_load_all` (multi-doc aware) on both files and deep-compares.
-  A best-effort `#`-comment-line scan reports textual diffs as
-  informational-only. Written during `kubernetes/kubernetes`; this is the
-  check that caught a real bug (a block-scalar sequence item silently
-  truncated) that `yaml_syntax_check.js` alone missed since the truncated
-  output was still valid YAML.
+  `-e`) using `smol-toml` to parse to JSON, then deep-compares the
+  resulting Python structures. Written during `rust-lang/cargo`. Needs the
+  same `LD_LIBRARY_PATH`/`NODE_PATH`/`PATH` env as the `*_syntax_check.js`
+  scripts (unlike the stdlib-only Python checkers).
+- `yaml_content_diff.py` — PyYAML is installed, parses directly via
+  `yaml.safe_load_all` (multi-doc aware) on both files and deep-compares. A
+  best-effort `#`-comment-line scan reports textual diffs as
+  informational-only. Written during `kubernetes/kubernetes`; caught a
+  real bug (a block-scalar sequence item silently truncated) that
+  `yaml_syntax_check.js` alone missed since the truncated output was still
+  valid YAML.
 - `html_content_diff.py` — stdlib can't parse real-world HTML5 (not
   XML-well-formed), so shells out to an inline Node helper using `parse5`
   into a simplified JSON tree, walked in parallel comparing tag
@@ -420,38 +418,35 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      **Found:** bare top-level text after `<h2>` closes, ending in an orphan
      `</p>` with **no matching open `<p>` anywhere** (different shape than
      RDD_KEY_204's *open*-`<p>`-closed-by-sibling case). `parseNodes`'s
-     `stopAtCloseTag` was unconditional —
-     `if (stopAtCloseTag && startsWith("</")) break;` — with no check
-     whether the closing tag related to the element being parsed. Orphan
-     `</p>` broke out of `<body>`'s children loop; `<body>`'s `closeTok`
-     check failed, and since `lang.isHtml5` fell into the general "tolerant
-     close" fallback (same mechanism WPT's `charset/after-bogus.html`
-     needs) — treating `<body>` as implicitly closed **without consuming
-     the `</p>` token**. Cascaded: `<html>` got tolerant-closed the same
-     way, so output closed `</body></html>` at the orphan `</p>` and dumped
-     the rest of the real document as raw top-level siblings after
-     `</html>`. **Materially bigger than the "1 `<p>` lost" content-diff
-     originally reported**, because `html_content_diff.py` (via `parse5`)
-     re-parents post-`</html>` content back inside `<body>` almost
-     transparently — masking magnitude. **Note for anyone touching
-     `html_content_diff.py`: it can under-report this class of
-     serialization-level structural bug** — spot-check raw output text
-     directly, not just the diff verdict.
+     `stopAtCloseTag` was unconditional — no check whether the closing tag
+     related to the element being parsed. Orphan `</p>` broke out of
+     `<body>`'s children loop; `<body>`'s `closeTok` check failed, falling
+     into the general "tolerant close" fallback (same mechanism WPT's
+     `charset/after-bogus.html` needs), implicitly closing `<body>`
+     **without consuming the `</p>` token**. Cascaded: `<html>` got
+     tolerant-closed the same way, so output closed `</body></html>` at the
+     orphan `</p>` and dumped the rest of the real document as raw
+     top-level siblings after `</html>`. **Materially bigger than the "1
+     `<p>` lost" content-diff originally reported**, because
+     `html_content_diff.py` (via `parse5`) re-parents post-`</html>`
+     content back inside `<body>` almost transparently — masking
+     magnitude. **Note for anyone touching `html_content_diff.py`: it can
+     under-report this class of serialization-level structural bug** —
+     spot-check raw output text directly, not just the diff verdict.
      **Fix:** `XmlSpecificRule` gained an `openTagStack` (`Deque<String>` of
      currently-open lowercased tag names, pushed in `parseElement` before
-     parsing children, popped via enclosing `try`/`finally` covering every
-     return path) and a `peekCloseTagNameLower` helper; `parseNodes`'s
+     parsing children, popped via `try`/`finally` covering every return
+     path) and a `peekCloseTagNameLower` helper; `parseNodes`'s
      `stopAtCloseTag` branch now breaks (cascade-close, unchanged) only if
      the closing tag's name is found anywhere in the stack when
-     `lang.isHtml5`, else discards the stray/orphan closing tag in place and
-     continues the same children loop — gated on `lang.isHtml5` (strict
-     XML/XHTML unchanged). Discard-only (no `<p></p>` synthesis) was used,
-     not the full per-spec behavior — accepted, see full RDD_KEY_223 text.
-     Matches "preserve as written, don't fabricate tags" posture
-     (RDD_KEY_185). Why item 1's framing didn't apply: item 1's four gaps
-     genuinely need real HTML5 insertion-mode state; this only needed a
-     lightweight name-only open-tag stack (none existed before — only the
-     unrelated scalar `svgDepth` counter) to distinguish "closing tag
+     `lang.isHtml5`, else discards the stray/orphan closing tag in place
+     and continues — gated on `lang.isHtml5` (strict XML/XHTML unchanged).
+     Discard-only (no `<p></p>` synthesis) was used, not the full per-spec
+     behavior — accepted, see full RDD_KEY_223 text. Matches "preserve as
+     written, don't fabricate tags" posture (RDD_KEY_185). Item 1's four
+     gaps genuinely need real HTML5 insertion-mode state; this only needed
+     a lightweight name-only open-tag stack (none existed before — only
+     the unrelated scalar `svgDepth` counter) to distinguish "closing tag
      matches something actually open" from "matches nothing open anywhere".
      Fixtures `test/real_code_regressions_173_{inp,out}.html` (minimal
      orphan-`</p>` repro) and `test/real_code_regressions_174_{inp,out}.html`
@@ -460,33 +455,29 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      `make test`: 221/221 -> 223/223 forward + idempotency, zero
      regressions. `apache/ant` `manual/` 226-file corpus re-run: 226/226
      forward + idempotency, 226/226 `html_syntax_check.sh` clean;
-     content-diff confirms structural corruption (content serialized
-     outside `</html>`) is gone (`</body></html>` now at genuine end,
-     verified by direct inspection) — the pre-existing "1 `<p>` lost"
-     (`<body>` child count 82 vs 81, from the accepted
-     discard-vs-synthesize gap) is an unchanged, expected residual, not a
-     regression; 4 other files' pre-existing unrelated comment-
-     capitalization mismatches confirmed identical against a pre-fix
-     baseline build.
+     content-diff confirms structural corruption is gone (`</body></html>`
+     now at genuine end, verified by direct inspection) — pre-existing "1
+     `<p>` lost" (`<body>` child count 82 vs 81, accepted
+     discard-vs-synthesize gap) unchanged residual, not a regression; 4
+     other files' pre-existing unrelated comment-capitalization mismatches
+     confirmed identical against a pre-fix baseline build.
 
      **Residual gap now closed too (RDD_KEY_236, 2026-08-03, user-directed).**
-     The discard-only choice above was superseded: browsers don't discard an
-     orphan `</p>` — the real HTML5 "p end tag" algorithm synthesizes an
+     The discard-only choice above was superseded: browsers don't discard
+     an orphan `</p>` — the real HTML5 "p end tag" algorithm synthesizes an
      empty `<p></p>` at that point (spec-mandated for parser-state
-     interoperability, not primarily a rendering concern — though the
-     default UA-stylesheet `<p>` margin means it can be visible too). New
+     interoperability, not primarily rendering). New
      `XmlSpecificRule.synthesizeEmptyElement` builds a synthetic empty
      `ELEMENT` node; both orphan-close-tag discard sites in `parseNodes`
      (the `stopAtCloseTag` branch and the document-root-level stray-tag
-     branch) now call it when the discarded tag name is `"p"`, leaving every
-     other orphan tag name's discard-only behavior unchanged. Fixture
-     `real_code_regressions_173_out.html` updated (gained the synthesized
-     `<p></p>`). `make test`: 238/238 forward + idempotency. Full
-     `apache/ant manual/` 226-file re-run: 226/226 forward + idempotency +
-     `html_syntax_check.sh` clean; direct `<p` tag-count check on
-     `running.html` confirms exactly one `<p></p>` synthesized (60 vs. the
-     original 59). `<body>` child count now matches the browser's 82 — the
-     "1 `<p>` lost" residual this item originally accepted is gone.
+     branch) now call it when the discarded tag name is `"p"`, other tag
+     names unchanged. Fixture `real_code_regressions_173_out.html` updated
+     (gained the synthesized `<p></p>`). `make test`: 238/238 forward +
+     idempotency. Full `apache/ant manual/` 226-file re-run: 226/226
+     forward + idempotency + `html_syntax_check.sh` clean; direct `<p`
+     tag-count check on `running.html` confirms exactly one `<p></p>`
+     synthesized (60 vs. original 59). `<body>` child count now matches
+     the browser's 82 — the "1 `<p>` lost" residual is gone.
 
   3. **Tag-name case-folding — DONE, fixed standalone**
      (`real_code_regressions_112`, commit `10b20cf`, user, 2026-07-25). New
@@ -507,51 +498,45 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
 - **HTML5 commented-out markup-fragment comment corruption — RESOLVED
   (RDD_KEY_224, 2026-08-01).** Found: re-verifying
   `real_code_regressions_125`'s 4 "comment-capitalization-only" diffs from
-  the `apache/ant manual/` 226-file corpus with
-  `tools/verifiers/html_content_diff.sh` showed 2 of 4 were NOT benign:
+  the `apache/ant manual/` 226-file corpus showed 2 of 4 were NOT benign:
   `Tasks/antlr.html` and `Tasks/attrib.html` each contain a commented-out
-  HTML table row / paragraph (`<!--tr> <td>fork</td>...</tr-->`,
+  HTML table row/paragraph (`<!--tr> <td>fork</td>...</tr-->`,
   `<!--p>By default...</p-->`) where the author's `<!--`/`<` boundary
   landed mid-tag, leaving the comment content starting with a bare
   tag-name-open fragment (`tr>`/`p>`); `normalize-comment-start-case` was
-  capitalizing these to `Tr>`/`P>`, corrupting the commented-out markup
-  (`attrib.html` 2 mismatches, `antlr.html` 1, for 3 total). Different
-  shape from both existing directive-shape precedents: not a single
-  directive-shaped token (CSS's `isSingleTokenDirective`,
-  `real_code_regressions_69`) and not a whole-comment single word (HTML5's
-  `isSingleWordDirective`, WordPress magic-comment case) — multi-word, just
-  starting with markup syntax rather than prose.
+  capitalizing these to `Tr>`/`P>`, corrupting the commented-out markup (3
+  mismatches total). Different shape from both existing directive-shape
+  precedents: not a single directive-shaped token (CSS's
+  `isSingleTokenDirective`) and not a whole-comment single word (HTML5's
+  `isSingleWordDirective`) — multi-word, starting with markup syntax
+  rather than prose.
   **Fix:** new `XmlSpecificRule.isMarkupFragmentDirective(text)` — true iff
   `text`'s leading run of lowercase letters is immediately followed by `>`
   (no interior whitespace) AND that run is a member of a new closed
   `MARKUP_FRAGMENT_TAG_NAMES` set of real HTML5 tag names. Wired into
-  `normComment` as an additional `||` alongside existing
-  `isSingleWordDirective`. Tag-name-set restriction (rather than "any
-  lowercase word immediately followed by `>`") is deliberate — avoids false
-  positive on coincidental short lowercase word followed by `>` without
-  being a tag fragment.
+  `normComment` alongside existing `isSingleWordDirective`. Tag-name-set
+  restriction (rather than "any lowercase word immediately followed by
+  `>`") deliberately avoids false positives on coincidental short words.
   **Evidence:** grepped `apache/ant manual/` plus still-extant
   `WordPress/wordpress-develop` and `alexandersandberg/html5-elements-tester`
-  checkouts (`web-platform-tests/wpt` not re-checked — no `<!--[a-z]+>`-
-  shaped hits in either available corpus; shape orthogonal to WPT's
-  already-covered tree-construction gaps) for `<!--[a-z]+>` — exactly 2
-  `<!--tr>` + 1 `<!--p>` corpus-wide, matching the 3 real diffs; zero
-  unrelated/false-positive-shaped hits.
+  checkouts (`web-platform-tests/wpt` not re-checked — shape orthogonal to
+  its already-covered tree-construction gaps) for `<!--[a-z]+>` — exactly
+  2 `<!--tr>` + 1 `<!--p>` corpus-wide, matching the 3 real diffs; zero
+  false-positive-shaped hits.
   The other 2 of the original 4 diffs (`Tasks/imageio.html`/
-  `Tasks/image.html`, both flagging identical string `attributes inherited
-  from MatchingTask` -> `Attributes inherited from MatchingTask`) checked
-  separately: exact sentence reused verbatim in both files between a
-  closing and opening `<tr>` as a section-boundary doc-authoring annotation
-  — no unclosed/fragment tag, genuine (if coincidentally lowercase-starting)
-  English-prose comment. Correctly falls through
-  `isMarkupFragmentDirective` (no `>` immediately after first word) and
-  stays subject to ordinary capitalization — accepted, unrelated non-bug.
+  `Tasks/image.html`, identical string `attributes inherited from
+  MatchingTask` -> `Attributes inherited from MatchingTask`) checked
+  separately: exact sentence reused verbatim between a closing/opening
+  `<tr>` as a section-boundary doc-authoring annotation — no fragment tag,
+  genuine (if coincidentally lowercase-starting) prose comment. Correctly
+  falls through `isMarkupFragmentDirective` and stays subject to ordinary
+  capitalization — accepted, unrelated non-bug.
   New fixture `test/real_code_regressions_175_{inp,out}.html` (both
-  `tr>`/`p>` shapes plus a real `<p>` and real `<tr>` as regression
-  guards). `make test`: 223/223 -> 224/224 forward + idempotency, zero
-  regressions. `apache/ant manual/` 226-file corpus re-run: 226/226 forward
-  + idempotency + `html_syntax_check.sh`; content-diff mismatches down from
-  4 to 3 (see Real-Code Testing Results below for the per-file breakdown).
+  `tr>`/`p>` shapes plus a real `<p>`/`<tr>` as regression guards). `make
+  test`: 223/223 -> 224/224 forward + idempotency, zero regressions.
+  `apache/ant manual/` 226-file corpus re-run: 226/226 forward +
+  idempotency + `html_syntax_check.sh`; content-diff mismatches down from 4
+  to 3 (see Real-Code Testing Results below for the per-file breakdown).
 
 ## Checklist
 
@@ -591,147 +576,118 @@ per-repo dogfood bugs):
 
       **Mixed text+element content splitting onto separate lines —
       FIXED (2026-08-04).** Previously a real correctness bug, not just a
-      style choice: an element whose content interleaves a non-whitespace
-      TEXT node and an ELEMENT node (e.g. `<p>Click <a href="x">here</a>
-      to continue.</p>`) was rendered with each child on its own indented
+      style choice: an element interleaving a non-whitespace TEXT node and
+      an ELEMENT node (e.g. `<p>Click <a href="x">here</a> to
+      continue.</p>`) was rendered with each child on its own indented
       line — inserting newlines/indentation into content whose whitespace
       can be semantically significant (XHTML-like prose, Android string
       resources with embedded `<b>`/`<a>` markup, DocBook, SVG `<text>`),
-      silently changing the represented value for any plain XML consumer
-      (unlike an HTML renderer, which collapses whitespace).
+      silently changing the represented value for any plain XML consumer.
       **Design decision (already made with the user, not re-litigated):**
       such mixed content now renders **inline, exactly as originally
-      written, with no reflow** — even if the resulting line exceeds
-      `line-length`, mirroring the existing opaque/preserve-verbatim
-      posture already used for DOCTYPE/PI (§2.3), CDATA (§2.4 default
-      case), and multi-line comments (§2.5). An overflowing mixed-content
-      line is an **intentional accepted limitation, not a bug** — no
-      wrapping/reflow logic was implemented for this case.
-      **Fix:** `XmlSpecificRule.parseElement` now captures a new
-      `Node.mixedContentRaw` field: right after an element's opening tag
-      is consumed, it remembers that cursor position (`childStart`); once
-      `parseNodes` returns, if the resulting children are "mixed" (a new
-      `isMixedContent` helper — at least one non-whitespace-only TEXT node
-      AND at least one ELEMENT node among the same sibling list) AND the
-      raw source span from `childStart` to just before the closing tag
-      contains no newline, that trimmed raw span is stored verbatim as
+      written, with no reflow** — even past `line-length`, mirroring the
+      existing opaque/preserve-verbatim posture for DOCTYPE/PI (§2.3),
+      CDATA (§2.4 default case), and multi-line comments (§2.5). An
+      overflowing mixed-content line is an **intentional accepted
+      limitation, not a bug** — no wrap/reflow logic was implemented.
+      **Fix:** `XmlSpecificRule.parseElement` captures a new
+      `Node.mixedContentRaw` field: right after an opening tag it remembers
+      that cursor position (`childStart`); once `parseNodes` returns, if
+      the children are "mixed" (new `isMixedContent` helper — at least one
+      non-whitespace TEXT node AND one ELEMENT node among the same
+      siblings) AND the raw span from `childStart` to just before the
+      closing tag has no newline, that trimmed span is stored verbatim as
       `mixedContentRaw`. `renderElement` checks this field before its
-      existing `soleContentChild` (text/CDATA-only) fast path and, when
-      set, emits `<tag attrs>` + the verbatim raw span + `</tag>` as one
-      line, bypassing the normal per-child recursive render entirely —
-      reconstructing from the original source span (not re-deriving child
-      strings by recursing through the pretty-printer) is what makes
-      nested mixed content (a mixed-content element containing another
-      mixed-content element, e.g. `<i>` containing its own `<em>`) fall
-      out naturally with no special-case handling: the inner markup is
-      just part of the literal text captured for the outer element.
-      **The no-newline-in-original-span condition is deliberate, not
-      incidental** — without it, a block-level container whose bare
-      text-node siblings already spanned multiple source lines (e.g. a
-      `<div>` with a `Here is a list of items:` sibling line before a
-      `<ul>`) would ALSO match the same non-whitespace-text + element
-      definition of "mixed" and get incorrectly collapsed onto one long
-      line; found via `test/html_combined_*`'s own pre-existing fixture
-      regressing when this condition was first omitted. Restricting to
-      already-single-line content means only genuine inline text-flow
-      prose (the shape RDD asked to fix) collapses, while RDD_KEY_185's
-      pre-existing "bare text-node siblings reindent to parent structural
-      depth like any content line" behavior for block-level mixed
-      containers is preserved unchanged.
+      `soleContentChild` fast path and, when set, emits `<tag attrs>` +
+      the verbatim raw span + `</tag>` as one line, bypassing per-child
+      recursive render — reconstructing from the original source span
+      (not re-deriving child strings via the pretty-printer) is what makes
+      nested mixed content (e.g. `<i>` containing its own `<em>`) fall out
+      naturally: the inner markup is just literal text of the outer
+      element. **The no-newline-in-original-span condition is deliberate**
+      — without it, a block container whose bare text-node siblings
+      already spanned multiple source lines (e.g. a `<div>` with a
+      `Here is a list of items:` line before a `<ul>`) would also match
+      "mixed" and get incorrectly collapsed onto one long line; found via
+      `test/html_combined_*` regressing when this condition was first
+      omitted. Restricting to already-single-line content means only
+      genuine inline text-flow prose collapses, while RDD_KEY_185's
+      pre-existing block-level reindent behavior is preserved.
       **Interaction found+fixed with HTML5 tc-gap level 4 (adoption
       agency):** preserving a misnested formatting element's raw span
-      verbatim (e.g. `<b>one<i>two</b>` from the classic `<b>1<i>2</b>3</i>`
-      misnesting) means the SAME misnesting is still literally present in
-      the formatter's own round1 output, so reparsing it (round2) could
-      re-trigger `reconstructFormattingElement`'s reconstruction a second
-      time — but the sibling that now follows is already the real,
-      well-formed element the first round's reconstruction produced (e.g.
-      a literal `<i>three</i>`), so the second reconstruction wrapped that
-      literal element in ANOTHER synthetic clone of the same tag,
-      breaking idempotency (`html_tc_gap_level4_adoption_agency_out.html`
-      caught this). Fixed in `parseNodes`' `pendingReconstructFormattingTemplate`
-      consumption: before calling `reconstructFormattingElement`, skip
-      whitespace and check (via the existing `startsWithTriggerTag`
-      helper) whether the cursor already sits at a literal start tag
-      matching the template's own tag name — if so, this is a re-parse of
-      already-reconstructed output, so no new wrapper is synthesized (the
-      literal element that follows already IS the reconstruction).
-      Fixtures updated to their new correct (inline, not split)
-      expected output: `xml_mixed_content_*` (new), plus
-      `html_combined_out.html`, `html_tc_gap_level3_adoption_unchanged_out.html`,
-      and `html_tc_gap_level4_adoption_agency_out.html` (pre-existing
-      fixtures whose `<p>`/`<b>` mixed-content children had been pinned
-      to the old split-lines bug). `make test`: 242/242 -> 243/243 forward
-      + idempotency, zero regressions.
+      verbatim (e.g. `<b>one<i>two</b>` from `<b>1<i>2</b>3</i>`) means the
+      same misnesting is still literally present in round1 output, so
+      reparsing (round2) could re-trigger `reconstructFormattingElement` a
+      second time — but the following sibling is already the real,
+      well-formed element the first round produced, so the second
+      reconstruction wrapped it in ANOTHER synthetic clone, breaking
+      idempotency (`html_tc_gap_level4_adoption_agency_out.html` caught
+      this). Fixed in `parseNodes`'
+      `pendingReconstructFormattingTemplate` consumption: before calling
+      `reconstructFormattingElement`, skip whitespace and check (via
+      `startsWithTriggerTag`) whether the cursor already sits at a literal
+      start tag matching the template's tag name — if so, no new wrapper
+      is synthesized. Fixtures updated to their new correct (inline, not
+      split) output: `xml_mixed_content_*` (new), plus
+      `html_combined_out.html`,
+      `html_tc_gap_level3_adoption_unchanged_out.html`, and
+      `html_tc_gap_level4_adoption_agency_out.html`. `make test`: 242/242
+      -> 243/243 forward + idempotency, zero regressions.
 
       **§2.4 CDATA-inside-`<style>` dispatch exception — IMPLEMENTED
-      (2026-08-04).** The `<script>` side of this exception (unwrap CDATA,
-      dispatch to JS/TS, re-wrap) already landed earlier alongside the
-      `<script>`/`<style>` dispatcher itself (see the HTML5 checklist entry
-      below, commits `a3c5c81`/`7cca3a4`/`679fafb`) — `renderScriptOrStyle`'s
-      JS branch already string-detects a `dedent(n.raw).trim()` starting with
+      (2026-08-04).** The `<script>` side (unwrap CDATA, dispatch to JS/TS,
+      re-wrap) already landed earlier alongside the `<script>`/`<style>`
+      dispatcher itself (HTML5 checklist entry below, commits
+      `a3c5c81`/`7cca3a4`/`679fafb`) — `renderScriptOrStyle`'s JS branch
+      already string-detects a `dedent(n.raw).trim()` starting with
       `<![CDATA[`/ending with `]]>`, unwraps, dispatches to
-      `FormatterCore.forLanguage("js")`, and re-wraps. The `<style>` branch,
-      however, had no such check at all — it always fed `n.raw.trim()`
-      straight to `CssSpecificRule.format` with no CDATA detection, so a
-      `<style><![CDATA[ ... ]]></style>` block would get the literal
-      `<![CDATA[`/`]]>` markers fed into the CSS parser as bogus content.
-      Fixed by adding the identical detection/unwrap/re-wrap logic to the
-      `<style>` branch of `XmlSpecificRule.renderScriptOrStyle` — same
-      `dedent`+`trim`+prefix/suffix-strip check, same
-      `"<![CDATA[\n" + formatted.replaceAll("\\s+$", "") + "\n]]>\n"` re-wrap
-      shape, then `reindent(..., depth + 1)` into the surrounding markup —
-      chosen specifically to look identical to the already-shipped
-      `<script>` CDATA handling rather than inventing a second convention.
-      Whitespace/rewrap convention: matches the plain (non-CDATA)
-      `<script>`/`<style>` dispatch's existing `reindent(formatted, depth +
-      1)` splice, with the `<![CDATA[`/`]]>` markers each on their own line
-      at that same reindented depth (consistent with how a real, opaque,
-      non-script/style CDATA node already renders its markers inline with
-      its content on one line via the general `CDATA` render case — the
-      script/style case differs because its content is multi-line formatted
-      output, so each marker gets its own line, matching the existing
-      `<script>` precedent rather than the single-line opaque-CDATA one).
-      Known limitation carried over from the `<script>` precedent (not
-      newly introduced): if formatted CSS output ever happened to contain
-      the literal sequence `]]>`, the naive re-wrap would prematurely
-      terminate the CDATA section — accepted as a documented, extremely rare
-      edge case (a defensive code comment notes it), not worth escaping
-      machinery. Fixture: extended the existing `test/html_comments_inp.html`
-      /`_out.html` pair with a `<style id="cdata-style"><![CDATA[
-      .badge{color:red;font-weight:bold;} ]]></style>` block (that fixture
-      already covered the CDATA-wrapped `<script>` idiom and opaque CDATA in
-      a non-script/style tag, so this closes the last of the three cases in
-      the same pair rather than adding a new one). `make test`: 242/242
-      forward + idempotency, zero regressions.
+      `FormatterCore.forLanguage("js")`, and re-wraps. The `<style>` branch
+      had no such check — it fed `n.raw.trim()` straight to
+      `CssSpecificRule.format`, so a `<style><![CDATA[ ... ]]></style>`
+      block fed the literal markers into the CSS parser as bogus content.
+      Fixed by adding identical detection/unwrap/re-wrap logic to the
+      `<style>` branch — same `dedent`+`trim`+prefix/suffix-strip check,
+      same `"<![CDATA[\n" + formatted.replaceAll("\\s+$", "") + "\n]]>\n"`
+      re-wrap, then `reindent(..., depth + 1)`, deliberately matching the
+      `<script>` precedent rather than inventing a second convention (each
+      CDATA marker gets its own line, unlike the single-line opaque-CDATA
+      render case, since this content is multi-line formatted output).
+      Known limitation carried over (not newly introduced): if formatted
+      CSS output ever contained the literal sequence `]]>`, the naive
+      re-wrap would prematurely terminate the CDATA section — accepted as
+      an extremely rare documented edge case, not worth escaping machinery.
+      Fixture: extended `test/html_comments_inp.html`/`_out.html` with a
+      `<style id="cdata-style"><![CDATA[ .badge{color:red;font-weight:bold;}
+      ]]></style>` block (that fixture already covered the CDATA-wrapped
+      `<script>` idiom and opaque CDATA in a non-script/style tag, so this
+      closes the last of the three cases in the same pair). `make test`:
+      242/242 forward + idempotency, zero regressions.
 
       **`indent-style = auto` — IMPLEMENTED (2026-08-04).** Previously
       unhandled: `FormatterXml.formatOne` passed `config.indentStyle()`
-      straight through to `XmlSpecificRule`'s constructor, which only checks
-      `"tabs".equals(indentStyle)` for its `useTabs` flag — a literal
-      `"auto"` string silently fell through to spaces. (`Main.java`'s own
-      `formatStandalone` "auto" resolution, which runs before any language's
-      `formatOne`, does NOT cover this case for XML: it calls
-      `IndentationDetector.detect`, whose directory-sampling only looks at
-      `.java`/`.c`/`.h`/`.cpp`/etc. source files — it never samples `.xml`,
-      so on a directory with no curly-family files it silently falls back to
-      `Config.DEFAULT_INDENT_STYLE` regardless of the XML file's own actual
+      straight through to `XmlSpecificRule`'s constructor, which only
+      checks `"tabs".equals(indentStyle)` for its `useTabs` flag — a
+      literal `"auto"` silently fell through to spaces. (`Main.java`'s own
+      `formatStandalone` "auto" resolution doesn't cover XML: its
+      `IndentationDetector.detect` directory-sampling only looks at
+      `.java`/`.c`/`.h`/`.cpp`/etc., never `.xml`, so it silently falls
+      back to `Config.DEFAULT_INDENT_STYLE` regardless of the file's real
       indentation.) Fixed by resolving `"auto"` at the `XmlSpecificRule`
       construction call site in `FormatterXml.formatOne`: when
       `config.indentStyle()` is `"auto"`, calls
-      `IndentationDetector.detectFromContent(content)` (previously-unused,
-      already-existing single-file self-detection helper — scans for the
-      first indented line's leading character, falling back to
-      `Config.DEFAULT_INDENT_STYLE` if none found or on I/O error) and passes
-      the resolved concrete style into the rule constructor instead. New
-      fixtures `test/xml_indent_auto_tabs_{inp,out}.xml` (tab-indented input
-      via `<!--% JXM_CFMT_CFG indent-style=auto -->`, tabs preserved),
-      `test/xml_indent_auto_spaces_{inp,out}.xml` (space-indented input,
-      same directive, spaces preserved/normalized), and
-      `test/xml_indent_auto_fallback_{inp,out}.xml` (single-line/minified
-      input with no indentation hint at all, same directive, falls back to
-      `Config.DEFAULT_INDENT_STYLE` = spaces). `make test`: 239/239 ->
-      242/242 forward + idempotency, zero regressions.
+      `IndentationDetector.detectFromContent(content)` (previously-unused
+      existing single-file self-detection helper — scans for the first
+      indented line's leading character, falling back to
+      `Config.DEFAULT_INDENT_STYLE` if none found/on I/O error) and passes
+      the resolved concrete style into the rule constructor. New fixtures
+      `test/xml_indent_auto_tabs_{inp,out}.xml` (tab-indented input via
+      `<!--% JXM_CFMT_CFG indent-style=auto -->`, tabs preserved),
+      `test/xml_indent_auto_spaces_{inp,out}.xml` (space-indented, same
+      directive, spaces preserved/normalized), and
+      `test/xml_indent_auto_fallback_{inp,out}.xml` (minified input, no
+      indentation hint, falls back to `Config.DEFAULT_INDENT_STYLE` =
+      spaces). `make test`: 239/239 -> 242/242 forward + idempotency, zero
+      regressions.
 - [x] **CSS (§3).** `CssTokenizer` (extends `TokenizerSimpleBraced`)
       deliberately coarse-grained (WHITESPACE/NEWLINE/COMMENT_BLOCK/
       STRING/PUNCT + one OP run for everything else); `CssSpecificRule`'s
@@ -952,16 +908,16 @@ per-repo dogfood bugs):
         `<pre>`/`<script>`/`<style>`, mis-parsing literal
         `<script>...</script>` text inside it as a real nested element (64
         files). Follow-up (`real_code_regressions_110`) generalized
-        `<image>` into `TAG_NAME_REWRITES` and broadened the
-        tolerant-close fallback from EOF-only to any mismatched/
-        unrecognized closing tag — fixed 3 of 9 residual failures. Final
-        full re-run (377 in-scope): forward/idempotency/syntax-check
-        377/377 clean; content-preservation 127/377 diffs, all
-        comment-capitalization-only. Second follow-up
-        (`real_code_regressions_111`) fixed a distinct crash site:
-        raw-text elements whose literal closing tag never appears before
-        real EOF now capture verbatim instead of throwing. Remaining
-        residual/deep tree-construction gaps: see Open Questions above.
+        `<image>` into `TAG_NAME_REWRITES` and broadened the tolerant-close
+        fallback from EOF-only to any mismatched/unrecognized closing tag
+        — fixed 3 of 9 residual failures. Final full re-run (377 in-scope):
+        forward/idempotency/syntax-check 377/377 clean; content-
+        preservation 127/377 diffs, all comment-capitalization-only.
+        Second follow-up (`real_code_regressions_111`) fixed a distinct
+        crash site: raw-text elements whose literal closing tag never
+        appears before real EOF now capture verbatim instead of throwing.
+        Remaining residual/deep tree-construction gaps: see Open Questions
+        above.
       - `apache/ant`'s `manual/` (226 files, light supplement, run
         2026-07-26): forward/round2/idempotency 226/226 clean,
         `html_syntax_check.js` 0/226 failures. Content-preservation found 2

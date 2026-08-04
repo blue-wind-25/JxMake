@@ -35,7 +35,7 @@ SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
         gru-train                            \
         gru-cv-corpus                        \
         gru-sync-weights                     \
-        test _test_serial bench test-server
+        test test-quiet _test_serial bench test-server
 
 
 all build jar:
@@ -568,6 +568,13 @@ test: $(JAR_FILE)
 	@mkdir -p $(BUILD_DIR)
 	@flock $(TEST_LOCK) $(MAKE) --no-print-directory _test_serial
 
+# Same as `test`, but hides the JAR's own stderr (e.g. the per-file/per-request diagnostic
+# trace added to Main.java/ServerMode.java) -- test PASS/FAIL/diff output is unaffected, since
+# that's all written by this Makefile's own `echo`/`diff`, not the JAR.
+test-quiet: $(JAR_FILE)
+	@mkdir -p $(BUILD_DIR)
+	@flock $(TEST_LOCK) $(MAKE) --no-print-directory _test_serial TEST_STDERR=/dev/null
+
 # Copies the root-level weights file into $(BUILD_DIR) so tests/bench/server have something to load.
 # Guarded so a fresher copy already sitting in $(BUILD_DIR) -- e.g. one `gru-train` just produced there,
 # even if `gru-train` itself then failed to propagate it up to the root -- is never overwritten by this sync.
@@ -580,6 +587,8 @@ gru-sync-weights:
 # (e.g. from parallel dogfood sessions) share the same `$(TEST_TMP)` directory, so running them simultaneously
 # would race on it (one invocation's `rm $(TEST_TMP)/*` deleting another's in-flight results). `flock` makes
 # a second concurrent call block and queue instead of racing.
+TEST_STDERR ?= /dev/stderr
+
 _test_serial: gru-sync-weights
 	@(                                                                             \
 		export JXMAKE_CODE_FORMATTER_FORMAT_MACROS=on;                         \
@@ -596,7 +605,7 @@ _test_serial: gru-sync-weights
 		idem_pass=0;                                                           \
 		idem_total=0;                                                          \
 		set -- $(addprefix $(TEST_DIR)/,$(INP_FILES));                         \
-		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$@";         \
+		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$@" 2>$(TEST_STDERR); \
 		for inp in "$$@"; do                                                   \
 			base=$$(basename "$$inp");                                     \
 			ext="$${base##*_inp.}";                                        \
@@ -628,7 +637,7 @@ _test_serial: gru-sync-weights
 		done < "$$passed";                                                     \
 		if [ $$count -gt 0 ]; then                                             \
 			idem_total=$$count;                                            \
-			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$@"; \
+			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$@" 2>$(TEST_STDERR); \
 			for out in "$$@"; do                                           \
 				base=$$(basename "$$out");                             \
 				result="$(TEST_TMP)/$$base";                           \

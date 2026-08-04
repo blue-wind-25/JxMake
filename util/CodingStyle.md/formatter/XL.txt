@@ -123,8 +123,6 @@ Only after all bugs are fixed is a full reformat and re-syntax-checking test all
 If there are many errors, work in batch. Commit after each batch.
 Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
 
-
-
 ####################################################################################################
 ####################################################################################################
 ####################################################################################################

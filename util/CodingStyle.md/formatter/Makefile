@@ -26,16 +26,17 @@ TEST_LOCK     = $(BUILD_DIR)/.test.lock
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
 
-.PHONY: all build jar clean                  \
-        gru-extract-pool-a                   \
-        gru-extract-pool-b                   \
-        gru-measure-abstain-rate             \
-        gru-acquire-corpus                   \
-        gru-hand-labeled-examples            \
-        gru-train                            \
-        gru-cv-corpus                        \
-        gru-sync-weights                     \
-        test test-quiet _test_serial bench test-server
+.PHONY: all build jar clean          \
+        gru-extract-pool-a           \
+        gru-extract-pool-b           \
+        gru-measure-abstain-rate     \
+        gru-acquire-corpus           \
+        gru-hand-labeled-examples    \
+        gru-train                    \
+        gru-cv-corpus                \
+        gru-sync-weights             \
+        test test-quiet _test_serial \
+        bench test-server
 
 
 all build jar:
@@ -590,74 +591,74 @@ gru-sync-weights:
 TEST_STDERR ?= /dev/stderr
 
 _test_serial: gru-sync-weights
-	@(                                                                             \
-		export JXMAKE_CODE_FORMATTER_FORMAT_MACROS=on;                         \
-		mkdir -p $(TEST_TMP);                                                  \
-		rm $(TEST_TMP)/*;                                                      \
-		clear;                                                                 \
-		echo "";                                                               \
-		echo "=== Forward pass (inp → out) ===";                               \
-		passed="$(TEST_TMP)/passed.list";                                      \
-		rm -f "$$passed";                                                      \
-		fail=0;                                                                \
-		forward_pass=0;                                                        \
-		forward_total=0;                                                       \
-		idem_pass=0;                                                           \
-		idem_total=0;                                                          \
-		set -- $(addprefix $(TEST_DIR)/,$(INP_FILES));                         \
-		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$@" 2>$(TEST_STDERR); \
-		for inp in "$$@"; do                                                   \
-			base=$$(basename "$$inp");                                     \
-			ext="$${base##*_inp.}";                                        \
-			stem="$${base%_inp.*}";                                        \
-			out="$(TEST_DIR)/$${stem}_out.$$ext";                          \
-			if [ ! -f "$$out" ]; then                                      \
-				echo "SKIP $$inp (no matching $$out)";                 \
-				continue;                                              \
-			fi;                                                            \
-			forward_total=$$((forward_total + 1));                         \
-			result="$(TEST_TMP)/$$base";                                   \
-			if diff -u "$$out" "$$result" > /dev/null 2>&1; then           \
-				echo "PASS $$inp";                                     \
-				echo "$$out" >> "$$passed";                            \
-				forward_pass=$$((forward_pass + 1));                   \
-			else                                                           \
-				echo "FAIL $$inp";                                     \
-				diff -u "$$out" "$$result";                            \
-				fail=1;                                                \
-			fi;                                                            \
-		done;                                                                  \
-		echo "";                                                               \
-		echo "=== Idempotency pass (out → out) ===";                           \
-		count=0;                                                               \
-		set --;                                                                \
-		while IFS= read -r out; do                                             \
-			set -- "$$@" "$$out";                                          \
-			count=$$((count + 1));                                         \
-		done < "$$passed";                                                     \
-		if [ $$count -gt 0 ]; then                                             \
-			idem_total=$$count;                                            \
+	@(                                                                                              \
+		export JXMAKE_CODE_FORMATTER_FORMAT_MACROS=on;                                          \
+		mkdir -p $(TEST_TMP);                                                                   \
+		rm $(TEST_TMP)/*;                                                                       \
+		clear;                                                                                  \
+		echo "";                                                                                \
+		echo "=== Forward pass (inp → out) ===";                                                \
+		passed="$(TEST_TMP)/passed.list";                                                       \
+		rm -f "$$passed";                                                                       \
+		fail=0;                                                                                 \
+		forward_pass=0;                                                                         \
+		forward_total=0;                                                                        \
+		idem_pass=0;                                                                            \
+		idem_total=0;                                                                           \
+		set -- $(addprefix $(TEST_DIR)/,$(INP_FILES));                                          \
+		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$@" 2>$(TEST_STDERR);         \
+		for inp in "$$@"; do                                                                    \
+			base=$$(basename "$$inp");                                                      \
+			ext="$${base##*_inp.}";                                                         \
+			stem="$${base%_inp.*}";                                                         \
+			out="$(TEST_DIR)/$${stem}_out.$$ext";                                           \
+			if [ ! -f "$$out" ]; then                                                       \
+				echo "SKIP $$inp (no matching $$out)";                                  \
+				continue;                                                               \
+			fi;                                                                             \
+			forward_total=$$((forward_total + 1));                                          \
+			result="$(TEST_TMP)/$$base";                                                    \
+			if diff -u "$$out" "$$result" > /dev/null 2>&1; then                            \
+				echo "PASS $$inp";                                                      \
+				echo "$$out" >> "$$passed";                                             \
+				forward_pass=$$((forward_pass + 1));                                    \
+			else                                                                            \
+				echo "FAIL $$inp";                                                      \
+				diff -u "$$out" "$$result";                                             \
+				fail=1;                                                                 \
+			fi;                                                                             \
+		done;                                                                                   \
+		echo "";                                                                                \
+		echo "=== Idempotency pass (out → out) ===";                                            \
+		count=0;                                                                                \
+		set --;                                                                                 \
+		while IFS= read -r out; do                                                              \
+			set -- "$$@" "$$out";                                                           \
+			count=$$((count + 1));                                                          \
+		done < "$$passed";                                                                      \
+		if [ $$count -gt 0 ]; then                                                              \
+			idem_total=$$count;                                                             \
 			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$@" 2>$(TEST_STDERR); \
-			for out in "$$@"; do                                           \
-				base=$$(basename "$$out");                             \
-				result="$(TEST_TMP)/$$base";                           \
-				if diff -u "$$out" "$$result" > /dev/null 2>&1; then   \
-					echo "PASS $$out";                             \
-					idem_pass=$$((idem_pass + 1));                 \
-				else                                                   \
-					echo "FAIL $$out (not idempotent)";            \
-					diff -u "$$out" "$$result";                    \
-					fail=1;                                        \
-				fi;                                                    \
-			done;                                                          \
-		fi;                                                                    \
-		rm -f "$$passed";                                                      \
-		echo "";                                                               \
-		if [ $$fail -ne 0 ]; then exit 1; fi;                                  \
-		printf "All tests passed:\n";                                          \
-		printf "    %3d/%3d forward\n"     $$forward_pass $$forward_total;     \
-		printf "    %3d/%3d idempotency\n" $$idem_pass $$idem_total;           \
-		printf "\n";                                                           \
+			for out in "$$@"; do                                                            \
+				base=$$(basename "$$out");                                              \
+				result="$(TEST_TMP)/$$base";                                            \
+				if diff -u "$$out" "$$result" > /dev/null 2>&1; then                    \
+					echo "PASS $$out";                                              \
+					idem_pass=$$((idem_pass + 1));                                  \
+				else                                                                    \
+					echo "FAIL $$out (not idempotent)";                             \
+					diff -u "$$out" "$$result";                                     \
+					fail=1;                                                         \
+				fi;                                                                     \
+			done;                                                                           \
+		fi;                                                                                     \
+		rm -f "$$passed";                                                                       \
+		echo "";                                                                                \
+		if [ $$fail -ne 0 ]; then exit 1; fi;                                                   \
+		printf "All tests passed:\n";                                                           \
+		printf "    %3d/%3d forward\n"     $$forward_pass $$forward_total;                      \
+		printf "    %3d/%3d idempotency\n" $$idem_pass $$idem_total;                            \
+		printf "\n";                                                                            \
 	)
 
 

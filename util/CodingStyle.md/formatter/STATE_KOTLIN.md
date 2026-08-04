@@ -399,15 +399,14 @@ ends by `exec bash`-ing into an interactive session — source only its
 
 **Lightweight PSI-based syntax-only checker (`kotlin_syntax_check`) —
 viable, distinct from the rejected full-compilation recipe above.** The
-rejected K2JVMCompiler note is about a bare classpath doing a *full
-compile*, which can't resolve `android.*`/AndroidX without Gradle's
-dependency graph. `kotlin_syntax_check` is lighter: parses a `.kt` file to
-a PSI/AST via `KotlinCoreEnvironment`/`KtPsiFactory` and reports
-`PsiErrorElement` nodes (parse errors only, no semantic/type checking) —
-never resolves `android.*` imports, so the AndroidX objection doesn't
-apply. Plain classpath-based standalone Java program; every needed class is
-bundled in the single shaded
-`~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib/kotlin-compiler.jar`
+rejection above is about a bare classpath doing a *full compile*, which
+can't resolve `android.*`/AndroidX without Gradle's dependency graph.
+`kotlin_syntax_check` is lighter: parses a `.kt` file to a PSI/AST via
+`KotlinCoreEnvironment`/`KtPsiFactory` and reports `PsiErrorElement` nodes
+(parse errors only, no semantic/type checking) — never resolves
+`android.*` imports, so the AndroidX objection doesn't apply. Plain
+classpath-based standalone Java program; every needed class is bundled in
+the single shaded `~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib/kotlin-compiler.jar`
 (confirmed via `unzip -l`, no separate intellij-core/trove4j jars needed).
 
 Tool location: `util/CodingStyle.md/formatter/tools/verifiers/`
@@ -458,13 +457,13 @@ legitimate transforms, not corruption):
 
 **Gotcha hit and fixed during verification:** leaf-token walk and comment
 extraction MUST use `ASTNode.getChildren(null)` (via `PsiElement.getNode()`),
-not `PsiElement.getChildren()` or `PsiTreeUtil.findChildrenOfType()`. For
+not `PsiElement.getChildren()` or `PsiTreeUtil.findChildrenOfType()` — for
 stub-based elements (`KtClass`, `KtProperty`, `KtNamedFunction`),
-`PsiElement.getChildren()` silently omits plain leaf tokens — identifiers,
-keywords, and critically comments (confirmed via ASTNode-level dump:
-`BLOCK_COMMENT`/`EOL_COMMENT` reachable only through
-`ASTNode.getChildren(null)`). Switching both canonicalization walk and
-comment collection to ASTNode traversal fixed it.
+`PsiElement.getChildren()` silently omits plain leaf tokens: identifiers,
+keywords, and critically comments (`BLOCK_COMMENT`/`EOL_COMMENT` reachable
+only through `ASTNode.getChildren(null)`, confirmed via ASTNode-level
+dump). Switching both the canonicalization walk and comment collection to
+ASTNode traversal fixed it.
 
 Run (same classpath/env as `kotlin_syntax_check` — see STATE_COMMON.md's
 "Verifier toolchain paths"):
@@ -555,28 +554,20 @@ RDD_KEYs, fixtures, verification result).
    (idempotency): D2a (332/334 known-flap files) and D4 (~8 files) both
    fully closed; D1 fully closed (all three group-width-recompute-
    instability sub-shapes fixed); **D3's root cause is confirmed
-   (RDD_KEY_221) but no fix has landed** — a first candidate fix was tried
-   and reverted after regressing 28 fixtures across C/C++/Java/TS/Kotlin at
-   `make test` (RDD_KEY_221); a second, more careful candidate design (the
-   2026-07-31 `statementStartIndex` scoping session) was implemented and
-   validated in a follow-up session, but its own documented "Known open
-   risk" materialized for real — 16 Kotlin fixtures regressed because
-   Kotlin statements are usually NEWLINE-, not `;`-separated, so the
-   backward scan merges an unrelated preceding sibling statement into the
-   measurement — reverted again, not committed (RDD_KEY_226). See
-   `README.md`'s Known Limitations section and RDD_KEY_221/RDD_KEY_226. D3
-   remains open (~34 files total, including 2 files reclassified out of
-   D2a's own former residual: `GenerateReleaseNotes.kt`/`TypeBridging.kt`).
-   A real fix needs actual Kotlin statement-boundary tracking (a depth-0
-   NEWLINE that ends a statement, distinguished from one that's mid-wrap
-   inside the current candidate's own already-broken rendering).
+   (RDD_KEY_221) but no fix has landed** — two candidate fixes tried and
+   reverted (RDD_KEY_221, RDD_KEY_226; full detail in the D3 table row and
+   "D3 investigation history" section below). See `README.md`'s Known
+   Limitations section. D3 remains open (~34 files total, including 2
+   files reclassified out of D2a's own former residual:
+   `GenerateReleaseNotes.kt`/`TypeBridging.kt`). A real fix needs actual
+   Kotlin statement-boundary tracking (a depth-0 NEWLINE that ends a
+   statement, distinguished from one that's mid-wrap inside the current
+   candidate's own already-broken rendering).
    **As of 2026-08-02, D3 is folded into `STATE_CURLY_GDR.md`'s "General
    scope-depth reindentation" (GDR) job rather than tracked as a
-   standalone open item here** — both investigation sessions below already
-   concluded this is closer to that job's territory than a self-contained
-   fix; see `STATE_CURLY_GDR.md`'s "D3 fold" section for the summary and
-   next steps. **2026-08-03 update: revisited per that fold's plan — tested
-   whether simply turning on `curly-general-scope-reindent`/
+   standalone open item here** — see that file's "D3 fold" section for the
+   summary and next steps. **2026-08-03 update: revisited per that fold's
+   plan — tested whether simply turning on `curly-general-scope-reindent`/
    `curly-general-scope-reindent-multipass` resolves D3 as a side effect;
    it does NOT (negative result, root-caused, no code changed) — see
    `RDD_KEY_235` and `STATE_CURLY_GDR.md`'s checklist entry for full
@@ -607,12 +598,12 @@ RDD_KEY_220 fixture `_170`); **D3 still fully open — folded into
 (see that file's "D3 fold" section).**
 
 Checkout: `/tmp/jb_kotlin_kt/kotlin-master` (fresh `.kt`-only tarball
-extraction from `codeload.github.com/JetBrains/kotlin/tar.gz/refs/heads/master`
-— `tar --wildcards '*.kt'` used instead of a full git clone to avoid the
-non-Kotlin majority of this huge repo) — reuse this checkout, do not
-re-clone. Scope: all `*.kt` excluding `*/testData/*` (compiler test
-fixtures), `*/build/*`, `*/resources/*`, anything with `generated` in its
-name — ~16k files (`/tmp/kt_filelist.txt`).
+extraction from `codeload.github.com/JetBrains/kotlin/tar.gz/refs/heads/master`,
+`tar --wildcards '*.kt'` instead of a full git clone to avoid this huge
+repo's non-Kotlin majority) — reuse this checkout, do not re-clone. Scope:
+all `*.kt` excluding `*/testData/*` (compiler test fixtures), `*/build/*`,
+`*/resources/*`, anything with `generated` in its name — ~16k files
+(`/tmp/kt_filelist.txt`).
 
 **Tools/compiler used:** same as this file's general "Tools/compiler used"
 section above — JDK `/opt/openjdk-21_linux-x64_bin/jdk-21`, Kotlin compiler
@@ -733,24 +724,24 @@ Anchoring at `nameIdx` discards legitimate same-statement prefix (`return
 underestimate failure mode, disjoint from the original bug, not a fix.
 
 **Fix attempt 2 (`statementStartIndex`, 2026-07-31 design → 2026-08-01
-implementation) — reverted, regressed 16 Kotlin fixtures.** Design:
-replace `lineStartIndex(tokens, nameIdx)` at its one load-bearing call site
+implementation) — reverted, regressed 16 Kotlin fixtures.** Design: replace
+`lineStartIndex(tokens, nameIdx)` at its one load-bearing call site
 (`MiscRuleCurly.renderCallCandidate`'s no-newline fits-check) with a new
-backward scan (mirroring `splitTopLevelCommasBraceAware`'s depth-tracking,
+backward scan (mirroring `splitTopLevelCommasBraceAware`'s depth-tracking
 and `KotlinSpecificRule.signatureLineIndent`'s RDD_KEY_164/215 precedent)
-that tracks paren/bracket/angle-bracket depth and stops at the nearest
-depth-0 `;`, `{`, or `}` — never a bare `NEWLINE`. Gated `lang.isKotlin`,
-scoped to the one call site. Design's own documented open risk: Kotlin
-`when` arms (and most Kotlin statements generally, RDD_KEY_115) are
-NEWLINE-separated, not `;`-separated, so a preceding sibling with no
-depth-0 `;` could get merged into the backward scan.
+tracking paren/bracket/angle-bracket depth, stopping at the nearest depth-0
+`;`, `{`, or `}` — never a bare `NEWLINE`. Gated `lang.isKotlin`, scoped to
+the one call site. Documented open risk going in: Kotlin `when` arms (and
+most Kotlin statements generally, RDD_KEY_115) are NEWLINE-separated, not
+`;`-separated, so a preceding sibling with no depth-0 `;` could get merged
+into the backward scan.
 
-Implemented and validated: grounded repro and a dedicated synthetic
-multi-arm `when{}` stress fixture (targeting the open risk) both passed,
-round1==round2, zero regressions in C/C++/Java/TS. Full `make test` still
-regressed 16 Kotlin fixtures — risk materialized in an *ordinary
-two-statement sequence*, not the `when`-arm shape the stress test checked.
-Minimal repro (`real_code_regressions_20_inp.kt`):
+Validated against the grounded repro and a dedicated synthetic multi-arm
+`when{}` stress fixture targeting that risk — both passed, round1==round2,
+zero regressions in C/C++/Java/TS. Full `make test` still regressed 16
+Kotlin fixtures: the risk materialized in an *ordinary two-statement
+sequence*, not the `when`-arm shape the stress test checked. Minimal repro
+(`real_code_regressions_20_inp.kt`):
 ```kotlin
 val display = (if (warning != null) "$warning\n\n" else "") + "Done"
 showMessage(context, display)

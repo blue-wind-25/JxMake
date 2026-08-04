@@ -54,7 +54,7 @@ $(JAR_FILE): $(SOURCES) | $(CLASS_DIR)
 	@printf 'Main-Class: %s\n' '$(MAIN_CLASS)' > $(MANIFEST)
 	@$(JAR) cfm $(JAR_FILE) $(MANIFEST) -C $(CLASS_DIR) .
 	@echo "Built $(JAR_FILE)"
-#	@cp $(JAR_FILE) .
+	@cp $(JAR_FILE) .
 
 clean:
 	@rm -rvf $(BUILD_DIR)

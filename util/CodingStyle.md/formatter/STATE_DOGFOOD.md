@@ -104,8 +104,8 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | HTML5 | STATE_DATA_FORMATS.md | wordpress/wordpress-develop | DONE - OPEN Q | magic-comment capitalization question; re-run as superset (303 files) by tc gap job 2026-08-02, no new tc-gap regressions |
 | JS | STATE_JS_TS.md | expressjs/express | DONE | |
 | JS | STATE_JS_TS.md | lodash/lodash | DONE | |
-| TS | STATE_JS_TS.md | angular/angular | DONE - PARTIAL FIX | clusters 1-3 fixed; cluster 4 landed but residual files remain; cluster 5 accepted gap, open |
-| TS | STATE_CURLY_GDR.md | angular/angular (cluster 5 files, GDR multipass) | DONE - PARTIAL FIX | curly-general-scope-reindent-multipass=on: fixes user_metric_spec.ts + i18n_parse.ts (previously non-idempotent under single-pass GDR); emit.ts already idempotent under single-pass, stays idempotent under multipass |
+| TS | STATE_JS_TS.md | angular/angular | DONE - PARTIAL FIX | clusters 1-3 fixed; cluster 4 landed but residual files remain; cluster 5 RESOLVED 2026-08-05 (3/3 files idempotent via curly-general-scope-reindent(-multipass), opt-in dogfood recommendation only, not a default change) |
+| TS | STATE_CURLY_GDR.md | angular/angular (cluster 5 files, GDR multipass) | DONE - FULL FIX | curly-general-scope-reindent-multipass=on: fixes user_metric_spec.ts + i18n_parse.ts (previously non-idempotent under single-pass GDR); emit.ts already idempotent under single-pass, stays idempotent under multipass. Re-confirmed fresh 2026-08-05 (0-line round1/round2 diff on all 3, js_ts_syntax_check.sh exit 0) |
 | TS | STATE_JS_TS.md | microsoft/TypeScript | DONE - PARTIAL FIX | 3/4 clusters fixed; #3's shared shape fixed but most files are a separate, un-root-caused sibling issue |
 | TS | STATE_JS_TS.md | nestjs/nest | DONE | |
 | TS | STATE_JS_TS.md | vuejs/core | DONE - PARTIAL FIX | switch-fallthrough idempotency bug open |

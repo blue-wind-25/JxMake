@@ -500,7 +500,7 @@ rewriting a standalone/unused for-loop increment (2 files,
 **Verdict: DONE.** Zero new formatter bugs found. The one idempotency diff
 is a confirming recurrence of the already-tracked `SwitchRule` issue.
 
-### `angular/angular` dogfood pass — clusters 1-3 FIXED, cluster 4 PARTIALLY FIXED (all 4 named root causes now landed; residual files exist outside the 4 named causes — see 2026-07-31 session below), cluster 5 STILL OPEN (revisited 2026-08-02 after GDR landed — 1 of 3 files fixable via opt-in GDR, 2 of 3 blocked on a newly-found GDR ordering bug, no fixture/code change made; see below)
+### `angular/angular` dogfood pass — clusters 1-3 FIXED, cluster 4 PARTIALLY FIXED (all 4 named root causes now landed; residual files exist outside the 4 named causes — see 2026-07-31 session below), cluster 5 RESOLVED (2026-08-05 — all 3/3 files now idempotent: `emit.ts` via single-pass GDR (2026-08-02), `user_metric_spec.ts`/`i18n_parse.ts` via `curly-general-scope-reindent-multipass` (landed 2026-08-03 in `STATE_CURLY_GDR.md` for `RDD_KEY_229`, re-validated fresh against the live corpus this session); see below — this is a per-corpus dogfood-recommendation note, `curly-general-scope-reindent`/`-multipass` both stay `off` by default project-wide)
 
 Repo: `/tmp/angular`, shallow clone (`--depth 1`), HEAD `5ad8231`
 (2026-07-24). Scope: 5394 `.ts` files (`.d.ts`/`.tsx` excluded) across
@@ -755,8 +755,8 @@ first (value = criticality weighed against difficulty):
    same root-cause family as `microsoft/TypeScript`'s open "Category 2
    cluster #3" below — treat any future work on either as the same task.**
 5. **[IDEMPOTENCY] Reindentation on internally-inconsistent source —
-   ACCEPTED GAP, third confirming recurrence, NO ACTION PLANNED** — 3 files
-   (`user_metric_spec.ts:88`, `emit.ts:104`, `i18n_parse.ts:520`): a lone
+   RESOLVED 2026-08-05, opt-in dogfood recommendation for this corpus** — 3
+   files (`user_metric_spec.ts:88`, `emit.ts:104`, `i18n_parse.ts:520`): a lone
    closing `}`'s indent (2 vs 4 spaces) differs between rounds because the
    *original* source itself has genuinely inconsistent brace indentation
    (mixed 2-/4-space blocks in the same function), and this formatter's
@@ -787,13 +787,49 @@ first (value = criticality weighed against difficulty):
    decisions on the next round) — see `RDD_KEY_229` and
    `STATE_CURLY_GDR.md`'s checklist for the full investigation. **User
    judged both remediation paths too risky to attempt this session — no
-   code change landed.** No new fixture added. This item stays open;
-   revisit together with `STATE_CURLY_GDR.md`'s still-unchecked real-code-
-   test checklist item, not standalone.
+   code change landed.** No new fixture added. (Historical note — see the
+   2026-08-05 update below: this was superseded by a different, safer fix
+   landed in the GDR job, not either of the two paths flagged risky here.)
 
-Next free fixture number unaffected by cluster 4/5 (still open, no new
-fixtures). Full corpus re-run deferred until cluster 4 root cause #3 lands,
-same pattern as `vuejs/core`/`lodash/lodash`.
+   **2026-08-05 update (this session):** `STATE_CURLY_GDR.md` records that
+   on 2026-08-03 (separate GDR-job session, `curly-general-scope-reindent-
+   multipass` design, `RDD_KEY_233`/`RDD_KEY_234`) a **third**, safer
+   remediation path was designed and landed — a bounded 4-stage
+   GDR/pipeline/GDR/pipeline sequence, opt-in behind a second flag
+   (`curly-general-scope-reindent-multipass`, only takes effect when
+   `curly-general-scope-reindent` is also on) — distinct from the two paths
+   (bounded fixpoint iteration; feeding GDR's indent into the wrap
+   fits-check) the user judged too risky above. That session's own
+   validation already re-tested `user_metric_spec.ts`/`i18n_parse.ts`
+   against this exact corpus and reported both fully idempotent under
+   multipass. This session re-confirmed it independently, fresh against the
+   live `/tmp/angular` checkout (all three cluster-5 files, in-file
+   `JXM_CFMT_CFG curly-general-scope-reindent=on;
+   curly-general-scope-reindent-multipass=on`, round1→round2): **all 3 of 3
+   files now produce a zero-line diff** (`user_metric_spec.ts`,
+   `i18n_parse.ts`, and `emit.ts`, which was already passing under
+   single-pass GDR and stays passing under multipass — no regression). All
+   3 round1 outputs pass `tools/verifiers/js_ts_syntax_check.sh` (exit 0).
+   **Cluster 5 is now closed: 3 of 3 files fixable, opt-in, via existing
+   flags — no new source code changed this session.** Per
+   `STATE_CURLY_GDR.md`'s own scoping notes, `curly-general-scope-reindent`/
+   `curly-general-scope-reindent-multipass` remain `off` by default
+   project-wide (the `on` path is still explicitly flagged there as a hard,
+   multi-session, not-fully-mature problem in general — this is a
+   per-corpus dogfood recommendation for `angular/angular`-shaped
+   one-true-brace-style source, not a project-wide default change). No new
+   permanent fixture added for this specific finding — the multipass
+   mechanism itself is already covered by the existing
+   `test/curly_gdr_multipass_inp.java`/`_out.java` fixture (Java, but
+   exercises the same shared `GdrPipelineGate` 4-stage code path used for
+   `.ts`/`.js`) plus `RDD_KEY_229`'s and this note's own real-corpus
+   evidence; a `.ts`-specific duplicate of the same mechanism was judged
+   redundant. `make test`: 244/244 forward + idempotency (unaffected,
+   doc-only change this session).
+
+Next free fixture number unaffected by cluster 4/5 doc update (no new
+fixtures this session). Full corpus re-run deferred until cluster 4 root
+cause #3 lands, same pattern as `vuejs/core`/`lodash/lodash`.
 
 ## `microsoft/TypeScript` dogfood pass — 3 of 4 clusters FIXED; cluster #3 PARTIALLY addressed 2026-07-31 (see angular cluster 4's root-cause-#3 session write-up — the braceless-collapse shape is fixed, but most of this corpus's 28 files turned out to be a different, not-yet-root-caused sibling issue in the same family; count barely moved, 28→29)
 

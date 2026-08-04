@@ -756,4 +756,23 @@ authoritative reference if any level is ever revisited.
         This was this job's last unchecked checklist item; the checklist is
         now fully complete.
 
+**2026-08-05 follow-up (pure readability refactor, post-completion, zero
+behavior change):** every `html5TcGapLevel >= N` raw-integer-literal
+comparison site in `XmlSpecificRule.java` (the checklist entries above
+describe them with raw literals like `>= 1`/`>= 2`/`>= 3`/`>= 4` because
+that's what the code looked like at each level's landing time — left
+as-is, historical) now compares against named `private static final int`
+constants declared alongside the `html5TcGapLevel` field itself:
+`LEVEL_BODY_SYNTHESIS = 1`, `LEVEL_TABLE_FOSTER = 2`,
+`LEVEL_TEMPLATE_FORM = 3`, `LEVEL_FORMATTING_RECONSTRUCT = 4`. An `enum`
+was explicitly rejected (discussed with the user) — the semantics are a
+genuinely cumulative ordered threshold, so `>=` against a plain `int` is
+correct and idiomatic; an enum would only relocate the same comparisons
+behind `.ordinal()` with no real gain. `Config.java`'s own
+`html5TcGapLevel` field/parsing has no comparison sites (just
+`parseInt`), so it didn't need any constants. Verified zero behavior
+change: `make test` unchanged at 244/244 forward + 244/244 idempotency,
+plus a real-corpus spot check (`/tmp/ant/manual`, all `.html` files, at
+`html5-tc-gap-level=4` via env var) round1/round2 byte-identical.
+
 ---

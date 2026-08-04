@@ -329,6 +329,15 @@ public final class XmlSpecificRule {
      */
     private final int html5TcGapLevel;
 
+    /** {@code html5-tc-gap-level} threshold for gap 3 -- implicit {@code <body>} insertion. */
+    private static final int LEVEL_BODY_SYNTHESIS = 1;
+    /** {@code html5-tc-gap-level} threshold for gap 1 -- table foster-parenting tree reshaping. */
+    private static final int LEVEL_TABLE_FOSTER = 2;
+    /** {@code html5-tc-gap-level} threshold for gap 2 -- misnested {@code <form>}/{@code <template>} reconstruction. */
+    private static final int LEVEL_TEMPLATE_FORM = 3;
+    /** {@code html5-tc-gap-level} threshold for gap 4 -- adoption agency (active-formatting-element) reconstruction. */
+    private static final int LEVEL_FORMATTING_RECONSTRUCT = 4;
+
     /**
      * Level-1 tc-gap guard (RDD_KEY_230): set once an implicit {@code <body>} has been
      *  synthesized for the document currently being parsed, so a document with multiple
@@ -534,7 +543,7 @@ public final class XmlSpecificRule {
         if( !eof() ) throw new XmlParseException(
             "trailing content after document, near: " + s.substring( pos, Math.min( s.length(), pos + 40 ) )
         );
-        if(html5TcGapLevel >= 1) insertImplicitBodyIfNeeded(nodes);
+        if(html5TcGapLevel >= LEVEL_BODY_SYNTHESIS) insertImplicitBodyIfNeeded(nodes);
         assert fosterBufferStack.isEmpty() : "fosterBufferStack leaked "
             + fosterBufferStack.size() + " unclosed buffer(s)";
         final StringBuilder out = new StringBuilder();
@@ -764,7 +773,7 @@ public final class XmlSpecificRule {
             // this item's own fixtures were authored: with an early `continue` here, a formatting
             // element reconstructed by adoption agency while directly inside a <table> was silently
             // dropped instead of being foster-parented itself.)
-            final boolean fostered = html5TcGapLevel >= 2&& ! fosterBufferStack.isEmpty()&& isInTableInsertionMode()&& shouldFosterParent(
+            final boolean fostered = html5TcGapLevel >= LEVEL_TABLE_FOSTER&& ! fosterBufferStack.isEmpty()&& isInTableInsertionMode()&& shouldFosterParent(
                 node
             );
             if(fostered) {
@@ -783,7 +792,7 @@ public final class XmlSpecificRule {
             // whichever destination -- fosterBufferStack or nodes -- the ancestor itself just landed
             // in) so the content that follows continues to render as if the formatting element had
             // never been misnested-closed early
-            if(html5TcGapLevel >= 4 && pendingReconstructFormattingTemplate != null) {
+            if(html5TcGapLevel >= LEVEL_FORMATTING_RECONSTRUCT && pendingReconstructFormattingTemplate != null) {
                 final Node template = pendingReconstructFormattingTemplate;
                 pendingReconstructFormattingTemplate = null;
                 skipWs();
@@ -1078,18 +1087,18 @@ public final class XmlSpecificRule {
         ) : null;
         // Level-2 tc-gap (RDD_KEY_230, foster-parenting): a new FosterBuffer per <table> ancestor,
         // pushed/popped alongside openTagStack -- see fosterBufferStack's own javadoc
-        final boolean isTable = html5TcGapLevel >= 2&& "table".equals(lowerTag);
+        final boolean isTable = html5TcGapLevel >= LEVEL_TABLE_FOSTER&& "table".equals(lowerTag);
         // Level-3 tc-gap (RDD_KEY_230, misnested <form>): a <template> gets its own fresh form-pointer
         // scope (saved/restored via the plain local below -- see currentFormElementPointer's own
         // javadoc for why this doesn't need a separate Deque); a second <form> seen while a form
         // pointer is already active is suppressed rather than nested
-        final boolean isTemplate       = html5TcGapLevel >= 3&& "template".equals(lowerTag);
-        final boolean isForm           = html5TcGapLevel >= 3&& "form".equals(lowerTag);
+        final boolean isTemplate       = html5TcGapLevel >= LEVEL_TEMPLATE_FORM&& "template".equals(lowerTag);
+        final boolean isForm           = html5TcGapLevel >= LEVEL_TEMPLATE_FORM&& "form".equals(lowerTag);
         final boolean formSuppressed   = isForm&& currentFormElementPointer != null;
         final Node    savedFormPointer = currentFormElementPointer;
         // Level-4 tc-gap (RDD_KEY_230, adoption agency): see FORMATTING_ELEMENTS/pendingAdoptionNode's
         // own javadocs
-        final boolean isFormatting = html5TcGapLevel >= 4&& FORMATTING_ELEMENTS.contains(lowerTag);
+        final boolean isFormatting = html5TcGapLevel >= LEVEL_FORMATTING_RECONSTRUCT&& FORMATTING_ELEMENTS.contains(lowerTag);
         openTagStack.push(lowerTag);
         if(isTable) fosterBufferStack.push( new FosterBuffer() );
         if(isTemplate) currentFormElementPointer = null;
@@ -1126,7 +1135,7 @@ public final class XmlSpecificRule {
                 // recorded in pendingAdoptionOuterTagLower and it just genuinely closed -- hand off
                 // to parseNodes (see pendingReconstructFormattingTemplate's own javadoc) to
                 // reconstruct the formatting element it had orphaned, as n's own next sibling
-                if( html5TcGapLevel >= 4 && pendingAdoptionNode != null
+                if( html5TcGapLevel >= LEVEL_FORMATTING_RECONSTRUCT && pendingAdoptionNode != null
                         && lowerTag.equals(pendingAdoptionOuterTagLower) ) {
                     pendingReconstructFormattingTemplate = pendingAdoptionNode;
                     pendingAdoptionNode                  = null;
@@ -1147,7 +1156,7 @@ public final class XmlSpecificRule {
             // ancestors, this is the classic <b>1<i>2</b>3</i> misnesting shape. Record n plus the
             // ancestor's tag name so the ancestor's own eventual real close (see the closeTok-match
             // branch above) can trigger reconstructing n as the ancestor's next sibling.
-            if( html5TcGapLevel >= 4 && isFormatting && startsWith("</") ) {
+            if( html5TcGapLevel >= LEVEL_FORMATTING_RECONSTRUCT && isFormatting && startsWith("</") ) {
                 pendingAdoptionNode          = n;
                 pendingAdoptionOuterTagLower = peekCloseTagNameLower();
             } // if

@@ -274,15 +274,15 @@ marker; fixed to scan forward while char is `*`; also fixed for Java,
 Kotlin fixture updated); (2) dot+space corruption in
 `MiscRuleCurly.renderCallCandidate`'s `sigForRender` for multi-arg calls
 whose every arg is a bare dotted member-access (fixed: force
-`sigForRender` to `null` for JS/TS, fixture `real_code_regressions_81`);
-(3) content duplication in `enforceClassFieldAlignmentGrid` on nested
-`class` braces (fixed: only grid outermost brace per nesting level,
-fixture `_82`); (4) comment-continuation-indent drift on an object-shaped
-intersection alias (fixed: `enforceUnionTypeContinuationIndent` only
-reindents at depth 0, fixture `_84`); (5) `join(...)` call-wrap/collapse
-non-idempotency at exactly `lineLengthLimit` (fixed: fits-check on
-multi-line-source branch of `renderCallCandidate`, JS/TS-scoped, fixture
-`_85`). `make test` reached 134/134 by end of pass.
+`sigForRender` to `null` for JS/TS, fixture `_81`); (3) content
+duplication in `enforceClassFieldAlignmentGrid` on nested `class` braces
+(fixed: only grid outermost brace per nesting level, fixture `_82`); (4)
+comment-continuation-indent drift on an object-shaped intersection alias
+(fixed: `enforceUnionTypeContinuationIndent` only reindents at depth 0,
+fixture `_84`); (5) `join(...)` call-wrap/collapse non-idempotency at
+exactly `lineLengthLimit` (fixed: fits-check on multi-line-source branch
+of `renderCallCandidate`, JS/TS-scoped, fixture `_85`). `make test`
+reached 134/134 by end of pass.
 
 ### `vuejs/core` dogfood pass — DONE
 
@@ -318,18 +318,17 @@ files differing.
    TypeScript "cluster 4"/"cluster 3" ordering bug — see those sections).
 7–15. Nine further bugs via `tsc --noEmit` diff (0 vs. new errors), each
    root-caused/fixed (fixtures `_101`, `_102`, `_105` [5 sub-bugs], `_107`):
-   `GENERIC_SAFE_KEYWORDS` missing `true`/`false`; nested-brace-depth
-   clear-all guard over-firing on a legit nested object-type arg;
-   `GENERIC_SAFE_KEYWORDS` missing `keyof`/`is`/`infer`/`asserts`/`readonly`/
-   `unique`/`as`/`satisfies`; parenthesized-ternary `:` misclassified as
-   return-type colon (new `isGroupingExpressionParen` helper); `typeof`/
-   `keyof` not recognized as `prevPrev` by arrow-param-paren bail-out;
-   trailing type-annotation `:` wrapped to next line got a bogus `;` (added
-   `":"` to `CONTINUATION_OPS`); `isGenericSafeToken` OP list missing
-   `=>`/`...` (latter `lang.isTs`-gated); TS function-type parameter list
-   wrongly padded like a grouping paren; nested-brace-depth guard not
-   covering tokens inside nested braces; `GENERIC_SAFE_KEYWORDS` missing
-   `typeof`.
+   `GENERIC_SAFE_KEYWORDS` missing `true`/`false`, then `keyof`/`is`/
+   `infer`/`asserts`/`readonly`/`unique`/`as`/`satisfies`, then `typeof`;
+   nested-brace-depth clear-all guard over-firing on a legit nested
+   object-type arg, and separately not covering tokens inside nested
+   braces; parenthesized-ternary `:` misclassified as return-type colon
+   (new `isGroupingExpressionParen` helper); `typeof`/`keyof` not
+   recognized as `prevPrev` by arrow-param-paren bail-out; trailing
+   type-annotation `:` wrapped to next line got a bogus `;` (added `":"`
+   to `CONTINUATION_OPS`); `isGenericSafeToken` OP list missing `=>`/`...`
+   (latter `lang.isTs`-gated); TS function-type parameter list wrongly
+   padded like a grouping paren.
 
 **Final verification:** `make test` 156/156 forward + 156/156 idempotency.
 Full 514-file round1 — zero crashes. Round1→round2 — **only one file still
@@ -506,44 +505,42 @@ first (value = criticality weighed against difficulty):
    - Spot-check of 8 originally-cited files after both fixes: 6 now
      idempotent, 2 still broken via further distinct root causes:
 
-   - **Root cause #3 — ATTEMPTED AND REVERTED (too many regressions) —
-     braceless-else body never re-validated after brace-collapse/alignment**
-     (`format_date.ts:519`): `collapseSingleExpressionBlocks` strips
-     `if`/`else` braces in Phase 0, before `enforceCallLineBreaking`
-     (Phase 1) — the braced source used a `+`-chain complexity-wrap to fit,
-     which doesn't apply to the now-braceless body, leaving the joined line
-     over the limit; `alignBracelessElseIfChain` then pads it anyway
-     (intentional escape hatch, `BlockStructureRule.java` ~line 2801-2819,
-     not a bug there). Rounds diverge. **Tried:** refuse to collapse
-     (`tryCollapse`) whenever the joined one-liner exceeds
-     `lineLengthLimit`. **DO NOT retry this naive approach** — reverted: no
-     way to know `enforceCallLineBreaking` will still wrap an inner call and
-     make it fit, so it wrongly re-braced every braceless if/else with a
-     wrappable-call body — broke 5 fixtures (`java_combined`,
-     `real_code_regressions_57`/`_81`/`_93`/`_141`). **Real fix needed:**
-     guard must simulate `enforceCallLineBreaking`'s wrap decision on the
-     joined candidate first (two-pass lookahead) — bigger lift, deferred.
-     2026-07-28 re-assessment: unchanged, not reattempted.
+   - **Root cause #3 — ATTEMPTED AND REVERTED (too many regressions), then
+     redesigned and landed** — **braceless-else body never re-validated
+     after brace-collapse/alignment** (`format_date.ts:519`):
+     `collapseSingleExpressionBlocks` strips `if`/`else` braces in Phase 0,
+     before `enforceCallLineBreaking` (Phase 1) — the braced source used a
+     `+`-chain complexity-wrap to fit, which doesn't apply to the
+     now-braceless body, leaving the joined line over the limit;
+     `alignBracelessElseIfChain` pads it anyway (intentional escape hatch,
+     `BlockStructureRule.java`, not a bug there). Rounds diverge. **First
+     attempt (reverted):** refuse to collapse (`tryCollapse`) whenever the
+     joined one-liner exceeds `lineLengthLimit` — **DO NOT retry this naive
+     approach**: no way to know `enforceCallLineBreaking` will still wrap an
+     inner call and make it fit, so it wrongly re-braced every braceless
+     if/else with a wrappable-call body — broke 5 fixtures (`java_combined`,
+     `real_code_regressions_57`/`_81`/`_93`/`_141`). Real fix needs the
+     guard to simulate `enforceCallLineBreaking`'s wrap decision on the
+     joined candidate first (two-pass lookahead) — bigger lift.
 
      **Design (2026-07-30, landed 2026-07-31 — tracker item 12):** cheaper
      than a true two-pass simulation; reuses existing precedent
-     (`JavaSpecificRule.isSingleLineBody` ~line 244-309, `KotlinSpecificRule`'s
-     analogous method ~line 1736-1782, `GetterSetterRuleCurly
-     .parseOneLinerMember`'s length pre-check ~line 684-715 — all solve the
-     same "will `enforceCallLineBreaking` still wrap this later" problem via
-     a cheap heuristic, not a real simulation): (1) `hasBreakableCall(tokens,
-     from, to)` — true iff the span contains a `name(args)` call with a
-     non-empty argument list (the only shape ever wrapped); (2) a raw-width
-     estimate (`expandedIndentWidth(lineIndent(...))` + collapsed-whitespace
-     text length, matching `enforceCallLineBreaking`'s own measurement)
-     compared against `lineLengthLimit`. Key insight the reverted naive
-     attempt missed: refuse collapse only when over-limit **and**
-     `hasBreakableCall` is false — if a breakable call exists, collapsing is
-     still safe since `enforceCallLineBreaking` will wrap later and both
-     rounds predict the same outcome.
+     (`JavaSpecificRule.isSingleLineBody`, `KotlinSpecificRule`'s analogous
+     method, `GetterSetterRuleCurly.parseOneLinerMember`'s length pre-check
+     — all solve the same "will `enforceCallLineBreaking` still wrap this
+     later" problem via a cheap heuristic, not a real simulation): (1)
+     `hasBreakableCall(tokens, from, to)` — true iff the span contains a
+     `name(args)` call with a non-empty argument list (the only shape ever
+     wrapped); (2) a raw-width estimate
+     (`expandedIndentWidth(lineIndent(...))` + collapsed-whitespace text
+     length, matching `enforceCallLineBreaking`'s own measurement) compared
+     against `lineLengthLimit`. Key insight: refuse collapse only when
+     over-limit **and** `hasBreakableCall` is false — if a breakable call
+     exists, collapsing is still safe since `enforceCallLineBreaking` will
+     wrap later and both rounds predict the same outcome.
 
-     **2026-07-31 IMPLEMENTED** in `BlockStructureRule.java`: private
-     `refuseUnrescuableCollapse` (~line 1848, alongside local
+     **Implemented** in `BlockStructureRule.java`: private
+     `refuseUnrescuableCollapse` (alongside local
      `expandedIndentWidth`/`hasBreakableCall`/`nextSignificantIndexLocal`/
      `matchParenForwardLocal` — this class has no shared ancestor with the
      `*Curly` hierarchy, so all four are duplicated copies per the
@@ -551,72 +548,61 @@ first (value = criticality weighed against difficulty):
      from `tryCollapse` (after existing brace-content guards, right before
      its final `return`) and from `collapseBracelessBody` (shared core both
      `tryCollapseBraceless` and the bare-`else` collapse path route through
-     — `collapseBracelessBody` gained a new leading `indentAnchorIdx`
-     parameter, the keyword token index, threaded from both call sites).
-     Gate: `(lang.isJs || lang.isTs)` only; computes the joined candidate's
-     true rendered width (`expandedIndentWidth(lineIndent(...)) +
-     candidate.length()`, mirroring `isSingleLineBody`'s own measurement now
-     that `candidate` is already fully space-collapsed by `renderInline`); if
-     under `lineLengthLimit`, no gate. If over, refuses (returns `null`,
-     leaving the braced/multi-line form untouched) only when `hasBreakableCall`
-     finds no rescuable call.
+     — gained a new leading `indentAnchorIdx` parameter, the keyword token
+     index, threaded from both call sites). Gate: `(lang.isJs ||
+     lang.isTs)` only; computes the joined candidate's true rendered width;
+     if under `lineLengthLimit`, no gate. If over, refuses (returns `null`,
+     leaving the braced/multi-line form untouched) only when
+     `hasBreakableCall` finds no rescuable call.
 
-     **One implementation-detail deviation from the original wording, found
-     necessary and documented in `refuseUnrescuableCollapse`'s own javadoc:**
-     the original design said scan "the candidate's body span"; the actual
-     scan covers the *whole* candidate (condition/prefix AND body). A
-     body-only scan broke the already-passing `real_code_regressions_141`
-     fixture — a braced `if (longCondition-with-a-breakable-call) { x(); }`
-     where the zero-arg body call `x()` has nothing to wrap, but the
-     *condition*'s own call is what a real `enforceCallLineBreaking` pass
-     wraps to rescue the line (this is exactly root-cause #2's own fix,
-     already-tested working behavior). Widening the scan doesn't reopen the
-     reverted naive attempt's failure mode, since that attempt had no
-     `hasBreakableCall` gate at all, in either the condition or the body.
+     **Deviation from original wording, found necessary:** the design said
+     scan "the candidate's body span"; the actual scan covers the *whole*
+     candidate (condition/prefix AND body) — a body-only scan broke the
+     already-passing `real_code_regressions_141` fixture, where the
+     zero-arg body call has nothing to wrap but the *condition*'s own call
+     is what `enforceCallLineBreaking` wraps to rescue the line (root
+     cause #2's own fix). Widening the scan doesn't reopen the reverted
+     attempt's failure mode, since that attempt had no `hasBreakableCall`
+     gate at all.
 
      **Follow-up: third insertion point found and fixed while building the
-     permanent fixture (below).** The original design named two insertion
-     points (`tryCollapse`/`tryCollapseBraceless`), but a third call site —
-     the bare-terminal `else { ... }` chain-collapse path inside
-     `collapseSingleExpressionBlocks` itself (~line 375-393, gated by
+     permanent fixture.** The design named two insertion points
+     (`tryCollapse`/`tryCollapseBraceless`), but a third call site — the
+     bare-terminal `else { ... }` chain-collapse path inside
+     `collapseSingleExpressionBlocks` itself (gated by
      `chainAllBranchesCollapsible`) — builds its collapsed candidate inline
-     (`"else " + renderInline(contents)`) and routes through neither
-     `tryCollapse` nor `collapseBracelessBody`, so it had no gate at all
-     until this follow-up. Found immediately when constructing a minimal
-     "unrescuable, should refuse" repro for the fixture below: the refusal
-     never took effect for a plain `if (...) { ... } else { longNoCallBody }`
-     shape. Fixed by adding the same `refuseUnrescuableCollapse` call at that
-     site too (falls through to the untouched default single-token append
-     when refused, same "leave input untouched" posture as every other
+     and routed through neither, so it had no gate until this follow-up.
+     Found while constructing a minimal "unrescuable, should refuse" repro:
+     refusal never took effect for a plain `if (...) { ... } else {
+     longNoCallBody }` shape. Fixed by adding the same
+     `refuseUnrescuableCollapse` call at that site too (falls through to
+     the untouched default when refused, same posture as every other
      guard in this class).
 
      **Test results:** `make test` 221/221 forward + 221/221 idempotency
-     (grew from 196/196 at the top of this file partly because intervening
-     sessions/other jobs added fixtures since that count was last recorded,
-     and partly from this session's own new fixture `real_code_regressions_172`
-     — see below).
+     (grew from 196/196 at the top of this file partly from intervening
+     sessions/other jobs' fixtures, partly this session's new fixture
+     `real_code_regressions_172` — see below).
 
-     **Real-corpus validation:**
-     - All 5 originally-cited `angular/angular` files
-       (`create_router_state.ts`, `node_selector_matcher.ts`, `ingest.ts`,
-       `locale_plugin.ts`, `hover.ts`) — confirmed individually idempotent
-       now (were not, before this fix).
-     - `location_shim.ts` (root cause #4's file) and `split.component.ts` —
-       spot-checked, still idempotent (no regression from the new gate).
-     - Full `packages/` re-scan (3900 `.ts`/non-`.d.ts`/non-`.tsx` files,
-       round1→round2): **12 files still differ**, down from the ~23
-       originally cited across the whole 5394-file corpus (packages/ is the
-       majority of that count, so not a strictly apples-to-apples full
-       re-run, but the direction and rough magnitude confirm real
-       reduction). Of the 12: 3 are the already-catalogued, unrelated,
-       accepted cluster 5 architectural gap (`user_metric_spec.ts`,
-       `emit.ts`, `i18n_parse.ts` — pre-existing inconsistent-source
-       reindentation, untouched by this session). The remaining 9
-       (`format_date.ts`, `web_animations_player_spec.ts`, `parser.ts`,
-       `jit_compiler_facade.ts`, `r3_template_transform.ts`, `util.ts`,
-       `node_js_file_system.ts`, `input_transform.ts`, `migration.ts`) are
-       **not fixed** by this session — see "known residual limitation"
-       immediately below.
+     **Real-corpus validation:** all 5 originally-cited `angular/angular`
+     files (`create_router_state.ts`, `node_selector_matcher.ts`,
+     `ingest.ts`, `locale_plugin.ts`, `hover.ts`) confirmed individually
+     idempotent now (were not, before this fix). `location_shim.ts` (root
+     cause #4's file) and `split.component.ts` spot-checked, still
+     idempotent (no regression). Full `packages/` re-scan (3900
+     `.ts`/non-`.d.ts`/non-`.tsx` files, round1→round2): **12 files still
+     differ**, down from the ~23 originally cited across the whole
+     5394-file corpus (packages/ is the majority of that count, not a
+     strictly apples-to-apples full re-run, but the direction/magnitude
+     confirm real reduction). Of the 12: 3 are the already-catalogued,
+     unrelated, accepted cluster 5 architectural gap (`user_metric_spec.ts`,
+     `emit.ts`, `i18n_parse.ts` — pre-existing inconsistent-source
+     reindentation, untouched by this session). The remaining 9
+     (`format_date.ts`, `web_animations_player_spec.ts`, `parser.ts`,
+     `jit_compiler_facade.ts`, `r3_template_transform.ts`, `util.ts`,
+     `node_js_file_system.ts`, `input_transform.ts`, `migration.ts`) are
+     **not fixed** by this session — see "known residual limitation"
+     immediately below.
 
      **Known residual limitation (not a regression, a real gap in the
      heuristic's coverage, confirmed via `format_date.ts:519` and
@@ -650,30 +636,25 @@ first (value = criticality weighed against difficulty):
      naive attempt).
 
      **TypeScript corpus (`/tmp/ts-dogfood/TypeScript`, 601 files) re-run:**
-     round1→round2 now shows 29 differing files (previously documented as
-     28/601 for cluster #3 before this fix). This is *not* a regression —
-     spot-checking `commandLineParser.ts` (explicitly named in the original
-     cluster #3 write-up as reproducing config-insensitively) shows its
-     round1→round2 diff is an object-literal/declaration-alignment column-
-     width shift (`useCaseSensitiveFileNames: host.useCaseSensitiveFileNames
-     };` moving the closing `}` to its own line), not a braceless if/else
-     collapse at all -- a sibling root cause in the same "call-wrap vs.
-     column-width-adjusting-pass ordering" family that this session's fix
-     was never scoped to touch (root causes #1/#2/#4, already fixed, don't
-     cover it either). `checker.ts` in this same corpus *does* show the
-     exact root-cause-#3 shape (a braceless `if(...)  <huge-gap>
-     lateBindMember(...)`, same as `format_date.ts`) and is the other
-     confirmed instance of the residual limitation above. **Conclusion: this
-     session's fix is confirmed correctly targeted and effective for its own
-     specific root cause (braceless if/else body collapse rescued by a later
-     call-wrap), but the TypeScript corpus's cluster #3 count barely moved
-     because most of its 28 files turn out to be a different, not-yet-
-     root-caused sibling issue (declaration/class-field-alignment-grid vs.
-     call-wrap ordering) rather than the braceless-collapse shape — a
-     narrower, more specific characterization of "cluster #3" than the
-     original design's "same root cause family" framing assumed.** Left open,
-     not attempted further this session (out of scope for tracker item 12 as
-     scoped -- would need its own root-cause identification pass).
+     round1→round2 now shows 29 differing files (previously 28/601 for
+     cluster #3 before this fix). Not a regression — spot-checking
+     `commandLineParser.ts` (named in the original cluster #3 write-up as
+     reproducing config-insensitively) shows its diff is an
+     object-literal/declaration-alignment column-width shift, not a
+     braceless if/else collapse at all — a sibling root cause in the same
+     "call-wrap vs. column-width-adjusting-pass ordering" family this
+     session's fix was never scoped to touch. `checker.ts` in this same
+     corpus *does* show the exact root-cause-#3 shape (a braceless
+     `if(...)  <huge-gap>  lateBindMember(...)`, same as `format_date.ts`)
+     and is the other confirmed instance of the residual limitation above.
+     **Conclusion:** this session's fix is confirmed correctly targeted and
+     effective for its specific root cause, but the TypeScript corpus's
+     cluster #3 count barely moved because most of its 28 files are a
+     different, not-yet-root-caused sibling issue (declaration/class-field-
+     alignment-grid vs. call-wrap ordering) rather than the
+     braceless-collapse shape — narrower than the original "same root cause
+     family" framing assumed. Left open, out of scope for tracker item 12
+     as scoped — would need its own root-cause identification pass.
 
    - **Root cause #4 [FIXED] — trailing same-line comment inconsistently
      counted in the collapse fits-check** (`location_shim.ts:461`): fresh

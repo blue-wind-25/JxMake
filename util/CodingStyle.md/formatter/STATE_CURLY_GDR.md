@@ -364,6 +364,22 @@ reindentation logic yet to exercise).
 
 ## Resolved Design Decisions
 
+- `RDD_KEY_240` — Adversarial stress-testing (2026-08-05) of the bounded
+  4-stage `curly-general-scope-reindent-multipass` loop **found a genuine,
+  minimal counterexample to full idempotency**, confirming the
+  "second-order oscillation" risk this file already flagged as unproven.
+  Minimal repro: a single-level (no extra nesting needed) TS/JS `if (...) {
+  arr.filter(...).map(...).forEach(...); } else if (...) { ... }` with
+  `curly-general-scope-reindent-multipass=on` — round1's output differs
+  from round2 (reformatting round1's own output) on the wrapped `.map(...)`
+  continuation's indent column, though round2 == round3 == round4 == round5
+  (stabilizes only after one extra full formatter invocation, not within
+  the single bounded-4-stage invocation the design assumed suffices). Also
+  reproduces in Kotlin, but only at much greater nesting depth (30 levels)
+  — did not reproduce in the equivalent Java shape at any depth tried. No
+  source code changed (out of scope for this stress-testing task per
+  explicit instruction — fixing the bounded-loop architecture is a real,
+  separate follow-on). Full text: `RDD_KEY_240` in `RDD_LOG.md`.
 - `RDD_KEY_227` — `JXM_CFMT_GDR 0`/`1` directive semantics: **flat toggle**
   (a single `1` always re-enables, redundant `0`s are no-ops, no nesting
   counter); an unmatched trailing `0` at EOF is **neither an error nor an
@@ -810,6 +826,123 @@ plan, not a placeholder.
       attempting rather than started unilaterally this session. No source
       code changed. `make test` unaffected (237/237, no fixture/source
       changes this step).
+
+- [x] **Adversarial stress-test of the bounded 4-stage multipass loop for
+      the unproven "second-order oscillation" risk** (2026-08-05,
+      dedicated hardening/validation task — not adding new GDR
+      functionality, not flipping any default). Goal: hunt for a genuine
+      counterexample where 4 stages isn't enough, using synthetic
+      adversarial constructions shaped specifically to stress the
+      mechanism, not just more real-world code (the corpora already tested
+      — `javaparser-core(-generators)`, `angular` TS cluster-5,
+      `JSONEncoderLite.java`, `serge-sans-paille/frozen` — all cleared with
+      zero non-idempotency; this session deliberately targeted new shapes).
+
+      **Mechanism confirmed first (`GdrPipelineGate.applyAndFormat`,
+      `src/com/jxmake/formatter/gdr/GdrPipelineGate.java`):** the "4
+      stages" is a hardcoded, unconditional 4-call sequence — `apply`
+      (GDR) → `formatOne` (pipeline) → `apply` (GDR) → `formatOne`
+      (pipeline), always exactly these 4 calls when both flags are on.
+      **Not** a "stop when stable, else iterate up to N times" convergence
+      loop — there is no comparison between any two stages' output, no
+      iteration count beyond exactly 4, and no warning/error path at all if
+      the sequence hasn't actually converged by the 4th call. This answers
+      the task's step-1 question directly: the design cannot self-detect
+      non-convergence, because it never checks for convergence in the
+      first place.
+
+      **Adversarial constructions tried** (all via
+      `/*% JXM_CFMT_CFG curly-general-scope-reindent=on;
+      curly-general-scope-reindent-multipass=on */`, syntax-validated
+      before formatting, round1→round2→round3→round4→round5 reformatted
+      and diffed at each step):
+      - Deeply nested (10/20/30/50-level) one-true-brace `} else if (...)
+        {` chains and real nested (not just chained) if-blocks, Java.
+      - Dense combinations of one-true-brace joins + chained fluent calls
+        (`.withA().withB()...`) + multi-line lambda wraps, all interleaved
+        within the same nested structure, Java, at the same depths.
+      - Deeply nested switch-in-if (stresses interaction with
+        `SwitchRule.applyNonInlineCaseIndent`'s own relative-delta
+        reindenter, an explicitly-flagged open question in this file's
+        "Open design proposal" section), Java.
+      - Wrapped ternary chains nested inside deep one-true-brace ifs, Java.
+      - Randomized/garbage leading-whitespace input (random space/tab
+        padding per line, no consistent original indentation to anchor
+        anything), Java.
+      - Deep nested templates/namespaces with a C++11 raw string literal,
+        C++.
+      - Deep nested one-true-brace `if`/`else if` combined with fluent
+        `.filter().map().forEach()` arrow chains, template-literal
+        interpolation, and nested arrow-lambda bodies, TS.
+      - Deep nested one-true-brace `if`/`else if` combined with trailing-
+        lambda chains (`.filter{}.map{}.forEach{}`), Kotlin.
+
+      **Result: most constructions stayed fully idempotent across all 5
+      rounds** — deep one-true-brace nesting/dense-combo/switch-nest/
+      ternary-chain/garbage-indent (Java) and the C++ deep-template case
+      found no bug at any depth tried (10/20/30/50).
+
+      **But a genuine, minimal counterexample WAS found in TS/JS/Kotlin —
+      see `RDD_KEY_240` for full detail, summarized here:** a single-level
+      TS/JS `if (...) { arr.filter(x => x > 0).map(x => x*2).forEach(x =>
+      {...}); } else if (...) { ... }` (depth 1, no extra nesting needed)
+      with multipass on: round1's output differs from round2 (reformatting
+      round1's own output) on the wrapped `.map(...)` continuation's indent
+      column — a real idempotency failure from a single top-level
+      invocation. round2 == round3 == round4 == round5 (confirmed stable
+      after that point), so the true fixed point exists and is reached,
+      just not within the one bounded-4-stage invocation the design
+      assumed would suffice — it takes a second full formatter invocation
+      (effectively 8 internal stages across two `applyAndFormat` calls) to
+      settle. This **directly falsifies** this file's own "Open design
+      proposal" section's claim under "Whether this achieves true
+      idempotency" that "a *second* full 4-stage application should be a
+      no-op end to end" — demonstrated NOT a no-op for this shape. Root
+      cause is the same circular dependency `RDD_KEY_229` already
+      diagnosed (GDR's reindentation changes a line's width, which can
+      flip the pipeline's own wrap/continuation-indent fits-check), just
+      manifesting one level deeper than the 4-stage bound accounts for.
+      Reproduces in plain JS and TS at depth 1; reproduces in Kotlin too
+      but needed much deeper nesting (30 levels of nested trailing-lambda
+      `if`/`else if` chains) before the same one-level indent-column-drift
+      pattern appeared; did **not** reproduce in the equivalent Java shape
+      (`list.stream().filter().map().forEach()` with lambdas) at any depth
+      tried.
+
+      **No source code changed** — per this task's explicit constraint and
+      `STATE_COMMON.md`'s ambiguity-handling protocol, a fix to the
+      bounded-loop architecture itself (e.g. an actual iterate-until-stable
+      loop, or feeding stage 3's width into stage 4's fits-check) is a
+      real, separate follow-on task requiring its own design/go-ahead, not
+      attempted here. `curly-general-scope-reindent`/
+      `curly-general-scope-reindent-multipass` remain `off` by default,
+      unchanged. `make test`: 244/244 forward + idempotency, unaffected —
+      all adversarial work was scratchpad/`/tmp`-only, no fixture added (a
+      fixture demonstrating this bug would need to encode a currently-known
+      failure as expected output, which isn't right for a documented,
+      not-yet-fixed gap — matching how `RDD_KEY_229`'s own finding was
+      handled, state-file documentation only).
+
+      **Honest confidence assessment:** this is now **evidence the 4-stage
+      bound is insufficient for at least one real (if narrow/synthetic)
+      shape**, not just "unproven" — the risk this file flagged as
+      theoretical has now manifested concretely, in TS/JS at trivial depth
+      and in Kotlin at real depth. It does NOT mean every real-world file
+      is at risk: every real-code corpus this job has tested so far
+      (700+ files, Java/C++/TS) still cleared cleanly, and the specific
+      shape needed (a wrapped fluent/arrow chain immediately inside a
+      one-true-brace-joined `if`/`else if`) is a fairly specific
+      combination. What is now known: (1) the 4-stage bound is not a
+      structural guarantee, confirmed by direct counterexample, not just
+      argued from first principles; (2) at least for the cases found here,
+      the oscillation is bounded and damps out after one additional full
+      reformat (round2 was already stable) — nothing found in this session
+      oscillates indefinitely or fails to converge at all; (3) this was not
+      an exhaustive search — deeper/wider adversarial constructions in
+      C/C++ (no minimal repro found there yet), other JS/TS shapes beyond
+      fluent-chain wraps, and combinations with switch-case/ternary-wrap in
+      TS/Kotlin specifically (only tried in Java) remain untried and could
+      still surface further or worse cases.
 
 Do the above checklist one by one. Test, commit, and ask me whether to continue or pause.
 

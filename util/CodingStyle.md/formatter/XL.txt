@@ -190,7 +190,13 @@ Update `STATE_DOGFOOD.md` as needed.
 ####################################################################################################
 ####################################################################################################
 
-Update from CM5 job.
+Apply the formatter once again to all `*.java/py/js` source files inside `tools/*` subdirectories.
+Output the result to `/tmp/tools_round1` and then `/tmp/tools_round2`. Perform idempotency check,
+syntax check, and content diff check. If all OK, copy back the formatted round1 to `tools/*`
+subdirectories.
+
+The result of `make gru-cv-corpus` run with CM5 yesterday is in `cvc.zip`. Extract it to `/tmp`
+and check/process it.
 
 Update and fix `CLAUDE.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`,
 `../AI_PREAMBLE_AESTHETIC.md`, etc.

@@ -41,48 +41,40 @@ are very long, and `-A` context will flood output unnecessarily.
 ## During implementation
 
 - Implement one checklist section at a time.
-- After completing a section (or when the cumulative diff across all changed
-  files exceeds ~50 lines, whichever comes first), do a checkpoint commit:
-  1. Update the job's state file — check off completed items and update the
-     active checklist.
-  2. `git add util/CodingStyle.md/formatter/` (the entire formatter directory)
-  3. `git reset util/CodingStyle.md/formatter/target/` (exclude build output)
-  4. `git commit -m "<message>"` — short descriptive message, no strict
-     format required, trailer ending with
-     `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
-- Small related items within a section may be grouped into one commit if
-  trivially connected — use judgment based on the ~50-line threshold.
+- Checkpoint commit after completing a section, or when the cumulative diff
+  exceeds ~50 lines (whichever first): (1) update the job's state file —
+  check off items, update the active checklist; (2) `git add
+  util/CodingStyle.md/formatter/`; (3) `git reset
+  util/CodingStyle.md/formatter/target/` (exclude build output); (4)
+  `git commit -m "<message>"` — short descriptive message, trailer ending
+  `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
+- Small trivially-related items may share one commit — use judgment against
+  the ~50-line threshold.
 - Never let implemented files and the state file drift out of sync — the
   state file must always reflect true current state at every commit.
-- Never modify `util/CodingStyle.md/formatter/test/*_inp.*` unless they
-  contain syntax errors (they are the test input files).
-- Never modify `util/CodingStyle.md/formatter/test/*_out.*` unless
-  explicitly asked (they are the reference output files).
+- Never modify `test/*_inp.*` unless they contain syntax errors. Never
+  modify `test/*_out.*` unless explicitly asked.
 - `XL.txt` is the user's own personal tracker, not part of this job's
-  process. Ignore it unless the user points you at a specific item in it
-  for a given task. Never add a reference to `XL.txt` in any `STATE_*.md`
-  file (including this one, beyond this note) — those files must stand on
-  their own for a future session with no `XL.txt` context.
-- When registering a new local test fixture pair that did **not** come from
-  real-code testing (e.g. a hand-authored dogfood pair), add its entry in
-  both `test/README.txt` and the `Makefile`'s `INP_FILES` **before** the
-  `Real-code regressions:` section/entries.
-- **New local test fixtures are authored directly in `formatter/test/`** —
-  there is no staging step (`../FUTURE_TEST_FIXTURES.md` is historical/empty,
-  don't add new drafts there). When authoring a fixture for a language with
-  no real formatter logic yet, register it commented-out in the Makefile's
-  `INP_FILES` until real logic lands; for a language with real logic, verify
-  the pair against the actual JAR before registering it active.
-- Use `/tmp` for temporary smoke-test and mini-test files.
-- NEVER perform a filesystem-wide find; search first in `/tmp/claude-1000`
-  or the project root. If still not found, ask the user.
-- Prefer evidence over reasoning when diagnosing a bug or checking for a
-  regression. Keep static analysis minimal — only enough to identify where
-  to insert debug prints. Use debug prints and `make test` to diagnose and
-  validate fixes, not static analysis as the primary method. After a fix is
-  verified with `make test`, remove all debug prints, then commit only the
-  files you actually modified. Do not add `RDD_KEY_*` text in a test fixture
-  group title in `test/README.txt`. If unsure, ask.
+  process. Ignore it unless the user points at a specific item in it. Never
+  reference `XL.txt` from any `STATE_*.md` file (including this note) — each
+  must stand alone for a future session with no `XL.txt` context.
+- When registering a new local fixture pair that did **not** come from
+  real-code testing, add its entry in both `test/README.txt` and the
+  `Makefile`'s `INP_FILES`, **before** the `Real-code regressions:` entries.
+- **New fixtures are authored directly in `formatter/test/`** — no staging
+  step (`../FUTURE_TEST_FIXTURES.md` is historical/empty, don't draft new
+  ones there). For a language with no real formatter logic yet, register
+  commented-out in `INP_FILES` until logic lands; otherwise verify against
+  the actual JAR before registering active.
+- Use `/tmp` for temporary smoke-test/mini-test files. NEVER perform a
+  filesystem-wide find; search `/tmp/claude-1000` or the project root
+  first, else ask.
+- Prefer evidence over reasoning when diagnosing a bug or regression: keep
+  static analysis minimal (just enough to place debug prints), use debug
+  prints + `make test` to diagnose/validate. Remove debug prints once a fix
+  is verified, then commit only the files actually modified. Do not put
+  `RDD_KEY_*` text in a `test/README.txt` fixture-group title. If unsure,
+  ask.
 
 ## When a file reaches COMPLETE
 
@@ -113,53 +105,48 @@ are very long, and `-A` context will flood output unnecessarily.
 
 ## Real-code testing methodology
 
-Repeatable methodology for testing the formatter against real, third-party
-code (preferred over synthetic dogfooding — it finds concrete, fixable bugs
-faster):
+Preferred over synthetic dogfooding — finds concrete, fixable bugs faster:
 
-1. Clone a real, compiling third-party project. First search `/tmp` for an
-   existing checkout from a prior session and reuse it if found; else
-   re-clone fresh. **Never perform a filesystem-wide search** (e.g. `find
-   /`) — search only within `/tmp`/the scratchpad dir, or ask the user.
+1. Clone a real, compiling third-party project — search `/tmp` first for a
+   prior-session checkout and reuse if found, else re-clone. **Never a
+   filesystem-wide search** (e.g. `find /`) — only `/tmp`/scratchpad, or ask.
 2. Format it once (round1).
 3. Format round1's output again (round2).
 4. `diff round1 round2` must be empty (idempotency).
 5. Compile round1 with the appropriate toolchain — must succeed with the
-   same error count as the unmodified original (no new, formatter-induced
+   same error count as the unmodified original (no new formatter-induced
    errors).
 
 Use `tools/verifiers` to syntax check. If there are many errors, work in
 batch, store the rest in the corresponding state file.
 
 **Diagnosing a hung `make test` / batch run**: `Main.main`'s per-file loop
-(shared by every job — `--standalone` batch mode, used by `make test`,
-processes every fixture in one JVM invocation) prints
-`jxmake-code-formatter: processing <file>` to stderr immediately before each
-file, so a hang shows exactly which file it's stuck on instead of just
-silence (2026-08-04, added after a real switch-case-reindent fix attempt
+(`--standalone` batch mode used by `make test`, processes every fixture in
+one JVM invocation) prints `jxmake-code-formatter: processing <file>` to
+stderr immediately before each file, so a hang shows exactly which file
+it's stuck on (added 2026-08-04 after a switch-case-reindent fix attempt
 caused an infinite loop mid-`make test` with no way to tell which fixture
-was stuck — see STATE_C_CPP_JAVA.md's Tier-4-escalation entry for that
-incident). This is a plain unconditional stderr trace, not gated behind a
-flag — stderr isn't diffed by `make test`, so it can't affect pass/fail.
+was stuck — see STATE_C_CPP_JAVA.md's Tier-4-escalation entry). Plain
+unconditional stderr trace, not gated behind a flag — stderr isn't diffed
+by `make test`, so it can't affect pass/fail.
 
 **Diagnosing a hung server (`--server`/`make test-server`)**:
 `ServerMode.FormatHandler.handle` similarly prints
 `jxmake-code-formatter: processing <path>` (or `(no path, lang=<lang>)` for
-inline-content requests with no `path` param) to stderr right before calling
+inline-content requests) to stderr right before calling
 `GdrPipelineGate.applyAndFormat`, added the same day for the same reason.
-This one matters more than the batch case: `HttpServer` is created with no
-explicit executor (`HttpServer.create(...)`'s default), so requests dispatch
-on a single internal thread — one hung request blocks every subsequent
-request to that server instance indefinitely, not just its own. Verified via
-`make test-server` (still passes; trace lines visible per request) and
-`make test` (still 243/243 — unrelated code path).
+Matters more than the batch case: `HttpServer` is created with no explicit
+executor (`HttpServer.create(...)`'s default), so requests dispatch on a
+single internal thread — one hung request blocks every subsequent request
+to that server instance indefinitely. Verified via `make test-server`
+(still passes, trace lines visible per request) and `make test` (still
+243/243 — unrelated code path).
 
 **Verifier toolchain** — needed to build/run `tools/verifiers/*` and
-`tools/gru/*` on this system; shared across every job that touches those
-tools. Invoke the verifier helpers via their wrapper scripts rather than
-calling `java`, `node`, or `python3` directly. The wrapper scripts
-encapsulate the required toolchain paths, runtime environment, dependency
-checks, and (for Java) on-demand compilation.
+`tools/gru/*`; shared across every job that touches those tools. Invoke via
+their wrapper scripts rather than calling `java`, `node`, or `python3`
+directly — the wrappers encapsulate required toolchain paths, runtime
+environment, dependency checks, and (for Java) on-demand compilation.
 
 Available wrappers:
 
@@ -420,12 +407,12 @@ by Curly's signature/call-rendering). `KotlinDeclarationAlignmentRule`/
 **Reusable gotchas for future similar splits:** a Python script masking
 `//`/`/* */`/string/char-literal spans before brace-counting mechanically
 extracted method bodies into Core vs Curly files (byte-identical) — scale
-marker count to file size; an inherited static nested class must be
+marker count to file size. An inherited static nested class must be
 imported via its declaring class's canonical name, not the subclass (javac
-rejects the subclass import form); bulk `private`→`protected` fixes needed
-wherever a Core method is now called from a Curly sibling; `git rm` (not
+rejects the subclass import form). Bulk `private`→`protected` fixes needed
+wherever a Core method is now called from a Curly sibling. `git rm` (not
 `rm` + `git add`) needed to stage a deletion on this system's old git
-version; watch for extraction scripts dropping a `public/private static`
+version. Watch for extraction scripts dropping a `public/private static`
 modifier prefix when a marker starts mid-declaration — verify each
 extracted nested class's modifiers against the original.
 

@@ -274,10 +274,10 @@ DEDENT fix together.
 **Final validation:** `make test` 244/244 forward + idempotency. Full
 corpus re-run after both fixes: `psf/black` (338 files), `django/django`
 (2927 files), `python/cpython` (`Lib/`, ~1500 files) — zero crashes, zero
-non-idempotency (`diff -rq round1 round2` empty on all three), zero new
-`python3.12 -m py_compile` errors (only pre-existing, formatter-unrelated
-failures reproduced identically on the unformatted originals, e.g.
-`annotationlib.py`'s t-string syntax not yet supported by python3.12).
+non-idempotency, zero new `python3.12 -m py_compile` errors (only
+pre-existing, formatter-unrelated failures reproduced identically on the
+unformatted originals, e.g. `annotationlib.py`'s t-string syntax not yet
+supported by python3.12).
 
 ---
 
@@ -569,8 +569,7 @@ failures reproduced identically on the unformatted originals, e.g.
          own body line; `applySingleStatementBody` skips headers already
          handled by §7; if §7's padding would push past `line-length`, the
          group falls back to §8's plain unpadded join. Fixture
-         `real_code_regressions_115_{inp,out}.py`. `make test`: 164/164
-         forward + 164/164 idempotency.
+         `real_code_regressions_115_{inp,out}.py`. `make test`: 164/164.
       2. **§6 multi-line union-type-hint gap violated + unbounded
          trailing-whitespace growth.** `tests/data/cases/
          pep604_union_types_line_breaks.py`: a `|`-union type wrapped
@@ -582,7 +581,7 @@ failures reproduced identically on the unformatted originals, e.g.
          leading `|` means continuation not parameter, so the whole
          signature is left untouched per §6's documented gap. Fixture
          `real_code_regressions_116_{inp,out}.py` (identity-pass). `make
-         test`: 165/165 forward + 165/165 idempotency.
+         test`: 165/165.
 
       `python3.12 -m py_compile` on all 337 round1 files: clean except one
       pre-existing failure (`tests/data/cases/
@@ -681,38 +680,33 @@ failures reproduced identically on the unformatted originals, e.g.
          expression* miscounted nesting depth, running the spec scan past
          the real field end and never emitting `FSTRING_END`. Fixed: added
          `skipNestedStringLiteral` — skips a quoted string's content
-         (`\`-escapes, triple-quotes honored) whenever a quote is seen at
-         `depth > 0` inside `emitFStringFormatSpec`'s brace counter.
-         Verified against all 5 crashing minimal cases plus two
-         multi-level-nesting cases (all now format without crashing,
-         round1==round2, `py_compile`-clean save for one pre-existing
-         unrelated AST-tool quirk reproducing identically on the
-         unformatted original). Fixture
-         `real_code_regressions_133_{inp,out}.py`. `make test`: 182/182
-         forward + 182/182 idempotency.
+         whenever a quote is seen at `depth > 0` inside
+         `emitFStringFormatSpec`'s brace counter. Verified against all 5
+         crashing minimal cases plus two multi-level-nesting cases (all
+         format without crashing, round1==round2, `py_compile`-clean save
+         for one pre-existing unrelated AST-tool quirk reproducing
+         identically on the unformatted original). Fixture
+         `real_code_regressions_133_{inp,out}.py`. `make test`: 182/182.
       2. **[IDEMPOTENCY, FIXED] §3 import-sort: same-module
          multi-statement group order unstable on first pass** (16 files:
          `Lib/random.py` lines 53-56 the clean minimal case — four separate
-         `from math import ...` statements; also `Lib/ssl.py`,
-         `statistics.py`, `typing.py`, `turtle.py`,
-         `xml/sax/expatreader.py`, `ctypes/__init__.py`, and 9
-         `Lib/test/*`/`idlelib`/`Mac/Tools` files). Round1 didn't fully
-         alphabetize inter-statement order when one group had multiple
-         `from X import ...` lines for the *same* `X`; round2
-         self-corrected. Root cause: `MiscRuleIndent.PyImport.compareTo`
-         keyed on `this.names`/`other.names` from as-parsed (pre
-         within-clause-sort) name order — only after one round-trip did
-         re-parsing yield a matching sorted form. Reproduced identically at
-         `indent-size=2` (pure sort-key bug, not indent-sensitive). FIXED:
-         `PyImport.compareTo` now sorts a copy of each side's `names`
-         before the element-by-element comparison (leaving `names` itself
-         untouched, in source order, for `sortedNameUnits`'s separate
+         `from math import ...` statements; also `ssl.py`, `statistics.py`,
+         `typing.py`, `turtle.py`, `xml/sax/expatreader.py`,
+         `ctypes/__init__.py`, and 9 `Lib/test/*`/`idlelib`/`Mac/Tools`
+         files). Round1 didn't fully alphabetize inter-statement order when
+         one group had multiple `from X import ...` lines for the *same*
+         `X`; round2 self-corrected. Root cause: `MiscRuleIndent
+         .PyImport.compareTo` keyed on `this.names`/`other.names` from
+         as-parsed (pre within-clause-sort) name order. Reproduced
+         identically at `indent-size=2` (pure sort-key bug, not
+         indent-sensitive). FIXED: `PyImport.compareTo` now sorts a copy of
+         each side's `names` before comparison (leaving `names` itself
+         untouched in source order for `sortedNameUnits`'s separate
          within-clause-rebuild use) — matches §3.1 point 3's "sort by the
          first imported name" read as "the first name after within-clause
          alphabetization." Verified against `Lib/random.py:53-56` directly
-         (correctly ordered and idempotent on first format) plus a minimal
-         repro at `indent-size=2`. Fixture: `real_code_regressions_137`.
-         `make test`: 186/186 forward + 186/186 idempotency.
+         plus a minimal repro at `indent-size=2`. Fixture:
+         `real_code_regressions_137`. `make test`: 186/186.
       3. **[IDEMPOTENCY, FIXED] §7/§8 join-then-align ordering, recurrence
          adjacent to a preceding block-form `case`** (2 files:
          `Lib/turtle.py` ~line 3930, `Lib/typing.py` ~line 2974). Already-
@@ -736,7 +730,7 @@ failures reproduced identically on the unformatted originals, e.g.
          `py_compile`-clean save for `typing.py`'s pre-existing unrelated
          `lazy import` error, confirmed identical on the unformatted
          original). Fixture: `real_code_regressions_138`. `make test`:
-         187/187 forward + 187/187 idempotency.
+         187/187.
       4. **[IDEMPOTENCY, FIXED] §4/§5 decorator-call bracket-padding leaks
          into a nested f-string field's own braces** (1 file:
          `Lib/test/test_ctypes/test_generated_structs.py` lines 278, 284).
@@ -759,8 +753,7 @@ failures reproduced identically on the unformatted originals, e.g.
          immediately following it as another field open. Verified via
          minimal repro and the real `test_generated_structs.py`
          (idempotent, `py_compile`-clean). Fixture:
-         `real_code_regressions_139`. `make test`: 188/188 forward +
-         188/188 idempotency.
+         `real_code_regressions_139`. `make test`: 188/188.
 
       All four clusters fixed; full corpus re-run deferred until
       requested, same pattern as every prior dogfood entry in this file.
@@ -768,41 +761,36 @@ failures reproduced identically on the unformatted originals, e.g.
       **2026-08-04 — deferred full-corpus re-run done** (requested
       explicitly, to close out XL.txt's Tier 1 item 1 alongside the same-day
       indent-size/style conversion work's own psf/black/django/cpython
-      `Lib/` validation — that validation only covered `Lib/`, not the full
-      2343-file repo, so this is the first full-repo re-run since the
-      4-cluster fix). Same `/tmp/cpython` shallow clone, full repo (not just
-      `Lib/`) via `--preserve-tree --root`. Round1: 2343/2343 processed,
-      zero crashes. Round2 (idempotency): `diff -rq round1 round2` empty,
-      0/2343 differ. `python3.12 -m py_compile`: 73 failures on round1 vs.
-      74 on the unformatted original — **73 identical** (all the same
-      `lazy import`/t-string bleeding-edge syntax experiments not yet
-      standard Python, e.g. `Lib/traceback.py:21`, matching the pattern
-      already documented above; there are simply more of them now than at
-      the original 4-cluster fix time, since this is cpython's own moving
-      dev branch, not a formatter regression).
+      `Lib/` validation, which only covered `Lib/` — first full-repo re-run
+      since the 4-cluster fix). Same `/tmp/cpython` shallow clone, full repo
+      via `--preserve-tree --root`. Round1: 2343/2343 processed, zero
+      crashes. Round2 (idempotency): empty, 0/2343 differ. `python3.12 -m
+      py_compile`: 73 failures on round1 vs. 74 on the unformatted original
+      — **73 identical** (all the same `lazy import`/t-string
+      bleeding-edge syntax experiments not yet standard Python, e.g.
+      `Lib/traceback.py:21`, matching the pattern already documented above;
+      simply more of them now than at the original fix time, since this is
+      cpython's own moving dev branch, not a formatter regression).
 
       **One file's compile status changed, but not via any formatting
       logic — a pre-existing lossy-read quirk, unrelated to the
       indent-conversion work or any Python3 rule:**
       `Lib/test/tokenizedata/badsyntax_pep3120.py` is a deliberately
       invalid-UTF-8-encoded test fixture (a raw Latin-1 `ö` byte, `0xf6`,
-      that isn't valid UTF-8 — the test asserts the tokenizer raises
+      not valid UTF-8 — the test asserts the tokenizer raises
       `SyntaxError: (unicode error) ... invalid start byte` on it).
       Whatever file-reading path the formatter's CLI uses evidently decodes
-      with a lossy/replacement-character fallback rather than failing loudly
-      on genuinely invalid UTF-8 input, then writes valid UTF-8 back out
-      (the invalid byte becomes literal U+FFFD `�`) — so the formatted copy
-      compiles cleanly where the original didn't, silently changing the
-      file's byte content in a case truly invalid UTF-8 source is involved.
-      This is an extremely narrow edge case (a source file that isn't valid
-      UTF-8 at all is vanishingly rare in real code — this is the only
-      instance across 2343 real-world cpython files plus every other
-      corpus dogfooded in this file), and not something introduced by
-      today's work — flagging as a known gap rather than fixing now, since
-      it's a CLI/IO-layer concern (charset handling), not a Python3
-      formatting-rule bug, and out of scope for the indent-conversion or
-      dogfood-closure tasks that surfaced it. Not chased further this
-      session.
+      with a lossy/replacement-character fallback rather than failing
+      loudly on genuinely invalid UTF-8 input, then writes valid UTF-8 back
+      out (the invalid byte becomes literal U+FFFD `�`) — so the
+      formatted copy compiles cleanly where the original didn't, silently
+      changing the file's byte content when truly invalid UTF-8 source is
+      involved. An extremely narrow edge case (the only instance across
+      2343 real-world cpython files plus every other corpus dogfooded in
+      this file), and not introduced by today's work — flagged as a known
+      gap rather than fixed now, since it's a CLI/IO-layer concern
+      (charset handling), not a Python3 formatting-rule bug. Not chased
+      further this session.
 - [x] Indent-size/style conversion (Python analog of `MiscRuleCore
       #convertIndentation`) — see "Indent-Size/Style Conversion — DONE
       (RDD_KEY_237)" section above for the full design-decision/

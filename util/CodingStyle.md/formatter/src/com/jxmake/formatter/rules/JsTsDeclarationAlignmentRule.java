@@ -518,7 +518,7 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
             } // if
             // RDD_KEY_183: a `type X = ...` alias row only ever groups with other type-alias
             // rows, never mixed with a plain let/const/var declarator (or vice versa).
-            final boolean kindMismatch = ! current.isEmpty()&& current.get(
+            final boolean kindMismatch = ! current.isEmpty() && current.get(
                 0
             ).isTypeAlias != row.isTypeAlias;
             final boolean breakBefore  = hasBlankLineBefore(

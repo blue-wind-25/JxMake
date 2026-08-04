@@ -482,7 +482,7 @@ public class JavaSpecificRule {
                 continue;
             }
             final boolean thisIsTerminator  = terminators.containsKey(i);
-            final boolean prevWasTerminator = lastSignificant >= 0&& terminators.containsKey(
+            final boolean prevWasTerminator = lastSignificant >= 0 && terminators.containsKey(
                 lastSignificant
             );
             if(thisIsTerminator || prevWasTerminator) {

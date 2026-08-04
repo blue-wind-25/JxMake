@@ -146,9 +146,9 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                 final Token t = tokens.get(j);
                 if(t.type == TokenType.NEWLINE) {
                     final boolean insideBrackets = t.parenDepth > 0;
-                    final boolean backslash      = j > 0&& tokens.get(
+                    final boolean backslash      = j > 0 && tokens.get(
                         j - 1
-                    ).type == TokenType.OP&& "\\".equals(
+                    ).type == TokenType.OP && "\\".equals(
                         tokens.get(j - 1).text
                     );
                     ++j;
@@ -940,9 +940,9 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         // reproduce `expr`'s exact original source text -- including its own surrounding
         // whitespace -- verbatim in the debug output. Skip this pass's own gap-trimming entirely
         // for such a field rather than only skipping part of it.
-        final boolean debugSpecifier = lastSig >= 0&& tokens.get(
+        final boolean debugSpecifier = lastSig >= 0 && tokens.get(
             lastSig
-        ).type == TokenType.OP&& "=".equals(
+        ).type == TokenType.OP && "=".equals(
             tokens.get(lastSig).text
         );
         if(!debugSpecifier) {
@@ -955,7 +955,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             // space instead of zero in that shape so the two braces can never fuse.
             final boolean     nextIsOpenBrace = tokens.get(
                 firstSig
-            ).type == TokenType.PUNCT&& "{".equals(
+            ).type == TokenType.PUNCT && "{".equals(
                 tokens.get(firstSig).text
             );
             final Replacement openGap         = normalizeGap(
@@ -1127,7 +1127,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         // left untouched, per this class's own documented multi-physical-line-type-hint gap, instead
         // of misclassifying the continuation as a bogus parameter of its own.
         final Token   startTok        = tokens.get(nameStart);
-        final boolean validParamStart = startTok.type == TokenType.IDENTIFIER || ( startTok.type == TokenType.OP&& ( "*".equals(
+        final boolean validParamStart = startTok.type == TokenType.IDENTIFIER || ( startTok.type == TokenType.OP && ( "*".equals(
             startTok.text
         ) || "**".equals(
             startTok.text
@@ -1144,7 +1144,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         }
         final boolean trailingComma = tokens.get(
             lastSig
-        ).type == TokenType.PUNCT&& ",".equals(
+        ).type == TokenType.PUNCT && ",".equals(
             tokens.get(lastSig).text
         );
         final int     contentEnd    = trailingComma ? lastSig : lastSig + 1;

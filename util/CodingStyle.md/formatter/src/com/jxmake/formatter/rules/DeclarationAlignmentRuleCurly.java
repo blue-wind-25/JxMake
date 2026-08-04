@@ -193,7 +193,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             // a blank line: `render(group)` fully regenerates the group's whole span, so a
             // comment surviving only in the raw leading gap of a mid-group declaration would be
             // silently discarded otherwise.
-            final boolean isEnumConstantList = lang.isJava&& isJavaEnumConstantListShape(stmt);
+            final boolean isEnumConstantList = lang.isJava && isJavaEnumConstantListShape(stmt);
             final boolean breakBefore        = blankBefore || hasCommentBefore(
                 stmt
             ) || isMemberFunctionForwardDecl(
@@ -1061,7 +1061,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                     final List<Token> inner         = body.subList(
                         nameOpenIdx + 1, paramsOpenIdx - 1
                     );
-                          boolean     isFuncPtrName = ! inner.isEmpty()&& inner.get(
+                          boolean     isFuncPtrName = ! inner.isEmpty() && inner.get(
                               inner.size() - 1
                           ).type == TokenType.IDENTIFIER;
                     for( int k = 0; isFuncPtrName && k < inner.size() - 1; ++k ) {

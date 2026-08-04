@@ -448,11 +448,11 @@ public final class JsTsSpecificRule {
         for( final Integer openIdx : openToClose.keySet() ) {
             final int     prevIdx             = prevSignificantIndex(tokens, openIdx - 1);
             final Token   prev                = prevIdx >= 0 ? tokens.get(prevIdx) : null;
-            final boolean isImportBraceHeader = prev != null&& ( ( prev.type == TokenType.KEYWORD&& "import".equals(
+            final boolean isImportBraceHeader = prev != null && ( ( prev.type == TokenType.KEYWORD && "import".equals(
                 prev.text
             ) ) || ( "type".equals(
                 prev.text
-            )&& isKeywordAt(
+            ) && isKeywordAt(
                 tokens, prevSignificantIndex(tokens, prevIdx - 1), "import"
             ) ) );
             if(isImportBraceHeader) {
@@ -466,11 +466,11 @@ public final class JsTsSpecificRule {
                 outNeedsSemicolon.put(openIdx, false);
                 continue;
             } // if
-            final boolean isExportBraceHeader = prev != null&& ( ( prev.type == TokenType.KEYWORD&& "export".equals(
+            final boolean isExportBraceHeader = prev != null && ( ( prev.type == TokenType.KEYWORD && "export".equals(
                 prev.text
             ) ) || ( "type".equals(
                 prev.text
-            )&& isKeywordAt(
+            ) && isKeywordAt(
                 tokens, prevSignificantIndex(tokens, prevIdx - 1), "export"
             ) ) );
             if(isExportBraceHeader) {
@@ -486,9 +486,9 @@ public final class JsTsSpecificRule {
                 final int     afterClose    = closeIdx != null ? nextSignificantIndex(
                     tokens, closeIdx + 1
                 ) : -1;
-                final boolean hasFromClause = afterClose >= 0&& tokens.get(
+                final boolean hasFromClause = afterClose >= 0 && tokens.get(
                     afterClose
-                ).type == TokenType.KEYWORD&& "from".equals(
+                ).type == TokenType.KEYWORD && "from".equals(
                     tokens.get(afterClose).text
                 );
                 outResetDepth.put(openIdx, false);
@@ -521,7 +521,7 @@ public final class JsTsSpecificRule {
                 continue;
             } // if
             final boolean isArrowBody = isOp(prev, "=>");
-            final boolean isValue     = prev != null&& ( isArrowBody || isOp(
+            final boolean isValue     = prev != null && ( isArrowBody || isOp(
                 prev, "="
             ) || isPunct(
                 prev, "("
@@ -541,11 +541,11 @@ public final class JsTsSpecificRule {
                 prev, "?"
             ) || isOp(
                 prev, "..."
-            ) || prev.type == TokenType.ANGLE_BRACKET_OPEN || ( lang.isTs&& ( isOp(
+            ) || prev.type == TokenType.ANGLE_BRACKET_OPEN || ( lang.isTs && ( isOp(
                 prev, "|"
             ) || isOp(
                 prev, "&"
-            ) ) ) || ( prev.type == TokenType.KEYWORD&& ( "return".equals(
+            ) ) ) || ( prev.type == TokenType.KEYWORD && ( "return".equals(
                 prev.text
             ) || "yield".equals(
                 prev.text
@@ -684,8 +684,8 @@ public final class JsTsSpecificRule {
 
             final boolean gapBlocked  = gap.stream().anyMatch(
                 g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
-            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
-            final boolean afterSpread = lastSignificant != null&& isOp(lastSignificant, "...");
+            ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean afterSpread = lastSignificant != null && isOp(lastSignificant, "...");
 
             if(gapBlocked || !afterSpread) {
                 for(final Token g : gap) out.append(g.text);
@@ -729,13 +729,13 @@ public final class JsTsSpecificRule {
 
             final boolean gapBlocked        = gap.stream().anyMatch(
                 g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
-            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
+            ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
             final boolean adjacentToTightOp = isOptionalChain(
                 lastSignificant
             ) || isOptionalChain(
                 t
             );
-            final boolean adjacentToNullish = ! adjacentToTightOp&& ( isNullishCoalesce(
+            final boolean adjacentToNullish = ! adjacentToTightOp && ( isNullishCoalesce(
                 lastSignificant
             ) || isNullishCoalesce(
                 t
@@ -1430,7 +1430,7 @@ public final class JsTsSpecificRule {
                 out.append('\n');
                 ++k;
                 while( k < semiIdx && tokens.get(k).type == TokenType.WHITESPACE ) k++;
-                final boolean breaksBeforeOperator = k < semiIdx&& ( isOp(
+                final boolean breaksBeforeOperator = k < semiIdx && ( isOp(
                     tokens.get(k), "|"
                 ) || isOp(
                     tokens.get(k), "&"
@@ -1488,7 +1488,7 @@ public final class JsTsSpecificRule {
 
             final boolean gapBlocked      = gap.stream().anyMatch(
                 g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
-            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
+            ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
             final boolean adjacentToArrow = isOp(lastSignificant, "=>") || isOp(t, "=>");
 
             if(gapBlocked || !adjacentToArrow) {
@@ -2423,7 +2423,7 @@ public final class JsTsSpecificRule {
 
             final boolean gapBlocked                    = gap.stream().anyMatch(
                 g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
-            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
+            ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
             final boolean adjacentToUnionOrIntersection = isUnionOrIntersection(
                 lastSignificant
             ) || isUnionOrIntersection(
@@ -2501,9 +2501,9 @@ public final class JsTsSpecificRule {
 
             final boolean gapBlocked      = gap.stream().anyMatch(
                 g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
-            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
+            ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
             final boolean beforeTypeColon = typeColons.contains(i);
-            final boolean afterTypeColon  = lastSigIdx >= 0&& typeColons.contains(lastSigIdx);
+            final boolean afterTypeColon  = lastSigIdx >= 0 && typeColons.contains(lastSigIdx);
 
             if( gapBlocked || (!beforeTypeColon && !afterTypeColon) ) {
                 for(final Token g : gap) out.append(g.text);
@@ -2556,10 +2556,10 @@ public final class JsTsSpecificRule {
 
             final boolean gapBlocked = gap.stream().anyMatch(
                 g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
-            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
-            final boolean afterComma = lastSignificant != null&& isPunct(
+            ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean afterComma = lastSignificant != null && isPunct(
                 lastSignificant, ","
-            )&& angleDepth > 0;
+            ) && angleDepth > 0;
 
             if(gapBlocked || !afterComma) {
                 for(final Token g : gap) out.append(g.text);
@@ -2678,7 +2678,7 @@ public final class JsTsSpecificRule {
         final Token   ctx      = ctxIdx >= 0 ? tokens.get(ctxIdx) : null;
         final boolean paramCtx = "PAREN".equals(
             stack.peek()
-        )&& ctx != null&& ( isPunct(
+        ) && ctx != null && ( isPunct(
             ctx, "("
         ) || isPunct(
             ctx, ","
@@ -2695,17 +2695,17 @@ public final class JsTsSpecificRule {
         // single-declarator statement) and every subsequent declarator's colon (`ctx` is `,`) --
         // distinguished from the single-declarator case via a forward scan for a depth-0 comma
         // before the statement's terminating `;`.
-        final boolean declaratorCtx = inDeclarator&& ( stack.isEmpty() || "BLOCK".equals(
+        final boolean declaratorCtx = inDeclarator && ( stack.isEmpty() || "BLOCK".equals(
             stack.peek()
-        ) )&& ctx != null&& ( isPunct(
+        ) ) && ctx != null && ( isPunct(
             ctx, ","
-        ) || ( ctx.type == TokenType.KEYWORD&& ( "let".equals(
+        ) || ( ctx.type == TokenType.KEYWORD && ( "let".equals(
             ctx.text
         ) || "const".equals(
             ctx.text
         ) || "var".equals(
             ctx.text
-        ) )&& hasTopLevelCommaBeforeSemicolon(
+        ) ) && hasTopLevelCommaBeforeSemicolon(
             tokens, colonIdx
         ) ) );
         // A class field's own `: type` colon (`private x: number;`) -- Checkpoint 7 deliberately
@@ -2720,11 +2720,11 @@ public final class JsTsSpecificRule {
         // multiple modifiers, since each one's own preceding token is walked back to naturally).
         final boolean memberCtx = "BLOCK:CLASS".equals(
             stack.peek()
-        )&& ctx != null&& ( isPunct(
+        ) && ctx != null && ( isPunct(
             ctx, "{"
         ) || isPunct(
             ctx, ";"
-        ) || ( ctx.type == TokenType.KEYWORD&& MODIFIER_PRIORITY.containsKey(
+        ) || ( ctx.type == TokenType.KEYWORD && MODIFIER_PRIORITY.containsKey(
             ctx.text
         ) ) );
 
@@ -3313,7 +3313,7 @@ public final class JsTsSpecificRule {
                 final int     nextSig        = decoratorEnd >= 0 ? nextSignificantIndex(
                     tokens, decoratorEnd + 1
                 ) : -1;
-                final boolean alreadyOwnLine = nextSig >= 0&& hasNewlineBetween(
+                final boolean alreadyOwnLine = nextSig >= 0 && hasNewlineBetween(
                     tokens, decoratorEnd + 1, nextSig
                 );
                 if( decoratorEnd >= 0 && nextSig >= 0 && !alreadyOwnLine && !anyFrozen(

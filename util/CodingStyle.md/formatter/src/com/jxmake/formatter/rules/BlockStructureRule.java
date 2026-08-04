@@ -201,9 +201,9 @@ public class BlockStructureRule {
             else {
                 isKotlinExprBodyIf = false;
             }
-            final boolean isKotlinExpressionIf = lang.isKotlin&& "if".equals(
+            final boolean isKotlinExpressionIf = lang.isKotlin && "if".equals(
                 t.text
-            )&& (kotlinParenDepth > 0 || isKotlinExprBodyIf);
+            ) && (kotlinParenDepth > 0 || isKotlinExprBodyIf);
             if( lang.isKotlin && "if".equals(t.text) ) {
                 // Track/refresh for the paired bare `else` further below -- see the flag's own
                 // declaration comment above the loop
@@ -221,7 +221,7 @@ public class BlockStructureRule {
             // idempotency, compile error (RDD_KEY_151). Guard: bail if this "while" is
             // immediately preceded (skipping non-significant tokens) by a `}` whose matching
             // `{` is itself immediately preceded by a `do` keyword.
-            final boolean isDoWhileTail = "while".equals(t.text)&& isDoWhileTailKeyword(tokens, i);
+            final boolean isDoWhileTail = "while".equals(t.text) && isDoWhileTailKeyword(tokens, i);
             if( !isKotlinExpressionIf && !isDoWhileTail && t.type == TokenType.KEYWORD
                     && SINGLE_EXPR_KEYWORDS.contains(t.text) ) {
                 final ControlBlock block = matchControlBlock(tokens, i);
@@ -333,12 +333,12 @@ public class BlockStructureRule {
                 // itself is done here, with a plain single space, same as every other collapse in
                 // this method; the padding gap is left open (see STATE_KOTLIN.md Open Questions).
                 final int     next     = skipNonSignificant(tokens, i + 1);
-                final boolean isElseIf = next < n&& tokens.get(
+                final boolean isElseIf = next < n && tokens.get(
                     next
-                ).type == TokenType.KEYWORD&& "if".equals(
+                ).type == TokenType.KEYWORD && "if".equals(
                     tokens.get(next).text
                 );
-                final boolean isBraced = next < n&& isPunct( tokens.get(next), "{" );
+                final boolean isBraced = next < n && isPunct( tokens.get(next), "{" );
                 // A `when` expression's `else -> body` branch label is lexically identical to a
                 // bare statement-`else` up to this point (a KEYWORD "else" not followed by "if"
                 // or "{"), but its body is introduced by `->`, not implicitly braceless the way a
@@ -348,7 +348,7 @@ public class BlockStructureRule {
                 // line with no `;` between them (found via dogfood-testing RobotCoding
                 // gui_frontend_android's Optimizer.kt: an `else -> { var x = ...; for(...) {...};
                 // x }` block-bodied arm got flattened to one line, a Kotlin parse error).
-                final boolean isWhenArrow = next < n&& isOp( tokens.get(next), "->" );
+                final boolean isWhenArrow = next < n && isOp( tokens.get(next), "->" );
                 if( !isElseIf && !isBraced && !isWhenArrow && !anyFrozen(tokens, i, i + 1) ) {
                     final int[]  bodyEnd   = new int[1];
                     final String collapsed = collapseBracelessBody(
@@ -369,9 +369,9 @@ public class BlockStructureRule {
                 // whole-chain opt-in safety check as every other branch in this feature
                 // (chainAllBranchesCollapsible, invoked from this else's own chain-start `if`).
                 final int     next     = skipWhitespaceOnly(tokens, i + 1);
-                final boolean isElseIf = next < n&& tokens.get(
+                final boolean isElseIf = next < n && tokens.get(
                     next
-                ).type == TokenType.KEYWORD&& "if".equals(
+                ).type == TokenType.KEYWORD && "if".equals(
                     tokens.get(next).text
                 );
                 if( !isElseIf && next < n && isPunct( tokens.get(next), "{" )
@@ -1027,9 +1027,9 @@ public class BlockStructureRule {
         // braced path, which never has this loss since it lets the outer loop re-append that
         // untouched whitespace token verbatim rather than folding it into a render). Preserve it by
         // re-appending a single space whenever the source actually had one there.
-        final boolean restoreTrailingSpace = bodyEnd < n&& isPunct(
+        final boolean restoreTrailingSpace = bodyEnd < n && isPunct(
             tokens.get(bodyEnd), "}"
-        )&& bodyEnd > bodyStart&& ( tokens.get(
+        ) && bodyEnd > bodyStart && ( tokens.get(
             bodyEnd - 1
         ).type == TokenType.WHITESPACE || tokens.get(
             bodyEnd - 1
@@ -1278,7 +1278,7 @@ public class BlockStructureRule {
     {
         final boolean isElseTok = tokens.get(
             kwIndex
-        ).type == TokenType.KEYWORD&& "else".equals(
+        ).type == TokenType.KEYWORD && "else".equals(
             tokens.get(kwIndex).text
         );
         if(isElseTok) {
@@ -1399,7 +1399,7 @@ public class BlockStructureRule {
             // PREPROCESSOR token's text instead of being lexed as PUNCT), desyncing every
             // brace-depth/frame counter downstream. Leave the brace on its own line instead.
             final int     prevRealIdx        = prevSignificantIndex(tokens, i - 1);
-            final boolean prevIsPreprocessor = prevRealIdx >= 0&& tokens.get(
+            final boolean prevIsPreprocessor = prevRealIdx >= 0 && tokens.get(
                 prevRealIdx
             ).type == TokenType.PREPROCESSOR;
             if( isPunct(t, "{") && gap.stream().noneMatch(Token::isComment)
@@ -1843,7 +1843,7 @@ public class BlockStructureRule {
                 continue;
             }
             final boolean needBefore = blankBeforeIdx.contains(i);
-            final boolean needAfter  = lastSignificant >= 0&& blankAfterIdx.contains(
+            final boolean needAfter  = lastSignificant >= 0 && blankAfterIdx.contains(
                 lastSignificant
             );
             if(needBefore || needAfter) {
@@ -3159,7 +3159,7 @@ public class BlockStructureRule {
                 final boolean isElseIf   = line.regionMatches(indentLen, "else if(", 0, 8);
                 final boolean isBareElse = line.regionMatches(
                     indentLen, "else ", 0, 5
-                )&& ! isElseIf;
+                ) && ! isElseIf;
                 if(isBareElse) {
                     kwLen[k] = -1; // Sentinel: bare else never contributes/receives left-padding
                     continue;
@@ -3194,7 +3194,7 @@ public class BlockStructureRule {
                 final boolean isElseIf   = line.regionMatches(indentLen, "else if(", 0, 8);
                 final boolean isBareElse = line.regionMatches(
                     indentLen, "else ", 0, 5
-                )&& ! isElseIf;
+                ) && ! isElseIf;
                 if(isBareElse) {
                     prefixEnd[k] = indentLen + "else".length();
                     continue;

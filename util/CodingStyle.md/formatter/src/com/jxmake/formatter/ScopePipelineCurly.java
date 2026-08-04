@@ -753,7 +753,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         while( j < tokens.size() && tokens.get(j).type == TokenType.WHITESPACE ) j++;
         if(j >= openBrace) return -1;
         final Token   head       = tokens.get(j);
-        final boolean isWhenHead = head.type == TokenType.KEYWORD&& "when".equals(head.text);
+        final boolean isWhenHead = head.type == TokenType.KEYWORD && "when".equals(head.text);
         final boolean isCallHead = head.type == TokenType.IDENTIFIER;
         if(!isWhenHead && !isCallHead) return -1;
         int k = j + 1;
@@ -863,7 +863,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             // accepting the strip when its result is already indentWidth-aligned.
             final String strippedCandidate = stripTrailingSpaces(rawLeadingGapFull, freshPad);
             final int    strippedWidth     = trailingIndent(strippedCandidate).length();
-            final String rawLeadingGap     = trailingSpaces >= freshPad&& strippedWidth % indentWidth == 0 ? strippedCandidate : rawLeadingGapFull;
+            final String rawLeadingGap     = trailingSpaces >= freshPad && strippedWidth % indentWidth == 0 ? strippedCandidate : rawLeadingGapFull;
             final String rawIndent         = trailingIndent(rawLeadingGap);
             final String indent            = normalizeIndent(rawIndent);
             final String leadingGap        = normalizeLeadingGap(rawLeadingGap, rawIndent, indent);
@@ -1724,11 +1724,11 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             // `kotlinx.coroutines`'s `SystemProps.kt`, the try/catch-as-expression idempotency
             // bug documented in STATE_KOTLIN.md's Open Questions).
             final int     chainKwIdx            = nextSignificantIndex(current, span.start - 1);
-            final boolean isChainedCatchFinally = lang.isKotlin&& prevEffectiveSpanIndent != null&& prevCloseBraceIdx >= 0&& nextSignificantIndex(
+            final boolean isChainedCatchFinally = lang.isKotlin && prevEffectiveSpanIndent != null && prevCloseBraceIdx >= 0 && nextSignificantIndex(
                 current, prevCloseBraceIdx
-            ) == chainKwIdx&& chainKwIdx >= 0&& chainKwIdx < current.size()&& current.get(
+            ) == chainKwIdx && chainKwIdx >= 0 && chainKwIdx < current.size() && current.get(
                 chainKwIdx
-            ).type == TokenType.KEYWORD&& ( "catch".equals(
+            ).type == TokenType.KEYWORD && ( "catch".equals(
                 current.get(chainKwIdx).text
             ) || "finally".equals(
                 current.get(chainKwIdx).text
@@ -1756,18 +1756,18 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             // it depends on how the first `.any { ... }`'s own closing `}` happens to render this
             // pass (found via `JetBrains/kotlin`'s `TopLevelPhases.kt`,
             // `isReferencedByNativeRuntime`, RDD_KEY_215's own residual).
-            final boolean isChainedBooleanOp  = chainKwIdx >= 0&& chainKwIdx < current.size()&& current.get(
+            final boolean isChainedBooleanOp  = chainKwIdx >= 0 && chainKwIdx < current.size() && current.get(
                 chainKwIdx
-            ).type == TokenType.OP&& ( "||".equals(
+            ).type == TokenType.OP && ( "||".equals(
                 current.get(chainKwIdx).text
             ) || "&&".equals(
                 current.get(chainKwIdx).text
             ) );
-            final boolean isChainedFluentCall = ! isChainedCatchFinally&& lang.isKotlin&& prevEffectiveSpanIndent != null&& prevCloseBraceIdx >= 0&& nextSignificantIndex(
+            final boolean isChainedFluentCall = ! isChainedCatchFinally && lang.isKotlin && prevEffectiveSpanIndent != null && prevCloseBraceIdx >= 0 && nextSignificantIndex(
                 current, prevCloseBraceIdx
-            ) == chainKwIdx&& chainKwIdx >= 0&& chainKwIdx < current.size()&& ( isChainedBooleanOp || ( current.get(
+            ) == chainKwIdx && chainKwIdx >= 0 && chainKwIdx < current.size() && ( isChainedBooleanOp || ( current.get(
                 chainKwIdx
-            ).type == TokenType.OP&& ( ".".equals(
+            ).type == TokenType.OP && ( ".".equals(
                 current.get(chainKwIdx).text
             ) || "?.".equals(
                 current.get(chainKwIdx).text
@@ -1801,7 +1801,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             // `isNamedScope`: detect a depth-0 `where` keyword anywhere in this span's own header
             // (from the true statement start, not just `span.start`, mirroring `findParentIndent`'s
             // own backward scan) and force `spanIndent` in that case too.
-            final boolean hasWhereClauseHeader = lang.isKotlin&& headerHasTopLevelWhereClause(
+            final boolean hasWhereClauseHeader = lang.isKotlin && headerHasTopLevelWhereClause(
                 current, span
             );
             if(isChainedCatchFinally || isChainedFluentCall)                            effectiveSpanIndent = prevEffectiveSpanIndent;
@@ -1967,7 +1967,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 final TokenType tt = tokens.get(j).type;
                 if(tt != TokenType.WHITESPACE && tt != TokenType.NEWLINE) { lastOnPrevLine = j; break; }
             }
-            final boolean prevLineEndsInComment = lastOnPrevLine >= 0&& tokens.get(
+            final boolean prevLineEndsInComment = lastOnPrevLine >= 0 && tokens.get(
                 lastOnPrevLine
             ).type == TokenType.COMMENT_LINE;
             if( !pulledRequires && first.type == TokenType.KEYWORD && "requires".equals(first.text)

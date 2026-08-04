@@ -244,7 +244,7 @@ public class TokenizerIndent extends TokenizerCore {
         }
         else if( isIdentifierStart(c) ) {
             final Token   idTok           = emitIdentifierOrKeyword();
-            final boolean followedByQuote = pos < length&& ( source.charAt(
+            final boolean followedByQuote = pos < length && ( source.charAt(
                 pos
             ) == '"' || source.charAt(
                 pos
@@ -253,7 +253,7 @@ public class TokenizerIndent extends TokenizerCore {
                     && STRING_PREFIXES.contains( idTok.text.toLowerCase(java.util.Locale.ROOT) ) ) {
                 out.add(idTok);
                 final char    q      = source.charAt(pos);
-                final boolean triple = peek(1) == q&& peek(2) == q;
+                final boolean triple = peek(1) == q && peek(2) == q;
                 if( idTok.text.toLowerCase(
                     java.util.Locale.ROOT
                 ).indexOf(
@@ -431,9 +431,9 @@ public class TokenizerIndent extends TokenizerCore {
                 pos += 2;
                 continue;
             } // if
-            final boolean atClosingQuote = c == quote&& ( ! triple || ( peek(
+            final boolean atClosingQuote = c == quote && ( ! triple || ( peek(
                 1
-            ) == quote&& peek(
+            ) == quote && peek(
                 2
             ) == quote ) );
             if(atClosingQuote) {
@@ -573,7 +573,7 @@ public class TokenizerIndent extends TokenizerCore {
      */
     private void skipNestedStringLiteral(final char quote)
     {
-        final boolean triple = peek(1) == quote&& peek(2) == quote;
+        final boolean triple = peek(1) == quote && peek(2) == quote;
         pos += triple ? 3 : 1;
         while(pos < length) {
             final char c = source.charAt(pos);

@@ -614,9 +614,9 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
             final int specIdx = nextSignificant(tokens, eqSigIdx + 1, to);
             if(specIdx >= 0) {
                 final Token   st     = tokens.get(specIdx);
-                final boolean isPure = ( st.type == TokenType.NUMBER&& "0".equals(
+                final boolean isPure = ( st.type == TokenType.NUMBER && "0".equals(
                     st.text
-                ) ) || ( st.type == TokenType.KEYWORD&& ( "delete".equals(
+                ) ) || ( st.type == TokenType.KEYWORD && ( "delete".equals(
                     st.text
                 ) || "default".equals(
                     st.text
@@ -707,7 +707,7 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
         // narrowing the group and its alignment column between rounds). A zero-arg `name()` is
         // never broken by that pass (mirroring `hasBreakableCall`'s own doc comment), so only a
         // non-empty parameter list needs this check.
-        final boolean hasBreakableParams = ! isDefinition&& paramsFrom < paramsTo;
+        final boolean hasBreakableParams = ! isDefinition && paramsFrom < paramsTo;
         if( ( isDefinition && hasBreakableCall(tokens, bodyFrom, bodyTo) ) || hasBreakableParams ) {
             final int estimatedColumn = nestDepth * indentWidth;
             final int estimatedWidth  = estimatedColumn + cellText(tokens, firstSig, to).length();

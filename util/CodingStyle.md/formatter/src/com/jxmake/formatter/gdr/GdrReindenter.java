@@ -49,7 +49,7 @@ public final class GdrReindenter {
 
         List<GdrIndentTarget> result = new ArrayList<>(totalLines);
         for(int line = 0; line < totalLines; ++line) {
-            boolean lineExcluded = line < excluded.size()&& excluded.get(line);
+            boolean lineExcluded = line < excluded.size() && excluded.get(line);
             if( !touchable.get(line) || lineExcluded ) {
                 result.add( new GdrIndentTarget(line, false, 0, 0) );
                 continue;

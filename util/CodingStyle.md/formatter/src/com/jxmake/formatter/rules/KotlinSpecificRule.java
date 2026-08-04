@@ -306,7 +306,7 @@ public class KotlinSpecificRule {
         while( i < tokens.size() && tokens.get(i).type == TokenType.WHITESPACE ) i++;
         if( i < tokens.size() && tokens.get(i).type != TokenType.NEWLINE ) return;
         if( tokens.get(closeBrace).frozen ) return;
-        final String label = subject != null&& ! subject.isEmpty() ? "when " + subject : "when";
+        final String label = subject != null && ! subject.isEmpty() ? "when " + subject : "when";
         overrides.put( closeBrace, tokens.get(closeBrace).text + " // " + label );
     }
 
@@ -485,7 +485,7 @@ public class KotlinSpecificRule {
 
             final boolean gapBlocked = gap.stream().anyMatch(
                 g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
-            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
+            ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
             // C6k-4: `!!` is tight against its left operand (`isTightNullOp(t)` below, when `t`
             // itself is `?.`/`!!` -- i.e. the upcoming operator's own left side) always, but on its
             // *right* side it must stay tight only when directly followed by a postfix
@@ -499,14 +499,14 @@ public class KotlinSpecificRule {
             // pass is supposed to leave untouched was being dropped instead).
             final boolean bangTightOnRight  = isOp(
                 lastSignificant, "!!"
-            )&& isPostfixNullOpContinuation(
+            ) && isPostfixNullOpContinuation(
                 t
             );
             final boolean dotTightOnRight   = isOp(lastSignificant, "?.");
             final boolean adjacentToTightOp = isTightNullOp(
                 t
             ) || dotTightOnRight || bangTightOnRight;
-            final boolean adjacentToElvis   = ! adjacentToTightOp&& ( isElvisOp(
+            final boolean adjacentToElvis   = ! adjacentToTightOp && ( isElvisOp(
                 lastSignificant
             ) || isElvisOp(
                 t
@@ -593,7 +593,7 @@ public class KotlinSpecificRule {
 
             final boolean gapBlocked        = gap.stream().anyMatch(
                 g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
-            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
+            ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
             final boolean adjacentToRangeOp = isRangeOp(lastSignificant) || isRangeOp(t);
 
             if(!gapBlocked && adjacentToRangeOp) {
@@ -663,13 +663,13 @@ public class KotlinSpecificRule {
 
             final boolean gapBlocked       = gap.stream().anyMatch(
                 g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
-            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
+            ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
             final boolean tightBeforeAt    = isOp(
                 t, "@"
-            )&& ( state == JumpState.AFTER_JUMP_KEYWORD || state == JumpState.AFTER_THIS_KEYWORD || ( state == JumpState.AFTER_PLAIN_IDENT&& isLoopLabelTarget(
+            ) && ( state == JumpState.AFTER_JUMP_KEYWORD || state == JumpState.AFTER_THIS_KEYWORD || ( state == JumpState.AFTER_PLAIN_IDENT && isLoopLabelTarget(
                 tokens, i + 1
             ) ) );
-            final boolean tightAfterJumpAt = (state == JumpState.AFTER_JUMP_AT || state == JumpState.AFTER_THIS_AT)&& t.type == TokenType.IDENTIFIER;
+            final boolean tightAfterJumpAt = (state == JumpState.AFTER_JUMP_AT || state == JumpState.AFTER_THIS_AT) && t.type == TokenType.IDENTIFIER;
             final boolean forceSpace       = state == JumpState.AFTER_JUMP_LABEL || state == JumpState.AFTER_DECL_AT;
 
             if(gapBlocked) {
@@ -806,11 +806,11 @@ public class KotlinSpecificRule {
 
             final boolean blocked          = gap.stream().anyMatch(
                 g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
-            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
-            final boolean forceSpaceBefore = ! blocked&& isOp(t, "->")&& ! whenArrows.contains(i);
-            final boolean forceSpaceAfter  = ! blocked&& lastSignificant != null&& isOp(
+            ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean forceSpaceBefore = ! blocked && isOp(t, "->") && ! whenArrows.contains(i);
+            final boolean forceSpaceAfter  = ! blocked && lastSignificant != null && isOp(
                 lastSignificant, "->"
-            )&& ! whenArrows.contains(
+            ) && ! whenArrows.contains(
                 lastSignificantIdx
             );
 
@@ -909,8 +909,8 @@ public class KotlinSpecificRule {
 
             final boolean gapBlocked       = gap.stream().anyMatch(
                 g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
-            ) || (lastSignificant != null&& lastSignificant.frozen) || t.frozen;
-            final boolean tightBeforeColon = state == UseSiteState.AFTER_TARGET&& isOp(t, ":");
+            ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean tightBeforeColon = state == UseSiteState.AFTER_TARGET && isOp(t, ":");
             final boolean tightAfterColon  = state == UseSiteState.AFTER_COLON;
 
             if( gapBlocked || (!tightBeforeColon && !tightAfterColon) ) {
@@ -1297,7 +1297,7 @@ public class KotlinSpecificRule {
                 continue;
             }
             final boolean thisIsTerminator  = terminators.containsKey(i);
-            final boolean prevWasTerminator = lastSignificant >= 0&& terminators.containsKey(
+            final boolean prevWasTerminator = lastSignificant >= 0 && terminators.containsKey(
                 lastSignificant
             );
             if(thisIsTerminator || prevWasTerminator) {

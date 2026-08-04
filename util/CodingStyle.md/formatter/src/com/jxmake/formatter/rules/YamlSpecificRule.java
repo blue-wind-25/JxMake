@@ -492,7 +492,7 @@ public final class YamlSpecificRule {
         // never helps and renderFlowBlock's loop simply emits nothing for zero entries, silently
         // dropping the value entirely when the line is long (e.g. a very long key elsewhere in the
         // same colon-alignment group pushes keyPrefix past the width limit). Always keep it inline.
-        final boolean empty = ( node instanceof FlowMap&& ( (FlowMap)node ).entries.isEmpty() ) || ( node instanceof FlowSeq&& ( (FlowSeq)node ).elements.isEmpty() );
+        final boolean empty = ( node instanceof FlowMap && ( (FlowMap)node ).entries.isEmpty() ) || ( node instanceof FlowSeq && ( (FlowSeq)node ).elements.isEmpty() );
         if( empty || fits( keyPrefix, 1 + tight.length() ) ) {
             out.append(' ').append(tight).append('\n');
             return;
@@ -643,7 +643,7 @@ public final class YamlSpecificRule {
             // content at all), let this and any subsequent comment lines fall through as this block's
             // own trailing/dangling comments once the loop ends, same as before.
             final boolean isComment = ln.content.startsWith("#");
-            final Line    nextReal  = isComment&& ln.indent != blockIndent ? peekNonBlank() : null;
+            final Line    nextReal  = isComment && ln.indent != blockIndent ? peekNonBlank() : null;
             if( isComment && (ln.indent == blockIndent || nextReal == null || nextReal.indent == blockIndent) ) {
                 if( "#% JXM_CFMT_DIS".equals(ln.content) ) {
                     final Item item = new Item();
@@ -728,7 +728,7 @@ public final class YamlSpecificRule {
             final Line next = peekNonBlank();
             if(next != null) {
                 final boolean nextIsSeq = next.content.equals("-") || next.content.startsWith("- ");
-                final boolean nextIsKey = ! nextIsSeq&& findMappingColon(next.content) >= 0;
+                final boolean nextIsKey = ! nextIsSeq && findMappingColon(next.content) >= 0;
                 // A sequence child is allowed at the same indent as its parent key (a common,
                 // valid YAML style); a mapping child must be strictly deeper to avoid ambiguity
                 // with the next sibling key at the parent's own indent
@@ -763,7 +763,7 @@ public final class YamlSpecificRule {
         if( peekNonBlank() != null && peekNonBlank().indent > ln.indent ) {
             final Line    next          = peekNonBlank();
             final boolean nextIsSeqLine = next.content.equals("-") || next.content.startsWith("- ");
-            final boolean nextIsKeyLine = ! nextIsSeqLine&& findMappingColon(next.content) >= 0;
+            final boolean nextIsKeyLine = ! nextIsSeqLine && findMappingColon(next.content) >= 0;
             if(nextIsSeqLine || nextIsKeyLine) item.children = parseBlock(next.indent);
             else                               parseMultilinePlainScalar(item, ln.indent);
         } // if
@@ -782,7 +782,7 @@ public final class YamlSpecificRule {
         while( peek() != null && !peek().isBlank() && peek().indent >= keyIndent ) {
             final Line    next      = peek();
             final boolean isSeqLine = next.content.equals("-") || next.content.startsWith("- ");
-            final boolean isKeyLine = ! isSeqLine&& findMappingColon(next.content) >= 0;
+            final boolean isKeyLine = ! isSeqLine && findMappingColon(next.content) >= 0;
             if(isSeqLine || isKeyLine) break;
             bodyLines.add( repeatChar(' ', next.indent - keyIndent) + next.content );
             ++pos;
@@ -920,12 +920,12 @@ public final class YamlSpecificRule {
                 firstKey.trailingComment = parts[1] != null ? normComment( parts[1] ) : null;
                 if( !after.isEmpty() ) firstKey.inlineValue = after;
                 final Line    nextLn        = peekNonBlank();
-                final boolean nextIsSeqLine = nextLn != null&& ( nextLn.content.equals(
+                final boolean nextIsSeqLine = nextLn != null && ( nextLn.content.equals(
                     "-"
                 ) || nextLn.content.startsWith(
                     "- "
                 ) );
-                final boolean nextIsKeyLine = nextLn != null&& ! nextIsSeqLine&& findMappingColon(
+                final boolean nextIsKeyLine = nextLn != null && ! nextIsSeqLine && findMappingColon(
                     nextLn.content
                 ) >= 0;
                 // A sequence child of firstKey is allowed at the same indent as firstKey itself
@@ -993,7 +993,7 @@ public final class YamlSpecificRule {
             ) || nextLn.content.startsWith(
                 "- "
             );
-            final boolean nextIsKeyLine = ! nextIsSeqLine&& findMappingColon(nextLn.content) >= 0;
+            final boolean nextIsKeyLine = ! nextIsSeqLine && findMappingColon(nextLn.content) >= 0;
             if(nextIsKeyLine && nextLn.indent >= keyCol) {
                 // A bare dash-line "value" that's actually just an anchor tag (e.g. "- &highalert",
                 // no key of its own) followed by its real mapping content, strictly deeper-indented,
@@ -1349,7 +1349,7 @@ public final class YamlSpecificRule {
             ) || firstLn.content.startsWith(
                 "- "
             );
-            final boolean looksLikeKey = ! looksLikeSeq&& findMappingColon(
+            final boolean looksLikeKey = ! looksLikeSeq && findMappingColon(
                 splitTrailingComment(firstLn.content)[0]
             ) >= 0;
             if(!looksLikeSeq && !looksLikeKey) {

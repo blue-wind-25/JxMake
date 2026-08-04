@@ -60,7 +60,7 @@ public final class GdrPipelineGate {
         final String gdr1      = apply(source, language, config);
         final String pipeline1 = formatter.formatOne(gdr1, filePath, config, formatOff);
 
-        final boolean multipass = config.isCurlyGeneralScopeReindent()&& config.isCurlyGeneralScopeReindentMultipass()&& isCurlyFamily(
+        final boolean multipass = config.isCurlyGeneralScopeReindent() && config.isCurlyGeneralScopeReindentMultipass() && isCurlyFamily(
             language
         );
         if(!multipass) return pipeline1;

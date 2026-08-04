@@ -987,7 +987,7 @@ public class TokenizerCurly extends TokenizerCore {
             while( pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r' ) pos++;
             int q = pos - 1;
             while( q >= start && ( source.charAt(q) == ' ' || source.charAt(q) == '\t' ) ) q--;
-            final boolean continues = q >= start&& source.charAt(q) == '\\';
+            final boolean continues = q >= start && source.charAt(q) == '\\';
             if(!continues || pos >= length) break;
             if( source.charAt(pos) == '\r' ) {
                 ++pos;
@@ -1018,7 +1018,7 @@ public class TokenizerCurly extends TokenizerCore {
             while( pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r' ) pos++;
             int q = pos - 1;
             while( q >= start && ( source.charAt(q) == ' ' || source.charAt(q) == '\t' ) ) q--;
-            final boolean continues = q >= start&& source.charAt(q) == '\\';
+            final boolean continues = q >= start && source.charAt(q) == '\\';
             if(!continues || pos >= length) break;
             if( source.charAt(pos) == '\r' ) {
                 ++pos;
@@ -1844,7 +1844,7 @@ public class TokenizerCurly extends TokenizerCore {
                 // identifier before its own `<` (it precedes the function name, not follows it,
                 // unlike `class Foo<T>`/`foo<T>(...)` which are already covered by the IDENTIFIER
                 // check above) -- recognize `fun` itself as a valid opener in that language only.
-                final boolean kotlinGenericFunClause = lang.isKotlin&& prev != null&& prev.type == TokenType.KEYWORD&& "fun".equals(
+                final boolean kotlinGenericFunClause = lang.isKotlin && prev != null && prev.type == TokenType.KEYWORD && "fun".equals(
                     prev.text
                 );
                 if( prev != null && ( prev.type == TokenType.IDENTIFIER || isCastKeyword(prev)

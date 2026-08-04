@@ -141,7 +141,7 @@ public class KotlinGetterSetterRule extends GetterSetterRuleCurly {
                 i       += 1;
                 continue;
             }
-            final boolean shapeChanged = ! current.isEmpty()&& isAccessorMember(
+            final boolean shapeChanged = ! current.isEmpty() && isAccessorMember(
                 current.get( current.size() - 1 )
             ) != isAccessorMember(
                 m

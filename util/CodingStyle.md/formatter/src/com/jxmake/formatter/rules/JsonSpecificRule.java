@@ -434,12 +434,12 @@ public final class JsonSpecificRule {
             int groupStart = -1; // -1 = no open group
             for( int i = 0; i <= items.size(); ++i ) {
                 final boolean atEnd      = i == items.size();
-                final boolean isDangling = ! atEnd&& items.get(i).value == null;
+                final boolean isDangling = ! atEnd && items.get(i).value == null;
                 // A group boundary falls *before* item i whenever it carries a leading
                 // comment/blank line (§1.1) or is a dangling trailing-comment placeholder (no
                 // key at all) -- the item itself (if it has a key) still starts a fresh group
                 // rather than being dropped from alignment entirely.
-                final boolean hasMidComment = ! atEnd&& items.get(i).midComment != null;
+                final boolean hasMidComment = ! atEnd && items.get(i).midComment != null;
                 final boolean breaksBefore  = atEnd || isDangling || hasMidComment || ! items.get(
                     i
                 ).leadingComments.isEmpty() || items.get(

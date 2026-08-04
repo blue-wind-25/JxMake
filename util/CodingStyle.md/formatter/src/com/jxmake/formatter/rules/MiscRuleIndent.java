@@ -399,9 +399,9 @@ public final class MiscRuleIndent extends MiscRuleCore {
                 // (found via real-code testing: `real_code_regressions_79/116/138_inp.py`'s
                 // multi-line signatures/union-type wraps).
                 final boolean insideBrackets = t.parenDepth > 0;
-                final boolean backslash      = i > 0&& tokens.get(
+                final boolean backslash      = i > 0 && tokens.get(
                     i - 1
-                ).type == TokenType.OP&& "\\".equals(
+                ).type == TokenType.OP && "\\".equals(
                     tokens.get(i - 1).text
                 );
                 atLineStart = !insideBrackets && !backslash;

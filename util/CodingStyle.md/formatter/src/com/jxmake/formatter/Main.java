@@ -228,10 +228,11 @@ public final class Main {
         return 2;
     }
 
-    /** Version reported by {@code --version} and printed in the usage header. */
+    /** Version reported by {@code --version} and printed in the usage header */
     private static String versionString()
     {
         final String implVersion = Main.class.getPackage().getImplementationVersion();
+
         return "jxmake-code-formatter " + (implVersion != null ? implVersion : "(unknown version, not run from a built jar)");
     }
 
@@ -561,7 +562,7 @@ public final class Main {
             out.write( content.getBytes(StandardCharsets.UTF_8) );
         }
         final int         status         = connection.getResponseCode();
-        final InputStream responseStream = status >= 200&& status < 300 ? connection.getInputStream() : connection.getErrorStream();
+        final InputStream responseStream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
         final String      body           = readStream(responseStream);
         connection.disconnect();
         if(status < 200 || status >= 300) throw new IOException(

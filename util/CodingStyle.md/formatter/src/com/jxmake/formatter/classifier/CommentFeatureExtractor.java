@@ -85,7 +85,7 @@ public final class CommentFeatureExtractor {
         final boolean hasNonLatinScript             = NonLatinScriptGate.containsNonLatinScript(
             commentText
         );
-        final boolean hasLeadingKeywordMatch        = targetWordIndex == 0&& KeywordAmbiguityGate.hasLeadingKeywordMatch(
+        final boolean hasLeadingKeywordMatch        = targetWordIndex == 0 && KeywordAmbiguityGate.hasLeadingKeywordMatch(
             commentText, lang
         );
         final boolean isDecorativeOnly              = DecorativeSeparatorGate.isDecorativeOnly(
@@ -97,7 +97,7 @@ public final class CommentFeatureExtractor {
         // column..."), not a keyword-membership match, so it must fire independent of
         // hasLeadingKeywordMatch to catch non-keyword identifiers too (found 2026-07-30 dogfooding
         // the formatter on its own source -- see STATE_AI.md's 2026-07-30 section).
-        final boolean leadingWordFollowedBySlash = targetWordIndex == 0&& targetBounds[1] < commentText.length()&& commentText.charAt(
+        final boolean leadingWordFollowedBySlash = targetWordIndex == 0 && targetBounds[1] < commentText.length() && commentText.charAt(
             targetBounds[1]
         ) == '/';
         // Not targetWordIndex-scoped -- unlike hasLeadingKeywordMatch/leadingWordFollowedBySlash,

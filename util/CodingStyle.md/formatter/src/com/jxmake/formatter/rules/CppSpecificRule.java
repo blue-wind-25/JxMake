@@ -620,16 +620,16 @@ public class CppSpecificRule {
                 continue;
             }
 
-            final boolean afterOpen     = lastSignificant != null&& lastSignificant.type == TokenType.ANGLE_BRACKET_OPEN;
+            final boolean afterOpen     = lastSignificant != null && lastSignificant.type == TokenType.ANGLE_BRACKET_OPEN;
             final boolean beforeClose   = t.type == TokenType.ANGLE_BRACKET_CLOSE;
             final boolean gapHasBlocker = hasCommentOrNewline(
                 gap
-            ) || t.frozen || (lastSignificant != null&& lastSignificant.frozen);
+            ) || t.frozen || (lastSignificant != null && lastSignificant.frozen);
 
             if( (afterOpen || beforeClose) && !gapHasBlocker ) {
-                final boolean pad = ( afterOpen&& needsPadding.contains(
+                final boolean pad = ( afterOpen && needsPadding.contains(
                     lastSignificantIdx
-                ) ) || ( beforeClose&& needsPadding.contains(
+                ) ) || ( beforeClose && needsPadding.contains(
                     i
                 ) );
                 if(pad) out.append(' ');
@@ -739,11 +739,11 @@ public class CppSpecificRule {
                 continue;
             }
 
-            final boolean beforeBracketAfterEllipsis    = lastWasEllipsisTarget&& isPunct(t, "[");
+            final boolean beforeBracketAfterEllipsis    = lastWasEllipsisTarget && isPunct(t, "[");
             final boolean afterIdentifierBeforeEllipsis = ellipsisBeforeBracket.contains(i);
             final boolean gapHasBlocker                 = hasCommentOrNewline(
                 gap
-            ) || t.frozen || (lastSignificant != null&& lastSignificant.frozen);
+            ) || t.frozen || (lastSignificant != null && lastSignificant.frozen);
 
             if( (beforeBracketAfterEllipsis || afterIdentifierBeforeEllipsis) && !gapHasBlocker ) {
                 gap.clear();
@@ -1165,11 +1165,11 @@ public class CppSpecificRule {
                     final String  openText = tokens.get(openIdx).text;
                     final boolean matches  = ( "[[".equals(
                         openText
-                    )&& "]]".equals(
+                    ) && "]]".equals(
                         t.text
                     ) ) || ( "[:".equals(
                         openText
-                    )&& ":]".equals(
+                    ) && ":]".equals(
                         t.text
                     ) );
                     if(matches) {
@@ -1261,7 +1261,7 @@ public class CppSpecificRule {
 
             final boolean gapHasBlocker = hasCommentOrNewline(
                 gap
-            ) || t.frozen || (lastSignificant != null&& lastSignificant.frozen);
+            ) || t.frozen || (lastSignificant != null && lastSignificant.frozen);
 
             if(lastWasReflectionOp && !gapHasBlocker) {
                 gap.clear();
@@ -1452,11 +1452,11 @@ public class CppSpecificRule {
                 final Token   next      = i + 1 <= toInclusive ? nextSignificantForCollapse(
                     tokens, i, toInclusive
                 ) : null;
-                final boolean tightJoin = ( prevSignificant != null&& ( isOp(
+                final boolean tightJoin = ( prevSignificant != null && ( isOp(
                     prevSignificant, "."
                 ) || isOp(
                     prevSignificant, "->"
-                ) ) ) || ( next != null&& ( isOp(
+                ) ) ) || ( next != null && ( isOp(
                     next, "."
                 ) || isOp(
                     next, "->"
@@ -1559,7 +1559,7 @@ public class CppSpecificRule {
         }
 
         final String expectedGuard  = deriveGuardName(filePath);
-        final String effectiveGuard = renameGuard&& ! expectedGuard.equals(
+        final String effectiveGuard = renameGuard && ! expectedGuard.equals(
             z.actualGuardName
         ) ? expectedGuard : z.actualGuardName;
 

@@ -190,6 +190,11 @@ Update `STATE_DOGFOOD.md` as needed.
 ####################################################################################################
 ####################################################################################################
 
+Update from CM5 job.
+
+Update and fix `CLAUDE.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`,
+`../AI_PREAMBLE_AESTHETIC.md`, etc.
+
 === TIER 0: Recurring job ===
 
 1. [GRU] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**

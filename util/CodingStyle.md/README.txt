@@ -18,8 +18,8 @@ Files in this directory
   AI_PREAMBLE_AESTHETIC.md  Preamble for layout judgment pass (post-JAR files)
   README.txt                This file
 
-  The deterministic JAR formatter (formatter/code-formatter-1.00.jar, replace
-  1.00 with your built version) handles all Tier-1 and Tier-2 rules
+  The deterministic JAR formatter (formatter/code-formatter-1.0.0.jar, replace
+  1.0.0 with your built version) handles all Tier-1 and Tier-2 rules
   mechanically for C, C++, Java, Kotlin, JSON/JSON5, CSS, YAML, TOML, XML,
   HTML5, JavaScript, TypeScript, and Python 3. Run it first for those
   languages. The AI workflows described here cover the remaining Tier-3

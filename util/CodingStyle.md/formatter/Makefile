@@ -7,8 +7,10 @@ JAR          ?= jar
 JAVA         ?= java
 JAVA_VERSION ?= 8
 
-# Keep version number consistent with README.md
-VERSION       = 1.00
+# Single source of truth for the version number -- propagated into the jar
+# manifest (Implementation-Version), read at runtime by Main.java's
+# printUsage()/--version, and picked up by code-formatter.sh/.cmd via glob.
+VERSION       = 1.0.0
 ARTIFACT      = code-formatter-$(VERSION)
 MAIN_CLASS    = com.jxmake.formatter.Main
 
@@ -51,7 +53,7 @@ $(CLASS_DIR):
 
 $(JAR_FILE): $(SOURCES) | $(CLASS_DIR)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -d $(CLASS_DIR) $(SOURCES)
-	@printf 'Main-Class: %s\n' '$(MAIN_CLASS)' > $(MANIFEST)
+	@printf 'Main-Class: %s\nImplementation-Version: %s\n' '$(MAIN_CLASS)' '$(VERSION)' > $(MANIFEST)
 	@$(JAR) cfm $(JAR_FILE) $(MANIFEST) -C $(CLASS_DIR) .
 	@echo "Built $(JAR_FILE)"
 	@cp $(JAR_FILE) .
@@ -293,7 +295,7 @@ gru-cv-corpus: $(JAR_FILE)
 #
 # Override `JAVA` or `JAR_FILE` on the command line if needed:
 #     make test JAVA=/path/to/java
-#     make test JAR_FILE=/path/to/code-formatter-1.00.jar
+#     make test JAR_FILE=/path/to/code-formatter-1.0.0.jar
 #
 INP_FILES :=
 

@@ -69,7 +69,11 @@ public final class Main {
 
         for(int i = 0; i < args.length; ++i) {
             final String arg = args[i];
-            if( "--server".equals(arg) ) {
+            if( "--version".equals(arg) ) {
+                System.out.println( versionString() );
+                return 0;
+            }
+            else if( "--server".equals(arg) ) {
                 serverMode = true;
             }
             else if( "--stop".equals(arg) ) {
@@ -224,6 +228,13 @@ public final class Main {
         return 2;
     }
 
+    /** Version reported by {@code --version} and printed in the usage header. */
+    private static String versionString()
+    {
+        final String implVersion = Main.class.getPackage().getImplementationVersion();
+        return "jxmake-code-formatter " + (implVersion != null ? implVersion : "(unknown version, not run from a built jar)");
+    }
+
     private static void printUsage()
     {
         final String langs = Lang.SUPPORTED_LANGUAGES.replace(
@@ -231,6 +242,8 @@ public final class Main {
         ) + ( Lang.SCAFFOLD_ONLY_LANGUAGES.isEmpty() ? "" : "|" + Lang.SCAFFOLD_ONLY_LANGUAGES.replace(
             ", ", "|"
         ) );
+        System.err.println();
+        System.err.println( versionString() );
         System.err.println();
         System.err.println("Usage:");
         System.err.println("  jxmake-code-formatter <output-mode> [options] [file...]");
@@ -263,6 +276,7 @@ public final class Main {
         System.err.println(
             "    --root DIR              root directory --preserve-tree paths are relative to"
         );
+        System.err.println("    --version               print version and exit");
         System.err.println();
         System.err.println("Server mode:");
         System.err.println("  jxmake-code-formatter --server [--port N]");

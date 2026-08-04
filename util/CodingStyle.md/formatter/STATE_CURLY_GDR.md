@@ -364,6 +364,21 @@ reindentation logic yet to exercise).
 
 ## Resolved Design Decisions
 
+- `RDD_KEY_242` — **Fixed** the `GdrRewriter.spaces`
+  `NegativeArraySizeException` crash flagged as a side-finding during the
+  `RDD_KEY_240`/`RDD_KEY_241` session. Root cause confirmed by direct
+  reconstruction (not assumed): `GdrReindenter.compute`'s per-axis brace/
+  paren-bracket running depth goes negative only when the source is
+  genuinely bracket-unbalanced (more closers than openers up to that
+  point) — impossible for well-formed input, reproduced with a minimal
+  Kotlin repro combining a one-true-brace `if`/`else` with a trailing-
+  lambda fluent chain and one stray extra `}`. Fixed by clamping each of
+  `braceLevel`/`pbLevel` to `>= 0` independently in `GdrReindenter.compute`
+  before summing into `level` (no-op for well-formed input; malformed
+  input now reindents an over-closed scope to column 0 instead of
+  crashing), plus a defensive clamp in `GdrRewriter.spaces` itself. `make
+  test`: 244/244 forward + idempotency, unaffected (no fixture — a
+  malformed-input-only guard). Full text: `RDD_KEY_242` in `RDD_LOG.md`.
 - `RDD_KEY_241` — **Fixed** `RDD_KEY_240`'s confirmed second-order-
   oscillation counterexample: `GdrPipelineGate.applyAndFormat`'s hardcoded
   4-call sequence replaced with an actual convergence loop (iterate GDR-pass
@@ -984,19 +999,17 @@ plan, not a placeholder.
       `RDD_LOG.md`.
 
       **Separately investigated during this session, found to be an
-      unrelated pre-existing bug (not fixed, out of scope for this task):**
+      unrelated pre-existing bug — since fixed, see `RDD_KEY_242` below:**
       while constructing a deep-nesting Kotlin adversarial repro to
       exercise this same fix, `GdrRewriter.rewrite` /
-      `GdrRewriter.spaces` throws `NegativeArraySizeException` on certain
-      malformed/badly-indented-but-syntactically-valid one-true-brace `}
-      else if (...) {` Kotlin input combined with a trailing-lambda fluent
-      chain (`listOf(...).filter { }.map { }.forEach { }`), reproducing
+      `GdrRewriter.spaces` threw `NegativeArraySizeException` on certain
+      malformed (bracket-unbalanced) one-true-brace `} else if (...) {`
+      Kotlin input combined with a trailing-lambda fluent chain
+      (`listOf(...).filter { }.map { }.forEach { }`), reproducing
       identically under `curly-general-scope-reindent` alone (multipass
       off) — confirmed via a side-by-side build of the pre-`RDD_KEY_241`
-      source, so this crash predates and is unaffected by this session's
-      convergence-loop change. Not investigated further or fixed here
-      (undocumented until now); flagging for a future session's "Known
-      Gaps" tracking.
+      source, so this crash predates and was unaffected by this session's
+      convergence-loop change.
 
 - [~] **Fix the base single-pass `curly-general-scope-reindent` ordering
       bug** (`RDD_KEY_229`) directly, independent of the opt-in multipass

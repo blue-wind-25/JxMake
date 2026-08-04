@@ -61,6 +61,16 @@ public final class GdrReindenter {
             int braceLevel = (leader == GdrTokenType.BRACE_CLOSE) ? brace.depthAtEnd : brace.depthAtStart;
             int pbLevel    = (leader == GdrTokenType.PAREN_CLOSE || leader == GdrTokenType.BRACKET_CLOSE) ? pb.depthAtEnd : pb.depthAtStart;
 
+            // Clamp: a genuinely well-formed (balanced) file never has either
+            // axis go negative -- depth only decrements below zero when the
+            // source has more closers than openers up to this point, i.e.
+            // malformed/unbalanced input. Clamp per-axis rather than after
+            // summing so one axis's legitimate positive level isn't
+            // cancelled out by the other axis's bogus negative one. See
+            // RDD_KEY_242 / GdrRewriter.spaces's NegativeArraySizeException.
+            if(braceLevel < 0) braceLevel = 0;
+            if(pbLevel    < 0) pbLevel    = 0;
+
             int level = braceLevel + pbLevel;
             result.add( new GdrIndentTarget(line, true, level, level * indentSize) );
         } // for

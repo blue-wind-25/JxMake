@@ -372,11 +372,11 @@ public abstract class MiscRuleCore {
 
             final boolean collapse = isPunct(
                 t, "("
-            )&& lastSignificant != null&& lastSignificant.type == TokenType.KEYWORD&& TIGHT_PAREN_KEYWORDS.contains(
+            ) && lastSignificant != null && lastSignificant.type == TokenType.KEYWORD && TIGHT_PAREN_KEYWORDS.contains(
                 lastSignificant.text
-            )&& gap.stream().noneMatch(
+            ) && gap.stream().noneMatch(
                 this:: isCommentOrNewline
-            )&& ! t.frozen&& ! lastSignificant.frozen&& gap.stream().noneMatch(
+            ) && ! t.frozen && ! lastSignificant.frozen && gap.stream().noneMatch(
                 g->g.frozen
             );
             if(!collapse) {
@@ -486,7 +486,7 @@ public abstract class MiscRuleCore {
             final Boolean beforeClose   = curIsClose ? looseByCloseIdx.get(i) : null;
             final boolean gapHasBlocker = gap.stream().anyMatch(
                 this:: isCommentOrNewline
-            ) || t.frozen || (lastSignificant != null&& lastSignificant.frozen) || gap.stream().anyMatch(
+            ) || t.frozen || (lastSignificant != null && lastSignificant.frozen) || gap.stream().anyMatch(
                 g->g.frozen
             );
 
@@ -590,19 +590,19 @@ public abstract class MiscRuleCore {
                 continue;
             }
 
-            final boolean inInit = ! initStack.isEmpty()&& initStack.peek();
+            final boolean inInit = ! initStack.isEmpty() && initStack.peek();
             // Inside-brace padding applies only at the outermost initializer level -- STYLE.md
             // §3.3's worked example pads only the outer pair of a nested brace-initializer
             // (`{ {1, 2}, {3, 4} }`), leaving inner element braces tight. Comma spacing, by
             // contrast, applies at every nesting level.
-            final boolean atOutermostInit = inInit&& ! outermostStack.isEmpty()&& outermostStack.peek();
-            final boolean afterInitOpen   = isPunct(lastSignificant, "{")&& atOutermostInit;
-            final boolean beforeInitClose = isPunct(t, "}")&& atOutermostInit;
-            final boolean beforeComma     = isPunct(t, ",")&& inInit;
-            final boolean afterComma      = isPunct(lastSignificant, ",")&& inInit;
+            final boolean atOutermostInit = inInit && ! outermostStack.isEmpty() && outermostStack.peek();
+            final boolean afterInitOpen   = isPunct(lastSignificant, "{") && atOutermostInit;
+            final boolean beforeInitClose = isPunct(t, "}") && atOutermostInit;
+            final boolean beforeComma     = isPunct(t, ",") && inInit;
+            final boolean afterComma      = isPunct(lastSignificant, ",") && inInit;
             final boolean gapHasBlocker   = gap.stream().anyMatch(
                 this:: isCommentOrNewline
-            ) || t.frozen || (lastSignificant != null&& lastSignificant.frozen) || gap.stream().anyMatch(
+            ) || t.frozen || (lastSignificant != null && lastSignificant.frozen) || gap.stream().anyMatch(
                 g->g.frozen
             );
 
@@ -621,15 +621,15 @@ public abstract class MiscRuleCore {
             if( isPunct(t, "{") ) {
                 final boolean startsNewInit = isOp(
                     lastSignificant, "="
-                ) || ( (lang.isJs || lang.isTs)&& isImportBraceHeaderKeyword(
+                ) || ( (lang.isJs || lang.isTs) && isImportBraceHeaderKeyword(
                     lastSignificant, secondLastSignificant
-                ) ) || ( (lang.isJs || lang.isTs)&& isPunct(
+                ) ) || ( (lang.isJs || lang.isTs) && isPunct(
                     lastSignificant, ","
-                )&& secondLastSignificant != null&& secondLastSignificant.type == TokenType.IDENTIFIER&& thirdLastSignificant != null&& thirdLastSignificant.type == TokenType.KEYWORD&& "import".equals(
+                ) && secondLastSignificant != null && secondLastSignificant.type == TokenType.IDENTIFIER && thirdLastSignificant != null && thirdLastSignificant.type == TokenType.KEYWORD && "import".equals(
                     thirdLastSignificant.text
-                ) ) || ( (lang.isJs || lang.isTs)&& isPunct(
+                ) ) || ( (lang.isJs || lang.isTs) && isPunct(
                     lastSignificant, "("
-                ) ) || ( (lang.isJs || lang.isTs)&& lastSignificant != null&& lastSignificant.type == TokenType.KEYWORD&& ( "const".equals(
+                ) ) || ( (lang.isJs || lang.isTs) && lastSignificant != null && lastSignificant.type == TokenType.KEYWORD && ( "const".equals(
                     lastSignificant.text
                 ) || "let".equals(
                     lastSignificant.text
@@ -640,7 +640,7 @@ public abstract class MiscRuleCore {
                     lastSignificant, "{"
                 ) || isPunct(
                     lastSignificant, ","
-                ) )&& ! initStack.isEmpty()&& initStack.peek() );
+                ) ) && ! initStack.isEmpty() && initStack.peek() );
                 initStack.push(isInit);
                 outermostStack.push(startsNewInit);
             } // if
@@ -1532,8 +1532,20 @@ public static final class Assignment {
         // multiplication or the spread operator, its expressions never use bare `&`), so treating
         // them as tight there would wrongly collapse ordinary arithmetic spacing in any Kotlin
         // expression rendered through this shared join point (STYLE_KOTLIN.md §9's `= expr`
-        // rendering surfaced this: `x * x` was joining as `x* x`).
-        if( !lang.isKotlin && ( Token.isRepOp(t, '*') || Token.isRepOp(t, '&') ) ) return true;
+        // rendering surfaced this: `x * x` was joining as `x* x`). Same reasoning excludes Java
+        // (RDD_KEY_TBD, self-hosting dogfood bug, mirrors the identical fix in
+        // `DeclarationAlignmentRuleCore.isTightToken`): Java has no pointer/reference declarator
+        // syntax, so `&`/`&&` there are always bitwise-AND/logical-AND -- `Token.isRepOp(t, '&')`
+        // matches the whole `&&` run too, so without this exclusion a Java logical-AND lost its
+        // leading space (`x >= 2&& y`) wherever an expression (not just a declaration
+        // initializer) rendered through this shared join point. `*` stays tight for Java here,
+        // same as `DeclarationAlignmentRuleCore`'s mirrored fix -- no observed bug on that side,
+        // left untouched to avoid an unrelated behavior change.
+        if( !lang.isKotlin && ( Token.isRepOp(
+            t, '*'
+        ) || ( !lang.isJava && Token.isRepOp(
+            t, '&'
+        ) ) ) ) return true;
         // Kotlin's bare `?` only ever appears as a type's nullability suffix (`Type?`) -- its
         // other two `?`-led operators (`?.` safe call, `?:` elvis) are each their own multi-char
         // token, never plain `?`, and Kotlin has no C-style ternary `?` to confuse this with -- so

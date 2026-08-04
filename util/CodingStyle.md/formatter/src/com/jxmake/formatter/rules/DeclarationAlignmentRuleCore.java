@@ -525,9 +525,21 @@ public abstract class DeclarationAlignmentRuleCore {
         // multiplication (or generator-function `*`, itself never adjacent to an operand this
         // way) and `&`/`&&` are always bitwise-AND/logical-AND, so without this same exclusion
         // `x => x * 2` loses its space before `*` (`x* 2`) when rendered through this shared
-        // method (e.g. a declaration initializer's grid cell).
+        // method (e.g. a declaration initializer's grid cell). Java is excluded for the exact
+        // same reason (RDD_KEY_TBD, self-hosting dogfood bug): Java has no pointer/reference
+        // declarator syntax at all -- `&`/`&&` there are always bitwise-AND/logical-AND (or,
+        // for a bare single `&`, an intersection-type bound like `<T extends A & B>`, itself
+        // conventionally spaced) -- so treating a run of `&` as tight wrongly collapsed
+        // `x >= 2 && y` into `x >= 2&& y` wherever this shared join point rendered a Java
+        // declaration initializer (found in the formatter's own
+        // `XmlSpecificRule.renderScriptOrStyle`-adjacent `shouldFosterParent` local:
+        // `final boolean fostered = ... >= LEVEL_TABLE_FOSTER&& ! fosterBufferStack.isEmpty()
+        // && ...`). `*` stays tight for Java (pointer syntax doesn't exist there either, but
+        // Java's own `*` is only ever multiplication or an import-on-demand wildcard, neither
+        // of which reaches this declaration-initializer join point) -- left as-is to avoid
+        // touching a code path with no observed bug.
         return ( !lang.isKotlin && !lang.isJs && !lang.isTs
-                && ( Token.isRepOp(t, '*') || Token.isRepOp(t, '&') ) )
+                && ( Token.isRepOp(t, '*') || ( !lang.isJava && Token.isRepOp(t, '&') ) ) )
                 || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
     }
 

@@ -154,6 +154,7 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_222 | `MiscRuleCore.computeLineCommentGroups`'s §15 consecutive-`//`-comment grouping (RDD_KEY_89) capitalized every group member's line independently, wrongly capitalizing continuation lines of a genuine multi-line `//` comment (unlike the `/* */` path, which correctly capitalizes only content line 0 via `stripSoleTrailingPeriodAcrossLines` + one `capitalizeFirstLetter` call). FIXED by capitalizing only `contents.get(0)`, matching the block-comment path. Applies to all Curly-family languages (`Lang.isCurly` = C/C++/Java/Kotlin/JS/TS); Python3/data-formats/XML/HTML5 have no §15 pass, so unaffected. Surfaced a second latent bug in the same grouping logic: `nextCommentChainLinkIfAdjacent` wrongly chained a trailing end-of-line comment onto the next line's standalone `//` comment as one prose block (found via `test/js_comments_inp.js` and `test/ts_comments_inp.ts` regressing after the first fix). FIXED with a new `isStandaloneCommentLine` helper (true iff alone on its line back to `NEWLINE`/start-of-tokens); `nextCommentChainLinkIfAdjacent` now returns -1 for a non-standalone token, so a trailing comment is still capitalized/period-stripped alone (size-1 group) but never chains onto the next line. 26 pre-existing `*_out` fixtures (Java/C/C++/Kotlin/TS: `real_code_regressions_*`, `c_cpp_decl_gaps`, `java_format_toggle`, `java_preprocessor_method`, `js_comments`, `ts_comments`) had the old buggy per-line capitalization hand-authored as "expected"; updated to match. `make test`: 219/219 forward + idempotency after both fixes, zero unexpected diffs. |
 | RDD_KEY_225 | `jenkinsci/jenkins` `hudson/PluginManager.java` (`doPluginsSearch`'s `sitePlugins` stream-chain declaration) -- root cause was `ScopePipelineCurly.applyDeclarationsPass` -> `DeclarationAlignmentRuleCore.renderInitTokens` (runs before `MiscRuleCurly.enforceCallLineBreaking`) unconditionally flattening a declaration's entire initializer, including an embedded multi-statement lambda body, onto one physical line with no line-length check, producing a real ~1992-char line no later pass could re-wrap. FIXED via a new pre-flight bail-out in `DeclarationAlignmentRuleCurly.parseDeclaration` (new `rawSliceBetweenUnfiltered`/`containsMultilineBraceBody` helpers): if any brace pair in the initializer originally spanned more than one physical source line, leave the statement untouched. See "Known Gaps -- Fixed" for full detail, including the 3 pre-existing fixtures (`real_code_regressions_57`/`129`/`130`) updated to match. New fixture `real_code_regressions_176`. `make test`: 224/224 -> 225/225 forward + idempotency, zero regressions. |
 | RDD_KEY_231 | User-improved `java_combined_inp.java` fixture -- 2 bugs, both cross-language (C/C++/Java/JS/TS): (a) `DeclarationAlignmentRuleCore.needsSpaceBetween` had no unary-vs-binary `+`/`-` awareness (`int aaa = +1;` -> `= + 1`), the exact C/C++/Java/JS-TS gap `KotlinDeclarationAlignmentRule`'s own earlier Kotlin-scoped fix had flagged as still-open in its javadoc -- fixed by promoting `isUnaryMinusOperand` to `DeclarationAlignmentRuleCore` (shared by `renderTokens` and `renderInitTokens`; Kotlin's now-redundant override removed). (b) Independent: `ScopePipelineCurly.applyDeclarationsPass`'s idempotency-strip heuristic couldn't distinguish a genuine re-format's self-padding from a first-time format whose true indent coincidentally exceeded the modifier-column pad width, silently eating an indent level -- fixed by only accepting the strip when its result is already indentWidth-aligned. `make test`: 228/228, zero regressions. |
+| RDD_KEY_238 | Self-hosting dogfood bug: `DeclarationAlignmentRuleCore.isTightToken`/`MiscRuleCore.isTightToken`'s `Token.isRepOp(t, '&')` tight-join rule (C/C++ pointer/reference declarator sigil, already gated off for Kotlin/JS/TS) was never gated off for Java, even though Java has no such construct -- wrongly collapsed a Java logical-AND's leading space (`x >= 2&& y`) wherever an expression rendered through either shared join point, found via `XmlSpecificRule.java`'s own `shouldFosterParent`-adjacent `fostered` declaration. FIXED by adding `!lang.isJava` around the `&`-half of both conditions (the `*`-half untouched, no observed bug). `||` confirmed unaffected. `make test`: 244/244, unchanged. Full self-format dogfood-and-adopt re-run: 168 real occurrences fixed in `src/`, 0 in `tools/*` (already clean, `java_content_diff.sh`/`python_content_diff.sh` clean on every file), 0 `||` occurrences anywhere. Surfaced an unrelated, out-of-scope gap left OPEN: 4 `&&`-missing-space occurrences remain in `src/` in a plain-assignment (non-declaration) ternary shape the formatter's general statement rewrite never touches at all -- see "Known Gaps -- Open". |
 
 ---
 
@@ -647,6 +648,22 @@ RDD_KEY_88.
 
 ## Known Gaps — Open
 
+- **General (non-declaration) expression-statement operator spacing is never re-derived** —
+  surfaced 2026-08-05 while validating `RDD_KEY_238`'s `&&`-tight-join fix. A plain assignment
+  statement's inner expression (e.g. `groupStart = (! atEnd&&isKeyed) ? i : -1;`, not a
+  `Type name = ...;` declaration) passes through the formatter with whatever operator spacing the
+  original source already had, untouched by any rewrite pass — confirmed via an isolated repro
+  (`groupStart = (!atEnd&&isKeyed) ? 1 : -1;` inside a method body stayed byte-identical,
+  including the missing space, across a full format). Found 4 live instances in the formatter's
+  own `src/` (`TomlSpecificRule.java`/`CssSpecificRule.java`/`YamlSpecificRule.java`/
+  `JsonSpecificRule.java`, all the same `groupStart = (! atEnd&& ...) ? i : -1;` shape) that
+  `RDD_KEY_238`'s fix does not and cannot reach, since it only touches
+  `DeclarationAlignmentRuleCore`/`MiscRuleCore.isTightToken`'s declaration/expression-join
+  callers, not a general statement-spacing pass (none currently exists for this shape). ACCEPTED
+  as a pre-existing, much broader gap (general expression-statement spacing normalization is a
+  distinct, larger feature, not a `&`/`&&`-specific bug) — left untouched pending an explicit
+  go-ahead for a dedicated general-operator-spacing pass, out of scope for `RDD_KEY_238`.
+
 - **[Shared with STATE_JS_TS.md] Call-wrap/collapse vs. declaration-alignment/padding fits-check
   ordering — 2026-08-05 investigation session, no code change landed.** Full write-up lives in
   `STATE_JS_TS.md`'s Open Questions section (cluster #3 sibling entry) since the concrete repro
@@ -739,6 +756,17 @@ RDD_KEY_88.
 
 Previously-recorded low-priority gaps, now resolved. One-line summaries only — full
 before/after detail available via `git log`/`git show`.
+
+- **Self-hosting dogfood bug: Java `&&`/`&` lost their leading space at a declaration-
+  initializer/expression tight join** (`XmlSpecificRule.java`'s `>= LEVEL_TABLE_FOSTER&& !
+  fosterBufferStack.isEmpty()&& ...`) — FIXED, see `RDD_KEY_238` for full root cause/fix/
+  validation detail. One-line summary: `DeclarationAlignmentRuleCore.isTightToken`/
+  `MiscRuleCore.isTightToken`'s `Token.isRepOp(t, '&')` tight-join rule (written for C/C++
+  pointer/reference declarator sigils, already gated off for Kotlin/JS/TS since neither has that
+  construct) was never gated off for Java either, even though Java has no such construct — fixed
+  by adding `!lang.isJava` around the `&`-half of both conditions. `||` confirmed unaffected (no
+  `isRepOp('|')` call anywhere). `make test`: 244/244, unchanged. 168 real occurrences fixed
+  project-wide across `src/` via the self-format dogfood-and-adopt re-run, 0 in `tools/*`.
 
 - **Extremely long pre-existing single-physical-line statement wraps differently each round** —
   FIXED (see `RDD_KEY_225`). Root cause NOT `enforceCallLineBreaking` (already bails for

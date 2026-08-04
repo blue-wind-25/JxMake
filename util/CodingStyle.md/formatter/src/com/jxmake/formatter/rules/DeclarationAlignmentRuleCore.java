@@ -88,7 +88,7 @@ public abstract class DeclarationAlignmentRuleCore {
             if(prev != null) {
                 if( !jsObjectPropertyColons.contains(
                     t
-                ) && !isUnaryMinusOperand(
+                ) && !Token.isUnaryMinusOperand(
                     tokens, i
                 ) && needsSpaceBetween(
                     prev, t, tokens, i
@@ -101,29 +101,6 @@ public abstract class DeclarationAlignmentRuleCore {
         } // for
 
         return sb.toString();
-    }
-
-    /**
-     * True iff {@code tokens.get(index)} is the operand immediately following a unary
-     *  `-`/`+` at {@code tokens.get(index - 1)} -- i.e. that `-`/`+` is not itself preceded by
-     *  another operand (identifier/number/closing `)`/`]`), which would make it binary instead.
-     *  {@code needsSpaceBetween}'s strictly pairwise (prev, cur) signature has no way to see the
-     *  token before `prev`, so without this check a leading unary sign in an initializer
-     *  (`int aaa = +1;`) rendered with a spurious space (`= + 1`). Shared by {@link
-     *  #renderTokens} and {@link #renderInitTokens} for every curly-family language except
-     *  Kotlin, which has its own equivalent override.
-     */
-    protected boolean isUnaryMinusOperand(final List<Token> tokens, final int index)
-    {
-        if(index == 0) return false;
-        final Token prevTok = tokens.get(index - 1);
-        if( !( isOp(prevTok, "-") || isOp(prevTok, "+") ) ) return false;
-        if(index - 2 < 0) return true; // Nothing before the sign -- must be unary
-        final Token beforeSign = tokens.get(index - 2);
-
-        return !( beforeSign.type == TokenType.IDENTIFIER || beforeSign.type == TokenType.NUMBER
-                || beforeSign.type == TokenType.STRING || beforeSign.type == TokenType.CHAR
-                || isPunct(beforeSign, ")") || isPunct(beforeSign, "]") );
     }
 
     /**
@@ -150,7 +127,7 @@ public abstract class DeclarationAlignmentRuleCore {
         for(final Token t : tokens) {
             if( isGapToken(t) ) continue;
             if( isPunct(t, "{") ) {
-                final boolean isObj = prevSig == null || ! ( prevSig.type == TokenType.IDENTIFIER || isOp(
+                final boolean isObj = prevSig == null || !( prevSig.type == TokenType.IDENTIFIER || isOp(
                     prevSig, "=>"
                 ) || isPunct(
                     prevSig, ")"
@@ -217,7 +194,7 @@ public abstract class DeclarationAlignmentRuleCore {
                         sb.append(' '); // Binary * or & in expression context
                     }
                 } // if
-                else if( !isUnaryMinusOperand(
+                else if( !Token.isUnaryMinusOperand(
                     tokens, i
                 ) && needsSpaceBetween(
                     prev, t, tokens, i
@@ -413,6 +390,18 @@ public abstract class DeclarationAlignmentRuleCore {
         ) || isOp(
             prev, "--"
         ) ) && cur.type == TokenType.IDENTIFIER ) return false;
+        // A unary logical-NOT `!` is always tight against its operand (`!atEnd`, `!foo.bar()`)
+        // -- C/C++/Java/Kotlin/JS/TS have no binary `!` operator at all (Kotlin's own `!is`/`!in`
+        // carve-out above already handles its one keyword-operand exception before reaching this
+        // fallback), so this join is unconditionally tight regardless of language. Mirrors the
+        // same fix in `MiscRuleCore.needsSpaceBetween`. Found via `RDD_KEY_238`'s follow-up
+        // "general expression-statement operator spacing" gap -- a plain assignment statement's
+        // RHS (`groupStart = (!atEnd && ...) ? i : -1;`, self-hosting dogfood on
+        // `TomlSpecificRule.java`/`CssSpecificRule.java`/`YamlSpecificRule.java`/
+        // `JsonSpecificRule.java`) rendered through this shared join point with a spurious space
+        // after `!` (`! atEnd`) once the assignment-RHS respacing fix below started re-deriving
+        // spacing for that shape.
+        if( isOp(prev, "!") ) return false;
         // JS/TS spread/rest `...` is always tight against what follows it (`...rest`,
         // `...items`) -- STYLE_JS_TS.md §3, enforced file-wide by
         // JsTsSpecificRule.enforceSpreadRestSpacing, which runs long after this class's own

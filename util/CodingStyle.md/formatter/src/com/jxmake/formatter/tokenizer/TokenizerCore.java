@@ -127,6 +127,36 @@ public class TokenizerCore {
                     || t.type == TokenType.SHEBANG);
         }
 
+        /**
+         * True iff {@code tokens.get(index)} is the operand immediately following a unary
+         *  `-`/`+` at {@code tokens.get(index - 1)} -- i.e. that `-`/`+` is not itself preceded
+         *  by another operand (identifier/number/string/char/closing `)`/`]`), which would make
+         *  it binary instead. A caller's pairwise (prev, cur) spacing decision has no way to see
+         *  the token before `prev`, so without this check a leading/embedded unary sign (e.g.
+         *  `int aaa = +1;`, or a ternary's `-1` else-arm) renders with a spurious space
+         *  (`= + 1`, `- 1`). Centralized here (RDD_KEY_238 follow-up) after being found
+         *  independently duplicated, byte-for-byte identical, in both
+         *  {@code DeclarationAlignmentRuleCore} and {@code MiscRuleCore} -- same "duplicated
+         *  small token helper" pattern {@link #isPunct}/{@link #isOp}/etc. already centralized
+         *  here; this one is a pure function of {@code (tokens, index)} with no per-instance
+         *  {@code lang}/config dependency, so unlike the class-refactor's other same-named-helper
+         *  duplicates (`setOf`, `isTightToken`'s language-specific bodies), promoting it here is a
+         *  same-behavior move, not a new shared-utility-class decision. Both call sites now
+         *  delegate to this method; neither keeps its own copy.
+         */
+        public static boolean isUnaryMinusOperand(final List<Token> tokens, final int index)
+        {
+            if(index == 0) return false;
+            final Token prevTok = tokens.get(index - 1);
+            if( !( isOp(prevTok, "-") || isOp(prevTok, "+") ) ) return false;
+            if(index - 2 < 0) return true; // Nothing before the sign -- must be unary
+            final Token beforeSign = tokens.get(index - 2);
+
+            return !( beforeSign.type == TokenType.IDENTIFIER || beforeSign.type == TokenType.NUMBER
+                    || beforeSign.type == TokenType.STRING || beforeSign.type == TokenType.CHAR
+                    || isPunct(beforeSign, ")") || isPunct(beforeSign, "]") );
+        }
+
     } // class Token
 
     /**

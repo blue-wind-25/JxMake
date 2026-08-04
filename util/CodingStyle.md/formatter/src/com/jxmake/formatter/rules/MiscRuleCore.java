@@ -99,6 +99,15 @@ public abstract class MiscRuleCore {
         return new HashSet<>( Arrays.asList(words) );
     }
 
+    /**
+     * Control-flow keywords whose own condition/argument parens must never be mistaken for a
+     *  C-style cast's parens by {@link #isCStyleCastClose} -- see that method's call site. Exact
+     *  duplicate of `DeclarationAlignmentRuleCore.CONTROL_FLOW_KEYWORDS`.
+     */
+    private static final Set<String> CONTROL_FLOW_KEYWORDS = setOf(
+        "if", "while", "for", "switch", "catch", "do", "else"
+    );
+
     // ── §1 Indentation ───────────────────────────────────────────────────────────
     /**
      * Tab display size and spaces-per-level default, per STYLE.md §1 -- overridable via the
@@ -376,7 +385,7 @@ public abstract class MiscRuleCore {
                 lastSignificant.text
             ) && gap.stream().noneMatch(
                 this:: isCommentOrNewline
-            ) && ! t.frozen && ! lastSignificant.frozen && gap.stream().noneMatch(
+            ) && !t.frozen && !lastSignificant.frozen && gap.stream().noneMatch(
                 g->g.frozen
             );
             if(!collapse) {
@@ -590,12 +599,12 @@ public abstract class MiscRuleCore {
                 continue;
             }
 
-            final boolean inInit = ! initStack.isEmpty() && initStack.peek();
+            final boolean inInit = !initStack.isEmpty() && initStack.peek();
             // Inside-brace padding applies only at the outermost initializer level -- STYLE.md
             // §3.3's worked example pads only the outer pair of a nested brace-initializer
             // (`{ {1, 2}, {3, 4} }`), leaving inner element braces tight. Comma spacing, by
             // contrast, applies at every nesting level.
-            final boolean atOutermostInit = inInit && ! outermostStack.isEmpty() && outermostStack.peek();
+            final boolean atOutermostInit = inInit && !outermostStack.isEmpty() && outermostStack.peek();
             final boolean afterInitOpen   = isPunct(lastSignificant, "{") && atOutermostInit;
             final boolean beforeInitClose = isPunct(t, "}") && atOutermostInit;
             final boolean beforeComma     = isPunct(t, ",") && inInit;
@@ -640,7 +649,7 @@ public abstract class MiscRuleCore {
                     lastSignificant, "{"
                 ) || isPunct(
                     lastSignificant, ","
-                ) ) && ! initStack.isEmpty() && initStack.peek() );
+                ) ) && !initStack.isEmpty() && initStack.peek() );
                 initStack.push(isInit);
                 outermostStack.push(startsNewInit);
             } // if
@@ -882,7 +891,19 @@ public static final class Assignment {
             ) + "=";
             final List<String> cells = new ArrayList<>();
             cells.add(lhs);
-            cells.add( joinVerbatim(a.valueTokens) + ";" );
+            // RDD_KEY_238 follow-up: was `joinVerbatim(a.valueTokens)`, reproducing the RHS's
+            // original token text (incl. internal whitespace tokens) byte-for-byte -- correct for
+            // STYLE.md §6's "align the `=` column only" intent, but meant a pre-existing operator-
+            // spacing defect in the RHS (e.g. a stray/missing space around `!`/`&&`/unary `-`) was
+            // never re-derived, no matter how many times the file was reformatted. Switched to
+            // `renderExpressionTokens` (a dedicated expression-aware joiner, ported from
+            // DeclarationAlignmentRuleCore#renderInitTokens's binary-vs-unary `*`/`&` and C-style-
+            // cast disambiguation -- plain `renderTokens` was tried first but regressed C pointer
+            // dereference, e.g. `*cfg` -> `* cfg`) over the gap-token-stripped value so genuine
+            // operator-spacing bugs in a plain assignment statement's RHS get corrected same as
+            // everywhere else, while still not touching original multi-token expression *structure*
+            // (no re-wrapping/re-ordering, only inter-token spacing).
+            cells.add( renderExpressionTokens( significantOnly(a.valueTokens) ) + ";" );
             if(a.trailingComment != null) cells.add(a.trailingComment.text);
             grid.addRow( cells.toArray( new String[0] ) );
         } // for
@@ -1300,13 +1321,131 @@ public static final class Assignment {
               Token         prev = null;
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if( prev != null && needsSpaceBetween(
+            if( prev != null && !Token.isUnaryMinusOperand(
+                tokens, i
+            ) && needsSpaceBetween(
                 prev, t, templateOpens, templateCloses, tokens, i
             ) ) sb.append(
                 ' '
             );
             sb.append(t.text);
             prev = t;
+        } // for
+
+        return sb.toString();
+    }
+    /**
+     * True iff the `)` at `closeIdx` in `tokens` closes a C-style cast: `(Type)` where the
+     *  content between the matching `(` and `)` is just a type-like token sequence
+     *  (IDENTIFIER/KEYWORD plus optional `*`), and the token before the matching `(` is not an
+     *  IDENTIFIER/`)`/`]` (which would make it a function call or subscript instead), nor a
+     *  control-flow keyword's own condition parens. Exact duplicate of
+     *  `DeclarationAlignmentRuleCore.isCStyleCastClose` -- used only by {@link
+     *  #renderExpressionTokens}.
+     */
+    protected boolean isCStyleCastClose(final List<Token> tokens, final int closeIdx)
+    {
+        int depth   = 0;
+        int openIdx = -1;
+        for(int k = closeIdx; k >= 0; --k) {
+            final Token t = tokens.get(k);
+            if( isPunct(t, ")") ) {
+                ++depth;
+            }
+            else if( isPunct(t, "(") ) {
+                --depth;
+                if(depth == 0) {
+                    openIdx = k;
+                    break;
+                }
+            }
+        } // for
+        if(openIdx < 0 || openIdx == closeIdx - 1) return false; // Empty parens
+        final Token before = openIdx > 0 ? tokens.get(openIdx - 1) : null;
+        if( before != null && ( before.type == TokenType.IDENTIFIER || isPunct(
+            before, ")"
+        ) || isPunct(
+            before, "]"
+        ) ) ) return false; // function call / subscript, not a cast
+        if( before != null && before.type == TokenType.KEYWORD && CONTROL_FLOW_KEYWORDS.contains(
+            before.text
+        ) ) return false;
+        for(int k = openIdx + 1; k < closeIdx; ++k) {
+            final Token t = tokens.get(k);
+            if( t.type != TokenType.IDENTIFIER && t.type != TokenType.KEYWORD && !Token.isRepOp(
+                t, '*'
+            ) ) return false;
+        }
+
+        return true;
+    }
+    /**
+     * Renders an arbitrary expression's token list (e.g. a plain assignment statement's RHS)
+     *  where `*`/`&` may be either binary operators or unary pointer/reference/dereference
+     *  operators -- exact duplicate of `DeclarationAlignmentRuleCore.renderInitTokens`'s
+     *  disambiguation logic (lookahead to detect binary `*`/`&`; unary dereference/address-of stays
+     *  tight against its operand; C-style cast close-paren stays tight against what follows).
+     *  Unlike {@link #renderTokens} (tuned for signatures/parameter lists, where a bare `*ptr`
+     *  dereference never appears at this join point), this is the general-purpose joiner needed for
+     *  a full expression -- {@link #renderTokens} alone regressed `g_config = *cfg;` into
+     *  `g_config = * cfg;` (RDD_KEY_238 follow-up) when first tried as the assignment-RHS renderer,
+     *  since it has no unary-`*`/`&` lookahead at all.
+     */
+    protected String renderExpressionTokens(final List<Token> tokens)
+    {
+        final Set<Token> templateOpens  = new HashSet<>();
+        final Set<Token> templateCloses = new HashSet<>();
+        templateAngleTokens(tokens, templateOpens, templateCloses);
+        final StringBuilder sb = new StringBuilder();
+        for( int i = 0; i < tokens.size(); ++i ) {
+            final Token t    = tokens.get(i);
+            final Token prev = i > 0 ? tokens.get(i - 1) : null;
+            final Token next = i < tokens.size() - 1 ? tokens.get(i + 1) : null;
+            if(prev != null) {
+                // `prev` is itself a value-producing token (identifier/number/closing `)`/`]`) --
+                // an array-subscript or call/paren-group result, e.g. `dh[k] * (...)`,
+                // `foo() * bar` -- so `*`/`&` immediately after it is unambiguously binary,
+                // regardless of what follows (`next` may be `(`, not just an identifier/number).
+                // Found via self-hosting dogfood on `GruClassifier.java`'s `dh[k] * (hTilde[k] -
+                // hPrev[k])`, which `renderExpressionTokens` (this task's assignment-RHS respacing
+                // fix) first regressed into `dh[k]* (...)` -- the original narrower
+                // next-is-identifier-or-number check missed this shape entirely.
+                final boolean prevIsValue = prev.type == TokenType.IDENTIFIER || prev.type == TokenType.NUMBER || isPunct(
+                    prev, ")"
+                ) || isPunct(
+                    prev, "]"
+                );
+                if( isTightToken(t) && ( isOp(t, "*") || isOp(t, "&") ) && prevIsValue
+                        && ( next == null || next.type == TokenType.IDENTIFIER
+                        || next.type == TokenType.NUMBER || isPunct(next, "(") ) ) {
+                    sb.append(' '); // Binary * or & in expression context
+                } // if
+                else if( !Token.isUnaryMinusOperand(
+                    tokens, i
+                ) && needsSpaceBetween(
+                    prev, t, templateOpens, templateCloses, tokens, i
+                ) ) {
+                    final Token prev2 = i > 1 ? tokens.get(i - 2) : null;
+                    if( t.type == TokenType.IDENTIFIER && Token.isRepOp(prev, '*')
+                        && (prev2 == null || prev2.type == TokenType.OP)
+                        && (lang.isC || lang.isCpp) ) {
+                        // Pointer dereference: add nothing
+                    }
+                    else if( isPunct(prev, ")") && isCStyleCastClose(
+                        tokens, i - 1
+                    ) && (lang.isC || lang.isCpp) ) {
+                        // C-style cast `(Type)expr`: add nothing -- Java/Kotlin/JS/TS keep a space
+                        // after a cast (`(ExpressionStmt) lambdaExpr...`), unlike C/C++'s tight
+                        // `(Type)expr`. Missing this gate regressed a Java self-hosting dogfood
+                        // fixture (real_code_regressions_55) once `renderExpressionTokens` started
+                        // re-deriving assignment-RHS spacing for all languages, not just C/C++.
+                    }
+                    else {
+                        sb.append(' ');
+                    }
+                }
+            } // if
+            sb.append(t.text);
         } // for
 
         return sb.toString();
@@ -1405,6 +1544,14 @@ public static final class Assignment {
         if( isPunct(
             cur, "("
         ) && (prev.type == TokenType.IDENTIFIER || prev.type == TokenType.ANGLE_BRACKET_CLOSE || prev.type == TokenType.KEYWORD) ) return false;
+        // A `(` directly after a closing `]` is a call/constructor-invocation paren following an
+        // array subscript or array-`new` size clause (`arr[0](args)`, C++'s `new float[n]()`
+        // value-initializer) -- always tight, never spaced. Missing here caused a self-hosting
+        // dogfood regression once `renderExpressionTokens` (this task's assignment-RHS respacing
+        // fix) started re-deriving spacing for plain-assignment RHS expressions instead of leaving
+        // them verbatim: `buf->data = new float[frames * channels]();` came out as
+        // `...channels] ();`.
+        if( isPunct(cur, "(") && isPunct(prev, "]") ) return false;
         if( prev.type == TokenType.ANGLE_BRACKET_OPEN || isOp(
             prev, "::"
         ) || isOp(
@@ -1428,6 +1575,18 @@ public static final class Assignment {
         // converted `for(...; ++i)` header lost the tight join `enforcePreIncrement` had produced on
         // round1).
         if( isIncrementOp(prev) && cur.type == TokenType.IDENTIFIER ) return false;
+        // A unary logical-NOT `!` is always tight against its operand (`!atEnd`, `!foo.bar()`)
+        // -- C/C++/Java/Kotlin/JS/TS have no binary `!` operator at all (Kotlin's own `!is`/`!in`
+        // carve-out below already handles its one keyword-operand exception before reaching this
+        // fallback), so this join is unconditionally tight regardless of language. Mirrors the
+        // same fix in `DeclarationAlignmentRuleCore.needsSpaceBetween`. Found via `RDD_KEY_238`'s
+        // follow-up "general expression-statement operator spacing" gap -- a plain assignment
+        // statement's RHS (`groupStart = (!atEnd && ...) ? i : -1;`, self-hosting dogfood on
+        // `TomlSpecificRule.java`/`CssSpecificRule.java`/`YamlSpecificRule.java`/
+        // `JsonSpecificRule.java`) rendered through this shared join point with a spurious space
+        // after `!` (`! atEnd`) once the assignment-RHS respacing fix below started re-deriving
+        // spacing for that shape.
+        if( isOp(prev, "!") ) return false;
         // An annotation's `@` (e.g. `@RaiseDSL public inline fun ...`, Java's `@NonNull String
         // id`) is tight against the identifier that follows it -- without this, an annotation
         // that shares its source line with a signature/parameter (so it becomes part of

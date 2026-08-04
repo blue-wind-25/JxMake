@@ -364,10 +364,21 @@ reindentation logic yet to exercise).
 
 ## Resolved Design Decisions
 
+- `RDD_KEY_241` — **Fixed** `RDD_KEY_240`'s confirmed second-order-
+  oscillation counterexample: `GdrPipelineGate.applyAndFormat`'s hardcoded
+  4-call sequence replaced with an actual convergence loop (iterate GDR-pass
+  + `formatOne` cycles, comparing each new cycle's output against the
+  previous cycle's, stop on byte-identical match; `MAX_MULTIPASS_CYCLES =
+  20` safety cap throws `IllegalStateException` if never reached). The
+  RDD_KEY_240 TS/JS repro is now confirmed idempotent (round1 == round2).
+  Base single-pre-pass path (multipass off or base flag off) unchanged;
+  defaults remain `off`. Full text: `RDD_KEY_241` in `RDD_LOG.md`.
 - `RDD_KEY_240` — Adversarial stress-testing (2026-08-05) of the bounded
   4-stage `curly-general-scope-reindent-multipass` loop **found a genuine,
   minimal counterexample to full idempotency**, confirming the
   "second-order oscillation" risk this file already flagged as unproven.
+  **Fixed by `RDD_KEY_241`** (see above) — the hardcoded 4-stage bound was
+  replaced with a real convergence loop.
   Minimal repro: a single-level (no extra nesting needed) TS/JS `if (...) {
   arr.filter(...).map(...).forEach(...); } else if (...) { ... }` with
   `curly-general-scope-reindent-multipass=on` — round1's output differs
@@ -943,6 +954,49 @@ plan, not a placeholder.
       fluent-chain wraps, and combinations with switch-case/ternary-wrap in
       TS/Kotlin specifically (only tried in Java) remain untried and could
       still surface further or worse cases.
+
+- [x] **Fix `RDD_KEY_240`'s confirmed second-order-oscillation
+      counterexample** (2026-08-05, follow-on to the adversarial
+      stress-testing item above). `GdrPipelineGate.applyAndFormat`'s
+      hardcoded, unconditional 4-call sequence (GDR, formatOne, GDR,
+      formatOne) — which never compared any two stages' output — replaced
+      with a real convergence loop: repeats the GDR-pass + `formatOne`
+      cycle, comparing each new cycle's `formatOne` output against the
+      immediately preceding cycle's, stopping as soon as two consecutive
+      cycles are byte-identical (`String.equals`). New
+      `MAX_MULTIPASS_CYCLES = 20` safety cap (~5x the ~4 cycles the
+      confirmed `RDD_KEY_240` counterexample needed) throws
+      `IllegalStateException` (file path + pointer to `RDD_KEY_241`) if
+      reached without convergence, rather than silently returning a
+      possibly-still-oscillating result. Base single-pre-pass path
+      (multipass off, or base flag off) is byte-for-byte unchanged — still
+      exactly one GDR call plus one `formatOne` call. `make test`:
+      244/244 forward + idempotency throughout, unaffected (no fixture
+      added — matches how `RDD_KEY_229`/`RDD_KEY_240` were documented,
+      change only reachable via the explicitly-off-by-default multipass
+      path). Re-ran the exact minimal `RDD_KEY_240` TS/JS repro (`if (...)
+      { arr.filter().map().forEach(); } else if (...) { ... }` with both
+      flags on via in-file config): confirmed fixed — round1 == round2
+      (byte-identical, verified via `--standalone --in-place` + `diff`),
+      previously round1 != round2. `curly-general-scope-reindent`/
+      `curly-general-scope-reindent-multipass` remain `off` by default,
+      unchanged in `Config.java`. Full text: `RDD_KEY_241` in
+      `RDD_LOG.md`.
+
+      **Separately investigated during this session, found to be an
+      unrelated pre-existing bug (not fixed, out of scope for this task):**
+      while constructing a deep-nesting Kotlin adversarial repro to
+      exercise this same fix, `GdrRewriter.rewrite` /
+      `GdrRewriter.spaces` throws `NegativeArraySizeException` on certain
+      malformed/badly-indented-but-syntactically-valid one-true-brace `}
+      else if (...) {` Kotlin input combined with a trailing-lambda fluent
+      chain (`listOf(...).filter { }.map { }.forEach { }`), reproducing
+      identically under `curly-general-scope-reindent` alone (multipass
+      off) — confirmed via a side-by-side build of the pre-`RDD_KEY_241`
+      source, so this crash predates and is unaffected by this session's
+      convergence-loop change. Not investigated further or fixed here
+      (undocumented until now); flagging for a future session's "Known
+      Gaps" tracking.
 
 Do the above checklist one by one. Test, commit, and ask me whether to continue or pause.
 

@@ -195,18 +195,12 @@ changes flipping wrap fits-checks) — see `RDD_KEY_229`'s full writeup for
 both failure modes. Proposed remediation: a new config key,
 **`curly-gs-reindent-multipass`** (`off` default, `on`), that — only when
 `curly-general-scope-reindent` is also `on` — runs a fixed 4-stage sequence
-instead of GDR's current single pre-pass-then-pipeline order:
-
-1. GDR (pre-pass, as today)
-2. Normal formatting pass (pipeline, as today)
-3. GDR again
-4. Normal formatting pass again
-
-This is a **concrete instantiation of one of the two remediation options
-`RDD_KEY_229` already named but explicitly did not attempt** ("iterate
-pipeline+GDR to a bounded fixpoint") — fixed 4 stages, not an open-ended
-loop-until-stable, instead of the unbounded fixpoint iteration
-`RDD_KEY_229` left unscoped.
+instead of GDR's current single pre-pass-then-pipeline order: (1) GDR
+pre-pass as today, (2) normal formatting pass as today, (3) GDR again, (4)
+normal formatting pass again. This is a **concrete instantiation of one of
+the two remediation options `RDD_KEY_229` already named but explicitly did
+not attempt** ("iterate pipeline+GDR to a bounded fixpoint") — fixed 4
+stages, not an open-ended loop-until-stable.
 
 ### Why this plausibly resolves the circular dependency
 
@@ -215,15 +209,14 @@ nesting — wrong for any line the pipeline is about to split or join (the
 `RDD_KEY_229`/javaparser dominant-failure-mode case: a joined `} else if
 (...) {` later Allman-split into two lines, where the newly split-out line
 never got its own GDR target). Stage 2 (pipeline-1) makes brace-placement/
-line-wrap decisions using GDR-1's already-mostly-correct indentation —
-closer to final width than unindented/relative-delta source, so fewer
-wrap-decision errors than plain post-pass ordering. Stage 3 (GDR-2) runs on
-already-finalized brace placement and line splits/joins (pipeline-1's
-output), so every line — including ones newly created by stage 2's
-Allman-splitting — gets a correct absolute depth-based target from the
-*actual final* structure. Stage 4 (pipeline-2) exists because stage 3's
-reindentation can still change line widths enough to flip a wrap fits-check
-that stage 2 decided under stage-1's slightly-different widths (the exact
+line-wrap decisions using GDR-1's already-mostly-correct indentation, so
+fewer wrap-decision errors than plain post-pass ordering. Stage 3 (GDR-2)
+runs on pipeline-1's finalized brace placement and line splits/joins, so
+every line — including ones newly created by stage 2's Allman-splitting —
+gets a correct absolute depth-based target from the *actual final*
+structure. Stage 4 (pipeline-2) exists because stage 3's reindentation can
+still change line widths enough to flip a wrap fits-check that stage 2
+decided under stage-1's slightly-different widths (the exact
 circular-dependency mechanism `RDD_KEY_229`'s post-pass-ordering experiment
 found) — one more pipeline pass lets those decisions re-settle against
 now-correct widths.
@@ -237,65 +230,55 @@ two alternate cleanly without either undoing the other's *kind* of edit.
 ### Whether this achieves true idempotency (not just "closer")
 
 This is a heuristic, not a proof. Assuming stage 4 reaches a stable
-width/wrap-decision state (no residual oscillation), a *second* full
-4-stage application should be a no-op end to end: GDR is a pure function of
-current brace/paren structure (independent of existing indentation), so
-GDR-1 of round 2 recomputes the same targets stage 3 already wrote;
+width/wrap-decision state, a *second* full 4-stage application should be a
+no-op end to end: GDR is a pure function of current brace/paren structure,
+so GDR-1 of round 2 recomputes the same targets stage 3 already wrote;
 pipeline-1 of round 2 re-decides the same wraps stage 4 already settled on;
 GDR-2/pipeline-2 of round 2 are then no-ops. Composes with `make test`'s
 existing round1/round2 idempotency check — no special-casing needed.
 
-**What is NOT proven, and would need real-code validation before trusting
-this generally:** whether 4 stages is *always* enough. Known failure mode
-is a **first-order** effect (one missed target on a newly-split line);
-residual risk is a **second-order** oscillation — a wrap decision whose own
-flip (stage 4) changes width in a way that would still disagree with a
+**What is NOT proven:** whether 4 stages is *always* enough. Known failure
+mode is a **first-order** effect (one missed target on a newly-split
+line); residual risk is a **second-order** oscillation — a wrap decision
+whose own flip (stage 4) changes width enough to still disagree with a
 hypothetical stage-5 GDR pass. `RDD_KEY_229`'s own post-pass-ordering
-experiment found real flapping of exactly this shape between GDR and the
-pipeline, so it is not purely theoretical; the open question is whether it
-damps out after one extra round (this proposal) or needs more. Answer only
-by re-running the same real-code corpora `RDD_KEY_229` already exposed the
-bug against (`javaparser/javaparser`'s `javaparser-core-generators` 13/43
-non-idempotent files, plus the `angular/angular` TS cluster-5 files) with
-multipass wired up — a residual non-idempotent file after 4 stages, if any,
-would at least narrow from "the dominant failure mode across ordinary code"
-(today) to "a smaller residual set".
+experiment found real flapping of exactly this shape, so it's not purely
+theoretical; whether it damps out after one extra round (this proposal) or
+needs more can only be answered by re-running the same real-code corpora
+`RDD_KEY_229` already exposed the bug against (`javaparser-core-generators`
+13/43 non-idempotent files, `angular/angular` TS cluster-5) with multipass
+wired up.
 
 ### Other open questions this proposal surfaces (not yet answered)
 
 - **Interaction with the pipeline's OWN relative-delta reindenters**
   (`SwitchRule.applyNonInlineCaseIndent`, `ScopePipeline.
-  applyDeclarationsPass`, and STYLE.md §8's multi-line param-list/
-  declaration continuation-indent renderer in `MiscRuleCurly`) — these
-  already run inside "normal formatting pass" (stages 2/4) and use their
-  own indent models, not GDR's absolute-depth-plus-paren-axis model
-  directly. `GdrReindenter`'s Background section already claims its
-  continuation-vs-block axis matches STYLE.md §8's convention (see the
-  "Implement the pre-pass's own reindenter" checklist item), but that
-  claim was validated via smoke tests, not against these specific passes'
-  actual output shapes. Stage 3 (GDR-2) running on the pipeline's already-
-  rendered switch-case bodies / wrapped declarations needs to *agree* with
-  what those passes just wrote, or it will silently overwrite
-  correctly-STYLE.md-compliant indentation with GDR's own (possibly
-  differently-shaped) target on the second pass — this is a real,
-  unverified risk, not a formality.
+  applyDeclarationsPass`, STYLE.md §8's multi-line param-list/declaration
+  continuation-indent renderer in `MiscRuleCurly`) — these run inside
+  "normal formatting pass" (stages 2/4) using their own indent models, not
+  GDR's absolute-depth-plus-paren-axis model directly. `GdrReindenter`'s
+  Background section claims its continuation-vs-block axis matches
+  STYLE.md §8's convention, but that was validated via smoke tests only,
+  not against these passes' actual output shapes. Stage 3 (GDR-2) running
+  on already-rendered switch-case bodies/wrapped declarations needs to
+  *agree* with what those passes just wrote, or it will silently overwrite
+  correctly-STYLE.md-compliant indentation on the second pass — a real,
+  unverified risk.
 - **Whether `curly-gs-reindent-multipass = on` while `curly-general-scope-
   reindent = off` is a no-op, a usage error, or silently ignored** — same
-  category of question `RDD_KEY_227` already resolved for the `JXM_CFMT_GDR`
-  directive's interaction with the master flag; needs the same kind of
-  explicit resolution before implementation, not an assumption.
-- **Naming.** The user's suggested `curly-gs-reindent-multipass` uses a
-  different abbreviation style (`gs-reindent`) than the existing
-  `curly-general-scope-reindent` key it depends on (spelled out in full).
-  Worth deciding at implementation time whether to match the existing key's
-  full-word style (e.g. `curly-general-scope-reindent-multipass`) for
-  config-key consistency, or keep the shorter suggested form — flagged
-  here, not decided.
-- **Cost.** Opt-in only, so zero cost on the default-off path (same
-  guarantee as the base `curly-general-scope-reindent` flag), but doubles
+  category of question `RDD_KEY_227` already resolved for `JXM_CFMT_GDR`'s
+  interaction with the master flag; needs the same explicit resolution
+  before implementation, not an assumption.
+- **Naming.** The suggested `curly-gs-reindent-multipass` uses a different
+  abbreviation style than the existing `curly-general-scope-reindent` key
+  it depends on (spelled out in full). Worth deciding at implementation
+  time whether to match the existing key's full-word style (e.g.
+  `curly-general-scope-reindent-multipass`) or keep the shorter form —
+  flagged, not decided.
+- **Cost.** Opt-in only, zero cost on the default-off path, but doubles
   wall-clock cost of the already-expensive GDR-pre-pass-plus-full-pipeline
-  combination for any file that does enable it — worth a one-line
-  `README.md` mention once/if implemented, not a blocker.
+  combination for any file that enables it — worth a one-line `README.md`
+  mention once/if implemented, not a blocker.
 
 ### Verdict
 
@@ -303,17 +286,17 @@ would at least narrow from "the dominant failure mode across ordinary code"
 root cause (`RDD_KEY_229`) with a bounded, cheap-to-reason-about shape
 (GdrRewriter's whitespace-only edits mean the two pass kinds can't
 structurally fight each other), and composes with the existing idempotency
-test with no special-casing. It is not a proven fix (see "second-order
+test with no special-casing. Not a proven fix (see "second-order
 oscillation" above) and has at least one real unverified risk (the
 relative-delta-reindenter interaction). **Per `RDD_KEY_229`'s own note**
 ("both remediation paths too risky to attempt this session... a future
 session should ask before attempting either remediation path"), this
-write-up is the "ask" — implementation should wait for an explicit go-ahead
-in a future session, at which point it should be scoped as its own
-checklist item here (new `RDD_KEY_n` once real design decisions are made,
-e.g. the no-op/error question above), validated first via the same
-`javaparser-core-generators`/`angular` cluster-5 files `RDD_KEY_229` already
-has failure data for before calling it done.
+write-up is the "ask" — implementation should wait for an explicit
+go-ahead, at which point it should be scoped as its own checklist item
+here (new `RDD_KEY_n` once real design decisions are made, e.g. the
+no-op/error question above), validated first via the same
+`javaparser-core-generators`/`angular` cluster-5 files `RDD_KEY_229`
+already has failure data for.
 
 ---
 
@@ -654,43 +637,33 @@ plan, not a placeholder.
       **2026-08-02 session, partial progress:** ran the originally-scoped
       real-code pass against `javaparser/javaparser` (fresh clone,
       `/tmp/javaparser_gdr`), starting with its smallest module
-      (`javaparser-core-generators`, 43 files) per this file's "work bit by
-      bit" convention, `curly-general-scope-reindent=on`, full-tree
-      idempotency (round1 vs round2, not `--out DIR` sampling). Result: 13
-      of 43 files non-idempotent. Inspected every failing file's diff —
-      **all 13 are the same root cause as `RDD_KEY_229`**, not 13 distinct
-      bugs: a closing `}`/`)` on a line the pipeline's own
-      brace-placement/line-wrap passes later re-split or re-joined loses
-      its GDR-computed indent target, landing at the pre-split line's depth
-      instead of the post-split one (e.g. `GrammarLetterGenerator.java`'s
-      `else {` block closer measured at the wrong depth after the
-      pipeline's wrap decision moved it). Confirms `RDD_KEY_229`'s
-      pass-ordering bug is not TS-specific — reproduces identically in
-      plain Java under normal Allman-reflow/call-wrap activity, so it is
-      the dominant (likely majority) failure mode across ordinary curly-
-      family code, not a rare edge case. No independently-fixable bug was
-      found in this batch; every failure traces to the one already-deferred
-      design issue, so per `RDD_KEY_229`'s note ("both remediation paths
-      too risky to attempt this session") and `STATE_COMMON.md`'s
-      ambiguity-handling protocol, **no source code was changed this
-      session either**. `JSONEncoderLite.java` and
-      `serge-sans-paille/frozen` were not yet reached this session.
-      **Left off here:** rest of `javaparser/javaparser` (`javaparser-core`
-      large main module, not yet run), local `tool/JSONEncoderLite.java`,
-      and `serge-sans-paille/frozen` still untested this cycle — expect the
-      same dominant failure mode rather than new bug categories. **Before
+      (`javaparser-core-generators`, 43 files), `curly-general-scope-
+      reindent=on`, full-tree idempotency. Result: 13 of 43 files
+      non-idempotent. Inspected every failing diff — **all 13 are the same
+      root cause as `RDD_KEY_229`**, not 13 distinct bugs: a closing
+      `}`/`)` on a line the pipeline's own brace-placement/line-wrap passes
+      later re-split or re-joined loses its GDR-computed indent target,
+      landing at the pre-split line's depth instead of the post-split one
+      (e.g. `GrammarLetterGenerator.java`'s `else {` block closer). Confirms
+      `RDD_KEY_229`'s pass-ordering bug is not TS-specific — reproduces
+      identically in plain Java under normal Allman-reflow/call-wrap
+      activity, so it's the dominant (likely majority) failure mode across
+      ordinary curly-family code, not a rare edge case. No independently-
+      fixable bug found in this batch; every failure traces to the one
+      already-deferred design issue, so per `RDD_KEY_229`'s note and
+      `STATE_COMMON.md`'s ambiguity-handling protocol, **no source code was
+      changed this session either**. `JSONEncoderLite.java` and
+      `serge-sans-paille/frozen` not yet reached. **Left off here:** rest of
+      `javaparser-core` main module, `JSONEncoderLite.java`, and `frozen`
+      still untested — expect the same dominant failure mode. **Before
       spending more real-code-testing cycles on this corpus, the
       higher-leverage next step is revisiting `RDD_KEY_229`'s remediation
-      options directly** (bounded fixpoint iteration between GDR and the
-      pipeline; or feeding GDR's precomputed indent into
-      `MiscRuleCurly.renderCallCandidate`'s wrap fits-check instead of the
-      line's raw current indentation) — continuing corpora without
-      addressing the root cause will keep surfacing the same
-      already-documented bug. Real design decision with prior explicit user
-      risk judgment against attempting it — future session should ask
-      before attempting either remediation path. `/tmp/javaparser_gdr`
-      (fresh clone) and `/tmp/gdr_r1`/`/tmp/gdr_r2` (round1/round2 output
-      for the tested module) left in place for reuse.
+      options directly** (bounded fixpoint iteration; or feeding GDR's
+      precomputed indent into `MiscRuleCurly.renderCallCandidate`'s wrap
+      fits-check) — a real design decision with prior explicit user risk
+      judgment against attempting it; future session should ask first.
+      `/tmp/javaparser_gdr` and `/tmp/gdr_r1`/`/tmp/gdr_r2` left in place
+      for reuse.
 - [x] **Prototype bounded multi-pass remediation for `RDD_KEY_229`** (user
       go-ahead given 2026-08-03, see the "Open design proposal" section
       above). Resolved the two flagged open design questions first, as new
@@ -739,13 +712,10 @@ plan, not a placeholder.
         Real evidence the bounded 4-stage design resolves the confirmed
         root cause on the actual corpora that exposed it. **What this does
         NOT prove:** the "second-order oscillation" risk (whether 4 stages
-        is *always* enough) — these corpora are evidence against that risk
-        manifesting in practice so far, not a proof it can never occur.
-        Rest of `javaparser/javaparser` (`javaparser-core`), local
-        `tool/JSONEncoderLite.java`, and `serge-sans-paille/frozen` not
-        run this sub-session; time was spent on the cluster-5/generators
-        corpora since those are the ones with actual `RDD_KEY_229` failure
-        data to compare against. `make test`: 237/237 forward + idempotency
+        is *always* enough) — evidence against it manifesting in practice
+        so far, not proof it can never occur. Rest of `javaparser-core`,
+        `tool/JSONEncoderLite.java`, and `serge-sans-paille/frozen` not run
+        this sub-session. `make test`: 237/237 forward + idempotency
         (unaffected, `/tmp`-only).
 
       **2026-08-03 session (continued), remaining three originally-scoped
@@ -790,19 +760,16 @@ plan, not a placeholder.
       checklist item are now done: `tool/JSONEncoderLite.java` (PASS),
       `serge-sans-paille/frozen` (PASS, 7/20 → 0/20), `javaparser-core`
       (PASS, 93/576 → 0/576) — combined with earlier `javaparser-core-
-      generators` (13/43 → 0/43) and `angular/angular` TS cluster-5
-      (2/3 files fixed, 1/3 already passing) results,
-      `curly-general-scope-reindent-multipass=on` has now resolved every
-      confirmed `RDD_KEY_229`-shape non-idempotency across every corpus
-      this job has tested it against, with zero newly-introduced
-      syntax/compile errors in any of them.** Substantial multi-corpus
-      evidence base for the design, not just the original two angular
-      files. Still-open, explicitly-flagged caveat from the design
-      write-up remains: this is evidence the "second-order oscillation"
-      risk hasn't manifested on any tested input, not a proof it
-      structurally cannot on some other input. `make test` throughout:
-      237/237 forward + idempotency (unaffected until multipass fixture
-      added; see fixture item for 238/238).
+      generators` (13/43 → 0/43) and `angular/angular` TS cluster-5 (2/3
+      files fixed, 1/3 already passing), `curly-general-scope-reindent-
+      multipass=on` has now resolved every confirmed `RDD_KEY_229`-shape
+      non-idempotency across every corpus this job has tested it against,
+      zero newly-introduced syntax/compile errors in any of them.**
+      Still-open, explicitly-flagged caveat remains: this is evidence the
+      "second-order oscillation" risk hasn't manifested on any tested
+      input, not proof it structurally cannot on some other input. `make
+      test` throughout: 237/237 forward + idempotency (unaffected until
+      multipass fixture added; see fixture item for 238/238).
 - [~] Revisit Kotlin dogfood cluster D3 (see "D3 fold" section above) using
       the pre-pass's statement-boundary/structural-depth infrastructure;
       land a real fix in `MiscRuleCurly`/wherever the fix ends up living,

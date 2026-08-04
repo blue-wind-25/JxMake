@@ -647,6 +647,24 @@ RDD_KEY_88.
 
 ## Known Gaps — Open
 
+- **[Shared with STATE_JS_TS.md] Call-wrap/collapse vs. declaration-alignment/padding fits-check
+  ordering — 2026-08-05 investigation session, no code change landed.** Full write-up lives in
+  `STATE_JS_TS.md`'s Open Questions section (cluster #3 sibling entry) since the concrete repro
+  (`microsoft/TypeScript`'s `commandLineParser.ts`) and all debugging happened there; recorded
+  here only as a cross-reference per this bug's "shared root cause" framing. Summary: the real
+  root cause is NOT a single method's fits-check but `ScopePipelineCurly.processScope`'s
+  outer-first-then-recurse-into-child-spans architecture running the same declaration/assignment/
+  signature/getter-setter passes twice over overlapping token ranges within one `format()` call —
+  shared infrastructure across every curly-family language (C/C++/Java/Kotlin/JS/TS), not JS/TS-
+  specific, which is why this key lives in both jobs' state files. A narrower, verified-safe,
+  no-regression refinement to `JsTsDeclarationAlignmentRule.spansMultipleLines`'s bail condition
+  was prototyped and reverted (didn't fix the cited bug alone — see `STATE_JS_TS.md` for the
+  exact diff shape, easily re-derived if wanted independently). No attempt was made to change
+  `processScope`'s outer/inner double-pass architecture itself — same risk class as
+  `STATE_CURLY_GDR.md`/`RDD_KEY_229`'s pre-pass-vs-post-pass GDR investigation (a genuine
+  circular dependency between an outer pass's decisions and an inner pass's re-derivation of the
+  same span from different intermediate text). Left OPEN.
+
 - **Non-idempotent switch-case re-indent on internally-inconsistent generated source**
   (`SwitchRule.applyNonInlineCaseIndent`) — ACCEPTED, not fixed. Found in `javaparser/javaparser`
   (15b/16 above): `ASTParser.java`, a JavaCC-generated parser (~5500 lines), has one

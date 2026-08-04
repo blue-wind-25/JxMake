@@ -177,6 +177,81 @@ active in the Makefile and passing.
   belongs to the Data Formats job (`STATE_DATA_FORMATS.md`), not this one.
 - **JSX/TSX out-of-scope statement** — see Scope section above (exact
   wording preserved there per policy: out of scope entirely, not deferred).
+- **Cluster #3 sibling ("declaration/class-field-alignment-grid vs. call-wrap
+  ordering") — 2026-08-05 investigation session, no code change landed, new
+  architectural finding recorded.** Attempted to root-cause and fix the
+  `microsoft/TypeScript` `commandLineParser.ts` `pathOptions`/`optionMap`/
+  `watchOptionMap` declaration-group shape (minimal repro: `/tmp/mini.ts`,
+  see below) directly named in cluster #3's write-up above as "not a
+  braceless if/else collapse... a sibling root cause in the same 'call-wrap
+  vs. column-width-adjusting-pass ordering' family."
+
+  **First hypothesis (WRONG, but instructive):** `JsTsDeclarationAlignmentRule
+  .spansMultipleLines`'s flat `parenDepth`/`braceDepth` counters bail
+  (exclude the row from its alignment group) on any `NEWLINE` inside a
+  brace (`braceDepth > 0`), even when that newline is really just a nested
+  call's own wrapped argument list (`{ key: someCall(\n arg\n), ... }`) --
+  narrower than the existing paren-only carve-out documented in that
+  method's own javadoc. Replacing the two flat counters with an actual
+  bracket-kind stack (bail only when a newline's innermost enclosing
+  bracket is `{` or the stack is empty; tolerate `(`/`[`) is a real,
+  narrowly-scoped improvement to that one method and **did not regress
+  `make test` (244/244 forward + idempotency, unchanged)** -- but **did NOT
+  fix the `commandLineParser.ts` repro**, so it was reverted rather than
+  landed as a partial/silent change. Root cause is one level up.
+
+  **Actual finding, via debug instrumentation (removed before revert):**
+  `ScopePipelineCurly.processScope` runs its five per-scope passes
+  (`applyDeclarationsPass` first) **outer-first over the literal flat
+  token list passed to it**, then separately recurses into each child
+  `{...}` span and reruns the same five passes again on that child's own
+  (already outer-pass-touched) slice -- confirmed via instrumented entry
+  dumps at both the depth-0 (whole-file) and depth-1 (function-body) calls
+  for the same statements. For fresh (never-before-formatted) input this
+  is a no-op at depth 0 for nested declarations (round1's depth-0 entry
+  dump showed the statements untouched, only depth-1's own call actually
+  grouped/rendered them) -- but **for already-formatted input whose
+  initializer already contains an embedded call-wrap newline (i.e. round2,
+  reformatting round1's own output), the depth-0 pass's own
+  grouping/statement-splitting no longer treats the region as opaque the
+  same way**, so depth-0 now *also* renders (or partially renders) these
+  declarations before depth-1 gets to reprocess the same span a second
+  time -- two grid-alignment computations of the same statements inside one
+  single `format()` call, seeded from two different intermediate states,
+  is what actually produces the round1-vs-round2 divergence (confirmed via
+  `System.identityHashCode`-tagged entry dumps showing the depth-1 call's
+  *input* already differing between round1 and round2's runs, before
+  depth-1's own logic even executes). This is a different, and likely
+  larger, architectural issue than a single method's bail condition: it
+  means `applyDeclarationsPass`/`groupAlignableDeclarations`'s statement-
+  splitting is not reliably scope-opaque at the outer recursion level once
+  a nested declaration's initializer already contains a previous-round's
+  call-wrap artifact.
+
+  **Why no fix was attempted for that deeper issue this session:** the
+  double-processing (outer-pass-then-inner-pass-reprocess) appears
+  deliberate, load-bearing infrastructure per `processScope`'s own javadoc
+  ("recurses outer-first... splicing each child's processed text back in
+  place") and is shared by every curly-family language's declaration/
+  assignment/signature/getter-setter passes, not just JS/TS -- changing
+  when/whether the outer pass is allowed to touch nested-scope content
+  risks the same class of broad regression the `STATE_CURLY_GDR.md`/
+  `RDD_KEY_229` pre-pass-vs-post-pass GDR investigation hit (a genuine
+  circular dependency between an outer pass's decisions and an inner
+  pass's re-derivation of the same span from different intermediate
+  text), and this session had no time budget left to design, prototype,
+  and real-corpus-validate a fix at that scope. Matches this cluster's
+  existing "would need its own root-cause identification pass" framing
+  above -- now with an actual root cause identified, but still unscoped
+  for a fix. Left OPEN, same as before this session; no fixture added, no
+  `RDD_LOG.md` key added (no design was actually landed to record).
+  **Next session:** start from the `processScope` outer/inner double-pass
+  finding above rather than re-deriving it; the `spansMultipleLines`
+  bracket-stack refinement above is a real, still-available, no-regression
+  incremental improvement if anyone wants it landed on its own merits
+  (independent of this bigger issue) -- it was only reverted because it
+  didn't resolve the cited bug alone and this session preferred not to
+  land an unverified partial change silently.
 
 ---
 

@@ -343,17 +343,17 @@ Question here since real implementation hasn't started.
       zero crashes; round1→round2 `diff -r` empty (103/103 idempotent). No
       bugs found, zero fixtures added. Compilation not attempted (this
       system's only compilers at the time, `g++ 4.8.5`/`clang++ 3.7.1`,
-      predate P2996/C++20 support); idempotency + manual inspection used
-      as fallback (documented once here, applies to the `simdjson`/
-      `rjk-duck` sessions below too until the toolchain upgrade noted
-      under `glaze`). Manual spot-check of several files: `^^int`/`^^T`/
-      `^^Point` stay tight; bare-identifier splice interior tight, nested-
-      call/`::`-qualified interior loose — consistent with `isLoose`, no
-      corruption. `template for(...)` uses the same no-space-before-paren
-      + single-statement inline collapse as ordinary `for` (confirmed
-      pre-existing/general via a plain non-`template` repro). This is the
-      external-corpus validation for §5 previously pending (Scope §5).
-      `bloomberg/clang-p2996` confirmed empty/unusable (see that section).
+      predate P2996/C++20 support); idempotency + manual inspection used as
+      fallback (applies to the `simdjson`/`rjk-duck` sessions below too,
+      until the toolchain upgrade noted under `glaze`). Manual spot-check:
+      `^^int`/`^^T`/`^^Point` stay tight; bare-identifier splice interior
+      tight, nested-call/`::`-qualified interior loose — consistent with
+      `isLoose`, no corruption. `template for(...)` uses the same
+      no-space-before-paren + single-statement inline collapse as ordinary
+      `for` (confirmed pre-existing/general via a plain non-`template`
+      repro). This is the external-corpus validation for §5 previously
+      pending (Scope §5). `bloomberg/clang-p2996` confirmed
+      empty/unusable (see that section).
 - [x] Real-code testing pass against `simdjson/experimental_json_builder`
       done (fresh shallow clone, scratchpad). 27 `.cpp`/`.hpp`/`.h`/`.cc`
       files, 3.9k lines. `--out --preserve-tree --root`, zero crashes on
@@ -368,14 +368,14 @@ Question here since real implementation hasn't started.
       line via its loose `[: expr :]` padding) in Phase 4, *after*
       `MiscRuleCurly.enforceCallLineBreaking`'s fits-check in Phase 1 had
       already decided not to wrap — fresh format measured pre-padding
-      (98-char, fits); reformat of already-padded output measured
-      post-padding (102-char) and wrapped. Same bug shape already fixed
-      once for `enforceComplexityPadding` and flagged generically in
+      (98-char, fits); reformat measured post-padding (102-char) and
+      wrapped. Same bug shape already fixed once for
+      `enforceComplexityPadding`, flagged generically in
       `STATE_COMMON.md`'s Architectural TODOs ("Ordering interacts with
       every other pass"). Fixed by pulling
-      `enforceAttributeAndSpliceBracketPadding` forward to run right
-      before `enforceCallLineBreaking`, alongside `enforceComplexityPadding`
-      (both `lang.isCpp`-gated there instead of Phase 4).
+      `enforceAttributeAndSpliceBracketPadding` forward to run right before
+      `enforceCallLineBreaking`, alongside `enforceComplexityPadding` (both
+      `lang.isCpp`-gated there instead of Phase 4).
       `enforcePackIndexingSpacing`/`enforceReflectionOperatorSpacing`
       stayed in Phase 4 — they only ever tighten spacing, can't trigger
       this bug class. Fixture `test/real_code_regressions_76_{inp,out}.hpp`.
@@ -395,12 +395,12 @@ Question here since real implementation hasn't started.
       `universal_formatter.h` use `^^`/`[: :]` but are `.h`-extensioned —
       `Lang.infer` maps `.h` to `"c"`, not `"cpp"` (pre-existing
       C/C++/Java-job design, not this job's territory), so every §5 rule
-      (`lang.isCpp`-gated) silently doesn't apply to them — no
-      crash/corruption, just complete non-application (confirmed:
-      identical content reformats §5-aware under `.hpp` but not under
-      `.h`). Not a blocked Open Question — documented for whoever next
-      touches `Lang.infer`'s `.h`-handling. **2026-07-28 re-assessment:**
-      still unchanged, still not this job's territory.
+      (`lang.isCpp`-gated) silently doesn't apply — no crash/corruption,
+      just complete non-application (confirmed: identical content
+      reformats §5-aware under `.hpp` but not under `.h`). Not a blocked
+      Open Question — documented for whoever next touches `Lang.infer`'s
+      `.h`-handling. **2026-07-28 re-assessment:** still unchanged, still
+      not this job's territory.
 - [x] Real-code testing pass against `ryanjk5.github.io/posts/rjk-duck`
       (blog post, not a repo) done. No local copy found; fetched via
       WebFetch, extracted all 26 C++ code samples into one file
@@ -411,10 +411,10 @@ Question here since real implementation hasn't started.
       (idempotent), zero crashes on either pass. Compilation not attempted
       (same too-old-compiler limitation as `wrocpp`/`simdjson`; no C++
       `verifiers` entry exists); idempotency + manual inspection used as
-      fallback. Manually spot-checked every `^^`/`[: :]` occurrence in
-      round1 output: all 12 distinct `^^operand` forms stay tight;
-      nested-bracket interior renders loose, bare identifier tight —
-      consistent with `isLoose`, no corruption.
+      fallback. Spot-checked every `^^`/`[: :]` occurrence in round1
+      output: all 12 distinct `^^operand` forms stay tight; nested-bracket
+      interior renders loose, bare identifier tight — consistent with
+      `isLoose`, no corruption.
 
       **One finding, out of scope, not fixed:** Sample 10's multi-statement
       lambda body inside a `std::views::transform([=](...) { ...; ...; ...;
@@ -438,8 +438,8 @@ Question here since real implementation hasn't started.
       `.hpp`/`.cpp`/`.h` files, formatted in one batch pass grouped by
       subdirectory (one subdirectory hit a transient `SIGBUS` JVM crash in
       `libzip.so`, traced to `/tmp` sitting at 99% full — confirmed
-      environmental, not a formatter bug; retry succeeded with exit 0).
-      All 414 files formatted with zero crashes once retried.
+      environmental, not a formatter bug; retry succeeded, all 414 files
+      formatted with zero crashes).
 
       round1 -> round2 surfaced 37 files with a non-empty `diff`. **None
       involve any C++26 construct** (grepped each for `^^`/`[:`/`:]`/
@@ -482,10 +482,10 @@ Question here since real implementation hasn't started.
       (`~/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/clang++`) was found
       available mid-session, superseding the `g++ 4.8.5`/`clang++ 3.7.1`
       too-old-for-reflection limitation of every prior C++26 session.
-      `-std=c++23 -stdlib=libc++ -fsyntax-only` (`-stdlib=libc++` required
-      — without it `<string_view>` etc. aren't found; stderr piped through
-      `grep -v 'no version information available'`) gave **genuine
-      compile validation**, not just idempotency + inspection:
+      `-std=c++23 -stdlib=libc++ -fsyntax-only` (`-stdlib=libc++` required,
+      else `<string_view>` etc. aren't found; stderr piped through
+      `grep -v 'no version information available'`) gave **genuine compile
+      validation**, not just idempotency + inspection:
       - `get_name.hpp` + `to_tuple.hpp` (the two files with actual `^^`/
         `[: :]` syntax): compile clean, zero diagnostics, unmodified and
         round1-formatted alike.
@@ -509,10 +509,6 @@ Question here since real implementation hasn't started.
       mismatches are pre-existing, non-C++26, C/C++/Java-job-owned gaps.
 
       This completes all four named external-corpus candidates in "Test
-      Fixtures (External, corpus-scale)"
-      (`wrocpp/cpp26-reflection-examples`, `simdjson/experimental_json_builder`,
-      `stephenberry/glaze`, plus the `rjk-duck` blog-post extra source) —
-      `bloomberg/clang-p2996` was confirmed empty/unusable in an earlier
-      session (see that section). No further named candidates remain on
-      the list; a future session would need to source a new candidate
-      before continuing this line of work.
+      Fixtures (External, corpus-scale)" above. No further named
+      candidates remain on the list; a future session would need to
+      source a new one before continuing this line of work.

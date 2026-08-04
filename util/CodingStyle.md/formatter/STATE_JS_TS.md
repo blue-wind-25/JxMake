@@ -253,6 +253,98 @@ active in the Makefile and passing.
   didn't resolve the cited bug alone and this session preferred not to
   land an unverified partial change silently.
 
+- **README "braceless if/else collapse can still be non-idempotent" bullet
+  (`hasBreakableCall`/`refuseUnrescuableCollapse`, `BlockStructureRule.java`)
+  — 2026-08-05 investigation session, no code change landed, the documented
+  fix direction was found to not address the actual mechanism.** Task: make
+  the collapse decision simulate the later call-wrap pass's actual output
+  width instead of only asking "does a rescuable call exist." Minimal repro
+  built from the bullet's own cited files (`format_date.ts:519`): `/tmp`
+  scratch file with `if (offset === 0) { return 'Z'; } else { return (
+  (zone >= 0 ? '+' : '') + padNumber(hours, 2, minusSign) + ':' +
+  padNumber(Math.abs(zone % 60), 2, minusSign) ); }` inside a plain function
+  (no switch needed) reproduces round1≠round2 exactly as described.
+
+  **First attempt (reverted, did not land):** widened `hasBreakableCall`
+  (conceptually renamed to a "would wrapping actually fit" check) to render
+  the prefix-through-`(` and `)`-through-end spans at the call's own base
+  indent and refuse collapse unless *both* fit `lineLengthLimit`, mirroring
+  `MiscRuleCurly.renderCallDropped`/`renderCallOnePerLine`'s actual output
+  shape. **Broke `real_code_regressions_81`** (`make test` regression,
+  confirmed then reverted): that fixture's own accepted, committed,
+  genuinely-idempotent output (`this.createAsyncOptionsProvider(...)`/
+  `getInjectionProviders(...)` case) has a post-wrap prefix line at **102
+  chars — already over `lineLengthLimit=100`** — yet reformatting that exact
+  output a second time reproduces it byte-for-byte (verified directly:
+  round-tripping `test/real_code_regressions_81_out.ts` through the JAR is
+  a no-op). So "does the post-wrap line fit under the limit" is **not** the
+  right idempotency criterion -- a wrap that leaves a line over-limit can
+  still be perfectly stable, and a width-based gate refuses legitimate,
+  already-tested-correct collapses.
+
+  **Actual root cause, found via debug instrumentation (removed before
+  revert), does not live in `BlockStructureRule` at all:** built a minimal
+  repro with the call *already braceless in the source* (no `{`/`}` to
+  strip, so `collapseSingleExpressionBlocks`/`tryCollapse`/
+  `refuseUnrescuableCollapse` never run at all) --
+  `if (offset === 0) return 'Z'; else return ( (zone >= 0 ? '+' : '') +
+  padNumber(hours, 2, minusSign) + ':' + padNumber( Math.abs(zone % 60), 2,
+  minusSign ) );` -- and it **still reproduces round1≠round2 with zero
+  braceless-collapse logic involved**, proving this specific bug's
+  mechanism is independent of the collapse-decision heuristic the README
+  bullet and the original design blame it on. Traced to
+  `FormatterCurly.format`'s own two same-round calls to
+  `MiscRuleCurly.enforceCallLineBreaking` (lines ~246 and ~271): the first
+  call correctly wraps *both* `padNumber(...)` calls (each measured against
+  the true whole-line width via `wholeLineRest`, both over limit, both
+  wrapped) -- confirmed via `System.err` dumps of `enforceCallLineBreaking`'s
+  own return value showing both calls multi-line immediately after the
+  first call. But the *second* call re-examines each now-already-wrapped
+  call independently via the `containsNewline(paramsSlice)` branch's own
+  "would this rejoin fit on one line" fits-check (`MiscRuleCurly.java`
+  ~line 1250-1330) -- which measures **only that one call's own candidate
+  line in isolation**, not the full original combined statement width, so
+  each of the two wrapped calls individually "fits" once rejoined and both
+  get silently rejoined back onto one line, reproducing the exact original
+  over-limit one-liner as round1's *final* on-disk output. Round2 (fed that
+  same one-liner as fresh input) exhibits an indent/context-dependent
+  asymmetry in the same rejoin logic (confirmed only on the real
+  `format_date.ts` file, not fully isolated in the minimal repro) that
+  rejoins the *first* call but not the *second* -- producing the partially-
+  wrapped, differing output. Root cause is therefore an
+  `enforceCallLineBreaking`-internal self-interaction across its own two
+  per-round invocations (specifically the rejoin fits-check's blindness to
+  sibling call/text width on the same combined statement line), structurally
+  the same "call-wrap vs. pass-ordering" family STATE_JS_TS.md's cluster #3
+  sibling entry above already named but did not root-cause -- not a gap in
+  `hasBreakableCall`'s collapse-time approximation at all. Fixing it
+  correctly requires `enforceCallLineBreaking`'s rejoin check to measure the
+  *whole* combined statement line (accounting for other still-wrapped or
+  already-rejoined sibling calls on the same original line), which is
+  `MiscRuleCurly`/cross-invocation-shared-state work, not
+  `BlockStructureRule`-local, and out of this task's scoped file.
+
+  **Disposition:** no code change landed (both the reverted width-based
+  gate and leaving `hasBreakableCall` as-is are confirmed-safe no-regression
+  states; `make test` reconfirmed at 244/244 forward + idempotency after the
+  revert). The README "Known Limitations" bullet's wording is accurate as
+  currently written (still describes a real, unfixed gap) and was **not**
+  narrowed or removed -- the investigation changed *where* the eventual fix
+  belongs (an `enforceCallLineBreaking` rejoin-check fix, not a
+  `BlockStructureRule` collapse-time gate) but did not change what's
+  actually broken or unbroken. No `RDD_LOG.md` key added (no design was
+  landed). **Next session attempting this:** do not retry the width-based
+  `hasBreakableCall` gate shape without also handling
+  `real_code_regressions_81`'s "post-wrap-still-over-limit-but-idempotent"
+  case; the real fix needs to live in `MiscRuleCurly.enforceCallLineBreaking`
+  around the `containsNewline` rejoin branch (~line 1250-1330), likely
+  requiring the rejoin fits-check to see the full original line's other
+  candidates' current (wrapped-or-not) state rather than judging each call
+  in isolation -- consider whether this converges with cluster #3 sibling's
+  already-identified `ScopePipelineCurly.processScope` double-pass finding
+  into one shared "which pass gets to see the final, stable per-line width"
+  architectural problem before attempting either in isolation.
+
 ---
 
 ## Checklist

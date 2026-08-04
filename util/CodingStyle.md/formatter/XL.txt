@@ -196,7 +196,8 @@ syntax check, and content diff check. If all OK, copy back the formatted round1 
 subdirectories.
 
 The result of `make gru-cv-corpus` run with CM5 yesterday is in `cvc.zip`. Extract it to `/tmp`
-and check/process it.
+and check/process it. Decide whether to use weights with or without Grok. Also, maybe try to
+sweep the threshold from 0.7 to 0.8 and see if it can improve the GRU further?
 
 Update and fix `CLAUDE.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`,
 `../AI_PREAMBLE_AESTHETIC.md`, etc.

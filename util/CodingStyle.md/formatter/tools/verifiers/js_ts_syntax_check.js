@@ -6,7 +6,7 @@
  * See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
  */
 /**
- * js_ts_syntax_check.js - syntax checker for JavaScript and TypeScript source files.
+ * Js_ts_syntax_check.js - syntax checker for JavaScript and TypeScript source files.
  *
  * Uses the TypeScript compiler API to parse each input file. If parsing
  * succeeds and no parse diagnostics are produced, the file is syntactically
@@ -36,52 +36,48 @@ function scriptKindFor(file)
 
 function checkFile(fileName)
 {
-  const source = fs.readFileSync(fileName, 'utf8');
+    const source = fs.readFileSync(fileName, 'utf8');
 
   const sf = ts.createSourceFile(
     fileName,
     source,
     ts.ScriptTarget.Latest,
-    /*setParentNodes*/ true,
-    scriptKindFor(fileName));
+    /*SetParentNodes*/ true,
+    scriptKindFor(fileName) );
 
   return sf.parseDiagnostics;
-}
+} // checkFile
 
 function main()
 {
-  if (process.argv.length < 3)
-  {
-    console.error(
-      'Usage: js_ts_syntax_check.sh <file.(js|ts)> [file2.(js|ts) ...]');
+  if(process.argv.length < 3) {
+    console.error('Usage: js_ts_syntax_check.sh <file.(js|ts)> [file2.(js|ts) ...]');
     process.exit(2);
   }
 
-  let ok = true;
+    let ok = true;
 
-  for (const file of process.argv.slice(2))
-  {
+  for( const file of process.argv.slice(2) ) {
     const diagnostics = checkFile(file);
 
-    if (diagnostics.length !== 0)
-    {
-      ok = false;
+    if(diagnostics.length !== 0) {
+        ok = false;
 
-      for (const d of diagnostics)
-      {
+      for(const d of diagnostics) {
         const pos = d.file.getLineAndCharacterOfPosition(d.start);
 
         console.error(
-          '%s:%d:%d: %s',
-          file,
-          pos.line + 1,
-          pos.character + 1,
-          ts.flattenDiagnosticMessageText(d.messageText, '\n'));
-      }
-    }
-  }
+            '%s:%d:%d: %s',
+            file,
+            pos.line + 1,
+            pos.character + 1,
+            ts.flattenDiagnosticMessageText(d.messageText, '\n')
+        );
+      } // for
+    } // if
+  } // for
 
   process.exit(ok ? 0 : 1);
-}
+} // main
 
 main();

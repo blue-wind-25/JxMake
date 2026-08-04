@@ -121,7 +121,7 @@ try {
     process.exit(1);
 }
 """
-NODE = os.environ.get("NODE", "node")
+NODE        = os.environ.get("NODE", "node")
 
 WS_RE = re.compile(r"\s+")
 

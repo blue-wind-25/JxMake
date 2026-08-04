@@ -44,6 +44,7 @@ def split_row(line):
     cells = CELL_SPLIT_RE.split(line.strip())
     if cells and cells[0].strip() == "": cells = cells[1:]
     if cells and cells[-1].strip() == "": cells = cells[:-1]
+
     return [c.strip() for c in cells]
 
 
@@ -82,10 +83,10 @@ def parse_examples_file(path):
             label_cell = cells[label_col].strip()
             if label_cell not in ("YES", "NO"): continue
 
-            index    = int(cells[0])
+            index = int(cells[0])
             features = [cell_to_bit(cells[col_index[name]]) if col_index[name] is not None else 0
                         for name in FEATURE_COLUMNS]
-            label    = 1 if label_cell == "YES" else 0
+            label = 1 if label_cell == "YES" else 0
             rows.append((lang, index) + tuple(features) + (label,))
 
     return rows
@@ -95,6 +96,7 @@ def load_dataset(examples_dir):
     dataset = []
     for path in sorted(glob.glob(os.path.join(examples_dir, "examples_*.md"))):
         dataset.extend(parse_examples_file(path))
+
     return dataset
 
 

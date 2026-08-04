@@ -165,7 +165,7 @@ def words_in_source(path, seen_keywords):
     counts within it) -- the set is what feeds document frequency, the Counter is the raw-count
     tiebreaker."""
     words_here = set()
-    raw_here    = Counter()
+    raw_here   = Counter()
     with open(path, "r", encoding="utf-8") as inp:
         for line in inp:
             line = line.rstrip("\n")
@@ -179,6 +179,7 @@ def words_in_source(path, seen_keywords):
                     # being a real signal) -- "Return" and "return" are counted/ranked separately.
                     words_here.add(token)
                     raw_here[token] += 1
+
     return words_here, raw_here
 
 
@@ -210,8 +211,7 @@ def main():
     raw_count = Counter()
     for path in source_paths:
         words_here, raw_here = words_in_source(path, seen)
-        for word in words_here:
-            doc_freq[word] += 1
+        for word in words_here: doc_freq[word] += 1
         raw_count.update(raw_here)
 
     eligible = [w for w in doc_freq if doc_freq[w] >= args.min_sources]

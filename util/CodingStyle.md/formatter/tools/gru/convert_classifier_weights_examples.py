@@ -65,6 +65,7 @@ def split_row(line):
     # A well-formed "| a | b | c |" row splits into ["", " a ", " b ", " c ", ""].
     if cells and cells[0].strip() == "": cells = cells[1:]
     if cells and cells[-1].strip() == "": cells = cells[:-1]
+
     return [c.strip() for c in cells]
 
 
@@ -72,8 +73,8 @@ def extract_comment_text(cell):
     # Cells are backtick-quoted code spans, e.g. "`static int cache_size;`". Strip exactly one
     # leading/trailing backtick pair; fall back to the raw cell if a row doesn't follow that
     # convention rather than dropping the row.
-    if len(cell) >= 2 and cell.startswith("`") and cell.endswith("`"):
-        return cell[1:-1]
+    if len(cell) >= 2 and cell.startswith("`") and cell.endswith("`"): return cell[1:-1]
+
     return cell
 
 
@@ -88,9 +89,9 @@ def convert_file(path):
     # ordinary prose paragraphs (e.g. examples_c.md rows 13-17 resume after a corrections note,
     # with no repeated header row) -- so the header's column mapping, once found, applies to
     # every numbered data row for the rest of the file rather than resetting between blocks.
-    rows       = []
-    text_col   = None
-    label_col  = None
+    rows      = []
+    text_col  = None
+    label_col = None
     with open(path, "r", encoding="utf-8") as inp:
         for line in inp:
             stripped = line.strip()

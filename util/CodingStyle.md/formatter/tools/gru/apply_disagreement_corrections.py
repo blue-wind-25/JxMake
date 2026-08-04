@@ -43,14 +43,13 @@ def parse_data_lines(path):
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.rstrip("\n")
-            if not line or line.startswith("#"):
-                continue
+            if not line or line.startswith("#"): continue
             fields = line.split("\t")
-            if len(fields) != 4:
-                continue
+            if len(fields) != 4: continue
             lang, _label, target_word_index, escaped_text = fields
             key = (lang, target_word_index, escaped_text)
             rows.append((key, line))
+
     return rows
 
 
@@ -97,8 +96,8 @@ def main():
 
     print("apply_disagreement_corrections: applied " + str(len(corrections))
           + " correction(s) (" + str(overridden) + " conflicting auto-labeled row(s) overridden)")
+
     return 0
 
 
-if __name__ == "__main__":
-    sys.exit(main())
+if __name__ == "__main__": sys.exit(main())

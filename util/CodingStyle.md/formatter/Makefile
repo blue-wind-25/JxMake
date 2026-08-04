@@ -674,7 +674,7 @@ bench: $(JAR_FILE) gru-sync-weights
 		echo "=== Bench: standalone, one-by-one ===";                                                                                           \
 		start=$$(date +%s%N);                                                                                                                   \
 		for f in $$files; do                                                                                                                    \
-			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$f";                                                                  \
+			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$f" 2>/dev/null;                                                      \
 		done;                                                                                                                                   \
 		end=$$(date +%s%N);                                                                                                                     \
 		base_ns=$$(( end - start ));                                                                                                            \
@@ -682,12 +682,12 @@ bench: $(JAR_FILE) gru-sync-weights
 		echo "";                                                                                                                                \
 		echo "=== Bench: standalone, all-at-once ===";                                                                                          \
 		start=$$(date +%s%N);                                                                                                                   \
-		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) $$files;                                                                        \
+		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) $$files 2>/dev/null;                                                            \
 		end=$$(date +%s%N);                                                                                                                     \
 		ns=$$(( end - start ));                                                                                                                 \
 		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
 		echo "";                                                                                                                                \
-		$(JAVA) -jar $(JAR_FILE) --server 2>&1 &                                                                                                \
+		$(JAVA) -jar $(JAR_FILE) --server 2>/dev/null &                                                                                         \
 		sleep 1;                                                                                                                                \
 		echo "";                                                                                                                                \
 		echo "=== Bench: client-server, one-by-one ===";                                                                                        \
@@ -699,7 +699,7 @@ bench: $(JAR_FILE) gru-sync-weights
 		done;                                                                                                                                   \
 		start=$$(date +%s%N);                                                                                                                   \
 		for f in $$files; do                                                                                                                    \
-			$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$f";                                                                               \
+			$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$f" 2>/dev/null;                                                                   \
 		done;                                                                                                                                   \
 		end=$$(date +%s%N);                                                                                                                     \
 		ns=$$(( end - start ));                                                                                                                 \
@@ -707,7 +707,7 @@ bench: $(JAR_FILE) gru-sync-weights
 		echo "";                                                                                                                                \
 		echo "=== Bench: client-server, all-at-once ===";                                                                                       \
 		start=$$(date +%s%N);                                                                                                                   \
-		$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) $$files;                                                                                     \
+		$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) $$files 2>/dev/null;                                                                         \
 		end=$$(date +%s%N);                                                                                                                     \
 		ns=$$(( end - start ));                                                                                                                 \
 		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \

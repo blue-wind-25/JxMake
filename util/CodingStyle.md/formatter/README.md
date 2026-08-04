@@ -524,6 +524,23 @@ third-party client only needs to speak this HTTP protocol, not link against the 
   and print indentation fresh from structural nesting depth regardless of source formatting
   already, independent of this key.
 
+- **Multi-line-call/condition wrap decision can flap across repeated formatting passes,
+  affecting C/C++/Java/Kotlin/JS/TS.** Whether a small call or condition nested inside a
+  longer expression stays on one line or gets wrapped is, in one code path, decided by
+  measuring the length of its entire surrounding source line rather than just the
+  candidate's own rendered content. For a short nested call sitting inside a long
+  enclosing line, this can wrap it unnecessarily. Because the measurement is based on the
+  surrounding line's physical layout rather than the candidate's own logical content, the
+  same input can format differently the first time versus if the already-formatted output
+  is fed back in and formatted again — i.e. formatting is not always idempotent for this
+  narrow shape. A fix was attempted (measuring from the candidate's own position instead
+  of its enclosing line's start) but caused numerous unrelated formatting regressions
+  elsewhere, because a candidate's line-prefix content (e.g. `return `, `if (`, `val x =
+  `) legitimately needs to count toward the line-length limit in most other cases. The fix
+  was reverted rather than landed narrowly or accompanied by a wide, unreviewed
+  regression sweep. This is a known, currently-unresolved gap — no workaround exists
+  short of avoiding deeply nested short calls inside very long lines.
+
 - **HTML5 deep tree-construction gap coverage (`html5-tc-gap-level`) is a narrow, documented
   approximation of each corresponding HTML5 spec algorithm, not a full spec-faithful
   implementation** (see Configuration above for what the key is and what each level enables).
@@ -558,6 +575,30 @@ third-party client only needs to speak this HTTP protocol, not link against the 
   to it. Reindented output is correct once the input already uses one-clause-per-line
   bracing; the gap is specific to sources using the joined `} else`-style form.
 
+- **JS/TS braceless if/else collapse can still be non-idempotent when the rescuing
+  call-wrap doesn't shrink the line enough.** Before collapsing a braceless `if`/`else`
+  body onto one line, the formatter checks whether a later call-wrapping pass could
+  still rescue an over-limit result (`hasBreakableCall`) — but that check only asks
+  "does a rescuable call exist," not "will wrapping it actually bring the line under
+  the length limit." For a collapsed candidate long enough that wrapping its one
+  breakable call's arguments doesn't shrink the joined line far enough (e.g. a long
+  string-concatenation chain where only one of several calls gets wrapped, or wrapping
+  it still leaves the line long), the collapse proceeds anyway, and a second formatting
+  pass can disagree with the first — i.e. formatting is not always idempotent for this
+  narrow shape. This is a known, accepted limitation of the cheap heuristic used (a full
+  two-pass simulation of the later call-wrap pass would close this gap but is a bigger,
+  separately-scoped lift). No workaround exists short of manually keeping such lines
+  braced.
+
+- **JS/TS import ordering (§15) misclassifies bundler/tsconfig path-mapped absolute
+  imports as third-party.** Local-import detection is syntactic only: an import specifier
+  is `local` iff it starts with `./` or `../`. A genuinely first-party import resolved via
+  a bundler or tsconfig `baseUrl`/`paths` mechanism (e.g. `import { Widget } from
+  "components/Widget"` pointing at the project's own source tree, not a `node_modules`
+  package) is classified `third-party` instead, since this formatter has no config concept
+  for a project's source root and no `tsconfig.json`/bundler-config resolution logic. This
+  is a known, accepted simplification (RDD_KEY_195) — no source-root config key is planned.
+
 - **Non-idempotent reindent on internally-inconsistent generated source, for any pass using
   a relative-delta technique.** Two known call sites share this root cause:
   `SwitchRule.applyNonInlineCaseIndent` (`case` bodies) and
@@ -579,47 +620,6 @@ third-party client only needs to speak this HTTP protocol, not link against the 
   rather than a relative delta from one reference line — a nontrivial rework with regression
   risk to existing behavior, not planned unless a broader pattern of real-world impact
   emerges.
-
-- **JS/TS import ordering (§15) misclassifies bundler/tsconfig path-mapped absolute
-  imports as third-party.** Local-import detection is syntactic only: an import specifier
-  is `local` iff it starts with `./` or `../`. A genuinely first-party import resolved via
-  a bundler or tsconfig `baseUrl`/`paths` mechanism (e.g. `import { Widget } from
-  "components/Widget"` pointing at the project's own source tree, not a `node_modules`
-  package) is classified `third-party` instead, since this formatter has no config concept
-  for a project's source root and no `tsconfig.json`/bundler-config resolution logic. This
-  is a known, accepted simplification (RDD_KEY_195) — no source-root config key is planned.
-
-- **Multi-line-call/condition wrap decision can flap across repeated formatting passes,
-  affecting C/C++/Java/Kotlin/JS/TS.** Whether a small call or condition nested inside a
-  longer expression stays on one line or gets wrapped is, in one code path, decided by
-  measuring the length of its entire surrounding source line rather than just the
-  candidate's own rendered content. For a short nested call sitting inside a long
-  enclosing line, this can wrap it unnecessarily. Because the measurement is based on the
-  surrounding line's physical layout rather than the candidate's own logical content, the
-  same input can format differently the first time versus if the already-formatted output
-  is fed back in and formatted again — i.e. formatting is not always idempotent for this
-  narrow shape. A fix was attempted (measuring from the candidate's own position instead
-  of its enclosing line's start) but caused numerous unrelated formatting regressions
-  elsewhere, because a candidate's line-prefix content (e.g. `return `, `if (`, `val x =
-  `) legitimately needs to count toward the line-length limit in most other cases. The fix
-  was reverted rather than landed narrowly or accompanied by a wide, unreviewed
-  regression sweep. This is a known, currently-unresolved gap — no workaround exists
-  short of avoiding deeply nested short calls inside very long lines.
-
-- **JS/TS braceless if/else collapse can still be non-idempotent when the rescuing
-  call-wrap doesn't shrink the line enough.** Before collapsing a braceless `if`/`else`
-  body onto one line, the formatter checks whether a later call-wrapping pass could
-  still rescue an over-limit result (`hasBreakableCall`) — but that check only asks
-  "does a rescuable call exist," not "will wrapping it actually bring the line under
-  the length limit." For a collapsed candidate long enough that wrapping its one
-  breakable call's arguments doesn't shrink the joined line far enough (e.g. a long
-  string-concatenation chain where only one of several calls gets wrapped, or wrapping
-  it still leaves the line long), the collapse proceeds anyway, and a second formatting
-  pass can disagree with the first — i.e. formatting is not always idempotent for this
-  narrow shape. This is a known, accepted limitation of the cheap heuristic used (a full
-  two-pass simulation of the later call-wrap pass would close this gap but is a bigger,
-  separately-scoped lift). No workaround exists short of manually keeping such lines
-  braced.
 
 - **HTML/XML single-word comments are never capitalized, even when they're genuine
   one-word prose.** `normalize-comment-start-case=on` skips any HTML/XML comment whose

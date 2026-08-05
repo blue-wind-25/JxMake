@@ -514,19 +514,16 @@ See [`../README.txt`](../README.txt) for the full workflow, including two pass m
 
 - [`../STYLE.md`](../STYLE.md) — common rules (all languages)
 - [`../STYLE_C_CPP.md`](../STYLE_C_CPP.md) — C and C++ extensions
-- [`../STYLE_JAVA.md`](../STYLE_JAVA.md) — Java extensions
-- [`../STYLE_KOTLIN.md`](../STYLE_KOTLIN.md) — Kotlin extensions (baseline)
-- [`FORMATTER_DISCUSSION.md`](FORMATTER_DISCUSSION.md) — design rationale
-- [`DESIGN_NOTES.md`](DESIGN_NOTES.md) — rationale behind specific formatter decisions
-  (why certain config defaults/approximations were chosen)
-- [`../STYLE_JAVA17.md`](../STYLE_JAVA17.md) — Java 17+ (`record`, sealed
-  classes, switch expressions, text blocks, pattern matching)
 - [`../STYLE_CPP20.md`](../STYLE_CPP20.md) — C++17/20/23 (structured bindings,
   concepts/`requires`, `consteval`/`constinit`)
-- [`../STYLE_KOTLIN2.md`](../STYLE_KOTLIN2.md) — Kotlin 2.0/2.1 constructs
-  (guard conditions, `data object`), read after `STYLE_KOTLIN.md`
 - [`../STYLE_CPP26.md`](../STYLE_CPP26.md) — C++26 rule coverage (lands
   directly in the existing C/C++ pipeline, no separate language identity)
+- [`../STYLE_JAVA.md`](../STYLE_JAVA.md) — Java extensions
+- [`../STYLE_JAVA17.md`](../STYLE_JAVA17.md) — Java 17+ (`record`, sealed
+  classes, switch expressions, text blocks, pattern matching)
+- [`../STYLE_KOTLIN.md`](../STYLE_KOTLIN.md) — Kotlin extensions (baseline)
+- [`../STYLE_KOTLIN2.md`](../STYLE_KOTLIN2.md) — Kotlin 2.0/2.1 constructs
+  (guard conditions, `data object`), read after `STYLE_KOTLIN.md`
 - [`../STYLE_DATA_FORMATS.md`](../STYLE_DATA_FORMATS.md) — JSON/JSON5/CSS/YAML/
   TOML/XML/HTML5 (all implemented, including HTML5's `<script>` dispatch to
   JS/TS)
@@ -676,6 +673,13 @@ tag-based/markup family, then indent-based family), then by effect size within e
 ### Indent-based family (Python 3)
 
 No known limitations currently documented for indent-based languages.
+
+---
+
+## Design Notes
+
+See [`DESIGN_NOTES.md`](DESIGN_NOTES.md) for the rationale behind specific formatter
+decisions (why certain config defaults/approximations were chosen).
 
 ---
 

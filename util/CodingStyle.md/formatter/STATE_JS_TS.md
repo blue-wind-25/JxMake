@@ -285,6 +285,101 @@ active in the Makefile and passing.
   dogfood corpus re-run performed (repro-level investigation only this
   session). `make test` unaffected (244/244, no source change committed).
 
+  **2026-08-06 second follow-up session (RDD_KEY_246), two fix attempts
+  tried, both reverted, no code change landed.** Picked up directly from
+  `RDD_KEY_245`'s pointer. Reproduced `/tmp/mini.ts` (same repro), added
+  `DBG_FC`-gated instrumentation in `FormatterCurly.format` at "after
+  `ScopePipelineCurly.process`" and "before/after the first
+  `enforceCallLineBreaking` call" checkpoints. **This localizes the
+  divergence to inside `ScopePipelineCurly.process` itself, before Phase
+  1's `enforceCallLineBreaking` ever runs** -- contradicting `RDD_KEY_245`'s
+  own tentative locus (`enforceCallLineBreaking`/`renderCallCandidate`
+  ~line 1250-1330). Read that method's code directly and confirmed
+  structurally it cannot be responsible: the span it replaces is strictly
+  `[openParenIdx, closeIdx+1)`, never touching text after the call's own
+  closing `)`, so it cannot be what moves a `}` that comes after the call.
+
+  **Actual root cause (new finding, more precise than `RDD_KEY_245`'s):**
+  `ScopePipelineCurly.applyOversizedAggregateInitClosingBracePass` --
+  called once, early, inside `processScope`, well before Phase 1's
+  `enforceCallLineBreaking` -- decides whether to move a dangling `}` onto
+  its own line by checking whether the aggregate initializer's `{...}`
+  *already* contains an embedded `NEWLINE` token. On a fresh format
+  (round1) no such newline exists yet (the nested call hasn't been
+  wrapped by `enforceCallLineBreaking` yet), so the pass is a no-op and
+  `}` stays fused inline. On a reformat (round2) the previous round's
+  call-wrap newline is already present in the input, so this time the
+  pass fires and splits `}` onto its own line -- round1 != round2. Same
+  "a pass's decision depends on a later pass's not-yet-produced newline"
+  family as the precedent fixes already named in this file
+  (`enforceComplexityPadding`, `enforceAttributeAndSpliceBracketPadding`,
+  `enforceInitializerBraceSpacing`), just in a pass not previously
+  suspected.
+
+  **Attempt 1 (narrow re-run, reverted -- fixed the named symptom but
+  revealed a second, same-family divergence):** added
+  `ScopePipelineCurly.applyOversizedAggregateInitClosingBraceFixup`, a
+  public wrapper re-running only `applyOversizedAggregateInitClosingBracePass`,
+  called once more from `FormatterCurly.format` right after the first
+  `enforceCallLineBreaking` call. This corrected the `}` placement on
+  round1 to match round2 for `/tmp/mini.ts`, but exposed that
+  `JsTsDeclarationAlignmentRule.spansMultipleLines`/`parseDeclaration`'s
+  grouping decision for the same `pathOptions` row is *also* made against
+  the stale (pre-call-wrap) shape on round1 vs. the post-call-wrap shape
+  on round2 -- round1 keeps the row in its alignment group (wider column
+  padding), round2 excludes it (narrower padding) -- same underlying
+  "decision made before the shape is final" bug, manifesting a second
+  time in declaration-alignment padding, not just brace placement. Narrow
+  re-run insufficient; reverted rather than land a partial fix.
+
+  **Attempt 2 (full `ScopePipelineCurly.process(text)` re-run, reverted --
+  fixed `/tmp/mini.ts` completely but caused a real regression on the
+  fixture corpus):** replaced the narrow fixup with a second, full
+  `scopePipeline.process(text)` call in `FormatterCurly.format`'s Phase 1,
+  right after the first `enforceCallLineBreaking` call, so every
+  per-scope pass (closing-brace, declarations/alignment, assignments,
+  signature, getter-setter) re-derives its decision against the
+  post-call-wrap shape. This made `/tmp/mini.ts` fully idempotent
+  (`diff round1 round2` empty, matching the previously-established stable
+  fixed point) -- but `make test` (built via the proper `make jar`/`make
+  test` path, not an ad-hoc `javac`) showed **real, new forward-pass
+  regressions** on fixtures unrelated to the repro: `real_code_regressions_100.ts`
+  collapsed an already-correct `} // interface ParserOptions` (closing
+  brace + trailing comment, previously on its own line) back onto the
+  same line as other content; `real_code_regressions_144.kt` and several
+  Java/`cpp26` fixtures also failed. Re-running the whole pipeline a
+  second time is evidently not safe to do unconditionally -- some pass in
+  the five-pass sequence treats a second same-round invocation as "this
+  span was already finalized, re-collapse/re-merge it" rather than as a
+  true no-op refinement, at least for trailing-comment-after-`}` shapes.
+  Reverted; both source files (`FormatterCurly.java`,
+  `ScopePipelineCurly.java`) restored to their pre-session `HEAD` content
+  and the `.jar` rebuilt from clean `HEAD` via `make jar`; `make test`
+  reconfirmed clean at baseline (**244/244 forward + idempotency, zero
+  regressions** from the revert). No dogfood corpus (TS repo/Angular
+  repo/lodash) run this session -- both attempts were disqualified by the
+  local fixture suite before reaching that stage.
+
+  **Note on a testing pitfall hit this session:** a single very long
+  `make _test_serial JAR_FILE=...` invocation's terminal output can be
+  silently truncated by the calling tool without any visible marker,
+  hiding real `FAIL` lines among hundreds of `PASS` lines -- always
+  redirect `make test`/`make _test_serial` output to a log file and
+  `grep -n "^FAIL"` it directly rather than trusting a live/streamed
+  terminal capture for a suite this size.
+
+  **Next session:** the root cause (`applyOversizedAggregateInitClosingBracePass`'s
+  stale-newline check) is now precisely identified and is a strictly
+  better starting point than `RDD_KEY_245`'s. A viable fix likely needs to
+  re-run *only* the closing-brace pass plus the declaration-alignment
+  grouping/padding pass a second time (the two passes shown to actually
+  need the post-call-wrap shape) while leaving the signature/getter-setter/
+  assignment passes single-pass, to avoid Attempt 2's `real_code_regressions_100`-
+  style trailing-comment regression -- this narrower combination was not
+  tried this session (budget spent confirming the narrowest (Attempt 1)
+  and widest (Attempt 2) ends of the spectrum both fail, in different
+  ways). Full finding recorded in `RDD_LOG.md`'s `RDD_KEY_246`.
+
 - **README "braceless if/else collapse can still be non-idempotent" bullet
   (`hasBreakableCall`/`refuseUnrescuableCollapse`, `BlockStructureRule.java`)
   — 2026-08-05 investigation session, no code change landed, the documented

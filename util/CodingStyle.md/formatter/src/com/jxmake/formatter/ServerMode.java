@@ -475,7 +475,7 @@ catch(final IOException e) { System.err.println( "jxmake-code-formatter: warning
             else {
                 json.append(",\n");
             }
-            json.append("      {\"key\": ").append( jsonString(property.key) );
+            json.append("        {\"key\": ").append( jsonString(property.key) );
             json.append(", \"default\": ").append( jsonString(property.defaultValue) );
             json.append(", \"allowedValues\": ");
             if(property.allowedValues == null) {

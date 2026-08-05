@@ -1662,14 +1662,48 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         final String      inheritedIndent
     )
     {
+        return processScope(tokens, depth, scopeStartFrozen, inheritedIndent, false);
+    }
+
+    /**
+     * RDD_KEY_246/RDD_KEY_248 -- {@code closingBraceAndDeclarationsOnly} is the narrower
+     * "middle ground" re-run: when {@code true}, this scope (and every child scope it recurses
+     * into) only re-runs {@link #applyOversizedAggregateInitClosingBracePass} followed by {@link
+     * #applyDeclarationsPass} (order swapped relative to the normal first pass below -- the
+     * closing-brace pass must go first so the declarations pass sees the corrected, post-call-wrap
+     * `{...}` shape rather than re-deriving its own stale decision), skipping
+     * applyAssignmentsPass/applySignaturePass/applyGetterSetterPass entirely (those were not shown
+     * to depend on the post-call-wrap shape, and Attempt 2 in RDD_KEY_246 showed re-running
+     * unrelated passes a second time in the same round risks silently re-collapsing already-correct
+     * output, e.g. a trailing-comment-after-`}` shape). All of the surrounding span-recursion/
+     * indent-resolution logic below is identical in both modes -- only the pass sequence at the top
+     * differs -- so a real fresh format (mode {@code false}) and this fixup re-run (mode {@code
+     * true}) walk the exact same tree shape.
+     */
+    private String processScope(
+        final List<Token> tokens,
+        final int         depth,
+        final boolean     scopeStartFrozen,
+        final String      inheritedIndent,
+        final boolean     closingBraceAndDeclarationsOnly
+    )
+    {
         List<Token> current = tokens;
-        current = tokenize( applyDeclarationsPass(current, depth), scopeStartFrozen );
-        current = tokenize(
-            applyOversizedAggregateInitClosingBracePass(current), scopeStartFrozen
-        );
-        current = tokenize( applyAssignmentsPass(current), scopeStartFrozen );
-        current = tokenize( applySignaturePass(current, depth), scopeStartFrozen );
-        current = tokenize( applyGetterSetterPass(current, depth), scopeStartFrozen );
+        if(closingBraceAndDeclarationsOnly) {
+            current = tokenize(
+                applyOversizedAggregateInitClosingBracePass(current), scopeStartFrozen
+            );
+            current = tokenize( applyDeclarationsPass(current, depth), scopeStartFrozen );
+        }
+        else {
+            current = tokenize( applyDeclarationsPass(current, depth), scopeStartFrozen );
+            current = tokenize(
+                applyOversizedAggregateInitClosingBracePass(current), scopeStartFrozen
+            );
+            current = tokenize( applyAssignmentsPass(current), scopeStartFrozen );
+            current = tokenize( applySignaturePass(current, depth), scopeStartFrozen );
+            current = tokenize( applyGetterSetterPass(current, depth), scopeStartFrozen );
+        } // if
 
         final List<Span>        spans                   = splitTopLevelSpans(current);
         final List<Replacement> replacements            = new ArrayList<>();
@@ -1850,7 +1884,8 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                     tokenize(childSource, childStartFrozen),
                     childDepth,
                     childStartFrozen,
-                    childInheritedIndent
+                    childInheritedIndent,
+                    closingBraceAndDeclarationsOnly
                 );
                 // The gap between the last statement and the closing `}` belongs to no
                 // statement, so no pass above ever re-derives its indentation from depth --
@@ -1863,7 +1898,19 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 // whitespace: a comment sitting there (e.g. between a block and a following
                 // `else`) is content other passes already position/associate correctly, and
                 // blindly reindenting around it has been observed to corrupt that placement.
-                if( anyFrozen(current, span.openBraceIdx, span.closeBraceIdx + 1)
+                // RDD_KEY_246/RDD_KEY_248: on the narrower closing-brace+declarations-only
+                // re-run, skip this trailing-gap force-reindent entirely -- it re-derives
+                // `effectiveSpanIndent` from THIS round's already-formatted physical text (blank
+                // lines/Allman conversion from earlier Phase 1 passes already applied), which is
+                // not the same text shape `findParentIndent` saw the first time through
+                // `process()`, and can silently flip an already-correct closing-brace indent
+                // (found via `real_code_regressions_100.ts`'s `interface ParserOptions` losing its
+                // `}`'s 2-space indent on this second run). The first `process()` call already
+                // force-reindented every trailing gap correctly once; this second, narrower run
+                // only needs the two token-level passes' own splices, not a second independent
+                // re-derivation of indentation.
+                if( closingBraceAndDeclarationsOnly
+                        || anyFrozen(current, span.openBraceIdx, span.closeBraceIdx + 1)
                         || trailingGapHasComment(
                             current, span.closeBraceIdx
                         ) || effectiveSpanIndent == null
@@ -1915,7 +1962,20 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
      */
     public String process(final String source)
     {
-        return processScope( tokenize(source, formatOff), 0, formatOff, "" );
+        return processScope( tokenize(source, formatOff), 0, formatOff, "", false );
+    }
+
+    /**
+     * RDD_KEY_246/RDD_KEY_248 -- narrow re-run entry point for {@code FormatterCurly.format}'s
+     *  JS/TS-only fixup: re-runs only {@link #applyOversizedAggregateInitClosingBracePass} +
+     *  {@link #applyDeclarationsPass} (closing-brace first, so declarations sees the corrected
+     *  shape) across the whole scope tree, leaving every other pass single-pass for this round.
+     *  See {@link #processScope(List, int, boolean, String, boolean)}'s doc comment for the full
+     *  rationale.
+     */
+    public String reapplyClosingBraceAndDeclarationsPass(final String source)
+    {
+        return processScope( tokenize(source, formatOff), 0, formatOff, "", true );
     }
 
     /**

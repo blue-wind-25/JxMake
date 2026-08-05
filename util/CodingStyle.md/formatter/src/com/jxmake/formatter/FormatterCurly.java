@@ -115,12 +115,13 @@ public final class FormatterCurly extends FormatterCore {
             // reason recorded below.
             text = jsTsRule.enforceSemicolonInsertion( tokenizer.apply(text) );
         } // if
-        text = new ScopePipelineCurly(
+        final ScopePipelineCurly scopePipeline = new ScopePipelineCurly(
             lang, config.indentStyle(), config.isNormalizeCommentStartCase(),
             config.isNormalizeCommentEndPeriod(), config.isCommentNormalizationClassifier(),
             config.isGruClassifier(), config.gruWeightsPath(),
             formatOff, indentWidth, lineLengthLimit
-        ).process(text);
+        );
+        text = scopePipeline.process(text);
 
         // Phase 1: structural/brace passes.
         // (STYLE_JS_TS.md §2 semicolon insertion itself now runs earlier, right before
@@ -244,6 +245,20 @@ public final class FormatterCurly extends FormatterCore {
         text = miscRule.enforceInitializerBraceSpacing( tokenizer.apply(text) );
         text = miscRule.enforceKeywordSpacing( tokenizer.apply(text) );
         text = miscRule.enforceCallLineBreaking( tokenizer.apply(text) );
+        if(lang.isJs || lang.isTs) {
+            // RDD_KEY_246/RDD_KEY_248: ScopePipelineCurly.applyOversizedAggregateInitClosingBracePass's
+            // dangling-`}` decision, and JsTsDeclarationAlignmentRule's grouping/padding decision,
+            // are both made above (inside scopePipeline.process) BEFORE the call-wrap just above
+            // has run -- so both can be computed against a stale, pre-wrap `{...}` shape on a fresh
+            // format, only becoming stable once a prior round's own wrap-newline is already present
+            // in the input (round1 != round2). Re-run just those two passes now, against the
+            // post-wrap shape, closing-brace first so the declarations pass sees the corrected
+            // shape too. Deliberately narrower than re-running the whole `process()` a second time
+            // (that regressed unrelated already-correct constructs, e.g. a trailing-comment-after-
+            // `}` interface body -- see RDD_KEY_246) and narrower than re-running just the
+            // closing-brace pass alone (left the declarations pass working off stale data).
+            text = scopePipeline.reapplyClosingBraceAndDeclarationsPass(text);
+        } // if
         // EnforceCallLineBreaking can turn a one-liner function body into a multi-line one (an
         // overlong call inside it gets wrapped across lines) -- but enforceFunctionDefinitionAllman
         // BraceStyle already ran earlier, above, back when the body still looked like a one-liner,

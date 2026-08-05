@@ -74,6 +74,7 @@ convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_195 | §15 local-import classification — drop the source-root disjunct entirely; only `./`/`../`-prefixed specifiers are "local", everything else non-built-in is "third-party" |
 | RDD_KEY_196 | Closing comments on modifier-prefixed methods (`async`/`static`/`get`/`set`) use the bare name only, no modifiers; object-shaped `type X = {...}` aliases get closing comments like `interface`/`class`/`enum` |
 | RDD_KEY_197 | Import-ordering: trailing same-line comment travels with its import; a standalone comment segments the import list (grouped/sorted independently per segment) instead of bailing the whole pass |
+| RDD_KEY_248 | Call-wrap/collapse vs. declaration-alignment/padding idempotency bug (Tier-4, see Open Questions), 3rd session, FIXED: `ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass` re-runs just the closing-brace + declarations passes a second time (JS/TS only), with the shared trailing-gap force-reindent step skipped on that re-run |
 
 ---
 
@@ -178,8 +179,10 @@ active in the Makefile and passing.
 - **JSX/TSX out-of-scope statement** — see Scope section above (exact
   wording preserved there per policy: out of scope entirely, not deferred).
 - **Cluster #3 sibling ("declaration/class-field-alignment-grid vs. call-wrap
-  ordering") — 2026-08-05 investigation session, no code change landed, new
-  architectural finding recorded.** Attempted to root-cause and fix the
+  ordering") — RESOLVED 2026-08-06 (RDD_KEY_248), see that dated subsection
+  below for the landed fix. History below kept for context (2026-08-05
+  investigation session, no code change landed, new architectural finding
+  recorded).** Attempted to root-cause and fix the
   `microsoft/TypeScript` `commandLineParser.ts` `pathOptions`/`optionMap`/
   `watchOptionMap` declaration-group shape (minimal repro: `/tmp/mini.ts`,
   see below) directly named in cluster #3's write-up above as "not a
@@ -379,6 +382,51 @@ active in the Makefile and passing.
   tried this session (budget spent confirming the narrowest (Attempt 1)
   and widest (Attempt 2) ends of the spectrum both fail, in different
   ways). Full finding recorded in `RDD_LOG.md`'s `RDD_KEY_246`.
+
+  **2026-08-06 third follow-up session (RDD_KEY_248), FIXED -- landed.**
+  Picked up `RDD_KEY_246`'s untried "narrower middle ground" pointer
+  directly: re-run only `applyOversizedAggregateInitClosingBracePass` +
+  `applyDeclarationsPass` (closing-brace first) a second time, via a new
+  `processScope(..., closingBraceAndDeclarationsOnly)` overload and public
+  `ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass(String)` entry
+  point, called from `FormatterCurly.format` (JS/TS only) right after the
+  first `enforceCallLineBreaking`. **First cut reproduced Attempt 2's exact
+  `real_code_regressions_100.ts` regression again** (`} // interface
+  ParserOptions` losing its 2sp indent) -- tracing it down showed the true
+  cause is NOT the two token-level passes at all, but `processScope`'s
+  shared trailing-gap force-reindent step (the block right after the
+  span-recursion loop that snaps a child scope's closing-brace gap to a
+  freshly-recomputed `effectiveSpanIndent`): on this second, narrower
+  re-run, that step re-derives indentation from the round's ALREADY-
+  reformatted physical text (other Phase 1 passes' blank-line-insertion/
+  Allman-conversion already baked in by this point), a different shape
+  than what `findParentIndent` saw during the original `process()` call,
+  so it can silently flip an already-correct closing-brace indent. **Fix:**
+  skip that force-reindent step entirely when
+  `closingBraceAndDeclarationsOnly` is true (the first `process()` call
+  already got it right once; the narrower re-run only needs its own two
+  passes' own splices). With that one gate, `real_code_regressions_100.ts`
+  matches expected output again. Validated: `make test-quiet` 492/492
+  (245 fixture pairs incl. new `real_code_regressions_179`, forward +
+  idempotency, zero FAIL); `/tmp/mini.ts` fully idempotent;
+  `microsoft/TypeScript` dogfood corpus (`/tmp/ts-dogfood/TypeScript`,
+  `src/` only, 601 `.ts` files) round1/round2 mismatches 31/601 (freshly
+  reconfirmed baseline) -> 20/601 with the fix, a strict subset (zero new
+  regressions, 11 files newly idempotent incl. `commandLineParser.ts`
+  itself); `angular/angular` dogfood corpus (`/tmp/angular`, same 5394-file
+  `.ts` scope as the existing entry below) 17/5394 (freshly reconfirmed
+  baseline) -> 15/5394, again a strict subset (zero new regressions, 2
+  files newly idempotent). `lodash/lodash`'s cached checkout was found
+  empty/stale this session (not re-cloned given the already-large
+  corpus-validation cost already spent on the other two, much larger,
+  corpora -- the fix is JS/TS-gated, not lodash-specific, and the two
+  re-run corpora already give strong consistent evidence; a future session
+  can re-verify lodash if convenient, not treated as a blocking gap). New
+  fixture `test/real_code_regressions_179_{inp,out}.ts` (the
+  `commandLineParser.ts`-derived minimal repro) registered in the
+  Makefile's `INP_FILES` and `test/README.txt`. Full finding recorded in
+  `RDD_LOG.md`'s `RDD_KEY_248`. **This item is now closed** -- see the
+  Resolved Design Decisions index above.
 
 - **README "braceless if/else collapse can still be non-idempotent" bullet
   (`hasBreakableCall`/`refuseUnrescuableCollapse`, `BlockStructureRule.java`)

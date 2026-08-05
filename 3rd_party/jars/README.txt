@@ -19,12 +19,12 @@ Zstd-jni
 https://github.com/luben/zstd-jni
     Licensed under the BSD 2-Clause "Simplified" License.
     https://github.com/luben/zstd-jni/blob/master/LICENSE
-https://repo1.maven.org/maven2/com/github/luben/zstd-jni/1.5.7-8/zstd-jni-1.5.7-8.jar
+https://repo1.maven.org/maven2/com/github/luben/zstd-jni/1.5.7-11/zstd-jni-1.5.7-11.jar
     NOTE : The fat JAR has been reduced in size by removing native libraries for exotic or rarely
            used platforms:
                mkdir   zstd-work
                cd      zstd-work
-               jar xf  ../zstd-jni-1.5.7-8.jar
+               jar xf  ../zstd-jni-1.5.7-11.jar
                rm -rvf aix
                rm -rvf linux/loongarch64
                rm -rvf linux/mips64
@@ -54,7 +54,7 @@ RSyntaxTextArea
 https://github.com/bobbylight/RSyntaxTextArea
     Licensed under the Modified BSD License (BSD 3-Clause "New" or "Revised" License).
     https://github.com/bobbylight/RSyntaxTextArea/blob/master/LICENSE.md
-https://repo1.maven.org/maven2/com/fifesoft/rsyntaxtextarea/3.6.2/rsyntaxtextarea-3.6.2.jar
+https://repo1.maven.org/maven2/com/fifesoft/rsyntaxtextarea/3.6.3/rsyntaxtextarea-3.6.3.jar
 
 AutoComplete
 https://github.com/bobbylight/AutoComplete
@@ -66,7 +66,7 @@ Java Does USB
 https://github.com/manuelbl/JavaDoesUSB
     Licensed under the MIT License.
     https://github.com/manuelbl/JavaDoesUSB/blob/main/LICENSE
-https://repo1.maven.org/maven2/net/codecrete/usb/java-does-usb/1.2.1/java-does-usb-1.2.1.jar
+https://repo1.maven.org/maven2/net/codecrete/usb/java-does-usb/1.3.0/java-does-usb-1.3.0.jar
 
 ----------------------------------------------------------------------------------------------------
 
@@ -86,13 +86,13 @@ Kotlin Programming Language
 https://github.com/JetBrains/kotlin
     Licensed under the Apache License version 2.0.
     https://github.com/JetBrains/kotlin/blob/master/license/README.md
-https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.3.21/kotlin-stdlib-2.3.21.jar
+https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.4.10/kotlin-stdlib-2.4.10.jar
 
 SLF4J
 https://github.com/qos-ch/slf4j
     Licensed under the MIT License.
     https://github.com/qos-ch/slf4j/blob/master/LICENSE.txt
-https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.17/slf4j-api-2.0.17.jar
+https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.18/slf4j-api-2.0.18.jar
 
 Java Native Access (JNA)
 https://github.com/java-native-access/jna
@@ -101,5 +101,5 @@ https://github.com/java-native-access/jna
         # The GNU Lesser General Public License (LGPL) version 2.1 or later.
     https://github.com/java-native-access/jna/blob/master/AL2.0
     https://github.com/java-native-access/jna/blob/master/LGPL2.1
-https://repo1.maven.org/maven2/net/java/dev/jna/jna/5.18.1/jna-5.18.1.jar
-https://repo1.maven.org/maven2/net/java/dev/jna/jna-platform/5.18.1/jna-platform-5.18.1.jar
+https://repo1.maven.org/maven2/net/java/dev/jna/jna/5.19.1/jna-5.19.1.jar
+https://repo1.maven.org/maven2/net/java/dev/jna/jna-platform/5.19.1/jna-platform-5.19.1.jar

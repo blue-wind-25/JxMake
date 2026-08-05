@@ -1,0 +1,63 @@
+# Design Notes
+
+Rationale behind a handful of formatter decisions that aren't obvious from
+usage alone. This is a reader-facing distillation, not a change log or an
+implementation-progress tracker — it has no dates and isn't updated per
+commit.
+
+## GRU comment classifier: why `abstainThreshold = 0.7`
+
+The comment-normalization classifier (`gru-classifier`, see `README.md`'s
+"Comment classifier (GRU)" section) abstains below a softmax confidence
+cutoff rather than forcing a low-confidence guess. `0.7` was chosen over
+the GRU trainer's raw default of `0.5` via a held-out cross-validation
+sweep: it roughly halves the false-positive rate (wrongly capitalizing a
+comment that was actually a real code reference, e.g. `return x;`) at
+little cost to how many genuinely ambiguous comments get resolved.
+
+## HTML5 tree-construction gap levels: why they're narrow approximations
+
+`html5-tc-gap-level` (see `README.md`'s "HTML5 tree-construction gap
+levels" section) intentionally implements narrow approximations of the
+HTML5 spec's tree-construction algorithms rather than the full spec
+algorithms, because this formatter's whole design is preserve-as-written
+rather than parse-into-a-real-DOM-and-reprint. Each level trades spec
+completeness for staying close to that preserve-as-written model:
+
+- **Level 2**'s foster-parenting check (`isInTableInsertionMode()`) is a
+  single-level "direct child of an open `<table>`" test rather than a full
+  ancestor scan. A full ancestor scan was tried first and rejected: it
+  incorrectly re-evaluates a fostered element's own already-relocated
+  descendants, double-processing content that a single-level check
+  handles correctly.
+- **Level 4**'s adoption-agency approximation tracks only the single most
+  recently orphaned formatting element, not the spec's full "list of
+  active formatting elements" + "furthest block" + "bookmark" algorithm.
+  This covers the common case (one misnested `<b>`/`<i>`-style element)
+  without the complexity of the full algorithm, at the cost of not
+  reconstructing a second, simultaneous misnesting under the same
+  ancestor.
+
+## JS/TS import ordering: why bundler path-mapped imports aren't detected
+
+Local-import detection for JS/TS (`js-import-order`, see `README.md`'s
+"JS/TS import groups" section) is purely syntactic: an import is `local`
+iff its specifier starts with `./` or `../`. This is a deliberate
+simplification — resolving a bundler or tsconfig `baseUrl`/`paths`
+mapping (e.g. treating `import { Widget } from "components/Widget"` as
+local because it resolves to the project's own source tree) would require
+this formatter to understand `tsconfig.json`/bundler config, which is out
+of scope for a tokenizer-based formatter with no project-graph awareness.
+No source-root config key is planned to close this gap.
+
+## GDR joined-brace-style gap: why multipass is opt-in rather than default
+
+`curly-general-scope-reindent-multipass` (see `README.md`'s "General
+scope-depth reindentation (GDR)" section) fixes a real non-idempotency on
+one-true-brace-style source by running a bounded convergence loop instead
+of a single pre-pass-then-pipeline pass. It stays a separate, off-by-default
+key rather than folding into `curly-general-scope-reindent` itself because
+it changes the cost profile of formatting (multiple pre-pass-plus-pipeline
+cycles per file instead of exactly one) — a tradeoff only worth paying for
+source that actually exercises the gap, not something to impose on every
+GDR-enabled file by default.

@@ -335,13 +335,9 @@ own.
 
 `abstainThreshold = 0.7` is baked into the shipped weights file (not a
 separate config key): the GRU itself abstains below this softmax
-confidence cutoff rather than forcing a low-confidence guess. `0.7` was
-chosen over the trainer's raw default of `0.5` via a held-out
-cross-validation sweep — it cuts the false-positive rate (wrongly
-capitalizing a real code-reference comment) roughly in half versus `0.5`,
-at little cost to how many genuinely ambiguous comments get resolved. See
-`STATE_AI.md` for the full accuracy history and the cross-validation
-numbers behind that choice.
+confidence cutoff rather than forcing a low-confidence guess. See
+[`DESIGN_NOTES.md`](DESIGN_NOTES.md) for why `0.7` was chosen over a lower
+threshold.
 
 ### General scope-depth reindentation (GDR) (`curly-general-scope-reindent`)
 
@@ -400,9 +396,8 @@ key). Default `0`: current, strictly preserve-as-written HTML5 parsing, unchange
 - **Level `2`** (+ level 1) — foster-parenting: content the spec requires relocated out of an
   open `<table>` and inserted immediately before it, rather than nested inside where the source
   text placed it. Known gap: `isInTableInsertionMode()` is implemented as a single-level "direct
-  child of an open `<table>`" check, not a full ancestor scan — an implemented deviation from
-  `RDD_KEY_230`'s original design sketch, found necessary via smoke-testing (the ancestor-scan
-  form incorrectly re-evaluates a fostered element's own already-relocated descendants).
+  child of an open `<table>`" check, not a full ancestor scan (a full ancestor scan incorrectly
+  re-evaluates a fostered element's own already-relocated descendants).
 - **Level `3`** (+ levels 1-2) — misnested `<form>` reconstruction inside `<template>`: a
   single-slot "form element pointer," scoped per `<template>` boundary via plain Java
   call-stack local-variable save/restore. No known gap.
@@ -415,8 +410,7 @@ key). Default `0`: current, strictly preserve-as-written HTML5 parsing, unchange
   reconstructed — only the innermost/most-recently-orphaned one is (the plain field gets
   overwritten, not queued).
 
-See `STATE_HTML5_TCG.md` for the full design history (`RDD_KEY_230`) and each level's own
-implementation notes.
+See [`DESIGN_NOTES.md`](DESIGN_NOTES.md) for the design history behind these approximations.
 
 ### Comment capitalization exceptions (`normalize-comment-start-case`)
 
@@ -523,6 +517,8 @@ See [`../README.txt`](../README.txt) for the full workflow, including two pass m
 - [`../STYLE_JAVA.md`](../STYLE_JAVA.md) — Java extensions
 - [`../STYLE_KOTLIN.md`](../STYLE_KOTLIN.md) — Kotlin extensions (baseline)
 - [`FORMATTER_DISCUSSION.md`](FORMATTER_DISCUSSION.md) — design rationale
+- [`DESIGN_NOTES.md`](DESIGN_NOTES.md) — rationale behind specific formatter decisions
+  (why certain config defaults/approximations were chosen)
 - [`../STYLE_JAVA17.md`](../STYLE_JAVA17.md) — Java 17+ (`record`, sealed
   classes, switch expressions, text blocks, pattern matching)
 - [`../STYLE_CPP20.md`](../STYLE_CPP20.md) — C++17/20/23 (structured bindings,
@@ -628,7 +624,7 @@ tag-based/markup family, then indent-based family), then by effect size within e
    "components/Widget"` pointing at the project's own source tree, not a `node_modules`
    package) is classified `third-party` instead, since this formatter has no config concept
    for a project's source root and no `tsconfig.json`/bundler-config resolution logic. This
-   is a known, accepted simplification (RDD_KEY_195) — no source-root config key is planned.
+   is a known, accepted simplification — no source-root config key is planned.
 
 5. **Non-idempotent reindent on internally-inconsistent generated source, for any pass using
    a relative-delta technique.** Two known call sites share this root cause:
@@ -666,8 +662,7 @@ tag-based/markup family, then indent-based family), then by effect size within e
    approximation of each corresponding HTML5 spec algorithm, not a full spec-faithful
    implementation.** See "Config file format" → [HTML5 tree-construction gap
    levels](#html5-tree-construction-gap-levels-html5-tc-gap-level) above for what the key is,
-   what each level enables, and each level's own documented gap; `STATE_HTML5_TCG.md` has the
-   full design history (`RDD_KEY_230`).
+   what each level enables, and each level's own documented gap.
 
 7. **HTML/XML single-word comments are never capitalized, even when they're genuine one-word
    prose.** See "Config file format" → [Comment capitalization
@@ -687,5 +682,3 @@ No known limitations currently documented for indent-based languages.
 ## License
 
 Apache License, Version 2.0 — see [LICENSE.txt](LICENSE.txt)
-
-> **Note:** The LICENSE file year should read `2022-2026`, matching the JxMake project origin year.

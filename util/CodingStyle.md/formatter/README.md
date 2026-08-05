@@ -560,6 +560,16 @@ The server (`--server`) exposes two plain-HTTP endpoints on `localhost:<port>` (
     on top of, and overrides, any file-based config for the same keys.
 - `POST /shutdown` — asks the server to stop; responds `200 shutting down` immediately, then
   terminates the process shortly after (deleting its lockfile first). Used by `--stop`.
+- `GET /properties` — no request parameters, empty request body. Response body (HTTP 200) is a
+  JSON array, one object per config key (`Config.describeAll()`), in the same order as the
+  `### Config file format` list below: `{"key": "<config-key>", "default": "<default-value>",
+  "allowedValues": ["choice1", "choice2", ...] | null}`. `default` is always the value's raw
+  string form (as it would appear in a config file/query param/env var), even for
+  integer/boolean keys. `allowedValues` is a fixed list for `on`/`off` boolean keys and the
+  few enum-like keys (`indent-style`, `line-endings`); `null` for free-form values (integers,
+  paths, comma-separated import-order lists). Lets tooling introspect the formatter's config
+  surface without parsing this README. Reads live from `Config.java`, the runtime source of
+  truth, so it cannot drift from actual behavior the way a hand-maintained doc list can.
 
 Clients are expected to auto-detect a running server via the lockfile at
 `~/.config/jxmake-code-formatter/server.lock` (PID on line 1, port on line 2) rather than

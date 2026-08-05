@@ -301,6 +301,161 @@ public final class Config {
         return ALL_KEYS_SET.contains(key);
     }
 
+    private static final String[] ON_OFF_CHOICES = { "on", "off" };
+
+    /**
+     * Describes one config property: its key, its default value (as the raw string form used in
+     * a config file/env var/query param), and, where the value is restricted to a fixed set
+     * ({@code on}/{@code off} booleans or one of {@link #INDENT_STYLE_CHOICES}/
+     * {@link #LINE_ENDINGS_CHOICES}), the allowed values -- {@code null} for a free-form value
+     * (integers, paths, comma-separated import-order lists).
+     */
+    public static final class ConfigProperty {
+
+        public final String   key;
+        public final String   defaultValue;
+        public final String[] allowedValues;
+
+        ConfigProperty(final String key, final String defaultValue, final String[] allowedValues)
+        {
+            this.key           = key;
+            this.defaultValue  = defaultValue;
+            this.allowedValues = allowedValues;
+        }
+
+    } // class ConfigProperty
+
+    /**
+     * Zips {@link #ALL_KEYS} with each key's default value and (where applicable) allowed-values
+     * array into one {@link ConfigProperty} per key, in {@code ALL_KEYS} order. Used by the
+     * server's {@code /properties} endpoint to let tooling introspect the config surface without
+     * parsing README.md -- {@code Config.java} is already the runtime source of truth.
+     */
+    public static List<ConfigProperty> describeAll()
+    {
+        final Config         defaults = new Config();
+        final List<ConfigProperty> result = new ArrayList<ConfigProperty>();
+        for(final String key : ALL_KEYS) {
+            final String   defaultValue;
+            final String[] allowedValues;
+            switch(key) {
+                case "line-length":
+                    defaultValue  = String.valueOf(defaults.lineLength);
+                    allowedValues = null;
+                    break;
+                case "indent-size":
+                    defaultValue  = String.valueOf(defaults.indentSize);
+                    allowedValues = null;
+                    break;
+                case "indent-style":
+                    defaultValue  = defaults.indentStyle;
+                    allowedValues = INDENT_STYLE_CHOICES;
+                    break;
+                case "server-port":
+                    defaultValue  = String.valueOf(defaults.serverPort);
+                    allowedValues = null;
+                    break;
+                case "closing-comment-min-lines":
+                    defaultValue  = String.valueOf(defaults.closingCommentMinLines);
+                    allowedValues = null;
+                    break;
+                case "format-macros":
+                    defaultValue  = defaults.formatMacros ? "on" : "off";
+                    allowedValues = ON_OFF_CHOICES;
+                    break;
+                case "line-endings":
+                    defaultValue  = defaults.lineEndings;
+                    allowedValues = LINE_ENDINGS_CHOICES;
+                    break;
+                case "normalize-comment-start-case":
+                    defaultValue  = defaults.normalizeCommentStartCase ? "on" : "off";
+                    allowedValues = ON_OFF_CHOICES;
+                    break;
+                case "normalize-comment-end-period":
+                    defaultValue  = defaults.normalizeCommentEndPeriod ? "on" : "off";
+                    allowedValues = ON_OFF_CHOICES;
+                    break;
+                case "comment-normalization-classifier":
+                    defaultValue  = defaults.commentNormalizationClassifier ? "on" : "off";
+                    allowedValues = ON_OFF_CHOICES;
+                    break;
+                case "header-guard-rename":
+                    defaultValue  = defaults.headerGuardRename ? "on" : "off";
+                    allowedValues = ON_OFF_CHOICES;
+                    break;
+                case "java-import-order":
+                    defaultValue  = String.join(", ", defaults.javaImportOrder);
+                    allowedValues = null;
+                    break;
+                case "java-import-sort":
+                    defaultValue  = defaults.javaImportSort ? "on" : "off";
+                    allowedValues = ON_OFF_CHOICES;
+                    break;
+                case "java-import-depth":
+                    defaultValue  = String.valueOf(defaults.javaImportDepth);
+                    allowedValues = null;
+                    break;
+                case "java-import-blank-lines":
+                    defaultValue  = String.valueOf(defaults.javaImportBlankLines);
+                    allowedValues = null;
+                    break;
+                case "kotlin-import-order":
+                    defaultValue  = String.join(", ", defaults.kotlinImportOrder);
+                    allowedValues = null;
+                    break;
+                case "kotlin-import-sort":
+                    defaultValue  = defaults.kotlinImportSort ? "on" : "off";
+                    allowedValues = ON_OFF_CHOICES;
+                    break;
+                case "kotlin-import-depth":
+                    defaultValue  = String.valueOf(defaults.kotlinImportDepth);
+                    allowedValues = null;
+                    break;
+                case "kotlin-import-blank-lines":
+                    defaultValue  = String.valueOf(defaults.kotlinImportBlankLines);
+                    allowedValues = null;
+                    break;
+                case "js-import-order":
+                    defaultValue  = String.join(", ", defaults.jsImportOrder);
+                    allowedValues = null;
+                    break;
+                case "js-import-sort":
+                    defaultValue  = defaults.jsImportSort ? "on" : "off";
+                    allowedValues = ON_OFF_CHOICES;
+                    break;
+                case "js-import-blank-lines":
+                    defaultValue  = String.valueOf(defaults.jsImportBlankLines);
+                    allowedValues = null;
+                    break;
+                case "gru-classifier":
+                    defaultValue  = defaults.gruClassifier ? "on" : "off";
+                    allowedValues = ON_OFF_CHOICES;
+                    break;
+                case "gru-weights-path":
+                    defaultValue  = defaults.gruWeightsPath;
+                    allowedValues = null;
+                    break;
+                case "curly-general-scope-reindent":
+                    defaultValue  = defaults.curlyGeneralScopeReindent ? "on" : "off";
+                    allowedValues = ON_OFF_CHOICES;
+                    break;
+                case "curly-general-scope-reindent-multipass":
+                    defaultValue  = defaults.curlyGeneralScopeReindentMultipass ? "on" : "off";
+                    allowedValues = ON_OFF_CHOICES;
+                    break;
+                case "html5-tc-gap-level":
+                    defaultValue  = String.valueOf(defaults.html5TcGapLevel);
+                    allowedValues = null;
+                    break;
+                default:
+                    throw new IllegalStateException("describeAll: no case for key '" + key + "'");
+            } // switch
+            result.add( new ConfigProperty(key, defaultValue, allowedValues) );
+        } // for
+
+        return result;
+    }
+
     /**
      * Returns the calling process's own {@code JXMAKE_CODE_FORMATTER_*} environment-variable
      * overrides (tier 3 of the precedence chain, see README.md's "Configuration" section).

@@ -94,6 +94,7 @@ public final class ServerMode {
 
         httpServer.createContext( "/format", new FormatHandler() );
         httpServer.createContext( "/shutdown", new ShutdownHandler(httpServer, lockfilePath) );
+        httpServer.createContext( "/properties", new PropertiesHandler() );
         httpServer.start();
         System.out.println("jxmake-code-formatter: server listening on port " + port);
 
@@ -426,6 +427,78 @@ catch(final IOException e) { System.err.println( "jxmake-code-formatter: warning
         }
 
     } // class ShutdownHandler
+
+    /**
+     * Returns the full config-property surface ({@code Config.describeAll()}) as JSON, for
+     * tooling that wants to introspect available keys/defaults/allowed values without parsing
+     * README.md. No request parameters. GET (or any method -- unconditional, like the other two
+     * handlers, which don't restrict method either).
+     */
+    private static final class PropertiesHandler implements HttpHandler {
+
+        @Override
+        public void handle(final HttpExchange exchange) throws IOException
+        {
+            try {
+                respond( exchange, 200, propertiesJson() );
+            }
+            catch(final Exception e) {
+                respond( exchange, 500, e.getMessage() != null ? e.getMessage() : e.toString() );
+            }
+        }
+
+    } // class PropertiesHandler
+
+    private static String propertiesJson()
+    {
+        final StringBuilder json = new StringBuilder();
+        json.append("[\n");
+        final List<Config.ConfigProperty> properties = Config.describeAll();
+        for(int i = 0; i < properties.size(); ++i) {
+            final Config.ConfigProperty property = properties.get(i);
+            json.append("  {\"key\": ").append( jsonString(property.key) );
+            json.append(", \"default\": ").append( jsonString(property.defaultValue) );
+            json.append(", \"allowedValues\": ");
+            if(property.allowedValues == null) {
+                json.append("null");
+            }
+            else {
+                json.append("[");
+                for(int j = 0; j < property.allowedValues.length; ++j) {
+                    if(j > 0) json.append(", ");
+                    json.append( jsonString(property.allowedValues[j]) );
+                } // for
+                json.append("]");
+            } // if
+            json.append("}");
+            if(i < properties.size() - 1) json.append(",");
+            json.append("\n");
+        } // for
+        json.append("]\n");
+
+        return json.toString();
+    }
+
+    private static String jsonString(final String value)
+    {
+        final StringBuilder escaped = new StringBuilder("\"");
+        for(int i = 0; i < value.length(); ++i) {
+            final char c = value.charAt(i);
+            switch(c) {
+                case '"':  escaped.append("\\\""); break;
+                case '\\': escaped.append("\\\\"); break;
+                case '\n': escaped.append("\\n");  break;
+                case '\r': escaped.append("\\r");  break;
+                case '\t': escaped.append("\\t");  break;
+                default:
+                    if(c < 0x20) escaped.append( String.format("\\u%04x", (int) c) );
+                    else         escaped.append(c);
+            } // switch
+        } // for
+        escaped.append("\"");
+
+        return escaped.toString();
+    }
 
     private static Map<String, String> parseQuery(final URI uri)
     {

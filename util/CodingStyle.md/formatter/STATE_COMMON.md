@@ -279,59 +279,21 @@ delegated request. `README.md`'s Configuration section documents this in a
 
 ## Config Keys and Defaults
 
-Configurable values with their in-class defaults. All overridable via config file or CLI.
+`README.md`'s `### Config file format` section is the authoritative, full list of every config
+key with its default and allowed values (also queryable live at runtime via the server's
+`/properties` endpoint, see README.md's "Server Wire Protocol" section — backed by
+`Config.describeAll()`, `Config.java` itself being the runtime source of truth). Do not
+hand-maintain a second full copy of that list here; it drifts. This section only holds
+maintainer-facing notes not appropriate for README.md's user-facing doc:
 
-```properties
-# ── Structural constants ──────────────────────────────────────────────────────
-server-port                            = 17173
-
-line-length                            = 100
-indent-size                            = 4
-indent-style                           = spaces      # spaces | tabs | auto
-
-# ── Behavior ──────────────────────────────────────────────────────────────────
-line-endings                           = lf          # lf | crlf | preserve
-
-normalize-comment-start-case           = on          # on | off
-normalize-comment-end-period           = on          # on | off
-comment-normalization-classifier       = on          # on | off (flipped on 2026-07-30 after fixing the KeywordAmbiguityGate weight regression, see STATE_AI.md)
-closing-comment-min-lines              = 5
-
-curly-general-scope-reindent           = off         # off | on
-curly-general-scope-reindent-multipass = off         # off | on, only takes effect when the above is also on (see STATE_CURLY_GDR.md, RDD_KEY_233/RDD_KEY_234)
-
-# ── C/C++ ─────────────────────────────────────────────────────────────────────
-header-guard-rename                    = off         # off | on
-format-macros                          = off         # off | on
-
-# ── Java ──────────────────────────────────────────────────────────────────────
-java-import-order                      = java, com, org, other, local, static
-java-import-sort                       = on
-java-import-depth                      = 2
-java-import-blank-lines                = 1
-
-# ── Kotlin ────────────────────────────────────────────────────────────────────
-kotlin-import-order                    = kotlin, java, android, com, org, other, local
-kotlin-import-sort                     = on
-kotlin-import-depth                    = 2
-kotlin-import-blank-lines              = 1
-
-# ── JS/TS ─────────────────────────────────────────────────────────────────────
-js-import-order                        = builtin, third-party, local
-js-import-sort                         = on
-js-import-blank-lines                  = 1
-
-# ── Python 3 ──────────────────────────────────────────────────────────────────
-python-import-sort                     = on
-python-import-blank-lines              = 1
-
-# ── HTML5 ─────────────────────────────────────────────────────────────────────
-html5-tc-gap-level                     = 0           # 0 | 1 | 2 | 3 | 4, cumulative (levels 1-4 implemented, see STATE_HTML5_TCG.md)
-
-# ── AI-assist (GRU) ───────────────────────────────────────────────────────────
-gru-classifier                         = on          # on | off (default on 2026-08-02 -- held-out cross-validation confirmed abstainThreshold=0.7 keeps the NO false-positive rate low enough to trust, see STATE_AI.md)
-gru-weights-path                       =             # empty = derive from program dir, see STATE_AI.md
-```
+- `comment-normalization-classifier`: flipped on 2026-07-30 after fixing the
+  `KeywordAmbiguityGate` weight regression — see `STATE_AI.md`.
+- `curly-general-scope-reindent` / `curly-general-scope-reindent-multipass`: see
+  `STATE_CURLY_GDR.md`, `RDD_KEY_233`/`RDD_KEY_234`.
+- `html5-tc-gap-level`: cumulative 0-4, levels 1-4 implemented — see `STATE_HTML5_TCG.md`.
+- `gru-classifier` / `gru-weights-path`: default on since 2026-08-02 (held-out cross-validation
+  confirmed `abstainThreshold=0.7` keeps the NO false-positive rate low enough to trust) — see
+  `STATE_AI.md`.
 
 For every added, deleted, or modified configuration item,
 synchronize it with `README.md` and the implementation of
@@ -480,43 +442,31 @@ This is intentionally scoped as housekeeping, not a rewrite — do not let it
 grow into an attempt at any separate, dedicated, much riskier architectural
 job.
 
-### Server mode: 3rd endpoint exposing config properties
+### Server mode: 3rd endpoint exposing config properties — DONE
 
-Not started. Scoped 2026-08-06.
+Implemented 2026-08-06. `Config.describeAll()` returns a `List<ConfigProperty>`
+(`key`/`defaultValue`/`allowedValues`, the latter `null` for free-form values,
+`{"on","off"}` for boolean keys, `INDENT_STYLE_CHOICES`/`LINE_ENDINGS_CHOICES`
+for the two enum-like keys), zipped from `ALL_KEYS` via an explicit switch over
+a fresh default `Config` instance's fields — mechanical, no new state.
+`ServerMode.java` gained a `GET /properties` handler (`PropertiesHandler`,
+registered in `start()` alongside `/format`/`/shutdown`) that serializes it
+with a small self-contained `propertiesJson()`/`jsonString()` JSON writer (no
+existing general-purpose JSON-building helper existed elsewhere in the
+codebase to reuse — `FormatterJson.java` etc. are JSON-the-language
+formatters, not object serializers). Verified end-to-end: started a real
+server, curled `/properties`, confirmed valid JSON with all 27 keys and
+correct `allowedValues` (e.g. `indent-style` → `["spaces","tabs","auto"]`).
+`make test` (244/244) and `make test-server` (all existing checks) stayed
+green. README.md's "Server Wire Protocol" section documents the new endpoint
+alongside `/format`/`/shutdown`. This file's "Config Keys and Defaults" block
+below was trimmed per the docs-only follow-up (see next paragraph).
 
-Add a third `ServerMode.java` HTTP handler (alongside the existing
-`/format` and `/shutdown`) that returns the full list of config
-properties with their defaults and allowed values, for tooling that wants
-to introspect the formatter's config surface without parsing README.md.
-
-Two independent, low-risk pieces:
-
-1. **`Config.java`**: add a small static method (e.g. `describeAll()`)
-   that zips the existing `ALL_KEYS` array with each key's default value
-   and, where applicable, its allowed-values array (`INDENT_STYLE_CHOICES`,
-   `LINE_ENDINGS_CHOICES`, etc.) into one list of simple
-   `(key, default, allowedValues)` records. This is mechanical — the data
-   already exists in `Config.java`, just scattered across separate
-   constants/arrays rather than unified per-key. `Config.java` is already
-   the correct runtime source of truth (not README.md), so the endpoint
-   should read from it directly and needs no doc-sync mechanism of its
-   own.
-2. **`ServerMode.java`**: add a handler (e.g. `/properties`) that calls
-   `Config.describeAll()` and serializes it to JSON, same pattern as the
-   existing two handlers.
-
-Separately (docs-only, no code, can land independently of the above):
-trim this file's "Config Keys and Defaults" block below so it stops being
-a full duplicate of README.md's `### Config file format` section. Keep
-only maintainer-facing notes here (RDD_KEY pointers, STATE_*.md
-cross-refs per key where relevant) and point to README.md as the
-authoritative property list, instead of hand-maintaining two copies that
-can silently drift.
-
-Both pieces touch shared infra (`Config.java` is depended on by every
-job's config-key work) — land this after current in-flight work on
-`ScopePipelineCurly`/`MiscRuleCurly` settles, to avoid unrelated merge
-risk while that's mid-flight.
+Docs-only follow-up (done together): trimmed this file's "Config Keys and
+Defaults" block so it stops duplicating README.md's `### Config file format`
+section in full — now points to README.md (and to the `/properties` endpoint)
+as the authoritative property list, keeping only maintainer-facing notes
+(RDD_KEY/STATE_*.md cross-refs) here.
 
 ### Formatter self-formatting (dogfood-and-adopt) process
 

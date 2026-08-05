@@ -760,6 +760,7 @@ _TEMPLATE = (
 "    body.innerHTML = '<p class=\\\"mdx-modal-msg\\\">Formatter server unavailable (' + mdxEsc(e && e.message || e) + ').</p>';\n"
 "  }});\n"
 "}}\n"
+"var MDX_INERT_KEYS = ['server-port'];\n"
 "function mdxRenderSettingsBody(groups){{\n"
 "  var body = document.getElementById('mdx-modal-body');\n"
 "  var overrides = mdxGetOverrides();\n"
@@ -768,6 +769,8 @@ _TEMPLATE = (
 "    out += '<fieldset><legend>' + mdxEsc(g.group) + '</legend>';\n"
 "    g.properties.forEach(function(p){{\n"
 "      var cur = Object.prototype.hasOwnProperty.call(overrides, p.key) ? overrides[p.key] : p.default;\n"
+"      var inert = MDX_INERT_KEYS.indexOf(p.key) !== -1;\n"
+"      out += '<div class=\\\"mdx-field-wrap' + (inert ? ' mdx-field-inert' : '') + '\\\">';\n"
 "      out += '<div class=\\\"mdx-field\\\"><label>' + mdxEsc(p.key) + '</label>';\n"
 "      if(p.allowedValues){{\n"
 "        out += '<select data-key=\\\"' + mdxEsc(p.key) + '\\\">'\n"
@@ -778,6 +781,8 @@ _TEMPLATE = (
 "      }} else {{\n"
 "        out += '<input type=\\\"text\\\" data-key=\\\"' + mdxEsc(p.key) + '\\\" value=\\\"' + mdxEsc(cur) + '\\\" placeholder=\\\"' + mdxEsc(p.default) + '\\\"/>';\n"
 "      }}\n"
+"      out += '</div>';\n"
+"      if(inert) out += '<div class=\\\"mdx-field-hint\\\">server-only \\u2014 takes effect only when the formatter server itself starts; has no effect here or on a running server</div>';\n"
 "      out += '</div>';\n"
 "    }});\n"
 "    out += '</fieldset>';\n"
@@ -932,7 +937,8 @@ html.dark .theme-toggle:not(.format-toggle):not(.settings-toggle)::before {{ con
   background: transparent; border: 1px solid var(--border); border-radius: 6px;
   cursor: pointer; padding: 0.3em 0.8em; color: var(--text);
 }}
-.mdx-field {{ display: flex; align-items: center; gap: 0.75em; margin: 0.4em 0; }}
+.mdx-field-wrap {{ margin: 0.4em 0; }}
+.mdx-field {{ display: flex; align-items: center; gap: 0.75em; margin: 0; }}
 .mdx-field label {{
   flex: 0 0 40%; max-width: 220px; text-align: right; padding-right: 0.4em;
   font-family: ui-monospace, monospace; font-size: 0.85em; color: var(--muted);
@@ -941,6 +947,11 @@ html.dark .theme-toggle:not(.format-toggle):not(.settings-toggle)::before {{ con
 .mdx-field input, .mdx-field select {{
   flex: 1 1 auto; min-width: 0; background: var(--code-bg); color: var(--text);
   border: 1px solid var(--border); border-radius: 4px; padding: 0.2em 0.4em;
+}}
+.mdx-field-inert .mdx-field {{ opacity: 0.6; }}
+.mdx-field-hint {{
+  font-size: 0.72em; color: var(--muted); font-style: italic;
+  text-align: right; margin: 0.15em 0 0;
 }}
 .mdx-modal fieldset {{ border: 1px solid var(--border); border-radius: 6px; margin-bottom: 1em; }}
 .mdx-modal legend {{ padding: 0 0.4em; color: var(--muted); font-size: 0.9em; }}

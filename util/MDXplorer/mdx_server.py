@@ -904,7 +904,7 @@ blockquote {{ border-left: 4px solid var(--border); margin: 0; padding: 0 1em; c
 .theme-toggle::before {{ content: "🌙"; }}
 html.dark .theme-toggle::before {{ content: "☀️"; }}
 
-.format-toggle::before {{ content: "🪄"; }}
+.format-toggle::before {{ content: "⇄"; }}
 .settings-toggle::before {{ content: "⚙"; }}
 
 .mdx-modal-overlay {{
@@ -932,10 +932,14 @@ html.dark .theme-toggle::before {{ content: "☀️"; }}
   background: transparent; border: 1px solid var(--border); border-radius: 6px;
   cursor: pointer; padding: 0.3em 0.8em; color: var(--text);
 }}
-.mdx-field {{ display: flex; align-items: center; justify-content: space-between; gap: 1em; margin: 0.4em 0; }}
-.mdx-field label {{ font-family: ui-monospace, monospace; font-size: 0.85em; color: var(--muted); }}
+.mdx-field {{ display: flex; align-items: center; gap: 0.75em; margin: 0.4em 0; }}
+.mdx-field label {{
+  flex: 0 0 40%; max-width: 220px; text-align: right; padding-right: 0.4em;
+  font-family: ui-monospace, monospace; font-size: 0.85em; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}}
 .mdx-field input, .mdx-field select {{
-  flex: 1; max-width: 60%; background: var(--code-bg); color: var(--text);
+  flex: 1 1 auto; min-width: 0; background: var(--code-bg); color: var(--text);
   border: 1px solid var(--border); border-radius: 4px; padding: 0.2em 0.4em;
 }}
 .mdx-modal fieldset {{ border: 1px solid var(--border); border-radius: 6px; margin-bottom: 1em; }}

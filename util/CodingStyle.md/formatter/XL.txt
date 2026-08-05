@@ -175,42 +175,31 @@ exec  ~/mynpm/bin/claude "$@"
 
 === TIER 0: Recurring job ===
 
-1. [GRU] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
+1. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
-   Further grow the hand-labeled hard-case corpus
-   (`tools/classifier_weights/examples_*.md`).
+   Re-execute `Formatter self-formatting (dogfood-and-adopt) process`. Make it simpler: no need to
+   test reformat using the round2 JAR.
 
-   Rerun `classifiers/derive_weights.py` to update the linear classifier
-   weights.
+   Apply the formatter to all `*.java/py/js` source files inside `tools/*` subdirectories. Output
+   the result to `/tmp/tools_round1` and then `/tmp/tools_round2`. Perform idempotency check and
+   content-diff check. If all OK, copy back the formatted round1 to the `tools/*` subdirectories.
 
-   Check the linear classifier % with the new weights.
-
-   Re-run `make gru-acquire-corpus` so `sample_default.txt` will contain
-   the new hand-labeled hard-case corpus.
+   Update and fix `CLAUDE.md`, `STATE_DOGFOOD.md`, `README.md`, `../README.txt`,
+   `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`, etc. as needed.
 
 2. [GRU] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
-   Retrain (`make gru-train`) against the regenerated `sample_default.txt`
+   Further grow the hand-labeled hard-case corpus (`tools/classifier_weights/examples_*.md`).
+
+   Rerun `classifiers/derive_weights.py` to update the linear classifier weights and check
+   the linear classifier % with the new weights.
+
+   Re-run `make gru-acquire-corpus` so `sample_default.txt` will contain the new hand-labeled
+   hard-case corpus.
+
+   Retrain (`make gru-train`) against the regenerated `sample_default.txt`.
 
    Run GRU cross validation and check the GRU % with the new weights.
-
-3. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
-
-   Re-execute `Formatter self-formatting (dogfood-and-adopt) process`.
-
-   Apply the formatter to all `*.java/py/js` source files inside `tools/*` subdirectories.
-   Output the result to `/tmp/tools_round1` and then `/tmp/tools_round2`. Perform idempotency
-   check, syntax check, and content diff check. If all OK, copy back the formatted round1
-   to `tools/*` subdirectories.
-
-   Maybe make them simpler:
-   - No need to test reformat using the round2 JAR for `(dogfood-and-adopt)`.
-   - No need to many syntax-check again only content-diff check for `tools/*`.
-
-   Update `STATE_DOGFOOD.md` as needed.
-
-   Update and fix `CLAUDE.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`,
-   `../AI_PREAMBLE_AESTHETIC.md`, etc. as needed.
 
 Use sub-agent. This can be a substantial work.
 
@@ -234,10 +223,22 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
 
-1. [CURLY_GDR] Broader adoption of `curly-general-scope-reindent` (still
-   off by default) — multipass mode has cleared every corpus tested so
-   far, but the "second-order oscillation" risk is only absent-so-far,
-   not proven impossible; job's own instructions call this high risk.
+    4. [JS_TS / C_CPP_JAVA, shared root cause] Fix call-wrap/collapse vs.
+       declaration-alignment/padding fits-check ordering — highest file-count
+       impact seen (28/601 TS files, 23/5394 angular files, plus a
+       `SwitchRule`-adjacent case in lodash/lodash), user-deferred, no low-risk
+       fix found yet. Re-investigated: real root cause is NOT
+       `enforceCallLineBreaking` width-measurement ordering — it's
+       `ScopePipelineCurly.processScope` double-running its per-scope passes
+       (outer-first over the flat token list, then again on each recursed
+       child span), which re-aligns already-touched declarations from two
+       different intermediate states. Shared load-bearing infra across every
+       curly-family language; same class of risk as the GDR pre-pass/post-pass
+       circular dependency (RDD_KEY_229). No fix landed; see STATE_JS_TS.md's
+       Open Questions.
+
+5. [JS_TS] JS/TS braceless if/else collapse can still be non-idempotent
+   when the rescuing call-wrap doesn't shrink the line enough (cluster 5).
 
 2. [KOTLIN / CURLY_GDR, shared] Kotlin statement-boundary tracking for
    `MiscRuleCurly.renderCallCandidate`'s wrap-decision flap (D3) — two
@@ -254,25 +255,10 @@ Use sub-agent. This can be a substantial work.
    evidence of the same cross-pass/convergence fragility as item 3 above;
    reverted, no low-risk fix found yet.
 
-4. [JS_TS / C_CPP_JAVA, shared root cause] Fix call-wrap/collapse vs.
-   declaration-alignment/padding fits-check ordering — highest file-count
-   impact seen (28/601 TS files, 23/5394 angular files, plus a
-   `SwitchRule`-adjacent case in lodash/lodash), user-deferred, no low-risk
-   fix found yet. Re-investigated: real root cause is NOT
-   `enforceCallLineBreaking` width-measurement ordering — it's
-   `ScopePipelineCurly.processScope` double-running its per-scope passes
-   (outer-first over the flat token list, then again on each recursed
-   child span), which re-aligns already-touched declarations from two
-   different intermediate states. Shared load-bearing infra across every
-   curly-family language; same class of risk as the GDR pre-pass/post-pass
-   circular dependency (RDD_KEY_229). No fix landed; see STATE_JS_TS.md's
-   Open Questions.
-
-5. [JS_TS] JS/TS braceless if/else collapse can still be non-idempotent
-   when the rescuing call-wrap doesn't shrink the line enough (cluster 5).
-
 6. [JS_TS] JSX/TSX support — currently out of scope entirely (not merely
    deferred).
+
+Update `STATE_DOGFOOD.md` as needed.
 
 Check and update the `## Known Limitations` items in `README.md` and group sort them
 by impact (highest first).

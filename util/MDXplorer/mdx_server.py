@@ -18,7 +18,9 @@ import os
 import posixpath
 import re
 import sys
+import urllib.error
 import urllib.parse
+import urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -613,6 +615,27 @@ _JXMAKE_FILENAMES = frozenset({"JxMakeFile"})
 _MAX_HIGHLIGHT_BYTES = 512 * 1024   # skip syntax highlighting for files larger than this
 
 # ---------------------------------------------------------------------------
+# jxmake-code-formatter server integration
+# ---------------------------------------------------------------------------
+
+_FORMATTER_LOCKFILE = os.path.expanduser(
+    "~/.config/jxmake-code-formatter/server.lock"
+)
+_FORMATTER_TIMEOUT = 2.5  # seconds — connect+read timeout for calls to the formatter server
+
+
+def _formatter_lockfile_port() -> int | None:
+    """Read the port recorded on the lockfile's second line, or None if unavailable."""
+    try:
+        with open(_FORMATTER_LOCKFILE, encoding="utf-8") as f:
+            lines = f.read().splitlines()
+        if len(lines) < 2:
+            return None
+        return int(lines[1].strip())
+    except (OSError, ValueError):
+        return None
+
+# ---------------------------------------------------------------------------
 # Pygments formatters + CSS
 # ---------------------------------------------------------------------------
 
@@ -682,6 +705,107 @@ _TEMPLATE = (
 "    }});\n"
 "  }});\n"
 "}})()\n"
+"var MDX_OV_KEY = 'mdxplorer.formatterOverrides';\n"
+"function mdxGetOverrides(){{\n"
+"  try {{ return JSON.parse(localStorage.getItem(MDX_OV_KEY) || '{{}}'); }}\n"
+"  catch(e){{ return {{}}; }}\n"
+"}}\n"
+"function mdxSetOverrides(o){{\n"
+"  if(Object.keys(o).length === 0) localStorage.removeItem(MDX_OV_KEY);\n"
+"  else localStorage.setItem(MDX_OV_KEY, JSON.stringify(o));\n"
+"}}\n"
+"function mdxToggleFormat(urlPart){{\n"
+"  var o = mdxGetOverrides();\n"
+"  var qs = new URLSearchParams(o).toString();\n"
+"  window.location.href = urlPart + '?' + qs;\n"
+"}}\n"
+"function mdxEsc(s){{\n"
+"  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\\\"/g,'&quot;');\n"
+"}}\n"
+"var MDX_PROPS_CACHE = null;\n"
+"function mdxOpenSettings(){{\n"
+"  var overlay = document.getElementById('mdx-settings-overlay');\n"
+"  if(!overlay){{\n"
+"    overlay = document.createElement('div');\n"
+"    overlay.id = 'mdx-settings-overlay';\n"
+"    overlay.className = 'mdx-modal-overlay';\n"
+"    overlay.innerHTML = '<div class=\\\"mdx-modal\\\"><div class=\\\"mdx-modal-head\\\">'\n"
+"      + '<span>Formatter settings</span>'\n"
+"      + '<button type=\\\"button\\\" class=\\\"mdx-modal-close\\\" onclick=\\\"mdxCloseSettings()\\\">&times;</button>'\n"
+"      + '</div><div id=\\\"mdx-modal-body\\\" class=\\\"mdx-modal-body\\\">Loading…</div>'\n"
+"      + '<div class=\\\"mdx-modal-foot\\\">'\n"
+"      + '<button type=\\\"button\\\" onclick=\\\"mdxResetSettings()\\\">Reset to defaults</button>'\n"
+"      + '<button type=\\\"button\\\" onclick=\\\"mdxSaveSettings()\\\">Save</button>'\n"
+"      + '</div></div>';\n"
+"    document.body.appendChild(overlay);\n"
+"    overlay.addEventListener('click', function(ev){{ if(ev.target === overlay) mdxCloseSettings(); }});\n"
+"  }}\n"
+"  overlay.style.display = 'flex';\n"
+"  mdxLoadSettingsBody();\n"
+"}}\n"
+"function mdxCloseSettings(){{\n"
+"  var overlay = document.getElementById('mdx-settings-overlay');\n"
+"  if(overlay) overlay.style.display = 'none';\n"
+"}}\n"
+"function mdxLoadSettingsBody(){{\n"
+"  var body = document.getElementById('mdx-modal-body');\n"
+"  if(MDX_PROPS_CACHE){{ mdxRenderSettingsBody(MDX_PROPS_CACHE); return; }}\n"
+"  fetch('/__mdxplorer/properties').then(function(r){{\n"
+"    if(!r.ok) throw new Error('status ' + r.status);\n"
+"    return r.json();\n"
+"  }}).then(function(groups){{\n"
+"    MDX_PROPS_CACHE = groups;\n"
+"    mdxRenderSettingsBody(groups);\n"
+"  }}).catch(function(e){{\n"
+"    body.innerHTML = '<p class=\\\"mdx-modal-msg\\\">Formatter server unavailable (' + mdxEsc(e && e.message || e) + ').</p>';\n"
+"  }});\n"
+"}}\n"
+"function mdxRenderSettingsBody(groups){{\n"
+"  var body = document.getElementById('mdx-modal-body');\n"
+"  var overrides = mdxGetOverrides();\n"
+"  var out = '';\n"
+"  groups.forEach(function(g){{\n"
+"    out += '<fieldset><legend>' + mdxEsc(g.group) + '</legend>';\n"
+"    g.properties.forEach(function(p){{\n"
+"      var cur = Object.prototype.hasOwnProperty.call(overrides, p.key) ? overrides[p.key] : p.default;\n"
+"      out += '<div class=\\\"mdx-field\\\"><label>' + mdxEsc(p.key) + '</label>';\n"
+"      if(p.allowedValues){{\n"
+"        out += '<select data-key=\\\"' + mdxEsc(p.key) + '\\\">'\n"
+"          + p.allowedValues.map(function(v){{\n"
+"              return '<option value=\\\"' + mdxEsc(v) + '\\\"' + (v === cur ? ' selected' : '') + '>' + mdxEsc(v) + '</option>';\n"
+"            }}).join('')\n"
+"          + '</select>';\n"
+"      }} else {{\n"
+"        out += '<input type=\\\"text\\\" data-key=\\\"' + mdxEsc(p.key) + '\\\" value=\\\"' + mdxEsc(cur) + '\\\" placeholder=\\\"' + mdxEsc(p.default) + '\\\"/>';\n"
+"      }}\n"
+"      out += '</div>';\n"
+"    }});\n"
+"    out += '</fieldset>';\n"
+"  }});\n"
+"  body.innerHTML = out;\n"
+"}}\n"
+"function mdxResetSettings(){{\n"
+"  mdxSetOverrides({{}});\n"
+"  if(MDX_PROPS_CACHE) mdxRenderSettingsBody(MDX_PROPS_CACHE);\n"
+"}}\n"
+"function mdxSaveSettings(){{\n"
+"  if(!MDX_PROPS_CACHE) {{ mdxCloseSettings(); return; }}\n"
+"  var defaults = {{}};\n"
+"  MDX_PROPS_CACHE.forEach(function(g){{ g.properties.forEach(function(p){{ defaults[p.key] = p.default; }}); }});\n"
+"  var overrides = {{}};\n"
+"  document.querySelectorAll('#mdx-modal-body [data-key]').forEach(function(el){{\n"
+"    var key = el.getAttribute('data-key');\n"
+"    var val = el.value;\n"
+"    if(val !== defaults[key]) overrides[key] = val;\n"
+"  }});\n"
+"  mdxSetOverrides(overrides);\n"
+"  mdxCloseSettings();\n"
+"  if(window.location.search){{\n"
+"    var o = mdxGetOverrides();\n"
+"    var qs = new URLSearchParams(o).toString();\n"
+"    window.location.href = window.location.pathname + '?' + qs;\n"
+"  }}\n"
+"}}\n"
 "</script>\n"
 "<style>\n"
 + _PYGMENTS_CSS + "\n"
@@ -780,6 +904,44 @@ blockquote {{ border-left: 4px solid var(--border); margin: 0; padding: 0 1em; c
 .theme-toggle::before {{ content: "🌙"; }}
 html.dark .theme-toggle::before {{ content: "☀️"; }}
 
+.format-toggle::before {{ content: "🪄"; }}
+.settings-toggle::before {{ content: "⚙"; }}
+
+.mdx-modal-overlay {{
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  align-items: center; justify-content: center; z-index: 1000;
+}}
+.mdx-modal {{
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; width: min(600px, 92vw); max-height: 85vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}}
+.mdx-modal-head {{
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.6em 1em; border-bottom: 1px solid var(--border); font-weight: 600;
+}}
+.mdx-modal-close {{
+  background: none; border: none; font-size: 1.3em; cursor: pointer; color: var(--text);
+}}
+.mdx-modal-body {{ padding: 1em; overflow-y: auto; }}
+.mdx-modal-foot {{
+  display: flex; justify-content: flex-end; gap: 0.6em;
+  padding: 0.6em 1em; border-top: 1px solid var(--border);
+}}
+.mdx-modal-foot button {{
+  background: transparent; border: 1px solid var(--border); border-radius: 6px;
+  cursor: pointer; padding: 0.3em 0.8em; color: var(--text);
+}}
+.mdx-field {{ display: flex; align-items: center; justify-content: space-between; gap: 1em; margin: 0.4em 0; }}
+.mdx-field label {{ font-family: ui-monospace, monospace; font-size: 0.85em; color: var(--muted); }}
+.mdx-field input, .mdx-field select {{
+  flex: 1; max-width: 60%; background: var(--code-bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 4px; padding: 0.2em 0.4em;
+}}
+.mdx-modal fieldset {{ border: 1px solid var(--border); border-radius: 6px; margin-bottom: 1em; }}
+.mdx-modal legend {{ padding: 0 0.4em; color: var(--muted); font-size: 0.9em; }}
+.mdx-modal-msg {{ color: var(--muted); }}
+
 </style>
 </head>
 <body>
@@ -800,9 +962,13 @@ class MDRServer(ThreadingHTTPServer):
         server_address: tuple[str, int],
         handler_class: type,
         web_root: str,
+        formatter_port: int | None = None,
     ) -> None:
         super().__init__(server_address, handler_class)
         self.web_root: str = web_root
+        # Explicit --formatter-port override, or None to auto-discover via the lockfile
+        # on every request (so a formatter server started/restarted later still gets found).
+        self.formatter_port: int | None = formatter_port
 
 
 # ---------------------------------------------------------------------------
@@ -838,6 +1004,10 @@ class MDRHandler(SimpleHTTPRequestHandler):
     ).encode()
 
     def do_GET(self) -> None:
+        if self.path == "/__mdxplorer/properties":
+            self._serve_properties_proxy()
+            return
+
         if self.path == "/favicon.ico":
             self.send_response(200)
             self.send_header("Content-Type", "image/svg+xml")
@@ -872,6 +1042,10 @@ class MDRHandler(SimpleHTTPRequestHandler):
             if fs_path.endswith(".md"):
                 self._serve_markdown(fs_path)
                 return
+            _, _, qs = self.path.partition("?")
+            if "?" in self.path:
+                self._serve_formatted(fs_path, qs)
+                return
             lexer = self._lexer_for_file(fs_path)
             if lexer is not None:
                 self._serve_source(fs_path, lexer)
@@ -890,7 +1064,11 @@ class MDRHandler(SimpleHTTPRequestHandler):
             self.do_GET()
             return
         if os.path.isfile(fs_path):
-            if fs_path.endswith(".md") or self._lexer_for_file(fs_path) is not None:
+            if (
+                fs_path.endswith(".md")
+                or "?" in self.path
+                or self._lexer_for_file(fs_path) is not None
+            ):
                 self.do_GET()  # _send_html omits body for HEAD
                 return
             self._serve_raw(fs_path)
@@ -1025,7 +1203,78 @@ class MDRHandler(SimpleHTTPRequestHandler):
         url_path = self._url_path
         crumb = self._breadcrumb(url_path)
         inner = f'<div class="code-wrap">{_hl(text, lexer, _src_formatter)}</div>'
-        body = f'{self._nav_bar(crumb)}\n{inner}'
+        right = self._file_nav_right(self.path.split("?", 1)[0], in_format_mode=False)
+        body = f'{self._nav_bar(crumb, right_html=right)}\n{inner}'
+        title = html.escape(os.path.basename(file_path))
+        self._send_html(_TEMPLATE.format(title=title, body=body),
+                        last_modified=st.st_mtime)
+
+    def _serve_properties_proxy(self) -> None:
+        """Same-origin proxy for the formatter server's GET /properties, so the settings
+        panel's client-side JS can fetch it without needing CORS set up on the Java side."""
+        result = self._formatter_request("/properties", "GET")
+        if result is None:
+            self.send_response(502)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            body = b'{"error": "formatter server unavailable"}'
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        status, data = result
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _serve_formatted(self, file_path: str, query: str) -> None:
+        """Format-mode file view (triggered by any query string on a non-.md file request).
+        Attempts formatting via the jxmake-code-formatter server; on any failure, silently
+        falls back to the exact existing behavior (_serve_source / _serve_raw) for this file."""
+        lexer = self._lexer_for_file(file_path)
+
+        try:
+            st = os.stat(file_path)
+        except OSError:
+            self.send_error(404, "File not found")
+            return
+        if st.st_size > _MAX_HIGHLIGHT_BYTES:
+            self._serve_raw(file_path, st)
+            return
+        try:
+            with open(file_path, encoding="utf-8", errors="replace") as f:
+                text = f.read()
+        except OSError:
+            self.send_error(404, "File not found")
+            return
+
+        formatted = self._try_format(file_path, text, query)
+        if formatted is None:
+            # Silent fallback to today's exact existing behavior.
+            if lexer is not None:
+                self._serve_source(file_path, lexer)
+            else:
+                self._serve_raw(file_path, st)
+            return
+
+        if self._not_modified(st.st_mtime):
+            return
+
+        url_path = self._url_path
+        crumb = self._breadcrumb(url_path)
+        if lexer is not None:
+            inner = f'<div class="code-wrap">{_hl(formatted, lexer, _src_formatter)}</div>'
+        else:
+            inner = (
+                '<div class="code-wrap"><pre><code>'
+                + html.escape(formatted)
+                + '</code></pre></div>'
+            )
+        url_part = self.path.split("?", 1)[0]
+        right = self._file_nav_right(url_part, in_format_mode=True)
+        body = f'{self._nav_bar(crumb, right_html=right)}\n{inner}'
         title = html.escape(os.path.basename(file_path))
         self._send_html(_TEMPLATE.format(title=title, body=body),
                         last_modified=st.st_mtime)
@@ -1057,6 +1306,83 @@ class MDRHandler(SimpleHTTPRequestHandler):
                 self.copyfile(f, self.wfile)
         finally:
             f.close()
+
+    def _formatter_port(self) -> int | None:
+        """Resolve the formatter server's port: explicit --formatter-port override, else the
+        lockfile the Java server writes on startup (auto-discovered fresh on every call so a
+        server started/restarted after mdx_server.py itself doesn't require a restart here)."""
+        explicit = self.server.formatter_port
+        if explicit is not None:
+            return explicit
+        return _formatter_lockfile_port()
+
+    def _formatter_request(
+        self, url_path: str, method: str, body: bytes | None = None
+    ) -> tuple[int, bytes] | None:
+        """Issue a request to the formatter server. Returns (status, body) on any response
+        received, or None if the server couldn't be reached at all (not discoverable, refused,
+        or timed out). Never raises."""
+        port = self._formatter_port()
+        if port is None:
+            self.log_message("formatter: no server discoverable (no --formatter-port, no usable lockfile)")
+            return None
+        url = f"http://127.0.0.1:{port}{url_path}"
+        req = urllib.request.Request(url, data=body, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=_FORMATTER_TIMEOUT) as resp:
+                return resp.status, resp.read()
+        except urllib.error.HTTPError as e:
+            return e.code, e.read()
+        except (urllib.error.URLError, OSError, TimeoutError) as e:
+            self.log_message("formatter: request to %s failed: %s", url, e)
+            return None
+
+    def _try_format(self, fs_path: str, content: str, query: str) -> str | None:
+        """Attempt to format `content` (the raw text of `fs_path`) via the formatter server,
+        forwarding every query param from the incoming request as-is plus the file's absolute
+        path. Returns the formatted text on success (HTTP 200), or None on any failure — caller
+        falls back to the existing unformatted rendering silently in that case."""
+        params = urllib.parse.parse_qsl(query, keep_blank_values=True)
+        params = [(k, v) for k, v in params if k != "path"]
+        params.append(("path", os.path.abspath(fs_path)))
+        target = "/format?" + urllib.parse.urlencode(params)
+        result = self._formatter_request(target, "POST", content.encode("utf-8"))
+        if result is None:
+            return None
+        status, data = result
+        if status != 200:
+            self.log_message(
+                "formatter: /format returned %s for %s: %s",
+                status, fs_path, data.decode("utf-8", errors="replace"),
+            )
+            return None
+        return data.decode("utf-8")
+
+    _SETTINGS_BUTTON_HTML = (
+        '<button class="theme-toggle settings-toggle" title="Formatter settings"'
+        ' onclick="mdxOpenSettings()"></button>'
+    )
+
+    @staticmethod
+    def _js_str(s: str) -> str:
+        """Escape a string for embedding as a single-quoted JS string literal."""
+        return "'" + s.replace("\\", "\\\\").replace("'", "\\'") + "'"
+
+    def _file_nav_right(self, url_part: str, in_format_mode: bool) -> str:
+        """Nav-bar extra buttons for a file-view page: the format-view toggle plus the
+        formatter-settings gear. `url_part` is the request path with no query string
+        (percent-encoded, as received)."""
+        if in_format_mode:
+            toggle = (
+                '<a class="theme-toggle format-toggle" title="View original (unformatted)"'
+                f' href="{html.escape(url_part)}"></a>'
+            )
+        else:
+            toggle = (
+                '<button class="theme-toggle format-toggle" title="View formatted"'
+                f' onclick="mdxToggleFormat({self._js_str(url_part)})"></button>'
+            )
+        return f'{toggle} {self._SETTINGS_BUTTON_HTML}'
 
     def _lexer_for_file(self, path: str):
         name = os.path.basename(path)
@@ -1186,6 +1512,19 @@ def main() -> None:
         metavar="ADDR",
         help="address to bind to (default: 127.0.0.1)",
     )
+    parser.add_argument(
+        "--formatter-port",
+        type=int,
+        default=None,
+        metavar="PORT",
+        help=(
+            "port of a running jxmake-code-formatter --server instance, for the "
+            "'?'-triggered formatted view and settings panel; if omitted, auto-discovered "
+            "from ~/.config/jxmake-code-formatter/server.lock (same as the Java CLI); if "
+            "neither is available, formatting is simply unavailable and file views fall "
+            "back silently to unformatted rendering"
+        ),
+    )
     args = parser.parse_args()
 
     web_root = os.path.realpath(args.directory)
@@ -1193,7 +1532,7 @@ def main() -> None:
         sys.exit(f"error: {web_root!r} is not a directory")
 
     try:
-        server = MDRServer((args.bind, args.port), MDRHandler, web_root)
+        server = MDRServer((args.bind, args.port), MDRHandler, web_root, args.formatter_port)
     except OSError as e:
         sys.exit(f"error: cannot bind to {args.bind}:{args.port} — {e.strerror}")
 

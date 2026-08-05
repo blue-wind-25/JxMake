@@ -18,6 +18,28 @@ Test the server:
 You may adjust 'pip3.12' and 'python3.12' according to your requirements.
 
 ----------------------------------------------------------------------------------------------------
+Formatted view (jxmake-code-formatter integration)
+----------------------------------------------------------------------------------------------------
+
+If a jxmake-code-formatter server (../CodingStyle.md/formatter, run with --server) is running on
+the same machine, any non-Markdown file page can be viewed reformatted by appending '?' (or
+'?key=value...' overrides) to its URL, or via the wand-icon "view formatted" toggle button next to
+the dark/light toggle in the nav bar. Formatting is attempted regardless of whether Pygments
+recognises the file type; unsupported/unreachable formatting fails silently back to the normal
+view (failures are logged to stderr).
+
+The formatter server is auto-discovered from its lockfile at
+~/.config/jxmake-code-formatter/server.lock (same file the Java CLI uses). Pass --formatter-port
+to point at a specific port instead:
+    python3.12 mdx_server.py -C ../.. --formatter-port 17173
+
+A gear-icon settings button opens a panel of the formatter's config properties (fetched live via
+the server's own GET /properties, proxied same-origin through GET /__mdxplorer/properties so no
+CORS setup is needed). Overrides are stored in the browser's localStorage
+(key 'mdxplorer.formatterOverrides') and applied as query-string parameters on the next formatted
+view; "Reset to defaults" clears all stored overrides.
+
+----------------------------------------------------------------------------------------------------
 Highlighted file types
 ----------------------------------------------------------------------------------------------------
 

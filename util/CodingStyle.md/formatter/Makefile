@@ -380,6 +380,7 @@ INP_FILES += html_tc_gap_level4_adoption_agency_inp.html
 
 INP_FILES += py_combined_inp.py
 INP_FILES += py_comments_inp.py
+INP_FILES += py_import_blank_lines_inp.py
 
 INP_FILES += curly_general_scope_reindent_inp.hpp
 INP_FILES += java_flush_left_inp.java

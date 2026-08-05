@@ -517,6 +517,15 @@ Python3:
                                                         comment breaking a compact `case`-line alignment
                                                         group.
 
+  py_import_blank_lines_inp/out.py                     -- RDD_KEY_247: `python-import-blank-lines` (default 1)
+                                                        collapses a 2-blank-line gap between two adjacent
+                                                        same-depth import groups down to 1, while a 2-blank-line
+                                                        gap NOT between two import groups (before a following
+                                                        `def`) is left untouched -- proves the new blank-line
+                                                        normalization pass is scoped to import-group boundaries
+                                                        only. Each group is also sorted (`python-import-sort`,
+                                                        default on) alongside the blank-line normalization.
+
 General Scope-Depth Reindentation:
 
   curly_general_scope_reindent_inp/out.hpp           -- Proves `curly-general-scope-reindent=on` is accepted

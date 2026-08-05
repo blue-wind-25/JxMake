@@ -37,6 +37,7 @@ public final class Config {
         "kotlin-import-order", "kotlin-import-sort", "kotlin-import-depth",
         "kotlin-import-blank-lines",
         "js-import-order", "js-import-sort", "js-import-blank-lines",
+        "python-import-sort", "python-import-blank-lines",
         "gru-classifier", "gru-weights-path",
         "curly-general-scope-reindent",
         "curly-general-scope-reindent-multipass",
@@ -106,6 +107,25 @@ public final class Config {
     private List<String> jsImportOrder      = Arrays.asList("builtin", "third-party", "local");
     private boolean      jsImportSort       = true;
     private int          jsImportBlankLines = 1;
+
+    /**
+     * {@code python-import-sort} -- toggles STYLE_PYTHON3.md §3.1's alphabetical sort (both the
+     *  cross-statement group reordering and a `from X import ...` clause's own within-clause
+     *  name-list reordering) applied by {@code ScopePipelineIndent#applyImportSort}. Python has no
+     *  stdlib/third-party/local tier classification to configure (see STATE_PYTHON3.md's Config
+     *  section), so unlike Java/Kotlin/JS/TS there is no companion {@code -order}/{@code -depth}
+     *  key. Default on, mirroring {@code java-import-sort}/{@code js-import-sort}'s own default.
+     */
+    private boolean pythonImportSort       = true;
+
+    /**
+     * {@code python-import-blank-lines} -- STYLE_PYTHON3.md §3.2's import groups (a blank line,
+     *  comment, depth change, or non-import statement each break a group) get exactly this many
+     *  blank lines between two adjacent same-depth groups separated only by blank line(s), mirroring
+     *  {@code java-import-blank-lines}/{@code js-import-blank-lines}'s shape. Default 1, matching
+     *  those two keys' own default.
+     */
+    private int pythonImportBlankLines = 1;
 
     /**
      * Step 3 GRU classifier gate (STATE_AI.md) -- default off: evaluated against the 62
@@ -266,6 +286,16 @@ public final class Config {
         return jsImportBlankLines;
     }
 
+    public boolean isPythonImportSort()
+    {
+        return pythonImportSort;
+    }
+
+    public int pythonImportBlankLines()
+    {
+        return pythonImportBlankLines;
+    }
+
     public boolean isGruClassifier()
     {
         return gruClassifier;
@@ -309,9 +339,6 @@ public final class Config {
      * order a human reads there). Used only to order/group {@link #describeAll}'s output; every
      * key in {@link #ALL_KEYS} must appear in exactly one group here, and vice versa --
      * {@link #describeAll} asserts this exhaustiveness so the two lists can't silently drift.
-     * Python 3's `python-import-sort`/`python-import-blank-lines` are documented in README.md but
-     * intentionally absent here too, since they are likewise absent from {@link #ALL_KEYS} (a
-     * pre-existing gap, not introduced by this grouping -- see STATE_COMMON.md).
      */
     private static final Map<String, String[]> GROUPS = buildGroups();
 
@@ -348,6 +375,9 @@ public final class Config {
         groups.put(
             "JS/TS",
             new String[] { "js-import-order", "js-import-sort", "js-import-blank-lines" }
+        );
+        groups.put(
+            "Python 3", new String[] { "python-import-sort", "python-import-blank-lines" }
         );
         groups.put( "HTML5", new String[] { "html5-tc-gap-level" } );
         groups.put( "AI-assist (GRU)", new String[] { "gru-classifier", "gru-weights-path" } );
@@ -511,6 +541,14 @@ public final class Config {
                 break;
             case "js-import-blank-lines":
                 defaultValue  = String.valueOf(defaults.jsImportBlankLines);
+                allowedValues = null;
+                break;
+            case "python-import-sort":
+                defaultValue  = defaults.pythonImportSort ? "on" : "off";
+                allowedValues = ON_OFF_CHOICES;
+                break;
+            case "python-import-blank-lines":
+                defaultValue  = String.valueOf(defaults.pythonImportBlankLines);
                 allowedValues = null;
                 break;
             case "gru-classifier":
@@ -714,6 +752,12 @@ public final class Config {
         );
         config.jsImportBlankLines                 = parseInt(
             raw, "js-import-blank-lines", config.jsImportBlankLines
+        );
+        config.pythonImportSort                   = parseBoolean(
+            raw, "python-import-sort", config.pythonImportSort
+        );
+        config.pythonImportBlankLines             = parseInt(
+            raw, "python-import-blank-lines", config.pythonImportBlankLines
         );
         config.gruClassifier                      = parseBoolean(
             raw, "gru-classifier", config.gruClassifier

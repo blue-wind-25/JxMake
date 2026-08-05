@@ -468,13 +468,15 @@ in README order and correct `allowedValues` (e.g. `indent-style` →
 `["spaces","tabs","auto"]`). `make test` (244/244) and `make test-server`
 (all existing checks) stayed green. README.md's "Server Wire Protocol"
 section documents the new endpoint's grouped shape alongside `/format`/
-`/shutdown`, including a note that Python 3's `python-import-sort`/
-`python-import-blank-lines` don't appear in the response because they're
-pre-existing gaps in `Config.java`'s own `ALL_KEYS` (documented in README.md
-but never wired as recognized keys) — a real gap noticed while building this,
-left unfixed as out of this task's low-risk scope. This file's "Config Keys
-and Defaults" block below was trimmed per the docs-only follow-up (see next
-paragraph).
+`/shutdown`. This file's "Config Keys and Defaults" block below was trimmed
+per the docs-only follow-up (see next paragraph).
+
+**2026-08-06 follow-up — gap closed:** Python 3's `python-import-sort`/
+`python-import-blank-lines`, noted above as a real gap left unfixed (never
+wired into `Config.java`'s `ALL_KEYS`), were wired in the same day —
+see `STATE_PYTHON3.md`'s "Config Keys Wiring — DONE (RDD_KEY_247)" section.
+Both keys now appear in `/properties`' response under a new `"Python 3"`
+group.
 
 Docs-only follow-up (done together): trimmed this file's "Config Keys and
 Defaults" block so it stops duplicating README.md's `### Config file format`

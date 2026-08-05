@@ -40,7 +40,8 @@ public final class FormatterIndent extends FormatterCore {
         if(formatOff) return content;
 
         String text = new ScopePipelineIndent(
-            lang, config.indentSize(), config.lineLength()
+            lang, config.indentSize(), config.lineLength(),
+            config.isPythonImportSort(), config.pythonImportBlankLines()
         ).process(
             content
         );

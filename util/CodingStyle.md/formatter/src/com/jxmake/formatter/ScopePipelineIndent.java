@@ -45,6 +45,8 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     private final MiscRuleIndent                   miscRule;
     private final PythonBracketComplexityEvaluator bracketEval = new PythonBracketComplexityEvaluator();
     private final int                              lineLength;
+    private final boolean                          pythonImportSort;
+    private final int                              pythonImportBlankLines;
 
     public ScopePipelineIndent(final Lang lang, final int indentWidth)
     {
@@ -53,10 +55,31 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     public ScopePipelineIndent(final Lang lang, final int indentWidth, final int lineLength)
     {
+        this(lang, indentWidth, lineLength, true, 1);
+    }
+
+    /**
+     * {@code pythonImportSort}/{@code pythonImportBlankLines} gate/parameterize §3's import-
+     *  ordering pass ({@link #applyImportSort}) -- see {@code Config#isPythonImportSort}/
+     *  {@code Config#pythonImportBlankLines}. The two-/three-arg constructors above default both
+     *  to their {@code Config} default (on / 1) for any caller that doesn't need to thread a real
+     *  {@code Config} through (kept for backward compatibility -- no other in-tree caller besides
+     *  {@code FormatterIndent} exists today).
+     */
+    public ScopePipelineIndent(
+        final Lang    lang,
+        final int     indentWidth,
+        final int     lineLength,
+        final boolean pythonImportSort,
+        final int     pythonImportBlankLines
+    )
+    {
         super(indentWidth);
-        this.lang       = lang;
-        this.miscRule   = new MiscRuleIndent(lang, false, false, false, indentWidth, 0);
-        this.lineLength = lineLength;
+        this.lang                   = lang;
+        this.miscRule               = new MiscRuleIndent(lang, false, false, false, indentWidth, 0);
+        this.lineLength             = lineLength;
+        this.pythonImportSort       = pythonImportSort;
+        this.pythonImportBlankLines = pythonImportBlankLines;
     }
 
     @Override
@@ -302,28 +325,44 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      *  §3.3, and returns one {@link Replacement} per group covering the whole group's line range,
      *  replacing it with the same lines' own verbatim text (indentation, content, trailing
      *  same-line comment) in the new order.
+     *
+     * <p>Gated on {@code pythonImportSort} (RDD_KEY_247): when off, the whole pass -- both this
+     *  reordering and {@link #applyImportGroupBlankLines}'s blank-line normalization below -- is a
+     *  complete no-op, mirroring the Java/JS-family precedent's own "off" posture for its own
+     *  sort flag (see {@code Config#isJavaImportSort}/{@code Config#isJsImportSort}).
      */
     private List<Replacement> applyImportSort(
         final List<Token>   tokens,
         final List<RawLine> rawLines
     )
     {
+        if(!pythonImportSort) return new ArrayList<>();
+
         final List<Replacement> replacements = new ArrayList<>();
+        final List<int[]>       groupRanges  = new ArrayList<>(); // [startIdx, endIdx, depth) into rawLines
               List<RawLine>     group        = new ArrayList<>();
               List<PyImport>    groupImports = new ArrayList<>();
               int               groupDepth   = -1;
-        for(final RawLine line : rawLines) {
-            final PyImport imp = line.multiPhysicalLine ? null : classifyImport(tokens, line);
+              int               groupStart   = -1;
+        final int                n           = rawLines.size();
+        for( int idx = 0; idx < n; ++idx ) {
+            final RawLine  line = rawLines.get(idx);
+            final PyImport imp  = line.multiPhysicalLine ? null : classifyImport(tokens, line);
             if( imp != null && ( group.isEmpty() || line.depth == groupDepth ) ) {
+                if( group.isEmpty() ) groupStart = idx;
                 group.add(line);
                 groupImports.add(imp);
                 groupDepth = line.depth;
                 continue;
             }
-            flushImportGroup(tokens, group, groupImports, replacements);
+            if( !group.isEmpty() ) {
+                flushImportGroup(tokens, group, groupImports, replacements);
+                groupRanges.add( new int[] { groupStart, idx, groupDepth } );
+            }
             group        = new ArrayList<>();
             groupImports = new ArrayList<>();
             if(imp != null) {
+                groupStart = idx;
                 group.add(line);
                 groupImports.add(imp);
                 groupDepth = line.depth;
@@ -332,9 +371,82 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                 groupDepth = -1;
             }
         } // for
-        flushImportGroup(tokens, group, groupImports, replacements);
+        if( !group.isEmpty() ) {
+            flushImportGroup(tokens, group, groupImports, replacements);
+            groupRanges.add( new int[] { groupStart, n, groupDepth } );
+        }
+
+        replacements.addAll( applyImportGroupBlankLines(tokens, rawLines, groupRanges) );
 
         return replacements;
+    }
+
+    /**
+     * STYLE_PYTHON3.md §3.2's {@code python-import-blank-lines}, mirroring {@code
+     *  JsTsSpecificRule#renderImportSegment}/{@code JavaSpecificRule#enforceImportOrdering}'s own
+     *  "insert {@code blankLines} blank lines between adjacent groups" shape (RDD_KEY_247) -- but
+     *  scoped narrowly to the one case unambiguous for Python's own (bucket-less, purely
+     *  adjacency-based) grouping: two consecutive recognized import groups at the SAME depth,
+     *  separated ONLY by blank physical line(s) (no comment, no depth change, no other statement
+     *  in between -- {@link #applyImportSort}'s own group-boundary rules guarantee any same-depth
+     *  boundary has at least one such line between the two groups, so this never fires on a
+     *  zero-length gap). A gap containing a comment or spanning a depth change is left completely
+     *  untouched -- normalizing blank-line count across a comment or into/out of a nested scope
+     *  isn't what this key documents, and STYLE_PYTHON3.md's own worked example never shows either
+     *  shape.
+     */
+    private List<Replacement> applyImportGroupBlankLines(
+        final List<Token>   tokens,
+        final List<RawLine> rawLines,
+        final List<int[]>   groupRanges
+    )
+    {
+        final List<Replacement> replacements = new ArrayList<>();
+        for( int g = 0; g + 1 < groupRanges.size(); ++g ) {
+            final int[] cur  = groupRanges.get(g);
+            final int[] next = groupRanges.get(g + 1);
+            if( cur[2] != next[2] ) continue; // Different depth -- not a plain blank-line boundary
+            final int gapFrom = cur[1];
+            final int gapTo   = next[0];
+            if(gapFrom >= gapTo) continue; // No gap at all (shouldn't happen at equal depth, defensive)
+            boolean allBlank = true;
+            for( int idx = gapFrom; idx < gapTo; ++idx ) {
+                if( !isBlankLine( tokens, rawLines.get(idx) ) ) {
+                    allBlank = false;
+                    break;
+                }
+            }
+            if(!allBlank) continue;
+            final int currentBlankLines = gapTo - gapFrom;
+            if(currentBlankLines == pythonImportBlankLines) continue;
+            final StringBuilder text = new StringBuilder();
+            for( int b = 0; b < pythonImportBlankLines; ++b ) text.append('\n');
+            replacements.add(
+                new Replacement(
+                    rawLines.get(gapFrom).start, rawLines.get(gapTo - 1).end, text.toString()
+                )
+            );
+        } // for g
+
+        return replacements;
+    }
+
+    /**
+     * True iff {@code line} has no significant content at all -- a bare blank physical line (its
+     *  own {@code [contentStart, end)} span holds nothing but {@code WHITESPACE}/{@code NEWLINE}).
+     *  A comment-only line returns {@code false} (a {@code COMMENT_LINE}/{@code COMMENT_BLOCK}
+     *  token is significant for this check even though {@link
+     *  com.jxmake.formatter.tokenizer.TokenizerCore.Token#isGapToken} treats it as a gap token for
+     *  other purposes) -- {@link #applyImportGroupBlankLines} must never conflate the two.
+     */
+    private boolean isBlankLine(final List<Token> tokens, final RawLine line)
+    {
+        for( int i = line.contentStart; i < line.end; ++i ) {
+            final TokenType type = tokens.get(i).type;
+            if(type != TokenType.WHITESPACE && type != TokenType.NEWLINE) return false;
+        }
+
+        return true;
     }
 
     private void flushImportGroup(

@@ -93,6 +93,7 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 | RDD_KEY_184 | §1.4/§1.5 non-empty `{}` (dict/set) is always loose per §3.3, no unpacking-only carve-out; fixed stale tight example |
 | RDD_KEY_186 | New §10 — triple-quoted docstrings/multiline strings are opaque, preserved verbatim beyond the opening line (extends §4's precedent) |
 | RDD_KEY_237 | Indent-size/style conversion (Python analog of `MiscRuleCore#convertIndentation`) — granularity resolved per real statement line via the tokenizer's own INDENT/DEDENT depth, not per-block width-guessing; see "Indent-Size/Style Conversion" section below |
+| RDD_KEY_247 | `python-import-sort`/`python-import-blank-lines` wired into `Config.java` (previously documented but not recognized keys); `python-import-blank-lines` given real new behavior (blank-line-count normalization between same-depth adjacent import groups separated only by blank lines) per coordinator decision after an initial ambiguity stop — see "Config Keys Wiring" section below |
 
 ---
 
@@ -198,43 +199,87 @@ style doc itself. The former implementation-architecture-level open item
 (indent-size/style conversion granularity) is now resolved — see "Indent-
 Size/Style Conversion" below.
 
-**[~] `python-import-blank-lines` wiring (2026-08-06).** README.md and this
-file's own §3 Config note document `python-import-sort`/
-`python-import-blank-lines` as real config keys, but neither is wired into
-`Config.java` at all (not in `ALL_KEYS`, no fields/getters, no CLI/file
-parsing, not in `GROUPS`) — a real pre-existing gap, also called out in
-`STATE_COMMON.md`'s "Server mode: 3rd endpoint" section and README.md's
-Server Wire Protocol section. Attempted to fix both keys together
-(2026-08-06 session). `python-import-sort` is unambiguous to wire — it
-would gate `ScopePipelineIndent.applyImportSort`'s call site exactly like
-`java-import-sort`/`js-import-sort` gate their own passes.
+None remain — the former `python-import-sort`/`python-import-blank-lines`
+wiring gap (see "Config Keys Wiring — DONE (RDD_KEY_247)" below) was
+resolved 2026-08-06.
 
-`python-import-blank-lines` is genuinely ambiguous, confirmed by direct
-code reading of `ScopePipelineIndent.applyImportSort`/`flushImportGroup`
-(§3's import-ordering pass): a blank line between two import statements is
-only ever treated as a **group boundary** (see `applyImportSort`'s own
-javadoc, lines ~294-304) — `flushImportGroup` only ever replaces a group's
-own `[start,end)` line range with the same lines reordered; it never
-touches the gap *between* groups. There is no existing hardcoded
-blank-line-count to redirect at a config value (unlike JS/TS's
-`enforceImportOrdering`, whose `blankLines` param is threaded into
-`renderImportSegment` and actually inserts/normalizes blank-line count
-between rendered groups). Wiring `python-import-blank-lines` to do
-anything today would mean inventing new group-separating blank-line
-insert/normalize behavior for §3 that doesn't exist yet in any form —
-exactly the case STATE_COMMON.md's ambiguity protocol says to stop on
-rather than guess.
+---
 
-**Question for the user:** should `python-import-blank-lines` be wired now
-by adding new behavior to `applyImportSort` (normalize the blank-line count
-between adjacent import groups to the configured value — a real, new
-formatting behavior change, needing its own smoke test / fixture), or
-should it stay recognized-but-inert (wired into `Config.java`/`ALL_KEYS`/
-`GROUPS` for `/properties` visibility and CLI/file parsing, matching
-README's documented key, but with no behavioral effect until a future
-session actually implements the blank-line-normalization pass), or something
-else? Blocked until answered — `Config.java`/`ScopePipelineIndent.java` were
-NOT modified this session pending the answer.
+## Config Keys Wiring — DONE (RDD_KEY_247)
+
+`python-import-sort`/`python-import-blank-lines` were documented in
+README.md and this file's own Config section as real config keys but were
+never wired into `Config.java` (not in `ALL_KEYS`, no fields/getters, no
+CLI/file parsing, not in `GROUPS`) — a real pre-existing gap, first noticed
+while building the server's `/properties` endpoint (see
+`STATE_COMMON.md`'s "Server mode: 3rd endpoint" section). Fixed
+2026-08-06, in two steps:
+
+**Step 1 (same session, initially blocked as a real ambiguity):**
+`python-import-sort` was unambiguous — it now gates
+`ScopePipelineIndent.applyImportSort`'s call site exactly like
+`java-import-sort`/`js-import-sort` gate their own passes: when off, the
+entire §3 pass (both reordering and the blank-line normalization added in
+step 2) is a complete no-op. `python-import-blank-lines`, however, had
+nothing to wire into: `flushImportGroup` only ever replaced a group's own
+`[start,end)` line range with the same lines reordered, never touching the
+gap *between* groups — unlike JS/TS's `enforceImportOrdering`, whose
+`blankLines` param is threaded into `renderImportSegment` to actually
+insert/normalize blank-line count between rendered groups. Stopped per
+`STATE_COMMON.md`'s ambiguity protocol rather than inventing new behavior;
+recorded as an Open Question and asked the user.
+
+**Step 2 (resolved, same day):** the coordinator's decision was to
+implement it for real, mirroring JS/TS's `enforceImportOrdering`/
+`renderImportSegment` blank-line-insertion shape. New
+`ScopePipelineIndent.applyImportGroupBlankLines`/`isBlankLine`: scoped
+narrowly to the one case unambiguous for Python's own bucket-less,
+adjacency-based grouping — two consecutive recognized import groups at the
+**same depth**, separated **only** by blank physical line(s) (no comment,
+no depth change, no other statement in between) get their blank-line count
+normalized to `pythonImportBlankLines`. A gap containing a comment or
+spanning a depth change is left completely untouched — normalizing across
+a comment or into/out of a nested scope isn't what the key documents, and
+STYLE_PYTHON3.md's own worked example never shows either shape.
+`applyImportSort` was restructured to track each flushed group's own
+`[startIdx, endIdx, depth)` range in `rawLines` (`groupRanges`) so the new
+pass can find each inter-group gap precisely.
+
+`ScopePipelineIndent` gained a 5-arg constructor
+(`lang, indentWidth, lineLength, pythonImportSort, pythonImportBlankLines`)
+threading both new `Config` getters through from `FormatterIndent
+.formatOne`; the existing 2-/3-arg constructors default to `true`/`1`
+(kept for backward compatibility, no other in-tree caller). `Config.java`
+gained `pythonImportSort`/`pythonImportBlankLines` fields+getters, both
+keys in `ALL_KEYS`, CLI/file parsing (`parseBoolean`/`parseInt`, same
+pattern as `java-import-sort`/`java-import-blank-lines`), a new `Python 3`
+group in `GROUPS` (between `JS/TS` and `HTML5`, matching README.md's own
+section order) and `describeOne` cases. `Config.java`'s stale comment
+calling these keys "a pre-existing gap, not introduced by this grouping"
+was removed since the gap no longer exists.
+
+**Validation:** `make test` 245/245 forward + idempotency (244 pre-existing
++ 1 new). New local fixture `test/py_import_blank_lines_{inp,out}.py`
+(registered in `test/README.txt`/`Makefile`'s `INP_FILES`, alongside
+`py_combined`/`py_comments` — not a `real_code_regressions_*` fixture since
+it's new-feature coverage, not a repro of a found bug): 2 adjacent
+same-depth import groups separated by a 2-blank-line gap collapse to 1
+blank line (default `python-import-blank-lines`), each group is also
+sorted (default `python-import-sort=on`), and a *different* 2-blank-line
+gap (between the last import group and a following `def`, not an
+inter-import-group gap) is left untouched — proves the new pass is scoped
+to import-group boundaries only, verified against the actual JAR before
+activating. Manual smoke test (`JXMAKE_CODE_FORMATTER_PYTHON_IMPORT_SORT`/
+`_PYTHON_IMPORT_BLANK_LINES` env overrides against the same fixture's
+input): `python-import-sort=off` reproduced fully unsorted output with
+blank lines untouched (full no-op, confirming the gating); default sort
++`python-import-blank-lines=0` collapsed the inter-group gap to zero blank
+lines while leaving the pre-`def` gap at 2 — confirmed the config value
+threads through correctly at a non-default setting too. `/properties`
+verified via a live server + `curl`: new `"Python 3"` group present between
+`"JS/TS"` and `"HTML5"`, `python-import-sort` → default `"on"`, allowed
+`["on","off"]`; `python-import-blank-lines` → default `"1"`, allowed
+`null` (free-form int) — matches README.md's documented defaults exactly.
 
 ---
 

@@ -343,6 +343,44 @@ at little cost to how many genuinely ambiguous comments get resolved. See
 `STATE_AI.md` for the full accuracy history and the cross-validation
 numbers behind that choice.
 
+### General scope-depth reindentation (GDR) (`curly-general-scope-reindent`)
+
+`curly-general-scope-reindent` (default `off`) opts curly-family languages
+(C/C++/Java/Kotlin/JavaScript/TypeScript, including embedded JavaScript inside HTML5
+`<script>` tags) into an isolated pre-pass, run ahead of the normal formatting pipeline, that
+derives each line's indentation from absolute brace/paren/bracket nesting depth instead of the
+default behavior (preserve original whitespace except where a specific recognized rewrite
+requires touching it). This lets badly indented machine-generated code, obfuscated code, or code
+copy-pasted from emails/forums that lost its indentation — including fully flush-left
+(zero-indentation) input — get reindented correctly, which the base pipeline's relative-delta
+reindentation cannot do on its own. Does **not** apply to JSON/JSON5/CSS/YAML/TOML/XML/HTML5,
+which already parse into a real tree and print indentation fresh from structural nesting depth
+regardless of source formatting, independent of this key.
+
+**Known gap and its workaround (`curly-general-scope-reindent-multipass`):** the pre-pass
+measures each line's depth from the source *before* the pipeline's own brace-placement pass
+runs. A source line joining a clause onto the closing brace, one-true-brace style —
+
+```java
+if (a) {
+    foo();
+} else if (b) {   // joined onto the previous closing brace, one physical line
+    bar();
+}
+```
+
+— gets its depth measured for that single joined line as it exists at pre-pass time; if this
+formatter's own brace-placement pass later needs to split it into separate `}` / `else if (b) {`
+lines to match its Allman style, the newly split-out line never gets its own pre-pass target,
+and the result can differ between a first format and reformatting that already-formatted output
+again (non-idempotent). Reindented output is correct once the input already uses
+one-clause-per-line bracing; the gap is specific to sources using the joined `} else`-style form.
+Setting `curly-general-scope-reindent-multipass = on` (default `off`, only takes effect when
+`curly-general-scope-reindent` is also `on`) resolves this: instead of one pre-pass-then-pipeline
+pass, it runs a bounded convergence loop (pre-pass + full pipeline, repeated and compared cycle
+to cycle, until two consecutive cycles are byte-identical, capped at a safety limit) — at the
+cost of extra formatting passes for any file that enables it.
+
 ### HTML5 tree-construction gap levels (`html5-tc-gap-level`)
 
 `html5-tc-gap-level` (default `0`, integer `0`-`4`) enables an increasing, cumulative set of
@@ -353,19 +391,49 @@ key). Default `0`: current, strictly preserve-as-written HTML5 parsing, unchange
 
 - **Level `1`** — implicit `<body>` start-tag insertion: a document with no explicit `<body>`
   start tag anywhere gets one synthesized around the first non-head content and everything after
-  it — the first fabricated-node path in this otherwise preserve-as-written formatter.
+  it — the first fabricated-node path in this otherwise preserve-as-written formatter. Known
+  gap: the synthesis point is a simplified heuristic (first non-whitespace/non-comment/
+  non-DOCTYPE/non-`<head>` sibling), not a true "head insertion mode closed" transition — can
+  misfire on documents with no explicit `<head>` either (wraps `<meta>`/`<title>`/`<script>` into
+  the synthesized `<body>` too early), and fires even on bare markup *fragments* (no full
+  document structure at all), wrapping them in a `<body>` too.
 - **Level `2`** (+ level 1) — foster-parenting: content the spec requires relocated out of an
   open `<table>` and inserted immediately before it, rather than nested inside where the source
-  text placed it.
+  text placed it. Known gap: `isInTableInsertionMode()` is implemented as a single-level "direct
+  child of an open `<table>`" check, not a full ancestor scan — an implemented deviation from
+  `RDD_KEY_230`'s original design sketch, found necessary via smoke-testing (the ancestor-scan
+  form incorrectly re-evaluates a fostered element's own already-relocated descendants).
 - **Level `3`** (+ levels 1-2) — misnested `<form>` reconstruction inside `<template>`: a
   single-slot "form element pointer," scoped per `<template>` boundary via plain Java
-  call-stack local-variable save/restore.
+  call-stack local-variable save/restore. No known gap.
 - **Level `4`** (+ levels 1-3) — adoption agency algorithm: reconstructs a misnested formatting
   element (e.g. `<b>`/`<i>`, as in `<b>1<i>2</b>3</i>`) as a next-sibling clone once its
-  misnesting ancestor's own close tag is matched.
+  misnesting ancestor's own close tag is matched. Known gap: tracks only the single
+  most-recently-orphaned formatting element at a time, not the spec's full "list of active
+  formatting elements" + "furthest block" + "bookmark" algorithm. Correctly handles the classic
+  single-level misnesting case; a second, simultaneous misnesting under the same ancestor is not
+  reconstructed — only the innermost/most-recently-orphaned one is (the plain field gets
+  overwritten, not queued).
 
-See "Known Limitations" below for each level's documented gap, and `STATE_HTML5_TCG.md` for the
-full design history (`RDD_KEY_230`) and each level's own implementation notes.
+See `STATE_HTML5_TCG.md` for the full design history (`RDD_KEY_230`) and each level's own
+implementation notes.
+
+### Comment capitalization exceptions (`normalize-comment-start-case`)
+
+`normalize-comment-start-case = on` (default) skips capitalizing any HTML/XML comment whose
+entire (trimmed) body is a single word with no interior whitespace, e.g.:
+
+```html
+<!--more-->
+```
+
+This is deliberately broad (any single word, not just a known allow-list), because a single-word
+HTML/XML comment is often a content-splitting directive a third-party tool parses literally and
+must never be rewritten (the motivating case: WordPress's magic comments like `<!--more-->`,
+`<!--nextpage-->`, `<!--noteaser-->`). A real-corpus check across multiple real-world HTML5
+dogfood trees found zero genuine one-word English prose comments that this rule would wrongly
+leave lowercase, so it was accepted as-is rather than built as a maintained allow-list. See
+"Known Limitations" below for the accepted risk this leaves.
 
 ### `.jxmake-code-formatter` inheritance
 
@@ -510,19 +578,16 @@ third-party client only needs to speak this HTTP protocol, not link against the 
 
 ## Known Limitations
 
-1. **General scope‑depth reindentation for curly-family languages (C/C++/Java/Kotlin/
-   JavaScript/TypeScript, including embedded JavaScript inside HTML5 `<script>` tags) is
-   opt-in, not the default.** These languages otherwise preserve the original whitespace by
-   default (only narrow, targeted passes reindent anything). Setting
-   `curly-general-scope-reindent = on` (config key, or per-file via `JXM_CFMT_CFG`) runs an
-   isolated pre-pass ahead of the normal pipeline that derives each line's indentation from
-   absolute brace/paren/bracket nesting depth, so badly indented machine‑generated code,
-   obfuscated code, or code copy‑pasted from emails and forums that lost their indentation
-   can still be reindented correctly — including from fully flush-left (zero-indentation)
-   input, which the base pipeline's relative-delta reindentation cannot fix on its own. This
-   key does **not** apply to JSON/JSON5/CSS/YAML/TOML/XML/HTML5, which parse into a real tree
-   and print indentation fresh from structural nesting depth regardless of source formatting
-   already, independent of this key.
+Grouped by which language family each limitation affects (curly-brace family, then
+tag-based/markup family, then indent-based family), then by effect size within each group.
+
+### Curly-brace family (C/C++/Java/Kotlin/JS/TS)
+
+1. **General scope-depth reindentation is opt-in, not the default, and has a known joined-brace
+   non-idempotency gap.** See "Config file format" → [General scope-depth reindentation
+   (GDR)](#general-scope-depth-reindentation-gdr-curly-general-scope-reindent) above for what the
+   `curly-general-scope-reindent` key does, its scope, the joined-one-true-brace-style gap, and
+   the `curly-general-scope-reindent-multipass` workaround.
 
 2. **Multi-line-call/condition wrap decision can flap across repeated formatting passes,
    affecting C/C++/Java/Kotlin/JS/TS.** Whether a small call or condition nested inside a
@@ -541,41 +606,7 @@ third-party client only needs to speak this HTTP protocol, not link against the 
    regression sweep. This is a known, currently-unresolved gap — no workaround exists
    short of avoiding deeply nested short calls inside very long lines.
 
-3. **HTML5 deep tree-construction gap coverage (`html5-tc-gap-level`) is a narrow, documented
-   approximation of each corresponding HTML5 spec algorithm, not a full spec-faithful
-   implementation** (see Configuration above for what the key is and what each level enables).
-   Known gaps in the shipped levels 1-4 behavior:
-   - **Level `1`** — the synthesis point is a simplified heuristic (first non-whitespace/
-     non-comment/non-DOCTYPE/non-`<head>` sibling), not a true "head insertion mode closed"
-     transition — can misfire on documents with no explicit `<head>` either (wraps
-     `<meta>`/`<title>`/`<script>` into the synthesized `<body>` too early), and fires even on
-     bare markup *fragments* (no full document structure at all), wrapping them in a `<body>`
-     too.
-   - **Level `2`** — `isInTableInsertionMode()` is implemented as a single-level "direct child
-     of an open `<table>`" check, not a full ancestor scan — an implemented deviation from
-     `RDD_KEY_230`'s original design sketch, found necessary via smoke-testing (the
-     ancestor-scan form incorrectly re-evaluates a fostered element's own already-relocated
-     descendants).
-   - **Level `4`** — tracks only the single most-recently-orphaned formatting element at a
-     time, not the spec's full "list of active formatting elements" + "furthest block" +
-     "bookmark" algorithm. Correctly handles the classic single-level misnesting case; a
-     second, simultaneous misnesting under the same ancestor is not reconstructed — only the
-     innermost/most-recently-orphaned one is (the plain field gets overwritten, not queued).
-
-   See `STATE_HTML5_TCG.md` for the full design history (`RDD_KEY_230`) and each level's
-   own implementation notes.
-
-   **Known remaining gap:** because this pre-pass computes each line's target depth before
-   the normal pipeline's own brace-placement pass runs, source written in one-true-brace
-   style (`} else {`, `} else if (...) {`, `} catch (...) {`, `} finally {` all joined onto
-   the closing line) can still end up incorrectly indented. The pre-pass measures depth for
-   that single joined line as it exists at the time it runs; when brace-placement later
-   splits it into separate `}` / `else if (...) {` lines to match this formatter's brace
-   style, the newly split-out line no longer has the pre-pass's own computed target applied
-   to it. Reindented output is correct once the input already uses one-clause-per-line
-   bracing; the gap is specific to sources using the joined `} else`-style form.
-
-4. **JS/TS braceless if/else collapse can still be non-idempotent when the rescuing
+3. **JS/TS braceless if/else collapse can still be non-idempotent when the rescuing
    call-wrap doesn't shrink the line enough.** Before collapsing a braceless `if`/`else`
    body onto one line, the formatter checks whether a later call-wrapping pass could
    still rescue an over-limit result (`hasBreakableCall`) — but that check only asks
@@ -590,7 +621,7 @@ third-party client only needs to speak this HTTP protocol, not link against the 
    separately-scoped lift). No workaround exists short of manually keeping such lines
    braced.
 
-5. **JS/TS import ordering (§15) misclassifies bundler/tsconfig path-mapped absolute
+4. **JS/TS import ordering (§15) misclassifies bundler/tsconfig path-mapped absolute
    imports as third-party.** Local-import detection is syntactic only: an import specifier
    is `local` iff it starts with `./` or `../`. A genuinely first-party import resolved via
    a bundler or tsconfig `baseUrl`/`paths` mechanism (e.g. `import { Widget } from
@@ -599,42 +630,57 @@ third-party client only needs to speak this HTTP protocol, not link against the 
    for a project's source root and no `tsconfig.json`/bundler-config resolution logic. This
    is a known, accepted simplification (RDD_KEY_195) — no source-root config key is planned.
 
-6. **Non-idempotent reindent on internally-inconsistent generated source, for any pass using
+5. **Non-idempotent reindent on internally-inconsistent generated source, for any pass using
    a relative-delta technique.** Two known call sites share this root cause:
    `SwitchRule.applyNonInlineCaseIndent` (`case` bodies) and
    `ScopePipeline.applyDeclarationsPass` (declarations) — each shifts a block's lines by one
    delta computed from a single reference line rather than deriving each line's target from
    its own brace-nesting depth, which assumes the block's original indentation was internally
-   consistent. On JavaCC/ANTLR-style generated sources whose *own* output has inconsistent
-   per-line indentation within a single block (a generator quirk, not something realistic
-   hand-written code exhibits), one reformat pass can land a line one indent level off from
-   its true target, and reformatting that output a second time (an idempotency check: format
-   once, then format the result again and compare) converges it to a different value than
-   either the first pass or the original source — i.e. two formatting passes are not
-   guaranteed to produce byte-identical output on such input. Observed once each in the
-   `javaparser/javaparser`
-   real-code-testing candidate (`ASTParser.java`, its JavaCC-generated parser) and the local
-   dogfood tree (`tool/JSONEncoderLite.java`), out of thousands of real-world files tested
-   across all candidates; no other file in either tree or any other tested candidate exhibits
-   it. A real fix would need both passes to derive each line's target from structural depth
-   rather than a relative delta from one reference line — a nontrivial rework with regression
-   risk to existing behavior, not planned unless a broader pattern of real-world impact
-   emerges.
+   consistent. On generated sources (e.g. JavaCC/ANTLR-style parser output) whose *own* output
+   has inconsistent per-line indentation within a single block — a generator quirk, not
+   something realistic hand-written code exhibits — one reformat pass can land a line one
+   indent level off from its true target. For example, a `switch` body where a generator's own
+   output already mixes indent widths within one `case`:
 
-7. **HTML/XML single-word comments are never capitalized, even when they're genuine
-   one-word prose.** `normalize-comment-start-case=on` skips any HTML/XML comment whose
-   entire (trimmed) body is a single word with no interior whitespace — e.g. WordPress's
-   magic comments `<!--more-->`/`<!--nextpage-->`/`<!--noteaser-->`, which are
-   content-splitting directives a third-party tool parses literally and must never be
-   rewritten. This is deliberately broad (any single word, not just a known allow-list): a
-   real-corpus check across three real-world HTML5 dogfood trees
-   (`WordPress/wordpress-develop`, `web-platform-tests/wpt`,
-   `alexandersandberg/html5-elements-tester`) found zero genuine one-word English prose
-   comments that this rule would wrongly leave lowercase, so it was accepted as-is rather
-   than built as a maintained allow-list. The accepted risk: a codebase outside that
-   sample with a real one-word prose comment (e.g. `<!--fixme-->`, `<!--todo-->`) will keep
-   it lowercase instead of capitalizing it — a false negative, not a false positive (no
-   comment is ever wrongly rewritten by this rule, only possibly left as-is).
+   ```java
+   switch (kind) {
+       case TOKEN:
+           consume();
+         emit(kind);  // one column short of `consume()` above, in the same case body
+           break;
+   }
+   ```
+
+   reformatting that output a second time (an idempotency check: format once, then format the
+   result again and compare) converges it to a different value than either the first pass or
+   the original source — i.e. two formatting passes are not guaranteed to produce
+   byte-identical output on such input. Observed rarely in real-code testing, out of thousands
+   of real-world files tested across many candidates. A real fix would need both passes to
+   derive each line's target from structural depth rather than a relative delta from one
+   reference line — a nontrivial rework with regression risk to existing behavior, not planned
+   unless a broader pattern of real-world impact emerges.
+
+### Tag-based family (XML/HTML5)
+
+6. **HTML5 deep tree-construction gap coverage (`html5-tc-gap-level`) is a narrow, documented
+   approximation of each corresponding HTML5 spec algorithm, not a full spec-faithful
+   implementation.** See "Config file format" → [HTML5 tree-construction gap
+   levels](#html5-tree-construction-gap-levels-html5-tc-gap-level) above for what the key is,
+   what each level enables, and each level's own documented gap; `STATE_HTML5_TCG.md` has the
+   full design history (`RDD_KEY_230`).
+
+7. **HTML/XML single-word comments are never capitalized, even when they're genuine one-word
+   prose.** See "Config file format" → [Comment capitalization
+   exceptions](#comment-capitalization-exceptions-normalize-comment-start-case) above for what
+   `normalize-comment-start-case` skips and why (e.g. `<!--more-->`-style directive comments).
+   The accepted risk: a codebase with a real one-word prose comment (e.g. `<!--fixme-->`,
+   `<!--todo-->`) will keep it lowercase instead of capitalizing it — a false negative, not a
+   false positive (no comment is ever wrongly rewritten by this rule, only possibly left
+   as-is).
+
+### Indent-based family (Python 3)
+
+No known limitations currently documented for indent-based languages.
 
 ---
 

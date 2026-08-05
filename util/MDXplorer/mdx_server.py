@@ -773,13 +773,13 @@ _TEMPLATE = (
 "      out += '<div class=\\\"mdx-field-wrap' + (inert ? ' mdx-field-inert' : '') + '\\\">';\n"
 "      out += '<div class=\\\"mdx-field\\\"><label>' + mdxEsc(p.key) + '</label>';\n"
 "      if(p.allowedValues){{\n"
-"        out += '<select data-key=\\\"' + mdxEsc(p.key) + '\\\">'\n"
+"        out += '<select data-key=\\\"' + mdxEsc(p.key) + '\\\"' + (inert ? ' disabled' : '') + '>'\n"
 "          + p.allowedValues.map(function(v){{\n"
 "              return '<option value=\\\"' + mdxEsc(v) + '\\\"' + (v === cur ? ' selected' : '') + '>' + mdxEsc(v) + '</option>';\n"
 "            }}).join('')\n"
 "          + '</select>';\n"
 "      }} else {{\n"
-"        out += '<input type=\\\"text\\\" data-key=\\\"' + mdxEsc(p.key) + '\\\" value=\\\"' + mdxEsc(cur) + '\\\" placeholder=\\\"' + mdxEsc(p.default) + '\\\"/>';\n"
+"        out += '<input type=\\\"text\\\" data-key=\\\"' + mdxEsc(p.key) + '\\\" value=\\\"' + mdxEsc(cur) + '\\\" placeholder=\\\"' + mdxEsc(p.default) + '\\\"' + (inert ? ' disabled' : '') + '/>';\n"
 "      }}\n"
 "      out += '</div>';\n"
 "      if(inert) out += '<div class=\\\"mdx-field-hint\\\">server-only \\u2014 takes effect only when the formatter server itself starts; has no effect here or on a running server</div>';\n"
@@ -918,7 +918,7 @@ html.dark .theme-toggle:not(.format-toggle):not(.settings-toggle)::before {{ con
 }}
 .mdx-modal {{
   background: var(--bg); color: var(--text); border: 1px solid var(--border);
-  border-radius: 8px; width: min(600px, 92vw); max-height: 85vh;
+  border-radius: 8px; width: min(700px, 94vw); max-height: 85vh;
   display: flex; flex-direction: column; overflow: hidden;
 }}
 .mdx-modal-head {{

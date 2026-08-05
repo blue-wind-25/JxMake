@@ -449,14 +449,33 @@ catch(final IOException e) { System.err.println( "jxmake-code-formatter: warning
 
     } // class PropertiesHandler
 
+    /**
+     * Renders {@code Config.describeAll()} as a JSON array of {@code {"group": ..., "properties":
+     * [...]}} objects, one per README.md {@code ### Config file format} section, in that same
+     * section order -- {@code describeAll()} already returns its properties pre-grouped/ordered
+     * that way, so this only needs to split on group boundaries, not re-sort anything.
+     */
     private static String propertiesJson()
     {
-        final StringBuilder json = new StringBuilder();
-        json.append("[\n");
         final List<Config.ConfigProperty> properties = Config.describeAll();
+        final StringBuilder               json       = new StringBuilder();
+        json.append("[\n");
+        String  currentGroup = null;
+        boolean firstGroup   = true;
         for(int i = 0; i < properties.size(); ++i) {
-            final Config.ConfigProperty property = properties.get(i);
-            json.append("  {\"key\": ").append( jsonString(property.key) );
+            final Config.ConfigProperty property   = properties.get(i);
+            final boolean               groupStart = !property.group.equals(currentGroup);
+            if(groupStart) {
+                if( !firstGroup ) json.append("\n      ]\n    },\n");
+                firstGroup   = false;
+                currentGroup = property.group;
+                json.append("  {\n    \"group\": ").append( jsonString(currentGroup) );
+                json.append(",\n    \"properties\": [\n");
+            }
+            else {
+                json.append(",\n");
+            }
+            json.append("      {\"key\": ").append( jsonString(property.key) );
             json.append(", \"default\": ").append( jsonString(property.defaultValue) );
             json.append(", \"allowedValues\": ");
             if(property.allowedValues == null) {
@@ -471,9 +490,8 @@ catch(final IOException e) { System.err.println( "jxmake-code-formatter: warning
                 json.append("]");
             } // if
             json.append("}");
-            if(i < properties.size() - 1) json.append(",");
-            json.append("\n");
         } // for
+        if( !firstGroup ) json.append("\n      ]\n    }\n");
         json.append("]\n");
 
         return json.toString();

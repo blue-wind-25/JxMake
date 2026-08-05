@@ -445,22 +445,36 @@ job.
 ### Server mode: 3rd endpoint exposing config properties — DONE
 
 Implemented 2026-08-06. `Config.describeAll()` returns a `List<ConfigProperty>`
-(`key`/`defaultValue`/`allowedValues`, the latter `null` for free-form values,
-`{"on","off"}` for boolean keys, `INDENT_STYLE_CHOICES`/`LINE_ENDINGS_CHOICES`
-for the two enum-like keys), zipped from `ALL_KEYS` via an explicit switch over
-a fresh default `Config` instance's fields — mechanical, no new state.
-`ServerMode.java` gained a `GET /properties` handler (`PropertiesHandler`,
-registered in `start()` alongside `/format`/`/shutdown`) that serializes it
-with a small self-contained `propertiesJson()`/`jsonString()` JSON writer (no
-existing general-purpose JSON-building helper existed elsewhere in the
-codebase to reuse — `FormatterJson.java` etc. are JSON-the-language
-formatters, not object serializers). Verified end-to-end: started a real
-server, curled `/properties`, confirmed valid JSON with all 27 keys and
-correct `allowedValues` (e.g. `indent-style` → `["spaces","tabs","auto"]`).
-`make test` (244/244) and `make test-server` (all existing checks) stayed
-green. README.md's "Server Wire Protocol" section documents the new endpoint
-alongside `/format`/`/shutdown`. This file's "Config Keys and Defaults" block
-below was trimmed per the docs-only follow-up (see next paragraph).
+(`group`/`key`/`defaultValue`/`allowedValues`, the latter `null` for free-form
+values, `{"on","off"}` for boolean keys, `INDENT_STYLE_CHOICES`/
+`LINE_ENDINGS_CHOICES` for the two enum-like keys). `group` mirrors README.md's
+`### Config file format` section headings/order exactly (`Structural
+constants`, `Behavior`, `C/C++`, `Java`, `Kotlin`, `JS/TS`, `HTML5`,
+`AI-assist (GRU)`), via a `GROUPS` ordered-map (group name -> ordered key
+list) that `describeAll()` asserts covers precisely `ALL_KEYS` (throws if the
+two ever drift apart). Per-key default/allowed-values lookup stayed an
+explicit switch over a fresh default `Config` instance's fields — mechanical,
+no new state. `ServerMode.java` gained a `GET /properties` handler
+(`PropertiesHandler`, registered in `start()` alongside `/format`/`/shutdown`)
+that serializes it, grouped, with a small self-contained `propertiesJson()`/
+`jsonString()` JSON writer (no existing general-purpose JSON-building helper
+existed elsewhere in the codebase to reuse — `FormatterJson.java` etc. are
+JSON-the-language formatters, not object serializers): a top-level array of
+`{"group": ..., "properties": [...]}` objects, in `describeAll()`'s
+already-grouped order (the handler only detects group boundaries in the
+already-sorted list, no re-sorting). Verified end-to-end: started a real
+server, curled `/properties`, confirmed valid JSON with all 8 groups / 27 keys
+in README order and correct `allowedValues` (e.g. `indent-style` →
+`["spaces","tabs","auto"]`). `make test` (244/244) and `make test-server`
+(all existing checks) stayed green. README.md's "Server Wire Protocol"
+section documents the new endpoint's grouped shape alongside `/format`/
+`/shutdown`, including a note that Python 3's `python-import-sort`/
+`python-import-blank-lines` don't appear in the response because they're
+pre-existing gaps in `Config.java`'s own `ALL_KEYS` (documented in README.md
+but never wired as recognized keys) — a real gap noticed while building this,
+left unfixed as out of this task's low-risk scope. This file's "Config Keys
+and Defaults" block below was trimmed per the docs-only follow-up (see next
+paragraph).
 
 Docs-only follow-up (done together): trimmed this file's "Config Keys and
 Defaults" block so it stops duplicating README.md's `### Config file format`

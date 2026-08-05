@@ -561,15 +561,20 @@ The server (`--server`) exposes two plain-HTTP endpoints on `localhost:<port>` (
 - `POST /shutdown` — asks the server to stop; responds `200 shutting down` immediately, then
   terminates the process shortly after (deleting its lockfile first). Used by `--stop`.
 - `GET /properties` — no request parameters, empty request body. Response body (HTTP 200) is a
-  JSON array, one object per config key (`Config.describeAll()`), in the same order as the
-  `### Config file format` list below: `{"key": "<config-key>", "default": "<default-value>",
-  "allowedValues": ["choice1", "choice2", ...] | null}`. `default` is always the value's raw
-  string form (as it would appear in a config file/query param/env var), even for
-  integer/boolean keys. `allowedValues` is a fixed list for `on`/`off` boolean keys and the
-  few enum-like keys (`indent-style`, `line-endings`); `null` for free-form values (integers,
-  paths, comma-separated import-order lists). Lets tooling introspect the formatter's config
-  surface without parsing this README. Reads live from `Config.java`, the runtime source of
-  truth, so it cannot drift from actual behavior the way a hand-maintained doc list can.
+  JSON array of section-group objects (`Config.describeAll()`), grouped and ordered exactly like
+  the `### Config file format` list below (`Structural constants`, `Behavior`, `C/C++`, `Java`,
+  `Kotlin`, `JS/TS`, `HTML5`, `AI-assist (GRU)`): `[{"group": "<section-name>", "properties":
+  [{"key": "<config-key>", "default": "<default-value>", "allowedValues": ["choice1", "choice2",
+  ...] | null}, ...]}, ...]`. `default` is always the value's raw string form (as it would appear
+  in a config file/query param/env var), even for integer/boolean keys. `allowedValues` is a
+  fixed list for `on`/`off` boolean keys and the few enum-like keys (`indent-style`,
+  `line-endings`); `null` for free-form values (integers, paths, comma-separated import-order
+  lists). Lets tooling introspect the formatter's config surface without parsing this README.
+  Reads live from `Config.java`, the runtime source of truth, so it cannot drift from actual
+  behavior the way a hand-maintained doc list can. (Python 3's `python-import-sort`/
+  `python-import-blank-lines` are pre-existing gaps in `Config.java`'s own `ALL_KEYS` — documented
+  below but not yet wired as recognized keys — so they don't appear here either; unrelated to
+  this endpoint, not fixed as part of adding it.)
 
 Clients are expected to auto-detect a running server via the lockfile at
 `~/.config/jxmake-code-formatter/server.lock` (PID on line 1, port on line 2) rather than

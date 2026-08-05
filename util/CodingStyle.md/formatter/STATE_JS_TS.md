@@ -253,6 +253,38 @@ active in the Makefile and passing.
   didn't resolve the cited bug alone and this session preferred not to
   land an unverified partial change silently.
 
+  **2026-08-06 follow-up session (RDD_KEY_245), no code change landed,
+  narrows but does not resolve the above:** re-investigated using a fresh
+  minimal repro (`/tmp/mini.ts`, the `commandLineParser.ts`-derived
+  `pathOptions`/`optionMap`/`watchOptionMap` shape) with direct
+  `ScopePipelineCurly.processScope` entry-point instrumentation. **For this
+  specific repro shape, the instrumented output shows only ONE recursion
+  level touches these declarations** -- the object-literal initializer's own
+  `{...}` is never found as its own `splitTopLevelSpans` "Span" at all
+  (value-position braces nested inside a declaration initializer aren't
+  span-recursed the way a function/class/control-flow body is), contradicting
+  this file's own prior write-up's implication that the outer/inner
+  double-pass is this repro's cause. Independently re-implemented and
+  re-tested the `spansMultipleLines` bracket-kind-stack refinement described
+  above (tolerate a `NEWLINE` whose innermost enclosing bracket is `(`/`[`
+  even when that pair is itself nested inside the row's own `{...}`
+  initializer) -- **confirmed again it does not fix `/tmp/mini.ts`** (same
+  negative result, now independently reconfirmed). Further instrumentation
+  narrowed the real divergence to something else entirely: round2 renders the
+  object literal's closing `}` onto its own line where round1 keeps it
+  trailing inline -- neither `processScope`'s span recursion (ruled out, see
+  above) nor `JsTsDeclarationAlignmentRule`'s grouping (ruled out, the
+  bracket-stack fix didn't change the symptom) is responsible; most likely
+  locus is `MiscRuleCurly.enforceCallLineBreaking`/`renderCallCandidate`'s
+  own multi-line-source closing-bracket placement (~line 1250-1330, the same
+  region the braceless-if/else Open Questions entry below already names as a
+  "which pass gets to see the final stable per-line width" locus) -- not
+  traced further, out of this session's reasoning-effort budget. Full
+  finding, including the exact instrumentation approach and next-session
+  pointer, recorded in `RDD_LOG.md`'s `RDD_KEY_245`. No fixture added, no
+  dogfood corpus re-run performed (repro-level investigation only this
+  session). `make test` unaffected (244/244, no source change committed).
+
 - **README "braceless if/else collapse can still be non-idempotent" bullet
   (`hasBreakableCall`/`refuseUnrescuableCollapse`, `BlockStructureRule.java`)
   — 2026-08-05 investigation session, no code change landed, the documented

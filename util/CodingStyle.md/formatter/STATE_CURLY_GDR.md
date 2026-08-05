@@ -364,6 +364,15 @@ reindentation logic yet to exercise).
 
 ## Resolved Design Decisions
 
+- `RDD_KEY_244` — Considered and rejected making `curly-general-scope-reindent`/
+  `-multipass` `on` by default. Not just "not yet proven safe" — rejected on
+  purpose-mismatch grounds too (GDR is a narrow fix-up tool for
+  badly-indented/machine-generated source, not a general formatting rule;
+  ordinary hand-written source has nothing for it to fix) and blast-radius
+  grounds (default-on would invert this formatter's "never touch
+  indentation unless a rule requires it" invariant project-wide). These
+  keys are intended to remain permanently opt-in — not a deferred "flip the
+  default later" task. Full text: `RDD_KEY_244` in `RDD_LOG.md`.
 - `RDD_KEY_243` — Resolved the "How to fix the base single-pass `RDD_KEY_229` bug" Open
   Question: documentation-only resolution, not a code change. The already-shipped
   `curly-general-scope-reindent-multipass = on` is the fix/workaround (already empirically
@@ -1106,3 +1115,12 @@ fix** — nothing else. Concretely:
   (C/C++/Java/Kotlin, plus JS/TS per the expansion above)
   reindentation problem, matching where the old `STATE_COMMON.md` TODO
   lived before this split.
+- **`curly-general-scope-reindent`/`-multipass` are permanently opt-in by
+  design, not "opt-in until proven safe enough to default on."** See
+  `RDD_KEY_244` in Resolved Design Decisions above — considered and
+  rejected on both purpose-mismatch grounds (a narrow fix-up tool has
+  nothing to offer ordinary already-consistently-indented source) and
+  blast-radius grounds (default-on would invert this formatter's
+  touch-nothing-unless-required invariant project-wide), independent of
+  whether the multipass second-order-oscillation risk is ever fully
+  resolved. Do not track "flip the default" as a future goal for this job.

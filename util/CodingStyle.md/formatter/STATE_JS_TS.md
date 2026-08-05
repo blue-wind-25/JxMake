@@ -520,6 +520,89 @@ active in the Makefile and passing.
   into one shared "which pass gets to see the final, stable per-line width"
   architectural problem before attempting either in isolation.
 
+  **2026-08-06 fourth session (RDD_KEY_249), one fix attempt tried and
+  reverted, no code change landed.** Picked up the "next session" pointer
+  above directly. Minimal repro (`/tmp/mini2.ts`, a self-contained variant
+  of the `format_date.ts`-derived one already on file, no switch needed):
+  `if (offset === 0) return 'Z'; else return ( (zone >= 0 ? '+' : '') +
+  padNumber(hours, 2, minusSign) + ':' + padNumber( Math.abs(zone % 60), 2,
+  minusSign ) );` inside a plain function — reproduces round1 != round2
+  exactly, confirmed via `DBG_CLB`-gated instrumentation (removed before
+  revert) printed inside `renderCallCandidate`'s `containsNewline` rejoin
+  branch: round1's two `padNumber(...)` candidates each measure their own
+  local-physical-line-only fits-check (`candidateLen` 92 and 61, both under
+  the 100 limit) and both silently rejoin, producing a single 145-char
+  output line (already a round1-internal violation, not merely a round1-
+  vs-round2 mismatch); round2 (fed that same one-liner, re-tokenized with a
+  different upstream indent shape from the `else`/`if` column-alignment
+  pass) measures the *first* candidate's local fits-check at 104 (over
+  limit, stays wrapped) and the second at 61 (rejoins) — an inconsistent
+  partial rejoin. Confirms this file's own prior "does not live in
+  `BlockStructureRule`" finding and narrows it further: the rejoin
+  fits-check's `prefix`/`suffix` are built from `lineStartIndex`/
+  `effectiveLineEndIndex`, which only look back/forward to the nearest
+  `NEWLINE` — blind to a sibling call's own wrapped text sitting further up
+  the same logical statement once *that* sibling has already introduced a
+  `NEWLINE` of its own.
+
+  **Attempt (reverted): make the rejoin fits-check statement-wide instead
+  of physical-line-wide.** Added `logicalStatementStart`/`logicalStatementEnd`
+  (scan back/forward to the nearest real statement boundary — `;`/`{`/`}`/
+  file bounds — which a mid-statement wrap's own `NEWLINE` never is, unlike
+  `lineStartIndex`/`effectiveLineEndIndex`), and rebuilt the rejoin
+  `prefix`/`suffix` via `collapseToOneLine` over that wider range instead of
+  the local physical line. This **fully fixed `/tmp/mini2.ts`** (round1
+  correctly wraps both calls and stays wrapped in round2, `diff round1
+  round2` empty) — but **regressed two existing, already-accepted fixtures**
+  on `make test-quiet`: `real_code_regressions_81_inp.ts` and
+  `real_code_regressions_93_inp.ts`, both losing their previously-correct,
+  genuinely-idempotent rejoined form (e.g. `_81`'s
+  `...getInjectionProviders(options.provideInjectionTokensFrom,
+  options.inject), ]` — a combined line already over `lineLengthLimit` but
+  stable) back into an unwanted multi-line wrap, because the new
+  statement-wide check now sees the *combined* statement as too long and
+  refuses every rejoin on that statement, even though the previously
+  accepted behavior for those two fixtures is exactly "rejoin everything,
+  even past the limit, because that's the stable form." This is the same
+  "does the post-wrap line fit" trap the 2026-08-05 session's `hasBreakableCall`
+  width-gate attempt already hit and reverted for the identical reason
+  (`real_code_regressions_81`) — now independently reconfirmed from the
+  `enforceCallLineBreaking` side of the pipeline rather than
+  `BlockStructureRule`'s. Reverted (`git checkout --
+  src/com/jxmake/formatter/rules/MiscRuleCurly.java`); baseline reconfirmed
+  clean at 246/246 forward + idempotency (this session's own fixture count,
+  unrelated `_178`/`_179` additions already present at session start). No
+  dogfood corpus run — disqualified by the local fixture suite before
+  reaching that stage.
+
+  **Why this is genuinely hard, not just under-explored:** the two known
+  good/bad cases pull in opposite directions from the exact same signal
+  (whether the *combined* logical-statement width, after all sibling calls
+  rejoin, exceeds `lineLengthLimit`) — `_81`/`_93` want "over limit is fine,
+  rejoin anyway, as long as it's *consistently* over limit both rounds";
+  `/tmp/mini2.ts` wants "if over limit, refuse the rejoin, or at least
+  refuse it *consistently* both rounds." A statement-wide over/under-limit
+  gate cannot distinguish these — what actually differs between the two
+  cases is not the width itself but *why* the local per-candidate fits-check
+  computes a different verdict round1-vs-round2 for `/tmp/mini2.ts`
+  specifically (a genuinely narrower, not-yet-isolated question) while
+  `_81`/`_93` apparently compute the *same* verdict both rounds already
+  under the pre-existing per-candidate-local check. **Next session:**
+  before trying another gate-shape variant, first instrument *why*
+  `_81`/`_93`'s per-candidate local checks are round-stable while
+  `/tmp/mini2.ts`'s are not, under the ORIGINAL (unmodified)
+  `lineStartIndex`/`effectiveLineEndIndex`-based check — the answer is
+  likely that `_81`/`_93`'s sibling candidates don't actually share one
+  physical line the way `/tmp/mini2.ts`'s do (each already sits on its own
+  original source line pre-wrap), meaning a fix scoped to "only widen the
+  measurement when a rejoin candidate's local physical line was itself
+  produced by a still-open sibling wrap" (not a blanket statement-wide
+  widening) might resolve `/tmp/mini2.ts` without touching `_81`/`_93`'s
+  behavior at all — this narrower, more surgical framing was not attempted
+  this session (budget spent building and disproving the blanket-width
+  variant first, per this bug's own established difficulty). Full finding
+  in `RDD_LOG.md`'s `RDD_KEY_249`.
+
 ---
 
 ## Checklist

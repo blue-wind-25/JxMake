@@ -902,7 +902,7 @@ blockquote {{ border-left: 4px solid var(--border); margin: 0; padding: 0 1em; c
 }}
 
 .theme-toggle::before {{ content: "🌙"; }}
-html.dark .theme-toggle::before {{ content: "☀️"; }}
+html.dark .theme-toggle:not(.format-toggle):not(.settings-toggle)::before {{ content: "☀️"; }}
 
 .format-toggle::before {{ content: "⇄"; }}
 .settings-toggle::before {{ content: "⚙"; }}

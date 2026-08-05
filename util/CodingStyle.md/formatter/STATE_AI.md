@@ -37,8 +37,7 @@ the capable-AI workflow in `README.txt` / `AI_PREAMBLE_AESTHETIC.md`.
 Checklist — Step 2 (all NOT FEASIBLE, no implementation needed): `Config.java`
 ai-assist keys, `AiDecisionClient.java`, `AI_DECISION_PROMPT.md`,
 `MiscRule.java` Tier-3 AI hooks — all NOT FEASIBLE. `README.md` ai-assist
-section — DONE (removed/replaced). `FORMATTER_DISCUSSION.md` Key Decisions
-table update — NOT STARTED (low priority, reference-only decision).
+section — DONE (removed/replaced).
 
 ---
 

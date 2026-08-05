@@ -480,6 +480,44 @@ This is intentionally scoped as housekeeping, not a rewrite — do not let it
 grow into an attempt at any separate, dedicated, much riskier architectural
 job.
 
+### Server mode: 3rd endpoint exposing config properties
+
+Not started. Scoped 2026-08-06.
+
+Add a third `ServerMode.java` HTTP handler (alongside the existing
+`/format` and `/shutdown`) that returns the full list of config
+properties with their defaults and allowed values, for tooling that wants
+to introspect the formatter's config surface without parsing README.md.
+
+Two independent, low-risk pieces:
+
+1. **`Config.java`**: add a small static method (e.g. `describeAll()`)
+   that zips the existing `ALL_KEYS` array with each key's default value
+   and, where applicable, its allowed-values array (`INDENT_STYLE_CHOICES`,
+   `LINE_ENDINGS_CHOICES`, etc.) into one list of simple
+   `(key, default, allowedValues)` records. This is mechanical — the data
+   already exists in `Config.java`, just scattered across separate
+   constants/arrays rather than unified per-key. `Config.java` is already
+   the correct runtime source of truth (not README.md), so the endpoint
+   should read from it directly and needs no doc-sync mechanism of its
+   own.
+2. **`ServerMode.java`**: add a handler (e.g. `/properties`) that calls
+   `Config.describeAll()` and serializes it to JSON, same pattern as the
+   existing two handlers.
+
+Separately (docs-only, no code, can land independently of the above):
+trim this file's "Config Keys and Defaults" block below so it stops being
+a full duplicate of README.md's `### Config file format` section. Keep
+only maintainer-facing notes here (RDD_KEY pointers, STATE_*.md
+cross-refs per key where relevant) and point to README.md as the
+authoritative property list, instead of hand-maintaining two copies that
+can silently drift.
+
+Both pieces touch shared infra (`Config.java` is depended on by every
+job's config-key work) — land this after current in-flight work on
+`ScopePipelineCurly`/`MiscRuleCurly` settles, to avoid unrelated merge
+risk while that's mid-flight.
+
 ### Formatter self-formatting (dogfood-and-adopt) process
 
 A dedicated procedure for actually reformatting the formatter's own Java

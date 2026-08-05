@@ -65,8 +65,8 @@ Be careful not to lose important information, especially the `**Tools/compiler u
 Then update `STATE_DOGFOOD.md` about the above dogfood state (keep `Note` short enough).
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_176_inp/out.java`
-    to   `real_code_regressions_178_inp/out.py`
+    from `real_code_regressions_179_inp/out.ts`
+    to   `...`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -222,20 +222,6 @@ NONE FOR NOW
 Use sub-agent. This can be a substantial work.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
-
-    4. [JS_TS / C_CPP_JAVA, shared root cause] Fix call-wrap/collapse vs.
-       declaration-alignment/padding fits-check ordering — highest file-count
-       impact seen (28/601 TS files, 23/5394 angular files, plus a
-       `SwitchRule`-adjacent case in lodash/lodash), user-deferred, no low-risk
-       fix found yet. Re-investigated: real root cause is NOT
-       `enforceCallLineBreaking` width-measurement ordering — it's
-       `ScopePipelineCurly.processScope` double-running its per-scope passes
-       (outer-first over the flat token list, then again on each recursed
-       child span), which re-aligns already-touched declarations from two
-       different intermediate states. Shared load-bearing infra across every
-       curly-family language; same class of risk as the GDR pre-pass/post-pass
-       circular dependency (RDD_KEY_229). No fix landed; see STATE_JS_TS.md's
-       Open Questions.
 
 5. [JS_TS] JS/TS braceless if/else collapse can still be non-idempotent
    when the rescuing call-wrap doesn't shrink the line enough (cluster 5).

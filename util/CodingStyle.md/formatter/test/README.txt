@@ -3181,21 +3181,22 @@ Real-code regressions:
                                                         `tests/data/cases/comments3.py`/`annotations.py`). See
                                                         STATE_PYTHON3.md's Resolved Design Decisions.
 
-  real_code_regressions_179_inp/out.ts                -- Distilled from microsoft/TypeScript's
+  real_code_regressions_179_inp/out.ts               -- Distilled from microsoft/TypeScript's
                                                         `commandLineParser.ts` (`pathOptions`/`optionMap`/
-                                                        `watchOptionMap` shape): call-wrap/declaration-alignment
-                                                        vs. `ScopePipelineCurly.applyOversizedAggregateInit
+                                                        `watchOptionMap` shape):
+                                                        call-wrap/declaration-alignment vs.
+                                                        `ScopePipelineCurly.applyOversizedAggregateInit
                                                         ClosingBracePass`'s stale-newline-check ordering
                                                         idempotency bug (RDD_KEY_245/246/248). Fixed via
                                                         `FormatterCurly.format`'s narrower "re-run just the
-                                                        closing-brace pass + declaration-alignment pass" second
-                                                        JS/TS-only fixup (`ScopePipelineCurly.
-                                                        reapplyClosingBraceAndDeclarationsPass`) right after the
-                                                        first `enforceCallLineBreaking` call, skipping the
-                                                        trailing-gap force-reindent step on that narrower re-run
-                                                        (see STATE_JS_TS.md's Open Questions for why -- that
-                                                        step alone, not the two token passes, was the source of
-                                                        a real forward-pass regression on
+                                                        closing-brace pass + declaration-alignment pass"
+                                                        second JS/TS-only fixup (`ScopePipelineCurly.
+                                                        reapplyClosingBraceAndDeclarationsPass`) right after
+                                                        the first `enforceCallLineBreaking` call, skipping the
+                                                        trailing-gap force-reindent step on that narrower
+                                                        re-run (see STATE_JS_TS.md's Open Questions for why --
+                                                        that step alone, not the two token passes, was the
+                                                        source of a real forward-pass regression on
                                                         `real_code_regressions_100.ts` found during this fix).
 
 How Tests Are Run

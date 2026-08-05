@@ -13,6 +13,7 @@ import calendar
 import datetime
 import email.utils
 import html
+import json
 import mimetypes
 import os
 import posixpath
@@ -1237,6 +1238,23 @@ class MDRHandler(SimpleHTTPRequestHandler):
             self.wfile.write(body)
             return
         status, data = result
+        if status == 200:
+            # Config.describeAll()'s "default" for server-port is a compile-time constant
+            # (17173), unaware of any --port the running server was actually started with.
+            # Patch it to the port we're actually talking to right now, so the (disabled)
+            # server-port field in the settings panel reflects reality instead of always
+            # showing 17173 regardless of the live server's real port.
+            try:
+                groups = json.loads(data)
+                port = self._formatter_port()
+                if port is not None:
+                    for group in groups:
+                        for prop in group.get("properties", []):
+                            if prop.get("key") == "server-port":
+                                prop["default"] = str(port)
+                data = json.dumps(groups).encode("utf-8")
+            except (ValueError, TypeError, AttributeError) as e:
+                self.log_message("formatter: could not patch server-port default: %s", e)
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))

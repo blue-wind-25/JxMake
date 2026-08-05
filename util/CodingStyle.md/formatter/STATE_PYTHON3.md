@@ -196,7 +196,45 @@ items (decorators, f-strings, type-hint signature wrapping) were already
 resolved via Q&A and folded into §4–§6; nothing is left unresolved in the
 style doc itself. The former implementation-architecture-level open item
 (indent-size/style conversion granularity) is now resolved — see "Indent-
-Size/Style Conversion" below. No open items remain.
+Size/Style Conversion" below.
+
+**[~] `python-import-blank-lines` wiring (2026-08-06).** README.md and this
+file's own §3 Config note document `python-import-sort`/
+`python-import-blank-lines` as real config keys, but neither is wired into
+`Config.java` at all (not in `ALL_KEYS`, no fields/getters, no CLI/file
+parsing, not in `GROUPS`) — a real pre-existing gap, also called out in
+`STATE_COMMON.md`'s "Server mode: 3rd endpoint" section and README.md's
+Server Wire Protocol section. Attempted to fix both keys together
+(2026-08-06 session). `python-import-sort` is unambiguous to wire — it
+would gate `ScopePipelineIndent.applyImportSort`'s call site exactly like
+`java-import-sort`/`js-import-sort` gate their own passes.
+
+`python-import-blank-lines` is genuinely ambiguous, confirmed by direct
+code reading of `ScopePipelineIndent.applyImportSort`/`flushImportGroup`
+(§3's import-ordering pass): a blank line between two import statements is
+only ever treated as a **group boundary** (see `applyImportSort`'s own
+javadoc, lines ~294-304) — `flushImportGroup` only ever replaces a group's
+own `[start,end)` line range with the same lines reordered; it never
+touches the gap *between* groups. There is no existing hardcoded
+blank-line-count to redirect at a config value (unlike JS/TS's
+`enforceImportOrdering`, whose `blankLines` param is threaded into
+`renderImportSegment` and actually inserts/normalizes blank-line count
+between rendered groups). Wiring `python-import-blank-lines` to do
+anything today would mean inventing new group-separating blank-line
+insert/normalize behavior for §3 that doesn't exist yet in any form —
+exactly the case STATE_COMMON.md's ambiguity protocol says to stop on
+rather than guess.
+
+**Question for the user:** should `python-import-blank-lines` be wired now
+by adding new behavior to `applyImportSort` (normalize the blank-line count
+between adjacent import groups to the configured value — a real, new
+formatting behavior change, needing its own smoke test / fixture), or
+should it stay recognized-but-inert (wired into `Config.java`/`ALL_KEYS`/
+`GROUPS` for `/properties` visibility and CLI/file parsing, matching
+README's documented key, but with no behavioral effect until a future
+session actually implements the blank-line-normalization pass), or something
+else? Blocked until answered — `Config.java`/`ScopePipelineIndent.java` were
+NOT modified this session pending the answer.
 
 ---
 

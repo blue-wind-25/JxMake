@@ -72,6 +72,18 @@ Compact (don't use sub-agent because I will end this session soon) the narration
     from `...`
     to   `...`
 
+Update `README.md`, `../README.txt` for `Makefile`, `Bash`, and `PowerShell`.
+
+Read `STATE_COMMON.md`. Then perform refactoring: strings `JXM_CFMT_*` are all over the Java source files.
+Is it possible to centralize them as `public static final` members of `TokenizerCore.java`?
+Please follow the current working flow and code-formatting. When committing, replace
+`Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` with yours `Co-authored-by: Grok <grok@x.ai>`.
+
+Read `STATE_COMMON.md` and `STATE_TOOLING.md` and implement
+    `PowerShell: build/extend a tokenizer sufficient to safely skip string literals, here-strings, and comments.`.
+Please follow the current working flow and code-formatting. When committing, replace
+`Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` with yours `Co-authored-by: Grok <grok@x.ai>`.
+
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
@@ -194,97 +206,6 @@ Use sub-agent. This can be a substantial work.
 - [AI] AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM) — permanently
   NOT FEASIBLE, no tractable grouping-intent heuristic exists at any model size
   tested. Reference-only, not a live TODO.
-
-####################################################################################################
-####################################################################################################
-####################################################################################################
-
-Bash formatter -> do only what shfmt do:
-```
-if foo
-then
-echo hi
-fi
-```
-to:
-```
-if foo; then
-    echo hi
-fi
-```
-
-```
-find .|grep foo|sort
-```
-to:
-```
-find . | grep foo | sort
-```
-
-```
-foo(){
-echo hi
-}
-```
-to:
-```
-foo() {
-    echo hi
-}
-```
-
-```
-case "$x" in
-foo)
-echo foo;;
-esac
-```
-to:
-```
-case "$x" in
-foo)
-    echo foo
-    ;;
-esac
-```
-
-```
-echo "${arr[$((i+1))]}"
-```
-to:
-```
-echo "${arr[$((i + 1))]}"
-```
-
-Do NOT touch other constructs.
-
-Makefile formatter only for something like (blank line still separates group):
-```
-    Assignment alignment
-    CC       = gcc
-    CFLAGS   = -O2 -Wall
-    LDFLAGS += -lm
-    TARGET  := app
-
-    Continuation alignment
-    SRC = a.c \
-          b.c \
-          c.c
-
-    Target spacing
-    app: main.o util.o
-
-    Conditional indentation
-    ifdef DEBUG
-        CFLAGS += -g
-    else
-        CFLAGS += -O2
-    endif
-```
-Do NOT touch other constructs.
-
-If implented, those formatter are simple, and just small beautification right, so should not need
-STYLE*.md, maybe just a combined new STATE*.md, gated from CLAUDE.md?
 
 ####################################################################################################
 ####################################################################################################

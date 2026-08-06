@@ -75,6 +75,7 @@ convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_196 | Closing comments on modifier-prefixed methods (`async`/`static`/`get`/`set`) use the bare name only, no modifiers; object-shaped `type X = {...}` aliases get closing comments like `interface`/`class`/`enum` |
 | RDD_KEY_197 | Import-ordering: trailing same-line comment travels with its import; a standalone comment segments the import list (grouped/sorted independently per segment) instead of bailing the whole pass |
 | RDD_KEY_248 | Call-wrap/collapse vs. declaration-alignment/padding idempotency bug (Tier-4, see Open Questions), 3rd session, FIXED: `ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass` re-runs just the closing-brace + declarations passes a second time (JS/TS only), with the shared trailing-gap force-reindent step skipped on that re-run |
+| RDD_KEY_250 | Braceless if/else rejoin-fits-check-vs-`alignBracelessElseIfChain` pass-ordering idempotency bug (see Open Questions), 6th session, FIXED: `FormatterCurly.format` re-runs `enforceCallLineBreaking` (twice) + `enforceComplexityPadding` right after `alignBracelessElseIfChain`, same fix shape as RDD_KEY_248 |
 
 ---
 
@@ -705,6 +706,38 @@ active in the Makefile and passing.
   no braceless-else chain, so a fix scoped to specifically
   `alignBracelessElseIfChain` ordering has a real chance of being
   disjoint from what broke them before, unlike the previous two attempts.
+
+  **2026-08-07 sixth session — RESOLVED (RDD_KEY_250).** Landed the narrow
+  re-run fix the fifth session's write-up pointed at: right after
+  `blockRule.alignBracelessElseIfChain` (~line 361) in
+  `FormatterCurly.format`, added `enforceCallLineBreaking` twice (a single
+  pass only wraps the first over-limit candidate on a line with more than
+  one, same multi-candidate convergence reasoning as the pre-existing
+  ~247/~286 pair) followed by one `enforceComplexityPadding` (re-tightens/
+  loosens the plain-space join `enforceCallLineBreaking` leaves behind, same
+  reasoning as the pre-existing ~283-284 pair) — same fix shape as
+  `RDD_KEY_248`'s `reapplyClosingBraceAndDeclarationsPass`, not a reorder of
+  `alignBracelessElseIfChain` itself (which stays last on purpose, per its
+  own comment, so its own padding decision sees every earlier pass's final
+  settled width).
+
+  Verified with `DBG_CLB3`-env-gated instrumentation (removed before
+  landing) that a single re-run call left `/tmp/mini2.ts` still unstable
+  (only the first `padNumber` candidate re-wrapped, the second one
+  round-tripped inconsistently) — the two-call-plus-repad shape was needed
+  to actually reach a fixed point, not just one call. `/tmp/mini2.ts`
+  round1/round2 are now byte-identical. `make test-quiet` stayed at
+  246/246 forward + 246/246 idempotency both before and after. Explicitly
+  re-verified `real_code_regressions_81_inp.ts`/`_93_inp.ts` individually
+  (both burned by the third/fourth/fifth sessions' earlier attempts): both
+  still forward-match their `_out.ts` and stay idempotent, confirming this
+  fix is disjoint from what broke them before, exactly as the fifth
+  session's write-up predicted (neither fixture has a braceless-else chain,
+  so `alignBracelessElseIfChain` no-ops on them and the new re-run block is
+  a no-op too). New permanent fixture
+  `test/real_code_regressions_180_{inp,out}.ts` (the `formatOffset` repro),
+  registered in the Makefile's `INP_FILES` and `test/README.txt`. Full
+  writeup: `RDD_LOG.md`'s `RDD_KEY_250`.
 
 ---
 

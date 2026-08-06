@@ -3199,6 +3199,17 @@ Real-code regressions:
                                                         source of a real forward-pass regression on
                                                         `real_code_regressions_100.ts` found during this fix).
 
+  real_code_regressions_180_inp/out.ts               -- Distilled minimal repro (`formatOffset`
+                                                        braceless if/else with a padded `else`) for the
+                                                        rejoin-fits-check-vs-`alignBracelessElseIfChain`
+                                                        pass-ordering idempotency bug (RDD_KEY_250, fifth
+                                                        session's finding). Fixed via a narrow re-run of
+                                                        `enforceCallLineBreaking` (twice, for multi-candidate
+                                                        convergence) + `enforceComplexityPadding` right after
+                                                        `BlockStructureRule.alignBracelessElseIfChain` in
+                                                        `FormatterCurly.format`, same fix shape as
+                                                        RDD_KEY_248's `reapplyClosingBraceAndDeclarationsPass`.
+
 How Tests Are Run
 -----------------
 

@@ -359,6 +359,27 @@ public final class FormatterCurly extends FormatterCore {
         // for why an earlier collapse-time attempt was stale. Shared across all languages: C/C++/
         // Java grew their own opt-in braceless chain-collapse alongside Kotlin's.
         text = blockRule.alignBracelessElseIfChain( tokenizer.apply(text) );
+        // alignBracelessElseIfChain's own column-alignment padding (just above) can push an
+        // already-rejoined call (from the enforceCallLineBreaking passes at ~line 247/286, which
+        // ran before this pass and so measured the `else` prefix pre-padding) past
+        // lineLengthLimit with no further re-check -- an internal round1 self-violation that only
+        // gets caught on the next format pass, once the padding is already baked into the input
+        // (round1 != round2). Narrow re-run, same fix shape as RDD_KEY_248's
+        // reapplyClosingBraceAndDeclarationsPass: idempotent (a no-op on any line already stable,
+        // including every construct with no braceless-else chain at all -- e.g.
+        // real_code_regressions_81/_93, which have none), so it only ever re-wraps a call whose
+        // width just changed underneath it.
+        // Two calls, same as the existing ~247/~286 pair above: a single pass can wrap only the
+        // first over-limit candidate on a line with more than one, leaving a still-over-limit
+        // remainder that needs a second pass to converge (same multi-candidate convergence
+        // reasoning as the original two-call pattern this mirrors).
+        text = miscRule.enforceCallLineBreaking( tokenizer.apply(text) );
+        text = miscRule.enforceCallLineBreaking( tokenizer.apply(text) );
+        // Same reasoning as the ~283-284 comment above this method's first
+        // enforceComplexityPadding/enforceCallLineBreaking pair: a plain-space join left behind by
+        // enforceCallLineBreaking has no complexity-padding awareness of its own, so re-tighten/
+        // loosen any call whose layout the rewrap just above finalized.
+        text = miscRule.enforceComplexityPadding( tokenizer.apply(text) );
 
         // Phase 5: file-header-level structure
         if(isCOrCpp) {

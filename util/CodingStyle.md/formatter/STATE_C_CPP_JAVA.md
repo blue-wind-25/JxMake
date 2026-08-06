@@ -737,6 +737,104 @@ RDD_KEY_88.
   `test/real_code_regressions_56_inp.java`, already tracked as `real_code_regressions_56` for an
   unrelated bug per item (16) above — not modified).
 
+  **2026-08-07 real-fix attempt #2 — FAILED (progress, but a worse failure mode found on the
+  real production case), reverted cleanly.** Started fresh with the same `applyDepthDerivedBodyIndent`
+  shape as the 2026-08-04 attempt (absolute per-line target from `{`/`}` nesting depth), instrumented
+  with a `-Djxmake.debug.switchrule` gated debug trace (iteration count, per-override old/new indent
+  length, and full-render dumps to `/tmp`) to actually watch `formatNonInlineSwitches`'s `while(true)`
+  loop instead of reasoning about it — per STATE_COMMON.md's "prefer evidence over reasoning" — and a
+  hard iteration cap (`throw` past N iterations) so a repeat hang couldn't consume the session; every
+  new build/run was wrapped in `timeout`.
+
+  1. **Reproduced Round B's exact hang** on `test/real_code_regressions_56_inp.java` first, to confirm
+     baseline. **Isolated the concrete mechanism Round B's writeup left unresolved** (the "sensitivity to
+     incidental re-tokenization detail" it gestured at but didn't pin down): the loop's own boundary
+     guard, `if(lineStart >= braceClose) continue` (meant to exclude the case body's own closing-`}`
+     line from the depth-derived scan, since that line is the *separate* tail-shift pass's job), never
+     actually fires. `lineStart` is computed as `(the newline before that line's index) + 1`, which lands
+     on that line's leading WHITESPACE token — always `< braceClose` whenever the line is indented at
+     all (i.e. every real case), since `braceClose` is the index of the `}` token itself, one further
+     along. So the tail-brace's own line was silently double-owned by both the depth-derived pass
+     (computing a bogus target, since brace-depth is back to 0 there, which `bodyIndentAtDepth`'s
+     `depth<=0` case clamps to plain `bodyIndent`) and the tail-shift pass (computing the actually-correct
+     target) — each pass "corrected" the same line back to what *it* considered right, every single
+     round, forever. **Fixed** by peeking the line's first significant token and skipping entirely
+     (`continue`, not just a depth adjustment) whenever that token's index equals `braceClose`. With only
+     this fix, the minimal repro (`real_code_regressions_56`) converged in one iteration and matched the
+     existing `_out` fixture exactly.
+  2. Running the corrected code against the fixture's own `--out`-then-reformat (idempotency) round
+     surfaced a **second, independent bug the depth-derived approach introduces that the original
+     relative-delta code never had**: a wrapped multi-line statement's continuation line (e.g. an
+     `if( foo.bar(\n    baz\n) ) return x;` where a *separate* line-wrap/paren-continuation pass owns
+     `baz`'s indent) sits at the same *brace*-nesting depth as the statement that opened it, so the
+     naive depth-derived scan claims it too and overwrites the line-wrap pass's correct continuation
+     indent with plain brace-depth indent on the very next round — a new, previously-absent idempotency
+     failure (the original relative-delta `shiftLines` never had this problem because it only ever
+     applied one uniform delta across a whole range, never recomputed a target per individual line, so
+     it never fought a continuation line's already-correct indent). **Fixed** by additionally tracking
+     paren/bracket depth (`(`/`[`/`)`/`]`) alongside brace depth and skipping any line begun while a
+     paren/bracket opened on an earlier line is still unclosed (a continuation line, not a fresh
+     depth-anchored statement line) — left entirely untouched, exactly like the original code implicitly
+     did.
+  3. With both of the above fixed: `test/real_code_regressions_56` converges in one iteration, is
+     idempotent, and matches its `_out` fixture exactly; two synthetic pathological-indentation repros
+     (mimicking the JavaCC-generator inconsistent-per-line-indentation shape cited in this gap's
+     original writeup, one with a plain nested `for`, one with a nested `for`+`if`) each converged in one
+     iteration and were idempotent. Full `make test`: **247/247 forward, 247/247 idempotency, zero
+     regressions** (up from 243 at this entry's original writing — fixture count grows over time, see
+     STATE_COMMON.md's counting caveat).
+  4. **Validated against the actual originally-cited production file** —
+     `javaparser/javaparser`'s `ASTParser.java`, reused from a cached checkout at
+     `/tmp/javaparser_gdr` (found via the `STATE_COMMON.md`-mandated `/tmp` search-first step, from an
+     unrelated earlier GDR dogfood session) rather than re-cloning. **The fix does NOT resolve the
+     production bug — it converts it from bounded-but-wrong non-idempotency into a genuine infinite
+     loop**, confirmed via the same debug iteration cap (ran past 2000 iterations of a clean 2-state
+     oscillation with zero sign of terminating; a real invocation with no cap would hang forever, exactly
+     the failure mode `STATE_COMMON.md`'s "Diagnosing a hung `make test`" section exists to help
+     diagnose). Root cause, isolated by diffing successive full-render dumps at the oscillating
+     iterations: a **nested switch inside a switch** (JavaCC's generated comma-separated-list-parsing
+     pattern — `case THROWS: { ... while(true) { switch(...) { case COMMA: { ; break; } ... } ... } }`,
+     i.e. an inner `switch` sitting inside an outer switch's case body, itself inside a labeled
+     `while(true)`). The inner switch's own `caseIndent`/`unit` (used to compute ITS bodyIndent) are
+     derived from `indentBefore` on its own case-label's *current* line — but that line's indentation is
+     itself owned and rewritten every round by the OUTER switch's depth-derived body scan, since the
+     inner switch's tokens fall inside the outer case body's `[braceIdx, braceClose)` range and get
+     brace-counted like any other body content. Each round: the outer pass writes the inner switch's
+     region to a target derived from pure brace-depth; the inner pass then recomputes its own bodyIndent
+     from whatever the outer pass most recently wrote, occasionally landing on a `caseIndent` that isn't
+     a clean prefix-extension of its own `switchIndent` (`deriveUnit`'s fallback-to-default-unit
+     condition), producing a different `unit` than the outer pass used — so the two passes' respective
+     "correct" targets for the same 3 lines disagree and flip-flop forever, a clean, verified,
+     never-converging 2-cycle (not merely slow). This is the identical failure class already flagged as
+     shared with `STATE_CURLY_GDR.md`'s pre-pass/post-pass circular-dependency risk, but a strictly
+     stronger confirmation than either prior attempt reached: not "might not converge" but "provably does
+     not, on the exact file that motivated this gap." A structural fix would need the outer and inner
+     switch's indent decisions to come from one shared computation (e.g. a single depth-aware pass
+     threaded through nested switches together) rather than two independently-recomputing per-switch
+     passes each owning only their own local view — not reachable within `SwitchRule`'s current
+     per-switch, re-tokenize-between-switches architecture, and out of scope for this attempt per the
+     stop/ask protocol (a structural redesign is exactly the kind of change STATE_COMMON.md's ambiguity
+     protocol says to stop and ask about rather than force).
+  5. **Disposition: reverted all `SwitchRule.java` changes** (`git checkout --
+     src/com/jxmake/formatter/rules/SwitchRule.java`, confirmed zero diff against HEAD afterward);
+     working tree left as found. Remains ACCEPTED, not fixed; Tier 4 classification unchanged. No
+     fixture added — repro was `test/real_code_regressions_56_inp.java` (unmodified, unrelated existing
+     bug per item (16) above) plus the `javaparser/javaparser` cached checkout (not a project fixture).
+     **Narrower, more valuable negative result than 2026-08-04's**: that attempt's Round A/B never got
+     past the minimal repro's own hang to see this nested-switch failure at all. The two boundary-bug
+     fixes described in steps 1-2 above are real, isolated, and safe in isolation (proven by 247/247
+     green + convergence on every repro tried) — worth reusing as a verified starting point for a future
+     attempt — but landing them alone converts a silent wrong-output bug into a silent-hang bug on
+     real-world input, which is strictly worse and unsafe to ship without also solving the nested-switch
+     circular dependency in point 4. A future attempt should start there: either (a) make the outer
+     pass's depth-derived scan stop descending into a nested switch's own token range at all (treat a
+     nested switch's `[openBrace, closeBrace)` as opaque/frozen from the outer pass's perspective, letting
+     the inner switch's own independent pass be the sole owner of its region — cheapest, but needs
+     checking it doesn't reintroduce the original non-idempotency for outer-body lines that happen to sit
+     adjacent to a nested switch), or (b) thread one shared depth accumulator through nested switches in
+     a single combined pass instead of two independent ones (more correct, more invasive, same risk class
+     as the not-yet-attempted `curly-general-scope-reindent` redesign).
+
 ## Known Gaps — Fixed
 
 Previously-recorded low-priority gaps, now resolved. One-line summaries only — full

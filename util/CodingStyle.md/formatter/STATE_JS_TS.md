@@ -177,8 +177,88 @@ active in the Makefile and passing.
   rewrap, Config-threading) is done — see `XmlSpecificRule.
   renderScriptOrStyle`. Any further HTML5/embedded-format dispatcher work
   belongs to the Data Formats job (`STATE_DATA_FORMATS.md`), not this one.
+
 - **JSX/TSX out-of-scope statement** — see Scope section above (exact
   wording preserved there per policy: out of scope entirely, not deferred).
+
+  **2026-08-07 discussion session (no code, no fixtures, no RDD_LOG key —
+  interactive discussion only, findings recorded for a future implementation
+  session):** user proposed a 3-step staged approach as a simpler
+  alternative to a full embedding-aware dispatcher: (1) tokenizer marks a
+  whole JSX tree as one opaque `IDENTIFIER` token, throws on tag imbalance;
+  (2) `{...}` expression holes inside JSX become `__JSn__` placeholders,
+  outer markup handed to the existing HTML formatter; (3) each placeholder's
+  content sent through the JS/TS formatter as an independent small
+  program. Assessed in depth, not adopted as a design:
+
+  - **Step 1's real flaw:** packing the discovered JSX span into a plain
+    `IDENTIFIER` token doesn't avoid the original hard problem (finding tag
+    boundaries against `<`'s three-way ambiguity with less-than/generics,
+    recursively through nested `{}` holes) — it still requires doing that
+    walk, then discards the structure just found by flattening it back into
+    one string, which step 2 must then re-discover. Also flagged as a real
+    regression risk: reusing `IDENTIFIER` as the vehicle for a multi-line
+    opaque blob would hit every downstream pass that assumes an IDENTIFIER
+    token has realistic single-token width (declaration/class-field
+    alignment grids, `enforceCallLineBreaking`'s `candidateLen` checks) —
+    the same width/pass-ordering fragility class already on record in this
+    file's RDD_KEY_248/249/250 write-ups, not a hypothetical concern. A
+    dedicated opaque/frozen token kind (extending whatever mechanism already
+    treats comments as frozen) would be needed instead, not `IDENTIFIER`.
+  - **Step 2's HTML-formatter-reuse instinct is sound for the splice
+    mechanics** (real precedent: `XmlSpecificRule.renderScriptOrStyle`), but
+    JSX's grammar diverges from real HTML5 in load-bearing ways the existing
+    HTML5 tree-construction pass (tuned for actual HTML5, including the
+    `html5-tc-gap-level` job's spec-compliance work) isn't verified to
+    tolerate: arbitrary self-closing tags, case-sensitive component names
+    (`<MyComponent>`), fragments (`<>...</>`), and expression-valued
+    attributes (`onClick={handler}`) which are a 4th embedding site (attribute
+    position) not covered by the child-content-only `{...}` substitution.
+  - **Step 3 is the most underspecified part:** the proposal's own example
+    (`items.map(x => <li>{x}</li>)`) shows a `{...}` hole containing more
+    JSX, which itself has more `{...}` holes — i.e. the recursion is
+    unbounded-depth, not the single flat "format the hole as an independent
+    program" step described. Written correctly, step 3 becomes a recursive
+    descent over the embedding tree that bottoms out by calling the JS/TS
+    formatter — which is functionally the embedding-aware dispatcher this
+    scope note already says is needed, just arrived at via three
+    differently-named layers rather than avoided.
+  - **How real JSX parsers (Babel/TS compiler) actually solve the `<`
+    ambiguity, and why it doesn't port directly:** they don't disambiguate
+    at the lexer/character level at all — the parser already knows its
+    current grammar position, and `<` is only ever a JSX-open when it
+    appears at expression-start (never ambiguous with infix `<` or generics
+    there), so they switch lexer modes based on grammar position, not
+    lookahead heuristics. This codebase has no grammar-position-aware parser
+    (flat tokenizer + local-lookback passes), so this can't be inherited for
+    free the way it is in a real parser — `<`/`>` disambiguation for
+    generics alone already needed a dedicated mechanism
+    (`TokenizerCurly.reclassifyAngleBrackets`/`isGenericSafeToken`) instead
+    of being free. **Portable idea identified:** run boundary-finding as its
+    own dedicated pre-pass (not inline in the general tokenizer) that checks
+    for `<` at a short enumerable list of expression-start token-adjacency
+    contexts (after `return`, arrow body, ternary branches, call-argument
+    start, etc. — not "any `<`"), recursing back into the same rule inside
+    `{}` holes. This is positional disambiguation instead of lexical
+    disambiguation, mirroring what real JSX parsers do, without requiring a
+    real AST. Cleanly separates boundary-finding (the genuinely hard,
+    still-unsolved part) from splice mechanics (already have working
+    precedent via `renderScriptOrStyle`).
+  - **Verifier tooling:** `@babel/parser` was proposed for a JSX-aware
+    `js_ts_content_diff.js` equivalent; recommended against — stick with the
+    already-in-use TS compiler API (`ts.createSourceFile` with
+    `ts.ScriptKind.TSX`/`.JSX`, which already supports JSX), avoiding a
+    second parser dependency/toolchain and the same kind of npm-pin gotcha
+    already hit once for `typescript` itself (see "`typescript` package
+    version gotcha" above).
+
+  **Not yet designed, left for a future session:** the concrete enumerable
+  list of expression-start contexts for the boundary-finding pre-pass, and
+  the concrete opaque-span token representation (replacement for the
+  rejected `IDENTIFIER` idea). Nothing here supersedes the Scope section's
+  "out of scope entirely" statement — this is exploration only, no decision
+  to lift the scope-out has been made.
+
 - **Cluster #3 sibling ("declaration/class-field-alignment-grid vs. call-wrap
   ordering") — RESOLVED 2026-08-06 (RDD_KEY_248), see that dated subsection
   below for the landed fix. History below kept for context (2026-08-05

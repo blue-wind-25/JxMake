@@ -251,8 +251,16 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       idempotent (3.1 nested if, 3.2 align, 3.3 pipeline pipe-col 40, 3.4
       hashtable, 3.5 switch arms); single-line `@{...}` not expanded.
       Full `make test` re-run after landing.
-- [ ] Remove all `RDD*` references from `STYLE_TOOLING.md`. A style file
-      must nor reference implementation states.
+- [x] Remove all `RDD*` references from `STYLE_TOOLING.md`. A style file
+      must not reference implementation states.
+      Stripped every `RDD_KEY_*` citation from `../STYLE_TOOLING.md` and
+      rewrote §0 (comments) plus the Bash "added via an RDD" clause and the
+      Config footer so the style file states rules only — no classifier/
+      `MiscRuleCore`/`FormatterCurly` implementation narrative, no "landed
+      implementation" status language. Rule text itself unchanged
+      (alignment-group boundary, target spacing, pipeline scriptblock
+      single-line, single-line hashtable left as-is, `{`/`}` spacing
+      everywhere).
 - [ ] Author local test fixture pairs per each language's rule set,
       register in `test/README.txt` / Makefile `INP_FILES` before
       the regression fixtures.

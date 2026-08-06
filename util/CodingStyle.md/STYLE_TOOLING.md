@@ -16,21 +16,11 @@ not curly-brace-family languages in the same sense C/C++/Java/Kotlin are).
 
 ## 0. Comments (shared across all three)
 
-All three languages use `#` line comments. **RDD_KEY_259 was wrong and is
-reversed by RDD_KEY_260** — the shared `CommentClassifier`/GRU
-abstain-resolution pipeline (`com.jxmake.formatter.classifier.*`) is
-curly-family-only (wired into `MiscRuleCore`, called only from
-`FormatterCurly`), not language-agnostic infrastructure. Every other
-family — Python3, XML/HTML5, and every data format — has its own much
-simpler ad hoc comment handling instead (e.g. `TomlSpecificRule
-.normComment`: optional first-letter capitalization only, gated by
-`config.isNormalizeCommentStartCase()`, no classifier dependency).
-
-Makefile/Bash/PowerShell comment normalization, if/when added, follows
-that same TOML-style ad hoc pattern — not the curly-only classifier
-pipeline. Comment normalization was never in the original 5-rule list for
-any of the three languages; this section only governs what to do *if* it's
-added later, per RDD_KEY_260.
+All three languages use `#` line comments. Comment normalization is **not**
+part of the fixed rule lists in §1–§3. If normalization is added later, it
+is limited to a simple optional first-letter capitalization of the comment
+body (the same ad hoc pattern used for TOML and other non-curly languages)
+— not the curly-brace-family comment-classifier pipeline.
 
 ---
 
@@ -46,8 +36,7 @@ touched** — copied byte-identical, since Make is whitespace-sensitive there
 Contiguous non-blank assignment lines (`=`, `:=`, `+=`, `?=`) are aligned
 into one column group. A blank line **or any non-matching line** (a
 comment, a target line, or any other line that isn't itself an assignment)
-breaks the group — the next group starts a fresh alignment column
-(RDD_KEY_254).
+breaks the group — the next group starts a fresh alignment column.
 
 ```
 CC       = gcc
@@ -70,7 +59,7 @@ SRC = a.c \
 ### 1.3 Target Spacing
 
 Normalize to exactly one space after `:` and single spaces between
-prerequisites; no space before `:` (RDD_KEY_255):
+prerequisites; no space before `:`:
 
 ```
 app: main.o util.o
@@ -97,7 +86,7 @@ Scope: five specific transforms, modeled on (not a full reimplementation
 of) `shfmt`'s defaults. Everything else — including but not limited to
 arrays, `[[ ]]`/`[ ]` tests, `local`/`declare`, command substitution
 nesting, `elif`, `while`/`until`, comments — is left untouched until
-explicitly added to this list via an RDD.
+explicitly added to this list.
 
 **Requires a real tokenizer** (quoting: `'...'`, `"..."` with
 interpolation, `$'...'`; heredocs `<<EOF`/`<<-EOF`; comments `#`; command
@@ -223,8 +212,8 @@ $bb = $a + 2
 
 Same block-scoped alignment-group mechanism applies inside hashtable
 literals and `switch` arms (3.4, 3.5), including the group-boundary rule:
-a blank line or any non-matching line breaks the group (RDD_KEY_254, same
-decision as Makefile §1.1).
+a blank line or any non-matching line breaks the group (same rule as
+Makefile §1.1).
 
 ### 3.3 Pipeline: Always Split + Right-Align `|`
 
@@ -244,7 +233,7 @@ Get-ChildItem                           |
 
 A scriptblock argument passed inline to a pipeline stage (e.g.
 `Where-Object { ... }` above) always stays single-line, regardless of
-pipeline wrapping — never brace-depth-indented per 3.1 (RDD_KEY_256).
+pipeline wrapping — never brace-depth-indented per 3.1.
 Multi-statement scriptblocks are out of scope (left untouched, same as
 any other unlisted construct).
 
@@ -266,7 +255,7 @@ Age=20
 
 A single-line hashtable literal (`@{ Name = "John" }`) is left as-is,
 never forced multi-line — only hashtables already multi-line in the
-source get alignment applied (RDD_KEY_257).
+source get alignment applied.
 
 ### 3.5 `switch` Formatting
 
@@ -293,14 +282,12 @@ Ensure exactly one space before an opening `{` and, where on the same
 line as trailing content, one space before a closing `}`. Applies
 everywhere, including single-line scriptblock arguments (e.g.
 `Where-Object { $_.Length -gt 10MB }`) — not limited to the "structural"
-braces (if/function/switch/hashtable) covered by 3.1's brace-depth indent
-(RDD_KEY_258).
+braces (if/function/switch/hashtable) covered by 3.1's brace-depth indent.
 
 ---
 
 ## Config
 
-No config keys defined yet for any of the three languages in this file —
-none have landed implementation. Revisit once a language's rules move out
-of draft status (mirrors `STYLE_CPP26.md` §5's provisional-status
-precedent).
+No config keys are defined for the three languages in this file. Revisit
+when a language needs an enable/disable gate or other user-facing option
+(mirrors `STYLE_CPP26.md` §5's provisional-status precedent).

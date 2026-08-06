@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import com.jxmake.formatter.tokenizer.TokenizerCore;
+
 /**
  * Opt-in exclusion-zone detection for the GDR pre-pass -- see
  * {@code STATE_CURLY_GDR.md}'s "content exclusions" checklist item.
@@ -46,16 +48,16 @@ import java.util.regex.Pattern;
 public final class GdrExclusionZones {
 
     private static final Pattern DIS     = Pattern.compile(
-        "^//%\\s*JXM_CFMT_DIS\\s*$|^/\\*%\\s*JXM_CFMT_DIS\\s*\\*/$"
+        "^//%\\s*" + TokenizerCore.JXM_CFMT_DIS + "\\s*$|^/\\*%\\s*" + TokenizerCore.JXM_CFMT_DIS + "\\s*\\*/$"
     );
     private static final Pattern ENA     = Pattern.compile(
-        "^//%\\s*JXM_CFMT_ENA\\s*$|^/\\*%\\s*JXM_CFMT_ENA\\s*\\*/$"
+        "^//%\\s*" + TokenizerCore.JXM_CFMT_ENA + "\\s*$|^/\\*%\\s*" + TokenizerCore.JXM_CFMT_ENA + "\\s*\\*/$"
     );
     private static final Pattern GDR_OFF = Pattern.compile(
-        "^//%\\s*JXM_CFMT_GDR\\s+0\\s*$|^/\\*%\\s*JXM_CFMT_GDR\\s+0\\s*\\*/$"
+        "^//%\\s*" + TokenizerCore.JXM_CFMT_GDR + "\\s+0\\s*$|^/\\*%\\s*" + TokenizerCore.JXM_CFMT_GDR + "\\s+0\\s*\\*/$"
     );
     private static final Pattern GDR_ON  = Pattern.compile(
-        "^//%\\s*JXM_CFMT_GDR\\s+1\\s*$|^/\\*%\\s*JXM_CFMT_GDR\\s+1\\s*\\*/$"
+        "^//%\\s*" + TokenizerCore.JXM_CFMT_GDR + "\\s+1\\s*$|^/\\*%\\s*" + TokenizerCore.JXM_CFMT_GDR + "\\s+1\\s*\\*/$"
     );
 
     private GdrExclusionZones()

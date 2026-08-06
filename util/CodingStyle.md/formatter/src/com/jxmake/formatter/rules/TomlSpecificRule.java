@@ -10,6 +10,8 @@ package com.jxmake.formatter.rules;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.jxmake.formatter.tokenizer.TokenizerCore;
+
 import com.jxmake.formatter.FormatterSimpleBraced;
 import com.jxmake.formatter.Lang;
 
@@ -500,7 +502,7 @@ public final class TomlSpecificRule {
                 continue;
             }
             if( trimmed.startsWith("#") ) {
-                if( "#% JXM_CFMT_DIS".equals(trimmed) ) {
+                if( ("#% " + TokenizerCore.JXM_CFMT_DIS).equals(trimmed) ) {
                     final Item item = new Item();
                     item.leadingComments = pendingComments;
                     item.blankBefore     = pendingBlank;
@@ -510,7 +512,7 @@ public final class TomlSpecificRule {
                     item.frozenLines     = new ArrayList<>();
                     item.frozenLines.add(raw);
                     ++idx;
-                    while( idx < lines.size() && !"#% JXM_CFMT_ENA".equals(
+                    while( idx < lines.size() && !("#% " + TokenizerCore.JXM_CFMT_ENA).equals(
                         lines.get(idx).trim()
                     ) ) {
                         item.frozenLines.add( lines.get(idx) );

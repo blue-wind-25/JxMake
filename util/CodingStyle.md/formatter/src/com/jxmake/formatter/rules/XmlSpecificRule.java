@@ -13,6 +13,7 @@ import java.util.List;
 import com.jxmake.formatter.Config;
 import com.jxmake.formatter.FormatterCore;
 import com.jxmake.formatter.Lang;
+import com.jxmake.formatter.tokenizer.TokenizerCore;
 
 /**
  * Real formatting logic for XML (STYLE_DATA_FORMATS.md §2), shared with HTML5 (gate internally on
@@ -913,7 +914,7 @@ public final class XmlSpecificRule {
 
     private Node parseCommentOrFrozen()
     {
-        if( "<!--% JXM_CFMT_DIS -->".equals( currentLineTrimmed() ) ) {
+        if( ("<!--% " + TokenizerCore.JXM_CFMT_DIS + " -->").equals( currentLineTrimmed() ) ) {
             final Node n = new Node();
             n.type        = NodeType.FROZEN;
             n.frozenLines = new ArrayList<>();
@@ -924,7 +925,7 @@ public final class XmlSpecificRule {
                 final String line = s.substring(pos, end);
                 n.frozenLines.add(line);
                 pos = hasNl ? end + 1 : end;
-                if( "<!--% JXM_CFMT_ENA -->".equals( line.trim() ) || eof() ) break;
+                if( ("<!--% " + TokenizerCore.JXM_CFMT_ENA + " -->").equals( line.trim() ) || eof() ) break;
             } // while
             return n;
         } // if
@@ -1770,8 +1771,8 @@ public final class XmlSpecificRule {
         boolean sawDis = false;
         for( final String line : raw.split("\n", -1) ) {
             final String t = line.trim();
-                 if( "//% JXM_CFMT_DIS".equals(t) )           sawDis = true;
-            else if( sawDis && "//% JXM_CFMT_ENA".equals(t) ) return true;
+                 if( ("//% " + TokenizerCore.JXM_CFMT_DIS).equals(t) )           sawDis = true;
+            else if( sawDis && ("//% " + TokenizerCore.JXM_CFMT_ENA).equals(t) ) return true;
         }
 
         return false;

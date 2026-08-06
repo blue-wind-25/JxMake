@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.jxmake.formatter.tokenizer.TokenizerCore;
+
 /**
  * Raw-text scanner for the top-of-file {@code JXM_CFMT_CFG} directive (RDD_KEY_167,
  * STATE_COMMON.md's "In-file Config Support"). Runs on the raw source text before {@link
@@ -31,7 +33,7 @@ public final class InFileConfig {
     // fallback already swallowed on the way to ITS first close) is never independently visited
     // and can never be mistaken for the comment's own opening delimiter (RDD_KEY_167).
     private static final Pattern DIRECTIVE = Pattern.compile(
-        "^[ \\t]*//%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|^[ \\t]*/\\*%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*\\*/" + "|^[ \\t]*#%\\s*JXM_CFMT_CFG\\s+([^\\r\\n]*)|^[ \\t]*<!--%\\s*JXM_CFMT_CFG\\s+(.*?)\\s*-->" + "|^[ \\t]*//[^\\r\\n]*|^[ \\t]*/\\*.*?\\*/|^[ \\t]*#[^\\r\\n]*|^[ \\t]*<!--.*?-->",
+        "^[ \\t]*//%\\s*" + TokenizerCore.JXM_CFMT_CFG + "\\s+([^\\r\\n]*)|^[ \\t]*/\\*%\\s*" + TokenizerCore.JXM_CFMT_CFG + "\\s+(.*?)\\s*\\*/" + "|^[ \\t]*#%\\s*" + TokenizerCore.JXM_CFMT_CFG + "\\s+([^\\r\\n]*)|^[ \\t]*<!--%\\s*" + TokenizerCore.JXM_CFMT_CFG + "\\s+(.*?)\\s*-->" + "|^[ \\t]*//[^\\r\\n]*|^[ \\t]*/\\*.*?\\*/|^[ \\t]*#[^\\r\\n]*|^[ \\t]*<!--.*?-->",
         Pattern.DOTALL | Pattern.MULTILINE
     );
 
@@ -85,12 +87,12 @@ public final class InFileConfig {
         } // while
         if(count == 0) return java.util.Collections.emptyMap();
         if(count > 1) throw new IOException(
-            "multiple JXM_CFMT_CFG directives found -- only one is allowed per file"
+            "multiple " + TokenizerCore.JXM_CFMT_CFG + " directives found -- only one is allowed per file"
         );
 
         final int preambleEnd = preambleEnd(source);
         if(matchStart >= preambleEnd) throw new IOException(
-            "JXM_CFMT_CFG must appear before the first non-comment/non-blank line " + "of the file (move it into the top-of-file comment/blank-line preamble)"
+            TokenizerCore.JXM_CFMT_CFG + " must appear before the first non-comment/non-blank line " + "of the file (move it into the top-of-file comment/blank-line preamble)"
         );
 
         final Map<String, String> result = new LinkedHashMap<String, String>();
@@ -99,14 +101,14 @@ public final class InFileConfig {
             if( trimmed.isEmpty() ) continue;
             final int eq = trimmed.indexOf('=');
             if(eq < 0) throw new IOException(
-                "malformed JXM_CFMT_CFG entry (expected key=value): \"" + trimmed + "\""
+                "malformed " + TokenizerCore.JXM_CFMT_CFG + " entry (expected key=value): \"" + trimmed + "\""
             );
             final String key   = trimmed.substring(0, eq).trim();
             final String value = trimmed.substring(eq + 1).trim();
             if( !isPerFileApplicable(
                 key
             ) ) throw new IOException(
-                "JXM_CFMT_CFG: \"" + key + "\" is not a valid per-file config key (either unrecognized, or 'server-port', which is " + "a process-wide property and cannot be set per-file)"
+                TokenizerCore.JXM_CFMT_CFG + ": \"" + key + "\" is not a valid per-file config key (either unrecognized, or 'server-port', which is " + "a process-wide property and cannot be set per-file)"
             );
             result.put(key, value);
         } // for

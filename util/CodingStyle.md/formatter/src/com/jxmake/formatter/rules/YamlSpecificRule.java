@@ -13,6 +13,7 @@ import java.util.List;
 
 import com.jxmake.formatter.FormatterSimpleBraced;
 import com.jxmake.formatter.Lang;
+import com.jxmake.formatter.tokenizer.TokenizerCore;
 
 /**
  * STYLE_DATA_FORMATS.md §5 (YAML) rule logic. Neither curly, indent-based, tag-based, nor
@@ -645,7 +646,7 @@ public final class YamlSpecificRule {
             final boolean isComment = ln.content.startsWith("#");
             final Line    nextReal  = isComment && ln.indent != blockIndent ? peekNonBlank() : null;
             if( isComment && (ln.indent == blockIndent || nextReal == null || nextReal.indent == blockIndent) ) {
-                if( "#% JXM_CFMT_DIS".equals(ln.content) ) {
+                if( ("#% " + TokenizerCore.JXM_CFMT_DIS).equals(ln.content) ) {
                     final Item item = new Item();
                     item.leadingComments = pendingComments;
                     item.blankBefore     = pendingBlank;
@@ -655,7 +656,7 @@ public final class YamlSpecificRule {
                     item.frozenLines     = new ArrayList<>();
                     item.frozenLines.add(ln.raw);
                     ++pos;
-                    while( pos < lines.size() && !"#% JXM_CFMT_ENA".equals( peek().content ) ) {
+                    while( pos < lines.size() && !("#% " + TokenizerCore.JXM_CFMT_ENA).equals( peek().content ) ) {
                         item.frozenLines.add( peek().raw );
                         ++pos;
                     }

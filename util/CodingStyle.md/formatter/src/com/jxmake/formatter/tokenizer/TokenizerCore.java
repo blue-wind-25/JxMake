@@ -170,10 +170,15 @@ public class TokenizerCore {
         return new HashSet<>( Arrays.asList(words) );
     }
 
+    public static final String JXM_CFMT_DIS = "JXM_CFMT_DIS";
+    public static final String JXM_CFMT_ENA = "JXM_CFMT_ENA";
+    public static final String JXM_CFMT_CFG = "JXM_CFMT_CFG";
+    public static final String JXM_CFMT_GDR = "JXM_CFMT_GDR";
+
     private static final java.util.regex.Pattern FORMAT_DIS_MARKER = java.util.regex.Pattern.compile(
-            "^//%\\s*JXM_CFMT_DIS\\s*$|^/\\*%\\s*JXM_CFMT_DIS\\s*\\*/$");
+            "^//%\\s*" + JXM_CFMT_DIS + "\\s*$|^/\\*%\\s*" + JXM_CFMT_DIS + "\\s*\\*/$");
     private static final java.util.regex.Pattern FORMAT_ENA_MARKER = java.util.regex.Pattern.compile(
-            "^//%\\s*JXM_CFMT_ENA\\s*$|^/\\*%\\s*JXM_CFMT_ENA\\s*\\*/$");
+            "^//%\\s*" + JXM_CFMT_ENA + "\\s*$|^/\\*%\\s*" + JXM_CFMT_ENA + "\\s*\\*/$");
 
     /**
      * Scans {@code tokens} in order, toggling a frozen/unfrozen state on

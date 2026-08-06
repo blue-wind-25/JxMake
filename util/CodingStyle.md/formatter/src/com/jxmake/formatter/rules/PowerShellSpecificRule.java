@@ -24,9 +24,9 @@ import java.util.regex.Pattern;
  * (so brace-depth indentation can see real scriptblock braces). {@code ${...}} variable names stay
  * fully opaque. Structural passes re-tokenize as needed after transforms that reshuffle text.
  *
- * <p>Landed rules: §3.1–§3.5 (brace-depth indent; operator/{@code =} alignment; pipeline
- * split/right-align; hashtable spacing via §3.1+§3.2; switch keyword-paren spacing + arm
- * {@code \{} alignment). Remaining: §3.6 {@code \{}/{@code \}} spacing.
+ * <p>Implements STYLE_TOOLING.md §3.1–§3.6: brace-depth indent; operator/{@code =} alignment;
+ * pipeline split/right-align; hashtable spacing; switch keyword-paren spacing + arm {@code \{}
+ * alignment; and {@code \{}/{@code \}} spacing (RDD_KEY_258, including single-line scriptblocks).
  */
 public final class PowerShellSpecificRule {
 
@@ -1046,6 +1046,8 @@ public final class PowerShellSpecificRule {
             // Do not track '{}' for depth here -- the first depth-0 '{' opens the arm body.
             if(depth != 0) continue;
             if(c == '{') {
+                // Hashtable opener `@{` is not a switch arm (would become `@ {` via the pad space).
+                if( i > 0 && line.charAt(i - 1) == '@' ) return null;
                 final String pattern = line.substring(lead, i).replaceAll("[ \\t]+$", "");
                 if( pattern.isEmpty() ) return null;
                 if( isControlHeader(pattern) ) return null;
@@ -1085,11 +1087,65 @@ public final class PowerShellSpecificRule {
         group.clear();
     }
 
+    // ---- §3.6 `{` / `}` spacing ---------------------------------------------------------------
+
+    /**
+     * Exactly one space before an opening {@code \{} (except after {@code @} so {@code @{} stays
+     * tight) and, when the brace pair is non-empty on the same line, one space after {@code \{} and
+     * one space before {@code \}}. Empty {@code \{\}} stays tight. Applies everywhere, including
+     * single-line scriptblock arguments (RDD_KEY_258). Opaque regions are never touched.
+     */
+    private String applyBraceSpacing(final String content)
+    {
+        final PassAResult   passA = runPassA(content);
+        final String        s     = passA.transformed;
+        final char[]        kind  = passA.kind;
+        final StringBuilder sb    = new StringBuilder( s.length() + 16 );
+
+        for( int i = 0; i < s.length(); ++i ) {
+            if( kind[i] != 'C' ) {
+                sb.append( s.charAt(i) );
+                continue;
+            }
+            final char c = s.charAt(i);
+
+            if(c == '{') {
+                stripTrailingSpaces(sb);
+                if( sb.length() > 0 ) {
+                    final char p = sb.charAt( sb.length() - 1 );
+                    if(p != '@' && p != '\n' && p != '{') sb.append(' ');
+                }
+                sb.append('{');
+                int j = skipSpaces(s, i + 1);
+                if( j < s.length() && s.charAt(j) != '\n' && s.charAt(j) != '}' ) {
+                    sb.append(' ');
+                }
+                i = j - 1;
+                continue;
+            }
+
+            if(c == '}') {
+                stripTrailingSpaces(sb);
+                if( sb.length() > 0 ) {
+                    final char p = sb.charAt( sb.length() - 1 );
+                    if(p != '{' && p != '\n') sb.append(' ');
+                }
+                sb.append('}');
+                continue;
+            }
+
+            sb.append(c);
+        } // for
+
+        return sb.toString();
+    }
+
     public String format(final String content)
     {
         String s = content;
         s = applyKeywordParenSpacing(s); // §3.5 (also benefits if/while/... examples in §3.1)
         s = applyOperatorSpacing(s);     // §3.2 spacing
+        s = applyBraceSpacing(s);        // §3.6 (before indent/align so later passes see spaced braces)
         s = applyBraceIndent(s);         // §3.1 (also multi-line hashtable bodies -- §3.4)
         s = applyAssignAlignment(s);     // §3.2 alignment (also multi-line hashtable entries -- §3.4)
         // §3.4 single-line hashtables: never expanded to multi-line (RDD_KEY_257); no extra pass.

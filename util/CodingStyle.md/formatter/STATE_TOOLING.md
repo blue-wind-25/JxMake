@@ -15,16 +15,14 @@ none of the three is large enough to warrant its own file (unlike, say,
 Kotlin or JS/TS), the same way `STATE_DATA_FORMATS.md` groups seven data
 formats.
 
-**Makefile and Bash implemented; PowerShell tokenizer landed (rules
-pending).** Makefile landed real logic (`Lang.isMakefile`,
-`FormatterMakefile`, `MakefileSpecificRule`); Bash landed real logic
-(`Lang.isBash`, `FormatterBash`, `BashSpecificRule`, all five §2 rules) —
-see the checklist below. PowerShell is wired as a recognized language
-(`Lang.isPowerShell`, `.ps1`/`.psm1` infer, `FormatterPowerShell`,
-`PowerShellSpecificRule` tokenizer) but still identity-formats until the
-§3.1–§3.6 rule items land. `Lang.SCAFFOLD_ONLY_LANGUAGES` remains
-unaffected (still empty) — makefile/bash/powershell were added directly
-to `Lang.SUPPORTED_LANGUAGES` as each landed.
+**Makefile, Bash, and PowerShell all implemented.** Makefile landed
+real logic (`Lang.isMakefile`, `FormatterMakefile`, `MakefileSpecificRule`);
+Bash landed real logic (`Lang.isBash`, `FormatterBash`, `BashSpecificRule`,
+all five §2 rules); PowerShell landed real logic (`Lang.isPowerShell`,
+`.ps1`/`.psm1` infer, `FormatterPowerShell`, `PowerShellSpecificRule`, all
+six §3 rules) — see the checklist below. `Lang.SCAFFOLD_ONLY_LANGUAGES`
+remains unaffected (still empty) — makefile/bash/powershell were added
+directly to `Lang.SUPPORTED_LANGUAGES` as each landed.
 
 **Canonical language order** for any documentation/help-string/`--lang`
 enumeration this job's languages join, once implemented, is recorded in
@@ -199,7 +197,7 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       infer identity + idempotent. Full `make test` suite re-run clean:
       248/248 forward, 248/248 idempotency -- purely additive. No local
       fixture pair yet (deferred with the shared fixtures checklist item).
-      §3.1–§3.6 transforms still unchecked below.
+      §3.1–§3.6 transforms landed in subsequent checklist items.
 - [x] Implement PowerShell §3.1 brace-depth indentation.
       Naive brace-depth reindent over code-kind `{`/`}` only (opaque
       strings/here-strings/comments never contribute). Pure-code lines are
@@ -243,7 +241,16 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       (`if`/`function`/…). Indent via §3.1. Smoke: `1`/`22` arms align;
       `default` aligns; `if ($x)` spacing; idempotent. Interior
       `{ "…" }` spaces arrive with §3.6.
-- [ ] Implement PowerShell §3.6 `{`/`}` spacing.
+- [x] Implement PowerShell §3.6 `{`/`}` spacing.
+      Kind-aware: one space before `{` except after `@` (keeps `@{` tight);
+      non-empty same-line bodies get a space after `{` and before `}`; empty
+      `{}` stays tight. Applies everywhere including single-line scriptblock
+      args (RDD_KEY_258). Placed before indent/align so later passes see
+      spaced braces. Fixed switch-arm parser to not treat `@{` as an arm.
+      Smoke: all five STYLE_TOOLING.md §3 examples match byte-for-byte +
+      idempotent (3.1 nested if, 3.2 align, 3.3 pipeline pipe-col 40, 3.4
+      hashtable, 3.5 switch arms); single-line `@{...}` not expanded.
+      Full `make test` re-run after landing.
 - [ ] Remove all `RDD*` references from `STYLE_TOOLING.md`. A style file
       must nor reference implementation states.
 - [ ] Author local test fixture pairs per each language's rule set,

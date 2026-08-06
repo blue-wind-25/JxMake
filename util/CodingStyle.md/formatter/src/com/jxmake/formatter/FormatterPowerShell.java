@@ -11,9 +11,8 @@ import com.jxmake.formatter.rules.PowerShellSpecificRule;
 
 /**
  * STYLE_TOOLING.md §3 (PowerShell) dispatch. Standalone (not part of any existing family), same
- * pattern as {@link FormatterBash}/{@link FormatterMakefile}. Tokenizer-only for now -- the six
- * §3.x rules land in later STATE_TOOLING.md checklist items on top of
- * {@link PowerShellSpecificRule}'s classification.
+ * pattern as {@link FormatterBash}/{@link FormatterMakefile}. Delegates all six §3.x rules to
+ * {@link PowerShellSpecificRule}.
  */
 public final class FormatterPowerShell extends FormatterCore {
 

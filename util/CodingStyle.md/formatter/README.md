@@ -611,22 +611,7 @@ tag-based/markup family, then indent-based family), then by effect size within e
    regression sweep. This is a known, currently-unresolved gap — no workaround exists
    short of avoiding deeply nested short calls inside very long lines.
 
-3. **JS/TS braceless if/else collapse can still be non-idempotent when the rescuing
-   call-wrap doesn't shrink the line enough.** Before collapsing a braceless `if`/`else`
-   body onto one line, the formatter checks whether a later call-wrapping pass could
-   still rescue an over-limit result (`hasBreakableCall`) — but that check only asks
-   "does a rescuable call exist," not "will wrapping it actually bring the line under
-   the length limit." For a collapsed candidate long enough that wrapping its one
-   breakable call's arguments doesn't shrink the joined line far enough (e.g. a long
-   string-concatenation chain where only one of several calls gets wrapped, or wrapping
-   it still leaves the line long), the collapse proceeds anyway, and a second formatting
-   pass can disagree with the first — i.e. formatting is not always idempotent for this
-   narrow shape. This is a known, accepted limitation of the cheap heuristic used (a full
-   two-pass simulation of the later call-wrap pass would close this gap but is a bigger,
-   separately-scoped lift). No workaround exists short of manually keeping such lines
-   braced.
-
-4. **JS/TS import ordering (§15) misclassifies bundler/tsconfig path-mapped absolute
+3. **JS/TS import ordering (§15) misclassifies bundler/tsconfig path-mapped absolute
    imports as third-party.** Local-import detection is syntactic only: an import specifier
    is `local` iff it starts with `./` or `../`. A genuinely first-party import resolved via
    a bundler or tsconfig `baseUrl`/`paths` mechanism (e.g. `import { Widget } from
@@ -635,7 +620,7 @@ tag-based/markup family, then indent-based family), then by effect size within e
    for a project's source root and no `tsconfig.json`/bundler-config resolution logic. This
    is a known, accepted simplification — no source-root config key is planned.
 
-5. **Non-idempotent reindent on internally-inconsistent generated source, for any pass using
+4. **Non-idempotent reindent on internally-inconsistent generated source, for any pass using
    a relative-delta technique.** Two known call sites share this root cause:
    `SwitchRule.applyNonInlineCaseIndent` (`case` bodies) and
    `ScopePipeline.applyDeclarationsPass` (declarations) — each shifts a block's lines by one
@@ -667,13 +652,13 @@ tag-based/markup family, then indent-based family), then by effect size within e
 
 ### Tag-based family (XML/HTML5)
 
-6. **HTML5 deep tree-construction gap coverage (`html5-tc-gap-level`) is a narrow, documented
+5. **HTML5 deep tree-construction gap coverage (`html5-tc-gap-level`) is a narrow, documented
    approximation of each corresponding HTML5 spec algorithm, not a full spec-faithful
    implementation.** See "Config file format" → [HTML5 tree-construction gap
    levels](#html5-tree-construction-gap-levels-html5-tc-gap-level) above for what the key is,
    what each level enables, and each level's own documented gap.
 
-7. **HTML/XML single-word comments are never capitalized, even when they're genuine one-word
+6. **HTML/XML single-word comments are never capitalized, even when they're genuine one-word
    prose.** See "Config file format" → [Comment capitalization
    exceptions](#comment-capitalization-exceptions-normalize-comment-start-case) above for what
    `normalize-comment-start-case` skips and why (e.g. `<!--more-->`-style directive comments).

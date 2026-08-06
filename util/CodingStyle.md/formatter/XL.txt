@@ -66,7 +66,7 @@ Then update `STATE_DOGFOOD.md` about the above dogfood state (keep `Note` short 
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_179_inp/out.ts`
-    to   `...`
+    to   `real_code_regressions_181_inp/out.java`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -127,52 +127,6 @@ Use one sub-agent as needed, the sub-agent can launch up to one more research su
 ####################################################################################################
 ####################################################################################################
 
-#!/bin/bash
-
-export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules
-export PATH=/opt/node-v24.14.0-linux-x64/bin:$PATH
-
-npm config set prefix ~/mynpm
-
-export NODE_OPTIONS="--max-old-space-size=2048"
-
-if [ ! -d /sys/fs/cgroup/memory/claude_limit ]; then
-    sudo cgcreate -t aloysius:aloysius -a aloysius:aloysius -g memory:claude_limit
-    sudo bash -c "echo 4G > /sys/fs/cgroup/memory/claude_limit/memory.limit_in_bytes"
-fi
-
-trap 'kill -- -$$ 2>/dev/null; wait' EXIT
-
-cgexec -g memory:claude_limit ~/mynpm/bin/claude "$@"
-
-####################################################################################################
-
-#!/bin/bash
-
-export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules
-export PATH=/opt/node-v24.14.0-linux-x64/bin:$PATH
-
-npm config set prefix ~/mynpm
-
-export NODE_OPTIONS="--max-old-space-size=2048"
-
-CG=/sys/fs/cgroup/claude_limit
-if [ ! -d "$CG" ]; then
-    sudo mkdir "$CG"
-    sudo bash -c "echo '+memory' > /sys/fs/cgroup/cgroup.subtree_control"
-    sudo bash -c "echo 4G > $CG/memory.max"
-    sudo chown aloysius:aloysius "$CG" "$CG/cgroup.procs" "$CG/memory.max"
-fi
-
-trap 'kill -- -$$ 2>/dev/null; wait' EXIT
-
-echo $$ > "$CG/cgroup.procs"
-exec  ~/mynpm/bin/claude "$@"
-
-####################################################################################################
-####################################################################################################
-####################################################################################################
-
 === TIER 0: Recurring job ===
 
 1. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
@@ -223,35 +177,14 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
 
-5. [JS_TS] JS/TS braceless if/else collapse can still be non-idempotent
-   when the rescuing call-wrap doesn't shrink the line enough (cluster 5).
-
-2. [KOTLIN / CURLY_GDR, shared] Kotlin statement-boundary tracking for
-   `MiscRuleCurly.renderCallCandidate`'s wrap-decision flap (D3) — two
-   prior fix attempts each regressed fixtures (28, then 16); needs real
-   statement/expression-boundary tracking, explicit go-ahead required
-   before starting.
-
-3. [C_CPP_JAVA] Fix non-idempotent switch-case re-indent on internally-
-   inconsistent generated source (`SwitchRule.applyNonInlineCaseIndent`)
-   — a depth-derived-absolute-indent rewrite attempt hung (never
-   converged in `formatNonInlineSwitches`'s own while(true) fixed-point
-   loop, worse than a mere regression) on a minimal nested-case-body
-   fixture even after fixing an off-by-one in the same attempt, direct
-   evidence of the same cross-pass/convergence fragility as item 3 above;
-   reverted, no low-risk fix found yet.
-
-6. [JS_TS] JSX/TSX support — currently out of scope entirely (not merely
-   deferred).
-
-Update `STATE_DOGFOOD.md` as needed.
-
-Check and update the `## Known Limitations` items in `README.md` and group sort them
-by impact (highest first).
+1. [KOTLIN / CURLY_GDR, shared] Kotlin statement-boundary tracking for
+   `MiscRuleCurly.renderCallCandidate`'s wrap-decision flap (D3)
 
 Use sub-agent. This can be a substantial work.
 
 === TIER X: Not worth pursuing / explicitly no action planned ===
+
+- [JS_TS] JSX/TSX support — currently out of scope entirely (not merely deferred).
 
 - [C_CPP_JAVA] `gcc-mirror/gcc`, `llvm/llvm-project` dogfood — NOT STARTED, TOO MASSIVE
   to even LOC-count, let alone dogfood in one pass.
@@ -261,3 +194,140 @@ Use sub-agent. This can be a substantial work.
 - [AI] AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM) — permanently
   NOT FEASIBLE, no tractable grouping-intent heuristic exists at any model size
   tested. Reference-only, not a live TODO.
+
+####################################################################################################
+####################################################################################################
+####################################################################################################
+
+Bash formatter -> do only what shfmt do:
+```
+if foo
+then
+echo hi
+fi
+```
+to:
+```
+if foo; then
+    echo hi
+fi
+```
+
+```
+find .|grep foo|sort
+```
+to:
+```
+find . | grep foo | sort
+```
+
+```
+foo(){
+echo hi
+}
+```
+to:
+```
+foo() {
+    echo hi
+}
+```
+
+```
+case "$x" in
+foo)
+echo foo;;
+esac
+```
+to:
+```
+case "$x" in
+foo)
+    echo foo
+    ;;
+esac
+```
+
+```
+echo "${arr[$((i+1))]}"
+```
+to:
+```
+echo "${arr[$((i + 1))]}"
+```
+
+Do NOT touch other constructs.
+
+Makefile formatter only for something like (blank line still separates group):
+```
+    Assignment alignment
+    CC       = gcc
+    CFLAGS   = -O2 -Wall
+    LDFLAGS += -lm
+    TARGET  := app
+
+    Continuation alignment
+    SRC = a.c \
+          b.c \
+          c.c
+
+    Target spacing
+    app: main.o util.o
+
+    Conditional indentation
+    ifdef DEBUG
+        CFLAGS += -g
+    else
+        CFLAGS += -O2
+    endif
+```
+Do NOT touch other constructs.
+
+If implented, those formatter are simple, and just small beautification right, so should not need
+STYLE*.md, maybe just a combined new STATE*.md, gated from CLAUDE.md?
+
+####################################################################################################
+####################################################################################################
+####################################################################################################
+
+#!/bin/bash
+
+export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules
+export PATH=/opt/node-v24.14.0-linux-x64/bin:$PATH
+
+npm config set prefix ~/mynpm
+
+export NODE_OPTIONS="--max-old-space-size=2048"
+
+if [ ! -d /sys/fs/cgroup/memory/claude_limit ]; then
+    sudo cgcreate -t aloysius:aloysius -a aloysius:aloysius -g memory:claude_limit
+    sudo bash -c "echo 4G > /sys/fs/cgroup/memory/claude_limit/memory.limit_in_bytes"
+fi
+
+trap 'kill -- -$$ 2>/dev/null; wait' EXIT
+
+cgexec -g memory:claude_limit ~/mynpm/bin/claude "$@"
+
+####################################################################################################
+
+#!/bin/bash
+
+export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules
+export PATH=/opt/node-v24.14.0-linux-x64/bin:$PATH
+
+npm config set prefix ~/mynpm
+
+export NODE_OPTIONS="--max-old-space-size=2048"
+
+CG=/sys/fs/cgroup/claude_limit
+if [ ! -d "$CG" ]; then
+    sudo mkdir "$CG"
+    sudo bash -c "echo '+memory' > /sys/fs/cgroup/cgroup.subtree_control"
+    sudo bash -c "echo 4G > $CG/memory.max"
+    sudo chown aloysius:aloysius "$CG" "$CG/cgroup.procs" "$CG/memory.max"
+fi
+
+trap 'kill -- -$$ 2>/dev/null; wait' EXIT
+
+echo $$ > "$CG/cgroup.procs"
+exec  ~/mynpm/bin/claude "$@"

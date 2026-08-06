@@ -53,8 +53,16 @@ $(CLASS_DIR):
 
 $(JAR_FILE): $(SOURCES) | $(CLASS_DIR)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -d $(CLASS_DIR) $(SOURCES)
-	@printf 'Main-Class: %s\nImplementation-Version: %s\n' '$(MAIN_CLASS)' '$(VERSION)' > $(MANIFEST)
-	@$(JAR) cfm $(JAR_FILE) $(MANIFEST) -C $(CLASS_DIR) .
+	@mkdir -p $(CLASS_DIR)/META-INF
+	@printf 'Manifest-Version: 1.0\nMain-Class: %s\nImplementation-Version: %s\n' '$(MAIN_CLASS)' '$(VERSION)' > $(CLASS_DIR)/META-INF/MANIFEST.MF
+	@(                                                                     \
+		export TZ=UTC;                                                 \
+		cd $(CLASS_DIR)                                             && \
+		entries=$$(find . -type f | sed 's|^\./||' | LC_ALL=C sort) && \
+		touch -t 198001010000 $$entries                             && \
+		args=""; for f in $$entries; do args="$$args -C . $$f"; done;  \
+		$(JAR) cfM $(abspath $(JAR_FILE)) $$args;                      \
+	)
 	@echo "Built $(JAR_FILE)"
 	@cp $(JAR_FILE) .
 

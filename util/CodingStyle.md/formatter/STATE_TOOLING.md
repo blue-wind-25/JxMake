@@ -235,7 +235,14 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       (RDD_KEY_257) -- operator spacing may still tidy interior `=`.
       Smoke: STYLE multi-line Name/Age align; `$h=@{Name="John";Age=20}`
       stays one line; idempotent.
-- [ ] Implement PowerShell §3.5 `switch` formatting.
+- [x] Implement PowerShell §3.5 `switch` formatting.
+      Keyword-paren spacing (`switch($x)` → `switch ($x)`, also `if`/
+      `while`/`for`/`foreach`/…) kind-aware; switch-arm `{` column
+      alignment on consecutive pure arm-like lines (same indent; blank/
+      non-arm breaks group -- RDD_KEY_254), skipping control-flow headers
+      (`if`/`function`/…). Indent via §3.1. Smoke: `1`/`22` arms align;
+      `default` aligns; `if ($x)` spacing; idempotent. Interior
+      `{ "…" }` spaces arrive with §3.6.
 - [ ] Implement PowerShell §3.6 `{`/`}` spacing.
 - [ ] Remove all `RDD*` references from `STYLE_TOOLING.md`. A style file
       must nor reference implementation states.

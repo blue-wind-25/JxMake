@@ -9,6 +9,8 @@ package com.jxmake.formatter.rules;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * STYLE_TOOLING.md §3 (PowerShell) rule logic. A real tokenizer (character-level state machine) is
@@ -22,10 +24,9 @@ import java.util.List;
  * (so brace-depth indentation can see real scriptblock braces). {@code ${...}} variable names stay
  * fully opaque. Structural passes re-tokenize as needed after transforms that reshuffle text.
  *
- * <p>Landed rules: §3.1 naive brace-depth indentation; §3.2 operator spacing + {@code =}
- * alignment; §3.3 pipeline split/right-align; §3.4 hashtable spacing (multi-line {@code =}
- * alignment via §3.1+§3.2; single-line hashtables never forced multi-line -- RDD_KEY_257).
- * Remaining §3.5–§3.6 land in later checklist items.
+ * <p>Landed rules: §3.1–§3.5 (brace-depth indent; operator/{@code =} alignment; pipeline
+ * split/right-align; hashtable spacing via §3.1+§3.2; switch keyword-paren spacing + arm
+ * {@code \{} alignment). Remaining: §3.6 {@code \{}/{@code \}} spacing.
  */
 public final class PowerShellSpecificRule {
 
@@ -951,14 +952,149 @@ public final class PowerShellSpecificRule {
         return segs;
     }
 
+    // ---- §3.5 switch formatting (+ shared keyword-paren spacing) ------------------------------
+
+    private static final Pattern KEYWORD_PAREN = Pattern.compile(
+        "(?i)(?<![A-Za-z0-9_])(if|elseif|while|for|foreach|switch|catch|trap|until)(\\s*)\\("
+    );
+
+    /**
+     * Insert a single space between a control keyword and its opening {@code (}
+     * ({@code switch($x)} → {@code switch ($x)}, same for {@code if}/{@code while}/…). Kind-aware:
+     * only rewrites when the keyword and {@code (} are both code-kind.
+     */
+    private String applyKeywordParenSpacing(final String content)
+    {
+        final PassAResult passA = runPassA(content);
+        final String      s     = passA.transformed;
+        final char[]      kind  = passA.kind;
+        final Matcher     m     = KEYWORD_PAREN.matcher(s);
+        final StringBuilder sb  = new StringBuilder( s.length() + 8 );
+        int                 last = 0;
+        while( m.find() ) {
+            final int kwStart = m.start(1);
+            final int paren   = m.end() - 1; // index of (
+            if( kind[kwStart] != 'C' || kind[paren] != 'C' ) continue;
+            sb.append( s, last, kwStart );
+            sb.append( m.group(1) ).append(" (");
+            last = m.end();
+        }
+        sb.append( s, last, s.length() );
+
+        return sb.toString();
+    }
+
+    private static final class ArmItem {
+
+        String indent;
+        String pattern;
+        String rest; // begins with '{'
+
+    } // class ArmItem
+
+    /**
+     * Align {@code \{} on consecutive switch-arm-like lines (same indent), using the same
+     * group-boundary rule as §3.2 (blank or non-arm breaks the group -- RDD_KEY_254). A line is an
+     * arm when its first depth-0 code {@code \{} is preceded by a non-empty pattern that is not a
+     * control-flow header ({@code if (...)}/{@code function ...}/…).
+     */
+    private String applySwitchArmAlignment(final String content)
+    {
+        final PassAResult  passA = runPassA(content);
+        final Lines        lines = new Lines(passA.transformed);
+        final boolean[]    pure  = computeLinePurity(passA.transformed, passA.kind, lines.lines.size());
+        final char[][]     kinds = lineKinds(passA.transformed, passA.kind, lines.lines.size());
+        final List<String> out   = new ArrayList<>();
+        final List<ArmItem> group = new ArrayList<>();
+
+        for( int li = 0; li < lines.lines.size(); ++li ) {
+            final String line = lines.lines.get(li);
+            if( line.trim().isEmpty() ) {
+                flushArmGroup(out, group);
+                out.add("");
+                continue;
+            }
+            final ArmItem item = pure[li] ? parseArm(line, kinds[li]) : null;
+            if(item != null) {
+                // Break group on indent change
+                if( !group.isEmpty() && !group.get(0).indent.equals(item.indent) ) {
+                    flushArmGroup(out, group);
+                }
+                group.add(item);
+                continue;
+            }
+            flushArmGroup(out, group);
+            out.add(line);
+        } // for
+        flushArmGroup(out, group);
+
+        lines.lines.clear();
+        lines.lines.addAll(out);
+
+        return lines.join();
+    }
+
+    private static ArmItem parseArm(final String line, final char[] kind)
+    {
+        final int lead = leadingWhitespace(line).length();
+        int depth = 0;
+        for( int i = lead; i < line.length(); ++i ) {
+            if( i < kind.length && kind[i] != 'C' ) continue;
+            final char c = line.charAt(i);
+            if(c == '(' || c == '[') { depth++; continue; }
+            if(c == ')' || c == ']') { if(depth > 0) depth--; continue; }
+            // Do not track '{}' for depth here -- the first depth-0 '{' opens the arm body.
+            if(depth != 0) continue;
+            if(c == '{') {
+                final String pattern = line.substring(lead, i).replaceAll("[ \\t]+$", "");
+                if( pattern.isEmpty() ) return null;
+                if( isControlHeader(pattern) ) return null;
+                final ArmItem item = new ArmItem();
+                item.indent  = line.substring(0, lead);
+                item.pattern = pattern;
+                item.rest    = line.substring(i); // starts with {
+
+                return item;
+            }
+        } // for
+
+        return null;
+    }
+
+    private static boolean isControlHeader(final String pattern)
+    {
+        final String t = pattern.trim();
+        // Word-at-start check against control keywords (case-insensitive).
+        final Matcher m = Pattern.compile(
+            "(?i)^(if|elseif|else|while|for|foreach|switch|function|filter|catch|trap|try|finally|"
+                + "begin|process|end|dynamicparam)\\b"
+        ).matcher(t);
+
+        return m.find();
+    }
+
+    private static void flushArmGroup(final List<String> out, final List<ArmItem> group)
+    {
+        if( group.isEmpty() ) return;
+        int maxPat = 0;
+        for( final ArmItem it : group ) maxPat = Math.max( maxPat, it.pattern.length() );
+        for( final ArmItem it : group ) {
+            final int pad = maxPat - it.pattern.length();
+            out.add( it.indent + it.pattern + repeatChar(' ', pad) + " " + it.rest );
+        }
+        group.clear();
+    }
+
     public String format(final String content)
     {
         String s = content;
-        s = applyOperatorSpacing(s); // §3.2 spacing
-        s = applyBraceIndent(s);     // §3.1 (also indents multi-line hashtable bodies -- §3.4)
-        s = applyAssignAlignment(s); // §3.2 alignment (also aligns multi-line hashtable entries -- §3.4)
+        s = applyKeywordParenSpacing(s); // §3.5 (also benefits if/while/... examples in §3.1)
+        s = applyOperatorSpacing(s);     // §3.2 spacing
+        s = applyBraceIndent(s);         // §3.1 (also multi-line hashtable bodies -- §3.4)
+        s = applyAssignAlignment(s);     // §3.2 alignment (also multi-line hashtable entries -- §3.4)
         // §3.4 single-line hashtables: never expanded to multi-line (RDD_KEY_257); no extra pass.
-        s = applyPipelineSplit(s);   // §3.3 (after indent so continuation uses base+1 level)
+        s = applySwitchArmAlignment(s);  // §3.5 arm `{` alignment (after indent)
+        s = applyPipelineSplit(s);       // §3.3 (after indent so continuation uses base+1 level)
 
         return s;
     }

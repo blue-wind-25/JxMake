@@ -2,8 +2,8 @@
 
 Read `STATE_COMMON.md` first — shared commit/ambiguity/testing conventions
 this file assumes. No other job's `STATE_*.md` is required reading.
-Dogfood corpus status: see `STATE_DOGFOOD.md` (no rows yet — nothing in
-this job has reached real-code testing).
+Dogfood corpus status: see `STATE_DOGFOOD.md` (candidates registered as
+`NOT STARTED`; nothing in this job has reached a real-code run yet).
 
 ---
 
@@ -99,15 +99,16 @@ regressions) and documented in `test/README.txt`.
 
 ## Test Fixtures (External, corpus-scale)
 
-None yet. No dogfood candidates identified.
+Candidates registered in `STATE_DOGFOOD.md` as `NOT STARTED` (see checklist
+item below for the full list + reuse notes). No dogfood run started yet.
 
 ## Tools/compiler used
 
-None yet. Candidates to evaluate once implementation starts: `shellcheck`
-(Bash syntax validation, not formatting comparison), `make -n`/`make -q`
-(Makefile syntax sanity), PowerShell's own parser (`[System.Management.
-Automation.PSParser]::Tokenize` or `Invoke-ScriptAnalyzer` if available in
-this sandbox — availability unconfirmed, check before relying on it).
+Candidates to evaluate when a dogfood run starts: `shellcheck` (Bash syntax
+validation, not formatting comparison), `make -n`/`make -q` (Makefile
+syntax sanity), PowerShell's own parser (`[System.Management.Automation.
+PSParser]::Tokenize` or `Invoke-ScriptAnalyzer` if available in this
+sandbox — availability unconfirmed, check before relying on it).
 
 ---
 
@@ -279,11 +280,47 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       before the curly-GDR local fixtures (still ahead of `Real-code
       regressions:`); documented under a new "Makefile / Bash / PowerShell
       (STYLE_TOOLING.md)" heading in `test/README.txt`.
-- [ ] Source dogfood corpus candidates for Bash and PowerShell (real
+- [x] Source dogfood corpus candidates for Bash and PowerShell (real
       shell scripts / real `.ps1` scripts) once local fixtures pass;
       register in `STATE_DOGFOOD.md`. Makefile corpus candidates: real
       `Makefile`s from existing dogfood repos already cloned for other
       jobs may be reusable — check before cloning anything new.
+      Sourced 2026-08-07 after a `/tmp` walk of existing dogfood checkouts
+      (no new clones). All rows registered in `STATE_DOGFOOD.md` as
+      `NOT STARTED` under languages Makefile/Bash/PowerShell. Prefer the
+      **reusable** rows first when a run starts:
+
+      **Makefile (prefer existing dogfood trees):**
+      - `serge-sans-paille/frozen` — **reusable now** (`/tmp/frozen`):
+        `tests/Makefile`, `benchmarks/Makefile`
+      - `fmtlib/fmt` — prior C/C++ corpus; restore Make files from that
+        tree before recloning
+      - `ericniebler/range-v3` — prior C/C++ corpus
+      - `taocpp/PEGTL` — prior C/C++ corpus
+      - `python/cpython` — prior Python3 clone at `/tmp/cpython` is Make-
+        sparse this session; checkout root `Makefile`/`Makefile.pre.in`
+        paths rather than a full reclone
+
+      **Bash:**
+      - `javaparser/javaparser` — **reusable now** (`/tmp/javaparser_gdr`):
+        7 `*.sh` release/generator scripts (`#!/usr/bin/env bash`)
+      - `jenkinsci/jenkins` — **reusable** (`/tmp/jenkins_scope`): `ath.sh`
+        + test-resource `.sh`
+      - `wordpress/wordpress-develop` — **reusable**
+        (`/tmp/wordpress-develop`): a few `tools/`/`.devcontainer/` `.sh`
+      - `nvm-sh/nvm` — needs clone (classic pure-Bash, medium size)
+      - `acmesh-official/acme.sh` — needs clone (one large real script)
+      - `ohmyzsh/ohmyzsh` — needs clone (large; slice a subdirectory)
+
+      **PowerShell (none present in current `/tmp` dogfood clones):**
+      - `PowerShell/PowerShell` — needs clone; slice to `*.ps1`/`*.psm1`,
+        skip the huge C# engine tree
+      - `PowerShell/PSScriptAnalyzer` — needs clone; idiomatic rule/test
+        scripts
+      - `actions/runner-images` — needs clone; Windows image `.ps1`
+      - `microsoft/azure-pipelines-tasks` — needs clone; task-subset only
+
+      No dogfood *run* yet — listing only.
 - [x] Update `CLAUDE.md`'s implementation-status paragraph, `README.md`,
       `../README.txt` once any of the three moves from scaffold to real
       logic (do not update ahead of actual landed code — see

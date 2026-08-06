@@ -15,12 +15,13 @@ none of the three is large enough to warrant its own file (unlike, say,
 Kotlin or JS/TS), the same way `STATE_DATA_FORMATS.md` groups seven data
 formats.
 
-**Not yet implemented.** No `src/` files exist for any of the three
-languages yet. `Lang.SCAFFOLD_ONLY_LANGUAGES` is not affected — per
-`CLAUDE.md`'s current status note, that constant is empty because every
-*currently recognized* language has real logic; Makefile/Bash/PowerShell
-aren't recognized languages at all yet (no `Lang.infer` extension, no CLI
-selector) until this job adds them.
+**Makefile implemented; Bash and PowerShell not yet.** Makefile landed real
+logic (`Lang.isMakefile`, `FormatterMakefile`, `MakefileSpecificRule`) —
+see the checklist below. `Lang.SCAFFOLD_ONLY_LANGUAGES` remains unaffected
+(still empty) since Makefile is a fully-supported language now, not a
+scaffold entry — it was added directly to `Lang.SUPPORTED_LANGUAGES`. Bash
+and PowerShell aren't recognized languages at all yet (no `Lang.infer`
+extension, no CLI selector) until their own checklist items land.
 
 **Canonical language order** for any documentation/help-string/`--lang`
 enumeration this job's languages join, once implemented, is recorded in
@@ -127,10 +128,20 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       simpler TOML-style ad hoc pattern (config-gated first-letter
       capitalization, no classifier dependency), not the curly-only
       `CommentClassifier`/GRU pipeline. `STYLE_TOOLING.md` §0 updated.
-- [ ] Implement Makefile §1.1 Assignment Alignment.
-- [ ] Implement Makefile §1.2 Continuation-Line Alignment.
-- [ ] Implement Makefile §1.3 Target Spacing.
-- [ ] Implement Makefile §1.4 Conditional Indentation.
+- [x] Implement Makefile §1.1 Assignment Alignment.
+- [x] Implement Makefile §1.2 Continuation-Line Alignment.
+- [x] Implement Makefile §1.3 Target Spacing.
+- [x] Implement Makefile §1.4 Conditional Indentation.
+      Landed as `Lang.isMakefile`/`Lang.infer` basename+`.mk` detection,
+      `FormatterCore.forLanguage` dispatch, `FormatterMakefile` (standalone,
+      `FormatterToml`-style, not part of any existing family), and
+      `MakefileSpecificRule` (line-oriented, no tokenizer needed — only
+      distinguishes tab-prefixed recipe lines, which are never touched).
+      Smoke-tested manually (diff + idempotency + `--lang makefile` +
+      extensionless `Makefile` + `.mk` detection all verified); no local
+      test fixture pair registered yet (that's still the separate,
+      unchecked "Author local test fixture pairs" item below). Comments
+      remain untouched (out of scope, STYLE_TOOLING.md §0).
 - [ ] Bash: build/extend a tokenizer sufficient to safely skip quoting,
       heredocs, comments, command substitution, and arithmetic contexts.
 - [ ] Implement Bash §2.1 `if`/`then` merge.
@@ -146,6 +157,8 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
 - [ ] Implement PowerShell §3.4 hashtable spacing.
 - [ ] Implement PowerShell §3.5 `switch` formatting.
 - [ ] Implement PowerShell §3.6 `{`/`}` spacing.
+- [ ] Remove all `RDD*` references from `STYLE_TOOLING.md`. A style file
+      must nor reference implementation states.
 - [ ] Author local test fixture pairs per each language's rule set,
       register in `test/README.txt` / Makefile `INP_FILES` before
       the regression fixtures.

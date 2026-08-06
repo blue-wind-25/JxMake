@@ -391,19 +391,7 @@ public class SwitchRule {
             final String bodyIndent = caseIndent + unit + unit;
             final String tailIndent = caseIndent + unit;
 
-            int firstBodyLine = -1;
-            for(int j = braceIdx; j < braceClose; ++j) {
-                if( tokens.get(j).type == TokenType.NEWLINE ) {
-                    firstBodyLine = j + 1;
-                    break;
-                }
-            }
-            if(firstBodyLine >= 0 && firstBodyLine < braceClose) {
-                final int bodyDelta = bodyIndent.length() - currentLineIndent(
-                    tokens, firstBodyLine
-                ).length();
-                shiftLines(tokens, braceIdx + 1, braceClose, bodyDelta, overrides);
-            }
+            applyDepthDerivedBodyIndent(tokens, braceIdx, braceClose, bodyIndent, unit, overrides);
 
             // Bound the tail shift at the start of the next label's (or closing `}`'s) own line --
             // not at c.bodyEnd itself, which sits mid-line at the next label's keyword and would
@@ -414,6 +402,105 @@ public class SwitchRule {
             ).length();
             shiftLineAndFollowing(tokens, braceClose, tailBound, tailDelta, overrides);
         } // for c
+    }
+
+    /**
+     * Derives each body line's *absolute* target indent from its own `{`/`}` nesting depth
+     * relative to the case body's own opening brace (0 = directly inside, a line beginning with
+     * a closing `}` is one level shallower than the depth in effect before that `}`), instead of
+     * one uniform delta computed from the body's first line only -- correct even when the body's
+     * original source indentation is internally inconsistent (see "Known Gaps -- Open" /
+     * `STATE_C_CPP_JAVA.md`'s 2026-08-04/2026-08-07 write-ups for the failure this replaces).
+     *
+     * <p>Two boundary conditions, both real bugs found and fixed during that investigation, are
+     * guarded here:
+     * <ul>
+     * <li>The case body's own closing `}` line (index {@code braceClose}) is explicitly skipped
+     * (by comparing the line's first *significant* token's index against {@code braceClose}, not
+     * just the newline-derived {@code lineStart}, which lands on leading whitespace and so is
+     * always {@code < braceClose}) -- that line is the tail-shift pass's job
+     * ({@link #applyNonInlineCaseIndent}'s own {@code shiftLineAndFollowing} call), and letting
+     * both passes "own" it produces a forever-flip-flopping disagreement.
+     * <li>A line begun while a paren/bracket opened on an earlier line is still unclosed (a
+     * wrapped statement's continuation line, owned by a separate line-wrap pass) is left
+     * completely untouched -- claiming it via brace-depth alone would fight that other pass's
+     * already-correct indent every other round.
+     * </ul>
+     *
+     * <p>A nested {@code switch(...) { ... }} found while scanning is treated as fully opaque:
+     * its entire token span (own `switch`/case-label lines and case bodies alike) is skipped
+     * without deriving or overriding any of it here, letting that nested switch's own independent
+     * {@link SwitchBlock} pass (already guaranteed by {@link #pickInnermostNeedingWork}'s
+     * innermost-first ordering to run to completion before this outer pass ever revisits these
+     * lines) be the sole owner of its own region. Two independent recomputations disagreeing about
+     * the same lines is exactly the never-converging 2-cycle documented in "Known Gaps -- Open";
+     * since a switch's own braces are internally balanced, skipping its whole span contributes a
+     * net-zero change to this scan's running brace/paren depth, so nothing needs adjusting for the
+     * lines that follow it.
+     */
+    private void applyDepthDerivedBodyIndent(
+        final List<Token>          tokens,
+        final int                  braceIdx,
+        final int                  braceClose,
+        final String               bodyIndent,
+        final String               unit,
+        final Map<Integer, String> overrides
+    )
+    {
+        int depth      = 0;
+        int parenDepth = 0;
+        int i          = braceIdx + 1;
+        while(i < braceClose) {
+            final Token t = tokens.get(i);
+            if(t.type == TokenType.NEWLINE) {
+                final int lineStart = i + 1;
+                if(lineStart >= braceClose) { i = lineStart; continue; }
+                final int firstSig = firstSignificantIndex(tokens, lineStart, braceClose);
+                if(firstSig < 0)          { i = lineStart; continue; } // blank line
+                if(firstSig == braceClose){ i = lineStart; continue; } // boundary guard -- tail pass owns this line
+
+                // Opaque nested switch: skip its entire token span untouched.
+                if( isKeyword( tokens.get(firstSig), "switch" ) ) {
+                    final int nestedOpenParen = skipNonSignificant(tokens, firstSig + 1);
+                    if( nestedOpenParen < braceClose && isPunct( tokens.get(nestedOpenParen), "(" ) ) {
+                        final int nestedCloseParen = matchParen(tokens, nestedOpenParen);
+                        if( nestedCloseParen >= 0 && nestedCloseParen < braceClose ) {
+                            final int nestedOpenBrace = skipNonSignificant(tokens, nestedCloseParen + 1);
+                            if( nestedOpenBrace < braceClose && isPunct( tokens.get(nestedOpenBrace), "{" ) ) {
+                                final int nestedCloseBrace = matchBrace(tokens, nestedOpenBrace);
+                                if( nestedCloseBrace >= 0 && nestedCloseBrace < braceClose ) {
+                                    i = nestedCloseBrace;
+                                    continue;
+                                } // if
+                            } // if
+                        } // if
+                    } // if
+                } // if switch
+
+                final boolean leadingClose = isPunct( tokens.get(firstSig), "}" );
+                final int     lineDepth    = leadingClose ? depth - 1 : depth;
+                if(parenDepth <= 0) {
+                    final String target = lineDepth <= 0 ? bodyIndent : bodyIndent + repeatUnit(unit, lineDepth);
+                    final int    delta  = target.length() - currentLineIndent(tokens, lineStart).length();
+                    if(delta != 0) shiftLineIndent(tokens, lineStart, delta, overrides);
+                }
+            } // if NEWLINE
+            else {
+                     if( isPunct(t, "{") ) depth++;
+                else if( isPunct(t, "}") ) depth--;
+                else if( isPunct(t, "(") || isPunct(t, "[") ) parenDepth++;
+                else if( isPunct(t, ")") || isPunct(t, "]") ) parenDepth--;
+            } // else
+            ++i;
+        } // while
+    }
+
+    private String repeatUnit(final String unit, final int count)
+    {
+        final StringBuilder sb = new StringBuilder();
+        for(int k = 0; k < count; ++k) sb.append(unit);
+
+        return sb.toString();
     }
 
     /** The `{` directly after `c`'s `:` (same line, already K&R), or -1 if not in that shape */

@@ -156,6 +156,7 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_231 | User-improved `java_combined_inp.java` fixture -- 2 bugs, both cross-language (C/C++/Java/JS/TS): (a) `DeclarationAlignmentRuleCore.needsSpaceBetween` had no unary-vs-binary `+`/`-` awareness (`int aaa = +1;` -> `= + 1`), the exact C/C++/Java/JS-TS gap `KotlinDeclarationAlignmentRule`'s own earlier Kotlin-scoped fix had flagged as still-open in its javadoc -- fixed by promoting `isUnaryMinusOperand` to `DeclarationAlignmentRuleCore` (shared by `renderTokens` and `renderInitTokens`; Kotlin's now-redundant override removed). (b) Independent: `ScopePipelineCurly.applyDeclarationsPass`'s idempotency-strip heuristic couldn't distinguish a genuine re-format's self-padding from a first-time format whose true indent coincidentally exceeded the modifier-column pad width, silently eating an indent level -- fixed by only accepting the strip when its result is already indentWidth-aligned. `make test`: 228/228, zero regressions. |
 | RDD_KEY_238 | Self-hosting dogfood bug: `DeclarationAlignmentRuleCore.isTightToken`/`MiscRuleCore.isTightToken`'s `Token.isRepOp(t, '&')` tight-join rule (C/C++ pointer/reference declarator sigil, already gated off for Kotlin/JS/TS) was never gated off for Java, even though Java has no such construct -- wrongly collapsed a Java logical-AND's leading space (`x >= 2&& y`) wherever an expression rendered through either shared join point, found via `XmlSpecificRule.java`'s own `shouldFosterParent`-adjacent `fostered` declaration. FIXED by adding `!lang.isJava` around the `&`-half of both conditions (the `*`-half untouched, no observed bug). `||` confirmed unaffected. `make test`: 244/244, unchanged. Full self-format dogfood-and-adopt re-run: 168 real occurrences fixed in `src/`, 0 in `tools/*` (already clean, `java_content_diff.sh`/`python_content_diff.sh` clean on every file), 0 `||` occurrences anywhere. Surfaced an unrelated, out-of-scope gap, now fixed via `RDD_KEY_239`: 4 `&&`-missing-space occurrences remained in `src/` in a plain-assignment (non-declaration) ternary shape the formatter's general statement rewrite never touched at all. |
 | RDD_KEY_239 | `RDD_KEY_238`'s follow-up gap: general (non-declaration) expression-statement operator spacing was never re-derived (plain-assignment RHS rendered via pure `joinVerbatim`). 3 confirmed real sub-bugs fixed: missing space before `&&`, extra space after unary `!`, `- 1` vs `-1`. See `RDD_KEY_239`'s full entry in `RDD_LOG.md` for complete detail, including 3 regressions found/fixed along the way (C pointer-dereference, Java cast spacing, binary-`*`-after-`]`) and one unrelated pre-existing `]`-then-`(` tight-join gap also fixed. Also centralized duplicated `isUnaryMinusOperand` as `Token.isUnaryMinusOperand`. `make test`: 244/244, unchanged. 21 files adopted back in `src/` (`tools/*` unaffected). |
+| RDD_KEY_251 | Seventh session, RESOLVED the nested-switch-in-switch failure mode of "Non-idempotent switch-case re-indent on internally-inconsistent generated source" -- `SwitchRule.applyNonInlineCaseIndent` now derives each case-body line's absolute target indent from its own brace-nesting depth (`applyDepthDerivedBodyIndent`, replacing the old single-relative-delta `shiftLines` body-shift), with a nested switch's entire token span treated as opaque (fully owned by its own independent `SwitchBlock` pass, never touched by the outer switch's depth-derived scan) rather than two independent recomputations disagreeing forever. A second approach (thread one shared depth accumulator recursively through nested switches) was also implemented and rejected -- it hung on even the minimal repro because the nested switch's own independent pass still ran and disagreed with the recursive writes; a correct version of that approach would need much more invasive engine changes. See "Known Gaps -- Fixed" for full detail, `real_code_regressions_181` fixture, and `RDD_KEY_251` in `RDD_LOG.md` for the complete two-approach writeup. `make test`: 247/247 -> 248/248 forward + idempotency, zero regressions. |
 
 ---
 
@@ -668,20 +669,12 @@ RDD_KEY_88.
   same span from different intermediate text). Left OPEN.
 
 - **Non-idempotent switch-case re-indent on internally-inconsistent generated source**
-  (`SwitchRule.applyNonInlineCaseIndent`) — ACCEPTED, not fixed. Found in `javaparser/javaparser`
-  (15b/16 above): `ASTParser.java`, a JavaCC-generated parser (~5500 lines), has one
-  `case LABEL:{ ... }` body whose own source indentation is internally inconsistent (generator
-  quirk — e.g. `jj_consume_token(...)` at column 12, `isStatic = true;` at column 0, same case
-  body). Root cause, confirmed via temporary debug prints (reverted): `ScopePipeline
-  .normalizeIndent` rounds a non-multiple-of-`indentWidth` raw indent up to the nearest multiple,
-  while `SwitchRule.applyNonInlineCaseIndent`'s `shiftLines` applies one relative delta (computed
-  from the body's first line only) to every line — correct when the body's original indentation
-  is internally consistent, but on this pathological input the two passes converge to a different
-  value each round (neither actually STYLE.md-correct). Real fix: derive each line's absolute
-  target from its own brace-nesting depth rather than one delta from a reference line —
-  nontrivial, real regression risk, for a shape occurring in exactly 1 file out of 1997 in this
-  candidate (zero elsewhere). Left open; documented in `README.md`'s "Known Limitations". No
-  fixture.
+  (`SwitchRule.applyNonInlineCaseIndent`) — RESOLVED 2026-08-07 for both the single-switch
+  internally-inconsistent-indentation shape and the nested-switch-in-switch shape (see "Known Gaps
+  — Fixed" below, `RDD_KEY_251`). The disjoint **second occurrence** below (a different root
+  cause entirely — `ScopePipeline.applyDeclarationsPass`, not `SwitchRule` — found on a lone
+  declaration inside a switch body, not a switch-case re-indent) remains ACCEPTED, not fixed;
+  original write-up retained for context:
 
   **Second occurrence** — local `src/jxm` dogfood (candidate 23): `tool/JSONEncoderLite.java` has
   a lone declaration inside a deeply/inconsistently hand-indented `switch default` block whose
@@ -689,156 +682,80 @@ RDD_KEY_88.
   committed) to the same architectural bug class: `ScopePipeline.applyDeclarationsPass`'s
   raw-source-derived indent diverges from scope-depth-derived indent when the original source's
   raw indentation for that line is inconsistent with the block's structural depth — same shape as
-  above, triggered via the declarations pass instead of switch-case reindent. Same disposition:
+  the (now-fixed) switch-case gap, triggered via the declarations pass instead. Same disposition:
   ACCEPTED, not fixed, single occurrence. No fixture.
 
-  **2026-07-28 cleanup-pass re-assessment:** re-checked, still not cheaper to fix. Both
-  occurrences (and the `angular/angular`/`stephenberry/glaze` recurrences logged in
-  `STATE_JS_TS.md`/`STATE_CPP26.md`) are the same architectural gap as `STATE_COMMON.md`'s
-  "General scope-depth reindentation" item, which that file explicitly scopes as its own future
-  dedicated high-risk job — a real fix means deriving every line's indent from structural depth
-  instead of a single relative delta, exactly the change this cleanup pass is instructed not to
-  attempt piecemeal. Remains ACCEPTED, not fixed.
-
-  **2026-08-04 real-fix attempt — FAILED, escalated to `XL.txt` Tier 4 (moved from Tier 3).**
-  Attempted the "real fix" sketched above: replaced `applyNonInlineCaseIndent`'s single-relative-
-  delta `shiftLines` body-shift with a new `applyDepthDerivedBodyIndent` deriving each line's
-  *absolute* target indent from its own `{`/`}` nesting depth relative to the case body's own
-  brace (0 = directly inside, closing-`}` one level shallower), instead of one delta from the
-  body's first line only. Two rounds within this attempt:
-
-  - Round A: unconditionally wrote every line's target into the `overrides` map regardless of
-    whether it already matched. `formatNonInlineSwitches`'s own `while(true)` fixed-point loop
-    (`pickInnermostNeedingWork` → `needsWork` → re-tokenize → repeat until no switch reports
-    work) treats a non-empty `overrides` map as "still has work to do" — since it was *never*
-    empty, this hung indefinitely (`make test` had to be killed) on the first non-inline switch
-    fixture tried (`test/real_code_regressions_56_inp.java`, a small 2-case switch with a braced
-    `case TYPE: { ... }` body containing a nested `for`/`if`).
-  - Round B: fixed Round A's bug (only write an override when the computed target actually
-    differs from current text) plus an off-by-one in the depth counter (scan included the case
-    body's own opening brace, inflating every line's depth by 1). Still hung on the same minimal
-    fixture — even a corrected depth-derived-absolute-indent computation doesn't reach a fixed
-    point under `formatNonInlineSwitches`'s repeated re-tokenize-and-recompute loop. Root cause
-    not further isolated (out of scope per the escalation protocol) but not a one-line bug: the
-    loop re-tokenizes the whole switch after every case's edit and recomputes depth/target from
-    scratch each time, so any sensitivity to incidental re-tokenization detail (e.g. whitespace-
-    token boundary shifts across the render→retokenize round trip) prevents convergence — the
-    identical "recomputation-across-passes doesn't reach a fixed point" failure mode already
-    flagged as the shared high-risk class with `curly-general-scope-reindent` (`STATE_CURLY_GDR.md`,
-    not read per job-isolation rules, only referenced via `STATE_COMMON.md`/`XL.txt`'s existing
-    cross-references) — except here as a hang, a *stronger* confirmation of the risk than the
-    item's Tier 3 description assumed going in.
-
-  All code changes reverted cleanly (`git checkout -- SwitchRule.java`); working tree left as
-  found. Per user instruction, escalated: moved from `XL.txt`'s Tier 3 (real feature gaps —
-  medium risk) to Tier 4 (architectural, cross-pass-ordering — high risk, prior attempts
-  regressed fixtures), alongside the existing `curly-general-scope-reindent` entry it already
-  cross-referenced. Remains ACCEPTED, not fixed; no fixture added (repro was
-  `test/real_code_regressions_56_inp.java`, already tracked as `real_code_regressions_56` for an
-  unrelated bug per item (16) above — not modified).
-
-  **2026-08-07 real-fix attempt #2 — FAILED (progress, but a worse failure mode found on the
-  real production case), reverted cleanly.** Started fresh with the same `applyDepthDerivedBodyIndent`
-  shape as the 2026-08-04 attempt (absolute per-line target from `{`/`}` nesting depth), instrumented
-  with a `-Djxmake.debug.switchrule` gated debug trace (iteration count, per-override old/new indent
-  length, and full-render dumps to `/tmp`) to actually watch `formatNonInlineSwitches`'s `while(true)`
-  loop instead of reasoning about it — per STATE_COMMON.md's "prefer evidence over reasoning" — and a
-  hard iteration cap (`throw` past N iterations) so a repeat hang couldn't consume the session; every
-  new build/run was wrapped in `timeout`.
-
-  1. **Reproduced Round B's exact hang** on `test/real_code_regressions_56_inp.java` first, to confirm
-     baseline. **Isolated the concrete mechanism Round B's writeup left unresolved** (the "sensitivity to
-     incidental re-tokenization detail" it gestured at but didn't pin down): the loop's own boundary
-     guard, `if(lineStart >= braceClose) continue` (meant to exclude the case body's own closing-`}`
-     line from the depth-derived scan, since that line is the *separate* tail-shift pass's job), never
-     actually fires. `lineStart` is computed as `(the newline before that line's index) + 1`, which lands
-     on that line's leading WHITESPACE token — always `< braceClose` whenever the line is indented at
-     all (i.e. every real case), since `braceClose` is the index of the `}` token itself, one further
-     along. So the tail-brace's own line was silently double-owned by both the depth-derived pass
-     (computing a bogus target, since brace-depth is back to 0 there, which `bodyIndentAtDepth`'s
-     `depth<=0` case clamps to plain `bodyIndent`) and the tail-shift pass (computing the actually-correct
-     target) — each pass "corrected" the same line back to what *it* considered right, every single
-     round, forever. **Fixed** by peeking the line's first significant token and skipping entirely
-     (`continue`, not just a depth adjustment) whenever that token's index equals `braceClose`. With only
-     this fix, the minimal repro (`real_code_regressions_56`) converged in one iteration and matched the
-     existing `_out` fixture exactly.
-  2. Running the corrected code against the fixture's own `--out`-then-reformat (idempotency) round
-     surfaced a **second, independent bug the depth-derived approach introduces that the original
-     relative-delta code never had**: a wrapped multi-line statement's continuation line (e.g. an
-     `if( foo.bar(\n    baz\n) ) return x;` where a *separate* line-wrap/paren-continuation pass owns
-     `baz`'s indent) sits at the same *brace*-nesting depth as the statement that opened it, so the
-     naive depth-derived scan claims it too and overwrites the line-wrap pass's correct continuation
-     indent with plain brace-depth indent on the very next round — a new, previously-absent idempotency
-     failure (the original relative-delta `shiftLines` never had this problem because it only ever
-     applied one uniform delta across a whole range, never recomputed a target per individual line, so
-     it never fought a continuation line's already-correct indent). **Fixed** by additionally tracking
-     paren/bracket depth (`(`/`[`/`)`/`]`) alongside brace depth and skipping any line begun while a
-     paren/bracket opened on an earlier line is still unclosed (a continuation line, not a fresh
-     depth-anchored statement line) — left entirely untouched, exactly like the original code implicitly
-     did.
-  3. With both of the above fixed: `test/real_code_regressions_56` converges in one iteration, is
-     idempotent, and matches its `_out` fixture exactly; two synthetic pathological-indentation repros
-     (mimicking the JavaCC-generator inconsistent-per-line-indentation shape cited in this gap's
-     original writeup, one with a plain nested `for`, one with a nested `for`+`if`) each converged in one
-     iteration and were idempotent. Full `make test`: **247/247 forward, 247/247 idempotency, zero
-     regressions** (up from 243 at this entry's original writing — fixture count grows over time, see
-     STATE_COMMON.md's counting caveat).
-  4. **Validated against the actual originally-cited production file** —
-     `javaparser/javaparser`'s `ASTParser.java`, reused from a cached checkout at
-     `/tmp/javaparser_gdr` (found via the `STATE_COMMON.md`-mandated `/tmp` search-first step, from an
-     unrelated earlier GDR dogfood session) rather than re-cloning. **The fix does NOT resolve the
-     production bug — it converts it from bounded-but-wrong non-idempotency into a genuine infinite
-     loop**, confirmed via the same debug iteration cap (ran past 2000 iterations of a clean 2-state
-     oscillation with zero sign of terminating; a real invocation with no cap would hang forever, exactly
-     the failure mode `STATE_COMMON.md`'s "Diagnosing a hung `make test`" section exists to help
-     diagnose). Root cause, isolated by diffing successive full-render dumps at the oscillating
-     iterations: a **nested switch inside a switch** (JavaCC's generated comma-separated-list-parsing
-     pattern — `case THROWS: { ... while(true) { switch(...) { case COMMA: { ; break; } ... } ... } }`,
-     i.e. an inner `switch` sitting inside an outer switch's case body, itself inside a labeled
-     `while(true)`). The inner switch's own `caseIndent`/`unit` (used to compute ITS bodyIndent) are
-     derived from `indentBefore` on its own case-label's *current* line — but that line's indentation is
-     itself owned and rewritten every round by the OUTER switch's depth-derived body scan, since the
-     inner switch's tokens fall inside the outer case body's `[braceIdx, braceClose)` range and get
-     brace-counted like any other body content. Each round: the outer pass writes the inner switch's
-     region to a target derived from pure brace-depth; the inner pass then recomputes its own bodyIndent
-     from whatever the outer pass most recently wrote, occasionally landing on a `caseIndent` that isn't
-     a clean prefix-extension of its own `switchIndent` (`deriveUnit`'s fallback-to-default-unit
-     condition), producing a different `unit` than the outer pass used — so the two passes' respective
-     "correct" targets for the same 3 lines disagree and flip-flop forever, a clean, verified,
-     never-converging 2-cycle (not merely slow). This is the identical failure class already flagged as
-     shared with `STATE_CURLY_GDR.md`'s pre-pass/post-pass circular-dependency risk, but a strictly
-     stronger confirmation than either prior attempt reached: not "might not converge" but "provably does
-     not, on the exact file that motivated this gap." A structural fix would need the outer and inner
-     switch's indent decisions to come from one shared computation (e.g. a single depth-aware pass
-     threaded through nested switches together) rather than two independently-recomputing per-switch
-     passes each owning only their own local view — not reachable within `SwitchRule`'s current
-     per-switch, re-tokenize-between-switches architecture, and out of scope for this attempt per the
-     stop/ask protocol (a structural redesign is exactly the kind of change STATE_COMMON.md's ambiguity
-     protocol says to stop and ask about rather than force).
-  5. **Disposition: reverted all `SwitchRule.java` changes** (`git checkout --
-     src/com/jxmake/formatter/rules/SwitchRule.java`, confirmed zero diff against HEAD afterward);
-     working tree left as found. Remains ACCEPTED, not fixed; Tier 4 classification unchanged. No
-     fixture added — repro was `test/real_code_regressions_56_inp.java` (unmodified, unrelated existing
-     bug per item (16) above) plus the `javaparser/javaparser` cached checkout (not a project fixture).
-     **Narrower, more valuable negative result than 2026-08-04's**: that attempt's Round A/B never got
-     past the minimal repro's own hang to see this nested-switch failure at all. The two boundary-bug
-     fixes described in steps 1-2 above are real, isolated, and safe in isolation (proven by 247/247
-     green + convergence on every repro tried) — worth reusing as a verified starting point for a future
-     attempt — but landing them alone converts a silent wrong-output bug into a silent-hang bug on
-     real-world input, which is strictly worse and unsafe to ship without also solving the nested-switch
-     circular dependency in point 4. A future attempt should start there: either (a) make the outer
-     pass's depth-derived scan stop descending into a nested switch's own token range at all (treat a
-     nested switch's `[openBrace, closeBrace)` as opaque/frozen from the outer pass's perspective, letting
-     the inner switch's own independent pass be the sole owner of its region — cheapest, but needs
-     checking it doesn't reintroduce the original non-idempotency for outer-body lines that happen to sit
-     adjacent to a nested switch), or (b) thread one shared depth accumulator through nested switches in
-     a single combined pass instead of two independent ones (more correct, more invasive, same risk class
-     as the not-yet-attempted `curly-general-scope-reindent` redesign).
 
 ## Known Gaps — Fixed
 
 Previously-recorded low-priority gaps, now resolved. One-line summaries only — full
 before/after detail available via `git log`/`git show`.
+
+- **Non-idempotent switch-case re-indent, both the single-switch internally-inconsistent-source
+  shape and the nested-switch-in-switch shape** (`SwitchRule.applyNonInlineCaseIndent`) — RESOLVED
+  2026-08-07, seventh session on this gap. Replaced the old single-relative-delta `shiftLines`
+  body-shift with `applyDepthDerivedBodyIndent`, deriving each case-body line's *absolute* target
+  indent from its own `{`/`}` nesting depth relative to the case body's own brace, guarded by two
+  fixes (re-derived from the 2026-08-04/earlier-2026-08-07 attempts' write-ups, since those
+  attempts' own diffs were reverted and not preserved): (1) a boundary guard — the case body's own
+  closing `}` line is excluded by comparing that line's first *significant* token's index against
+  `braceClose`, not the newline-derived `lineStart` (which lands on leading whitespace and is
+  always `< braceClose`, so never actually excludes anything without this fix) — without it, that
+  line is double-owned by both this depth-derived pass and the separate tail-shift pass, each
+  "correcting" it back to what it alone considers right, forever; (2) a paren/bracket-continuation
+  guard — any line begun while a paren/bracket opened on an earlier line is still unclosed (a
+  wrapped statement's continuation line, owned by a separate line-wrap pass) is left completely
+  untouched, since claiming it via brace-depth alone would fight that pass's already-correct indent
+  every other round.
+
+  With both fixes alone, the minimal repro (`real_code_regressions_56`) and two synthetic
+  pathological-indentation repros converge in one iteration each and are idempotent — but the
+  actual originally-cited production file (`javaparser/javaparser`'s `ASTParser.java`, JavaCC-
+  generated, ~5500 lines, cached checkout at `/tmp/javaparser_gdr`) still produced a genuine,
+  confirmed 2000+-iteration never-converging 2-cycle: a switch nested inside another switch's case
+  body (JavaCC's generated comma-separated-list-parsing pattern) causes the outer pass's
+  depth-derived scan and the inner switch's own independent recomputation (still deriving its
+  `caseIndent`/`unit` from `indentBefore` on its own, currently-being-rewritten-by-the-outer-pass
+  case-label line) to disagree forever.
+
+  Two candidate fixes for that nested-switch disagreement were both implemented and validated this
+  session:
+  - **(a) Treat a nested switch as opaque** — `applyDepthDerivedBodyIndent`'s scan, on encountering
+    a nested `switch(...) { ... }`, jumps straight to its matching closing brace without deriving or
+    overriding anything inside it (a switch's own braces are balanced, so this is a net-zero change
+    to the running brace/paren depth), letting that nested switch's own independent `SwitchBlock`
+    pass — already guaranteed by `pickInnermostNeedingWork`'s innermost-first ordering to run to
+    completion first — be the sole owner of its region.
+  - **(b) Thread one shared depth accumulator through nested switches** — instead of skipping, recurse
+    directly into the nested switch's own case bodies using the same running depth/unit, anchored off
+    the nested switch's own already-computed absolute line indent.
+
+  **(a) fully resolves the production case**: the minimal repro and synthetic repros still converge
+  in one iteration each; the full production `ASTParser.java` now TERMINATES (previously a confirmed
+  non-converging 2-cycle) and its idempotency diff dropped from 369 differing lines (measured against
+  the pre-existing, unmodified baseline JAR on the same file) to 7 — all 7 in shapes unrelated to
+  switch-case (a pre-existing if/else general-reindent gap and an unrelated call-wrap line-length
+  gap, confirmed present identically in the unmodified baseline). `make test`: 247/247 → 248/248
+  forward + idempotency, zero regressions. New fixture: `test/real_code_regressions_181_{inp,out}.java`
+  (minimized from `ASTParser.java`'s nested-switch shape).
+
+  **(b) does NOT work as implemented and was rejected**: the nested switch's `SwitchBlock` is still
+  independently discovered and processed by `pickInnermostNeedingWork` on its own turn (that
+  discovery/iteration engine was left unchanged), so its own independent recomputation continued to
+  disagree with the outer recursive pass's writes — reproduced the identical never-converging
+  failure, now as a hang on even the minimal repro (`test/real_code_regressions_56_inp.java`, via a
+  20s `timeout`-wrapped run that hit the timeout). A structurally sound version of (b) would
+  additionally need the switch-discovery/iteration engine itself to recognize and skip any switch
+  nested inside another non-inline switch's case body (deferring it entirely to the outer recursive
+  pass rather than ever processing it as an independent top-level target) — a materially larger,
+  riskier architectural change than (a), same risk class as the not-yet-attempted
+  `curly-general-scope-reindent` redesign (`STATE_CURLY_GDR.md`). Reverted cleanly, not landed.
+
+  **Decision: landed approach (a).** Simpler (one opaque-skip branch, no change to the existing
+  per-switch discovery/iteration engine), lower-risk, and empirically both terminates and produces
+  correct STYLE.md-compliant depth-derived output on every tested shape, including the exact
+  production file that originally motivated this gap. `README.md`'s "Known Limitations" bullet for
+  this gap removed (list renumbered). Full two-approach writeup: `RDD_KEY_251` in `RDD_LOG.md`.
 
 - **Self-hosting dogfood bug: Java `&&`/`&` lost their leading space at a declaration-
   initializer/expression tight join** (`XmlSpecificRule.java`'s `>= LEVEL_TABLE_FOSTER&& !

@@ -620,23 +620,21 @@ tag-based/markup family, then indent-based family), then by effect size within e
    for a project's source root and no `tsconfig.json`/bundler-config resolution logic. This
    is a known, accepted simplification — no source-root config key is planned.
 
-4. **Non-idempotent reindent on internally-inconsistent generated source, for any pass using
-   a relative-delta technique.** Two known call sites share this root cause:
-   `SwitchRule.applyNonInlineCaseIndent` (`case` bodies) and
-   `ScopePipeline.applyDeclarationsPass` (declarations) — each shifts a block's lines by one
-   delta computed from a single reference line rather than deriving each line's target from
-   its own brace-nesting depth, which assumes the block's original indentation was internally
-   consistent. On generated sources (e.g. JavaCC/ANTLR-style parser output) whose *own* output
-   has inconsistent per-line indentation within a single block — a generator quirk, not
-   something realistic hand-written code exhibits — one reformat pass can land a line one
-   indent level off from its true target. For example, a `switch` body where a generator's own
-   output already mixes indent widths within one `case`:
+4. **Non-idempotent reindent on internally-inconsistent generated source, for a pass using a
+   relative-delta technique.** `ScopePipeline.applyDeclarationsPass` (declarations) shifts a
+   block's lines by one delta computed from a single reference line rather than deriving each
+   line's target from its own brace-nesting depth, which assumes the block's original
+   indentation was internally consistent. On generated sources (e.g. JavaCC/ANTLR-style parser
+   output) whose *own* output has inconsistent per-line indentation within a single block — a
+   generator quirk, not something realistic hand-written code exhibits — one reformat pass can
+   land a line one indent level off from its true target. For example, a declaration inside a
+   `switch default` block where a generator's own output already mixes indent widths:
 
    ```java
    switch (kind) {
-       case TOKEN:
-           consume();
-         emit(kind);  // one column short of `consume()` above, in the same case body
+       default:
+           int result = compute();
+         emit(result);  // one column short of the declaration above, in the same block
            break;
    }
    ```
@@ -645,10 +643,13 @@ tag-based/markup family, then indent-based family), then by effect size within e
    result again and compare) converges it to a different value than either the first pass or
    the original source — i.e. two formatting passes are not guaranteed to produce
    byte-identical output on such input. Observed rarely in real-code testing, out of thousands
-   of real-world files tested across many candidates. A real fix would need both passes to
-   derive each line's target from structural depth rather than a relative delta from one
-   reference line — a nontrivial rework with regression risk to existing behavior, not planned
-   unless a broader pattern of real-world impact emerges.
+   of real-world files tested across many candidates. A real fix would need the pass to derive
+   each line's target from structural depth rather than a relative delta from one reference
+   line — a nontrivial rework with regression risk to existing behavior, not planned unless a
+   broader pattern of real-world impact emerges. (`SwitchRule.applyNonInlineCaseIndent` used to
+   share this same root cause for `case` bodies; it was fixed to derive each line's target from
+   its own brace-nesting depth, including through nested switches, so it no longer exhibits this
+   gap.)
 
 ### Tag-based family (XML/HTML5)
 

@@ -906,6 +906,92 @@ plan, not a placeholder.
       this, since it has no visibility into a single pipeline pass's own
       sibling-candidate interactions).
 
+      **2026-08-07 session (later same day), fourth attempt — new
+      "positional/enumerable-context-list" framing, also reverted, D3 still
+      open.** Explicit instruction was to try a different framing rather
+      than repeat the brace-depth-heuristic backward scan: model
+      `renderCallCandidate`'s statement-start search as a positive match
+      against an enumerable list of legitimate Kotlin
+      statement/expression-continuation contexts (mirroring how a real
+      parser disambiguates positionally via current grammar production),
+      instead of yet another depth-counting/boundary-token backward scan.
+      Two sub-attempts, both under this same session:
+      1. **Forward one-pass "frame stack"** — treat every `{` as opening a
+         fresh nested statement frame, so a candidate's statement-start is
+         always its own frame's start, sidestepping brace classification
+         entirely. Failed immediately: a lambda argument's short body
+         legitimately needs its *enclosing* statement's prefix counted for
+         width purposes (`val liveItems = _items.filter { ... }` — the
+         frame-stack version measured only from just after `{`, dropping
+         the real prefix, under-measuring and wrongly collapsing content
+         that should stay wrapped). Confirmed via direct diff on
+         `real_code_regressions_27_inp.kt` (9 regressed fixtures matching
+         RDD_KEY_252 sub-attempt 1's exact list).
+      2. **Narrower backward continuation-newline walk** (`kotlinStatementStart`)
+         — abandoned brace/semicolon classification altogether; only
+         extends `lineStartIndex` backward across *consecutive pure
+         line-wrap continuation newlines*, using `parenDepth > 0` as a
+         structural signal plus an enumerable leading/trailing
+         operator/keyword list (`KOTLIN_CONTINUATION_OPS`:
+         arithmetic/comparison/logical/assignment ops, `?:`, `..`, `..<`,
+         `->`, `::`, `.`, `?.`, `!!`; `KOTLIN_CONTINUATION_KEYWORDS`: `as`,
+         `is`, `in`). Reduced failures from 9 to 7
+         (`real_code_regressions_{19,37,44,62,156,157,165}_inp.kt`), but
+         in the *opposite* direction — over-measurement, wrongly wrapping
+         short calls that should stay on one line (e.g. `loadRecovery(this)`
+         in `_19`, `cancelConsumed(cause)` in `_37`). Root-caused: a
+         trailing `->` before the candidate's own line (a lambda-arrow
+         header, e.g. `.setPositiveButton("Ok") { _, _ ->`) was
+         misclassified as a same-statement continuation operator, when
+         structurally it starts a *new* statement sequence (the lambda
+         body), not a textual continuation of the header. Removed `->`
+         from `KOTLIN_CONTINUATION_OPS` as a bounded follow-up experiment
+         (not committed) — this dropped failures further, from 7 to 4
+         (`real_code_regressions_{44,62,156,165}_inp.kt`), confirming the
+         hypothesis, but immediately exposed the *same* false-positive
+         class one token over: fixture `_62`'s `is Right ->` (a `when`
+         branch pattern-match keyword) was still misclassified as a
+         continuation via `is` in `KOTLIN_CONTINUATION_KEYWORDS`, which is
+         only valid for the mid-expression type-check operator (`x is T`),
+         not a `when`-branch leading keyword — exact same ambiguity shape
+         as `->`, just on a different token. Fixture `_44` showed a third,
+         independent failure mode: the backward walk is textually
+         "correct" (a genuine `=`-continuation into an expression-bodied
+         function), yet the result is undesired because the statement is
+         an intentionally multi-line `if`/`else` expression body that
+         should not be treated as "one statement whose fit should be
+         re-tested against a single collapsed line."
+      **Assessment: the positional/enumerable-context-list framing did not
+      hold up in practice.** It measurably narrowed each round's failure
+      set (9 to 7 to 4) but never converged, because nearly every operator
+      or keyword usable as a "trailing/leading continuation signal" is
+      genuinely ambiguous in Kotlin without production-level context —
+      `->` is both a lambda-arrow (new statement follows) and (in other
+      grammars) a same-line arrow; `is`/`as`/`in` are both mid-expression
+      operators and `when`-branch-leading keywords; `=` is both a
+      continuation *and* a legitimate multi-line-forever expression-body
+      marker. An enumerable *token* list cannot carry the *positional*
+      information (which grammar production the parser is currently in)
+      that the framing's own justification said was the missing
+      ingredient — the token itself is insufficient; genuinely resolving
+      this needs to track *which construct* (lambda body, `when` branch,
+      expression-bodied function, binary expression) a NEWLINE sits inside,
+      which is real lightweight parsing, not a flat lookup table. This
+      converges with — not merely repeats — RDD_KEY_252's conclusion.
+      Both sub-attempts fully reverted (`git checkout --` on
+      `MiscRuleCurly.java` only); `make test` reconfirmed clean, zero net
+      change, all tests passing (same baseline as before this session).
+      Full writeup: `RDD_KEY_253`. **Recommendation for any future
+      session: do not attempt another variant of "backward scan + token
+      lookup table," under either a brace-depth or continuation-newline
+      framing — both have now been independently exhausted. The two
+      concretely-viable directions remain RDD_KEY_252's: a real lightweight
+      Kotlin statement/expression-boundary parser (tracks construct kind,
+      not just token identity, as it descends), or new GDR-adjacent
+      infrastructure with visibility into a single pipeline pass's
+      sibling-candidate interactions (which GDR's existing per-line depth
+      counters do not have, per RDD_KEY_235).**
+
 - [x] **Adversarial stress-test of the bounded 4-stage multipass loop for
       the unproven "second-order oscillation" risk** (2026-08-05,
       dedicated hardening/validation task — not adding new GDR

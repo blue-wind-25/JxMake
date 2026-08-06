@@ -23,8 +23,9 @@ import java.util.List;
  * fully opaque. Structural passes re-tokenize as needed after transforms that reshuffle text.
  *
  * <p>Landed rules: §3.1 naive brace-depth indentation; §3.2 operator spacing + {@code =}
- * alignment; §3.3 pipeline split/right-align. Remaining §3.4–§3.6 land in later checklist
- * items.
+ * alignment; §3.3 pipeline split/right-align; §3.4 hashtable spacing (multi-line {@code =}
+ * alignment via §3.1+§3.2; single-line hashtables never forced multi-line -- RDD_KEY_257).
+ * Remaining §3.5–§3.6 land in later checklist items.
  */
 public final class PowerShellSpecificRule {
 
@@ -954,8 +955,9 @@ public final class PowerShellSpecificRule {
     {
         String s = content;
         s = applyOperatorSpacing(s); // §3.2 spacing
-        s = applyBraceIndent(s);     // §3.1
-        s = applyAssignAlignment(s); // §3.2 alignment
+        s = applyBraceIndent(s);     // §3.1 (also indents multi-line hashtable bodies -- §3.4)
+        s = applyAssignAlignment(s); // §3.2 alignment (also aligns multi-line hashtable entries -- §3.4)
+        // §3.4 single-line hashtables: never expanded to multi-line (RDD_KEY_257); no extra pass.
         s = applyPipelineSplit(s);   // §3.3 (after indent so continuation uses base+1 level)
 
         return s;

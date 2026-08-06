@@ -228,7 +228,13 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       base indent is correct inside blocks. Smoke: STYLE 3-stage pipeline
       pipe columns match; nested `{$_|...}` unsplit; string `"a|b|c"` safe;
       inside-if indent; idempotent.
-- [ ] Implement PowerShell §3.4 hashtable spacing.
+- [x] Implement PowerShell §3.4 hashtable spacing.
+      No separate pass: multi-line `@{` bodies get §3.1 indent + §3.2
+      entry `=` alignment (per-line depth starts at 0 so entry `=` is
+      depth-0); single-line hashtables are never force-expanded
+      (RDD_KEY_257) -- operator spacing may still tidy interior `=`.
+      Smoke: STYLE multi-line Name/Age align; `$h=@{Name="John";Age=20}`
+      stays one line; idempotent.
 - [ ] Implement PowerShell §3.5 `switch` formatting.
 - [ ] Implement PowerShell §3.6 `{`/`}` spacing.
 - [ ] Remove all `RDD*` references from `STYLE_TOOLING.md`. A style file

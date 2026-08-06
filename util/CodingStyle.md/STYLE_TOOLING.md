@@ -16,16 +16,21 @@ not curly-brace-family languages in the same sense C/C++/Java/Kotlin are).
 
 ## 0. Comments (shared across all three)
 
-All three languages use `#` line comments. Comment-text normalization
-(grammar/capitalization/decorative-separator/license-block classification)
-reuses the existing shared comment-classifier pipeline
-(`com.jxmake.formatter.classifier.CommentClassifier`/
-`GruAbstainResolver`/`GruClassifier`) — not a new bespoke path. This
-includes both the linear classifier and GRU abstain-resolution
-automatically: the classifier is already wired as language-agnostic
-infrastructure (every implemented family routes through it), and GRU
-specifically is gated only by the single global `config.isGruClassifier()`
-flag, not per-language — see RDD_KEY_259.
+All three languages use `#` line comments. **RDD_KEY_259 was wrong and is
+reversed by RDD_KEY_260** — the shared `CommentClassifier`/GRU
+abstain-resolution pipeline (`com.jxmake.formatter.classifier.*`) is
+curly-family-only (wired into `MiscRuleCore`, called only from
+`FormatterCurly`), not language-agnostic infrastructure. Every other
+family — Python3, XML/HTML5, and every data format — has its own much
+simpler ad hoc comment handling instead (e.g. `TomlSpecificRule
+.normComment`: optional first-letter capitalization only, gated by
+`config.isNormalizeCommentStartCase()`, no classifier dependency).
+
+Makefile/Bash/PowerShell comment normalization, if/when added, follows
+that same TOML-style ad hoc pattern — not the curly-only classifier
+pipeline. Comment normalization was never in the original 5-rule list for
+any of the three languages; this section only governs what to do *if* it's
+added later, per RDD_KEY_260.
 
 ---
 

@@ -73,7 +73,8 @@ started (docs-only, no code landed yet).
 | RDD_KEY_256 | PowerShell §3.3: inline pipeline-stage scriptblock always stays single-line, never brace-depth-indented |
 | RDD_KEY_257 | PowerShell §3.4: single-line hashtable literal left as-is, never forced multi-line |
 | RDD_KEY_258 | PowerShell §3.6: `{`/`}` spacing applies everywhere, including single-line scriptblocks |
-| RDD_KEY_259 | Comment normalization for all three reuses the existing shared comment-classifier pipeline (linear classifier + GRU abstain-resolution, both language-agnostic already) — no new bespoke path, no new gating |
+| RDD_KEY_259 | (**REVERSED by RDD_KEY_260** — no longer in effect) Comment normalization for all three reuses the shared comment-classifier pipeline — premise was factually wrong, see RDD_KEY_260 |
+| RDD_KEY_260 | **REVERSES RDD_KEY_259** — the shared classifier pipeline is curly-family-only (`MiscRuleCore`/`FormatterCurly`), not language-agnostic; Makefile/Bash/PowerShell comment normalization, if added, follows the simpler TOML-style ad hoc pattern instead |
 
 ---
 
@@ -119,10 +120,13 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       PowerShell §3.2/§3.3/§3.4/§3.6) via `AskUserQuestion`; recorded as
       RDD_KEY_254–RDD_KEY_258, `STYLE_TOOLING.md` updated to state the
       resolved rules inline (no more "TBD"/open-question markers).
-- [x] Resolve comment-normalization scope decision: reuse the existing
-      shared comment-classifier pipeline (linear classifier + GRU
-      abstain-resolution) for all three languages' `#` comments, rather
-      than a new bespoke path — RDD_KEY_259, new `STYLE_TOOLING.md` §0.
+- [x] Resolve comment-normalization scope decision (RDD_KEY_259, later
+      corrected by RDD_KEY_260 after the premise was found factually
+      wrong on re-check): comments are out of scope for the original
+      5-rule lists; *if* normalization is added later it follows the
+      simpler TOML-style ad hoc pattern (config-gated first-letter
+      capitalization, no classifier dependency), not the curly-only
+      `CommentClassifier`/GRU pipeline. `STYLE_TOOLING.md` §0 updated.
 - [ ] Implement Makefile §1.1 Assignment Alignment.
 - [ ] Implement Makefile §1.2 Continuation-Line Alignment.
 - [ ] Implement Makefile §1.3 Target Spacing.

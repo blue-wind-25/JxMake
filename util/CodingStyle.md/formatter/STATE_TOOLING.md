@@ -142,13 +142,35 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       test fixture pair registered yet (that's still the separate,
       unchecked "Author local test fixture pairs" item below). Comments
       remain untouched (out of scope, STYLE_TOOLING.md §0).
-- [ ] Bash: build/extend a tokenizer sufficient to safely skip quoting,
+- [x] Bash: build/extend a tokenizer sufficient to safely skip quoting,
       heredocs, comments, command substitution, and arithmetic contexts.
-- [ ] Implement Bash §2.1 `if`/`then` merge.
-- [ ] Implement Bash §2.2 pipe spacing.
-- [ ] Implement Bash §2.3 function brace placement.
-- [ ] Implement Bash §2.4 `case` formatting.
-- [ ] Implement Bash §2.5 arithmetic operator spacing.
+- [x] Implement Bash §2.1 `if`/`then` merge.
+- [x] Implement Bash §2.2 pipe spacing.
+- [x] Implement Bash §2.3 function brace placement.
+- [x] Implement Bash §2.4 `case` formatting.
+- [x] Implement Bash §2.5 arithmetic operator spacing.
+      Landed as `Lang.isBash`/`Lang.infer` `.sh`/`.bash` extension detection,
+      `FormatterCore.forLanguage` dispatch, `FormatterBash` (standalone,
+      `FormatterMakefile`-style), and `BashSpecificRule`: a two-pass design
+      -- pass A is a character-level state-machine tokenizer (quotes,
+      `$'...'`, backticks, `$(...)`, `$((...))`, `#` comments, `<<`/`<<-`
+      heredocs incl. quoted/bareword delimiters) that also applies the two
+      token-level rules (§2.2, §2.5) inline via a `RunBuffer` that flushes
+      on every kind change; pass B is line-oriented (applies §2.1/§2.3/§2.4)
+      guarded by a per-line purity flag (first non-whitespace char is code).
+      Arithmetic nested inside a double-quoted string is still processed
+      (per the STYLE_TOOLING.md §2.5 example) but arithmetic nested inside
+      `$(...)`/backticks stays opaque, consistent with leaving nested
+      command-substitution content untouched entirely. Smoke-tested
+      manually against the STYLE_TOOLING.md §2 combined example (all 5
+      rules verified matching spec output + idempotent), a pipe-in-string/
+      comment safety test, and a heredoc/backtick/`$(...)` safety test
+      (heredoc body, backtick, and `$(...)` content all left byte-identical
+      + idempotent). Full `make test` suite re-run clean after landing:
+      248/248 forward, 248/248 idempotency -- purely additive, no other
+      language's path touched. No local test fixture pair registered yet
+      (deferred at user's explicit request -- separate unchecked item
+      below).
 - [ ] PowerShell: build/extend a tokenizer sufficient to safely skip
       string literals, here-strings, and comments.
 - [ ] Implement PowerShell §3.1 brace-depth indentation.

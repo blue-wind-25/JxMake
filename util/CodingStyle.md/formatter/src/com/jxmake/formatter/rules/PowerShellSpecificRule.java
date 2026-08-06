@@ -23,7 +23,8 @@ import java.util.List;
  * fully opaque. Structural passes re-tokenize as needed after transforms that reshuffle text.
  *
  * <p>Landed rules: §3.1 naive brace-depth indentation; §3.2 operator spacing + {@code =}
- * alignment. Remaining §3.3–§3.6 land in later checklist items.
+ * alignment; §3.3 pipeline split/right-align. Remaining §3.4–§3.6 land in later checklist
+ * items.
  */
 public final class PowerShellSpecificRule {
 
@@ -809,12 +810,153 @@ public final class PowerShellSpecificRule {
         group.clear();
     }
 
+    // ---- §3.3 Pipeline: always split + right-align `|` ---------------------------------------
+
+    /**
+     * Unconditionally splits depth-0 code-kind {@code |} pipelines (one segment per line after the
+     * first), right-aligns {@code |} to the longest segment, and indents continuations by one level
+     * under the pipeline's base indent. Inline scriptblock arguments stay single-line because
+     * pipes inside {@code {}} are depth &gt; 0 (RDD_KEY_256). Already-split pipelines are first
+     * re-joined (trailing depth-0 {@code |} continues onto the next pure line) so the pass is
+     * idempotent.
+     */
+    private String applyPipelineSplit(final String content)
+    {
+        final PassAResult  passA = runPassA(content);
+        final Lines        lines = new Lines(passA.transformed);
+        final boolean[]    pure  = computeLinePurity(passA.transformed, passA.kind, lines.lines.size());
+        final char[][]     kinds = lineKinds(passA.transformed, passA.kind, lines.lines.size());
+        final List<String> out   = new ArrayList<>();
+
+        int i = 0;
+        while( i < lines.lines.size() ) {
+            final String line = lines.lines.get(i);
+            if( !pure[i] || line.trim().isEmpty() || !hasDepth0Pipe(line, kinds[i]) ) {
+                out.add(line);
+                ++i;
+                continue;
+            }
+
+            final String       baseIndent = leadingWhitespace(line);
+            final List<String> segs       = new ArrayList<>();
+            int                j          = i;
+            boolean            cont       = true;
+            while( cont && j < lines.lines.size() ) {
+                if( j > i ) {
+                    if( !pure[j] || lines.lines.get(j).trim().isEmpty() ) break;
+                    // Only consume as continuation when the previous line ended with a depth-0 pipe.
+                    if( !lineEndsWithDepth0Pipe(lines.lines.get(j - 1), kinds[j - 1]) ) break;
+                }
+                final List<String> part = splitDepth0Pipes( lines.lines.get(j), kinds[j] );
+                // Skip empties from a trailing depth-0 `|` (both mid-group continuations and the
+                // final "ends with |" line) -- otherwise re-formatting an already-split pipeline
+                // inserts blank `|`-only segments and breaks idempotency.
+                for( final String p : part ) {
+                    if( !p.isEmpty() ) segs.add(p);
+                }
+                cont = lineEndsWithDepth0Pipe( lines.lines.get(j), kinds[j] );
+                ++j;
+            } // while
+
+            if( segs.size() < 2 ) {
+                out.add(line);
+                ++i;
+                continue;
+            }
+
+            final String contIndent = baseIndent + indent(1);
+            // Absolute column of `|` so every non-last segment's pipe lines up (STYLE §3.3 example),
+            // with at least one space between the segment text and `|`.
+            int pipeCol = 0;
+            for( int s = 0; s + 1 < segs.size(); ++s ) {
+                final int pref = ( ( s == 0 ) ? baseIndent : contIndent ).length();
+                pipeCol = Math.max( pipeCol, pref + segs.get(s).length() + 1 );
+            }
+            for( int s = 0; s < segs.size(); ++s ) {
+                final String prefix = ( s == 0 ) ? baseIndent : contIndent;
+                if( s + 1 < segs.size() ) {
+                    final int spaces = Math.max( 1, pipeCol - prefix.length() - segs.get(s).length() );
+                    out.add( prefix + segs.get(s) + repeatChar(' ', spaces) + "|" );
+                } else {
+                    out.add( prefix + segs.get(s) );
+                }
+            } // for
+            i = j;
+        } // while
+
+        lines.lines.clear();
+        lines.lines.addAll(out);
+
+        return lines.join();
+    }
+
+    private static boolean hasDepth0Pipe(final String line, final char[] kind)
+    {
+        int depth = 0;
+        for( int i = 0; i < line.length(); ++i ) {
+            if( i < kind.length && kind[i] != 'C' ) continue;
+            final char c = line.charAt(i);
+            if(c == '(' || c == '[' || c == '{') depth++;
+            else if(c == ')' || c == ']' || c == '}') { if(depth > 0) depth--; }
+            else if( depth == 0 && c == '|' && !isDoublePipe(line, i) ) return true;
+        }
+
+        return false;
+    }
+
+    private static boolean lineEndsWithDepth0Pipe(final String line, final char[] kind)
+    {
+        // Find last non-ws char; it must be a depth-0 |
+        int end = line.length() - 1;
+        while( end >= 0 && ( line.charAt(end) == ' ' || line.charAt(end) == '\t' ) ) --end;
+        if(end < 0 || line.charAt(end) != '|') return false;
+        if( isDoublePipe(line, end) || ( end > 0 && line.charAt(end - 1) == '|' ) ) return false;
+        int depth = 0;
+        for( int i = 0; i <= end; ++i ) {
+            if( i < kind.length && kind[i] != 'C' ) continue;
+            final char c = line.charAt(i);
+            if(c == '(' || c == '[' || c == '{') depth++;
+            else if(c == ')' || c == ']' || c == '}') { if(depth > 0) depth--; }
+        }
+
+        return depth == 0; // the final | sits at depth 0 when the scan ends at depth 0
+    }
+
+    private static boolean isDoublePipe(final String line, final int i)
+    {
+        return ( i + 1 < line.length() && line.charAt(i + 1) == '|' )
+                || ( i > 0 && line.charAt(i - 1) == '|' );
+    }
+
+    /** Split line on depth-0 code-kind lone {@code |}; returned segments are trimmed. */
+    private static List<String> splitDepth0Pipes(final String line, final char[] kind)
+    {
+        final List<String> segs  = new ArrayList<>();
+        final int          lead  = leadingWhitespace(line).length();
+              int          start = lead;
+              int          depth = 0;
+        for( int i = lead; i < line.length(); ++i ) {
+            if( i < kind.length && kind[i] != 'C' ) continue;
+            final char c = line.charAt(i);
+            if(c == '(' || c == '[' || c == '{') depth++;
+            else if(c == ')' || c == ']' || c == '}') { if(depth > 0) depth--; }
+            else if( depth == 0 && c == '|' && !isDoublePipe(line, i) ) {
+                segs.add( line.substring(start, i).trim() );
+                start = i + 1;
+            }
+        } // for
+        segs.add( line.substring(start).trim() );
+
+        return segs;
+    }
+
     public String format(final String content)
     {
         String s = content;
-        s = applyOperatorSpacing(s); // §3.2 spacing (before indent so alignment sees spaced ops)
+        s = applyOperatorSpacing(s); // §3.2 spacing
         s = applyBraceIndent(s);     // §3.1
-        s = applyAssignAlignment(s); // §3.2 alignment (after indent so indent is preserved)
+        s = applyAssignAlignment(s); // §3.2 alignment
+        s = applyPipelineSplit(s);   // §3.3 (after indent so continuation uses base+1 level)
 
         return s;
     }

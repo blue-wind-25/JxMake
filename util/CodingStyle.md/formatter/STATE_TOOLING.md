@@ -218,7 +218,16 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       alignment. Smoke: `$a=1`/`$bb=$a+2` align; nested under if; multi-line
       `@{` entries align; `"a=b"` string untouched; `-gt` intact; comment
       breaks group; idempotent.
-- [ ] Implement PowerShell §3.3 pipeline split/align.
+- [x] Implement PowerShell §3.3 pipeline split/align.
+      Depth-0 code-kind `|` split (one segment/line after the first), `|`
+      at a shared absolute column (min one space before `|`), continuations
+      at base+1 indent. Pipes inside `()`/`[]`/`{}` stay unsplit so inline
+      scriptblock args remain single-line (RDD_KEY_256). Already-split
+      pipelines re-joined via trailing depth-0 `|` before re-split
+      (empty segments dropped) for idempotency. Runs after §3.1 indent so
+      base indent is correct inside blocks. Smoke: STYLE 3-stage pipeline
+      pipe columns match; nested `{$_|...}` unsplit; string `"a|b|c"` safe;
+      inside-if indent; idempotent.
 - [ ] Implement PowerShell §3.4 hashtable spacing.
 - [ ] Implement PowerShell §3.5 `switch` formatting.
 - [ ] Implement PowerShell §3.6 `{`/`}` spacing.

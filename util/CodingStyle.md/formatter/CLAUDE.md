@@ -20,7 +20,7 @@ state file.
 | AI-assist Step 3: GRU comment-classifier abstain resolution (skeleton started — `com.jxmake.formatter.classifier.gru` package) | `STATE_COMMON.md` | `STATE_AI.md` |
 | General scope-depth reindentation (curly reindent job; pre-pass architecture landed, default off, behind `curly-general-scope-reindent = on` — high risk, a real pass-ordering bug was found during real-code validation, read `STATE_CURLY_GDR.md` before attempting) | `STATE_COMMON.md` | `STATE_CURLY_GDR.md` |
 | HTML5 deep tree-construction gaps (tc gap job; all four levels (1-4) landed and full-suite dogfood re-validated with zero regression, still off by default behind `html5-tc-gap-level = 0`, opt-in cumulative — read `STATE_HTML5_TCG.md` for each level's implementation notes/known limitations before changing) | `STATE_COMMON.md` | `STATE_HTML5_TCG.md` |
-| Build/dev-tooling script formatters: Makefile, Bash, PowerShell (not started — narrow, beautification-only scope per language, fixed rule list, "leave everything else untouched"; several open questions in `STYLE_TOOLING.md` must be resolved via RDD before implementing the rule they're attached to) | `STATE_COMMON.md` | `STATE_TOOLING.md` |
+| Build/dev-tooling script formatters: Makefile, Bash, PowerShell (implemented — narrow beautification-only rule lists per `STYLE_TOOLING.md`) | `STATE_COMMON.md` | `STATE_TOOLING.md` |
 
 `STATE_COMMON.md` holds the shared commit workflow, ambiguity-handling
 protocol, file-exclusion rules, and real-code-testing methodology used by
@@ -36,16 +36,19 @@ string, kept only for documentation/compatibility). Data formats (JSON,
 JSON5, CSS, YAML, TOML, XML, HTML5 incl. `<script>` dispatch via
 `XmlSpecificRule.renderScriptOrStyle`), JS/TS (`JsTsSpecificRule` /
 `JsTsDeclarationAlignmentRule`; JSX/TSX still excluded pending a future
-embedding-aware dispatcher), and Python3 (`FormatterIndent` /
-`ScopePipelineIndent` for STYLE_PYTHON3.md §1-9) have all landed real
-logic. C++26 has no separate language identity or scaffold entry at all —
-it's future incremental rule coverage on the existing, already-implemented
-`"cpp"` pipeline (same as C++20 — see `STATE_CPP26.md`'s Resolved Design
-Decisions). `README.md`/`../README.txt` should describe every implemented
-language, including Python3, as implemented — matching actual code state.
-This file and the `STATE_*.md` files track true current code state and
-must NOT be updated to match any doc's aspirational status ahead of what's
-actually landed.
+embedding-aware dispatcher), Python3 (`FormatterIndent` /
+`ScopePipelineIndent` for STYLE_PYTHON3.md §1-9), and the three tooling
+languages — Makefile (`FormatterMakefile`/`MakefileSpecificRule`), Bash
+(`FormatterBash`/`BashSpecificRule`, STYLE_TOOLING.md §2), and PowerShell
+(`FormatterPowerShell`/`PowerShellSpecificRule`, STYLE_TOOLING.md §3) —
+have all landed real logic. C++26 has no separate language identity or
+scaffold entry at all — it's future incremental rule coverage on the
+existing, already-implemented `"cpp"` pipeline (same as C++20 — see
+`STATE_CPP26.md`'s Resolved Design Decisions). `README.md`/`../README.txt`
+should describe every implemented language as implemented — matching
+actual code state. This file and the `STATE_*.md` files track true current
+code state and must NOT be updated to match any doc's aspirational status
+ahead of what's actually landed.
 
 (The comment-grammar classifier accuracy upgrade, formerly tracked in its
 own `STATE_COMMENT_GRAMMAR.md`, shipped and was folded into
@@ -66,10 +69,9 @@ python3, makefile, bash, powershell
 ```
 
 Apply this order whenever authoring or editing a language list anywhere in
-this directory or its docs. `makefile`/`bash`/`powershell` are reserved
-positions for the not-yet-implemented `STATE_TOOLING.md` job — do NOT add
-them to any list that asserts *current* capability (e.g. `README.md`'s
-`--lang` accepted-values list, its `.ext →` language mapping, or
-`../README.txt`'s JAR-implemented-languages list) until that job actually
-lands real logic for the language in question; doing so earlier would
-violate this file's own no-aspirational-doc-updates rule above.
+this directory or its docs. `makefile`/`bash`/`powershell` are fully
+implemented (see `STATE_TOOLING.md` / `STYLE_TOOLING.md`) and belong in
+every list that asserts *current* capability (`README.md`'s `--lang`
+accepted-values list, its `.ext →` / basename language mapping,
+`../README.txt`'s JAR-implemented-languages list, server `lang=` enums,
+etc.), matching actual code state.

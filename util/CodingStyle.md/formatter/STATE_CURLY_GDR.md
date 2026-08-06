@@ -870,6 +870,42 @@ plan, not a placeholder.
       code changed. `make test` unaffected (237/237, no fixture/source
       changes this step).
 
+      **2026-08-07 session, explicit go-ahead given — third attempt, two
+      sub-attempts, both reverted, D3 still open.** Built a Kotlin-gated
+      `kotlinStatementStartIndex` backward token scan (same brace/paren
+      depth as `nameIdx`, stopping at a depth-0 `;`, `{`, `}`, or a
+      non-continuation depth-0 NEWLINE via a new operator-lookback
+      continuation-boundary heuristic) to replace `lineStartIndex` in the
+      no-newline fits-check. Sub-attempt 1 (treating every depth-0 `{`/`}`
+      as a boundary) regressed 9 fixtures — under-measured, because a
+      trailing-lambda call argument's own `{` (`.filter { ... }`) isn't a
+      statement boundary, so real prefix text got dropped from the width
+      measurement. Sub-attempt 2 (added `isKotlinControlFlowOrDeclBraceOpen`
+      to only treat a real control-flow/declaration `{` as a boundary, not
+      a lambda argument) regressed a *different* 10 fixtures — traded the
+      failure mode rather than fixing it; some fixtures over-measured
+      (false-positive wraps) and one (`real_code_regressions_19_inp.kt`)
+      even got corrupted continuation-indent columns. Both sub-attempts
+      reverted in full (`git checkout --` on `MiscRuleCurly.java` only, plus
+      two unrelated build-side-effect files — `code-formatter-1.0.0.jar`'s
+      rebuild timestamp and `test/README.txt`'s incidental re-wrap — neither
+      an intentional edit); `make test` reconfirmed clean at 248/248
+      forward + idempotency both before and after, zero net change. Full
+      writeup: `RDD_KEY_252`. **Assessment: this is not a bounded-effort
+      heuristic-refinement problem — each fix for one shape (lambda
+      arguments, fluent chains, control-flow bodies) regresses a different
+      shape, because the true answer needs actual Kotlin
+      expression/statement grammar, not an enumerated keyword/operator
+      lookback table over a backward token scan.** Next session should not
+      attempt another variant of this same heuristic shape; see
+      `RDD_KEY_252`'s full text for the two concretely-suggested next
+      directions (a proper lightweight statement/expression boundary
+      parser, or new GDR-adjacent statement-boundary infrastructure beyond
+      what its existing per-line depth counters already provide — RDD_KEY_235
+      already established GDR's *existing* infra can't be reused as-is for
+      this, since it has no visibility into a single pipeline pass's own
+      sibling-candidate interactions).
+
 - [x] **Adversarial stress-test of the bounded 4-stage multipass loop for
       the unproven "second-order oscillation" risk** (2026-08-05,
       dedicated hardening/validation task — not adding new GDR

@@ -88,7 +88,14 @@ assume.
 
 ## Test Fixtures (Local)
 
-None yet.
+| Pair | Covers |
+|---|---|
+| `makefile_combined_{inp,out}.mk` | STYLE_TOOLING.md §1.1–§1.4 + tab-recipe leave-alone + comment group-break |
+| `bash_combined_{inp,out}.sh` | STYLE_TOOLING.md §2.1–§2.5 + string/comment/heredoc/`$(...)` safety |
+| `powershell_combined_{inp,out}.ps1` | STYLE_TOOLING.md §3.1–§3.6 + string/comment/here-string safety |
+
+Registered active in `Makefile` `INP_FILES` (before curly-GDR locals / real-code
+regressions) and documented in `test/README.txt`.
 
 ## Test Fixtures (External, corpus-scale)
 
@@ -258,9 +265,20 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       (alignment-group boundary, target spacing, pipeline scriptblock
       single-line, single-line hashtable left as-is, `{`/`}` spacing
       everywhere).
-- [ ] Author local test fixture pairs per each language's rule set,
+- [x] Author local test fixture pairs per each language's rule set,
       register in `test/README.txt` / Makefile `INP_FILES` before
       the regression fixtures.
+      One combined pair per language, covering that language's full
+      STYLE_TOOLING.md rule list plus tokenizer safety cases:
+      `makefile_combined_{inp,out}.mk` (§1.1–§1.4 + tab-recipe leave-alone
+      + comment group-break), `bash_combined_{inp,out}.sh` (§2.1–§2.5 +
+      string/comment/heredoc/`$(...)` safety), `powershell_combined_{inp,
+      out}.ps1` (§3.1–§3.6 + string/comment/here-string safety). Expected
+      outs generated from the live JAR and re-checked for idempotency
+      before registration. Active in `Makefile` `INP_FILES` immediately
+      before the curly-GDR local fixtures (still ahead of `Real-code
+      regressions:`); documented under a new "Makefile / Bash / PowerShell
+      (STYLE_TOOLING.md)" heading in `test/README.txt`.
 - [ ] Source dogfood corpus candidates for Bash and PowerShell (real
       shell scripts / real `.ps1` scripts) once local fixtures pass;
       register in `STATE_DOGFOOD.md`. Makefile corpus candidates: real

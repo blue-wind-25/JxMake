@@ -527,6 +527,34 @@ Python3:
                                                         sorted (`python-import-sort`, default on) alongside
                                                         the blank-line normalization.
 
+Makefile / Bash / PowerShell (STYLE_TOOLING.md):
+  makefile_combined_inp/out.mk                       -- STYLE_TOOLING.md §1 combined: assignment-alignment
+                                                        group (`=`/`:=`/`+=`), backslash continuation-line
+                                                        alignment under the value column, target `:` spacing
+                                                        (one space after `:`, single spaces between prereqs),
+                                                        `ifdef`/`else`/`endif` body indentation, a leading-tab
+                                                        recipe line left byte-identical, and a `#` comment
+                                                        breaking an assignment-alignment group.
+
+  bash_combined_inp/out.sh                           -- STYLE_TOOLING.md §2 combined: `if`/`then` same-line
+                                                        merge, pipe spacing on lone `|`, function brace
+                                                        placement with body indent, `case` arm/`;;`
+                                                        formatting, arithmetic operator spacing inside
+                                                        `$((...))`, plus safety cases proving pipes/arith in
+                                                        strings and `#` comments, a heredoc body, and
+                                                        `$(...)` command-substitution content are all left
+                                                        byte-identical.
+
+  powershell_combined_inp/out.ps1                    -- STYLE_TOOLING.md §3 combined: naive brace-depth
+                                                        indent, operator spacing + `=` alignment, pipeline
+                                                        split with right-aligned `|`, multi-line hashtable
+                                                        entry alignment (single-line `@{...}` not expanded),
+                                                        `switch` keyword-paren spacing + arm `{` alignment,
+                                                        `{`/`}` spacing including single-line scriptblocks,
+                                                        plus safety cases proving pipes in strings/`#`
+                                                        comments and a here-string body are left
+                                                        byte-identical.
+
 General Scope-Depth Reindentation:
   curly_general_scope_reindent_inp/out.hpp           -- Proves `curly-general-scope-reindent=on` is accepted
                                                         as an in-file config key (JXM_CFMT_CFG) and produces a

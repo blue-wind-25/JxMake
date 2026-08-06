@@ -20,6 +20,7 @@ state file.
 | AI-assist Step 3: GRU comment-classifier abstain resolution (skeleton started — `com.jxmake.formatter.classifier.gru` package) | `STATE_COMMON.md` | `STATE_AI.md` |
 | General scope-depth reindentation (curly reindent job; pre-pass architecture landed, default off, behind `curly-general-scope-reindent = on` — high risk, a real pass-ordering bug was found during real-code validation, read `STATE_CURLY_GDR.md` before attempting) | `STATE_COMMON.md` | `STATE_CURLY_GDR.md` |
 | HTML5 deep tree-construction gaps (tc gap job; all four levels (1-4) landed and full-suite dogfood re-validated with zero regression, still off by default behind `html5-tc-gap-level = 0`, opt-in cumulative — read `STATE_HTML5_TCG.md` for each level's implementation notes/known limitations before changing) | `STATE_COMMON.md` | `STATE_HTML5_TCG.md` |
+| Build/dev-tooling script formatters: Makefile, Bash, PowerShell (not started — narrow, beautification-only scope per language, fixed rule list, "leave everything else untouched"; several open questions in `STYLE_TOOLING.md` must be resolved via RDD before implementing the rule they're attached to) | `STATE_COMMON.md` | `STATE_TOOLING.md` |
 
 `STATE_COMMON.md` holds the shared commit workflow, ambiguity-handling
 protocol, file-exclusion rules, and real-code-testing methodology used by
@@ -27,7 +28,7 @@ every job. `STATE_C_CPP_JAVA.md` is authoritative for the C/C++/Java job's
 progress, implementation protocol, and "Resolved Design Decisions" table.
 `STATE_KOTLIN.md`, `STATE_CPP26.md`, `STATE_DATA_FORMATS.md`,
 `STATE_JS_TS.md`, `STATE_PYTHON3.md`, `STATE_AI.md`, `STATE_CURLY_GDR.md`,
-and `STATE_HTML5_TCG.md` are each job's own equivalent.
+`STATE_HTML5_TCG.md`, and `STATE_TOOLING.md` are each job's own equivalent.
 
 **Current implementation status:** no language this codebase recognizes is
 scaffold-only any more (`Lang.SCAFFOLD_ONLY_LANGUAGES` is now an empty
@@ -55,3 +56,20 @@ After any `/compact` or context summarization, re-read the relevant state
 file in full before continuing — a summary may omit or compress exact
 resolved-decision or checklist details that only the on-disk file has
 right.
+
+**Canonical language order (documentation, help strings, `--lang`/`lang=`
+enumerations, etc.), for this and every future session:**
+
+```
+c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts,
+python3, makefile, bash, powershell
+```
+
+Apply this order whenever authoring or editing a language list anywhere in
+this directory or its docs. `makefile`/`bash`/`powershell` are reserved
+positions for the not-yet-implemented `STATE_TOOLING.md` job — do NOT add
+them to any list that asserts *current* capability (e.g. `README.md`'s
+`--lang` accepted-values list, its `.ext →` language mapping, or
+`../README.txt`'s JAR-implemented-languages list) until that job actually
+lands real logic for the language in question; doing so earlier would
+violate this file's own no-aspirational-doc-updates rule above.

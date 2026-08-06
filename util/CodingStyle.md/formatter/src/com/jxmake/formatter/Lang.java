@@ -46,6 +46,7 @@ public final class Lang {
     public final boolean isPython3;
     public final boolean isMakefile;
     public final boolean isBash;
+    public final boolean isPowerShell;
     public final boolean isCurly;
     public final boolean isIndentBased;
     public final boolean isTagBased;
@@ -70,6 +71,7 @@ public final class Lang {
         this.isPython3      = "python3".equals(language);
         this.isMakefile     = "makefile".equals(language);
         this.isBash         = "bash".equals(language);
+        this.isPowerShell   = "powershell".equals(language);
         this.isCurly        = isC || isCpp || isJava || isKotlin || isJs || isTs;
         this.isIndentBased  = isPython3;
         this.isTagBased     = isXml || isHtml5;
@@ -82,7 +84,7 @@ public final class Lang {
      *    the `--lang` validation in `Main.run()`
      *    `ServerMode.FormatHandler.handle()`
      */
-    public static final String SUPPORTED_LANGUAGES = "c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3, makefile, bash";
+    public static final String SUPPORTED_LANGUAGES = "c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3, makefile, bash, powershell";
 
     /**
      * Scaffold-only languages: recognized by {@link #infer} and accepted by `--lang`/`lang=`, but
@@ -115,7 +117,8 @@ public final class Lang {
                 || "css".equals(language) || "yaml".equals(language) || "toml".equals(language)
                 || "xml".equals(language) || "html5".equals(language)
                 || "js".equals(language) || "ts".equals(language)
-                || "python3".equals(language) || "makefile".equals(language) || "bash".equals(language);
+                || "python3".equals(language) || "makefile".equals(language) || "bash".equals(language)
+                || "powershell".equals(language);
     }
 
     public static boolean isScaffoldOnly(final String language)
@@ -181,6 +184,7 @@ public final class Lang {
         if( lower.endsWith(".ts") || lower.endsWith(".tsx") ) return "ts";
         if( lower.endsWith(".py") ) return "python3";
         if( lower.endsWith(".sh") || lower.endsWith(".bash") ) return "bash";
+        if( lower.endsWith(".ps1") || lower.endsWith(".psm1") ) return "powershell";
 
         return null;
     }

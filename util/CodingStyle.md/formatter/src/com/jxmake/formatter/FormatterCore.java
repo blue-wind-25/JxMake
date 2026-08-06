@@ -37,6 +37,7 @@ public abstract class FormatterCore {
         if(lang.isXml || lang.isHtml5) return new FormatterXml(lang);
         if(lang.isMakefile) return new FormatterMakefile(lang);
         if(lang.isBash) return new FormatterBash(lang);
+        if(lang.isPowerShell) return new FormatterPowerShell(lang);
         if(lang.isCurly) return new FormatterCurly(lang);
         if(lang.isIndentBased) return new FormatterIndent(lang);
         if(lang.isTagBased) return new FormatterTags(lang);

@@ -15,13 +15,16 @@ none of the three is large enough to warrant its own file (unlike, say,
 Kotlin or JS/TS), the same way `STATE_DATA_FORMATS.md` groups seven data
 formats.
 
-**Makefile implemented; Bash and PowerShell not yet.** Makefile landed real
-logic (`Lang.isMakefile`, `FormatterMakefile`, `MakefileSpecificRule`) —
-see the checklist below. `Lang.SCAFFOLD_ONLY_LANGUAGES` remains unaffected
-(still empty) since Makefile is a fully-supported language now, not a
-scaffold entry — it was added directly to `Lang.SUPPORTED_LANGUAGES`. Bash
-and PowerShell aren't recognized languages at all yet (no `Lang.infer`
-extension, no CLI selector) until their own checklist items land.
+**Makefile and Bash implemented; PowerShell tokenizer landed (rules
+pending).** Makefile landed real logic (`Lang.isMakefile`,
+`FormatterMakefile`, `MakefileSpecificRule`); Bash landed real logic
+(`Lang.isBash`, `FormatterBash`, `BashSpecificRule`, all five §2 rules) —
+see the checklist below. PowerShell is wired as a recognized language
+(`Lang.isPowerShell`, `.ps1`/`.psm1` infer, `FormatterPowerShell`,
+`PowerShellSpecificRule` tokenizer) but still identity-formats until the
+§3.1–§3.6 rule items land. `Lang.SCAFFOLD_ONLY_LANGUAGES` remains
+unaffected (still empty) — makefile/bash/powershell were added directly
+to `Lang.SUPPORTED_LANGUAGES` as each landed.
 
 **Canonical language order** for any documentation/help-string/`--lang`
 enumeration this job's languages join, once implemented, is recorded in
@@ -171,8 +174,32 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       language's path touched. No local test fixture pair registered yet
       (deferred at user's explicit request -- separate unchecked item
       below).
-- [ ] PowerShell: build/extend a tokenizer sufficient to safely skip
+- [x] PowerShell: build/extend a tokenizer sufficient to safely skip
       string literals, here-strings, and comments.
+      Landed as `Lang.isPowerShell`/`Lang.infer` `.ps1`/`.psm1` extension
+      detection, `FormatterCore.forLanguage` dispatch, `FormatterPowerShell`
+      (standalone, `FormatterBash`-style), and `PowerShellSpecificRule`
+      tokenizer: character-level state machine covering single-quoted
+      strings (`''` escape), double-quoted strings (backtick escape,
+      `$(...)` subexpressions re-enter code mode so future brace-depth
+      can see real scriptblock braces, `${...}` stays opaque), expandable
+      here-strings `@"..."@` and literal here-strings `@'...'@` (terminator
+      only at column 0; open requires quote-then-optional-WS-then-newline,
+      so `@{` hashtables are not mistaken for here-strings), line comments
+      `#`, and nestable block comments `<# ... #>`. Top-level backtick
+      escape keeps the next character from starting a string. Pass A
+      classifies every character 'C'/'O' and re-emits identity via a
+      Bash-style `RunBuffer` (token-level §3.x transforms will plug in on
+      'C' flushes later); `computeLinePurity` mirrors Bash so structural
+      rules can refuse here-string-body / full-comment lines. Smoke-tested
+      manually: kind map for squote/dquote/`$(...)` interior/`${...}`/
+      line+nested-block comments/both here-string forms/backtick-escaped
+      quotes/`@{` hashtable; purity on comment vs code vs here-string body;
+      multi-construct sample identity; `--lang powershell` + `.ps1`/`.psm1`
+      infer identity + idempotent. Full `make test` suite re-run clean:
+      248/248 forward, 248/248 idempotency -- purely additive. No local
+      fixture pair yet (deferred with the shared fixtures checklist item).
+      §3.1–§3.6 transforms still unchecked below.
 - [ ] Implement PowerShell §3.1 brace-depth indentation.
 - [ ] Implement PowerShell §3.2 operator spacing + `=` alignment.
 - [ ] Implement PowerShell §3.3 pipeline split/align.

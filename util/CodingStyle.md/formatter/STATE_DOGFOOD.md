@@ -60,7 +60,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Java | STATE_C_CPP_JAVA.md | apache/ant | DONE - PARTIAL FIX | 2 files hit accepted reindent gap |
 | Java | STATE_C_CPP_JAVA.md | ARMCortexMThumbC.java.in (local) | DONE | |
 | Java | STATE_C_CPP_JAVA.md | google/google-java-format | DONE | |
-| Java | STATE_C_CPP_JAVA.md | javaparser/javaparser | DONE | |
+| Java | STATE_C_CPP_JAVA.md | javaparser/javaparser | DONE | switch-case reindent bug found+fixed (RDD_KEY_251, nested-switch-in-switch, `ASTParser.java`): idempotency diff dropped from a confirmed non-converging 2-cycle to 369 differing lines pre-fix, then to 7 post-fix, all 7 confirmed pre-existing/unrelated (identical in the unmodified baseline) |
 | Java | STATE_CURLY_GDR.md | javaparser/javaparser (javaparser-core, GDR multipass) | DONE | curly-general-scope-reindent-multipass=on: 93/576 single-pass non-idempotent files → 0/576, all pass java_syntax_check |
 | Java | STATE_CURLY_GDR.md | javaparser/javaparser (javaparser-core-generators, GDR multipass) | DONE | curly-general-scope-reindent-multipass=on: 13/43 single-pass non-idempotent files → 0/43 |
 | Java | STATE_CURLY_GDR.md | tool/JSONEncoderLite.java (local, GDR multipass) | DONE | curly-general-scope-reindent-multipass=on: 112-line single-pass non-idempotency diff → 0 |

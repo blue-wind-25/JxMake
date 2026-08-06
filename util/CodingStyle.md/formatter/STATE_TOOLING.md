@@ -200,7 +200,15 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       248/248 forward, 248/248 idempotency -- purely additive. No local
       fixture pair yet (deferred with the shared fixtures checklist item).
       §3.1–§3.6 transforms still unchecked below.
-- [ ] Implement PowerShell §3.1 brace-depth indentation.
+- [x] Implement PowerShell §3.1 brace-depth indentation.
+      Naive brace-depth reindent over code-kind `{`/`}` only (opaque
+      strings/here-strings/comments never contribute). Pure-code lines are
+      stripped of leading whitespace and re-emitted at
+      `depth - leadingCloses`; non-pure lines (here-string bodies, full-line
+      comments) keep original leading whitespace byte-identical. Smoke:
+      nested if bodies, multi-line `@{` hashtable body indent, here-string
+      body braces untouched, `# comment {` does not affect depth; idempotent.
+      Full `make test` left for the §3.2–§3.6 series end (additive path).
 - [ ] Implement PowerShell §3.2 operator spacing + `=` alignment.
 - [ ] Implement PowerShell §3.3 pipeline split/align.
 - [ ] Implement PowerShell §3.4 hashtable spacing.

@@ -17,12 +17,13 @@ import java.util.List;
  * comments {@code #}, and block comments {@code <# ... #>} (nested) must all be recognized so none
  * of the six rules ever fires inside them.
  *
- * <p>Tokenizer-only milestone (STATE_TOOLING.md checklist): pass A classifies every character as
- * code ('C') or opaque ('O' -- string / here-string / comment content) and re-emits the input
- * byte-identical. Expandable string/here-string interiors stay opaque, but {@code $(...)}
- * subexpressions nested inside them re-enter code mode (so future brace-depth indentation can see
- * real scriptblock braces). {@code ${...}} variable names stay fully opaque. The six §3.x
- * transforms land in later checklist items on top of this classification.
+ * <p>Pass A classifies every character as code ('C') or opaque ('O'). Expandable string/here-string
+ * interiors stay opaque, but {@code $(...)} subexpressions nested inside them re-enter code mode
+ * (so brace-depth indentation can see real scriptblock braces). {@code ${...}} variable names stay
+ * fully opaque. Structural passes re-tokenize as needed after transforms that reshuffle text.
+ *
+ * <p>Landed rules: §3.1 naive brace-depth indentation. Remaining §3.2–§3.6 land in later checklist
+ * items.
  */
 public final class PowerShellSpecificRule {
 
@@ -33,7 +34,7 @@ public final class PowerShellSpecificRule {
         this.indentWidth = Math.max(1, indentWidth);
     }
 
-    // ---- Pass A: char-level classification (identity emit for now) ----------------------------
+    // ---- Pass A: char-level classification ----------------------------------------------------
 
     /**
      * Stack frame for the tokenizer. {@code type} values:
@@ -84,8 +85,8 @@ public final class PowerShellSpecificRule {
         void flush()
         {
             if( run.length() == 0 ) return;
-            // Tokenizer-only: both 'C' and 'O' runs are emitted unchanged. Later §3.x token-level
-            // rules (operator spacing, etc.) will transform 'C' runs here, matching BashSpecificRule.
+            // Both 'C' and 'O' runs are emitted unchanged here. Token-level §3.x transforms
+            // (operator spacing, brace spacing) plug in on 'C' flushes in later checklist items.
             out.append(run);
             run.setLength(0);
         }
@@ -426,9 +427,9 @@ public final class PowerShellSpecificRule {
     }
 
     /**
-     * A line is "pure" (eligible for future structural §3.x rules) if its first non-whitespace
-     * character is real code -- excludes here-string body lines and full-comment lines without
-     * over-rejecting normal code lines that merely contain a quoted string later on.
+     * A line is "pure" (eligible for structural §3.x rules) if its first non-whitespace character
+     * is real code -- excludes here-string body lines and full-comment lines without over-rejecting
+     * normal code lines that merely contain a quoted string later on.
      */
     static boolean[] computeLinePurity(final String content, final char[] kind, final int lineCount)
     {
@@ -462,12 +463,176 @@ public final class PowerShellSpecificRule {
         return new String( runPassA(content).kind );
     }
 
+    // ---- Line splitting / joining -------------------------------------------------------------
+
+    private static final class Lines {
+
+        final List<String> lines;
+        final boolean      endsWithNewline;
+
+        Lines(final String content)
+        {
+            this.endsWithNewline = content.endsWith("\n");
+            final String[] raw   = content.split("\n", -1);
+            this.lines           = new ArrayList<>( java.util.Arrays.asList(raw) );
+            if( endsWithNewline && !lines.isEmpty() ) lines.remove( lines.size() - 1 );
+        }
+
+        String join()
+        {
+            final StringBuilder sb = new StringBuilder();
+            for( int i = 0; i < lines.size(); ++i ) {
+                sb.append( lines.get(i) );
+                if( i + 1 < lines.size() || endsWithNewline ) sb.append('\n');
+            }
+
+            return sb.toString();
+        }
+
+    } // class Lines
+
+    private static String leadingWhitespace(final String line)
+    {
+        int i = 0;
+        while( i < line.length() && ( line.charAt(i) == ' ' || line.charAt(i) == '\t' ) ) ++i;
+
+        return line.substring(0, i);
+    }
+
+    private String indent(final int depth)
+    {
+        return repeatChar( ' ', Math.max(0, depth) * indentWidth );
+    }
+
+    private static String repeatChar(final char c, final int count)
+    {
+        final StringBuilder sb = new StringBuilder( Math.max(0, count) );
+        for( int i = 0; i < count; ++i ) sb.append(c);
+
+        return sb.toString();
+    }
+
+    /**
+     * Per-line kind slices aligned with {@link Lines#lines} (newline characters themselves are
+     * omitted; each slice is exactly the line's character kinds).
+     */
+    private static char[][] lineKinds(final String content, final char[] kind, final int lineCount)
+    {
+        final char[][] out  = new char[lineCount][];
+        int            line = 0;
+        int            start = 0;
+        for( int i = 0; i <= content.length() && line < lineCount; ++i ) {
+            if( i == content.length() || content.charAt(i) == '\n' ) {
+                final int len = i - start;
+                out[line] = new char[len];
+                if(len > 0) System.arraycopy(kind, start, out[line], 0, len);
+                ++line;
+                start = i + 1;
+            }
+        } // for
+
+        return out;
+    }
+
+    // ---- §3.1 Naive brace-depth indentation ---------------------------------------------------
+
+    /**
+     * Reindents pure-code lines by a running brace-depth count over code-kind {@code '{'}/{@code '}'}
+     * only (strings/here-strings/comments never contribute). Here-string bodies and full-comment
+     * lines (non-pure) keep their original leading whitespace. Leading {@code '}'} on a line indent
+     * at {@code depth - leadingCloses} so a lone closer sits at the depth of its opener.
+     */
+    private String applyBraceIndent(final String content)
+    {
+        final PassAResult  passA  = runPassA(content);
+        final Lines        lines  = new Lines(passA.transformed);
+        final boolean[]    pure   = computeLinePurity(passA.transformed, passA.kind, lines.lines.size());
+        final char[][]     kinds  = lineKinds(passA.transformed, passA.kind, lines.lines.size());
+        final List<String> out    = new ArrayList<>( lines.lines.size() );
+              int          depth  = 0;
+
+        for( int li = 0; li < lines.lines.size(); ++li ) {
+            final String line    = lines.lines.get(li);
+            final String trimmed = line.trim();
+            final char[] lk      = kinds[li];
+
+            if( trimmed.isEmpty() ) {
+                out.add("");
+                continue;
+            }
+
+            final int leadingCloses = countLeadingCloses(trimmed, line, lk);
+            final int open          = countCodeChar(trimmed, line, lk, '{');
+            final int close         = countCodeChar(trimmed, line, lk, '}');
+
+            if( pure[li] ) {
+                final int printDepth = Math.max(0, depth - leadingCloses);
+                out.add( indent(printDepth) + trimmed );
+            } else {
+                // Non-pure (here-string body, full-line comment, etc.): leave byte-identical.
+                out.add(line);
+            }
+
+            depth = Math.max(0, depth + open - close);
+        } // for
+
+        lines.lines.clear();
+        lines.lines.addAll(out);
+
+        return lines.join();
+    }
+
+    /**
+     * Count code-kind {@code '}'} at the start of {@code trimmed} before any other non-whitespace
+     * code character. {@code trimmed} is {@code line.trim()}; kinds are indexed into the original
+     * {@code line} (so leading whitespace on {@code line} must be skipped when mapping).
+     */
+    private static int countLeadingCloses(final String trimmed, final String line, final char[] lineKind)
+    {
+        final int base = leadingWhitespace(line).length();
+        int       n    = 0;
+        for( int i = 0; i < trimmed.length(); ++i ) {
+            final char c = trimmed.charAt(i);
+            if(c == ' ' || c == '\t' || c == '\r') continue;
+            final int ki = base + i;
+            // trimmed is line without leading/trailing ws -- map carefully:
+            // base + index into the untrimmed middle. Since trimmed strips trailing too, indices
+            // into line are: first non-ws of line + i, for i scanning trimmed which has no lead ws.
+            // Actually trimmed = line.trim(), so line[base + i] == trimmed[i] for i in [0, trimmed.length)
+            // only if there's no difference from trailing strip affecting... yes for i < trimmed.length(),
+            // line.charAt(base + i) == trimmed.charAt(i).
+            if( ki < 0 || ki >= lineKind.length ) break;
+            if( lineKind[ki] != 'C' ) {
+                // opaque non-ws at the start (e.g. comment line) -- not a leading close
+                break;
+            }
+            if(c == '}') n++;
+            else break;
+        } // for
+
+        return n;
+    }
+
+    private static int countCodeChar(
+        final String trimmed, final String line, final char[] lineKind, final char target
+    )
+    {
+        final int base = leadingWhitespace(line).length();
+        int       n    = 0;
+        for( int i = 0; i < trimmed.length(); ++i ) {
+            final int ki = base + i;
+            if( ki >= 0 && ki < lineKind.length && lineKind[ki] == 'C' && trimmed.charAt(i) == target ) n++;
+        }
+
+        return n;
+    }
+
     public String format(final String content)
     {
-        // Tokenizer-only milestone: classify (so the kind map / purity helpers are exercised and
-        // ready for §3.1+) but apply no transforms yet -- output is byte-identical to input.
-        final PassAResult passA = runPassA(content);
-        return passA.transformed;
+        String s = content;
+        s = applyBraceIndent(s); // §3.1
+
+        return s;
     }
 
 } // class PowerShellSpecificRule

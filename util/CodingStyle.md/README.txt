@@ -14,6 +14,7 @@ Files in this directory
   STYLE_DATA_FORMATS.md     JSON/JSON5, CSS, YAML, TOML, XML, HTML5 rules (borrows from STYLE.md)
   STYLE_JS_TS.md            JavaScript/TypeScript rules (derives from STYLE_JAVA.md/STYLE_KOTLIN.md)
   STYLE_PYTHON3.md          Python 3 rules
+  STYLE_TOOLING.md          Makefile, Bash, and PowerShell rules (narrow beautification-only)
   AI_PREAMBLE_FULL.md       Preamble for full-file pass (un-JAR-processed files)
   AI_PREAMBLE_AESTHETIC.md  Preamble for layout judgment pass (post-JAR files)
   README.txt                This file
@@ -21,12 +22,13 @@ Files in this directory
   The deterministic JAR formatter (formatter/code-formatter-1.0.0.jar, replace
   1.0.0 with your built version) handles all Tier-1 and Tier-2 rules
   mechanically for C, C++, Java, Kotlin, JSON/JSON5, CSS, YAML, TOML, XML,
-  HTML5, JavaScript, TypeScript, and Python 3. Run it first for those
-  languages. The AI workflows described here cover the remaining Tier-3
-  aesthetic decisions the JAR intentionally leaves untouched (data formats
-  have no equivalent layout-judgment gap, see the Layout Judgment Pass note
-  below; applies to every other language — C, C++, Java, Kotlin,
-  JavaScript, TypeScript, Python 3):
+  HTML5, JavaScript, TypeScript, Python 3, Makefile, Bash, and PowerShell.
+  Run it first for those languages. The AI workflows described here cover the
+  remaining Tier-3 aesthetic decisions the JAR intentionally leaves untouched
+  (data formats and the three tooling languages have no equivalent
+  layout-judgment gap, see the Layout Judgment Pass note below; applies to
+  every other language — C, C++, Java, Kotlin, JavaScript, TypeScript,
+  Python 3):
     - Function argument list layout (when the source is already multi-line and
       the author's grouping intent should be preserved or improved)
     - Getter/setter groups with non-standard naming conventions (Python's
@@ -63,10 +65,10 @@ Two AI Passes
   in large declaration groups.
 
   For every language the JAR now implements (C, C++, Java, Kotlin, JSON/JSON5,
-  CSS, YAML, TOML, XML, HTML5, JavaScript, TypeScript, Python 3 — see the NOTE
-  above), prefer running the JAR directly instead; this pass is now only
-  needed for a one-off migration of a legacy file, or a construct the JAR
-  doesn't yet handle for a given language.
+  CSS, YAML, TOML, XML, HTML5, JavaScript, TypeScript, Python 3, Makefile,
+  Bash, PowerShell — see the NOTE above), prefer running the JAR directly
+  instead; this pass is now only needed for a one-off migration of a legacy
+  file, or a construct the JAR doesn't yet handle for a given language.
 
   Recommended only when:
     - The file has never been touched by the JAR, and
@@ -163,17 +165,22 @@ Combine the relevant preamble with the style files for the target language:
   FULL-FILE PASS — Python3 files:
     cat AI_PREAMBLE_FULL.md STYLE.md STYLE_PYTHON3.md > /tmp/style_python3_full.txt
 
+  FULL-FILE PASS — Makefile, Bash, or PowerShell files:
+    cat AI_PREAMBLE_FULL.md STYLE.md STYLE_TOOLING.md > /tmp/style_tooling_full.txt
+    (only needed now for a one-off migration — the JAR itself now handles
+    these languages directly per STYLE_TOOLING.md's fixed rule lists)
+
   LAYOUT JUDGMENT PASS — C, C++, Java, Kotlin, JavaScript, TypeScript, or
   Python 3 (language-agnostic preamble, see AI_PREAMBLE_AESTHETIC.md's Scope
   section):
     cat AI_PREAMBLE_AESTHETIC.md > /tmp/style_aesthetic.txt
     (no style files needed — the preamble is self-contained for this pass)
-    Does NOT apply to JSON/JSON5/CSS/YAML/TOML/XML/HTML5 (C++26 is rule
-    coverage on the existing C/C++ pipeline, not a separate language, so it's
-    covered by the C/C++ case above). The data formats have no equivalent
-    layout-judgment gap to begin with (no function-argument-list or
-    getter/setter-group concept), so there is nothing for this pass to add on
-    top of their JAR output.
+    Does NOT apply to JSON/JSON5/CSS/YAML/TOML/XML/HTML5, Makefile, Bash, or
+    PowerShell (C++26 is rule coverage on the existing C/C++ pipeline, not a
+    separate language, so it's covered by the C/C++ case above). The data
+    formats and tooling languages have no equivalent layout-judgment gap to
+    begin with (no function-argument-list or getter/setter-group concept), so
+    there is nothing for this pass to add on top of their JAR output.
 
 Store the combined file once and reuse it across multiple calls.
 
@@ -243,6 +250,15 @@ Batch reformatting a directory (shell script):
     python3)
       RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_PYTHON3.md)
       GLOBS=("*.py") ;;
+    makefile)
+      RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_TOOLING.md)
+      GLOBS=("Makefile" "GNUmakefile" "*.mk") ;;
+    bash)
+      RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_TOOLING.md)
+      GLOBS=("*.sh" "*.bash") ;;
+    powershell)
+      RULES=$(cat "$STYLE_DIR"/AI_PREAMBLE_FULL.md "$STYLE_DIR"/STYLE.md "$STYLE_DIR"/STYLE_TOOLING.md)
+      GLOBS=("*.ps1" "*.psm1") ;;
     *)
       echo "Unknown language: $LANG"; exit 1 ;;
   esac
@@ -307,7 +323,7 @@ Script (reformat_file.py):
   if __name__ == "__main__":
       if len(sys.argv) < 3:
           print(f"Usage: {sys.argv[0]} <source_file> "
-                f"<lang: c|cpp|cpp26|java|kotlin|json|json5|css|yaml|toml|xml|html|js|ts|python3> "
+                f"<lang: c|cpp|cpp26|java|kotlin|json|json5|css|yaml|toml|xml|html|js|ts|python3|makefile|bash|powershell> "
                 f"[pass: full|aesthetic] [effort: low|medium|high|xhigh|max]")
           sys.exit(1)
 
@@ -317,8 +333,9 @@ Script (reformat_file.py):
       style_dir = pathlib.Path(__file__).parent
 
       if mode == "aesthetic":
-          # Language-agnostic (not for JSON/JSON5/CSS/YAML/TOML/XML/HTML5) --
-          # see AI_PREAMBLE_AESTHETIC.md's Scope section.
+          # Language-agnostic (not for JSON/JSON5/CSS/YAML/TOML/XML/HTML5,
+          # Makefile/Bash/PowerShell) -- see AI_PREAMBLE_AESTHETIC.md's Scope
+          # section.
           rules = load_rules(style_dir / "AI_PREAMBLE_AESTHETIC.md")
       elif lang == "cpp":
           rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
@@ -348,6 +365,9 @@ Script (reformat_file.py):
       elif lang == "python3":
           rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
                              style_dir / "STYLE_PYTHON3.md")
+      elif lang in ("makefile", "bash", "powershell"):
+          rules = load_rules(style_dir / "AI_PREAMBLE_FULL.md", style_dir / "STYLE.md",
+                             style_dir / "STYLE_TOOLING.md")
       else:
           print(f"Unknown language: {lang}"); sys.exit(1)
 
@@ -389,6 +409,12 @@ Usage:
 
   # Python3 full-file pass (fallback -- the JAR now handles this directly):
   python3 reformat_file.py src/utils.py python3
+
+  # Tooling-script full-file pass (fallback -- the JAR now handles Makefile/
+  # Bash/PowerShell directly per STYLE_TOOLING.md):
+  python3 reformat_file.py Makefile makefile
+  python3 reformat_file.py scripts/build.sh bash
+  python3 reformat_file.py tools/deploy.ps1 powershell
 
   # Same, at explicit low effort (cheaper, for a simple/small file) or xhigh
   # (for a large or unusually complex one -- effort defaults to "medium" if

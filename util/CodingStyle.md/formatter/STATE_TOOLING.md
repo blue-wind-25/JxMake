@@ -25,13 +25,11 @@ remains unaffected (still empty) — makefile/bash/powershell were added
 directly to `Lang.SUPPORTED_LANGUAGES` as each landed.
 
 **Canonical language order** for any documentation/help-string/`--lang`
-enumeration this job's languages join, once implemented, is recorded in
-`CLAUDE.md` (search "Canonical language order") — `makefile`, `bash`,
-`powershell` come last, after `python3`. Do not add them to any list
-asserting current capability (`README.md`'s `--lang` values, `.ext →`
-mapping, `../README.txt`'s implemented-languages list) until real logic
-actually lands for the language in question — see this file's own
-doc-sync checklist item.
+enumeration this job's languages join is recorded in `CLAUDE.md` (search
+"Canonical language order") — `makefile`, `bash`, `powershell` come last,
+after `python3`. `README.md` and `../README.txt` already list all three as
+JAR-implemented (doc-sync checklist item below; `CLAUDE.md`'s status
+paragraph may still need a separate pass).
 
 ---
 
@@ -269,7 +267,13 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       register in `STATE_DOGFOOD.md`. Makefile corpus candidates: real
       `Makefile`s from existing dogfood repos already cloned for other
       jobs may be reusable — check before cloning anything new.
-- [ ] Update `CLAUDE.md`'s implementation-status paragraph, `README.md`,
+- [~] Update `CLAUDE.md`'s implementation-status paragraph, `README.md`,
       `../README.txt` once any of the three moves from scaffold to real
       logic (do not update ahead of actual landed code — see
       `STATE_COMMON.md`'s doc-sync convention).
+      **Done for `README.md` + `../README.txt`:** both list Makefile/Bash/
+      PowerShell as JAR-implemented (`--lang`/`lang=` values, extension/
+      basename mapping, `STYLE_TOOLING.md` style-guide link, AI full-file
+      fallback + layout-judgment exclusion, shell/`reformat_file.py`
+      dispatch). **`CLAUDE.md` status paragraph still pending** if it still
+      describes tooling languages as not-yet-implemented.

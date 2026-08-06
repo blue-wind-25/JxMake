@@ -1,9 +1,10 @@
 # jxmake-code-formatter — Code Formatter
 
 A deterministic code formatter for C, C++, Java, Kotlin, JSON/JSON5, CSS,
-YAML, TOML, XML, HTML5, JavaScript, TypeScript, and Python 3, implementing
-the [CodingStyle.md](../STYLE.md) style guide. No AI, no AST — tokenizer
-plus recursive descent on bounded token slices.
+YAML, TOML, XML, HTML5, JavaScript, TypeScript, Python 3, Makefile, Bash,
+and PowerShell, implementing the [CodingStyle.md](../STYLE.md) style guide
+(tooling languages follow [`STYLE_TOOLING.md`](../STYLE_TOOLING.md)). No AI,
+no AST — tokenizer plus recursive descent on bounded token slices.
 
 ---
 
@@ -40,10 +41,12 @@ java -jar code-formatter-1.0.0.jar include/Module.h
 Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.cc`/`.cxx` → C++,
 `.java` → Java, `.kt`/`.kts` → Kotlin, `.json`/`.json5` → JSON/JSON5, `.css` → CSS,
 `.yaml`/`.yml` → YAML, `.toml` → TOML, `.xml` → XML, `.html`/`.htm` → HTML5,
-`.js`/`.jsx`/`.mjs`/`.cjs` → JavaScript, `.ts`/`.tsx` → TypeScript, `.py` → Python 3). `.jsx`/
-`.tsx` are dispatched to the same JS/TS pipeline as `.js`/`.ts` — no JSX/TSX-syntax-aware
+`.js`/`.jsx`/`.mjs`/`.cjs` → JavaScript, `.ts`/`.tsx` → TypeScript, `.py` → Python 3,
+`Makefile`/`GNUmakefile`/`.mk` → Makefile, `.sh`/`.bash` → Bash, `.ps1`/`.psm1` → PowerShell).
+`.jsx`/`.tsx` are dispatched to the same JS/TS pipeline as `.js`/`.ts` — no JSX/TSX-syntax-aware
 formatting exists (out of scope per `STYLE_JS_TS.md`), so a `.jsx`/`.tsx` file is only safe to
-run through the formatter if it contains no actual JSX tag syntax.
+run through the formatter if it contains no actual JSX tag syntax. Makefile detection is also
+basename-based (`Makefile`, `GNUmakefile`) for extensionless Make files.
 
 For a file with a non-standard extension (e.g. `.java.in`, `.txt`, no extension at all),
 override detection with `--lang`:
@@ -54,9 +57,9 @@ java -jar code-formatter-1.0.0.jar --lang cpp Module.inc
 ```
 
 `--lang` accepts exactly one of `c`, `cpp`, `java`, `kotlin`, `json`, `json5`, `css`, `yaml`,
-`toml`, `xml`, `html5`, `js`, `ts`, `python3`, and applies to every file given on that command
-line (mixing file types with a single forced `--lang` in one invocation isn't supported — run
-the formatter once per language instead).
+`toml`, `xml`, `html5`, `js`, `ts`, `python3`, `makefile`, `bash`, `powershell`, and applies to
+every file given on that command line (mixing file types with a single forced `--lang` in one
+invocation isn't supported — run the formatter once per language instead).
 Without `--lang`, a file whose extension can't be recognized is an error. `--lang` also works
 with server mode (below) — the client sends the chosen language to the server, which uses it
 in place of its own extension-based guess for that request.
@@ -530,6 +533,10 @@ See [`../README.txt`](../README.txt) for the full workflow, including two pass m
 - [`../STYLE_JS_TS.md`](../STYLE_JS_TS.md) — JavaScript/TypeScript (implemented;
   JSX/TSX are out of scope, see Usage above)
 - [`../STYLE_PYTHON3.md`](../STYLE_PYTHON3.md) — Python 3
+- [`../STYLE_TOOLING.md`](../STYLE_TOOLING.md) — Makefile, Bash, and PowerShell
+  (implemented; narrow beautification-only rule lists — recipe lines, quoting/
+  heredocs/here-strings/comments are left byte-identical outside each language's
+  fixed transforms)
 
 ---
 
@@ -538,7 +545,7 @@ See [`../README.txt`](../README.txt) for the full workflow, including two pass m
 The server (`--server`) exposes two plain-HTTP endpoints on `localhost:<port>` (default
 `17173`, override with `--port N` / `server-port` config key):
 
-- `POST /format?path=<abs-path>&lang=<c|cpp|java|kotlin|json|json5|css|yaml|toml|xml|html5|js|ts|python3>[&format-off=true][&<config-key>=<value>...]`
+- `POST /format?path=<abs-path>&lang=<c|cpp|java|kotlin|json|json5|css|yaml|toml|xml|html5|js|ts|python3|makefile|bash|powershell>[&format-off=true][&<config-key>=<value>...]`
   — request body is the file's raw content (UTF-8); response body is the formatted content
   (UTF-8), HTTP 200. The `lang` parameter is required by the client and always takes priority
   over any extension-based guess the server could make from `path` — this is how `--lang`

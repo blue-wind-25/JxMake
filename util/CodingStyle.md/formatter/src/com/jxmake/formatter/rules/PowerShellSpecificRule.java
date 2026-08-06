@@ -22,8 +22,8 @@ import java.util.List;
  * (so brace-depth indentation can see real scriptblock braces). {@code ${...}} variable names stay
  * fully opaque. Structural passes re-tokenize as needed after transforms that reshuffle text.
  *
- * <p>Landed rules: §3.1 naive brace-depth indentation. Remaining §3.2–§3.6 land in later checklist
- * items.
+ * <p>Landed rules: §3.1 naive brace-depth indentation; §3.2 operator spacing + {@code =}
+ * alignment. Remaining §3.3–§3.6 land in later checklist items.
  */
 public final class PowerShellSpecificRule {
 
@@ -627,10 +627,194 @@ public final class PowerShellSpecificRule {
         return n;
     }
 
+    // ---- §3.2 Operator spacing + `=` alignment ------------------------------------------------
+
+    /**
+     * Kind-aware operator spacing over code characters only: spaces around {@code =}/{@code +=}/
+     * {@code -=}/{@code *=}/{@code /=}/{@code %=} and around binary {@code +}/{@code *}/{@code /}/
+     * {@code %} (Bash-style conservative left-hand check). Bare {@code -} is left alone so
+     * PowerShell {@code -gt}/{@code -eq}/{@code -Path} tokens are never split.
+     */
+    private String applyOperatorSpacing(final String content)
+    {
+        final PassAResult passA = runPassA(content);
+        final String      s     = passA.transformed;
+        final char[]      kind  = passA.kind;
+        final StringBuilder sb  = new StringBuilder( s.length() + 16 );
+
+        for( int i = 0; i < s.length(); ++i ) {
+            if( kind[i] != 'C' ) {
+                sb.append( s.charAt(i) );
+                continue;
+            }
+            final char c = s.charAt(i);
+
+            // Compound assignment += -= *= /= %=
+            if( ( c == '+' || c == '-' || c == '*' || c == '/' || c == '%' )
+                    && i + 1 < s.length() && s.charAt(i + 1) == '='
+                    && kind[i + 1] == 'C' ) {
+                stripTrailingSpaces(sb);
+                sb.append(' ').append(c).append('=').append(' ');
+                i = skipSpaces(s, i + 2) - 1;
+                continue;
+            }
+
+            // Plain assignment =
+            if(c == '=') {
+                stripTrailingSpaces(sb);
+                sb.append(" = ");
+                i = skipSpaces(s, i + 1) - 1;
+                continue;
+            }
+
+            // Binary + * / %  (not -, see method javadoc)
+            if( ( c == '+' || c == '*' || c == '/' || c == '%' )
+                    && isBinaryLeft(sb)
+                    && !( i + 1 < s.length() && s.charAt(i + 1) == c ) /* not ++ // etc. */ ) {
+                stripTrailingSpaces(sb);
+                sb.append(' ').append(c).append(' ');
+                i = skipSpaces(s, i + 1) - 1;
+                continue;
+            }
+
+            sb.append(c);
+        } // for
+
+        return sb.toString();
+    }
+
+    private static void stripTrailingSpaces(final StringBuilder sb)
+    {
+        while( sb.length() > 0 ) {
+            final char p = sb.charAt( sb.length() - 1 );
+            if(p == ' ' || p == '\t') sb.setLength( sb.length() - 1 );
+            else break;
+        }
+    }
+
+    private static int skipSpaces(final String s, final int from)
+    {
+        int j = from;
+        while( j < s.length() && ( s.charAt(j) == ' ' || s.charAt(j) == '\t' ) ) ++j;
+
+        return j;
+    }
+
+    /** True when the builder's last non-space char looks like an expression end (binary-op left). */
+    private static boolean isBinaryLeft(final StringBuilder sb)
+    {
+        int i = sb.length() - 1;
+        while( i >= 0 && ( sb.charAt(i) == ' ' || sb.charAt(i) == '\t' ) ) --i;
+        if(i < 0) return false;
+        final char p = sb.charAt(i);
+
+        return Character.isLetterOrDigit(p) || p == '_' || p == ')' || p == ']' || p == '}' || p == '$'
+                || p == '"' || p == '\'';
+    }
+
+    private static final class AssignItem {
+
+        String indent;
+        String lhs;
+        String op;  // "=", "+=", ...
+        String rhs;
+
+    } // class AssignItem
+
+    /**
+     * Block-scoped {@code =} alignment (RDD_KEY_254): consecutive pure assignment lines form a
+     * group broken by a blank line or any non-assignment line. Aligns the operator column to the
+     * longest LHS in the group. Assignment detection uses the first code-kind {@code =}/{@code +=}
+     * /etc. at brace/paren/bracket depth 0 on the line (so {@code =} inside strings or nested
+     * scriptblocks does not count).
+     */
+    private String applyAssignAlignment(final String content)
+    {
+        final PassAResult  passA = runPassA(content);
+        final Lines        lines = new Lines(passA.transformed);
+        final boolean[]    pure  = computeLinePurity(passA.transformed, passA.kind, lines.lines.size());
+        final char[][]     kinds = lineKinds(passA.transformed, passA.kind, lines.lines.size());
+        final List<String> out   = new ArrayList<>();
+        final List<AssignItem> group = new ArrayList<>();
+
+        for( int li = 0; li < lines.lines.size(); ++li ) {
+            final String line = lines.lines.get(li);
+            if( line.trim().isEmpty() ) {
+                flushAssignGroup(out, group);
+                out.add("");
+                continue;
+            }
+            final AssignItem item = pure[li] ? parseAssign(line, kinds[li]) : null;
+            if(item != null) {
+                group.add(item);
+                continue;
+            }
+            flushAssignGroup(out, group);
+            out.add(line);
+        } // for
+        flushAssignGroup(out, group);
+
+        lines.lines.clear();
+        lines.lines.addAll(out);
+
+        return lines.join();
+    }
+
+    private static AssignItem parseAssign(final String line, final char[] kind)
+    {
+        final int lead = leadingWhitespace(line).length();
+        int depth = 0;
+        for( int i = lead; i < line.length(); ++i ) {
+            if( i < kind.length && kind[i] != 'C' ) continue;
+            final char c = line.charAt(i);
+            if(c == '(' || c == '[' || c == '{') { depth++; continue; }
+            if(c == ')' || c == ']' || c == '}') { if(depth > 0) depth--; continue; }
+            if(depth != 0) continue;
+
+            // compound
+            if( i + 1 < line.length() && line.charAt(i + 1) == '='
+                    && ( c == '+' || c == '-' || c == '*' || c == '/' || c == '%' )
+                    && ( i + 1 >= kind.length || kind[i + 1] == 'C' ) ) {
+                return makeAssign(line, lead, i, 2);
+            }
+            if(c == '=') {
+                return makeAssign(line, lead, i, 1);
+            }
+        } // for
+
+        return null;
+    }
+
+    private static AssignItem makeAssign(final String line, final int lead, final int opAt, final int opLen)
+    {
+        final AssignItem item = new AssignItem();
+        item.indent = line.substring(0, lead);
+        item.lhs    = line.substring(lead, opAt).replaceAll("[ \\t]+$", "");
+        if( item.lhs.isEmpty() ) return null; // e.g. line starting with =
+        item.op     = line.substring(opAt, opAt + opLen);
+        item.rhs    = line.substring(opAt + opLen).replaceAll("^[ \\t]+", "");
+
+        return item;
+    }
+
+    private static void flushAssignGroup(final List<String> out, final List<AssignItem> group)
+    {
+        if( group.isEmpty() ) return;
+        int maxLhs = 0;
+        for( final AssignItem it : group ) maxLhs = Math.max( maxLhs, it.lhs.length() );
+        for( final AssignItem it : group ) {
+            final int pad = maxLhs - it.lhs.length();
+            out.add( it.indent + it.lhs + repeatChar(' ', pad) + " " + it.op + " " + it.rhs );
+        }
+        group.clear();
+    }
+
     public String format(final String content)
     {
         String s = content;
-        s = applyBraceIndent(s); // §3.1
+        s = applyOperatorSpacing(s); // §3.2 spacing (before indent so alignment sees spaced ops)
+        s = applyBraceIndent(s);     // §3.1
+        s = applyAssignAlignment(s); // §3.2 alignment (after indent so indent is preserved)
 
         return s;
     }

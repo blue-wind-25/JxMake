@@ -209,7 +209,15 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       nested if bodies, multi-line `@{` hashtable body indent, here-string
       body braces untouched, `# comment {` does not affect depth; idempotent.
       Full `make test` left for the §3.2–§3.6 series end (additive path).
-- [ ] Implement PowerShell §3.2 operator spacing + `=` alignment.
+- [x] Implement PowerShell §3.2 operator spacing + `=` alignment.
+      Kind-aware spacing around `=`/`+=`/`-=`/`*=`/`/=`/`%=` and binary
+      `+/*/%` (bare `-` left alone so `-gt`/`-eq`/`-Path` stay intact).
+      Block-scoped `=` alignment (RDD_KEY_254) on consecutive pure
+      assignment lines, broken by blank or non-assignment; first depth-0
+      code-kind assignment op on the line. Order: spacing → §3.1 indent →
+      alignment. Smoke: `$a=1`/`$bb=$a+2` align; nested under if; multi-line
+      `@{` entries align; `"a=b"` string untouched; `-gt` intact; comment
+      breaks group; idempotent.
 - [ ] Implement PowerShell §3.3 pipeline split/align.
 - [ ] Implement PowerShell §3.4 hashtable spacing.
 - [ ] Implement PowerShell §3.5 `switch` formatting.

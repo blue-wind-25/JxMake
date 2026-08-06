@@ -603,6 +603,109 @@ active in the Makefile and passing.
   variant first, per this bug's own established difficulty). Full finding
   in `RDD_LOG.md`'s `RDD_KEY_249`.
 
+  **2026-08-07 fifth session, hypothesis from `RDD_KEY_249`'s "next session"
+  pointer TESTED AND REFUTED, no code change landed.** Task was to
+  instrument *why* `_81`/`_93`'s per-candidate local fits-checks are
+  round-stable while `/tmp/mini2.ts`'s are not, under the ORIGINAL
+  (unmodified) `lineStartIndex`/`effectiveLineEndIndex`-based check, to test
+  whether a narrower fix ("only widen measurement when the local physical
+  line was itself produced by a still-open sibling wrap") could work instead
+  of the reverted blanket statement-wide widening.
+
+  Rebuilt `/tmp/mini2.ts` (function-body variant, no switch), reconfirmed
+  round1 != round2 at baseline (`make jar`, 246/246 before any change).
+  Added temporary `DBG_CLB2`-env-gated `System.err` instrumentation directly
+  in `renderCallCandidate`'s JS/TS rejoin fits-check (right before the
+  `candidateLen <= lineLengthLimit` decision, ~line 1325 in
+  `MiscRuleCurly.java`), dumping each candidate's name, `candidateLen`,
+  `lineLengthLimit`, whether `[lineStartIndex, effectiveLineEndIndex)`
+  contains any raw `NEWLINE` token, and the exact `prefix`/`candidate`/
+  `suffix` text. Ran it against `/tmp/mini2.ts` round1+round2 and against
+  `real_code_regressions_81_inp.ts`/`real_code_regressions_93_inp.ts`'s own
+  round1+round2 (via `--out`, not `--in-place`, to keep both rounds'
+  outputs on disk for comparison).
+
+  **Hypothesis refuted:** in all four runs (`mini2.ts` round1/round2,
+  `_81`/`_93` round1/round2), `localLineHasNewline` was `true` for every
+  printed candidate — `_81`/`_93`'s sibling candidates do **not** sit on
+  their own physically-newline-free original source line the way the
+  hypothesis assumed; `effectiveLineEndIndex`'s existing depth-aware scan
+  already looks past a sibling's still-open wrap in both fixture families
+  alike. So "was the local physical line produced by a still-open sibling
+  wrap" does not distinguish the stable cases from the unstable one — both
+  groups already answer "yes" under the original, unmodified check.
+
+  **Actual mechanism for `/tmp/mini2.ts`, found via the same instrumentation
+  (new, more precise than `RDD_KEY_249`'s framing):** the divergence is not
+  about sibling-call width visibility at all. It's a pass-ordering gap
+  against a *different*, not-yet-run pass. `FormatterCurly.format` calls
+  `MiscRuleCurly.enforceCallLineBreaking` twice (~line 247 first wrap pass,
+  ~line 286 the rejoin pass under discussion) — both calls happen **before**
+  `BlockStructureRule.alignBracelessElseIfChain` (~line 361), which is what
+  inserts the extra column-alignment padding spaces after a short `else`
+  keyword to line its body up with the paired `if`'s body (e.g. `else` ->
+  `else             `). Round1: at rejoin-check time the `else` has not yet
+  been padded, so candidate #1's measured `prefix` is 13 chars shorter than
+  what the file will actually contain once `alignBracelessElseIfChain` runs
+  afterward — `candidateLen=92` (fits, rejoins) when the *true*, final width
+  would be over the limit. The alignment pass then pads the now-rejoined
+  line past `lineLengthLimit` anyway — an internal round1 self-violation,
+  confirmed directly (dumped `candidateLen=92`/`limit=100` for the exact
+  candidate that ends up on a 145-char final line). Round2: fed that
+  already-padded one-liner, the rejoin check this time measures the
+  already-present padding correctly (`candidateLen=104`, over limit, stays
+  wrapped) — an internal-consistency mismatch between the two rounds, not a
+  sibling-blindness issue. Candidate #2 (`padNumber(Math.abs(...))`) is
+  short enough (`candidateLen=61` both rounds) that this ordering gap never
+  flips its own verdict, which is why only one of the two calls end up
+  inconsistently wrapped.
+
+  Cross-checked against `_81`/`_93`'s own repro: their stability is
+  unrelated to this else-padding pass at all (no braceless-else chain in
+  either fixture) — their `createAsyncOptionsProvider`/`getInjectionProviders`
+  candidates measure consistently over/under `lineLengthLimit` both rounds
+  purely because no later pass changes their prefix width after this
+  fits-check runs. This confirms (independently of the refuted hypothesis)
+  that `_81`/`_93`'s stability and `/tmp/mini2.ts`'s instability come from
+  two different mechanisms, not one shared "sibling-wrap-width-blindness"
+  signal — the RDD_KEY_249 framing that grouped them into one candidate
+  fix-shape was itself imprecise.
+
+  **No fix attempted this session** — the newly-identified mechanism (a
+  fits-check running before a later, order-dependent padding pass) is the
+  same general "which pass gets to see the final, stable per-line width"
+  architectural family already named in the 2026-08-05/2026-08-06 sessions'
+  write-ups above, and every previously-tried fix shape in that family
+  (width-based collapse-time gate, statement-wide rejoin widening) has
+  already been shown to regress `_81`/`_93` for the same underlying reason
+  (a blanket "does the eventual line fit" check cannot distinguish
+  `_81`/`_93`'s legitimately-stable over-limit rejoins from `/tmp/mini2.ts`'s
+  genuinely-unstable one). A fix scoped narrowly to *this* mechanism (e.g.
+  running the rejoin fits-check after `alignBracelessElseIfChain`, or having
+  the fits-check ask `alignBracelessElseIfChain` for its own padding width
+  before measuring) was not designed or attempted — this session's budget
+  went to confirming/refuting the assigned hypothesis with evidence, per
+  the ambiguity-handling stop protocol, rather than immediately pivoting to
+  a new speculative gate-shape variant. `make test-quiet` reconfirmed at
+  246/246 forward + idempotency both before and after (debug instrumentation
+  fully removed, no source diff landed — `git status` clean).
+
+  **Next session:** the actual mechanism is now precisely identified
+  (`enforceCallLineBreaking`'s rejoin fits-check at ~line 247/286 runs
+  before `alignBracelessElseIfChain` at ~line 361, so it measures a
+  not-yet-padded `else` prefix) — a fix should look at reordering or
+  informing the rejoin fits-check about `alignBracelessElseIfChain`'s
+  eventual padding specifically, NOT at widening the fits-check's view of
+  sibling call text (that framing is now refuted). Before attempting a
+  reorder, check whether moving `alignBracelessElseIfChain` earlier (or
+  running it a second time, narrowly, the same way `RDD_KEY_248`'s
+  closing-brace/declarations narrow-rerun was eventually landed safely)
+  causes the same class of regression on `_81`/`_93` or the broader suite
+  that the two blanket-width attempts already hit — those two fixtures have
+  no braceless-else chain, so a fix scoped to specifically
+  `alignBracelessElseIfChain` ordering has a real chance of being
+  disjoint from what broke them before, unlike the previous two attempts.
+
 ---
 
 ## Checklist

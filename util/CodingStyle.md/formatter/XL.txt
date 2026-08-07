@@ -12,8 +12,6 @@ have not modified). If unsure ask me.
 ####################################################################################################
 ####################################################################################################
 
-Update and fix `CLAUDE.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`,
-`../AI_PREAMBLE_AESTHETIC.md`, etc.
 Ensure the languange order in the documentations, help strings, etc. is:
     c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3
 Adjust active vs scaffold-only as needed. Also ensure jsx and tsx are after js and ts.
@@ -25,55 +23,6 @@ Please clear old session data from `~/.claude`.
 `/tmp` contains many undeleted artifacts from this and previous sessions, can you find the one used
 for reproducing bugs and mini/small tests (not the cloned repositories) them and maybe delete them?
 
-
-
-Compact (use one sub-agent) all newly touched `STATE_*.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
-Compact (use one sub-agent) all `STATE_*.md` that were modified today.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
-Compact (use one sub-agent) `STATE_C_CPP_JAVA.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
-Compact (use one sub-agent) `STATE_CPP26.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
-Compact (use one sub-agent) `STATE_KOTLIN.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
-Compact (use one sub-agent) `STATE_DATA_FORMATS.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
-Compact (use one sub-agent) `STATE_JS_TS.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
-Compact (use one sub-agent) `STATE_PYTHON3.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
-Compact (use one sub-agent) `STATE_COMMON.md`, `STATE_KOTLIN.md`, and `STATE_AI.md`
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, the active work diagnosis, clustering, etc.
-Then update `STATE_DOGFOOD.md` about the above dogfood state (keep `Note` short enough).
-
-Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_179_inp/out.ts`
-    to   `real_code_regressions_181_inp/out.java`
-
-Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
-    from `...`
-    to   `...`
-
-----------------------------------------------------------------------------------------------------
-----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 
 Start with the dogfood test (search in `/tmp` first, clone the repo if not found):
@@ -123,18 +72,74 @@ Only after all bugs are fixed is a full reformat and re-syntax-checking test all
 If there are many errors, work in batch. Commit after each batch.
 Use one sub-agent as needed, the sub-agent can launch up to one more research sub-sub-agent.
 
+----------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+
+Compact all `STATE_*.md` as needed. Use at most 4 sub-agents in parallel - balance the job.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
+
+Compact (use one sub-agent) all `STATE_*.md` that were modified today.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
+
+Compact (use one sub-agent) `STATE_C_CPP_JAVA.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
+
+Compact (use one sub-agent) `STATE_CPP26.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
+
+Compact (use one sub-agent) `STATE_KOTLIN.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
+
+Compact (use one sub-agent) `STATE_DATA_FORMATS.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
+
+Compact (use one sub-agent) `STATE_JS_TS.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
+
+Compact (use one sub-agent) `STATE_PYTHON3.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
+
+Compact (use one sub-agent) `STATE_COMMON.md`, `STATE_KOTLIN.md`, and `STATE_AI.md`
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, the active work diagnosis, clustering, etc.
+Then update `STATE_DOGFOOD.md` about the above dogfood state (keep `Note` short enough).
+
+Update and fix `CLAUDE.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`,
+`../AI_PREAMBLE_AESTHETIC.md`, etc.
+
+Compact (use one sub-agent) the narration in `test/README.txt`:
+    from `real_code_regressions_179_inp/out.ts`
+    to   `real_code_regressions_183_inp/out.js`
+[DONE]
+
+Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
+    from `...`
+    to   `...`
+
 ####################################################################################################
 ####################################################################################################
 ####################################################################################################
 
-Extend the mechanical comment normalizer to also contains standard Unix tool names (e.g., awk, grep,
-sed, head, tail, etc.) in the list. Ensure the Makefile, Bash, and PowerShell formatters are wired
-to the comment normalizer. Decide whether to extend the linear classIfier and GRU with the new words
-(probably not needed). If you do decide to add words, check the new % and peform GRU acquire corpus
-to also update the GRU samples, but do not re-train (I will re-train it from another console).
+Compact (use one sub-agent) `STATE_HTML5_TCG.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
 
-Perform dogfood test on the Makefile, Bash, and PowerShell formatters in turn, one by one. Use one
-sub-agent as needed.
+Compact (use one sub-agent) `STATE_COMMON.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
+
+Compact (use one sub-agent) `STATE_JS_TS.md`.
+Be careful not to lose important information, especially the `**Tools/compiler used**`,
+`indent-size` exception, etc.
 
 === TIER 0: Recurring job ===
 
@@ -168,7 +173,17 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 1: Analysis/docs/testing only — ~zero regression risk ===
 
-NONE FOR NOW
+1. [TOOLING] Finish materializing + dogfood the skipped/NOT-STARTED STATE_TOOLING.md
+   corpus candidates (STATE_DOGFOOD.md):
+   - Makefile: `range-v3`/`cpython` (Makefile-only restore not completed).
+   - Bash: `javaparser/javaparser`, `jenkinsci/jenkins`, `wordpress/wordpress-develop`,
+     `acmesh-official/acme.sh`, `ohmyzsh/ohmyzsh` (all materialized, never run).
+   - PowerShell: `PowerShell/PowerShell`, `actions/runner-images` (materialized, never
+     run); `microsoft/azure-pipelines-tasks` (aborted oversized pull, ~567/1145).
+
+2. [C_CPP_JAVA] `openrewrite/rewrite` full-tree (3373 files) round1/round2 re-run +
+   `javac` compile-check — all 6 idempotency clusters already fixed, this is a
+   deferred re-verification pass only, unblocked, not yet run.
 
 Use sub-agent. This can be a substantial work.
 
@@ -179,8 +194,27 @@ NONE FOR NOW
 Use sub-agent. This can be a substantial work.
 
 === TIER 3: Real feature gaps — medium risk ===
+(sorted least-to-most regression risk)
 
-NONE FOR NOW
+1. [JS_TS] `angular/angular` dogfood cluster 4 — `shared.ts`/`directive_outputs.ts`:
+   distinct, newly root-caused bug in `BlockStructureRule.alignBracelessElseIfChain`
+   (braceless if/else chain alignment) vs. an earlier, unidentified reindent pass —
+   NOT the processScope double-pass family. Candidate fix: widen the chain-recovery
+   case to tolerate a re-indented bare `else`. Scoped to one shared JS/TS/Kotlin
+   function, but that function is already flagged fragile — MEDIUM risk.
+
+2. [JS_TS] `microsoft/TypeScript` cluster #3 — `harness/collectionsImpl.ts`:
+   `ScopePipelineCurly.applyAssignmentsPass` needs the same re-run treatment
+   `RDD_KEY_248` already gave `applyDeclarationsPass`. Candidate fix identified but
+   low confidence — `RDD_KEY_246`'s two prior attempts in this exact family looked
+   equally safe and regressed via a shared `processScope` trailing-gap force-reindent
+   step. MEDIUM-HIGH risk.
+
+3. [JS_TS] Remaining un-root-caused residue, same `processScope`/declaration-
+   alignment/call-wrap family as above, no candidate fix yet (budget went to #1/#2
+   this pass): angular cluster 4's `web_animations_player_spec.ts`,
+   `input_transform.ts`. Least scoped, highest risk of the three groups — treat as
+   lowest priority until #1/#2 are resolved and re-narrow the surface further.
 
 Use sub-agent. This can be a substantial work.
 
@@ -193,16 +227,21 @@ Use sub-agent. This can be a substantial work.
 
 === TIER X: Not worth pursuing / explicitly no action planned ===
 
-- [JS_TS] JSX/TSX support — currently out of scope entirely (not merely deferred).
-
 - [C_CPP_JAVA] `gcc-mirror/gcc`, `llvm/llvm-project` dogfood — NOT STARTED, TOO MASSIVE
   to even LOC-count, let alone dogfood in one pass.
 
 - [JS] `nodejs/node` dogfood — same, TOO MASSIVE.
 
+- [C_CPP_JAVA] `apache/ant` dogfood — 2 files hit an accepted reindent gap, documented,
+  no fix planned.
+
+- [C_CPP_JAVA] `microsoft/STL` dogfood — documented open gaps, accepted, no fix planned.
+
 - [AI] AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM) — permanently
   NOT FEASIBLE, no tractable grouping-intent heuristic exists at any model size
   tested. Reference-only, not a live TODO.
+
+- [JS_TS] JSX/TSX support — currently out of scope entirely (not merely deferred).
 
 ####################################################################################################
 ####################################################################################################

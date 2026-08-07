@@ -144,11 +144,10 @@ change only removes regression risk to the *existing* pipeline when off.
 ## D3 fold (Kotlin dogfood cluster D3 → this job)
 
 **As of 2026-08-02, Kotlin dogfood cluster D3 (multi-line-call/condition
-wrap-decision flap) is folded into this job.** See `STATE_KOTLIN.md`'s D3
-entries (RDD_KEY_221, RDD_KEY_226, the "2026-07-31 D3 scoping session", and
-the "2026-08-01 D3 implementation attempt" section) for full investigation
-history — not restated in full here, only summarized as this job's
-motivating real-world case.
+wrap-decision flap) is folded into this job.** Full investigation history
+is in `STATE_KOTLIN.md`'s D3 entries (RDD_KEY_221, RDD_KEY_226, the
+"2026-07-31 D3 scoping session", the "2026-08-01 D3 implementation
+attempt") — summarized here only as this job's motivating real-world case.
 
 **Confirmed root cause:** `MiscRuleCurly.renderCallCandidate`'s no-newline
 fits-check measures a wrap candidate against its enclosing physical source
@@ -697,32 +696,29 @@ plan, not a placeholder.
       real-code pass against `javaparser/javaparser` (fresh clone,
       `/tmp/javaparser_gdr`), starting with its smallest module
       (`javaparser-core-generators`, 43 files), `curly-general-scope-
-      reindent=on`, full-tree idempotency. Result: 13 of 43 files
-      non-idempotent. Inspected every failing diff — **all 13 are the same
-      root cause as `RDD_KEY_229`**, not 13 distinct bugs: a closing
-      `}`/`)` on a line the pipeline's own brace-placement/line-wrap passes
-      later re-split or re-joined loses its GDR-computed indent target,
-      landing at the pre-split line's depth instead of the post-split one
-      (e.g. `GrammarLetterGenerator.java`'s `else {` block closer). Confirms
+      reindent=on`, full-tree idempotency. Result: 13 of 43 non-idempotent.
+      Inspected every failing diff — **all 13 are the same root cause as
+      `RDD_KEY_229`**, not 13 distinct bugs: a closing `}`/`)` on a line the
+      pipeline's own brace-placement/line-wrap passes later re-split or
+      re-joined loses its GDR-computed indent target, landing at the
+      pre-split line's depth instead of the post-split one (e.g.
+      `GrammarLetterGenerator.java`'s `else {` block closer). Confirms
       `RDD_KEY_229`'s pass-ordering bug is not TS-specific — reproduces
       identically in plain Java under normal Allman-reflow/call-wrap
       activity, so it's the dominant (likely majority) failure mode across
       ordinary curly-family code, not a rare edge case. No independently-
-      fixable bug found in this batch; every failure traces to the one
-      already-deferred design issue, so per `RDD_KEY_229`'s note and
-      `STATE_COMMON.md`'s ambiguity-handling protocol, **no source code was
-      changed this session either**. `JSONEncoderLite.java` and
-      `serge-sans-paille/frozen` not yet reached. **Left off here:** rest of
-      `javaparser-core` main module, `JSONEncoderLite.java`, and `frozen`
-      still untested — expect the same dominant failure mode. **Before
-      spending more real-code-testing cycles on this corpus, the
-      higher-leverage next step is revisiting `RDD_KEY_229`'s remediation
-      options directly** (bounded fixpoint iteration; or feeding GDR's
-      precomputed indent into `MiscRuleCurly.renderCallCandidate`'s wrap
-      fits-check) — a real design decision with prior explicit user risk
-      judgment against attempting it; future session should ask first.
-      `/tmp/javaparser_gdr` and `/tmp/gdr_r1`/`/tmp/gdr_r2` left in place
-      for reuse.
+      fixable bug found; every failure traces to the one already-deferred
+      design issue, so per `RDD_KEY_229`'s note and `STATE_COMMON.md`'s
+      ambiguity-handling protocol, **no source code was changed this
+      session either**. `JSONEncoderLite.java` and `serge-sans-paille/
+      frozen` not yet reached; rest of `javaparser-core` main module also
+      left untested — expect the same dominant failure mode. **Higher-
+      leverage next step:** revisit `RDD_KEY_229`'s remediation options
+      directly (bounded fixpoint iteration; or feeding GDR's precomputed
+      indent into `MiscRuleCurly.renderCallCandidate`'s wrap fits-check) —
+      prior explicit user risk judgment against attempting it, future
+      session should ask first. `/tmp/javaparser_gdr` and
+      `/tmp/gdr_r1`/`/tmp/gdr_r2` left in place for reuse.
 - [x] **Prototype bounded multi-pass remediation for `RDD_KEY_229`** (user
       go-ahead given 2026-08-03, see the "Open design proposal" section
       above). Resolved the two flagged open design questions first, as new
@@ -749,10 +745,9 @@ plan, not a placeholder.
       `README.md`'s Configuration section both updated with the new key.
 
       **2026-08-03 session, smoke proof + real-code validation (PASS on
-      both corpora RDD_KEY_229 already had failure data for):** used the
-      real `RDD_KEY_229` failure cases themselves as proof the 4-stage path
-      executes (`/tmp` harness only; no permanent fixture added that
-      session).
+      both corpora `RDD_KEY_229` already had failure data for):** re-ran
+      the real `RDD_KEY_229` failure cases as proof the 4-stage path works
+      (`/tmp` harness only; no permanent fixture added that session).
       - **`angular/angular` TS cluster-5** (`/tmp/angular`, reused):
         `user_metric_spec.ts` and `i18n_parse.ts` — both confirmed
         non-idempotent under single-pass GDR (14 and 71 diff lines
@@ -815,20 +810,18 @@ plan, not a placeholder.
         per "invoke once per batch" convention — exit 0, all 576 "OK: no
         syntax errors"). **PASS.**
 
-      **All three remaining originally-scoped real-code corpora for this
-      checklist item are now done: `tool/JSONEncoderLite.java` (PASS),
-      `serge-sans-paille/frozen` (PASS, 7/20 → 0/20), `javaparser-core`
-      (PASS, 93/576 → 0/576) — combined with earlier `javaparser-core-
-      generators` (13/43 → 0/43) and `angular/angular` TS cluster-5 (2/3
-      files fixed, 1/3 already passing), `curly-general-scope-reindent-
-      multipass=on` has now resolved every confirmed `RDD_KEY_229`-shape
-      non-idempotency across every corpus this job has tested it against,
-      zero newly-introduced syntax/compile errors in any of them.**
-      Still-open, explicitly-flagged caveat remains: this is evidence the
-      "second-order oscillation" risk hasn't manifested on any tested
-      input, not proof it structurally cannot on some other input. `make
-      test` throughout: 237/237 forward + idempotency (unaffected until
-      multipass fixture added; see fixture item for 238/238).
+      **Summary: all originally-scoped real-code corpora now done and PASS
+      under multipass** — `tool/JSONEncoderLite.java`, `serge-sans-paille/
+      frozen` (7/20 → 0/20), `javaparser-core` (93/576 → 0/576),
+      `javaparser-core-generators` (13/43 → 0/43), `angular/angular` TS
+      cluster-5 (2/3 fixed, 1/3 already passing) — `curly-general-scope-
+      reindent-multipass=on` has resolved every confirmed `RDD_KEY_229`-shape
+      non-idempotency across every corpus tested, zero newly-introduced
+      syntax/compile errors anywhere. **Caveat still open:** this is
+      evidence the "second-order oscillation" risk hasn't manifested on any
+      tested input, not proof it structurally cannot on some other input.
+      `make test` throughout: 237/237 forward + idempotency (unaffected
+      until multipass fixture added; see fixture item for 238/238).
 - [~] Revisit Kotlin dogfood cluster D3 (see "D3 fold" section above) using
       the pre-pass's statement-boundary/structural-depth infrastructure;
       land a real fix in `MiscRuleCurly`/wherever the fix ends up living,
@@ -876,46 +869,45 @@ plan, not a placeholder.
       depth as `nameIdx`, stopping at a depth-0 `;`, `{`, `}`, or a
       non-continuation depth-0 NEWLINE via a new operator-lookback
       continuation-boundary heuristic) to replace `lineStartIndex` in the
-      no-newline fits-check. Sub-attempt 1 (treating every depth-0 `{`/`}`
-      as a boundary) regressed 9 fixtures — under-measured, because a
-      trailing-lambda call argument's own `{` (`.filter { ... }`) isn't a
-      statement boundary, so real prefix text got dropped from the width
-      measurement. Sub-attempt 2 (added `isKotlinControlFlowOrDeclBraceOpen`
-      to only treat a real control-flow/declaration `{` as a boundary, not
-      a lambda argument) regressed a *different* 10 fixtures — traded the
-      failure mode rather than fixing it; some fixtures over-measured
-      (false-positive wraps) and one (`real_code_regressions_19_inp.kt`)
-      even got corrupted continuation-indent columns. Both sub-attempts
-      reverted in full (`git checkout --` on `MiscRuleCurly.java` only, plus
-      two unrelated build-side-effect files — `code-formatter-1.0.0.jar`'s
-      rebuild timestamp and `test/README.txt`'s incidental re-wrap — neither
-      an intentional edit); `make test` reconfirmed clean at 248/248
-      forward + idempotency both before and after, zero net change. Full
-      writeup: `RDD_KEY_252`. **Assessment: this is not a bounded-effort
-      heuristic-refinement problem — each fix for one shape (lambda
-      arguments, fluent chains, control-flow bodies) regresses a different
-      shape, because the true answer needs actual Kotlin
-      expression/statement grammar, not an enumerated keyword/operator
-      lookback table over a backward token scan.** Next session should not
-      attempt another variant of this same heuristic shape; see
-      `RDD_KEY_252`'s full text for the two concretely-suggested next
-      directions (a proper lightweight statement/expression boundary
-      parser, or new GDR-adjacent statement-boundary infrastructure beyond
-      what its existing per-line depth counters already provide — RDD_KEY_235
-      already established GDR's *existing* infra can't be reused as-is for
-      this, since it has no visibility into a single pipeline pass's own
+      no-newline fits-check.
+      - Sub-attempt 1 (treat every depth-0 `{`/`}` as a boundary): regressed
+        9 fixtures — under-measured, because a trailing-lambda call
+        argument's own `{` (`.filter { ... }`) isn't a statement boundary,
+        dropping real prefix text from the width measurement.
+      - Sub-attempt 2 (`isKotlinControlFlowOrDeclBraceOpen`, only a real
+        control-flow/declaration `{` counts as a boundary, not a lambda
+        argument): regressed a *different* 10 fixtures — traded the failure
+        mode rather than fixing it; some over-measured (false-positive
+        wraps) and one (`real_code_regressions_19_inp.kt`) got corrupted
+        continuation-indent columns.
+      Both reverted in full (`git checkout --` on `MiscRuleCurly.java` only,
+      plus two unrelated build-side-effect files — jar rebuild timestamp,
+      `test/README.txt`'s incidental re-wrap); `make test` reconfirmed clean
+      at 248/248 before and after, zero net change. Full writeup:
+      `RDD_KEY_252`. **Assessment: not a bounded-effort heuristic-refinement
+      problem — each fix for one shape (lambda arguments, fluent chains,
+      control-flow bodies) regresses a different shape, because the true
+      answer needs actual Kotlin expression/statement grammar, not an
+      enumerated keyword/operator lookback table over a backward token
+      scan.** Next session should not attempt another variant of this same
+      heuristic shape; `RDD_KEY_252`'s full text has the two concretely-
+      suggested next directions (a proper lightweight statement/expression
+      boundary parser, or new GDR-adjacent statement-boundary infrastructure
+      beyond what its existing per-line depth counters provide — RDD_KEY_235
+      already established GDR's *existing* infra can't be reused as-is,
+      since it has no visibility into a single pipeline pass's own
       sibling-candidate interactions).
 
       **2026-08-07 session (later same day), fourth attempt — new
       "positional/enumerable-context-list" framing, also reverted, D3 still
-      open.** Explicit instruction was to try a different framing rather
-      than repeat the brace-depth-heuristic backward scan: model
+      open.** Explicit instruction: try a different framing rather than
+      repeat the brace-depth-heuristic backward scan — model
       `renderCallCandidate`'s statement-start search as a positive match
       against an enumerable list of legitimate Kotlin
       statement/expression-continuation contexts (mirroring how a real
       parser disambiguates positionally via current grammar production),
-      instead of yet another depth-counting/boundary-token backward scan.
-      Two sub-attempts, both under this same session:
+      instead of another depth-counting/boundary-token backward scan. Two
+      sub-attempts:
       1. **Forward one-pass "frame stack"** — treat every `{` as opening a
          fresh nested statement frame, so a candidate's statement-start is
          always its own frame's start, sidestepping brace classification
@@ -936,61 +928,61 @@ plan, not a placeholder.
          arithmetic/comparison/logical/assignment ops, `?:`, `..`, `..<`,
          `->`, `::`, `.`, `?.`, `!!`; `KOTLIN_CONTINUATION_KEYWORDS`: `as`,
          `is`, `in`). Reduced failures from 9 to 7
-         (`real_code_regressions_{19,37,44,62,156,157,165}_inp.kt`), but
-         in the *opposite* direction — over-measurement, wrongly wrapping
-         short calls that should stay on one line (e.g. `loadRecovery(this)`
-         in `_19`, `cancelConsumed(cause)` in `_37`). Root-caused: a
-         trailing `->` before the candidate's own line (a lambda-arrow
-         header, e.g. `.setPositiveButton("Ok") { _, _ ->`) was
-         misclassified as a same-statement continuation operator, when
-         structurally it starts a *new* statement sequence (the lambda
-         body), not a textual continuation of the header. Removed `->`
-         from `KOTLIN_CONTINUATION_OPS` as a bounded follow-up experiment
-         (not committed) — this dropped failures further, from 7 to 4
+         (`real_code_regressions_{19,37,44,62,156,157,165}_inp.kt`), but in
+         the *opposite* direction — over-measurement, wrongly wrapping short
+         calls that should stay on one line (e.g. `loadRecovery(this)` in
+         `_19`, `cancelConsumed(cause)` in `_37`). Root cause: a trailing
+         `->` before the candidate's own line (a lambda-arrow header, e.g.
+         `.setPositiveButton("Ok") { _, _ ->`) was misclassified as a
+         same-statement continuation operator, when structurally it starts
+         a *new* statement sequence (the lambda body), not a textual
+         continuation of the header. Removing `->` from
+         `KOTLIN_CONTINUATION_OPS` as a bounded follow-up experiment (not
+         committed) dropped failures further, 7 to 4
          (`real_code_regressions_{44,62,156,165}_inp.kt`), confirming the
-         hypothesis, but immediately exposed the *same* false-positive
-         class one token over: fixture `_62`'s `is Right ->` (a `when`
-         branch pattern-match keyword) was still misclassified as a
-         continuation via `is` in `KOTLIN_CONTINUATION_KEYWORDS`, which is
-         only valid for the mid-expression type-check operator (`x is T`),
-         not a `when`-branch leading keyword — exact same ambiguity shape
-         as `->`, just on a different token. Fixture `_44` showed a third,
-         independent failure mode: the backward walk is textually
-         "correct" (a genuine `=`-continuation into an expression-bodied
-         function), yet the result is undesired because the statement is
-         an intentionally multi-line `if`/`else` expression body that
-         should not be treated as "one statement whose fit should be
-         re-tested against a single collapsed line."
+         hypothesis, but immediately exposed the *same* false-positive class
+         one token over: fixture `_62`'s `is Right ->` (a `when` branch
+         pattern-match keyword) was still misclassified as a continuation
+         via `is` in `KOTLIN_CONTINUATION_KEYWORDS`, valid only for the
+         mid-expression type-check operator (`x is T`), not a
+         `when`-branch leading keyword — same ambiguity shape as `->`, on a
+         different token. Fixture `_44` showed a third, independent failure
+         mode: the backward walk is textually "correct" (a genuine
+         `=`-continuation into an expression-bodied function), yet the
+         result is undesired because the statement is an intentionally
+         multi-line `if`/`else` expression body that should not be treated
+         as "one statement whose fit should be re-tested against a single
+         collapsed line."
       **Assessment: the positional/enumerable-context-list framing did not
-      hold up in practice.** It measurably narrowed each round's failure
-      set (9 to 7 to 4) but never converged, because nearly every operator
-      or keyword usable as a "trailing/leading continuation signal" is
-      genuinely ambiguous in Kotlin without production-level context —
-      `->` is both a lambda-arrow (new statement follows) and (in other
+      hold up in practice.** It measurably narrowed each round's failure set
+      (9 to 7 to 4) but never converged, because nearly every operator or
+      keyword usable as a "trailing/leading continuation signal" is
+      genuinely ambiguous in Kotlin without production-level context — `->`
+      is both a lambda-arrow (new statement follows) and (in other
       grammars) a same-line arrow; `is`/`as`/`in` are both mid-expression
       operators and `when`-branch-leading keywords; `=` is both a
       continuation *and* a legitimate multi-line-forever expression-body
       marker. An enumerable *token* list cannot carry the *positional*
       information (which grammar production the parser is currently in)
-      that the framing's own justification said was the missing
-      ingredient — the token itself is insufficient; genuinely resolving
-      this needs to track *which construct* (lambda body, `when` branch,
-      expression-bodied function, binary expression) a NEWLINE sits inside,
-      which is real lightweight parsing, not a flat lookup table. This
-      converges with — not merely repeats — RDD_KEY_252's conclusion.
-      Both sub-attempts fully reverted (`git checkout --` on
-      `MiscRuleCurly.java` only); `make test` reconfirmed clean, zero net
-      change, all tests passing (same baseline as before this session).
-      Full writeup: `RDD_KEY_253`. **Recommendation for any future
-      session: do not attempt another variant of "backward scan + token
-      lookup table," under either a brace-depth or continuation-newline
-      framing — both have now been independently exhausted. The two
-      concretely-viable directions remain RDD_KEY_252's: a real lightweight
-      Kotlin statement/expression-boundary parser (tracks construct kind,
-      not just token identity, as it descends), or new GDR-adjacent
-      infrastructure with visibility into a single pipeline pass's
-      sibling-candidate interactions (which GDR's existing per-line depth
-      counters do not have, per RDD_KEY_235).**
+      that the framing's own justification said was the missing ingredient
+      — the token itself is insufficient; genuinely resolving this needs to
+      track *which construct* (lambda body, `when` branch, expression-
+      bodied function, binary expression) a NEWLINE sits inside, which is
+      real lightweight parsing, not a flat lookup table. This converges
+      with — not merely repeats — RDD_KEY_252's conclusion. Both
+      sub-attempts fully reverted (`git checkout --` on `MiscRuleCurly.java`
+      only); `make test` reconfirmed clean, zero net change, same baseline
+      as before this session. Full writeup: `RDD_KEY_253`.
+      **Recommendation for any future session: do not attempt another
+      variant of "backward scan + token lookup table," under either a
+      brace-depth or continuation-newline framing — both have now been
+      independently exhausted. The two concretely-viable directions remain
+      RDD_KEY_252's: a real lightweight Kotlin statement/expression-boundary
+      parser (tracks construct kind, not just token identity, as it
+      descends), or new GDR-adjacent infrastructure with visibility into a
+      single pipeline pass's own sibling-candidate interactions (which
+      GDR's existing per-line depth counters do not have, per
+      RDD_KEY_235).**
 
 - [x] **Adversarial stress-test of the bounded 4-stage multipass loop for
       the unproven "second-order oscillation" risk** (2026-08-05,
@@ -1005,16 +997,14 @@ plan, not a placeholder.
 
       **Mechanism confirmed first (`GdrPipelineGate.applyAndFormat`,
       `src/com/jxmake/formatter/gdr/GdrPipelineGate.java`):** the "4
-      stages" is a hardcoded, unconditional 4-call sequence — `apply`
+      stages" was a hardcoded, unconditional 4-call sequence — `apply`
       (GDR) → `formatOne` (pipeline) → `apply` (GDR) → `formatOne`
       (pipeline), always exactly these 4 calls when both flags are on.
       **Not** a "stop when stable, else iterate up to N times" convergence
-      loop — there is no comparison between any two stages' output, no
-      iteration count beyond exactly 4, and no warning/error path at all if
-      the sequence hasn't actually converged by the 4th call. This answers
-      the task's step-1 question directly: the design cannot self-detect
-      non-convergence, because it never checks for convergence in the
-      first place.
+      loop — no comparison between any two stages' output, no iteration
+      count beyond exactly 4, no warning/error path if the sequence hadn't
+      actually converged by the 4th call. The design could not self-detect
+      non-convergence, because it never checked for convergence at all.
 
       **Adversarial constructions tried** (all via
       `/*% JXM_CFMT_CFG curly-general-scope-reindent=on;

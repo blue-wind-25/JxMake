@@ -110,6 +110,7 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_232 | Multi-line `<!-- -->` comments (raw interior contains a newline) now freeze byte-for-byte verbatim, reusing the existing `commentVerbatim` render mechanism; sibling/node-tree indentation unaffected; shared XML/HTML5 code path |
 | RDD_KEY_262 | `normalize-comment-end-period` wired into every data-format language for the first time (previously only curly/indent/tags families plus Makefile/Bash/PowerShell, RDD_KEY_261) -- JSON/JSON5/CSS via new `FormatterSimpleBraced.stripCommentEndPeriod`; TOML/YAML/XML/HTML5 reuse `ToolingCommentNormalizer.stripSoleTrailingPeriod` (made package-private for cross-reuse); HTML5's `<style>`/`<script>` splice paths thread the flag through too; no new config keys; 5 YAML fixtures regenerated (copyright-header trailing period) |
 | RDD_KEY_264 | XML/HTML5 multi-line `<!-- -->` comments already in the conventional ` * `-per-line banner shape now get curly's `/* */` treatment (capitalize first line, strip sole trailing period, reindent) instead of RDD_KEY_232's blanket freeze-verbatim; new `XmlSpecificRule.tryBannerShape`/`Node.commentBannerLines`; closing `-->` renders flush at the comment's own indent (no curly-style alignment space -- user explicitly rejected that). Fixture `test/html_multiline_comment_banner_{inp,out}.html`. |
+| RDD_KEY_265 | JSON/JSON5/CSS ("SimpleBraced") comment normalization gains curly's grouping shape: new `FormatterSimpleBraced.normalizeComment`/`normalizeCommentTrivia`/`normalizeLineCommentChain`/`normalizeBlockComment`/`tryBannerShape`; json5's consecutive standalone `//` chain-group (only first capitalized, sole trailing period stripped only across the whole chain); a `/* */` block comment in banner shape gets single-unit treatment, any other multi-line shape falls back to the pre-existing whole-comment-scan behavior (not left untouched). Fixture `test/json5_comment_banner_{inp,out}.json5`; `test/json5_comments_out.json5` regenerated. |
 
 ---
 
@@ -309,16 +310,33 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
 
 ## Open Questions
 
-- **[~] SimpleBraced (json, json5, css) comment-grouping parity with curly —
-  NOT STARTED.** User decision (2026-08-08 session): give `/* */` in
-  json/json5/css the same single-line-vs-banner-shape treatment curly gives
-  it (analogous to RDD_KEY_264's XML/HTML5 fix, but for
-  `FormatterSimpleBraced`/`TokenizerSimpleBraced`), and give json5's `//`
-  line comments the same chain-grouping treatment curly gives `//`
-  (confirmed via `Lang`/tokenizer: only json5 lexes `//`, not json/css/toml/
-  yaml). Not attempted this session — ran out of scope/time after landing
-  the XML/HTML5 piece (RDD_KEY_264). No code changes made in this area; next
-  session should start here for this job.
+- **SimpleBraced (json, json5, css) comment-grouping parity with curly —
+  RESOLVED (RDD_KEY_265, 2026-08-08 session).** `FormatterSimpleBraced`
+  gained `normalizeComment`/`normalizeCommentTrivia`/
+  `normalizeLineCommentChain`/`normalizeBlockComment` (+ private
+  `tryBannerShape`): JSON5's consecutive standalone `//` comments (no blank
+  line between) chain-group like curly's `//` (only the first capitalized;
+  sole trailing `.` stripped only across the whole chain); a multi-line
+  `/* */` already in the conventional ` * `-per-line banner shape gets the
+  same single-unit treatment; any other multi-line shape falls back to the
+  pre-existing whole-comment-scan behavior (not left untouched — an early
+  version of this fix got that wrong, caught by `css_comments` regressing).
+  Wired into `JsonSpecificRule.collectTrivia` (now defers normalization
+  until the whole leading-trivia span is collected, via a parallel
+  raw-text + blank-before list) and `CssSpecificRule` (block-comment-only,
+  no chaining possible — CSS never lexes `//`). `test/json5_comments_out.json5`
+  regenerated (two adjacent `//` comments with no `.` between them legitimately
+  merge into one chain); new fixture `test/json5_comment_banner_{inp,out}.json5`.
+  `make test`: 254/254 -> 255/255 forward + idempotency, zero regressions.
+
+- **[~] YAML/TOML `#`-chain-grouping parity with curly — NOT STARTED.**
+  Decision #2 of the same 2026-08-08 brief (RDD_KEY_265's note): implement
+  chain-grouping of consecutive standalone `#` comment lines (no blank line
+  between) for yaml and toml, sharing a helper with the tooling job's
+  makefile/bash/powershell `#`-grouping (both currently call into
+  `ToolingCommentNormalizer.java` for `stripSoleTrailingPeriod`/
+  capitalization) — see that file's cross-job note once the tooling job
+  lands its half. Not attempted yet this session; pick up here next.
 
 - **HTML5 Test-Fixture Repos winnowing — RESOLVED (user, 2026-07-24).**
   `twbs/bootstrap` docs (Astro/MDX), `mdn/content` (Markdown),

@@ -1421,7 +1421,7 @@ Next free fixture number unaffected by cluster 4/5 doc update (no new
 fixtures this session). Full corpus re-run deferred until cluster 4 root
 cause #3 lands, same pattern as `vuejs/core`/`lodash/lodash`.
 
-## `microsoft/TypeScript` dogfood pass — 3 of 4 clusters FIXED; cluster #3 PARTIALLY addressed 2026-07-31 (see angular cluster 4's root-cause-#3 session write-up — the braceless-collapse shape is fixed, but most of this corpus's 28 files turned out to be a different, not-yet-root-caused sibling issue in the same family; count barely moved, 28→29)
+## `microsoft/TypeScript` dogfood pass — 3 of 4 clusters FIXED; cluster #3 PARTIALLY addressed 2026-07-31, further reduced by `RDD_KEY_248` (2026-08-06) and reconfirmed 2026-08-07 (see angular cluster 4's root-cause-#3 session write-up — the braceless-collapse shape is fixed; `RDD_KEY_248` separately fixed the declaration-alignment sibling shape incl. `commandLineParser.ts` itself; a fresh 2026-08-07 root-cause-only session found only 14/601 files still idempotency-diverging, including a newly-identified, not-yet-fixed `applyAssignmentsPass` sibling instance of the same `RDD_KEY_248` family — see Category 2 cluster #3's 2026-08-07 note below for detail)
 
 Checkout: `/tmp/ts-dogfood/TypeScript`, shallow clone (`--depth 1`), HEAD
 `cc5c6e2` (2026-07-28) — reuse, do not re-clone. Scope: `src/` only, 601 real
@@ -1482,6 +1482,141 @@ architectural fix needed either way; angular's naive `tryCollapse` guard
 attempt was reverted (5-fixture regressions). **Treat this TS corpus as
 further confirming evidence for angular cluster 4, not a separate task.**
 No fixture registered (not fixed).
+
+**2026-08-07 root-cause-only investigation session (no code change
+landed) — status update + a genuinely NEW root cause found in this
+cluster, distinct from the already-fixed `RDD_KEY_248` declaration-
+alignment cause.** Task was originally scoped around `commandLineParser.ts`
+(the file this cluster's write-up above names as reproducing config-
+insensitively), but **that file is no longer part of this cluster** —
+`RDD_KEY_248` (2026-08-06, see the "Cluster #3 sibling" entry in Open
+Questions above) already fixed its exact shape
+(`ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass`, re-running
+the closing-brace + declarations passes after the first
+`enforceCallLineBreaking`) and this session reconfirmed it directly:
+`commandLineParser.ts` round1→round2 diff is now empty (`diff -u` on a
+fresh build, both plain and with `indent-size=2`). This cluster's own
+summary line/count above (28/601, "NOT FIXED — deliberately deferred")
+predates `RDD_KEY_248` and is now stale — a fresh full-corpus round1→
+round2 re-run this session (`/tmp/ts-dogfood/TypeScript/src`, same
+601-file scope) shows **only 14/601 files still differing**: `compiler/
+builder.ts`, `compiler/checker.ts`, `compiler/moduleNameResolver.ts`,
+`compiler/program.ts`, `compiler/tsbuildPublic.ts`, `compiler/types.ts`,
+`compiler/watchPublic.ts`, `harness/collectionsImpl.ts`, `harness/
+incrementalUtils.ts`, `server/editorServices.ts`, `server/project.ts`,
+`services/codefixes/fixMissingTypeAnnotationOnExports.ts`, `services/
+codefixes/fixUnusedIdentifier.ts`, `services/findAllReferences.ts` — a
+real reduction (`RDD_KEY_248` plus whatever else landed since 2026-08-06
+already closed most of this cluster), not something this session did.
+`checker.ts` still shows the already-explained root-cause-#3 residual
+(`hasBreakableCall` approximation gap, see above) — left alone, no new
+finding needed there.
+
+**New finding — a sibling declaration-alignment bug in a pass
+`RDD_KEY_248` does NOT cover:** `harness/collectionsImpl.ts` diffs at
+line 276 (`this._size = -1;`, wide-padded in round1, unpadded in round2)
+— same "call-wrap vs. alignment-padding decided too early" shape as the
+already-fixed cause, but in `ScopePipelineCurly.applyAssignmentsPass`
+(bare-assignment-statement alignment, STYLE.md §6), not
+`applyDeclarationsPass` (declaration alignment) — a code path
+`RDD_KEY_248`'s own javadoc on `processScope`'s
+`closingBraceAndDeclarationsOnly` re-run mode explicitly says was "not
+shown to depend on the post-call-wrap shape" and therefore deliberately
+left out of the re-run. **This investigation disproves that assumption
+for at least this one shape.** Source statement (original,
+`src/harness/collectionsImpl.ts:272`):
+`this._map[Metadata._escapeKey(key)] = value === undefined ?
+Metadata._undefinedValue : value;` followed by `this._size = -1;` —
+round1 wraps the long line's `Metadata._escapeKey(key)` call across the
+`[...]` subscript (`enforceCallLineBreaking`, runs after `processScope`
+in `FormatterCurly.format`'s Phase 1), but `applyAssignmentsPass` (part
+of `processScope`, runs *before* that wrap) already measured and baked
+in `this._size`'s padding relative to the map statement's full
+single-line LHS width at that point. Confirmed via a temporary debug
+print in `ScopePipelineCurly.applyAssignmentsPass` (added and removed
+this session, no net source diff) dumping each `MiscRuleCore.Assignment`
+group's members: **round1** groups `this._map[Metadata._escapeKey(key)]`
+(lhsText len 35) together with `this._size` (len 10) — the wide member
+pads the narrow one. **round2** (reformatting round1's own output, whose
+`[...]` subscript is now itself multi-line) shows the map-with-subscript
+row **entirely absent from that group** — `this._size` ends up grouped
+only with an unrelated, shorter `this._map` assignment elsewhere in the
+class, so it gets little/no padding. The row still round-trips through
+`MiscRuleCore.splitAssignmentStatements` (its `[`/`]` bracket-depth
+tracking is newline-agnostic, confirmed by reading the code — it treats
+the statement as one token run regardless of the embedded `NEWLINE`) and
+`parseAssignment`'s subscript-scan state (`scanState == 2`) also just
+skips over `NEWLINE`/`WHITESPACE` gap tokens like any other gap — so
+*why* the row drops out of the group specifically (a `parseAssignment`
+null return somewhere not yet isolated, vs. an adjacency/blank-line-
+before check treating the multi-line statement differently, vs.
+something in the two earlier passes in the sequence,
+`applyDeclarationsPass`/`applyOversizedAggregateInitClosingBracePass`,
+which run before `applyAssignmentsPass` inside the same `processScope`
+call and could already have re-spliced this range before
+`groupAssignments` ever sees it) **was not pinned to the exact line
+this session** — budget was spent confirming the group-membership
+divergence itself (the decisive, load-bearing piece of evidence) rather
+than tracing one more level into which specific check flips it.
+
+**Is this the same `processScope` double-pass architectural root cause
+as angular cluster 4 / the 2026-08-05 finding, or a distinct third
+cause?** Same *family* (a `processScope`-phase pass's decision — here,
+assignment-group membership/padding — is computed once, before a later
+Phase 1 pass, `enforceCallLineBreaking`, has finished changing the
+column widths it depends on; round1 sees the pre-wrap shape, round2 sees
+round1's own post-wrap output), and structurally the same shape
+`RDD_KEY_248` already fixed for `applyDeclarationsPass` — **not a new
+third root cause, but a known-uncovered sibling instance of the fixed
+one, in a different one of the five `processScope` passes.** This is
+consistent with, and narrows, the existing "declaration/class-field-
+alignment-grid vs. call-wrap ordering" framing — `applyAssignmentsPass`
+needs to be added to that same family of passes-that-depend-on-post-
+wrap-shape.
+
+**Candidate fix approach (NOT ATTEMPTED — root-cause-only investigation,
+see this note for the approach; do not implement without a fresh
+session's real-corpus validation):** the direct extension of
+`RDD_KEY_248`'s existing "narrower middle ground" re-run — add
+`applyAssignmentsPass` as a third pass re-run inside `processScope`'s
+existing `closingBraceAndDeclarationsOnly` mode (rename the flag/mode if
+landed, since "declarations only" would no longer be accurate), run
+after the closing-brace pass and declarations pass, same ordering
+rationale (closing-brace first so later passes see the corrected
+`{...}` shape). **Risk/blast radius:** narrowly scoped to
+`ScopePipelineCurly.processScope`'s already-existing JS/TS-gated re-run
+path (per `RDD_KEY_246`/`RDD_KEY_248`, the second `process()`-adjacent
+call site in `FormatterCurly.format` is JS/TS-only) — would NOT touch
+C/C++/Java/Kotlin's single-pass behavior, so blast radius is contained
+to JS/TS. However, `RDD_KEY_246`'s own history is a direct warning
+against assuming this is safe by inspection: Attempt 1 there (re-running
+only the two originally-scoped passes) looked narrow and still caused a
+real regression (`real_code_regressions_100.ts`'s `} // interface
+ParserOptions` losing its indent) via the *shared* trailing-gap
+force-reindent step inside `processScope` that both re-run modes pass
+through — the eventual `RDD_KEY_248` fix needed an extra gate
+(`closingBraceAndDeclarationsOnly` skips that force-reindent step
+entirely). Re-running `applyAssignmentsPass` a second time carries an
+analogous unknown risk: an assignment group already correctly rendered
+(padded) by the first `processScope` call could be re-parsed from its
+own already-padded text on the second re-run, and `parseAssignment`/
+`renderTokens` were not audited this session for whether they're safe to
+run twice over already-rendered padding (e.g. whether the padding
+spaces before `=` could be mistaken for part of a multi-token LHS, or
+whether a group's already-correct alignment could be silently
+re-collapsed the way `RDD_KEY_246`'s Attempt 2 saw for an unrelated
+pass). **Confidence this would fix the bug without regression: low
+without a fresh session's real fixture-suite + dogfood-corpus
+validation** — the fix direction is a well-precedented, narrow extension
+of an already-landed pattern, but every prior attempt in this exact
+family (`RDD_KEY_246`'s two reverted attempts) underestimated a shared-
+step interaction on the first try. **NOT ATTEMPTED this session** — see
+above for why (root-cause-only scope). No fixture added, no `RDD_LOG.md`
+key added (no design landed to record), no dogfood corpus write
+performed (only a local round1/round2/diff cycle over the existing
+checkout). `make jar`/local build used only to add and then remove the
+temporary debug print; `git diff` on formatter source confirms zero net
+change from this session.
 
 ### Ranked list (most-valuable-first)
 

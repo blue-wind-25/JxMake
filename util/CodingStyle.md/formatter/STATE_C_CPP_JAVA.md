@@ -667,6 +667,15 @@ RDD_KEY_88.
   `STATE_CURLY_GDR.md`/`RDD_KEY_229`'s pre-pass-vs-post-pass GDR investigation (a genuine
   circular dependency between an outer pass's decisions and an inner pass's re-derivation of the
   same span from different intermediate text). Left OPEN.
+  **2026-08-06/2026-08-07 update:** the `commandLineParser.ts` declaration-alignment instance of
+  this bug was fixed by `RDD_KEY_248` (`ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass`,
+  a narrower JS/TS-gated re-run of just the closing-brace + declarations passes, not a change to
+  `processScope`'s outer/inner double-pass architecture itself). A 2026-08-07 root-cause-only
+  session found a still-open sibling instance of the same family in a pass `RDD_KEY_248` does not
+  re-run — `ScopePipelineCurly.applyAssignmentsPass` (bare-assignment alignment, distinct from
+  `applyDeclarationsPass`), repro `microsoft/TypeScript`'s `harness/collectionsImpl.ts` — see
+  `STATE_JS_TS.md`'s Category 2 cluster #3 2026-08-07 note for the full write-up and candidate fix
+  approach (not attempted). Still shared, curly-family-wide infrastructure; still Left OPEN.
 
 - **Non-idempotent switch-case re-indent on internally-inconsistent generated source**
   (`SwitchRule.applyNonInlineCaseIndent`) — RESOLVED 2026-08-07 for both the single-switch

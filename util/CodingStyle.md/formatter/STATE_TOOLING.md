@@ -312,6 +312,25 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
         Makefile-only restore not completed
 
       No dogfood *run* yet — listing + materialize only.
+- [x] Run a real-code dogfood pass, one language at a time (Makefile, then
+      Bash, then PowerShell).
+      **Makefile — DONE.** Batched `/tmp/PEGTL/Makefile`,
+      `/tmp/frozen/tests/Makefile`, `/tmp/frozen/benchmarks/Makefile`, and
+      `/tmp/fmt/support/Android.mk` (211 lines total) through
+      `code-formatter.sh --out ... --preserve-tree --root /tmp` for round1,
+      then round1 through itself for round2: `diff -ru` round1/round2 empty
+      (idempotent). Spot-checked round1 with `make -n -f <file>`; exit codes
+      differed from the unmodified originals but only because this run
+      copies just the `Makefile`/`*.mk` itself (not the sibling source
+      tree it references) into a different relative path -- confirmed by
+      inspecting the actual `make -n` output: failures are "No such file or
+      directory"/"No rule to make target" for sibling sources and
+      `-std=c++20` rejected by this sandbox's old g++, identical class of
+      failure on the unmodified originals run from their real checkout
+      location. No formatter-induced syntax breakage found. Content diff
+      showed only the intended, in-scope transforms (§1.1-§1.4 conditional
+      indent/alignment + RDD_KEY_261 comment normalization); no bug found.
+      See `STATE_DOGFOOD.md` for per-repo rows.
 - [x] Implement comment normalization for Makefile/Bash/PowerShell
       (RDD_KEY_261) -- previously untouched entirely (STYLE_TOOLING.md §0).
       New shared `ToolingCommentNormalizer` (first-letter capitalization +

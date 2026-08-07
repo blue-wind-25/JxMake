@@ -114,10 +114,10 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Python3 | STATE_PYTHON3.md | pallets/flask | DONE | |
 | Python3 | STATE_PYTHON3.md | psf/black | DONE | |
 | Python3 | STATE_PYTHON3.md | python/cpython | DONE | |
-| Makefile | STATE_TOOLING.md | serge-sans-paille/frozen | NOT STARTED | materialised `/tmp/frozen` (prior C/C++ dogfood): `tests/Makefile` + `benchmarks/Makefile` |
-| Makefile | STATE_TOOLING.md | fmtlib/fmt | NOT STARTED | materialised `/tmp/fmt` (full shallow clone 2026-08-07) |
+| Makefile | STATE_TOOLING.md | serge-sans-paille/frozen | DONE | round1/round2 idempotent (empty diff); `make -n` spot-check shows only pre-existing environment failures (missing sources/old compiler), same on unmodified originals -- no formatter-induced syntax breakage |
+| Makefile | STATE_TOOLING.md | fmtlib/fmt | DONE | `support/Android.mk` run together with frozen+PEGTL in the same batch; idempotent, no formatter-induced issue |
 | Makefile | STATE_TOOLING.md | ericniebler/range-v3 | NOT STARTED | `/tmp/range-v3` present but Make-empty / incomplete prior checkout; Makefile restore skipped |
-| Makefile | STATE_TOOLING.md | taocpp/PEGTL | NOT STARTED | materialised `/tmp/PEGTL` (full shallow clone 2026-08-07) |
+| Makefile | STATE_TOOLING.md | taocpp/PEGTL | DONE | round1/round2 idempotent (empty diff); `make -n` spot-check shows only pre-existing environment failures (missing sources/old compiler), same on unmodified originals -- no formatter-induced syntax breakage |
 | Makefile | STATE_TOOLING.md | python/cpython | NOT STARTED | `/tmp/cpython` present but Make-sparse; Makefile-only restore skipped |
 | Bash | STATE_TOOLING.md | javaparser/javaparser | NOT STARTED | materialised `/tmp/javaparser_gdr` (prior): 7 `*.sh` release/generator scripts |
 | Bash | STATE_TOOLING.md | jenkinsci/jenkins | NOT STARTED | materialised `/tmp/jenkins_scope` (prior): `ath.sh` + test-resource `.sh` |

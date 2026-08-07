@@ -195,30 +195,22 @@ random-sample) extraction for Pool A/B.
 
 ## CANCELED — Comment sentence-boundary detection defeated by mid-word dots (Step 3 candidate)
 
-**2026-08-04 — canceled, not just deferred.** Reassessed while deciding
-whether to run this alongside the disagreement-corrections work above.
-`MiscRuleCore.classifyComment` (comment-grammar normalization decisions:
-capitalize-first-letter, strip-trailing-period) routes through the exact
-same `GruAbstainResolver.resolve` / same trained weights
-(`code-formatter-ai-assist-weights.json`, trained on `sample_default.txt`)
-as the main Step 3 "is this a real explanatory comment" job — there is no
-separate model or `task` dimension in the RDD_EXT_20/21 schema (`lang`/
-`label`/`targetWordIndex`/`escaped-text`) distinguishing the two. Training
-this shape means adding rows answering "does this trailing dot end a
-sentence, vs. sit mid-token (`.hpp`, `e.g.`, `v1.0`)?" into the same label
-column the main job uses to answer a completely different question ("is
-this comment substantive prose vs. noise?") for the same text. Those two
-YES/NO questions can disagree on the same comment, so mid-word-dot training
-rows risk actively degrading the main job's 92.4% mean held-out precision,
-not just failing to help this shape — worse than the original "Value: low,
-Difficulty: medium" framing suggested, since that framing treated it as an
-independent, merely-low-value add rather than a correctness risk to the
-already-shipped classifier. Combined with the wiring even being unconfirmed
-(see TODO below, never resolved), the risk/reward doesn't justify attempting
-this without first designing real task separation (e.g. a second
-model/weights file, or a task field added to the schema) — out of scope
-unless a future job explicitly commissions that separation. Original
-open-item text and TODO preserved below for that future reference.
+**2026-08-04 — canceled, not just deferred.** `MiscRuleCore.classifyComment`
+(capitalize-first-letter / strip-trailing-period) routes through the same
+`GruAbstainResolver.resolve` / same trained weights as the main Step 3 "is
+this a real explanatory comment" job — there is no separate model or `task`
+dimension in the RDD_EXT_20/21 schema (`lang`/`label`/`targetWordIndex`/
+`escaped-text`) distinguishing the two. Training "does this trailing dot end
+a sentence, vs. sit mid-token (`.hpp`, `e.g.`, `v1.0`)?" into the same label
+column the main job uses for a different question ("is this comment
+substantive prose vs. noise?") risks degrading the main job's 92.4% mean
+held-out precision, not just failing to help — a correctness risk, not
+merely a low-value add. Combined with the wiring even being unconfirmed (see
+TODO below, never resolved), risk/reward doesn't justify attempting this
+without first designing real task separation (a second model/weights file,
+or a task field added to the schema) — out of scope unless a future job
+explicitly commissions that separation. Original problem statement and TODO
+preserved below for that future reference.
 
 `MiscRule.stripSoleTrailingPeriod` (§15) strips a comment's trailing `.` only
 when it's the *sole* `.` in the text — conservative, to avoid mangling an
@@ -233,15 +225,15 @@ AI_PREAMBLE_FULL.md §15):
 
 `.hpp` and the trailing `C.` both count as dots, so `dotCount != 1` and the
 genuinely sentence-ending trailing period is left in place (expected:
-stripped). Distinguishing a mid-word/mid-token dot (file extensions, `e.g.`,
-`i.e.`, `v1.0`, single-letter abbreviations) from a true sentence-ending dot
-is a natural-language judgment call with no tractable mechanical heuristic —
-exactly the class of ABSTAIN-worthy case Step 3 targets: the rule-based
-classifier's `dotCount != 1` case would ABSTAIN, and the GRU classifier would
-resolve it given enough mid-word-dot training examples. Not blanket NOT
-FEASIBLE — feasible via Step 3's GRU once trained on this shape; until then,
-remains an accepted mechanical-rule limitation (`dotCount != 1` → leave
-as-is). Still open — no GRU work has targeted this shape specifically yet.
+stripped). Distinguishing a mid-word/mid-token dot from a true
+sentence-ending dot is a natural-language judgment call with no tractable
+mechanical heuristic — exactly the class of ABSTAIN-worthy case Step 3
+targets: the rule-based classifier's `dotCount != 1` case would ABSTAIN, and
+the GRU classifier would resolve it given enough mid-word-dot training
+examples. Not blanket NOT FEASIBLE — feasible via Step 3's GRU once trained
+on this shape; until then, remains an accepted mechanical-rule limitation
+(`dotCount != 1` → leave as-is). Still open — no GRU work has targeted this
+shape specifically yet.
 
 **TODO before attempting (2026-08-03):** unlike the keyword-ambiguity growth
 passes (which add balanced rows to an already-wired path,
@@ -264,143 +256,71 @@ oversampling) is a real risk for a new pattern with only a few examples.
 ## OPEN — corpus-generation and benchmarking follow-ups
 
 - **LLM-assisted disagreement sampling against `sample_default.txt`.**
-  Discussed 2026-07-30: a full LLM relabel (92039 lines, ~$few-$150) would
-  just reproduce the rule-based classifier's existing blind spots, since the
-  corpus is auto-labeled by that same classifier. Agreed direction: use an
-  LLM to find *disagreements* on a small stratified sample (pull existing NO
-  lines + a random YES slice via `shuf -n 300 --random-source=<(yes 42)`,
-  label independently without showing the existing label, diff, hand-verify
-  only disagreements, append confirmed ones append-only). Steps 2-4 weren't
-  done at that point — a first pass was done **by hand** instead (2026-07-30,
-  no LLM call), which directly motivated the commented-out-code gate.
+  2026-07-30: rejected a full LLM relabel (92039 lines, ~$few-$150) as
+  circular — the corpus is auto-labeled by the same rule-based classifier an
+  LLM relabel would just re-agree/disagree with in the same blind spots.
+  Agreed direction instead: use an LLM only to find *disagreements* on a
+  small stratified sample, hand-verify only those, append confirmed
+  corrections append-only. A first pass was done **by hand** that day (no LLM
+  call), which directly motivated the commented-out-code gate below.
 
-  **2026-08-04 — persistence plumbing built (user-commissioned)**, so
+  **2026-08-04 — persistence plumbing built (user-commissioned)** so
   confirmed corrections survive `make gru-acquire-corpus` regenerating
-  `sample_default.txt` from scratch every run (previously, a hand-edited
-  correction would have been silently wiped out by the very next run —
-  flagged before any real corrections existed, so nothing was lost). New
-  committed file `tools/gru/disagreement_corrections.txt` (named exception
-  to RDD_EXT_19, same footing as `sample_default.txt`/
-  `code-formatter-ai-assist-weights.json` per RDD_KEY_217 — user confirmed
-  this placement over a scratch-only alternative), empty until the
-  disagreement-sampling process actually produces confirmed rows. New
-  `tools/gru/apply_disagreement_corrections.py`, wired into
-  `gru-acquire-corpus` right after the existing
-  `classifier_weights_examples.tsv` append and before the final
-  exact-duplicate-line dedup: does an *override* merge keyed on
+  `sample_default.txt` from scratch every run. New committed file
+  `tools/gru/disagreement_corrections.txt` (named exception to RDD_EXT_19,
+  same footing as `sample_default.txt`/`code-formatter-ai-assist-weights.json`
+  per RDD_KEY_217), empty until a disagreement-sampling pass produces
+  confirmed rows. New `tools/gru/apply_disagreement_corrections.py`, wired
+  into `gru-acquire-corpus` right after the `classifier_weights_examples.tsv`
+  append and before final dedup: does an *override* merge keyed on
   `<lang>/<targetWordIndex>/<escaped-comment-text>` (everything but
-  `<label>`) — a plain append wouldn't work here since a correction and the
-  auto-labeled row it corrects share the same comment text and differ only
-  in `<label>`, so exact-line dedup can't collapse them; this script drops
-  the conflicting auto-labeled row instead of leaving both present.
-  Smoke-tested standalone (override case, new-row case, empty-file no-op
-  case) against synthetic scratch files, not `make test` (Python tool, no
-  `src/` change).
+  `<label>`), dropping the conflicting auto-labeled row rather than leaving
+  both present (plain-append dedup can't collapse a same-text/different-label
+  pair). Smoke-tested standalone (override/new-row/empty-file no-op) against
+  synthetic scratch files.
 
-  **2026-08-04 — steps 2-4 actually executed**, via the `grok` CLI (xAI Grok,
-  headless `-p` mode + `--json-schema`/`--output-format json`/`--no-plan`
-  /`--disable-web-search`/`--permission-mode dontAsk`) instead of the literal
-  "existing NO lines + `shuf -n 300`" wording above: sampled 150 unique-text
-  YES + 150 unique-text NO rows (`random.Random(42)`) from
-  `sample_default.txt`'s full unique-by-text pools (89305 YES / 3292 NO) —
-  NO rows are now produced almost entirely by the three high-precision
-  explicit gates added after the 2026-07-30 design note, so "all unique NO
-  lines" was low marginal value relative to cost. `grok-4.3` labeled all 300
-  blind to the existing label (cost $0.057, no truncation). 74/300 (24.7%)
-  disagreed with the existing auto-label — a high rate against a
-  92.4%-precision classifier, flagged to the user rather than treated as
-  ground truth. Every disagreement was hand-verified by the user
-  (worksheet-based: skip/YES/NO per row, `TEXT=` newline-rendered for
-  multi-line comments). Result: 44 confirmed genuine corrections (43 YES, 1
-  NO) appended to `tools/gru/disagreement_corrections.txt`; the other 30
-  were either skipped as too ambiguous or the user confirmed the original
-  auto-label was already right (Grok wrong) — those never touch the
-  corrections file. Applying the 44 corrections via
-  `apply_disagreement_corrections.py` against the real, current
-  `sample_default.txt` verified clean (44/44 keys matched, 44 conflicting
-  auto-labeled rows overridden, 0 mismatches). Given current production
-  numbers already clear both bars (92.4% mean held-out CV precision at
-  `abstainThreshold=0.7`, 2.7% NO false-positive rate — see the 2026-08-02
-  threshold-sweep entry below), running steps 2-4 was optional polish, not a
-  blocker; re-running `make gru-acquire-corpus`/cross-validation to measure
-  the resulting precision delta was left as the natural next step if this
-  job is picked up again.
+  **2026-08-04 — the LLM disagreement pass itself, executed via the `grok`
+  CLI (xAI Grok-4.3, headless).** Sampled 150 unique YES + 150 unique NO rows
+  (`random.Random(42)`) from `sample_default.txt` (89305 YES / 3292 NO unique
+  pools). Grok labeled all 300 blind to the existing label ($0.057, no
+  truncation); 74/300 (24.7%) disagreed — high against a 92.4%-precision
+  classifier, so flagged to the user rather than trusted. User hand-verified
+  every disagreement: 44 confirmed genuine corrections (43 YES, 1 NO)
+  appended to `disagreement_corrections.txt`; the other 30 were too ambiguous
+  or confirmed the original label was right. Applying the 44 against the
+  real corpus verified clean (44/44 matched, 0 mismatches). Given production
+  already clears both bars (92.4% mean held-out CV precision at
+  `abstainThreshold=0.7`, 2.7% NO FP rate), this pass was optional polish —
+  measuring the resulting precision delta was left as a natural next step.
 
-  **2026-08-04 — retrained, verified via wrong-scope CV, then reverted
-  pending a real corpus-level CV.** After the 44 corrections landed, ran
-  `make gru-acquire-corpus` (applied cleanly, 44/44) then the user ran
-  `make gru-train` in a separate console (full retrain, `GRU_TRAIN_ARGS`
-  default). Checked two ways:
-  1. `GruEval` (training-fit, not held-out) against the 522-row bench, before
-     vs. after: 99.8%→99.4% precision, 1→3 NO false positives — a tiny
-     apparent regression, but training-fit numbers on a 44-row/93k-line
-     perturbation are noise-dominated, not a real signal either way.
-  2. A fresh 5-round `cross_validate.py` CV (`--epochs 40 --patience 6
-     --eval-threshold 0.7`) — but pointed at the wrong file:
-     `target/gru/classifier_weights_examples.tsv` (the 522-row hand-labeled
-     bench), which **cross_validate.py trains from scratch on directly** and
-     never touches `sample_default.txt`/`disagreement_corrections.txt` at
-     all. So this run (mean=88.78%, stdev=4.81%, min=81.91%, max=94.67%,
-     5×105-row test splits) measures **only** the hand-labeled bench's own
-     held-out generalization at its current 522-row size, not the
-     corrections' effect. Notable in its own right: the bench grew 474→522
-     rows in a prior session (2026-08-03) and had never had a fresh CV run
-     at 522 rows before — the drop from the previously-documented 474-row
-     figure (92.4%±2.1%) to this one (88.78%±4.81%) is a real, separate
-     finding about the grown bench being both harder and higher-variance,
-     unrelated to today's corrections.
+  **2026-08-04 — retrained on the corrections, checked, then reverted pending
+  a real corpus-level CV.** After `make gru-acquire-corpus` (44/44 applied)
+  and a user retrain, two checks: (1) `GruEval` training-fit on the 522-row
+  bench went 99.8%→99.4% (1→3 NO FPs) — noise-dominated on a 44-row/93k-line
+  perturbation, not a real signal; (2) a fresh CV run was accidentally
+  pointed at the wrong file (`classifier_weights_examples.tsv`, the 522-row
+  bench itself, which never touches `sample_default.txt`/corrections at
+  all) — so it only re-measured the bench's own held-out generalization at
+  its now-522-row size (mean=88.78%, stdev=4.81%), a separate finding (down
+  from the previously-documented 474-row figure of 92.4%±2.1%, meaning the
+  grown bench is harder/higher-variance) unrelated to the corrections.
+  Neither check isolates the 44 corrections' effect — that needs a CV run
+  against the full `sample_default.txt` itself, a multi-hour-per-round job
+  (~2700-4050s per full `gru-train`). Added `make gru-cv-corpus`
+  (`GRU_CV_ROUNDS`/`GRU_CV_WORK_DIR`/`GRU_CV_LOG`/`GRU_CV_ARGS`) for the user
+  to run unattended on a faster machine ("CM5"). **Reverted the retrained
+  production artifacts** (`code-formatter-ai-assist-weights.json`,
+  `tools/gru/sample_default.txt` — `git checkout --`'d back) pending that
+  measurement; preserved as untracked snapshots so they could be restored if
+  CM5 showed improvement:
+  `code-formatter-ai-assist-weights.2026-08-04-grok-corrections.json`,
+  `tools/gru/sample_default.2026-08-04-grok-corrections.txt`.
 
-  Neither check actually isolates the 44 corrections' effect — that requires
-  a CV run against the full `sample_default.txt` itself (each of 5 rounds
-  retraining from scratch on an 80% split of the ~93k-line corpus), which is
-  a multi-hour job per round (single full `gru-train` runs take
-  ~2700-4050s locally), not something to block this session on. Added a
-  `make gru-cv-corpus` Makefile target (`GRU_CV_ROUNDS`/`GRU_CV_WORK_DIR`/
-  `GRU_CV_LOG`/`GRU_CV_ARGS` overridable) that runs exactly this against
-  `tools/gru/sample_default.txt`, logging to `target/gru/cv_corpus.log`, for
-  the user to kick off unattended on a separate, faster machine ("CM5").
-  **Reverted the retrained production artifacts pending that real
-  measurement** — `code-formatter-ai-assist-weights.json` and
-  `tools/gru/sample_default.txt` were `git checkout --`'d back to their
-  pre-retrain committed state. The retrained/regenerated versions are
-  preserved, not lost, as untracked snapshot files so they can be restored
-  if the CM5 corpus-level CV later shows they're actually better:
-  - `code-formatter-ai-assist-weights.2026-08-04-grok-corrections.json` —
-    the weights `make gru-train` produced from the corrections-applied
-    corpus.
-  - `tools/gru/sample_default.2026-08-04-grok-corrections.txt` — the
-    corrections-applied corpus itself (output of `make gru-acquire-corpus`
-    with the 44 corrections in `disagreement_corrections.txt` applied).
-
-  **To revert to (i.e. adopt) the Grok-corrections result later**, once a
-  real `gru-cv-corpus` run on a matching corpus confirms it's an improvement:
-  ```bash
-  cp code-formatter-ai-assist-weights.2026-08-04-grok-corrections.json code-formatter-ai-assist-weights.json
-  cp tools/gru/sample_default.2026-08-04-grok-corrections.txt tools/gru/sample_default.txt
-  cp code-formatter-ai-assist-weights.json target/classes/   # if target/classes exists from a prior build
-  git add code-formatter-ai-assist-weights.json tools/gru/sample_default.txt
-  git commit
-  ```
-  (`disagreement_corrections.txt` itself is already committed either way —
-  it's the corpus/weights snapshots derived from it that were reverted.) If
-  instead `gru-cv-corpus` shows the corrections made things worse, the two
-  `*-2026-08-04-grok-corrections.*` snapshot files can simply be deleted, and
-  `disagreement_corrections.txt`'s 44 rows should be reviewed row-by-row
-  (not blanket-reverted — some may still be individually correct even if the
-  aggregate metric moved the wrong way) or the whole batch reverted via
-  `git log`/`git revert` on commit `ff73261`.
-
-  **2026-08-05 — CLOSED via the CM5 `gru-cv-corpus` run.** `cvc.zip`
-  (`cv_corpus.log`, `gru_cv_corpus.out`, per-round `train_round*.txt`/
-  `test_round*.txt`/`weights_round*.json`) landed from the CM5 run kicked
-  off above. **Confirmed the corpus used was the pre-corrections one, not
-  the Grok-corrections variant**: a known correction's row
-  (`cpp NO 0 / @brief Parse this value directly into a C++ type
-  (single-pass, no double scanning)`) is labeled `NO` in every
-  `train_round*.txt`/`test_round*.txt`, matching the reverted, committed
-  `sample_default.txt` — the corrections snapshot would have flipped this
-  row to `YES`. Real 5-round full-corpus CV result (`--eval-threshold 0.7`,
-  74793 train / 18699 test per round):
+  **2026-08-05 — CLOSED via the CM5 `gru-cv-corpus` run.** Confirmed the CM5
+  run used the pre-corrections corpus (a known correction's row still showed
+  the old `NO` label in every round file, matching the reverted committed
+  `sample_default.txt`). Real 5-round full-corpus CV (`--eval-threshold 0.7`,
+  74793 train / 18699 test/round):
 
   ```
   round 0: precision=99.32% (18472/18598, 101 abstain)
@@ -411,39 +331,29 @@ oversampling) is a real risk for a new pattern with only a few examples.
   mean=99.33%  stdev=0.06%  min=99.26%  max=99.40%
   ```
 
-  Far above every prior figure (which all measured the small, all-ambiguous
-  hand-labeled bench, not the real corpus distribution) — confirms the
-  currently-shipped, without-Grok-corrections weights/corpus already clear
-  production bars by a wide margin. Also swept `abstainThreshold` 0.7/0.75/
-  0.8 against the same 5 rounds' cached weights (`GruEval`, no retrain
-  needed — threshold is pure inference-time metadata): aggregate NO
-  false-positive rate only drifts 12.43%→12.22%→11.94% while abstains grow
-  ~48% (98→145/round average) — a much flatter trade-off than the earlier
-  hand-labeled-bench sweep (7.1%→1.3%) at full-corpus scale. **Decision:
-  `abstainThreshold` stays `0.7`**, no config change.
+  Far above every prior figure (all of which measured the small,
+  all-ambiguous hand-labeled bench, not the real corpus distribution) —
+  confirms the currently-shipped, without-Grok-corrections weights/corpus
+  already clears production bars by a wide margin. Also swept
+  `abstainThreshold` 0.7/0.75/0.8 against the same cached weights (no
+  retrain needed): NO FP rate only drifted 12.43%→12.22%→11.94% while
+  abstains grew ~48% — flatter trade-off than the earlier hand-labeled-bench
+  sweep, so `abstainThreshold` stays `0.7`, no config change.
 
-  **Decision: do not adopt the Grok-corrections weights/corpus.** The
-  question this whole thread was blocked on (whether the 44-row batch is a
-  real improvement) is now answered by measuring the un-corrected corpus
-  directly at production-bar-clearing precision — there's no remaining
-  reason to pull in the reverted snapshot. **Moved to
-  `tools/gru/unused/`** (retired, not part of any live pipeline; see
-  `tools/gru/README.txt`'s new "tools/gru/unused/" section):
-  `code-formatter-ai-assist-weights.2026-08-04-grok-corrections.json`,
-  `tools/gru/sample_default.2026-08-04-grok-corrections.txt`. The 44-row
-  correction batch itself was archived to
-  `tools/gru/unused/disagreement_corrections.2026-08-04-grok.txt` and the
-  live `tools/gru/disagreement_corrections.txt` was emptied back to its
-  pre-Grok header-only state (confirmed via `apply_disagreement_corrections.py`
-  producing a byte-identical `sample_default.txt`, i.e. a true no-op) — the
-  mechanism itself (script + Makefile wiring in `gru-acquire-corpus`) is
-  untouched and stays live for any future correction pass, Grok-sourced or
-  otherwise; only this one batch's content was retired. Also moved (unused,
-  never wired into any Makefile target): `tools/gru/gen_synthetic_prompt.py`,
-  `tools/gru/regroup_synthetic.py` (+ their `.gen_synthetic_*` sidecar state
-  files), `tools/synthetic_out_grok.txt` → all under `tools/gru/unused/`.
-  `cvc.zip`/`cv_corpus.log`/per-round CV files were session-scratch only
-  (`/tmp`), never committed, per `RDD_EXT_19`.
+  **Decision: do not adopt the Grok-corrections weights/corpus** — the
+  question this thread was blocked on (is the 44-row batch a real
+  improvement) is answered by the un-corrected corpus already clearing bars,
+  with no remaining reason to pull in the reverted snapshot. Moved the two
+  `*-2026-08-04-grok-corrections.*` snapshot files and the archived
+  44-row batch (`tools/gru/unused/disagreement_corrections.2026-08-04-grok.txt`)
+  to `tools/gru/unused/` (see its README section); live
+  `tools/gru/disagreement_corrections.txt` was emptied back to header-only
+  (confirmed a byte-identical, true-no-op regeneration). The correction
+  mechanism itself (script + Makefile wiring) stays live for any future
+  pass. Also retired to `tools/gru/unused/` (never wired into any Makefile
+  target): `gen_synthetic_prompt.py`, `regroup_synthetic.py` (+ sidecars),
+  `tools/synthetic_out_grok.txt`. CV scratch files (`cvc.zip` etc.) were
+  never committed, per `RDD_EXT_19`.
 
 - **[SEPARATE, closed]** A cluster of extracted comments are DTD/URL
   string-literal fragments with no leading space (e.g. `Sun Microsystems,
@@ -556,7 +466,7 @@ NO=20774 (0 before), 15 hand-spot-checked new-NOs, zero false positives.
 ---
 
 **2026-07-30 — fixed `KeywordAmbiguityGate` weight regression; `comment-normalization-classifier` now defaults `on`.**
-Root cause of 9-fixture regression: 40-example
+Root cause of the 9-fixture regression: 40-example
 `tools/classifier_weights/examples_{c,cpp,java,kotlin}.md` had all 20
 "zero mechanical feature" rows labeled YES → `KEYWORD_BIAS = +2.48420`, so
 zero-signal keyword-led comments defaulted YES (wrong — overwhelmingly real
@@ -924,26 +834,21 @@ O(h) chain overhead within noise. **Kept anyway** (fewer allocs, zero behavior
 risk, bit-identical, gradient-check-verified) — not reverted. `make test`:
 225/225. Committed: `src/com/jxmake/formatter/classifier/gru/GruClassifier.java`.
 
-**Float vs double — evaluated and REJECTED (kept double end-to-end).** (a)
-Baseline `GruEval` committed weights on 221-row hard-case, double:
-`total=221 abstain=0 decided=221 correct=119 precision=0.5384615384615384
-yesCorrect=88 yesIncorrect=3 noCorrect=31 noIncorrect=99`. (b) Converted
-`GruWeights.java`/`GruClassifier.java` weight *storage* to float (JSON
-`Double.parseDouble` scan unchanged — narrow at array-construction). (c)
-Identical `GruEval` float-typed: **byte-identical** decision-for-decision to
-double — zero accuracy impact float32 storage. (d)/(e) Trainer-to-float
-surfaced coupling: `GruClassifier.Gradients` reuses
-`GruWeights.DirectionWeights` as field type — converting forces mini-batch
-grad-accum/Adam math into float, requiring split into float storage + double
-grad-accumulator structs and updating every trainer call site (Adam moments,
-grad clip, mini-batch avg, `--check-gradients`, checkpoint version bump).
-**Decision: reverted float conversion in full, kept double end-to-end**
-(`GruWeights.java`/`GruClassifier.java` restored — `git diff` byte-identical
-pre-session). Scope/risk call not accuracy (impact exactly zero); "just the
-trainer" not bounded; float storage alone revisitable later as narrow task.
-No commit for float conversion. `make test` 225/225 after revert.
-`code-formatter-ai-assist-weights.json` byte-unchanged (only read via
-`GruEval`).
+**Float vs double — evaluated and REJECTED (kept double end-to-end).** Baseline
+committed weights on 221-row hard-case, double: precision 53.85%
+(119/221, 88 yesCorrect/3 yesIncorrect, 31 noCorrect/99 noIncorrect).
+Converted `GruWeights.java`/`GruClassifier.java` weight *storage* to float
+(narrow at array construction, JSON parse unchanged): float-typed `GruEval`
+was **byte-identical** decision-for-decision to double — zero accuracy
+impact from float32 storage. But trainer-to-float surfaced coupling
+(`GruClassifier.Gradients` reuses `GruWeights.DirectionWeights` as field
+type — converting forces mini-batch grad-accum/Adam math into float too,
+needing a split into float storage + double grad-accumulator structs across
+every trainer call site). **Decision: reverted float conversion in full,
+kept double end-to-end** — scope/risk call, not accuracy (impact exactly
+zero); "just the trainer" not bounded; float storage alone revisitable later
+as a narrow task. No commit for float conversion. `make test` 225/225 after
+revert. `code-formatter-ai-assist-weights.json` byte-unchanged.
 
 **`make gru-train` re-run (default `GRU_TRAIN_ARGS`), 221-example bench:
 56.0% → 65.2%, still below 67.7%.** Defaults (`--threads=3 --epochs=9

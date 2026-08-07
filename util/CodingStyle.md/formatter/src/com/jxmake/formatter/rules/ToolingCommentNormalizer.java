@@ -103,6 +103,89 @@ final class ToolingCommentNormalizer {
     }
 
     /**
+     * Shared deferred-placeholder mechanism for character-level tokenizers (Bash, PowerShell) that
+     *  cannot look ahead to know whether a standalone `#` comment starts a chain: each comment's raw
+     *  body is buffered here behind a unique placeholder marker emitted into the pass-A output in the
+     *  comment's place; once the whole file has been scanned, {@link #resolve} groups strictly
+     *  line-consecutive entries into chains, normalizes each chain via {@link #normalizeChain}, and
+     *  substitutes the final text back over every placeholder. Makefile's tokenizer is line-oriented
+     *  and does simple lookahead instead -- it has no need for this mechanism. Originally implemented
+     *  independently (and identically) in {@code BashSpecificRule} and {@code PowerShellSpecificRule}
+     *  for RDD_KEY_267; extracted here since both languages' logic was the same modulo marker text.
+     */
+    static final class ChainCollector {
+
+        private static final class Entry {
+
+            final String placeholder;
+            final String body;
+            final int    lineNo;
+
+            Entry(final String placeholder, final String body, final int lineNo)
+            {
+                this.placeholder = placeholder;
+                this.body        = body;
+                this.lineNo      = lineNo;
+            }
+
+        } // class Entry
+
+        private final String      markerPrefix;
+        private final String      markerSuffix;
+        private final List<Entry> entries = new ArrayList<>();
+        private       int         seq;
+
+        /** {@code markerPrefix}/{@code markerSuffix} bracket each generated placeholder -- caller picks
+         *  text guaranteed not to collide with real source content (e.g. Bash wraps in {@code }). */
+        ChainCollector(final String markerPrefix, final String markerSuffix)
+        {
+            this.markerPrefix = markerPrefix;
+            this.markerSuffix = markerSuffix;
+        }
+
+        /** Allocates a new placeholder, records {@code body}/{@code lineNo} behind it, and returns the marker text. */
+        String defer(final String body, final int lineNo)
+        {
+            final String placeholder = markerPrefix + (seq++) + markerSuffix;
+            entries.add( new Entry(placeholder, body, lineNo) );
+
+            return placeholder;
+        }
+
+        /**
+         * Groups collected entries into strictly line-consecutive chains, normalizes each chain, and
+         *  substitutes every placeholder in {@code transformed} with its final text. A no-op if no
+         *  comment was deferred.
+         */
+        String resolve(
+            final String transformed, final boolean normalizeStartCase, final boolean normalizeEndPeriod,
+            final Set<String> noCapitalizeWords
+        )
+        {
+            if( entries.isEmpty() ) return transformed;
+
+            String out = transformed;
+            int    i   = 0;
+            while( i < entries.size() ) {
+                int j = i;
+                while( j + 1 < entries.size() && entries.get(j + 1).lineNo == entries.get(j).lineNo + 1 ) ++j;
+
+                final List<String>  bodies = new ArrayList<>();
+                final List<Boolean> blanks = new ArrayList<>();
+                for( int k = i; k <= j; ++k ) { bodies.add( entries.get(k).body ); blanks.add(false); }
+                final List<String> normalized = normalizeChain(
+                    bodies, blanks, normalizeStartCase, normalizeEndPeriod, noCapitalizeWords
+                );
+                for( int k = i; k <= j; ++k ) out = out.replace( entries.get(k).placeholder, normalized.get(k - i) );
+                i = j + 1;
+            } // while
+
+            return out;
+        }
+
+    } // class ChainCollector
+
+    /**
      * Strips the trailing `.` only when it is the sole `.` in {@code text} -- an ellipsis (`...`) is
      *  left alone for free. Package-private (not {@code private}) so the data-format rule classes
      *  (TOML/YAML, whose `#`-comment shape matches Makefile/Bash/PowerShell's) can reuse it directly

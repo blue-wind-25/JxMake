@@ -86,29 +86,6 @@ public final class BashSpecificRule {
 
     } // class PassAResult
 
-    /**
-     * Deferred record for a standalone (own-line) `#` comment, collected during pass A instead of
-     *  being normalized immediately, so consecutive standalone comments (RDD_KEY_265/RDD_KEY_266-
-     *  style chain-grouping, RDD_KEY_267) can be normalized together after the whole file is scanned.
-     *  {@code placeholder} is a unique marker emitted into the pass-A buffer in place of the comment's
-     *  final text; {@code lineNo} is the 0-based source line the comment starts on (used to detect
-     *  chain breaks -- a chain continues only across strictly consecutive lines).
-     */
-    private static final class ChainEntry {
-
-        final String placeholder;
-        final String body;
-        final int    lineNo;
-
-        ChainEntry(final String placeholder, final String body, final int lineNo)
-        {
-            this.placeholder = placeholder;
-            this.body        = body;
-            this.lineNo      = lineNo;
-        }
-
-    } // class ChainEntry
-
     /** Accumulates same-kind characters and flushes (applying the token-level transform) on kind change */
     private static final class RunBuffer {
 
@@ -161,9 +138,9 @@ public final class BashSpecificRule {
         final RunBuffer           buf             = new RunBuffer();
         final List<HeredocSpec>   pendingHeredocs = new ArrayList<>();
         final StringBuilder       commentBody     = new StringBuilder();
-        final List<ChainEntry>    chainEntries    = new ArrayList<>();
+        final ToolingCommentNormalizer.ChainCollector chainCollector =
+            new ToolingCommentNormalizer.ChainCollector("CHAIN", "");
               int                 i               = 0;
-              int                 chainSeq        = 0;
 
         while( i < content.length() ) {
             final Frame top = stack.isEmpty() ? null : stack.get( stack.size() - 1 );
@@ -173,8 +150,7 @@ public final class BashSpecificRule {
                 if(c == '\n') {
                     stack.remove( stack.size() - 1 );
                     if(top.standalone) {
-                        final String placeholder = "\u0007CHAIN" + (chainSeq++) + "\u0007";
-                        chainEntries.add( new ChainEntry(placeholder, commentBody.toString(), top.lineNo) );
+                        final String placeholder = chainCollector.defer( commentBody.toString(), top.lineNo );
                         for( int p = 0; p < placeholder.length(); ++p ) buf.emit( placeholder.charAt(p), 'O' );
                     } else {
                         emitNormalizedComment( buf, commentBody.toString() );
@@ -391,8 +367,7 @@ public final class BashSpecificRule {
         if( commentBody.length() > 0 ) {
             final Frame top = stack.isEmpty() ? null : stack.get( stack.size() - 1 );
             if( top != null && top.type == '#' && top.standalone ) {
-                final String placeholder = "\u0007CHAIN" + (chainSeq++) + "\u0007";
-                chainEntries.add( new ChainEntry( placeholder, commentBody.toString(), top.lineNo ) );
+                final String placeholder = chainCollector.defer( commentBody.toString(), top.lineNo );
                 for( int p = 0; p < placeholder.length(); ++p ) buf.emit( placeholder.charAt(p), 'O' );
             } else {
                 emitNormalizedComment( buf, commentBody.toString() );
@@ -400,7 +375,9 @@ public final class BashSpecificRule {
         }
 
         String transformed = buf.result();
-        transformed = resolveChainEntries( transformed, chainEntries );
+        transformed = chainCollector.resolve(
+            transformed, normalizeCommentStartCase, normalizeCommentEndPeriod, NO_CAPITALIZE_TOOLS
+        );
 
         final PassAResult result = new PassAResult();
         result.transformed = transformed;
@@ -416,36 +393,6 @@ public final class BashSpecificRule {
             body, normalizeCommentStartCase, normalizeCommentEndPeriod, NO_CAPITALIZE_TOOLS
         );
         for( int i = 0; i < normalized.length(); ++i ) buf.emit( normalized.charAt(i), 'O' );
-    }
-
-    /**
-     * Groups {@code entries} (each a deferred standalone `#` comment, in source order) into chains --
-     *  strictly consecutive source lines, per {@link ChainEntry#lineNo} -- normalizes each chain via
-     *  {@link ToolingCommentNormalizer#normalizeChain}, then substitutes each entry's placeholder
-     *  marker in {@code transformed} with its final text. A chain of length 1 reduces to the
-     *  pre-existing per-comment behavior.
-     */
-    private String resolveChainEntries(final String transformed, final List<ChainEntry> entries)
-    {
-        if( entries.isEmpty() ) return transformed;
-
-        String out = transformed;
-        int    i   = 0;
-        while( i < entries.size() ) {
-            int j = i;
-            while( j + 1 < entries.size() && entries.get(j + 1).lineNo == entries.get(j).lineNo + 1 ) ++j;
-
-            final List<String>  bodies = new ArrayList<>();
-            final List<Boolean> blanks = new ArrayList<>();
-            for( int k = i; k <= j; ++k ) { bodies.add( entries.get(k).body ); blanks.add(false); }
-            final List<String> normalized = ToolingCommentNormalizer.normalizeChain(
-                bodies, blanks, normalizeCommentStartCase, normalizeCommentEndPeriod, NO_CAPITALIZE_TOOLS
-            );
-            for( int k = i; k <= j; ++k ) out = out.replace( entries.get(k).placeholder, normalized.get(k - i) );
-            i = j + 1;
-        } // while
-
-        return out;
     }
 
     /** Returns the index just past the heredoc delimiter token, or {@code start} if none parses (e.g. bare `<<`) */

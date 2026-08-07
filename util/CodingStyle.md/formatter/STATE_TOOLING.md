@@ -73,6 +73,7 @@ started (docs-only, no code landed yet).
 | RDD_KEY_260 | **REVERSES RDD_KEY_259** — the shared classifier pipeline is curly-family-only (`MiscRuleCore`/`FormatterCurly`), not language-agnostic; Makefile/Bash/PowerShell comment normalization, if added, follows the simpler TOML-style ad hoc pattern instead |
 | RDD_KEY_261 | Comment normalization landed (refines, doesn't reverse, RDD_KEY_260): shared `ToolingCommentNormalizer` (start-case + end-period, reusing the existing global config keys) wired into all three; Bash alone gets a Unix-tool-name no-capitalize word list, Makefile/PowerShell get plain cap only |
 | RDD_KEY_267 | `#`-comment chain-grouping (2026-08-08 brief decision #3, parity with curly/RDD_KEY_265/RDD_KEY_266): consecutive standalone `#` comment lines now normalize as one unit via `ToolingCommentNormalizer.normalizeChain`, instead of each comment independently; fixed a latent bug where a mid-chain sole `.` (not on the chain's last comment) was incorrectly stripped by the old per-comment-only logic |
+| RDD_KEY_272 | Pure refactor: RDD_KEY_267's deferred-placeholder chain mechanism, previously duplicated near-identically in `BashSpecificRule`/`PowerShellSpecificRule`, extracted into a new shared `ToolingCommentNormalizer.ChainCollector` nested class (both files now hold one `ChainCollector` field instead of their own `ChainEntry`/`resolveChainEntries` copies); Makefile untouched (simple lookahead, no deferred mechanism). Byte-identical output, `make test` 261/261 unchanged before/after |
 
 ---
 

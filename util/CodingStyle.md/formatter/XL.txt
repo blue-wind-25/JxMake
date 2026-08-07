@@ -12,8 +12,9 @@ have not modified). If unsure ask me.
 ####################################################################################################
 ####################################################################################################
 
-Ensure the languange order in the documentations, help strings, etc. is:
-    c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3
+Ensure the languange order in the documentations, help strings, etc. is
+    c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3,
+    makefile, bash, powershell
 Adjust active vs scaffold-only as needed. Also ensure jsx and tsx are after js and ts.
 
 I have run `make test` and all test passed.
@@ -186,7 +187,20 @@ NONE FOR NOW
 Use sub-agent. This can be a substantial work.
 
 === TIER 3: Real feature gaps — medium risk ===
-(sorted least-to-most regression risk)
+
+When `on`, the config `normalize-comment-start-case` and `normalize-comment-end-period`
+may behave differently for single-line and multi-line comments.
+
+In curly languages that support multi-line comments (c, cpp, java, kotlin, js, ts),
+the formatter can group single-line comments as if multi-line comments, correct?
+
+How about for the simpler languages (json5, css, yaml, toml), tag languages (xml, html5),
+indent languange (python3), and tooling languages (makefile, bash, powershell)?
+
+Could you check and implement the missing implementations? You may need to update the
+comments of some of the output test fixtures after implementing them.
+
+
 
 1. [JS_TS] `angular/angular` dogfood cluster 4 — `shared.ts`/`directive_outputs.ts`:
    distinct, newly root-caused bug in `BlockStructureRule.alignBracelessElseIfChain`

@@ -1,3 +1,12 @@
+Read `STATE_COMMON.md`, ..., and implement/do:
+    ...
+Please follow the current working flow and code-formatting. When committing, replace
+`Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` with yours `Co-authored-by: Grok <grok@x.ai>`.
+
+----------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+
 You are an expert repository archivist working on JxMake's `formatter/` process
 documentation: `CLAUDE.md`, `RDD_LOG.md`, and the `STATE_*.md` files
 (EXCEPT `STATE_DOGFOOD.md`).

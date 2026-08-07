@@ -72,18 +72,6 @@ Compact (don't use sub-agent because I will end this session soon) the narration
     from `...`
     to   `...`
 
-Update `README.md`, `../README.txt` for `Makefile`, `Bash`, and `PowerShell`.
-
-Read `STATE_COMMON.md`. Then perform refactoring: strings `JXM_CFMT_*` are all over the Java source files.
-Is it possible to centralize them as `public static final` members of `TokenizerCore.java`?
-Please follow the current working flow and code-formatting. When committing, replace
-`Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` with yours `Co-authored-by: Grok <grok@x.ai>`.
-
-Read `STATE_COMMON.md` and `STATE_TOOLING.md` and implement
-    `PowerShell: build/extend a tokenizer sufficient to safely skip string literals, here-strings, and comments.`.
-Please follow the current working flow and code-formatting. When committing, replace
-`Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` with yours `Co-authored-by: Grok <grok@x.ai>`.
-
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------

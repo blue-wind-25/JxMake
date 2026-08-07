@@ -126,7 +126,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Bash | STATE_TOOLING.md | acmesh-official/acme.sh | NOT STARTED | materialised `/tmp/acme.sh` (full shallow clone 2026-08-07) |
 | Bash | STATE_TOOLING.md | ohmyzsh/ohmyzsh | NOT STARTED | materialised `/tmp/ohmyzsh` (shallow clone + strip to 17 `*.sh`/`.bash` only, 2026-08-07) |
 | PowerShell | STATE_TOOLING.md | PowerShell/PowerShell | NOT STARTED | materialised `/tmp/PowerShell` (selective 505 `*.ps1`/`*.psm1` via GitHub raw, 2026-08-07; no full C# tree) |
-| PowerShell | STATE_TOOLING.md | PowerShell/PSScriptAnalyzer | NOT STARTED | materialised `/tmp/PSScriptAnalyzer` (full shallow clone 2026-08-07) |
+| PowerShell | STATE_TOOLING.md | PowerShell/PSScriptAnalyzer | DONE | 2 idempotency/correctness bugs found and fully fixed (arm-vs-pipeline misclassification + pass ordering; bareword `/` path corruption) -- round1/round2 empty diff after fix, `make test` 252/252; see STATE_TOOLING.md, fixture real_code_regressions_182 |
 | PowerShell | STATE_TOOLING.md | actions/runner-images | NOT STARTED | materialised `/tmp/runner-images` (selective 247 `*.ps1`/`*.psm1`, 2026-08-07) |
 | PowerShell | STATE_TOOLING.md | microsoft/azure-pipelines-tasks | NOT STARTED | **skipped** — selective download aborted mid-way (~567/1145); partial tree removed; do not treat as present |
 

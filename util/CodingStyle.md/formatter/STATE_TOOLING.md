@@ -344,6 +344,55 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       (not context-aware) brace-depth semantics applied the same way to
       Bash. This is the already-decided scope, not a new bug. See
       `STATE_DOGFOOD.md` for the row.
+      **PowerShell — DONE, 2 bugs found and fixed.** Ran all 228
+      `.ps1`/`.psm1` files (24151 lines) under `PowerShell/PSScriptAnalyzer`
+      through round1/round2; the very first pass found a non-empty diff
+      (real idempotency bug), so per protocol implementation stopped and
+      investigated before committing the dogfood-status update.
+      Root causes (`src/com/jxmake/formatter/rules/PowerShellSpecificRule.java`):
+      (1) `applySwitchArmAlignment`'s `parseArm` scans a line for its first
+      depth-0 `{` and treats everything before it as a switch-arm pattern
+      whenever that prefix isn't a control-flow header -- it had no check
+      for a depth-0 `|` in that prefix, so a still-unsplit pipeline line
+      (`$x = ... | Where-Object {...}`, before `applyPipelineSplit` runs)
+      read as one giant arm pattern spanning the whole statement, while the
+      *same* line post-split (a bare `Where-Object {...}` continuation) did
+      not -- since `format()`'s original order ran both `applyAssignAlignment`
+      and `applySwitchArmAlignment` *before* `applyPipelineSplit`, round1
+      (fresh pipeline) and round2 (pipeline already split from round1's own
+      output) fed genuinely different shapes into the same two passes,
+      producing different alignment padding each round. Fixed two ways
+      together: `parseArm` now rejects any line with a depth-0 `|` before
+      the `{` (never an arm), and `format()`'s pass order moved
+      `applyPipelineSplit` ahead of `applyAssignAlignment`/
+      `applySwitchArmAlignment` so both alignment passes always see an
+      already-split, stable shape regardless of how many rounds already
+      ran. (2) `applyOperatorSpacing` treated bare `/` (not just `/=`) as a
+      binary division operator whenever `isBinaryLeft` matched, with no
+      awareness of PowerShell's command-argument parsing mode -- real
+      bareword paths/URLs typed as command arguments
+      (`Copy-Item -Force $profileDir/* $targetProfileDir`,
+      `-LiteralPath $ruleDocDirectory/README.md`, an unquoted
+      `https://api.nuget.org/v3/index.json`) got corrupted into extra,
+      wrongly-split arguments -- a real content-corruption bug, not just a
+      style nit. Fixed by dropping bare `/` from the binary-operator set
+      entirely (kept the unambiguous `/=` compound-assignment case); a
+      corpus-wide re-scan after the fix found zero remaining corruption and
+      zero genuine-division use going unspaced (none was ever observed in
+      this 24k-line real corpus). After both fixes: round1/round2 diff
+      empty across all 228 files, `make test` 252/252 forward + idempotency
+      (was 251/251 before this session -- new fixture added). No PowerShell
+      interpreter/`Invoke-ScriptAnalyzer`/`PSParser` available in this
+      sandbox (confirmed via `which pwsh`/`which powershell`, both absent)
+      so validity relied on the round1/round2 idempotency check plus manual
+      reading of representative diffs (`build.psm1`,
+      `AvoidOneChar.tests.ps1`, `RuleDocumentation.tests.ps1`) -- no
+      corpus-scale automated syntax check was possible, consistent with
+      STYLE_TOOLING.md's noted "availability unconfirmed" caveat, now
+      resolved as **not available**. New permanent fixture pair
+      `test/real_code_regressions_182_{inp,out}.ps1` (registered in
+      `Makefile` `INP_FILES` and `test/README.txt`) reproduces both bugs
+      minimally, distilled from the three real files above.
 - [x] Implement comment normalization for Makefile/Bash/PowerShell
       (RDD_KEY_261) -- previously untouched entirely (STYLE_TOOLING.md §0).
       New shared `ToolingCommentNormalizer` (first-letter capitalization +

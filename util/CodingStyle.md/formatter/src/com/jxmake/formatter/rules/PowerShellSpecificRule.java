@@ -660,9 +660,10 @@ public final class PowerShellSpecificRule {
 
     /**
      * Kind-aware operator spacing over code characters only: spaces around {@code =}/{@code +=}/
-     * {@code -=}/{@code *=}/{@code /=}/{@code %=} and around binary {@code +}/{@code *}/{@code /}/
+     * {@code -=}/{@code *=}/{@code /=}/{@code %=} and around binary {@code +}/{@code *}/
      * {@code %} (Bash-style conservative left-hand check). Bare {@code -} is left alone so
-     * PowerShell {@code -gt}/{@code -eq}/{@code -Path} tokens are never split.
+     * PowerShell {@code -gt}/{@code -eq}/{@code -Path} tokens are never split. Binary (non-compound)
+     * {@code /} is deliberately never spaced -- see the implementation comment for why.
      */
     private String applyOperatorSpacing(final String content)
     {
@@ -696,8 +697,16 @@ public final class PowerShellSpecificRule {
                 continue;
             }
 
-            // Binary + * / %  (not -, see method javadoc)
-            if( ( c == '+' || c == '*' || c == '/' || c == '%' )
+            // Binary + * %  (not -, see method javadoc). `/` is deliberately excluded from this
+            // list: unlike +/*/%, PowerShell's char-level tokenizer here cannot distinguish
+            // expression-mode division from a bareword command-argument path/URL using `/` as a
+            // separator (e.g. `Copy-Item -Force $profileDir/* $targetProfileDir`,
+            // `-LiteralPath $ruleDocDirectory/README.md`, `https://api.nuget.org/v3/index.json`
+            // typed unquoted) -- real-code dogfooding on PSScriptAnalyzer/PSScriptAnalyzer found
+            // multiple such paths/URLs corrupted into extra, wrongly-split arguments and zero
+            // instances of genuine division, so spacing bare `/` is not applied at all (the `/=`
+            // compound-assignment case above is unaffected -- that form is unambiguous).
+            if( ( c == '+' || c == '*' || c == '%' )
                     && isBinaryLeft(sb)
                     && !( i + 1 < s.length() && s.charAt(i + 1) == c ) /* not ++ // etc. */ ) {
                 stripTrailingSpaces(sb);
@@ -1071,6 +1080,12 @@ public final class PowerShellSpecificRule {
             if(c == ')' || c == ']') { if(depth > 0) depth--; continue; }
             // Do not track '{}' for depth here -- the first depth-0 '{' opens the arm body.
             if(depth != 0) continue;
+            // A depth-0 pipe before the '{' means this is a pipeline stage (e.g.
+            // `... | Where-Object {...}`), not a switch arm -- do not misclassify it as one
+            // (fixes an idempotency bug: pre-split, a still-unsplit pipeline's trailing
+            // scriptblock read as an arm pattern spanning the whole line; post-split, the same
+            // line no longer does, so alignment padding flip-flopped between rounds).
+            if( c == '|' && !isDoublePipe(line, i) ) return null;
             if(c == '{') {
                 // Hashtable opener `@{` is not a switch arm (would become `@ {` via the pad space).
                 if( i > 0 && line.charAt(i - 1) == '@' ) return null;
@@ -1173,10 +1188,16 @@ public final class PowerShellSpecificRule {
         s = applyOperatorSpacing(s);     // §3.2 spacing
         s = applyBraceSpacing(s);        // §3.6 (before indent/align so later passes see spaced braces)
         s = applyBraceIndent(s);         // §3.1 (also multi-line hashtable bodies -- §3.4)
+        // §3.3 pipeline split runs before §3.2/§3.5 alignment passes: both alignment passes'
+        // line-grouping depends on whether a pipeline is already split onto multiple lines (a
+        // still-unsplit `... | Where-Object {...}` line reads very differently to the group-
+        // boundary/arm-pattern scanners than its post-split form), so running them beforehand made
+        // the result depend on how many times the content had already been formatted -- an
+        // idempotency bug. Splitting first makes every pass downstream see the same stable shape.
+        s = applyPipelineSplit(s);       // §3.3 (after indent so continuation uses base+1 level)
         s = applyAssignAlignment(s);     // §3.2 alignment (also multi-line hashtable entries -- §3.4)
         // §3.4 single-line hashtables: never expanded to multi-line (RDD_KEY_257); no extra pass.
         s = applySwitchArmAlignment(s);  // §3.5 arm `{` alignment (after indent)
-        s = applyPipelineSplit(s);       // §3.3 (after indent so continuation uses base+1 level)
 
         return s;
     }

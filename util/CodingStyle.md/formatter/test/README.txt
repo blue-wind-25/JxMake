@@ -3253,6 +3253,35 @@ Real-code regressions:
                                                         switch's depth-derived scan) rather than letting two
                                                         independent recomputations disagree forever.
 
+  real_code_regressions_182_inp/out.ps1              -- Minimized from `PowerShell/PSScriptAnalyzer`
+                                                        (`build.psm1`, `Tests/DisabledRules/
+                                                        AvoidOneChar.tests.ps1`, `Tests/Documentation/
+                                                        RuleDocumentation.tests.ps1`): two PowerShell
+                                                        idempotency/correctness bugs found via real-code
+                                                        dogfooding. (1) `applySwitchArmAlignment`'s
+                                                        `parseArm` misclassified an unsplit pipeline's
+                                                        trailing scriptblock (e.g. `... | Where-Object
+                                                        {...}`) as a switch-arm pattern spanning the whole
+                                                        line, so alignment padding differed depending on
+                                                        whether the pipeline had already been split by a
+                                                        prior format pass -- fixed by rejecting any line
+                                                        with a depth-0 `|` before the `{` as an arm
+                                                        candidate, and by moving `format()`'s
+                                                        `applyPipelineSplit` call ahead of both
+                                                        `applyAssignAlignment` and
+                                                        `applySwitchArmAlignment` so every alignment pass
+                                                        sees a stable, already-split shape regardless of
+                                                        how many rounds ran before it. (2) `applyOperatorSpacing`
+                                                        treated bare `/` as a binary division operator even
+                                                        in bareword command-argument position, corrupting
+                                                        Unix-style paths/URLs (`$profileDir/*`,
+                                                        `$dir/README.md`) into extra, wrongly-split
+                                                        arguments -- fixed by dropping bare `/` from the
+                                                        binary-operator set entirely (the unambiguous `/=`
+                                                        compound-assignment case is unaffected); zero
+                                                        genuine-division instances were found in the
+                                                        24k-line dogfood corpus that ran this rule.
+
 How Tests Are Run
 -----------------
 

@@ -3180,7 +3180,7 @@ public final class JsTsSpecificRule {
     }
 
     /**
-     * True if {@code closeParenIdx} closes a `case (...)：`-style parenthesized case-label
+     * True if {@code closeParenIdx} closes a `case (...):`-style parenthesized case-label
      *  condition -- i.e. the token immediately before the matching `(` is the `case` keyword --
      *  the one shape where a bare `)` immediately followed by `:` is NOT a return-type colon.
      */

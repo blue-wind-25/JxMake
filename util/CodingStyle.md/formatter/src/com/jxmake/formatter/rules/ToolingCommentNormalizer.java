@@ -136,7 +136,7 @@ final class ToolingCommentNormalizer {
         private       int         seq;
 
         /** {@code markerPrefix}/{@code markerSuffix} bracket each generated placeholder -- caller picks
-         *  text guaranteed not to collide with real source content (e.g. Bash wraps in {@code }). */
+         *  text guaranteed not to collide with real source content (e.g. Bash wraps in {@code U+0007}). */
         ChainCollector(final String markerPrefix, final String markerSuffix)
         {
             this.markerPrefix = markerPrefix;

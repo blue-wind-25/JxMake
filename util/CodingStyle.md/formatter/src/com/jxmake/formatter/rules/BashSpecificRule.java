@@ -139,7 +139,7 @@ public final class BashSpecificRule {
         final List<HeredocSpec>   pendingHeredocs = new ArrayList<>();
         final StringBuilder       commentBody     = new StringBuilder();
         final ToolingCommentNormalizer.ChainCollector chainCollector =
-            new ToolingCommentNormalizer.ChainCollector("CHAIN", "");
+            new ToolingCommentNormalizer.ChainCollector("\u0007CHAIN", "\u0007");
               int                 i               = 0;
 
         while( i < content.length() ) {

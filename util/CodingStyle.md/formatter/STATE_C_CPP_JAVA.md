@@ -688,6 +688,20 @@ RDD_KEY_88.
 
 ## Known Gaps — Fixed
 
+- **[Shared with STATE_JS_TS.md] `formatNonInlineSwitches` vs. `alignInlineSwitches`/call-wrap
+  ordering gap (switch-case fallthrough non-idempotency) — FIXED 2026-08-07 (RDD_KEY_263).**
+  Full write-up (root cause, real-file repro, fix) lives in `STATE_JS_TS.md`'s formerly-"Known
+  open issues" section since the concrete repro (`vuejs/core`'s `utils.ts`, `lodash/lodash`'s
+  `lodash.js` `initCloneByTag`) and all debugging happened there; recorded here only as a
+  cross-reference since the fix landed in shared `SwitchRule`/`FormatterCurly` code (curly
+  family: C/C++/Java/Kotlin/JS/TS), not JS/TS-specific. Summary: `FormatterCurly.format`'s first
+  `switchRule.formatNonInlineSwitches` call decided STYLE.md §13's blank-line-around-multiline-
+  case-body treatment before `alignInlineSwitches`'s case-grid collapse and the call-wrap passes
+  could turn an over-width grid-aligned case multi-line — fixed by re-running
+  `formatNonInlineSwitches` a second time near the end of Phase 4, after those passes settle.
+  `test/real_code_regressions_183_{inp,out}.js` fixture. `make test`: 253/253 forward +
+  idempotency.
+
 Previously-recorded low-priority gaps, now resolved. One-line summaries only — full
 before/after detail available via `git log`/`git show`.
 

@@ -108,7 +108,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | TS | STATE_CURLY_GDR.md | angular/angular (cluster 5 files, GDR multipass) | DONE - FULL FIX | curly-general-scope-reindent-multipass=on: fixes user_metric_spec.ts + i18n_parse.ts (previously non-idempotent under single-pass GDR); emit.ts already idempotent under single-pass, stays idempotent under multipass. Re-confirmed fresh 2026-08-05 (0-line round1/round2 diff on all 3, js_ts_syntax_check.sh exit 0) |
 | TS | STATE_JS_TS.md | microsoft/TypeScript | DONE - PARTIAL FIX | 3/4 clusters fixed; #3's shared shape fixed but most files are a separate, un-root-caused sibling issue; RDD_KEY_248 fix re-run 2026-08-06 -- 31/601 -> 20/601 idempotency mismatches, zero new regressions |
 | TS | STATE_JS_TS.md | nestjs/nest | DONE | |
-| TS | STATE_JS_TS.md | vuejs/core | DONE - PARTIAL FIX | switch-fallthrough idempotency bug open |
+| TS | STATE_JS_TS.md | vuejs/core | DONE | switch-fallthrough idempotency bug FIXED 2026-08-07 (RDD_KEY_263) |
 | Python3 | STATE_PYTHON3.md | django/django | DONE | |
 | Python3 | STATE_PYTHON3.md | pallets/click | DONE | |
 | Python3 | STATE_PYTHON3.md | pallets/flask | DONE | |

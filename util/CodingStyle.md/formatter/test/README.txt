@@ -3282,6 +3282,30 @@ Real-code regressions:
                                                         genuine-division instances were found in the
                                                         24k-line dogfood corpus that ran this rule.
 
+  real_code_regressions_183_inp/out.js               -- Minimized from `lodash/lodash`'s
+                                                        `initCloneByTag` (`lodash.js`) typed-array
+                                                        fallthrough case: a `SwitchRule` non-inline
+                                                        vs. inline-alignment/call-wrap ordering gap.
+                                                        `FormatterCurly.format`'s first
+                                                        `formatNonInlineSwitches` call decided whether
+                                                        a switch needed STYLE.md #13's
+                                                        blank-line-around-multiline-case-body treatment
+                                                        *before* `alignInlineSwitches`'s case-grid
+                                                        collapse and the later `enforceCallLineBreaking`
+                                                        passes had a chance to wrap an over-width
+                                                        grid-aligned case's trailing call across
+                                                        multiple lines -- so a case body that only
+                                                        becomes multi-line as a *result* of that later
+                                                        wrap was invisible to the blank-line decision on
+                                                        a fresh format, but visible on a reformat of
+                                                        already-wrapped output (round1 != round2). Fixed
+                                                        by re-running `formatNonInlineSwitches` again
+                                                        after every pass that can turn a case body
+                                                        multi-line has settled (near the end of Phase 4).
+                                                        Shared `SwitchRule`/`FormatterCurly` code --
+                                                        also proves the fix for the shared C/C++/Java
+                                                        `SwitchRule` code path, not JS/TS-specific.
+
 How Tests Are Run
 -----------------
 

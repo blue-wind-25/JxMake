@@ -76,6 +76,7 @@ convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_197 | Import-ordering: trailing same-line comment travels with its import; a standalone comment segments the import list (grouped/sorted independently per segment) instead of bailing the whole pass |
 | RDD_KEY_248 | Call-wrap/collapse vs. declaration-alignment/padding idempotency bug (Tier-4, see Open Questions), 3rd session, FIXED: `ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass` re-runs just the closing-brace + declarations passes a second time (JS/TS only), with the shared trailing-gap force-reindent step skipped on that re-run |
 | RDD_KEY_250 | Braceless if/else rejoin-fits-check-vs-`alignBracelessElseIfChain` pass-ordering idempotency bug (see Open Questions), 6th session, FIXED: `FormatterCurly.format` re-runs `enforceCallLineBreaking` (twice) + `enforceComplexityPadding` right after `alignBracelessElseIfChain`, same fix shape as RDD_KEY_248 |
+| RDD_KEY_263 | `utils.ts`/`lodash.js` switch-case fallthrough non-idempotency (long-deferred, see former "Known open issues" entry below), FIXED: `FormatterCurly.format` re-runs `switchRule.formatNonInlineSwitches` a second time near the end of Phase 4, after `alignInlineSwitches`'s case-grid collapse and the call-wrap passes have settled — shared `SwitchRule`/curly-family code, cross-referenced in `STATE_C_CPP_JAVA.md` |
 
 ---
 
@@ -985,19 +986,42 @@ pre-existing, out of scope, tracked below.
 
 ### Known open issues (pre-existing, deferred — not part of `vuejs/core` DONE scope)
 
-- **`utils.ts` switch-case fallthrough non-idempotency** — root cause:
-  case-label-fallthrough one-liner-collapse/alignment feature interacts
-  badly with consecutive `case` labels sharing one body. Confirmed
-  pre-existing via `git stash` comparison, not introduced by this job.
-  **Second confirming recurrence in `lodash/lodash`** (below):
-  `fp/_baseConvert.js`'s `initCloneByTag` typed-array fallthrough case body
-  (196 chars) — round1 leaves it unwrapped past `line-length-limit`, round2
-  wraps the trailing call's arguments — a `SwitchRule` case-grid vs. generic
-  call-wrap-fits-check ordering gap. Shared C/C++/Java-owned `SwitchRule`
-  logic, deliberately left to a future session. **2026-07-28 re-assessment**
-  (against `STATE_C_CPP_JAVA.md`'s "Known Gaps"): no fix landed there since;
-  same risk class as the reindentation architectural gap this job is scoped
-  to avoid touching piecemeal. Still deferred, not cheap.
+- **`utils.ts`/`lodash.js` switch-case fallthrough non-idempotency — FIXED
+  2026-08-07 (RDD_KEY_263).** Re-reproduced against real downloaded files
+  (`vuejs/core`@`b5f8518` `packages/compiler-sfc/src/script/utils.ts`,
+  `lodash/lodash`@`a666ba5` `lodash.js` — note: the confirming file is
+  `lodash.js` itself, not `fp/_baseConvert.js` as this section's older text
+  implied; `initCloneByTag` lives only in `lodash.js`, `fp/_baseConvert.js`
+  round-trips clean and always did). `utils.ts` at that pinned commit is too
+  short in its current shape to overflow `lineLengthLimit` and actually
+  trigger the bug (its switch's case bodies are all short one-liners), but
+  `lodash.js`'s `initCloneByTag` typed-array fallthrough case reproduces it
+  cleanly. Root cause: `FormatterCurly.format`'s first
+  `switchRule.formatNonInlineSwitches` call (Phase 1, ~line 285) decides
+  whether a switch needs STYLE.md §13's blank-line-around-multiline-case-
+  body treatment via the pure predicate `isNonInline` ("does any case body
+  span more than one physical line") — evaluated *before*
+  `switchRule.alignInlineSwitches`'s case-grid collapse (Phase 3) and the
+  `enforceCallLineBreaking` re-wrap passes have run. A grid-aligned case
+  whose padded line overflows `lineLengthLimit` only becomes genuinely
+  multi-line (its trailing call wrapped across lines) as a *result* of those
+  later passes — invisible to the first `isNonInline` check on a fresh
+  format, but visible on a reformat of round1's own already-wrapped output,
+  so round1 correctly omits the required blank lines while round2 correctly
+  inserts them: round1 != round2. **Fix:** added a second
+  `switchRule.formatNonInlineSwitches` call near the end of Phase 4 (right
+  after the final `enforceComplexityPadding`, before Phase 5), after every
+  pass capable of turning a case body multi-line has settled. Idempotent by
+  construction — `isNonInline`/`needsWork` are pure predicates re-evaluated
+  each call, so an already-correct switch is a no-op, and the pass only ever
+  inserts blank lines into gaps, never touching `alignInlineSwitches`'s own
+  grid/column-alignment output. Shared C/C++/Java-owned `SwitchRule` code —
+  fix applies uniformly across the whole curly family, see
+  `STATE_C_CPP_JAVA.md`'s "Known Gaps" for its own cross-reference. New
+  permanent fixture `test/real_code_regressions_183_{inp,out}.js`
+  (minimized `initCloneByTag` shape). `make test`: 253/253 forward +
+  idempotency (was 252/252 before the fixture). Both real files now
+  round1==round2 byte-identical.
 - **Single-declarator colon spacing** — **FIXED 2026-08-04.** `const x:
   number = 1;` rendered as `const x : number = 1;` (space inserted before
   the colon) whenever the declaration had no alignment-group neighbors.

@@ -380,6 +380,22 @@ public final class FormatterCurly extends FormatterCore {
         // enforceCallLineBreaking has no complexity-padding awareness of its own, so re-tighten/
         // loosen any call whose layout the rewrap just above finalized.
         text = miscRule.enforceComplexityPadding( tokenizer.apply(text) );
+        // RDD_KEY_(next): formatNonInlineSwitches's ~line-285 call decides "does at least one case
+        // body span multiple physical lines" (STYLE.md §13's blank-line-around-multiline-case-body
+        // rule) *before* alignInlineSwitches's case-grid collapse and the enforceCallLineBreaking
+        // passes above have had a chance to wrap an over-width case body's trailing call across
+        // lines -- so a case body that only becomes multi-line as a *result* of call-wrapping (a
+        // grid-aligned case whose padded line overflows lineLengthLimit) is invisible to that first
+        // call, on a fresh format. A reformat of already-formatted output starts from that same
+        // now-multi-line shape, so the first call sees it as multi-line from the start and inserts
+        // the required blank lines -- round1 != round2. Re-running formatNonInlineSwitches here,
+        // after every pass that can turn a case body multi-line has settled, re-derives the
+        // blank-line decision against the final line count; idempotent (isNonInline/needsWork are
+        // pure predicates over the current token stream, so a switch already correct is a no-op)
+        // and safe to run after alignInlineSwitches's grid collapse -- it only ever inserts blank
+        // lines into gaps, never touches the grid's own column alignment. Found via real-code
+        // testing, lodash/lodash's `initCloneByTag` typed-array fallthrough case.
+        text = switchRule.formatNonInlineSwitches( tokenizer.apply(text) );
 
         // Phase 5: file-header-level structure
         if(isCOrCpp) {

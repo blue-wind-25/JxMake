@@ -34,6 +34,7 @@ public final class TomlSpecificRule {
     private final int     indentWidth;
     private final String  indentUnit;
     private final boolean normalizeCommentStartCase;
+    private final boolean normalizeCommentEndPeriod;
 
     public TomlSpecificRule(final Lang lang)
     {
@@ -57,10 +58,22 @@ public final class TomlSpecificRule {
         final boolean normalizeCommentStartCase
     )
     {
+        this(lang, lineLengthLimit, indentWidth, normalizeCommentStartCase, false);
+    }
+
+    public TomlSpecificRule(
+        final Lang    lang,
+        final int     lineLengthLimit,
+        final int     indentWidth,
+        final boolean normalizeCommentStartCase,
+        final boolean normalizeCommentEndPeriod
+    )
+    {
         this.lang                      = lang;
         this.indentWidth               = Math.max(1, indentWidth);
         this.indentUnit                = repeatChar(' ', this.indentWidth);
         this.normalizeCommentStartCase = normalizeCommentStartCase;
+        this.normalizeCommentEndPeriod = normalizeCommentEndPeriod;
     }
 
     /**
@@ -94,25 +107,27 @@ public final class TomlSpecificRule {
 
     private String normComment(final String commentText)
     {
-        if(!normalizeCommentStartCase) return commentText;
+        String text = normalizeCommentEndPeriod
+                ? ToolingCommentNormalizer.stripSoleTrailingPeriod(commentText) : commentText;
+        if(!normalizeCommentStartCase) return text;
         int i = 1;
-        while( i < commentText.length() && commentText.charAt(i) == ' ' ) i++;
-        if( i < commentText.length() ) {
-            final char ch = commentText.charAt(i);
+        while( i < text.length() && text.charAt(i) == ' ' ) i++;
+        if( i < text.length() ) {
+            final char ch = text.charAt(i);
             if( Character.isLetter(
                 ch
             ) && Character.isLowerCase(
                 ch
-            ) ) return commentText.substring(
+            ) ) return text.substring(
                 0, i
             ) + Character.toUpperCase(
                 ch
-            ) + commentText.substring(
+            ) + text.substring(
                 i + 1
             );
         } // if
 
-        return commentText;
+        return text;
     }
 
     /** Finds the first unquoted, unbracketed '=' -- the key/value separator. Returns -1 if none. */

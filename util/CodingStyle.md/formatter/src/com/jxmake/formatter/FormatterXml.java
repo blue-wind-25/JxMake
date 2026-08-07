@@ -36,6 +36,7 @@ public final class FormatterXml extends FormatterCore {
             config.indentSize(),
             resolvedIndentStyle,
             config.isNormalizeCommentStartCase(),
+            config.isNormalizeCommentEndPeriod(),
             config
         );
 

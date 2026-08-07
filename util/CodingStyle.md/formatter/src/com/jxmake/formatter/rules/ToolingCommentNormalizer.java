@@ -52,8 +52,13 @@ final class ToolingCommentNormalizer {
         return text.substring(0, i) + Character.toUpperCase(ch) + text.substring(i + 1);
     }
 
-    /** Strips the trailing `.` only when it is the sole `.` in {@code text} -- an ellipsis (`...`) is left alone for free. */
-    private static String stripSoleTrailingPeriod(final String text)
+    /**
+     * Strips the trailing `.` only when it is the sole `.` in {@code text} -- an ellipsis (`...`) is
+     *  left alone for free. Package-private (not {@code private}) so the data-format rule classes
+     *  (TOML/YAML, whose `#`-comment shape matches Makefile/Bash/PowerShell's) can reuse it directly
+     *  for {@code normalize-comment-end-period} instead of duplicating the same logic.
+     */
+    static String stripSoleTrailingPeriod(final String text)
     {
         int end = text.length();
         while( end > 0 && Character.isWhitespace( text.charAt(end - 1) ) ) --end;

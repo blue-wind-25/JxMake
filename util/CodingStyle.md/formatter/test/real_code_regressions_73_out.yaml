@@ -1,5 +1,5 @@
 #% JXM_CFMT_CFG indent-size=2
-# Copyright (C) 2024 Example Corp.
+# Copyright (C) 2024 Example Corp
 # SPDX-License-Identifier: MIT
 bugfixes :
   - module_utils - some function now raises the documented error type

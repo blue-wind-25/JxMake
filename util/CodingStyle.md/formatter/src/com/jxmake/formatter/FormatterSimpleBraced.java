@@ -154,4 +154,38 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
         return sb.toString();
     }
 
+    /**
+     * {@code normalize-comment-end-period} for the SimpleBraced family: strips a sole trailing `.`
+     *  from a {@code //}/{@code /* *&#47;}-delimited {@code commentText} (delimiters included, same
+     *  shape {@link #capitalizeCommentStart} takes), same "only if it's the only `.` anywhere in the
+     *  comment" rule the curly family and the tooling languages both use (an ellipsis `...` is left
+     *  alone for free). For a {@code //} line comment the period must sit right at the end of the
+     *  text; for a {@code /* *&#47;} block comment (which may span multiple lines as one token) it
+     *  must sit right before the closing {@code *&#47;}. Operates on the delimiter-stripped interior
+     *  only, so the delimiters themselves (which contain no `.`) never affect the dot count.
+     */
+    public static String stripCommentEndPeriod(final String commentText)
+    {
+        final boolean isLine  = commentText.startsWith("//");
+        final boolean isBlock = commentText.startsWith("/*") && commentText.endsWith("*/");
+        if(!isLine && !isBlock) return commentText;
+        final int    tailLen = isBlock ? 2 : 0;
+        final String head    = commentText.substring(0, 2);
+        final String content = commentText.substring( 2, commentText.length() - tailLen );
+        final String tail    = commentText.substring( commentText.length() - tailLen );
+
+        int end = content.length();
+        while( end > 0 && Character.isWhitespace( content.charAt(end - 1) ) ) --end;
+        if( end == 0 || content.charAt(end - 1) != '.' ) return commentText;
+
+        int dotCount = 0;
+        for( int i = 0; i < content.length(); ++i ) if( content.charAt(i) == '.' ) ++dotCount;
+        if(dotCount != 1) return commentText;
+
+        int trimEnd = end - 1;
+        while( trimEnd > 0 && Character.isWhitespace( content.charAt(trimEnd - 1) ) ) --trimEnd;
+
+        return head + content.substring(0, trimEnd) + content.substring(end) + tail;
+    }
+
 } // class FormatterSimpleBraced

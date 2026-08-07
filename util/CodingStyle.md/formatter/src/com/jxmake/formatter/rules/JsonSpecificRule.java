@@ -35,6 +35,7 @@ public final class JsonSpecificRule {
     private final int     indentWidth;
     private final String  indentUnit;
     private final boolean normalizeCommentStartCase;
+    private final boolean normalizeCommentEndPeriod;
 
     public JsonSpecificRule(final Lang lang)
     {
@@ -69,6 +70,18 @@ public final class JsonSpecificRule {
         final boolean normalizeCommentStartCase
     )
     {
+        this(lang, lineLengthLimit, indentWidth, indentStyle, normalizeCommentStartCase, false);
+    }
+
+    public JsonSpecificRule(
+        final Lang    lang,
+        final int     lineLengthLimit,
+        final int     indentWidth,
+        final String  indentStyle,
+        final boolean normalizeCommentStartCase,
+        final boolean normalizeCommentEndPeriod
+    )
+    {
         this.lang                      = lang;
         this.lineLengthLimit           = lineLengthLimit;
         this.indentWidth               = indentWidth;
@@ -78,12 +91,16 @@ public final class JsonSpecificRule {
             ' ', Math.max(0, indentWidth)
         );
         this.normalizeCommentStartCase = normalizeCommentStartCase;
+        this.normalizeCommentEndPeriod = normalizeCommentEndPeriod;
     }
 
     private String normComment(final String commentText)
     {
-        return normalizeCommentStartCase
-                ? FormatterSimpleBraced.capitalizeCommentStart(commentText) : commentText;
+        String text = commentText;
+        if(normalizeCommentEndPeriod) text = FormatterSimpleBraced.stripCommentEndPeriod(text);
+        if(normalizeCommentStartCase) text = FormatterSimpleBraced.capitalizeCommentStart(text);
+
+        return text;
     }
 
     /**

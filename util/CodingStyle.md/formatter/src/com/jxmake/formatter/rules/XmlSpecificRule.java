@@ -285,6 +285,7 @@ public final class XmlSpecificRule {
     private final int     indentWidth;
     private final boolean useTabs;
     private final boolean normalizeCommentStartCase;
+    private final boolean normalizeCommentEndPeriod;
     /**
      * Real resolved Config of the enclosing HTML file, threaded through so a spliced
      *  {@code <script>} block inherits every JS/TS-specific config key (e.g. `js-import-order`),
@@ -458,11 +459,25 @@ public final class XmlSpecificRule {
         final Config  enclosingConfig
     )
     {
+        this(lang, lineLengthLimit, indentWidth, indentStyle, normalizeCommentStartCase, false, enclosingConfig);
+    }
+
+    public XmlSpecificRule(
+        final Lang    lang,
+        final int     lineLengthLimit,
+        final int     indentWidth,
+        final String  indentStyle,
+        final boolean normalizeCommentStartCase,
+        final boolean normalizeCommentEndPeriod,
+        final Config  enclosingConfig
+    )
+    {
         this.lang                      = lang;
         this.lineLengthLimit           = lineLengthLimit;
         this.indentWidth               = indentWidth;
         this.useTabs                   = "tabs".equals(indentStyle);
         this.normalizeCommentStartCase = normalizeCommentStartCase;
+        this.normalizeCommentEndPeriod = normalizeCommentEndPeriod;
         this.enclosingConfig           = enclosingConfig;
         this.html5TcGapLevel           = enclosingConfig != null ? enclosingConfig.html5TcGapLevel() : 0;
     }
@@ -1418,8 +1433,10 @@ public final class XmlSpecificRule {
 
     // ---- comment normalization ----
 
-    private String normComment(final String text)
+    private String normComment(final String rawText)
     {
+        final String text = normalizeCommentEndPeriod
+                ? ToolingCommentNormalizer.stripSoleTrailingPeriod(rawText) : rawText;
         if( !normalizeCommentStartCase || text.isEmpty() ) return text;
         int i = 0;
         while( i < text.length() && text.charAt(i) == ' ' ) i++;
@@ -1663,7 +1680,8 @@ public final class XmlSpecificRule {
                 lineLengthLimit,
                 indentWidth,
                 useTabs ? "tabs" : "spaces",
-                normalizeCommentStartCase
+                normalizeCommentStartCase,
+                normalizeCommentEndPeriod
             );
             // §2.4's XHTML idiom exception: `<style><![CDATA[ ... ]]></style>` unwraps, dispatches
             //  its inner text through the same CSS formatter as the plain (non-CDATA) case, then
@@ -1708,6 +1726,7 @@ public final class XmlSpecificRule {
             overrides.put( "indent-size", Integer.toString(indentWidth) );
             overrides.put("indent-style", useTabs ? "tabs" : "spaces");
             overrides.put("normalize-comment-start-case", normalizeCommentStartCase ? "on" : "off");
+            overrides.put("normalize-comment-end-period", normalizeCommentEndPeriod ? "on" : "off");
             jsConfig = Config.resolve(null, overrides);
         }
         final String  dedented    = dedent(n.raw).trim();

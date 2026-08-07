@@ -37,7 +37,8 @@ public final class FormatterCss extends FormatterSimpleBraced {
             config.lineLength(),
             config.indentSize(),
             config.indentStyle(),
-            config.isNormalizeCommentStartCase()
+            config.isNormalizeCommentStartCase(),
+            config.isNormalizeCommentEndPeriod()
         );
 
         return rule.format(content);

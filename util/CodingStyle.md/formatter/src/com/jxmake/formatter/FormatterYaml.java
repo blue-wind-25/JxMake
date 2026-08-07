@@ -33,7 +33,8 @@ public final class FormatterYaml extends FormatterCore {
     {
         if(formatOff) return content;
         final YamlSpecificRule rule = new YamlSpecificRule(
-            lang, config.lineLength(), config.indentSize(), config.isNormalizeCommentStartCase()
+            lang, config.lineLength(), config.indentSize(), config.isNormalizeCommentStartCase(),
+            config.isNormalizeCommentEndPeriod()
         );
 
         return rule.format(content);

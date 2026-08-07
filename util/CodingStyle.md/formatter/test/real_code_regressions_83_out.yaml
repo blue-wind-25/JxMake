@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Example Corp.
+# Copyright (C) 2024 Example Corp
 # SPDX-License-Identifier: MIT
 scrape_configs :
     - job_name        : "kubernetes-apiservers"
@@ -9,7 +9,7 @@ scrape_configs :
                   __meta_kubernetes_service_name,
                 ]
               action        : keep
-    - # A leading comment before the real keys of this list entry.
+    - # A leading comment before the real keys of this list entry
         region : eu-west-2
         name   : outscale
     - &highalert

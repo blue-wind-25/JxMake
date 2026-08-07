@@ -1090,7 +1090,7 @@ rewriting a standalone/unused for-loop increment (2 files,
 **Verdict: DONE.** Zero new formatter bugs found. The one idempotency diff
 is a confirming recurrence of the already-tracked `SwitchRule` issue.
 
-### `angular/angular` dogfood pass — clusters 1-3 FIXED, cluster 4 PARTIALLY FIXED (all 4 named root causes now landed; residual files exist outside the 4 named causes — see 2026-07-31 session below), cluster 5 RESOLVED (2026-08-05 — all 3/3 files now idempotent: `emit.ts` via single-pass GDR (2026-08-02), `user_metric_spec.ts`/`i18n_parse.ts` via `curly-general-scope-reindent-multipass` (landed 2026-08-03 in `STATE_CURLY_GDR.md` for `RDD_KEY_229`, re-validated fresh against the live corpus this session); see below — this is a per-corpus dogfood-recommendation note, `curly-general-scope-reindent`/`-multipass` both stay `off` by default project-wide)
+### `angular/angular` dogfood pass — clusters 1-3 FIXED, cluster 4 PARTIALLY FIXED (all 4 named root causes now landed; `RDD_KEY_248` (2026-08-06) separately fixed most residual files outside the 4 named causes; a 2026-08-07 root-cause-only session found the residual surface narrowed to 4 files, 2 in the known `processScope`/declaration-alignment family and 2 in a newly-identified, distinct `alignBracelessElseIfChain` root cause — see that session's note near the end of this section), cluster 5 RESOLVED (2026-08-05 — all 3/3 files now idempotent: `emit.ts` via single-pass GDR (2026-08-02), `user_metric_spec.ts`/`i18n_parse.ts` via `curly-general-scope-reindent-multipass` (landed 2026-08-03 in `STATE_CURLY_GDR.md` for `RDD_KEY_229`, re-validated fresh against the live corpus this session); see below — this is a per-corpus dogfood-recommendation note, `curly-general-scope-reindent`/`-multipass` both stay `off` by default project-wide)
 
 Repo: `/tmp/angular`, shallow clone (`--depth 1`), HEAD `5ad8231`
 (2026-07-24). Scope: 5394 `.ts` files (`.d.ts`/`.tsx` excluded) across
@@ -1420,6 +1420,181 @@ first (value = criticality weighed against difficulty):
 Next free fixture number unaffected by cluster 4/5 doc update (no new
 fixtures this session). Full corpus re-run deferred until cluster 4 root
 cause #3 lands, same pattern as `vuejs/core`/`lodash/lodash`.
+
+**2026-08-07 root-cause-only investigation session (NOT ATTEMPTED — no fix
+landed, doc-only). Re-ran the cluster-4 corpus fresh against the live
+`/tmp/angular` checkout to find what's still non-idempotent now that all 4
+named root causes plus `RDD_KEY_248` (the cluster-#3-sibling `processScope`
+narrower-re-run fix, landed 2026-08-06) are in place.**
+
+Scope: `packages/` (3900 `.ts`, non-`.d.ts`/non-`.tsx`) plus
+`devtools/.../shared/split/*.ts` (6 files, includes `split.component.ts`) —
+3906 files, round1→round2. Also specifically re-checked
+`compiler-cli/src/ngtsc/core/src/{compiler,host}.ts` and
+`split.component.ts`, the three files a prior session flagged as "not
+re-checked (missing from the checkout at re-check time)" — **all three are
+present in this checkout and are now idempotent** (zero diff both rounds).
+Of the 9 files a 2026-07-31 session named as "not fixed by this session"
+under root cause #3 (`format_date.ts`, `web_animations_player_spec.ts`,
+`parser.ts`, `jit_compiler_facade.ts`, `r3_template_transform.ts`,
+`util.ts`, `node_js_file_system.ts`, `input_transform.ts`, `migration.ts`),
+**7 are now idempotent** (`format_date.ts`, `parser.ts`,
+`jit_compiler_facade.ts`, `r3_template_transform.ts`, `util.ts`,
+`node_js_file_system.ts`, `migration.ts` — all fixed as a side effect of
+`RDD_KEY_248`, even though `RDD_KEY_248`'s own validation run didn't
+individually name them). Only 2 remain broken:
+`web_animations_player_spec.ts` and `input_transform.ts`.
+
+**Full re-scan result: only 7/3906 files still non-idempotent**, down from
+the ~23 originally cited (majority reduction). Of the 7:
+
+- 3 are the already-catalogued, unrelated, accepted **cluster 5**
+  architectural gap (`user_metric_spec.ts`, `emit.ts`, `i18n_parse.ts` —
+  inconsistent-source reindentation, opt-in fixable via
+  `curly-general-scope-reindent`/`-multipass`, see cluster 5's own section
+  above). Not cluster 4's concern, confirmed unchanged.
+- 2 are the **same architectural family** already root-caused
+  (`processScope`'s outer/inner double-pass + declaration-alignment/
+  call-wrap fits-check ordering, per `RDD_KEY_245`/`RDD_KEY_246`/
+  `RDD_KEY_248` and this file's cluster #3 sibling writeup), just in shapes
+  `RDD_KEY_248`'s narrower fix didn't cover:
+  - `web_animations_player_spec.ts:177-193` — a class-field declaration-
+    alignment grid (`effect : AnimationEffect | null = null;`,
+    `finished: Promise<Animation> = ...`, etc.) where round1 and round2
+    disagree on which rows are grouped together and how wide the `:`/`=`
+    columns are padded. Same "grid recomputed against a different
+    intermediate shape each round" mechanism as `RDD_KEY_248`'s
+    `commandLineParser.ts` repro, but for class-member declarations with
+    multi-line initializers (`Promise.resolve(\n {} as any\n)`), a context
+    `RDD_KEY_248`'s `reapplyClosingBraceAndDeclarationsPass` re-run wasn't
+    validated against. Not traced further at the pass level this session
+    (budget went to the genuinely new shape below) — very likely the same
+    fix extends here with more validation, not a new mechanism.
+  - `input_transform.ts:16-19` — a decorator-call-plus-declaration line
+    (`@Input( {...} ) inlineFunctionInput: any;`) that fits under
+    `lineLengthLimit` on round1 but gets wrapped onto two lines on round2.
+    Classic call-wrap-fits-check-measured-before-final-column-width
+    shape (root cause family of cluster 4 itself), not traced to a specific
+    method this session.
+
+- **2 are a genuinely NEW, distinct root cause, NOT the `processScope`
+  double-pass/declaration-alignment family** — `packages/core/src/render3/
+  instructions/shared.ts:793-796` and `packages/core/src/render3/view/
+  directive_outputs.ts` (same code shape, evidently copy-pasted between the
+  two files):
+
+  ```
+  if (typeof data === 'number') {
+    hostIndex = data;
+  } else {
+    [hostIndex, hostDirectivesStart, hostDirectivesEnd] = data;
+  }
+  ```
+
+  Minimal repro built and confirmed (`/tmp/mini.ts`-equivalent, a bare
+  `if(cond) stmt; else stmt;` with no wrappable call): round1 collapses the
+  braces (`BlockStructureRule.collapseSingleExpressionBlocks`, not gated by
+  `refuseUnrescuableCollapse` since both branches are short and fit) and
+  `alignBracelessElseIfChain` (`BlockStructureRule.java` line ~3092, the
+  root-cause-#3 "escape hatch" pass) column-aligns the `if`/`else` bodies,
+  producing `  if(typeof data === 'number') hostIndex = data;` /
+  `  else                         [hostIndex, ...] = data;` (both indented
+  2 spaces, `else` left-padded to align the body column). Reformatting this
+  output (round2) instead produces `  if(...) hostIndex = data;` /
+  `    else [hostIndex, ...] = data;` — the `else` line re-indented to 4
+  spaces (not 2) and left unaligned.
+
+  **Root cause, confirmed via debug prints in `alignBracelessElseIfChain`
+  (temporary, removed before commit — not present in the committed diff):**
+  the pass detects an `if`/bare-`else` chain by requiring the two lines'
+  raw leading-whitespace lengths to match exactly (`jIndent != indentLen`,
+  with one narrow recovery case for "the `if` line itself was left-padded
+  wider by a previous round", i.e. `jIndent < indentLen`). Instrumented
+  entry dump on round1: `if` line `indentLen=2`, `else` line `jIndent=2` —
+  match, chain detected (`chain.size()=2`), alignment applied. Same dump on
+  round2, on round1's own output as input: `if` line still `indentLen=2`
+  (unchanged), but the `else` line now measures `jIndent=4` — **some pass
+  earlier in the pipeline than `alignBracelessElseIfChain` (called from
+  `FormatterCurly.format` at line 361, near the end of the pipeline) has
+  already re-indented the standalone `else` line to one level deeper than
+  its paired `if`, before `alignBracelessElseIfChain` ever sees it.**
+  Because `jIndent(4) > indentLen(2)`, the one existing recovery case
+  (which only handles the `if` line being padded wider, not the `else` line
+  being indented deeper) doesn't apply, the chain-scan `break`s at
+  `chain.size()==1`, and the whole file falls through with no alignment —
+  producing the plain, non-chain-aware default indent for the orphaned
+  `else` line instead. This earlier indent-computation pass was not
+  individually identified this session (ran out of budget after confirming
+  the exact `jIndent` values at the chain-scan callsite) — it is not
+  `collapseSingleExpressionBlocks` (a no-op on round2's input, since there
+  are no braces left to collapse) and not `alignBracelessElseIfChain`
+  itself; most likely a generic structural/statement indent-fixup pass
+  earlier in `FormatterCurly.format`'s Phase 0/1 sequence that treats an
+  already-braceless standalone `else` line (with no adjacent brace pair of
+  its own) as an orphaned continuation statement one level deeper than its
+  paired `if`, rather than recognizing it as a chain member — a
+  determination that (for reasons not traced) comes out differently
+  depending on whether the `else` line's physical shape already carries a
+  previous round's `alignBracelessElseIfChain` column-padding artifact
+  or not.
+
+  **Is this the same `processScope` double-pass mechanism?** No — this is a
+  different mechanism, confirmed via evidence, not assumed. The `processScope`
+  family's signature is a *declaration/assignment/signature grouping decision*
+  (column widths, which rows belong to the same alignment group) computed
+  twice over overlapping ranges within one `format()` call. This bug is
+  entirely different in shape: a single *indentation* value for one
+  statement line disagreeing between rounds because of how an EARLIER pass's
+  indent computation reacts to the PRESENCE of a LATER pass's own previous-
+  round artifact (`alignBracelessElseIfChain`'s left-over spacing) still
+  baked into the input text — the divergence is confirmed to occur before
+  `alignBracelessElseIfChain` itself runs, and `alignBracelessElseIfChain`
+  is a single-pass, single-invocation-per-`format()`-call method (no
+  outer/inner double-recursion of the kind `processScope` does). This is
+  closer in shape to the `enforceComplexityPadding`/
+  `enforceAttributeAndSpliceBracketPadding`/`enforceInitializerBraceSpacing`
+  precedent family ("a pass's decision depends on a later pass's
+  not-yet-produced or already-produced artifact") than to the
+  `processScope` recursion-depth family — but it is a genuinely distinct,
+  fifth instance of that broader pattern, not previously named for cluster 4.
+
+  **Candidate fix approach (NOT ATTEMPTED — root-cause-only, no design
+  validated this session):** widen `alignBracelessElseIfChain`'s chain-
+  recovery case to also tolerate `jIndent > indentLen` for a bare-`else`
+  member specifically (mirroring the existing `jIndent < indentLen`
+  recovery for the `if` line — re-anchor `indentLen` to the narrower of the
+  two and strip whatever the earlier pass added, the same "re-derive from a
+  fresh unpadded baseline" strategy the existing recovery case already
+  uses), OR — more robustly — identify and fix the earlier indent-fixup
+  pass so it never treats a bare `else` differently based on the presence
+  of stale alignment whitespace in the first place (would need that pass
+  identified first; not done this session). Risk/blast radius: MEDIUM —
+  `alignBracelessElseIfChain` is JS/TS-and-Kotlin-shared machinery
+  (`KotlinSpecificRule.alignBracelessElseIfChain` is a named sibling per
+  this file's own javadoc cross-refs) already flagged in this exact section
+  as fragile (root cause #3's reverted first attempt broke 5 fixtures); any
+  change to its chain-detection condition needs the same full `make test`
+  plus multi-corpus real-code validation rigor already used for root causes
+  #1-#4. The alternative (find & fix the earlier indent pass) has unknown
+  blast radius until that pass is actually identified — likely broader,
+  since it's structural/statement indentation, not JS/TS-specific.
+  Confidence in the root cause itself: HIGH (directly observed via debug
+  prints, not inferred). Confidence in either fix direction succeeding
+  without new regressions: LOW/UNVALIDATED — genuinely not attempted.
+
+**Cluster 4 status update:** with `RDD_KEY_248` now covering most of the
+`processScope`/declaration-alignment-family residuals (7 of 9 previously-
+named "not fixed" files newly idempotent, plus both previously-uncheckable
+files `compiler.ts`/`host.ts` and `split.component.ts` confirmed clean),
+cluster 4's remaining open surface has narrowed to 4 files: 2 in the known
+family (`web_animations_player_spec.ts`, `input_transform.ts` — likely
+`RDD_KEY_248`-adjacent, not independently root-caused this session) and 2
+in the newly-identified `alignBracelessElseIfChain`/earlier-indent-pass
+interaction described above (`shared.ts`, `directive_outputs.ts`). Still
+OPEN. No source code change landed this session (temporary debug prints in
+`BlockStructureRule.java` added, used, and fully reverted —
+`git status` clean except this state file). `make test` not re-run (no
+source change to validate).
 
 ## `microsoft/TypeScript` dogfood pass — 3 of 4 clusters FIXED; cluster #3 PARTIALLY addressed 2026-07-31, further reduced by `RDD_KEY_248` (2026-08-06) and reconfirmed 2026-08-07 (see angular cluster 4's root-cause-#3 session write-up — the braceless-collapse shape is fixed; `RDD_KEY_248` separately fixed the declaration-alignment sibling shape incl. `commandLineParser.ts` itself; a fresh 2026-08-07 root-cause-only session found only 14/601 files still idempotency-diverging, including a newly-identified, not-yet-fixed `applyAssignmentsPass` sibling instance of the same `RDD_KEY_248` family — see Category 2 cluster #3's 2026-08-07 note below for detail)
 

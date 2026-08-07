@@ -3329,67 +3329,53 @@ Real-code regressions:
                                                         path, not JS/TS-specific.
 
   real_code_regressions_184_inp/out.ts               -- Minimized from `angular/angular` cluster 4's
-                                                        `shared.ts`/`directive_outputs.ts`: a braceless bare
-                                                        `if`/`else` (short enough to fit unwrapped) whose
-                                                        `else` an earlier structural indent pass re-indents
-                                                        one level deeper than its paired `if` on a second
-                                                        format round, defeating
+                                                        `shared.ts`/`directive_outputs.ts` (RDD_KEY_269): a
+                                                        braceless bare `if`/`else` whose `else` an earlier
+                                                        indent pass re-indents deeper than its paired `if` on
+                                                        round 2, defeating
                                                         `BlockStructureRule.alignBracelessElseIfChain`'s
-                                                        chain-recovery detection (it only tolerated the `if`
-                                                        line being padded wider, not the bare `else` being
-                                                        re-indented deeper) and losing the column alignment.
-                                                        Fixed by widening the chain-recovery case to also
-                                                        strip a bare `else`'s excess indentation back down to
-                                                        its paired `if`'s indent. Shared
+                                                        chain-recovery (it only tolerated the `if` being
+                                                        padded wider, not the `else` being re-indented
+                                                        deeper). Fixed by also stripping a bare `else`'s
+                                                        excess indentation back to its paired `if`. Shared
                                                         `BlockStructureRule`/`KotlinSpecificRule` code path.
 
   real_code_regressions_185_inp/out.ts               -- Minimized from `microsoft/TypeScript`'s
-                                                        `harness/collectionsImpl.ts` (`Metadata.set`): a
-                                                        subscript-assignment statement (`this._map[...] =
-                                                        ...`) long enough to have its `[...]` wrapped by
-                                                        `enforceCallLineBreaking`, followed by a short
-                                                        assignment (`this._size = -1;`) that
+                                                        `harness/collectionsImpl.ts` (`Metadata.set`,
+                                                        RDD_KEY_270): a subscript-assignment statement whose
+                                                        `[...]` gets wrapped by `enforceCallLineBreaking`,
+                                                        followed by a short assignment that
                                                         `applyAssignmentsPass` grouped/padded against the
-                                                        first statement's pre-wrap column width -- stable on
-                                                        the padded round, but the group membership/padding
-                                                        disagreed once the subscript assignment's own wrap
-                                                        state changed. Fixed by extending the existing
+                                                        first statement's pre-wrap width -- disagreed once
+                                                        the subscript assignment's own wrap state changed.
+                                                        Fixed by extending the existing
                                                         `ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass`
-                                                        narrow re-run (RDD_KEY_248) with a third pass,
-                                                        `applyAssignmentsPass`, run after the closing-brace
-                                                        and declarations passes so it also sees the
+                                                        re-run (RDD_KEY_248) with a third pass,
+                                                        `applyAssignmentsPass`, so it also sees the
                                                         post-call-wrap shape.
 
   real_code_regressions_186_inp/out.ts               -- Minimized from `angular/angular`'s
-                                                        `web_animations_player_spec.ts`/ `input_transform.ts`
-                                                        (cluster 4's residual group #3): two independent,
-                                                        both-JS/TS-only idempotency bugs in the same
-                                                        `processScope`/call-wrap-ordering family. (a) A
-                                                        class-field declaration-alignment grid member
-                                                        (STYLE.md §11.2) whose own initializer gets wrapped
-                                                        onto multiple lines by a later call-wrap pass --
-                                                        `tryParseClassField` previously bailed to
-                                                        "unrecognized member" on any embedded NEWLINE in the
-                                                        initializer, misclassifying the field once fed its own
-                                                        round1 output and splitting/re-widening the alignment
-                                                        group differently on round2. Fixed by collapsing the
-                                                        multi-line initializer back to its logical single-line
-                                                        text (soft-space join) instead of bailing. (b) A
-                                                        decorator argument (`@Input({transform: (value:
-                                                        string|number, ...) => ...})`) whose union-type
-                                                        spacing (`string|number` -> `string | number`) is
-                                                        applied by a Phase 4 pass that runs *after*
-                                                        `enforceDecoratorOverflowCascade`'s own "does the
-                                                        inline decorator+target line fit" measurement -- a
-                                                        fresh format stays inline and self-violates
-                                                        `lineLengthLimit` by 2 chars, while a reformat of that
-                                                        output measures the already-widened text and drops the
-                                                        target to its own line. Fixed by pulling
-                                                        `enforceUnionIntersectionSpacing`/
+                                                        `web_animations_player_spec.ts`/`input_transform.ts`
+                                                        (cluster 4 residual group #3, RDD_KEY_271): two
+                                                        independent JS/TS-only idempotency bugs. (a) A
+                                                        class-field alignment-grid member (STYLE.md §11.2)
+                                                        whose initializer gets wrapped by a later call-wrap
+                                                        pass -- `tryParseClassField` bailed to "unrecognized
+                                                        member" on any embedded NEWLINE, misclassifying the
+                                                        field once fed its own round-1 output. Fixed by
+                                                        collapsing the multi-line initializer back to its
+                                                        logical single-line text instead of bailing. (b) A
+                                                        decorator argument's union-type spacing
+                                                        (`string|number` -> `string | number`) is applied by
+                                                        a Phase 4 pass that runs *after*
+                                                        `enforceDecoratorOverflowCascade`'s inline-fit
+                                                        measurement, so a fresh format stays inline and
+                                                        self-violates `lineLengthLimit`, while a reformat
+                                                        measures the already-widened text and wraps. Fixed by
+                                                        pulling `enforceUnionIntersectionSpacing`/
                                                         `enforceTypeColonSpacing` forward to run before
-                                                        `enforceDecoratorOverflowCascade`, same fix shape as
-                                                        the other Phase-4-pulled- forward passes above it in
-                                                        `FormatterCurly.format`.
+                                                        `enforceDecoratorOverflowCascade`, same shape as the
+                                                        other Phase-4-pulled-forward passes above it.
 
 How Tests Are Run
 -----------------

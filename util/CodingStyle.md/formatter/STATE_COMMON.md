@@ -618,3 +618,18 @@ on the doubled `*` continuation marker; new closing-brace annotations
 whitespace, strips a sole trailing `.` on both sides, exempts closing-brace
 annotations from the "unexplained addition" check); re-ran clean, all 9
 `tools/gru` files zero comment mismatches. No classifier fix was needed.
+
+**2026-08-08: broadened to all of `tools/*` (simplified process, no
+round2-JAR fixed-point check).** Scope widened from the `tools/gru`-only
+`.java` example above to every `.java`/`.py`/`.js` file under `tools/*`
+(`tools/classifier_weights`, `tools/gru`, `tools/verifiers` — 40 files
+total), using the already-built `target/code-formatter-*.jar` via
+`code-formatter.sh` rather than a fresh trial build, since the round2-JAR
+fixed-point check (step 3 above) was explicitly skipped for this run. Idempotency
+(round1 vs round2) empty diff; content-diff clean on all 40 files
+(`java_content_diff.sh`/`python_content_diff.sh`/`js_ts_content_diff.sh`).
+8 files had an actual diff, all trailing-period comment normalization
+(STYLE.md #15) — same class of change as the original `tools/gru` run
+above, not a bug. Adopted over real `tools/*`; `make test` unaffected
+(261/261 forward + idempotency, before and after). See `STATE_DOGFOOD.md`
+for the summary row.

@@ -70,6 +70,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Java | STATE_C_CPP_JAVA.md | RobotCoding gui_frontend | DONE | |
 | Java | STATE_C_CPP_JAVA.md | self-dogfood (formatter's own src/) | DONE | |
 | Java | STATE_COMMON.md | dogfood-and-adopt (formatter's own src/, real adoption, 2026-08-04) | DONE | round1/round2 idempotent, fixed point vs. original confirmed; round1 adopted over real `src/` (8 files, cosmetic-only diff); rebuilt JAR re-passed `make test`/`make test-server` (244/244) |
+| Java/Python3/JS | STATE_COMMON.md | dogfood-and-adopt (tools/* -- classifier_weights, gru, verifiers; simplified, no round2-JAR fixed-point check, 2026-08-08) | DONE | 40 files (13 .java, 18 .py, 9 .js); round1/round2 idempotent (empty diff); content-diff clean on all 40 via java_content_diff.sh/python_content_diff.sh/js_ts_content_diff.sh; round1 adopted over real `tools/*` (8 files changed, trailing-period comment normalization only, STYLE.md #15); `make test` unaffected (261/261 before and after) |
 | Java | STATE_C_CPP_JAVA.md | VMA-GIT/anemonesoft (local) | DONE | |
 | Kotlin | STATE_KOTLIN.md | arrow-kt/arrow | DONE | |
 | Kotlin | STATE_KOTLIN.md | gui_frontend_android | DONE | |

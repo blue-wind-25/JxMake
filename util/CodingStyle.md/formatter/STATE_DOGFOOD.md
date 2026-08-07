@@ -114,21 +114,21 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Python3 | STATE_PYTHON3.md | pallets/flask | DONE | |
 | Python3 | STATE_PYTHON3.md | psf/black | DONE | |
 | Python3 | STATE_PYTHON3.md | python/cpython | DONE | |
-| Makefile | STATE_TOOLING.md | serge-sans-paille/frozen | NOT STARTED | reusable from prior C/C++ dogfood clone (`/tmp/frozen`): `tests/Makefile` + `benchmarks/Makefile` (small but real assignment/target/recipe shape) |
-| Makefile | STATE_TOOLING.md | fmtlib/fmt | NOT STARTED | prior C/C++ dogfood corpus; re-check clone for root/`test` Makefiles before any new clone (not present in current `/tmp` sparse trees) |
-| Makefile | STATE_TOOLING.md | ericniebler/range-v3 | NOT STARTED | prior C/C++ dogfood corpus; classic multi-target Make layout when full tree is present |
-| Makefile | STATE_TOOLING.md | taocpp/PEGTL | NOT STARTED | prior C/C++ dogfood corpus; small project Makefile set |
-| Makefile | STATE_TOOLING.md | python/cpython | NOT STARTED | prior Python3 dogfood clone (`/tmp/cpython`) is sparse on Make files this session (0 `Makefile`/`*.mk` under walk); full tree has root `Makefile`/`Makefile.pre.in` — restore/checkout those paths rather than recloning whole repo |
-| Bash | STATE_TOOLING.md | javaparser/javaparser | NOT STARTED | reusable from prior Java/GDR clone (`/tmp/javaparser_gdr`): 7 real `*.sh` release/generator scripts (`run_*.sh`, `scripts/run_generate_changelog_*.sh`), shebang `#!/usr/bin/env bash` |
-| Bash | STATE_TOOLING.md | jenkinsci/jenkins | NOT STARTED | reusable from prior Java dogfood-related tree (`/tmp/jenkins_scope`): `ath.sh` + a couple test-resource `.sh` files |
-| Bash | STATE_TOOLING.md | wordpress/wordpress-develop | NOT STARTED | reusable from prior HTML5 dogfood clone (`/tmp/wordpress-develop`): a few `.sh` under `tools/` and `.devcontainer/` |
-| Bash | STATE_TOOLING.md | nvm-sh/nvm | NOT STARTED | needs clone; classic pure-Bash install/use scripts, medium size, high rule-surface for pipes/`if`/`case` |
-| Bash | STATE_TOOLING.md | acmesh-official/acme.sh | NOT STARTED | needs clone; single large real-world Bash script (pipes, functions, cases) |
-| Bash | STATE_TOOLING.md | ohmyzsh/ohmyzsh | NOT STARTED | needs clone; large `*.sh` corpus — start with a subdirectory slice, not the whole tree |
-| PowerShell | STATE_TOOLING.md | PowerShell/PowerShell | NOT STARTED | needs clone; upstream engine + many `*.ps1`/`*.psm1` under `test/`/`tools/` — slice to scripts, skip huge C# tree |
-| PowerShell | STATE_TOOLING.md | PowerShell/PSScriptAnalyzer | NOT STARTED | needs clone; analyzer rules/tests are idiomatic `.ps1` (hashtables, pipelines, switch) |
-| PowerShell | STATE_TOOLING.md | actions/runner-images | NOT STARTED | needs clone; GitHub Actions image provisioning is heavily `.ps1` (Windows images) |
-| PowerShell | STATE_TOOLING.md | microsoft/azure-pipelines-tasks | NOT STARTED | needs clone; large real task scripts (pipelines, scriptblocks, hashtables) — pick a task-subset |
+| Makefile | STATE_TOOLING.md | serge-sans-paille/frozen | NOT STARTED | materialised `/tmp/frozen` (prior C/C++ dogfood): `tests/Makefile` + `benchmarks/Makefile` |
+| Makefile | STATE_TOOLING.md | fmtlib/fmt | NOT STARTED | materialised `/tmp/fmt` (full shallow clone 2026-08-07) |
+| Makefile | STATE_TOOLING.md | ericniebler/range-v3 | NOT STARTED | `/tmp/range-v3` present but Make-empty / incomplete prior checkout; Makefile restore skipped |
+| Makefile | STATE_TOOLING.md | taocpp/PEGTL | NOT STARTED | materialised `/tmp/PEGTL` (full shallow clone 2026-08-07) |
+| Makefile | STATE_TOOLING.md | python/cpython | NOT STARTED | `/tmp/cpython` present but Make-sparse; Makefile-only restore skipped |
+| Bash | STATE_TOOLING.md | javaparser/javaparser | NOT STARTED | materialised `/tmp/javaparser_gdr` (prior): 7 `*.sh` release/generator scripts |
+| Bash | STATE_TOOLING.md | jenkinsci/jenkins | NOT STARTED | materialised `/tmp/jenkins_scope` (prior): `ath.sh` + test-resource `.sh` |
+| Bash | STATE_TOOLING.md | wordpress/wordpress-develop | NOT STARTED | materialised `/tmp/wordpress-develop` (prior): a few `tools/`/`.devcontainer/` `.sh` |
+| Bash | STATE_TOOLING.md | nvm-sh/nvm | NOT STARTED | materialised `/tmp/nvm` (full shallow clone 2026-08-07) |
+| Bash | STATE_TOOLING.md | acmesh-official/acme.sh | NOT STARTED | materialised `/tmp/acme.sh` (full shallow clone 2026-08-07) |
+| Bash | STATE_TOOLING.md | ohmyzsh/ohmyzsh | NOT STARTED | materialised `/tmp/ohmyzsh` (shallow clone + strip to 17 `*.sh`/`.bash` only, 2026-08-07) |
+| PowerShell | STATE_TOOLING.md | PowerShell/PowerShell | NOT STARTED | materialised `/tmp/PowerShell` (selective 505 `*.ps1`/`*.psm1` via GitHub raw, 2026-08-07; no full C# tree) |
+| PowerShell | STATE_TOOLING.md | PowerShell/PSScriptAnalyzer | NOT STARTED | materialised `/tmp/PSScriptAnalyzer` (full shallow clone 2026-08-07) |
+| PowerShell | STATE_TOOLING.md | actions/runner-images | NOT STARTED | materialised `/tmp/runner-images` (selective 247 `*.ps1`/`*.psm1`, 2026-08-07) |
+| PowerShell | STATE_TOOLING.md | microsoft/azure-pipelines-tasks | NOT STARTED | **skipped** — selective download aborted mid-way (~567/1145); partial tree removed; do not treat as present |
 
 **Note on `microsoft/TypeScript`'s status**: cluster #3's shared braceless-
 collapse root cause (same as `angular/angular` cluster 4) is now fixed, but

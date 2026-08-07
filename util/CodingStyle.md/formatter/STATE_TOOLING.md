@@ -285,42 +285,32 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       register in `STATE_DOGFOOD.md`. Makefile corpus candidates: real
       `Makefile`s from existing dogfood repos already cloned for other
       jobs may be reusable — check before cloning anything new.
-      Sourced 2026-08-07 after a `/tmp` walk of existing dogfood checkouts
-      (no new clones). All rows registered in `STATE_DOGFOOD.md` as
-      `NOT STARTED` under languages Makefile/Bash/PowerShell. Prefer the
-      **reusable** rows first when a run starts:
+      Sourced 2026-08-07 after a `/tmp` walk of existing dogfood checkouts;
+      missing repos cloned the same day (git 1.8 has no partial-clone/
+      sparse-checkout — large trees used selective raw download of
+      `*.ps1`/`*.psm1` or clone+strip). User aborted the last oversized
+      pull (`azure-pipelines-tasks`); remaining not fetched. All rows stay
+      `NOT STARTED` in `STATE_DOGFOOD.md` until a real dogfood *run*.
 
-      **Makefile (prefer existing dogfood trees):**
-      - `serge-sans-paille/frozen` — **reusable now** (`/tmp/frozen`):
-        `tests/Makefile`, `benchmarks/Makefile`
-      - `fmtlib/fmt` — prior C/C++ corpus; restore Make files from that
-        tree before recloning
-      - `ericniebler/range-v3` — prior C/C++ corpus
-      - `taocpp/PEGTL` — prior C/C++ corpus
-      - `python/cpython` — prior Python3 clone at `/tmp/cpython` is Make-
-        sparse this session; checkout root `Makefile`/`Makefile.pre.in`
-        paths rather than a full reclone
+      **Available under `/tmp` now (dir name = repo basename convention):**
+      - Makefile: `/tmp/frozen` (prior), `/tmp/fmt`, `/tmp/PEGTL`
+      - Bash: `/tmp/javaparser_gdr`, `/tmp/jenkins_scope`,
+        `/tmp/wordpress-develop` (prior); `/tmp/nvm`, `/tmp/acme.sh`,
+        `/tmp/ohmyzsh` (17 `*.sh` after strip)
+      - PowerShell: `/tmp/PSScriptAnalyzer` (full shallow),
+        `/tmp/PowerShell` (505 `*.ps1`/`*.psm1` selective),
+        `/tmp/runner-images` (247 `*.ps1`/`*.psm1` selective)
 
-      **Bash:**
-      - `javaparser/javaparser` — **reusable now** (`/tmp/javaparser_gdr`):
-        7 `*.sh` release/generator scripts (`#!/usr/bin/env bash`)
-      - `jenkinsci/jenkins` — **reusable** (`/tmp/jenkins_scope`): `ath.sh`
-        + test-resource `.sh`
-      - `wordpress/wordpress-develop` — **reusable**
-        (`/tmp/wordpress-develop`): a few `tools/`/`.devcontainer/` `.sh`
-      - `nvm-sh/nvm` — needs clone (classic pure-Bash, medium size)
-      - `acmesh-official/acme.sh` — needs clone (one large real script)
-      - `ohmyzsh/ohmyzsh` — needs clone (large; slice a subdirectory)
+      **Skipped / not usable this session:**
+      - `microsoft/azure-pipelines-tasks` — download aborted mid-way
+        (~567/1145); partial tree removed
+      - `ericniebler/range-v3` — `/tmp/range-v3` present but empty of
+        Make files (broken/incomplete prior checkout); Makefile-only
+        restore not completed
+      - `python/cpython` — `/tmp/cpython` present but Make-sparse;
+        Makefile-only restore not completed
 
-      **PowerShell (none present in current `/tmp` dogfood clones):**
-      - `PowerShell/PowerShell` — needs clone; slice to `*.ps1`/`*.psm1`,
-        skip the huge C# engine tree
-      - `PowerShell/PSScriptAnalyzer` — needs clone; idiomatic rule/test
-        scripts
-      - `actions/runner-images` — needs clone; Windows image `.ps1`
-      - `microsoft/azure-pipelines-tasks` — needs clone; task-subset only
-
-      No dogfood *run* yet — listing only.
+      No dogfood *run* yet — listing + materialize only.
 - [x] Update `CLAUDE.md`'s implementation-status paragraph, `README.md`,
       `../README.txt` once any of the three moves from scaffold to real
       logic (do not update ahead of actual landed code — see

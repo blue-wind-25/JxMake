@@ -27,7 +27,9 @@ public final class FormatterPowerShell extends FormatterCore {
     )
     {
         if(formatOff) return content;
-        final PowerShellSpecificRule rule = new PowerShellSpecificRule( config.indentSize() );
+        final PowerShellSpecificRule rule = new PowerShellSpecificRule(
+            config.indentSize(), config.isNormalizeCommentStartCase(), config.isNormalizeCommentEndPeriod()
+        );
 
         return rule.format(content);
     }

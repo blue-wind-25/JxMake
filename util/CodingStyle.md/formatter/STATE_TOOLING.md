@@ -74,17 +74,18 @@ started (docs-only, no code landed yet).
 | RDD_KEY_258 | PowerShell §3.6: `{`/`}` spacing applies everywhere, including single-line scriptblocks |
 | RDD_KEY_259 | (**REVERSED by RDD_KEY_260** — no longer in effect) Comment normalization for all three reuses the shared comment-classifier pipeline — premise was factually wrong, see RDD_KEY_260 |
 | RDD_KEY_260 | **REVERSES RDD_KEY_259** — the shared classifier pipeline is curly-family-only (`MiscRuleCore`/`FormatterCurly`), not language-agnostic; Makefile/Bash/PowerShell comment normalization, if added, follows the simpler TOML-style ad hoc pattern instead |
+| RDD_KEY_261 | Comment normalization landed (refines, doesn't reverse, RDD_KEY_260): shared `ToolingCommentNormalizer` (start-case + end-period, reusing the existing global config keys) wired into all three; Bash alone gets a Unix-tool-name no-capitalize word list, Makefile/PowerShell get plain cap only |
 
 ---
 
 ## Config
 
-No config keys yet — nothing implemented. Each language will likely need
-at minimum an enable/disable gate before landing real logic (mirrors how
-other high-risk/new-scope work in this codebase ships default-off behind
-a flag, e.g. `curly-general-scope-reindent`, `html5-tc-gap-level`) —
-confirm with the user whether that precedent should apply here, don't
-assume.
+No language-specific config keys — the five/six fixed-rule-list transforms
+per language are unconditional (mirrors the "no gate" precedent already set
+by the rest of this job, since none of RDD_KEY_254–RDD_KEY_258 asked for
+one). Comment normalization (RDD_KEY_261) reuses the existing global
+`normalize-comment-start-case`/`normalize-comment-end-period` keys already
+defined in `Config.java` for JSON/YAML/CSS/TOML/XML — no new keys added.
 
 ## Test Fixtures (Local)
 
@@ -311,6 +312,21 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
         Makefile-only restore not completed
 
       No dogfood *run* yet — listing + materialize only.
+- [x] Implement comment normalization for Makefile/Bash/PowerShell
+      (RDD_KEY_261) -- previously untouched entirely (STYLE_TOOLING.md §0).
+      New shared `ToolingCommentNormalizer` (first-letter capitalization +
+      sole-trailing-period stripping, no classifier/GRU dependency) wired
+      into all three via the existing global `normalize-comment-start-case`/
+      `normalize-comment-end-period` config keys (no new keys). Bash's
+      `BashSpecificRule` gets an additional `NO_CAPITALIZE_TOOLS`
+      word-exception list (~30 common Unix tool names: grep, awk, sed, head,
+      tail, etc.) so a comment opening with a bare tool name stays lowercase
+      -- Makefile/PowerShell get plain cap only (user-confirmed scope, see
+      RDD_KEY_261). `test/{bash,makefile,powershell}_combined_out.*`
+      regenerated from the live JAR (copyright-header trailing period
+      stripped, a few lowercase comment openers capitalized, Bash's
+      tool-name lines deliberately still lowercase) and reverified
+      idempotent. `make test` clean: 251/251 forward + idempotency.
 - [x] Update `CLAUDE.md`'s implementation-status paragraph, `README.md`,
       `../README.txt` once any of the three moves from scaffold to real
       logic (do not update ahead of actual landed code — see

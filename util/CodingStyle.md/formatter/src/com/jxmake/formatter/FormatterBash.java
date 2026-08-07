@@ -26,7 +26,9 @@ public final class FormatterBash extends FormatterCore {
     )
     {
         if(formatOff) return content;
-        final BashSpecificRule rule = new BashSpecificRule( config.indentSize() );
+        final BashSpecificRule rule = new BashSpecificRule(
+            config.indentSize(), config.isNormalizeCommentStartCase(), config.isNormalizeCommentEndPeriod()
+        );
 
         return rule.format(content);
     }

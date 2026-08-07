@@ -28,7 +28,9 @@ public final class FormatterMakefile extends FormatterCore {
     )
     {
         if(formatOff) return content;
-        final MakefileSpecificRule rule = new MakefileSpecificRule( config.indentSize() );
+        final MakefileSpecificRule rule = new MakefileSpecificRule(
+            config.indentSize(), config.isNormalizeCommentStartCase(), config.isNormalizeCommentEndPeriod()
+        );
 
         return rule.format(content);
     }

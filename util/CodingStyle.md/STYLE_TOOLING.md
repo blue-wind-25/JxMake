@@ -16,11 +16,15 @@ not curly-brace-family languages in the same sense C/C++/Java/Kotlin are).
 
 ## 0. Comments (shared across all three)
 
-All three languages use `#` line comments. Comment normalization is **not**
-part of the fixed rule lists in §1–§3. If normalization is added later, it
-is limited to a simple optional first-letter capitalization of the comment
-body (the same ad hoc pattern used for TOML and other non-curly languages)
-— not the curly-brace-family comment-classifier pipeline.
+All three languages use `#` line comments (PowerShell also has `<# ... #>`
+block comments, left untouched — out of scope). Comment normalization is
+**not** part of the fixed rule lists in §1–§3; it is a separate, optional
+pass applied to `#` line comments only: first-letter capitalization of the
+comment body, and stripping a sole trailing `.` (the same ad hoc pattern
+used for TOML and other non-curly languages) — not the curly-brace-family
+comment-classifier pipeline. Bash additionally skips capitalization when the
+comment opens with a common Unix tool name (e.g. `grep`, `awk`, `sed`) —
+Makefile and PowerShell capitalize unconditionally.
 
 ---
 

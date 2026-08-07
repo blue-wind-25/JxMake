@@ -8,7 +8,10 @@
 package com.jxmake.formatter.rules;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -29,14 +32,33 @@ import java.util.regex.Pattern;
  * function brace placement, §2.4 case formatting), guarded by a per-original-line "pure code line"
  * flag (first non-whitespace character is code, not opaque) computed during pass A so structural
  * rules never touch a heredoc-body or full-comment line.
+ *
+ * <p>Comments also get the optional §0 ad hoc normalization (RDD_KEY_261): first-letter
+ * capitalization (skipped when the comment's leading word is a common Unix tool name -- comments
+ * routinely open with one, e.g. "grep for the pattern", and it must not be capitalized) and
+ * sole-trailing-period stripping, both via {@link ToolingCommentNormalizer}, applied to each `#`
+ * line-comment run in pass A.
  */
 public final class BashSpecificRule {
 
-    private final int indentWidth;
+    /** Common Unix tool names left lowercase at the start of a comment (RDD_KEY_261). */
+    private static final Set<String> NO_CAPITALIZE_TOOLS = new HashSet<>( Arrays.asList(
+        "awk", "grep", "sed", "head", "tail", "cut", "sort", "uniq", "tr", "xargs", "find",
+        "diff", "tar", "curl", "wget", "ssh", "git", "cat", "echo", "printf", "wc", "chmod",
+        "chown", "ln", "mv", "cp", "rm", "mkdir", "ps", "kill", "du", "df"
+    ) );
 
-    public BashSpecificRule(final int indentWidth)
+    private final int     indentWidth;
+    private final boolean normalizeCommentStartCase;
+    private final boolean normalizeCommentEndPeriod;
+
+    public BashSpecificRule(
+        final int indentWidth, final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod
+    )
     {
-        this.indentWidth = Math.max(1, indentWidth);
+        this.indentWidth               = Math.max(1, indentWidth);
+        this.normalizeCommentStartCase = normalizeCommentStartCase;
+        this.normalizeCommentEndPeriod = normalizeCommentEndPeriod;
     }
 
     // ---- Pass A: char-level classification + token-level transforms ---------------------------
@@ -113,6 +135,7 @@ public final class BashSpecificRule {
         final List<Frame>         stack           = new ArrayList<>();
         final RunBuffer           buf             = new RunBuffer();
         final List<HeredocSpec>   pendingHeredocs = new ArrayList<>();
+        final StringBuilder       commentBody     = new StringBuilder();
               int                 i               = 0;
 
         while( i < content.length() ) {
@@ -122,13 +145,15 @@ public final class BashSpecificRule {
             if( top != null && top.type == '#' ) {
                 if(c == '\n') {
                     stack.remove( stack.size() - 1 );
+                    emitNormalizedComment( buf, commentBody.toString() );
+                    commentBody.setLength(0);
                     kind[i] = 'C';
                     buf.emit(c, 'C');
                     ++i;
                     continue;
                 }
                 kind[i] = 'O';
-                buf.emit(c, 'O');
+                commentBody.append(c);
                 ++i;
                 continue;
             }
@@ -323,11 +348,22 @@ public final class BashSpecificRule {
             ++i;
         } // while
 
+        if( commentBody.length() > 0 ) emitNormalizedComment( buf, commentBody.toString() );
+
         final PassAResult result = new PassAResult();
         result.transformed = buf.result();
         result.kind         = kind;
 
         return result;
+    }
+
+    /** Normalizes a `#` line comment's body (text after the `#`) and re-emits it as opaque ('O') characters. */
+    private void emitNormalizedComment(final RunBuffer buf, final String body)
+    {
+        final String normalized = ToolingCommentNormalizer.normalize(
+            body, normalizeCommentStartCase, normalizeCommentEndPeriod, NO_CAPITALIZE_TOOLS
+        );
+        for( int i = 0; i < normalized.length(); ++i ) buf.emit( normalized.charAt(i), 'O' );
     }
 
     /** Returns the index just past the heredoc delimiter token, or {@code start} if none parses (e.g. bare `<<`) */

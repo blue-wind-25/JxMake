@@ -18,24 +18,33 @@ import java.util.regex.Pattern;
  * from everything else. Implements §1.1 (`=`/`:=`/`+=`/`?=` alignment groups, broken by a blank
  * line or any non-matching line per RDD_KEY_254), §1.2 (backslash-continuation alignment under the
  * first line's value start column), §1.3 (target `:` spacing per RDD_KEY_255), and §1.4
- * (`ifdef`/`ifeq`/`ifneq`/`else`/`endif` body indentation). Comments and any other construct are
- * explicitly out of scope (STYLE_TOOLING.md §0) and left byte-identical.
+ * (`ifdef`/`ifeq`/`ifneq`/`else`/`endif` body indentation). Comments are otherwise out of scope
+ * (STYLE_TOOLING.md §0) except for the optional §0 first-letter-capitalization normalization (a
+ * pure `#`-led comment line only; no word-exception list -- Makefile comments don't warrant one,
+ * see RDD_KEY_261). Any other construct is left byte-identical.
  */
 public final class MakefileSpecificRule {
 
     private static final Pattern ASSIGN = Pattern.compile(
         "^([A-Za-z_][A-Za-z0-9_.]*)\\s*(:=|\\+=|\\?=|=)\\s*(.*)$"
     );
-    private static final Pattern TARGET = Pattern.compile("^([^:\\s][^:]*?)\\s*(::?)\\s*(.*)$");
-    private static final Pattern DIRECTIVE_OPEN = Pattern.compile("^(ifdef|ifndef|ifeq|ifneq)\\b.*$");
-    private static final Pattern DIRECTIVE_ELSE = Pattern.compile("^else\\b.*$");
+    private static final Pattern TARGET          = Pattern.compile("^([^:\\s][^:]*?)\\s*(::?)\\s*(.*)$");
+    private static final Pattern DIRECTIVE_OPEN  = Pattern.compile("^(ifdef|ifndef|ifeq|ifneq)\\b.*$");
+    private static final Pattern DIRECTIVE_ELSE  = Pattern.compile("^else\\b.*$");
     private static final Pattern DIRECTIVE_ENDIF = Pattern.compile("^endif\\b.*$");
+    private static final Pattern COMMENT_LINE    = Pattern.compile("^#.*$");
 
-    private final int indentWidth;
+    private final int     indentWidth;
+    private final boolean normalizeCommentStartCase;
+    private final boolean normalizeCommentEndPeriod;
 
-    public MakefileSpecificRule(final int indentWidth)
+    public MakefileSpecificRule(
+        final int indentWidth, final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod
+    )
     {
-        this.indentWidth = Math.max(1, indentWidth);
+        this.indentWidth               = Math.max(1, indentWidth);
+        this.normalizeCommentStartCase = normalizeCommentStartCase;
+        this.normalizeCommentEndPeriod = normalizeCommentEndPeriod;
     }
 
     private static final class AsgnItem {
@@ -95,6 +104,16 @@ public final class MakefileSpecificRule {
                 flushGroup(out, group, groupDepth);
                 --condDepth;
                 out.add( indent(condDepth) + trimmed );
+                ++idx;
+                continue;
+            }
+
+            if( COMMENT_LINE.matcher(trimmed).matches() ) {
+                flushGroup(out, group, groupDepth);
+                final String normalized = ToolingCommentNormalizer.normalize(
+                    trimmed.substring(1), normalizeCommentStartCase, normalizeCommentEndPeriod, null
+                );
+                out.add( leadingWhitespace(raw) + "#" + normalized );
                 ++idx;
                 continue;
             }
@@ -183,6 +202,14 @@ public final class MakefileSpecificRule {
     private String indent(final int depth)
     {
         return repeatChar( ' ', Math.max(0, depth) * indentWidth );
+    }
+
+    private static String leadingWhitespace(final String line)
+    {
+        int i = 0;
+        while( i < line.length() && ( line.charAt(i) == ' ' || line.charAt(i) == '\t' ) ) ++i;
+
+        return line.substring(0, i);
     }
 
     private static String repeatChar(final char c, final int count)

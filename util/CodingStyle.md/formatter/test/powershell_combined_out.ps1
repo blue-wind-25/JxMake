@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2024 Example Corp.
+# Copyright (C) 2024 Example Corp
 # SPDX-License-Identifier: MIT
 #
 
@@ -29,11 +29,11 @@ switch ($x) {
     22 { "two" }
 }
 
-# safety: pipe inside string and comment
+# Safety: pipe inside string and comment
 Write-Host "a|b|c"
 # Get-ChildItem|Sort-Object
 
-# safety: here-string body left byte-identical
+# Safety: here-string body left byte-identical
 @"
 if($z){
   Write-Host "inside"

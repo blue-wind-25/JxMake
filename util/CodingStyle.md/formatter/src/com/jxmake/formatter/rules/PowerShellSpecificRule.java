@@ -27,14 +27,26 @@ import java.util.regex.Pattern;
  * <p>Implements STYLE_TOOLING.md §3.1–§3.6: brace-depth indent; operator/{@code =} alignment;
  * pipeline split/right-align; hashtable spacing; switch keyword-paren spacing + arm {@code \{}
  * alignment; and {@code \{}/{@code \}} spacing (RDD_KEY_258, including single-line scriptblocks).
+ *
+ * <p>Line comments ({@code #...}) also get the optional §0 ad hoc normalization (RDD_KEY_261):
+ * first-letter capitalization and sole-trailing-period stripping via
+ * {@link ToolingCommentNormalizer}, plain (no word-exception list -- PowerShell's own keyword/
+ * cmdlet surface is too broad to usefully curate one, per RDD_KEY_261). Block comments
+ * ({@code <# ... #>}) are left untouched -- out of scope.
  */
 public final class PowerShellSpecificRule {
 
-    private final int indentWidth;
+    private final int     indentWidth;
+    private final boolean normalizeCommentStartCase;
+    private final boolean normalizeCommentEndPeriod;
 
-    public PowerShellSpecificRule(final int indentWidth)
+    public PowerShellSpecificRule(
+        final int indentWidth, final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod
+    )
     {
-        this.indentWidth = Math.max(1, indentWidth);
+        this.indentWidth               = Math.max(1, indentWidth);
+        this.normalizeCommentStartCase = normalizeCommentStartCase;
+        this.normalizeCommentEndPeriod = normalizeCommentEndPeriod;
     }
 
     // ---- Pass A: char-level classification ----------------------------------------------------
@@ -105,11 +117,12 @@ public final class PowerShellSpecificRule {
 
     private PassAResult runPassA(final String content)
     {
-        final char[]      kind  = new char[content.length()];
-        final List<Frame> stack = new ArrayList<>();
-        final RunBuffer   buf   = new RunBuffer();
-              boolean     atLineStart = true;
-              int         i     = 0;
+        final char[]        kind        = new char[content.length()];
+        final List<Frame>   stack       = new ArrayList<>();
+        final RunBuffer     buf         = new RunBuffer();
+        final StringBuilder commentBody = new StringBuilder();
+              boolean       atLineStart = true;
+              int           i           = 0;
 
         while( i < content.length() ) {
             final Frame top = stack.isEmpty() ? null : stack.get( stack.size() - 1 );
@@ -119,6 +132,8 @@ public final class PowerShellSpecificRule {
             if( top != null && top.type == '#' ) {
                 if(c == '\n') {
                     stack.remove( stack.size() - 1 );
+                    emitNormalizedComment( buf, commentBody.toString() );
+                    commentBody.setLength(0);
                     kind[i] = 'C';
                     buf.emit(c, 'C');
                     atLineStart = true;
@@ -126,7 +141,7 @@ public final class PowerShellSpecificRule {
                     continue;
                 }
                 kind[i] = 'O';
-                buf.emit(c, 'O');
+                commentBody.append(c);
                 atLineStart = false;
                 ++i;
                 continue;
@@ -411,11 +426,22 @@ public final class PowerShellSpecificRule {
             ++i;
         } // while
 
+        if( commentBody.length() > 0 ) emitNormalizedComment( buf, commentBody.toString() );
+
         final PassAResult result = new PassAResult();
         result.transformed = buf.result();
         result.kind         = kind;
 
         return result;
+    }
+
+    /** Normalizes a `#` line comment's body (text after the `#`) and re-emits it as opaque ('O') characters. */
+    private void emitNormalizedComment(final RunBuffer buf, final String body)
+    {
+        final String normalized = ToolingCommentNormalizer.normalize(
+            body, normalizeCommentStartCase, normalizeCommentEndPeriod, null
+        );
+        for( int i = 0; i < normalized.length(); ++i ) buf.emit( normalized.charAt(i), 'O' );
     }
 
     /**

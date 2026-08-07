@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2024 Example Corp.
+# Copyright (C) 2024 Example Corp
 # SPDX-License-Identifier: MIT
 #
 
@@ -20,12 +20,12 @@ else
     CFLAGS += -O2
 endif
 
-# recipe lines (leading tab) must stay byte-identical
+# Recipe lines (leading tab) must stay byte-identical
 app: main.o
 	$(CC) -o $@ $^
 	@echo done
 
-# comment breaks assignment group
+# Comment breaks assignment group
 A = 1
-# note
+# Note
 BB = 2

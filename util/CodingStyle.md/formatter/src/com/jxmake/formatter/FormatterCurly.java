@@ -175,6 +175,30 @@ public final class FormatterCurly extends FormatterCore {
             // (getter/setter-style) bodies stay K&R, excluded internally by the method itself.
             text = jsTsRule.enforceMethodDefinitionAllmanBraceStyle( tokenizer.apply(text) );
         }
+        if(lang.isTs) {
+            // Same "measurement must see the final width" reasoning as the comment on
+            // enforceDecoratorOverflowCascade right below (this must run BEFORE that pass, not
+            // merely before enforceCallLineBreaking): STYLE_JS_TS.md #11's union/intersection
+            // `|`/`&` spacing (`string|number` -> `string | number`) and type-annotation colon
+            // spacing are both ordinarily Phase 4 passes (further down), but
+            // enforceDecoratorOverflowCascade's own "does the whole inline decorator+target line
+            // fit" measurement runs first of all the width-driven passes -- a decorator argument
+            // whose type text sits right at lineLengthLimit measures as "fits" (stays inline) using
+            // the pre-spacing width, then grows past the limit once this spacing is added later
+            // with no further re-check -- a fresh format stays inline (self-violating over-limit)
+            // while a reformat of already-formatted output (spacing already baked in) sees the
+            // wider, over-limit shape from the start and drops the decorator to its own line --
+            // round1 != round2. Pulled forward from Phase 4 to run right before
+            // enforceDecoratorOverflowCascade, same fix shape as
+            // enforceComplexityPadding/enforceAttributeAndSpliceBracketPadding/
+            // enforceInitializerBraceSpacing further down; the original Phase 4 calls are left in
+            // place too (idempotent no-ops on anything this early call already normalized -- they
+            // only additionally cover type shapes introduced/exposed by later passes). Found via
+            // real-world testing (angular/angular's `input_transform.ts`
+            // `@Input({transform: (value: string|number, _: any) => value ? 1 : 0})` decorator).
+            text = jsTsRule.enforceUnionIntersectionSpacing( tokenizer.apply(text) );
+            text = jsTsRule.enforceTypeColonSpacing( tokenizer.apply(text) );
+        } // if
         if(lang.isJs || lang.isTs) {
             // STYLE_JS_TS.md §9's overflow cascade: drop an overlong inline decorator to its own
             // line before any width-driven pass below runs, so their "does it fit" checks see the

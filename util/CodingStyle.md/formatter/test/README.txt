@@ -3360,6 +3360,37 @@ Real-code regressions:
                                                         and declarations passes so it also sees the
                                                         post-call-wrap shape.
 
+  real_code_regressions_186_inp/out.ts               -- Minimized from `angular/angular`'s
+                                                        `web_animations_player_spec.ts`/ `input_transform.ts`
+                                                        (cluster 4's residual group #3): two independent,
+                                                        both-JS/TS-only idempotency bugs in the same
+                                                        `processScope`/call-wrap-ordering family. (a) A
+                                                        class-field declaration-alignment grid member
+                                                        (STYLE.md §11.2) whose own initializer gets wrapped
+                                                        onto multiple lines by a later call-wrap pass --
+                                                        `tryParseClassField` previously bailed to
+                                                        "unrecognized member" on any embedded NEWLINE in the
+                                                        initializer, misclassifying the field once fed its own
+                                                        round1 output and splitting/re-widening the alignment
+                                                        group differently on round2. Fixed by collapsing the
+                                                        multi-line initializer back to its logical single-line
+                                                        text (soft-space join) instead of bailing. (b) A
+                                                        decorator argument (`@Input({transform: (value:
+                                                        string|number, ...) => ...})`) whose union-type
+                                                        spacing (`string|number` -> `string | number`) is
+                                                        applied by a Phase 4 pass that runs *after*
+                                                        `enforceDecoratorOverflowCascade`'s own "does the
+                                                        inline decorator+target line fit" measurement -- a
+                                                        fresh format stays inline and self-violates
+                                                        `lineLengthLimit` by 2 chars, while a reformat of that
+                                                        output measures the already-widened text and drops the
+                                                        target to its own line. Fixed by pulling
+                                                        `enforceUnionIntersectionSpacing`/
+                                                        `enforceTypeColonSpacing` forward to run before
+                                                        `enforceDecoratorOverflowCascade`, same fix shape as
+                                                        the other Phase-4-pulled- forward passes above it in
+                                                        `FormatterCurly.format`.
+
 How Tests Are Run
 -----------------
 

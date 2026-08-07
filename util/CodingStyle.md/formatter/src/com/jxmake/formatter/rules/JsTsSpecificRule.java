@@ -2299,12 +2299,37 @@ public final class JsTsSpecificRule {
             hasValue = true;
             i        = nextSignificantIndex(tokens, i + 1);
             if(i < 0 || i >= closeIdx) return null;
-            final StringBuilder valueBuf = new StringBuilder();
+            final StringBuilder valueBuf    = new StringBuilder();
+                  boolean       pendingSpace = false;
             depth = 0;
             while(i < closeIdx) {
                 final Token vt = tokens.get(i);
                 if( depth == 0 && isPunct(vt, ";") ) break;
-                if(vt.type == TokenType.NEWLINE) return null; // Multi-line initializer -- rare, not handled
+                if( vt.type == TokenType.NEWLINE ) {
+                    // A multi-line initializer -- most commonly one a *previous round's* own
+                    // call-wrap (`enforceCallLineBreaking`, which runs both before and after this
+                    // pass in FormatterCurly.format's Phase 4) already wrapped across lines, since
+                    // this grid's own column padding can push a call past `lineLengthLimit`. This
+                    // pass's group-membership/column-width decision must stay round-invariant, so
+                    // collapse the newline (and its continuation line's leading indentation) into a
+                    // single soft space instead of bailing to `null` -- bailing here previously
+                    // misclassified the field as an unrecognized member on round2 (fed round1's own
+                    // wrapped output), splitting/re-widening the alignment group differently than
+                    // round1 saw it, a non-idempotency bug (`web_animations_player_spec.ts`).
+                    pendingSpace = true;
+                    ++i;
+                    continue;
+                }
+                if( vt.type == TokenType.WHITESPACE && pendingSpace ) {
+                    ++i; // Swallow continuation-line indentation -- not part of the logical text
+                    continue;
+                }
+                if(pendingSpace) {
+                    if( valueBuf.length() > 0 && valueBuf.charAt( valueBuf.length() - 1 ) != ' ' ) {
+                        valueBuf.append(' ');
+                    }
+                    pendingSpace = false;
+                }
                      if( isPunct(vt, "(") || isPunct(vt, "[") || isPunct(vt, "{") ) depth++;
                 else if( isPunct(vt, ")") || isPunct(vt, "]") || isPunct(vt, "}") ) depth--;
                 valueBuf.append(vt.text);

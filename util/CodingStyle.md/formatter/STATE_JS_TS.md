@@ -17,7 +17,7 @@ C-family brace/paren/statement shape). Scaffold gate is flipped
 (`Lang.isScaffoldOnly` no longer includes js/ts) and all §1–15 rules are
 implemented in `JsTsSpecificRule.java` (+ `JsTsDeclarationAlignmentRule.java`
 for the declaration-alignment grid), wired into `FormatterCurly`'s phase
-pipeline. Current `make test`: 260/260 forward + idempotency (grows as
+pipeline. Current `make test`: 261/261 forward + idempotency (grows as
 fixtures are added; see dogfood sections below for count history).
 
 ---
@@ -27,12 +27,13 @@ fixtures are added; see dogfood sections below for count history).
 All planned baseline work is **DONE**: §1–15 implemented, JS and TS local
 fixtures active, and real-code dogfood passes completed for
 `expressjs/express`, `nestjs/nest`, `vuejs/core`, `lodash/lodash`,
-`angular/angular` (categorized, most clusters fixed), and
-`microsoft/TypeScript` (categorized, 3/4 clusters fixed, cluster #3's
-residue itself split into 3 findings, 2 now fixed). One dogfood finding
-remains open by design — see "Active work" below. JS/TS basics were
-deliberately hardened to a stable baseline before Python3 (next job in
-rotation) per user direction.
+`angular/angular` (categorized, all clusters fixed — cluster 4's residue
+was itself split into 3 findings across two sessions, all 3 now fixed, see
+RDD_KEY_269/RDD_KEY_271), and `microsoft/TypeScript` (categorized, all
+clusters fixed, see RDD_KEY_270). No dogfood finding remains open as of
+RDD_KEY_271 — see "Active work" below. JS/TS basics were deliberately
+hardened to a stable baseline before Python3 (next job in rotation) per
+user direction.
 
 ---
 
@@ -83,6 +84,7 @@ convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_263 | `utils.ts`/`lodash.js` switch-case fallthrough non-idempotency (long-deferred, see former "Known open issues" entry below), FIXED: `FormatterCurly.format` re-runs `switchRule.formatNonInlineSwitches` a second time near the end of Phase 4, after `alignInlineSwitches`'s case-grid collapse and the call-wrap passes have settled — shared `SwitchRule`/curly-family code, cross-referenced in `STATE_C_CPP_JAVA.md` |
 | RDD_KEY_269 | `angular/angular` cluster 4 residue — `shared.ts`/`directive_outputs.ts`, FIXED: widened `BlockStructureRule.alignBracelessElseIfChain`'s chain-recovery to also tolerate a bare `else` re-indented one level deeper than its paired `if` (opposite direction from the pre-existing narrower-`if`-line recovery), stripping the excess back to the `if`'s own indent. New fixture: `test/real_code_regressions_184_{inp,out}.ts` |
 | RDD_KEY_270 | `microsoft/TypeScript` cluster #3 — `harness/collectionsImpl.ts`, FIXED: `applyAssignmentsPass` added as a third pass inside `ScopePipelineCurly.processScope`'s existing `closingBraceAndDeclarationsOnly` narrow re-run mode (direct extension of RDD_KEY_248), after the closing-brace and declarations passes. New fixture: `test/real_code_regressions_185_{inp,out}.ts` |
+| RDD_KEY_271 | `angular/angular` cluster 4 residue group #3 — `web_animations_player_spec.ts`/`input_transform.ts`, FIXED: (a) `JsTsSpecificRule.tryParseClassField` now collapses a multi-line class-field initializer's embedded NEWLINE into a soft space instead of bailing to "unrecognized member"; (b) `enforceUnionIntersectionSpacing`/`enforceTypeColonSpacing` pulled forward to run before `enforceDecoratorOverflowCascade` in `FormatterCurly.format`, so its inline-decorator-fits measurement sees the final post-spacing width. Neither touches `ScopePipelineCurly`/`closingBraceAndDeclarationsOnly` at all. New fixture: `test/real_code_regressions_186_{inp,out}.ts` |
 
 ---
 
@@ -402,18 +404,20 @@ RDD table alone for that reason — do not re-derive these from scratch.
 
 ---
 
-## Active work — 1 open bug (`processScope`/declaration-alignment/
-call-wrap-ordering family; #1 and #2 below are both FIXED — see RDD_KEY_269/
-RDD_KEY_270 and the "FIXED" notes under their own headings)
+## Active work — all 3 originally-tracked bugs now FIXED (`processScope`/
+declaration-alignment/call-wrap-ordering family — see RDD_KEY_269/
+RDD_KEY_270/RDD_KEY_271 and the "FIXED" notes under their own headings)
 
-Investigation history for #2 (fixed) is kept below in fuller detail since
-its debugging methodology and the precise `RDD_KEY_246` gate reasoning
-directly transfer to #3, the one remaining open item. See "Related
-investigation history" immediately above for the broader family context,
-ruled-out hypotheses, and reusable debugging loci that inform all three
-(including the now-fixed #1/#2). Full session-by-session narrative
-(including every dead end not captured above) lives in `git log` for this
-file — not re-derived here per this file's top-of-file convention.
+No open bug remains from this investigation as of RDD_KEY_271. Investigation
+history is kept below in fuller detail since its debugging methodology and
+the precise `RDD_KEY_246` gate reasoning directly transferred across all
+three bugs (#3 in particular reused #1/#2's "verify the shared
+trailing-gap force-reindent gate is untouched, don't just trust green
+tests" discipline). See "Related investigation history" immediately above
+for the broader family context, ruled-out hypotheses, and reusable
+debugging loci. Full session-by-session narrative (including every dead
+end not captured above) lives in `git log` for this file — not re-derived
+here per this file's top-of-file convention.
 
 ### 1. `angular/angular` cluster 4 residue — `shared.ts`/`directive_outputs.ts` (FIXED, RDD_KEY_269)
 
@@ -614,29 +618,74 @@ itself, same spirit as the `lodash/lodash` tolerance list above).
 
 Status: **FIXED.**
 
-### 3. Remaining un-root-caused residue — `web_animations_player_spec.ts`, `input_transform.ts`
+### 3. `angular/angular` cluster 4 residue group #3 — `web_animations_player_spec.ts`, `input_transform.ts` (FIXED, RDD_KEY_271)
 
-Same `processScope`/declaration-alignment/call-wrap family as #1/#2 above,
-**no candidate fix yet** (budget went to #1/#2 this pass). Least scoped,
-highest risk of the three groups — treat as lowest priority until #1/#2 are
-resolved and re-narrowed.
+Same broad `processScope`/declaration-alignment/call-wrap family as #1/#2
+above, but root-caused to **two distinct mechanisms**, both entirely
+outside `ScopePipelineCurly.processScope`/`closingBraceAndDeclarationsOnly`
+(unlike #2's `applyAssignmentsPass` fix) — confirmed lower-risk than #2 by
+inspection (`grep` for `ScopePipelineCurly`/`closingBraceAndDeclarationsOnly`
+in the eventual diff: zero hits), not merely assumed safe.
 
 - `web_animations_player_spec.ts:177-193` — a class-field declaration-
   alignment grid (`effect : AnimationEffect | null = null;`, `finished:
-  Promise<Animation> = ...`, etc.) where round1 and round2 disagree on
-  which rows are grouped and how wide the `:`/`=` columns are padded. Same
-  "grid recomputed against a different intermediate shape each round"
-  mechanism as `RDD_KEY_248`'s `commandLineParser.ts` repro, but for
-  class-member declarations with multi-line initializers
-  (`Promise.resolve(\n {} as any\n)`), a context `RDD_KEY_248`'s
-  `reapplyClosingBraceAndDeclarationsPass` re-run wasn't validated against.
-  Not traced further at the pass level — very likely the same fix extends
-  here with more validation, not a new mechanism.
+  Promise<Animation> = ...`, etc.) where round1 and round2 disagreed on
+  which rows are grouped and how wide the `:`/`=` columns are padded.
+  **Root cause:** `JsTsSpecificRule.tryParseClassField`'s initializer-value
+  scan bailed to `null` ("unrecognized field") on any embedded NEWLINE.
+  round1 parses the field from original single-line source, grid-pads it,
+  and a later Phase-4 `enforceCallLineBreaking` call wraps the now-overlong
+  padded initializer (e.g. `Promise.resolve({} as any)`) across lines;
+  round2 (fed that wrapped output) hits the NEWLINE bail and misclassifies
+  the field, splitting/re-widening its group differently — non-idempotent.
+  **Fix:** collapse the multi-line initializer's NEWLINE (+ continuation
+  indentation) into a single soft space while scanning, instead of bailing
+  — the field parses identically (as its logical single-line text) in both
+  rounds, and the same downstream call-wrap pass re-wraps it the same way
+  every round. Only the value-scan loop was touched; the sibling
+  multi-line-*type*-expression bail a few lines above was left alone
+  (undemonstrated as broken by this repro).
 - `input_transform.ts:16-19` — a decorator-call-plus-declaration line
-  (`@Input( {...} ) inlineFunctionInput: any;`) that fits under
-  `lineLengthLimit` on round1 but gets wrapped onto two lines on round2.
-  Classic call-wrap-fits-check-measured-before-final-column-width shape
-  (cluster 4's own root-cause family), not traced to a specific method.
+  (`@Input( {...} ) inlineFunctionInput: any;`) that fit under
+  `lineLengthLimit` on round1 but got wrapped onto two lines on round2.
+  **Root cause:** `enforceDecoratorOverflowCascade` (the first width-driven
+  pass in `FormatterCurly.format`'s Phase 1) measures the whole inline
+  decorator+target line's fit *before* `enforceUnionIntersectionSpacing`/
+  `enforceTypeColonSpacing` (ordinarily Phase 4) widen e.g. `string|number`
+  to `string | number` inside the decorator's own argument list — a line 2
+  chars under the limit pre-spacing measures as "fits" and stays inline,
+  then grows past the limit once that spacing lands later with no further
+  re-check (a self-violating round1); round2 measures the already-widened
+  text and drops the target to its own line. **Fix:** pulled
+  `enforceUnionIntersectionSpacing`/`enforceTypeColonSpacing` (TS-only)
+  forward to run immediately before `enforceDecoratorOverflowCascade` — same
+  fix shape as the file's existing `enforceComplexityPadding`/
+  `enforceAttributeAndSpliceBracketPadding`/`enforceInitializerBraceSpacing`
+  pulled-forward precedent, just anchored one pass earlier since
+  `enforceDecoratorOverflowCascade` runs before `enforceCallLineBreaking`,
+  not after. The original Phase 4 calls of both passes stay in place too
+  (idempotent no-ops on anything this earlier call already normalized).
+
+**Repro:** direct `curl` fetch of both files from
+`raw.githubusercontent.com/angular/angular/5ad8231/...` (paths resolved via
+the GitHub REST `git/trees?recursive=1` API against the same pinned commit
+— the bare basenames collided with a stale guessed path). No full/sparse
+clone (prior `/tmp/angular` checkout gone; this system's old git rejects
+`--filter=blob:none --sparse`, same finding as RDD_KEY_270).
+
+**Validation:** A/B rebuild (revert both fixes via `git checkout` on the two
+touched files / rebuild / reproduce both symptoms byte-for-byte on both real
+files; restore / rebuild / confirm both files fully idempotent, `round1 ==
+round2`, and `js_ts_syntax_check.sh` clean on both). `make test`: 260/260 →
+261/261 forward + idempotency, zero regressions. New fixture
+`test/real_code_regressions_186_{inp,out}.ts` (a minimized `Sample`/`Widget`
+class pair combining both bugs in one file; A/B-confirmed to reproduce both
+pre-fix and stay idempotent post-fix). No fresh full-corpus `angular/angular`
+dogfood re-run performed (checkout unavailable, full re-clone out of scope
+per this session's instructions) — validation scope is the two real repro
+files plus the full existing fixture suite, same precedent as RDD_KEY_270.
+
+Status: **FIXED.**
 
 ---
 
@@ -793,13 +842,13 @@ was a confirming recurrence of the (now-fixed) `SwitchRule` issue.
 
 ### `angular/angular` dogfood pass
 
-Clusters 1-3 FIXED, cluster 4 PARTIALLY FIXED (all 4 named root causes
-landed, including the `alignBracelessElseIfChain` cause — RDD_KEY_269 —
-which fixed its 2 files, `shared.ts`/`directive_outputs.ts`; `RDD_KEY_248`
+Clusters 1-3 FIXED, cluster 4 FIXED (all 4 named root causes landed,
+including the `alignBracelessElseIfChain` cause — RDD_KEY_269 — which
+fixed its 2 files, `shared.ts`/`directive_outputs.ts`; `RDD_KEY_248`
 separately fixed most residual files outside the 4 named causes; the
-residual surface still tracked under "Active work" above is now 2 files, in
-the known `processScope`/declaration-alignment/call-wrap-ordering family),
-cluster 5 RESOLVED
+final 2-file residual surface, `web_animations_player_spec.ts`/
+`input_transform.ts`, is now also fixed — RDD_KEY_271, see "Active work"
+above), cluster 5 RESOLVED
 (2026-08-05 — all 3/3 files idempotent via existing opt-in flags, see
 below; `curly-general-scope-reindent`/`-multipass` stay `off` by default
 project-wide).

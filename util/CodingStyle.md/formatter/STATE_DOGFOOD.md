@@ -60,20 +60,20 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Java | STATE_C_CPP_JAVA.md | apache/ant | DONE - PARTIAL FIX | 2 files hit accepted reindent gap |
 | Java | STATE_C_CPP_JAVA.md | ARMCortexMThumbC.java.in (local) | DONE | |
 | Java | STATE_C_CPP_JAVA.md | google/google-java-format | DONE | |
-| Java | STATE_C_CPP_JAVA.md | javaparser/javaparser | DONE | switch-case reindent bug found+fixed (RDD_KEY_251, nested-switch-in-switch, `ASTParser.java`): idempotency diff dropped from a confirmed non-converging 2-cycle to 369 differing lines pre-fix, then to 7 post-fix, all 7 confirmed pre-existing/unrelated (identical in the unmodified baseline) |
+| Java | STATE_C_CPP_JAVA.md | javaparser/javaparser | DONE | switch-case reindent bug fixed (RDD_KEY_251, nested-switch-in-switch, `ASTParser.java`); idempotency diff: non-converging → 369 lines pre-fix → 7 post-fix, all 7 confirmed pre-existing/unrelated |
 | Java | STATE_CURLY_GDR.md | javaparser/javaparser (javaparser-core, GDR multipass) | DONE | curly-general-scope-reindent-multipass=on: 93/576 single-pass non-idempotent files → 0/576, all pass java_syntax_check |
 | Java | STATE_CURLY_GDR.md | javaparser/javaparser (javaparser-core-generators, GDR multipass) | DONE | curly-general-scope-reindent-multipass=on: 13/43 single-pass non-idempotent files → 0/43 |
 | Java | STATE_CURLY_GDR.md | tool/JSONEncoderLite.java (local, GDR multipass) | DONE | curly-general-scope-reindent-multipass=on: 112-line single-pass non-idempotency diff → 0 |
-| Java | STATE_C_CPP_JAVA.md | jenkinsci/jenkins | DONE | PluginManager.java fixed (RDD_KEY_225, pre-flight bail-out in DeclarationAlignmentRuleCurly.parseDeclaration); make test 224/224 -> 225/225 |
-| Java | STATE_C_CPP_JAVA.md | openrewrite/rewrite | DONE - PARTIAL FIX | all 6 idempotency clusters fixed (cluster 5 fixed via STATEMENT_LEADING_KEYWORDS guard); full-tree re-run + javac compile-check across all 3373 files still deferred, unblocked but not yet run |
+| Java | STATE_C_CPP_JAVA.md | jenkinsci/jenkins | DONE | PluginManager.java fixed (RDD_KEY_225, pre-flight bail-out in DeclarationAlignmentRuleCurly.parseDeclaration); make test 224→225/225 |
+| Java | STATE_C_CPP_JAVA.md | openrewrite/rewrite | DONE - PARTIAL FIX | all 6 idempotency clusters fixed (cluster 5 via STATEMENT_LEADING_KEYWORDS guard); full-tree re-run + javac compile-check (3373 files) unblocked but not yet run |
 | Java | STATE_C_CPP_JAVA.md | pcpp_java tool (local) | DONE | |
 | Java | STATE_C_CPP_JAVA.md | RobotCoding gui_frontend | DONE | |
 | Java | STATE_C_CPP_JAVA.md | self-dogfood (formatter's own src/) | DONE | |
-| Java | STATE_COMMON.md | dogfood-and-adopt (formatter's own src/, real adoption, 2026-08-04) | DONE | round1/round2 idempotent, round1b/round2b confirmed fixed point vs. original, round2 JAR passed `make test`/`make test-server` (244/244), round1 adopted over real `src/` (8 files, cosmetic-only diff), rebuilt JAR re-passed `make test`/`make test-server` |
+| Java | STATE_COMMON.md | dogfood-and-adopt (formatter's own src/, real adoption, 2026-08-04) | DONE | round1/round2 idempotent, fixed point vs. original confirmed; round1 adopted over real `src/` (8 files, cosmetic-only diff); rebuilt JAR re-passed `make test`/`make test-server` (244/244) |
 | Java | STATE_C_CPP_JAVA.md | VMA-GIT/anemonesoft (local) | DONE | |
 | Kotlin | STATE_KOTLIN.md | arrow-kt/arrow | DONE | |
 | Kotlin | STATE_KOTLIN.md | gui_frontend_android | DONE | |
-| Kotlin | STATE_KOTLIN.md | JetBrains/kotlin | DONE - PARTIAL FIX | D3 still open — root cause confirmed, attempted fix reverted (28 fixture regressions); RDD_KEY_235 confirmed GDR/multipass does not resolve it (see STATE_CURLY_GDR.md) |
+| Kotlin | STATE_KOTLIN.md | JetBrains/kotlin | DONE - PARTIAL FIX | D3 still open — root cause confirmed, fix attempt reverted (28 fixture regressions); RDD_KEY_235 confirmed GDR/multipass doesn't resolve it (see STATE_CURLY_GDR.md) |
 | Kotlin | STATE_KOTLIN.md | kotlinx.coroutines | DONE | |
 | Kotlin | STATE_KOTLIN.md | square/kotlinpoet | DONE | |
 | Kotlin | STATE_KOTLIN.md | square/okio | DONE | |
@@ -104,9 +104,9 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | HTML5 | STATE_DATA_FORMATS.md | wordpress/wordpress-develop | DONE - OPEN Q | magic-comment capitalization question; re-run as superset (303 files) by tc gap job 2026-08-02, no new tc-gap regressions |
 | JS | STATE_JS_TS.md | expressjs/express | DONE | |
 | JS | STATE_JS_TS.md | lodash/lodash | DONE | |
-| TS | STATE_JS_TS.md | angular/angular | DONE - PARTIAL FIX | clusters 1-3 fixed; cluster 4 landed but residual files remain; cluster 5 RESOLVED 2026-08-05 (3/3 files idempotent via curly-general-scope-reindent(-multipass), opt-in dogfood recommendation only, not a default change); cluster #3 sibling (RDD_KEY_248) re-run 2026-08-06 after landing that fix -- 17/5394 -> 15/5394 idempotency mismatches, zero new regressions |
+| TS | STATE_JS_TS.md | angular/angular | DONE - PARTIAL FIX | clusters 1-3 fixed; cluster 5 RESOLVED 2026-08-05 (3/3 files idempotent via curly-general-scope-reindent(-multipass), opt-in recommendation only). Cluster 4: RDD_KEY_248 fix also resolved 7 of 9 previously-named residual files (2026-08-07 re-check); 4 real files remain — 2 still in the known processScope/alignment family (not yet root-caused), 2 (`shared.ts`/`directive_outputs.ts`) traced to a distinct `alignBracelessElseIfChain` vs. earlier-reindent-pass ordering bug, candidate fix identified but not attempted (see STATE_JS_TS.md) |
 | TS | STATE_CURLY_GDR.md | angular/angular (cluster 5 files, GDR multipass) | DONE - FULL FIX | curly-general-scope-reindent-multipass=on: fixes user_metric_spec.ts + i18n_parse.ts (previously non-idempotent under single-pass GDR); emit.ts already idempotent under single-pass, stays idempotent under multipass. Re-confirmed fresh 2026-08-05 (0-line round1/round2 diff on all 3, js_ts_syntax_check.sh exit 0) |
-| TS | STATE_JS_TS.md | microsoft/TypeScript | DONE - PARTIAL FIX | 3/4 clusters fixed; #3's shared shape fixed but most files are a separate, un-root-caused sibling issue; RDD_KEY_248 fix re-run 2026-08-06 -- 31/601 -> 20/601 idempotency mismatches, zero new regressions |
+| TS | STATE_JS_TS.md | microsoft/TypeScript | DONE - PARTIAL FIX | 3/4 clusters fixed; RDD_KEY_248 (2026-08-06) narrowed cluster #3 from 28-29 → 14/601 idempotency mismatches, zero new regressions. Residual `harness/collectionsImpl.ts` traced 2026-08-07 to `ScopePipelineCurly.applyAssignmentsPass`, same architectural family, candidate fix identified but low-confidence (see STATE_JS_TS.md) |
 | TS | STATE_JS_TS.md | nestjs/nest | DONE | |
 | TS | STATE_JS_TS.md | vuejs/core | DONE | switch-fallthrough idempotency bug FIXED 2026-08-07 (RDD_KEY_263) |
 | Python3 | STATE_PYTHON3.md | django/django | DONE | |
@@ -131,17 +131,16 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | PowerShell | STATE_TOOLING.md | microsoft/azure-pipelines-tasks | NOT STARTED | **skipped** — selective download aborted mid-way (~567/1145); partial tree removed; do not treat as present |
 
 **Note on `microsoft/TypeScript`'s status**: cluster #3's shared braceless-
-collapse root cause (same as `angular/angular` cluster 4) is now fixed, but
-most of this corpus's affected files turned out to be a separate,
-not-yet-root-caused sibling issue — see `STATE_JS_TS.md`'s "Dogfood:
-microsoft/TypeScript" section for the full cluster list/ranking.
+collapse root cause (same as `angular/angular` cluster 4) is fixed; the
+residual mismatch is now traced to `applyAssignmentsPass` (see table row
+above) — see `STATE_JS_TS.md`'s "Dogfood: microsoft/TypeScript" section for
+the full cluster list/ranking.
 
-Corpus scope: `src/` only (601
-real `.ts` files, 379045 lines) — `tests/cases/**` (20089 files,
-hand-authored compiler test fixtures including deliberately-invalid-syntax
-cases) and `tests/baselines/**` (auto-generated) were excluded as
-non-representative test fixtures, same exclusion class as other jobs'
-`built/`/`lib/` skips.
+Corpus scope: `src/` only (601 real `.ts` files, 379045 lines) —
+`tests/cases/**` (20089 hand-authored compiler test fixtures, including
+deliberately-invalid-syntax cases) and `tests/baselines/**`
+(auto-generated) were excluded as non-representative, same exclusion class
+as other jobs' `built/`/`lib/` skips.
 
 **AI (STATE_AI.md)**: N/A — this job's corpus concept is comment-text
 training/labeling data (Pool A/Pool B ABSTAIN measurement), not a

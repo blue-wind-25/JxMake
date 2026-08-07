@@ -163,7 +163,6 @@ kotlin_syntax_check.sh
 kotlin_content_diff.sh
 
 json_syntax_check.sh
-
 json5_syntax_check.sh
 
 css_syntax_check.sh
@@ -258,16 +257,15 @@ Use in-file config in the text fixture as needed, e.g.:
 
 ---
 
-## Improving Server Protocol: Inline Config Support — DONE
+## Server Protocol: Inline Config Support — DONE
 
-`POST /format` accepts any `STATE_C_CPP_JAVA.md` → **Config Keys and
-Defaults** key as an optional query parameter, taking priority over
-file-based `.jxmake-code-formatter` config for the same keys; `path` is
-optional exactly when `lang` plus at least one inline config param are
-present; unrecognized config-shaped query keys get HTTP 400. Body format is
-unchanged (no JSON — query-string only, decided design, do not
-re-litigate). Covered by `make test-server`, documented in `README.md`'s
-Server Wire Protocol section.
+`POST /format` accepts any config key as an optional query parameter,
+taking priority over file-based `.jxmake-code-formatter` config for the
+same keys; `path` is optional exactly when `lang` plus at least one inline
+config param are present; unrecognized config-shaped query keys get HTTP
+400. Body format is unchanged (no JSON — query-string only, decided design,
+do not re-litigate). Covered by `make test-server`, documented in
+`README.md`'s Server Wire Protocol section.
 
 **Client env-var forwarding on delegation — DONE.** In server mode, tiers 2
 (`~/.config/...`)/3 (env vars) of the precedence chain were resolved by the
@@ -279,16 +277,31 @@ shell env). Fixed via `Config.clientEnvOverrides()` (public wrapper around
 delegated request. `README.md`'s Configuration section documents this in a
 "Server mode note on tiers 2/3" paragraph.
 
+**3rd endpoint exposing config properties — DONE** (2026-08-06).
+`Config.describeAll()` returns a `List<ConfigProperty>`
+(`group`/`key`/`defaultValue`/`allowedValues`, `null` for free-form values,
+`{"on","off"}` for booleans, `INDENT_STYLE_CHOICES`/`LINE_ENDINGS_CHOICES`
+for the two enum-like keys). `group` mirrors README.md's `### Config file
+format` section order (`Structural constants`, `Behavior`, `C/C++`, `Java`,
+`Kotlin`, `JS/TS`, `HTML5`, `Python 3`, `AI-assist (GRU)`) via a `GROUPS`
+ordered-map that `describeAll()` asserts covers precisely `ALL_KEYS`
+(throws if they drift apart). `ServerMode.java` gained a `GET /properties`
+handler (self-contained JSON writer — no existing general-purpose
+object-serializer to reuse). Verified end-to-end against a real server; all
+groups/keys present in README order with correct `allowedValues`. `make
+test` and `make test-server` stayed green. README.md documents the new
+endpoint alongside `/format`/`/shutdown`.
+
 ---
 
 ## Config Keys and Defaults
 
-`README.md`'s `### Config file format` section is the authoritative, full list of every config
-key with its default and allowed values (also queryable live at runtime via the server's
-`/properties` endpoint, see README.md's "Server Wire Protocol" section — backed by
-`Config.describeAll()`, `Config.java` itself being the runtime source of truth). Do not
-hand-maintain a second full copy of that list here; it drifts. This section only holds
-maintainer-facing notes not appropriate for README.md's user-facing doc:
+`README.md`'s `### Config file format` section is the authoritative, full
+list of every config key with its default and allowed values (also
+queryable live at runtime via the server's `/properties` endpoint, backed
+by `Config.describeAll()`). Do not hand-maintain a second full copy of that
+list here; it drifts. This section only holds maintainer-facing notes not
+appropriate for README.md's user-facing doc:
 
 - `comment-normalization-classifier`: flipped on 2026-07-30 after fixing the
   `KeywordAmbiguityGate` weight regression — see `STATE_AI.md`.
@@ -298,10 +311,12 @@ maintainer-facing notes not appropriate for README.md's user-facing doc:
 - `gru-classifier` / `gru-weights-path`: default on since 2026-08-02 (held-out cross-validation
   confirmed `abstainThreshold=0.7` keeps the NO false-positive rate low enough to trust) — see
   `STATE_AI.md`.
+- `python-import-sort` / `python-import-blank-lines`: wired into `Config.java`'s `ALL_KEYS`
+  2026-08-06 (RDD_KEY_247) — see `STATE_PYTHON3.md`.
 
-For every added, deleted, or modified configuration item,
-synchronize it with `README.md` and the implementation of
-*In‑file Config Support* (the `JXM_CFMT_CFG` directive, below).
+For every added, deleted, or modified configuration item, synchronize it
+with `README.md` and the implementation of *In-file Config Support* (the
+`JXM_CFMT_CFG` directive, below).
 
 ---
 
@@ -432,61 +447,16 @@ than immediately starting the next >1000 kLOC candidate. Candidate scope:
   the GRU classifier's subsection pattern) and trimmed "Known
   Limitations" to only the genuine accepted-gap caveats for levels 1, 2,
   and 4 (level 3 has none) — see `README.md`'s Configuration section and
-  `STATE_HTML5_TCG.md`'s checklist items 3, 5, 7 for the source material.
-  `CLAUDE.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`, and
+  `STATE_HTML5_TCG.md` for the source material. `CLAUDE.md`,
+  `../README.txt`, `../AI_PREAMBLE_FULL.md`, and
   `../AI_PREAMBLE_AESTHETIC.md` needed no change — none of them make any
   HTML5-tree-construction-specific completeness claim that the tc gap
   job's opt-in, off-by-default levels made stale; their general
-  "HTML5 is JAR-implemented" statements remain accurate. This job's own
-  "Config Keys and Defaults" block (below) and `STATE_HTML5_TCG.md`
-  checklist item 2a already carried `html5-tc-gap-level` correctly —
-  only `README.md`'s section placement was wrong.
+  "HTML5 is JAR-implemented" statements remain accurate.
 
 This is intentionally scoped as housekeeping, not a rewrite — do not let it
 grow into an attempt at any separate, dedicated, much riskier architectural
 job.
-
-### Server mode: 3rd endpoint exposing config properties — DONE
-
-Implemented 2026-08-06. `Config.describeAll()` returns a `List<ConfigProperty>`
-(`group`/`key`/`defaultValue`/`allowedValues`, the latter `null` for free-form
-values, `{"on","off"}` for boolean keys, `INDENT_STYLE_CHOICES`/
-`LINE_ENDINGS_CHOICES` for the two enum-like keys). `group` mirrors README.md's
-`### Config file format` section headings/order exactly (`Structural
-constants`, `Behavior`, `C/C++`, `Java`, `Kotlin`, `JS/TS`, `HTML5`,
-`AI-assist (GRU)`), via a `GROUPS` ordered-map (group name -> ordered key
-list) that `describeAll()` asserts covers precisely `ALL_KEYS` (throws if the
-two ever drift apart). Per-key default/allowed-values lookup stayed an
-explicit switch over a fresh default `Config` instance's fields — mechanical,
-no new state. `ServerMode.java` gained a `GET /properties` handler
-(`PropertiesHandler`, registered in `start()` alongside `/format`/`/shutdown`)
-that serializes it, grouped, with a small self-contained `propertiesJson()`/
-`jsonString()` JSON writer (no existing general-purpose JSON-building helper
-existed elsewhere in the codebase to reuse — `FormatterJson.java` etc. are
-JSON-the-language formatters, not object serializers): a top-level array of
-`{"group": ..., "properties": [...]}` objects, in `describeAll()`'s
-already-grouped order (the handler only detects group boundaries in the
-already-sorted list, no re-sorting). Verified end-to-end: started a real
-server, curled `/properties`, confirmed valid JSON with all 8 groups / 27 keys
-in README order and correct `allowedValues` (e.g. `indent-style` →
-`["spaces","tabs","auto"]`). `make test` (244/244) and `make test-server`
-(all existing checks) stayed green. README.md's "Server Wire Protocol"
-section documents the new endpoint's grouped shape alongside `/format`/
-`/shutdown`. This file's "Config Keys and Defaults" block below was trimmed
-per the docs-only follow-up (see next paragraph).
-
-**2026-08-06 follow-up — gap closed:** Python 3's `python-import-sort`/
-`python-import-blank-lines`, noted above as a real gap left unfixed (never
-wired into `Config.java`'s `ALL_KEYS`), were wired in the same day —
-see `STATE_PYTHON3.md`'s "Config Keys Wiring — DONE (RDD_KEY_247)" section.
-Both keys now appear in `/properties`' response under a new `"Python 3"`
-group.
-
-Docs-only follow-up (done together): trimmed this file's "Config Keys and
-Defaults" block so it stops duplicating README.md's `### Config file format`
-section in full — now points to README.md (and to the `/properties` endpoint)
-as the authoritative property list, keeping only maintainer-facing notes
-(RDD_KEY/STATE_*.md cross-refs) here.
 
 ### Formatter self-formatting (dogfood-and-adopt) process
 

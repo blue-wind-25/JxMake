@@ -242,6 +242,12 @@ public final class XmlSpecificRule {
         String   commentText;     // COMMENT: normalized inner text
         boolean  commentVerbatim; // COMMENT: true if commentText must render with no
                                                 // Added inner spacing (a `%`-prefixed marker/directive comment)
+        List<String> commentBannerLines;         // COMMENT: non-null iff a multi-line comment already
+                                                // follows the conventional ` * `-per-line continuation-marker
+                                                // banner shape (curly's `/* */` equivalent, RDD_KEY_262-adjacent
+                                                // gap) -- content lines already capitalize/period-normalized,
+                                                // rendered with a reindented ` * `/` -->` banner rather than
+                                                // frozen verbatim.
         List<String> frozenLines;               // FROZEN: raw lines, verbatim, DIS..ENA inclusive
         String       tagName;
         List<String> attrs = new ArrayList<>();
@@ -960,15 +966,23 @@ public final class XmlSpecificRule {
             n.commentText     = raw;
         } // if
         else if( raw.indexOf('\n') >= 0 ) {
-            // Multi-line comment (interior contains a newline, checked on the RAW pre-trim content):
-            //  freeze the interior byte-for-byte, same posture as PI/CDATA "opaque, preserved verbatim"
-            //  (STYLE_DATA_FORMATS.md SS2.3/2.4) -- do not trim, reindent, or apply any content-inspecting
-            //  normalization (normalize-comment-start-case/isSingleWordDirective/etc.). Reuses the
-            //  existing commentVerbatim render path (RDD_KEY_232) rather than inventing a parallel
-            //  mechanism -- it already renders with zero added inner spacing, which is exactly the
-            //  "no added/stripped whitespace around the content" behavior this case also needs.
-            n.commentVerbatim = true;
-            n.commentText     = raw;
+            // Multi-line comment (interior contains a newline, checked on the RAW pre-trim content).
+            //  If every continuation line already follows the conventional ` * `-per-line banner
+            //  shape (same detection curly's MiscRuleCore.reformatMultiLineBlockComment uses for
+            //  `/* */`), treat it the same way: capitalize the first content line, strip a sole
+            //  trailing period across the whole comment, reindent to the banner shape at render time
+            //  (see commentBannerLines). Otherwise -- unrecognized shape, e.g. a plain wrapped-prose
+            //  header with no `*` markers -- fall back to the pre-existing freeze-verbatim posture
+            //  (RDD_KEY_232), same as PI/CDATA "opaque, preserved verbatim" (STYLE_DATA_FORMATS.md
+            //  SS2.3/2.4).
+            final List<String> bannerLines = tryBannerShape(raw);
+            if(bannerLines != null) {
+                n.commentBannerLines = bannerLines;
+            } // if
+            else {
+                n.commentVerbatim = true;
+                n.commentText     = raw;
+            } // else
         } // else if
         else {
             n.commentText = normComment(inner);
@@ -1431,6 +1445,89 @@ public final class XmlSpecificRule {
         return name + "=" + s.substring(valStart, pos);
     }
 
+    /**
+     * Detects the curly-equivalent " * "-per-line continuation-marker banner shape on a multi-line
+     *  {@code <!-- -->} interior (RAW, pre-trim content between the markers) and, if matched, returns
+     *  the already capitalize/period-normalized content lines (no `*` markers, no indentation --
+     *  render time reindents per the node's own depth); returns {@code null} if any continuation
+     *  line doesn't start with `*` after stripping leading whitespace, meaning the caller should fall
+     *  back to freeze-verbatim. Mirrors {@code MiscRuleCore.reformatMultiLineBlockComment}'s shape
+     *  check/content-extraction, adapted for `<!--`/`-->` markers living outside {@code raw} (unlike
+     *  curly's `/*`/`*&#47;` which are embedded in the first/last physical lines).
+     */
+    private List<String> tryBannerShape(final String raw)
+    {
+        final String[] rawLines = raw.split("\r\n|\r|\n", -1);
+        // The line right before the closing `-->` marker is just that marker's leading indentation
+        //  (e.g. the " " in " * ...\n -->") -- it lives outside `raw` for curly's `*/`-embedded
+        //  equivalent, so it's exempt from the `*`-prefix requirement and contributes no content line.
+        final boolean lastLineIsCloseIndent = rawLines.length > 1
+            && stripLeadingWs( rawLines[rawLines.length - 1] ).isEmpty();
+        final int lastContinuationLine = lastLineIsCloseIndent ? rawLines.length - 1 : rawLines.length;
+        for(int i = 1; i < lastContinuationLine; ++i) {
+            if( !stripLeadingWs(rawLines[i]).startsWith("*") ) return null;
+        }
+
+        final List<String> contentLines = new ArrayList<>();
+        final String firstContent = rawLines[0].trim();
+        if( !firstContent.isEmpty() ) contentLines.add(firstContent);
+        for(int i = 1; i < lastContinuationLine; ++i) {
+            String afterStar = stripLeadingWs(rawLines[i]).substring(1);
+            if( afterStar.startsWith(" ") ) afterStar = afterStar.substring(1);
+            contentLines.add( trimTrailingWs(afterStar) );
+        } // for
+
+        if( contentLines.isEmpty() ) return contentLines;
+
+        if(normalizeCommentStartCase) {
+            final String first = contentLines.get(0);
+            int i = 0;
+            while( i < first.length() && first.charAt(i) == ' ' ) i++;
+            if( i < first.length() && Character.isLowerCase(
+                first.charAt(i)
+            ) && !isSingleWordDirective(first) && !isMarkupFragmentDirective( first.substring(i) ) ) {
+                contentLines.set(
+                    0, first.substring(0, i) + Character.toUpperCase( first.charAt(i) ) + first.substring(i + 1)
+                );
+            } // if
+        } // if
+
+        if(normalizeCommentEndPeriod) {
+            int dotCount = 0;
+            for(final String line : contentLines) for( int i = 0; i < line.length(); ++i ) if(
+                line.charAt(i) == '.'
+            ) dotCount++;
+            if(dotCount == 1) {
+                for( int i = contentLines.size() - 1; i >= 0; --i ) {
+                    final String line = contentLines.get(i);
+                    if( line.endsWith(".") ) {
+                        contentLines.set( i, trimTrailingWs( line.substring( 0, line.length() - 1 ) ) );
+                        break;
+                    } // if
+                    if( !line.trim().isEmpty() ) break;
+                } // for
+            } // if
+        } // if
+
+        return contentLines;
+    }
+
+    private static String stripLeadingWs(final String line)
+    {
+        int i = 0;
+        while( i < line.length() && Character.isWhitespace( line.charAt(i) ) ) i++;
+
+        return line.substring(i);
+    }
+
+    private static String trimTrailingWs(final String s)
+    {
+        int end = s.length();
+        while( end > 0 && Character.isWhitespace( s.charAt(end - 1) ) ) end--;
+
+        return s.substring(0, end);
+    }
+
     // ---- comment normalization ----
 
     private String normComment(final String rawText)
@@ -1530,6 +1627,16 @@ public final class XmlSpecificRule {
                 return;
 
             case COMMENT:
+                if(n.commentBannerLines != null) {
+                    out.append( indent(depth) ).append("<!--\n");
+                    for(final String line : n.commentBannerLines) {
+                        out.append( indent(depth) ).append(" *");
+                        if( !line.isEmpty() ) out.append(' ').append(line);
+                        out.append('\n');
+                    } // for
+                    out.append( indent(depth) ).append("-->\n");
+                    return;
+                } // if
                 if(n.commentVerbatim) out.append(
                     indent(depth)
                 ).append(

@@ -377,6 +377,7 @@ INP_FILES += ts_decl_grid_ext_inp.ts
 INP_FILES += html_combined_inp.html
 INP_FILES += html_comments_inp.html
 INP_FILES += html_multiline_comment_verbatim_inp.html
+INP_FILES += html_multiline_comment_banner_inp.html
 INP_FILES += html_tc_gap_level0_body_unchanged_inp.html
 INP_FILES += html_tc_gap_level1_body_insertion_inp.html
 INP_FILES += html_tc_gap_level1_foster_unchanged_inp.html

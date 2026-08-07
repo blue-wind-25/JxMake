@@ -416,6 +416,13 @@ HTML5:
                                                         proving the newline-detection gate discriminates
                                                         correctly (RDD_KEY_232).
 
+  html_multiline_comment_banner_inp/out.html         -- A multi-line `<!-- -->` comment whose continuation
+                                                        lines already follow the conventional ` * `-per-line
+                                                        banner shape (curly's `/* */` equivalent) gets the same
+                                                        treatment curly gives it instead of freeze-verbatim:
+                                                        first content line capitalized, sole trailing period
+                                                        stripped, reindented to the comment's own depth.
+
   html_tc_gap_level0_body_unchanged_inp/out.html     -- Same no-explicit-`<body>` shape as above, but at the
                                                         default `html5-tc-gap-level=0` (unset, no in-file
                                                         override) -- proves the level-1 fabricated- node path

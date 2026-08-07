@@ -109,6 +109,7 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_224 | HTML5 commented-out markup-fragment comments (`<!--tr>...</tr-->`, `<!--p>...</p-->`) being corrupted by `normalize-comment-start-case`; new `XmlSpecificRule.isMarkupFragmentDirective`/`MARKUP_FRAGMENT_TAG_NAMES` (see Open Questions below and `RDD_LOG.md` for full evidence and reasoning) |
 | RDD_KEY_232 | Multi-line `<!-- -->` comments (raw interior contains a newline) now freeze byte-for-byte verbatim, reusing the existing `commentVerbatim` render mechanism; sibling/node-tree indentation unaffected; shared XML/HTML5 code path |
 | RDD_KEY_262 | `normalize-comment-end-period` wired into every data-format language for the first time (previously only curly/indent/tags families plus Makefile/Bash/PowerShell, RDD_KEY_261) -- JSON/JSON5/CSS via new `FormatterSimpleBraced.stripCommentEndPeriod`; TOML/YAML/XML/HTML5 reuse `ToolingCommentNormalizer.stripSoleTrailingPeriod` (made package-private for cross-reuse); HTML5's `<style>`/`<script>` splice paths thread the flag through too; no new config keys; 5 YAML fixtures regenerated (copyright-header trailing period) |
+| RDD_KEY_264 | XML/HTML5 multi-line `<!-- -->` comments already in the conventional ` * `-per-line banner shape now get curly's `/* */` treatment (capitalize first line, strip sole trailing period, reindent) instead of RDD_KEY_232's blanket freeze-verbatim; new `XmlSpecificRule.tryBannerShape`/`Node.commentBannerLines`; closing `-->` renders flush at the comment's own indent (no curly-style alignment space -- user explicitly rejected that). Fixture `test/html_multiline_comment_banner_{inp,out}.html`. |
 
 ---
 
@@ -307,6 +308,17 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   entry below for current dispatch behavior.
 
 ## Open Questions
+
+- **[~] SimpleBraced (json, json5, css) comment-grouping parity with curly —
+  NOT STARTED.** User decision (2026-08-08 session): give `/* */` in
+  json/json5/css the same single-line-vs-banner-shape treatment curly gives
+  it (analogous to RDD_KEY_264's XML/HTML5 fix, but for
+  `FormatterSimpleBraced`/`TokenizerSimpleBraced`), and give json5's `//`
+  line comments the same chain-grouping treatment curly gives `//`
+  (confirmed via `Lang`/tokenizer: only json5 lexes `//`, not json/css/toml/
+  yaml). Not attempted this session — ran out of scope/time after landing
+  the XML/HTML5 piece (RDD_KEY_264). No code changes made in this area; next
+  session should start here for this job.
 
 - **HTML5 Test-Fixture Repos winnowing — RESOLVED (user, 2026-07-24).**
   `twbs/bootstrap` docs (Astro/MDX), `mdn/content` (Markdown),
@@ -641,6 +653,11 @@ per-repo dogfood bugs):
       `Config.DEFAULT_INDENT_STYLE` = spaces), all via
       `<!--% JXM_CFMT_CFG indent-style=auto -->`. `make test`: 239/239 ->
       242/242 forward + idempotency, zero regressions.
+
+      **Multi-line `<!-- -->` banner-shape parity with curly's `/* */` —
+      IMPLEMENTED (RDD_KEY_264, 2026-08-08).** See RDD_KEY_264 above.
+      `make test`: 253/253 -> 254/254 forward + idempotency, zero
+      regressions.
 - [x] **CSS (§3).** `CssTokenizer` (extends `TokenizerSimpleBraced`)
       deliberately coarse-grained (WHITESPACE/NEWLINE/COMMENT_BLOCK/
       STRING/PUNCT + one OP run for everything else); `CssSpecificRule`'s

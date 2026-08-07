@@ -72,7 +72,7 @@ java -jar code-formatter-1.0.0.jar --diff File.java      # print unified diff, d
 java -jar code-formatter-1.0.0.jar --check File.java     # exit 1 if file would change (CI)
 java -jar code-formatter-1.0.0.jar --out DIR File.java   # write to DIR/File.java instead
 java -jar code-formatter-1.0.0.jar --out DIR \           # write to DIR/sub/File.java, preserving
-    --preserve-tree --root ROOT sub/File.java           # ROOT-relative subdirectory structure
+    --preserve-tree --root ROOT sub/File.java            # ROOT-relative subdirectory structure
 
 ```
 

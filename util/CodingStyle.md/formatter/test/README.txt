@@ -527,7 +527,7 @@ Python3:
                                                         sorted (`python-import-sort`, default on) alongside
                                                         the blank-line normalization.
 
-Makefile / Bash / PowerShell (STYLE_TOOLING.md):
+Makefile/Bash/PowerShell:
   makefile_combined_inp/out.mk                       -- STYLE_TOOLING.md §1 combined: assignment-alignment
                                                         group (`=`/`:=`/`+=`), backslash continuation-line
                                                         alignment under the value column, target `:` spacing
@@ -3240,19 +3240,18 @@ Real-code regressions:
                                                         `reapplyClosingBraceAndDeclarationsPass`.
 
   real_code_regressions_181_inp/out.java             -- Minimized from `javaparser/javaparser`'s
-                                                        `ASTParser.java` (JavaCC-generated): a switch
-                                                        nested inside another switch's case body
-                                                        (RDD_KEY_251). Fixes the "Non-idempotent
-                                                        switch-case re-indent" gap's nested-switch
-                                                        failure mode -- `SwitchRule.applyNonInlineCaseIndent`
-                                                        now derives each case-body line's absolute
-                                                        target indent from its own brace-nesting depth
-                                                        (`applyDepthDerivedBodyIndent`) instead of one
-                                                        relative delta, and treats a nested switch's
-                                                        entire token span as opaque (fully owned by its
-                                                        own independent pass, never touched by the outer
-                                                        switch's depth-derived scan) rather than letting
-                                                        two independent recomputations disagree forever.
+                                                        `ASTParser.java` (JavaCC-generated): a switch nested
+                                                        inside another switch's case body (RDD_KEY_251). Fixes
+                                                        the "Non-idempotent switch-case re-indent" gap's
+                                                        nested-switch failure mode --
+                                                        `SwitchRule.applyNonInlineCaseIndent` now derives each
+                                                        case-body line's absolute target indent from its own
+                                                        brace-nesting depth (`applyDepthDerivedBodyIndent`)
+                                                        instead of one relative delta, and treats a nested
+                                                        switch's entire token span as opaque (fully owned by
+                                                        its own independent pass, never touched by the outer
+                                                        switch's depth-derived scan) rather than letting two
+                                                        independent recomputations disagree forever.
 
 How Tests Are Run
 -----------------

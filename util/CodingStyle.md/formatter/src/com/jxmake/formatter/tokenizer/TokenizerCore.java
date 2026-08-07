@@ -176,9 +176,11 @@ public class TokenizerCore {
     public static final String JXM_CFMT_GDR = "JXM_CFMT_GDR";
 
     private static final java.util.regex.Pattern FORMAT_DIS_MARKER = java.util.regex.Pattern.compile(
-            "^//%\\s*" + JXM_CFMT_DIS + "\\s*$|^/\\*%\\s*" + JXM_CFMT_DIS + "\\s*\\*/$");
+        "^//%\\s*" + JXM_CFMT_DIS + "\\s*$|^/\\*%\\s*" + JXM_CFMT_DIS + "\\s*\\*/$"
+    );
     private static final java.util.regex.Pattern FORMAT_ENA_MARKER = java.util.regex.Pattern.compile(
-            "^//%\\s*" + JXM_CFMT_ENA + "\\s*$|^/\\*%\\s*" + JXM_CFMT_ENA + "\\s*\\*/$");
+        "^//%\\s*" + JXM_CFMT_ENA + "\\s*$|^/\\*%\\s*" + JXM_CFMT_ENA + "\\s*\\*/$"
+    );
 
     /**
      * Scans {@code tokens} in order, toggling a frozen/unfrozen state on

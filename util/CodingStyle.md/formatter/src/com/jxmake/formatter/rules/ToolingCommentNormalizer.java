@@ -7,6 +7,8 @@
 
 package com.jxmake.formatter.rules;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -50,6 +52,54 @@ final class ToolingCommentNormalizer {
         if( !Character.isLetter(ch) || !Character.isLowerCase(ch) ) return text;
 
         return text.substring(0, i) + Character.toUpperCase(ch) + text.substring(i + 1);
+    }
+
+    /**
+     * 2026-08-08 session: chain-groups consecutive standalone `#` comments the same way curly
+     *  chains `//` (RDD_KEY_265/RDD_KEY_266) -- shared by all five languages that use this class'
+     *  `#`-comment shape (yaml/toml -- data-formats job; makefile/bash/powershell -- tooling job).
+     *  {@code bodies} is each comment's text *after* the leading `#`, in source order; {@code
+     *  blankBeforeEach.get(k)} is true iff a blank line separated comment {@code k} from comment
+     *  {@code k-1} (index 0's value is irrelevant -- a group always starts fresh at a sub-run's
+     *  beginning). Within a chain (no blank line between consecutive comments), only the first
+     *  comment's start is capitalized, and a sole trailing `.` is stripped only if it's the only
+     *  `.` across the whole chain, from the chain's last comment only -- matching curly's
+     *  `computeLineCommentGroups` shape. A singleton chain (length 1) reduces to the pre-existing
+     *  per-comment-token behavior.
+     */
+    static List<String> normalizeChain(
+        final List<String>  bodies,
+        final List<Boolean> blankBeforeEach,
+        final boolean       normalizeStartCase,
+        final boolean       normalizeEndPeriod,
+        final Set<String>   noCapitalizeWords
+    )
+    {
+        final List<String> out = new ArrayList<>();
+        final int          n   = bodies.size();
+        int                i   = 0;
+        while(i < n) {
+            int j = i;
+            while( j + 1 < n && !blankBeforeEach.get(j + 1) ) ++j;
+            final List<String> chain = new ArrayList<>( bodies.subList(i, j + 1) );
+            if(normalizeEndPeriod) {
+                int dotCount = 0;
+                for(final String c : chain) for(
+                    int k = 0; k < c.length(); ++k
+                ) if( c.charAt(k) == '.' ) ++dotCount;
+                if(dotCount == 1) {
+                    final int lastIdx = chain.size() - 1;
+                    chain.set( lastIdx, stripSoleTrailingPeriod( chain.get(lastIdx) ) );
+                } // if
+            } // if
+            if( normalizeStartCase && !chain.isEmpty() ) chain.set(
+                0, capitalizeFirstLetter( chain.get(0), noCapitalizeWords )
+            );
+            out.addAll(chain);
+            i = j + 1;
+        } // while
+
+        return out;
     }
 
     /**

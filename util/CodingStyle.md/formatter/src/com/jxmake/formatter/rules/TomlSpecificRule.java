@@ -105,6 +105,28 @@ public final class TomlSpecificRule {
         return sb.toString();
     }
 
+    /**
+     * 2026-08-08 session: chain-groups a run of consecutive leading `#` comments the same way curly
+     *  chains `//` (RDD_KEY_265/RDD_KEY_266) -- delegates to
+     *  {@link ToolingCommentNormalizer#normalizeChain}, shared with YAML/Makefile/Bash/PowerShell.
+     *  {@code raw} holds unnormalized, trimmed `#...`-prefixed comment lines in source order;
+     *  {@code blankBefore.get(k)} is true iff a blank line separated comment {@code k} from comment
+     *  {@code k-1}.
+     */
+    private List<String> finalizeComments(final List<String> raw, final List<Boolean> blankBefore)
+    {
+        if( raw.isEmpty() ) return raw;
+        final List<String> bodies = new ArrayList<>();
+        for(final String c : raw) bodies.add( c.substring(1) ); // strip leading '#'
+        final List<String> normBodies = ToolingCommentNormalizer.normalizeChain(
+            bodies, blankBefore, normalizeCommentStartCase, normalizeCommentEndPeriod, null
+        );
+        final List<String> out = new ArrayList<>();
+        for(final String b : normBodies) out.add("#" + b);
+
+        return out;
+    }
+
     private String normComment(final String commentText)
     {
         String text = normalizeCommentEndPeriod
@@ -504,10 +526,11 @@ public final class TomlSpecificRule {
         final List<String> lines           = new ArrayList<>( java.util.Arrays.asList(rawLines) );
         if( endsWithNewline && !lines.isEmpty() ) lines.remove( lines.size() - 1 );
 
-        final List<Item>   items           = new ArrayList<>();
-              List<String> pendingComments = new ArrayList<>();
-              boolean      pendingBlank    = false;
-              int          idx             = 0;
+        final List<Item>    items               = new ArrayList<>();
+              List<String>  pendingComments     = new ArrayList<>();
+              List<Boolean> pendingCommentBlank = new ArrayList<>();
+              boolean       pendingBlank        = false;
+              int           idx                 = 0;
         while( idx < lines.size() ) {
             final String raw     = lines.get(idx);
             final String trimmed = raw.trim();
@@ -519,9 +542,10 @@ public final class TomlSpecificRule {
             if( trimmed.startsWith("#") ) {
                 if( ("#% " + TokenizerCore.JXM_CFMT_DIS).equals(trimmed) ) {
                     final Item item = new Item();
-                    item.leadingComments = pendingComments;
+                    item.leadingComments = finalizeComments(pendingComments, pendingCommentBlank);
                     item.blankBefore     = pendingBlank;
                     pendingComments      = new ArrayList<>();
+                    pendingCommentBlank  = new ArrayList<>();
                     pendingBlank         = false;
                     item.isFrozen        = true;
                     item.frozenLines     = new ArrayList<>();
@@ -540,14 +564,17 @@ public final class TomlSpecificRule {
                     items.add(item);
                     continue;
                 } // if
-                pendingComments.add( normComment(trimmed) );
+                pendingComments.add(trimmed); // raw text; grouped/normalized in finalizeComments
+                pendingCommentBlank.add(pendingBlank);
+                pendingBlank = false;
                 ++idx;
                 continue;
             } // if
             final Item item = new Item();
-            item.leadingComments = pendingComments;
+            item.leadingComments = finalizeComments(pendingComments, pendingCommentBlank);
             item.blankBefore     = pendingBlank;
             pendingComments      = new ArrayList<>();
+            pendingCommentBlank  = new ArrayList<>();
             pendingBlank         = false;
             if( trimmed.startsWith("[") ) {
                 item.isHeader  = true;
@@ -613,7 +640,7 @@ public final class TomlSpecificRule {
         } // while
         if( !pendingComments.isEmpty() || pendingBlank ) {
             final Item d = new Item();
-            d.leadingComments = pendingComments;
+            d.leadingComments = finalizeComments(pendingComments, pendingCommentBlank);
             d.blankBefore     = pendingBlank;
             d.dangling        = true;
             items.add(d);

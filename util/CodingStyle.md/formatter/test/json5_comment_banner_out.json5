@@ -8,4 +8,8 @@
      * second line, continuing the same sentence
      */
     a : 1,
+    /*
+     * First line of a banner comment.
+     * Second line, continuing the same sentence.
+     */
 }

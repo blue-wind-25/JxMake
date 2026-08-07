@@ -350,9 +350,11 @@ INP_FILES += css_comments_inp.css
 
 INP_FILES += yaml_core_inp.yaml
 INP_FILES += yaml_comments_inp.yaml
+INP_FILES += yaml_comment_chain_inp.yaml
 
 INP_FILES += toml_core_inp.toml
 INP_FILES += toml_comments_inp.toml
+INP_FILES += toml_comment_chain_inp.toml
 
 INP_FILES += xml_combined_inp.xml
 INP_FILES += xml_comments_inp.xml

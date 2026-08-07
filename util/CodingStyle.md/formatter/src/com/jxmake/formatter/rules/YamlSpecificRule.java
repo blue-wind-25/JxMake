@@ -109,6 +109,35 @@ public final class YamlSpecificRule {
         return sb.toString();
     }
 
+    /**
+     * 2026-08-08 session: chain-groups a run of consecutive leading `#` comments the same way
+     *  curly chains `//` (RDD_KEY_265/RDD_KEY_266) -- delegates the actual grouping/normalization to
+     *  {@link ToolingCommentNormalizer#normalizeChain}, shared with TOML/Makefile/Bash/PowerShell.
+     *  {@code raw} holds unnormalized {@link CommentLine}s (each already carrying its own
+     *  blank-before-this-comment flag, per-comment, from parsing); only the resulting text changes,
+     *  the blank-before flags are preserved as-is (they drive blank-line rendering, orthogonal to
+     *  the sentence-grouping decision here).
+     */
+    private List<CommentLine> finalizeComments(final List<CommentLine> raw)
+    {
+        if( raw.isEmpty() ) return raw;
+        final List<String>  bodies = new ArrayList<>();
+        final List<Boolean> blanks = new ArrayList<>();
+        for(final CommentLine cl : raw) {
+            bodies.add( cl.text.substring(1) ); // strip leading '#'
+            blanks.add(cl.blankBefore);
+        }
+        final List<String> normBodies = ToolingCommentNormalizer.normalizeChain(
+            bodies, blanks, normalizeCommentStartCase, normalizeCommentEndPeriod, null
+        );
+        final List<CommentLine> out = new ArrayList<>();
+        for( int i = 0; i < normBodies.size(); ++i ) out.add(
+            new CommentLine( raw.get(i).blankBefore, "#" + normBodies.get(i) )
+        );
+
+        return out;
+    }
+
     private String normComment(final String commentText)
     {
         String text = normalizeCommentEndPeriod
@@ -663,7 +692,7 @@ public final class YamlSpecificRule {
             if( isComment && (ln.indent == blockIndent || nextReal == null || nextReal.indent == blockIndent) ) {
                 if( ("#% " + TokenizerCore.JXM_CFMT_DIS).equals(ln.content) ) {
                     final Item item = new Item();
-                    item.leadingComments = pendingComments;
+                    item.leadingComments = finalizeComments(pendingComments);
                     item.blankBefore     = pendingBlank;
                     pendingComments      = new ArrayList<>();
                     pendingBlank         = false;
@@ -682,7 +711,7 @@ public final class YamlSpecificRule {
                     items.add(item);
                     continue;
                 } // if
-                pendingComments.add( new CommentLine( pendingBlank, normComment(ln.content) ) );
+                pendingComments.add( new CommentLine( pendingBlank, ln.content ) ); // raw text; grouped/normalized in finalizeComments
                 pendingBlank = false;
                 ++pos;
                 continue;
@@ -693,7 +722,7 @@ public final class YamlSpecificRule {
             isSeqBlock = lineIsSeq;
 
             final Item item = new Item();
-            item.leadingComments = pendingComments;
+            item.leadingComments = finalizeComments(pendingComments);
             item.blankBefore     = pendingBlank;
             pendingComments      = new ArrayList<>();
             pendingBlank         = false;
@@ -704,7 +733,7 @@ public final class YamlSpecificRule {
         } // while
         if( !pendingComments.isEmpty() || pendingBlank ) {
             final Item d = new Item();
-            d.leadingComments = pendingComments;
+            d.leadingComments = finalizeComments(pendingComments);
             d.blankBefore     = pendingBlank;
             d.dangling        = true;
             items.add(d);

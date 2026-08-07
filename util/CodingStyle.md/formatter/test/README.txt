@@ -231,6 +231,10 @@ YAML/TOML:
                                                         malformed-spacing line verbatim, a trailing comment,
                                                         and comment-start-case normalization.
 
+  yaml_comment_chain_inp/out.yaml                    -- Two consecutive standalone `#` leading comments with
+                                                        no blank line between them chain-group like curly's
+                                                        `//`: only the first is capitalized.
+
   toml_core_inp/out.toml                             -- `=`-alignment group at the top level and within
                                                         `[package]`/ `[[bin]]` tables, no added indentation
                                                         for keys under a table header, a tight array of atoms
@@ -242,6 +246,10 @@ YAML/TOML:
                                                         JXM_CFMT_DIS`/`ENA` marker pair freezing a
                                                         malformed-spacing line verbatim, a trailing comment,
                                                         and comment-start-case normalization.
+
+  toml_comment_chain_inp/out.toml                    -- Two consecutive standalone `#` leading comments with
+                                                        no blank line between them chain-group like curly's
+                                                        `//`: only the first is capitalized.
 
 XML:
   xml_combined_inp/out.xml                           -- `<?xml?>` PI plus a second `<?xml-stylesheet?>` PI and

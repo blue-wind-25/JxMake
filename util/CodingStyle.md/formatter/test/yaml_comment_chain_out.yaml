@@ -1,0 +1,6 @@
+#% JXM_CFMT_CFG indent-size=2
+# copyright header comment
+key1 : value1
+# First comment line
+# second comment line, continuing
+key2 : value2

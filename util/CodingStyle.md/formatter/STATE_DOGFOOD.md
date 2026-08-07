@@ -64,8 +64,8 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Java | STATE_CURLY_GDR.md | javaparser/javaparser (javaparser-core, GDR multipass) | DONE | curly-general-scope-reindent-multipass=on: 93/576 single-pass non-idempotent files → 0/576, all pass java_syntax_check |
 | Java | STATE_CURLY_GDR.md | javaparser/javaparser (javaparser-core-generators, GDR multipass) | DONE | curly-general-scope-reindent-multipass=on: 13/43 single-pass non-idempotent files → 0/43 |
 | Java | STATE_CURLY_GDR.md | tool/JSONEncoderLite.java (local, GDR multipass) | DONE | curly-general-scope-reindent-multipass=on: 112-line single-pass non-idempotency diff → 0 |
-| Java | STATE_C_CPP_JAVA.md | jenkinsci/jenkins | DONE - PARTIAL FIX | PluginManager.java: reproducible (corrected 2026-07-31), now a stable ~1992-char unwrapped line, not a round-flap; root cause undiagnosed |
-| Java | STATE_C_CPP_JAVA.md | openrewrite/rewrite | DONE - PARTIAL FIX | cluster 5 still open |
+| Java | STATE_C_CPP_JAVA.md | jenkinsci/jenkins | DONE | PluginManager.java fixed (RDD_KEY_225, pre-flight bail-out in DeclarationAlignmentRuleCurly.parseDeclaration); make test 224/224 -> 225/225 |
+| Java | STATE_C_CPP_JAVA.md | openrewrite/rewrite | DONE - PARTIAL FIX | all 6 idempotency clusters fixed (cluster 5 fixed via STATEMENT_LEADING_KEYWORDS guard); full-tree re-run + javac compile-check across all 3373 files still deferred, unblocked but not yet run |
 | Java | STATE_C_CPP_JAVA.md | pcpp_java tool (local) | DONE | |
 | Java | STATE_C_CPP_JAVA.md | RobotCoding gui_frontend | DONE | |
 | Java | STATE_C_CPP_JAVA.md | self-dogfood (formatter's own src/) | DONE | |
@@ -98,7 +98,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | XML | STATE_DATA_FORMATS.md | apache/maven | DONE | |
 | XML | STATE_DATA_FORMATS.md | jenkinsci/jenkins | DONE | |
 | XML | STATE_DATA_FORMATS.md | w3c/svgwg | DONE | |
-| HTML5 | STATE_DATA_FORMATS.md | apache/ant manual/ | DONE - PARTIAL FIX | 1 unfixed gap: running.html loses a `<p>`; re-verified clean of new tc-gap regressions 2026-08-02 (STATE_HTML5_TCG.md checklist item 1) |
+| HTML5 | STATE_DATA_FORMATS.md | apache/ant manual/ | DONE | running.html's `<p>`-loss gap fixed (RDD_KEY_236, 2026-08-03); re-verified clean of new tc-gap regressions 2026-08-02 (STATE_HTML5_TCG.md checklist item 1) |
 | HTML5 | STATE_HTML5_TCG.md | alexandersandberg/html5-elements-tester | DONE | fully clean end-to-end (forward/round2/idempotency/syntax/content-diff), 2026-08-02 |
 | HTML5 | STATE_DATA_FORMATS.md | web-platform-tests/wpt | DONE - PARTIAL FIX | deep tree-construction gaps deferred to STATE_HTML5_TCG.md; no new regression confirmed 2026-08-02 |
 | HTML5 | STATE_DATA_FORMATS.md | wordpress/wordpress-develop | DONE - OPEN Q | magic-comment capitalization question; re-run as superset (303 files) by tc gap job 2026-08-02, no new tc-gap regressions |

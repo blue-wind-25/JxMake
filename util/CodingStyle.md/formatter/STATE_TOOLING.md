@@ -72,6 +72,7 @@ started (docs-only, no code landed yet).
 | RDD_KEY_259 | (**REVERSED by RDD_KEY_260** — no longer in effect) Comment normalization for all three reuses the shared comment-classifier pipeline — premise was factually wrong, see RDD_KEY_260 |
 | RDD_KEY_260 | **REVERSES RDD_KEY_259** — the shared classifier pipeline is curly-family-only (`MiscRuleCore`/`FormatterCurly`), not language-agnostic; Makefile/Bash/PowerShell comment normalization, if added, follows the simpler TOML-style ad hoc pattern instead |
 | RDD_KEY_261 | Comment normalization landed (refines, doesn't reverse, RDD_KEY_260): shared `ToolingCommentNormalizer` (start-case + end-period, reusing the existing global config keys) wired into all three; Bash alone gets a Unix-tool-name no-capitalize word list, Makefile/PowerShell get plain cap only |
+| RDD_KEY_267 | `#`-comment chain-grouping (2026-08-08 brief decision #3, parity with curly/RDD_KEY_265/RDD_KEY_266): consecutive standalone `#` comment lines now normalize as one unit via `ToolingCommentNormalizer.normalizeChain`, instead of each comment independently; fixed a latent bug where a mid-chain sole `.` (not on the chain's last comment) was incorrectly stripped by the old per-comment-only logic |
 
 ---
 
@@ -395,3 +396,35 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       status names `FormatterMakefile`/`FormatterBash`/`FormatterPowerShell`
       (+ rule classes); canonical-order note now requires the three in
       every current-capability list (no longer "reserved/not-yet").
+- [x] Implement `#`-comment chain-grouping (RDD_KEY_267, 2026-08-08 brief
+      decision #3, curly-parity companion to RDD_KEY_265/RDD_KEY_266).
+      `MakefileSpecificRule.parseBlock`'s `COMMENT_LINE` branch now scans
+      forward collecting every immediately-following comment line before
+      normalizing the whole run via `ToolingCommentNormalizer.normalizeChain`
+      (was: normalized each comment line independently). Bash/PowerShell
+      (`runPassA`, character-level tokenizers) needed a deferred-placeholder
+      approach since they normalize+emit inline as each comment's closing
+      newline is hit, with no lookahead: a new `Frame.standalone`/`lineNo`
+      pair (computed when a `#` frame is pushed) drives a new path where a
+      standalone comment's raw body is stored in a `ChainEntry` list behind
+      a unique placeholder marker emitted in its place; a trailing
+      (non-standalone) comment still normalizes immediately, never deferred.
+      After the pass-A scan, `resolveChainEntries` groups entries into
+      chains wherever `lineNo` is strictly consecutive (any gap -- blank
+      line, code line, or an intervening trailing comment -- breaks the
+      chain), normalizes each chain, and substitutes placeholders for final
+      text. Found and fixed a real latent bug in RDD_KEY_261's original
+      per-comment-only logic in the process: existing fixtures'
+      `# Copyright (C) 2024 Example Corp.` line (part of a 4-line standalone
+      block also containing a period-free SPDX line and two blank `#`
+      lines) had its trailing `.` wrongly stripped because each line's own
+      period count was checked in isolation; chain-grouped, the strip step
+      only ever touches the chain's *last* comment (the trailing blank
+      line, which has no `.` to strip), so the mid-chain period now
+      correctly survives -- exactly curly's own semantics.
+      `makefile_combined_out.mk`, `bash_combined_out.sh`,
+      `powershell_combined_out.ps1`, `real_code_regressions_182_out.ps1`
+      regenerated from the live JAR to reflect the fix (user regenerated/
+      verified). `make test`: 257/257 forward + idempotency, zero
+      regressions (no new fixtures needed this round). Closes out decision
+      #3 of the 2026-08-08 brief.

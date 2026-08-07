@@ -68,6 +68,8 @@ public final class PowerShellSpecificRule {
 
         final char type;
         int        parenDepth; // reused: paren depth for 'C', nest depth for 'B', brace depth for 'V'
+        boolean    standalone; // '#'-frames only: true iff nothing but whitespace precedes it on its line
+        int        lineNo;     // '#'-frames only: 0-based source line index this comment starts on
 
         Frame(final char type)
         {
@@ -82,6 +84,26 @@ public final class PowerShellSpecificRule {
         char[] kind; // per original character: 'C' / 'O'
 
     } // class PassAResult
+
+    /**
+     * Deferred record for a standalone (own-line) `#` comment, collected during pass A instead of
+     *  being normalized immediately, so consecutive standalone comments (RDD_KEY_265/RDD_KEY_266-
+     *  style chain-grouping, RDD_KEY_267) can be normalized together after the whole file is scanned.
+     */
+    private static final class ChainEntry {
+
+        final String placeholder;
+        final String body;
+        final int    lineNo;
+
+        ChainEntry(final String placeholder, final String body, final int lineNo)
+        {
+            this.placeholder = placeholder;
+            this.body        = body;
+            this.lineNo      = lineNo;
+        }
+
+    } // class ChainEntry
 
     /** Accumulates characters and flushes on kind change (identity for both kinds, for now) */
     private static final class RunBuffer {
@@ -117,12 +139,14 @@ public final class PowerShellSpecificRule {
 
     private PassAResult runPassA(final String content)
     {
-        final char[]        kind        = new char[content.length()];
-        final List<Frame>   stack       = new ArrayList<>();
-        final RunBuffer     buf         = new RunBuffer();
-        final StringBuilder commentBody = new StringBuilder();
-              boolean       atLineStart = true;
-              int           i           = 0;
+        final char[]           kind         = new char[content.length()];
+        final List<Frame>      stack        = new ArrayList<>();
+        final RunBuffer        buf          = new RunBuffer();
+        final StringBuilder    commentBody  = new StringBuilder();
+        final List<ChainEntry> chainEntries = new ArrayList<>();
+              boolean          atLineStart  = true;
+              int              i            = 0;
+              int              chainSeq     = 0;
 
         while( i < content.length() ) {
             final Frame top = stack.isEmpty() ? null : stack.get( stack.size() - 1 );
@@ -132,7 +156,13 @@ public final class PowerShellSpecificRule {
             if( top != null && top.type == '#' ) {
                 if(c == '\n') {
                     stack.remove( stack.size() - 1 );
-                    emitNormalizedComment( buf, commentBody.toString() );
+                    if(top.standalone) {
+                        final String placeholder = "CHAIN" + (chainSeq++) + "";
+                        chainEntries.add( new ChainEntry(placeholder, commentBody.toString(), top.lineNo) );
+                        for( int p = 0; p < placeholder.length(); ++p ) buf.emit( placeholder.charAt(p), 'O' );
+                    } else {
+                        emitNormalizedComment( buf, commentBody.toString() );
+                    }
                     commentBody.setLength(0);
                     kind[i] = 'C';
                     buf.emit(c, 'C');
@@ -346,7 +376,14 @@ public final class PowerShellSpecificRule {
 
             // Line comment -- '#' always starts a comment outside strings/here-strings in PS
             if(c == '#') {
-                stack.add( new Frame('#') );
+                final Frame f = new Frame('#');
+                int lineStart = i;
+                while( lineStart > 0 && content.charAt(lineStart - 1) != '\n' ) --lineStart;
+                f.standalone = content.substring(lineStart, i).trim().isEmpty();
+                int ln = 0;
+                for( int p = 0; p < lineStart; ++p ) if( content.charAt(p) == '\n' ) ++ln;
+                f.lineNo = ln;
+                stack.add(f);
                 kind[i] = 'O';
                 buf.emit(c, 'O');
                 atLineStart = false;
@@ -426,10 +463,22 @@ public final class PowerShellSpecificRule {
             ++i;
         } // while
 
-        if( commentBody.length() > 0 ) emitNormalizedComment( buf, commentBody.toString() );
+        if( commentBody.length() > 0 ) {
+            final Frame top = stack.isEmpty() ? null : stack.get( stack.size() - 1 );
+            if( top != null && top.type == '#' && top.standalone ) {
+                final String placeholder = "CHAIN" + (chainSeq++) + "";
+                chainEntries.add( new ChainEntry( placeholder, commentBody.toString(), top.lineNo ) );
+                for( int p = 0; p < placeholder.length(); ++p ) buf.emit( placeholder.charAt(p), 'O' );
+            } else {
+                emitNormalizedComment( buf, commentBody.toString() );
+            }
+        }
+
+        String transformed = buf.result();
+        transformed = resolveChainEntries( transformed, chainEntries );
 
         final PassAResult result = new PassAResult();
-        result.transformed = buf.result();
+        result.transformed = transformed;
         result.kind         = kind;
 
         return result;
@@ -442,6 +491,36 @@ public final class PowerShellSpecificRule {
             body, normalizeCommentStartCase, normalizeCommentEndPeriod, null
         );
         for( int i = 0; i < normalized.length(); ++i ) buf.emit( normalized.charAt(i), 'O' );
+    }
+
+    /**
+     * Groups {@code entries} (each a deferred standalone `#` comment, in source order) into chains --
+     *  strictly consecutive source lines, per {@link ChainEntry#lineNo} -- normalizes each chain via
+     *  {@link ToolingCommentNormalizer#normalizeChain}, then substitutes each entry's placeholder
+     *  marker in {@code transformed} with its final text. A chain of length 1 reduces to the
+     *  pre-existing per-comment behavior.
+     */
+    private String resolveChainEntries(final String transformed, final List<ChainEntry> entries)
+    {
+        if( entries.isEmpty() ) return transformed;
+
+        String out = transformed;
+        int    i   = 0;
+        while( i < entries.size() ) {
+            int j = i;
+            while( j + 1 < entries.size() && entries.get(j + 1).lineNo == entries.get(j).lineNo + 1 ) ++j;
+
+            final List<String>  bodies = new ArrayList<>();
+            final List<Boolean> blanks = new ArrayList<>();
+            for( int k = i; k <= j; ++k ) { bodies.add( entries.get(k).body ); blanks.add(false); }
+            final List<String> normalized = ToolingCommentNormalizer.normalizeChain(
+                bodies, blanks, normalizeCommentStartCase, normalizeCommentEndPeriod, null
+            );
+            for( int k = i; k <= j; ++k ) out = out.replace( entries.get(k).placeholder, normalized.get(k - i) );
+            i = j + 1;
+        } // while
+
+        return out;
     }
 
     /**

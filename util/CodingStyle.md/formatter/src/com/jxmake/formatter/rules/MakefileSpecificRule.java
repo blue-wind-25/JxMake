@@ -110,11 +110,24 @@ public final class MakefileSpecificRule {
 
             if( COMMENT_LINE.matcher(trimmed).matches() ) {
                 flushGroup(out, group, groupDepth);
-                final String normalized = ToolingCommentNormalizer.normalize(
-                    trimmed.substring(1), normalizeCommentStartCase, normalizeCommentEndPeriod, null
+                final List<String> commentRawLines = new ArrayList<>();
+                final List<String> bodies          = new ArrayList<>();
+                while( idx < lines.size() ) {
+                    final String r = lines.get(idx);
+                    final String t = r.trim();
+                    if( !COMMENT_LINE.matcher(t).matches() ) break;
+                    commentRawLines.add(r);
+                    bodies.add( t.substring(1) );
+                    ++idx;
+                }
+                final List<Boolean> blanks = new ArrayList<>();
+                for( int k = 0; k < bodies.size(); ++k ) blanks.add(false);
+                final List<String> normalized = ToolingCommentNormalizer.normalizeChain(
+                    bodies, blanks, normalizeCommentStartCase, normalizeCommentEndPeriod, null
                 );
-                out.add( leadingWhitespace(raw) + "#" + normalized );
-                ++idx;
+                for( int k = 0; k < normalized.size(); ++k ) {
+                    out.add( leadingWhitespace( commentRawLines.get(k) ) + "#" + normalized.get(k) );
+                }
                 continue;
             }
 

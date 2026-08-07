@@ -1,5 +1,5 @@
-# Copyright (C) 2024 Example Corp
-# SPDX-License-Identifier: MIT
+# Copyright (C) 2024 Example Corp.
+# SPDX-License-Identifier: MIT.
 
 $oneCharName = "PSOneChar"
 $directory   = Split-Path -Parent $MyInvocation.MyCommand.Path

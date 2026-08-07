@@ -157,13 +157,13 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      */
     private List<Replacement> applyCommentNormalization(final List<Token> tokens)
     {
-        final List<Replacement>  replacements = new ArrayList<>();
-        final Map<Integer, String> groups      = miscRule.computeHashCommentGroups(tokens);
+        final List<Replacement>    replacements = new ArrayList<>();
+        final Map<Integer, String> groups       = miscRule.computeHashCommentGroups(tokens);
         for( final Map.Entry<Integer, String> e : groups.entrySet() ) {
             final int    idx  = e.getKey();
             final String body = e.getValue();
-            if( !( "#" + body ).equals( tokens.get(idx).text ) ) replacements.add(
-                new Replacement( idx, idx + 1, "#" + body )
+            if( !("#" + body).equals( tokens.get(idx).text ) ) replacements.add(
+                new Replacement(idx, idx + 1, "#" + body)
             );
         } // for
 
@@ -405,8 +405,8 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
               List<PyImport>    groupImports = new ArrayList<>();
               int               groupDepth   = -1;
               int               groupStart   = -1;
-        final int                n           = rawLines.size();
-        for( int idx = 0; idx < n; ++idx ) {
+        final int               n            = rawLines.size();
+        for(int idx = 0; idx < n; ++idx) {
             final RawLine  line = rawLines.get(idx);
             final PyImport imp  = line.multiPhysicalLine ? null : classifyImport(tokens, line);
             if( imp != null && ( group.isEmpty() || line.depth == groupDepth ) ) {
@@ -415,7 +415,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                 groupImports.add(imp);
                 groupDepth = line.depth;
                 continue;
-            }
+            } // if
             if( !group.isEmpty() ) {
                 flushImportGroup(tokens, group, groupImports, replacements);
                 groupRanges.add( new int[] { groupStart, idx, groupDepth } );
@@ -471,7 +471,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             final int gapTo   = next[0];
             if(gapFrom >= gapTo) continue; // No gap at all (shouldn't happen at equal depth, defensive)
             boolean allBlank = true;
-            for( int idx = gapFrom; idx < gapTo; ++idx ) {
+            for(int idx = gapFrom; idx < gapTo; ++idx) {
                 if( !isBlankLine( tokens, rawLines.get(idx) ) ) {
                     allBlank = false;
                     break;
@@ -481,7 +481,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             final int currentBlankLines = gapTo - gapFrom;
             if(currentBlankLines == pythonImportBlankLines) continue;
             final StringBuilder text = new StringBuilder();
-            for( int b = 0; b < pythonImportBlankLines; ++b ) text.append('\n');
+            for(int b = 0; b < pythonImportBlankLines; ++b) text.append('\n');
             replacements.add(
                 new Replacement(
                     rawLines.get(gapFrom).start, rawLines.get(gapTo - 1).end, text.toString()
@@ -502,7 +502,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      */
     private boolean isBlankLine(final List<Token> tokens, final RawLine line)
     {
-        for( int i = line.contentStart; i < line.end; ++i ) {
+        for(int i = line.contentStart; i < line.end; ++i) {
             final TokenType type = tokens.get(i).type;
             if(type != TokenType.WHITESPACE && type != TokenType.NEWLINE) return false;
         }

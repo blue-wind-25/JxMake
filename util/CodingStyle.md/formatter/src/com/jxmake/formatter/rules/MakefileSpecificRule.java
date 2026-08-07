@@ -25,11 +25,15 @@ import java.util.regex.Pattern;
  */
 public final class MakefileSpecificRule {
 
-    private static final Pattern ASSIGN = Pattern.compile(
+    private static final Pattern ASSIGN          = Pattern.compile(
         "^([A-Za-z_][A-Za-z0-9_.]*)\\s*(:=|\\+=|\\?=|=)\\s*(.*)$"
     );
-    private static final Pattern TARGET          = Pattern.compile("^([^:\\s][^:]*?)\\s*(::?)\\s*(.*)$");
-    private static final Pattern DIRECTIVE_OPEN  = Pattern.compile("^(ifdef|ifndef|ifeq|ifneq)\\b.*$");
+    private static final Pattern TARGET          = Pattern.compile(
+        "^([^:\\s][^:]*?)\\s*(::?)\\s*(.*)$"
+    );
+    private static final Pattern DIRECTIVE_OPEN  = Pattern.compile(
+        "^(ifdef|ifndef|ifeq|ifneq)\\b.*$"
+    );
     private static final Pattern DIRECTIVE_ELSE  = Pattern.compile("^else\\b.*$");
     private static final Pattern DIRECTIVE_ENDIF = Pattern.compile("^endif\\b.*$");
     private static final Pattern COMMENT_LINE    = Pattern.compile("^#.*$");
@@ -39,7 +43,9 @@ public final class MakefileSpecificRule {
     private final boolean normalizeCommentEndPeriod;
 
     public MakefileSpecificRule(
-        final int indentWidth, final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod
+        final int     indentWidth,
+        final boolean normalizeCommentStartCase,
+        final boolean normalizeCommentEndPeriod
     )
     {
         this.indentWidth               = Math.max(1, indentWidth);
@@ -52,18 +58,19 @@ public final class MakefileSpecificRule {
         String       name;
         String       op;
         List<String> valueParts;
-    }
+
+    } // class AsgnItem
 
     public String format(final String content)
     {
-        final boolean        endsWithNewline = content.endsWith("\n");
-        final String[]       rawLines        = content.split("\n", -1);
-        final List<String>   lines           = new ArrayList<>( java.util.Arrays.asList(rawLines) );
+        final boolean      endsWithNewline = content.endsWith("\n");
+        final String[]     rawLines        = content.split("\n", -1);
+        final List<String> lines           = new ArrayList<>( java.util.Arrays.asList(rawLines) );
         if( endsWithNewline && !lines.isEmpty() ) lines.remove( lines.size() - 1 );
 
-        final List<String>   out       = new ArrayList<>();
-        final List<AsgnItem> group     = new ArrayList<>();
-              int            condDepth = 0;
+        final List<String>   out        = new ArrayList<>();
+        final List<AsgnItem> group      = new ArrayList<>();
+              int            condDepth  = 0;
               int            groupDepth = 0;
               int            idx        = 0;
 
@@ -91,7 +98,7 @@ public final class MakefileSpecificRule {
                 ++condDepth;
                 ++idx;
                 continue;
-            }
+            } // if
 
             if( DIRECTIVE_ELSE.matcher(trimmed).matches() ) {
                 flushGroup(out, group, groupDepth);
@@ -106,7 +113,7 @@ public final class MakefileSpecificRule {
                 out.add( indent(condDepth) + trimmed );
                 ++idx;
                 continue;
-            }
+            } // if
 
             if( COMMENT_LINE.matcher(trimmed).matches() ) {
                 flushGroup(out, group, groupDepth);
@@ -119,17 +126,17 @@ public final class MakefileSpecificRule {
                     commentRawLines.add(r);
                     bodies.add( t.substring(1) );
                     ++idx;
-                }
+                } // while
                 final List<Boolean> blanks = new ArrayList<>();
                 for( int k = 0; k < bodies.size(); ++k ) blanks.add(false);
                 final List<String> normalized = ToolingCommentNormalizer.normalizeChain(
                     bodies, blanks, normalizeCommentStartCase, normalizeCommentEndPeriod, null
                 );
-                for( int k = 0; k < normalized.size(); ++k ) {
-                    out.add( leadingWhitespace( commentRawLines.get(k) ) + "#" + normalized.get(k) );
-                }
+                for( int k = 0; k < normalized.size(); ++k ) out.add(
+                    leadingWhitespace( commentRawLines.get(k) ) + "#" + normalized.get(k)
+                );
                 continue;
-            }
+            } // if
 
             final Matcher asgn = ASSIGN.matcher(trimmed);
             if( asgn.matches() ) {
@@ -148,7 +155,7 @@ public final class MakefileSpecificRule {
                 group.add(item);
                 ++idx;
                 continue;
-            }
+            } // if
 
             final Matcher target = TARGET.matcher(trimmed);
             if( target.matches() ) {
@@ -158,7 +165,7 @@ public final class MakefileSpecificRule {
                 out.add( indent(condDepth) + line.trim() );
                 ++idx;
                 continue;
-            }
+            } // if
 
             flushGroup(out, group, groupDepth);
             out.add(raw);
@@ -176,27 +183,33 @@ public final class MakefileSpecificRule {
         return sb.toString();
     }
 
-    private void flushGroup(final List<String> out, final List<AsgnItem> group, final int groupDepth)
+    private void flushGroup(
+        final List<String>   out,
+        final List<AsgnItem> group,
+        final int            groupDepth
+    )
     {
         if( group.isEmpty() ) return;
         int width = 0;
-        for( final AsgnItem item : group ) width = Math.max( width, item.name.length() + item.op.length() );
+        for(final AsgnItem item : group) width = Math.max(
+            width, item.name.length() + item.op.length()
+        );
         ++width;
         final String prefix = indent(groupDepth);
-        for( final AsgnItem item : group ) {
+        for(final AsgnItem item : group) {
             final int     pad      = width - item.name.length() - item.op.length();
             final String  firstVal = item.valueParts.get(0);
             final boolean multi    = item.valueParts.size() > 1;
             out.add(
-                prefix + item.name + repeatChar(' ', pad) + item.op + " " + firstVal + ( multi ? " \\" : "" )
+                prefix + item.name + repeatChar(' ', pad) + item.op + " " + firstVal + (multi ? " \\" : "")
             );
             for( int i = 1; i < item.valueParts.size(); ++i ) {
                 final boolean last = i == item.valueParts.size() - 1;
                 out.add(
-                    prefix + repeatChar(' ', width + 1) + item.valueParts.get(i) + ( last ? "" : " \\" )
+                    prefix + repeatChar(' ', width + 1) + item.valueParts.get(i) + (last ? "" : " \\")
                 );
             }
-        } // for
+        } // for item
         group.clear();
     }
 

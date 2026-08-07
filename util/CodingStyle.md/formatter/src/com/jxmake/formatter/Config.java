@@ -116,7 +116,7 @@ public final class Config {
      *  section), so unlike Java/Kotlin/JS/TS there is no companion {@code -order}/{@code -depth}
      *  key. Default on, mirroring {@code java-import-sort}/{@code js-import-sort}'s own default.
      */
-    private boolean pythonImportSort       = true;
+    private boolean pythonImportSort = true;
 
     /**
      * {@code python-import-blank-lines} -- STYLE_PYTHON3.md §3.2's import groups (a blank line,
@@ -400,7 +400,10 @@ public final class Config {
         public final String[] allowedValues;
 
         ConfigProperty(
-            final String group, final String key, final String defaultValue, final String[] allowedValues
+            final String   group,
+            final String   key,
+            final String   defaultValue,
+            final String[] allowedValues
         )
         {
             this.group         = group;
@@ -424,24 +427,24 @@ public final class Config {
         final List<ConfigProperty> result   = new ArrayList<ConfigProperty>();
         final java.util.Set<String> seen    = new java.util.LinkedHashSet<String>();
         for( final Map.Entry<String, String[]> groupEntry : GROUPS.entrySet() ) {
-            final String   group = groupEntry.getKey();
-            for(final String key : groupEntry.getValue()) {
+            final String group = groupEntry.getKey();
+            for( final String key : groupEntry.getValue() ) {
                 seen.add(key);
                 result.add( describeOne(group, key, defaults) );
             } // for
-        } // for
-        if( !seen.equals(ALL_KEYS_SET) ) {
-            throw new IllegalStateException(
-                "Config.GROUPS and Config.ALL_KEYS have drifted apart -- keys in ALL_KEYS but not GROUPS: "
-                    + minus(ALL_KEYS_SET, seen) + "; keys in GROUPS but not ALL_KEYS: " + minus(seen, ALL_KEYS_SET)
-            );
-        } // if
+        } // for groupEntry
+        if( !seen.equals(
+            ALL_KEYS_SET
+        ) ) throw new IllegalStateException(
+            "Config.GROUPS and Config.ALL_KEYS have drifted apart -- keys in ALL_KEYS but not GROUPS: " + minus(ALL_KEYS_SET, seen) + "; keys in GROUPS but not ALL_KEYS: " + minus(seen, ALL_KEYS_SET)
+        ); // If
 
         return result;
     }
 
     private static java.util.Set<String> minus(
-        final java.util.Set<String> a, final java.util.Set<String> b
+        final java.util.Set<String> a,
+        final java.util.Set<String> b
     )
     {
         final java.util.Set<String> result = new java.util.LinkedHashSet<String>(a);
@@ -450,129 +453,164 @@ public final class Config {
         return result;
     }
 
-    private static ConfigProperty describeOne(final String group, final String key, final Config defaults)
+    private static ConfigProperty describeOne(
+        final String group,
+        final String key,
+        final Config defaults
+    )
     {
         final String   defaultValue;
         final String[] allowedValues;
         switch(key) {
+
             case "line-length":
                 defaultValue  = String.valueOf(defaults.lineLength);
                 allowedValues = null;
                 break;
+
             case "indent-size":
                 defaultValue  = String.valueOf(defaults.indentSize);
                 allowedValues = null;
                 break;
+
             case "indent-style":
                 defaultValue  = defaults.indentStyle;
                 allowedValues = INDENT_STYLE_CHOICES;
                 break;
+
             case "server-port":
                 defaultValue  = String.valueOf(defaults.serverPort);
                 allowedValues = null;
                 break;
+
             case "closing-comment-min-lines":
                 defaultValue  = String.valueOf(defaults.closingCommentMinLines);
                 allowedValues = null;
                 break;
+
             case "format-macros":
                 defaultValue  = defaults.formatMacros ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 break;
+
             case "line-endings":
                 defaultValue  = defaults.lineEndings;
                 allowedValues = LINE_ENDINGS_CHOICES;
                 break;
+
             case "normalize-comment-start-case":
                 defaultValue  = defaults.normalizeCommentStartCase ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 break;
+
             case "normalize-comment-end-period":
                 defaultValue  = defaults.normalizeCommentEndPeriod ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 break;
+
             case "comment-normalization-classifier":
                 defaultValue  = defaults.commentNormalizationClassifier ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 break;
+
             case "header-guard-rename":
                 defaultValue  = defaults.headerGuardRename ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 break;
+
             case "java-import-order":
                 defaultValue  = String.join(", ", defaults.javaImportOrder);
                 allowedValues = null;
                 break;
+
             case "java-import-sort":
                 defaultValue  = defaults.javaImportSort ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 break;
+
             case "java-import-depth":
                 defaultValue  = String.valueOf(defaults.javaImportDepth);
                 allowedValues = null;
                 break;
+
             case "java-import-blank-lines":
                 defaultValue  = String.valueOf(defaults.javaImportBlankLines);
                 allowedValues = null;
                 break;
+
             case "kotlin-import-order":
                 defaultValue  = String.join(", ", defaults.kotlinImportOrder);
                 allowedValues = null;
                 break;
+
             case "kotlin-import-sort":
                 defaultValue  = defaults.kotlinImportSort ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 break;
+
             case "kotlin-import-depth":
                 defaultValue  = String.valueOf(defaults.kotlinImportDepth);
                 allowedValues = null;
                 break;
+
             case "kotlin-import-blank-lines":
                 defaultValue  = String.valueOf(defaults.kotlinImportBlankLines);
                 allowedValues = null;
                 break;
+
             case "js-import-order":
                 defaultValue  = String.join(", ", defaults.jsImportOrder);
                 allowedValues = null;
                 break;
+
             case "js-import-sort":
                 defaultValue  = defaults.jsImportSort ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 break;
+
             case "js-import-blank-lines":
                 defaultValue  = String.valueOf(defaults.jsImportBlankLines);
                 allowedValues = null;
                 break;
+
             case "python-import-sort":
                 defaultValue  = defaults.pythonImportSort ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 break;
+
             case "python-import-blank-lines":
                 defaultValue  = String.valueOf(defaults.pythonImportBlankLines);
                 allowedValues = null;
                 break;
+
             case "gru-classifier":
                 defaultValue  = defaults.gruClassifier ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 break;
+
             case "gru-weights-path":
                 defaultValue  = defaults.gruWeightsPath;
                 allowedValues = null;
                 break;
+
             case "curly-general-scope-reindent":
                 defaultValue  = defaults.curlyGeneralScopeReindent ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 break;
+
             case "curly-general-scope-reindent-multipass":
                 defaultValue  = defaults.curlyGeneralScopeReindentMultipass ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 break;
+
             case "html5-tc-gap-level":
                 defaultValue  = String.valueOf(defaults.html5TcGapLevel);
                 allowedValues = null;
                 break;
+
             default:
                 throw new IllegalStateException("describeAll: no case for key '" + key + "'");
+
         } // switch
 
         return new ConfigProperty(group, key, defaultValue, allowedValues);

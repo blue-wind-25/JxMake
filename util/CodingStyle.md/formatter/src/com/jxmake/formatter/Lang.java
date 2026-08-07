@@ -117,7 +117,13 @@ public final class Lang {
                 || "css".equals(language) || "yaml".equals(language) || "toml".equals(language)
                 || "xml".equals(language) || "html5".equals(language)
                 || "js".equals(language) || "ts".equals(language)
-                || "python3".equals(language) || "makefile".equals(language) || "bash".equals(language)
+                || "python3".equals(
+                    language
+                ) || "makefile".equals(
+                    language
+                ) || "bash".equals(
+                    language
+                )
                 || "powershell".equals(language);
     }
 
@@ -135,9 +141,15 @@ public final class Lang {
     public static String infer(final String path)
     {
         final String lower = path.toLowerCase(Locale.ROOT);
-        final int    slash = Math.max(lower.lastIndexOf('/'), lower.lastIndexOf('\\'));
+        final int    slash = Math.max( lower.lastIndexOf('/'), lower.lastIndexOf('\\') );
         final String base  = slash < 0 ? lower : lower.substring(slash + 1);
-        if( base.equals("makefile") || base.equals("gnumakefile") || base.endsWith(".mk") ) return "makefile";
+        if( base.equals(
+            "makefile"
+        ) || base.equals(
+            "gnumakefile"
+        ) || base.endsWith(
+            ".mk"
+        ) ) return "makefile";
         if( lower.endsWith(".java") ) return "java";
         if( lower.endsWith(".c") || lower.endsWith(".h") ) return "c";
         if( lower.endsWith(

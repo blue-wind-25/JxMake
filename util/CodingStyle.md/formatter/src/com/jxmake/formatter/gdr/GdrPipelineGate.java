@@ -87,14 +87,14 @@ public final class GdrPipelineGate {
         if(!multipass) return pipeline1;
 
         String previous = pipeline1;
-        for(int cycle = 2; cycle <= MAX_MULTIPASS_CYCLES; cycle++) {
+        for(int cycle = 2; cycle <= MAX_MULTIPASS_CYCLES; ++cycle) {
             final String gdrN      = apply(previous, language, config);
             final String pipelineN = formatter.formatOne(gdrN, filePath, config, formatOff);
 
-            if(pipelineN.equals(previous)) return pipelineN;
+            if( pipelineN.equals(previous) ) return pipelineN;
 
             previous = pipelineN;
-        }
+        } // for
 
         throw new IllegalStateException(
             "GDR multipass reindentation failed to converge to a stable fixed point within "

@@ -3127,7 +3127,7 @@ public class BlockStructureRule {
                         lines[i]  = lines[i].substring(0, jIndent) + lines[i].substring(indentLen);
                         indentLen = jIndent;
                         matchAt   = jIndent;
-                    }
+                    } // if
                     // Opposite direction: a bare `else` (no adjacent `if` on its own line, so it
                     // has no keyword-shape of its own to column-align, unlike `else if`) that some
                     // earlier structural/statement indent-fixup pass has already re-indented one

@@ -41,11 +41,40 @@ import java.util.regex.Pattern;
  */
 public final class BashSpecificRule {
 
-    /** Common Unix tool names left lowercase at the start of a comment (RDD_KEY_261). */
+    /** Common Unix tool names left lowercase at the start of a comment (RDD_KEY_261) */
     private static final Set<String> NO_CAPITALIZE_TOOLS = new HashSet<>( Arrays.asList(
-        "awk", "grep", "sed", "head", "tail", "cut", "sort", "uniq", "tr", "xargs", "find",
-        "diff", "tar", "curl", "wget", "ssh", "git", "cat", "echo", "printf", "wc", "chmod",
-        "chown", "ln", "mv", "cp", "rm", "mkdir", "ps", "kill", "du", "df"
+        "awk",
+        "grep",
+        "sed",
+        "head",
+        "tail",
+        "cut",
+        "sort",
+        "uniq",
+        "tr",
+        "xargs",
+        "find",
+        "diff",
+        "tar",
+        "curl",
+        "wget",
+        "ssh",
+        "git",
+        "cat",
+        "echo",
+        "printf",
+        "wc",
+        "chmod",
+        "chown",
+        "ln",
+        "mv",
+        "cp",
+        "rm",
+        "mkdir",
+        "ps",
+        "kill",
+        "du",
+        "df"
     ) );
 
     private final int     indentWidth;
@@ -53,7 +82,9 @@ public final class BashSpecificRule {
     private final boolean normalizeCommentEndPeriod;
 
     public BashSpecificRule(
-        final int indentWidth, final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod
+        final int     indentWidth,
+        final boolean normalizeCommentStartCase,
+        final boolean normalizeCommentEndPeriod
     )
     {
         this.indentWidth               = Math.max(1, indentWidth);
@@ -65,11 +96,11 @@ public final class BashSpecificRule {
 
     private static final class Frame {
 
-        final char    type; // 'S'=squote 'D'=dquote 'Q'=dollarsquote 'B'=backtick 'C'=cmdsub 'A'=arith '#'=comment
+        final char    type;       // 'S'=squote 'D'=dquote 'Q'=dollarsquote 'B'=backtick 'C'=cmdsub 'A'=arith '#'=comment
         final boolean opaque;
-        int           parenDepth;
-        boolean       standalone; // '#'-frames only: true iff nothing but whitespace precedes it on its line
-        int           lineNo;     // '#'-frames only: 0-based source line index this comment starts on
+              int     parenDepth;
+              boolean standalone; // '#'-frames only: true iff nothing but whitespace precedes it on its line
+              int     lineNo;     // '#'-frames only: 0-based source line index this comment starts on
 
         Frame(final char type, final boolean opaque)
         {
@@ -81,8 +112,8 @@ public final class BashSpecificRule {
 
     private static final class PassAResult {
 
-        String  transformed;
-        char[]  kind; // per original character: 'C' / 'O' / 'A'
+        String transformed;
+        char[] kind;        // Per original character: 'C' / 'O' / 'A'
 
     } // class PassAResult
 
@@ -103,9 +134,9 @@ public final class BashSpecificRule {
         void flush()
         {
             if( run.length() == 0 ) return;
-            if(kind == 'C')       out.append( pipeSpacing( run.toString() ) );
-            else if(kind == 'A')  out.append( arithmeticSpacing( run.toString() ) );
-            else                  out.append(run);
+                 if(kind == 'C') out.append( pipeSpacing( run.toString() ) );
+            else if(kind == 'A') out.append( arithmeticSpacing( run.toString() ) );
+            else                 out.append(run);
             run.setLength(0);
         }
 
@@ -133,26 +164,31 @@ public final class BashSpecificRule {
 
     private PassAResult runPassA(final String content)
     {
-        final char[]              kind            = new char[content.length()];
-        final List<Frame>         stack           = new ArrayList<>();
-        final RunBuffer           buf             = new RunBuffer();
-        final List<HeredocSpec>   pendingHeredocs = new ArrayList<>();
-        final StringBuilder       commentBody     = new StringBuilder();
+        final char[]            kind            = new char[ content.length() ];
+        final List<Frame>       stack           = new ArrayList<>();
+        final RunBuffer         buf             = new RunBuffer();
+        final List<HeredocSpec> pendingHeredocs = new ArrayList<>();
+        final StringBuilder     commentBody     = new StringBuilder();
         final ToolingCommentNormalizer.ChainCollector chainCollector =
             new ToolingCommentNormalizer.ChainCollector("\u0007CHAIN", "\u0007");
-              int                 i               = 0;
+                int i = 0;
 
         while( i < content.length() ) {
             final Frame top = stack.isEmpty() ? null : stack.get( stack.size() - 1 );
             final char  c   = content.charAt(i);
 
-            if( top != null && top.type == '#' ) {
+            if(top != null && top.type == '#') {
                 if(c == '\n') {
                     stack.remove( stack.size() - 1 );
                     if(top.standalone) {
-                        final String placeholder = chainCollector.defer( commentBody.toString(), top.lineNo );
-                        for( int p = 0; p < placeholder.length(); ++p ) buf.emit( placeholder.charAt(p), 'O' );
-                    } else {
+                        final String placeholder = chainCollector.defer(
+                            commentBody.toString(), top.lineNo
+                        );
+                        for( int p = 0; p < placeholder.length(); ++p ) buf.emit(
+                            placeholder.charAt(p), 'O'
+                        );
+                    } // if
+                    else {
                         emitNormalizedComment( buf, commentBody.toString() );
                     }
                     commentBody.setLength(0);
@@ -160,22 +196,22 @@ public final class BashSpecificRule {
                     buf.emit(c, 'C');
                     ++i;
                     continue;
-                }
+                } // if
                 kind[i] = 'O';
                 commentBody.append(c);
                 ++i;
                 continue;
-            }
+            } // if
 
-            if( top != null && top.type == 'S' ) {
+            if(top != null && top.type == 'S') {
                 kind[i] = 'O';
                 buf.emit(c, 'O');
                 if(c == '\'') stack.remove( stack.size() - 1 );
                 ++i;
                 continue;
-            }
+            } // if
 
-            if( top != null && ( top.type == 'D' || top.type == 'Q' ) ) {
+            if( top != null && (top.type == 'D' || top.type == 'Q') ) {
                 if( c == '\\' && i + 1 < content.length() ) {
                     kind[i] = 'O';
                     buf.emit(c, 'O');
@@ -184,40 +220,44 @@ public final class BashSpecificRule {
                     buf.emit( content.charAt(i), 'O' );
                     ++i;
                     continue;
-                }
+                } // if
                 if( top.type == 'D' && c == '$' && i + 1 < content.length() ) {
-                    if( content.charAt(i + 1) == '(' && i + 2 < content.length() && content.charAt(i + 2) == '(' ) {
+                    if( content.charAt(
+                        i + 1
+                    ) == '(' && i + 2 < content.length() && content.charAt(
+                        i + 2
+                    ) == '(' ) {
                         stack.add( new Frame('A', false) );
                         kind[i] = kind[i + 1] = kind[i + 2] = 'C';
                         buf.emit('$', 'C'); buf.emit('(', 'C'); buf.emit('(', 'C');
                         i += 3;
                         continue;
-                    }
+                    } // if
                     if( content.charAt(i + 1) == '(' ) {
                         stack.add( new Frame('C', true) );
                         kind[i] = kind[i + 1] = 'O';
                         buf.emit('$', 'O'); buf.emit('(', 'O');
                         i += 2;
                         continue;
-                    }
-                }
-                if( top.type == 'D' && c == '`' ) {
+                    } // if
+                } // if
+                if(top.type == 'D' && c == '`') {
                     stack.add( new Frame('B', true) );
                     kind[i] = 'O';
                     buf.emit(c, 'O');
                     ++i;
                     continue;
-                }
+                } // if
                 kind[i] = 'O';
                 buf.emit(c, 'O');
-                if( ( top.type == 'D' && c == '"' ) || ( top.type == 'Q' && c == '\'' ) ) {
-                    stack.remove( stack.size() - 1 );
-                }
+                if( (top.type == 'D' && c == '"') || (top.type == 'Q' && c == '\'') ) stack.remove(
+                    stack.size() - 1
+                );
                 ++i;
                 continue;
-            }
+            } // if
 
-            if( top != null && top.type == 'B' ) {
+            if(top != null && top.type == 'B') {
                 if( c == '\\' && i + 1 < content.length() ) {
                     kind[i] = 'O';
                     buf.emit(c, 'O');
@@ -226,18 +266,30 @@ public final class BashSpecificRule {
                     buf.emit( content.charAt(i), 'O' );
                     ++i;
                     continue;
-                }
+                } // if
                 kind[i] = 'O';
                 buf.emit(c, 'O');
                 if(c == '`') stack.remove( stack.size() - 1 );
                 ++i;
                 continue;
-            }
+            } // if
 
-            if( top != null && top.type == 'C' ) {
-                if(c == '\'') { kind[i] = 'O'; buf.emit(c, 'O'); stack.add( new Frame('S', true) ); ++i; continue; }
-                if(c == '"')  { kind[i] = 'O'; buf.emit(c, 'O'); stack.add( new Frame('D', true) ); ++i; continue; }
-                if(c == '`')  { kind[i] = 'O'; buf.emit(c, 'O'); stack.add( new Frame('B', true) ); ++i; continue; }
+            if(top != null && top.type == 'C') {
+                if(c == '\'') { kind[i] = 'O'; buf.emit(
+                    c, 'O'
+                ); stack.add(
+                    new Frame('S', true)
+                ); ++i; continue; }
+                if(c == '"') { kind[i] = 'O'; buf.emit(
+                    c, 'O'
+                ); stack.add(
+                    new Frame('D', true)
+                ); ++i; continue; }
+                if(c == '`') { kind[i] = 'O'; buf.emit(
+                    c, 'O'
+                ); stack.add(
+                    new Frame('B', true)
+                ); ++i; continue; }
                 if( c == '$' && i + 1 < content.length() && content.charAt(i + 1) == '(' ) {
                     if( i + 2 < content.length() && content.charAt(i + 2) == '(' ) {
                         kind[i] = kind[i + 1] = kind[i + 2] = 'O';
@@ -245,31 +297,33 @@ public final class BashSpecificRule {
                         stack.add( new Frame('A', true) );
                         i += 3;
                         continue;
-                    }
+                    } // if
                     kind[i] = kind[i + 1] = 'O';
                     buf.emit('$', 'O'); buf.emit('(', 'O');
                     stack.add( new Frame('C', true) );
                     i += 2;
                     continue;
-                }
+                } // if
                 if(c == '(') { top.parenDepth++; kind[i] = 'O'; buf.emit(c, 'O'); ++i; continue; }
                 if(c == ')') {
                     kind[i] = 'O';
                     buf.emit(c, 'O');
                     if(top.parenDepth > 0) top.parenDepth--;
-                    else stack.remove( stack.size() - 1 );
+                    else                   stack.remove( stack.size() - 1 );
                     ++i;
                     continue;
-                }
+                } // if
                 kind[i] = 'O';
                 buf.emit(c, 'O');
                 ++i;
                 continue;
-            }
+            } // if
 
-            if( top != null && top.type == 'A' ) {
+            if(top != null && top.type == 'A') {
                 final char inner = top.opaque ? 'O' : 'A';
-                if(c == '(') { top.parenDepth++; kind[i] = inner; buf.emit(c, inner); ++i; continue; }
+                if(c == '(') { top.parenDepth++; kind[i] = inner; buf.emit(
+                    c, inner
+                ); ++i; continue; }
                 if(c == ')') {
                     if(top.parenDepth > 0) {
                         top.parenDepth--;
@@ -277,42 +331,50 @@ public final class BashSpecificRule {
                         buf.emit(c, inner);
                         ++i;
                         continue;
-                    }
+                    } // if
                     if( i + 1 < content.length() && content.charAt(i + 1) == ')' ) {
                         stack.remove( stack.size() - 1 );
                         kind[i] = kind[i + 1] = 'C';
                         buf.emit(')', 'C'); buf.emit(')', 'C');
                         i += 2;
                         continue;
-                    }
+                    } // if
                     stack.remove( stack.size() - 1 );
                     kind[i] = 'C';
                     buf.emit(c, 'C');
                     ++i;
                     continue;
-                }
+                } // if
                 kind[i] = inner;
                 buf.emit(c, inner);
                 ++i;
                 continue;
-            }
+            } // if
 
-            // top == null: root/NORMAL context, real top-level code
+            // Top == null: root/NORMAL context, real top-level code
             if( c == '<' && i + 1 < content.length() && content.charAt(i + 1) == '<'
                     && !( i + 2 < content.length() && content.charAt(i + 2) == '<' ) ) {
                 final int parsed = tryParseHeredocOperator(content, i);
                 if(parsed > i) {
                     boolean stripTabs = false;
                     int     p         = i + 2;
-                    if( p < content.length() && content.charAt(p) == '-' ) { stripTabs = true; ++p; }
-                    while( p < content.length() && ( content.charAt(p) == ' ' || content.charAt(p) == '\t' ) ) ++p;
+                    if( p < content.length() && content.charAt(
+                        p
+                    ) == '-' ) { stripTabs = true; ++p; }
+                    while( p < content.length() && ( content.charAt(
+                        p
+                    ) == ' ' || content.charAt(
+                        p
+                    ) == '\t' ) ) ++p;
                     final String delim = parseHeredocDelim(content, p);
-                    for( int q = i; q < parsed; ++q ) { kind[q] = 'C'; buf.emit( content.charAt(q), 'C' ); }
+                    for(int q = i; q < parsed; ++q) { kind[q] = 'C'; buf.emit(
+                        content.charAt(q), 'C'
+                    ); }
                     pendingHeredocs.add( new HeredocSpec(delim, stripTabs) );
                     i = parsed;
                     continue;
-                }
-            }
+                } // if
+            } // if
             if( c == '\n' && !pendingHeredocs.isEmpty() ) {
                 kind[i] = 'C';
                 buf.emit(c, 'C');
@@ -320,31 +382,43 @@ public final class BashSpecificRule {
                 i = consumeHeredocs(content, i, pendingHeredocs, kind, buf);
                 pendingHeredocs.clear();
                 continue;
-            }
-            if(c == '#' && isCommentStart(content, i)) {
-                final Frame f = new Frame('#', true);
-                int lineStart = i;
+            } // if
+            if( c == '#' && isCommentStart(content, i) ) {
+                final Frame f         = new Frame('#', true);
+                      int   lineStart = i;
                 while( lineStart > 0 && content.charAt(lineStart - 1) != '\n' ) --lineStart;
                 f.standalone = content.substring(lineStart, i).trim().isEmpty();
                 int ln = 0;
-                for( int p = 0; p < lineStart; ++p ) if( content.charAt(p) == '\n' ) ++ln;
+                for(int p = 0; p < lineStart; ++p) if( content.charAt(p) == '\n' ) ++ln;
                 f.lineNo = ln;
                 stack.add(f);
                 kind[i] = 'O';
                 buf.emit(c, 'O');
                 ++i;
                 continue;
-            }
-            if(c == '\'') { stack.add( new Frame('S', true) ); kind[i] = 'O'; buf.emit(c, 'O'); ++i; continue; }
-            if(c == '"')  { stack.add( new Frame('D', true) ); kind[i] = 'O'; buf.emit(c, 'O'); ++i; continue; }
-            if(c == '`')  { stack.add( new Frame('B', true) ); kind[i] = 'O'; buf.emit(c, 'O'); ++i; continue; }
+            } // if
+            if(c == '\'') { stack.add(
+                new Frame('S', true)
+            ); kind[i] = 'O'; buf.emit(
+                c, 'O'
+            ); ++i; continue; }
+            if(c == '"') { stack.add(
+                new Frame('D', true)
+            ); kind[i] = 'O'; buf.emit(
+                c, 'O'
+            ); ++i; continue; }
+            if(c == '`') { stack.add(
+                new Frame('B', true)
+            ); kind[i] = 'O'; buf.emit(
+                c, 'O'
+            ); ++i; continue; }
             if( c == '$' && i + 1 < content.length() && content.charAt(i + 1) == '\'' ) {
                 stack.add( new Frame('Q', true) );
                 kind[i] = kind[i + 1] = 'O';
                 buf.emit('$', 'O'); buf.emit('\'', 'O');
                 i += 2;
                 continue;
-            }
+            } // if
             if( c == '$' && i + 1 < content.length() && content.charAt(i + 1) == '(' ) {
                 if( i + 2 < content.length() && content.charAt(i + 2) == '(' ) {
                     stack.add( new Frame('A', false) );
@@ -352,13 +426,13 @@ public final class BashSpecificRule {
                     buf.emit('$', 'C'); buf.emit('(', 'C'); buf.emit('(', 'C');
                     i += 3;
                     continue;
-                }
+                } // if
                 stack.add( new Frame('C', true) );
                 kind[i] = kind[i + 1] = 'C';
                 buf.emit('$', 'C'); buf.emit('(', 'C');
                 i += 2;
                 continue;
-            }
+            } // if
             kind[i] = 'C';
             buf.emit(c, 'C');
             ++i;
@@ -366,13 +440,18 @@ public final class BashSpecificRule {
 
         if( commentBody.length() > 0 ) {
             final Frame top = stack.isEmpty() ? null : stack.get( stack.size() - 1 );
-            if( top != null && top.type == '#' && top.standalone ) {
-                final String placeholder = chainCollector.defer( commentBody.toString(), top.lineNo );
-                for( int p = 0; p < placeholder.length(); ++p ) buf.emit( placeholder.charAt(p), 'O' );
-            } else {
+            if(top != null && top.type == '#' && top.standalone) {
+                final String placeholder = chainCollector.defer(
+                    commentBody.toString(), top.lineNo
+                );
+                for( int p = 0; p < placeholder.length(); ++p ) buf.emit(
+                    placeholder.charAt(p), 'O'
+                );
+            } // if
+            else {
                 emitNormalizedComment( buf, commentBody.toString() );
             }
-        }
+        } // if
 
         String transformed = buf.result();
         transformed = chainCollector.resolve(
@@ -381,12 +460,12 @@ public final class BashSpecificRule {
 
         final PassAResult result = new PassAResult();
         result.transformed = transformed;
-        result.kind         = kind;
+        result.kind        = kind;
 
         return result;
     }
 
-    /** Normalizes a `#` line comment's body (text after the `#`) and re-emits it as opaque ('O') characters. */
+    /** Normalizes a `#` line comment's body (text after the `#`) and re-emits it as opaque ('O') characters */
     private void emitNormalizedComment(final RunBuffer buf, final String body)
     {
         final String normalized = ToolingCommentNormalizer.normalize(
@@ -400,16 +479,25 @@ public final class BashSpecificRule {
     {
         int p = start + 2;
         if( p < content.length() && content.charAt(p) == '-' ) ++p;
-        while( p < content.length() && ( content.charAt(p) == ' ' || content.charAt(p) == '\t' ) ) ++p;
+        while( p < content.length() && ( content.charAt(
+            p
+        ) == ' ' || content.charAt(
+            p
+        ) == '\t' ) ) ++p;
         final String delim = parseHeredocDelim(content, p);
         if( delim.isEmpty() ) return start;
         int end = p;
-        if( end < content.length() && ( content.charAt(end) == '\'' || content.charAt(end) == '"' ) ) {
+        if( end < content.length() && ( content.charAt(
+            end
+        ) == '\'' || content.charAt(
+            end
+        ) == '"' ) ) {
             final char q = content.charAt(end);
             ++end;
             while( end < content.length() && content.charAt(end) != q ) ++end;
             if( end < content.length() ) ++end;
-        } else {
+        }
+        else {
             while( end < content.length() && !Character.isWhitespace( content.charAt(end) )
                     && ";&|<>()".indexOf( content.charAt(end) ) < 0 ) ++end;
         }
@@ -420,14 +508,27 @@ public final class BashSpecificRule {
     private static String parseHeredocDelim(final String content, final int start)
     {
         final StringBuilder sb = new StringBuilder();
-        if( start < content.length() && ( content.charAt(start) == '\'' || content.charAt(start) == '"' ) ) {
+        if( start < content.length() && ( content.charAt(
+            start
+        ) == '\'' || content.charAt(
+            start
+        ) == '"' ) ) {
             final char q = content.charAt(start);
-            int        p = start + 1;
-            while( p < content.length() && content.charAt(p) != q ) { sb.append( content.charAt(p) ); ++p; }
-        } else {
+                  int  p = start + 1;
+            while( p < content.length() && content.charAt(
+                p
+            ) != q ) { sb.append(
+                content.charAt(p)
+            ); ++p; }
+        } // if
+        else {
             int p = start;
             while( p < content.length() && !Character.isWhitespace( content.charAt(p) )
-                    && ";&|<>()".indexOf( content.charAt(p) ) < 0 ) { sb.append( content.charAt(p) ); ++p; }
+                    && ";&|<>()".indexOf(
+                        content.charAt(p)
+                    ) < 0 ) { sb.append(
+                        content.charAt(p)
+                    ); ++p; }
         }
 
         return sb.toString();
@@ -435,30 +536,37 @@ public final class BashSpecificRule {
 
     /** Consumes heredoc bodies verbatim (marking every character 'O') until each pending delimiter's terminator line is found */
     private static int consumeHeredocs(
-        final String content, final int startIdx, final List<HeredocSpec> queue, final char[] kind, final RunBuffer buf
+        final String            content,
+        final int               startIdx,
+        final List<HeredocSpec> queue,
+        final char[]            kind,
+        final RunBuffer         buf
     )
     {
         int idx = startIdx;
-        for( final HeredocSpec spec : queue ) {
+        for(final HeredocSpec spec : queue) {
             while( idx < content.length() ) {
-                final int    lineStartIdx = idx;
-                int          lineEnd      = content.indexOf('\n', idx);
+                final int lineStartIdx = idx;
+                      int lineEnd      = content.indexOf('\n', idx);
                 if(lineEnd < 0) lineEnd = content.length();
-                final String line  = content.substring(lineStartIdx, lineEnd);
-                final String check = spec.stripTabs ? stripLeadingTabs(line) : line;
+                final String  line   = content.substring(lineStartIdx, lineEnd);
+                final String  check  = spec.stripTabs ? stripLeadingTabs(line) : line;
                 final boolean isTerm = check.equals(spec.delim);
-                for( int p = lineStartIdx; p < lineEnd; ++p ) { kind[p] = 'O'; buf.emit( content.charAt(p), 'O' ); }
+                for(int p = lineStartIdx; p < lineEnd; ++p) { kind[p] = 'O'; buf.emit(
+                    content.charAt(p), 'O'
+                ); }
                 if( lineEnd < content.length() ) {
                     kind[lineEnd] = 'O';
                     buf.emit('\n', 'O');
                     idx = lineEnd + 1;
-                } else {
+                }
+                else {
                     idx = lineEnd;
                 }
                 if(isTerm) break;
-                if(lineEnd >= content.length()) break;
+                if( lineEnd >= content.length() ) break;
             } // while
-        } // for
+        } // for spec
 
         return idx;
     }
@@ -474,7 +582,7 @@ public final class BashSpecificRule {
     /**
      * A `#` starts a comment only at a token boundary (start of content, or preceded by
      *  whitespace/`;`/`|`/`&`/`(`/`)`/`{`/`\n`) -- excludes `${#arr[@]}` (length operator, preceded
-     *  by `{` which is itself preceded by `$`) and `$#` (positional-param-count variable).
+     *  by `{` which is itself preceded by `$`) and `$#` (positional-param-count variable)
      */
     private static boolean isCommentStart(final String content, final int i)
     {
@@ -493,14 +601,26 @@ public final class BashSpecificRule {
         final StringBuilder sb = new StringBuilder();
         for( int i = 0; i < run.length(); ++i ) {
             final char c = run.charAt(i);
-            if( c == '|' && !( i > 0 && run.charAt(i - 1) == '|' ) && !( i + 1 < run.length() && ( run.charAt(i + 1) == '|' || run.charAt(i + 1) == '&' ) ) ) {
-                while( sb.length() > 0 && ( sb.charAt( sb.length() - 1 ) == ' ' || sb.charAt( sb.length() - 1 ) == '\t' ) ) sb.setLength( sb.length() - 1 );
+            if( c == '|' && !( i > 0 && run.charAt(
+                i - 1
+            ) == '|' ) && !( i + 1 < run.length() && ( run.charAt(
+                i + 1
+            ) == '|' || run.charAt(
+                i + 1
+            ) == '&' ) ) ) {
+                while( sb.length() > 0 && ( sb.charAt(
+                    sb.length() - 1
+                ) == ' ' || sb.charAt(
+                    sb.length() - 1
+                ) == '\t' ) ) sb.setLength(
+                    sb.length() - 1
+                );
                 sb.append(" | ");
                 int j = i + 1;
                 while( j < run.length() && ( run.charAt(j) == ' ' || run.charAt(j) == '\t' ) ) ++j;
                 i = j - 1;
                 continue;
-            }
+            } // if
             sb.append(c);
         } // for
 
@@ -513,18 +633,30 @@ public final class BashSpecificRule {
         final StringBuilder sb = new StringBuilder();
         for( int i = 0; i < run.length(); ++i ) {
             final char c = run.charAt(i);
-            if( ( c == '+' || c == '-' || c == '*' || c == '/' || c == '%' )
+            if( (c == '+' || c == '-' || c == '*' || c == '/' || c == '%')
                     && !( i + 1 < run.length() && run.charAt(i + 1) == c )
                     && sb.length() > 0
-                    && ( Character.isLetterOrDigit( sb.charAt( sb.length() - 1 ) ) || sb.charAt( sb.length() - 1 ) == ')' || sb.charAt( sb.length() - 1 ) == ']' || sb.charAt( sb.length() - 1 ) == '_' )
+                    && ( Character.isLetterOrDigit(
+                        sb.charAt( sb.length() - 1 )
+                    ) || sb.charAt(
+                        sb.length() - 1
+                    ) == ')' || sb.charAt(
+                        sb.length() - 1
+                    ) == ']' || sb.charAt(
+                        sb.length() - 1
+                    ) == '_' )
             ) {
-                while( sb.length() > 0 && sb.charAt( sb.length() - 1 ) == ' ' ) sb.setLength( sb.length() - 1 );
+                while( sb.length() > 0 && sb.charAt(
+                    sb.length() - 1
+                ) == ' ' ) sb.setLength(
+                    sb.length() - 1
+                );
                 sb.append(' ').append(c).append(' ');
                 int j = i + 1;
                 while( j < run.length() && run.charAt(j) == ' ' ) ++j;
                 i = j - 1;
                 continue;
-            }
+            } // if
             sb.append(c);
         } // for
 
@@ -548,16 +680,24 @@ public final class BashSpecificRule {
         final List<String> lines           = new ArrayList<>( java.util.Arrays.asList(rawLines) );
         if( endsWithNewline && !lines.isEmpty() ) lines.remove( lines.size() - 1 );
 
-        final boolean[] pure = computeLinePurity(content, passA.kind, lines.size());
+        final boolean[] pure = computeLinePurity( content, passA.kind, lines.size() );
 
         final List<String> out = new ArrayList<>();
-        int idx = 0;
+              int          idx = 0;
         while( idx < lines.size() ) {
             final String line    = lines.get(idx);
             final String trimmed = line.trim();
 
-            if( pure[idx] && !trimmed.isEmpty() && trimmed.equals("if") == false && isIfHeader(trimmed)
-                    && idx + 1 < lines.size() && pure[idx + 1] && lines.get(idx + 1).trim().equals("then") ) {
+            if( pure[idx] && !trimmed.isEmpty() && trimmed.equals(
+                "if"
+            ) == false && isIfHeader(
+                trimmed
+            )
+                    && idx + 1 < lines.size() && pure[idx + 1] && lines.get(
+                        idx + 1
+                    ).trim().equals(
+                        "then"
+                    ) ) {
                 out.add( leadingWhitespace(line) + trimmed + "; then" );
                 idx += 2;
                 continue;
@@ -571,16 +711,16 @@ public final class BashSpecificRule {
                     ++idx;
                     idx = emitBraceBody(lines, pure, idx, prefix, out);
                     continue;
-                }
-            }
+                } // if
+            } // if
 
             if( pure[idx] && CASE_START.matcher(trimmed).matches() ) {
                 final String prefix = leadingWhitespace(line);
-                out.add( prefix + trimmed );
+                out.add(prefix + trimmed);
                 ++idx;
                 idx = emitCaseBody(lines, pure, idx, prefix, out);
                 continue;
-            }
+            } // if
 
             out.add(line);
             ++idx;
@@ -597,14 +737,24 @@ public final class BashSpecificRule {
 
     private static boolean isIfHeader(final String trimmed)
     {
-        if( !( trimmed.equals("if") || trimmed.startsWith("if ") || trimmed.startsWith("if\t") ) ) return false;
+        if( !( trimmed.equals(
+            "if"
+        ) || trimmed.startsWith(
+            "if "
+        ) || trimmed.startsWith(
+            "if\t"
+        ) ) ) return false;
 
         return !trimmed.endsWith(";") && !trimmed.endsWith("then");
     }
 
     /** Reindents `{...}` body lines by brace-depth (starting at depth 1), emitting the closing `}` at depth 0 */
     private int emitBraceBody(
-        final List<String> lines, final boolean[] pure, final int startIdx, final String basePrefix, final List<String> out
+        final List<String> lines,
+        final boolean[]    pure,
+        final int          startIdx,
+        final String       basePrefix,
+        final List<String> out
     )
     {
         int depth = 1;
@@ -614,17 +764,17 @@ public final class BashSpecificRule {
             final String trimmed = raw.trim();
 
             if( trimmed.isEmpty() ) { out.add(""); ++idx; continue; }
-            if( !pure[idx] )        { out.add(raw); ++idx; continue; }
+            if( !pure[idx] ) { out.add(raw); ++idx; continue; }
 
             final int printDepth = trimmed.startsWith("}") ? depth - 1 : depth;
             if( printDepth <= 0 && trimmed.equals("}") ) {
-                out.add( basePrefix + "}" );
+                out.add(basePrefix + "}");
                 return idx + 1;
             }
             out.add( basePrefix + indent( Math.max(printDepth, 0) ) + trimmed );
 
             for( final char c : trimmed.toCharArray() ) {
-                if(c == '{') ++depth;
+                     if(c == '{') ++depth;
                 else if(c == '}') --depth;
             }
             ++idx;
@@ -636,16 +786,20 @@ public final class BashSpecificRule {
 
     /** §2.4: pattern lines at the case's own indent, arm bodies + `;;` at one level deeper */
     private int emitCaseBody(
-        final List<String> lines, final boolean[] pure, final int startIdx, final String basePrefix, final List<String> out
+        final List<String> lines,
+        final boolean[]    pure,
+        final int          startIdx,
+        final String       basePrefix,
+        final List<String> out
     )
     {
-        final String  bodyPrefix      = basePrefix + indent(1);
-        int           idx             = startIdx;
-        boolean       expectingPattern = true;
+        final String  bodyPrefix       = basePrefix + indent(1);
+              int     idx              = startIdx;
+              boolean expectingPattern = true;
         while( idx < lines.size() ) {
             final String trimmed = lines.get(idx).trim();
             if( pure[idx] && trimmed.equals("esac") ) {
-                out.add( basePrefix + "esac" );
+                out.add(basePrefix + "esac");
                 return idx + 1;
             }
             if( pure[idx] && !trimmed.isEmpty() ) {
@@ -658,13 +812,14 @@ public final class BashSpecificRule {
                         if( !rest.isEmpty() ) out.add(bodyPrefix + rest);
                         out.add(bodyPrefix + ";;");
                         expectingPattern = true;
-                    } else {
+                    }
+                    else {
                         if( !rest.isEmpty() ) out.add(bodyPrefix + rest);
                         expectingPattern = false;
                     }
                     ++idx;
                     continue;
-                }
+                } // if
                 if( trimmed.equals(";;") ) {
                     out.add(bodyPrefix + ";;");
                     expectingPattern = true;
@@ -678,11 +833,11 @@ public final class BashSpecificRule {
                     expectingPattern = true;
                     ++idx;
                     continue;
-                }
+                } // if
                 out.add(bodyPrefix + trimmed);
                 ++idx;
                 continue;
-            }
+            } // if
             out.add( trimmed.isEmpty() ? "" : lines.get(idx) );
             ++idx;
         } // while
@@ -696,12 +851,16 @@ public final class BashSpecificRule {
      *  (both start with an 'O' character) without over-rejecting normal code lines that merely
      *  *contain* a quoted string later on (e.g. `case "$x" in`, whose first char 'c' is 'C').
      */
-    private static boolean[] computeLinePurity(final String content, final char[] kind, final int lineCount)
+    private static boolean[] computeLinePurity(
+        final String content,
+        final char[] kind,
+        final int    lineCount
+    )
     {
         final boolean[] pure  = new boolean[lineCount];
-        int             line  = 0;
-        boolean         found = false;
-        for( int i = 0; i < kind.length && line < lineCount; ++i ) {
+              int       line  = 0;
+              boolean   found = false;
+        for(int i = 0; i < kind.length && line < lineCount; ++i) {
             final char c = content.charAt(i);
             if(c == '\n') {
                 if(!found) pure[line] = true;
@@ -709,12 +868,12 @@ public final class BashSpecificRule {
                 found = false;
                 continue;
             }
-            if( !found && c != ' ' && c != '\t' ) {
+            if(!found && c != ' ' && c != '\t') {
                 pure[line] = kind[i] == 'C';
                 found      = true;
             }
         } // for
-        if( line < lineCount && !found ) pure[line] = true;
+        if(line < lineCount && !found) pure[line] = true;
 
         return pure;
     }

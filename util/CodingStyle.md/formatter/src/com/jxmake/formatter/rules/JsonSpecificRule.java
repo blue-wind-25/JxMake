@@ -194,7 +194,7 @@ public final class JsonSpecificRule {
     {
         final List<String>  rawTexts    = new ArrayList<>();
         final List<Boolean> blankBefore = new ArrayList<>();
-        int                 newlines    = 0;
+              int           newlines    = 0;
         while( c.cur() != null ) {
             final Token t = c.cur();
             if(t.type == TokenType.WHITESPACE) {
@@ -213,7 +213,7 @@ public final class JsonSpecificRule {
                 newlines = 0;
                 c.i++;
                 continue;
-            }
+            } // if
             break;
         } // while
         FormatterSimpleBraced.normalizeCommentTrivia(

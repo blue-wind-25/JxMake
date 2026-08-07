@@ -116,10 +116,16 @@ public final class FormatterCurly extends FormatterCore {
             text = jsTsRule.enforceSemicolonInsertion( tokenizer.apply(text) );
         } // if
         final ScopePipelineCurly scopePipeline = new ScopePipelineCurly(
-            lang, config.indentStyle(), config.isNormalizeCommentStartCase(),
-            config.isNormalizeCommentEndPeriod(), config.isCommentNormalizationClassifier(),
-            config.isGruClassifier(), config.gruWeightsPath(),
-            formatOff, indentWidth, lineLengthLimit
+            lang,
+            config.indentStyle(),
+            config.isNormalizeCommentStartCase(),
+            config.isNormalizeCommentEndPeriod(),
+            config.isCommentNormalizationClassifier(),
+            config.isGruClassifier(),
+            config.gruWeightsPath(),
+            formatOff,
+            indentWidth,
+            lineLengthLimit
         );
         text = scopePipeline.process(text);
 
@@ -383,42 +389,9 @@ public final class FormatterCurly extends FormatterCore {
         // for why an earlier collapse-time attempt was stale. Shared across all languages: C/C++/
         // Java grew their own opt-in braceless chain-collapse alongside Kotlin's.
         text = blockRule.alignBracelessElseIfChain( tokenizer.apply(text) );
-        // alignBracelessElseIfChain's own column-alignment padding (just above) can push an
-        // already-rejoined call (from the enforceCallLineBreaking passes at ~line 247/286, which
-        // ran before this pass and so measured the `else` prefix pre-padding) past
-        // lineLengthLimit with no further re-check -- an internal round1 self-violation that only
-        // gets caught on the next format pass, once the padding is already baked into the input
-        // (round1 != round2). Narrow re-run, same fix shape as RDD_KEY_248's
-        // reapplyClosingBraceAndDeclarationsPass: idempotent (a no-op on any line already stable,
-        // including every construct with no braceless-else chain at all -- e.g.
-        // real_code_regressions_81/_93, which have none), so it only ever re-wraps a call whose
-        // width just changed underneath it.
-        // Two calls, same as the existing ~247/~286 pair above: a single pass can wrap only the
-        // first over-limit candidate on a line with more than one, leaving a still-over-limit
-        // remainder that needs a second pass to converge (same multi-candidate convergence
-        // reasoning as the original two-call pattern this mirrors).
         text = miscRule.enforceCallLineBreaking( tokenizer.apply(text) );
         text = miscRule.enforceCallLineBreaking( tokenizer.apply(text) );
-        // Same reasoning as the ~283-284 comment above this method's first
-        // enforceComplexityPadding/enforceCallLineBreaking pair: a plain-space join left behind by
-        // enforceCallLineBreaking has no complexity-padding awareness of its own, so re-tighten/
-        // loosen any call whose layout the rewrap just above finalized.
         text = miscRule.enforceComplexityPadding( tokenizer.apply(text) );
-        // RDD_KEY_(next): formatNonInlineSwitches's ~line-285 call decides "does at least one case
-        // body span multiple physical lines" (STYLE.md §13's blank-line-around-multiline-case-body
-        // rule) *before* alignInlineSwitches's case-grid collapse and the enforceCallLineBreaking
-        // passes above have had a chance to wrap an over-width case body's trailing call across
-        // lines -- so a case body that only becomes multi-line as a *result* of call-wrapping (a
-        // grid-aligned case whose padded line overflows lineLengthLimit) is invisible to that first
-        // call, on a fresh format. A reformat of already-formatted output starts from that same
-        // now-multi-line shape, so the first call sees it as multi-line from the start and inserts
-        // the required blank lines -- round1 != round2. Re-running formatNonInlineSwitches here,
-        // after every pass that can turn a case body multi-line has settled, re-derives the
-        // blank-line decision against the final line count; idempotent (isNonInline/needsWork are
-        // pure predicates over the current token stream, so a switch already correct is a no-op)
-        // and safe to run after alignInlineSwitches's grid collapse -- it only ever inserts blank
-        // lines into gaps, never touches the grid's own column alignment. Found via real-code
-        // testing, lodash/lodash's `initCloneByTag` typed-array fallthrough case.
         text = switchRule.formatNonInlineSwitches( tokenizer.apply(text) );
 
         // Phase 5: file-header-level structure

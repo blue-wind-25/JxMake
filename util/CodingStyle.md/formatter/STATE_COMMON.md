@@ -657,3 +657,34 @@ run for the record: round1 compiled clean and its JAR passed `make test`
 content-diffed clean via `java_content_diff.sh` (legitimate comment
 capitalization/trailing-period-strip/line-wrap changes). Real `src/` was
 left untouched — see `STATE_DOGFOOD.md`'s new row for the summary.
+
+**2026-08-08 (later same day): re-ran a second time after a manual
+source-layout workaround, this time adopted.** The formatter-source fix
+attempt for the `PowerShellSpecificRule.java` trigger (two attempts, both
+reverted — see `STATE_C_CPP_JAVA.md`'s Open Questions entry) was abandoned
+as too risky. Instead, blank lines were manually inserted between each
+`s = applyX(s); // comment` statement in that file's `format()` method,
+breaking `applyAssignmentsPass`'s alignment-group membership per
+RDD_KEY_254's "blank line breaks the group" rule — this sidesteps the
+trigger shape without touching formatter source, since the underlying
+bug only fires when consecutive assignment statements are grouped for
+comment-column alignment. Verified in isolation first (fresh round1/round2
+of the file alone, empty diff), then the full simplified `src/`
+dogfood-and-adopt was re-run end to end: round1/round2 `diff -ru` over all
+of real `src/` was empty (confirms the one previously-failing file is now
+clean and nothing else regressed); `java_content_diff.sh` spot-check on
+all 26 changed files showed only the same already-documented cosmetic
+classes (closing-brace annotation rewording such as `// for c` → `// for`,
+trailing-period stripping, array/parameter list reflow — no real content
+loss); adopted over real `src/`; `make clean && make test` on the rebuilt
+JAR passed 261/261 forward + 261/261 idempotency; `make test-server`
+passed all cases. The underlying architectural bug (`applyAssignmentsPass`
+padding decided before `enforceCallLineBreaking`'s wrap verdict, for the
+non-JS/TS curly languages) remains **open and unfixed at the
+formatter-source level** — this adoption only removes the one known
+trigger instance from `src/` via a source-layout change, it does not fix
+the formatter. Any other curly-family file with a similar
+`x = call(x); // comment` alignment-group chain could still trigger the
+same non-idempotency. See `STATE_C_CPP_JAVA.md`'s Open Questions entry for
+the TODO tracking this, and `STATE_DOGFOOD.md`'s row update for the
+summary.

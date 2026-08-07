@@ -24,12 +24,17 @@ public final class FormatterMakefile extends FormatterCore {
 
     @Override
     public String formatOne(
-        final String content, final String filePath, final Config config, final boolean formatOff
+        final String  content,
+        final String  filePath,
+        final Config  config,
+        final boolean formatOff
     )
     {
         if(formatOff) return content;
         final MakefileSpecificRule rule = new MakefileSpecificRule(
-            config.indentSize(), config.isNormalizeCommentStartCase(), config.isNormalizeCommentEndPeriod()
+            config.indentSize(),
+            config.isNormalizeCommentStartCase(),
+            config.isNormalizeCommentEndPeriod()
         );
 
         return rule.format(content);

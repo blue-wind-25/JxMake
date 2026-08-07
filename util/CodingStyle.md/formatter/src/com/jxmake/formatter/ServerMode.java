@@ -458,20 +458,20 @@ catch(final IOException e) { System.err.println( "jxmake-code-formatter: warning
     private static String propertiesJson()
     {
         final List<Config.ConfigProperty> properties = Config.describeAll();
-        final StringBuilder               json       = new StringBuilder();
+        final StringBuilder json = new StringBuilder();
         json.append("[\n");
         String  currentGroup = null;
         boolean firstGroup   = true;
-        for(int i = 0; i < properties.size(); ++i) {
+        for( int i = 0; i < properties.size(); ++i ) {
             final Config.ConfigProperty property   = properties.get(i);
-            final boolean               groupStart = !property.group.equals(currentGroup);
+            final boolean groupStart = !property.group.equals(currentGroup);
             if(groupStart) {
-                if( !firstGroup ) json.append("\n      ]\n    },\n");
+                if(!firstGroup) json.append("\n      ]\n    },\n");
                 firstGroup   = false;
                 currentGroup = property.group;
                 json.append("  {\n    \"group\": ").append( jsonString(currentGroup) );
                 json.append(",\n    \"properties\": [\n");
-            }
+            } // if
             else {
                 json.append(",\n");
             }
@@ -485,13 +485,13 @@ catch(final IOException e) { System.err.println( "jxmake-code-formatter: warning
                 json.append("[");
                 for(int j = 0; j < property.allowedValues.length; ++j) {
                     if(j > 0) json.append(", ");
-                    json.append( jsonString(property.allowedValues[j]) );
+                    json.append( jsonString( property.allowedValues[j] ) );
                 } // for
                 json.append("]");
             } // if
             json.append("}");
-        } // for
-        if( !firstGroup ) json.append("\n      ]\n    }\n");
+        } // for i
+        if(!firstGroup) json.append("\n      ]\n    }\n");
         json.append("]\n");
 
         return json.toString();
@@ -500,17 +500,24 @@ catch(final IOException e) { System.err.println( "jxmake-code-formatter: warning
     private static String jsonString(final String value)
     {
         final StringBuilder escaped = new StringBuilder("\"");
-        for(int i = 0; i < value.length(); ++i) {
+        for( int i = 0; i < value.length(); ++i ) {
             final char c = value.charAt(i);
             switch(c) {
+
                 case '"':  escaped.append("\\\""); break;
+
                 case '\\': escaped.append("\\\\"); break;
+
                 case '\n': escaped.append("\\n");  break;
+
                 case '\r': escaped.append("\\r");  break;
+
                 case '\t': escaped.append("\\t");  break;
+
                 default:
-                    if(c < 0x20) escaped.append( String.format("\\u%04x", (int) c) );
+                    if(c < 0x20) escaped.append( String.format( "\\u%04x", (int) c ) );
                     else         escaped.append(c);
+
             } // switch
         } // for
         escaped.append("\"");

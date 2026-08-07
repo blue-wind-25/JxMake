@@ -1693,16 +1693,8 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 applyOversizedAggregateInitClosingBracePass(current), scopeStartFrozen
             );
             current = tokenize( applyDeclarationsPass(current, depth), scopeStartFrozen );
-            // RDD_KEY_270: applyAssignmentsPass added as a third pass in this same narrow
-            // re-run mode (direct extension of RDD_KEY_248's closing-brace+declarations
-            // re-run) -- `harness/collectionsImpl.ts` showed assignment-group membership/
-            // padding is decided too early relative to enforceCallLineBreaking's subscript
-            // wrap, same "processScope-phase decision made before a later pass's final
-            // column width" family RDD_KEY_248 already fixed for applyDeclarationsPass. Runs
-            // after applyDeclarationsPass, same closing-brace-first ordering rationale (the
-            // closing-brace shape must settle before any padding/grouping pass re-reads it).
             current = tokenize( applyAssignmentsPass(current), scopeStartFrozen );
-        }
+        } // if
         else {
             current = tokenize( applyDeclarationsPass(current, depth), scopeStartFrozen );
             current = tokenize(

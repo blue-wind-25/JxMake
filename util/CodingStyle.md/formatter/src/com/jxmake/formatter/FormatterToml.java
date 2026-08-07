@@ -32,7 +32,10 @@ public final class FormatterToml extends FormatterCore {
     {
         if(formatOff) return content;
         final TomlSpecificRule rule = new TomlSpecificRule(
-            lang, config.lineLength(), config.indentSize(), config.isNormalizeCommentStartCase(),
+            lang,
+            config.lineLength(),
+            config.indentSize(),
+            config.isNormalizeCommentStartCase(),
             config.isNormalizeCommentEndPeriod()
         );
 

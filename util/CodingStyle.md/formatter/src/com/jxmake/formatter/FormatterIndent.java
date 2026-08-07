@@ -40,10 +40,16 @@ public final class FormatterIndent extends FormatterCore {
         if(formatOff) return content;
 
         String text = new ScopePipelineIndent(
-            lang, config.indentSize(), config.lineLength(),
-            config.isPythonImportSort(), config.pythonImportBlankLines(),
-            config.isNormalizeCommentStartCase(), config.isNormalizeCommentEndPeriod(),
-            config.isCommentNormalizationClassifier(), config.isGruClassifier(), config.gruWeightsPath()
+            lang,
+            config.indentSize(),
+            config.lineLength(),
+            config.isPythonImportSort(),
+            config.pythonImportBlankLines(),
+            config.isNormalizeCommentStartCase(),
+            config.isNormalizeCommentEndPeriod(),
+            config.isCommentNormalizationClassifier(),
+            config.isGruClassifier(),
+            config.gruWeightsPath()
         ).process(
             content
         );

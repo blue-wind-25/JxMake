@@ -234,7 +234,7 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
     )
     {
         final int n = rawTexts.size();
-        int       i = 0;
+              int i = 0;
         while(i < n) {
             final String t = rawTexts.get(i);
             if( !t.startsWith("//") ) {
@@ -243,8 +243,16 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
                 continue;
             }
             int j = i;
-            while( j + 1 < n && rawTexts.get(j + 1).startsWith("//") && !blankBefore.get(j + 1) ) ++j;
-            out.addAll( normalizeLineCommentChain( rawTexts.subList(i, j + 1), startCase, endPeriod ) );
+            while( j + 1 < n && rawTexts.get(
+                j + 1
+            ).startsWith(
+                "//"
+            ) && !blankBefore.get(
+                j + 1
+            ) ) ++j;
+            out.addAll(
+                normalizeLineCommentChain( rawTexts.subList(i, j + 1), startCase, endPeriod )
+            );
             i = j + 1;
         } // while
     }
@@ -266,20 +274,24 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
             int dotCount = 0;
             for(final String c : rawTexts) {
                 final String content = c.substring(2);
-                for( int i = 0; i < content.length(); ++i ) if( content.charAt(i) == '.' ) ++dotCount;
+                for( int i = 0; i < content.length(); ++i ) if( content.charAt(
+                    i
+                ) == '.' ) ++dotCount;
             } // for
             if(dotCount == 1) {
                 final int    lastIdx = out.size() - 1;
                 final String last    = out.get(lastIdx);
                 final String content = last.substring(2);
-                int          end     = content.length();
+                      int    end     = content.length();
                 while( end > 0 && Character.isWhitespace( content.charAt(end - 1) ) ) --end;
                 if( end > 0 && content.charAt(end - 1) == '.' ) {
                     int trimEnd = end - 1;
                     while( trimEnd > 0 && Character.isWhitespace(
                         content.charAt(trimEnd - 1)
                     ) ) --trimEnd;
-                    out.set( lastIdx, "//" + content.substring(0, trimEnd) + content.substring(end) );
+                    out.set(
+                        lastIdx, "//" + content.substring(0, trimEnd) + content.substring(end)
+                    );
                 } // if
             } // if
         } // if
@@ -292,7 +304,7 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
      * Normalizes one standalone `/* *&#47;` block comment: a single-line comment gets the existing
      *  per-token treatment; a multi-line comment already in the conventional ` * `-per-line banner
      *  shape gets the same single-unit treatment via {@link #tryBannerShape}; any other multi-line
-     *  shape (wrapped prose, commented-out code) is left unchanged, same posture as curly/XML-HTML5.
+     *  shape (wrapped prose, commented-out code) is left unchanged, same posture as curly/XML-HTML5
      */
     public static String normalizeBlockComment(
         final String  raw,
@@ -307,7 +319,7 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
             // right after `/*` on the opening line) -- fall back to the original whole-comment
             // scan: capitalize the opening line's first letter, strip a sole trailing `.` across
             // the whole multi-line content, same as this family did before banner-shape support.
-        }
+        } // if
         String t = raw;
         if(endPeriod) t = stripCommentEndPeriod(t);
         if(startCase) t = capitalizeCommentStart(t);
@@ -322,12 +334,16 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
      *  line (no indent baked in) -- the caller's later {@link #reindentBlockComment} pass supplies the
      *  real structural indent, matching how a freshly-collected leading comment is rendered.
      */
-    private static String tryBannerShape(final String raw, final boolean startCase, final boolean endPeriod)
+    private static String tryBannerShape(
+        final String  raw,
+        final boolean startCase,
+        final boolean endPeriod
+    )
     {
         final String[] rawLines = raw.split("\r\n|\r|\n", -1);
         final int      n        = rawLines.length;
         if(n < 2) return null;
-        for( int i = 1; i < n; ++i ) if( !stripLeadingWs( rawLines[i] ).startsWith("*") ) return null;
+        for(int i = 1; i < n; ++i) if( !stripLeadingWs( rawLines[i] ).startsWith("*") ) return null;
 
         int openMarkerEnd = 2;
         while( openMarkerEnd < rawLines[0].length() && rawLines[0].charAt(

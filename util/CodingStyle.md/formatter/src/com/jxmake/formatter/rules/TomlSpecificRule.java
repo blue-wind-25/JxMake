@@ -10,10 +10,9 @@ package com.jxmake.formatter.rules;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.jxmake.formatter.tokenizer.TokenizerCore;
-
 import com.jxmake.formatter.FormatterSimpleBraced;
 import com.jxmake.formatter.Lang;
+import com.jxmake.formatter.tokenizer.TokenizerCore;
 
 /**
  * STYLE_DATA_FORMATS.md §6 (TOML) rule logic. Neither curly, indent-based, tag-based, nor
@@ -117,11 +116,11 @@ public final class TomlSpecificRule {
     {
         if( raw.isEmpty() ) return raw;
         final List<String> bodies = new ArrayList<>();
-        for(final String c : raw) bodies.add( c.substring(1) ); // strip leading '#'
+        for(final String c : raw) bodies.add( c.substring(1) ); // Strip leading '#'
         final List<String> normBodies = ToolingCommentNormalizer.normalizeChain(
             bodies, blankBefore, normalizeCommentStartCase, normalizeCommentEndPeriod, null
         );
-        final List<String> out = new ArrayList<>();
+        final List<String> out        = new ArrayList<>();
         for(final String b : normBodies) out.add("#" + b);
 
         return out;
@@ -129,8 +128,9 @@ public final class TomlSpecificRule {
 
     private String normComment(final String commentText)
     {
-        String text = normalizeCommentEndPeriod
-                ? ToolingCommentNormalizer.stripSoleTrailingPeriod(commentText) : commentText;
+        String text = normalizeCommentEndPeriod ? ToolingCommentNormalizer.stripSoleTrailingPeriod(
+            commentText
+        ) : commentText;
         if(!normalizeCommentStartCase) return text;
         int i = 1;
         while( i < text.length() && text.charAt(i) == ' ' ) i++;
@@ -564,7 +564,7 @@ public final class TomlSpecificRule {
                     items.add(item);
                     continue;
                 } // if
-                pendingComments.add(trimmed); // raw text; grouped/normalized in finalizeComments
+                pendingComments.add(trimmed); // Raw text; grouped/normalized in finalizeComments
                 pendingCommentBlank.add(pendingBlank);
                 pendingBlank = false;
                 ++idx;

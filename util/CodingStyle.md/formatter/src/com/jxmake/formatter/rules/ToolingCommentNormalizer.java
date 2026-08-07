@@ -27,7 +27,9 @@ final class ToolingCommentNormalizer {
     }
 
     static String normalize(
-        final String body, final boolean normalizeStartCase, final boolean normalizeEndPeriod,
+        final String      body,
+        final boolean     normalizeStartCase,
+        final boolean     normalizeEndPeriod,
         final Set<String> noCapitalizeWords
     )
     {
@@ -38,7 +40,10 @@ final class ToolingCommentNormalizer {
         return text;
     }
 
-    private static String capitalizeFirstLetter(final String text, final Set<String> noCapitalizeWords)
+    private static String capitalizeFirstLetter(
+        final String      text,
+        final Set<String> noCapitalizeWords
+    )
     {
         int i = 0;
         while( i < text.length() && text.charAt(i) == ' ' ) ++i;
@@ -46,7 +51,9 @@ final class ToolingCommentNormalizer {
 
         int wordEnd = i;
         while( wordEnd < text.length() && Character.isLetter( text.charAt(wordEnd) ) ) ++wordEnd;
-        if( noCapitalizeWords != null && noCapitalizeWords.contains( text.substring(i, wordEnd) ) ) return text;
+        if( noCapitalizeWords != null && noCapitalizeWords.contains(
+            text.substring(i, wordEnd)
+        ) ) return text;
 
         final char ch = text.charAt(i);
         if( !Character.isLetter(ch) || !Character.isLowerCase(ch) ) return text;
@@ -77,7 +84,7 @@ final class ToolingCommentNormalizer {
     {
         final List<String> out = new ArrayList<>();
         final int          n   = bodies.size();
-        int                i   = 0;
+              int          i   = 0;
         while(i < n) {
             int j = i;
             while( j + 1 < n && !blankBeforeEach.get(j + 1) ) ++j;
@@ -135,18 +142,20 @@ final class ToolingCommentNormalizer {
         private final List<Entry> entries = new ArrayList<>();
         private       int         seq;
 
-        /** {@code markerPrefix}/{@code markerSuffix} bracket each generated placeholder -- caller picks
-         *  text guaranteed not to collide with real source content (e.g. Bash wraps in {@code U+0007}). */
+        /**
+         * {@code markerPrefix}/{@code markerSuffix} bracket each generated placeholder -- caller picks
+         *  text guaranteed not to collide with real source content (e.g. Bash wraps in {@code U+0007}).
+         */
         ChainCollector(final String markerPrefix, final String markerSuffix)
         {
             this.markerPrefix = markerPrefix;
             this.markerSuffix = markerSuffix;
         }
 
-        /** Allocates a new placeholder, records {@code body}/{@code lineNo} behind it, and returns the marker text. */
+        /** Allocates a new placeholder, records {@code body}/{@code lineNo} behind it, and returns the marker text */
         String defer(final String body, final int lineNo)
         {
-            final String placeholder = markerPrefix + (seq++) + markerSuffix;
+            final String placeholder = markerPrefix + (seq ++) + markerSuffix;
             entries.add( new Entry(placeholder, body, lineNo) );
 
             return placeholder;
@@ -158,7 +167,9 @@ final class ToolingCommentNormalizer {
          *  comment was deferred.
          */
         String resolve(
-            final String transformed, final boolean normalizeStartCase, final boolean normalizeEndPeriod,
+            final String      transformed,
+            final boolean     normalizeStartCase,
+            final boolean     normalizeEndPeriod,
             final Set<String> noCapitalizeWords
         )
         {
@@ -168,15 +179,25 @@ final class ToolingCommentNormalizer {
             int    i   = 0;
             while( i < entries.size() ) {
                 int j = i;
-                while( j + 1 < entries.size() && entries.get(j + 1).lineNo == entries.get(j).lineNo + 1 ) ++j;
+                while( j + 1 < entries.size() && entries.get(
+                    j + 1
+                ).lineNo == entries.get(
+                    j
+                ).lineNo + 1 ) ++j;
 
                 final List<String>  bodies = new ArrayList<>();
                 final List<Boolean> blanks = new ArrayList<>();
-                for( int k = i; k <= j; ++k ) { bodies.add( entries.get(k).body ); blanks.add(false); }
+                for(int k = i; k <= j; ++k) { bodies.add(
+                    entries.get(k).body
+                ); blanks.add(
+                    false
+                ); }
                 final List<String> normalized = normalizeChain(
                     bodies, blanks, normalizeStartCase, normalizeEndPeriod, noCapitalizeWords
                 );
-                for( int k = i; k <= j; ++k ) out = out.replace( entries.get(k).placeholder, normalized.get(k - i) );
+                for(int k = i; k <= j; ++k) out = out.replace(
+                    entries.get(k).placeholder, normalized.get(k - i)
+                );
                 i = j + 1;
             } // while
 

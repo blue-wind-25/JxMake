@@ -401,7 +401,7 @@ public class SwitchRule {
                 tokens, braceClose
             ).length();
             shiftLineAndFollowing(tokens, braceClose, tailBound, tailDelta, overrides);
-        } // for c
+        } // for
     }
 
     /**
@@ -456,35 +456,45 @@ public class SwitchRule {
                 final int lineStart = i + 1;
                 if(lineStart >= braceClose) { i = lineStart; continue; }
                 final int firstSig = firstSignificantIndex(tokens, lineStart, braceClose);
-                if(firstSig < 0)          { i = lineStart; continue; } // blank line
-                if(firstSig == braceClose){ i = lineStart; continue; } // boundary guard -- tail pass owns this line
+                if(firstSig < 0) { i = lineStart; continue; } // Blank line
+                if(firstSig == braceClose) { i = lineStart; continue; } // Boundary guard -- tail pass owns this line
 
-                // Opaque nested switch: skip its entire token span untouched.
+                // Opaque nested switch: skip its entire token span untouched
                 if( isKeyword( tokens.get(firstSig), "switch" ) ) {
                     final int nestedOpenParen = skipNonSignificant(tokens, firstSig + 1);
-                    if( nestedOpenParen < braceClose && isPunct( tokens.get(nestedOpenParen), "(" ) ) {
+                    if( nestedOpenParen < braceClose && isPunct(
+                        tokens.get(nestedOpenParen), "("
+                    ) ) {
                         final int nestedCloseParen = matchParen(tokens, nestedOpenParen);
-                        if( nestedCloseParen >= 0 && nestedCloseParen < braceClose ) {
-                            final int nestedOpenBrace = skipNonSignificant(tokens, nestedCloseParen + 1);
-                            if( nestedOpenBrace < braceClose && isPunct( tokens.get(nestedOpenBrace), "{" ) ) {
+                        if(nestedCloseParen >= 0 && nestedCloseParen < braceClose) {
+                            final int nestedOpenBrace = skipNonSignificant(
+                                tokens, nestedCloseParen + 1
+                            );
+                            if( nestedOpenBrace < braceClose && isPunct(
+                                tokens.get(nestedOpenBrace), "{"
+                            ) ) {
                                 final int nestedCloseBrace = matchBrace(tokens, nestedOpenBrace);
-                                if( nestedCloseBrace >= 0 && nestedCloseBrace < braceClose ) {
+                                if(nestedCloseBrace >= 0 && nestedCloseBrace < braceClose) {
                                     i = nestedCloseBrace;
                                     continue;
                                 } // if
                             } // if
                         } // if
                     } // if
-                } // if switch
+                } // if
 
                 final boolean leadingClose = isPunct( tokens.get(firstSig), "}" );
                 final int     lineDepth    = leadingClose ? depth - 1 : depth;
                 if(parenDepth <= 0) {
-                    final String target = lineDepth <= 0 ? bodyIndent : bodyIndent + repeatUnit(unit, lineDepth);
-                    final int    delta  = target.length() - currentLineIndent(tokens, lineStart).length();
+                    final String target = lineDepth <= 0 ? bodyIndent : bodyIndent + repeatUnit(
+                        unit, lineDepth
+                    );
+                    final int    delta  = target.length() - currentLineIndent(
+                        tokens, lineStart
+                    ).length();
                     if(delta != 0) shiftLineIndent(tokens, lineStart, delta, overrides);
-                }
-            } // if NEWLINE
+                } // if
+            } // if
             else {
                      if( isPunct(t, "{") ) depth++;
                 else if( isPunct(t, "}") ) depth--;

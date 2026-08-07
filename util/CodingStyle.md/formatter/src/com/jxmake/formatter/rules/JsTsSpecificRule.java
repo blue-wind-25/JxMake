@@ -2299,13 +2299,13 @@ public final class JsTsSpecificRule {
             hasValue = true;
             i        = nextSignificantIndex(tokens, i + 1);
             if(i < 0 || i >= closeIdx) return null;
-            final StringBuilder valueBuf    = new StringBuilder();
+            final StringBuilder valueBuf     = new StringBuilder();
                   boolean       pendingSpace = false;
             depth = 0;
             while(i < closeIdx) {
                 final Token vt = tokens.get(i);
                 if( depth == 0 && isPunct(vt, ";") ) break;
-                if( vt.type == TokenType.NEWLINE ) {
+                if(vt.type == TokenType.NEWLINE) {
                     // A multi-line initializer -- most commonly one a *previous round's* own
                     // call-wrap (`enforceCallLineBreaking`, which runs both before and after this
                     // pass in FormatterCurly.format's Phase 4) already wrapped across lines, since
@@ -2319,17 +2319,19 @@ public final class JsTsSpecificRule {
                     pendingSpace = true;
                     ++i;
                     continue;
-                }
-                if( vt.type == TokenType.WHITESPACE && pendingSpace ) {
+                } // if
+                if(vt.type == TokenType.WHITESPACE && pendingSpace) {
                     ++i; // Swallow continuation-line indentation -- not part of the logical text
                     continue;
                 }
                 if(pendingSpace) {
-                    if( valueBuf.length() > 0 && valueBuf.charAt( valueBuf.length() - 1 ) != ' ' ) {
-                        valueBuf.append(' ');
-                    }
+                    if( valueBuf.length() > 0 && valueBuf.charAt(
+                        valueBuf.length() - 1
+                    ) != ' ' ) valueBuf.append(
+                        ' '
+                    );
                     pendingSpace = false;
-                }
+                } // if
                      if( isPunct(vt, "(") || isPunct(vt, "[") || isPunct(vt, "{") ) depth++;
                 else if( isPunct(vt, ")") || isPunct(vt, "]") || isPunct(vt, "}") ) depth--;
                 valueBuf.append(vt.text);

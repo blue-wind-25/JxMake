@@ -23,12 +23,17 @@ public final class FormatterPowerShell extends FormatterCore {
 
     @Override
     public String formatOne(
-        final String content, final String filePath, final Config config, final boolean formatOff
+        final String  content,
+        final String  filePath,
+        final Config  config,
+        final boolean formatOff
     )
     {
         if(formatOff) return content;
         final PowerShellSpecificRule rule = new PowerShellSpecificRule(
-            config.indentSize(), config.isNormalizeCommentStartCase(), config.isNormalizeCommentEndPeriod()
+            config.indentSize(),
+            config.isNormalizeCommentStartCase(),
+            config.isNormalizeCommentEndPeriod()
         );
 
         return rule.format(content);

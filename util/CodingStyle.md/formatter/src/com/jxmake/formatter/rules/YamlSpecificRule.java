@@ -124,13 +124,13 @@ public final class YamlSpecificRule {
         final List<String>  bodies = new ArrayList<>();
         final List<Boolean> blanks = new ArrayList<>();
         for(final CommentLine cl : raw) {
-            bodies.add( cl.text.substring(1) ); // strip leading '#'
+            bodies.add( cl.text.substring(1) ); // Strip leading '#'
             blanks.add(cl.blankBefore);
         }
-        final List<String> normBodies = ToolingCommentNormalizer.normalizeChain(
+        final List<String>      normBodies = ToolingCommentNormalizer.normalizeChain(
             bodies, blanks, normalizeCommentStartCase, normalizeCommentEndPeriod, null
         );
-        final List<CommentLine> out = new ArrayList<>();
+        final List<CommentLine> out        = new ArrayList<>();
         for( int i = 0; i < normBodies.size(); ++i ) out.add(
             new CommentLine( raw.get(i).blankBefore, "#" + normBodies.get(i) )
         );
@@ -140,8 +140,9 @@ public final class YamlSpecificRule {
 
     private String normComment(final String commentText)
     {
-        String text = normalizeCommentEndPeriod
-                ? ToolingCommentNormalizer.stripSoleTrailingPeriod(commentText) : commentText;
+        String text = normalizeCommentEndPeriod ? ToolingCommentNormalizer.stripSoleTrailingPeriod(
+            commentText
+        ) : commentText;
         if(!normalizeCommentStartCase) return text;
         int i = 1;
         while( i < text.length() && text.charAt(i) == ' ' ) i++;
@@ -700,7 +701,9 @@ public final class YamlSpecificRule {
                     item.frozenLines     = new ArrayList<>();
                     item.frozenLines.add(ln.raw);
                     ++pos;
-                    while( pos < lines.size() && !("#% " + TokenizerCore.JXM_CFMT_ENA).equals( peek().content ) ) {
+                    while( pos < lines.size() && !("#% " + TokenizerCore.JXM_CFMT_ENA).equals(
+                        peek().content
+                    ) ) {
                         item.frozenLines.add( peek().raw );
                         ++pos;
                     }
@@ -711,7 +714,9 @@ public final class YamlSpecificRule {
                     items.add(item);
                     continue;
                 } // if
-                pendingComments.add( new CommentLine( pendingBlank, ln.content ) ); // raw text; grouped/normalized in finalizeComments
+                pendingComments.add(
+                    new CommentLine(pendingBlank, ln.content)
+                ); // Raw text; grouped/normalized in finalizeComments
                 pendingBlank = false;
                 ++pos;
                 continue;

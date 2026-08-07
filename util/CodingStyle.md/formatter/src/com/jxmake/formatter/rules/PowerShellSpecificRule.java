@@ -41,7 +41,9 @@ public final class PowerShellSpecificRule {
     private final boolean normalizeCommentEndPeriod;
 
     public PowerShellSpecificRule(
-        final int indentWidth, final boolean normalizeCommentStartCase, final boolean normalizeCommentEndPeriod
+        final int     indentWidth,
+        final boolean normalizeCommentStartCase,
+        final boolean normalizeCommentEndPeriod
     )
     {
         this.indentWidth               = Math.max(1, indentWidth);
@@ -66,10 +68,10 @@ public final class PowerShellSpecificRule {
      */
     private static final class Frame {
 
-        final char type;
-        int        parenDepth; // reused: paren depth for 'C', nest depth for 'B', brace depth for 'V'
-        boolean    standalone; // '#'-frames only: true iff nothing but whitespace precedes it on its line
-        int        lineNo;     // '#'-frames only: 0-based source line index this comment starts on
+        final char    type;
+              int     parenDepth; // Reused: paren depth for 'C', nest depth for 'B', brace depth for 'V'
+              boolean standalone; // '#'-frames only: true iff nothing but whitespace precedes it on its line
+              int     lineNo;     // '#'-frames only: 0-based source line index this comment starts on
 
         Frame(final char type)
         {
@@ -81,7 +83,7 @@ public final class PowerShellSpecificRule {
     private static final class PassAResult {
 
         String transformed;
-        char[] kind; // per original character: 'C' / 'O'
+        char[] kind;        // per original character: 'C' / 'O'
 
     } // class PassAResult
 
@@ -119,27 +121,32 @@ public final class PowerShellSpecificRule {
 
     private PassAResult runPassA(final String content)
     {
-        final char[]           kind         = new char[content.length()];
-        final List<Frame>      stack        = new ArrayList<>();
-        final RunBuffer        buf          = new RunBuffer();
-        final StringBuilder    commentBody  = new StringBuilder();
+        final char[]        kind        = new char[ content.length() ];
+        final List<Frame>   stack       = new ArrayList<>();
+        final RunBuffer     buf         = new RunBuffer();
+        final StringBuilder commentBody = new StringBuilder();
         final ToolingCommentNormalizer.ChainCollector chainCollector =
             new ToolingCommentNormalizer.ChainCollector("\u0007CHAIN", "\u0007");
-              boolean          atLineStart  = true;
-              int              i            = 0;
+                boolean atLineStart = true;
+                int     i           = 0;
 
         while( i < content.length() ) {
             final Frame top = stack.isEmpty() ? null : stack.get( stack.size() - 1 );
             final char  c   = content.charAt(i);
 
             // ---- line comment ---------------------------------------------------------------
-            if( top != null && top.type == '#' ) {
+            if(top != null && top.type == '#') {
                 if(c == '\n') {
                     stack.remove( stack.size() - 1 );
                     if(top.standalone) {
-                        final String placeholder = chainCollector.defer( commentBody.toString(), top.lineNo );
-                        for( int p = 0; p < placeholder.length(); ++p ) buf.emit( placeholder.charAt(p), 'O' );
-                    } else {
+                        final String placeholder = chainCollector.defer(
+                            commentBody.toString(), top.lineNo
+                        );
+                        for( int p = 0; p < placeholder.length(); ++p ) buf.emit(
+                            placeholder.charAt(p), 'O'
+                        );
+                    } // if
+                    else {
                         emitNormalizedComment( buf, commentBody.toString() );
                     }
                     commentBody.setLength(0);
@@ -148,90 +155,92 @@ public final class PowerShellSpecificRule {
                     atLineStart = true;
                     ++i;
                     continue;
-                }
+                } // if
                 kind[i] = 'O';
                 commentBody.append(c);
                 atLineStart = false;
                 ++i;
                 continue;
-            }
+            } // if
 
             // ---- block comment (nestable) ---------------------------------------------------
-            if( top != null && top.type == 'B' ) {
+            if(top != null && top.type == 'B') {
                 if( c == '<' && i + 1 < content.length() && content.charAt(i + 1) == '#' ) {
                     kind[i] = kind[i + 1] = 'O';
                     buf.emit('<', 'O'); buf.emit('#', 'O');
                     top.parenDepth++;
-                    atLineStart = false;
-                    i += 2;
+                    atLineStart  = false;
+                    i           += 2;
                     continue;
-                }
+                } // if
                 if( c == '#' && i + 1 < content.length() && content.charAt(i + 1) == '>' ) {
                     kind[i] = kind[i + 1] = 'O';
                     buf.emit('#', 'O'); buf.emit('>', 'O');
                     if(top.parenDepth > 0) top.parenDepth--;
-                    else stack.remove( stack.size() - 1 );
-                    atLineStart = false;
-                    i += 2;
+                    else                   stack.remove( stack.size() - 1 );
+                    atLineStart  = false;
+                    i           += 2;
                     continue;
-                }
+                } // if
                 kind[i] = 'O';
                 buf.emit(c, 'O');
                 if(c == '\n') atLineStart = true;
-                else atLineStart = false;
+                else          atLineStart = false;
                 ++i;
                 continue;
-            }
+            } // if
 
             // ---- single-quoted string -------------------------------------------------------
-            if( top != null && top.type == 'S' ) {
+            if(top != null && top.type == 'S') {
                 // '' is the only escape inside single-quoted strings
                 if( c == '\'' && i + 1 < content.length() && content.charAt(i + 1) == '\'' ) {
                     kind[i] = kind[i + 1] = 'O';
                     buf.emit('\'', 'O'); buf.emit('\'', 'O');
-                    atLineStart = false;
-                    i += 2;
+                    atLineStart  = false;
+                    i           += 2;
                     continue;
-                }
+                } // if
                 kind[i] = 'O';
                 buf.emit(c, 'O');
                 if(c == '\'') stack.remove( stack.size() - 1 );
                 if(c == '\n') atLineStart = true;
-                else atLineStart = false;
+                else          atLineStart = false;
                 ++i;
                 continue;
-            }
+            } // if
 
             // ---- literal here-string @'...'@ ------------------------------------------------
-            if( top != null && top.type == 'h' ) {
-                if( atLineStart && c == '\'' && i + 1 < content.length() && content.charAt(i + 1) == '@' ) {
+            if(top != null && top.type == 'h') {
+                if( atLineStart && c == '\'' && i + 1 < content.length() && content.charAt(
+                    i + 1
+                ) == '@' ) {
                     kind[i] = kind[i + 1] = 'O';
                     buf.emit('\'', 'O'); buf.emit('@', 'O');
                     stack.remove( stack.size() - 1 );
-                    atLineStart = false;
-                    i += 2;
+                    atLineStart  = false;
+                    i           += 2;
                     continue;
-                }
+                } // if
                 kind[i] = 'O';
                 buf.emit(c, 'O');
                 if(c == '\n') atLineStart = true;
-                else atLineStart = false;
+                else          atLineStart = false;
                 ++i;
                 continue;
-            }
+            } // if
 
             // ---- double-quoted string / expandable here-string ------------------------------
-            if( top != null && ( top.type == 'D' || top.type == 'H' ) ) {
+            if( top != null && (top.type == 'D' || top.type == 'H') ) {
                 // Expandable here-string terminator: "@ at column 0
                 if( top.type == 'H' && atLineStart && c == '"' && i + 1 < content.length()
                         && content.charAt(i + 1) == '@' ) {
                     kind[i] = kind[i + 1] = 'O';
                     buf.emit('"', 'O'); buf.emit('@', 'O');
                     stack.remove( stack.size() - 1 );
-                    atLineStart = false;
-                    i += 2;
+                    atLineStart  = false;
+                    i           += 2;
                     continue;
-                }
+                } // if
                 // Backtick escape (next char stays opaque, does not close the string)
                 if( c == '`' && i + 1 < content.length() ) {
                     kind[i] = 'O';
@@ -240,39 +249,39 @@ public final class PowerShellSpecificRule {
                     kind[i] = 'O';
                     buf.emit( content.charAt(i), 'O' );
                     if( content.charAt(i) == '\n' ) atLineStart = true;
-                    else atLineStart = false;
+                    else                            atLineStart = false;
                     ++i;
                     continue;
-                }
+                } // if
                 // Subexpression $(...) -- re-enter code mode so future brace rules see real braces
                 if( c == '$' && i + 1 < content.length() && content.charAt(i + 1) == '(' ) {
                     stack.add( new Frame('C') );
                     kind[i] = kind[i + 1] = 'C';
                     buf.emit('$', 'C'); buf.emit('(', 'C');
-                    atLineStart = false;
-                    i += 2;
+                    atLineStart  = false;
+                    i           += 2;
                     continue;
-                }
+                } // if
                 // Braced variable ${...} -- stay opaque (name, not code)
                 if( c == '$' && i + 1 < content.length() && content.charAt(i + 1) == '{' ) {
                     stack.add( new Frame('V') );
                     kind[i] = kind[i + 1] = 'O';
                     buf.emit('$', 'O'); buf.emit('{', 'O');
-                    atLineStart = false;
-                    i += 2;
+                    atLineStart  = false;
+                    i           += 2;
                     continue;
-                }
+                } // if
                 kind[i] = 'O';
                 buf.emit(c, 'O');
-                if( top.type == 'D' && c == '"' ) stack.remove( stack.size() - 1 );
+                if(top.type == 'D' && c == '"') stack.remove( stack.size() - 1 );
                 if(c == '\n') atLineStart = true;
-                else atLineStart = false;
+                else          atLineStart = false;
                 ++i;
                 continue;
-            }
+            } // if
 
             // ---- braced variable ${...} (opaque) --------------------------------------------
-            if( top != null && top.type == 'V' ) {
+            if(top != null && top.type == 'V') {
                 if(c == '{') {
                     top.parenDepth++;
                     kind[i] = 'O';
@@ -280,13 +289,14 @@ public final class PowerShellSpecificRule {
                     atLineStart = false;
                     ++i;
                     continue;
-                }
+                } // if
                 if(c == '}') {
                     if(top.parenDepth > 0) {
                         top.parenDepth--;
                         kind[i] = 'O';
                         buf.emit(c, 'O');
-                    } else {
+                    }
+                    else {
                         stack.remove( stack.size() - 1 );
                         kind[i] = 'O';
                         buf.emit(c, 'O');
@@ -294,14 +304,14 @@ public final class PowerShellSpecificRule {
                     atLineStart = false;
                     ++i;
                     continue;
-                }
+                } // if
                 kind[i] = 'O';
                 buf.emit(c, 'O');
                 if(c == '\n') atLineStart = true;
-                else atLineStart = false;
+                else          atLineStart = false;
                 ++i;
                 continue;
-            }
+            } // if
 
             // ---- subexpression $(...) interior = code (falls through to NORMAL rules) -------
             // top == null OR top.type == 'C': both accept the same NORMAL starters. For 'C', a
@@ -318,10 +328,10 @@ public final class PowerShellSpecificRule {
                 kind[i] = 'C';
                 buf.emit( content.charAt(i), 'C' );
                 if( content.charAt(i) == '\n' ) atLineStart = true;
-                else atLineStart = false;
+                else                            atLineStart = false;
                 ++i;
                 continue;
-            }
+            } // if
 
             // Here-string open: @" or @' followed by optional WS then newline
             if( c == '@' && i + 1 < content.length()
@@ -337,30 +347,30 @@ public final class PowerShellSpecificRule {
                     buf.emit(ch, 'O');
                     ++p;
                     if(ch == '\n') break;
-                }
-                atLineStart = true; // body begins at start of next line (we consumed the newline)
-                i = p;
+                } // while
+                atLineStart = true; // Body begins at start of next line (we consumed the newline)
+                i           = p;
                 continue;
-            }
+            } // if
 
             // Block comment
             if( c == '<' && i + 1 < content.length() && content.charAt(i + 1) == '#' ) {
                 stack.add( new Frame('B') );
                 kind[i] = kind[i + 1] = 'O';
                 buf.emit('<', 'O'); buf.emit('#', 'O');
-                atLineStart = false;
-                i += 2;
+                atLineStart  = false;
+                i           += 2;
                 continue;
-            }
+            } // if
 
             // Line comment -- '#' always starts a comment outside strings/here-strings in PS
             if(c == '#') {
-                final Frame f = new Frame('#');
-                int lineStart = i;
+                final Frame f         = new Frame('#');
+                      int   lineStart = i;
                 while( lineStart > 0 && content.charAt(lineStart - 1) != '\n' ) --lineStart;
                 f.standalone = content.substring(lineStart, i).trim().isEmpty();
                 int ln = 0;
-                for( int p = 0; p < lineStart; ++p ) if( content.charAt(p) == '\n' ) ++ln;
+                for(int p = 0; p < lineStart; ++p) if( content.charAt(p) == '\n' ) ++ln;
                 f.lineNo = ln;
                 stack.add(f);
                 kind[i] = 'O';
@@ -368,7 +378,7 @@ public final class PowerShellSpecificRule {
                 atLineStart = false;
                 ++i;
                 continue;
-            }
+            } // if
 
             // Single / double quoted strings
             if(c == '\'') {
@@ -378,7 +388,7 @@ public final class PowerShellSpecificRule {
                 atLineStart = false;
                 ++i;
                 continue;
-            }
+            } // if
             if(c == '"') {
                 stack.add( new Frame('D') );
                 kind[i] = 'O';
@@ -386,31 +396,31 @@ public final class PowerShellSpecificRule {
                 atLineStart = false;
                 ++i;
                 continue;
-            }
+            } // if
 
             // Subexpression $(...) at code level
             if( c == '$' && i + 1 < content.length() && content.charAt(i + 1) == '(' ) {
                 stack.add( new Frame('C') );
                 kind[i] = kind[i + 1] = 'C';
                 buf.emit('$', 'C'); buf.emit('(', 'C');
-                atLineStart = false;
-                i += 2;
+                atLineStart  = false;
+                i           += 2;
                 continue;
-            }
+            } // if
 
             // Braced variable ${...} at code level (opaque name)
             if( c == '$' && i + 1 < content.length() && content.charAt(i + 1) == '{' ) {
                 stack.add( new Frame('V') );
                 kind[i] = kind[i + 1] = 'O';
                 buf.emit('$', 'O'); buf.emit('{', 'O');
-                atLineStart = false;
-                i += 2;
+                atLineStart  = false;
+                i           += 2;
                 continue;
-            }
+            } // if
 
             // Bare paren inside subexpression was handled above; at top-level, '(' / ')' are code.
             // Re-check subexpression paren when we fell through from quote-priority path with '('/')'.
-            if( top != null && top.type == 'C' ) {
+            if(top != null && top.type == 'C') {
                 if(c == '(') {
                     top.parenDepth++;
                     kind[i] = 'C';
@@ -418,13 +428,14 @@ public final class PowerShellSpecificRule {
                     atLineStart = false;
                     ++i;
                     continue;
-                }
+                } // if
                 if(c == ')') {
                     if(top.parenDepth > 0) {
                         top.parenDepth--;
                         kind[i] = 'C';
                         buf.emit(c, 'C');
-                    } else {
+                    }
+                    else {
                         stack.remove( stack.size() - 1 );
                         kind[i] = 'C';
                         buf.emit(c, 'C');
@@ -432,25 +443,30 @@ public final class PowerShellSpecificRule {
                     atLineStart = false;
                     ++i;
                     continue;
-                }
-            }
+                } // if
+            } // if
 
             kind[i] = 'C';
             buf.emit(c, 'C');
             if(c == '\n') atLineStart = true;
-            else atLineStart = false;
+            else          atLineStart = false;
             ++i;
         } // while
 
         if( commentBody.length() > 0 ) {
             final Frame top = stack.isEmpty() ? null : stack.get( stack.size() - 1 );
-            if( top != null && top.type == '#' && top.standalone ) {
-                final String placeholder = chainCollector.defer( commentBody.toString(), top.lineNo );
-                for( int p = 0; p < placeholder.length(); ++p ) buf.emit( placeholder.charAt(p), 'O' );
-            } else {
+            if(top != null && top.type == '#' && top.standalone) {
+                final String placeholder = chainCollector.defer(
+                    commentBody.toString(), top.lineNo
+                );
+                for( int p = 0; p < placeholder.length(); ++p ) buf.emit(
+                    placeholder.charAt(p), 'O'
+                );
+            } // if
+            else {
                 emitNormalizedComment( buf, commentBody.toString() );
             }
-        }
+        } // if
 
         String transformed = buf.result();
         transformed = chainCollector.resolve(
@@ -459,12 +475,12 @@ public final class PowerShellSpecificRule {
 
         final PassAResult result = new PassAResult();
         result.transformed = transformed;
-        result.kind         = kind;
+        result.kind        = kind;
 
         return result;
     }
 
-    /** Normalizes a `#` line comment's body (text after the `#`) and re-emits it as opaque ('O') characters. */
+    /** Normalizes a `#` line comment's body (text after the `#`) and re-emits it as opaque ('O') characters */
     private void emitNormalizedComment(final RunBuffer buf, final String body)
     {
         final String normalized = ToolingCommentNormalizer.normalize(
@@ -475,12 +491,17 @@ public final class PowerShellSpecificRule {
 
     /**
      * {@code @"}/{@code @'} opens a here-string only when the quote is followed by optional
-     * spaces/tabs and then a newline (PowerShell requires the opening quote to end its line).
+     * spaces/tabs and then a newline (PowerShell requires the opening quote to end its line)
      */
     private static boolean isHereStringOpen(final String content, final int atIdx)
     {
         int p = atIdx + 2; // past @ and quote
-        while( p < content.length() && ( content.charAt(p) == ' ' || content.charAt(p) == '\t' ) ) ++p;
+        while( p < content.length() && ( content.charAt(
+            p
+        ) == ' ' || content.charAt(
+            p
+        ) == '\t' ) ) ++p;
+
         return p < content.length() && content.charAt(p) == '\n';
     }
 
@@ -492,9 +513,9 @@ public final class PowerShellSpecificRule {
     static boolean[] computeLinePurity(final String content, final char[] kind, final int lineCount)
     {
         final boolean[] pure  = new boolean[lineCount];
-        int             line  = 0;
-        boolean         found = false;
-        for( int i = 0; i < kind.length && line < lineCount; ++i ) {
+              int       line  = 0;
+              boolean   found = false;
+        for(int i = 0; i < kind.length && line < lineCount; ++i) {
             final char c = content.charAt(i);
             if(c == '\n') {
                 if(!found) pure[line] = true;
@@ -502,12 +523,12 @@ public final class PowerShellSpecificRule {
                 found = false;
                 continue;
             }
-            if( !found && c != ' ' && c != '\t' && c != '\r' ) {
+            if(!found && c != ' ' && c != '\t' && c != '\r') {
                 pure[line] = kind[i] == 'C';
                 found      = true;
             }
         } // for
-        if( line < lineCount && !found ) pure[line] = true;
+        if(line < lineCount && !found) pure[line] = true;
 
         return pure;
     }
@@ -531,8 +552,8 @@ public final class PowerShellSpecificRule {
         Lines(final String content)
         {
             this.endsWithNewline = content.endsWith("\n");
-            final String[] raw   = content.split("\n", -1);
-            this.lines           = new ArrayList<>( java.util.Arrays.asList(raw) );
+            final String[] raw = content.split("\n", -1);
+            this.lines = new ArrayList<>( java.util.Arrays.asList(raw) );
             if( endsWithNewline && !lines.isEmpty() ) lines.remove( lines.size() - 1 );
         }
 
@@ -565,28 +586,28 @@ public final class PowerShellSpecificRule {
     private static String repeatChar(final char c, final int count)
     {
         final StringBuilder sb = new StringBuilder( Math.max(0, count) );
-        for( int i = 0; i < count; ++i ) sb.append(c);
+        for(int i = 0; i < count; ++i) sb.append(c);
 
         return sb.toString();
     }
 
     /**
      * Per-line kind slices aligned with {@link Lines#lines} (newline characters themselves are
-     * omitted; each slice is exactly the line's character kinds).
+     * omitted; each slice is exactly the line's character kinds)
      */
     private static char[][] lineKinds(final String content, final char[] kind, final int lineCount)
     {
-        final char[][] out  = new char[lineCount][];
-        int            line = 0;
-        int            start = 0;
+        final char[][] out   = new char[lineCount][];
+              int      line  = 0;
+              int      start = 0;
         for( int i = 0; i <= content.length() && line < lineCount; ++i ) {
             if( i == content.length() || content.charAt(i) == '\n' ) {
                 final int len = i - start;
                 out[line] = new char[len];
-                if(len > 0) System.arraycopy(kind, start, out[line], 0, len);
+                if(len > 0) System.arraycopy( kind, start, out[line], 0, len );
                 ++line;
                 start = i + 1;
-            }
+            } // if
         } // for
 
         return out;
@@ -602,12 +623,14 @@ public final class PowerShellSpecificRule {
      */
     private String applyBraceIndent(final String content)
     {
-        final PassAResult  passA  = runPassA(content);
-        final Lines        lines  = new Lines(passA.transformed);
-        final boolean[]    pure   = computeLinePurity(passA.transformed, passA.kind, lines.lines.size());
-        final char[][]     kinds  = lineKinds(passA.transformed, passA.kind, lines.lines.size());
-        final List<String> out    = new ArrayList<>( lines.lines.size() );
-              int          depth  = 0;
+        final PassAResult  passA = runPassA(content);
+        final Lines        lines = new Lines(passA.transformed);
+        final boolean[]    pure  = computeLinePurity(
+            passA.transformed, passA.kind, lines.lines.size()
+        );
+        final char[][]     kinds = lineKinds( passA.transformed, passA.kind, lines.lines.size() );
+        final List<String> out   = new ArrayList<>( lines.lines.size() );
+              int          depth = 0;
 
         for( int li = 0; li < lines.lines.size(); ++li ) {
             final String line    = lines.lines.get(li);
@@ -626,7 +649,8 @@ public final class PowerShellSpecificRule {
             if( pure[li] ) {
                 final int printDepth = Math.max(0, depth - leadingCloses);
                 out.add( indent(printDepth) + trimmed );
-            } else {
+            }
+            else {
                 // Non-pure (here-string body, full-line comment, etc.): leave byte-identical.
                 out.add(line);
             }
@@ -645,41 +669,50 @@ public final class PowerShellSpecificRule {
      * code character. {@code trimmed} is {@code line.trim()}; kinds are indexed into the original
      * {@code line} (so leading whitespace on {@code line} must be skipped when mapping).
      */
-    private static int countLeadingCloses(final String trimmed, final String line, final char[] lineKind)
+    private static int countLeadingCloses(
+        final String trimmed,
+        final String line,
+        final char[] lineKind
+    )
     {
         final int base = leadingWhitespace(line).length();
-        int       n    = 0;
+              int n    = 0;
         for( int i = 0; i < trimmed.length(); ++i ) {
             final char c = trimmed.charAt(i);
             if(c == ' ' || c == '\t' || c == '\r') continue;
             final int ki = base + i;
-            // trimmed is line without leading/trailing ws -- map carefully:
+            // Trimmed is line without leading/trailing ws -- map carefully:
             // base + index into the untrimmed middle. Since trimmed strips trailing too, indices
             // into line are: first non-ws of line + i, for i scanning trimmed which has no lead ws.
             // Actually trimmed = line.trim(), so line[base + i] == trimmed[i] for i in [0, trimmed.length)
             // only if there's no difference from trailing strip affecting... yes for i < trimmed.length(),
             // line.charAt(base + i) == trimmed.charAt(i).
-            if( ki < 0 || ki >= lineKind.length ) break;
+            if(ki < 0 || ki >= lineKind.length) break;
             if( lineKind[ki] != 'C' ) {
-                // opaque non-ws at the start (e.g. comment line) -- not a leading close
+                // Opaque non-ws at the start (e.g. comment line) -- not a leading close
                 break;
             }
             if(c == '}') n++;
-            else break;
+            else         break;
         } // for
 
         return n;
     }
 
     private static int countCodeChar(
-        final String trimmed, final String line, final char[] lineKind, final char target
+        final String trimmed,
+        final String line,
+        final char[] lineKind,
+        final char   target
     )
     {
         final int base = leadingWhitespace(line).length();
-        int       n    = 0;
+              int n    = 0;
         for( int i = 0; i < trimmed.length(); ++i ) {
             final int ki = base + i;
-            if( ki >= 0 && ki < lineKind.length && lineKind[ki] == 'C' && trimmed.charAt(i) == target ) n++;
+            if( ki >= 0 && ki < lineKind.length && lineKind[ki] == 'C' && trimmed.charAt(
+                i
+            ) == target ) n++;
         }
 
         return n;
@@ -696,10 +729,10 @@ public final class PowerShellSpecificRule {
      */
     private String applyOperatorSpacing(final String content)
     {
-        final PassAResult passA = runPassA(content);
-        final String      s     = passA.transformed;
-        final char[]      kind  = passA.kind;
-        final StringBuilder sb  = new StringBuilder( s.length() + 16 );
+        final PassAResult   passA = runPassA(content);
+        final String        s     = passA.transformed;
+        final char[]        kind  = passA.kind;
+        final StringBuilder sb    = new StringBuilder( s.length() + 16 );
 
         for( int i = 0; i < s.length(); ++i ) {
             if( kind[i] != 'C' ) {
@@ -709,7 +742,7 @@ public final class PowerShellSpecificRule {
             final char c = s.charAt(i);
 
             // Compound assignment += -= *= /= %=
-            if( ( c == '+' || c == '-' || c == '*' || c == '/' || c == '%' )
+            if( (c == '+' || c == '-' || c == '*' || c == '/' || c == '%')
                     && i + 1 < s.length() && s.charAt(i + 1) == '='
                     && kind[i + 1] == 'C' ) {
                 stripTrailingSpaces(sb);
@@ -735,9 +768,9 @@ public final class PowerShellSpecificRule {
             // multiple such paths/URLs corrupted into extra, wrongly-split arguments and zero
             // instances of genuine division, so spacing bare `/` is not applied at all (the `/=`
             // compound-assignment case above is unaffected -- that form is unambiguous).
-            if( ( c == '+' || c == '*' || c == '%' )
+            if( (c == '+' || c == '*' || c == '%')
                     && isBinaryLeft(sb)
-                    && !( i + 1 < s.length() && s.charAt(i + 1) == c ) /* not ++ // etc. */ ) {
+                    && !( i + 1 < s.length() && s.charAt(i + 1) == c ) /* Not ++ // etc */ ) {
                 stripTrailingSpaces(sb);
                 sb.append(' ').append(c).append(' ');
                 i = skipSpaces(s, i + 1) - 1;
@@ -755,7 +788,7 @@ public final class PowerShellSpecificRule {
         while( sb.length() > 0 ) {
             final char p = sb.charAt( sb.length() - 1 );
             if(p == ' ' || p == '\t') sb.setLength( sb.length() - 1 );
-            else break;
+            else                      break;
         }
     }
 
@@ -767,7 +800,7 @@ public final class PowerShellSpecificRule {
         return j;
     }
 
-    /** True when the builder's last non-space char looks like an expression end (binary-op left). */
+    /** True when the builder's last non-space char looks like an expression end (binary-op left) */
     private static boolean isBinaryLeft(final StringBuilder sb)
     {
         int i = sb.length() - 1;
@@ -775,7 +808,9 @@ public final class PowerShellSpecificRule {
         if(i < 0) return false;
         final char p = sb.charAt(i);
 
-        return Character.isLetterOrDigit(p) || p == '_' || p == ')' || p == ']' || p == '}' || p == '$'
+        return Character.isLetterOrDigit(
+            p
+        ) || p == '_' || p == ')' || p == ']' || p == '}' || p == '$'
                 || p == '"' || p == '\'';
     }
 
@@ -783,7 +818,7 @@ public final class PowerShellSpecificRule {
 
         String indent;
         String lhs;
-        String op;  // "=", "+=", ...
+        String op;     // "=", "+=", ...
         String rhs;
 
     } // class AssignItem
@@ -797,11 +832,15 @@ public final class PowerShellSpecificRule {
      */
     private String applyAssignAlignment(final String content)
     {
-        final PassAResult  passA = runPassA(content);
-        final Lines        lines = new Lines(passA.transformed);
-        final boolean[]    pure  = computeLinePurity(passA.transformed, passA.kind, lines.lines.size());
-        final char[][]     kinds = lineKinds(passA.transformed, passA.kind, lines.lines.size());
-        final List<String> out   = new ArrayList<>();
+        final PassAResult      passA = runPassA(content);
+        final Lines            lines = new Lines(passA.transformed);
+        final boolean[]        pure  = computeLinePurity(
+            passA.transformed, passA.kind, lines.lines.size()
+        );
+        final char[][]         kinds = lineKinds(
+            passA.transformed, passA.kind, lines.lines.size()
+        );
+        final List<String>     out   = new ArrayList<>();
         final List<AssignItem> group = new ArrayList<>();
 
         for( int li = 0; li < lines.lines.size(); ++li ) {
@@ -811,7 +850,7 @@ public final class PowerShellSpecificRule {
                 out.add("");
                 continue;
             }
-            final AssignItem item = pure[li] ? parseAssign(line, kinds[li]) : null;
+            final AssignItem item = pure[li] ? parseAssign( line, kinds[li] ) : null;
             if(item != null) {
                 group.add(item);
                 continue;
@@ -829,37 +868,40 @@ public final class PowerShellSpecificRule {
 
     private static AssignItem parseAssign(final String line, final char[] kind)
     {
-        final int lead = leadingWhitespace(line).length();
-        int depth = 0;
+        final int lead  = leadingWhitespace(line).length();
+              int depth = 0;
         for( int i = lead; i < line.length(); ++i ) {
             if( i < kind.length && kind[i] != 'C' ) continue;
             final char c = line.charAt(i);
-            if(c == '(' || c == '[' || c == '{') { depth++; continue; }
+            if(c == '(' || c == '[' || c == '{') { ++depth; continue; }
             if(c == ')' || c == ']' || c == '}') { if(depth > 0) depth--; continue; }
             if(depth != 0) continue;
 
-            // compound
-            if( i + 1 < line.length() && line.charAt(i + 1) == '='
-                    && ( c == '+' || c == '-' || c == '*' || c == '/' || c == '%' )
-                    && ( i + 1 >= kind.length || kind[i + 1] == 'C' ) ) {
-                return makeAssign(line, lead, i, 2);
-            }
-            if(c == '=') {
-                return makeAssign(line, lead, i, 1);
-            }
+            // Compound
+            if( i + 1 < line.length() && line.charAt(
+                i + 1
+            ) == '=' && (c == '+' || c == '-' || c == '*' || c == '/' || c == '%') && ( i + 1 >= kind.length || kind[i + 1] == 'C' ) ) return makeAssign(
+                line, lead, i, 2
+            );
+            if(c == '=') return makeAssign(line, lead, i, 1);
         } // for
 
         return null;
     }
 
-    private static AssignItem makeAssign(final String line, final int lead, final int opAt, final int opLen)
+    private static AssignItem makeAssign(
+        final String line,
+        final int    lead,
+        final int    opAt,
+        final int    opLen
+    )
     {
         final AssignItem item = new AssignItem();
         item.indent = line.substring(0, lead);
         item.lhs    = line.substring(lead, opAt).replaceAll("[ \\t]+$", "");
-        if( item.lhs.isEmpty() ) return null; // e.g. line starting with =
-        item.op     = line.substring(opAt, opAt + opLen);
-        item.rhs    = line.substring(opAt + opLen).replaceAll("^[ \\t]+", "");
+        if( item.lhs.isEmpty() ) return null; // E.g. line starting with =
+        item.op  = line.substring(opAt, opAt + opLen);
+        item.rhs = line.substring(opAt + opLen).replaceAll("^[ \\t]+", "");
 
         return item;
     }
@@ -868,8 +910,8 @@ public final class PowerShellSpecificRule {
     {
         if( group.isEmpty() ) return;
         int maxLhs = 0;
-        for( final AssignItem it : group ) maxLhs = Math.max( maxLhs, it.lhs.length() );
-        for( final AssignItem it : group ) {
+        for(final AssignItem it : group) maxLhs = Math.max( maxLhs, it.lhs.length() );
+        for(final AssignItem it : group) {
             final int pad = maxLhs - it.lhs.length();
             out.add( it.indent + it.lhs + repeatChar(' ', pad) + " " + it.op + " " + it.rhs );
         }
@@ -890,14 +932,16 @@ public final class PowerShellSpecificRule {
     {
         final PassAResult  passA = runPassA(content);
         final Lines        lines = new Lines(passA.transformed);
-        final boolean[]    pure  = computeLinePurity(passA.transformed, passA.kind, lines.lines.size());
-        final char[][]     kinds = lineKinds(passA.transformed, passA.kind, lines.lines.size());
+        final boolean[]    pure  = computeLinePurity(
+            passA.transformed, passA.kind, lines.lines.size()
+        );
+        final char[][]     kinds = lineKinds( passA.transformed, passA.kind, lines.lines.size() );
         final List<String> out   = new ArrayList<>();
 
         int i = 0;
         while( i < lines.lines.size() ) {
             final String line = lines.lines.get(i);
-            if( !pure[i] || line.trim().isEmpty() || !hasDepth0Pipe(line, kinds[i]) ) {
+            if( !pure[i] || line.trim().isEmpty() || !hasDepth0Pipe( line, kinds[i] ) ) {
                 out.add(line);
                 ++i;
                 continue;
@@ -905,19 +949,19 @@ public final class PowerShellSpecificRule {
 
             final String       baseIndent = leadingWhitespace(line);
             final List<String> segs       = new ArrayList<>();
-            int                j          = i;
-            boolean            cont       = true;
+                  int          j          = i;
+                  boolean      cont       = true;
             while( cont && j < lines.lines.size() ) {
-                if( j > i ) {
+                if(j > i) {
                     if( !pure[j] || lines.lines.get(j).trim().isEmpty() ) break;
-                    // Only consume as continuation when the previous line ended with a depth-0 pipe.
-                    if( !lineEndsWithDepth0Pipe(lines.lines.get(j - 1), kinds[j - 1]) ) break;
+                    // Only consume as continuation when the previous line ended with a depth-0 pipe
+                    if( !lineEndsWithDepth0Pipe( lines.lines.get(j - 1), kinds[j - 1] ) ) break;
                 }
                 final List<String> part = splitDepth0Pipes( lines.lines.get(j), kinds[j] );
                 // Skip empties from a trailing depth-0 `|` (both mid-group continuations and the
                 // final "ends with |" line) -- otherwise re-formatting an already-split pipeline
-                // inserts blank `|`-only segments and breaks idempotency.
-                for( final String p : part ) {
+                // inserts blank `|`-only segments and breaks idempotency
+                for(final String p : part) {
                     if( !p.isEmpty() ) segs.add(p);
                 }
                 cont = lineEndsWithDepth0Pipe( lines.lines.get(j), kinds[j] );
@@ -935,15 +979,18 @@ public final class PowerShellSpecificRule {
             // with at least one space between the segment text and `|`.
             int pipeCol = 0;
             for( int s = 0; s + 1 < segs.size(); ++s ) {
-                final int pref = ( ( s == 0 ) ? baseIndent : contIndent ).length();
+                final int pref = ( (s == 0) ? baseIndent : contIndent ).length();
                 pipeCol = Math.max( pipeCol, pref + segs.get(s).length() + 1 );
             }
             for( int s = 0; s < segs.size(); ++s ) {
-                final String prefix = ( s == 0 ) ? baseIndent : contIndent;
+                final String prefix = (s == 0) ? baseIndent : contIndent;
                 if( s + 1 < segs.size() ) {
-                    final int spaces = Math.max( 1, pipeCol - prefix.length() - segs.get(s).length() );
+                    final int spaces = Math.max(
+                        1, pipeCol - prefix.length() - segs.get(s).length()
+                    );
                     out.add( prefix + segs.get(s) + repeatChar(' ', spaces) + "|" );
-                } else {
+                }
+                else {
                     out.add( prefix + segs.get(s) );
                 }
             } // for
@@ -962,10 +1009,10 @@ public final class PowerShellSpecificRule {
         for( int i = 0; i < line.length(); ++i ) {
             if( i < kind.length && kind[i] != 'C' ) continue;
             final char c = line.charAt(i);
-            if(c == '(' || c == '[' || c == '{') depth++;
+                 if(c == '(' || c == '[' || c == '{') depth++;
             else if(c == ')' || c == ']' || c == '}') { if(depth > 0) depth--; }
             else if( depth == 0 && c == '|' && !isDoublePipe(line, i) ) return true;
-        }
+        } // for
 
         return false;
     }
@@ -975,13 +1022,13 @@ public final class PowerShellSpecificRule {
         // Find last non-ws char; it must be a depth-0 |
         int end = line.length() - 1;
         while( end >= 0 && ( line.charAt(end) == ' ' || line.charAt(end) == '\t' ) ) --end;
-        if(end < 0 || line.charAt(end) != '|') return false;
+        if( end < 0 || line.charAt(end) != '|' ) return false;
         if( isDoublePipe(line, end) || ( end > 0 && line.charAt(end - 1) == '|' ) ) return false;
         int depth = 0;
-        for( int i = 0; i <= end; ++i ) {
+        for(int i = 0; i <= end; ++i) {
             if( i < kind.length && kind[i] != 'C' ) continue;
             final char c = line.charAt(i);
-            if(c == '(' || c == '[' || c == '{') depth++;
+                 if(c == '(' || c == '[' || c == '{') depth++;
             else if(c == ')' || c == ']' || c == '}') { if(depth > 0) depth--; }
         }
 
@@ -994,7 +1041,7 @@ public final class PowerShellSpecificRule {
                 || ( i > 0 && line.charAt(i - 1) == '|' );
     }
 
-    /** Split line on depth-0 code-kind lone {@code |}; returned segments are trimmed. */
+    /** Split line on depth-0 code-kind lone {@code |}; returned segments are trimmed */
     private static List<String> splitDepth0Pipes(final String line, final char[] kind)
     {
         final List<String> segs  = new ArrayList<>();
@@ -1004,7 +1051,7 @@ public final class PowerShellSpecificRule {
         for( int i = lead; i < line.length(); ++i ) {
             if( i < kind.length && kind[i] != 'C' ) continue;
             final char c = line.charAt(i);
-            if(c == '(' || c == '[' || c == '{') depth++;
+                 if(c == '(' || c == '[' || c == '{') depth++;
             else if(c == ')' || c == ']' || c == '}') { if(depth > 0) depth--; }
             else if( depth == 0 && c == '|' && !isDoublePipe(line, i) ) {
                 segs.add( line.substring(start, i).trim() );
@@ -1029,20 +1076,20 @@ public final class PowerShellSpecificRule {
      */
     private String applyKeywordParenSpacing(final String content)
     {
-        final PassAResult passA = runPassA(content);
-        final String      s     = passA.transformed;
-        final char[]      kind  = passA.kind;
-        final Matcher     m     = KEYWORD_PAREN.matcher(s);
-        final StringBuilder sb  = new StringBuilder( s.length() + 8 );
-        int                 last = 0;
+        final PassAResult   passA = runPassA(content);
+        final String        s     = passA.transformed;
+        final char[]        kind  = passA.kind;
+        final Matcher       m     = KEYWORD_PAREN.matcher(s);
+        final StringBuilder sb    = new StringBuilder( s.length() + 8 );
+              int           last  = 0;
         while( m.find() ) {
             final int kwStart = m.start(1);
-            final int paren   = m.end() - 1; // index of (
+            final int paren   = m.end() - 1; // Index of (
             if( kind[kwStart] != 'C' || kind[paren] != 'C' ) continue;
-            sb.append( s, last, kwStart );
+            sb.append(s, last, kwStart);
             sb.append( m.group(1) ).append(" (");
             last = m.end();
-        }
+        } // while
         sb.append( s, last, s.length() );
 
         return sb.toString();
@@ -1052,7 +1099,7 @@ public final class PowerShellSpecificRule {
 
         String indent;
         String pattern;
-        String rest; // begins with '{'
+        String rest;    // Begins with '{'
 
     } // class ArmItem
 
@@ -1064,11 +1111,13 @@ public final class PowerShellSpecificRule {
      */
     private String applySwitchArmAlignment(final String content)
     {
-        final PassAResult  passA = runPassA(content);
-        final Lines        lines = new Lines(passA.transformed);
-        final boolean[]    pure  = computeLinePurity(passA.transformed, passA.kind, lines.lines.size());
-        final char[][]     kinds = lineKinds(passA.transformed, passA.kind, lines.lines.size());
-        final List<String> out   = new ArrayList<>();
+        final PassAResult   passA = runPassA(content);
+        final Lines         lines = new Lines(passA.transformed);
+        final boolean[]     pure  = computeLinePurity(
+            passA.transformed, passA.kind, lines.lines.size()
+        );
+        final char[][]      kinds = lineKinds( passA.transformed, passA.kind, lines.lines.size() );
+        final List<String>  out   = new ArrayList<>();
         final List<ArmItem> group = new ArrayList<>();
 
         for( int li = 0; li < lines.lines.size(); ++li ) {
@@ -1078,15 +1127,19 @@ public final class PowerShellSpecificRule {
                 out.add("");
                 continue;
             }
-            final ArmItem item = pure[li] ? parseArm(line, kinds[li]) : null;
+            final ArmItem item = pure[li] ? parseArm( line, kinds[li] ) : null;
             if(item != null) {
                 // Break group on indent change
-                if( !group.isEmpty() && !group.get(0).indent.equals(item.indent) ) {
-                    flushArmGroup(out, group);
-                }
+                if( !group.isEmpty() && !group.get(
+                    0
+                ).indent.equals(
+                    item.indent
+                ) ) flushArmGroup(
+                    out, group
+                );
                 group.add(item);
                 continue;
-            }
+            } // if
             flushArmGroup(out, group);
             out.add(line);
         } // for
@@ -1100,14 +1153,14 @@ public final class PowerShellSpecificRule {
 
     private static ArmItem parseArm(final String line, final char[] kind)
     {
-        final int lead = leadingWhitespace(line).length();
-        int depth = 0;
+        final int lead  = leadingWhitespace(line).length();
+              int depth = 0;
         for( int i = lead; i < line.length(); ++i ) {
             if( i < kind.length && kind[i] != 'C' ) continue;
             final char c = line.charAt(i);
-            if(c == '(' || c == '[') { depth++; continue; }
+            if(c == '(' || c == '[') { ++depth; continue; }
             if(c == ')' || c == ']') { if(depth > 0) depth--; continue; }
-            // Do not track '{}' for depth here -- the first depth-0 '{' opens the arm body.
+            // Do not track '{}' for depth here -- the first depth-0 '{' opens the arm body
             if(depth != 0) continue;
             // A depth-0 pipe before the '{' means this is a pipeline stage (e.g.
             // `... | Where-Object {...}`), not a switch arm -- do not misclassify it as one
@@ -1116,7 +1169,7 @@ public final class PowerShellSpecificRule {
             // line no longer does, so alignment padding flip-flopped between rounds).
             if( c == '|' && !isDoublePipe(line, i) ) return null;
             if(c == '{') {
-                // Hashtable opener `@{` is not a switch arm (would become `@ {` via the pad space).
+                // Hashtable opener `@{` is not a switch arm (would become `@ {` via the pad space)
                 if( i > 0 && line.charAt(i - 1) == '@' ) return null;
                 final String pattern = line.substring(lead, i).replaceAll("[ \\t]+$", "");
                 if( pattern.isEmpty() ) return null;
@@ -1124,10 +1177,10 @@ public final class PowerShellSpecificRule {
                 final ArmItem item = new ArmItem();
                 item.indent  = line.substring(0, lead);
                 item.pattern = pattern;
-                item.rest    = line.substring(i); // starts with {
+                item.rest    = line.substring(i);       // Starts with {
 
                 return item;
-            }
+            } // if
         } // for
 
         return null;
@@ -1136,11 +1189,12 @@ public final class PowerShellSpecificRule {
     private static boolean isControlHeader(final String pattern)
     {
         final String t = pattern.trim();
-        // Word-at-start check against control keywords (case-insensitive).
+        // Word-at-start check against control keywords (case-insensitive)
         final Matcher m = Pattern.compile(
-            "(?i)^(if|elseif|else|while|for|foreach|switch|function|filter|catch|trap|try|finally|"
-                + "begin|process|end|dynamicparam)\\b"
-        ).matcher(t);
+            "(?i)^(if|elseif|else|while|for|foreach|switch|function|filter|catch|trap|try|finally|" + "begin|process|end|dynamicparam)\\b"
+        ).matcher(
+            t
+        );
 
         return m.find();
     }
@@ -1149,8 +1203,8 @@ public final class PowerShellSpecificRule {
     {
         if( group.isEmpty() ) return;
         int maxPat = 0;
-        for( final ArmItem it : group ) maxPat = Math.max( maxPat, it.pattern.length() );
-        for( final ArmItem it : group ) {
+        for(final ArmItem it : group) maxPat = Math.max( maxPat, it.pattern.length() );
+        for(final ArmItem it : group) {
             final int pad = maxPat - it.pattern.length();
             out.add( it.indent + it.pattern + repeatChar(' ', pad) + " " + it.rest );
         }
@@ -1187,12 +1241,10 @@ public final class PowerShellSpecificRule {
                 }
                 sb.append('{');
                 int j = skipSpaces(s, i + 1);
-                if( j < s.length() && s.charAt(j) != '\n' && s.charAt(j) != '}' ) {
-                    sb.append(' ');
-                }
+                if( j < s.length() && s.charAt(j) != '\n' && s.charAt(j) != '}' ) sb.append(' ');
                 i = j - 1;
                 continue;
-            }
+            } // if
 
             if(c == '}') {
                 stripTrailingSpaces(sb);
@@ -1202,7 +1254,7 @@ public final class PowerShellSpecificRule {
                 }
                 sb.append('}');
                 continue;
-            }
+            } // if
 
             sb.append(c);
         } // for
@@ -1212,21 +1264,29 @@ public final class PowerShellSpecificRule {
 
     public String format(final String content)
     {
-        String s = content;
-        s = applyKeywordParenSpacing(s); // §3.5 (also benefits if/while/... examples in §3.1)
-        s = applyOperatorSpacing(s);     // §3.2 spacing
-        s = applyBraceSpacing(s);        // §3.6 (before indent/align so later passes see spaced braces)
-        s = applyBraceIndent(s);         // §3.1 (also multi-line hashtable bodies -- §3.4)
         // §3.3 pipeline split runs before §3.2/§3.5 alignment passes: both alignment passes'
         // line-grouping depends on whether a pipeline is already split onto multiple lines (a
         // still-unsplit `... | Where-Object {...}` line reads very differently to the group-
         // boundary/arm-pattern scanners than its post-split form), so running them beforehand made
         // the result depend on how many times the content had already been formatted -- an
         // idempotency bug. Splitting first makes every pass downstream see the same stable shape.
-        s = applyPipelineSplit(s);       // §3.3 (after indent so continuation uses base+1 level)
-        s = applyAssignAlignment(s);     // §3.2 alignment (also multi-line hashtable entries -- §3.4)
+
         // §3.4 single-line hashtables: never expanded to multi-line (RDD_KEY_257); no extra pass.
-        s = applySwitchArmAlignment(s);  // §3.5 arm `{` alignment (after indent)
+
+        String s = content;
+        s = applyKeywordParenSpacing(s); // §3.5 (also benefits if/while/... examples in §3.1)
+
+        s = applyOperatorSpacing(s); // §3.2 spacing
+
+        s = applyBraceSpacing(s); // §3.6 (before indent/align so later passes see spaced braces)
+
+        s = applyBraceIndent(s); // §3.1 (also multi-line hashtable bodies -- §3.4)
+
+        s = applyPipelineSplit(s); // §3.3 (after indent so continuation uses base+1 level)
+
+        s = applyAssignAlignment(s); // §3.2 alignment (also multi-line hashtable entries -- §3.4)
+
+        s = applySwitchArmAlignment(s); // §3.5 arm `{` alignment (after indent)
 
         return s;
     }

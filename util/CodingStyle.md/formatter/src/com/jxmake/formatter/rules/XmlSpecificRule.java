@@ -242,12 +242,12 @@ public final class XmlSpecificRule {
         String   commentText;     // COMMENT: normalized inner text
         boolean  commentVerbatim; // COMMENT: true if commentText must render with no
                                                 // Added inner spacing (a `%`-prefixed marker/directive comment)
-        List<String> commentBannerLines;         // COMMENT: non-null iff a multi-line comment already
-                                                // follows the conventional ` * `-per-line continuation-marker
+        List<String> commentBannerLines; // COMMENT: non-null iff a multi-line comment already
+                                                // Follows the conventional ` * `-per-line continuation-marker
                                                 // banner shape (curly's `/* */` equivalent, RDD_KEY_262-adjacent
                                                 // gap) -- content lines already capitalize/period-normalized,
                                                 // rendered with a reindented ` * `/` -->` banner rather than
-                                                // frozen verbatim.
+                                                // frozen verbatim
         List<String> frozenLines;               // FROZEN: raw lines, verbatim, DIS..ENA inclusive
         String       tagName;
         List<String> attrs = new ArrayList<>();
@@ -946,7 +946,9 @@ public final class XmlSpecificRule {
                 final String line = s.substring(pos, end);
                 n.frozenLines.add(line);
                 pos = hasNl ? end + 1 : end;
-                if( ("<!--% " + TokenizerCore.JXM_CFMT_ENA + " -->").equals( line.trim() ) || eof() ) break;
+                if( ("<!--% " + TokenizerCore.JXM_CFMT_ENA + " -->").equals(
+                    line.trim()
+                ) || eof() ) break;
             } // while
             return n;
         } // if
@@ -1461,18 +1463,19 @@ public final class XmlSpecificRule {
         // The line right before the closing `-->` marker is just that marker's leading indentation
         //  (e.g. the " " in " * ...\n -->") -- it lives outside `raw` for curly's `*/`-embedded
         //  equivalent, so it's exempt from the `*`-prefix requirement and contributes no content line.
-        final boolean lastLineIsCloseIndent = rawLines.length > 1
-            && stripLeadingWs( rawLines[rawLines.length - 1] ).isEmpty();
-        final int lastContinuationLine = lastLineIsCloseIndent ? rawLines.length - 1 : rawLines.length;
+        final boolean lastLineIsCloseIndent = rawLines.length > 1 && stripLeadingWs(
+            rawLines[rawLines.length - 1]
+        ).isEmpty();
+        final int     lastContinuationLine  = lastLineIsCloseIndent ? rawLines.length - 1 : rawLines.length;
         for(int i = 1; i < lastContinuationLine; ++i) {
-            if( !stripLeadingWs(rawLines[i]).startsWith("*") ) return null;
+            if( !stripLeadingWs( rawLines[i] ).startsWith("*") ) return null;
         }
 
         final List<String> contentLines = new ArrayList<>();
-        final String firstContent = rawLines[0].trim();
+        final String       firstContent = rawLines[0].trim();
         if( !firstContent.isEmpty() ) contentLines.add(firstContent);
         for(int i = 1; i < lastContinuationLine; ++i) {
-            String afterStar = stripLeadingWs(rawLines[i]).substring(1);
+            String afterStar = stripLeadingWs( rawLines[i] ).substring(1);
             if( afterStar.startsWith(" ") ) afterStar = afterStar.substring(1);
             contentLines.add( trimTrailingWs(afterStar) );
         } // for
@@ -1481,15 +1484,18 @@ public final class XmlSpecificRule {
 
         if(normalizeCommentStartCase) {
             final String first = contentLines.get(0);
-            int i = 0;
+                  int    i     = 0;
             while( i < first.length() && first.charAt(i) == ' ' ) i++;
             if( i < first.length() && Character.isLowerCase(
                 first.charAt(i)
-            ) && !isSingleWordDirective(first) && !isMarkupFragmentDirective( first.substring(i) ) ) {
-                contentLines.set(
-                    0, first.substring(0, i) + Character.toUpperCase( first.charAt(i) ) + first.substring(i + 1)
-                );
-            } // if
+            ) && !isSingleWordDirective(
+                first
+            ) && !isMarkupFragmentDirective(
+                first.substring(i)
+            ) ) contentLines.set(
+                0,
+                first.substring(0, i) + Character.toUpperCase( first.charAt(i) ) + first.substring(i + 1)
+            ); // If
         } // if
 
         if(normalizeCommentEndPeriod) {
@@ -1501,7 +1507,9 @@ public final class XmlSpecificRule {
                 for( int i = contentLines.size() - 1; i >= 0; --i ) {
                     final String line = contentLines.get(i);
                     if( line.endsWith(".") ) {
-                        contentLines.set( i, trimTrailingWs( line.substring( 0, line.length() - 1 ) ) );
+                        contentLines.set(
+                            i, trimTrailingWs( line.substring( 0, line.length() - 1 ) )
+                        );
                         break;
                     } // if
                     if( !line.trim().isEmpty() ) break;
@@ -1532,8 +1540,9 @@ public final class XmlSpecificRule {
 
     private String normComment(final String rawText)
     {
-        final String text = normalizeCommentEndPeriod
-                ? ToolingCommentNormalizer.stripSoleTrailingPeriod(rawText) : rawText;
+        final String text = normalizeCommentEndPeriod ? ToolingCommentNormalizer.stripSoleTrailingPeriod(
+            rawText
+        ) : rawText;
         if( !normalizeCommentStartCase || text.isEmpty() ) return text;
         int i = 0;
         while( i < text.length() && text.charAt(i) == ' ' ) i++;

@@ -633,3 +633,27 @@ fixed-point check (step 3 above) was explicitly skipped for this run. Idempotenc
 above, not a bug. Adopted over real `tools/*`; `make test` unaffected
 (261/261 forward + idempotency, before and after). See `STATE_DOGFOOD.md`
 for the summary row.
+
+**2026-08-08: re-ran against the formatter's own `src/` (the documented
+procedure's actual primary subject), same simplification (no round2-JAR
+fixed-point check).** A prior same-day session had only done the `tools/*`
+broadening above and skipped re-running this on `src/` itself despite that
+being the task's title; this run fills that gap. Result: **not adopted**.
+`diff -ru` between a fresh round1 and round2 format of real `src/` was
+**not** empty — one file, `rules/PowerShellSpecificRule.java`, 2 hunks: a
+group-aligned trailing `//` comment after a call that `enforceCallLineBreaking`
+wraps onto its own line (e.g. `applyBraceSpacing(\n s\n); // §3.6 ...`)
+keeps stale wide alignment padding computed for the call's pre-wrap
+single-line shape through round1, then collapses to one space in round2
+once the input already shows the wrapped shape — same pass-ordering bug
+family as the `isSingleLineBody` doc comment in `JavaSpecificRule.java`
+(comment-column-alignment width computed independently of
+`enforceCallLineBreaking`'s own line-length verdict). Root-caused but not
+fixed this session — it touches the curly-family call-line-breaking /
+trailing-comment-alignment pass interaction shared by C/C++/Java, judged
+too risky to patch blind at this session's scope. Ancillary checks still
+run for the record: round1 compiled clean and its JAR passed `make test`
+261/261 forward+idempotency; 24 of the 25 files round1 actually changed
+content-diffed clean via `java_content_diff.sh` (legitimate comment
+capitalization/trailing-period-strip/line-wrap changes). Real `src/` was
+left untouched — see `STATE_DOGFOOD.md`'s new row for the summary.

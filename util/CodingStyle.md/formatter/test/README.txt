@@ -3343,6 +3343,23 @@ Real-code regressions:
                                                         its paired `if`'s indent. Shared
                                                         `BlockStructureRule`/`KotlinSpecificRule` code path.
 
+  real_code_regressions_185_inp/out.ts               -- Minimized from `microsoft/TypeScript`'s
+                                                        `harness/collectionsImpl.ts` (`Metadata.set`): a
+                                                        subscript-assignment statement (`this._map[...] =
+                                                        ...`) long enough to have its `[...]` wrapped by
+                                                        `enforceCallLineBreaking`, followed by a short
+                                                        assignment (`this._size = -1;`) that
+                                                        `applyAssignmentsPass` grouped/padded against the
+                                                        first statement's pre-wrap column width -- stable on
+                                                        the padded round, but the group membership/padding
+                                                        disagreed once the subscript assignment's own wrap
+                                                        state changed. Fixed by extending the existing
+                                                        `ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass`
+                                                        narrow re-run (RDD_KEY_248) with a third pass,
+                                                        `applyAssignmentsPass`, run after the closing-brace
+                                                        and declarations passes so it also sees the
+                                                        post-call-wrap shape.
+
 How Tests Are Run
 -----------------
 

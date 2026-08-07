@@ -1666,19 +1666,18 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     }
 
     /**
-     * RDD_KEY_246/RDD_KEY_248 -- {@code closingBraceAndDeclarationsOnly} is the narrower
-     * "middle ground" re-run: when {@code true}, this scope (and every child scope it recurses
-     * into) only re-runs {@link #applyOversizedAggregateInitClosingBracePass} followed by {@link
-     * #applyDeclarationsPass} (order swapped relative to the normal first pass below -- the
-     * closing-brace pass must go first so the declarations pass sees the corrected, post-call-wrap
-     * `{...}` shape rather than re-deriving its own stale decision), skipping
-     * applyAssignmentsPass/applySignaturePass/applyGetterSetterPass entirely (those were not shown
-     * to depend on the post-call-wrap shape, and Attempt 2 in RDD_KEY_246 showed re-running
-     * unrelated passes a second time in the same round risks silently re-collapsing already-correct
-     * output, e.g. a trailing-comment-after-`}` shape). All of the surrounding span-recursion/
-     * indent-resolution logic below is identical in both modes -- only the pass sequence at the top
-     * differs -- so a real fresh format (mode {@code false}) and this fixup re-run (mode {@code
-     * true}) walk the exact same tree shape.
+     * RDD_KEY_246/RDD_KEY_248/RDD_KEY_270 -- {@code closingBraceAndDeclarationsOnly} is the
+     * narrower "middle ground" re-run: when {@code true}, this scope (and every child scope it
+     * recurses into) only re-runs {@link #applyOversizedAggregateInitClosingBracePass}, then
+     * {@link #applyDeclarationsPass}, then {@link #applyAssignmentsPass} (closing-brace first, so
+     * the later passes see the corrected, post-call-wrap `{...}` shape rather than re-deriving
+     * their own stale decision), skipping applySignaturePass/applyGetterSetterPass entirely (those
+     * were not shown to depend on the post-call-wrap shape, and Attempt 2 in RDD_KEY_246 showed
+     * re-running unrelated passes a second time in the same round risks silently re-collapsing
+     * already-correct output, e.g. a trailing-comment-after-`}` shape). All of the surrounding
+     * span-recursion/indent-resolution logic below is identical in both modes -- only the pass
+     * sequence at the top differs -- so a real fresh format (mode {@code false}) and this fixup
+     * re-run (mode {@code true}) walk the exact same tree shape.
      */
     private String processScope(
         final List<Token> tokens,
@@ -1694,6 +1693,15 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 applyOversizedAggregateInitClosingBracePass(current), scopeStartFrozen
             );
             current = tokenize( applyDeclarationsPass(current, depth), scopeStartFrozen );
+            // RDD_KEY_270: applyAssignmentsPass added as a third pass in this same narrow
+            // re-run mode (direct extension of RDD_KEY_248's closing-brace+declarations
+            // re-run) -- `harness/collectionsImpl.ts` showed assignment-group membership/
+            // padding is decided too early relative to enforceCallLineBreaking's subscript
+            // wrap, same "processScope-phase decision made before a later pass's final
+            // column width" family RDD_KEY_248 already fixed for applyDeclarationsPass. Runs
+            // after applyDeclarationsPass, same closing-brace-first ordering rationale (the
+            // closing-brace shape must settle before any padding/grouping pass re-reads it).
+            current = tokenize( applyAssignmentsPass(current), scopeStartFrozen );
         }
         else {
             current = tokenize( applyDeclarationsPass(current, depth), scopeStartFrozen );

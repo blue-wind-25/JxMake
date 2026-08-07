@@ -17,7 +17,7 @@ C-family brace/paren/statement shape). Scaffold gate is flipped
 (`Lang.isScaffoldOnly` no longer includes js/ts) and all §1–15 rules are
 implemented in `JsTsSpecificRule.java` (+ `JsTsDeclarationAlignmentRule.java`
 for the declaration-alignment grid), wired into `FormatterCurly`'s phase
-pipeline. Current `make test`: 246/246 forward + idempotency (grows as
+pipeline. Current `make test`: 260/260 forward + idempotency (grows as
 fixtures are added; see dogfood sections below for count history).
 
 ---
@@ -28,8 +28,9 @@ All planned baseline work is **DONE**: §1–15 implemented, JS and TS local
 fixtures active, and real-code dogfood passes completed for
 `expressjs/express`, `nestjs/nest`, `vuejs/core`, `lodash/lodash`,
 `angular/angular` (categorized, most clusters fixed), and
-`microsoft/TypeScript` (categorized, 3/4 clusters fixed). Three dogfood
-findings remain open by design — see "Active work" below. JS/TS basics were
+`microsoft/TypeScript` (categorized, 3/4 clusters fixed, cluster #3's
+residue itself split into 3 findings, 2 now fixed). One dogfood finding
+remains open by design — see "Active work" below. JS/TS basics were
 deliberately hardened to a stable baseline before Python3 (next job in
 rotation) per user direction.
 
@@ -81,6 +82,7 @@ convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_250 | Braceless if/else rejoin-fits-check-vs-`alignBracelessElseIfChain` pass-ordering idempotency bug, 6th session, FIXED: `FormatterCurly.format` re-runs `enforceCallLineBreaking` (twice) + `enforceComplexityPadding` right after `alignBracelessElseIfChain`, same fix shape as RDD_KEY_248. New fixture: `test/real_code_regressions_180_{inp,out}.ts` (the `formatOffset` repro) |
 | RDD_KEY_263 | `utils.ts`/`lodash.js` switch-case fallthrough non-idempotency (long-deferred, see former "Known open issues" entry below), FIXED: `FormatterCurly.format` re-runs `switchRule.formatNonInlineSwitches` a second time near the end of Phase 4, after `alignInlineSwitches`'s case-grid collapse and the call-wrap passes have settled — shared `SwitchRule`/curly-family code, cross-referenced in `STATE_C_CPP_JAVA.md` |
 | RDD_KEY_269 | `angular/angular` cluster 4 residue — `shared.ts`/`directive_outputs.ts`, FIXED: widened `BlockStructureRule.alignBracelessElseIfChain`'s chain-recovery to also tolerate a bare `else` re-indented one level deeper than its paired `if` (opposite direction from the pre-existing narrower-`if`-line recovery), stripping the excess back to the `if`'s own indent. New fixture: `test/real_code_regressions_184_{inp,out}.ts` |
+| RDD_KEY_270 | `microsoft/TypeScript` cluster #3 — `harness/collectionsImpl.ts`, FIXED: `applyAssignmentsPass` added as a third pass inside `ScopePipelineCurly.processScope`'s existing `closingBraceAndDeclarationsOnly` narrow re-run mode (direct extension of RDD_KEY_248), after the closing-brace and declarations passes. New fixture: `test/real_code_regressions_185_{inp,out}.ts` |
 
 ---
 
@@ -400,17 +402,16 @@ RDD table alone for that reason — do not re-derive these from scratch.
 
 ---
 
-## Active work — 2 open bugs (both `processScope`/declaration-alignment/
-call-wrap-ordering family; #1 below, formerly a distinct
-`alignBracelessElseIfChain` cause, is FIXED — see RDD_KEY_269 and the
-"FIXED" note under its own heading)
+## Active work — 1 open bug (`processScope`/declaration-alignment/
+call-wrap-ordering family; #1 and #2 below are both FIXED — see RDD_KEY_269/
+RDD_KEY_270 and the "FIXED" notes under their own headings)
 
-Investigation history for #2 (the deepest-traced of the remaining two) is
-kept below in fuller detail since a fix direction is identified but
-unvalidated; #3 is summarized to its current, decisive findings. See
-"Related investigation history" immediately above for the broader family
-context, ruled-out hypotheses, and reusable debugging loci that inform all
-three (including the now-fixed #1). Full session-by-session narrative
+Investigation history for #2 (fixed) is kept below in fuller detail since
+its debugging methodology and the precise `RDD_KEY_246` gate reasoning
+directly transfer to #3, the one remaining open item. See "Related
+investigation history" immediately above for the broader family context,
+ruled-out hypotheses, and reusable debugging loci that inform all three
+(including the now-fixed #1/#2). Full session-by-session narrative
 (including every dead end not captured above) lives in `git log` for this
 file — not re-derived here per this file's top-of-file convention.
 
@@ -512,7 +513,7 @@ deeper-indent shape is ever found in Kotlin real code).
 
 Status: **FIXED.**
 
-### 2. `microsoft/TypeScript` cluster #3 — `harness/collectionsImpl.ts`
+### 2. `microsoft/TypeScript` cluster #3 — `harness/collectionsImpl.ts` (FIXED, RDD_KEY_270)
 
 `ScopePipelineCurly.applyAssignmentsPass` (bare-assignment-statement
 alignment, STYLE.md §6) needs the same re-run treatment `RDD_KEY_248`
@@ -582,10 +583,36 @@ dogfood-corpus validation** — the direction is a well-precedented narrow
 extension of an already-landed pattern, but every prior attempt in this
 exact family underestimated a shared-step interaction on the first try.
 
-Status: **NOT ATTEMPTED this session** (root-cause-only scope). No
-fixture added, no `RDD_LOG.md` key added, no dogfood corpus write
-performed (only a local round1/round2/diff cycle). `git diff` on formatter
-source confirms zero net change from this session.
+**Fix landed (RDD_KEY_270):** a later session implemented the candidate fix
+essentially as described above — `applyAssignmentsPass` added as a third
+pass inside `processScope`'s `closingBraceAndDeclarationsOnly` re-run mode,
+after `applyOversizedAggregateInitClosingBracePass` + `applyDeclarationsPass`
+(closing-brace-first order preserved). The `RDD_KEY_246` failure mode (a
+regression via the *shared* trailing-gap force-reindent step) was ruled out
+by inspection rather than assumed safe: that step is skipped by a single
+`if(closingBraceAndDeclarationsOnly)` boolean gate that is not tied to which
+specific passes run inside the branch, so adding a third pass to the branch
+does not touch that gate at all. Repro obtained via a direct `curl` fetch of
+`harness/collectionsImpl.ts` from `raw.githubusercontent.com` (no full/
+sparse clone — this system's old git rejects `--filter=blob:none
+--sparse`, and the prior full checkout used for `RDD_KEY_248`'s corpus
+validation was gone; a fresh full clone was explicitly ruled out for that
+session). Validated via A/B rebuild (revert fix / rebuild / reproduce exact
+symptom; restore fix / rebuild / confirm idempotent) rather than corpus
+dogfood — `make test` 259/259 → 260/260 forward + idempotency, zero
+regressions. New fixture `test/real_code_regressions_185_{inp,out}.ts` (a
+`Metadata.set`-derived minimal repro). Full narrative: `RDD_KEY_270` in
+`RDD_LOG.md`.
+
+**Known follow-up not investigated:** `js_ts_content_diff.js` flags a
+MISMATCH on `harness/collectionsImpl.ts`'s top-level statements #1/#2
+(the `interface`/`class` headers) — confirmed via the same A/B rebuild to be
+a pre-existing, unrelated content-diff-tool artifact present identically
+both before and after this fix, not caused by it and not investigated
+further (out of this bug's scope; a candidate future item for the checker
+itself, same spirit as the `lodash/lodash` tolerance list above).
+
+Status: **FIXED.**
 
 ### 3. Remaining un-root-caused residue — `web_animations_player_spec.ts`, `input_transform.ts`
 

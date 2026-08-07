@@ -118,8 +118,8 @@ Update and fix `CLAUDE.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.m
 `../AI_PREAMBLE_AESTHETIC.md`, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_179_inp/out.ts`
-    to   `real_code_regressions_183_inp/out.js`
+    from `real_code_regressions_184_inp/out.ts`
+    to   `real_code_regressions_186_inp/out.ts`
 [DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
@@ -188,40 +188,9 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 3: Real feature gaps — medium risk ===
 
-When `on`, the config `normalize-comment-start-case` and `normalize-comment-end-period`
-may behave differently for single-line and multi-line comments.
+NONE FOR NOW
 
-In curly languages that support multi-line comments (c, cpp, java, kotlin, js, ts),
-the formatter can group single-line comments as if multi-line comments, correct?
-
-How about for the simpler languages (json5, css, yaml, toml), tag languages (xml, html5),
-indent languange (python3), and tooling languages (makefile, bash, powershell)?
-
-Could you check and implement the missing implementations? You may need to update the
-comments of some of the output test fixtures after implementing them.
-
-
-
-1. [JS_TS] `angular/angular` dogfood cluster 4 — `shared.ts`/`directive_outputs.ts`:
-   distinct, newly root-caused bug in `BlockStructureRule.alignBracelessElseIfChain`
-   (braceless if/else chain alignment) vs. an earlier, unidentified reindent pass —
-   NOT the processScope double-pass family. Candidate fix: widen the chain-recovery
-   case to tolerate a re-indented bare `else`. Scoped to one shared JS/TS/Kotlin
-   function, but that function is already flagged fragile — MEDIUM risk.
-
-2. [JS_TS] `microsoft/TypeScript` cluster #3 — `harness/collectionsImpl.ts`:
-   `ScopePipelineCurly.applyAssignmentsPass` needs the same re-run treatment
-   `RDD_KEY_248` already gave `applyDeclarationsPass`. Candidate fix identified but
-   low confidence — `RDD_KEY_246`'s two prior attempts in this exact family looked
-   equally safe and regressed via a shared `processScope` trailing-gap force-reindent
-   step. MEDIUM-HIGH risk.
-
-3. [JS_TS] Remaining un-root-caused residue, same `processScope`/declaration-
-   alignment/call-wrap family as above, no candidate fix yet (budget went to #1/#2
-   this pass): angular cluster 4's `web_animations_player_spec.ts`,
-   `input_transform.ts`. Least scoped, highest risk of the three groups — treat as
-   lowest priority until #1/#2 are resolved and re-narrow the surface further.
-
+If the fix only cause few regression, try to fix. If the fix cause many regression, revert.
 Use sub-agent. This can be a substantial work.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
@@ -229,6 +198,7 @@ Use sub-agent. This can be a substantial work.
 1. [KOTLIN / CURLY_GDR, shared] Kotlin statement-boundary tracking for
    `MiscRuleCurly.renderCallCandidate`'s wrap-decision flap (D3)
 
+If the fix only cause few regression, try to fix. If the fix cause many regression, revert.
 Use sub-agent. This can be a substantial work.
 
 === TIER X: Not worth pursuing / explicitly no action planned ===

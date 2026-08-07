@@ -3346,9 +3346,9 @@ Real-code regressions:
                                                         `[...]` gets wrapped by `enforceCallLineBreaking`,
                                                         followed by a short assignment that
                                                         `applyAssignmentsPass` grouped/padded against the
-                                                        first statement's pre-wrap width -- disagreed once
-                                                        the subscript assignment's own wrap state changed.
-                                                        Fixed by extending the existing
+                                                        first statement's pre-wrap width -- disagreed once the
+                                                        subscript assignment's own wrap state changed. Fixed
+                                                        by extending the existing
                                                         `ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass`
                                                         re-run (RDD_KEY_248) with a third pass,
                                                         `applyAssignmentsPass`, so it also sees the
@@ -3366,8 +3366,8 @@ Real-code regressions:
                                                         collapsing the multi-line initializer back to its
                                                         logical single-line text instead of bailing. (b) A
                                                         decorator argument's union-type spacing
-                                                        (`string|number` -> `string | number`) is applied by
-                                                        a Phase 4 pass that runs *after*
+                                                        (`string|number` -> `string | number`) is applied by a
+                                                        Phase 4 pass that runs *after*
                                                         `enforceDecoratorOverflowCascade`'s inline-fit
                                                         measurement, so a fresh format stays inline and
                                                         self-violates `lineLengthLimit`, while a reformat

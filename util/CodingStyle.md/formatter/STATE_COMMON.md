@@ -414,6 +414,34 @@ other duplicated helper found worth promoting.
 
 ## Architectural TODOs
 
+### Server concurrency + client read-ahead (deliberately not started)
+
+Bench numbers (2026-08-08): standalone all-at-once 2629mS vs. client-server
+all-at-once 1747mS — the gap is basically standalone's one-time JVM startup,
+which a warm server skips; batch throughput is already near-optimal and
+concurrency cannot improve it further (one call, nothing to parallelize).
+The real gap is one-by-one: standalone 48450mS vs. client-server 36722mS —
+dominated by per-request round-trip/dispatch overhead serialized through
+`HttpServer`'s single internal thread (see the "Diagnosing a hung server"
+note above re: one hung request blocking every subsequent request on that
+server instance).
+
+Considered adding `server concurrency = N` (executor with N threads on the
+server) and `client read-ahead = M` (client keeps M requests in flight
+instead of strict request/response/request). **Decided not to implement
+yet**: the two changes are only useful together — server-side concurrency
+alone does nothing if the client still sends strictly one-by-one, since
+only one request is ever in flight for the added threads to work on.
+Nobody chasing throughput uses one-by-one anyway (see "Invoke the
+formatter JAR once per batch, not once per file" above) — real clients
+that would benefit are genuinely independent concurrent callers (e.g.
+multiple editor instances or CI jobs hitting one shared server), not a
+single client pipelining its own requests. Worth reconsidering if such a
+concurrent-multi-client scenario actually materializes — at that point the
+motivation is availability (a single slow/hung request currently blocks
+every other client indefinitely) more than the raw one-by-one benchmark
+number.
+
 ### Project refactoring/cleanup pass
 
 After `angular/angular` and `python/cpython` dogfood runs (the last

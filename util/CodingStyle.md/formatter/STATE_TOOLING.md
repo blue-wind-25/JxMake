@@ -35,22 +35,19 @@ the three as JAR-implemented (doc-sync checklist item below).
 ## Scope
 
 Each of the three languages has its own section in `STYLE_TOOLING.md`
-(§1 Makefile, §2 Bash, §3 PowerShell). Common thread across all three,
-distinguishing this job from every other language job in this repo: a
-short **fixed list** of specific transforms, with an explicit "leave
-everything else byte-identical" rule — there is no general-purpose
-reindentation/re-wrapping fallback the way there is for curly-brace or
-data-format languages. Getting the "don't touch anything else" boundary
-right (via a real tokenizer per language, not naive text substitution) is
-the main implementation risk for Bash and PowerShell; Makefile is
-line-oriented and doesn't need a tokenizer beyond distinguishing
-tab-prefixed recipe lines from everything else.
-
-Relative difficulty (see conversation history that scoped this job):
-Makefile easiest (pure line/regex work); Bash and PowerShell roughly
-comparable to each other, each needing a small real tokenizer (quoting,
-heredocs/here-strings, comments) so the fixed-rule passes never fire
-inside a string/comment/heredoc — bounded scope, not a full grammar.
+(§1 Makefile, §2 Bash, §3 PowerShell). Common thread distinguishing this
+job from every other language job in this repo: a short **fixed list** of
+specific transforms, with an explicit "leave everything else
+byte-identical" rule — no general-purpose reindentation/re-wrapping
+fallback like curly-brace or data-format languages have. Getting the
+"don't touch anything else" boundary right (via a real tokenizer per
+language, not naive text substitution) is the main risk for Bash and
+PowerShell; Makefile is line-oriented and only needs to distinguish
+tab-prefixed recipe lines from everything else — no tokenizer needed.
+Relative difficulty: Makefile easiest (pure line/regex); Bash and
+PowerShell comparable, each needing a small real tokenizer (quoting,
+heredocs/here-strings, comments) so fixed-rule passes never fire inside a
+string/comment/heredoc — bounded scope, not a full grammar.
 
 Several open questions in `STYLE_TOOLING.md` (marked inline, "resolve via
 RDD before implementing") must be resolved before implementation starts
@@ -158,26 +155,21 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
 - [x] Implement Bash §2.5 arithmetic operator spacing.
       Landed as `Lang.isBash`/`Lang.infer` `.sh`/`.bash` extension detection,
       `FormatterCore.forLanguage` dispatch, `FormatterBash` (standalone,
-      `FormatterMakefile`-style), and `BashSpecificRule`: a two-pass design
-      -- pass A is a character-level state-machine tokenizer (quotes,
-      `$'...'`, backticks, `$(...)`, `$((...))`, `#` comments, `<<`/`<<-`
-      heredocs incl. quoted/bareword delimiters) that also applies the two
-      token-level rules (§2.2, §2.5) inline via a `RunBuffer` that flushes
-      on every kind change; pass B is line-oriented (applies §2.1/§2.3/§2.4)
-      guarded by a per-line purity flag (first non-whitespace char is code).
-      Arithmetic nested inside a double-quoted string is still processed
-      (per the STYLE_TOOLING.md §2.5 example) but arithmetic nested inside
-      `$(...)`/backticks stays opaque, consistent with leaving nested
-      command-substitution content untouched entirely. Smoke-tested
-      manually against the STYLE_TOOLING.md §2 combined example (all 5
-      rules verified matching spec output + idempotent), a pipe-in-string/
-      comment safety test, and a heredoc/backtick/`$(...)` safety test
-      (heredoc body, backtick, and `$(...)` content all left byte-identical
-      + idempotent). Full `make test` suite re-run clean after landing:
-      248/248 forward, 248/248 idempotency -- purely additive, no other
-      language's path touched. No local test fixture pair registered yet
-      (deferred at user's explicit request -- separate unchecked item
-      below).
+      `FormatterMakefile`-style), and `BashSpecificRule`: two-pass design —
+      pass A is a character-level state-machine tokenizer (quotes, `$'...'`,
+      backticks, `$(...)`, `$((...))`, `#` comments, `<<`/`<<-` heredocs incl.
+      quoted/bareword delimiters) that also applies the two token-level rules
+      (§2.2, §2.5) inline via a `RunBuffer` flushing on every kind change;
+      pass B is line-oriented (§2.1/§2.3/§2.4), guarded by a per-line purity
+      flag (first non-whitespace char is code). Arithmetic nested inside a
+      double-quoted string is still processed (per the §2.5 example), but
+      nested inside `$(...)`/backticks stays opaque, consistent with leaving
+      nested command-substitution content untouched. Smoke-tested manually
+      (STYLE_TOOLING.md §2 combined example, pipe-in-string/comment safety,
+      heredoc/backtick/`$(...)` safety — all byte-identical + idempotent).
+      `make test` clean after landing: 248/248 forward, 248/248 idempotency —
+      purely additive. No local fixture pair yet (deferred at user's
+      explicit request — separate unchecked item below).
 - [x] PowerShell: build/extend a tokenizer sufficient to safely skip
       string literals, here-strings, and comments.
       Landed as `Lang.isPowerShell`/`Lang.infer` `.ps1`/`.psm1` extension
@@ -185,23 +177,20 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       (standalone, `FormatterBash`-style), and `PowerShellSpecificRule`
       tokenizer: character-level state machine covering single-quoted
       strings (`''` escape), double-quoted strings (backtick escape,
-      `$(...)` subexpressions re-enter code mode so future brace-depth
-      can see real scriptblock braces, `${...}` stays opaque), expandable
+      `$(...)` subexpressions re-enter code mode so brace-depth can see
+      real scriptblock braces, `${...}` stays opaque), expandable
       here-strings `@"..."@` and literal here-strings `@'...'@` (terminator
       only at column 0; open requires quote-then-optional-WS-then-newline,
-      so `@{` hashtables are not mistaken for here-strings), line comments
+      so `@{` hashtables aren't mistaken for here-strings), line comments
       `#`, and nestable block comments `<# ... #>`. Top-level backtick
       escape keeps the next character from starting a string. Pass A
       classifies every character 'C'/'O' and re-emits identity via a
-      Bash-style `RunBuffer` (token-level §3.x transforms will plug in on
-      'C' flushes later); `computeLinePurity` mirrors Bash so structural
-      rules can refuse here-string-body / full-comment lines. Smoke-tested
-      manually: kind map for squote/dquote/`$(...)` interior/`${...}`/
-      line+nested-block comments/both here-string forms/backtick-escaped
-      quotes/`@{` hashtable; purity on comment vs code vs here-string body;
-      multi-construct sample identity; `--lang powershell` + `.ps1`/`.psm1`
-      infer identity + idempotent. Full `make test` suite re-run clean:
-      248/248 forward, 248/248 idempotency -- purely additive. No local
+      Bash-style `RunBuffer` (token-level §3.x transforms plug in on 'C'
+      flushes later); `computeLinePurity` mirrors Bash so structural rules
+      can refuse here-string-body / full-comment lines. Smoke-tested:
+      kind map for all construct types, purity, multi-construct identity,
+      `--lang powershell` + extension infer, idempotent. `make test` clean:
+      248/248 forward, 248/248 idempotency — purely additive. No local
       fixture pair yet (deferred with the shared fixtures checklist item).
       §3.1–§3.6 transforms landed in subsequent checklist items.
 - [x] Implement PowerShell §3.1 brace-depth indentation.
@@ -287,10 +276,10 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `Makefile`s from existing dogfood repos already cloned for other
       jobs may be reusable — check before cloning anything new.
       Sourced 2026-08-07 after a `/tmp` walk of existing dogfood checkouts;
-      missing repos cloned the same day (git 1.8 has no partial-clone/
+      missing repos cloned same day (git 1.8 has no partial-clone/
       sparse-checkout — large trees used selective raw download of
-      `*.ps1`/`*.psm1` or clone+strip). User aborted the last oversized
-      pull (`azure-pipelines-tasks`); remaining not fetched. All rows stay
+      `*.ps1`/`*.psm1` or clone+strip). User aborted the last oversized pull
+      (`azure-pipelines-tasks`); remaining not fetched. All rows stay
       `NOT STARTED` in `STATE_DOGFOOD.md` until a real dogfood *run*.
 
       **Available under `/tmp` now (dir name = repo basename convention):**
@@ -316,80 +305,68 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       Bash, then PowerShell).
       **Makefile — DONE.** Batched `/tmp/PEGTL/Makefile`,
       `/tmp/frozen/tests/Makefile`, `/tmp/frozen/benchmarks/Makefile`, and
-      `/tmp/fmt/support/Android.mk` (211 lines total) through
-      `code-formatter.sh --out ... --preserve-tree --root /tmp` for round1,
-      then round1 through itself for round2: `diff -ru` round1/round2 empty
-      (idempotent). Spot-checked round1 with `make -n -f <file>`; exit codes
-      differed from the unmodified originals but only because this run
-      copies just the `Makefile`/`*.mk` itself (not the sibling source
-      tree it references) into a different relative path -- confirmed by
-      inspecting the actual `make -n` output: failures are "No such file or
-      directory"/"No rule to make target" for sibling sources and
-      `-std=c++20` rejected by this sandbox's old g++, identical class of
-      failure on the unmodified originals run from their real checkout
-      location. No formatter-induced syntax breakage found. Content diff
-      showed only the intended, in-scope transforms (§1.1-§1.4 conditional
-      indent/alignment + RDD_KEY_261 comment normalization); no bug found.
-      See `STATE_DOGFOOD.md` for per-repo rows.
-      **Bash — DONE.** Ran `nvm-sh/nvm`'s 5 `.sh` files (5766 lines total:
+      `/tmp/fmt/support/Android.mk` (211 lines total) through round1/round2:
+      `diff -ru` empty (idempotent). Spot-checked round1 with
+      `make -n -f <file>`; exit codes differed from originals only because
+      this run copies just the `Makefile`/`*.mk` (not its sibling source
+      tree) into a different relative path — confirmed the failures are
+      "No such file"/"no rule" for sibling sources and `-std=c++20` rejected
+      by this sandbox's old g++, same failure class as the unmodified
+      originals run from their real location. No formatter-induced
+      breakage. Content diff showed only the intended §1.1-§1.4 +
+      RDD_KEY_261 transforms; no bug found. See `STATE_DOGFOOD.md` for
+      per-repo rows.
+      **Bash — DONE.** Ran `nvm-sh/nvm`'s 5 `.sh` files (5766 lines:
       `nvm.sh`, `install.sh`, `test/common.sh`, `rename_test.sh`,
-      `update_test_mocks.sh`) through the same round1/round2 pattern:
-      `diff -ru` empty (idempotent). `bash -n` clean on every round1 file,
-      same as the unmodified originals. Confirmed by reading the
-      `install.sh` diff that the brace-depth body reindent (the §2.3 note
-      "byproduct of brace-depth counting") only tracks literal `{`/`}`
-      characters, not `if`/`then`/`else`/`fi` keywords -- so a function
-      body containing an `if`/`else`/`fi` block renders the whole thing at
-      one flat indent level, matching PowerShell §3.1's documented "naive"
-      (not context-aware) brace-depth semantics applied the same way to
-      Bash. This is the already-decided scope, not a new bug. See
-      `STATE_DOGFOOD.md` for the row.
+      `update_test_mocks.sh`) through round1/round2: `diff -ru` empty
+      (idempotent), `bash -n` clean on every round1 file same as originals.
+      `install.sh`'s diff confirmed the brace-depth body reindent (§2.3
+      note "byproduct of brace-depth counting") only tracks literal `{`/`}`
+      chars, not `if`/`then`/`else`/`fi` keywords — a function body
+      containing an `if`/`else`/`fi` block renders at one flat indent
+      level, matching PowerShell §3.1's documented "naive" (not
+      context-aware) brace-depth semantics. Already-decided scope, not a
+      new bug. See `STATE_DOGFOOD.md` for the row.
       **PowerShell — DONE, 2 bugs found and fixed.** Ran all 228
       `.ps1`/`.psm1` files (24151 lines) under `PowerShell/PSScriptAnalyzer`
-      through round1/round2; the very first pass found a non-empty diff
-      (real idempotency bug), so per protocol implementation stopped and
-      investigated before committing the dogfood-status update.
-      Root causes (`src/com/jxmake/formatter/rules/PowerShellSpecificRule.java`):
+      through round1/round2; first pass found a non-empty diff (real
+      idempotency bug), so implementation stopped and investigated first
+      per protocol. Root causes
+      (`src/com/jxmake/formatter/rules/PowerShellSpecificRule.java`):
       (1) `applySwitchArmAlignment`'s `parseArm` scans a line for its first
       depth-0 `{` and treats everything before it as a switch-arm pattern
-      whenever that prefix isn't a control-flow header -- it had no check
-      for a depth-0 `|` in that prefix, so a still-unsplit pipeline line
+      whenever the prefix isn't a control-flow header, with no check for a
+      depth-0 `|` in that prefix — a still-unsplit pipeline line
       (`$x = ... | Where-Object {...}`, before `applyPipelineSplit` runs)
-      read as one giant arm pattern spanning the whole statement, while the
-      *same* line post-split (a bare `Where-Object {...}` continuation) did
-      not -- since `format()`'s original order ran both `applyAssignAlignment`
-      and `applySwitchArmAlignment` *before* `applyPipelineSplit`, round1
-      (fresh pipeline) and round2 (pipeline already split from round1's own
-      output) fed genuinely different shapes into the same two passes,
-      producing different alignment padding each round. Fixed two ways
-      together: `parseArm` now rejects any line with a depth-0 `|` before
-      the `{` (never an arm), and `format()`'s pass order moved
-      `applyPipelineSplit` ahead of `applyAssignAlignment`/
-      `applySwitchArmAlignment` so both alignment passes always see an
-      already-split, stable shape regardless of how many rounds already
-      ran. (2) `applyOperatorSpacing` treated bare `/` (not just `/=`) as a
-      binary division operator whenever `isBinaryLeft` matched, with no
-      awareness of PowerShell's command-argument parsing mode -- real
-      bareword paths/URLs typed as command arguments
+      read as one giant arm pattern, while the *same* line post-split (a
+      bare `Where-Object {...}` continuation) did not. Since `format()`'s
+      original order ran both alignment passes *before*
+      `applyPipelineSplit`, round1 (fresh pipeline) and round2 (already
+      split) fed different shapes into the same passes, producing
+      different padding each round. Fixed two ways: `parseArm` now rejects
+      any line with a depth-0 `|` before the `{`; `format()`'s pass order
+      moved `applyPipelineSplit` ahead of `applyAssignAlignment`/
+      `applySwitchArmAlignment` so both always see an already-split, stable
+      shape. (2) `applyOperatorSpacing` treated bare `/` (not just `/=`) as
+      binary division with no awareness of PowerShell's command-argument
+      parsing mode — real bareword paths/URLs as command arguments
       (`Copy-Item -Force $profileDir/* $targetProfileDir`,
       `-LiteralPath $ruleDocDirectory/README.md`, an unquoted
       `https://api.nuget.org/v3/index.json`) got corrupted into extra,
-      wrongly-split arguments -- a real content-corruption bug, not just a
-      style nit. Fixed by dropping bare `/` from the binary-operator set
-      entirely (kept the unambiguous `/=` compound-assignment case); a
-      corpus-wide re-scan after the fix found zero remaining corruption and
-      zero genuine-division use going unspaced (none was ever observed in
-      this 24k-line real corpus). After both fixes: round1/round2 diff
-      empty across all 228 files, `make test` 252/252 forward + idempotency
-      (was 251/251 before this session -- new fixture added). No PowerShell
-      interpreter/`Invoke-ScriptAnalyzer`/`PSParser` available in this
-      sandbox (confirmed via `which pwsh`/`which powershell`, both absent)
-      so validity relied on the round1/round2 idempotency check plus manual
-      reading of representative diffs (`build.psm1`,
-      `AvoidOneChar.tests.ps1`, `RuleDocumentation.tests.ps1`) -- no
-      corpus-scale automated syntax check was possible, consistent with
-      STYLE_TOOLING.md's noted "availability unconfirmed" caveat, now
-      resolved as **not available**. New permanent fixture pair
+      wrongly-split arguments — real content corruption, not just a style
+      nit. Fixed by dropping bare `/` from the binary-operator set entirely
+      (kept unambiguous `/=`); corpus-wide re-scan after the fix found zero
+      remaining corruption and zero genuine-division use going unspaced.
+      After both fixes: round1/round2 diff empty across all 228 files,
+      `make test` 252/252 forward + idempotency (was 251/251 before this
+      session — new fixture added). No PowerShell interpreter/
+      `Invoke-ScriptAnalyzer`/`PSParser` available in this sandbox
+      (confirmed via `which pwsh`/`which powershell`, both absent), so
+      validity relied on round1/round2 idempotency plus manual reading of
+      representative diffs (`build.psm1`, `AvoidOneChar.tests.ps1`,
+      `RuleDocumentation.tests.ps1`) — no corpus-scale automated syntax
+      check was possible; STYLE_TOOLING.md's "availability unconfirmed"
+      caveat now resolved as **not available**. New permanent fixture pair
       `test/real_code_regressions_182_{inp,out}.ps1` (registered in
       `Makefile` `INP_FILES` and `test/README.txt`) reproduces both bugs
       minimally, distilled from the three real files above.
@@ -402,12 +379,10 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `BashSpecificRule` gets an additional `NO_CAPITALIZE_TOOLS`
       word-exception list (~30 common Unix tool names: grep, awk, sed, head,
       tail, etc.) so a comment opening with a bare tool name stays lowercase
-      -- Makefile/PowerShell get plain cap only (user-confirmed scope, see
-      RDD_KEY_261). `test/{bash,makefile,powershell}_combined_out.*`
-      regenerated from the live JAR (copyright-header trailing period
-      stripped, a few lowercase comment openers capitalized, Bash's
-      tool-name lines deliberately still lowercase) and reverified
-      idempotent. `make test` clean: 251/251 forward + idempotency.
+      — Makefile/PowerShell get plain cap only (user-confirmed, RDD_KEY_261).
+      `test/{bash,makefile,powershell}_combined_out.*` regenerated from the
+      live JAR and reverified idempotent. `make test` clean: 251/251
+      forward + idempotency.
 - [x] Update `CLAUDE.md`'s implementation-status paragraph, `README.md`,
       `../README.txt` once any of the three moves from scaffold to real
       logic (do not update ahead of actual landed code — see

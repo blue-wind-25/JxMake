@@ -186,6 +186,10 @@ js_ts_content_diff.sh
 
 python_syntax_check.sh
 python_content_diff.sh
+
+makefile_syntax_check.sh
+
+bash_syntax_check.sh
 ```
 Jobs should invoke the appropriate wrapper script instead of directly
 executing `javac`, `java`, `node`, or `python3`.

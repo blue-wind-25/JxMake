@@ -129,14 +129,6 @@ Compact (don't use sub-agent because I will end this session soon) the narration
 ####################################################################################################
 ####################################################################################################
 
-Compact (use one sub-agent) `STATE_HTML5_TCG.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
-Compact (use one sub-agent) `STATE_COMMON.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
 Compact (use one sub-agent) `STATE_JS_TS.md`.
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.

@@ -226,6 +226,23 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   `applyAssignmentsPass`'s trailing-comment/`=`-column width for Java without touching whatever
   re-collapses the enum separator.
 
+  **TODO (2026-08-08, later same day) — instance worked around, root cause still open.** The
+  concrete trigger instance in `rules/PowerShellSpecificRule.java` was NOT fixed at the formatter-
+  source level (both attempts above remain reverted) — instead it was sidestepped by manually
+  inserting a blank line between each `s = applyX(s); // comment` statement in that file's
+  `format()` method, which breaks `applyAssignmentsPass`'s alignment-group membership per
+  RDD_KEY_254's "blank line breaks the group" rule, so the group that was triggering the stale-
+  padding-then-collapse behavior no longer forms at all. This is a source-layout workaround in one
+  call site, not a fix to the formatter — the underlying `applyAssignmentsPass`-vs-
+  `enforceCallLineBreaking` ordering bug documented above is unchanged and still applies to any
+  other curly-family file (C/C++/Java) with a similar run of `x = call(x); // comment` assignment
+  statements where one sibling's call is long enough to get wrapped by `enforceCallLineBreaking`.
+  A future session should still pursue (a) or (b) above for a real fix; until then, be aware this
+  bug can resurface anywhere in the codebase (including future edits to
+  `PowerShellSpecificRule.java` itself, if the blank lines are ever removed) and is not something
+  `make test`'s existing 261-fixture baseline will catch, since no fixture reproducing it has been
+  registered (the repro used for investigation was a scratch file, not committed to `test/`).
+
 - **NOT REPRODUCED, 2026-08-03 — closed as unconfirmed/stale, not conflated with the above.**
   Ran every registered `test/*_out.cpp`/`test/*_out.hpp` fixture (37 files) through both
   `g++ -std=c++20 -fsyntax-only` and `clang++ -std=c++23 -fsyntax-only` (tools (2)/(3), incl.

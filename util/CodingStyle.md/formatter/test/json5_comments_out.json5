@@ -20,6 +20,6 @@
         "b",
     ],
     // First leading comment
-    // Second leading comment, stacked
+    // second leading comment, stacked
     label /* Comment before colon */ : "value", // Trailing comment too
 }

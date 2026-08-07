@@ -343,6 +343,7 @@ INP_FILES += in_file_config_inp.kt
 INP_FILES += json_core_inp.json
 INP_FILES += json5_core_inp.json5
 INP_FILES += json5_comments_inp.json5
+INP_FILES += json5_comment_banner_inp.json5
 
 INP_FILES += css_combined_inp.css
 INP_FILES += css_comments_inp.css

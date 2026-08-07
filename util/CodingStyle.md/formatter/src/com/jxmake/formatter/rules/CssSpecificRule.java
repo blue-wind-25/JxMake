@@ -94,11 +94,9 @@ public final class CssSpecificRule {
 
     private String normComment(final String commentText)
     {
-        String text = commentText;
-        if(normalizeCommentEndPeriod) text = FormatterSimpleBraced.stripCommentEndPeriod(text);
-        if(normalizeCommentStartCase) text = FormatterSimpleBraced.capitalizeCommentStart(text);
-
-        return text;
+        return FormatterSimpleBraced.normalizeComment(
+            commentText, normalizeCommentStartCase, normalizeCommentEndPeriod
+        );
     }
 
     /**

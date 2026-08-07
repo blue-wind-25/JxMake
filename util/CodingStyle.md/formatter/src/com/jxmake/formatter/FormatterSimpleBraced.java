@@ -7,6 +7,8 @@
 
 package com.jxmake.formatter;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -186,6 +188,221 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
         while( trimEnd > 0 && Character.isWhitespace( content.charAt(trimEnd - 1) ) ) --trimEnd;
 
         return head + content.substring(0, trimEnd) + content.substring(end) + tail;
+    }
+
+    /**
+     * 2026-08-08 session: give the SimpleBraced family (JSON/JSON5/CSS) curly's information
+     *  architecture for {@code normalize-comment-start-case}/{@code normalize-comment-end-period} --
+     *  chain consecutive standalone `//` line comments (JSON5 only; JSON/CSS never lex `//`) with no
+     *  blank line between into one sentence-detection unit, and treat a multi-line `/* *&#47;` block
+     *  comment already in the conventional ` * `-per-line continuation-marker banner shape as one
+     *  unit too (analogous to {@code MiscRuleCore.reformatMultiLineBlockComment} and
+     *  {@code XmlSpecificRule.tryBannerShape}, adapted to this family's own delimiters -- no
+     *  classifier/keyword-exclusion gate, since JSON/CSS have no language keywords a comment could
+     *  start with that would need protecting). {@code normalizeComment} handles a single/standalone
+     *  comment (a trailing or mid-token comment, always a chain of one); {@code normalizeCommentTrivia}
+     *  handles a whole run of leading comments collected between two significant tokens, grouping
+     *  consecutive `//` comments and normalizing each `/* *&#47;` block comment on its own.
+     */
+    public static String normalizeComment(
+        final String  raw,
+        final boolean startCase,
+        final boolean endPeriod
+    )
+    {
+        if( raw.startsWith("//") ) return normalizeLineCommentChain(
+            Collections.singletonList(raw), startCase, endPeriod
+        ).get(0);
+
+        return normalizeBlockComment(raw, startCase, endPeriod);
+    }
+
+    /**
+     * Groups {@code rawTexts} (raw, un-normalized comment tokens collected in source order) into
+     *  `//`-chains (consecutive, {@code blankBefore.get(k)==false}) and standalone `/* *&#47;` block
+     *  comments, normalizes each group/comment, and appends the results to {@code out} in order.
+     *  {@code blankBefore.get(k)} is true iff a blank line (2+ consecutive newlines) separated
+     *  comment {@code k} from comment {@code k-1}; index 0's value is irrelevant (a group always
+     *  starts fresh at the beginning of a sub-run).
+     */
+    public static void normalizeCommentTrivia(
+        final List<String>  rawTexts,
+        final List<Boolean> blankBefore,
+        final boolean       startCase,
+        final boolean       endPeriod,
+        final List<String>  out
+    )
+    {
+        final int n = rawTexts.size();
+        int       i = 0;
+        while(i < n) {
+            final String t = rawTexts.get(i);
+            if( !t.startsWith("//") ) {
+                out.add( normalizeBlockComment(t, startCase, endPeriod) );
+                ++i;
+                continue;
+            }
+            int j = i;
+            while( j + 1 < n && rawTexts.get(j + 1).startsWith("//") && !blankBefore.get(j + 1) ) ++j;
+            out.addAll( normalizeLineCommentChain( rawTexts.subList(i, j + 1), startCase, endPeriod ) );
+            i = j + 1;
+        } // while
+    }
+
+    /**
+     * Normalizes one chain of consecutive standalone `//` comments as a single sentence-detection
+     *  unit: only the first comment's start is capitalized, and the trailing `.` is stripped only if
+     *  it's the sole `.` across the whole chain's content (and only from the chain's last comment).
+     *  A singleton list (chain of one) is the same as the old per-comment-token behavior.
+     */
+    public static List<String> normalizeLineCommentChain(
+        final List<String> rawTexts,
+        final boolean      startCase,
+        final boolean      endPeriod
+    )
+    {
+        final List<String> out = new ArrayList<>(rawTexts);
+        if(endPeriod) {
+            int dotCount = 0;
+            for(final String c : rawTexts) {
+                final String content = c.substring(2);
+                for( int i = 0; i < content.length(); ++i ) if( content.charAt(i) == '.' ) ++dotCount;
+            } // for
+            if(dotCount == 1) {
+                final int    lastIdx = out.size() - 1;
+                final String last    = out.get(lastIdx);
+                final String content = last.substring(2);
+                int          end     = content.length();
+                while( end > 0 && Character.isWhitespace( content.charAt(end - 1) ) ) --end;
+                if( end > 0 && content.charAt(end - 1) == '.' ) {
+                    int trimEnd = end - 1;
+                    while( trimEnd > 0 && Character.isWhitespace(
+                        content.charAt(trimEnd - 1)
+                    ) ) --trimEnd;
+                    out.set( lastIdx, "//" + content.substring(0, trimEnd) + content.substring(end) );
+                } // if
+            } // if
+        } // if
+        if( startCase && !out.isEmpty() ) out.set( 0, capitalizeCommentStart( out.get(0) ) );
+
+        return out;
+    }
+
+    /**
+     * Normalizes one standalone `/* *&#47;` block comment: a single-line comment gets the existing
+     *  per-token treatment; a multi-line comment already in the conventional ` * `-per-line banner
+     *  shape gets the same single-unit treatment via {@link #tryBannerShape}; any other multi-line
+     *  shape (wrapped prose, commented-out code) is left unchanged, same posture as curly/XML-HTML5.
+     */
+    public static String normalizeBlockComment(
+        final String  raw,
+        final boolean startCase,
+        final boolean endPeriod
+    )
+    {
+        if( raw.indexOf('\n') >= 0 ) {
+            final String banner = tryBannerShape(raw, startCase, endPeriod);
+            if(banner != null) return banner;
+            // Not in the ` * `-per-line banner shape (e.g. plain wrapped prose whose content starts
+            // right after `/*` on the opening line) -- fall back to the original whole-comment
+            // scan: capitalize the opening line's first letter, strip a sole trailing `.` across
+            // the whole multi-line content, same as this family did before banner-shape support.
+        }
+        String t = raw;
+        if(endPeriod) t = stripCommentEndPeriod(t);
+        if(startCase) t = capitalizeCommentStart(t);
+
+        return t;
+    }
+
+    /**
+     * Recognizes and reformats the conventional ` * `-per-line continuation-marker banner shape --
+     *  every line after the first, whitespace-stripped, must start with `*`. Returns {@code null} if
+     *  {@code raw} isn't in that shape. Output uses a bare {@code " *"} continuation prefix on each
+     *  line (no indent baked in) -- the caller's later {@link #reindentBlockComment} pass supplies the
+     *  real structural indent, matching how a freshly-collected leading comment is rendered.
+     */
+    private static String tryBannerShape(final String raw, final boolean startCase, final boolean endPeriod)
+    {
+        final String[] rawLines = raw.split("\r\n|\r|\n", -1);
+        final int      n        = rawLines.length;
+        if(n < 2) return null;
+        for( int i = 1; i < n; ++i ) if( !stripLeadingWs( rawLines[i] ).startsWith("*") ) return null;
+
+        int openMarkerEnd = 2;
+        while( openMarkerEnd < rawLines[0].length() && rawLines[0].charAt(
+            openMarkerEnd
+        ) == '*' ) ++openMarkerEnd;
+        final String openMarker   = rawLines[0].substring(0, openMarkerEnd);
+        final String firstContent = rawLines[0].substring(openMarkerEnd).trim();
+
+        final String lastStripped = stripLeadingWs( rawLines[n - 1] );
+        final String lastContent;
+        if( "*/".equals(lastStripped) ) {
+            lastContent = "";
+        }
+        else {
+            final String afterMarker = afterLeadingStarMarker(lastStripped);
+            if( !afterMarker.endsWith("*/") ) return null;
+            lastContent = trimTrailingWs( afterMarker.substring( 0, afterMarker.length() - 2 ) );
+        }
+
+        final List<String> contentLines = new ArrayList<>();
+        if( !firstContent.isEmpty() ) contentLines.add(firstContent);
+        for(int i = 1; i < n - 1; ++i) contentLines.add(
+            trimTrailingWs( afterLeadingStarMarker( stripLeadingWs( rawLines[i] ) ) )
+        );
+        if( !lastContent.isEmpty() ) contentLines.add(lastContent);
+
+        if( startCase && !contentLines.isEmpty() ) contentLines.set(
+            0, capitalizeCommentStart( "//" + contentLines.get(0) ).substring(2)
+        );
+        if(endPeriod) {
+            int dotCount = 0;
+            for(final String l : contentLines) for(
+                int i = 0; i < l.length(); ++i
+            ) if( l.charAt(i) == '.' ) ++dotCount;
+            if(dotCount == 1) {
+                final int    lastIdx = contentLines.size() - 1;
+                final String last    = contentLines.get(lastIdx);
+                if( !last.isEmpty() && last.charAt( last.length() - 1 ) == '.' ) contentLines.set(
+                    lastIdx, trimTrailingWs( last.substring( 0, last.length() - 1 ) )
+                );
+            } // if
+        } // if
+
+        final StringBuilder out = new StringBuilder(openMarker);
+        for(final String line : contentLines) {
+            out.append('\n').append(" *");
+            if( !line.isEmpty() ) out.append(' ').append(line);
+        } // for
+        out.append('\n').append(" */");
+
+        return out.toString();
+    }
+
+    private static String stripLeadingWs(final String line)
+    {
+        int i = 0;
+        while( i < line.length() && Character.isWhitespace( line.charAt(i) ) ) ++i;
+
+        return line.substring(i);
+    }
+
+    private static String afterLeadingStarMarker(final String wsStrippedLine)
+    {
+        String rest = wsStrippedLine.substring(1);
+        if( rest.startsWith(" ") ) rest = rest.substring(1);
+
+        return rest;
+    }
+
+    private static String trimTrailingWs(final String s)
+    {
+        int end = s.length();
+        while( end > 0 && Character.isWhitespace( s.charAt(end - 1) ) ) --end;
+
+        return s.substring(0, end);
     }
 
 } // class FormatterSimpleBraced

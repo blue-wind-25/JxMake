@@ -184,7 +184,15 @@ JSON/JSON5:
                                                         new structural depth, a comment inside an array, a
                                                         `key /* comment */ : value` mid-comment excluded from
                                                         alignment, and comment-start-case normalization on
-                                                        leading/trailing/mid comments.
+                                                        leading/trailing/mid comments. Two consecutive
+                                                        standalone `//` leading comments with no blank line
+                                                        between them chain-group like curly's `//`: only the
+                                                        first is capitalized.
+
+  json5_comment_banner_inp/out.json5                 -- A multi-line `/* */` comment already in the
+                                                        conventional ` * `-per-line continuation-marker banner
+                                                        shape gets curly-style single-unit treatment
+                                                        (capitalize only the first content line).
 
 CSS:
   css_combined_inp/out.css                           -- Property/value colon-alignment groups broken by a

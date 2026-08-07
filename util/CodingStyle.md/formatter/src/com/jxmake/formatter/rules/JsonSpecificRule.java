@@ -96,11 +96,9 @@ public final class JsonSpecificRule {
 
     private String normComment(final String commentText)
     {
-        String text = commentText;
-        if(normalizeCommentEndPeriod) text = FormatterSimpleBraced.stripCommentEndPeriod(text);
-        if(normalizeCommentStartCase) text = FormatterSimpleBraced.capitalizeCommentStart(text);
-
-        return text;
+        return FormatterSimpleBraced.normalizeComment(
+            commentText, normalizeCommentStartCase, normalizeCommentEndPeriod
+        );
     }
 
     /**
@@ -194,7 +192,9 @@ public final class JsonSpecificRule {
         final boolean[]    blankOut
     )
     {
-        int newlines = 0;
+        final List<String>  rawTexts    = new ArrayList<>();
+        final List<Boolean> blankBefore = new ArrayList<>();
+        int                 newlines    = 0;
         while( c.cur() != null ) {
             final Token t = c.cur();
             if(t.type == TokenType.WHITESPACE) {
@@ -208,13 +208,17 @@ public final class JsonSpecificRule {
                 continue;
             }
             if(t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) {
-                comments.add( normComment(t.text) );
+                rawTexts.add(t.text);
+                blankBefore.add(newlines > 1);
                 newlines = 0;
                 c.i++;
                 continue;
             }
             break;
         } // while
+        FormatterSimpleBraced.normalizeCommentTrivia(
+            rawTexts, blankBefore, normalizeCommentStartCase, normalizeCommentEndPeriod, comments
+        );
     }
 
     /**

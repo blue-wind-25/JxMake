@@ -111,6 +111,7 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_262 | `normalize-comment-end-period` wired into every data-format language for the first time (previously only curly/indent/tags families plus Makefile/Bash/PowerShell, RDD_KEY_261) -- JSON/JSON5/CSS via new `FormatterSimpleBraced.stripCommentEndPeriod`; TOML/YAML/XML/HTML5 reuse `ToolingCommentNormalizer.stripSoleTrailingPeriod` (made package-private for cross-reuse); HTML5's `<style>`/`<script>` splice paths thread the flag through too; no new config keys; 5 YAML fixtures regenerated (copyright-header trailing period) |
 | RDD_KEY_264 | XML/HTML5 multi-line `<!-- -->` comments already in the conventional ` * `-per-line banner shape now get curly's `/* */` treatment (capitalize first line, strip sole trailing period, reindent) instead of RDD_KEY_232's blanket freeze-verbatim; new `XmlSpecificRule.tryBannerShape`/`Node.commentBannerLines`; closing `-->` renders flush at the comment's own indent (no curly-style alignment space -- user explicitly rejected that). Fixture `test/html_multiline_comment_banner_{inp,out}.html`. |
 | RDD_KEY_265 | JSON/JSON5/CSS ("SimpleBraced") comment normalization gains curly's grouping shape: new `FormatterSimpleBraced.normalizeComment`/`normalizeCommentTrivia`/`normalizeLineCommentChain`/`normalizeBlockComment`/`tryBannerShape`; json5's consecutive standalone `//` chain-group (only first capitalized, sole trailing period stripped only across the whole chain); a `/* */` block comment in banner shape gets single-unit treatment, any other multi-line shape falls back to the pre-existing whole-comment-scan behavior (not left untouched). Fixture `test/json5_comment_banner_{inp,out}.json5`; `test/json5_comments_out.json5` regenerated. |
+| RDD_KEY_266 | YAML/TOML `#`-comment chain-grouping parity with curly, shared implementation with the tooling job (RDD_KEY_267): new `ToolingCommentNormalizer.normalizeChain`; `YamlSpecificRule`/`TomlSpecificRule` each gained a `finalizeComments` deferred-normalization step (TOML also gained new per-comment blank-line tracking it lacked before). Fixtures `yaml_comment_chain_{inp,out}.yaml`/`toml_comment_chain_{inp,out}.toml`; 5 pre-existing YAML fixtures regenerated. |
 
 ---
 
@@ -329,14 +330,20 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   merge into one chain); new fixture `test/json5_comment_banner_{inp,out}.json5`.
   `make test`: 254/254 -> 255/255 forward + idempotency, zero regressions.
 
-- **[~] YAML/TOML `#`-chain-grouping parity with curly — NOT STARTED.**
-  Decision #2 of the same 2026-08-08 brief (RDD_KEY_265's note): implement
-  chain-grouping of consecutive standalone `#` comment lines (no blank line
-  between) for yaml and toml, sharing a helper with the tooling job's
-  makefile/bash/powershell `#`-grouping (both currently call into
-  `ToolingCommentNormalizer.java` for `stripSoleTrailingPeriod`/
-  capitalization) — see that file's cross-job note once the tooling job
-  lands its half. Not attempted yet this session; pick up here next.
+- **YAML/TOML `#`-chain-grouping parity with curly — RESOLVED (RDD_KEY_266,
+  2026-08-08 session).** New `ToolingCommentNormalizer.normalizeChain`
+  (shared cross-job with the tooling job's makefile/bash/powershell
+  `#`-grouping, RDD_KEY_267): consecutive standalone `#` comments with no
+  blank line between chain-group like curly's `//`. `YamlSpecificRule`
+  reused its existing per-comment `CommentLine.blankBefore` tracking via a
+  new `finalizeComments` deferred-normalization step; `TomlSpecificRule`
+  gained a parallel `pendingCommentBlank` list it didn't have before, plus
+  its own `finalizeComments`. New fixtures `yaml_comment_chain_{inp,out}.yaml`,
+  `toml_comment_chain_{inp,out}.toml`; 5 pre-existing YAML fixtures
+  regenerated for correctly-grouped output. `make test`: 255/255 ->
+  257/257 forward + idempotency, zero regressions. This closes out both
+  decisions #1 and #2 of the 2026-08-08 brief for the data-formats job —
+  no open items remain for this job from that brief.
 
 - **HTML5 Test-Fixture Repos winnowing — RESOLVED (user, 2026-07-24).**
   `twbs/bootstrap` docs (Astro/MDX), `mdn/content` (Markdown),

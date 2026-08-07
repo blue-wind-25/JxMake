@@ -17,8 +17,8 @@ C-family brace/paren/statement shape). Scaffold gate is flipped
 (`Lang.isScaffoldOnly` no longer includes js/ts) and all §1–15 rules are
 implemented in `JsTsSpecificRule.java` (+ `JsTsDeclarationAlignmentRule.java`
 for the declaration-alignment grid), wired into `FormatterCurly`'s phase
-pipeline. Current `make test`: 196/196 forward + 196/196 idempotency (grows
-as fixtures are added; see dogfood sections below for latest count history).
+pipeline. Current `make test`: 246/246 forward + idempotency (grows as
+fixtures are added; see dogfood sections below for count history).
 
 ---
 
@@ -28,7 +28,7 @@ All planned baseline work is **DONE**: §1–15 implemented, JS and TS local
 fixtures active, and real-code dogfood passes completed for
 `expressjs/express`, `nestjs/nest`, `vuejs/core`, `lodash/lodash`,
 `angular/angular` (categorized, most clusters fixed), and
-`microsoft/TypeScript` (categorized, 3/4 clusters fixed). Two dogfood
+`microsoft/TypeScript` (categorized, 3/4 clusters fixed). Three dogfood
 findings remain open by design — see "Active work" below. JS/TS basics were
 deliberately hardened to a stable baseline before Python3 (next job in
 rotation) per user direction.
@@ -74,8 +74,11 @@ convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_195 | §15 local-import classification — drop the source-root disjunct entirely; only `./`/`../`-prefixed specifiers are "local", everything else non-built-in is "third-party" |
 | RDD_KEY_196 | Closing comments on modifier-prefixed methods (`async`/`static`/`get`/`set`) use the bare name only, no modifiers; object-shaped `type X = {...}` aliases get closing comments like `interface`/`class`/`enum` |
 | RDD_KEY_197 | Import-ordering: trailing same-line comment travels with its import; a standalone comment segments the import list (grouped/sorted independently per segment) instead of bailing the whole pass |
-| RDD_KEY_248 | Call-wrap/collapse vs. declaration-alignment/padding idempotency bug (Tier-4, see Open Questions), 3rd session, FIXED: `ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass` re-runs just the closing-brace + declarations passes a second time (JS/TS only), with the shared trailing-gap force-reindent step skipped on that re-run |
-| RDD_KEY_250 | Braceless if/else rejoin-fits-check-vs-`alignBracelessElseIfChain` pass-ordering idempotency bug (see Open Questions), 6th session, FIXED: `FormatterCurly.format` re-runs `enforceCallLineBreaking` (twice) + `enforceComplexityPadding` right after `alignBracelessElseIfChain`, same fix shape as RDD_KEY_248 |
+| RDD_KEY_245 | (No fix landed.) First deep-dive into the `commandLineParser.ts` decl-alignment idempotency bug; ruled out the initial `spansMultipleLines` bracket-depth hypothesis, narrowed toward `enforceCallLineBreaking`/`renderCallCandidate`'s multi-line closing-bracket placement — later superseded by RDD_KEY_246's more precise locus |
+| RDD_KEY_246 | (No fix landed, 2 attempts reverted.) Root cause precisely identified: `applyOversizedAggregateInitClosingBracePass` decides `}` placement from whether the aggregate initializer already contains an embedded `NEWLINE` — stale on round1 vs. present on round2. Narrow re-run (Attempt 1) fixed the symptom but exposed a same-family declaration-alignment divergence; full `ScopePipelineCurly.process` re-run (Attempt 2) fixed the repro but regressed `real_code_regressions_100.ts` and Java/Kotlin/cpp fixtures — reverted both |
+| RDD_KEY_248 | Call-wrap/collapse vs. declaration-alignment/padding idempotency bug (Tier-4), 3rd session, FIXED: `ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass` re-runs just the closing-brace + declarations passes a second time (JS/TS only), with the shared trailing-gap force-reindent step skipped on that re-run (that step's re-derivation from already-reformatted text was what caused Attempt 2's regression). New fixture: `test/real_code_regressions_179_{inp,out}.ts` (the `commandLineParser.ts`-derived minimal repro) |
+| RDD_KEY_249 | (No fix landed, reverted.) Investigation into `enforceCallLineBreaking`'s rejoin fits-check for `formatOffset`-style multi-candidate lines (`/tmp/mini2.ts`); a blanket statement-wide width-widening fix was tried and reverted (regressed `real_code_regressions_81`/`_93`, whose legitimately-stable over-limit rejoins the blanket check couldn't distinguish from genuinely unstable ones) |
+| RDD_KEY_250 | Braceless if/else rejoin-fits-check-vs-`alignBracelessElseIfChain` pass-ordering idempotency bug, 6th session, FIXED: `FormatterCurly.format` re-runs `enforceCallLineBreaking` (twice) + `enforceComplexityPadding` right after `alignBracelessElseIfChain`, same fix shape as RDD_KEY_248. New fixture: `test/real_code_regressions_180_{inp,out}.ts` (the `formatOffset` repro) |
 | RDD_KEY_263 | `utils.ts`/`lodash.js` switch-case fallthrough non-idempotency (long-deferred, see former "Known open issues" entry below), FIXED: `FormatterCurly.format` re-runs `switchRule.formatNonInlineSwitches` a second time near the end of Phase 4, after `alignInlineSwitches`'s case-grid collapse and the call-wrap passes have settled — shared `SwitchRule`/curly-family code, cross-referenced in `STATE_C_CPP_JAVA.md` |
 
 ---
@@ -123,9 +126,10 @@ statement/declaration in original relative order via leaf-token
 canonicalization (terminal tokens joined with single spaces, whitespace
 collapsed, so alignment padding/reindent are never flagged); comments as a
 MULTISET, whitespace-normalized and lowercased (case-only diff is expected
-`normalize-comment-start-case` behavior, not a bug). Comments recovered separately via `ts.getLeadingCommentRanges` (TS AST
-doesn't attach them as tree nodes), scanned at every node's `getFullStart()`
-plus position 0/EOF, deduplicated by `[pos, end)`.
+`normalize-comment-start-case` behavior, not a bug). Comments recovered
+separately via `ts.getLeadingCommentRanges` (TS AST doesn't attach them as
+tree nodes), scanned at every node's `getFullStart()` plus position 0/EOF,
+deduplicated by `[pos, end)`.
 
 Exit 0 if content is preserved, 1 with a description of each mismatch
 otherwise, 2 on usage error. No build step — plain `.js`, run directly:
@@ -189,636 +193,400 @@ active in the Makefile and passing.
   whole JSX tree as one opaque `IDENTIFIER` token, throws on tag imbalance;
   (2) `{...}` expression holes inside JSX become `__JSn__` placeholders,
   outer markup handed to the existing HTML formatter; (3) each placeholder's
-  content sent through the JS/TS formatter as an independent small
-  program. Assessed in depth, not adopted as a design:
-
-  - **Step 1's real flaw:** packing the discovered JSX span into a plain
-    `IDENTIFIER` token doesn't avoid the original hard problem (finding tag
+  content sent through the JS/TS formatter as an independent small program.
+  Assessed in depth, **not adopted as a design**:
+  - Step 1's flaw: packing the discovered JSX span into a plain
+    `IDENTIFIER` token doesn't avoid the hard problem (finding tag
     boundaries against `<`'s three-way ambiguity with less-than/generics,
-    recursively through nested `{}` holes) — it still requires doing that
-    walk, then discards the structure just found by flattening it back into
-    one string, which step 2 must then re-discover. Also flagged as a real
-    regression risk: reusing `IDENTIFIER` as the vehicle for a multi-line
-    opaque blob would hit every downstream pass that assumes an IDENTIFIER
-    token has realistic single-token width (declaration/class-field
-    alignment grids, `enforceCallLineBreaking`'s `candidateLen` checks) —
-    the same width/pass-ordering fragility class already on record in this
-    file's RDD_KEY_248/249/250 write-ups, not a hypothetical concern. A
-    dedicated opaque/frozen token kind (extending whatever mechanism already
-    treats comments as frozen) would be needed instead, not `IDENTIFIER`.
-  - **Step 2's HTML-formatter-reuse instinct is sound for the splice
-    mechanics** (real precedent: `XmlSpecificRule.renderScriptOrStyle`), but
-    JSX's grammar diverges from real HTML5 in load-bearing ways the existing
-    HTML5 tree-construction pass (tuned for actual HTML5, including the
-    `html5-tc-gap-level` job's spec-compliance work) isn't verified to
-    tolerate: arbitrary self-closing tags, case-sensitive component names
-    (`<MyComponent>`), fragments (`<>...</>`), and expression-valued
-    attributes (`onClick={handler}`) which are a 4th embedding site (attribute
-    position) not covered by the child-content-only `{...}` substitution.
-  - **Step 3 is the most underspecified part:** the proposal's own example
+    recursively through nested `{}` holes) — it still requires that walk,
+    then discards the structure. Reusing `IDENTIFIER` as a multi-line
+    opaque-blob vehicle would also hit every downstream pass that assumes
+    realistic single-token width (declaration/class-field alignment grids,
+    `enforceCallLineBreaking`'s `candidateLen` checks — the same width/
+    pass-ordering fragility class as RDD_KEY_248/249/250). A dedicated
+    opaque/frozen token kind would be needed instead.
+  - Step 2's HTML-formatter-reuse instinct is sound for splice mechanics
+    (real precedent: `XmlSpecificRule.renderScriptOrStyle`), but JSX's
+    grammar diverges from real HTML5 in load-bearing ways the existing
+    HTML5 tree-construction pass isn't verified to tolerate: arbitrary
+    self-closing tags, case-sensitive component names (`<MyComponent>`),
+    fragments (`<>...</>`), and expression-valued attributes
+    (`onClick={handler}`, a 4th embedding site not covered by child-content
+    substitution).
+  - Step 3 is the most underspecified: the proposal's own example
     (`items.map(x => <li>{x}</li>)`) shows a `{...}` hole containing more
-    JSX, which itself has more `{...}` holes — i.e. the recursion is
-    unbounded-depth, not the single flat "format the hole as an independent
-    program" step described. Written correctly, step 3 becomes a recursive
-    descent over the embedding tree that bottoms out by calling the JS/TS
-    formatter — which is functionally the embedding-aware dispatcher this
-    scope note already says is needed, just arrived at via three
-    differently-named layers rather than avoided.
-  - **How real JSX parsers (Babel/TS compiler) actually solve the `<`
-    ambiguity, and why it doesn't port directly:** they don't disambiguate
-    at the lexer/character level at all — the parser already knows its
-    current grammar position, and `<` is only ever a JSX-open when it
-    appears at expression-start (never ambiguous with infix `<` or generics
-    there), so they switch lexer modes based on grammar position, not
-    lookahead heuristics. This codebase has no grammar-position-aware parser
-    (flat tokenizer + local-lookback passes), so this can't be inherited for
-    free the way it is in a real parser — `<`/`>` disambiguation for
-    generics alone already needed a dedicated mechanism
-    (`TokenizerCurly.reclassifyAngleBrackets`/`isGenericSafeToken`) instead
-    of being free. **Portable idea identified:** run boundary-finding as its
-    own dedicated pre-pass (not inline in the general tokenizer) that checks
-    for `<` at a short enumerable list of expression-start token-adjacency
-    contexts (after `return`, arrow body, ternary branches, call-argument
-    start, etc. — not "any `<`"), recursing back into the same rule inside
-    `{}` holes. This is positional disambiguation instead of lexical
-    disambiguation, mirroring what real JSX parsers do, without requiring a
-    real AST. Cleanly separates boundary-finding (the genuinely hard,
-    still-unsolved part) from splice mechanics (already have working
-    precedent via `renderScriptOrStyle`).
+    JSX with its own `{...}` holes — unbounded-depth recursion, not the
+    single flat step described. Written correctly it becomes the same
+    embedding-aware dispatcher this scope note already says is needed.
+  - **How real JSX parsers actually solve the `<` ambiguity, and why it
+    doesn't port directly:** they switch lexer modes based on grammar
+    position (a parser always knows when it's at expression-start, where
+    `<` is unambiguously JSX-open), not lookahead heuristics. This codebase
+    has no grammar-position-aware parser (flat tokenizer + local-lookback
+    passes), so this can't be inherited for free — `<`/`>` disambiguation
+    for generics alone already needed a dedicated mechanism
+    (`TokenizerCurly.reclassifyAngleBrackets`/`isGenericSafeToken`).
+    **Portable idea identified:** run boundary-finding as its own dedicated
+    pre-pass checking for `<` at a short enumerable list of expression-start
+    token-adjacency contexts (after `return`, arrow body, ternary branches,
+    call-argument start, etc.), recursing into `{}` holes — positional
+    rather than lexical disambiguation, without requiring a real AST.
   - **Verifier tooling:** `@babel/parser` was proposed for a JSX-aware
-    `js_ts_content_diff.js` equivalent; recommended against — stick with the
+    `js_ts_content_diff.js`; recommended against — stick with the
     already-in-use TS compiler API (`ts.createSourceFile` with
-    `ts.ScriptKind.TSX`/`.JSX`, which already supports JSX), avoiding a
-    second parser dependency/toolchain and the same kind of npm-pin gotcha
-    already hit once for `typescript` itself (see "`typescript` package
-    version gotcha" above).
+    `ts.ScriptKind.TSX`/`.JSX`), avoiding a second parser dependency and the
+    same npm-pin gotcha already hit for `typescript` itself.
 
   **Not yet designed, left for a future session:** the concrete enumerable
   list of expression-start contexts for the boundary-finding pre-pass, and
-  the concrete opaque-span token representation (replacement for the
-  rejected `IDENTIFIER` idea). Nothing here supersedes the Scope section's
-  "out of scope entirely" statement — this is exploration only, no decision
-  to lift the scope-out has been made.
+  the concrete opaque-span token representation. Nothing here supersedes
+  the Scope section's "out of scope entirely" statement.
 
-- **Cluster #3 sibling ("declaration/class-field-alignment-grid vs. call-wrap
-  ordering") — RESOLVED 2026-08-06 (RDD_KEY_248), see that dated subsection
-  below for the landed fix. History below kept for context (2026-08-05
-  investigation session, no code change landed, new architectural finding
-  recorded).** Attempted to root-cause and fix the
-  `microsoft/TypeScript` `commandLineParser.ts` `pathOptions`/`optionMap`/
-  `watchOptionMap` declaration-group shape (minimal repro: `/tmp/mini.ts`,
-  see below) directly named in cluster #3's write-up above as "not a
-  braceless if/else collapse... a sibling root cause in the same 'call-wrap
-  vs. column-width-adjusting-pass ordering' family."
+---
 
-  **First hypothesis (WRONG, but instructive):** `JsTsDeclarationAlignmentRule
-  .spansMultipleLines`'s flat `parenDepth`/`braceDepth` counters bail
-  (exclude the row from its alignment group) on any `NEWLINE` inside a
-  brace (`braceDepth > 0`), even when that newline is really just a nested
-  call's own wrapped argument list (`{ key: someCall(\n arg\n), ... }`) --
-  narrower than the existing paren-only carve-out documented in that
-  method's own javadoc. Replacing the two flat counters with an actual
-  bracket-kind stack (bail only when a newline's innermost enclosing
-  bracket is `{` or the stack is empty; tolerate `(`/`[`) is a real,
-  narrowly-scoped improvement to that one method and **did not regress
-  `make test` (244/244 forward + idempotency, unchanged)** -- but **did NOT
-  fix the `commandLineParser.ts` repro**, so it was reverted rather than
-  landed as a partial/silent change. Root cause is one level up.
+## Related investigation history — same architectural family as bugs #2/#3
 
-  **Actual finding, via debug instrumentation (removed before revert):**
-  `ScopePipelineCurly.processScope` runs its five per-scope passes
-  (`applyDeclarationsPass` first) **outer-first over the literal flat
-  token list passed to it**, then separately recurses into each child
-  `{...}` span and reruns the same five passes again on that child's own
-  (already outer-pass-touched) slice -- confirmed via instrumented entry
-  dumps at both the depth-0 (whole-file) and depth-1 (function-body) calls
-  for the same statements. For fresh (never-before-formatted) input this
-  is a no-op at depth 0 for nested declarations (round1's depth-0 entry
-  dump showed the statements untouched, only depth-1's own call actually
-  grouped/rendered them) -- but **for already-formatted input whose
-  initializer already contains an embedded call-wrap newline (i.e. round2,
-  reformatting round1's own output), the depth-0 pass's own
-  grouping/statement-splitting no longer treats the region as opaque the
-  same way**, so depth-0 now *also* renders (or partially renders) these
-  declarations before depth-1 gets to reprocess the same span a second
-  time -- two grid-alignment computations of the same statements inside one
-  single `format()` call, seeded from two different intermediate states,
-  is what actually produces the round1-vs-round2 divergence (confirmed via
-  `System.identityHashCode`-tagged entry dumps showing the depth-1 call's
-  *input* already differing between round1 and round2's runs, before
-  depth-1's own logic even executes). This is a different, and likely
-  larger, architectural issue than a single method's bail condition: it
-  means `applyDeclarationsPass`/`groupAlignableDeclarations`'s statement-
-  splitting is not reliably scope-opaque at the outer recursion level once
-  a nested declaration's initializer already contains a previous-round's
-  call-wrap artifact.
+Bugs #2 and #3 below belong to a broader, repeatedly-investigated
+architectural family: **"which pass gets to see the final, stable per-line/
+per-column width."** Several earlier sessions investigated *other* instances
+of this family (not bugs #2/#3 themselves) and, even where no fix landed,
+produced ruled-out hypotheses, precise code loci, and debugging methodology
+that directly transfer to finishing #2/#3. Kept here in more detail than the
+RDD table alone for that reason — do not re-derive these from scratch.
 
-  **Why no fix was attempted for that deeper issue this session:** the
-  double-processing (outer-pass-then-inner-pass-reprocess) appears
-  deliberate, load-bearing infrastructure per `processScope`'s own javadoc
-  ("recurses outer-first... splicing each child's processed text back in
-  place") and is shared by every curly-family language's declaration/
-  assignment/signature/getter-setter passes, not just JS/TS -- changing
-  when/whether the outer pass is allowed to touch nested-scope content
-  risks the same class of broad regression the `STATE_CURLY_GDR.md`/
-  `RDD_KEY_229` pre-pass-vs-post-pass GDR investigation hit (a genuine
-  circular dependency between an outer pass's decisions and an inner
-  pass's re-derivation of the same span from different intermediate
-  text), and this session had no time budget left to design, prototype,
-  and real-corpus-validate a fix at that scope. Matches this cluster's
-  existing "would need its own root-cause identification pass" framing
-  above -- now with an actual root cause identified, but still unscoped
-  for a fix. Left OPEN, same as before this session; no fixture added, no
-  `RDD_LOG.md` key added (no design was actually landed to record).
-  **Next session:** start from the `processScope` outer/inner double-pass
-  finding above rather than re-deriving it; the `spansMultipleLines`
-  bracket-stack refinement above is a real, still-available, no-regression
-  incremental improvement if anyone wants it landed on its own merits
-  (independent of this bigger issue) -- it was only reverted because it
-  didn't resolve the cited bug alone and this session preferred not to
-  land an unverified partial change silently.
+- **RDD_KEY_245 (no fix landed).** First deep-dive into the
+  `commandLineParser.ts` declaration-alignment idempotency bug (the repro
+  that `RDD_KEY_248` eventually fixed for `applyDeclarationsPass`, and whose
+  sibling in `applyAssignmentsPass` is bug #2 below). Ruled out
+  `JsTsDeclarationAlignmentRule.spansMultipleLines`'s bracket-depth bail
+  condition as the cause (independently re-tested again in RDD_KEY_246,
+  still negative). Tentatively located the divergence in
+  `MiscRuleCurly.enforceCallLineBreaking`/`renderCallCandidate`'s multi-line
+  closing-bracket placement (~line 1250-1330) — this locus was later shown
+  by RDD_KEY_246 to be structurally impossible (that method's replaced span
+  never extends past the call's own closing `)`), so **do not re-suspect
+  `renderCallCandidate` itself** for this family; the real loci found since
+  are `applyOversizedAggregateInitClosingBracePass` (RDD_KEY_246/248) and
+  `applyAssignmentsPass` (bug #2).
 
-  **2026-08-06 follow-up session (RDD_KEY_245), no code change landed,
-  narrows but does not resolve the above:** re-investigated using a fresh
-  minimal repro (`/tmp/mini.ts`, the `commandLineParser.ts`-derived
-  `pathOptions`/`optionMap`/`watchOptionMap` shape) with direct
-  `ScopePipelineCurly.processScope` entry-point instrumentation. **For this
-  specific repro shape, the instrumented output shows only ONE recursion
-  level touches these declarations** -- the object-literal initializer's own
-  `{...}` is never found as its own `splitTopLevelSpans` "Span" at all
-  (value-position braces nested inside a declaration initializer aren't
-  span-recursed the way a function/class/control-flow body is), contradicting
-  this file's own prior write-up's implication that the outer/inner
-  double-pass is this repro's cause. Independently re-implemented and
-  re-tested the `spansMultipleLines` bracket-kind-stack refinement described
-  above (tolerate a `NEWLINE` whose innermost enclosing bracket is `(`/`[`
-  even when that pair is itself nested inside the row's own `{...}`
-  initializer) -- **confirmed again it does not fix `/tmp/mini.ts`** (same
-  negative result, now independently reconfirmed). Further instrumentation
-  narrowed the real divergence to something else entirely: round2 renders the
-  object literal's closing `}` onto its own line where round1 keeps it
-  trailing inline -- neither `processScope`'s span recursion (ruled out, see
-  above) nor `JsTsDeclarationAlignmentRule`'s grouping (ruled out, the
-  bracket-stack fix didn't change the symptom) is responsible; most likely
-  locus is `MiscRuleCurly.enforceCallLineBreaking`/`renderCallCandidate`'s
-  own multi-line-source closing-bracket placement (~line 1250-1330, the same
-  region the braceless-if/else Open Questions entry below already names as a
-  "which pass gets to see the final stable per-line width" locus) -- not
-  traced further, out of this session's reasoning-effort budget. Full
-  finding, including the exact instrumentation approach and next-session
-  pointer, recorded in `RDD_LOG.md`'s `RDD_KEY_245`. No fixture added, no
-  dogfood corpus re-run performed (repro-level investigation only this
-  session). `make test` unaffected (244/244, no source change committed).
+- **RDD_KEY_246 (no fix landed, 2 attempts reverted).** Precisely located
+  the `commandLineParser.ts` root cause: `ScopePipelineCurly.
+  applyOversizedAggregateInitClosingBracePass` (called once, early, inside
+  `processScope`, before Phase 1's `enforceCallLineBreaking`) decides
+  whether to move a dangling `}` onto its own line by checking whether the
+  aggregate initializer's `{...}` *already* contains an embedded `NEWLINE`
+  — false on a fresh round1 (the nested call hasn't been wrapped yet), true
+  on round2 (previous round's call-wrap newline already present) — a
+  "pass's decision depends on a later pass's not-yet-produced newline" bug,
+  same family as `enforceComplexityPadding`/
+  `enforceAttributeAndSpliceBracketPadding`/`enforceInitializerBraceSpacing`.
+  **Attempt 1 (reverted):** re-run only
+  `applyOversizedAggregateInitClosingBracePass` a second time, right after
+  the first `enforceCallLineBreaking` call. Fixed the named `}`-placement
+  symptom, but exposed that `JsTsDeclarationAlignmentRule.
+  spansMultipleLines`/`parseDeclaration`'s grouping decision for the same
+  row is *also* made against the stale pre-call-wrap shape — a second,
+  sibling manifestation of the same bug in declaration-alignment padding,
+  not just brace placement (this is exactly the same shape bug #2 exhibits
+  in `applyAssignmentsPass` — a third sibling). Reverted rather than land a
+  partial fix.
+  **Attempt 2 (reverted):** replaced the narrow fixup with a second, full
+  `ScopePipelineCurly.process(text)` re-run in `FormatterCurly.format`'s
+  Phase 1, so every per-scope pass re-derives its decision against the
+  post-call-wrap shape. Fully fixed the repro (`diff round1 round2` empty)
+  but caused **real forward-pass regressions** on unrelated fixtures:
+  `real_code_regressions_100.ts` collapsed an already-correct `} //
+  interface ParserOptions` (closing brace + trailing comment) back onto one
+  line; several Java/Kotlin/`cpp26` fixtures also failed. **Lesson (directly
+  applicable to any re-run-based fix for bug #2):** re-running the whole
+  five-pass `processScope` sequence unconditionally is not safe — some pass
+  treats a second same-round invocation as "already finalized, re-collapse/
+  re-merge it," specifically for trailing-comment-after-`}` shapes. This is
+  why `RDD_KEY_248`'s eventual fix (below) re-ran only two of the five
+  passes, and why bug #2's candidate fix proposes adding a *third* narrowly-
+  scoped pass to that same limited re-run rather than a full re-run.
+  **Testing pitfall noted this session, applies to any future large-suite
+  validation (including bug #2/#3 work):** a single very long `make
+  _test_serial JAR_FILE=...` invocation's terminal output can be silently
+  truncated by the calling tool with no visible marker, hiding real `FAIL`
+  lines among hundreds of `PASS` lines — always redirect `make test`/`make
+  _test_serial` output to a log file and `grep -n "^FAIL"` it directly
+  rather than trusting a live/streamed terminal capture for a suite this
+  size.
 
-  **2026-08-06 second follow-up session (RDD_KEY_246), two fix attempts
-  tried, both reverted, no code change landed.** Picked up directly from
-  `RDD_KEY_245`'s pointer. Reproduced `/tmp/mini.ts` (same repro), added
-  `DBG_FC`-gated instrumentation in `FormatterCurly.format` at "after
-  `ScopePipelineCurly.process`" and "before/after the first
-  `enforceCallLineBreaking` call" checkpoints. **This localizes the
-  divergence to inside `ScopePipelineCurly.process` itself, before Phase
-  1's `enforceCallLineBreaking` ever runs** -- contradicting `RDD_KEY_245`'s
-  own tentative locus (`enforceCallLineBreaking`/`renderCallCandidate`
-  ~line 1250-1330). Read that method's code directly and confirmed
-  structurally it cannot be responsible: the span it replaces is strictly
-  `[openParenIdx, closeIdx+1)`, never touching text after the call's own
-  closing `)`, so it cannot be what moves a `}` that comes after the call.
+- **RDD_KEY_248 (FIXED — the landed fix bug #2's candidate extends).**
+  Landed `RDD_KEY_246`'s untried "narrower middle ground": re-run only
+  `applyOversizedAggregateInitClosingBracePass` + `applyDeclarationsPass`
+  (closing-brace first) a second time, via
+  `ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass`. **First cut
+  reproduced Attempt 2's exact `real_code_regressions_100.ts` regression
+  again** — traced to `processScope`'s *shared* trailing-gap force-reindent
+  step (right after the span-recursion loop), which on this narrower re-run
+  re-derives indentation from the round's ALREADY-reformatted physical text
+  (other Phase 1 passes' blank-line-insertion/Allman-conversion already
+  baked in), a different shape than what `findParentIndent` saw during the
+  original `process()` call — silently flipping an already-correct
+  closing-brace indent. **Fix:** skip that force-reindent step entirely
+  when the narrow-rerun mode is active. This is the exact trap bug #2's
+  candidate fix must also avoid if it adds a third pass to the same
+  narrow-rerun mode.
 
-  **Actual root cause (new finding, more precise than `RDD_KEY_245`'s):**
-  `ScopePipelineCurly.applyOversizedAggregateInitClosingBracePass` --
-  called once, early, inside `processScope`, well before Phase 1's
-  `enforceCallLineBreaking` -- decides whether to move a dangling `}` onto
-  its own line by checking whether the aggregate initializer's `{...}`
-  *already* contains an embedded `NEWLINE` token. On a fresh format
-  (round1) no such newline exists yet (the nested call hasn't been
-  wrapped by `enforceCallLineBreaking` yet), so the pass is a no-op and
-  `}` stays fused inline. On a reformat (round2) the previous round's
-  call-wrap newline is already present in the input, so this time the
-  pass fires and splits `}` onto its own line -- round1 != round2. Same
-  "a pass's decision depends on a later pass's not-yet-produced newline"
-  family as the precedent fixes already named in this file
-  (`enforceComplexityPadding`, `enforceAttributeAndSpliceBracketPadding`,
-  `enforceInitializerBraceSpacing`), just in a pass not previously
-  suspected.
-
-  **Attempt 1 (narrow re-run, reverted -- fixed the named symptom but
-  revealed a second, same-family divergence):** added
-  `ScopePipelineCurly.applyOversizedAggregateInitClosingBraceFixup`, a
-  public wrapper re-running only `applyOversizedAggregateInitClosingBracePass`,
-  called once more from `FormatterCurly.format` right after the first
-  `enforceCallLineBreaking` call. This corrected the `}` placement on
-  round1 to match round2 for `/tmp/mini.ts`, but exposed that
-  `JsTsDeclarationAlignmentRule.spansMultipleLines`/`parseDeclaration`'s
-  grouping decision for the same `pathOptions` row is *also* made against
-  the stale (pre-call-wrap) shape on round1 vs. the post-call-wrap shape
-  on round2 -- round1 keeps the row in its alignment group (wider column
-  padding), round2 excludes it (narrower padding) -- same underlying
-  "decision made before the shape is final" bug, manifesting a second
-  time in declaration-alignment padding, not just brace placement. Narrow
-  re-run insufficient; reverted rather than land a partial fix.
-
-  **Attempt 2 (full `ScopePipelineCurly.process(text)` re-run, reverted --
-  fixed `/tmp/mini.ts` completely but caused a real regression on the
-  fixture corpus):** replaced the narrow fixup with a second, full
-  `scopePipeline.process(text)` call in `FormatterCurly.format`'s Phase 1,
-  right after the first `enforceCallLineBreaking` call, so every
-  per-scope pass (closing-brace, declarations/alignment, assignments,
-  signature, getter-setter) re-derives its decision against the
-  post-call-wrap shape. This made `/tmp/mini.ts` fully idempotent
-  (`diff round1 round2` empty, matching the previously-established stable
-  fixed point) -- but `make test` (built via the proper `make jar`/`make
-  test` path, not an ad-hoc `javac`) showed **real, new forward-pass
-  regressions** on fixtures unrelated to the repro: `real_code_regressions_100.ts`
-  collapsed an already-correct `} // interface ParserOptions` (closing
-  brace + trailing comment, previously on its own line) back onto the
-  same line as other content; `real_code_regressions_144.kt` and several
-  Java/`cpp26` fixtures also failed. Re-running the whole pipeline a
-  second time is evidently not safe to do unconditionally -- some pass in
-  the five-pass sequence treats a second same-round invocation as "this
-  span was already finalized, re-collapse/re-merge it" rather than as a
-  true no-op refinement, at least for trailing-comment-after-`}` shapes.
-  Reverted; both source files (`FormatterCurly.java`,
-  `ScopePipelineCurly.java`) restored to their pre-session `HEAD` content
-  and the `.jar` rebuilt from clean `HEAD` via `make jar`; `make test`
-  reconfirmed clean at baseline (**244/244 forward + idempotency, zero
-  regressions** from the revert). No dogfood corpus (TS repo/Angular
-  repo/lodash) run this session -- both attempts were disqualified by the
-  local fixture suite before reaching that stage.
-
-  **Note on a testing pitfall hit this session:** a single very long
-  `make _test_serial JAR_FILE=...` invocation's terminal output can be
-  silently truncated by the calling tool without any visible marker,
-  hiding real `FAIL` lines among hundreds of `PASS` lines -- always
-  redirect `make test`/`make _test_serial` output to a log file and
-  `grep -n "^FAIL"` it directly rather than trusting a live/streamed
-  terminal capture for a suite this size.
-
-  **Next session:** the root cause (`applyOversizedAggregateInitClosingBracePass`'s
-  stale-newline check) is now precisely identified and is a strictly
-  better starting point than `RDD_KEY_245`'s. A viable fix likely needs to
-  re-run *only* the closing-brace pass plus the declaration-alignment
-  grouping/padding pass a second time (the two passes shown to actually
-  need the post-call-wrap shape) while leaving the signature/getter-setter/
-  assignment passes single-pass, to avoid Attempt 2's `real_code_regressions_100`-
-  style trailing-comment regression -- this narrower combination was not
-  tried this session (budget spent confirming the narrowest (Attempt 1)
-  and widest (Attempt 2) ends of the spectrum both fail, in different
-  ways). Full finding recorded in `RDD_LOG.md`'s `RDD_KEY_246`.
-
-  **2026-08-06 third follow-up session (RDD_KEY_248), FIXED -- landed.**
-  Picked up `RDD_KEY_246`'s untried "narrower middle ground" pointer
-  directly: re-run only `applyOversizedAggregateInitClosingBracePass` +
-  `applyDeclarationsPass` (closing-brace first) a second time, via a new
-  `processScope(..., closingBraceAndDeclarationsOnly)` overload and public
-  `ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass(String)` entry
-  point, called from `FormatterCurly.format` (JS/TS only) right after the
-  first `enforceCallLineBreaking`. **First cut reproduced Attempt 2's exact
-  `real_code_regressions_100.ts` regression again** (`} // interface
-  ParserOptions` losing its 2sp indent) -- tracing it down showed the true
-  cause is NOT the two token-level passes at all, but `processScope`'s
-  shared trailing-gap force-reindent step (the block right after the
-  span-recursion loop that snaps a child scope's closing-brace gap to a
-  freshly-recomputed `effectiveSpanIndent`): on this second, narrower
-  re-run, that step re-derives indentation from the round's ALREADY-
-  reformatted physical text (other Phase 1 passes' blank-line-insertion/
-  Allman-conversion already baked in by this point), a different shape
-  than what `findParentIndent` saw during the original `process()` call,
-  so it can silently flip an already-correct closing-brace indent. **Fix:**
-  skip that force-reindent step entirely when
-  `closingBraceAndDeclarationsOnly` is true (the first `process()` call
-  already got it right once; the narrower re-run only needs its own two
-  passes' own splices). With that one gate, `real_code_regressions_100.ts`
-  matches expected output again. Validated: `make test-quiet` 492/492
-  (245 fixture pairs incl. new `real_code_regressions_179`, forward +
-  idempotency, zero FAIL); `/tmp/mini.ts` fully idempotent;
-  `microsoft/TypeScript` dogfood corpus (`/tmp/ts-dogfood/TypeScript`,
-  `src/` only, 601 `.ts` files) round1/round2 mismatches 31/601 (freshly
-  reconfirmed baseline) -> 20/601 with the fix, a strict subset (zero new
-  regressions, 11 files newly idempotent incl. `commandLineParser.ts`
-  itself); `angular/angular` dogfood corpus (`/tmp/angular`, same 5394-file
-  `.ts` scope as the existing entry below) 17/5394 (freshly reconfirmed
-  baseline) -> 15/5394, again a strict subset (zero new regressions, 2
-  files newly idempotent). `lodash/lodash`'s cached checkout was found
-  empty/stale this session (not re-cloned given the already-large
-  corpus-validation cost already spent on the other two, much larger,
-  corpora -- the fix is JS/TS-gated, not lodash-specific, and the two
-  re-run corpora already give strong consistent evidence; a future session
-  can re-verify lodash if convenient, not treated as a blocking gap). New
-  fixture `test/real_code_regressions_179_{inp,out}.ts` (the
-  `commandLineParser.ts`-derived minimal repro) registered in the
-  Makefile's `INP_FILES` and `test/README.txt`. Full finding recorded in
-  `RDD_LOG.md`'s `RDD_KEY_248`. **This item is now closed** -- see the
-  Resolved Design Decisions index above.
-
-- **README "braceless if/else collapse can still be non-idempotent" bullet
-  (`hasBreakableCall`/`refuseUnrescuableCollapse`, `BlockStructureRule.java`)
-  — 2026-08-05 investigation session, no code change landed, the documented
-  fix direction was found to not address the actual mechanism.** Task: make
-  the collapse decision simulate the later call-wrap pass's actual output
-  width instead of only asking "does a rescuable call exist." Minimal repro
-  built from the bullet's own cited files (`format_date.ts:519`): `/tmp`
-  scratch file with `if (offset === 0) { return 'Z'; } else { return (
-  (zone >= 0 ? '+' : '') + padNumber(hours, 2, minusSign) + ':' +
-  padNumber(Math.abs(zone % 60), 2, minusSign) ); }` inside a plain function
-  (no switch needed) reproduces round1≠round2 exactly as described.
-
-  **First attempt (reverted, did not land):** widened `hasBreakableCall`
-  (conceptually renamed to a "would wrapping actually fit" check) to render
-  the prefix-through-`(` and `)`-through-end spans at the call's own base
-  indent and refuse collapse unless *both* fit `lineLengthLimit`, mirroring
-  `MiscRuleCurly.renderCallDropped`/`renderCallOnePerLine`'s actual output
-  shape. **Broke `real_code_regressions_81`** (`make test` regression,
-  confirmed then reverted): that fixture's own accepted, committed,
-  genuinely-idempotent output (`this.createAsyncOptionsProvider(...)`/
-  `getInjectionProviders(...)` case) has a post-wrap prefix line at **102
-  chars — already over `lineLengthLimit=100`** — yet reformatting that exact
-  output a second time reproduces it byte-for-byte (verified directly:
-  round-tripping `test/real_code_regressions_81_out.ts` through the JAR is
-  a no-op). So "does the post-wrap line fit under the limit" is **not** the
-  right idempotency criterion -- a wrap that leaves a line over-limit can
-  still be perfectly stable, and a width-based gate refuses legitimate,
-  already-tested-correct collapses.
-
-  **Actual root cause, found via debug instrumentation (removed before
-  revert), does not live in `BlockStructureRule` at all:** built a minimal
-  repro with the call *already braceless in the source* (no `{`/`}` to
-  strip, so `collapseSingleExpressionBlocks`/`tryCollapse`/
-  `refuseUnrescuableCollapse` never run at all) --
-  `if (offset === 0) return 'Z'; else return ( (zone >= 0 ? '+' : '') +
-  padNumber(hours, 2, minusSign) + ':' + padNumber( Math.abs(zone % 60), 2,
-  minusSign ) );` -- and it **still reproduces round1≠round2 with zero
-  braceless-collapse logic involved**, proving this specific bug's
-  mechanism is independent of the collapse-decision heuristic the README
-  bullet and the original design blame it on. Traced to
-  `FormatterCurly.format`'s own two same-round calls to
-  `MiscRuleCurly.enforceCallLineBreaking` (lines ~246 and ~271): the first
-  call correctly wraps *both* `padNumber(...)` calls (each measured against
-  the true whole-line width via `wholeLineRest`, both over limit, both
-  wrapped) -- confirmed via `System.err` dumps of `enforceCallLineBreaking`'s
-  own return value showing both calls multi-line immediately after the
-  first call. But the *second* call re-examines each now-already-wrapped
-  call independently via the `containsNewline(paramsSlice)` branch's own
-  "would this rejoin fit on one line" fits-check (`MiscRuleCurly.java`
-  ~line 1250-1330) -- which measures **only that one call's own candidate
-  line in isolation**, not the full original combined statement width, so
-  each of the two wrapped calls individually "fits" once rejoined and both
-  get silently rejoined back onto one line, reproducing the exact original
-  over-limit one-liner as round1's *final* on-disk output. Round2 (fed that
-  same one-liner as fresh input) exhibits an indent/context-dependent
-  asymmetry in the same rejoin logic (confirmed only on the real
-  `format_date.ts` file, not fully isolated in the minimal repro) that
-  rejoins the *first* call but not the *second* -- producing the partially-
-  wrapped, differing output. Root cause is therefore an
-  `enforceCallLineBreaking`-internal self-interaction across its own two
-  per-round invocations (specifically the rejoin fits-check's blindness to
-  sibling call/text width on the same combined statement line), structurally
-  the same "call-wrap vs. pass-ordering" family STATE_JS_TS.md's cluster #3
-  sibling entry above already named but did not root-cause -- not a gap in
-  `hasBreakableCall`'s collapse-time approximation at all. Fixing it
-  correctly requires `enforceCallLineBreaking`'s rejoin check to measure the
-  *whole* combined statement line (accounting for other still-wrapped or
-  already-rejoined sibling calls on the same original line), which is
-  `MiscRuleCurly`/cross-invocation-shared-state work, not
-  `BlockStructureRule`-local, and out of this task's scoped file.
-
-  **Disposition:** no code change landed (both the reverted width-based
-  gate and leaving `hasBreakableCall` as-is are confirmed-safe no-regression
-  states; `make test` reconfirmed at 244/244 forward + idempotency after the
-  revert). The README "Known Limitations" bullet's wording is accurate as
-  currently written (still describes a real, unfixed gap) and was **not**
-  narrowed or removed -- the investigation changed *where* the eventual fix
-  belongs (an `enforceCallLineBreaking` rejoin-check fix, not a
-  `BlockStructureRule` collapse-time gate) but did not change what's
-  actually broken or unbroken. No `RDD_LOG.md` key added (no design was
-  landed). **Next session attempting this:** do not retry the width-based
-  `hasBreakableCall` gate shape without also handling
-  `real_code_regressions_81`'s "post-wrap-still-over-limit-but-idempotent"
-  case; the real fix needs to live in `MiscRuleCurly.enforceCallLineBreaking`
-  around the `containsNewline` rejoin branch (~line 1250-1330), likely
-  requiring the rejoin fits-check to see the full original line's other
-  candidates' current (wrapped-or-not) state rather than judging each call
-  in isolation -- consider whether this converges with cluster #3 sibling's
-  already-identified `ScopePipelineCurly.processScope` double-pass finding
-  into one shared "which pass gets to see the final, stable per-line width"
-  architectural problem before attempting either in isolation.
-
-  **2026-08-06 fourth session (RDD_KEY_249), one fix attempt tried and
-  reverted, no code change landed.** Picked up the "next session" pointer
-  above directly. Minimal repro (`/tmp/mini2.ts`, a self-contained variant
-  of the `format_date.ts`-derived one already on file, no switch needed):
-  `if (offset === 0) return 'Z'; else return ( (zone >= 0 ? '+' : '') +
-  padNumber(hours, 2, minusSign) + ':' + padNumber( Math.abs(zone % 60), 2,
-  minusSign ) );` inside a plain function — reproduces round1 != round2
-  exactly, confirmed via `DBG_CLB`-gated instrumentation (removed before
-  revert) printed inside `renderCallCandidate`'s `containsNewline` rejoin
-  branch: round1's two `padNumber(...)` candidates each measure their own
-  local-physical-line-only fits-check (`candidateLen` 92 and 61, both under
-  the 100 limit) and both silently rejoin, producing a single 145-char
-  output line (already a round1-internal violation, not merely a round1-
-  vs-round2 mismatch); round2 (fed that same one-liner, re-tokenized with a
-  different upstream indent shape from the `else`/`if` column-alignment
-  pass) measures the *first* candidate's local fits-check at 104 (over
-  limit, stays wrapped) and the second at 61 (rejoins) — an inconsistent
-  partial rejoin. Confirms this file's own prior "does not live in
-  `BlockStructureRule`" finding and narrows it further: the rejoin
-  fits-check's `prefix`/`suffix` are built from `lineStartIndex`/
+- **RDD_KEY_249 (no fix landed, reverted) — investigates the sibling
+  `enforceCallLineBreaking` rejoin-fits-check family, adjacent to but
+  distinct from bugs #1/#2/#3.** Repro `/tmp/mini2.ts`: two `padNumber(...)`
+  calls on one statement; round1's rejoin fits-check measures each
+  candidate's own *local physical line* in isolation (`lineStartIndex`/
   `effectiveLineEndIndex`, which only look back/forward to the nearest
-  `NEWLINE` — blind to a sibling call's own wrapped text sitting further up
-  the same logical statement once *that* sibling has already introduced a
-  `NEWLINE` of its own.
+  `NEWLINE`) and both silently rejoin, producing an already-over-limit
+  145-char line; round2 (fed that one-liner) measures the first candidate
+  differently and only partially rejoins — an inconsistent partial rejoin.
+  **Attempt (reverted):** widen the rejoin fits-check from physical-line-wide
+  to statement-wide (`logicalStatementStart`/`logicalStatementEnd`, scanning
+  to the nearest `;`/`{`/`}`/file bound). This **fully fixed `/tmp/mini2.ts`**
+  but **regressed `real_code_regressions_81`/`_93`**, whose accepted,
+  genuinely-idempotent output is a combined line already over
+  `lineLengthLimit` that must still rejoin (the correct, stable behavior for
+  those two fixtures is "over limit is fine, rejoin anyway, consistently").
+  A blanket statement-wide over/under-limit gate cannot distinguish
+  `_81`/`_93`'s legitimately-stable over-limit rejoins from `mini2.ts`'s
+  genuinely-unstable ones — **this is the same trap that later sank the
+  first `hasBreakableCall` width-gate attempt** for angular cluster 4 root
+  cause #3, confirmed independently from the `enforceCallLineBreaking` side
+  of the pipeline. **Next-session pointer that was later tested and
+  refuted (RDD_KEY_249's own hypothesis, see below):** instrument whether
+  `_81`/`_93`'s sibling candidates sit on their own original physical
+  source line (pre-wrap) while `mini2.ts`'s do not — a fix scoped to "only
+  widen measurement when the local line was itself produced by a still-open
+  sibling wrap" was proposed as narrower than the blanket variant.
+  **Refuted the following session:** instrumentation showed
+  `localLineHasNewline` was `true` in *all four* runs (`mini2.ts` both
+  rounds, `_81`/`_93` both rounds) — sibling-wrap-visibility does not
+  distinguish the stable cases from the unstable one; both groups already
+  answer "yes" under the original check. **Actual mechanism for
+  `mini2.ts` (found via the same instrumentation, precise, and directly
+  informed bug #1's methodology):** the divergence is a pass-ordering gap
+  against `BlockStructureRule.alignBracelessElseIfChain` (~line 361), which
+  runs *after* both `enforceCallLineBreaking` calls (~lines 247, 286) and
+  pads a short `else` keyword to column-align with its paired `if`'s body.
+  Round1's rejoin-check measures the `else` prefix *before* that padding is
+  applied (13 chars narrower than the eventual final width), so a candidate
+  that should stay wrapped instead fits and rejoins — an internal
+  round1 self-violation (`candidateLen=92 <= limit=100` at check time, but
+  the final padded line is 145 chars). Round2 (fed the already-padded
+  one-liner) measures the real, wider prefix and gets a different verdict.
+  `_81`/`_93` are unrelated to this mechanism entirely (no braceless-else
+  chain in either fixture) — their stability comes from no later pass ever
+  changing their prefix width after the fits-check runs. **This refutation
+  and the `alignBracelessElseIfChain`-ordering mechanism is what RDD_KEY_250
+  (below) fixed** — but note it is a *different* `alignBracelessElseIfChain`
+  interaction than bug #1's (RDD_KEY_250 is about the rejoin fits-check
+  running *before* the padding pass; bug #1 is about an *unidentified
+  earlier indent pass* reacting to the padding pass's *leftover artifact* on
+  a second round — same method, two distinct interactions with it).
 
-  **Attempt (reverted): make the rejoin fits-check statement-wide instead
-  of physical-line-wide.** Added `logicalStatementStart`/`logicalStatementEnd`
-  (scan back/forward to the nearest real statement boundary — `;`/`{`/`}`/
-  file bounds — which a mid-statement wrap's own `NEWLINE` never is, unlike
-  `lineStartIndex`/`effectiveLineEndIndex`), and rebuilt the rejoin
-  `prefix`/`suffix` via `collapseToOneLine` over that wider range instead of
-  the local physical line. This **fully fixed `/tmp/mini2.ts`** (round1
-  correctly wraps both calls and stays wrapped in round2, `diff round1
-  round2` empty) — but **regressed two existing, already-accepted fixtures**
-  on `make test-quiet`: `real_code_regressions_81_inp.ts` and
-  `real_code_regressions_93_inp.ts`, both losing their previously-correct,
-  genuinely-idempotent rejoined form (e.g. `_81`'s
-  `...getInjectionProviders(options.provideInjectionTokensFrom,
-  options.inject), ]` — a combined line already over `lineLengthLimit` but
-  stable) back into an unwanted multi-line wrap, because the new
-  statement-wide check now sees the *combined* statement as too long and
-  refuses every rejoin on that statement, even though the previously
-  accepted behavior for those two fixtures is exactly "rejoin everything,
-  even past the limit, because that's the stable form." This is the same
-  "does the post-wrap line fit" trap the 2026-08-05 session's `hasBreakableCall`
-  width-gate attempt already hit and reverted for the identical reason
-  (`real_code_regressions_81`) — now independently reconfirmed from the
-  `enforceCallLineBreaking` side of the pipeline rather than
-  `BlockStructureRule`'s. Reverted (`git checkout --
-  src/com/jxmake/formatter/rules/MiscRuleCurly.java`); baseline reconfirmed
-  clean at 246/246 forward + idempotency (this session's own fixture count,
-  unrelated `_178`/`_179` additions already present at session start). No
-  dogfood corpus run — disqualified by the local fixture suite before
-  reaching that stage.
-
-  **Why this is genuinely hard, not just under-explored:** the two known
-  good/bad cases pull in opposite directions from the exact same signal
-  (whether the *combined* logical-statement width, after all sibling calls
-  rejoin, exceeds `lineLengthLimit`) — `_81`/`_93` want "over limit is fine,
-  rejoin anyway, as long as it's *consistently* over limit both rounds";
-  `/tmp/mini2.ts` wants "if over limit, refuse the rejoin, or at least
-  refuse it *consistently* both rounds." A statement-wide over/under-limit
-  gate cannot distinguish these — what actually differs between the two
-  cases is not the width itself but *why* the local per-candidate fits-check
-  computes a different verdict round1-vs-round2 for `/tmp/mini2.ts`
-  specifically (a genuinely narrower, not-yet-isolated question) while
-  `_81`/`_93` apparently compute the *same* verdict both rounds already
-  under the pre-existing per-candidate-local check. **Next session:**
-  before trying another gate-shape variant, first instrument *why*
-  `_81`/`_93`'s per-candidate local checks are round-stable while
-  `/tmp/mini2.ts`'s are not, under the ORIGINAL (unmodified)
-  `lineStartIndex`/`effectiveLineEndIndex`-based check — the answer is
-  likely that `_81`/`_93`'s sibling candidates don't actually share one
-  physical line the way `/tmp/mini2.ts`'s do (each already sits on its own
-  original source line pre-wrap), meaning a fix scoped to "only widen the
-  measurement when a rejoin candidate's local physical line was itself
-  produced by a still-open sibling wrap" (not a blanket statement-wide
-  widening) might resolve `/tmp/mini2.ts` without touching `_81`/`_93`'s
-  behavior at all — this narrower, more surgical framing was not attempted
-  this session (budget spent building and disproving the blanket-width
-  variant first, per this bug's own established difficulty). Full finding
-  in `RDD_LOG.md`'s `RDD_KEY_249`.
-
-  **2026-08-07 fifth session, hypothesis from `RDD_KEY_249`'s "next session"
-  pointer TESTED AND REFUTED, no code change landed.** Task was to
-  instrument *why* `_81`/`_93`'s per-candidate local fits-checks are
-  round-stable while `/tmp/mini2.ts`'s are not, under the ORIGINAL
-  (unmodified) `lineStartIndex`/`effectiveLineEndIndex`-based check, to test
-  whether a narrower fix ("only widen measurement when the local physical
-  line was itself produced by a still-open sibling wrap") could work instead
-  of the reverted blanket statement-wide widening.
-
-  Rebuilt `/tmp/mini2.ts` (function-body variant, no switch), reconfirmed
-  round1 != round2 at baseline (`make jar`, 246/246 before any change).
-  Added temporary `DBG_CLB2`-env-gated `System.err` instrumentation directly
-  in `renderCallCandidate`'s JS/TS rejoin fits-check (right before the
-  `candidateLen <= lineLengthLimit` decision, ~line 1325 in
-  `MiscRuleCurly.java`), dumping each candidate's name, `candidateLen`,
-  `lineLengthLimit`, whether `[lineStartIndex, effectiveLineEndIndex)`
-  contains any raw `NEWLINE` token, and the exact `prefix`/`candidate`/
-  `suffix` text. Ran it against `/tmp/mini2.ts` round1+round2 and against
-  `real_code_regressions_81_inp.ts`/`real_code_regressions_93_inp.ts`'s own
-  round1+round2 (via `--out`, not `--in-place`, to keep both rounds'
-  outputs on disk for comparison).
-
-  **Hypothesis refuted:** in all four runs (`mini2.ts` round1/round2,
-  `_81`/`_93` round1/round2), `localLineHasNewline` was `true` for every
-  printed candidate — `_81`/`_93`'s sibling candidates do **not** sit on
-  their own physically-newline-free original source line the way the
-  hypothesis assumed; `effectiveLineEndIndex`'s existing depth-aware scan
-  already looks past a sibling's still-open wrap in both fixture families
-  alike. So "was the local physical line produced by a still-open sibling
-  wrap" does not distinguish the stable cases from the unstable one — both
-  groups already answer "yes" under the original, unmodified check.
-
-  **Actual mechanism for `/tmp/mini2.ts`, found via the same instrumentation
-  (new, more precise than `RDD_KEY_249`'s framing):** the divergence is not
-  about sibling-call width visibility at all. It's a pass-ordering gap
-  against a *different*, not-yet-run pass. `FormatterCurly.format` calls
-  `MiscRuleCurly.enforceCallLineBreaking` twice (~line 247 first wrap pass,
-  ~line 286 the rejoin pass under discussion) — both calls happen **before**
-  `BlockStructureRule.alignBracelessElseIfChain` (~line 361), which is what
-  inserts the extra column-alignment padding spaces after a short `else`
-  keyword to line its body up with the paired `if`'s body (e.g. `else` ->
-  `else             `). Round1: at rejoin-check time the `else` has not yet
-  been padded, so candidate #1's measured `prefix` is 13 chars shorter than
-  what the file will actually contain once `alignBracelessElseIfChain` runs
-  afterward — `candidateLen=92` (fits, rejoins) when the *true*, final width
-  would be over the limit. The alignment pass then pads the now-rejoined
-  line past `lineLengthLimit` anyway — an internal round1 self-violation,
-  confirmed directly (dumped `candidateLen=92`/`limit=100` for the exact
-  candidate that ends up on a 145-char final line). Round2: fed that
-  already-padded one-liner, the rejoin check this time measures the
-  already-present padding correctly (`candidateLen=104`, over limit, stays
-  wrapped) — an internal-consistency mismatch between the two rounds, not a
-  sibling-blindness issue. Candidate #2 (`padNumber(Math.abs(...))`) is
-  short enough (`candidateLen=61` both rounds) that this ordering gap never
-  flips its own verdict, which is why only one of the two calls end up
-  inconsistently wrapped.
-
-  Cross-checked against `_81`/`_93`'s own repro: their stability is
-  unrelated to this else-padding pass at all (no braceless-else chain in
-  either fixture) — their `createAsyncOptionsProvider`/`getInjectionProviders`
-  candidates measure consistently over/under `lineLengthLimit` both rounds
-  purely because no later pass changes their prefix width after this
-  fits-check runs. This confirms (independently of the refuted hypothesis)
-  that `_81`/`_93`'s stability and `/tmp/mini2.ts`'s instability come from
-  two different mechanisms, not one shared "sibling-wrap-width-blindness"
-  signal — the RDD_KEY_249 framing that grouped them into one candidate
-  fix-shape was itself imprecise.
-
-  **No fix attempted this session** — the newly-identified mechanism (a
-  fits-check running before a later, order-dependent padding pass) is the
-  same general "which pass gets to see the final, stable per-line width"
-  architectural family already named in the 2026-08-05/2026-08-06 sessions'
-  write-ups above, and every previously-tried fix shape in that family
-  (width-based collapse-time gate, statement-wide rejoin widening) has
-  already been shown to regress `_81`/`_93` for the same underlying reason
-  (a blanket "does the eventual line fit" check cannot distinguish
-  `_81`/`_93`'s legitimately-stable over-limit rejoins from `/tmp/mini2.ts`'s
-  genuinely-unstable one). A fix scoped narrowly to *this* mechanism (e.g.
-  running the rejoin fits-check after `alignBracelessElseIfChain`, or having
-  the fits-check ask `alignBracelessElseIfChain` for its own padding width
-  before measuring) was not designed or attempted — this session's budget
-  went to confirming/refuting the assigned hypothesis with evidence, per
-  the ambiguity-handling stop protocol, rather than immediately pivoting to
-  a new speculative gate-shape variant. `make test-quiet` reconfirmed at
-  246/246 forward + idempotency both before and after (debug instrumentation
-  fully removed, no source diff landed — `git status` clean).
-
-  **Next session:** the actual mechanism is now precisely identified
-  (`enforceCallLineBreaking`'s rejoin fits-check at ~line 247/286 runs
-  before `alignBracelessElseIfChain` at ~line 361, so it measures a
-  not-yet-padded `else` prefix) — a fix should look at reordering or
-  informing the rejoin fits-check about `alignBracelessElseIfChain`'s
-  eventual padding specifically, NOT at widening the fits-check's view of
-  sibling call text (that framing is now refuted). Before attempting a
-  reorder, check whether moving `alignBracelessElseIfChain` earlier (or
-  running it a second time, narrowly, the same way `RDD_KEY_248`'s
-  closing-brace/declarations narrow-rerun was eventually landed safely)
-  causes the same class of regression on `_81`/`_93` or the broader suite
-  that the two blanket-width attempts already hit — those two fixtures have
-  no braceless-else chain, so a fix scoped to specifically
-  `alignBracelessElseIfChain` ordering has a real chance of being
-  disjoint from what broke them before, unlike the previous two attempts.
-
-  **2026-08-07 sixth session — RESOLVED (RDD_KEY_250).** Landed the narrow
-  re-run fix the fifth session's write-up pointed at: right after
-  `blockRule.alignBracelessElseIfChain` (~line 361) in
-  `FormatterCurly.format`, added `enforceCallLineBreaking` twice (a single
-  pass only wraps the first over-limit candidate on a line with more than
-  one, same multi-candidate convergence reasoning as the pre-existing
-  ~247/~286 pair) followed by one `enforceComplexityPadding` (re-tightens/
-  loosens the plain-space join `enforceCallLineBreaking` leaves behind, same
-  reasoning as the pre-existing ~283-284 pair) — same fix shape as
-  `RDD_KEY_248`'s `reapplyClosingBraceAndDeclarationsPass`, not a reorder of
+- **RDD_KEY_250 (FIXED).** Landed the fix RDD_KEY_249's refutation pointed
+  at: right after `alignBracelessElseIfChain` in `FormatterCurly.format`,
+  re-run `enforceCallLineBreaking` twice + one `enforceComplexityPadding` —
+  same fix shape as `RDD_KEY_248`, not a reorder of
   `alignBracelessElseIfChain` itself (which stays last on purpose, per its
-  own comment, so its own padding decision sees every earlier pass's final
-  settled width).
+  own comment, so its padding decision sees every earlier pass's final
+  settled width). Verified a single re-run call was insuffient to reach a
+  fixed point (only the first candidate re-wrapped) — the two-call-plus-
+  repad shape was needed. `real_code_regressions_81`/`_93` re-verified
+  individually still stable (neither has a braceless-else chain, so the new
+  re-run block is a no-op for them) — confirms this fix is disjoint from
+  what broke them in RDD_KEY_249's attempt.
 
-  Verified with `DBG_CLB3`-env-gated instrumentation (removed before
-  landing) that a single re-run call left `/tmp/mini2.ts` still unstable
-  (only the first `padNumber` candidate re-wrapped, the second one
-  round-tripped inconsistently) — the two-call-plus-repad shape was needed
-  to actually reach a fixed point, not just one call. `/tmp/mini2.ts`
-  round1/round2 are now byte-identical. `make test-quiet` stayed at
-  246/246 forward + 246/246 idempotency both before and after. Explicitly
-  re-verified `real_code_regressions_81_inp.ts`/`_93_inp.ts` individually
-  (both burned by the third/fourth/fifth sessions' earlier attempts): both
-  still forward-match their `_out.ts` and stay idempotent, confirming this
-  fix is disjoint from what broke them before, exactly as the fifth
-  session's write-up predicted (neither fixture has a braceless-else chain,
-  so `alignBracelessElseIfChain` no-ops on them and the new re-run block is
-  a no-op too). New permanent fixture
-  `test/real_code_regressions_180_{inp,out}.ts` (the `formatOffset` repro),
-  registered in the Makefile's `INP_FILES` and `test/README.txt`. Full
-  writeup: `RDD_LOG.md`'s `RDD_KEY_250`.
+---
+
+## Active work — 3 open bugs (all `processScope`/declaration-alignment/
+call-wrap-ordering family except #1, which is a distinct `alignBracelessElseIfChain` cause)
+
+Investigation history for #2 (the deepest-traced of the three) is kept
+below in fuller detail since a fix direction is identified but unvalidated;
+#1 and #3 are summarized to their current, decisive findings. See "Related
+investigation history" immediately above for the broader family context,
+ruled-out hypotheses, and reusable debugging loci that inform all three.
+Full session-by-session narrative (including every dead end not captured
+above) lives in `git log` for this file — not re-derived here per this
+file's top-of-file convention.
+
+### 1. `angular/angular` cluster 4 residue — `shared.ts`/`directive_outputs.ts`
+
+`packages/core/src/render3/instructions/shared.ts:793-796` and
+`packages/core/src/render3/view/directive_outputs.ts` (same code shape,
+evidently copy-pasted between the two files) — a distinct, newly root-caused
+bug in `BlockStructureRule.alignBracelessElseIfChain` (braceless if/else
+chain alignment), confirmed via debug instrumentation to be **NOT** the
+`processScope` double-pass family (#2/#3 below).
+
+**Repro:** a bare `if(cond) stmt; else stmt;` with no wrappable call (both
+branches short enough to fit). Round1: `collapseSingleExpressionBlocks`
+strips braces (not gated by `refuseUnrescuableCollapse`, since both branches
+fit) and `alignBracelessElseIfChain` column-aligns the `if`/`else` bodies,
+producing e.g. `  if(...) hostIndex = data;` / `  else        [hostIndex,
+...] = data;` (both indented 2sp, `else` padded to align). Round2
+(reformatting that output): produces `  if(...) hostIndex = data;` /
+`    else [hostIndex, ...] = data;` — `else` re-indented to 4sp instead of
+2, and left unaligned.
+
+**Root cause (confirmed via debug prints in `alignBracelessElseIfChain`,
+since removed):** the pass detects an `if`/bare-`else` chain by requiring
+the two lines' raw leading-whitespace lengths to match exactly (`jIndent !=
+indentLen`), with one narrow recovery case for "the `if` line itself was
+left-padded wider by a previous round" (`jIndent < indentLen`). On round1:
+`if` `indentLen=2`, `else` `jIndent=2` — match, chain detected, alignment
+applied. On round2 (round1's output as input): `if` still `indentLen=2`,
+but `else` now measures `jIndent=4` — **some earlier pass in the pipeline
+(not individually identified — not `collapseSingleExpressionBlocks`, a
+no-op here since no braces remain, and not `alignBracelessElseIfChain`
+itself) has already re-indented the standalone `else` line one level deeper
+than its paired `if`, before `alignBracelessElseIfChain` sees it.** Since
+`jIndent(4) > indentLen(2)`, the one existing recovery case (which only
+handles the `if` line being padded wider) doesn't apply, the chain-scan
+breaks at size 1, and the file falls through with no alignment. Most likely
+a generic structural/statement indent-fixup pass earlier in
+`FormatterCurly.format`'s Phase 0/1 that treats an already-braceless
+standalone `else` (no adjacent brace pair) as an orphaned continuation
+statement one level deeper than its paired `if`, rather than recognizing it
+as a chain member — the determination differs depending on whether the
+`else` line's physical shape already carries a previous round's
+`alignBracelessElseIfChain` column-padding artifact.
+
+**Is this the `processScope` double-pass mechanism?** No — confirmed via
+evidence, not assumed. The `processScope` family's signature is a
+declaration/assignment/signature *grouping* decision (column widths, which
+rows share an alignment group) computed twice over overlapping ranges
+within one `format()` call. This bug is a single *indentation* value for
+one statement line disagreeing between rounds because an EARLIER pass's
+indent computation reacts to the PRESENCE of a LATER pass's own
+previous-round artifact — confirmed to occur before
+`alignBracelessElseIfChain` runs, and that method is single-pass,
+single-invocation (no outer/inner recursion). Closer in shape to the
+`enforceComplexityPadding`/`enforceAttributeAndSpliceBracketPadding`/
+`enforceInitializerBraceSpacing` precedent family ("a pass's decision
+depends on a later pass's not-yet-produced or already-produced artifact")
+— a genuinely distinct, fifth instance of that broader pattern.
+
+**Candidate fix (NOT ATTEMPTED, no design validated):** widen
+`alignBracelessElseIfChain`'s chain-recovery case to also tolerate
+`jIndent > indentLen` for a bare-`else` member specifically (mirroring the
+existing `jIndent < indentLen` recovery for the `if` line — re-anchor
+`indentLen` to the narrower of the two and strip whatever the earlier pass
+added), OR more robustly identify and fix the earlier indent-fixup pass so
+it never treats a bare `else` differently based on stale alignment
+whitespace (that pass not identified yet). **Risk: MEDIUM** —
+`alignBracelessElseIfChain` is JS/TS-and-Kotlin-shared machinery
+(`KotlinSpecificRule.alignBracelessElseIfChain` is a named sibling) already
+flagged fragile elsewhere in this file (an earlier reverted attempt at a
+related fix broke 5 fixtures); any change needs full `make test` plus
+multi-corpus real-code validation. The alternative (fix the earlier indent
+pass) has unknown, likely broader blast radius since it's structural/
+statement indentation, not JS/TS-specific. **Confidence in root cause:
+HIGH** (directly observed via debug prints). **Confidence in either fix
+succeeding without regression: LOW/UNVALIDATED.**
+
+Status: **OPEN.** No source change landed (debug prints added, used, fully
+reverted — `git status` clean except this state file).
+
+### 2. `microsoft/TypeScript` cluster #3 — `harness/collectionsImpl.ts`
+
+`ScopePipelineCurly.applyAssignmentsPass` (bare-assignment-statement
+alignment, STYLE.md §6) needs the same re-run treatment `RDD_KEY_248`
+already gave `applyDeclarationsPass`. Candidate fix identified but low
+confidence — `RDD_KEY_246`'s two prior attempts in this exact family
+(narrow re-run; full `processScope` re-run) both looked equally safe and
+regressed via a shared `processScope` trailing-gap force-reindent step.
+**MEDIUM-HIGH risk.**
+
+**Finding:** `harness/collectionsImpl.ts` diffs at line 276
+(`this._size = -1;`, wide-padded in round1, unpadded in round2) — same
+"call-wrap vs. alignment-padding decided too early" shape as the
+already-fixed `RDD_KEY_248` cause, but in `applyAssignmentsPass`, a code
+path `RDD_KEY_248`'s own javadoc on the `closingBraceAndDeclarationsOnly`
+re-run mode explicitly says was "not shown to depend on the post-call-wrap
+shape" and therefore deliberately left out of the re-run — **this
+investigation disproves that assumption for at least this one shape.**
+Source (`src/harness/collectionsImpl.ts:272`):
+`this._map[Metadata._escapeKey(key)] = value === undefined ?
+Metadata._undefinedValue : value;` followed by `this._size = -1;` — round1
+wraps the long line's `[...]` subscript (`enforceCallLineBreaking`, runs
+after `processScope`), but `applyAssignmentsPass` (part of `processScope`,
+runs *before* that wrap) already baked in `this._size`'s padding relative
+to the map statement's full single-line LHS width. Confirmed via temporary
+debug print (added/removed, no net diff) dumping each `Assignment` group's
+members: **round1** groups the map assignment (lhsText len 35) with
+`this._size` (len 10) — the wide member pads the narrow one. **round2**
+(round1's own multi-line-subscript output) shows the map row **absent from
+that group** — `this._size` groups only with an unrelated shorter
+assignment, gets little/no padding. *Why* the row drops out of the group on
+round2 specifically was **not pinned down this session** (budget spent
+confirming the group-membership divergence itself, not tracing into
+`parseAssignment`/`groupAssignments`/the two earlier `processScope` passes
+that run first).
+
+**Same family as #1/the RDD_KEY_248 finding, not a new third cause:** a
+`processScope`-phase pass's decision (here, assignment-group membership/
+padding) is computed once, before `enforceCallLineBreaking` (a later Phase
+1 pass) finishes changing the column widths it depends on — structurally
+identical to what `RDD_KEY_248` already fixed for `applyDeclarationsPass`,
+just in a different one of the five `processScope` passes.
+
+**Candidate fix (NOT ATTEMPTED — root-cause-only investigation; do not
+implement without a fresh session's real-corpus validation):** direct
+extension of `RDD_KEY_248`'s re-run — add `applyAssignmentsPass` as a third
+pass inside `processScope`'s existing `closingBraceAndDeclarationsOnly`
+mode (rename the flag if landed), run after the closing-brace and
+declarations passes, same "closing-brace first" ordering rationale.
+**Risk/blast radius:** narrowly scoped to the already-existing JS/TS-gated
+re-run path in `FormatterCurly.format` (per `RDD_KEY_246`/`RDD_KEY_248`,
+this second call site is JS/TS-only) — would not touch C/C++/Java/Kotlin's
+single-pass behavior. **However, `RDD_KEY_246`'s own history is a direct
+warning against assuming this is safe by inspection**: its Attempt 1
+(re-running only the two originally-scoped passes) looked narrow and still
+caused a real regression (`real_code_regressions_100.ts`'s `} // interface
+ParserOptions` losing its indent) via the *shared* trailing-gap
+force-reindent step inside `processScope` that both re-run modes pass
+through — `RDD_KEY_248`'s eventual fix needed an extra gate to skip that
+step entirely. Re-running `applyAssignmentsPass` a second time carries an
+analogous unknown risk: an already-correctly-padded assignment group could
+be re-parsed from its own already-padded text on the second re-run, and
+`parseAssignment`/`renderTokens` were not audited this session for safety
+under double-invocation (e.g. whether padding spaces before `=` could be
+mistaken for part of a multi-token LHS). **Confidence this fixes the bug
+without regression: LOW without a fresh session's full fixture-suite +
+dogfood-corpus validation** — the direction is a well-precedented narrow
+extension of an already-landed pattern, but every prior attempt in this
+exact family underestimated a shared-step interaction on the first try.
+
+Status: **NOT ATTEMPTED this session** (root-cause-only scope). No
+fixture added, no `RDD_LOG.md` key added, no dogfood corpus write
+performed (only a local round1/round2/diff cycle). `git diff` on formatter
+source confirms zero net change from this session.
+
+### 3. Remaining un-root-caused residue — `web_animations_player_spec.ts`, `input_transform.ts`
+
+Same `processScope`/declaration-alignment/call-wrap family as #1/#2 above,
+**no candidate fix yet** (budget went to #1/#2 this pass). Least scoped,
+highest risk of the three groups — treat as lowest priority until #1/#2 are
+resolved and re-narrowed.
+
+- `web_animations_player_spec.ts:177-193` — a class-field declaration-
+  alignment grid (`effect : AnimationEffect | null = null;`, `finished:
+  Promise<Animation> = ...`, etc.) where round1 and round2 disagree on
+  which rows are grouped and how wide the `:`/`=` columns are padded. Same
+  "grid recomputed against a different intermediate shape each round"
+  mechanism as `RDD_KEY_248`'s `commandLineParser.ts` repro, but for
+  class-member declarations with multi-line initializers
+  (`Promise.resolve(\n {} as any\n)`), a context `RDD_KEY_248`'s
+  `reapplyClosingBraceAndDeclarationsPass` re-run wasn't validated against.
+  Not traced further at the pass level — very likely the same fix extends
+  here with more validation, not a new mechanism.
+- `input_transform.ts:16-19` — a decorator-call-plus-declaration line
+  (`@Input( {...} ) inlineFunctionInput: any;`) that fits under
+  `lineLengthLimit` on round1 but gets wrapped onto two lines on round2.
+  Classic call-wrap-fits-check-measured-before-final-column-width shape
+  (cluster 4's own root-cause family), not traced to a specific method.
 
 ---
 
@@ -869,6 +637,19 @@ Phase 4 flat spacing, Phase 5 import ordering).
   groups (RDD_KEY_183) via `JsTsDeclarationAlignmentRule`. Multi-declarator
   statements (`let a = 1, b = 2;`) deliberately stay unaligned — matches
   C++/Java's own existing behavior for the same shape, confirmed not a gap.
+- **Single-declarator colon spacing** — **FIXED 2026-08-04.** `const x:
+  number = 1;` was rendering as `const x : number = 1;` whenever the
+  declaration had no alignment-group neighbors, because
+  `JsTsDeclarationAlignmentRule.renderAlignedGroup` always put `: type` in
+  its own `ColumnGrid` cell, and `ColumnGrid.flush()` joins adjacent cells
+  with a space even for a singleton "group." Fix: for `group.size() == 1`,
+  merge name and `: type` into one cell (no separate type-column) so the
+  join space lands after the identifier as normal TS spacing. Real
+  (`size() > 1`) alignment groups are untouched (their space-before-`:` is
+  the deliberate STYLE_JS_TS.md §11.2 look). Fixture
+  `test/real_code_regressions_177_{inp,out}.ts`; a pre-existing fixture
+  (`real_code_regressions_107_out.ts`) updated to match the corrected
+  singleton spacing. `make test`: 239/239.
 - **Real-code testing** — DONE for `expressjs/express`, `nestjs/nest`,
   `vuejs/core`, `lodash/lodash`, `angular/angular` (categorized), and
   `microsoft/TypeScript` (categorized). See dogfood sections below.
@@ -922,144 +703,15 @@ duplication in `enforceClassFieldAlignmentGrid` on nested `class` braces
 comment-continuation-indent drift on an object-shaped intersection alias
 (fixed: `enforceUnionTypeContinuationIndent` only reindents at depth 0,
 fixture `_84`); (5) `join(...)` call-wrap/collapse non-idempotency at
-exactly `lineLengthLimit` (fixed: fits-check on multi-line-source branch
-of `renderCallCandidate`, JS/TS-scoped, fixture `_85`). `make test`
-reached 134/134 by end of pass.
+exactly `lineLengthLimit` (fixed: fits-check on multi-line-source branch,
+fixture `_93`).
 
-### `vuejs/core` dogfood pass — DONE
+### `vuejs/core` dogfood pass — DONE, one issue deferred
 
-Repo: `vuejs/core` (`/tmp/vue-core`, HEAD `b5f8518`), 514 `.ts`/`.js` files
-under `packages/`, `packages-private/`, `scripts/` (5 `.tsx` files under
-`packages-private/dts-test/` correctly excluded, out of scope). Round1: zero
-crashes, 514/514 formatted. Round1→round2 idempotency initially found 20
-files differing.
-
-**Bugs found and fixed (13 total across the pass):**
-1. Leading multi-line block-comment reindent non-idempotency — class-field
-   grid, enum formatting, interface/type-alias member alignment all
-   re-emitted a captured leading `/** ... */` at its *original* indentation.
-   Fixed via `reindentLeadingComment` at all three sites (fixture `_87`).
-   Resolved 15/20 files.
-2. `collectionHandlers.ts` — `GENERIC_SAFE_KEYWORDS` missing `symbol`/
-   `bigint`, `isGenericSafeToken`'s OP case missing `|` (fixture `_88`).
-3. `componentOptions.ts` — same symbol/bigint/`|` bug, plus type-parameter-
-   default clause silently dropped by `parseTypeAlias`'s generic-clause skip
-   loop, plus unconditional `]`-followed-by-`]` branch (meant for C++11
-   attributes) misfiring on a TS mapped type, desyncing bracket-depth
-   tracking (fixture `_89`).
-4. `ref.test-d.ts`/`watch.test-d.ts` — `classifyBraces`'s `isValue`
-   prev-token list missing `|`/`&`, misclassifying an inline object type's
-   `{` after a union/intersection op as a statement-body brace (fixture `_90`).
-5. `if( ... )` nested-call paren-padding order-dependency (11 files) — per
-   RDD_KEY_62 a nested `(`/`[` anywhere inside a paren pair makes it
-   "loose"; round1 under-padded when the `if`'s consequent was itself a
-   multi-line call. Root-caused and fixed.
-6. `scripts/release.js` call-wrap/collapse boundary bug — single-argument
-   fits-check measured candidate width *before* `JsTsDeclarationAlignmentRule`'s
-   column-alignment pass ran. Fixed (ancestor of the still-open angular/
-   TypeScript "cluster 4"/"cluster 3" ordering bug — see those sections).
-7–15. Nine further bugs via `tsc --noEmit` diff (0 vs. new errors), each
-   root-caused/fixed (fixtures `_101`, `_102`, `_105` [5 sub-bugs], `_107`):
-   `GENERIC_SAFE_KEYWORDS` missing `true`/`false`, then `keyof`/`is`/
-   `infer`/`asserts`/`readonly`/`unique`/`as`/`satisfies`, then `typeof`;
-   nested-brace-depth clear-all guard over-firing on a legit nested
-   object-type arg, and separately not covering tokens inside nested
-   braces; parenthesized-ternary `:` misclassified as return-type colon
-   (new `isGroupingExpressionParen` helper); `typeof`/`keyof` not
-   recognized as `prevPrev` by arrow-param-paren bail-out; trailing
-   type-annotation `:` wrapped to next line got a bogus `;` (added `":"`
-   to `CONTINUATION_OPS`); `isGenericSafeToken` OP list missing `=>`/`...`
-   (latter `lang.isTs`-gated); TS function-type parameter list wrongly
-   padded like a grouping paren.
-
-**Final verification:** `make test` 156/156 forward + 156/156 idempotency.
-Full 514-file round1 — zero crashes. Round1→round2 — **only one file still
-differs**: `packages/compiler-sfc/src/script/utils.ts`, a switch-case
-fallthrough (consecutive `case` labels sharing one body) non-idempotency,
-**confirmed pre-existing on the unmodified codebase** (verified via `git
-stash`/rebuild/retest/pop — original produces a different but equally-broken
-symptom). Not fixed as part of this pass — see "Known open issues" below.
-
-**Verdict: DONE.** All 13 formatter bugs found this session fixed and
-covered by permanent fixtures. The `utils.ts` switch-case gap is confirmed
-pre-existing, out of scope, tracked below.
-
-### Known open issues (pre-existing, deferred — not part of `vuejs/core` DONE scope)
-
-- **`utils.ts`/`lodash.js` switch-case fallthrough non-idempotency — FIXED
-  2026-08-07 (RDD_KEY_263).** Re-reproduced against real downloaded files
-  (`vuejs/core`@`b5f8518` `packages/compiler-sfc/src/script/utils.ts`,
-  `lodash/lodash`@`a666ba5` `lodash.js` — note: the confirming file is
-  `lodash.js` itself, not `fp/_baseConvert.js` as this section's older text
-  implied; `initCloneByTag` lives only in `lodash.js`, `fp/_baseConvert.js`
-  round-trips clean and always did). `utils.ts` at that pinned commit is too
-  short in its current shape to overflow `lineLengthLimit` and actually
-  trigger the bug (its switch's case bodies are all short one-liners), but
-  `lodash.js`'s `initCloneByTag` typed-array fallthrough case reproduces it
-  cleanly. Root cause: `FormatterCurly.format`'s first
-  `switchRule.formatNonInlineSwitches` call (Phase 1, ~line 285) decides
-  whether a switch needs STYLE.md §13's blank-line-around-multiline-case-
-  body treatment via the pure predicate `isNonInline` ("does any case body
-  span more than one physical line") — evaluated *before*
-  `switchRule.alignInlineSwitches`'s case-grid collapse (Phase 3) and the
-  `enforceCallLineBreaking` re-wrap passes have run. A grid-aligned case
-  whose padded line overflows `lineLengthLimit` only becomes genuinely
-  multi-line (its trailing call wrapped across lines) as a *result* of those
-  later passes — invisible to the first `isNonInline` check on a fresh
-  format, but visible on a reformat of round1's own already-wrapped output,
-  so round1 correctly omits the required blank lines while round2 correctly
-  inserts them: round1 != round2. **Fix:** added a second
-  `switchRule.formatNonInlineSwitches` call near the end of Phase 4 (right
-  after the final `enforceComplexityPadding`, before Phase 5), after every
-  pass capable of turning a case body multi-line has settled. Idempotent by
-  construction — `isNonInline`/`needsWork` are pure predicates re-evaluated
-  each call, so an already-correct switch is a no-op, and the pass only ever
-  inserts blank lines into gaps, never touching `alignInlineSwitches`'s own
-  grid/column-alignment output. Shared C/C++/Java-owned `SwitchRule` code —
-  fix applies uniformly across the whole curly family, see
-  `STATE_C_CPP_JAVA.md`'s "Known Gaps" for its own cross-reference. New
-  permanent fixture `test/real_code_regressions_183_{inp,out}.js`
-  (minimized `initCloneByTag` shape). `make test`: 253/253 forward +
-  idempotency (was 252/252 before the fixture). Both real files now
-  round1==round2 byte-identical.
-- **Single-declarator colon spacing** — **FIXED 2026-08-04.** `const x:
-  number = 1;` rendered as `const x : number = 1;` (space inserted before
-  the colon) whenever the declaration had no alignment-group neighbors.
-  Root cause: `JsTsDeclarationAlignmentRule.renderAlignedGroup` always put
-  the `: type` text in its own `ColumnGrid` cell; `ColumnGrid.flush()`
-  always joins adjacent cells with a single space, even for a one-row
-  "group" of size 1 — so `x`/`: number` joined as `x : number` even though
-  there was nothing to actually align a column against. STYLE.md §5's "a
-  lone variable with no group neighbors...align trivially with itself, do
-  not leave it awkwardly padded" rule means a singleton declaration should
-  never pay the grid-join space. **Fix:** `renderAlignedGroup` now checks
-  `group.size() == 1`; for that case the name and `: type` text are merged
-  into one cell before being added to the row (no separate type-column cell
-  at all), so the join space lands after the identifier as normal TS
-  spacing instead of before the colon. A real (`size() > 1`) alignment
-  group is untouched — it keeps the separate-cell/grid-padding path, whose
-  space-before-`:` is the deliberately documented alignment look
-  (STYLE_JS_TS.md §11.2's `DEFAULT : string` example) and must stay as-is.
-  The `=` init column and trailing-comment handling were not touched (no
-  reported bug there — a lone variable's `=` spacing was already correct).
-
-  One pre-existing fixture had baked in the old buggy spacing:
-  `test/real_code_regressions_107_out.ts`'s `let server : ReturnType<typeof
-  createServer>;` (a genuine singleton, no group neighbors) was updated to
-  `let server: ReturnType<typeof createServer>;` to match the now-correct
-  behavior — this is the fixture's own file, not a hand-rolled special
-  case, so no separate `RDD_KEY_*` was needed for it.
-
-  New permanent fixture `test/real_code_regressions_177_{inp,out}.ts`
-  (registered in the Makefile's `INP_FILES` and `test/README.txt`) covers
-  both paths side by side: two singleton declarations (`const x: number =
-  1;`, `let y: string;`, each isolated by a blank line) prove the fix, and
-  a real 3-row `const` group inside a function body proves the alignment
-  grid path (space before `:`) is unchanged.
-
-  **Test result:** `make test` 239/239 forward + 239/239 idempotency (was
-  238/238 before this fixture was added) — zero regressions, fix kept (not
-  reverted).
+`utils.ts` switch-case fallthrough non-idempotency was found here first
+(later confirmed a second time in `lodash/lodash` below, and eventually
+fixed project-wide as `RDD_KEY_263`). No other bugs found; all other files
+clean/idempotent.
 
 ### `lodash/lodash` dogfood pass — DONE
 
@@ -1071,16 +723,15 @@ exclusion convention).
 **Baseline:** `node --check` 27/27 pass. **Round1:** zero crashes, 27/27
 formatted, `node --check` 27/27 pass. **Idempotency:** 26/27 byte-identical;
 `lodash.js` differs — the same switch-case-fallthrough shape as the
-`vuejs/core` `utils.ts` issue above (second confirming data point, not
-re-fixed here — see "Known open issues").
+`vuejs/core` `utils.ts` issue above (second confirming data point; later
+fixed as `RDD_KEY_263`).
 
 **Content-preservation** (`js_ts_content_diff.js`, original vs. round1):
 initially 17/27 "MISMATCH", all decomposing into two intentional, non-lossy
 transformations the checker didn't yet tolerate (comment trailing-period
 stripping; §10 single-expression-block brace omission) — both became checker
-tolerances (see Dogfood Output Validation above). After checker improvement
-(follow-up session): **22/27 clean** (up from 10/27 pre-first-round of
-tolerances). Remaining 5 files are two further confirmed-intentional,
+tolerances (see Dogfood Output Validation above). After checker improvement:
+**22/27 clean**. Remaining 5 files are two further confirmed-intentional,
 non-lossy classes, left unfixed (checker gap, not formatter bug, low
 priority TODO): bare single-param arrows gaining parens (3 files, documented
 §6 behavior); STYLE.md §4 pre-increment-except-when-post-required correctly
@@ -1088,9 +739,18 @@ rewriting a standalone/unused for-loop increment (2 files,
 `perf/perf.js`/`test/test.js`).
 
 **Verdict: DONE.** Zero new formatter bugs found. The one idempotency diff
-is a confirming recurrence of the already-tracked `SwitchRule` issue.
+was a confirming recurrence of the (now-fixed) `SwitchRule` issue.
 
-### `angular/angular` dogfood pass — clusters 1-3 FIXED, cluster 4 PARTIALLY FIXED (all 4 named root causes now landed; `RDD_KEY_248` (2026-08-06) separately fixed most residual files outside the 4 named causes; a 2026-08-07 root-cause-only session found the residual surface narrowed to 4 files, 2 in the known `processScope`/declaration-alignment family and 2 in a newly-identified, distinct `alignBracelessElseIfChain` root cause — see that session's note near the end of this section), cluster 5 RESOLVED (2026-08-05 — all 3/3 files now idempotent: `emit.ts` via single-pass GDR (2026-08-02), `user_metric_spec.ts`/`i18n_parse.ts` via `curly-general-scope-reindent-multipass` (landed 2026-08-03 in `STATE_CURLY_GDR.md` for `RDD_KEY_229`, re-validated fresh against the live corpus this session); see below — this is a per-corpus dogfood-recommendation note, `curly-general-scope-reindent`/`-multipass` both stay `off` by default project-wide)
+### `angular/angular` dogfood pass
+
+Clusters 1-3 FIXED, cluster 4 PARTIALLY FIXED (all 4 named root causes
+landed; `RDD_KEY_248` separately fixed most residual files outside the 4
+named causes; the residual surface has narrowed to the 4 files tracked
+under "Active work" above — 2 in the known `processScope` family, 2 in the
+newly-identified `alignBracelessElseIfChain` cause), cluster 5 RESOLVED
+(2026-08-05 — all 3/3 files idempotent via existing opt-in flags, see
+below; `curly-general-scope-reindent`/`-multipass` stay `off` by default
+project-wide).
 
 Repo: `/tmp/angular`, shallow clone (`--depth 1`), HEAD `5ad8231`
 (2026-07-24). Scope: 5394 `.ts` files (`.d.ts`/`.tsx` excluded) across
@@ -1099,713 +759,214 @@ Repo: `/tmp/angular`, shallow clone (`--depth 1`), HEAD `5ad8231`
 (one per top-level dir), round1 then round2. Syntax check: TS compiler-API
 parse-only (no type-check).
 
-Stats: 0 crashes/5394 files; 29 idempotency mismatches; parse-check baseline
-(unformatted) 0/5394 errors; round1 output **46/5394** files with parse
-errors (339 diagnostic lines) — 46 real formatter-induced syntax
-corruptions despite zero hard crashes. Clusters ranked most-valuable-to-fix
-first (value = criticality weighed against difficulty):
+**Initial stats:** 0 crashes/5394 files; 29 idempotency mismatches; parse-
+check baseline (unformatted) 0/5394 errors; round1 output **46/5394** files
+with parse errors (339 diagnostic lines) — 46 real formatter-induced syntax
+corruptions despite zero hard crashes.
 
-1. **[CRITICAL] [FIXED]** Dotted/qualified type-predicate or return-type
-   before `=>` gets its last segment wrapped in a spurious paren pair —
-   dominant corruption cluster, **~40 of 46 broken files** (e.g. `node is
-   tss.Node =>` → `node is tss.(Node) =>`). Root cause:
-   `enforceArrowFunctionParameterParens`'s backward scan for a bare
-   single-identifier param didn't check whether that identifier is the tail
-   of a preceding **dotted** type-predicate/return-type (existing bail-out
-   only special-cased `is`/`typeof`/`keyof` as immediate `prevPrev`, not a
-   multi-segment dotted path). **Fix:** walk backward over any number of
-   `IDENTIFIER '.'` pairs before `prevIdx`, then apply existing bail-out
-   against what precedes the chain's first segment. Fixture
-   `real_code_regressions_134`. `make test`: 183/183.
-2. **[CRITICAL] [FIXED]** Old-style angle-bracket cast (`<Type>{...}`)
-   misparsed as a generic, injecting a bogus `;` inside the following object
-   literal — 1 file (`testability.ts:229`). Root cause one level downstream
-   of `reclassifyAngleBrackets` (which correctly leaves a cast's `<`/`>` as
-   plain OP): nothing downstream recognized the plain-OP `<Type>{` shape as
-   a cast, so the object literal fell through `classifyBraces`'s
-   default-false `isValue` case and got depth-reset as a statement body.
-   **Fix:** new `isLegacyCastBrace` — a `{` preceded by a plain `>` whose
-   matching plain `<` sits before a (optionally dotted) type name following
-   a value-starting token is now treated as a value/pattern brace. Fixture
-   `real_code_regressions_135`. `make test`: 184/184.
-3. **[CRITICAL] [FIXED]** Multi-line generic return-type clause loses its
-   closing `>`, spilling a bogus `;` into the type — 1 file
-   (`utils.ts:103-105`, `Promise<\n (typeof import(...))['default'] |
-   null\n>`). Root cause: TS dynamic-import type-query operand (`import` as
-   a type-operand keyword) wasn't in `GENERIC_SAFE_KEYWORDS`, invalidating
-   the enclosing `<...>` tracking — same gap class as existing
-   `keyof`/`is`/`infer`/etc. entries. **Fix:** add `"import"` to
-   `GENERIC_SAFE_KEYWORDS`. Fixture `real_code_regressions_136`. `make
-   test`: 185/185.
-4. **[PARTIALLY FIXED — ACTIVE WORK] Call-wrap/collapse vs. alignment-padding
-   fits-check ordering** — dominant idempotency cluster, **~23 of 29 files**
-   (`create_router_state.ts:27`, `node_selector_matcher.ts:155`,
-   `ingest.ts:814`, `locale_plugin.ts:42`, `hover.ts:58`, plus ~18 more
-   across `compiler-cli`, `schematics`, `common/i18n`, `location_shim.ts`,
-   `split.component.ts`, `web_animations_player_spec.ts`, `adev/.../app.ts`).
-   Root cause family: `enforceCallLineBreaking`'s single-argument fits-check
-   measures candidate line length **before** declaration-alignment/
-   complexity-padding finish adjusting column widths, flip-flopping every
-   round. Confirmed broad (23/29, majority) and config-insensitive at
-   `indent-size=2`.
+**Clusters 1-3 (all FIXED, most-valuable-first order):**
+1. **[CRITICAL]** Dotted/qualified type-predicate or return-type before
+   `=>` wrapped its last segment in a spurious paren pair — ~40/46 broken
+   files (e.g. `node is tss.Node =>` → `node is tss.(Node) =>`).
+   `enforceArrowFunctionParameterParens`'s backward scan didn't walk back
+   over a multi-segment dotted path before its existing `is`/`typeof`/
+   `keyof` bail-out. Fix: walk back over any number of `IDENTIFIER '.'`
+   pairs first. Fixture `real_code_regressions_134`.
+2. **[CRITICAL]** Old-style angle-bracket cast (`<Type>{...}`) misparsed
+   as a generic, injecting a bogus `;` into the following object literal —
+   1 file (`testability.ts:229`). Fix: new `isLegacyCastBrace` — a `{`
+   preceded by a plain `>` whose matching `<` sits before a type name
+   following a value-starting token is now treated as a value/pattern
+   brace. Fixture `real_code_regressions_135`.
+3. **[CRITICAL]** Multi-line generic return-type clause lost its closing
+   `>`, spilling a bogus `;` into the type — 1 file (`utils.ts:103-105`,
+   TS dynamic-import type-query operand). Fix: add `"import"` to
+   `GENERIC_SAFE_KEYWORDS`. Fixture `real_code_regressions_136`.
 
-   **Two of at least three/four distinct root causes are FIXED:**
-   - **Root cause #1 — trailing-comma dangling-empty-group** (confirmed via
-     `create_router_state.ts:27`): `renderCallDropped`/`renderCallOnePerLine`
-     measured via `splitTopLevelCommas`, which — unlike `groupByOriginalLine`
-     — doesn't drop a dangling trailing empty group from a trailing comma
-     before `)`. Fixed by adding the same drop to both methods. Fixture
-     `real_code_regressions_140`.
-   - **Root cause #2 — `if (`/`if(` keyword-spacing pipeline ordering**
-     (confirmed via `node_selector_matcher.ts:155`, `locale_plugin.ts:42`):
-     the fits-check for a call inside `if (...)` measured the line before
-     `enforceKeywordSpacing` (collapses `if (` → `if(`) had run (it ran in
-     Phase 4, after the fits-check) — one char narrower on reformat,
-     flipping the boundary (confirmed exact 101-vs-100). Fixed by pulling
-     `enforceKeywordSpacing` forward to run immediately before the first
-     `enforceCallLineBreaking` call. Applies to all curly-brace languages
-     (shared `MiscRuleCore`), full `make test` re-run confirmed no
-     regressions. Fixture `real_code_regressions_141`. `make test` after
-     both fixes: 190/190.
-   - Spot-check of 8 originally-cited files after both fixes: 6 now
-     idempotent, 2 still broken via further distinct root causes:
+`make test` after clusters 1-3: 185/185.
 
-   - **Root cause #3 — ATTEMPTED AND REVERTED (too many regressions), then
-     redesigned and landed** — **braceless-else body never re-validated
-     after brace-collapse/alignment** (`format_date.ts:519`):
-     `collapseSingleExpressionBlocks` strips `if`/`else` braces in Phase 0,
-     before `enforceCallLineBreaking` (Phase 1) — the braced source used a
-     `+`-chain complexity-wrap to fit, which doesn't apply to the
-     now-braceless body, leaving the joined line over the limit;
-     `alignBracelessElseIfChain` pads it anyway (intentional escape hatch,
-     `BlockStructureRule.java`, not a bug there). Rounds diverge. **First
-     attempt (reverted):** refuse to collapse (`tryCollapse`) whenever the
-     joined one-liner exceeds `lineLengthLimit` — **DO NOT retry this naive
-     approach**: no way to know `enforceCallLineBreaking` will still wrap an
-     inner call and make it fit, so it wrongly re-braced every braceless
-     if/else with a wrappable-call body — broke 5 fixtures (`java_combined`,
-     `real_code_regressions_57`/`_81`/`_93`/`_141`). Real fix needs the
-     guard to simulate `enforceCallLineBreaking`'s wrap decision on the
-     joined candidate first (two-pass lookahead) — bigger lift.
+**Cluster 4 — call-wrap/collapse vs. alignment-padding fits-check ordering**
+— dominant idempotency cluster, originally ~23/29 idempotency-mismatch
+files. Root cause family: `enforceCallLineBreaking`'s single-argument
+fits-check measures candidate line length **before** declaration-alignment/
+complexity-padding finish adjusting column widths, flip-flopping every
+round.
 
-     **Design (2026-07-30, landed 2026-07-31 — tracker item 12):** cheaper
-     than a true two-pass simulation; reuses existing precedent
-     (`JavaSpecificRule.isSingleLineBody`, `KotlinSpecificRule`'s analogous
-     method, `GetterSetterRuleCurly.parseOneLinerMember`'s length pre-check
-     — all solve the same "will `enforceCallLineBreaking` still wrap this
-     later" problem via a cheap heuristic, not a real simulation): (1)
-     `hasBreakableCall(tokens, from, to)` — true iff the span contains a
-     `name(args)` call with a non-empty argument list (the only shape ever
-     wrapped); (2) a raw-width estimate
-     (`expandedIndentWidth(lineIndent(...))` + collapsed-whitespace text
-     length, matching `enforceCallLineBreaking`'s own measurement) compared
-     against `lineLengthLimit`. Key insight: refuse collapse only when
-     over-limit **and** `hasBreakableCall` is false — if a breakable call
-     exists, collapsing is still safe since `enforceCallLineBreaking` will
-     wrap later and both rounds predict the same outcome.
+- **Root cause #1 — trailing-comma dangling-empty-group** (confirmed via
+  `create_router_state.ts:27`): `renderCallDropped`/`renderCallOnePerLine`
+  measured via `splitTopLevelCommas`, which — unlike `groupByOriginalLine`
+  — didn't drop a dangling trailing empty group from a trailing comma
+  before `)`. Fixed by adding the same drop to both methods. Fixture
+  `real_code_regressions_140`.
+- **Root cause #2 — `if (`/`if(` keyword-spacing pipeline ordering**
+  (confirmed via `node_selector_matcher.ts:155`, `locale_plugin.ts:42`):
+  the fits-check for a call inside `if (...)` measured the line before
+  `enforceKeywordSpacing` (collapses `if (` → `if(`) had run — one char
+  narrower on reformat, flipping the boundary (confirmed exact
+  101-vs-100). Fixed by pulling `enforceKeywordSpacing` forward to run
+  immediately before the first `enforceCallLineBreaking` call. Applies to
+  all curly-brace languages (shared `MiscRuleCore`). Fixture
+  `real_code_regressions_141`. `make test` after both: 190/190.
+- **Root cause #3 — braceless-else body never re-validated after brace-
+  collapse/alignment** (`format_date.ts:519`): `collapseSingleExpressionBlocks`
+  strips `if`/`else` braces in Phase 0, before `enforceCallLineBreaking`
+  (Phase 1) — a braced source used a `+`-chain complexity-wrap to fit,
+  which doesn't apply to the now-braceless body, leaving the joined line
+  over the limit; `alignBracelessElseIfChain` pads it anyway (intentional
+  escape hatch, not a bug there). **First attempt (reverted):** refuse
+  collapse whenever the joined one-liner exceeds `lineLengthLimit` — **do
+  not retry**: with no way to know `enforceCallLineBreaking` will later
+  wrap an inner call to make it fit, this wrongly re-braced every
+  wrappable-call-body braceless if/else, breaking 5 fixtures
+  (`java_combined`, `real_code_regressions_57`/`_81`/`_93`/`_141`). **Real
+  fix (landed 2026-07-31):** `BlockStructureRule.refuseUnrescuableCollapse`
+  — refuse collapse only when the joined candidate is over-limit **and**
+  `hasBreakableCall(tokens, from, to)` finds no rescuable call (a
+  `name(args)`-with-nonempty-args span), reusing the same cheap-heuristic
+  precedent as `JavaSpecificRule.isSingleLineBody`/`GetterSetterRuleCurly
+  .parseOneLinerMember`'s length pre-check rather than a true two-pass
+  simulation. Called from `tryCollapse`, `collapseBracelessBody` (shared
+  by both `tryCollapseBraceless` and the bare-`else` collapse path, gained
+  a new `indentAnchorIdx` parameter), and (found while building the
+  permanent fixture) a third site — the bare-terminal `else { ... }`
+  chain-collapse path inside `collapseSingleExpressionBlocks`
+  (`chainAllBranchesCollapsible`-gated) — which built its candidate inline
+  and had no gate until this follow-up. Scan covers the *whole* candidate
+  (condition + body), not body-only as originally worded (a body-only scan
+  broke `real_code_regressions_141`, whose rescuable call is in the
+  *condition*). Fixture `real_code_regressions_172`. `make test`: 221/221.
+  All 5 originally-cited angular files confirmed individually idempotent.
+  Full `packages/` re-scan (3900 files): 12 differ (down from ~23), 3 of
+  which are the separate cluster 5 gap (untouched by this fix), 9 not
+  fixed by this session — see "Known residual limitation" and the later
+  2026-08-07 re-scan below.
 
-     **Implemented** in `BlockStructureRule.java`: private
-     `refuseUnrescuableCollapse` (alongside local
-     `expandedIndentWidth`/`hasBreakableCall`/`nextSignificantIndexLocal`/
-     `matchParenForwardLocal` — this class has no shared ancestor with the
-     `*Curly` hierarchy, so all four are duplicated copies per the
-     established per-class convention, not new shared extractions). Called
-     from `tryCollapse` (after existing brace-content guards, right before
-     its final `return`) and from `collapseBracelessBody` (shared core both
-     `tryCollapseBraceless` and the bare-`else` collapse path route through
-     — gained a new leading `indentAnchorIdx` parameter, the keyword token
-     index, threaded from both call sites). Gate: `(lang.isJs ||
-     lang.isTs)` only; computes the joined candidate's true rendered width;
-     if under `lineLengthLimit`, no gate. If over, refuses (returns `null`,
-     leaving the braced/multi-line form untouched) only when
-     `hasBreakableCall` finds no rescuable call.
+- **Root cause #4 [FIXED] — trailing same-line comment inconsistently
+  counted in the collapse fits-check** (`location_shim.ts:461`): fresh
+  format counts the trailing comment's width in the fits-check (over limit
+  once `=`-alignment padding widens the column) → wraps; once wrapped the
+  comment moves past the call's `)`, so reformat measures without it →
+  collapses back. Fixed via `appendRangeCollapsingTrailingCommentGap`
+  (`MiscRuleCurly.java`): whitespace before a trailing line comment
+  collapses to one space for measurement only (never rendered), used only
+  in the JS/TS tight-candidate fits-check's `suffix`. Fixture
+  `real_code_regressions_142`. `make test`: 191/191. A related 3-sibling
+  `=`-alignment-group non-self-stability quirk was seen while building the
+  fixture but did NOT reproduce against real `location_shim.ts` (confirmed
+  idempotent there) — not investigated further, flag if a future dogfood
+  run hits it.
 
-     **Deviation from original wording, found necessary:** the design said
-     scan "the candidate's body span"; the actual scan covers the *whole*
-     candidate (condition/prefix AND body) — a body-only scan broke the
-     already-passing `real_code_regressions_141` fixture, where the
-     zero-arg body call has nothing to wrap but the *condition*'s own call
-     is what `enforceCallLineBreaking` wraps to rescue the line (root
-     cause #2's own fix). Widening the scan doesn't reopen the reverted
-     attempt's failure mode, since that attempt had no `hasBreakableCall`
-     gate at all.
+  **Known residual limitation** (not a regression — confirmed via
+  `format_date.ts:519` and `checker.ts:16487` in the TS corpus):
+  `hasBreakableCall` only asks "does a rescuable call exist," not "will
+  wrapping it actually bring the line under `lineLengthLimit`." When the
+  one breakable call's wrap doesn't shrink the joined line far enough
+  (e.g. dominated by a long `+`-concatenation chain rather than the call
+  itself), collapse still proceeds and the line stays over-limit
+  post-wrap — a narrower, more surgical measurement (comparing the
+  post-wrap estimate against the limit, rather than blanket-widening as
+  the earlier reverted attempt did) was identified as a possible fix
+  direction but not attempted (budget spent on the two extremes already
+  disproven — see cluster #3 sibling / `RDD_KEY_249` below for the
+  parallel investigation and its own negative result).
 
-     **Follow-up: third insertion point found and fixed while building the
-     permanent fixture.** The design named two insertion points
-     (`tryCollapse`/`tryCollapseBraceless`), but a third call site — the
-     bare-terminal `else { ... }` chain-collapse path inside
-     `collapseSingleExpressionBlocks` itself (gated by
-     `chainAllBranchesCollapsible`) — builds its collapsed candidate inline
-     and routed through neither, so it had no gate until this follow-up.
-     Found while constructing a minimal "unrescuable, should refuse" repro:
-     refusal never took effect for a plain `if (...) { ... } else {
-     longNoCallBody }` shape. Fixed by adding the same
-     `refuseUnrescuableCollapse` call at that site too (falls through to
-     the untouched default when refused, same posture as every other
-     guard in this class).
-
-     **Test results:** `make test` 221/221 forward + 221/221 idempotency
-     (grew from 196/196 at the top of this file partly from intervening
-     sessions/other jobs' fixtures, partly this session's new fixture
-     `real_code_regressions_172` — see below).
-
-     **Real-corpus validation:** all 5 originally-cited `angular/angular`
-     files (`create_router_state.ts`, `node_selector_matcher.ts`,
-     `ingest.ts`, `locale_plugin.ts`, `hover.ts`) confirmed individually
-     idempotent now (were not, before this fix). `location_shim.ts` (root
-     cause #4's file) and `split.component.ts` spot-checked, still
-     idempotent (no regression). Full `packages/` re-scan (3900
-     `.ts`/non-`.d.ts`/non-`.tsx` files, round1→round2): **12 files still
-     differ**, down from the ~23 originally cited across the whole
-     5394-file corpus (packages/ is the majority of that count, not a
-     strictly apples-to-apples full re-run, but the direction/magnitude
-     confirm real reduction). Of the 12: 3 are the already-catalogued,
-     unrelated, accepted cluster 5 architectural gap (`user_metric_spec.ts`,
-     `emit.ts`, `i18n_parse.ts` — pre-existing inconsistent-source
-     reindentation, untouched by this session). The remaining 9
-     (`format_date.ts`, `web_animations_player_spec.ts`, `parser.ts`,
-     `jit_compiler_facade.ts`, `r3_template_transform.ts`, `util.ts`,
-     `node_js_file_system.ts`, `input_transform.ts`, `migration.ts`) are
-     **not fixed** by this session — see "known residual limitation"
-     immediately below.
-
-     **Known residual limitation (not a regression, a real gap in the
-     heuristic's coverage, confirmed via `format_date.ts:519` and
-     `checker.ts:16487` in the TypeScript corpus below):** `hasBreakableCall`
-     only asks "does a rescuable call exist", not "will wrapping it actually
-     bring the line under `lineLengthLimit`". When a collapsed candidate is
-     long enough that wrapping the one breakable call's arguments doesn't
-     shrink the joined line far enough (e.g. a long `+`-concatenation chain
-     with two `padNumber(...)` calls, only one of which — or neither, if the
-     other operands alone already exceed the limit — would be wrapped), the
-     gate still allows the collapse (a rescuable call exists), but the real
-     `enforceCallLineBreaking` pass either doesn't wrap it (still doesn't fit
-     enough to trigger) or wraps it and still leaves the line long — round1
-     and round2 can then genuinely disagree the same way they did before this
-     fix. This is the gap the original design already flagged as the reason a
-     true two-pass simulation would be needed for full coverage ("bigger
-     lift, deferred") — `hasBreakableCall` was always a cheap approximation,
-     not a guarantee, and this session's validation is the first real
-     evidence of where the approximation's coverage ends. No fixture was
-     added for this specific residual case (the existing behavior pre- and
-     post-fix is identical for these specific files -- the fix is a strict
-     improvement, never a regression, so there is no *new* bug shape to pin
-     with a fixture). The fix's own correctness (both the "rescuable,
-     collapse proceeds" and "unrescuable, collapse refused" branches of
-     `refuseUnrescuableCollapse`) is now covered by the new permanent
-     fixture `test/real_code_regressions_172_{inp,out}.ts` (registered in
-     the Makefile's `INP_FILES` and `test/README.txt`, modeled on
-     `checkAttrs`/`checkFlag` shapes derived from the angular real-code
-     validation above), plus the pre-existing `real_code_regressions_57`/
-     `_81`/`_93`/`_141` fixtures (regression coverage for the reverted
-     naive attempt).
-
-     **TypeScript corpus (`/tmp/ts-dogfood/TypeScript`, 601 files) re-run:**
-     round1→round2 now shows 29 differing files (previously 28/601 for
-     cluster #3 before this fix). Not a regression — spot-checking
-     `commandLineParser.ts` (named in the original cluster #3 write-up as
-     reproducing config-insensitively) shows its diff is an
-     object-literal/declaration-alignment column-width shift, not a
-     braceless if/else collapse at all — a sibling root cause in the same
-     "call-wrap vs. column-width-adjusting-pass ordering" family this
-     session's fix was never scoped to touch. `checker.ts` in this same
-     corpus *does* show the exact root-cause-#3 shape (a braceless
-     `if(...)  <huge-gap>  lateBindMember(...)`, same as `format_date.ts`)
-     and is the other confirmed instance of the residual limitation above.
-     **Conclusion:** this session's fix is confirmed correctly targeted and
-     effective for its specific root cause, but the TypeScript corpus's
-     cluster #3 count barely moved because most of its 28 files are a
-     different, not-yet-root-caused sibling issue (declaration/class-field-
-     alignment-grid vs. call-wrap ordering) rather than the
-     braceless-collapse shape — narrower than the original "same root cause
-     family" framing assumed. Left open, out of scope for tracker item 12
-     as scoped — would need its own root-cause identification pass.
-
-   - **Root cause #4 [FIXED] — trailing same-line comment inconsistently
-     counted in the collapse fits-check** (`location_shim.ts:461`): fresh
-     format counts the trailing comment's width in the fits-check (over
-     limit once `=`-alignment padding widens the column) → wraps; once
-     wrapped the comment moves past the call's `)`, so reformat measures
-     without it → collapses back. **Fixed** via
-     `appendRangeCollapsingTrailingCommentGap` (`MiscRuleCurly.java`):
-     whitespace before a trailing line comment collapses to one space for
-     measurement only (never rendered), used only in the JS/TS
-     tight-candidate fits-check's `suffix`. Fixture
-     `real_code_regressions_142`. `make test`: 191/191. A related 3-sibling
-     `=`-alignment-group non-self-stability quirk was seen while building
-     the fixture but did NOT reproduce against real `location_shim.ts`
-     (confirmed idempotent there) — not investigated further, flag if a
-     future dogfood run hits it.
-
-   `compiler-cli/src/ngtsc/core/{compiler,host}.ts` and
-   `devtools/.../split.component.ts` were not re-checked (missing from the
-   checkout at re-check time). **This cluster stays OPEN** until root cause
-   #3 is fixed and a full re-run across all ~23 originally-cited files
-   confirms full resolution, or further causes are found. **This is the
-   same root-cause family as `microsoft/TypeScript`'s open "Category 2
-   cluster #3" below — treat any future work on either as the same task.**
-5. **[IDEMPOTENCY] Reindentation on internally-inconsistent source —
-   RESOLVED 2026-08-05, opt-in dogfood recommendation for this corpus** — 3
-   files (`user_metric_spec.ts:88`, `emit.ts:104`, `i18n_parse.ts:520`): a lone
-   closing `}`'s indent (2 vs 4 spaces) differs between rounds because the
-   *original* source itself has genuinely inconsistent brace indentation
-   (mixed 2-/4-space blocks in the same function), and this formatter's
-   indentation model is relative-delta-from-one-reference-line, not
-   absolute-depth-derived — the exact architectural gap documented in
-   `STATE_COMMON.md`'s "General scope-depth reindentation" section (prior
-   instances: `javaparser`'s `ASTParser.java`, local `JSONEncoderLite.java`).
-   Lowest priority: low criticality, architecturally hard, explicitly scoped
-   as its own future dedicated high-risk job in `STATE_COMMON.md` — do not
-   attempt piecemeal. **2026-07-28 re-assessment:** unchanged, still out of
-   scope for any housekeeping pass.
-
-   **2026-08-02 re-assessment (`RDD_KEY_229`), after the GDR job
-   (`STATE_CURLY_GDR.md`) landed its opt-in pre-pass and expanded scope to
-   JS/TS (`RDD_KEY_228`):** re-ran all 3 files with
-   `curly-general-scope-reindent = on`. `emit.ts` is now idempotent —
-   GDR's absolute structural-depth indent correctly overrides the
-   inconsistent source indentation for that file's shape. `user_metric_spec.ts`
-   and `i18n_parse.ts` are still NOT idempotent even with GDR on, but for a
-   different reason than the original architectural gap: both contain
-   one-true-brace-style joins (`} else if (...) {`) that this formatter's
-   own brace-placement pass splits into separate `}`/`else if (...) {`
-   lines — GDR computes its indent target before that split happens, so
-   the split-out line has no GDR target of its own and can render wrong. A
-   candidate fix (run GDR after brace-placement instead of before) was
-   confirmed to fix this specific case but introduces a different
-   non-idempotency (indentation change flips the pipeline's own line-wrap
-   decisions on the next round) — see `RDD_KEY_229` and
-   `STATE_CURLY_GDR.md`'s checklist for the full investigation. **User
-   judged both remediation paths too risky to attempt this session — no
-   code change landed.** No new fixture added. (Historical note — see the
-   2026-08-05 update below: this was superseded by a different, safer fix
-   landed in the GDR job, not either of the two paths flagged risky here.)
-
-   **2026-08-05 update (this session):** `STATE_CURLY_GDR.md` records that
-   on 2026-08-03 (separate GDR-job session, `curly-general-scope-reindent-
-   multipass` design, `RDD_KEY_233`/`RDD_KEY_234`) a **third**, safer
-   remediation path was designed and landed — a bounded 4-stage
-   GDR/pipeline/GDR/pipeline sequence, opt-in behind a second flag
-   (`curly-general-scope-reindent-multipass`, only takes effect when
-   `curly-general-scope-reindent` is also on) — distinct from the two paths
-   (bounded fixpoint iteration; feeding GDR's indent into the wrap
-   fits-check) the user judged too risky above. That session's own
-   validation already re-tested `user_metric_spec.ts`/`i18n_parse.ts`
-   against this exact corpus and reported both fully idempotent under
-   multipass. This session re-confirmed it independently, fresh against the
-   live `/tmp/angular` checkout (all three cluster-5 files, in-file
-   `JXM_CFMT_CFG curly-general-scope-reindent=on;
-   curly-general-scope-reindent-multipass=on`, round1→round2): **all 3 of 3
-   files now produce a zero-line diff** (`user_metric_spec.ts`,
-   `i18n_parse.ts`, and `emit.ts`, which was already passing under
-   single-pass GDR and stays passing under multipass — no regression). All
-   3 round1 outputs pass `tools/verifiers/js_ts_syntax_check.sh` (exit 0).
-   **Cluster 5 is now closed: 3 of 3 files fixable, opt-in, via existing
-   flags — no new source code changed this session.** Per
-   `STATE_CURLY_GDR.md`'s own scoping notes, `curly-general-scope-reindent`/
-   `curly-general-scope-reindent-multipass` remain `off` by default
-   project-wide (the `on` path is still explicitly flagged there as a hard,
-   multi-session, not-fully-mature problem in general — this is a
-   per-corpus dogfood recommendation for `angular/angular`-shaped
-   one-true-brace-style source, not a project-wide default change). No new
-   permanent fixture added for this specific finding — the multipass
-   mechanism itself is already covered by the existing
-   `test/curly_gdr_multipass_inp.java`/`_out.java` fixture (Java, but
-   exercises the same shared `GdrPipelineGate` 4-stage code path used for
-   `.ts`/`.js`) plus `RDD_KEY_229`'s and this note's own real-corpus
-   evidence; a `.ts`-specific duplicate of the same mechanism was judged
-   redundant. `make test`: 244/244 forward + idempotency (unaffected,
-   doc-only change this session).
-
-Next free fixture number unaffected by cluster 4/5 doc update (no new
-fixtures this session). Full corpus re-run deferred until cluster 4 root
-cause #3 lands, same pattern as `vuejs/core`/`lodash/lodash`.
-
-**2026-08-07 root-cause-only investigation session (NOT ATTEMPTED — no fix
-landed, doc-only). Re-ran the cluster-4 corpus fresh against the live
-`/tmp/angular` checkout to find what's still non-idempotent now that all 4
-named root causes plus `RDD_KEY_248` (the cluster-#3-sibling `processScope`
-narrower-re-run fix, landed 2026-08-06) are in place.**
-
-Scope: `packages/` (3900 `.ts`, non-`.d.ts`/non-`.tsx`) plus
-`devtools/.../shared/split/*.ts` (6 files, includes `split.component.ts`) —
-3906 files, round1→round2. Also specifically re-checked
-`compiler-cli/src/ngtsc/core/src/{compiler,host}.ts` and
-`split.component.ts`, the three files a prior session flagged as "not
-re-checked (missing from the checkout at re-check time)" — **all three are
-present in this checkout and are now idempotent** (zero diff both rounds).
-Of the 9 files a 2026-07-31 session named as "not fixed by this session"
-under root cause #3 (`format_date.ts`, `web_animations_player_spec.ts`,
+**2026-08-07 root-cause-only re-scan** (no fix landed, doc-only): re-ran
+the cluster-4 corpus (`packages/` 3900 files + `devtools/.../split/*.ts`,
+3906 total) fresh. `compiler-cli/.../{compiler,host}.ts` and
+`split.component.ts` (previously "not re-checked") are now idempotent. Of
+the 9 files previously named "not fixed" under root cause #3, **7 are now
+idempotent** (fixed as a side effect of `RDD_KEY_248`): `format_date.ts`,
 `parser.ts`, `jit_compiler_facade.ts`, `r3_template_transform.ts`,
-`util.ts`, `node_js_file_system.ts`, `input_transform.ts`, `migration.ts`),
-**7 are now idempotent** (`format_date.ts`, `parser.ts`,
-`jit_compiler_facade.ts`, `r3_template_transform.ts`, `util.ts`,
-`node_js_file_system.ts`, `migration.ts` — all fixed as a side effect of
-`RDD_KEY_248`, even though `RDD_KEY_248`'s own validation run didn't
-individually name them). Only 2 remain broken:
-`web_animations_player_spec.ts` and `input_transform.ts`.
+`util.ts`, `node_js_file_system.ts`, `migration.ts`. Only
+`web_animations_player_spec.ts` and `input_transform.ts` remain broken.
+**Full re-scan: only 7/3906 files still non-idempotent** — 3 are cluster 5
+(unrelated, see below), 2 are the known `processScope` family (tracked as
+"Active work" item #3 above), 2 are the newly-identified
+`alignBracelessElseIfChain` cause (tracked as "Active work" item #1
+above). No source change landed this session.
 
-**Full re-scan result: only 7/3906 files still non-idempotent**, down from
-the ~23 originally cited (majority reduction). Of the 7:
+**Cluster 5 — RESOLVED 2026-08-05.** `user_metric_spec.ts`/`i18n_parse.ts`/
+`emit.ts` — a pre-existing inconsistent-source-reindentation architectural
+gap (GDR pipeline interaction, `RDD_KEY_229`, full investigation in
+`STATE_CURLY_GDR.md`). A safer 4-stage GDR/pipeline/GDR/pipeline sequence
+(`curly-general-scope-reindent-multipass`, opt-in, only active when
+`curly-general-scope-reindent` is also on) was designed and landed in the
+GDR job (`RDD_KEY_233`/`RDD_KEY_234`, 2026-08-03) and re-confirmed fresh
+against the live `/tmp/angular` checkout this session: **all 3/3 files now
+produce a zero-line diff**, all pass `js_ts_syntax_check.sh`. Both flags
+remain `off` by default project-wide — this is a per-corpus dogfood
+recommendation for one-true-brace-style source, not a default change. No
+new fixture needed (existing `test/curly_gdr_multipass_inp.java`/`_out.java`
+already covers the shared `GdrPipelineGate` mechanism).
 
-- 3 are the already-catalogued, unrelated, accepted **cluster 5**
-  architectural gap (`user_metric_spec.ts`, `emit.ts`, `i18n_parse.ts` —
-  inconsistent-source reindentation, opt-in fixable via
-  `curly-general-scope-reindent`/`-multipass`, see cluster 5's own section
-  above). Not cluster 4's concern, confirmed unchanged.
-- 2 are the **same architectural family** already root-caused
-  (`processScope`'s outer/inner double-pass + declaration-alignment/
-  call-wrap fits-check ordering, per `RDD_KEY_245`/`RDD_KEY_246`/
-  `RDD_KEY_248` and this file's cluster #3 sibling writeup), just in shapes
-  `RDD_KEY_248`'s narrower fix didn't cover:
-  - `web_animations_player_spec.ts:177-193` — a class-field declaration-
-    alignment grid (`effect : AnimationEffect | null = null;`,
-    `finished: Promise<Animation> = ...`, etc.) where round1 and round2
-    disagree on which rows are grouped together and how wide the `:`/`=`
-    columns are padded. Same "grid recomputed against a different
-    intermediate shape each round" mechanism as `RDD_KEY_248`'s
-    `commandLineParser.ts` repro, but for class-member declarations with
-    multi-line initializers (`Promise.resolve(\n {} as any\n)`), a context
-    `RDD_KEY_248`'s `reapplyClosingBraceAndDeclarationsPass` re-run wasn't
-    validated against. Not traced further at the pass level this session
-    (budget went to the genuinely new shape below) — very likely the same
-    fix extends here with more validation, not a new mechanism.
-  - `input_transform.ts:16-19` — a decorator-call-plus-declaration line
-    (`@Input( {...} ) inlineFunctionInput: any;`) that fits under
-    `lineLengthLimit` on round1 but gets wrapped onto two lines on round2.
-    Classic call-wrap-fits-check-measured-before-final-column-width
-    shape (root cause family of cluster 4 itself), not traced to a specific
-    method this session.
+### `microsoft/TypeScript` dogfood pass
 
-- **2 are a genuinely NEW, distinct root cause, NOT the `processScope`
-  double-pass/declaration-alignment family** — `packages/core/src/render3/
-  instructions/shared.ts:793-796` and `packages/core/src/render3/view/
-  directive_outputs.ts` (same code shape, evidently copy-pasted between the
-  two files):
-
-  ```
-  if (typeof data === 'number') {
-    hostIndex = data;
-  } else {
-    [hostIndex, hostDirectivesStart, hostDirectivesEnd] = data;
-  }
-  ```
-
-  Minimal repro built and confirmed (`/tmp/mini.ts`-equivalent, a bare
-  `if(cond) stmt; else stmt;` with no wrappable call): round1 collapses the
-  braces (`BlockStructureRule.collapseSingleExpressionBlocks`, not gated by
-  `refuseUnrescuableCollapse` since both branches are short and fit) and
-  `alignBracelessElseIfChain` (`BlockStructureRule.java` line ~3092, the
-  root-cause-#3 "escape hatch" pass) column-aligns the `if`/`else` bodies,
-  producing `  if(typeof data === 'number') hostIndex = data;` /
-  `  else                         [hostIndex, ...] = data;` (both indented
-  2 spaces, `else` left-padded to align the body column). Reformatting this
-  output (round2) instead produces `  if(...) hostIndex = data;` /
-  `    else [hostIndex, ...] = data;` — the `else` line re-indented to 4
-  spaces (not 2) and left unaligned.
-
-  **Root cause, confirmed via debug prints in `alignBracelessElseIfChain`
-  (temporary, removed before commit — not present in the committed diff):**
-  the pass detects an `if`/bare-`else` chain by requiring the two lines'
-  raw leading-whitespace lengths to match exactly (`jIndent != indentLen`,
-  with one narrow recovery case for "the `if` line itself was left-padded
-  wider by a previous round", i.e. `jIndent < indentLen`). Instrumented
-  entry dump on round1: `if` line `indentLen=2`, `else` line `jIndent=2` —
-  match, chain detected (`chain.size()=2`), alignment applied. Same dump on
-  round2, on round1's own output as input: `if` line still `indentLen=2`
-  (unchanged), but the `else` line now measures `jIndent=4` — **some pass
-  earlier in the pipeline than `alignBracelessElseIfChain` (called from
-  `FormatterCurly.format` at line 361, near the end of the pipeline) has
-  already re-indented the standalone `else` line to one level deeper than
-  its paired `if`, before `alignBracelessElseIfChain` ever sees it.**
-  Because `jIndent(4) > indentLen(2)`, the one existing recovery case
-  (which only handles the `if` line being padded wider, not the `else` line
-  being indented deeper) doesn't apply, the chain-scan `break`s at
-  `chain.size()==1`, and the whole file falls through with no alignment —
-  producing the plain, non-chain-aware default indent for the orphaned
-  `else` line instead. This earlier indent-computation pass was not
-  individually identified this session (ran out of budget after confirming
-  the exact `jIndent` values at the chain-scan callsite) — it is not
-  `collapseSingleExpressionBlocks` (a no-op on round2's input, since there
-  are no braces left to collapse) and not `alignBracelessElseIfChain`
-  itself; most likely a generic structural/statement indent-fixup pass
-  earlier in `FormatterCurly.format`'s Phase 0/1 sequence that treats an
-  already-braceless standalone `else` line (with no adjacent brace pair of
-  its own) as an orphaned continuation statement one level deeper than its
-  paired `if`, rather than recognizing it as a chain member — a
-  determination that (for reasons not traced) comes out differently
-  depending on whether the `else` line's physical shape already carries a
-  previous round's `alignBracelessElseIfChain` column-padding artifact
-  or not.
-
-  **Is this the same `processScope` double-pass mechanism?** No — this is a
-  different mechanism, confirmed via evidence, not assumed. The `processScope`
-  family's signature is a *declaration/assignment/signature grouping decision*
-  (column widths, which rows belong to the same alignment group) computed
-  twice over overlapping ranges within one `format()` call. This bug is
-  entirely different in shape: a single *indentation* value for one
-  statement line disagreeing between rounds because of how an EARLIER pass's
-  indent computation reacts to the PRESENCE of a LATER pass's own previous-
-  round artifact (`alignBracelessElseIfChain`'s left-over spacing) still
-  baked into the input text — the divergence is confirmed to occur before
-  `alignBracelessElseIfChain` itself runs, and `alignBracelessElseIfChain`
-  is a single-pass, single-invocation-per-`format()`-call method (no
-  outer/inner double-recursion of the kind `processScope` does). This is
-  closer in shape to the `enforceComplexityPadding`/
-  `enforceAttributeAndSpliceBracketPadding`/`enforceInitializerBraceSpacing`
-  precedent family ("a pass's decision depends on a later pass's
-  not-yet-produced or already-produced artifact") than to the
-  `processScope` recursion-depth family — but it is a genuinely distinct,
-  fifth instance of that broader pattern, not previously named for cluster 4.
-
-  **Candidate fix approach (NOT ATTEMPTED — root-cause-only, no design
-  validated this session):** widen `alignBracelessElseIfChain`'s chain-
-  recovery case to also tolerate `jIndent > indentLen` for a bare-`else`
-  member specifically (mirroring the existing `jIndent < indentLen`
-  recovery for the `if` line — re-anchor `indentLen` to the narrower of the
-  two and strip whatever the earlier pass added, the same "re-derive from a
-  fresh unpadded baseline" strategy the existing recovery case already
-  uses), OR — more robustly — identify and fix the earlier indent-fixup
-  pass so it never treats a bare `else` differently based on the presence
-  of stale alignment whitespace in the first place (would need that pass
-  identified first; not done this session). Risk/blast radius: MEDIUM —
-  `alignBracelessElseIfChain` is JS/TS-and-Kotlin-shared machinery
-  (`KotlinSpecificRule.alignBracelessElseIfChain` is a named sibling per
-  this file's own javadoc cross-refs) already flagged in this exact section
-  as fragile (root cause #3's reverted first attempt broke 5 fixtures); any
-  change to its chain-detection condition needs the same full `make test`
-  plus multi-corpus real-code validation rigor already used for root causes
-  #1-#4. The alternative (find & fix the earlier indent pass) has unknown
-  blast radius until that pass is actually identified — likely broader,
-  since it's structural/statement indentation, not JS/TS-specific.
-  Confidence in the root cause itself: HIGH (directly observed via debug
-  prints, not inferred). Confidence in either fix direction succeeding
-  without new regressions: LOW/UNVALIDATED — genuinely not attempted.
-
-**Cluster 4 status update:** with `RDD_KEY_248` now covering most of the
-`processScope`/declaration-alignment-family residuals (7 of 9 previously-
-named "not fixed" files newly idempotent, plus both previously-uncheckable
-files `compiler.ts`/`host.ts` and `split.component.ts` confirmed clean),
-cluster 4's remaining open surface has narrowed to 4 files: 2 in the known
-family (`web_animations_player_spec.ts`, `input_transform.ts` — likely
-`RDD_KEY_248`-adjacent, not independently root-caused this session) and 2
-in the newly-identified `alignBracelessElseIfChain`/earlier-indent-pass
-interaction described above (`shared.ts`, `directive_outputs.ts`). Still
-OPEN. No source code change landed this session (temporary debug prints in
-`BlockStructureRule.java` added, used, and fully reverted —
-`git status` clean except this state file). `make test` not re-run (no
-source change to validate).
-
-## `microsoft/TypeScript` dogfood pass — 3 of 4 clusters FIXED; cluster #3 PARTIALLY addressed 2026-07-31, further reduced by `RDD_KEY_248` (2026-08-06) and reconfirmed 2026-08-07 (see angular cluster 4's root-cause-#3 session write-up — the braceless-collapse shape is fixed; `RDD_KEY_248` separately fixed the declaration-alignment sibling shape incl. `commandLineParser.ts` itself; a fresh 2026-08-07 root-cause-only session found only 14/601 files still idempotency-diverging, including a newly-identified, not-yet-fixed `applyAssignmentsPass` sibling instance of the same `RDD_KEY_248` family — see Category 2 cluster #3's 2026-08-07 note below for detail)
+3 of 4 clusters FIXED; cluster #3 substantially reduced by `RDD_KEY_248`.
 
 Checkout: `/tmp/ts-dogfood/TypeScript`, shallow clone (`--depth 1`), HEAD
 `cc5c6e2` (2026-07-28) — reuse, do not re-clone. Scope: `src/` only, 601 real
 `.ts` files (108 `.d.ts` excluded), 379045 lines; `.tsx` excluded (JSX/TSX
-out of scope); `tests/cases/**`/`tests/baselines/**` excluded (hand-authored/
-generated compiler test fixtures, not real source).
+out of scope); `tests/cases/**`/`tests/baselines/**` excluded.
 
 Round1: zero crashes, 601/601 produced. Syntax-checked via a throwaway
-TS-compiler-API parse-only script (no `js_ts_syntax_check.js` exists in
-`tools/verifiers` yet). Baseline (unformatted) 0/601 parse errors.
-Round1→round2 idempotency: 30/601 differing (28 are cluster #3 below; 2 are
-symptoms of Category 1 bugs, not independent findings).
+TS-compiler-API parse-only script. Baseline (unformatted) 0/601 parse
+errors.
 
-### Category 1 — Critical (round1 corrupt/unsafe): 8/601 files, 85 diagnostics, 3 root causes — ALL FIXED (2026-07-28)
+**Category 1 — Critical (round1 corrupt/unsafe): 8/601 files, 3 root
+causes — ALL FIXED (2026-07-28):**
+1. **`||=`/`&&=` not tokenized as a single token** — 1 file (`checker.ts`).
+   `MULTI_CHAR_OPS` had `??=` but was missing `||=`/`&&=`. Fixture
+   `real_code_regressions_143`.
+2. **Union-type return-type/type-predicate before `=>` gets its last
+   segment wrapped in a spurious paren pair** — 6 files (same function as
+   angular cluster 1's fix, but that fix didn't walk back over a union `|`
+   operator too). Fix: walk-back loop alternates `IDENTIFIER '.'` and
+   `IDENTIFIER '|'` walk-backs until neither makes progress. Fixture
+   `real_code_regressions_145`.
+3. **Backslash-newline continuation inside a string literal, CRLF-specific,
+   corrupts the rest of the string/statement** — 2 files (both CRLF).
+   `TokenizerCurly.emitString`'s backslash-escape handling only consumed
+   the backslash + the `\r` half of `\r\n`. Fix: special-case `\` + `\r\n`
+   to advance 3 chars. Fixture `real_code_regressions_147` —
+   **`.gitattributes` marks `test/real_code_regressions_147_inp.ts`
+   `-text`** so git preserves its deliberate CRLF bytes; preserve this if
+   touching the fixture. `make test`: 196/196.
 
-1. **`||=`/`&&=` not tokenized as a single token** — 1 file (`checker.ts`),
-   3 occurrences. `MULTI_CHAR_OPS` had `??=` but was missing `||=`/`&&=`
-   even though `JsTsSpecificRule.java` already referenced them elsewhere.
-   Fix: added both, ordered before `&&`/`||` (longest-match-first). Fixture
-   `real_code_regressions_143`. `make test`: 192/192.
-2. **Union-type return-type/type-predicate before `=>` gets its last segment
-   wrapped in a spurious paren pair** — 6 files, ~9 occurrences (e.g.
-   `declaration is AccessorDeclaration | PropertyDeclaration =>` →
-   `... | (PropertyDeclaration) =>`). Same function as angular cluster 1's
-   fix (dotted-chain walk-back), but that fix didn't walk back over a union
-   `|` operator. Fix: walk-back loop now alternates an `IDENTIFIER '.'`
-   walk-back with an `IDENTIFIER '|'` walk-back until neither makes
-   progress, covering chained and dotted unions. Fixture
-   `real_code_regressions_145`. `make test`: 194/194.
-3. **Backslash-newline continuation inside a plain string literal,
-   CRLF-specific, corrupts the rest of the string/statement** — 2 files
-   (both CRLF). `TokenizerCurly.emitString`'s backslash-escape handling only
-   consumed the backslash + the `\r` half of `\r\n`, leaving `\n` next, which
-   the unescaped-newline check mistook for string termination. LF-only
-   continuation already worked. Fix: special-case `\` + `\r\n` to advance 3
-   chars. Fixture `real_code_regressions_147` — **`.gitattributes` marks
-   `test/real_code_regressions_147_inp.ts` `-text`** so git preserves its
-   deliberate CRLF bytes; a future session touching this fixture must
-   preserve that. `make test`: 196/196.
+**Category 2 — Idempotency-only, cluster #3 (call-wrap/collapse vs.
+alignment-padding fits-check ordering):** originally 28/601 files, **same
+root cause as `angular/angular` cluster 4** — a third confirming
+recurrence, proportionally ~30x denser (line lengths sit close to the
+100-char boundary often). `commandLineParser.ts` was this cluster's
+config-insensitive reference repro; its exact shape is now fixed by
+`RDD_KEY_248` (`ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass`)
+— reconfirmed empty round1↔round2 diff, plain and at `indent-size=2`.
 
-### Category 2 — Idempotency-only: 28/601 files (2 more are Category-1 symptoms)
-
-**Cluster #3 — call-wrap/collapse vs. alignment-padding fits-check ordering.
-NOT FIXED — deliberately deferred by user decision, ACTIVE / OPEN WORK:**
-**SAME root cause as the still-open `angular/angular` cluster 4** above
-(`enforceCallLineBreaking`'s single-argument fits-check measuring candidate
-width before declaration-alignment/keyword-spacing/complexity-padding finish
-adjusting column widths) — a third confirming recurrence, proportionally
-~30x denser here (28/601 vs 23/5394 in angular), likely because this repo's
-line lengths sit close to the 100-char boundary often. Confirmed
-config-insensitive (`indent-size=2` on `commandLineParser.ts` reproduces
-identically). Spot-checked ~10/28: every diff is a call wrapped/collapsed
-between rounds, or a closer moving to its own line. Angular cluster 4's
-root causes #1/#2 (dangling-empty-group measurement, `if(`/`if (` spacing
-ordering) are already fixed here too; this run doesn't isolate which
-remaining cause (#3 braceless-else, or others) applies — same underlying
-architectural fix needed either way; angular's naive `tryCollapse` guard
-attempt was reverted (5-fixture regressions). **Treat this TS corpus as
-further confirming evidence for angular cluster 4, not a separate task.**
-No fixture registered (not fixed).
-
-**2026-08-07 root-cause-only investigation session (no code change
-landed) — status update + a genuinely NEW root cause found in this
-cluster, distinct from the already-fixed `RDD_KEY_248` declaration-
-alignment cause.** Task was originally scoped around `commandLineParser.ts`
-(the file this cluster's write-up above names as reproducing config-
-insensitively), but **that file is no longer part of this cluster** —
-`RDD_KEY_248` (2026-08-06, see the "Cluster #3 sibling" entry in Open
-Questions above) already fixed its exact shape
-(`ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass`, re-running
-the closing-brace + declarations passes after the first
-`enforceCallLineBreaking`) and this session reconfirmed it directly:
-`commandLineParser.ts` round1→round2 diff is now empty (`diff -u` on a
-fresh build, both plain and with `indent-size=2`). This cluster's own
-summary line/count above (28/601, "NOT FIXED — deliberately deferred")
-predates `RDD_KEY_248` and is now stale — a fresh full-corpus round1→
-round2 re-run this session (`/tmp/ts-dogfood/TypeScript/src`, same
-601-file scope) shows **only 14/601 files still differing**: `compiler/
-builder.ts`, `compiler/checker.ts`, `compiler/moduleNameResolver.ts`,
-`compiler/program.ts`, `compiler/tsbuildPublic.ts`, `compiler/types.ts`,
-`compiler/watchPublic.ts`, `harness/collectionsImpl.ts`, `harness/
+**2026-08-07 re-scan:** fresh full-corpus round1→round2 (`src/`, 601
+files) shows **only 14/601 still differing**: `compiler/builder.ts`,
+`compiler/checker.ts`, `compiler/moduleNameResolver.ts`, `compiler/
+program.ts`, `compiler/tsbuildPublic.ts`, `compiler/types.ts`, `compiler/
+watchPublic.ts`, `harness/collectionsImpl.ts`, `harness/
 incrementalUtils.ts`, `server/editorServices.ts`, `server/project.ts`,
 `services/codefixes/fixMissingTypeAnnotationOnExports.ts`, `services/
 codefixes/fixUnusedIdentifier.ts`, `services/findAllReferences.ts` — a
-real reduction (`RDD_KEY_248` plus whatever else landed since 2026-08-06
-already closed most of this cluster), not something this session did.
-`checker.ts` still shows the already-explained root-cause-#3 residual
-(`hasBreakableCall` approximation gap, see above) — left alone, no new
-finding needed there.
+real reduction from `RDD_KEY_248`. `checker.ts` still shows the already-
+explained root-cause-#3 residual (`hasBreakableCall` approximation gap,
+above) — left alone. `harness/collectionsImpl.ts` is the newly-found
+`applyAssignmentsPass` sibling bug — see "Active work" item #2 above.
 
-**New finding — a sibling declaration-alignment bug in a pass
-`RDD_KEY_248` does NOT cover:** `harness/collectionsImpl.ts` diffs at
-line 276 (`this._size = -1;`, wide-padded in round1, unpadded in round2)
-— same "call-wrap vs. alignment-padding decided too early" shape as the
-already-fixed cause, but in `ScopePipelineCurly.applyAssignmentsPass`
-(bare-assignment-statement alignment, STYLE.md §6), not
-`applyDeclarationsPass` (declaration alignment) — a code path
-`RDD_KEY_248`'s own javadoc on `processScope`'s
-`closingBraceAndDeclarationsOnly` re-run mode explicitly says was "not
-shown to depend on the post-call-wrap shape" and therefore deliberately
-left out of the re-run. **This investigation disproves that assumption
-for at least this one shape.** Source statement (original,
-`src/harness/collectionsImpl.ts:272`):
-`this._map[Metadata._escapeKey(key)] = value === undefined ?
-Metadata._undefinedValue : value;` followed by `this._size = -1;` —
-round1 wraps the long line's `Metadata._escapeKey(key)` call across the
-`[...]` subscript (`enforceCallLineBreaking`, runs after `processScope`
-in `FormatterCurly.format`'s Phase 1), but `applyAssignmentsPass` (part
-of `processScope`, runs *before* that wrap) already measured and baked
-in `this._size`'s padding relative to the map statement's full
-single-line LHS width at that point. Confirmed via a temporary debug
-print in `ScopePipelineCurly.applyAssignmentsPass` (added and removed
-this session, no net source diff) dumping each `MiscRuleCore.Assignment`
-group's members: **round1** groups `this._map[Metadata._escapeKey(key)]`
-(lhsText len 35) together with `this._size` (len 10) — the wide member
-pads the narrow one. **round2** (reformatting round1's own output, whose
-`[...]` subscript is now itself multi-line) shows the map-with-subscript
-row **entirely absent from that group** — `this._size` ends up grouped
-only with an unrelated, shorter `this._map` assignment elsewhere in the
-class, so it gets little/no padding. The row still round-trips through
-`MiscRuleCore.splitAssignmentStatements` (its `[`/`]` bracket-depth
-tracking is newline-agnostic, confirmed by reading the code — it treats
-the statement as one token run regardless of the embedded `NEWLINE`) and
-`parseAssignment`'s subscript-scan state (`scanState == 2`) also just
-skips over `NEWLINE`/`WHITESPACE` gap tokens like any other gap — so
-*why* the row drops out of the group specifically (a `parseAssignment`
-null return somewhere not yet isolated, vs. an adjacency/blank-line-
-before check treating the multi-line statement differently, vs.
-something in the two earlier passes in the sequence,
-`applyDeclarationsPass`/`applyOversizedAggregateInitClosingBracePass`,
-which run before `applyAssignmentsPass` inside the same `processScope`
-call and could already have re-spliced this range before
-`groupAssignments` ever sees it) **was not pinned to the exact line
-this session** — budget was spent confirming the group-membership
-divergence itself (the decisive, load-bearing piece of evidence) rather
-than tracing one more level into which specific check flips it.
-
-**Is this the same `processScope` double-pass architectural root cause
-as angular cluster 4 / the 2026-08-05 finding, or a distinct third
-cause?** Same *family* (a `processScope`-phase pass's decision — here,
-assignment-group membership/padding — is computed once, before a later
-Phase 1 pass, `enforceCallLineBreaking`, has finished changing the
-column widths it depends on; round1 sees the pre-wrap shape, round2 sees
-round1's own post-wrap output), and structurally the same shape
-`RDD_KEY_248` already fixed for `applyDeclarationsPass` — **not a new
-third root cause, but a known-uncovered sibling instance of the fixed
-one, in a different one of the five `processScope` passes.** This is
-consistent with, and narrows, the existing "declaration/class-field-
-alignment-grid vs. call-wrap ordering" framing — `applyAssignmentsPass`
-needs to be added to that same family of passes-that-depend-on-post-
-wrap-shape.
-
-**Candidate fix approach (NOT ATTEMPTED — root-cause-only investigation,
-see this note for the approach; do not implement without a fresh
-session's real-corpus validation):** the direct extension of
-`RDD_KEY_248`'s existing "narrower middle ground" re-run — add
-`applyAssignmentsPass` as a third pass re-run inside `processScope`'s
-existing `closingBraceAndDeclarationsOnly` mode (rename the flag/mode if
-landed, since "declarations only" would no longer be accurate), run
-after the closing-brace pass and declarations pass, same ordering
-rationale (closing-brace first so later passes see the corrected
-`{...}` shape). **Risk/blast radius:** narrowly scoped to
-`ScopePipelineCurly.processScope`'s already-existing JS/TS-gated re-run
-path (per `RDD_KEY_246`/`RDD_KEY_248`, the second `process()`-adjacent
-call site in `FormatterCurly.format` is JS/TS-only) — would NOT touch
-C/C++/Java/Kotlin's single-pass behavior, so blast radius is contained
-to JS/TS. However, `RDD_KEY_246`'s own history is a direct warning
-against assuming this is safe by inspection: Attempt 1 there (re-running
-only the two originally-scoped passes) looked narrow and still caused a
-real regression (`real_code_regressions_100.ts`'s `} // interface
-ParserOptions` losing its indent) via the *shared* trailing-gap
-force-reindent step inside `processScope` that both re-run modes pass
-through — the eventual `RDD_KEY_248` fix needed an extra gate
-(`closingBraceAndDeclarationsOnly` skips that force-reindent step
-entirely). Re-running `applyAssignmentsPass` a second time carries an
-analogous unknown risk: an assignment group already correctly rendered
-(padded) by the first `processScope` call could be re-parsed from its
-own already-padded text on the second re-run, and `parseAssignment`/
-`renderTokens` were not audited this session for whether they're safe to
-run twice over already-rendered padding (e.g. whether the padding
-spaces before `=` could be mistaken for part of a multi-token LHS, or
-whether a group's already-correct alignment could be silently
-re-collapsed the way `RDD_KEY_246`'s Attempt 2 saw for an unrelated
-pass). **Confidence this would fix the bug without regression: low
-without a fresh session's real fixture-suite + dogfood-corpus
-validation** — the fix direction is a well-precedented, narrow extension
-of an already-landed pattern, but every prior attempt in this exact
-family (`RDD_KEY_246`'s two reverted attempts) underestimated a shared-
-step interaction on the first try. **NOT ATTEMPTED this session** — see
-above for why (root-cause-only scope). No fixture added, no `RDD_LOG.md`
-key added (no design landed to record), no dogfood corpus write
-performed (only a local round1/round2/diff cycle over the existing
-checkout). `make jar`/local build used only to add and then remove the
-temporary debug print; `git diff` on formatter source confirms zero net
-change from this session.
-
-### Ranked list (most-valuable-first)
+### Ranked list (most-valuable-first, from the 2026-08 TypeScript-corpus
+bug-hunt pass)
 
 1. `||=`/`&&=` tokenizer gap — FIXED. Trivial fix, highest value/difficulty.
 2. Union-type-before-`=>` spurious wrap — FIXED. Direct low-risk extension
    of an existing precedent.
-3. Call-wrap/collapse vs. alignment-padding ordering — NOT FIXED, deferred
-   (see above). Highest file-count value (28/601) but same medium-high-
-   difficulty cross-pass-ordering fix already scoped under angular cluster 4.
+3. Call-wrap/collapse vs. alignment-padding ordering — substantially fixed
+   (`RDD_KEY_248`/`RDD_KEY_250`); residue tracked under "Active work" above.
 4. Backslash-newline CRLF string corruption — FIXED. Real corruption but
    narrow (2 files, old test-harness idiom).
 
-No fixture-only false positives found this pass (used direct TS-compiler-API
-parse-checking + raw `diff`, not `js_ts_content_diff.js`).
+No fixture-only false positives found in that pass (used direct
+TS-compiler-API parse-checking + raw `diff`, not `js_ts_content_diff.js`).
 
 ### Known false positives (no source change needed, fixture-only)
 
@@ -1816,4 +977,3 @@ parse-checking + raw `diff`, not `js_ts_content_diff.js`).
   padding), matching passing C++/Java/Kotlin fixtures byte-for-byte. Only
   the stale hand-authored `.js` draft fixtures were wrong; resolved by
   regenerating them.
-</content>

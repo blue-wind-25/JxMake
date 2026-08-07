@@ -451,38 +451,33 @@ on the noted commits/fixtures)
 (17) HUGE `openrewrite/rewrite` (3373 `.java` files) — IN PROGRESS, not DONE. Full-tree forward
      pass (default config): 0 errors. Round1/round2 idempotency: 34 differing files, 6 clusters,
      all now fixed:
-     - Cluster 1 (~20 files, ANTLR-generated, incl. `tree/J.java`) — 2 sub-bugs, one root-cause
-       shape (fits-in-`line-length` prediction made before a later width-growing pass ran): (a)
-       `isSingleLineBody` measured tab-indent via raw `String.length()` not expanded width — fixed
-       via `expandedIndentWidth`. (b) `enforceInitializerBraceSpacing` ran after
-       `enforceCallLineBreaking` had already decided not to wrap — fixed by pulling it earlier.
+     - Cluster 1 (~20 files, ANTLR-generated, incl. `tree/J.java`) — 2 sub-bugs, same root-cause
+       shape (fits-check made before a later width-growing pass ran): (a) `isSingleLineBody`
+       measured tab-indent via raw `String.length()` not expanded width, fixed via
+       `expandedIndentWidth`; (b) `enforceInitializerBraceSpacing` ran after
+       `enforceCallLineBreaking` had already decided not to wrap, fixed by pulling it earlier.
        Fixture: `real_code_regressions_128`.
      - Cluster 2 (8 files, dense lambda/if-else bodies) — `appendChainNewlineBeforeElse` only
-       fired as side effect of collapsing a *braced* if/else-if; already-braceless body (round1
-       fed back) left nothing to re-collapse → chain fused on round2. Fixed via
-       `findBracelessStatementEnd` (C/C++/Java sibling of Kotlin's already-braceless-body
-       branch). Fixture: `_129`.
-     - Cluster 3 (`AdaptiveRadixTreeTest.java`, pre-increment spacing) — prefix `++`/`--`
-       immediately before an identifier had no tight-join case in `needsSpaceBetween`/its
-       duplicate, so a `for`-header re-render fell to the generic space-by-default rule
-       (`++ i`). Fixed by adding the tight-join case to both. Fixture: `_130`.
+       fired as a side effect of collapsing a *braced* if/else-if; an already-braceless body fed
+       back on round1 left nothing to re-collapse, fusing the chain on round2. Fixed via
+       `findBracelessStatementEnd`. Fixture: `_129`.
+     - Cluster 3 (`AdaptiveRadixTreeTest.java`, pre-increment spacing) — prefix `++`/`--` before
+       an identifier had no tight-join case in `needsSpaceBetween`/its duplicate (`++ i`). Fixed
+       by adding the tight-join case to both. Fixture: `_130`.
      - Cluster 4 (`ReloadableJava*ParserVisitor.java` x5, trailing-comment column drift) —
-       `parseAssignment` verbatim fallback kept embedded `NEWLINE`s in `valueTokens`;
-       `ColumnGrid` measured wrapped-call text via plain `String.length()`, non-idempotent
-       column width. Fixed via `valueSpansMultipleLines` exclusion. Fixture: `_131`.
-     - Cluster 6 (closing-brace indent drift on a still-K&R `else`/`catch`/`finally`) — fixed,
-       see `ScopePipelineCurly.findParentIndent`. Fixture: `_132`.
+       `parseAssignment`'s verbatim fallback kept embedded `NEWLINE`s in `valueTokens`, so
+       `ColumnGrid` measured wrapped-call text via plain `String.length()` (non-idempotent column
+       width). Fixed via `valueSpansMultipleLines` exclusion. Fixture: `_131`.
+     - Cluster 6 (closing-brace indent drift on a still-K&R `else`/`catch`/`finally`) — fixed via
+       `ScopePipelineCurly.findParentIndent`. Fixture: `_132`.
      - Cluster 5 (alignment-group padding collapse, `rewrite-kotlin/.../K.java`'s
        `ExpressionStatement.withType`) — root cause (NOT `GetterSetterRuleCurly`):
        `DeclarationAlignmentRuleCurly.parseDeclaration`'s function-pointer-declarator detection
-       (`Type (*name)(params);`) misread `return (T)(cond ? a : b);` as a declaration (`return`
-       as "type", `(T)` as `(*name)`), lacking `GetterSetterRuleCurly.STATEMENT_KEYWORDS`-style
-       leading-keyword exclusion. Bogus "declaration" merged into adjacent alignment group →
-       padding collapse across rounds. Fixed via `STATEMENT_LEADING_KEYWORDS` guard
-       (`if`/`else`/`while`/`for`/`do`/`switch`/`try`/`catch`/`finally`/`throw`/`return`/
-       `synchronized`) at the function-pointer-detection call site. Verified: real `K.java`
-       round1/round2 byte-identical, `make test` 220/220 (up from 219/219). Fixture:
-       `real_code_regressions_171`.
+       (`Type (*name)(params);`) misread `return (T)(cond ? a : b);` as a declaration, lacking a
+       leading-keyword exclusion — merged into an adjacent alignment group, collapsing padding
+       across rounds. Fixed via a new `STATEMENT_LEADING_KEYWORDS` guard at the
+       function-pointer-detection call site. Verified: real `K.java` round1/round2
+       byte-identical, `make test` 220/220 (up from 219/219). Fixture: `real_code_regressions_171`.
      `make test` after fixes: 220/220 forward + idempotency, zero regressions. Full-tree
      round1/round2 re-run + `javac` compile-check across the whole 3373-file tree (deferred
      until all 6 clusters resolved) is now unblocked — still NOT yet run, left for a future
@@ -716,121 +711,35 @@ before/after detail available via `git log`/`git show`.
 
 - **Non-idempotent switch-case re-indent, both the single-switch internally-inconsistent-source
   shape and the nested-switch-in-switch shape** (`SwitchRule.applyNonInlineCaseIndent`) — RESOLVED
-  2026-08-07, seventh session on this gap. Replaced the old single-relative-delta `shiftLines`
-  body-shift with `applyDepthDerivedBodyIndent`, deriving each case-body line's *absolute* target
-  indent from its own `{`/`}` nesting depth relative to the case body's own brace, guarded by two
-  fixes (re-derived from the 2026-08-04/earlier-2026-08-07 attempts' write-ups, since those
-  attempts' own diffs were reverted and not preserved): (1) a boundary guard — the case body's own
-  closing `}` line is excluded by comparing that line's first *significant* token's index against
-  `braceClose`, not the newline-derived `lineStart` (which lands on leading whitespace and is
-  always `< braceClose`, so never actually excludes anything without this fix) — without it, that
-  line is double-owned by both this depth-derived pass and the separate tail-shift pass, each
-  "correcting" it back to what it alone considers right, forever; (2) a paren/bracket-continuation
-  guard — any line begun while a paren/bracket opened on an earlier line is still unclosed (a
-  wrapped statement's continuation line, owned by a separate line-wrap pass) is left completely
-  untouched, since claiming it via brace-depth alone would fight that pass's already-correct indent
-  every other round.
-
-  With both fixes alone, the minimal repro (`real_code_regressions_56`) and two synthetic
-  pathological-indentation repros converge in one iteration each and are idempotent — but the
-  actual originally-cited production file (`javaparser/javaparser`'s `ASTParser.java`, JavaCC-
-  generated, ~5500 lines, cached checkout at `/tmp/javaparser_gdr`) still produced a genuine,
-  confirmed 2000+-iteration never-converging 2-cycle: a switch nested inside another switch's case
-  body (JavaCC's generated comma-separated-list-parsing pattern) causes the outer pass's
-  depth-derived scan and the inner switch's own independent recomputation (still deriving its
-  `caseIndent`/`unit` from `indentBefore` on its own, currently-being-rewritten-by-the-outer-pass
-  case-label line) to disagree forever.
-
-  Two candidate fixes for that nested-switch disagreement were both implemented and validated this
-  session:
-  - **(a) Treat a nested switch as opaque** — `applyDepthDerivedBodyIndent`'s scan, on encountering
-    a nested `switch(...) { ... }`, jumps straight to its matching closing brace without deriving or
-    overriding anything inside it (a switch's own braces are balanced, so this is a net-zero change
-    to the running brace/paren depth), letting that nested switch's own independent `SwitchBlock`
-    pass — already guaranteed by `pickInnermostNeedingWork`'s innermost-first ordering to run to
-    completion first — be the sole owner of its region.
-  - **(b) Thread one shared depth accumulator through nested switches** — instead of skipping, recurse
-    directly into the nested switch's own case bodies using the same running depth/unit, anchored off
-    the nested switch's own already-computed absolute line indent.
-
-  **(a) fully resolves the production case**: the minimal repro and synthetic repros still converge
-  in one iteration each; the full production `ASTParser.java` now TERMINATES (previously a confirmed
-  non-converging 2-cycle) and its idempotency diff dropped from 369 differing lines (measured against
-  the pre-existing, unmodified baseline JAR on the same file) to 7 — all 7 in shapes unrelated to
-  switch-case (a pre-existing if/else general-reindent gap and an unrelated call-wrap line-length
-  gap, confirmed present identically in the unmodified baseline). `make test`: 247/247 → 248/248
-  forward + idempotency, zero regressions. New fixture: `test/real_code_regressions_181_{inp,out}.java`
-  (minimized from `ASTParser.java`'s nested-switch shape).
-
-  **(b) does NOT work as implemented and was rejected**: the nested switch's `SwitchBlock` is still
-  independently discovered and processed by `pickInnermostNeedingWork` on its own turn (that
-  discovery/iteration engine was left unchanged), so its own independent recomputation continued to
-  disagree with the outer recursive pass's writes — reproduced the identical never-converging
-  failure, now as a hang on even the minimal repro (`test/real_code_regressions_56_inp.java`, via a
-  20s `timeout`-wrapped run that hit the timeout). A structurally sound version of (b) would
-  additionally need the switch-discovery/iteration engine itself to recognize and skip any switch
-  nested inside another non-inline switch's case body (deferring it entirely to the outer recursive
-  pass rather than ever processing it as an independent top-level target) — a materially larger,
-  riskier architectural change than (a), same risk class as the not-yet-attempted
-  `curly-general-scope-reindent` redesign (`STATE_CURLY_GDR.md`). Reverted cleanly, not landed.
-
-  **Decision: landed approach (a).** Simpler (one opaque-skip branch, no change to the existing
-  per-switch discovery/iteration engine), lower-risk, and empirically both terminates and produces
-  correct STYLE.md-compliant depth-derived output on every tested shape, including the exact
-  production file that originally motivated this gap. `README.md`'s "Known Limitations" bullet for
-  this gap removed (list renumbered). Full two-approach writeup: `RDD_KEY_251` in `RDD_LOG.md`.
+  2026-08-07, seventh session on this gap. See the `RDD_KEY_251` index row above for the landed
+  fix summary (`applyDepthDerivedBodyIndent`, boundary + paren/bracket-continuation guards,
+  nested-switch-opaque approach (a) chosen over the rejected shared-accumulator approach (b)).
+  Full two-approach writeup, including the rejected approach's exact failure mode, lives in
+  `RDD_KEY_251` in `RDD_LOG.md`. Verified against the originally-cited production file
+  (`javaparser/javaparser`'s `ASTParser.java`, ~5500 lines): previously a confirmed non-converging
+  2-cycle, now terminates with idempotency diff dropped from 369 lines to 7 (all 7 pre-existing,
+  unrelated to switch-case). `make test`: 247/247 → 248/248 forward + idempotency, zero
+  regressions. New fixture: `test/real_code_regressions_181_{inp,out}.java`. `README.md`'s "Known
+  Limitations" bullet for this gap removed.
 
 - **Self-hosting dogfood bug: Java `&&`/`&` lost their leading space at a declaration-
-  initializer/expression tight join** (`XmlSpecificRule.java`'s `>= LEVEL_TABLE_FOSTER&& !
-  fosterBufferStack.isEmpty()&& ...`) — FIXED, see `RDD_KEY_238` for full root cause/fix/
-  validation detail. One-line summary: `DeclarationAlignmentRuleCore.isTightToken`/
-  `MiscRuleCore.isTightToken`'s `Token.isRepOp(t, '&')` tight-join rule (written for C/C++
-  pointer/reference declarator sigils, already gated off for Kotlin/JS/TS since neither has that
-  construct) was never gated off for Java either, even though Java has no such construct — fixed
-  by adding `!lang.isJava` around the `&`-half of both conditions. `||` confirmed unaffected (no
-  `isRepOp('|')` call anywhere). `make test`: 244/244, unchanged. 168 real occurrences fixed
-  project-wide across `src/` via the self-format dogfood-and-adopt re-run, 0 in `tools/*`.
+  initializer/expression tight join** — FIXED, see `RDD_KEY_238` (index above) for full detail.
+  `make test`: 244/244, unchanged. 168 real occurrences fixed project-wide across `src/` via the
+  self-format dogfood-and-adopt re-run, 0 in `tools/*`.
 
 - **`RDD_KEY_238` follow-up: general (non-declaration) expression-statement operator spacing was
-  never re-derived at all** (`TomlSpecificRule.java`/`CssSpecificRule.java`/
-  `YamlSpecificRule.java`/`JsonSpecificRule.java`'s `groupStart = (! atEnd&& ...) ? i : - 1;`
-  shape) — FIXED, see `RDD_KEY_239` for full root cause/fix/validation detail. One-line summary:
-  3 confirmed real sub-bugs (missing space before `&&`, extra space after unary `!`, `- 1` vs
-  `-1`), all traced to `MiscRuleCore.render`'s single-line RHS cell using pure verbatim
-  `joinVerbatim` instead of any respacing pass. Fixed via a new `!`-tight-join rule in both
-  `MiscRuleCore`/`DeclarationAlignmentRuleCore.needsSpaceBetween`, plus a new
-  `MiscRuleCore.renderExpressionTokens` (ported from `renderInitTokens`'s binary-vs-unary `*`/`&`
-  + C-style-cast disambiguation) wired into the single-line RHS path only. Found and fixed 3
-  regressions along the way: C pointer-dereference (`*cfg` → `* cfg`), Java cast spacing
-  (`(Type)expr` staying C/C++-only tight, gated `lang.isC || lang.isCpp`), and a binary-`*`-after-
-  `]` false-unary case (`dh[k] * (...)`, self-hosting-dogfood-only, `GruClassifier.java`) — plus
-  one unrelated pre-existing gap surfaced only because RHS spacing started being re-derived at
-  all: `(` directly after `]` (array-subscript/array-`new`-size-clause call) had no tight-join
-  rule, regressing `cpp_core`'s `new float[n]();` into `...] ();`. Also centralized the previously
-  byte-for-byte-duplicated `isUnaryMinusOperand(List<Token>, int)` (one copy each in
-  `DeclarationAlignmentRuleCore`/`MiscRuleCore`) as `Token.isUnaryMinusOperand` in
-  `TokenizerCore.java`, all 3 call sites inlined to call it directly. `make test`: 244/244 forward
-  + idempotency throughout, zero regressions, no new fixture (user-agreed simplified scope). Full
-  self-format dogfood-and-adopt re-run: 21 files in `src/` affected and adopted back (each
-  `java_content_diff.sh`-clean, re-run afterward confirms zero remaining diffs); `tools/*`
-  checked separately, already clean, 0 files affected.
+  never re-derived at all** — FIXED, see `RDD_KEY_239` (index above) for full detail (3 confirmed
+  sub-bugs, 3 regressions found/fixed along the way, `isUnaryMinusOperand` centralized). `make
+  test`: 244/244 forward + idempotency throughout, zero regressions, no new fixture (user-agreed
+  simplified scope). 21 files in `src/` affected and adopted back; `tools/*` unaffected.
 
 - **Extremely long pre-existing single-physical-line statement wraps differently each round** —
-  FIXED (see `RDD_KEY_225`). Root cause NOT `enforceCallLineBreaking` (already bails for
-  single-lambda-argument calls) but `ScopePipelineCurly.applyDeclarationsPass` ->
-  `DeclarationAlignmentRuleCore.renderInitTokens`: unconditionally flattens a declaration's
-  entire initializer (incl. multi-statement lambda mid-expression) onto one line with no
-  line-length check before `enforceCallLineBreaking` can preserve it. Fixed: pre-flight bail-out
-  in `DeclarationAlignmentRuleCurly.parseDeclaration` (`rawSliceBetweenUnfiltered`/
-  `containsMultilineBraceBody`) — if any brace pair in the initializer originally spanned >1
-  physical source line, leave statement untouched. Re-verified durable against a
-  `jenkinsci/jenkins` `hudson/PluginManager.java` repro (external copy since deleted,
-  permanently covered by the fixture below): round1 == round2 == round3, `sitePlugins`
-  no longer flattened. 3 pre-existing fixtures
-  (`real_code_regressions_57`/`129`/`130`) hand-encoded this as "expected" — updated per
-  `test/README.txt` and RDD_KEY_222 precedent. New fixture
-  `test/real_code_regressions_176_{inp,out}.java`. `make test`: 224/224 -> 225/225, zero
-  regressions.
+  FIXED, see `RDD_KEY_225` (index above) for full root cause/fix detail. Re-verified durable
+  against a `jenkinsci/jenkins` `hudson/PluginManager.java` repro (external copy since deleted,
+  permanently covered by the fixture below): round1 == round2 == round3. 3 pre-existing fixtures
+  (`real_code_regressions_57`/`129`/`130`) updated per `test/README.txt` and RDD_KEY_222
+  precedent. New fixture `test/real_code_regressions_176_{inp,out}.java`. `make test`: 224/224 ->
+  225/225, zero regressions.
 - **`* const` cosmetic gap in mixed declaration groups** (`DeclarationAlignmentRule`) — FIXED.
   `splitCppType` now always returns `postConst = ""`, folding the whole type+star+const text
   into one uniformly-padded column. East-const (`char const*`) intentionally not normalized.
@@ -868,11 +777,10 @@ before/after detail available via `git log`/`git show`.
   `real_code_regressions_120`.
 
   **2026-07-31 re-verification — STALE TRACKER ITEM, no code change needed.** A separate tracker
-  item described this exact bug (same root cause/trigger macros/symptom) as still open; it is not
-  — already fixed/verified above (fixture `real_code_regressions_120`). Re-verified against a
-  fresh `/tmp/STL` checkout (`istream`/`stacktrace`/`xlocale`, current JAR): round1/round2
-  byte-identical on all three, no residual case. No new fixture, no `src/`/`test/` changes —
-  confirmation-only, to stop the next reader from re-opening a closed bug.
+  item wrongly described this exact bug as still open. Re-verified against a fresh `/tmp/STL`
+  checkout (`istream`/`stacktrace`/`xlocale`, current JAR): round1/round2 byte-identical, no
+  residual case. No new fixture/changes — confirmation-only, to stop a future reader re-opening a
+  closed bug.
 
 - **Wrapped constructor signature's parameter-render logic misapplied to its own following
   member-initializer-list entry** — FIXED. Found in `microsoft/STL` (item 26, `mutex.hpp`/

@@ -442,6 +442,32 @@ motivation is availability (a single slow/hung request currently blocks
 every other client indefinitely) more than the raw one-by-one benchmark
 number.
 
+### Multi-sentence comment capitalization (deliberately not started)
+
+Today's comment-start capitalization only ever touches the first word of a
+line-comment chain/group (`computeLineCommentGroups`/`enforceCommentStyle`
+in `MiscRuleCore` for curly; `ToolingCommentNormalizer.normalizeChain`'s
+`#`-comment equivalent for yaml/toml/makefile/bash/powershell) — sentence
+2+ within the same group is never capitalized after a `.`/`!`/`?`. Full
+multi-sentence support would need: (1) joining a comment group's lines into
+one logical text stream so a sentence can be detected even across a
+line-wrap boundary, then re-splitting back onto the original line breaks
+after transforming; (2) real sentence-boundary detection, which is
+genuinely ambiguous — `.` followed by whitespace+letter is only a
+heuristic, defeated by abbreviations (`e.g.`, `etc.`), decimals, version
+strings, and inline code fragments (`obj.method()`); the existing GRU
+classifier answers "is this specific leading word safe to capitalize," not
+"is this a sentence boundary," so it is out-of-distribution for this job
+and would need retraining or its own heuristic/gate (likely a
+`KeywordAmbiguityGate`-shaped approach). Blast radius is wide — this logic
+is now shared across roughly 15 languages and 260+ fixtures (curly,
+xml/html5, json/json5/css, yaml/toml, tooling, python3). If picked up,
+treat it like `curly-general-scope-reindent`/`html5-tc-gap-level`: land
+behind its own config flag (e.g. `normalize-comment-multi-sentence-case`),
+off by default, and validate against several real-code dogfood corpora
+before ever flipping the default — this is its own tracked job-sized
+effort, not a same-session drop-in.
+
 ### Project refactoring/cleanup pass
 
 After `angular/angular` and `python/cpython` dogfood runs (the last

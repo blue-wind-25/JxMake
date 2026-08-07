@@ -130,16 +130,12 @@ Compact (don't use sub-agent because I will end this session soon) the narration
 ####################################################################################################
 ####################################################################################################
 
-Compact (use one sub-agent) `STATE_JS_TS.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
 === TIER 0: Recurring job ===
 
 1. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
-   Re-execute `Formatter self-formatting (dogfood-and-adopt) process`. Make it simpler: no need to
-   test reformat using the round2 JAR.
+   Re-execute `Formatter self-formatting (dogfood-and-adopt) process` in `STATE_COMMON.md`.
+   Make it simpler: no need to test reformat using the round2 JAR.
 
    Apply the formatter to all `*.java/py/js` source files inside `tools/*` subdirectories. Output
    the result to `/tmp/tools_round1` and then `/tmp/tools_round2`. Perform idempotency check and
@@ -147,6 +143,8 @@ Be careful not to lose important information, especially the `**Tools/compiler u
 
    Update and fix `CLAUDE.md`, `STATE_DOGFOOD.md`, `README.md`, `../README.txt`,
    `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`, etc. as needed.
+
+Use sub-agent. This can be a substantial work.
 
 2. [GRU] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
@@ -188,7 +186,11 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 3: Real feature gaps — medium risk ===
 
-NONE FOR NOW
+1. [C_CPP_JAVA] `**TODO (2026-08-08, later same day) — instance worked around, root cause still open.**`
+
+2. [COMMON] `### Multi-sentence comment capitalization (deliberately not started)`
+
+3. [COMMON] `### Server concurrency + client read-ahead (deliberately not started)`
 
 If the fix only cause few regression, try to fix. If the fix cause many regression, revert.
 Use sub-agent. This can be a substantial work.

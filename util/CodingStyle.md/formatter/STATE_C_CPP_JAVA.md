@@ -243,6 +243,36 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   `make test`'s existing 261-fixture baseline will catch, since no fixture reproducing it has been
   registered (the repro used for investigation was a scratch file, not committed to `test/`).
 
+  **Repro fixture (blank-line-separated, non-buggy shape) now committed**: `test/
+  java_combined_inp.java`'s `evaluateAt2` method (end of the file, after the `aaa`/`b`/`ccccc`
+  declarations) has the same 7-line `s = applyX(s); // §N.n comment` call chain from
+  `PowerShellSpecificRule.java`, blank-line-separated into 4 sub-groups exactly like the
+  post-workaround file — this is the *working* shape (`java_combined_out.java` shows it formats
+  stably, no wrap). It's a convenient anchor for a future session: to reproduce the actual bug,
+  remove the blank lines between the 7 statements (re-forming one contiguous `applyAssignmentsPass`
+  group) and re-run round1/round2 — this should still diverge (stale comment-column padding vs. two
+  lines getting wrapped by `enforceCallLineBreaking`, per the shape recorded above) until (a)/(b) or
+  the idea below lands.
+
+  **New fix idea (2026-08-08, not yet attempted) — make `enforceCallLineBreaking`'s fits-check
+  ignore alignment padding.** Distinct from attempts 1/2 above (which both tried *re-running*
+  `applyAssignmentsPass` after wrapping); this instead targets the wrap *decision* itself. Right
+  now `enforceCallLineBreaking` measures a line's length using whatever comment-column padding
+  `applyAssignmentsPass` already inserted — so the wrap decision is a function of alignment width,
+  which itself depends on group membership, which shifts once something wraps. If the fits-check
+  instead measured the line as if the comment gap were a single canonical space (i.e. ignoring
+  alignment padding entirely, the same class of fix as RDD_KEY_172's `isSingleLineBody` fits-check
+  correction — there it was *missing* indent+comment width, here it's *including a variable* padding
+  width it shouldn't), the wrap/no-wrap decision would be stable across rounds by construction,
+  since it would no longer depend on a value that the wrap itself invalidates. This is a narrower,
+  more surgical change than attempts 1/2 (a measurement change, not a pass re-run) and might avoid
+  their specific regressions (aggregate-init closing braces, Java enum `;` separation), but it still
+  touches a method shared by every curly-family language (~15 languages, 260+ fixtures via the
+  shared curly pipeline) and needs verification that no other pass or fixture actually relies on
+  `enforceCallLineBreaking` seeing the true padded width for a correct wrap (e.g. a line that's
+  genuinely too wide for the reader only once alignment padding is included). Investigate this idea
+  first, in isolation, before touching `FormatterCurly.java`'s re-run gate again.
+
 - **NOT REPRODUCED, 2026-08-03 — closed as unconfirmed/stale, not conflated with the above.**
   Ran every registered `test/*_out.cpp`/`test/*_out.hpp` fixture (37 files) through both
   `g++ -std=c++20 -fsyntax-only` and `clang++ -std=c++23 -fsyntax-only` (tools (2)/(3), incl.

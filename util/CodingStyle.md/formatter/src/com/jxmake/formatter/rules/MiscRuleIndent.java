@@ -9,7 +9,10 @@ package com.jxmake.formatter.rules;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
@@ -29,6 +32,147 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
  * from {@link MiscRuleCore} and reused as-is -- those are statement-shape-agnostic.
  */
 public final class MiscRuleIndent extends MiscRuleCore {
+
+    /**
+     * Python analog of {@link MiscRuleCore#COMMENT_NO_CAPITALIZE_C} (2026-08-08 session, comment
+     *  normalization for python3 -- see STATE_PYTHON3.md). Two families of leading word that must
+     *  never be capitalized even when they start a `#` comment sentence: (1) Python's own reserved
+     *  words (hard keywords plus the context-sensitive soft keywords `match`/`case`/`type`/`_`,
+     *  plus `self`/`cls` -- both plain identifiers, not grammar keywords, but conventionally
+     *  lowercase and frequently the first word of a comment describing the bound instance/class,
+     *  e.g. {@code # self is bound at call time}); (2) well-known lowercase, colon-suffixed
+     *  "magic comment" directive words consumed verbatim by real tools (linters/type-checkers/
+     *  formatters), where capitalizing the first letter would silently break the directive were a
+     *  human to later copy the word into a real one --
+     *  {@code noqa}/{@code type}/{@code pragma}/{@code coding}/{@code fmt}/{@code isort}/
+     *  {@code pylint}/{@code mypy}/{@code flake8}/{@code nosec}. {@code capitalizeFirstLetter}'s
+     *  leading-word extraction stops at the first non-letter/digit/underscore, so a directive
+     *  written as {@code # type: ignore} or {@code # noqa: E501} still matches on {@code "type"}/
+     *  {@code "noqa"} even though the source line itself continues with a `:`.
+     */
+    protected static final Set<String> COMMENT_NO_CAPITALIZE_PYTHON = setOf(
+        "False", "None", "True",
+        "and", "as", "assert", "async", "await",
+        "break",
+        "case", "class", "continue",
+        "def", "del",
+        "elif", "else", "except",
+        "finally", "for", "from",
+        "global",
+        "if", "import", "in", "is",
+        "lambda",
+        "match",
+        "nonlocal", "not",
+        "or",
+        "pass",
+        "raise", "return",
+        "self", "cls",
+        "try", "type",
+        "while", "with",
+        "yield", "_",
+        "noqa", "pragma", "coding", "fmt", "isort", "pylint", "mypy", "flake8", "nosec"
+    );
+
+    public MiscRuleIndent(
+        final Lang    lang,
+        final boolean normalizeCommentStartCase,
+        final boolean normalizeCommentEndPeriod,
+        final boolean commentNormalizationClassifier,
+        final boolean gruClassifier,
+        final String  gruWeightsPath,
+        final int     indentWidth,
+        final int     lineLengthLimit
+    )
+    {
+        super(lang, normalizeCommentStartCase, normalizeCommentEndPeriod, commentNormalizationClassifier,
+                gruClassifier, gruWeightsPath, indentWidth, lineLengthLimit);
+    }
+
+    @Override
+    protected boolean isCommentNoCapitalizeWord(final String word)
+    {
+        if(lang.isPython3) return COMMENT_NO_CAPITALIZE_PYTHON.contains(word);
+
+        return super.isCommentNoCapitalizeWord(word);
+    }
+
+    /**
+     * Python has no C-family "closing-brace label comment" concept ({@link
+     *  MiscRuleCore#isClosingBraceLabelComment} checks for a preceding `}`, meaningless for a
+     *  `#`-comment chain) and no separator-alignment-comment concept either ({@link
+     *  MiscRuleCore#parseSeparatorComment} is hardcoded to a `//`-prefixed, 2-char-stripped
+     *  comment body and would misparse/out-of-bounds on a 1-char `#` body) -- STYLE_PYTHON3.md's
+     *  §7 note ("no closing-comment mechanism exists, confirmed via full-tree grep, out of scope")
+     *  already established neither concept applies to this language. Both overridden to always
+     *  return true: every standalone `#` comment is a chain link, and every comment considered by
+     *  the chain grouping below is rewritable.
+     */
+    @Override
+    protected boolean isCommentChainLink(final List<Token> tokens, final int idx)
+    {
+        return true;
+    }
+
+    @Override
+    protected boolean isCommentRewritable(final List<Token> tokens, final int idx)
+    {
+        return true;
+    }
+
+    /**
+     * `#`-comment analog of {@link MiscRuleCore#computeLineCommentGroups} (STYLE_PYTHON3.md has no
+     *  numbered section for this -- comment normalization was never wired up for python3 at all
+     *  until this 2026-08-08 session; see STATE_PYTHON3.md). Chain-groups consecutive standalone
+     *  `#` comments (no blank line between them, per the inherited {@link
+     *  #nextCommentChainLinkIfAdjacent}/{@link #isStandaloneCommentLine} primitives -- both already
+     *  family-agnostic, unchanged from the curly-family originals) into one §15-style
+     *  sentence-detection unit: only the group's first comment's start is capitalized (routed
+     *  through {@link #capitalizeFirstLetter(String)}, which already gates on {@code
+     *  normalize-comment-start-case} and, when {@code comment-normalization-classifier} is on,
+     *  defers to the same rule-based/GRU-backed {@link #classifyComment(String, int)} decision path
+     *  curly uses -- {@link #isCommentNoCapitalizeWord} is only consulted in the non-classifier
+     *  branch), and a sole trailing `.` across the whole group is stripped from the last comment
+     *  only (via the already family-agnostic {@link #stripSoleTrailingPeriodAcrossLines}). A
+     *  trailing (non-standalone) comment starts and ends its own singleton group, reducing to the
+     *  same per-comment behavior {@link #capitalizeFirstLetter(String)}/{@link
+     *  #stripSoleTrailingPeriod(String)} already give any other single comment. Returns each
+     *  group member's already-normalized body text (without the leading `#`), keyed by its token
+     *  index; a {@code COMMENT_LINE} token index absent from the map must be rendered verbatim by
+     *  the caller.
+     */
+    public Map<Integer, String> computeHashCommentGroups(final List<Token> tokens)
+    {
+        final Map<Integer, String> result = new HashMap<>();
+              int                  i      = 0;
+        while( i < tokens.size() ) {
+            final Token t = tokens.get(i);
+            if(t.type == TokenType.COMMENT_LINE) {
+                final List<Integer> group = new ArrayList<>();
+                group.add(i);
+                int j = i;
+                int next;
+                while( ( next = nextCommentChainLinkIfAdjacent(tokens, j) ) >= 0 ) {
+                    group.add(next);
+                    j = next;
+                }
+                final List<String> contents = new ArrayList<>();
+                for(final int idx : group) contents.add( tokens.get(idx).text.substring(1) );
+                stripSoleTrailingPeriodAcrossLines(contents);
+                if( !contents.isEmpty() ) contents.set(
+                    0, capitalizeFirstLetter( contents.get(0) )
+                );
+                for( int k = 0; k < group.size(); ++k ) result.put(
+                    group.get(k), contents.get(k)
+                );
+                i = j + 1;
+            } // if
+            else {
+                ++i;
+            }
+        } // while
+
+        return result;
+    }
 
     /**
      * One recognized `identifier (op) value` assignment candidate line, restricted to a single

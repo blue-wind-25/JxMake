@@ -41,7 +41,9 @@ public final class FormatterIndent extends FormatterCore {
 
         String text = new ScopePipelineIndent(
             lang, config.indentSize(), config.lineLength(),
-            config.isPythonImportSort(), config.pythonImportBlankLines()
+            config.isPythonImportSort(), config.pythonImportBlankLines(),
+            config.isNormalizeCommentStartCase(), config.isNormalizeCommentEndPeriod(),
+            config.isCommentNormalizationClassifier(), config.isGruClassifier(), config.gruWeightsPath()
         ).process(
             content
         );

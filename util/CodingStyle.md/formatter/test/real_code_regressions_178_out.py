@@ -6,15 +6,15 @@ def dispatch(event):
     match event:
         case "start":
             begin()
-        # stopping the process
+        # Stopping the process
         case "stop": end()
         case _:
             pass
 
 def check(x):
     if x < 0:
-        # negative case
+        # Negative case
         return None
 
-    # zero case
+    # Zero case
     if x == 0: return 0

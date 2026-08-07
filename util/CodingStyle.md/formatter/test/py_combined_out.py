@@ -18,7 +18,7 @@ flags    = 0x01
 flags   |= 0x02
 timeout  = 100
 retries  = 3
-# a comment breaks the group
+# A comment breaks the group
 name = "worker"
 
 total = (something

@@ -541,6 +541,22 @@ Python3:
                                                         comment breaking a compact `case`-line alignment
                                                         group.
 
+  py_comments_normalization_inp/out.py               -- RDD_KEY_268: `normalize-comment-start-case`/
+                                                        `normalize-comment-end-period` for python3's `#`
+                                                        comments (previously not wired up at all). Uses `#%
+                                                        JXM_CFMT_CFG comment-normalization-classifier=off` so
+                                                        the deterministic no-capitalize-word-list path is
+                                                        exercised instead of the default classifier/GRU path.
+                                                        Covers: a 3-line standalone chain (only the first
+                                                        line's start is capitalized; the sole trailing period,
+                                                        found only on the last line, is stripped only because
+                                                        it is the sole `.` across the whole chain); `noqa`/
+                                                        `type` leading directive words staying lowercase via
+                                                        the new python-specific no-capitalize word list; a
+                                                        trailing (non-standalone) comment normalizing as its
+                                                        own singleton group; and an ordinary standalone
+                                                        single-comment capitalization.
+
   py_import_blank_lines_inp/out.py                   -- RDD_KEY_247: `python-import-blank-lines` (default 1)
                                                         collapses a 2-blank-line gap between two adjacent
                                                         same-depth import groups down to 1, while a

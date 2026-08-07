@@ -94,6 +94,7 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 | RDD_KEY_186 | New §10 — triple-quoted docstrings/multiline strings are opaque, preserved verbatim beyond the opening line (extends §4's precedent) |
 | RDD_KEY_237 | Indent-size/style conversion (Python analog of `MiscRuleCore#convertIndentation`) — granularity resolved per real statement line via the tokenizer's own INDENT/DEDENT depth, not per-block width-guessing; see "Indent-Size/Style Conversion" section below |
 | RDD_KEY_247 | `python-import-sort`/`python-import-blank-lines` wired into `Config.java` (previously documented but not recognized keys); `python-import-blank-lines` given real new behavior (blank-line-count normalization between same-depth adjacent import groups separated only by blank lines) per coordinator decision after an initial ambiguity stop — see "Config Keys Wiring" section below |
+| RDD_KEY_268 | `normalize-comment-start-case`/`normalize-comment-end-period` implemented from scratch for python3's `#` comments, plus chain-grouping — reuses the existing classifier/GRU-backed decision path (`MiscRuleCore#capitalizeFirstLetter`/`#stripSoleTrailingPeriodAcrossLines`/`#classifyComment` were already family-agnostic) rather than a parallel ad hoc mechanism — see "Comment Normalization" section below |
 
 ---
 
@@ -358,6 +359,78 @@ non-idempotency, zero new `python3.12 -m py_compile` errors (only
 pre-existing, formatter-unrelated failures reproduced identically on the
 unformatted originals, e.g. `annotationlib.py`'s t-string syntax not yet
 supported by python3.12).
+
+---
+
+## Comment Normalization — DONE (RDD_KEY_268)
+
+`normalize-comment-start-case`/`normalize-comment-end-period` were never wired up for python3 at
+all before this 2026-08-08 session (final piece of the cross-job comment chain-grouping brief
+already landed for curly (pre-existing), xml/html5 (`9d2312b`), json/json5/css (`b9aa770`/
+`22a031f`), yaml/toml (`c064018`/`0e8da9e`), and makefile/bash/powershell (`847d45f`)). Full text:
+`RDD_KEY_268` in `RDD_LOG.md`.
+
+**Classifier/GRU reuse (the key architectural requirement for this job):** `MiscRuleCore`'s
+`capitalizeFirstLetter(String)`/`stripSoleTrailingPeriod(String)`/
+`stripSoleTrailingPeriodAcrossLines`/`classifyComment` were already family-agnostic — gated only on
+the shared `normalizeCommentStartCase`/`normalizeCommentEndPeriod`/`commentNormalizationClassifier`/
+`gruClassifier`/`gruWeightsPath` instance fields any `MiscRuleCore` subclass already carries, not
+curly-specific. `MiscRuleIndent` needed no new classifier-integration code of its own — only a new
+8-arg constructor (mirrors `MiscRuleCurly`'s own) threading `gruClassifier`/`gruWeightsPath`
+through to the inherited full `MiscRuleCore` constructor.
+
+**New in `MiscRuleIndent`:**
+- `COMMENT_NO_CAPITALIZE_PYTHON` — python's hard/soft keywords, `self`/`cls`, and lowercase
+  magic-comment directive words (`noqa`/`type`/`pragma`/`coding`/`fmt`/`isort`/`pylint`/`mypy`/
+  `flake8`/`nosec`) — consulted by `isCommentNoCapitalizeWord` only when
+  `comment-normalization-classifier=off` (same as every other language's own no-capitalize set;
+  the classifier path never consults it at all, confirmed via manual diff — not a python-specific
+  gap).
+- `isCommentChainLink`/`isCommentRewritable` overridden to unconditionally `true` — python has
+  neither a closing-brace-label-comment concept (`isClosingBraceLabelComment` checks for a
+  preceding `}`, meaningless for a `#` chain) nor a separator-alignment-comment concept
+  (`parseSeparatorComment` hardcodes `substring(2)`/`"//"`, would misparse a 1-char `#` body);
+  §7's own note ("no closing-comment mechanism exists, confirmed via full-tree grep") already
+  established neither applies to this language.
+- `computeHashCommentGroups` — a `#`-prefixed analog of `MiscRuleCore#computeLineCommentGroups`
+  (not directly reusable: that method hardcodes `substring(2)`/`"//"` throughout). Reuses the
+  already family-agnostic `isStandaloneCommentLine`/`nextCommentChainLinkIfAdjacent`/
+  `stripSoleTrailingPeriodAcrossLines` as-is (unchanged, inherited).
+
+**New in `ScopePipelineIndent`:** `applyCommentNormalization` pass (added to `process`'s
+replacement list, after `applyControlFlowBlankLines`) turns each changed `COMMENT_LINE` token from
+`computeHashCommentGroups` into a single-token `Replacement`. New 10-arg constructor threading the
+5 comment-normalization config values through to `MiscRuleIndent`; the pre-existing 5-arg
+constructor now delegates to it with all 5 defaulted off (unchanged behavior for any caller that
+doesn't need them). `FormatterIndent#formatOne` passes the real `Config` getters
+(`isNormalizeCommentStartCase`/`isNormalizeCommentEndPeriod`/`isCommentNormalizationClassifier`/
+`isGruClassifier`/`gruWeightsPath`) through.
+
+**Fixture:** `test/py_comments_normalization_{inp,out}.py` (registered in `test/README.txt`/
+`Makefile`'s `INP_FILES`), using a `#% JXM_CFMT_CFG comment-normalization-classifier=off` in-file
+directive so the deterministic no-capitalize-word-list path is exercised deterministically (the
+default classifier/GRU path was manually confirmed to normalize `noqa`/`type`-leading comments
+anyway, since it never consults the word list). Covers: a 3-line standalone chain (only first
+line's start capitalized; sole trailing period — the only `.` across the whole chain — stripped
+only from the last line); `noqa`/`type` staying lowercase; a trailing (non-standalone) comment as
+its own singleton group; an ordinary standalone single-comment capitalization.
+
+**Existing-fixture regressions (per this job's explicit fallback instruction, NOT fixed by the
+implementing agent):** `test/py_combined_{inp,out}.py`, `test/py_comments_{inp,out}.py`,
+`test/real_code_regressions_127_{inp,out}.py`, `test/real_code_regressions_178_{inp,out}.py` each
+needed their `_out.py` updated for the newly-wired-up pass (every diff traced to a `#` comment
+gaining start-case capitalization and/or sole-trailing-period stripping — the new rule now firing
+where §2/§3/§7/§9's own worked examples happened to contain ordinary-prose `#` comments). Stopped
+per the fallback instruction and left for the project owner to review; **the project owner
+reviewed and fixed all four fixtures directly this session** — confirmed correct, `make test`
+258/258 forward + idempotency (257 pre-existing + 1 new fixture) after the fix.
+
+No real-code dogfood corpus re-run performed this session — STATE_PYTHON3.md's five-repo dogfood
+list (`pallets/flask`, `pallets/click`, `psf/black`, `django/django`, `python/cpython`) was all
+done for the pre-existing rule surface (§1-9, indent-size/style conversion); a future session may
+re-run it specifically to check for classifier-path comment-normalization regressions/false-
+positives against real code, same as every other language's own dogfood precedent for a
+newly-landed rule.
 
 ---
 
@@ -861,4 +934,7 @@ supported by python3.12).
       #convertIndentation`) — see "Indent-Size/Style Conversion — DONE
       (RDD_KEY_237)" section above for the full design-decision/
       implementation narrative, bug fixes, and corpus validation.
+- [x] Comment normalization (`normalize-comment-start-case`/
+      `normalize-comment-end-period` for `#` comments, plus chain-grouping)
+      — see "Comment Normalization — DONE (RDD_KEY_268)" section above.
 

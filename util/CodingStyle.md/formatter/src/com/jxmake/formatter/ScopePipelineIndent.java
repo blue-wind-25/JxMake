@@ -14,6 +14,7 @@ import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import com.jxmake.formatter.evaluator.PythonBracketComplexityEvaluator;
@@ -63,8 +64,9 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      *  ordering pass ({@link #applyImportSort}) -- see {@code Config#isPythonImportSort}/
      *  {@code Config#pythonImportBlankLines}. The two-/three-arg constructors above default both
      *  to their {@code Config} default (on / 1) for any caller that doesn't need to thread a real
-     *  {@code Config} through (kept for backward compatibility -- no other in-tree caller besides
-     *  {@code FormatterIndent} exists today).
+     *  {@code Config} through (kept for backward compatibility). This constructor also leaves
+     *  comment-normalization (see the 10-arg constructor below) off, matching its own prior
+     *  behavior before that pass existed -- no other in-tree caller besides test code needs it.
      */
     public ScopePipelineIndent(
         final Lang    lang,
@@ -74,9 +76,41 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final int     pythonImportBlankLines
     )
     {
+        this(lang, indentWidth, lineLength, pythonImportSort, pythonImportBlankLines,
+                false, false, false, false, "");
+    }
+
+    /**
+     * Full constructor additionally threading the `normalize-comment-start-case`/
+     *  `normalize-comment-end-period`/`comment-normalization-classifier`/`gru-classifier`/
+     *  `gru-weights-path` config values through to {@link #miscRule} (2026-08-08 session, comment
+     *  normalization for python3 -- see STATE_PYTHON3.md), the same classifier/GRU-backed decision
+     *  path the curly family's own {@code MiscRuleCurly#enforceCommentStyle} already uses via
+     *  {@code MiscRuleCore#capitalizeFirstLetter(String)}/{@code #stripSoleTrailingPeriodAcrossLines}
+     *  -- {@link MiscRuleIndent} needed no new classifier-integration code of its own, only its own
+     *  {@code #}-comment chain-grouping ({@link MiscRuleIndent#computeHashCommentGroups}) built on
+     *  top of those already-shared, already-gated primitives. {@link #applyCommentNormalization}
+     *  is the new pass this constructor enables.
+     */
+    public ScopePipelineIndent(
+        final Lang    lang,
+        final int     indentWidth,
+        final int     lineLength,
+        final boolean pythonImportSort,
+        final int     pythonImportBlankLines,
+        final boolean normalizeCommentStartCase,
+        final boolean normalizeCommentEndPeriod,
+        final boolean commentNormalizationClassifier,
+        final boolean gruClassifier,
+        final String  gruWeightsPath
+    )
+    {
         super(indentWidth);
         this.lang                   = lang;
-        this.miscRule               = new MiscRuleIndent(lang, false, false, false, indentWidth, 0);
+        this.miscRule               = new MiscRuleIndent(
+            lang, normalizeCommentStartCase, normalizeCommentEndPeriod, commentNormalizationClassifier,
+            gruClassifier, gruWeightsPath, indentWidth, 0
+        );
         this.lineLength             = lineLength;
         this.pythonImportSort       = pythonImportSort;
         this.pythonImportBlankLines = pythonImportBlankLines;
@@ -96,6 +130,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         replacements.addAll( applyCaseColonAlignment(tokens, rawLines) );
         replacements.addAll( applySingleStatementBody(tokens, rawLines) );
         replacements.addAll( applyControlFlowBlankLines(tokens, rawLines) );
+        replacements.addAll( applyCommentNormalization(tokens) );
         // Ties on `start` must put zero-width insertions (start == end, e.g. §9's blank-line-before
         // insertion) ahead of any wider, token-consuming replacement at that same position (e.g. §8's
         // header-rewriting join) -- a zero-width entry renders without advancing the render() cursor,
@@ -107,6 +142,32 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                 .thenComparingInt(r -> r.end - r.start) );
 
         return render(tokens, replacements);
+    }
+
+    /**
+     * `normalize-comment-start-case`/`normalize-comment-end-period` for python3's `#` comments
+     *  (2026-08-08 session -- see STATE_PYTHON3.md; previously not wired up for python3 at all).
+     *  Delegates the actual chain-grouping/normalization decision entirely to {@link
+     *  MiscRuleIndent#computeHashCommentGroups}, then turns each changed {@code COMMENT_LINE}
+     *  token into a single-token {@link Replacement} (a comment token is never split across
+     *  physical lines, so `[idx, idx+1)` always exactly covers it). A group member whose
+     *  normalized body is identical to its current body (nothing to change, or the config keys/
+     *  classifier gate left it untouched) is skipped -- keeps this pass's own replacement count
+     *  proportional to actual changes, same posture as every other pass in this class.
+     */
+    private List<Replacement> applyCommentNormalization(final List<Token> tokens)
+    {
+        final List<Replacement>  replacements = new ArrayList<>();
+        final Map<Integer, String> groups      = miscRule.computeHashCommentGroups(tokens);
+        for( final Map.Entry<Integer, String> e : groups.entrySet() ) {
+            final int    idx  = e.getKey();
+            final String body = e.getValue();
+            if( !( "#" + body ).equals( tokens.get(idx).text ) ) replacements.add(
+                new Replacement( idx, idx + 1, "#" + body )
+            );
+        } // for
+
+        return replacements;
     }
 
     /**

@@ -331,6 +331,19 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       showed only the intended, in-scope transforms (§1.1-§1.4 conditional
       indent/alignment + RDD_KEY_261 comment normalization); no bug found.
       See `STATE_DOGFOOD.md` for per-repo rows.
+      **Bash — DONE.** Ran `nvm-sh/nvm`'s 5 `.sh` files (5766 lines total:
+      `nvm.sh`, `install.sh`, `test/common.sh`, `rename_test.sh`,
+      `update_test_mocks.sh`) through the same round1/round2 pattern:
+      `diff -ru` empty (idempotent). `bash -n` clean on every round1 file,
+      same as the unmodified originals. Confirmed by reading the
+      `install.sh` diff that the brace-depth body reindent (the §2.3 note
+      "byproduct of brace-depth counting") only tracks literal `{`/`}`
+      characters, not `if`/`then`/`else`/`fi` keywords -- so a function
+      body containing an `if`/`else`/`fi` block renders the whole thing at
+      one flat indent level, matching PowerShell §3.1's documented "naive"
+      (not context-aware) brace-depth semantics applied the same way to
+      Bash. This is the already-decided scope, not a new bug. See
+      `STATE_DOGFOOD.md` for the row.
 - [x] Implement comment normalization for Makefile/Bash/PowerShell
       (RDD_KEY_261) -- previously untouched entirely (STYLE_TOOLING.md §0).
       New shared `ToolingCommentNormalizer` (first-letter capitalization +

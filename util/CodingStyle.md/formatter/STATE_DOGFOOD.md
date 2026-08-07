@@ -122,7 +122,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Bash | STATE_TOOLING.md | javaparser/javaparser | NOT STARTED | materialised `/tmp/javaparser_gdr` (prior): 7 `*.sh` release/generator scripts |
 | Bash | STATE_TOOLING.md | jenkinsci/jenkins | NOT STARTED | materialised `/tmp/jenkins_scope` (prior): `ath.sh` + test-resource `.sh` |
 | Bash | STATE_TOOLING.md | wordpress/wordpress-develop | NOT STARTED | materialised `/tmp/wordpress-develop` (prior): a few `tools/`/`.devcontainer/` `.sh` |
-| Bash | STATE_TOOLING.md | nvm-sh/nvm | NOT STARTED | materialised `/tmp/nvm` (full shallow clone 2026-08-07) |
+| Bash | STATE_TOOLING.md | nvm-sh/nvm | DONE | round1/round2 idempotent (empty diff) across all 5 `.sh` files (nvm.sh, install.sh, test/common.sh, etc., 5766 lines total); `bash -n` clean on every round1 file, matching the unmodified originals -- no formatter-induced syntax breakage. Confirmed the naive brace-depth body reindent (STYLE_TOOLING.md 2.3 note) intentionally does not track `if`/`then`/`else`/`fi`/`case` nesting (only literal `{`/`}`), so e.g. an `if...else...fi` block inside a function body renders at the same indent as its own body lines -- this is the documented "byproduct of brace-depth counting" scope, not a bug |
 | Bash | STATE_TOOLING.md | acmesh-official/acme.sh | NOT STARTED | materialised `/tmp/acme.sh` (full shallow clone 2026-08-07) |
 | Bash | STATE_TOOLING.md | ohmyzsh/ohmyzsh | NOT STARTED | materialised `/tmp/ohmyzsh` (shallow clone + strip to 17 `*.sh`/`.bash` only, 2026-08-07) |
 | PowerShell | STATE_TOOLING.md | PowerShell/PowerShell | NOT STARTED | materialised `/tmp/PowerShell` (selective 505 `*.ps1`/`*.psm1` via GitHub raw, 2026-08-07; no full C# tree) |

@@ -128,12 +128,13 @@ Use one sub-agent as needed, the sub-agent can launch up to one more research su
 ####################################################################################################
 
 Extend the mechanical comment normalizer to also contains standard Unix tool names (e.g., awk, grep,
-sed, head, tail, etc.) in the list. Ensure the Makefile, Bash, and PowerShell formatter are wired
-to the comment normalizer. Decide whether to extend the linear classIfier and and GRU with the new
-words (probably not needed), you may peform GRU acquire corpus if needed but do not re-train.
+sed, head, tail, etc.) in the list. Ensure the Makefile, Bash, and PowerShell formatters are wired
+to the comment normalizer. Decide whether to extend the linear classIfier and GRU with the new words
+(probably not needed). If you do decide to add words, check the new % and peform GRU acquire corpus
+to also update the GRU samples, but do not re-train (I will re-train it from another console).
 
-Perform dogfood test on the Makefile, Bash, and PowerShell in turn, one by one. Use one sub-agent
-as needed.
+Perform dogfood test on the Makefile, Bash, and PowerShell formatters in turn, one by one. Use one
+sub-agent as needed.
 
 === TIER 0: Recurring job ===
 

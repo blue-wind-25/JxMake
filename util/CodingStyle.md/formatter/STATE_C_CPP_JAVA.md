@@ -166,6 +166,66 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   `utility/any.hpp`, `iterator/common_iterator.hpp`, `meta.hpp`. Root cause/fix: entry (20) in
   "Finished dogfood / real-code testing" below. Full narrative: `RDD_KEY_169` in `RDD_LOG.md`.
 
+- **[Shared with STATE_JS_TS.md family] Java assignment-alignment trailing-comment padding vs.
+  `enforceCallLineBreaking` ordering — 2026-08-08 investigation session, no code change landed
+  (reverted after regression found).** Same architectural bug already tracked above (the
+  `ScopePipelineCurly.processScope` outer-first-then-recurse double-pass entry) and the same
+  concrete mechanism RDD_KEY_248/RDD_KEY_270 already fixed for JS/TS via
+  `FormatterCurly.format`'s `if(lang.isJs || lang.isTs) scopePipeline.
+  reapplyClosingBraceAndDeclarationsPass(text)` narrow re-run — but this session found the
+  identical bug shape occurring for **Java**, not JS/TS. Found via the formatter's own
+  self-format dogfood (`src/com/jxmake/formatter/rules/PowerShellSpecificRule.java`'s `format()`
+  method): a run of `s = someCall(s); // §N.n comment` assignment statements forms an
+  `applyAssignmentsPass` alignment group; when one sibling's call name is long enough that
+  `enforceCallLineBreaking` (which runs AFTER `applyAssignmentsPass`, inside `processScope`)
+  wraps that one call across lines, every *other* sibling's trailing-comment column was already
+  padded (during `applyAssignmentsPass`) against the pre-wrap single-line width of the widest
+  member — round1 keeps that stale wide padding, round2 (fed round1's own now-multi-line input)
+  recomputes the group differently and collapses the padding to one space — non-idempotent.
+  Minimal repro (not committed, see below): a small class with 7 `s = applyX(s); // comment`
+  lines, one calling a deliberately long method name so `enforceCallLineBreaking` wraps only that
+  one; `diff -ru` between round1 and round2 output confirmed the exact padding-then-collapse
+  shape byte-for-byte matching the `PowerShellSpecificRule.java` symptom.
+
+  **Attempted fix 1 (reverted): widen `FormatterCurly.format`'s existing JS/TS-only
+  `if(lang.isJs || lang.isTs)` gate around `reapplyClosingBraceAndDeclarationsPass` to
+  `lang.isCurly`** (run for every curly-family language, on the theory the mechanism is already
+  proven language-agnostic since RDD_KEY_270 added `applyAssignmentsPass` to it for JS/TS). Broke
+  8 pre-existing fixtures (`hpp_core`, `cpp_core`, `hpp_combined`, `cpp_combined`, `java_core`,
+  `java_combined`, `cpp26_reflection`, `real_code_regressions_58`) — re-running
+  `applyOversizedAggregateInitClosingBracePass` a second time in the same round for C/C++/Java
+  re-collapsed already-correct, unrelated output (exactly the failure mode RDD_KEY_246's own
+  doc comment warns "Attempt 2" hit: "re-running unrelated passes a second time in the same round
+  risks silently re-collapsing already-correct output").
+
+  **Attempted fix 2 (reverted): narrow the gate to `lang.isJs || lang.isTs || lang.isJava` only,
+  and additionally skip `applyOversizedAggregateInitClosingBracePass` specifically for Java**
+  (Java has no oversized-aggregate-init-closing-brace construct that pass is meant to fix, so
+  skipping it for Java looked lossless). This narrowed the regression from 8 files to 3
+  (`java_core`, `java_combined`, `real_code_regressions_58`), all the same symptom: Java's
+  enum-constant-list `;`-separation (`JavaSpecificRule.separateEnumConstantListTerminator`,
+  RDD_KEY_89 -- detaches the constant-list-terminating `;` onto its own line with a blank line
+  above it) got re-collapsed back onto the constant list (`ACTIVE, INACTIVE, PENDING\n\n;` →
+  `ACTIVE, INACTIVE, PENDING;`) by the re-run. Since `applyOversizedAggregateInitClosingBracePass`
+  was already excluded, the culprit re-run pass is `applyDeclarationsPass` and/or
+  `applyAssignmentsPass` themselves re-collapsing the separated `;` line back — not investigated
+  further to find which one or why (would need isolating each pass individually inside the
+  re-run, which starts to approach the same "re-running unrelated passes regresses unrelated
+  output" risk class RDD_KEY_246 already flagged, now for Java's own enum-separation pass rather
+  than JS/TS's dangling-`}` shape).
+
+  **Disposition:** both attempts fully reverted (`FormatterCurly.java`/`ScopePipelineCurly.java`
+  back to their pre-session state, confirmed via `git diff` showing no residual changes to either
+  file); `make test` re-confirmed clean at the pre-existing baseline (261/261 forward +
+  idempotency) after the revert. No fixture added (no fix landed). Left OPEN, same as the sibling
+  JS/TS-family entry above — a future session picking this up should either (a) find exactly
+  which of `applyDeclarationsPass`/`applyAssignmentsPass` re-collapses the enum `;` separator
+  when re-run a second time for Java and make that specific behavior idempotent/order-safe rather
+  than skipping the whole pass, or (b) find a narrower re-run than the shared
+  `reapplyClosingBraceAndDeclarationsPass` three-pass bundle that only re-derives
+  `applyAssignmentsPass`'s trailing-comment/`=`-column width for Java without touching whatever
+  re-collapses the enum separator.
+
 - **NOT REPRODUCED, 2026-08-03 — closed as unconfirmed/stale, not conflated with the above.**
   Ran every registered `test/*_out.cpp`/`test/*_out.hpp` fixture (37 files) through both
   `g++ -std=c++20 -fsyntax-only` and `clang++ -std=c++23 -fsyntax-only` (tools (2)/(3), incl.

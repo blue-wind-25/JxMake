@@ -3328,6 +3328,21 @@ Real-code regressions:
                                                         also proves the fix for C/C++/Java's `SwitchRule`
                                                         path, not JS/TS-specific.
 
+  real_code_regressions_184_inp/out.ts               -- Minimized from `angular/angular` cluster 4's
+                                                        `shared.ts`/`directive_outputs.ts`: a braceless bare
+                                                        `if`/`else` (short enough to fit unwrapped) whose
+                                                        `else` an earlier structural indent pass re-indents
+                                                        one level deeper than its paired `if` on a second
+                                                        format round, defeating
+                                                        `BlockStructureRule.alignBracelessElseIfChain`'s
+                                                        chain-recovery detection (it only tolerated the `if`
+                                                        line being padded wider, not the bare `else` being
+                                                        re-indented deeper) and losing the column alignment.
+                                                        Fixed by widening the chain-recovery case to also
+                                                        strip a bare `else`'s excess indentation back down to
+                                                        its paired `if`'s indent. Shared
+                                                        `BlockStructureRule`/`KotlinSpecificRule` code path.
+
 How Tests Are Run
 -----------------
 

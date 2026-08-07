@@ -3117,16 +3117,36 @@ public class BlockStructureRule {
                     // chain outright -- otherwise every subsequent reformat loses the chain
                     // (and, with it, both alignments) the moment the first round's left-padding
                     // makes indentLen stop matching verbatim.
-                    if( chain.size() != 1 || jIndent >= indentLen || indentLen - jIndent != "else if(".length() - "if(".length() ) break;
-                    // Strip the stale left-padding back off `lines[i]` so every later step
-                    // (kwLen/leftPad computation, prefixEnd measurement) operates on a fresh,
-                    // un-padded baseline exactly like a first-round chain -- re-deriving the pad
-                    // from scratch below, rather than re-detecting "already correctly padded" as
-                    // a special case, is both simpler and immune to the pad amount ever silently
-                    // drifting out of sync with the current chain's own widths
-                    lines[i]  = lines[i].substring(0, jIndent) + lines[i].substring(indentLen);
-                    indentLen = jIndent;
-                    matchAt   = jIndent;
+                    if( chain.size() == 1 && jIndent < indentLen && indentLen - jIndent == "else if(".length() - "if(".length() ) {
+                        // Strip the stale left-padding back off `lines[i]` so every later step
+                        // (kwLen/leftPad computation, prefixEnd measurement) operates on a fresh,
+                        // un-padded baseline exactly like a first-round chain -- re-deriving the pad
+                        // from scratch below, rather than re-detecting "already correctly padded" as
+                        // a special case, is both simpler and immune to the pad amount ever silently
+                        // drifting out of sync with the current chain's own widths
+                        lines[i]  = lines[i].substring(0, jIndent) + lines[i].substring(indentLen);
+                        indentLen = jIndent;
+                        matchAt   = jIndent;
+                    }
+                    // Opposite direction: a bare `else` (no adjacent `if` on its own line, so it
+                    // has no keyword-shape of its own to column-align, unlike `else if`) that some
+                    // earlier structural/statement indent-fixup pass has already re-indented one
+                    // level deeper than its paired `if` -- observed on angular/angular's
+                    // shared.ts/directive_outputs.ts round2 (that earlier pass treats an
+                    // already-braceless standalone `else` as an orphaned continuation statement,
+                    // apparently keying off whether the line still carries this same method's own
+                    // previous-round column-padding artifact). Recognize the shape narrowly (chain
+                    // still size 1, so only the immediate `if`'s bare else -- never an `else if`
+                    // member, which has no known/expected deeper-indent shape) and strip the
+                    // excess back down to the `if`'s own (already-canonical) indent so the
+                    // chain-scan sees a match instead of rejecting the whole chain.
+                    else if( chain.size() == 1 && jIndent > indentLen
+                            && lines[j].regionMatches(jIndent, "else ", 0, 5)
+                            && !lines[j].regionMatches(jIndent, "else if", 0, 7) ) {
+                        lines[j] = lines[j].substring(0, indentLen) + lines[j].substring(jIndent);
+                        matchAt  = indentLen;
+                    }
+                    else break;
                 } // if
                 if( lines[j].regionMatches(matchAt, "else if(", 0, 8) ) {
                     chain.add(j);

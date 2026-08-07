@@ -80,6 +80,7 @@ convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_249 | (No fix landed, reverted.) Investigation into `enforceCallLineBreaking`'s rejoin fits-check for `formatOffset`-style multi-candidate lines (`/tmp/mini2.ts`); a blanket statement-wide width-widening fix was tried and reverted (regressed `real_code_regressions_81`/`_93`, whose legitimately-stable over-limit rejoins the blanket check couldn't distinguish from genuinely unstable ones) |
 | RDD_KEY_250 | Braceless if/else rejoin-fits-check-vs-`alignBracelessElseIfChain` pass-ordering idempotency bug, 6th session, FIXED: `FormatterCurly.format` re-runs `enforceCallLineBreaking` (twice) + `enforceComplexityPadding` right after `alignBracelessElseIfChain`, same fix shape as RDD_KEY_248. New fixture: `test/real_code_regressions_180_{inp,out}.ts` (the `formatOffset` repro) |
 | RDD_KEY_263 | `utils.ts`/`lodash.js` switch-case fallthrough non-idempotency (long-deferred, see former "Known open issues" entry below), FIXED: `FormatterCurly.format` re-runs `switchRule.formatNonInlineSwitches` a second time near the end of Phase 4, after `alignInlineSwitches`'s case-grid collapse and the call-wrap passes have settled — shared `SwitchRule`/curly-family code, cross-referenced in `STATE_C_CPP_JAVA.md` |
+| RDD_KEY_269 | `angular/angular` cluster 4 residue — `shared.ts`/`directive_outputs.ts`, FIXED: widened `BlockStructureRule.alignBracelessElseIfChain`'s chain-recovery to also tolerate a bare `else` re-indented one level deeper than its paired `if` (opposite direction from the pre-existing narrower-`if`-line recovery), stripping the excess back to the `if`'s own indent. New fixture: `test/real_code_regressions_184_{inp,out}.ts` |
 
 ---
 
@@ -399,19 +400,21 @@ RDD table alone for that reason — do not re-derive these from scratch.
 
 ---
 
-## Active work — 3 open bugs (all `processScope`/declaration-alignment/
-call-wrap-ordering family except #1, which is a distinct `alignBracelessElseIfChain` cause)
+## Active work — 2 open bugs (both `processScope`/declaration-alignment/
+call-wrap-ordering family; #1 below, formerly a distinct
+`alignBracelessElseIfChain` cause, is FIXED — see RDD_KEY_269 and the
+"FIXED" note under its own heading)
 
-Investigation history for #2 (the deepest-traced of the three) is kept
-below in fuller detail since a fix direction is identified but unvalidated;
-#1 and #3 are summarized to their current, decisive findings. See "Related
-investigation history" immediately above for the broader family context,
-ruled-out hypotheses, and reusable debugging loci that inform all three.
-Full session-by-session narrative (including every dead end not captured
-above) lives in `git log` for this file — not re-derived here per this
-file's top-of-file convention.
+Investigation history for #2 (the deepest-traced of the remaining two) is
+kept below in fuller detail since a fix direction is identified but
+unvalidated; #3 is summarized to its current, decisive findings. See
+"Related investigation history" immediately above for the broader family
+context, ruled-out hypotheses, and reusable debugging loci that inform all
+three (including the now-fixed #1). Full session-by-session narrative
+(including every dead end not captured above) lives in `git log` for this
+file — not re-derived here per this file's top-of-file convention.
 
-### 1. `angular/angular` cluster 4 residue — `shared.ts`/`directive_outputs.ts`
+### 1. `angular/angular` cluster 4 residue — `shared.ts`/`directive_outputs.ts` (FIXED, RDD_KEY_269)
 
 `packages/core/src/render3/instructions/shared.ts:793-796` and
 `packages/core/src/render3/view/directive_outputs.ts` (same code shape,
@@ -468,26 +471,46 @@ single-invocation (no outer/inner recursion). Closer in shape to the
 depends on a later pass's not-yet-produced or already-produced artifact")
 — a genuinely distinct, fifth instance of that broader pattern.
 
-**Candidate fix (NOT ATTEMPTED, no design validated):** widen
-`alignBracelessElseIfChain`'s chain-recovery case to also tolerate
-`jIndent > indentLen` for a bare-`else` member specifically (mirroring the
-existing `jIndent < indentLen` recovery for the `if` line — re-anchor
-`indentLen` to the narrower of the two and strip whatever the earlier pass
-added), OR more robustly identify and fix the earlier indent-fixup pass so
-it never treats a bare `else` differently based on stale alignment
-whitespace (that pass not identified yet). **Risk: MEDIUM** —
-`alignBracelessElseIfChain` is JS/TS-and-Kotlin-shared machinery
-(`KotlinSpecificRule.alignBracelessElseIfChain` is a named sibling) already
-flagged fragile elsewhere in this file (an earlier reverted attempt at a
-related fix broke 5 fixtures); any change needs full `make test` plus
-multi-corpus real-code validation. The alternative (fix the earlier indent
-pass) has unknown, likely broader blast radius since it's structural/
-statement indentation, not JS/TS-specific. **Confidence in root cause:
-HIGH** (directly observed via debug prints). **Confidence in either fix
-succeeding without regression: LOW/UNVALIDATED.**
+**Fix landed (RDD_KEY_269):** widened `alignBracelessElseIfChain`'s
+chain-recovery case to also tolerate `jIndent > indentLen` for a bare-`else`
+member specifically (chain still size 1 — an `if`'s own bare else only,
+never an `else if` member, which has no known/expected deeper-indent
+shape), mirroring the existing `jIndent < indentLen` recovery for the `if`
+line but in the opposite direction: strip the excess indentation off the
+`else` line back down to the `if`'s own (already-canonical) indent instead
+of re-anchoring `indentLen` itself. The earlier indent-fixup pass
+responsible for the original deepening was never individually identified —
+this fix works around its artifact at the point `alignBracelessElseIfChain`
+observes it, rather than fixing that pass directly (the "more robustly
+identify and fix the earlier pass" alternative floated below was not
+pursued, given the narrower fix's clean validation result).
 
-Status: **OPEN.** No source change landed (debug prints added, used, fully
-reverted — `git status` clean except this state file).
+**Validation:** both cluster 4 files individually confirmed idempotent
+(round1==round2) post-fix. Full `angular/angular` corpus (5394 `.ts` files,
+reused `/tmp/angular` checkout) round1-vs-round2 idempotency-violation count
+went from 9 (pre-fix) to 7 (post-fix) — the 2 newly-idempotent files are
+exactly `shared.ts`/`directive_outputs.ts`; the remaining 7 (separate
+`processScope`-family root cause, #2/#3 below) unchanged in identity and
+count, i.e. **zero new regressions anywhere in the corpus**. (A raw
+full-corpus round1-output byte diff between a pre-fix and post-fix jar
+showed 178 differing files, but every one of those turned out to be
+baseline contamination — the pre-fix comparison jar was built from a
+separate source-tree copy lacking the real project's synced GRU
+comment-classifier weights, producing spurious comment-capitalization
+diffs unrelated to this fix; ruled out via (a) none of the 3
+diffs-containing-the-word-"else" actually touching if/else alignment, (b)
+the same pre-fix jar run twice on the full corpus producing byte-identical
+output, and (c) the within-jar idempotency comparison above being immune to
+any cross-jar weights-path discrepancy and giving the clean, decisive
+signal instead.) `make test`: 258/258 → 259/259 forward + idempotency, zero
+fixture regressions. New fixture: `test/real_code_regressions_184_{inp,out}.ts`.
+Kotlin re-verified only via full `make test` (shared
+`BlockStructureRule`/`KotlinSpecificRule.alignBracelessElseIfChain` code
+path, no Kotlin-specific fixture added, no Kotlin real-code corpus re-run
+performed this session — left as a future item if a similar bare-else
+deeper-indent shape is ever found in Kotlin real code).
+
+Status: **FIXED.**
 
 ### 2. `microsoft/TypeScript` cluster #3 — `harness/collectionsImpl.ts`
 
@@ -744,10 +767,12 @@ was a confirming recurrence of the (now-fixed) `SwitchRule` issue.
 ### `angular/angular` dogfood pass
 
 Clusters 1-3 FIXED, cluster 4 PARTIALLY FIXED (all 4 named root causes
-landed; `RDD_KEY_248` separately fixed most residual files outside the 4
-named causes; the residual surface has narrowed to the 4 files tracked
-under "Active work" above — 2 in the known `processScope` family, 2 in the
-newly-identified `alignBracelessElseIfChain` cause), cluster 5 RESOLVED
+landed, including the `alignBracelessElseIfChain` cause — RDD_KEY_269 —
+which fixed its 2 files, `shared.ts`/`directive_outputs.ts`; `RDD_KEY_248`
+separately fixed most residual files outside the 4 named causes; the
+residual surface still tracked under "Active work" above is now 2 files, in
+the known `processScope`/declaration-alignment/call-wrap-ordering family),
+cluster 5 RESOLVED
 (2026-08-05 — all 3/3 files idempotent via existing opt-in flags, see
 below; `curly-general-scope-reindent`/`-multipass` stay `off` by default
 project-wide).

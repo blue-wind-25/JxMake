@@ -524,43 +524,58 @@ make test
 make test-server
 make bench
 
-### GRU tools
+### GRU tools (verifiers tools should also use the same method)
 cd tools/gru
 rm -rvf /tmp/gru_tools
 mkdir /tmp/gru_tools
-cp *.java /tmp/gru_tools
+cp *.{java,py} /tmp/gru_tools
 find /tmp/gru_tools    -type f -print0 | xargs -0 ../../code-formatter.sh --out /tmp/gru_tools_r1
 find /tmp/gru_tools_r1 -type f -print0 | xargs -0 ../../code-formatter.sh --out /tmp/gru_tools_r2
 diff -ru /tmp/gru_tools_r1 /tmp/gru_tools_r2
 
-JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
-KLIB="$HOME/xsdk/kotlin-compiler-2.4.0/kotlinc/lib"
-CP="$CP:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar"
-$JDK/bin/javac -cp $CP ../verifiers/*.java
+find /tmp/gru_tools    -type f -name '*.java' -print0 | xargs -0 ../verifiers/java_syntax_check.sh
+find /tmp/gru_tools_r1 -type f -name '*.java' -print0 | xargs -0 ../verifiers/java_syntax_check.sh
+find /tmp/gru_tools_r2 -type f -name '*.java' -print0 | xargs -0 ../verifiers/java_syntax_check.sh
 
-find /tmp/gru_tools    -type f -print0 | xargs -0 $JDK/bin/java -cp ../verifiers java_syntax_check
-find /tmp/gru_tools_r1 -type f -print0 | xargs -0 $JDK/bin/java -cp ../verifiers java_syntax_check
-find /tmp/gru_tools_r2 -type f -print0 | xargs -0 $JDK/bin/java -cp ../verifiers java_syntax_check
+find /tmp/gru_tools    -type f -name '*.py' -print0 | xargs -0 ../verifiers/python_syntax_check.sh
+find /tmp/gru_tools_r1 -type f -name '*.py' -print0 | xargs -0 ../verifiers/python_syntax_check.sh
+find /tmp/gru_tools_r2 -type f -name '*.py' -print0 | xargs -0 ../verifiers/python_syntax_check.sh
 
 for orig in /tmp/gru_tools/*.java; do \
     filename=$(basename "$orig"); \
     fmt="/tmp/gru_tools_r1/$filename"; \
     if [ -f "$fmt" ]; then \
         echo "=== Comparing: $filename ==="; \
-        "$JDK/bin/java" -cp ../verifiers java_content_diff "$orig" "$fmt"; \
+        ../verifiers/java_content_diff.sh "$orig" "$fmt"; \
     fi; \
 done
-
 for orig in /tmp/gru_tools_r1/*.java; do \
     filename=$(basename "$orig"); \
     fmt="/tmp/gru_tools_r2/$filename"; \
     if [ -f "$fmt" ]; then \
         echo "=== Comparing: $filename ==="; \
-        "$JDK/bin/java" -cp ../verifiers java_content_diff "$orig" "$fmt"; \
+        ../verifiers/java_content_diff.sh "$orig" "$fmt"; \
     fi; \
 done
 
-cp -vf /tmp/gru_tools_r1/*.java .
+for orig in /tmp/gru_tools/*.py; do \
+    filename=$(basename "$orig"); \
+    fmt="/tmp/gru_tools_r1/$filename"; \
+    if [ -f "$fmt" ]; then \
+        echo "=== Comparing: $filename ==="; \
+        ../verifiers/python_content_diff.sh "$orig" "$fmt"; \
+    fi; \
+done
+for orig in /tmp/gru_tools_r1/*.py; do \
+    filename=$(basename "$orig"); \
+    fmt="/tmp/gru_tools_r2/$filename"; \
+    if [ -f "$fmt" ]; then \
+        echo "=== Comparing: $filename ==="; \
+        ../verifiers/python_content_diff.sh java_content_diff "$orig" "$fmt"; \
+    fi; \
+done
+
+cp -vf /tmp/gru_tools_r1/*.{java,py} .
 ```
 
 No syntax errors found; AST differed only in comments. `java_content_diff`

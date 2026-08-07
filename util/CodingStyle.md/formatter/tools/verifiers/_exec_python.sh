@@ -14,7 +14,7 @@ if [ -z "$PROGRAM" ]; then
     exit 1
 fi
 
-: "${PYTHON:=python3}"
+: "${PYTHON:=python3.12}"
 
 DIR="$(dirname "$0")"
 

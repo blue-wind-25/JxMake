@@ -41,9 +41,9 @@ def parse_file(path):
 
 
 def dump(tree):
-    # include_attributes=False strips lineno/col_offset/end_lineno/end_col_offset --
+    # Include_attributes=False strips lineno/col_offset/end_lineno/end_col_offset --
     # exactly the fields formatting is expected to change; every other field
-    # (node type, field values, child ordering/nesting) must match exactly.
+    # (node type, field values, child ordering/nesting) must match exactly
     return ast.dump(tree, include_attributes=False, indent=2)
 
 

@@ -97,7 +97,7 @@ KEYWORDS_PYTHON3 = [
 ]
 # JSON5/YAML/TOML/XML/CSS don't have "reserved words" in the same programming-language sense
 # (CSS property/selector names aren't a fixed keyword set; XML has no keywords at all) -- only
-# their literal-value tokens are relevant here.
+# their literal-value tokens are relevant here
 KEYWORDS_DATA_FORMATS = ["true", "false", "null", "yes", "no", "nan", "inf"]
 
 ALL_KEYWORD_GROUPS = [
@@ -176,7 +176,7 @@ def words_in_source(path, seen_keywords):
             for token in tokenize(comment_text):
                 if WORD_RE.match(token) and token not in seen_keywords:
                     # Case-preserved per the finalized architecture (RDD_EXT_12 note on casing
-                    # being a real signal) -- "Return" and "return" are counted/ranked separately.
+                    # being a real signal) -- "Return" and "return" are counted/ranked separately
                     words_here.add(token)
                     raw_here[token] += 1
 

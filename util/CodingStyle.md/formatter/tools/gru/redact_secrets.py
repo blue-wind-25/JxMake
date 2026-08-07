@@ -32,7 +32,7 @@ import sys
 _REDACTED = "[REDACTED]"
 
 # Named-provider patterns: matched and replaced wholesale, no surrounding
-# context needed -- these prefixes/shapes are distinctive enough on their own.
+# context needed -- these prefixes/shapes are distinctive enough on their own
 _NAMED_PATTERNS = [
     re.compile(r"AIza[0-9A-Za-z\-_]{35}"),                       # Google API key
     re.compile(r"A(?:KIA|SIA|GPA|IDA|ROA|IPA|NPA|NVA|SCA)[0-9A-Z]{16}"),  # AWS access key id

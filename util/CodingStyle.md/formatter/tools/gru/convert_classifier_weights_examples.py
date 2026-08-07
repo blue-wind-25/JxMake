@@ -62,7 +62,7 @@ def escape(comment_text):
 
 def split_row(line):
     cells = CELL_SPLIT_RE.split(line.strip())
-    # A well-formed "| a | b | c |" row splits into ["", " a ", " b ", " c ", ""].
+    # A well-formed "| a | b | c |" row splits into ["", " a ", " b ", " c ", ""]
     if cells and cells[0].strip() == "": cells = cells[1:]
     if cells and cells[-1].strip() == "": cells = cells[:-1]
 
@@ -100,7 +100,7 @@ def convert_file(path):
             cells = split_row(stripped)
 
             if text_col is None:
-                # Candidate header row -- look for "Comment text"/"Label" columns by name.
+                # Candidate header row -- look for "Comment text"/"Label" columns by name
                 lowered = [c.lower() for c in cells]
                 if "comment text" in lowered and "label" in lowered:
                     text_col  = lowered.index("comment text")

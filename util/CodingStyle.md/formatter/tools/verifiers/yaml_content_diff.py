@@ -91,7 +91,7 @@ def main():
         for m in mismatches: print(f"  - {m}")
         sys.exit(1)
 
-    # informational-only comment scan (not a failure condition by itself)
+    # Informational-only comment scan (not a failure condition by itself)
     oc = comment_lines(orig_text)
     fc = comment_lines(fmt_text)
     if oc != fc and len(oc) == len(fc):

@@ -43,11 +43,11 @@ EXTENSION_TO_LANG = {
     ".py": "python3",
 }
 
-# Languages whose comment syntax is "//" line + "/* */" block.
+# Languages whose comment syntax is "//" line + "/* */" block
 C_STYLE_LANGS = {"c", "cpp", "java", "kotlin", "json5", "css", "js", "ts"}
-# Languages whose comment syntax is "#" line only.
+# Languages whose comment syntax is "#" line only
 HASH_STYLE_LANGS = {"yaml", "toml", "python3"}
-# Languages whose comment syntax is "<!-- -->" block only.
+# Languages whose comment syntax is "<!-- -->" block only
 XML_STYLE_LANGS = {"xml", "html5"}
 
 HASH_COMMENT_RE = re.compile(r"#(.*)$", re.MULTILINE)

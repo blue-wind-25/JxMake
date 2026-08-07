@@ -58,7 +58,7 @@ def parse_examples_file(path):
     if lang is None: return []
 
     rows      = []
-    col_index = None  # header name -> cell index, once the header row is found
+    col_index = None  # Header name -> cell index, once the header row is found
     label_col = None
     with open(path, "r", encoding="utf-8") as inp:
         for line in inp:
@@ -122,7 +122,7 @@ def sigmoid(z):
 
 
 def train():
-    # weights: [bias, w_paren, w_arrow, w_semicolon, w_url_or_number]
+    # Weights: [bias, w_paren, w_arrow, w_semicolon, w_url_or_number]
     w = [0.0, 0.0, 0.0, 0.0, 0.0]
     n = len(DATASET)
     for _ in range(EPOCHS):
@@ -133,7 +133,7 @@ def train():
             err  = pred - label
             for i in range(5):
                 grad[i] += err * x[i]
-        # L2 penalty gradient is lambda * w for each regularized weight (skip index 0, the bias).
+        # L2 penalty gradient is lambda * w for each regularized weight (skip index 0, the bias)
         for i in range(1, 5): grad[i] += L2_LAMBDA * w[i]
         w = [wi - LEARNING_RATE * gi / n for wi, gi in zip(w, grad)]
 

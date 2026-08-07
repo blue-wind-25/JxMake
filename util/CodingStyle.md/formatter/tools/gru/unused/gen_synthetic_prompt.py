@@ -99,7 +99,7 @@ def take_slice(words, start, count):
     Returns (slice_words, wrapped_bool, new_next_index)."""
     n = len(words)
     if count >= n:
-        # asking for more words than exist -- just return the whole vocab once
+        # Asking for more words than exist -- just return the whole vocab once
         return list(words), True, 0
 
     end = start + count
@@ -139,7 +139,7 @@ def main():
     if args.reset: start = 0
     else:
         start = load_state(args.state)
-        start = start % len(words)  # defensive, in case vocab shrank
+        start = start % len(words)  # Defensive, in case vocab shrank
 
     word_slice, wrapped, new_next = take_slice(words, start, args.words_per_batch)
     save_state(args.state, new_next)
@@ -153,7 +153,7 @@ def main():
         word_slice=", ".join(word_slice),
     )
 
-    # status info goes to stderr so stdout stays paste-clean
+    # Status info goes to stderr so stdout stays paste-clean
     print("# vocab words {}-{} of {} (wrapped: {})".format(
         start, start + len(word_slice) - 1, len(words), wrapped), file=sys.stderr)
     print("# next run will start at index {}".format(new_next), file=sys.stderr)

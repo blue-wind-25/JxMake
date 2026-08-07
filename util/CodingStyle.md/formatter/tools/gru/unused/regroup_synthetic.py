@@ -142,7 +142,7 @@ def main():
             lang, label, idx_str, text = parts
             pool, reason = classify(lang, label, idx_str, text,
                                      expected_words=expected_words, vocab=vocab)
-            # normalize the output line to real tabs regardless of input spacing
+            # Normalize the output line to real tabs regardless of input spacing
             norm_line = "\t".join([lang, label, idx_str, text])
 
             if pool == "A": pool_a.append(norm_line)

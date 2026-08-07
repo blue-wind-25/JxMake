@@ -3210,101 +3210,82 @@ Real-code regressions:
                                                         STATE_PYTHON3.md's Resolved Design Decisions.
 
   real_code_regressions_179_inp/out.ts               -- Distilled from microsoft/TypeScript's
-                                                        `commandLineParser.ts` (`pathOptions`/`optionMap`/
-                                                        `watchOptionMap` shape):
-                                                        call-wrap/declaration-alignment vs.
-                                                        `ScopePipelineCurly.applyOversizedAggregateInit
+                                                        `commandLineParser.ts` shape: call-wrap/decl-alignment
+                                                        vs. `ScopePipelineCurly.applyOversizedAggregateInit
                                                         ClosingBracePass`'s stale-newline-check ordering
-                                                        idempotency bug (RDD_KEY_245/246/248). Fixed via
-                                                        `FormatterCurly.format`'s narrower "re-run just the
-                                                        closing-brace pass + declaration-alignment pass"
-                                                        second JS/TS-only fixup (`ScopePipelineCurly.
+                                                        idempotency bug (RDD_KEY_245/246/248). Fixed via a
+                                                        narrower JS/TS-only re-run of the closing-brace +
+                                                        decl-alignment passes (`ScopePipelineCurly.
                                                         reapplyClosingBraceAndDeclarationsPass`) right after
                                                         the first `enforceCallLineBreaking` call, skipping the
-                                                        trailing-gap force-reindent step on that narrower
-                                                        re-run (see STATE_JS_TS.md's Open Questions for why --
-                                                        that step alone, not the two token passes, was the
-                                                        source of a real forward-pass regression on
-                                                        `real_code_regressions_100.ts` found during this fix).
+                                                        trailing-gap force-reindent step on that re-run (see
+                                                        STATE_JS_TS.md's Open Questions -- that step alone
+                                                        caused a real forward-pass regression on
+                                                        `real_code_regressions_100.ts`).
 
   real_code_regressions_180_inp/out.ts               -- Distilled minimal repro (`formatOffset` braceless
                                                         if/else with a padded `else`) for the
                                                         rejoin-fits-check-vs-`alignBracelessElseIfChain`
-                                                        pass-ordering idempotency bug (RDD_KEY_250, fifth
-                                                        session's finding). Fixed via a narrow re-run of
-                                                        `enforceCallLineBreaking` (twice, for multi-candidate
-                                                        convergence) + `enforceComplexityPadding` right after
-                                                        `BlockStructureRule.alignBracelessElseIfChain` in
-                                                        `FormatterCurly.format`, same fix shape as
-                                                        RDD_KEY_248's
-                                                        `reapplyClosingBraceAndDeclarationsPass`.
+                                                        pass-ordering idempotency bug (RDD_KEY_250). Fixed via
+                                                        a narrow re-run of `enforceCallLineBreaking` (twice,
+                                                        for multi-candidate convergence) +
+                                                        `enforceComplexityPadding` right after
+                                                        `alignBracelessElseIfChain`, same fix shape as
+                                                        RDD_KEY_248's `reapplyClosingBraceAndDeclarationsPass`.
 
   real_code_regressions_181_inp/out.java             -- Minimized from `javaparser/javaparser`'s
                                                         `ASTParser.java` (JavaCC-generated): a switch nested
-                                                        inside another switch's case body (RDD_KEY_251). Fixes
-                                                        the "Non-idempotent switch-case re-indent" gap's
-                                                        nested-switch failure mode --
-                                                        `SwitchRule.applyNonInlineCaseIndent` now derives each
-                                                        case-body line's absolute target indent from its own
-                                                        brace-nesting depth (`applyDepthDerivedBodyIndent`)
-                                                        instead of one relative delta, and treats a nested
-                                                        switch's entire token span as opaque (fully owned by
-                                                        its own independent pass, never touched by the outer
-                                                        switch's depth-derived scan) rather than letting two
-                                                        independent recomputations disagree forever.
+                                                        inside another switch's case body (RDD_KEY_251) --
+                                                        the "non-idempotent switch-case re-indent" gap's
+                                                        nested-switch failure mode. Fixed by having
+                                                        `SwitchRule.applyNonInlineCaseIndent` derive each
+                                                        case-body line's indent from its own brace-nesting
+                                                        depth (`applyDepthDerivedBodyIndent`) instead of a
+                                                        relative delta, and treating a nested switch's token
+                                                        span as opaque to the outer switch's scan, instead of
+                                                        letting two independent recomputations disagree.
 
   real_code_regressions_182_inp/out.ps1              -- Minimized from `PowerShell/PSScriptAnalyzer`
-                                                        (`build.psm1`, `Tests/DisabledRules/
-                                                        AvoidOneChar.tests.ps1`, `Tests/Documentation/
-                                                        RuleDocumentation.tests.ps1`): two PowerShell
-                                                        idempotency/correctness bugs found via real-code
-                                                        dogfooding. (1) `applySwitchArmAlignment`'s
-                                                        `parseArm` misclassified an unsplit pipeline's
-                                                        trailing scriptblock (e.g. `... | Where-Object
-                                                        {...}`) as a switch-arm pattern spanning the whole
-                                                        line, so alignment padding differed depending on
-                                                        whether the pipeline had already been split by a
-                                                        prior format pass -- fixed by rejecting any line
-                                                        with a depth-0 `|` before the `{` as an arm
-                                                        candidate, and by moving `format()`'s
-                                                        `applyPipelineSplit` call ahead of both
-                                                        `applyAssignAlignment` and
-                                                        `applySwitchArmAlignment` so every alignment pass
-                                                        sees a stable, already-split shape regardless of
-                                                        how many rounds ran before it. (2) `applyOperatorSpacing`
-                                                        treated bare `/` as a binary division operator even
-                                                        in bareword command-argument position, corrupting
-                                                        Unix-style paths/URLs (`$profileDir/*`,
-                                                        `$dir/README.md`) into extra, wrongly-split
-                                                        arguments -- fixed by dropping bare `/` from the
-                                                        binary-operator set entirely (the unambiguous `/=`
-                                                        compound-assignment case is unaffected); zero
-                                                        genuine-division instances were found in the
-                                                        24k-line dogfood corpus that ran this rule.
+                                                        (`build.psm1`, `AvoidOneChar.tests.ps1`,
+                                                        `RuleDocumentation.tests.ps1`): two idempotency/
+                                                        correctness bugs from dogfooding. (1)
+                                                        `applySwitchArmAlignment`'s `parseArm` misclassified
+                                                        an unsplit pipeline's trailing scriptblock (`... |
+                                                        Where-Object {...}`) as a whole-line switch-arm
+                                                        pattern, so padding differed depending on whether the
+                                                        pipeline was already split -- fixed by rejecting any
+                                                        line with a depth-0 `|` before the `{` as an arm
+                                                        candidate, and moving `format()`'s
+                                                        `applyPipelineSplit` call ahead of both alignment
+                                                        passes so they always see an already-split shape. (2)
+                                                        `applyOperatorSpacing` treated bare `/` as division
+                                                        even in bareword command-argument position,
+                                                        corrupting Unix-style paths/URLs (`$profileDir/*`,
+                                                        `$dir/README.md`) into wrongly-split arguments --
+                                                        fixed by dropping bare `/` from the binary-operator
+                                                        set (the unambiguous `/=` case is unaffected); zero
+                                                        genuine-division instances found in the 24k-line
+                                                        dogfood corpus.
 
-  real_code_regressions_183_inp/out.js               -- Minimized from `lodash/lodash`'s
-                                                        `initCloneByTag` (`lodash.js`) typed-array
-                                                        fallthrough case: a `SwitchRule` non-inline
-                                                        vs. inline-alignment/call-wrap ordering gap.
-                                                        `FormatterCurly.format`'s first
-                                                        `formatNonInlineSwitches` call decided whether
-                                                        a switch needed STYLE.md #13's
-                                                        blank-line-around-multiline-case-body treatment
-                                                        *before* `alignInlineSwitches`'s case-grid
-                                                        collapse and the later `enforceCallLineBreaking`
-                                                        passes had a chance to wrap an over-width
-                                                        grid-aligned case's trailing call across
-                                                        multiple lines -- so a case body that only
-                                                        becomes multi-line as a *result* of that later
-                                                        wrap was invisible to the blank-line decision on
-                                                        a fresh format, but visible on a reformat of
-                                                        already-wrapped output (round1 != round2). Fixed
-                                                        by re-running `formatNonInlineSwitches` again
-                                                        after every pass that can turn a case body
-                                                        multi-line has settled (near the end of Phase 4).
-                                                        Shared `SwitchRule`/`FormatterCurly` code --
-                                                        also proves the fix for the shared C/C++/Java
-                                                        `SwitchRule` code path, not JS/TS-specific.
+  real_code_regressions_183_inp/out.js               -- Minimized from `lodash/lodash`'s `initCloneByTag`
+                                                        typed-array fallthrough case: a `SwitchRule`
+                                                        non-inline vs. inline-alignment/call-wrap ordering
+                                                        gap. `FormatterCurly.format`'s first
+                                                        `formatNonInlineSwitches` call decided whether a
+                                                        switch needed STYLE.md #13's blank-line-around-
+                                                        multiline-case-body treatment *before*
+                                                        `alignInlineSwitches`'s case-grid collapse and the
+                                                        later `enforceCallLineBreaking` passes could wrap an
+                                                        over-width grid-aligned case's trailing call across
+                                                        multiple lines -- so a case body that only becomes
+                                                        multi-line as a *result* of that later wrap was
+                                                        invisible on a fresh format but visible on a reformat
+                                                        (round1 != round2). Fixed by re-running
+                                                        `formatNonInlineSwitches` again once every
+                                                        multi-line-inducing pass has settled (near the end of
+                                                        Phase 4). Shared `SwitchRule`/`FormatterCurly` code --
+                                                        also proves the fix for C/C++/Java's `SwitchRule`
+                                                        path, not JS/TS-specific.
 
 How Tests Are Run
 -----------------

@@ -2623,6 +2623,15 @@ public static final class Assignment {
         for( int i = letterPos + 1; i < followingEnd; ++i ) {
             if( Character.isUpperCase( text.charAt(i) ) ) return false;
         }
+        // A single-letter following "word" immediately followed by `.` is an abbreviation start,
+        // not a real word (`e.g.`/`i.e.`/`a.k.a.` etc.).
+        if( followingEnd - letterPos == 1 && followingEnd < text.length()
+                && text.charAt(followingEnd) == '.' ) return false;
+        // A following word immediately followed by `:` with no space after is a directive/URL-
+        // scheme shape (`https:`, `ftp:`, `tslint:`, `TODO:...`), not a real sentence-initial
+        // English word -- ordinary prose always has a space after a sentence-leading `Word:`.
+        if( followingEnd < text.length() && text.charAt(followingEnd) == ':' && followingEnd + 1 < text.length()
+                && !Character.isWhitespace( text.charAt(followingEnd + 1) ) ) return false;
 
         return true;
     }

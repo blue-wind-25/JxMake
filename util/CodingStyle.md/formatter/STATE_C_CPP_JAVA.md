@@ -688,7 +688,10 @@ on the noted commits/fixtures)
      explicitly accepted, not fixed** — user decision to mark DONE; permanent known limitations
      (`alignCommentSeparators` also in `README.md`).
 
-(26) **DONE (with documented open gaps)** — `github.com/microsoft/STL` (`stl/inc/`+`stl/src/`,
+(26) **DONE — no open gaps** (2026-08-09: re-checked; the "documented open gaps" this item's
+     header used to claim were the 3 gaps below, all already marked FIXED — stale header wording,
+     not an actual remaining gap. Full-tree re-run not attempted, ~350kloc not worth re-cloning
+     just to confirm already-fixed bugs stay fixed) — `github.com/microsoft/STL` (`stl/inc/`+`stl/src/`,
      289 files ~9MB, extensionless headers copied to `.hpp` first; excluded `.ixx` module units).
      Full-tree round1: all 289 formatted, no crashes. Round1/round2: 110/289 differed initially.
      `clang++` compile not attempted (needs STL's own CMake+MSVC harness); full-tree idempotency
@@ -724,14 +727,23 @@ on the noted commits/fixtures)
      `javac`/self-bootstrap not attempted (Ant multi-step bootstrap); `java_syntax_check` +
      idempotency load-bearing.
 
-     2 idempotency diffs remain, both the already-documented ACCEPTED "Non-idempotent ...
-     re-indent on internally-inconsistent generated source" gap (see "Known Gaps — Open";
+     2 idempotency diffs found this session, both the already-documented ACCEPTED "Non-idempotent
+     ... re-indent on internally-inconsistent generated source" gap (see "Known Gaps — Open";
      root-cause narrative is switch-case-specific but the pattern recurs on plain `if`/`else`
      bodies too): `JikesOutputParser.java` (`else` misindented relative to `if`) and
      `PathTest.java` (closing `}` at column 9 vs surrounding block column 8). Both pre-date this
      session (original repo source, not formatter-introduced); same "general scope-depth
      reindentation not started" architectural bucket in `STATE_COMMON.md` — no fixture added
      (indistinguishable from that already-tracked class).
+
+     **2026-08-09 single-file re-check (one-off, not a full-tree re-run):** `PathTest.java` no
+     longer reproduces — round1/round2 idempotency diff is now empty (fixed as a side effect of
+     unrelated work since the original run, not investigated further). `JikesOutputParser.java`
+     still reproduces the identical shape byte-for-byte, including with
+     `curly-general-scope-reindent` turned on (GDR changes the specific bytes touched but the
+     round1/round2 diff is still non-empty — GDR does not currently close this gap either). Only
+     these 2 files were re-checked (sparse-fetched individually, not a full-tree clone); no other
+     part of the 1337-file corpus was re-verified.
 
 **Not started dogfood / real-code testing**
 (3) `github.com/llvm/llvm-project` — LLVM/Clang monorepo; enormous, likely only a

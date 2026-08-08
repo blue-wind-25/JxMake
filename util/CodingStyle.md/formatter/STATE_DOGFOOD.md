@@ -44,7 +44,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | C/C++ | STATE_C_CPP_JAVA.md | foonathan/lexy | DONE | |
 | C/C++ | STATE_C_CPP_JAVA.md | martinus/nanobench | DONE | |
 | C/C++ | STATE_C_CPP_JAVA.md | microsoft/proxy | DONE | |
-| C/C++ | STATE_C_CPP_JAVA.md | microsoft/STL | DONE - PARTIAL FIX | documented open gaps |
+| C/C++ | STATE_C_CPP_JAVA.md | microsoft/STL | DONE | all found gaps fixed; re-checked 2026-08-09, "open gaps" header wording was stale |
 | C/C++ | STATE_C_CPP_JAVA.md | NVIDIA/stdexec | DONE | |
 | C/C++ | STATE_C_CPP_JAVA.md | serge-sans-paille/frozen | DONE | |
 | C/C++ | STATE_CURLY_GDR.md | serge-sans-paille/frozen (GDR multipass) | DONE | curly-general-scope-reindent-multipass=on: 7/20 single-pass non-idempotent files → 0/20 |
@@ -57,7 +57,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | C++26 | STATE_CPP26.md | wrocpp/cpp26-reflection-examples | DONE | |
 | Java | STATE_C_CPP_JAVA.md | ../../../src minus jxm (vendored 3rd-party) | DONE | |
 | Java | STATE_C_CPP_JAVA.md | ../../../src/jxm (JxMake's own Java tree) | DONE | |
-| Java | STATE_C_CPP_JAVA.md | apache/ant | DONE - PARTIAL FIX | 2 files hit accepted reindent gap |
+| Java | STATE_C_CPP_JAVA.md | apache/ant | DONE - PARTIAL FIX | 1 file (`JikesOutputParser.java`) still hits accepted reindent gap; `PathTest.java` re-checked 2026-08-09, now clean |
 | Java | STATE_C_CPP_JAVA.md | ARMCortexMThumbC.java.in (local) | DONE | |
 | Java | STATE_C_CPP_JAVA.md | google/google-java-format | DONE | |
 | Java | STATE_C_CPP_JAVA.md | javaparser/javaparser | DONE | switch-case reindent bug fixed (RDD_KEY_251, nested-switch-in-switch, `ASTParser.java`); idempotency diff: non-converging → 369 lines pre-fix → 7 post-fix, all 7 confirmed pre-existing/unrelated |

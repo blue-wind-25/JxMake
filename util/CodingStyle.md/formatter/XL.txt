@@ -186,24 +186,23 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 3: Real feature gaps — medium risk ===
 
-1. [C_CPP_JAVA] `**TODO (2026-08-08, later same day) — instance worked around, root cause still open.**`
+[COMMON] `### Server concurrency + client read-ahead (deliberately not started)`
+Use sub-agent. This can be a substantial work.
 
-2. [COMMON] `### Multi-sentence comment capitalization (deliberately not started)`
+BTW in Java does  `ArrayList<Set<Integer, String>>` is formated to `ArrayList< Set<Integer, String> >`?
+How about for C++ template?
 
-3. [COMMON] `### Server concurrency + client read-ahead (deliberately not started)`
 
-If the bug fix/new feature only causes few regressions, try to fix the regressions.However, if
-it causes many regressions, revert. After several failed sessions, it maybe better to accept
-the gap and add it as a new item to the appropriate location (grouped by language and sorted
-by impact) in `## Known Limitations` section in `README.md`. This can be a substantial work,
-use sub-agent. `README.md` must not reference the state files, use code snippets as needed.
+NONE FOR NOW
+
+Use sub-agent. This can be a substantial work.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
 
 1. [KOTLIN / CURLY_GDR, shared] Kotlin statement-boundary tracking for
    `MiscRuleCurly.renderCallCandidate`'s wrap-decision flap (D3)
 
-If the bug fix/new feature only causes few regressions, try to fix the regressions.However, if
+If the bug fix/new feature only causes few regressions, try to fix the regressions. However, if
 it causes many regressions, revert. After several failed sessions, it maybe better to accept
 the gap and add it as a new item to the appropriate location (grouped by language and sorted
 by impact) in `## Known Limitations` section in `README.md`. This can be a substantial work,

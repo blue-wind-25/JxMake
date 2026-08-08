@@ -941,7 +941,7 @@ html.dark .theme-toggle:not(.format-toggle):not(.settings-toggle)::before {{ con
 .mdx-field-wrap {{ margin: 0.4em 0; }}
 .mdx-field {{ display: flex; align-items: center; gap: 0.75em; margin: 0; }}
 .mdx-field label {{
-  flex: 0 0 40%; max-width: 220px; text-align: right; padding-right: 0.4em;
+  flex: 0 0 50%; text-align: right; padding-right: 0.4em;
   font-family: ui-monospace, monospace; font-size: 0.85em; color: var(--muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }}

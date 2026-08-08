@@ -426,6 +426,12 @@ public final class Config {
      * value is restricted to a fixed set ({@code on}/{@code off} booleans or one of
      * {@link #INDENT_STYLE_CHOICES}/{@link #LINE_ENDINGS_CHOICES}), the allowed values --
      * {@code null} for a free-form value (integers, paths, comma-separated import-order lists).
+     * {@code note} is an optional short free-text caveat for a key whose applicability isn't
+     * "every language" (e.g. {@code line-length-with-comment}'s curly-brace-family-only scope) --
+     * {@code null} for the common case of a key that applies uniformly wherever its group implies.
+     * Consuming UIs (e.g. MDXplorer's settings modal, see {@code mdx_server.py}) can render it as a
+     * hint under the field, same idea as that UI's own {@code MDX_INERT_KEYS} hint for
+     * {@code server-port}, without needing to hand-parse README.md's per-language usage table.
      */
     public static final class ConfigProperty {
 
@@ -433,18 +439,21 @@ public final class Config {
         public final String   key;
         public final String   defaultValue;
         public final String[] allowedValues;
+        public final String   note;
 
         ConfigProperty(
             final String   group,
             final String   key,
             final String   defaultValue,
-            final String[] allowedValues
+            final String[] allowedValues,
+            final String   note
         )
         {
             this.group         = group;
             this.key           = key;
             this.defaultValue  = defaultValue;
             this.allowedValues = allowedValues;
+            this.note          = note;
         }
 
     } // class ConfigProperty
@@ -496,16 +505,22 @@ public final class Config {
     {
         final String   defaultValue;
         final String[] allowedValues;
+        String         note = null;
         switch(key) {
 
             case "line-length":
                 defaultValue  = String.valueOf(defaults.lineLength);
                 allowedValues = null;
+                note          = "Not read by CSS, TOML, Makefile, Bash, or PowerShell (no line-length-driven "
+                              + "wrap rule exists for those); read by every other language.";
                 break;
 
             case "line-length-with-comment":
                 defaultValue  = String.valueOf(defaults.lineLengthWithComment);
                 allowedValues = null;
+                note          = "Curly-brace family only (C/C++/Java/Kotlin/JS/TS) -- the code+comment fits-check "
+                              + "width for a line carrying a trailing same-line comment. No other language folds a "
+                              + "trailing comment into its own wrap decision, so this key has no effect elsewhere.";
                 break;
 
             case "indent-size":
@@ -521,6 +536,8 @@ public final class Config {
             case "server-port":
                 defaultValue  = String.valueOf(defaults.serverPort);
                 allowedValues = null;
+                note          = "server-only — takes effect only when the formatter server itself starts; "
+                              + "has no effect here or on a running server";
                 break;
 
             case "closing-comment-min-lines":
@@ -653,7 +670,7 @@ public final class Config {
 
         } // switch
 
-        return new ConfigProperty(group, key, defaultValue, allowedValues);
+        return new ConfigProperty(group, key, defaultValue, allowedValues, note);
     }
 
     /**

@@ -453,7 +453,12 @@ catch(final IOException e) { System.err.println( "jxmake-code-formatter: warning
      * Renders {@code Config.describeAll()} as a JSON array of {@code {"group": ..., "properties":
      * [...]}} objects, one per README.md {@code ### Config file format} section, in that same
      * section order -- {@code describeAll()} already returns its properties pre-grouped/ordered
-     * that way, so this only needs to split on group boundaries, not re-sort anything.
+     * that way, so this only needs to split on group boundaries, not re-sort anything. Each
+     * property object also carries {@code "note"} ({@link Config.ConfigProperty#note}) -- {@code
+     * null} for the common case, or a short free-text caveat for a key like
+     * {@code line-length-with-comment} whose applicability isn't "every language" -- so a consuming
+     * UI (e.g. MDXplorer's settings modal) can surface it as a hint without hand-parsing
+     * README.md's per-language usage table.
      */
     private static String propertiesJson()
     {
@@ -489,6 +494,8 @@ catch(final IOException e) { System.err.println( "jxmake-code-formatter: warning
                 } // for
                 json.append("]");
             } // if
+            json.append(", \"note\": ");
+            json.append( property.note == null ? "null" : jsonString(property.note) );
             json.append("}");
         } // for i
         if(!firstGroup) json.append("\n      ]\n    }\n");

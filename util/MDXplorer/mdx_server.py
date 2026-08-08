@@ -783,7 +783,7 @@ _TEMPLATE = (
 "        out += '<input type=\\\"text\\\" data-key=\\\"' + mdxEsc(p.key) + '\\\" value=\\\"' + mdxEsc(cur) + '\\\" placeholder=\\\"' + mdxEsc(p.default) + '\\\"' + (inert ? ' disabled' : '') + '/>';\n"
 "      }}\n"
 "      out += '</div>';\n"
-"      if(inert) out += '<div class=\\\"mdx-field-hint\\\">server-only \\u2014 takes effect only when the formatter server itself starts; has no effect here or on a running server</div>';\n"
+"      if(p.note) out += '<div class=\\\"mdx-field-hint\\\">' + mdxEsc(p.note) + '</div>';\n"
 "      out += '</div>';\n"
 "    }});\n"
 "    out += '</fieldset>';\n"

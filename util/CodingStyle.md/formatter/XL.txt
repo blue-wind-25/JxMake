@@ -186,12 +186,23 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 3: Real feature gaps — medium risk ===
 
-[COMMON] `### Server concurrency + client read-ahead (deliberately not started)`
-Use sub-agent. This can be a substantial work.
+```
+=== Bench: standalone, one-by-one ===
+Total: 48508mS
 
-BTW in Java does  `ArrayList<Set<Integer, String>>` is formated to `ArrayList< Set<Integer, String> >`?
-How about for C++ template?
+=== Bench: standalone, all-at-once ===
+Total:  2471mS (19.63x)
 
+jxmake-code-formatter: server listening on port 17173
+
+=== Bench: client-server, one-by-one ===
+Total: 36672mS ( 1.32x)
+
+=== Bench: client-server, all-at-once ===
+Total:  1708mS (28.40x)
+
+jxmake-code-formatter: server stopped
+```
 
 NONE FOR NOW
 

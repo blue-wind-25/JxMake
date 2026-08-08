@@ -324,9 +324,21 @@ appropriate for README.md's user-facing doc:
   attempt wired the comment-aware limit unconditionally, regressing ~30 fixtures with no trailing
   comment at all because it silently raised the effective wrap threshold for every call, not just
   comment-trailing ones — caught via fixture diffing and fixed before landing.) NOT wired into any
-  other language/pipeline (JSON has no comment concept; other data-format/indent-based/tooling
-  languages have no existing "code+comment" fits-check point to plug into yet — a future session
-  adding one should reuse this key rather than inventing a new one). `make test` after landing: 2
+  other language/pipeline. This is NOT because those formats lack comment syntax -- JSON5
+  (`//`/`/* */`), YAML/TOML (`#`), XML/HTML5 (`<!-- -->`), and CSS (`/* */`) all have comments; only
+  strict JSON does not. It's because none of their existing `lineLengthLimit` fits-checks measure
+  comment-inclusive width at all, so there is nothing to redirect at the new key without building a
+  new fits-check from scratch (out of scope for "wire wherever the formatter *currently* measures
+  it"): `JsonSpecificRule.canBeTight()` rejects a trailing-comment candidate before any width check
+  runs; `XmlSpecificRule.renderElement` measures `tightLine`/`tightOpenLine` before the trailing
+  comment is appended via `appendWithTrailing` (comment sits entirely outside the measured window);
+  `CssSpecificRule`'s `lineLengthLimit` field and `TomlSpecificRule`'s equivalent parameter are both
+  stored/accepted but never read by any fits-check in either file; `YamlSpecificRule.fits(...)` is
+  only ever called with `renderFlowTight(node)` output, which never references a trailing `#`
+  comment. Indent-based (Python3) and tooling (Makefile/Bash/PowerShell) pipelines likewise have no
+  comment-inclusive fits-check point yet. A future session having a data-format or indent-based
+  language build a real comment-inclusive fits-check for its own wrap decision should reuse this
+  key rather than inventing a new one. `make test` after landing: 2
   pre-existing fixtures (`real_code_regressions_65_out.java`, `real_code_regressions_124_out.hpp`)
   now fail because both have a trailing comment that pushed their code+comment width past the old
   100-char `line-length` limit (100-107 wide) but under the new 120-char default — this is the

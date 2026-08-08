@@ -196,12 +196,17 @@ public final class Config {
      * `collapseToOneLine`'s range) and `JavaSpecificRule.isSingleLineBody`'s fits-prediction
      * (RDD_KEY_172, which explicitly folds in a trailing same-line comment's width). Applies to
      * the curly-brace family (C/C++/Java/Kotlin/JS/TS) sharing that pipeline. Not wired into
-     * JSON/JSON5/CSS/YAML/TOML/XML/HTML5/Python3/Makefile/Bash/PowerShell: JSON has no comment
-     * concept at all; the others' own line-length fits-checks (declaration wrapping, attribute
-     * wrapping, etc.) do not currently fold a trailing comment into their measured width the way
-     * the two curly-family call sites above do, so there is no existing "code + comment"
-     * measurement point for this key to plug into there yet -- a future session adding one should
-     * consume this same key rather than inventing a second.
+     * JSON/JSON5/CSS/YAML/TOML/XML/HTML5/Python3/Makefile/Bash/PowerShell -- NOT because those
+     * formats lack comment syntax (JSON5 has `//`/`/* *}` comments, YAML/TOML have `#`, XML/HTML5
+     * have `&lt;!-- --&gt;`, CSS has `/* *}`; only strict JSON has none), but because none of
+     * their own line-length fits-checks (JSON5's tight-object/array check, XML/HTML5's
+     * tight-element check, YAML's flow-value check, etc.) currently fold a trailing same-line
+     * comment into the measured width the way the two curly-family call sites above do -- some
+     * (JSON5) structurally exclude a trailing-comment node from ever reaching the tight-candidate
+     * check; others (CSS, TOML) accept `lineLength` in their constructor but have no fits-check
+     * reading it at all. So there is no existing "code + comment" measurement point for this key
+     * to plug into there yet -- a future session adding one should consume this same key rather
+     * than inventing a second.
      */
     public int lineLengthWithComment()
     {

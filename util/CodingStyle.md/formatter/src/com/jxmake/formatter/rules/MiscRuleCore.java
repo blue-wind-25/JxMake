@@ -2535,6 +2535,7 @@ public static final class Assignment {
         while( matcher.find() ) {
             final int letterPos = matcher.start(1);
             if(letterPos == 0) continue; // Sentence 1 -- already handled separately.
+            if( !isEligibleSentenceBoundary( combinedText, matcher.start(), letterPos ) ) continue;
             final char c = combinedText.charAt(letterPos);
             boolean    allow;
             if(commentNormalizationClassifier) {
@@ -2567,6 +2568,63 @@ public static final class Assignment {
             }
             if(line != null) contents.set( i, line.toString() );
         } // for
+    }
+    /**
+     * Common multi-letter abbreviations that legitimately end in `.` mid-sentence -- checked
+     *  against the word immediately preceding a candidate `[.!?]` boundary in
+     *  {@link #isEligibleSentenceBoundary} (case-insensitive). A single-letter preceding "word"
+     *  (initials, or the first half of `e.g.`/`i.e.`) is rejected unconditionally there instead of
+     *  needing its own set entry.
+     */
+    protected static final Set<String> MULTI_SENTENCE_ABBREVIATIONS = setOf(
+        "vs", "etc", "al", "cf", "approx", "fig", "eq", "no", "figs", "eqs"
+    );
+    /**
+     * Narrow, purely mechanical eligibility pre-filter applied before a candidate sentence
+     *  boundary (the `[.!?]` at {@code punctPos}, followed by the lowercase letter at {@code
+     *  letterPos}) is ever offered to the classifier stack -- catches shapes no comment-grammar
+     *  classifier should need to be asked about at all:
+     *  <ul>
+     *  <li>the punctuation must be directly attached to a preceding letter/digit -- rejects a
+     *      standalone symbol (e.g. `` `! is` `` inside backticks, where `!` has a space, not a
+     *      word, before it) and, as a side effect, every run of 2+ punctuation marks (an ellipsis
+     *      `...`, `?!`, etc., where the character just before the final mark is itself
+     *      punctuation, not a letter/digit);
+     *  <li>the word immediately before the punctuation must not be a single letter or a known
+     *      abbreviation ({@link #MULTI_SENTENCE_ABBREVIATIONS}) -- rejects `e.g.`/`i.e.`/`vs.`/
+     *      `etc.` mid-sentence;
+     *  <li>the word immediately after the boundary must not contain an internal uppercase letter
+     *      -- rejects capitalizing a camelCase/dotted code identifier that merely happens to sit
+     *      right after a sentence-ending period (`processScope`, `parseParam`, `it.func.
+     *      funcName`), since a lowercase-leading identifier with an internal capital is never
+     *      itself an English word.
+     *  </ul>
+     */
+    protected static boolean isEligibleSentenceBoundary(
+        final String text,
+        final int    punctPos,
+        final int    letterPos
+    )
+    {
+        if( punctPos == 0 || !Character.isLetterOrDigit( text.charAt(punctPos - 1) ) ) return false;
+
+        int wordStart = punctPos - 1;
+        while( wordStart > 0 && Character.isLetter( text.charAt(wordStart - 1) ) ) --wordStart;
+        final String precedingWord = text.substring(wordStart, punctPos);
+        if( precedingWord.length() <= 1 ) return false;
+        if( MULTI_SENTENCE_ABBREVIATIONS.contains( precedingWord.toLowerCase(java.util.Locale.ROOT) ) ) {
+            return false;
+        }
+
+        int followingEnd = letterPos;
+        while( followingEnd < text.length() && ( Character.isLetterOrDigit(
+            text.charAt(followingEnd)
+        ) || text.charAt(followingEnd) == '_' ) ) ++followingEnd;
+        for( int i = letterPos + 1; i < followingEnd; ++i ) {
+            if( Character.isUpperCase( text.charAt(i) ) ) return false;
+        }
+
+        return true;
     }
     /**
      * True iff `word` is a keyword in the current file's language ({@link #lang}) that must

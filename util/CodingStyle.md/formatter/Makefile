@@ -404,6 +404,9 @@ INP_FILES += java_flush_left_inp.java
 INP_FILES += curly_gdr_multipass_inp.java
 INP_FILES += html_js_flush_left_inp.html
 
+INP_FILES += multi_sentence_comment_inp.java
+INP_FILES += multi_sentence_comment_inp.sh
+
 INP_FILES += real_code_regressions_1_inp.cpp
 INP_FILES += real_code_regressions_2_inp.java
 INP_FILES += real_code_regressions_3_inp.java

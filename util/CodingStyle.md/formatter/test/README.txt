@@ -656,6 +656,16 @@ General Scope-Depth Reindentation:
                                                         itself must render byte-for-byte unchanged, not gain a
                                                         corrupting inner space.
 
+Multi-Sentence Comment Capitalization:
+  multi_sentence_comment_inp/out.java                -- Proves `normalize-comment-multi-sentence-case=on`
+                                                        (curly family, via in-file config) capitalizes
+                                                        sentence 2+ of a `//` comment group, not just
+                                                        sentence 1 -- see STATE_COMMON.md's "Multi-sentence
+                                                        comment capitalization" section.
+
+  multi_sentence_comment_inp/out.sh                  -- Same proof for the tooling `#`-comment family
+                                                        (Makefile/Bash/PowerShell), via `#%` in-file config.
+
 Real-code regressions:
   real_code_regressions_1_inp/out.cpp                -- Distilled from tinyexpr-plusplus: same-line-sibling
                                                         call-argument mis-split, an undercounted call "does it

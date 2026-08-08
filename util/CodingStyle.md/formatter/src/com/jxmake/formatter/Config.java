@@ -30,7 +30,7 @@ public final class Config {
         "line-length", "line-length-with-comment", "indent-size", "indent-style", "server-port",
         "closing-comment-min-lines", "format-macros", "line-endings",
         "normalize-comment-start-case", "normalize-comment-end-period",
-        "comment-normalization-classifier",
+        "comment-normalization-classifier", "normalize-comment-multi-sentence-case",
         "header-guard-rename",
         "java-import-order", "java-import-sort", "java-import-depth",
         "java-import-blank-lines",
@@ -95,6 +95,15 @@ public final class Config {
     // tools/classifier_weights/examples_{c,cpp,java,kotlin}.md and re-deriving the weights -- see STATE_AI.md's
     // 2026-07-30 section and tools/classifier_weights/weights.md.
     private boolean      commentNormalizationClassifier = true;
+    /**
+     * {@code normalize-comment-multi-sentence-case} -- gates capitalizing sentence 2+ within a
+     *  comment group/chain (today's {@code normalize-comment-start-case} only ever touches
+     *  sentence 1). Default off, following the same "land behind its own flag, off by default"
+     *  posture as {@code curly-general-scope-reindent}/{@code html5-tc-gap-level} -- see
+     *  STATE_COMMON.md's "Multi-sentence comment capitalization" section for full design
+     *  rationale/history. No effect when {@code normalize-comment-start-case} is itself off.
+     */
+    private boolean      normalizeCommentMultiSentenceCase = false;
     private boolean      headerGuardRename              = false;
     private List<String> javaImportOrder                = Arrays.asList(
         "java", "com", "org", "other", "local", "static"
@@ -258,6 +267,11 @@ public final class Config {
         return commentNormalizationClassifier;
     }
 
+    public boolean isNormalizeCommentMultiSentenceCase()
+    {
+        return normalizeCommentMultiSentenceCase;
+    }
+
     public boolean isHeaderGuardRename()
     {
         return headerGuardRename;
@@ -388,7 +402,8 @@ public final class Config {
             "Behavior",
             new String[] {
                 "line-endings", "normalize-comment-start-case", "normalize-comment-end-period",
-                "comment-normalization-classifier", "closing-comment-min-lines",
+                "comment-normalization-classifier", "normalize-comment-multi-sentence-case",
+                "closing-comment-min-lines",
                 "curly-general-scope-reindent", "curly-general-scope-reindent-multipass"
             }
         );
@@ -567,6 +582,11 @@ public final class Config {
 
             case "comment-normalization-classifier":
                 defaultValue  = defaults.commentNormalizationClassifier ? "on" : "off";
+                allowedValues = ON_OFF_CHOICES;
+                break;
+
+            case "normalize-comment-multi-sentence-case":
+                defaultValue  = defaults.normalizeCommentMultiSentenceCase ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 break;
 
@@ -812,6 +832,10 @@ public final class Config {
         config.commentNormalizationClassifier     = parseBoolean(
             raw, "comment-normalization-classifier",
             config.commentNormalizationClassifier
+        );
+        config.normalizeCommentMultiSentenceCase  = parseBoolean(
+            raw, "normalize-comment-multi-sentence-case",
+            config.normalizeCommentMultiSentenceCase
         );
         config.headerGuardRename                  = parseBoolean(
             raw, "header-guard-rename", config.headerGuardRename

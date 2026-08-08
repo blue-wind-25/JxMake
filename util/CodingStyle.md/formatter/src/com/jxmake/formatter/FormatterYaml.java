@@ -39,6 +39,7 @@ public final class FormatterYaml extends FormatterCore {
             config.isNormalizeCommentStartCase(),
             config.isNormalizeCommentEndPeriod()
         );
+        rule.setNormalizeCommentMultiSentenceCase( config.isNormalizeCommentMultiSentenceCase() );
 
         return rule.format(content);
     }

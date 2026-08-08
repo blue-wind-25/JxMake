@@ -69,6 +69,7 @@ public final class FormatterCurly extends FormatterCore {
             lineLengthLimit,
             lineLengthWithCommentLimit
         );
+        miscRule.setNormalizeCommentMultiSentenceCase( config.isNormalizeCommentMultiSentenceCase() );
         final CppSpecificRule    cppRule         = isCOrCpp ? new CppSpecificRule(
             lang, lineLengthLimit, indentWidth
         ) : null;

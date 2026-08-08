@@ -178,6 +178,9 @@ final class ToolingCommentNormalizer {
         while( matcher.find() ) {
             final int letterPos = matcher.start(1);
             if(letterPos == 0) continue;
+            if( !MiscRuleCore.isEligibleSentenceBoundary( combinedText, matcher.start(), letterPos ) ) {
+                continue;
+            }
             int end = letterPos;
             while( end < combinedText.length() && Character.isLetter( combinedText.charAt(end) ) ) ++end;
             if( noCapitalizeWords != null && noCapitalizeWords.contains(

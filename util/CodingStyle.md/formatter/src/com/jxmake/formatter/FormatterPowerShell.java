@@ -35,6 +35,7 @@ public final class FormatterPowerShell extends FormatterCore {
             config.isNormalizeCommentStartCase(),
             config.isNormalizeCommentEndPeriod()
         );
+        rule.setNormalizeCommentMultiSentenceCase( config.isNormalizeCommentMultiSentenceCase() );
 
         return rule.format(content);
     }

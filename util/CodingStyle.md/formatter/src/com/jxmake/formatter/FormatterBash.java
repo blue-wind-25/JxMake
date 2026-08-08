@@ -34,6 +34,7 @@ public final class FormatterBash extends FormatterCore {
             config.isNormalizeCommentStartCase(),
             config.isNormalizeCommentEndPeriod()
         );
+        rule.setNormalizeCommentMultiSentenceCase( config.isNormalizeCommentMultiSentenceCase() );
 
         return rule.format(content);
     }

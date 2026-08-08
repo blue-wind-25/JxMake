@@ -192,16 +192,22 @@ Use sub-agent. This can be a substantial work.
 
 3. [COMMON] `### Server concurrency + client read-ahead (deliberately not started)`
 
-If the fix only cause few regression, try to fix. If the fix cause many regression, revert.
-Use sub-agent. This can be a substantial work.
+If the bug fix/new feature only causes few regressions, try to fix the regressions.However, if
+it causes many regressions, revert. After several failed sessions, it maybe better to accept
+the gap and add it as a new item to the appropriate location (grouped by language and sorted
+by impact) in `## Known Limitations` section in `README.md`. This can be a substantial work,
+use sub-agent.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
 
 1. [KOTLIN / CURLY_GDR, shared] Kotlin statement-boundary tracking for
    `MiscRuleCurly.renderCallCandidate`'s wrap-decision flap (D3)
 
-If the fix only cause few regression, try to fix. If the fix cause many regression, revert.
-Use sub-agent. This can be a substantial work.
+If the bug fix/new feature only causes few regressions, try to fix the regressions.However, if
+it causes many regressions, revert. After several failed sessions, it maybe better to accept
+the gap and add it as a new item to the appropriate location (grouped by language and sorted
+by impact) in `## Known Limitations` section in `README.md`. This can be a substantial work,
+use sub-agent.
 
 === TIER X: Not worth pursuing / explicitly no action planned ===
 

@@ -421,10 +421,15 @@ public final class Config {
     {
         final Map<String, String[]> groups = new LinkedHashMap<String, String[]>();
         groups.put(
+            "Server configurations",
+            new String[] {
+                "server-port", "server-concurrency", "client-read-ahead"
+            }
+        );
+        groups.put(
             "Structural constants",
             new String[] {
-                "server-port", "server-concurrency", "client-read-ahead", "line-length",
-                "line-length-with-comment", "indent-size", "indent-style"
+                "line-length", "line-length-with-comment", "indent-size", "indent-style"
             }
         );
         groups.put(
@@ -563,7 +568,7 @@ public final class Config {
             case "line-length-with-comment":
                 defaultValue  = String.valueOf(defaults.lineLengthWithComment);
                 allowedValues = null;
-                note          = "Curly-brace family only (C/C++/Java/Kotlin/JS/TS) -- the code+comment fits-check "
+                note          = "Curly-brace family only (C/C++/Java/Kotlin/JS/TS) — the 'code + comment' fits-check "
                               + "width for a line carrying a trailing same-line comment. No other language folds a "
                               + "trailing comment into its own wrap decision, so this key has no effect elsewhere.";
                 break;
@@ -589,19 +594,17 @@ public final class Config {
                 defaultValue  = String.valueOf(defaults.serverConcurrency);
                 allowedValues = null;
                 note          = "server-only — thread-pool size the server's HTTP executor uses; takes effect "
-                              + "only when the formatter server itself starts. Default 1 (today's single-threaded "
-                              + "behavior); when raised, Runtime.getRuntime().availableProcessors() is the "
-                              + "recommended value. Raising this requires the client to also raise "
-                              + "'client-read-ahead' to see any benefit.";
+                              + "only when the formatter server itself starts. Default 1 (single-threaded); "
+                              + "raising this requires the client to also raise 'client-read-ahead' to see any benefit.";
                 break;
 
             case "client-read-ahead":
                 defaultValue  = String.valueOf(defaults.clientReadAhead);
                 allowedValues = null;
                 note          = "client-only — how many requests the CLI's one-by-one server-delegation path keeps "
-                              + "in flight at once. Default 1 (today's strict serial dispatch); when tuning against "
-                              + "a server with 'server-concurrency' raised, a reasonable starting point is "
-                              + "roughly server-concurrency + 2.";
+                              + "in flight at once. Default 1 (strict serial dispatch); when tuning against a server "
+                              + "with 'server-concurrency' raised, a reasonable starting point is roughly "
+                              + "'server-concurrency' + 2.";
                 break;
 
             case "closing-comment-min-lines":

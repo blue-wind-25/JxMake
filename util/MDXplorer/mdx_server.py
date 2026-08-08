@@ -761,7 +761,7 @@ _TEMPLATE = (
 "    body.innerHTML = '<p class=\\\"mdx-modal-msg\\\">Formatter server unavailable (' + mdxEsc(e && e.message || e) + ').</p>';\n"
 "  }});\n"
 "}}\n"
-"var MDX_INERT_KEYS = ['server-port'];\n"
+"var MDX_INERT_KEYS = ['server-port', 'server-concurrency', 'client-read-ahead'];\n"
 "function mdxRenderSettingsBody(groups){{\n"
 "  var body = document.getElementById('mdx-modal-body');\n"
 "  var overrides = mdxGetOverrides();\n"

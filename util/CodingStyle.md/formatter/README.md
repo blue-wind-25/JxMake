@@ -296,11 +296,12 @@ with.
 ### Config file format
 
 ```properties
-# ── Structural constants ──────────────────────────────────────────────────────
+# ── Server configurations ─────────────────────────────────────────────────────
 server-port                            = 17173
 server-concurrency                     = 1           # server-only, see "Server mode" below
 client-read-ahead                      = 1           # client-only, see "Server mode" below
 
+# ── Structural constants ──────────────────────────────────────────────────────
 line-length                            = 100
 line-length-with-comment               = 120         # code+comment fits-check width -- curly-brace family only
 indent-size                            = 4

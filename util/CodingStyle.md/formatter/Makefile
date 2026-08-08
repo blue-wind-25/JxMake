@@ -705,27 +705,6 @@ _test_serial: gru-sync-weights
 #
 # Override `JAVA` or `JAR_FILE` on the command line if needed, same as `make test`.
 #
-
-INP_FILES :=
-
-INP_FILES += in_file_config_inp.hpp
-INP_FILES += in_file_config_inp.java
-INP_FILES += in_file_config_inp.kt
-
-INP_FILES += h_core_inp.h
-INP_FILES += c_core_inp.c
-INP_FILES += h_combined_inp.h
-INP_FILES += c_combined_inp.c
-INP_FILES += c_comments_inp.c
-INP_FILES += c_cpp_decl_gaps_inp.c
-
-INP_FILES += hpp_core_inp.hpp
-INP_FILES += cpp_core_inp.cpp
-INP_FILES += cpp_modern_inp.cpp
-INP_FILES += hpp_combined_inp.hpp
-INP_FILES += cpp_combined_inp.cpp
-INP_FILES += cpp_comments_inp.cpp
-
 bench: $(JAR_FILE) gru-sync-weights
 	@(                                                                                                                                              \
 		mkdir -p $(TEST_TMP);                                                                                                                   \
@@ -749,7 +728,7 @@ bench: $(JAR_FILE) gru-sync-weights
 		ns=$$(( end - start ));                                                                                                                 \
 		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
 		echo "";                                                                                                                                \
-		$(JAVA) -jar $(JAR_FILE) --server 2>/dev/null &                                                                                         \
+		JXMAKE_CODE_FORMATTER_SERVER_CONCURRENCY=3 $(JAVA) -jar $(JAR_FILE) --server 2>/dev/null &                                              \
 		sleep 1;                                                                                                                                \
 		echo "";                                                                                                                                \
 		echo "=== Bench: client-server, one-by-one ===";                                                                                        \
@@ -768,15 +747,9 @@ bench: $(JAR_FILE) gru-sync-weights
 		ns=$$(( end - start ));                                                                                                                 \
 		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
 		echo "";                                                                                                                                \
-		$(JAVA) -jar $(JAR_FILE) --stop;                                                                                                        \
-		sleep 1;                                                                                                                                \
-		echo "";                                                                                                                                \
-		JXMAKE_CODE_FORMATTER_SERVER_CONCURRENCY=1 $(JAVA) -jar $(JAR_FILE) --server 2>/dev/null &                                     \
-		sleep 1;                                                                                                                                \
-		echo "";                                                                                                                                \
-		echo "=== Bench: client-server, all-at-once (concurrent) ===";                                                                                       \
+		echo "=== Bench: client-server, all-at-once (concurrent) ===";                                                                          \
 		start=$$(date +%s%N);                                                                                                                   \
-		JXMAKE_CODE_FORMATTER_CLIENT_READ_AHEAD=0 $(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) $$files 2>/dev/null;                                                                         \
+		JXMAKE_CODE_FORMATTER_CLIENT_READ_AHEAD=5 $(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) $$files 2>/dev/null;                               \
 		end=$$(date +%s%N);                                                                                                                     \
 		ns=$$(( end - start ));                                                                                                                 \
 		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \

@@ -273,6 +273,42 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   genuinely too wide for the reader only once alignment padding is included). Investigate this idea
   first, in isolation, before touching `FormatterCurly.java`'s re-run gate again.
 
+  **2026-08-09 session — approach 1 (the "new fix idea" above) tried, reverted; insufficient by
+  itself.** Implemented: `MiscRuleCurly.flushCollapseGap` (used by `collapseToOneLine`, which
+  backs `enforceCallLineBreaking`'s own whole-line fits-check at line ~1391) gained a special
+  case collapsing any gap immediately before a trailing `COMMENT_LINE`/`COMMENT_BLOCK` token to a
+  single canonical space, even when it's pure horizontal whitespace with no `NEWLINE` — leaving
+  the existing verbatim-preserve behavior untouched for mid-statement alignment padding (e.g. a
+  declaration grid's `=`-column, the reason that verbatim-preserve rule exists in the first
+  place per its own doc comment, from the vuejs/core `scripts/release.js` bug). `make test`:
+  261/261 forward + idempotency, zero regressions — the change alone is safe. **However, a fresh
+  minimal repro (7-line `s = applyX(s); // comment` chain, one sibling given a deliberately long
+  method name so `enforceCallLineBreaking` wraps only that one) still reproduced the bug
+  byte-for-byte after this change**: round1 kept wide stale padding on the non-wrapped siblings
+  (`s = applyX(s);                                                                   // §1
+  comment`), round2 collapsed it to one space, non-idempotent. Root cause: this fix only changes
+  what `enforceCallLineBreaking` measures when deciding whether *its own* line needs to wrap — it
+  does not touch `ScopePipelineCurly.applyAssignmentsPass`, which is the pass that actually
+  computes and commits each sibling's trailing-comment-column padding, and which never re-runs or
+  re-derives that padding after `enforceCallLineBreaking` (a later pass in the same round) changes
+  one sibling's line shape. Stabilizing the wrap *decision* was necessary but not sufficient; the
+  stale-padding-on-siblings problem lives entirely in a different pass this approach never
+  touched. **Reverted** (`git checkout -- src/com/jxmake/formatter/rules/MiscRuleCurly.java`,
+  confirmed via `git diff` showing no residual change to that file).
+
+  Approaches (a)/(b) from the disposition note above (find which pass re-collapses the enum `;`
+  separator when re-run for Java; or find a narrower re-run than the shared three-pass bundle)
+  were NOT attempted this session — given this session's evidence that the real bug lives in
+  `applyAssignmentsPass` not being re-derived post-wrap, a future session's most promising next
+  step is likely a fourth idea, not yet attempted: make `applyAssignmentsPass` itself run (or its
+  comment-column-width computation alone re-run) *after* `enforceCallLineBreaking` in
+  `ScopePipelineCurly.processScope`'s pass order for the specific case of a group containing a
+  member `enforceCallLineBreaking` just wrapped — i.e. treat the group's true single-line width as
+  unknowable until call-wrapping has already been decided, rather than trying to make the
+  fits-check ignore a value computed too early. Left OPEN; documented as an accepted gap in
+  `README.md`'s Known Limitations (curly-brace family, item 5) per this session's disposition —
+  matches the pattern of the two already-reverted attempts, no fix landed.
+
 - **NOT REPRODUCED, 2026-08-03 — closed as unconfirmed/stale, not conflated with the above.**
   Ran every registered `test/*_out.cpp`/`test/*_out.hpp` fixture (37 files) through both
   `g++ -std=c++20 -fsyntax-only` and `clang++ -std=c++23 -fsyntax-only` (tools (2)/(3), incl.

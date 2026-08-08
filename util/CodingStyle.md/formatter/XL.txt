@@ -209,7 +209,6 @@ the gap and add it as a new item to the appropriate location (grouped by languag
 by impact) in `## Known Limitations` section in `README.md`. This can be a substantial work,
 use sub-agent. `README.md` must not reference the state files, use code snippets as needed.
 
-
 === TIER X: Not worth pursuing / explicitly no action planned ===
 
 - [C_CPP_JAVA] `gcc-mirror/gcc`, `llvm/llvm-project` dogfood — NOT STARTED, TOO MASSIVE

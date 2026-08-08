@@ -41,7 +41,7 @@ public final class MakefileSpecificRule {
     private final int     indentWidth;
     private final boolean normalizeCommentStartCase;
     private final boolean normalizeCommentEndPeriod;
-    // `normalize-comment-multi-sentence-case` -- default off, set post-construction (matches the
+    // `normalize-comment-start-case-multiline` -- default off, set post-construction (matches the
     // curly family's MiscRuleCore#setNormalizeCommentMultiSentenceCase pattern).
     private boolean normalizeCommentMultiSentenceCase = false;
 

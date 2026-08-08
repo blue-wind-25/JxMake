@@ -29,8 +29,8 @@ public final class Config {
     private static final String[] ALL_KEYS = {
         "line-length", "line-length-with-comment", "indent-size", "indent-style", "server-port",
         "closing-comment-min-lines", "format-macros", "line-endings",
-        "normalize-comment-start-case", "normalize-comment-end-period",
-        "comment-normalization-classifier", "normalize-comment-multi-sentence-case",
+        "normalize-comment-start-case", "normalize-comment-start-case-multiline",
+        "normalize-comment-end-period", "comment-normalization-classifier",
         "header-guard-rename",
         "java-import-order", "java-import-sort", "java-import-depth",
         "java-import-blank-lines",
@@ -96,7 +96,7 @@ public final class Config {
     // 2026-07-30 section and tools/classifier_weights/weights.md.
     private boolean      commentNormalizationClassifier = true;
     /**
-     * {@code normalize-comment-multi-sentence-case} -- gates capitalizing sentence 2+ within a
+     * {@code normalize-comment-start-case-multiline} -- gates capitalizing sentence 2+ within a
      *  comment group/chain (today's {@code normalize-comment-start-case} only ever touches
      *  sentence 1). Default off, following the same "land behind its own flag, off by default"
      *  posture as {@code curly-general-scope-reindent}/{@code html5-tc-gap-level} -- see
@@ -401,8 +401,9 @@ public final class Config {
         groups.put(
             "Behavior",
             new String[] {
-                "line-endings", "normalize-comment-start-case", "normalize-comment-end-period",
-                "comment-normalization-classifier", "normalize-comment-multi-sentence-case",
+                "line-endings", "normalize-comment-start-case",
+                "normalize-comment-start-case-multiline", "normalize-comment-end-period",
+                "comment-normalization-classifier",
                 "closing-comment-min-lines",
                 "curly-general-scope-reindent", "curly-general-scope-reindent-multipass"
             }
@@ -575,6 +576,11 @@ public final class Config {
                 allowedValues = ON_OFF_CHOICES;
                 break;
 
+            case "normalize-comment-start-case-multiline":
+                defaultValue  = defaults.normalizeCommentMultiSentenceCase ? "on" : "off";
+                allowedValues = ON_OFF_CHOICES;
+                break;
+
             case "normalize-comment-end-period":
                 defaultValue  = defaults.normalizeCommentEndPeriod ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
@@ -582,11 +588,6 @@ public final class Config {
 
             case "comment-normalization-classifier":
                 defaultValue  = defaults.commentNormalizationClassifier ? "on" : "off";
-                allowedValues = ON_OFF_CHOICES;
-                break;
-
-            case "normalize-comment-multi-sentence-case":
-                defaultValue  = defaults.normalizeCommentMultiSentenceCase ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 break;
 
@@ -825,6 +826,10 @@ public final class Config {
             raw, "normalize-comment-start-case",
             config.normalizeCommentStartCase
         );
+        config.normalizeCommentMultiSentenceCase  = parseBoolean(
+            raw, "normalize-comment-start-case-multiline",
+            config.normalizeCommentMultiSentenceCase
+        );
         config.normalizeCommentEndPeriod          = parseBoolean(
             raw, "normalize-comment-end-period",
             config.normalizeCommentEndPeriod
@@ -832,10 +837,6 @@ public final class Config {
         config.commentNormalizationClassifier     = parseBoolean(
             raw, "comment-normalization-classifier",
             config.commentNormalizationClassifier
-        );
-        config.normalizeCommentMultiSentenceCase  = parseBoolean(
-            raw, "normalize-comment-multi-sentence-case",
-            config.normalizeCommentMultiSentenceCase
         );
         config.headerGuardRename                  = parseBoolean(
             raw, "header-guard-rename", config.headerGuardRename

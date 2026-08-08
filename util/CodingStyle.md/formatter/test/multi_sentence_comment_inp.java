@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-/*% JXM_CFMT_CFG normalize-comment-multi-sentence-case=on */
+/*% JXM_CFMT_CFG normalize-comment-start-case-multiline=on */
 
 class Foo {
     void bar() {

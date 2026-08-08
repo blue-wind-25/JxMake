@@ -475,7 +475,7 @@ number.
 
 ### Multi-sentence comment capitalization (landed, off by default)
 
-**Outcome:** landed behind `normalize-comment-multi-sentence-case` (default
+**Outcome:** landed behind `normalize-comment-start-case-multiline` (default
 `off`), following the exact `curly-general-scope-reindent`/
 `html5-tc-gap-level` pattern. Wired into both `MiscRuleCore` (curly:
 C/C++/Java/Kotlin/JS/TS) and `ToolingCommentNormalizer`
@@ -537,7 +537,7 @@ rule/exception-sets as sentence 1" per the original design.
 
 **Naming:** the user asked mid-task whether
 `normalize-comment-start-case-multiline` would be a better key name than
-`normalize-comment-multi-sentence-case`. Left as-is since the task's
+`normalize-comment-start-case-multiline`. Left as-is since the task's
 original pre-approved design specified the exact key name; flagged back to
 the user in the final report rather than unilaterally renamed. Revisit if
 the user says they'd prefer the rename (not done as of this entry).
@@ -565,7 +565,7 @@ and would need retraining or its own heuristic/gate (likely a
 is now shared across roughly 15 languages and 260+ fixtures (curly,
 xml/html5, json/json5/css, yaml/toml, tooling, python3). If picked up,
 treat it like `curly-general-scope-reindent`/`html5-tc-gap-level`: land
-behind its own config flag (e.g. `normalize-comment-multi-sentence-case`),
+behind its own config flag (e.g. `normalize-comment-start-case-multiline`),
 off by default, and validate against several real-code dogfood corpora
 before ever flipping the default — this is its own tracked job-sized
 effort, not a same-session drop-in.

@@ -107,7 +107,7 @@ final class ToolingCommentNormalizer {
 
     /**
      * Same as {@link #normalizeChain(List, List, boolean, boolean, Set)}, plus {@code
-     * multiSentenceCase} (the {@code normalize-comment-multi-sentence-case} config key, default
+     * multiSentenceCase} (the {@code normalize-comment-start-case-multiline} config key, default
      * off). When on, capitalizes sentence 2+ of a chain the same way {@link #capitalizeFirstLetter}
      * already handles sentence 1 -- this family has no classifier/GRU stack to reuse (per this
      * class' own doc comment, it's the deterministic ad hoc pattern), so the leading-word decision

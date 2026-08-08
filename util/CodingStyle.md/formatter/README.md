@@ -271,9 +271,9 @@ indent-style                           = spaces      # spaces | tabs | auto
 line-endings                           = lf          # lf | crlf | preserve
 
 normalize-comment-start-case           = on          # on | off
+normalize-comment-start-case-multiline = off         # off | on
 normalize-comment-end-period           = on          # on | off
 comment-normalization-classifier       = on          # on | off
-normalize-comment-multi-sentence-case  = off         # off | on
 closing-comment-min-lines              = 5
 
 curly-general-scope-reindent           = off         # off | on
@@ -371,9 +371,9 @@ confidence cutoff rather than forcing a low-confidence guess. See
 [`DESIGN_NOTES.md`](DESIGN_NOTES.md) for why `0.7` was chosen over a lower
 threshold.
 
-### Multi-sentence comment capitalization (`normalize-comment-multi-sentence-case`)
+### Multi-sentence comment capitalization (`normalize-comment-start-case-multiline`)
 
-`normalize-comment-multi-sentence-case` (default `off`) extends
+`normalize-comment-start-case-multiline` (default `off`) extends
 `normalize-comment-start-case` beyond a comment group's very first word: with it on, every line
 comment group (the same consecutive-`//`/`#`-line grouping already used elsewhere) has its lines
 joined into one combined text, and every internal `.`/`!`/`?` + whitespace + lowercase-letter
@@ -750,11 +750,11 @@ when it actually gains a documented gap.
    one call is close to the line-length limit; splitting such a run with a blank line (which
    breaks alignment-group membership) avoids the trigger.
 
-6. **`normalize-comment-multi-sentence-case` (opt-in, off by default) can capitalize
+6. **`normalize-comment-start-case-multiline` (opt-in, off by default) can capitalize
    commented-out code inside a multi-line comment group; affects C/C++/Java/Kotlin/JS/TS and
    also the `#`-comment tooling family (Makefile/Bash/PowerShell) and YAML/TOML.** See "Config
    file format" → [Multi-sentence comment
-   capitalization](#multi-sentence-comment-capitalization-normalize-comment-multi-sentence-case)
+   capitalization](#multi-sentence-comment-capitalization-normalize-comment-start-case-multiline)
    above for the full mechanism, its mechanical pre-filter, and the concrete `// import
    '...'` → `// Import '...'` example. Left off by default; enabling it is a judgment call for
    codebases that keep a lot of commented-out code inside otherwise-prose comment groups.

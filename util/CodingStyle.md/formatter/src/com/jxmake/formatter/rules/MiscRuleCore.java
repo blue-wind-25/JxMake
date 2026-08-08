@@ -47,7 +47,7 @@ public abstract class MiscRuleCore {
     protected final boolean commentNormalizationClassifier;
     protected final boolean gruClassifier;
     protected final String  gruWeightsPath;
-    // `normalize-comment-multi-sentence-case` -- default off, set post-construction via
+    // `normalize-comment-start-case-multiline` -- default off, set post-construction via
     // {@link #setNormalizeCommentMultiSentenceCase} rather than threaded through every
     // MiscRuleCore/MiscRuleCurly/MiscRuleIndent/MiscRuleTags constructor overload (there are many),
     // matching this job's "gate via config, no behavior change when off" scope. See
@@ -2490,7 +2490,7 @@ public static final class Assignment {
         return content;
     }
     /**
-     * `normalize-comment-multi-sentence-case` (default off -- see
+     * `normalize-comment-start-case-multiline` (default off -- see
      *  STATE_COMMON.md's "Multi-sentence comment capitalization" section for full design
      *  rationale). {@code contents}/{@code rewritableFlags} are the group's still-separate
      *  per-line comment strings (parallel arrays, one entry per group member) -- combined here

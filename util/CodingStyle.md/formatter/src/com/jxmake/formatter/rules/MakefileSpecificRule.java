@@ -41,6 +41,9 @@ public final class MakefileSpecificRule {
     private final int     indentWidth;
     private final boolean normalizeCommentStartCase;
     private final boolean normalizeCommentEndPeriod;
+    // `normalize-comment-multi-sentence-case` -- default off, set post-construction (matches the
+    // curly family's MiscRuleCore#setNormalizeCommentMultiSentenceCase pattern).
+    private boolean normalizeCommentMultiSentenceCase = false;
 
     public MakefileSpecificRule(
         final int     indentWidth,
@@ -51,6 +54,11 @@ public final class MakefileSpecificRule {
         this.indentWidth               = Math.max(1, indentWidth);
         this.normalizeCommentStartCase = normalizeCommentStartCase;
         this.normalizeCommentEndPeriod = normalizeCommentEndPeriod;
+    }
+
+    public void setNormalizeCommentMultiSentenceCase(final boolean value)
+    {
+        this.normalizeCommentMultiSentenceCase = value;
     }
 
     private static final class AsgnItem {
@@ -130,7 +138,8 @@ public final class MakefileSpecificRule {
                 final List<Boolean> blanks = new ArrayList<>();
                 for( int k = 0; k < bodies.size(); ++k ) blanks.add(false);
                 final List<String> normalized = ToolingCommentNormalizer.normalizeChain(
-                    bodies, blanks, normalizeCommentStartCase, normalizeCommentEndPeriod, null
+                    bodies, blanks, normalizeCommentStartCase, normalizeCommentEndPeriod, null,
+                    normalizeCommentMultiSentenceCase
                 );
                 for( int k = 0; k < normalized.size(); ++k ) out.add(
                     leadingWhitespace( commentRawLines.get(k) ) + "#" + normalized.get(k)

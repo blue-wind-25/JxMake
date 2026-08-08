@@ -47,6 +47,17 @@ public abstract class MiscRuleCore {
     protected final boolean commentNormalizationClassifier;
     protected final boolean gruClassifier;
     protected final String  gruWeightsPath;
+    // `normalize-comment-multi-sentence-case` -- default off, set post-construction via
+    // {@link #setNormalizeCommentMultiSentenceCase} rather than threaded through every
+    // MiscRuleCore/MiscRuleCurly/MiscRuleIndent/MiscRuleTags constructor overload (there are many),
+    // matching this job's "gate via config, no behavior change when off" scope. See
+    // STATE_COMMON.md's "Multi-sentence comment capitalization" section.
+    protected boolean normalizeCommentMultiSentenceCase = false;
+
+    public void setNormalizeCommentMultiSentenceCase(final boolean value)
+    {
+        this.normalizeCommentMultiSentenceCase = value;
+    }
     public    final int     indentWidth;
     public    final int     lineLengthLimit;
     // "code + comment" line-length limit (`line-length-with-comment` config key, default
@@ -1968,6 +1979,11 @@ public static final class Assignment {
                 ) ) contents.set(
                     0, capitalizeFirstLetter( contents.get(0) )
                 );
+                if(normalizeCommentMultiSentenceCase) {
+                    final List<Boolean> rewritableFlags = new ArrayList<>();
+                    for(final int idx : group) rewritableFlags.add( isCommentRewritable(tokens, idx) );
+                    capitalizeMultiSentence(contents, rewritableFlags);
+                }
                 for( int k = 0; k < group.size(); ++k ) {
                     if( isCommentRewritable(
                         tokens, group.get(k)
@@ -2472,6 +2488,85 @@ public static final class Assignment {
         } // for
 
         return content;
+    }
+    /**
+     * `normalize-comment-multi-sentence-case` (default off -- see
+     *  STATE_COMMON.md's "Multi-sentence comment capitalization" section for full design
+     *  rationale). {@code contents}/{@code rewritableFlags} are the group's still-separate
+     *  per-line comment strings (parallel arrays, one entry per group member) -- combined here
+     *  into one logical text stream purely for sentence-boundary detection and classifier
+     *  feeding, joined the same way {@link #computeLineCommentGroups} already groups adjacent
+     *  `//` lines. Sentence 1's leading word is skipped (already handled by
+     *  {@link #capitalizeFirstLetter} at the call site above); every subsequent
+     *  `[.!?]` + whitespace + lowercase-letter boundary is offered to the EXISTING
+     *  mechanical/linear/GRU classifier stack via {@link #classifyComment(String, int)},
+     *  reused completely as-is (out-of-distribution risk explicitly accepted -- it was trained
+     *  for "is this leading word safe to capitalize," not "is this a sentence boundary") rather
+     *  than any new dedicated gate. A candidate boundary the stack doesn't return YES for is left
+     *  untouched, same as the existing single-sentence behavior when it abstains/says NO.
+     *
+     *  <p>Capitalized character positions are tracked against the synthetic combined string, then
+     *  mapped back onto the corresponding character of the ORIGINAL per-line {@code contents}
+     *  entry (never re-splitting the transformed combined text) -- more robust against subtle
+     *  whitespace/wrap differences between the combined and original per-line forms.
+     */
+    protected void capitalizeMultiSentence(
+        final List<String>  contents,
+        final List<Boolean> rewritableFlags
+    )
+    {
+        if( !normalizeCommentStartCase || contents.isEmpty() ) return;
+        final int[]         lineStart = new int[contents.size()];
+        final StringBuilder combined  = new StringBuilder();
+        for( int i = 0; i < contents.size(); ++i ) {
+            if(i > 0) combined.append(' ');
+            lineStart[i] = combined.length();
+            combined.append( contents.get(i) );
+        }
+        final String combinedText = combined.toString();
+
+        // Sentence-boundary heuristic -- same class of `.`/`!`/`?` + whitespace + letter
+        // detection already relied on elsewhere in this codebase's comment-grammar handling
+        // (dot-count/trailing-period logic), applied here to an internal sentence start rather
+        // than only the trailing period.
+        final java.util.regex.Matcher matcher =
+                java.util.regex.Pattern.compile("[.!?]\\s+([a-z])").matcher(combinedText);
+        final Map<Integer, Character> capitalized = new HashMap<>();
+        while( matcher.find() ) {
+            final int letterPos = matcher.start(1);
+            if(letterPos == 0) continue; // Sentence 1 -- already handled separately.
+            final char c = combinedText.charAt(letterPos);
+            boolean    allow;
+            if(commentNormalizationClassifier) {
+                final int targetWordIndex =
+                        GruClassifier.tokenize( combinedText.substring(0, letterPos) ).size();
+                allow = classifyComment(combinedText, targetWordIndex) == CommentDecision.YES;
+            }
+            else {
+                int end = letterPos;
+                while( end < combinedText.length() && ( Character.isLetterOrDigit(
+                    combinedText.charAt(end)
+                ) || combinedText.charAt(end) == '_' ) ) end++;
+                allow = !isCommentNoCapitalizeWord( combinedText.substring(letterPos, end) );
+            }
+            if(allow) capitalized.put( letterPos, Character.toUpperCase(c) );
+        } // while
+        if( capitalized.isEmpty() ) return;
+
+        for( int i = 0; i < contents.size(); ++i ) {
+            if( !rewritableFlags.get(i) ) continue;
+            final int           start = lineStart[i];
+            final int           end   = start + contents.get(i).length();
+            StringBuilder        line = null;
+            for( final Map.Entry<Integer, Character> e : capitalized.entrySet() ) {
+                final int pos = e.getKey();
+                if( pos >= start && pos < end ) {
+                    if(line == null) line = new StringBuilder( contents.get(i) );
+                    line.setCharAt( pos - start, e.getValue() );
+                }
+            }
+            if(line != null) contents.set( i, line.toString() );
+        } // for
     }
     /**
      * True iff `word` is a keyword in the current file's language ({@link #lang}) that must

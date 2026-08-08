@@ -34,6 +34,14 @@ public final class TomlSpecificRule {
     private final String  indentUnit;
     private final boolean normalizeCommentStartCase;
     private final boolean normalizeCommentEndPeriod;
+    // `normalize-comment-multi-sentence-case` -- default off, set post-construction (matches the
+    // curly family's MiscRuleCore#setNormalizeCommentMultiSentenceCase pattern).
+    private boolean normalizeCommentMultiSentenceCase = false;
+
+    public void setNormalizeCommentMultiSentenceCase(final boolean value)
+    {
+        this.normalizeCommentMultiSentenceCase = value;
+    }
 
     public TomlSpecificRule(final Lang lang)
     {
@@ -118,7 +126,8 @@ public final class TomlSpecificRule {
         final List<String> bodies = new ArrayList<>();
         for(final String c : raw) bodies.add( c.substring(1) ); // Strip leading '#'
         final List<String> normBodies = ToolingCommentNormalizer.normalizeChain(
-            bodies, blankBefore, normalizeCommentStartCase, normalizeCommentEndPeriod, null
+            bodies, blankBefore, normalizeCommentStartCase, normalizeCommentEndPeriod, null,
+            normalizeCommentMultiSentenceCase
         );
         final List<String> out        = new ArrayList<>();
         for(final String b : normBodies) out.add("#" + b);

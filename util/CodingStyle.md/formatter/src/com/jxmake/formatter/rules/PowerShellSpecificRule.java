@@ -39,6 +39,9 @@ public final class PowerShellSpecificRule {
     private final int     indentWidth;
     private final boolean normalizeCommentStartCase;
     private final boolean normalizeCommentEndPeriod;
+    // `normalize-comment-multi-sentence-case` -- default off, set post-construction (matches the
+    // curly family's MiscRuleCore#setNormalizeCommentMultiSentenceCase pattern).
+    private boolean normalizeCommentMultiSentenceCase = false;
 
     public PowerShellSpecificRule(
         final int     indentWidth,
@@ -49,6 +52,11 @@ public final class PowerShellSpecificRule {
         this.indentWidth               = Math.max(1, indentWidth);
         this.normalizeCommentStartCase = normalizeCommentStartCase;
         this.normalizeCommentEndPeriod = normalizeCommentEndPeriod;
+    }
+
+    public void setNormalizeCommentMultiSentenceCase(final boolean value)
+    {
+        this.normalizeCommentMultiSentenceCase = value;
     }
 
     // ---- Pass A: char-level classification ----------------------------------------------------
@@ -470,7 +478,8 @@ public final class PowerShellSpecificRule {
 
         String transformed = buf.result();
         transformed = chainCollector.resolve(
-            transformed, normalizeCommentStartCase, normalizeCommentEndPeriod, null
+            transformed, normalizeCommentStartCase, normalizeCommentEndPeriod, null,
+            normalizeCommentMultiSentenceCase
         );
 
         final PassAResult result = new PassAResult();
@@ -484,7 +493,8 @@ public final class PowerShellSpecificRule {
     private void emitNormalizedComment(final RunBuffer buf, final String body)
     {
         final String normalized = ToolingCommentNormalizer.normalize(
-            body, normalizeCommentStartCase, normalizeCommentEndPeriod, null
+            body, normalizeCommentStartCase, normalizeCommentEndPeriod, null,
+            normalizeCommentMultiSentenceCase
         );
         for( int i = 0; i < normalized.length(); ++i ) buf.emit( normalized.charAt(i), 'O' );
     }

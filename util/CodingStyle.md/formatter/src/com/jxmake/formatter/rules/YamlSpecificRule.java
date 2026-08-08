@@ -38,6 +38,14 @@ public final class YamlSpecificRule {
     private final String  indentUnit;
     private final boolean normalizeCommentStartCase;
     private final boolean normalizeCommentEndPeriod;
+    // `normalize-comment-multi-sentence-case` -- default off, set post-construction (matches the
+    // curly family's MiscRuleCore#setNormalizeCommentMultiSentenceCase pattern).
+    private boolean normalizeCommentMultiSentenceCase = false;
+
+    public void setNormalizeCommentMultiSentenceCase(final boolean value)
+    {
+        this.normalizeCommentMultiSentenceCase = value;
+    }
 
     public YamlSpecificRule(final Lang lang)
     {
@@ -128,7 +136,8 @@ public final class YamlSpecificRule {
             blanks.add(cl.blankBefore);
         }
         final List<String>      normBodies = ToolingCommentNormalizer.normalizeChain(
-            bodies, blanks, normalizeCommentStartCase, normalizeCommentEndPeriod, null
+            bodies, blanks, normalizeCommentStartCase, normalizeCommentEndPeriod, null,
+            normalizeCommentMultiSentenceCase
         );
         final List<CommentLine> out        = new ArrayList<>();
         for( int i = 0; i < normBodies.size(); ++i ) out.add(

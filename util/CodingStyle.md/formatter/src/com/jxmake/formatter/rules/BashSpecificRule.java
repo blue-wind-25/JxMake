@@ -80,6 +80,9 @@ public final class BashSpecificRule {
     private final int     indentWidth;
     private final boolean normalizeCommentStartCase;
     private final boolean normalizeCommentEndPeriod;
+    // `normalize-comment-multi-sentence-case` -- default off, set post-construction (matches the
+    // curly family's MiscRuleCore#setNormalizeCommentMultiSentenceCase pattern).
+    private boolean normalizeCommentMultiSentenceCase = false;
 
     public BashSpecificRule(
         final int     indentWidth,
@@ -90,6 +93,11 @@ public final class BashSpecificRule {
         this.indentWidth               = Math.max(1, indentWidth);
         this.normalizeCommentStartCase = normalizeCommentStartCase;
         this.normalizeCommentEndPeriod = normalizeCommentEndPeriod;
+    }
+
+    public void setNormalizeCommentMultiSentenceCase(final boolean value)
+    {
+        this.normalizeCommentMultiSentenceCase = value;
     }
 
     // ---- Pass A: char-level classification + token-level transforms ---------------------------
@@ -455,7 +463,8 @@ public final class BashSpecificRule {
 
         String transformed = buf.result();
         transformed = chainCollector.resolve(
-            transformed, normalizeCommentStartCase, normalizeCommentEndPeriod, NO_CAPITALIZE_TOOLS
+            transformed, normalizeCommentStartCase, normalizeCommentEndPeriod, NO_CAPITALIZE_TOOLS,
+            normalizeCommentMultiSentenceCase
         );
 
         final PassAResult result = new PassAResult();
@@ -469,7 +478,8 @@ public final class BashSpecificRule {
     private void emitNormalizedComment(final RunBuffer buf, final String body)
     {
         final String normalized = ToolingCommentNormalizer.normalize(
-            body, normalizeCommentStartCase, normalizeCommentEndPeriod, NO_CAPITALIZE_TOOLS
+            body, normalizeCommentStartCase, normalizeCommentEndPeriod, NO_CAPITALIZE_TOOLS,
+            normalizeCommentMultiSentenceCase
         );
         for( int i = 0; i < normalized.length(); ++i ) buf.emit( normalized.charAt(i), 'O' );
     }

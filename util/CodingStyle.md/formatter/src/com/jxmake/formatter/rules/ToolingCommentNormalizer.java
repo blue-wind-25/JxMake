@@ -33,9 +33,27 @@ final class ToolingCommentNormalizer {
         final Set<String> noCapitalizeWords
     )
     {
+        return normalize(body, normalizeStartCase, normalizeEndPeriod, noCapitalizeWords, false);
+    }
+
+    /** Same as {@link #normalize(String, boolean, boolean, Set)}, plus {@code multiSentenceCase}. */
+    static String normalize(
+        final String      body,
+        final boolean     normalizeStartCase,
+        final boolean     normalizeEndPeriod,
+        final Set<String> noCapitalizeWords,
+        final boolean     multiSentenceCase
+    )
+    {
         String text = body;
         if(normalizeEndPeriod)  text = stripSoleTrailingPeriod(text);
         if(normalizeStartCase)  text = capitalizeFirstLetter(text, noCapitalizeWords);
+        if(multiSentenceCase && normalizeStartCase) {
+            final List<String> single = new ArrayList<>();
+            single.add(text);
+            capitalizeMultiSentence(single, noCapitalizeWords);
+            text = single.get(0);
+        }
 
         return text;
     }
@@ -82,6 +100,31 @@ final class ToolingCommentNormalizer {
         final Set<String>   noCapitalizeWords
     )
     {
+        return normalizeChain(
+            bodies, blankBeforeEach, normalizeStartCase, normalizeEndPeriod, noCapitalizeWords, false
+        );
+    }
+
+    /**
+     * Same as {@link #normalizeChain(List, List, boolean, boolean, Set)}, plus {@code
+     * multiSentenceCase} (the {@code normalize-comment-multi-sentence-case} config key, default
+     * off). When on, capitalizes sentence 2+ of a chain the same way {@link #capitalizeFirstLetter}
+     * already handles sentence 1 -- this family has no classifier/GRU stack to reuse (per this
+     * class' own doc comment, it's the deterministic ad hoc pattern), so the leading-word decision
+     * for each detected sentence boundary reuses the same deterministic {@code noCapitalizeWords}
+     * check as sentence 1, applied to a synthetic combined text joining the chain's bodies (the
+     * same way {@code MiscRuleCore#capitalizeMultiSentence} joins a curly `//` group), then mapped
+     * back onto each original per-line body rather than re-splitting the combined text.
+     */
+    static List<String> normalizeChain(
+        final List<String>  bodies,
+        final List<Boolean> blankBeforeEach,
+        final boolean       normalizeStartCase,
+        final boolean       normalizeEndPeriod,
+        final Set<String>   noCapitalizeWords,
+        final boolean       multiSentenceCase
+    )
+    {
         final List<String> out = new ArrayList<>();
         final int          n   = bodies.size();
               int          i   = 0;
@@ -102,11 +145,61 @@ final class ToolingCommentNormalizer {
             if( normalizeStartCase && !chain.isEmpty() ) chain.set(
                 0, capitalizeFirstLetter( chain.get(0), noCapitalizeWords )
             );
+            if( multiSentenceCase && normalizeStartCase ) capitalizeMultiSentence(chain, noCapitalizeWords);
             out.addAll(chain);
             i = j + 1;
         } // while
 
         return out;
+    }
+
+    /**
+     * See {@link #normalizeChain(List, List, boolean, boolean, Set, boolean)}'s doc comment --
+     * mutates {@code chain} in place, capitalizing sentence 2+ of the combined text back onto each
+     * original element.
+     */
+    private static void capitalizeMultiSentence(
+        final List<String>  chain,
+        final Set<String>   noCapitalizeWords
+    )
+    {
+        if( chain.isEmpty() ) return;
+        final int[]         lineStart = new int[chain.size()];
+        final StringBuilder combined  = new StringBuilder();
+        for( int i = 0; i < chain.size(); ++i ) {
+            if(i > 0) combined.append(' ');
+            lineStart[i] = combined.length();
+            combined.append( chain.get(i) );
+        }
+        final String combinedText = combined.toString();
+        final java.util.regex.Matcher matcher =
+                java.util.regex.Pattern.compile("[.!?]\\s+([a-z])").matcher(combinedText);
+        final java.util.Map<Integer, Character> capitalized = new java.util.HashMap<>();
+        while( matcher.find() ) {
+            final int letterPos = matcher.start(1);
+            if(letterPos == 0) continue;
+            int end = letterPos;
+            while( end < combinedText.length() && Character.isLetter( combinedText.charAt(end) ) ) ++end;
+            if( noCapitalizeWords != null && noCapitalizeWords.contains(
+                combinedText.substring(letterPos, end)
+            ) ) continue;
+            capitalized.put( letterPos, Character.toUpperCase( combinedText.charAt(letterPos) ) );
+        } // while
+        if( capitalized.isEmpty() ) return;
+
+        for( int i = 0; i < chain.size(); ++i ) {
+            final int     start = lineStart[i];
+            final int     end   = start + chain.get(i).length();
+            StringBuilder line  = null;
+            for( final java.util.Map.Entry<Integer, Character> e : capitalized.entrySet() ) {
+                final int pos = e.getKey();
+                if( pos >= start && pos < end ) {
+                    if(line == null) line = new StringBuilder( chain.get(i) );
+                    line.setCharAt( pos - start, e.getValue() );
+                }
+            }
+            if(line != null) chain.set( i, line.toString() );
+        } // for
     }
 
     /**
@@ -173,6 +266,18 @@ final class ToolingCommentNormalizer {
             final Set<String> noCapitalizeWords
         )
         {
+            return resolve(transformed, normalizeStartCase, normalizeEndPeriod, noCapitalizeWords, false);
+        }
+
+        /** Same as {@link #resolve(String, boolean, boolean, Set)}, plus {@code multiSentenceCase}. */
+        String resolve(
+            final String      transformed,
+            final boolean     normalizeStartCase,
+            final boolean     normalizeEndPeriod,
+            final Set<String> noCapitalizeWords,
+            final boolean     multiSentenceCase
+        )
+        {
             if( entries.isEmpty() ) return transformed;
 
             String out = transformed;
@@ -193,7 +298,7 @@ final class ToolingCommentNormalizer {
                     false
                 ); }
                 final List<String> normalized = normalizeChain(
-                    bodies, blanks, normalizeStartCase, normalizeEndPeriod, noCapitalizeWords
+                    bodies, blanks, normalizeStartCase, normalizeEndPeriod, noCapitalizeWords, multiSentenceCase
                 );
                 for(int k = i; k <= j; ++k) out = out.replace(
                     entries.get(k).placeholder, normalized.get(k - i)

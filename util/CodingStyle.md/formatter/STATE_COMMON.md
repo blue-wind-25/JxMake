@@ -473,7 +473,78 @@ motivation is availability (a single slow/hung request currently blocks
 every other client indefinitely) more than the raw one-by-one benchmark
 number.
 
-### Multi-sentence comment capitalization (deliberately not started)
+### Multi-sentence comment capitalization (landed, off by default)
+
+**Outcome:** landed behind `normalize-comment-multi-sentence-case` (default
+`off`), following the exact `curly-general-scope-reindent`/
+`html5-tc-gap-level` pattern. Wired into both `MiscRuleCore` (curly:
+C/C++/Java/Kotlin/JS/TS) and `ToolingCommentNormalizer`
+(yaml/toml/makefile/bash/powershell). `make test` is 263/263 clean both
+with the flag off (shipping default) and forced on via
+`JXMAKE_CODE_FORMATTER_NORMALIZE_COMMENT_MULTI_SENTENCE_CASE=on`.
+Documented in `README.md`'s `### Config file format` section (own
+subsection, "Multi-sentence comment capitalization") and as Known
+Limitations item 6 under the curly-brace family (applies cross-family, not
+curly-only).
+
+**Design actually used**, matching the original plan below closely: join a
+comment group's lines into one combined text stream (same grouping as
+`computeLineCommentGroups`/`ToolingCommentNormalizer.normalizeChain`
+already use), find every `[.!?]\s+[a-z]` boundary, offer each one to the
+*exact same* per-word decision already used for a group's first word
+(mechanical/linear/GRU classifier stack when
+`comment-normalization-classifier` is on, `isCommentNoCapitalizeWord`
+keyword-exception set when it's off) — no new dedicated gate, no
+retraining, out-of-distribution risk explicitly accepted as the original
+plan called for. Capitalized character positions are tracked against the
+synthetic combined string via per-line offset tracking, then mapped back
+onto the original per-line array (never re-splitting transformed text).
+
+**Mechanical pre-filter added on top** (`isEligibleSentenceBoundary` in
+`MiscRuleCore`, shared with the tooling family via a `protected static`
+cross-call): runs before a candidate boundary is ever offered to the
+classifier, rejecting shapes no classifier should need to be asked about —
+punctuation not directly attached to a preceding letter/digit (rejects
+ellipsis/multi-punct runs and standalone symbols like `` `! is` ``), a
+preceding word that's a single letter or a known abbreviation (`vs.`,
+`etc.`, `e.g.`, `i.e.`, `al.`, `cf.`, ...), a following word with an
+internal uppercase letter (camelCase/dotted code identifiers), and a
+following word immediately followed by `:` with no trailing space (URL
+schemes and directive comments — `https:`, `ftp:`, `tslint:`). This filter
+was built in two passes: the first (ellipsis/standalone-symbol/abbreviation/
+camelCase checks) fixed all 4 regressions `make test` found with the flag
+forced on; the second (colon/single-letter-abbreviation checks) was added
+after real-code dogfood testing against `/tmp/angular` (angular/angular,
+300 `.ts` files) found `https://...`/`ftp://...`/`tslint:...`/`e.g.`/`i.e.`
+self-capitalization bugs not covered by the fixture suite — that dogfood
+pass went from 16 differing files to 7, of which 6 are legitimate
+sentence-start capitalizations and 1 is an accepted known limitation (see
+below).
+
+**Accepted known limitation, not fixed further:** with
+`comment-normalization-classifier = on`, the keyword-exception list
+(`isCommentNoCapitalizeWord`, which excludes words like `import`) is never
+consulted — this mirrors `capitalizeFirstLetter`'s pre-existing sentence-1
+behavior exactly (same code shape: classifier-on path trusts the
+classifier alone and skips the keyword list), so it's an inherited
+limitation rather than a new one. Concretely, a mid-comment-group line of
+commented-out code such as `// import './rxjs/rxjs.spec';` can be
+capitalized to `// Import '...'` if the classifier judges it plausible.
+Confirmed by the user as an acceptable documented risk rather than
+something requiring a fix; documented in README.md rather than chased with
+another mechanical rule, to avoid deviating from "exact same
+rule/exception-sets as sentence 1" per the original design.
+
+**Naming:** the user asked mid-task whether
+`normalize-comment-start-case-multiline` would be a better key name than
+`normalize-comment-multi-sentence-case`. Left as-is since the task's
+original pre-approved design specified the exact key name; flagged back to
+the user in the final report rather than unilaterally renamed. Revisit if
+the user says they'd prefer the rename (not done as of this entry).
+
+<details>
+<summary>Original pre-implementation plan (superseded by the above, kept
+for history)</summary>
 
 Today's comment-start capitalization only ever touches the first word of a
 line-comment chain/group (`computeLineCommentGroups`/`enforceCommentStyle`
@@ -498,6 +569,8 @@ behind its own config flag (e.g. `normalize-comment-multi-sentence-case`),
 off by default, and validate against several real-code dogfood corpora
 before ever flipping the default — this is its own tracked job-sized
 effort, not a same-session drop-in.
+
+</details>
 
 ### Project refactoring/cleanup pass
 

@@ -273,6 +273,7 @@ line-endings                           = lf          # lf | crlf | preserve
 normalize-comment-start-case           = on          # on | off
 normalize-comment-end-period           = on          # on | off
 comment-normalization-classifier       = on          # on | off
+normalize-comment-multi-sentence-case  = off         # off | on
 closing-comment-min-lines              = 5
 
 curly-general-scope-reindent           = off         # off | on
@@ -369,6 +370,47 @@ separate config key): the GRU itself abstains below this softmax
 confidence cutoff rather than forcing a low-confidence guess. See
 [`DESIGN_NOTES.md`](DESIGN_NOTES.md) for why `0.7` was chosen over a lower
 threshold.
+
+### Multi-sentence comment capitalization (`normalize-comment-multi-sentence-case`)
+
+`normalize-comment-multi-sentence-case` (default `off`) extends
+`normalize-comment-start-case` beyond a comment group's very first word: with it on, every line
+comment group (the same consecutive-`//`/`#`-line grouping already used elsewhere) has its lines
+joined into one combined text, and every internal `.`/`!`/`?` + whitespace + lowercase-letter
+boundary found in that text — not just the group's first word — is offered to the exact same
+capitalization decision (mechanical/linear/GRU classifier stack when
+`comment-normalization-classifier` is on, or the plain keyword-exception list when it's off) already
+used for the first word. A candidate that the decision doesn't clearly approve is left untouched,
+same as today's first-word-only behavior when it abstains or says no. Applies to both the
+curly-brace family (C/C++/Java/Kotlin/JS/TS) and the `#`-comment tooling family
+(Makefile/Bash/PowerShell) as well as YAML/TOML.
+
+Before offering a candidate boundary to that decision at all, a narrow mechanical pre-filter
+rejects shapes that are structurally never a real sentence start regardless of what the
+classifier might say: a run of 2+ punctuation marks (`...`, `?!`), a standalone symbol not
+attached to a preceding word (`` `! is` ``), a preceding word that's a single letter or a known
+abbreviation (`e.g.`, `i.e.`, `vs.`, `etc.`, `cf.`, `al.`), a following word with an internal
+uppercase letter (a camelCase/dotted code identifier, e.g. `processScope`), and a following word
+immediately followed by `:` with no trailing space (a URL scheme or directive comment, e.g.
+`https:`, `ftp:`, `tslint:`).
+
+**Known risk when this key is on:** the classifier stack is reused completely as-is — it was
+trained to judge "is this leading word safe to capitalize," not "is this a sentence boundary" —
+so internal boundaries it wasn't trained on carry explicit out-of-distribution risk beyond what
+the mechanical pre-filter above catches. One concrete gap found during real-code validation: the
+keyword-exception list (which excludes words like `import` from capitalization) is only consulted
+in the `comment-normalization-classifier = off` path — with the classifier on, this key inherits
+the same limitation `normalize-comment-start-case` already has for a comment's first word, so a
+mid-comment line of commented-out code such as
+
+```
+// TODO: re-enable this test
+// import './rxjs/rxjs.spec';
+```
+
+can have its `import` line capitalized to `// Import './rxjs/rxjs.spec';` if the classifier judges
+it a plausible sentence start. Leave this key off for codebases where commented-out code inside
+multi-line comment groups is common, or accept spot-checking after enabling it.
 
 ### General scope-depth reindentation (GDR) (`curly-general-scope-reindent`)
 
@@ -619,7 +661,10 @@ third-party client only needs to speak this HTTP protocol, not link against the 
 ## Known Limitations
 
 Grouped by which language family each limitation affects (curly-brace family, then
-tag-based/markup family, then indent-based family), then by effect size within each group.
+tag-based/markup family), then by effect size within each group. Families with no currently
+documented limitations (data formats, indent-based Python 3, build/dev-tooling scripts) are
+omitted rather than listed with an empty placeholder — add a new family heading here if and
+when it actually gains a documented gap.
 
 ### Curly-brace family (C/C++/Java/Kotlin/JS/TS)
 
@@ -705,6 +750,15 @@ tag-based/markup family, then indent-based family), then by effect size within e
    one call is close to the line-length limit; splitting such a run with a blank line (which
    breaks alignment-group membership) avoids the trigger.
 
+6. **`normalize-comment-multi-sentence-case` (opt-in, off by default) can capitalize
+   commented-out code inside a multi-line comment group; affects C/C++/Java/Kotlin/JS/TS and
+   also the `#`-comment tooling family (Makefile/Bash/PowerShell) and YAML/TOML.** See "Config
+   file format" → [Multi-sentence comment
+   capitalization](#multi-sentence-comment-capitalization-normalize-comment-multi-sentence-case)
+   above for the full mechanism, its mechanical pre-filter, and the concrete `// import
+   '...'` → `// Import '...'` example. Left off by default; enabling it is a judgment call for
+   codebases that keep a lot of commented-out code inside otherwise-prose comment groups.
+
 ### Tag-based family (XML/HTML5)
 
 5. **HTML5 deep tree-construction gap coverage (`html5-tc-gap-level`) is a narrow, documented
@@ -721,10 +775,6 @@ tag-based/markup family, then indent-based family), then by effect size within e
    `<!--todo-->`) will keep it lowercase instead of capitalizing it — a false negative, not a
    false positive (no comment is ever wrongly rewritten by this rule, only possibly left
    as-is).
-
-### Indent-based family (Python 3)
-
-No known limitations currently documented for indent-based languages.
 
 ---
 

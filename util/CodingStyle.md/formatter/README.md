@@ -263,7 +263,7 @@ with.
 server-port                            = 17173
 
 line-length                            = 100
-line-length-with-comment               = 120        # code+comment fits-check width; curly-brace family only, see below
+line-length-with-comment               = 120         # code+comment fits-check width -- curly-brace family only
 indent-size                            = 4
 indent-style                           = spaces      # spaces | tabs | auto
 
@@ -310,6 +310,33 @@ html5-tc-gap-level                     = 0           # 0 | 1 | 2 | 3 | 4, cumula
 gru-classifier                         = on          # on | off
 gru-weights-path                       =             # empty = derive from program dir (code-formatter-ai-assist-weights.json)
 ```
+
+**Per-language `line-length` / `line-length-with-comment` usage.** Not every
+language has a line-length-driven wrap decision, and among the ones that do,
+only the curly-brace family has a decision point that separately measures a
+trailing same-line comment's width, so only that family reads
+`line-length-with-comment`:
+
+| Language(s) | `line-length` | `line-length-with-comment` |
+|---|---|---|
+| C, C++, Java, Kotlin, JS, TS (curly-brace family) | used (code-only wrap decisions) | used (wrap decisions on a line carrying a trailing same-line comment) |
+| Python3 | used (signature/case/single-statement-body join decisions) | not used -- a line carrying a trailing comment is conservatively left unjoined rather than measured, so there is no comment-inclusive decision point to plug into |
+| JSON, JSON5 | used (array/object tight-vs-loose decision) | not used -- a node with a trailing comment is excluded from tight-candidacy before any width is measured |
+| XML, HTML5 | used (tight-element/attribute-wrap decision) | not used -- width is measured before a trailing comment is appended, so the comment never enters the measured span |
+| YAML | used (flow-vs-block conversion) | not used -- the flow-fit check only ever measures a node's own flow-tight rendering, never a trailing comment |
+| CSS | not used -- `STYLE_DATA_FORMATS.md` §3 defines no line-length-driven wrap rule for CSS at all | not used |
+| TOML | not used -- `STYLE_DATA_FORMATS.md` §6.3/§6.4 define array/inline-table (un)wrapping by content type and grammar constraint, not by length | not used |
+| Makefile, Bash, PowerShell | not used -- `STYLE_TOOLING.md` scopes these three to a fixed, narrow beautification list with "no general reindentation/re-wrapping fallback" of any kind | not used |
+
+This reflects genuinely different architectures per language, not gaps to be
+filled in: CSS/TOML/Makefile/Bash/PowerShell have no line-length-driven wrap
+rule specified at all, and Python3/JSON5/XML/HTML5/YAML each structurally
+exclude a trailing comment from their own wrap decision (skip the decision
+entirely, or measure before the comment is appended) rather than folding it
+into the measured width the way the curly-brace family's shared pipeline
+does. A future session adding a genuine comment-inclusive wrap decision to
+any of these should reuse `line-length-with-comment` rather than inventing a
+new key.
 
 ### Comment classifier (GRU)
 

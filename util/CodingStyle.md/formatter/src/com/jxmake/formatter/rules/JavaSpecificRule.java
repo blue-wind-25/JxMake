@@ -46,6 +46,11 @@ public class JavaSpecificRule {
     ) );
 
     private final int lineLengthLimit;
+    // "code + comment" line-length limit (`line-length-with-comment` config key) -- see
+    // Config.lineLengthWithComment()'s doc comment. Used by isSingleLineBody's fits-prediction,
+    // which must agree with MiscRuleCurly.enforceCallLineBreaking's own comment-inclusive
+    // fits-check (see that method's doc comment above).
+    private final int lineLengthWithCommentLimit;
     private final int indentWidth;
     /**
      * Fallback one-indent-level unit when it can't be derived from the class/interface's own
@@ -66,8 +71,19 @@ public class JavaSpecificRule {
 
     public JavaSpecificRule(final Lang lang, final int lineLengthLimit, final int indentWidth)
     {
-        this.lineLengthLimit = lineLengthLimit;
-        this.indentWidth     = indentWidth;
+        this(lang, lineLengthLimit, indentWidth, MiscRuleCore.DEFAULT_LINE_LENGTH_WITH_COMMENT_LIMIT);
+    }
+
+    public JavaSpecificRule(
+        final Lang lang,
+        final int  lineLengthLimit,
+        final int  indentWidth,
+        final int  lineLengthWithCommentLimit
+    )
+    {
+        this.lineLengthLimit            = lineLengthLimit;
+        this.lineLengthWithCommentLimit = lineLengthWithCommentLimit;
+        this.indentWidth                = indentWidth;
         final StringBuilder sb = new StringBuilder();
         for(int i = 0; i < indentWidth; ++i) sb.append(' ');
         this.defaultIndentUnit = sb.toString();
@@ -302,7 +318,14 @@ public class JavaSpecificRule {
                 width        += t.text.length();
                 lastWasSpace  = false;
             } // for
-            if(width > lineLengthLimit) return false;
+            // Only use the comment-aware limit when a trailing same-line comment is actually
+            // present between the close brace and `lineEnd` -- otherwise this is a plain code-only
+            // line and must keep agreeing with `MiscRuleCurly.enforceCallLineBreaking`'s own
+            // code-only fits-check (`lineLengthLimit`), which itself only switches to
+            // `lineLengthWithCommentLimit` when it detects a trailing comment (see that method).
+            final int effectiveLimit =
+                hasCommentBetween(tokens, closeBraceIdx, lineEnd + 1) ? lineLengthWithCommentLimit : lineLengthLimit;
+            if(width > effectiveLimit) return false;
         } // if
 
         return true;

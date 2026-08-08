@@ -1,3 +1,4 @@
+/*% JXM_CFMT_CFG line-length-with-comment=100 */
 /*
  * Copyright (C) 2024 Example Corp.
  * SPDX-License-Identifier: MIT

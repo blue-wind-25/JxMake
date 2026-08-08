@@ -49,6 +49,14 @@ public abstract class MiscRuleCore {
     protected final String  gruWeightsPath;
     public    final int     indentWidth;
     public    final int     lineLengthLimit;
+    // "code + comment" line-length limit (`line-length-with-comment` config key, default
+    // DEFAULT_LINE_LENGTH_WITH_COMMENT_LIMIT/120) -- used in place of `lineLengthLimit` wherever a
+    // fits-check's measured width deliberately includes a trailing same-line comment. See
+    // `Config.lineLengthWithComment()`'s own doc comment for the exact call sites that consume
+    // this. Every constructor below that doesn't take it explicitly defaults it to
+    // DEFAULT_LINE_LENGTH_WITH_COMMENT_LIMIT, matching `Config`'s own default -- no behavior
+    // change for any caller that hasn't threaded the real config value through yet.
+    public    final int     lineLengthWithCommentLimit;
     protected final String  indentUnit;
 
     protected MiscRuleCore(
@@ -61,7 +69,7 @@ public abstract class MiscRuleCore {
     )
     {
         this(lang, normalizeCommentStartCase, normalizeCommentEndPeriod, commentNormalizationClassifier,
-                false, "", indentWidth, lineLengthLimit);
+                false, "", indentWidth, lineLengthLimit, DEFAULT_LINE_LENGTH_WITH_COMMENT_LIMIT);
     }
 
     /**
@@ -81,6 +89,27 @@ public abstract class MiscRuleCore {
         final int     lineLengthLimit
     )
     {
+        this(lang, normalizeCommentStartCase, normalizeCommentEndPeriod, commentNormalizationClassifier,
+                gruClassifier, gruWeightsPath, indentWidth, lineLengthLimit,
+                DEFAULT_LINE_LENGTH_WITH_COMMENT_LIMIT);
+    }
+
+    /**
+     * Full constructor additionally taking the {@code line-length-with-comment} config value --
+     *  see {@link #lineLengthWithCommentLimit}'s own doc comment.
+     */
+    protected MiscRuleCore(
+        final Lang    lang,
+        final boolean normalizeCommentStartCase,
+        final boolean normalizeCommentEndPeriod,
+        final boolean commentNormalizationClassifier,
+        final boolean gruClassifier,
+        final String  gruWeightsPath,
+        final int     indentWidth,
+        final int     lineLengthLimit,
+        final int     lineLengthWithCommentLimit
+    )
+    {
         this.lang                           = lang;
         this.normalizeCommentStartCase      = normalizeCommentStartCase;
         this.normalizeCommentEndPeriod      = normalizeCommentEndPeriod;
@@ -89,6 +118,7 @@ public abstract class MiscRuleCore {
         this.gruWeightsPath                 = gruWeightsPath == null ? "" : gruWeightsPath;
         this.indentWidth                    = indentWidth;
         this.lineLengthLimit                = lineLengthLimit;
+        this.lineLengthWithCommentLimit     = lineLengthWithCommentLimit;
         final StringBuilder sb = new StringBuilder();
         for(int i = 0; i < indentWidth; ++i) sb.append(' ');
         this.indentUnit = sb.toString();
@@ -117,6 +147,7 @@ public abstract class MiscRuleCore {
     public static final int DEFAULT_INDENT_WIDTH = 4;
 
     public static final int DEFAULT_LINE_LENGTH_LIMIT = 100;
+    public static final int DEFAULT_LINE_LENGTH_WITH_COMMENT_LIMIT = 120;
 
     protected static final Set<String> COMMENT_NO_CAPITALIZE_C    = setOf(
         "auto",

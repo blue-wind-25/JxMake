@@ -88,6 +88,26 @@ public class MiscRuleCurly extends MiscRuleCore {
     }
 
     /**
+     * Full constructor additionally taking the {@code line-length-with-comment} config value --
+     *  see {@link MiscRuleCore#lineLengthWithCommentLimit}'s own doc comment.
+     */
+    public MiscRuleCurly(
+        final Lang    lang,
+        final boolean normalizeCommentStartCase,
+        final boolean normalizeCommentEndPeriod,
+        final boolean commentNormalizationClassifier,
+        final boolean gruClassifier,
+        final String  gruWeightsPath,
+        final int     indentWidth,
+        final int     lineLengthLimit,
+        final int     lineLengthWithCommentLimit
+    )
+    {
+        super(lang, normalizeCommentStartCase, normalizeCommentEndPeriod, commentNormalizationClassifier,
+                gruClassifier, gruWeightsPath, indentWidth, lineLengthLimit, lineLengthWithCommentLimit);
+    }
+
+    /**
      * Rewrites a bare postfix `i++;`/`i--;` expression statement (its value discarded) to
      * prefix `++i;`/`--i;`, per STYLE.md §4's "always prefer pre-increment except when post-
      * increment semantics are required by the surrounding expression" rule. Two shapes are
@@ -1388,12 +1408,23 @@ public static final class Signature {
             return lines == null ? null : "(\n" + String.join("\n", lines);
         } // if
 
+        // `effectiveLineEndIndex` extends through any trailing same-line `//`/`/* */` comment, so
+        // this measurement is a "code + comment" width whenever such a comment is actually
+        // present -- use `lineLengthWithCommentLimit` (the `line-length-with-comment` config key)
+        // only in that case; otherwise this is a plain code-only line and must keep using
+        // `lineLengthLimit`, exactly as before `line-length-with-comment` was introduced. Using the
+        // comment-aware limit unconditionally regressed ~30 fixtures with no trailing comment at
+        // all (e.g. `real_code_regressions_3`/`_7`/`_16`), because it silently raised the effective
+        // wrap threshold for every call, not just comment-trailing ones.
+        final int  lineEndIdx    = effectiveLineEndIndex(tokens, closeIdx);
+        final int  effectiveLimit =
+            hasCommentBetween(tokens, closeIdx, lineEndIdx) ? lineLengthWithCommentLimit : lineLengthLimit;
         final String wholeLineRest = collapseToOneLine(
-            tokens, lineStartIndex(tokens, nameIdx), effectiveLineEndIndex(tokens, closeIdx) - 1
+            tokens, lineStartIndex(tokens, nameIdx), lineEndIdx - 1
         );
         if( expandedIndentWidth(
             baseIndent
-        ) + wholeLineRest.length() <= lineLengthLimit ) return null; // Option 0 -- already fits, no change
+        ) + wholeLineRest.length() <= effectiveLimit ) return null; // Option 0 -- already fits, no change
 
         final List<String> dropped = (sigForRender != null) ? renderDropped(
             sigForRender, baseIndent

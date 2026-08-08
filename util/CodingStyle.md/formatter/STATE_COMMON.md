@@ -313,6 +313,25 @@ appropriate for README.md's user-facing doc:
   `STATE_AI.md`.
 - `python-import-sort` / `python-import-blank-lines`: wired into `Config.java`'s `ALL_KEYS`
   2026-08-06 (RDD_KEY_247) — see `STATE_PYTHON3.md`.
+- `line-length-with-comment`: added 2026-08-09, default `120`. Scopes the "code + comment" width
+  fits-check (i.e. wherever the formatter measures a candidate line's width *including* a trailing
+  same-line `//`/`/* */` comment) separately from the code-only `line-length` limit. Wired into the
+  curly-brace family only: `MiscRuleCurly.enforceCallLineBreaking`'s whole-line fits-check and
+  `JavaSpecificRule.isSingleLineBody`'s fits-prediction (RDD_KEY_172 requires these two to agree).
+  Both call sites first check whether a trailing comment is actually present in the measured span
+  (via each file's own `hasCommentBetween` helper) and only use `lineLengthWithCommentLimit` when
+  one is; a plain code-only line still uses `lineLengthLimit` unchanged. (An earlier same-session
+  attempt wired the comment-aware limit unconditionally, regressing ~30 fixtures with no trailing
+  comment at all because it silently raised the effective wrap threshold for every call, not just
+  comment-trailing ones — caught via fixture diffing and fixed before landing.) NOT wired into any
+  other language/pipeline (JSON has no comment concept; other data-format/indent-based/tooling
+  languages have no existing "code+comment" fits-check point to plug into yet — a future session
+  adding one should reuse this key rather than inventing a new one). `make test` after landing: 2
+  pre-existing fixtures (`real_code_regressions_65_out.java`, `real_code_regressions_124_out.hpp`)
+  now fail because both have a trailing comment that pushed their code+comment width past the old
+  100-char `line-length` limit (100-107 wide) but under the new 120-char default — this is the
+  intended effect of the new default and was left for the user to review/update those two fixtures
+  themselves, per this job's fixture-touching rule.
 
 For every added, deleted, or modified configuration item, synchronize it
 with `README.md` and the implementation of *In-file Config Support* (the

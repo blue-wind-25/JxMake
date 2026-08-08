@@ -138,6 +138,30 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         final int     lineLengthLimit
     )
     {
+        this(lang, indentStyle, normalizeCommentStartCase, normalizeCommentEndPeriod,
+                commentNormalizationClassifier, gruClassifier, gruWeightsPath, formatOff, indentWidth,
+                lineLengthLimit,
+                com.jxmake.formatter.rules.MiscRuleCore.DEFAULT_LINE_LENGTH_WITH_COMMENT_LIMIT);
+    }
+
+    /**
+     * Full constructor additionally taking the {@code line-length-with-comment} config value --
+     *  see {@code MiscRuleCore.lineLengthWithCommentLimit}'s own doc comment.
+     */
+    public ScopePipelineCurly(
+        final Lang    lang,
+        final String  indentStyle,
+        final boolean normalizeCommentStartCase,
+        final boolean normalizeCommentEndPeriod,
+        final boolean commentNormalizationClassifier,
+        final boolean gruClassifier,
+        final String  gruWeightsPath,
+        final boolean formatOff,
+        final int     indentWidth,
+        final int     lineLengthLimit,
+        final int     lineLengthWithCommentLimit
+    )
+    {
         super(indentWidth);
         this.lang                  = lang;
         this.indentStyle           = indentStyle;
@@ -150,7 +174,8 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 : new GetterSetterRuleCurly(lang, indentWidth, lineLengthLimit);
         this.miscRule              = new MiscRuleCurly(
             lang, normalizeCommentStartCase, normalizeCommentEndPeriod,
-            commentNormalizationClassifier, gruClassifier, gruWeightsPath, indentWidth, lineLengthLimit
+            commentNormalizationClassifier, gruClassifier, gruWeightsPath, indentWidth, lineLengthLimit,
+            lineLengthWithCommentLimit
         );
         this.kotlinDeclarationRule = lang.isKotlin
                                    ? new KotlinDeclarationAlignmentRule(

@@ -27,7 +27,7 @@ public final class Config {
     private static final String ENV_PREFIX          = "JXMAKE_CODE_FORMATTER_";
 
     private static final String[] ALL_KEYS = {
-        "line-length", "indent-size", "indent-style", "server-port",
+        "line-length", "line-length-with-comment", "indent-size", "indent-style", "server-port",
         "closing-comment-min-lines", "format-macros", "line-endings",
         "normalize-comment-start-case", "normalize-comment-end-period",
         "comment-normalization-classifier",
@@ -55,6 +55,7 @@ public final class Config {
     public static final String DEFAULT_INDENT_STYLE = "spaces";
     public static final int    DEFAULT_INDENT_SIZE  = 4;
     public static final int    DEFAULT_LINE_LENGTH  = 100;
+    public static final int    DEFAULT_LINE_LENGTH_WITH_COMMENT = 120;
 
     /**
      * Default {@code gru-weights-path} value for the Step 3 GRU classifier (STATE_AI.md): empty,
@@ -69,6 +70,11 @@ public final class Config {
     public static final String DEFAULT_GRU_WEIGHTS_PATH = "";
 
     private int     lineLength                = DEFAULT_LINE_LENGTH;
+    // "code + comment" line-length limit -- used wherever a fits-check's measured width
+    // deliberately includes a trailing same-line comment (as opposed to `lineLength`, which
+    // governs a bare-code-only measurement). See `lineLengthWithComment()`'s own doc comment for
+    // exactly which passes consume this.
+    private int     lineLengthWithComment      = DEFAULT_LINE_LENGTH_WITH_COMMENT;
     private int     indentSize                = DEFAULT_INDENT_SIZE;
     private String  indentStyle               = DEFAULT_INDENT_STYLE;
     private int     serverPort                = 17173;
@@ -179,6 +185,27 @@ public final class Config {
     public int lineLength()
     {
         return lineLength;
+    }
+
+    /**
+     * "code + comment" line-length limit, default {@link #DEFAULT_LINE_LENGTH_WITH_COMMENT}
+     * (120). Used exactly like {@link #lineLength()} but scoped to a fits-check whose measured
+     * width deliberately includes a trailing same-line comment on the candidate line, rather than
+     * bare code alone -- currently `MiscRuleCurly.enforceCallLineBreaking`'s whole-line
+     * fits-check (which already measures through any trailing `//`/`/* *`/`*}` comment via
+     * `collapseToOneLine`'s range) and `JavaSpecificRule.isSingleLineBody`'s fits-prediction
+     * (RDD_KEY_172, which explicitly folds in a trailing same-line comment's width). Applies to
+     * the curly-brace family (C/C++/Java/Kotlin/JS/TS) sharing that pipeline. Not wired into
+     * JSON/JSON5/CSS/YAML/TOML/XML/HTML5/Python3/Makefile/Bash/PowerShell: JSON has no comment
+     * concept at all; the others' own line-length fits-checks (declaration wrapping, attribute
+     * wrapping, etc.) do not currently fold a trailing comment into their measured width the way
+     * the two curly-family call sites above do, so there is no existing "code + comment"
+     * measurement point for this key to plug into there yet -- a future session adding one should
+     * consume this same key rather than inventing a second.
+     */
+    public int lineLengthWithComment()
+    {
+        return lineLengthWithComment;
     }
 
     public int indentSize()
@@ -347,7 +374,10 @@ public final class Config {
         final Map<String, String[]> groups = new LinkedHashMap<String, String[]>();
         groups.put(
             "Structural constants",
-            new String[] { "server-port", "line-length", "indent-size", "indent-style" }
+            new String[] {
+                "server-port", "line-length", "line-length-with-comment", "indent-size",
+                "indent-style"
+            }
         );
         groups.put(
             "Behavior",
@@ -465,6 +495,11 @@ public final class Config {
 
             case "line-length":
                 defaultValue  = String.valueOf(defaults.lineLength);
+                allowedValues = null;
+                break;
+
+            case "line-length-with-comment":
+                defaultValue  = String.valueOf(defaults.lineLengthWithComment);
                 allowedValues = null;
                 break;
 
@@ -729,6 +764,7 @@ public final class Config {
     {
         final Config config = new Config();
         config.lineLength                         = parseInt(raw, "line-length", config.lineLength);
+        config.lineLengthWithComment              = parseInt(raw, "line-length-with-comment", config.lineLengthWithComment);
         config.indentSize                         = parseInt(raw, "indent-size", config.indentSize);
         config.indentStyle                        = parseChoice(
             raw, "indent-style", config.indentStyle, INDENT_STYLE_CHOICES

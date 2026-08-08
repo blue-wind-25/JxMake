@@ -263,6 +263,7 @@ with.
 server-port                            = 17173
 
 line-length                            = 100
+line-length-with-comment               = 120        # code+comment fits-check width; curly-brace family only, see below
 indent-size                            = 4
 indent-style                           = spaces      # spaces | tabs | auto
 

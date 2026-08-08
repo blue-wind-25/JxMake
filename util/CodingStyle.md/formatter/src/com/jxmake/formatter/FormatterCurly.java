@@ -49,8 +49,9 @@ public final class FormatterCurly extends FormatterCore {
             return tokens;
         };
 
-        final int                indentWidth     = config.indentSize();
-        final int                lineLengthLimit = config.lineLength();
+        final int                indentWidth              = config.indentSize();
+        final int                lineLengthLimit           = config.lineLength();
+        final int                lineLengthWithCommentLimit = config.lineLengthWithComment();
         final BlockStructureRule blockRule       = new BlockStructureRule(
             lang, config.closingCommentMinLines(), indentWidth, lineLengthLimit
         );
@@ -65,13 +66,14 @@ public final class FormatterCurly extends FormatterCore {
             config.isGruClassifier(),
             config.gruWeightsPath(),
             indentWidth,
-            lineLengthLimit
+            lineLengthLimit,
+            lineLengthWithCommentLimit
         );
         final CppSpecificRule    cppRule         = isCOrCpp ? new CppSpecificRule(
             lang, lineLengthLimit, indentWidth
         ) : null;
         final JavaSpecificRule   javaRule        = lang.isJava ? new JavaSpecificRule(
-            lang, lineLengthLimit, indentWidth
+            lang, lineLengthLimit, indentWidth, lineLengthWithCommentLimit
         ) : null;
         final KotlinSpecificRule kotlinRule      = lang.isKotlin ? new KotlinSpecificRule(
             lang, lineLengthLimit, indentWidth
@@ -125,7 +127,8 @@ public final class FormatterCurly extends FormatterCore {
             config.gruWeightsPath(),
             formatOff,
             indentWidth,
-            lineLengthLimit
+            lineLengthLimit,
+            lineLengthWithCommentLimit
         );
         text = scopePipeline.process(text);
 

@@ -104,6 +104,42 @@ call from a Makefile target even if the server is already running.
 **After SIGKILL or manual lockfile deletion:** the next invocation detects the stale
 lockfile (PID no longer alive), cleans it up, and starts fresh automatically.
 
+**Concurrency for many small requests (`server-concurrency` / `client-read-ahead`):**
+by default the server handles one request at a time (`server-concurrency = 1`, today's
+behavior, unchanged) and the CLI's one-by-one batch-invocation path (many files passed
+to a single `java -jar ... file1 file2 ...` invocation, each delegated to the server as
+its own HTTP request) sends them strictly one at a time (`client-read-ahead = 1`). This
+matters for a scenario like an editor plugin issuing one format request per
+keystroke-triggered save, or many independent files formatted in one invocation — not
+for the already-near-optimal single-call batch path. Both settings are opt-in and
+independent of each other:
+
+```sh
+JXMAKE_CODE_FORMATTER_SERVER_CONCURRENCY=4 java -jar code-formatter-1.0.0.jar --server
+JXMAKE_CODE_FORMATTER_CLIENT_READ_AHEAD=6  java -jar code-formatter-1.0.0.jar file1.java file2.java ...
+```
+
+or via a config file:
+
+```properties
+server-concurrency = 4
+client-read-ahead  = 6
+```
+
+`server-concurrency` controls the thread-pool size the server's own HTTP executor uses;
+when raising it, `Runtime.getRuntime().availableProcessors()` (the number of CPU cores
+available to the JVM) is a reasonable value to start from. `client-read-ahead` controls
+how many requests the CLI keeps in flight at once instead of waiting for each response
+before sending the next; it is read and applied by whichever process is doing the
+delegating, independently of what `server-concurrency` the server it's talking to is
+running with (you may not control that server's own setting). As a tuning guideline
+only — not an enforced relationship, and each is a genuinely independent config value —
+a `client-read-ahead` of roughly `server-concurrency + 2` keeps a couple of requests
+queued beyond what the server can immediately work on in parallel, so its thread pool
+stays continuously fed instead of idling between bursts. Both are process/server-
+invocation-scoped settings, same category as `server-port` — see the In-file config
+overrides section below for why they cannot be set per-file via `JXM_CFMT_CFG`.
+
 ### Disabling formatting for part or all of a file
 
 To keep a region of code exactly as written — untouched by any formatting rule — wrap it
@@ -160,8 +196,9 @@ The block-comment form works the same way:
 ```
 
 Entries are `key=value` pairs separated by `;`. Any key valid in a
-`.jxmake-code-formatter` file is valid here, except `server-port` (a process-wide
-property that cannot be set per-file). Values set by this directive are the
+`.jxmake-code-formatter` file is valid here, except the process/server-invocation-scoped
+keys `server-port`, `server-concurrency`, and `client-read-ahead` (none can be set
+per-file). Values set by this directive are the
 highest-priority config layer — they override the project's `.jxmake-code-formatter`
 files, environment variables, CLI flags, and (in server mode) the request's own inline
 query-param config, all for the same key.
@@ -261,6 +298,8 @@ with.
 ```properties
 # ── Structural constants ──────────────────────────────────────────────────────
 server-port                            = 17173
+server-concurrency                     = 1           # server-only, see "Server mode" below
+client-read-ahead                      = 1           # client-only, see "Server mode" below
 
 line-length                            = 100
 line-length-with-comment               = 120         # code+comment fits-check width -- curly-brace family only

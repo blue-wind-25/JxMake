@@ -179,44 +179,143 @@ public final class Main {
             "one of --out DIR, --diff, --check, or --in-place is required " + "(in-place overwriting is no longer the implicit default)"
         );
 
-        boolean anyChanged = false;
-        boolean anyError   = false;
-        for(final String file : files) {
-            System.err.println("jxmake-code-formatter: processing " + file);
-            System.err.flush();
-            try {
-                if( processFile(
-                    Paths.get(file),
-                    outputMode,
-                    outDir,
-                    standalone,
-                    formatOff,
-                    cliOverrides,
-                    explicitLanguage,
-                    preserveTree,
-                    rootDir
-                ) ) anyChanged = true;
-            }
-            catch(final IOException e) {
-                System.err.println();
-                System.err.println(
-                    "jxmake-code-formatter: ERROR:\n  " + file + ": " + e.getMessage()
+        // client-read-ahead: only relevant to the one-by-one server-delegation path (not
+        // --standalone, and only if a server is actually live to delegate to) -- default 1
+        // keeps today's strict request/response/request serial dispatch. When explicitly
+        // raised and a server is live, pipeline up to that many requests in flight instead of
+        // waiting for each one to finish before starting the next. See README.md's "Server
+        // mode" section and STATE_COMMON.md's "Server concurrency + client read-ahead" entry.
+        final Config configForReadAhead = Config.resolve( Paths.get(".").toAbsolutePath(), cliOverrides );
+        final int    readAhead          = configForReadAhead.clientReadAhead() > 0 ? configForReadAhead.clientReadAhead() : 1;
+        final int    liveServerPort     = standalone ? -1 : ServerMode.findRunningServerPort();
+
+        final java.util.concurrent.atomic.AtomicBoolean anyChangedHolder = new java.util.concurrent.atomic.AtomicBoolean(false);
+        final java.util.concurrent.atomic.AtomicBoolean anyErrorHolder   = new java.util.concurrent.atomic.AtomicBoolean(false);
+
+        if(readAhead > 1 && liveServerPort > 0) {
+            runFilesWithReadAhead(
+                files, outputMode, outDir, standalone, formatOff, cliOverrides,
+                explicitLanguage, preserveTree, rootDir, readAhead, anyChangedHolder, anyErrorHolder
+            );
+        } // if
+        else {
+            for(final String file : files) {
+                runOneFile(
+                    file, outputMode, outDir, standalone, formatOff, cliOverrides,
+                    explicitLanguage, preserveTree, rootDir, anyChangedHolder, anyErrorHolder
                 );
-                System.err.println();
-                anyError = true;
-            }
-            catch(final Exception e) {
-                System.err.println();
-                System.err.println("jxmake-code-formatter: INTERNAL ERROR:\n  " + file + ": " + e);
-                System.err.println();
-                e.printStackTrace();
-                anyError = true;
-            }
-        } // for
-        if(anyError) return 1;
-        if(outputMode == OutputMode.CHECK && anyChanged) return 1;
+            } // for
+        } // if/else
+
+        if(anyErrorHolder.get()) return 1;
+        if(outputMode == OutputMode.CHECK && anyChangedHolder.get()) return 1;
 
         return 0;
+    }
+
+    /** One file's worth of work from the old serial loop body, factored out so both the serial
+     *  and read-ahead-pipelined dispatch paths share the exact same per-file logic/error
+     *  handling. */
+    private static void runOneFile(
+        final String               file,
+        final OutputMode           outputMode,
+        final String               outDir,
+        final boolean              standalone,
+        final boolean              formatOff,
+        final Map<String, String>  cliOverrides,
+        final String               explicitLanguage,
+        final boolean              preserveTree,
+        final String               rootDir,
+        final java.util.concurrent.atomic.AtomicBoolean anyChangedHolder,
+        final java.util.concurrent.atomic.AtomicBoolean anyErrorHolder
+    )
+    {
+        System.err.println("jxmake-code-formatter: processing " + file);
+        System.err.flush();
+        try {
+            if( processFile(
+                Paths.get(file),
+                outputMode,
+                outDir,
+                standalone,
+                formatOff,
+                cliOverrides,
+                explicitLanguage,
+                preserveTree,
+                rootDir
+            ) ) anyChangedHolder.set(true);
+        }
+        catch(final IOException e) {
+            System.err.println();
+            System.err.println(
+                "jxmake-code-formatter: ERROR:\n  " + file + ": " + e.getMessage()
+            );
+            System.err.println();
+            anyErrorHolder.set(true);
+        }
+        catch(final Exception e) {
+            System.err.println();
+            System.err.println("jxmake-code-formatter: INTERNAL ERROR:\n  " + file + ": " + e);
+            System.err.println();
+            e.printStackTrace();
+            anyErrorHolder.set(true);
+        }
+    }
+
+    /** Bounded read-ahead pipeline: up to {@code readAhead} files are formatted concurrently
+     *  (each on its own worker thread, each independently going through the exact same
+     *  {@code processFile} path -- including its own server-delegation HTTP round trip) instead
+     *  of strictly one at a time, while still consuming/printing results in original file order
+     *  so diff output / exit-status aggregation stay deterministic. This keeps the server's own
+     *  thread pool (see {@code server-concurrency}) continuously fed instead of idling between
+     *  requests. */
+    private static void runFilesWithReadAhead(
+        final List<String>         files,
+        final OutputMode           outputMode,
+        final String               outDir,
+        final boolean              standalone,
+        final boolean              formatOff,
+        final Map<String, String>  cliOverrides,
+        final String               explicitLanguage,
+        final boolean              preserveTree,
+        final String               rootDir,
+        final int                  readAhead,
+        final java.util.concurrent.atomic.AtomicBoolean anyChangedHolder,
+        final java.util.concurrent.atomic.AtomicBoolean anyErrorHolder
+    )
+    {
+        final java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(readAhead);
+        try {
+            final java.util.ArrayDeque<java.util.concurrent.Future<?>> inFlight = new java.util.ArrayDeque<java.util.concurrent.Future<?>>();
+            for(final String file : files) {
+                inFlight.addLast( pool.submit( ()-> runOneFile(
+                    file, outputMode, outDir, standalone, formatOff, cliOverrides,
+                    explicitLanguage, preserveTree, rootDir, anyChangedHolder, anyErrorHolder
+                ) ) );
+                if(inFlight.size() >= readAhead) drainOne(inFlight);
+            } // for
+            while( !inFlight.isEmpty() ) drainOne(inFlight);
+        }
+        finally {
+            pool.shutdown();
+        }
+    }
+
+    private static void drainOne(final java.util.ArrayDeque<java.util.concurrent.Future<?>> inFlight)
+    {
+        final java.util.concurrent.Future<?> next = inFlight.pollFirst();
+        try {
+            next.get();
+        }
+        catch(final InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        catch(final java.util.concurrent.ExecutionException e) {
+            // runOneFile already catches/reports its own exceptions and never lets one
+            // propagate out -- this branch is unreachable in practice, kept only as a safety
+            // net so a future refactor of runOneFile can't silently swallow a real failure.
+            System.err.println("jxmake-code-formatter: INTERNAL ERROR: " + e.getCause());
+        }
     }
 
     private static int usageError(final String message)

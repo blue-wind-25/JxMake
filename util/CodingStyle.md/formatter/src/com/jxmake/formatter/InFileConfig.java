@@ -8,6 +8,7 @@
 package com.jxmake.formatter;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -54,7 +55,8 @@ public final class InFileConfig {
      * overrides (empty map if none present). Throws {@link IOException} for: more than one
      * directive occurrence anywhere in the file, a directive found past the top-of-file
      * comment/blank-line preamble, or a directive naming a key that either isn't a recognized
-     * config key or is {@code server-port} (a process-wide property, not a per-file one).
+     * config key or is one of the process/server-invocation-scoped keys ({@code server-port},
+     * {@code server-concurrency}, {@code client-read-ahead} -- not per-file properties).
      */
     public static Map<String, String> parse(final String source) throws IOException
     {
@@ -108,7 +110,7 @@ public final class InFileConfig {
             if( !isPerFileApplicable(
                 key
             ) ) throw new IOException(
-                TokenizerCore.JXM_CFMT_CFG + ": \"" + key + "\" is not a valid per-file config key (either unrecognized, or 'server-port', which is " + "a process-wide property and cannot be set per-file)"
+                TokenizerCore.JXM_CFMT_CFG + ": \"" + key + "\" is not a valid per-file config key (either unrecognized, or one of " + "'server-port'/'server-concurrency'/'client-read-ahead', which are process-wide " + "properties and cannot be set per-file)"
             );
             result.put(key, value);
         } // for
@@ -116,9 +118,13 @@ public final class InFileConfig {
         return result;
     }
 
+    private static final java.util.Set<String> SERVER_SCOPED_KEYS = java.util.Collections.unmodifiableSet(
+        new java.util.HashSet<String>( Arrays.asList("server-port", "server-concurrency", "client-read-ahead") )
+    );
+
     private static boolean isPerFileApplicable(final String key)
     {
-        return Config.isKnownKey(key) && !"server-port".equals(key);
+        return Config.isKnownKey(key) && !SERVER_SCOPED_KEYS.contains(key);
     }
 
     private static int preambleEnd(final String source)

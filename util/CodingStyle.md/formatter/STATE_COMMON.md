@@ -473,6 +473,88 @@ motivation is availability (a single slow/hung request currently blocks
 every other client indefinitely) more than the raw one-by-one benchmark
 number.
 
+**2026-08-09: implemented.** Landed `server-concurrency` (default `1`,
+`Config.java`/`ServerMode.start` -- `HttpServer.setExecutor(Executors.newFixedThreadPool(N))`
+when `N > 1`, otherwise today's implicit single-threaded default executor
+unchanged) and `client-read-ahead` (default `1`, `Main.java`'s file loop --
+`runFilesWithReadAhead` pipelines up to `M` `processFile` calls concurrently
+via a fixed thread pool + sliding-window `Future` deque when a live server
+is found and `M > 1`, otherwise the original strictly-serial `runOneFile`
+loop, byte-for-byte unchanged). Both are process/server-invocation-scoped
+config keys, same category as `server-port` -- added to `Config.ALL_KEYS`/
+`GROUPS`/`describeAll()`'s switch/`fromRawMap`, and excluded from
+`JXM_CFMT_CFG` the same way `server-port` already was
+(`InFileConfig.SERVER_SCOPED_KEYS`).
+
+**Thread-safety audit (required before shipping `server-concurrency > 1`):**
+grepped every `.java` file under `src/com/jxmake/formatter/` for a
+non-`final` `static` field (filtered for `static final`) -- zero hits
+anywhere reachable from `ServerMode`/`FormatHandler`/`Config`/
+`GdrPipelineGate`/the GRU classifier stack. Two specific hazards named in
+the task were checked by hand: `IndentationDetector.detect(Path, Map)`
+takes its cache as a per-call parameter, not a shared instance/static
+field, so there is no cross-request sharing at all; `GruAbstainResolver.CLASSIFIER_CACHE`
+is a `static final ConcurrentHashMap`, safe under concurrent access by
+construction (the field reference never changes, only the map's own
+thread-safe internals mutate). `Main.java`'s own standalone-mode
+`/tmp/jxmake-code-formatter-indent-<sha256>.cache` file (a different,
+CLI-side cache, not server-side -- server requests never touch it) was also
+checked: concurrent readers/writers to the same file are self-healing by
+construction, since a corrupted/partial read already falls through to
+`NumberFormatException` → delete-and-rescan, and the file is
+process-agnostic content keyed only by a directory's own `lastModified`, so
+a lost/interleaved write only costs a redundant rescan next time, never a
+wrong formatting result. No hazard required a code change; conclusion is
+"already safe," not "made safe."
+
+**Verification:** `make test`/`make test-server` both stayed 263/263 green
+at the shipped defaults (both new keys at `1`, byte-for-byte unchanged
+behavior). Added `make test-server-concurrent` (new Makefile target,
+mirrors `test-server`'s structure/section-header style): starts a server
+with `server-concurrency = 4`, fires 80 real concurrent HTTP requests
+(2 distinct Java inputs × 40 each, interleaved so a race would corrupt one
+input with the other's output) via backgrounded `curl` + `wait`, and diffs
+every single response byte-for-byte against the same input's single-
+threaded/standalone reference output -- not just "no exception," which a
+genuine data race could pass while still corrupting output. All 80/80
+matched, no hang. `make bench`'s `client-server, all-at-once` scenario was
+updated (only that one scenario, per the original task's scope) to start
+its server with `server-concurrency = $(nproc)` and run the client with
+`client-read-ahead = $(nproc)+2`; the other three scenarios are untouched/
+still default-`1`. Bench comparison (this machine, one run each,
+2026-08-09):
+
+```
+                                          before        after
+standalone, one-by-one                48508mS  ->   52825mS   (machine variance, not this change)
+standalone, all-at-once                2471mS  ->    2915mS   (machine variance, not this change)
+client-server, one-by-one             36672mS  ->   39675mS   (machine variance, not this change; untouched scenario)
+client-server, all-at-once             1708mS  ->    2405mS   (concurrency=4, read-ahead=6 -- see below)
+```
+
+The `client-server, all-at-once` scenario shows no further speedup from
+concurrency/read-ahead (in fact slower here, within this run's machine
+variance) -- confirms the background note's original prediction: it's
+already one client call processing every file in one JVM invocation, and
+the per-file HTTP delegation loop inside it was already fast relative to
+per-request thread-pool/scheduling overhead at this file count, so
+pipelining more requests in flight adds scheduling overhead without
+removing any real bottleneck. The feature's actual target -- many
+independent client processes/editor instances hitting one shared server
+concurrently -- isn't represented by any of the four existing bench
+scenarios (each is a single client, sequential or batched);
+`test-server-concurrent`'s 80-simultaneous-request run is the real evidence
+this feature works, not the bench numbers above. Left as a documented gap
+rather than force-fit a misleading "before/after" framing onto a scenario
+the feature isn't designed for -- a future session wanting a real
+multi-client throughput bench should add a fifth scenario that starts
+several independent client processes concurrently against one server,
+which none of `bench`'s current four scenarios do.
+
+Documented in `README.md`'s "Server mode" section (with the
+`server-concurrency + 2` client-read-ahead guidance) and "Config file
+format"/"In-file config overrides" sections.
+
 ### Multi-sentence comment capitalization (landed, off by default)
 
 **Outcome:** landed behind `normalize-comment-start-case-multiline` (default

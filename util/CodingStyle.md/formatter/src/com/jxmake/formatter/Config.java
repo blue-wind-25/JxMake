@@ -28,6 +28,7 @@ public final class Config {
 
     private static final String[] ALL_KEYS = {
         "line-length", "line-length-with-comment", "indent-size", "indent-style", "server-port",
+        "server-concurrency", "client-read-ahead",
         "closing-comment-min-lines", "format-macros", "line-endings",
         "normalize-comment-start-case", "normalize-comment-start-case-multiline",
         "normalize-comment-end-period", "comment-normalization-classifier",
@@ -78,6 +79,24 @@ public final class Config {
     private int     indentSize                = DEFAULT_INDENT_SIZE;
     private String  indentStyle               = DEFAULT_INDENT_STYLE;
     private int     serverPort                = 17173;
+    /**
+     * {@code server-concurrency} -- thread-pool size {@code ServerMode.start} uses for the
+     *  HTTP server's executor. Default 1: today's implicit single-threaded {@code HttpServer}
+     *  default executor, unchanged/opt-in, matching the project's risk-averse rollout pattern for
+     *  {@code curly-general-scope-reindent}/{@code html5-tc-gap-level}. When explicitly raised
+     *  above 1, {@code ServerMode.start} installs a fixed thread pool of this size instead. Same
+     *  process/server-invocation-scoped category as {@code server-port} -- cannot be set per-file
+     *  via {@code JXM_CFMT_CFG} (see {@code InFileConfig.isPerFileApplicable}).
+     */
+    private int     serverConcurrency         = 1;
+    /**
+     * {@code client-read-ahead} -- how many requests {@code Main.delegateToServerBatch} (the
+     *  one-by-one CLI-delegation path) keeps in flight at once, instead of today's strict
+     *  request/response/request serial dispatch. Default 1: today's strict serial behavior,
+     *  unchanged/opt-in. Same process-scoped category as {@code server-port}/
+     *  {@code server-concurrency} -- cannot be set per-file via {@code JXM_CFMT_CFG}.
+     */
+    private int     clientReadAhead           = 1;
     private int     closingCommentMinLines    = 5;
     private boolean formatMacros              = false;
     private String  lineEndings               = "lf";
@@ -237,6 +256,16 @@ public final class Config {
         return serverPort;
     }
 
+    public int serverConcurrency()
+    {
+        return serverConcurrency;
+    }
+
+    public int clientReadAhead()
+    {
+        return clientReadAhead;
+    }
+
     public int closingCommentMinLines()
     {
         return closingCommentMinLines;
@@ -394,8 +423,8 @@ public final class Config {
         groups.put(
             "Structural constants",
             new String[] {
-                "server-port", "line-length", "line-length-with-comment", "indent-size",
-                "indent-style"
+                "server-port", "server-concurrency", "client-read-ahead", "line-length",
+                "line-length-with-comment", "indent-size", "indent-style"
             }
         );
         groups.put(
@@ -554,6 +583,25 @@ public final class Config {
                 allowedValues = null;
                 note          = "server-only — takes effect only when the formatter server itself starts; "
                               + "has no effect here or on a running server";
+                break;
+
+            case "server-concurrency":
+                defaultValue  = String.valueOf(defaults.serverConcurrency);
+                allowedValues = null;
+                note          = "server-only — thread-pool size the server's HTTP executor uses; takes effect "
+                              + "only when the formatter server itself starts. Default 1 (today's single-threaded "
+                              + "behavior); when raised, Runtime.getRuntime().availableProcessors() is the "
+                              + "recommended value. Raising this requires the client to also raise "
+                              + "'client-read-ahead' to see any benefit.";
+                break;
+
+            case "client-read-ahead":
+                defaultValue  = String.valueOf(defaults.clientReadAhead);
+                allowedValues = null;
+                note          = "client-only — how many requests the CLI's one-by-one server-delegation path keeps "
+                              + "in flight at once. Default 1 (today's strict serial dispatch); when tuning against "
+                              + "a server with 'server-concurrency' raised, a reasonable starting point is "
+                              + "roughly server-concurrency + 2.";
                 break;
 
             case "closing-comment-min-lines":
@@ -813,6 +861,12 @@ public final class Config {
             raw, "indent-style", config.indentStyle, INDENT_STYLE_CHOICES
         );
         config.serverPort                         = parseInt(raw, "server-port", config.serverPort);
+        config.serverConcurrency                  = parseInt(
+            raw, "server-concurrency", config.serverConcurrency
+        );
+        config.clientReadAhead                    = parseInt(
+            raw, "client-read-ahead", config.clientReadAhead
+        );
         config.closingCommentMinLines             = parseInt(
             raw, "closing-comment-min-lines", config.closingCommentMinLines
         );

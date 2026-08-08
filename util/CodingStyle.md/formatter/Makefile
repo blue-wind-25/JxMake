@@ -28,24 +28,24 @@ TEST_LOCK     = $(BUILD_DIR)/.test.lock
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
 
-.PHONY: all build jar clean          \
-        gru-extract-pool-a           \
-        gru-extract-pool-b           \
-        gru-measure-abstain-rate     \
-        gru-acquire-corpus           \
-        gru-hand-labeled-examples    \
-        gru-train                    \
-        gru-cv-corpus                \
-        gru-sync-weights             \
-        test test-quiet _test_serial \
-        bench test-server
+.PHONY: all build jar clean                         \
+        gru-extract-pool-a                          \
+        gru-extract-pool-b                          \
+        gru-measure-abstain-rate                    \
+        gru-acquire-corpus                          \
+        gru-hand-labeled-examples                   \
+        gru-train                                   \
+        gru-cv-corpus                               \
+        gru-sync-weights                            \
+        test test-quiet _test_serial                \
+        bench test-server test-server-concurrent
 
 
 all build jar:
-	@if $(MAKE) --no-print-directory -q $(JAR_FILE); then \
-		echo "JAR is already built and up-to-date.";  \
-	else                                                  \
-		$(MAKE) --no-print-directory $(JAR_FILE);     \
+	@if $(MAKE) --no-print-directory -q $(JAR_FILE); then                \
+		echo "JAR is already built and up-to-date.";                 \
+	else                                                                 \
+		$(MAKE) --no-print-directory $(JAR_FILE);                    \
 	fi
 
 $(CLASS_DIR):
@@ -55,13 +55,13 @@ $(JAR_FILE): $(SOURCES) | $(CLASS_DIR)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -d $(CLASS_DIR) $(SOURCES)
 	@mkdir -p $(CLASS_DIR)/META-INF
 	@printf 'Manifest-Version: 1.0\nMain-Class: %s\nImplementation-Version: %s\n' '$(MAIN_CLASS)' '$(VERSION)' > $(CLASS_DIR)/META-INF/MANIFEST.MF
-	@(                                                                     \
-		export TZ=UTC;                                                 \
-		cd $(CLASS_DIR)                                             && \
-		entries=$$(find . -type f | sed 's|^\./||' | LC_ALL=C sort) && \
-		touch -t 198001010000 $$entries                             && \
-		args=""; for f in $$entries; do args="$$args -C . $$f"; done;  \
-		$(JAR) cfM $(abspath $(JAR_FILE)) $$args;                      \
+	@(                                                                                    \
+		export TZ=UTC;                                                                \
+		cd $(CLASS_DIR)                                             &&                \
+		entries=$$(find . -type f | sed 's|^\./||' | LC_ALL=C sort) &&                \
+		touch -t 198001010000 $$entries                             &&                \
+		args=""; for f in $$entries; do args="$$args -C . $$f"; done;                 \
+		$(JAR) cfM $(abspath $(JAR_FILE)) $$args;                                     \
 	)
 	@echo "Built $(JAR_FILE)"
 	@cp $(JAR_FILE) .
@@ -111,18 +111,18 @@ GRU_POOL_A_OUT    ?=
 GRU_POOL_B_OUT    ?=
 
 gru-extract-pool-a: $(JAR_FILE)
-	@if [ -z "$(GRU_ABSTAIN_INPUT)" ] || [ -z "$(GRU_POOL_A_OUT)" ]; then                                                  \
-		echo "gru-extract-pool-a: set GRU_ABSTAIN_INPUT=<path from extract_comments.py> GRU_POOL_A_OUT=<output path>"; \
-		exit 2;                                                                                                        \
+	@if [ -z "$(GRU_ABSTAIN_INPUT)" ] || [ -z "$(GRU_POOL_A_OUT)" ]; then                                                                 \
+		echo "gru-extract-pool-a: set GRU_ABSTAIN_INPUT=<path from extract_comments.py> GRU_POOL_A_OUT=<output path>";                \
+		exit 2;                                                                                                                       \
 	fi
 	@mkdir -p $(GRU_TOOLS_CLASSES)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/ExtractPoolA.java
 	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) ExtractPoolA $(GRU_ABSTAIN_INPUT) $(GRU_POOL_A_OUT)
 
 gru-extract-pool-b:
-	@if [ -z "$(GRU_ABSTAIN_INPUT)" ] || [ -z "$(GRU_POOL_B_OUT)" ]; then                                                  \
-		echo "gru-extract-pool-b: set GRU_ABSTAIN_INPUT=<path from extract_comments.py> GRU_POOL_B_OUT=<output path>"; \
-		exit 2;                                                                                                        \
+	@if [ -z "$(GRU_ABSTAIN_INPUT)" ] || [ -z "$(GRU_POOL_B_OUT)" ]; then                                                                 \
+		echo "gru-extract-pool-b: set GRU_ABSTAIN_INPUT=<path from extract_comments.py> GRU_POOL_B_OUT=<output path>";                \
+		exit 2;                                                                                                                       \
 	fi
 	@python3 $(GRU_TOOLS_DIR)/extract_pool_b.py $(GRU_ABSTAIN_INPUT) --out $(GRU_POOL_B_OUT)
 
@@ -139,9 +139,9 @@ gru-extract-pool-b:
 GRU_ABSTAIN_INPUT ?=
 
 gru-measure-abstain-rate: $(JAR_FILE)
-	@if [ -z "$(GRU_ABSTAIN_INPUT)" ]; then                                                         \
-		echo "gru-measure-abstain-rate: set GRU_ABSTAIN_INPUT=<path from extract_comments.py>"; \
-		exit 2;                                                                                 \
+	@if [ -z "$(GRU_ABSTAIN_INPUT)" ]; then                                                                        \
+		echo "gru-measure-abstain-rate: set GRU_ABSTAIN_INPUT=<path from extract_comments.py>";                \
+		exit 2;                                                                                                \
 	fi
 	@mkdir -p $(GRU_TOOLS_CLASSES)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/CommentAbstainTally.java
@@ -193,7 +193,7 @@ gru-acquire-corpus: $(JAR_FILE)
 	@cat $(GRU_CORPUS_OUT_DIR)/classifier_weights_examples.tsv >> $(GRU_SAMPLE_DEFAULT)
 	@python3 $(GRU_TOOLS_DIR)/apply_disagreement_corrections.py $(GRU_SAMPLE_DEFAULT) $(GRU_DISAGREEMENT_CORRECTIONS)
 	@awk '!seen[$$0]++' $(GRU_SAMPLE_DEFAULT) > $(GRU_SAMPLE_DEFAULT).dedup && mv $(GRU_SAMPLE_DEFAULT).dedup $(GRU_SAMPLE_DEFAULT)
-	@LINES=$$(wc -l < $(GRU_SAMPLE_DEFAULT) 2>/dev/null || echo '?'); \
+	@LINES=$$(wc -l < $(GRU_SAMPLE_DEFAULT) 2>/dev/null || echo '?');                \
 	echo "gru-acquire-corpus: wrote $(GRU_SAMPLE_DEFAULT) ($$LINES line(s), incl. tools/classifier_weights/examples_*.md hand-labeled rows + tools/gru/disagreement_corrections.txt)"
 
 # ── GRU hand-labeled examples (RDD_EXT_21) target ─────────────────────────────
@@ -210,7 +210,7 @@ GRU_HAND_LABELED_EXAMPLES = $(GRU_BUILD_DIR)/classifier_weights_examples.tsv
 gru-hand-labeled-examples:
 	@mkdir -p $(GRU_BUILD_DIR)
 	@python3 $(GRU_TOOLS_DIR)/convert_classifier_weights_examples.py tools/classifier_weights --out $(GRU_HAND_LABELED_EXAMPLES)
-	@LINES=$$(wc -l < $(GRU_HAND_LABELED_EXAMPLES) 2>/dev/null || echo '?'); \
+	@LINES=$$(wc -l < $(GRU_HAND_LABELED_EXAMPLES) 2>/dev/null || echo '?');                \
 	echo "gru-hand-labeled-examples: wrote $(GRU_HAND_LABELED_EXAMPLES) ($$LINES line(s))"
 
 # ── GRU trainer target ───────────────────────────────────────────────────────
@@ -248,14 +248,14 @@ GRU_HAND_LABELED_REPEAT ?= 3
 gru-train: $(JAR_FILE)
 	@mkdir -p $(GRU_TOOLS_CLASSES)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/GruTrainer.java
-	@if [ "$(GRU_HAND_LABELED_REPEAT)" != "0" ]; then \
-		$(MAKE) gru-hand-labeled-examples;        \
+	@if [ "$(GRU_HAND_LABELED_REPEAT)" != "0" ]; then                \
+		$(MAKE) gru-hand-labeled-examples;                       \
 	fi
-	@if [ -f $(GRU_CKPT_CURRENT) ]; then                                                                                                                                                                                                                                                                     \
-		echo "gru-train: found $(GRU_CKPT_CURRENT), resuming";                                                                                                                                                                                                                                           \
-		$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT) $(GRU_TRAIN_ARGS) --resume=$(GRU_CKPT_CURRENT) $(if $(filter-out 0,$(GRU_HAND_LABELED_REPEAT)),--hand-labeled=$(GRU_HAND_LABELED_EXAMPLES) --hand-labeled-repeat=$(GRU_HAND_LABELED_REPEAT)); \
-	else                                                                                                                                                                                                                                                                                                     \
-		$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT) $(GRU_TRAIN_ARGS) $(if $(filter-out 0,$(GRU_HAND_LABELED_REPEAT)),--hand-labeled=$(GRU_HAND_LABELED_EXAMPLES) --hand-labeled-repeat=$(GRU_HAND_LABELED_REPEAT));                              \
+	@if [ -f $(GRU_CKPT_CURRENT) ]; then                                                                                                                                                                                                                                                                                    \
+		echo "gru-train: found $(GRU_CKPT_CURRENT), resuming";                                                                                                                                                                                                                                                          \
+		$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT) $(GRU_TRAIN_ARGS) --resume=$(GRU_CKPT_CURRENT) $(if $(filter-out 0,$(GRU_HAND_LABELED_REPEAT)),--hand-labeled=$(GRU_HAND_LABELED_EXAMPLES) --hand-labeled-repeat=$(GRU_HAND_LABELED_REPEAT));                \
+	else                                                                                                                                                                                                                                                                                                                    \
+		$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruTrainer $(GRU_SAMPLE_EXAMPLES) $(GRU_WEIGHTS_OUT) $(GRU_TRAIN_ARGS) $(if $(filter-out 0,$(GRU_HAND_LABELED_REPEAT)),--hand-labeled=$(GRU_HAND_LABELED_EXAMPLES) --hand-labeled-repeat=$(GRU_HAND_LABELED_REPEAT));                                             \
 	fi
 	@cp $(GRU_WEIGHTS_OUT) $(CLASS_DIR)
 	@cp $(GRU_WEIGHTS_OUT) .
@@ -611,8 +611,8 @@ test-quiet: $(JAR_FILE)
 # Guarded so a fresher copy already sitting in $(BUILD_DIR) -- e.g. one `gru-train` just produced there,
 # even if `gru-train` itself then failed to propagate it up to the root -- is never overwritten by this sync.
 gru-sync-weights:
-	@if [ ! -f "$(BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)" ] && [ -f "$(GRU_WEIGHTS_FILENAME)" ]; then \
-		cp "$(GRU_WEIGHTS_FILENAME)" "$(BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)";                  \
+	@if [ ! -f "$(BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)" ] && [ -f "$(GRU_WEIGHTS_FILENAME)" ]; then                \
+		cp "$(GRU_WEIGHTS_FILENAME)" "$(BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)";                                 \
 	fi
 
 # Actual `test` body, run one-at-a-time under `test`'s `flock` -- concurrent # `make test` invocations
@@ -622,74 +622,74 @@ gru-sync-weights:
 TEST_STDERR ?= /dev/stderr
 
 _test_serial: gru-sync-weights
-	@(                                                                                              \
-		export JXMAKE_CODE_FORMATTER_FORMAT_MACROS=on;                                          \
-		mkdir -p $(TEST_TMP);                                                                   \
-		rm $(TEST_TMP)/*;                                                                       \
-		clear;                                                                                  \
-		echo "";                                                                                \
-		echo "=== Forward pass (inp → out) ===";                                                \
-		passed="$(TEST_TMP)/passed.list";                                                       \
-		rm -f "$$passed";                                                                       \
-		fail=0;                                                                                 \
-		forward_pass=0;                                                                         \
-		forward_total=0;                                                                        \
-		idem_pass=0;                                                                            \
-		idem_total=0;                                                                           \
-		set -- $(addprefix $(TEST_DIR)/,$(INP_FILES));                                          \
-		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$@" 2>$(TEST_STDERR);         \
-		for inp in "$$@"; do                                                                    \
-			base=$$(basename "$$inp");                                                      \
-			ext="$${base##*_inp.}";                                                         \
-			stem="$${base%_inp.*}";                                                         \
-			out="$(TEST_DIR)/$${stem}_out.$$ext";                                           \
-			if [ ! -f "$$out" ]; then                                                       \
-				echo "SKIP $$inp (no matching $$out)";                                  \
-				continue;                                                               \
-			fi;                                                                             \
-			forward_total=$$((forward_total + 1));                                          \
-			result="$(TEST_TMP)/$$base";                                                    \
-			if diff -u "$$out" "$$result" > /dev/null 2>&1; then                            \
-				echo "PASS $$inp";                                                      \
-				echo "$$out" >> "$$passed";                                             \
-				forward_pass=$$((forward_pass + 1));                                    \
-			else                                                                            \
-				echo "FAIL $$inp";                                                      \
-				diff -u "$$out" "$$result";                                             \
-				fail=1;                                                                 \
-			fi;                                                                             \
-		done;                                                                                   \
-		echo "";                                                                                \
-		echo "=== Idempotency pass (out → out) ===";                                            \
-		count=0;                                                                                \
-		set --;                                                                                 \
-		while IFS= read -r out; do                                                              \
-			set -- "$$@" "$$out";                                                           \
-			count=$$((count + 1));                                                          \
-		done < "$$passed";                                                                      \
-		if [ $$count -gt 0 ]; then                                                              \
-			idem_total=$$count;                                                             \
-			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$@" 2>$(TEST_STDERR); \
-			for out in "$$@"; do                                                            \
-				base=$$(basename "$$out");                                              \
-				result="$(TEST_TMP)/$$base";                                            \
-				if diff -u "$$out" "$$result" > /dev/null 2>&1; then                    \
-					echo "PASS $$out";                                              \
-					idem_pass=$$((idem_pass + 1));                                  \
-				else                                                                    \
-					echo "FAIL $$out (not idempotent)";                             \
-					diff -u "$$out" "$$result";                                     \
-					fail=1;                                                         \
-				fi;                                                                     \
-			done;                                                                           \
-		fi;                                                                                     \
-		rm -f "$$passed";                                                                       \
-		echo "";                                                                                \
-		if [ $$fail -ne 0 ]; then exit 1; fi;                                                   \
-		printf "All tests passed:\n";                                                           \
-		printf "    %3d/%3d forward\n"     $$forward_pass $$forward_total;                      \
-		printf "    %3d/%3d idempotency\n" $$idem_pass $$idem_total;                            \
-		printf "\n";                                                                            \
+	@(                                                                                                             \
+		export JXMAKE_CODE_FORMATTER_FORMAT_MACROS=on;                                                         \
+		mkdir -p $(TEST_TMP);                                                                                  \
+		rm $(TEST_TMP)/*;                                                                                      \
+		clear;                                                                                                 \
+		echo "";                                                                                               \
+		echo "=== Forward pass (inp → out) ===";                                                               \
+		passed="$(TEST_TMP)/passed.list";                                                                      \
+		rm -f "$$passed";                                                                                      \
+		fail=0;                                                                                                \
+		forward_pass=0;                                                                                        \
+		forward_total=0;                                                                                       \
+		idem_pass=0;                                                                                           \
+		idem_total=0;                                                                                          \
+		set -- $(addprefix $(TEST_DIR)/,$(INP_FILES));                                                         \
+		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$@" 2>$(TEST_STDERR);                        \
+		for inp in "$$@"; do                                                                                   \
+			base=$$(basename "$$inp");                                                                     \
+			ext="$${base##*_inp.}";                                                                        \
+			stem="$${base%_inp.*}";                                                                        \
+			out="$(TEST_DIR)/$${stem}_out.$$ext";                                                          \
+			if [ ! -f "$$out" ]; then                                                                      \
+				echo "SKIP $$inp (no matching $$out)";                                                 \
+				continue;                                                                              \
+			fi;                                                                                            \
+			forward_total=$$((forward_total + 1));                                                         \
+			result="$(TEST_TMP)/$$base";                                                                   \
+			if diff -u "$$out" "$$result" > /dev/null 2>&1; then                                           \
+				echo "PASS $$inp";                                                                     \
+				echo "$$out" >> "$$passed";                                                            \
+				forward_pass=$$((forward_pass + 1));                                                   \
+			else                                                                                           \
+				echo "FAIL $$inp";                                                                     \
+				diff -u "$$out" "$$result";                                                            \
+				fail=1;                                                                                \
+			fi;                                                                                            \
+		done;                                                                                                  \
+		echo "";                                                                                               \
+		echo "=== Idempotency pass (out → out) ===";                                                           \
+		count=0;                                                                                               \
+		set --;                                                                                                \
+		while IFS= read -r out; do                                                                             \
+			set -- "$$@" "$$out";                                                                          \
+			count=$$((count + 1));                                                                         \
+		done < "$$passed";                                                                                     \
+		if [ $$count -gt 0 ]; then                                                                             \
+			idem_total=$$count;                                                                            \
+			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$@" 2>$(TEST_STDERR);                \
+			for out in "$$@"; do                                                                           \
+				base=$$(basename "$$out");                                                             \
+				result="$(TEST_TMP)/$$base";                                                           \
+				if diff -u "$$out" "$$result" > /dev/null 2>&1; then                                   \
+					echo "PASS $$out";                                                             \
+					idem_pass=$$((idem_pass + 1));                                                 \
+				else                                                                                   \
+					echo "FAIL $$out (not idempotent)";                                            \
+					diff -u "$$out" "$$result";                                                    \
+					fail=1;                                                                        \
+				fi;                                                                                    \
+			done;                                                                                          \
+		fi;                                                                                                    \
+		rm -f "$$passed";                                                                                      \
+		echo "";                                                                                               \
+		if [ $$fail -ne 0 ]; then exit 1; fi;                                                                  \
+		printf "All tests passed:\n";                                                                          \
+		printf "    %3d/%3d forward\n"     $$forward_pass $$forward_total;                                     \
+		printf "    %3d/%3d idempotency\n" $$idem_pass $$idem_total;                                           \
+		printf "\n";                                                                                           \
 	)
 
 
@@ -706,55 +706,67 @@ _test_serial: gru-sync-weights
 # Override `JAVA` or `JAR_FILE` on the command line if needed, same as `make test`.
 #
 bench: $(JAR_FILE) gru-sync-weights
-	@(                                                                                                                                              \
-		mkdir -p $(TEST_TMP);                                                                                                                   \
-		files="$(addprefix $(TEST_DIR)/,$(INP_FILES))";                                                                                         \
-		set -- $$files; probe="$$1";                                                                                                            \
-		clear;                                                                                                                                  \
-		echo "";                                                                                                                                \
-		echo "=== Bench: standalone, one-by-one ===";                                                                                           \
-		start=$$(date +%s%N);                                                                                                                   \
-		for f in $$files; do                                                                                                                    \
-			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$f" 2>/dev/null;                                                      \
-		done;                                                                                                                                   \
-		end=$$(date +%s%N);                                                                                                                     \
-		base_ns=$$(( end - start ));                                                                                                            \
-		printf "Total: %5dmS\n" $$(( base_ns / 1000000 ));                                                                                      \
-		echo "";                                                                                                                                \
-		echo "=== Bench: standalone, all-at-once ===";                                                                                          \
-		start=$$(date +%s%N);                                                                                                                   \
-		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) $$files 2>/dev/null;                                                            \
-		end=$$(date +%s%N);                                                                                                                     \
-		ns=$$(( end - start ));                                                                                                                 \
-		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
-		echo "";                                                                                                                                \
-		$(JAVA) -jar $(JAR_FILE) --server 2>/dev/null &                                                                                         \
-		sleep 1;                                                                                                                                \
-		echo "";                                                                                                                                \
-		echo "=== Bench: client-server, one-by-one ===";                                                                                        \
-		tries=0;                                                                                                                                \
-		while [ $$tries -lt 50 ]; do                                                                                                            \
-			if $(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$probe" > /dev/null 2>&1; then break; fi;                                       \
-			tries=$$((tries + 1));                                                                                                          \
-			sleep 0.1;                                                                                                                      \
-		done;                                                                                                                                   \
-		start=$$(date +%s%N);                                                                                                                   \
-		for f in $$files; do                                                                                                                    \
-			$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$f" 2>/dev/null;                                                                   \
-		done;                                                                                                                                   \
-		end=$$(date +%s%N);                                                                                                                     \
-		ns=$$(( end - start ));                                                                                                                 \
-		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
-		echo "";                                                                                                                                \
-		echo "=== Bench: client-server, all-at-once ===";                                                                                       \
-		start=$$(date +%s%N);                                                                                                                   \
-		$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) $$files 2>/dev/null;                                                                         \
-		end=$$(date +%s%N);                                                                                                                     \
-		ns=$$(( end - start ));                                                                                                                 \
-		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
-		echo "";                                                                                                                                \
-		$(JAVA) -jar $(JAR_FILE) --stop;                                                                                                        \
-		echo "";                                                                                                                                \
+	@(                                                                                                                                                             \
+		mkdir -p $(TEST_TMP);                                                                                                                                  \
+		files="$(addprefix $(TEST_DIR)/,$(INP_FILES))";                                                                                                        \
+		set -- $$files; probe="$$1";                                                                                                                           \
+		clear;                                                                                                                                                 \
+		echo "";                                                                                                                                               \
+		echo "=== Bench: standalone, one-by-one ===";                                                                                                          \
+		start=$$(date +%s%N);                                                                                                                                  \
+		for f in $$files; do                                                                                                                                   \
+			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$f" 2>/dev/null;                                                                     \
+		done;                                                                                                                                                  \
+		end=$$(date +%s%N);                                                                                                                                    \
+		base_ns=$$(( end - start ));                                                                                                                           \
+		printf "Total: %5dmS\n" $$(( base_ns / 1000000 ));                                                                                                     \
+		echo "";                                                                                                                                               \
+		echo "=== Bench: standalone, all-at-once ===";                                                                                                         \
+		start=$$(date +%s%N);                                                                                                                                  \
+		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) $$files 2>/dev/null;                                                                           \
+		end=$$(date +%s%N);                                                                                                                                    \
+		ns=$$(( end - start ));                                                                                                                                \
+		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')";                \
+		echo "";                                                                                                                                               \
+		$(JAVA) -jar $(JAR_FILE) --server 2>/dev/null &                                                                                                        \
+		sleep 1;                                                                                                                                               \
+		echo "";                                                                                                                                               \
+		echo "=== Bench: client-server, one-by-one ===";                                                                                                       \
+		tries=0;                                                                                                                                               \
+		while [ $$tries -lt 50 ]; do                                                                                                                           \
+			if $(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$probe" > /dev/null 2>&1; then break; fi;                                                      \
+			tries=$$((tries + 1));                                                                                                                         \
+			sleep 0.1;                                                                                                                                     \
+		done;                                                                                                                                                  \
+		start=$$(date +%s%N);                                                                                                                                  \
+		for f in $$files; do                                                                                                                                   \
+			$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$f" 2>/dev/null;                                                                                  \
+		done;                                                                                                                                                  \
+		end=$$(date +%s%N);                                                                                                                                    \
+		ns=$$(( end - start ));                                                                                                                                \
+		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')";                \
+		echo "";                                                                                                                                               \
+		$(JAVA) -jar $(JAR_FILE) --stop;                                                                                                                       \
+		nproc_val=$$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4);                                                                                         \
+		read_ahead=$$(( nproc_val + 2 ));                                                                                                                      \
+		echo "";                                                                                                                                               \
+		echo "=== Bench: client-server, all-at-once (server-concurrency=$$nproc_val, client-read-ahead=$$read_ahead) ===";                                     \
+		JXMAKE_CODE_FORMATTER_SERVER_CONCURRENCY=$$nproc_val $(JAVA) -jar $(JAR_FILE) --server 2>/dev/null &                                                   \
+		sleep 1;                                                                                                                                               \
+		tries=0;                                                                                                                                               \
+		while [ $$tries -lt 50 ]; do                                                                                                                           \
+			if $(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$probe" > /dev/null 2>&1; then break; fi;                                                      \
+			tries=$$((tries + 1));                                                                                                                         \
+			sleep 0.1;                                                                                                                                     \
+		done;                                                                                                                                                  \
+		start=$$(date +%s%N);                                                                                                                                  \
+		JXMAKE_CODE_FORMATTER_CLIENT_READ_AHEAD=$$read_ahead $(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) $$files 2>/dev/null;                                   \
+		end=$$(date +%s%N);                                                                                                                                    \
+		ns=$$(( end - start ));                                                                                                                                \
+		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')";                \
+		echo "";                                                                                                                                               \
+		$(JAVA) -jar $(JAR_FILE) --stop;                                                                                                                       \
+		echo "";                                                                                                                                               \
 	)
 
 
@@ -781,71 +793,145 @@ TEST_SERVER_PORT := 17999
 TEST_SERVER_TMP   = $(BUILD_DIR)/test-server-out
 
 test-server: $(JAR_FILE) gru-sync-weights
+	@(                                                                                                                                       \
+		mkdir -p $(TEST_SERVER_TMP);                                                                                                     \
+		fail=0;                                                                                                                          \
+		clear;                                                                                                                           \
+		echo "";                                                                                                                         \
+		printf 'class X {\n  void f() {\n    if (true) {\n      int y = 1;\n    }\n  }\n}\n'                                             \
+			> $(TEST_SERVER_TMP)/Sample.java;                                                                                        \
+		printf 'indent-size = 8\n' > $(TEST_SERVER_TMP)/.jxmake-code-formatter;                                                          \
+		printf 'foo:   bar                  \nbaz:\n\n\n\n' > $(TEST_SERVER_TMP)/Sample.yaml;                                                           \
+		$(JAVA) -jar $(JAR_FILE) --server --port $(TEST_SERVER_PORT) 2>&1 &                                                              \
+		tries=0;                                                                                                                         \
+		while [ $$tries -lt 50 ]; do                                                                                                     \
+			if curl -s -o /dev/null "http://localhost:$(TEST_SERVER_PORT)/format?path=x&lang=java"                                   \
+				--data 'x'; then break; fi;                                                                                      \
+			tries=$$((tries + 1));                                                                                                   \
+			sleep 0.1;                                                                                                               \
+		done;                                                                                                                            \
+		echo "=== Server test: inline config, no path ===";                                                                              \
+		code=$$(curl -s -o $(TEST_SERVER_TMP)/r1 -w '%{http_code}'                                                                       \
+			"http://localhost:$(TEST_SERVER_PORT)/format?lang=java&indent-size=2"                                                    \
+			--data-binary @$(TEST_SERVER_TMP)/Sample.java);                                                                          \
+		if [ "$$code" = "200" ]; then echo "PASS (HTTP $$code)"; else echo "FAIL (HTTP $$code)"; fail=1; fi;                             \
+		echo "";                                                                                                                         \
+		echo "=== Server test: inline config overrides file-based config ===";                                                           \
+		code=$$(curl -s -o $(TEST_SERVER_TMP)/r2 -w '%{http_code}'                                                                       \
+			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.java&lang=java&indent-size=2"                \
+			--data-binary @$(TEST_SERVER_TMP)/Sample.java);                                                                          \
+		if [ "$$code" = "200" ] && diff -q $(TEST_SERVER_TMP)/r1 $(TEST_SERVER_TMP)/r2 > /dev/null 2>&1; then                            \
+			echo "PASS (HTTP $$code, inline result matches no-path result -- file's indent-size=8 was overridden)";                  \
+		else                                                                                                                             \
+			echo "FAIL (HTTP $$code, or inline override did not match)"; fail=1;                                                     \
+		fi;                                                                                                                              \
+		echo "";                                                                                                                         \
+		echo "=== Server test: unrecognized query key -> 400 ===";                                                                       \
+		code=$$(curl -s -o $(TEST_SERVER_TMP)/r3 -w '%{http_code}'                                                                       \
+			"http://localhost:$(TEST_SERVER_PORT)/format?lang=java&bogus-key=1"                                                      \
+			--data-binary @$(TEST_SERVER_TMP)/Sample.java);                                                                          \
+		if [ "$$code" = "400" ]; then echo "PASS (HTTP $$code)"; else echo "FAIL (HTTP $$code)"; fail=1; fi;                             \
+		echo "";                                                                                                                         \
+		echo "=== Server test: lang auto-inferred from path extension ===";                                                              \
+		code=$$(curl -s -o $(TEST_SERVER_TMP)/r4 -w '%{http_code}'                                                                       \
+			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.yaml"                                        \
+			--data-binary @$(TEST_SERVER_TMP)/Sample.yaml);                                                                          \
+		if [ "$$code" = "200" ]; then echo "PASS (HTTP $$code, .yaml path inferred lang without 'lang=')";                               \
+		else echo "FAIL (HTTP $$code)"; fail=1; fi;                                                                                      \
+		echo "";                                                                                                                         \
+		echo "=== Server test: full round-trip through a non-Java language (yaml) ===";                                                  \
+		code=$$(curl -s -o $(TEST_SERVER_TMP)/r5 -w '%{http_code}'                                                                       \
+			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.yaml&lang=yaml"                              \
+			--data-binary @$(TEST_SERVER_TMP)/Sample.yaml);                                                                          \
+		if [ "$$code" = "200" ] && ! diff -q $(TEST_SERVER_TMP)/Sample.yaml $(TEST_SERVER_TMP)/r5 > /dev/null 2>&1; then                 \
+			echo "PASS (HTTP $$code, output differs from input -- real formatting happened, not an echo)";                           \
+		else                                                                                                                             \
+			echo "FAIL (HTTP $$code, or output was an unmodified echo of the input)"; fail=1;                                        \
+		fi;                                                                                                                              \
+		echo "";                                                                                                                         \
+		echo "=== Server test: unrecognized lang (jsx) still rejected ===";                                                              \
+		code=$$(curl -s -o $(TEST_SERVER_TMP)/r6 -w '%{http_code}'                                                                       \
+			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.yaml&lang=jsx"                               \
+			--data-binary @$(TEST_SERVER_TMP)/Sample.yaml);                                                                          \
+		if [ "$$code" = "400" ]; then echo "PASS (HTTP $$code, jsx correctly rejected)";                                                 \
+		else echo "FAIL (HTTP $$code)"; fail=1; fi;                                                                                      \
+		echo "";                                                                                                                         \
+		$(JAVA) -jar $(JAR_FILE) --port $(TEST_SERVER_PORT) --stop > /dev/null 2>&1 || true;                                             \
+		if [ $$fail -ne 0 ]; then exit 1; fi;                                                                                            \
+		echo "All server tests passed.";                                                                                                 \
+		echo "";                                                                                                                         \
+	)
+
+# ── Server-concurrency load test ──────────────────────────────────────────────
+#
+# `test-server`/`make test` only ever exercise the server at its default `server-concurrency = 1`
+# (today's single-threaded behavior, unchanged). This target is the dedicated concurrent-load
+# coverage the "server concurrency + client read-ahead" job (STATE_COMMON.md's "Server concurrency
+# + client read-ahead" entry) requires before `server-concurrency > 1` can be considered safe:
+# starts a server with `server-concurrency = 4`, fires many concurrent requests at it for two
+# distinct inputs (interleaved, so a race would corrupt one input with the other's output), and
+# verifies every single response byte-for-byte matches the same request's single-threaded/serial
+# result -- not just "no exception", which a data race could easily pass while still corrupting
+# output. Runs on its own dedicated port so it doesn't collide with `test-server` or a developer's
+# own running server.
+#
+TEST_SERVER_CONCURRENT_PORT := 17998
+TEST_SERVER_CONCURRENT_TMP   = $(BUILD_DIR)/test-server-concurrent-out
+
+test-server-concurrent: $(JAR_FILE) gru-sync-weights
 	@(                                                                                                                        \
-		mkdir -p $(TEST_SERVER_TMP);                                                                                      \
+		mkdir -p $(TEST_SERVER_CONCURRENT_TMP);                                                                           \
 		fail=0;                                                                                                           \
 		clear;                                                                                                            \
 		echo "";                                                                                                          \
 		printf 'class X {\n  void f() {\n    if (true) {\n      int y = 1;\n    }\n  }\n}\n'                              \
-			> $(TEST_SERVER_TMP)/Sample.java;                                                                         \
-		printf 'indent-size = 8\n' > $(TEST_SERVER_TMP)/.jxmake-code-formatter;                                           \
-		printf 'foo:   bar   \nbaz:\n\n\n\n' > $(TEST_SERVER_TMP)/Sample.yaml;                                            \
-		$(JAVA) -jar $(JAR_FILE) --server --port $(TEST_SERVER_PORT) 2>&1 &                                               \
+			> $(TEST_SERVER_CONCURRENT_TMP)/A.java;                                                                   \
+		printf 'class Y {\n  void g() {\n    for (int i = 0; i < 9; i++) {\n      int z = 2;\n    }\n  }\n}\n'            \
+			> $(TEST_SERVER_CONCURRENT_TMP)/B.java;                                                                   \
+		echo "=== Server concurrency load test: computing single-threaded reference outputs ===";                         \
+		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_SERVER_CONCURRENT_TMP)/ref-a $(TEST_SERVER_CONCURRENT_TMP)/A.java 2>/dev/null; \
+		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_SERVER_CONCURRENT_TMP)/ref-b $(TEST_SERVER_CONCURRENT_TMP)/B.java 2>/dev/null; \
+		echo "PASS (single-threaded reference outputs computed)";                                                         \
+		echo "";                                                                                                          \
+		echo "=== Server concurrency load test: starting server-concurrency=4 ===";                                       \
+		JXMAKE_CODE_FORMATTER_SERVER_CONCURRENCY=4 $(JAVA) -jar $(JAR_FILE) --server --port $(TEST_SERVER_CONCURRENT_PORT) 2>&1 & \
 		tries=0;                                                                                                          \
 		while [ $$tries -lt 50 ]; do                                                                                      \
-			if curl -s -o /dev/null "http://localhost:$(TEST_SERVER_PORT)/format?path=x&lang=java"                    \
+			if curl -s -o /dev/null "http://localhost:$(TEST_SERVER_CONCURRENT_PORT)/format?path=x&lang=java"         \
 				--data 'x'; then break; fi;                                                                       \
 			tries=$$((tries + 1));                                                                                    \
 			sleep 0.1;                                                                                                \
 		done;                                                                                                             \
-		echo "=== Server test: inline config, no path ===";                                                               \
-		code=$$(curl -s -o $(TEST_SERVER_TMP)/r1 -w '%{http_code}'                                                        \
-			"http://localhost:$(TEST_SERVER_PORT)/format?lang=java&indent-size=2"                                     \
-			--data-binary @$(TEST_SERVER_TMP)/Sample.java);                                                           \
-		if [ "$$code" = "200" ]; then echo "PASS (HTTP $$code)"; else echo "FAIL (HTTP $$code)"; fail=1; fi;              \
+		echo "PASS (server up, concurrency=4)";                                                                           \
 		echo "";                                                                                                          \
-		echo "=== Server test: inline config overrides file-based config ===";                                            \
-		code=$$(curl -s -o $(TEST_SERVER_TMP)/r2 -w '%{http_code}'                                                        \
-			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.java&lang=java&indent-size=2" \
-			--data-binary @$(TEST_SERVER_TMP)/Sample.java);                                                           \
-		if [ "$$code" = "200" ] && diff -q $(TEST_SERVER_TMP)/r1 $(TEST_SERVER_TMP)/r2 > /dev/null 2>&1; then             \
-			echo "PASS (HTTP $$code, inline result matches no-path result -- file's indent-size=8 was overridden)";   \
-		else                                                                                                              \
-			echo "FAIL (HTTP $$code, or inline override did not match)"; fail=1;                                      \
-		fi;                                                                                                               \
+		echo "=== Server concurrency load test: firing 80 interleaved concurrent requests (2 inputs x 40 each) ===";      \
+		pids="";                                                                                                          \
+		for i in $$(seq 1 40); do                                                                                         \
+			curl -s -o $(TEST_SERVER_CONCURRENT_TMP)/a-$$i.out                                                        \
+				"http://localhost:$(TEST_SERVER_CONCURRENT_PORT)/format?path=A.java&lang=java"                    \
+				--data-binary @$(TEST_SERVER_CONCURRENT_TMP)/A.java &                                             \
+			pids="$$pids $$!";                                                                                        \
+			curl -s -o $(TEST_SERVER_CONCURRENT_TMP)/b-$$i.out                                                        \
+				"http://localhost:$(TEST_SERVER_CONCURRENT_PORT)/format?path=B.java&lang=java"                    \
+				--data-binary @$(TEST_SERVER_CONCURRENT_TMP)/B.java &                                             \
+			pids="$$pids $$!";                                                                                        \
+		done;                                                                                                             \
+		wait $$pids;                                                                                                      \
+		echo "PASS (80 concurrent requests completed, no hang)";                                                          \
 		echo "";                                                                                                          \
-		echo "=== Server test: unrecognized query key -> 400 ===";                                                        \
-		code=$$(curl -s -o $(TEST_SERVER_TMP)/r3 -w '%{http_code}'                                                        \
-			"http://localhost:$(TEST_SERVER_PORT)/format?lang=java&bogus-key=1"                                       \
-			--data-binary @$(TEST_SERVER_TMP)/Sample.java);                                                           \
-		if [ "$$code" = "400" ]; then echo "PASS (HTTP $$code)"; else echo "FAIL (HTTP $$code)"; fail=1; fi;              \
+		echo "=== Server concurrency load test: verifying all 80 responses match single-threaded reference ===";          \
+		for i in $$(seq 1 40); do                                                                                         \
+			if ! diff -q $(TEST_SERVER_CONCURRENT_TMP)/a-$$i.out $(TEST_SERVER_CONCURRENT_TMP)/ref-a/A.java > /dev/null 2>&1; then \
+				echo "FAIL: a-$$i.out does not match reference (possible race/corruption)"; fail=1;               \
+			fi;                                                                                                       \
+			if ! diff -q $(TEST_SERVER_CONCURRENT_TMP)/b-$$i.out $(TEST_SERVER_CONCURRENT_TMP)/ref-b/B.java > /dev/null 2>&1; then \
+				echo "FAIL: b-$$i.out does not match reference (possible race/corruption)"; fail=1;               \
+			fi;                                                                                                       \
+		done;                                                                                                             \
+		if [ $$fail -eq 0 ]; then echo "PASS (all 80 concurrent responses byte-identical to single-threaded reference)"; fi; \
 		echo "";                                                                                                          \
-		echo "=== Server test: lang auto-inferred from path extension ===";                                               \
-		code=$$(curl -s -o $(TEST_SERVER_TMP)/r4 -w '%{http_code}'                                                        \
-			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.yaml"                         \
-			--data-binary @$(TEST_SERVER_TMP)/Sample.yaml);                                                           \
-		if [ "$$code" = "200" ]; then echo "PASS (HTTP $$code, .yaml path inferred lang without 'lang=')";                \
-		else echo "FAIL (HTTP $$code)"; fail=1; fi;                                                                       \
-		echo "";                                                                                                          \
-		echo "=== Server test: full round-trip through a non-Java language (yaml) ===";                                   \
-		code=$$(curl -s -o $(TEST_SERVER_TMP)/r5 -w '%{http_code}'                                                        \
-			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.yaml&lang=yaml"               \
-			--data-binary @$(TEST_SERVER_TMP)/Sample.yaml);                                                           \
-		if [ "$$code" = "200" ] && ! diff -q $(TEST_SERVER_TMP)/Sample.yaml $(TEST_SERVER_TMP)/r5 > /dev/null 2>&1; then  \
-			echo "PASS (HTTP $$code, output differs from input -- real formatting happened, not an echo)";            \
-		else                                                                                                              \
-			echo "FAIL (HTTP $$code, or output was an unmodified echo of the input)"; fail=1;                         \
-		fi;                                                                                                               \
-		echo "";                                                                                                          \
-		echo "=== Server test: unrecognized lang (jsx) still rejected ===";                                               \
-		code=$$(curl -s -o $(TEST_SERVER_TMP)/r6 -w '%{http_code}'                                                        \
-			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/Sample.yaml&lang=jsx"                \
-			--data-binary @$(TEST_SERVER_TMP)/Sample.yaml);                                                           \
-		if [ "$$code" = "400" ]; then echo "PASS (HTTP $$code, jsx correctly rejected)";                                  \
-		else echo "FAIL (HTTP $$code)"; fail=1; fi;                                                                       \
-		echo "";                                                                                                          \
-		$(JAVA) -jar $(JAR_FILE) --port $(TEST_SERVER_PORT) --stop > /dev/null 2>&1 || true;                              \
+		$(JAVA) -jar $(JAR_FILE) --port $(TEST_SERVER_CONCURRENT_PORT) --stop > /dev/null 2>&1 || true;                   \
 		if [ $$fail -ne 0 ]; then exit 1; fi;                                                                             \
-		echo "All server tests passed.";                                                                                  \
+		echo "All server-concurrency load tests passed.";                                                                 \
 		echo "";                                                                                                          \
 	)

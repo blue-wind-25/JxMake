@@ -867,159 +867,105 @@ plan, not a placeholder.
       sub-attempts, both reverted, D3 still open.** Built a Kotlin-gated
       `kotlinStatementStartIndex` backward token scan (same brace/paren
       depth as `nameIdx`, stopping at a depth-0 `;`, `{`, `}`, or a
-      non-continuation depth-0 NEWLINE via a new operator-lookback
+      non-continuation depth-0 NEWLINE via an operator-lookback
       continuation-boundary heuristic) to replace `lineStartIndex` in the
-      no-newline fits-check.
-      - Sub-attempt 1 (treat every depth-0 `{`/`}` as a boundary): regressed
-        9 fixtures — under-measured, because a trailing-lambda call
-        argument's own `{` (`.filter { ... }`) isn't a statement boundary,
-        dropping real prefix text from the width measurement.
-      - Sub-attempt 2 (`isKotlinControlFlowOrDeclBraceOpen`, only a real
-        control-flow/declaration `{` counts as a boundary, not a lambda
-        argument): regressed a *different* 10 fixtures — traded the failure
-        mode rather than fixing it; some over-measured (false-positive
-        wraps) and one (`real_code_regressions_19_inp.kt`) got corrupted
-        continuation-indent columns.
-      Both reverted in full (`git checkout --` on `MiscRuleCurly.java` only,
-      plus two unrelated build-side-effect files — jar rebuild timestamp,
-      `test/README.txt`'s incidental re-wrap); `make test` reconfirmed clean
-      at 248/248 before and after, zero net change. Full writeup:
-      `RDD_KEY_252`. **Assessment: not a bounded-effort heuristic-refinement
-      problem — each fix for one shape (lambda arguments, fluent chains,
-      control-flow bodies) regresses a different shape, because the true
-      answer needs actual Kotlin expression/statement grammar, not an
-      enumerated keyword/operator lookback table over a backward token
-      scan.** Next session should not attempt another variant of this same
-      heuristic shape; `RDD_KEY_252`'s full text has the two concretely-
-      suggested next directions (a proper lightweight statement/expression
-      boundary parser, or new GDR-adjacent statement-boundary infrastructure
-      beyond what its existing per-line depth counters provide — RDD_KEY_235
-      already established GDR's *existing* infra can't be reused as-is,
-      since it has no visibility into a single pipeline pass's own
-      sibling-candidate interactions).
+      no-newline fits-check. Sub-attempt 1 (every depth-0 `{`/`}` counts as a
+      boundary) regressed 9 fixtures — under-measured, since a trailing-
+      lambda argument's own `{` (`.filter { ... }`) isn't a statement
+      boundary, dropping real prefix text. Sub-attempt 2
+      (`isKotlinControlFlowOrDeclBraceOpen`, only a real control-flow/
+      declaration `{` counts) regressed a *different* 10 fixtures — traded
+      the failure mode: some over-measured (false-positive wraps), one
+      (`real_code_regressions_19_inp.kt`) got corrupted continuation-indent
+      columns. Both reverted in full; `make test` reconfirmed clean at
+      248/248 before and after, zero net change. Full writeup: `RDD_KEY_252`.
+      **Assessment: not a bounded heuristic-refinement problem** — each fix
+      for one shape (lambda arguments, fluent chains, control-flow bodies)
+      regresses a different shape, because the true answer needs actual
+      Kotlin expression/statement grammar, not an enumerated keyword/operator
+      lookback table. `RDD_KEY_252`'s full text names the two viable next
+      directions: a real lightweight statement/expression-boundary parser,
+      or new GDR-adjacent statement-boundary infrastructure with visibility
+      GDR's existing per-line depth counters lack (RDD_KEY_235).
 
       **2026-08-07 session (later same day), fourth attempt — new
       "positional/enumerable-context-list" framing, also reverted, D3 still
-      open.** Explicit instruction: try a different framing rather than
-      repeat the brace-depth-heuristic backward scan — model
+      open.** Explicit instruction to try a different framing: model
       `renderCallCandidate`'s statement-start search as a positive match
-      against an enumerable list of legitimate Kotlin
-      statement/expression-continuation contexts (mirroring how a real
-      parser disambiguates positionally via current grammar production),
-      instead of another depth-counting/boundary-token backward scan. Two
-      sub-attempts:
-      1. **Forward one-pass "frame stack"** — treat every `{` as opening a
-         fresh nested statement frame, so a candidate's statement-start is
-         always its own frame's start, sidestepping brace classification
-         entirely. Failed immediately: a lambda argument's short body
-         legitimately needs its *enclosing* statement's prefix counted for
-         width purposes (`val liveItems = _items.filter { ... }` — the
-         frame-stack version measured only from just after `{`, dropping
-         the real prefix, under-measuring and wrongly collapsing content
-         that should stay wrapped). Confirmed via direct diff on
-         `real_code_regressions_27_inp.kt` (9 regressed fixtures matching
-         RDD_KEY_252 sub-attempt 1's exact list).
-      2. **Narrower backward continuation-newline walk** (`kotlinStatementStart`)
-         — abandoned brace/semicolon classification altogether; only
-         extends `lineStartIndex` backward across *consecutive pure
-         line-wrap continuation newlines*, using `parenDepth > 0` as a
-         structural signal plus an enumerable leading/trailing
-         operator/keyword list (`KOTLIN_CONTINUATION_OPS`:
-         arithmetic/comparison/logical/assignment ops, `?:`, `..`, `..<`,
-         `->`, `::`, `.`, `?.`, `!!`; `KOTLIN_CONTINUATION_KEYWORDS`: `as`,
-         `is`, `in`). Reduced failures from 9 to 7
-         (`real_code_regressions_{19,37,44,62,156,157,165}_inp.kt`), but in
-         the *opposite* direction — over-measurement, wrongly wrapping short
-         calls that should stay on one line (e.g. `loadRecovery(this)` in
-         `_19`, `cancelConsumed(cause)` in `_37`). Root cause: a trailing
-         `->` before the candidate's own line (a lambda-arrow header, e.g.
-         `.setPositiveButton("Ok") { _, _ ->`) was misclassified as a
-         same-statement continuation operator, when structurally it starts
-         a *new* statement sequence (the lambda body), not a textual
-         continuation of the header. Removing `->` from
-         `KOTLIN_CONTINUATION_OPS` as a bounded follow-up experiment (not
-         committed) dropped failures further, 7 to 4
-         (`real_code_regressions_{44,62,156,165}_inp.kt`), confirming the
-         hypothesis, but immediately exposed the *same* false-positive class
-         one token over: fixture `_62`'s `is Right ->` (a `when` branch
-         pattern-match keyword) was still misclassified as a continuation
-         via `is` in `KOTLIN_CONTINUATION_KEYWORDS`, valid only for the
-         mid-expression type-check operator (`x is T`), not a
-         `when`-branch leading keyword — same ambiguity shape as `->`, on a
-         different token. Fixture `_44` showed a third, independent failure
-         mode: the backward walk is textually "correct" (a genuine
-         `=`-continuation into an expression-bodied function), yet the
-         result is undesired because the statement is an intentionally
-         multi-line `if`/`else` expression body that should not be treated
-         as "one statement whose fit should be re-tested against a single
-         collapsed line."
+      against an enumerable list of legitimate Kotlin statement/expression-
+      continuation contexts, instead of another boundary-token backward
+      scan. Sub-attempt 1, **forward one-pass "frame stack"** (every `{`
+      opens a fresh nested statement frame), failed immediately: a lambda
+      argument's short body needs its *enclosing* statement's prefix for
+      width purposes (`val liveItems = _items.filter { ... }` under-measured,
+      dropping real prefix text) — confirmed via `real_code_regressions_27_
+      inp.kt` (9 regressed fixtures, matching RDD_KEY_252 sub-attempt 1's
+      exact list). Sub-attempt 2, **narrower backward continuation-newline
+      walk** (`kotlinStatementStart`, using `parenDepth > 0` plus an
+      enumerable operator/keyword list — `KOTLIN_CONTINUATION_OPS`:
+      arithmetic/comparison/logical/assignment ops, `?:`, `..`, `..<`, `->`,
+      `::`, `.`, `?.`, `!!`; `KOTLIN_CONTINUATION_KEYWORDS`: `as`, `is`,
+      `in`), reduced failures 9→7
+      (`real_code_regressions_{19,37,44,62,156,157,165}_inp.kt`) but in the
+      opposite direction — over-measurement, wrongly wrapping short calls
+      that should stay one line. Root cause: a trailing `->` (lambda-arrow
+      header, e.g. `.setPositiveButton("Ok") { _, _ ->`) was misclassified as
+      a same-statement continuation rather than the start of a new statement
+      (the lambda body). Removing `->` from `KOTLIN_CONTINUATION_OPS` as an
+      uncommitted follow-up experiment dropped failures 7→4
+      (`real_code_regressions_{44,62,156,165}_inp.kt`), confirming the
+      hypothesis but exposing the same false-positive class one token over:
+      `_62`'s `is Right ->` (a `when`-branch pattern-match keyword) was still
+      misclassified via `is` in `KOTLIN_CONTINUATION_KEYWORDS`, valid only
+      for the mid-expression type-check operator. `_44` showed a third,
+      independent failure mode: the backward walk is textually "correct" (a
+      genuine `=`-continuation into an expression-bodied function) yet the
+      statement is an intentionally multi-line `if`/`else` expression body
+      that shouldn't be re-tested against a single collapsed line.
       **Assessment: the positional/enumerable-context-list framing did not
-      hold up in practice.** It measurably narrowed each round's failure set
-      (9 to 7 to 4) but never converged, because nearly every operator or
-      keyword usable as a "trailing/leading continuation signal" is
-      genuinely ambiguous in Kotlin without production-level context — `->`
-      is both a lambda-arrow (new statement follows) and (in other
-      grammars) a same-line arrow; `is`/`as`/`in` are both mid-expression
-      operators and `when`-branch-leading keywords; `=` is both a
-      continuation *and* a legitimate multi-line-forever expression-body
-      marker. An enumerable *token* list cannot carry the *positional*
-      information (which grammar production the parser is currently in)
-      that the framing's own justification said was the missing ingredient
-      — the token itself is insufficient; genuinely resolving this needs to
-      track *which construct* (lambda body, `when` branch, expression-
-      bodied function, binary expression) a NEWLINE sits inside, which is
-      real lightweight parsing, not a flat lookup table. This converges
-      with — not merely repeats — RDD_KEY_252's conclusion. Both
-      sub-attempts fully reverted (`git checkout --` on `MiscRuleCurly.java`
-      only); `make test` reconfirmed clean, zero net change, same baseline
-      as before this session. Full writeup: `RDD_KEY_253`.
-      **Recommendation for any future session: do not attempt another
+      hold up in practice.** It narrowed each round's failure set (9→7→4) but
+      never converged, because nearly every candidate token (`->`, `is`/
+      `as`/`in`, `=`) is genuinely ambiguous in Kotlin without production-
+      level context — an enumerable *token* list cannot carry the
+      *positional* information (which grammar production the parser is
+      currently in) the framing needed; resolving this needs real lightweight
+      parsing that tracks construct kind, not a flat lookup table. Converges
+      with, not merely repeats, RDD_KEY_252's conclusion. Both sub-attempts
+      fully reverted; `make test` reconfirmed clean, zero net change. Full
+      writeup: `RDD_KEY_253`. **Recommendation: do not attempt another
       variant of "backward scan + token lookup table," under either a
-      brace-depth or continuation-newline framing — both have now been
-      independently exhausted. The two concretely-viable directions remain
-      RDD_KEY_252's: a real lightweight Kotlin statement/expression-boundary
-      parser (tracks construct kind, not just token identity, as it
-      descends), or new GDR-adjacent infrastructure with visibility into a
-      single pipeline pass's own sibling-candidate interactions (which
-      GDR's existing per-line depth counters do not have, per
-      RDD_KEY_235).**
+      brace-depth or continuation-newline framing — both now independently
+      exhausted.** The two concretely-viable directions remain RDD_KEY_252's
+      (real statement/expression-boundary parser, or new GDR-adjacent
+      sibling-candidate-visible infrastructure per RDD_KEY_235).
 
       **2026-08-09 session, requested "one or two more tries," concluded
-      without a new code attempt — deferred, D3 still open.** Re-read this
-      entire investigation history (RDD_KEY_221, RDD_KEY_226, RDD_KEY_235,
+      without a new code attempt — deferred, D3 still open.** Re-read the
+      full investigation history (RDD_KEY_221, RDD_KEY_226, RDD_KEY_235,
       RDD_KEY_252's two sub-attempts, RDD_KEY_253's two sub-attempts — six
-      independently-reverted attempts total, spanning both concretely
-      distinct framings: flat backward-scan boundary detection and
-      positional/enumerable-context-list detection) before writing any code,
-      per this job's own explicit prior recommendation directly above not to
-      attempt another variant of either exhausted shape. Considered one
-      narrower idea not literally identical to prior attempts (anchoring off
-      GDR's existing per-line `GdrLineBraceDepth`/`GdrParenBracketDepthCounter`
-      data instead of a fresh ad hoc backward scan) but concluded by
-      inspection it would hit the exact same fundamental blocker RDD_KEY_235
-      and RDD_KEY_252/253 already found by direct experiment: GDR's depth
-      counters record *brace-nesting depth*, not *brace-kind* (lambda-body
-      open vs. control-flow/declaration-block open vs. plain grouping), and
-      that kind classification — not the depth number itself — is the actual
-      ambiguity every prior sub-attempt tripped on. Reusing GDR's counters
-      would only save re-deriving a number already known not to be the
-      missing ingredient; it would not supply construct-kind awareness, so
-      re-attempting was judged very likely to reproduce an already-documented
-      failure mode rather than surface new information, which is what this
-      job's own prior recommendation was written to prevent. No source
-      touched; `make test` reconfirmed unaffected at 263/263 forward +
-      idempotency (grown from 248/248 since the last D3 attempt via
-      unrelated intervening work, not this session). Per `STATE_COMMON.md`'s
-      guidance to prefer evidence over reasoning when real evidence already
-      exists, this session treats RDD_KEY_252/253's six-attempt record as
-      already having answered the "try once or twice more" request — see
-      `README.md`'s Known Limitations → curly-brace family, item 2, which
-      already documents this exact gap for users and needed no changes.
-      Genuinely closing D3 still needs one of the two substantial directions
-      named above (a real statement/expression-boundary parser, or new
-      pass-internal GDR infrastructure with sibling-candidate visibility) —
-      both out of scope for a bounded single-session attempt, not something
-      to retry piecemeal.
+      independently-reverted attempts spanning both distinct framings: flat
+      backward-scan boundary detection and positional/enumerable-context-list
+      detection) before writing any code, per this job's own prior
+      recommendation not to attempt another variant of either exhausted
+      shape. Considered one narrower idea — anchoring off GDR's existing
+      per-line `GdrLineBraceDepth`/`GdrParenBracketDepthCounter` data instead
+      of a fresh backward scan — but rejected it by inspection: it would hit
+      the same blocker RDD_KEY_235/252/253 already found by direct
+      experiment, since GDR's counters record *brace-nesting depth*, not
+      *brace-kind* (lambda-body open vs. control-flow/declaration-block open
+      vs. plain grouping), and kind classification is the actual ambiguity
+      every prior sub-attempt tripped on — reusing the counters would not
+      supply construct-kind awareness. No source touched; `make test`
+      reconfirmed unaffected at 263/263 forward + idempotency (grown from
+      248/248 since the last D3 attempt via unrelated intervening work).
+      Per `STATE_COMMON.md`'s evidence-over-reasoning guidance, this session
+      treats RDD_KEY_252/253's six-attempt record as already answering the
+      "try once or twice more" request — `README.md`'s Known Limitations →
+      curly-brace family item 2 already documents this gap for users, no
+      changes needed. Genuinely closing D3 still needs one of the two
+      substantial directions named above (a real statement/expression-
+      boundary parser, or new pass-internal GDR infrastructure with
+      sibling-candidate visibility) — not something to retry piecemeal.
 
 - [x] **Adversarial stress-test of the bounded 4-stage multipass loop for
       the unproven "second-order oscillation" risk** (2026-08-05,

@@ -315,127 +315,110 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `.sh`), `ohmyzsh/ohmyzsh` (`/tmp/ohmyzsh`, stripped to 17
       `.sh`/`.bash`) -- through round1/round2. The first four came back
       clean (idempotent, `bash -n` matching originals). `ohmyzsh` found a
-      non-empty round1/round2 diff, so implementation stopped and
-      investigated per protocol (evidence-over-reasoning: bisected the
-      failing file down to a minimal reproduction rather than reasoning
-      about the tokenizer in the abstract). Root causes, all in
-      `src/com/jxmake/formatter/rules/BashSpecificRule.java`:
-      (1) `emitCaseBody`'s case-arm pattern-boundary regex (`CASE_ARM`)
-      found the pattern's terminating `)` via first-match with no
-      backslash-escape awareness -- a pattern containing an escaped paren
-      pair like `\(\))` had its *escaped* `)` mistaken for the real
-      terminator, splitting the arm mid-pattern. Fixed by replacing the
-      regex with a char-by-char `matchCaseArm` scan that skips
-      `\`-escaped characters when searching for the terminator.
-      (2) `runPassA`'s root/code-mode tokenizer had no backslash-escape
-      handling at all -- a `\'` case-arm pattern (e.g. `\'*)`) fell
-      through to the plain `'` branch on the next character, incorrectly
-      opening a real single-quote string frame that stayed open (kind
-      'O') until some later unrelated `'` closed it, corrupting
-      brace-depth-based indentation for everything in between; being
-      carried in tokenizer state across the whole pass, this only showed
-      up as a round1/round2 shape difference rather than an obviously
-      wrong single line. Fixed by adding a root-context `c == '\\'`
-      branch (mirrors the existing escape handling already present
-      inside the `D`/`Q`/`B` frame types) that consumes both the
-      backslash and the following character as plain code before any
-      quote-opening check runs. (3) `emitCaseBody` had no concept of a
-      nested `case ... in` appearing as an outer arm's body -- a nested
-      case's own terminating `esac` line was only recognized when the
-      trimmed line was exactly `esac`, so a combined `esac ;;` line
-      (closing the nested case *and* the enclosing arm on one physical
-      line) fell through to the generic body-line fallback, corrupting
-      indentation from that point on. Fixed by splitting `emitCaseBody`
-      into a thin wrapper plus a recursive `emitCaseBodyInner` (new
-      `CaseBodyEnd` result: next index + whether the terminator closed an
-      enclosing arm): a body line matching `CASE_START` now recurses at
-      one deeper indent, and the terminator check accepts `esac`,
-      `esac ;;`, or `esac;;`, propagating `expectingPattern = true` back
-      to the caller when the trailing `;;` was present. After fixes (1)
-      and (2), a fourth, independent bug surfaced via
-      `tools/verifiers/bash_syntax_check.sh` (not idempotency --
-      `plugins/wd/wd.sh`'s original parsed clean under `bash -n` but its
+      non-empty round1/round2 diff; bisected to a minimal repro (evidence-
+      over-reasoning). Four independent root causes found, all in
+      `src/com/jxmake/formatter/rules/BashSpecificRule.java`: (1)
+      `emitCaseBody`'s case-arm boundary regex (`CASE_ARM`) found the
+      pattern's terminating `)` via first-match with no backslash-escape
+      awareness, so an escaped paren pair like `\(\))` had its *escaped* `)`
+      mistaken for the real terminator, splitting the arm mid-pattern —
+      fixed by replacing the regex with a char-by-char `matchCaseArm` scan
+      that skips `\`-escaped characters. (2) `runPassA`'s root/code-mode
+      tokenizer had no backslash-escape handling at all, so a `\'` case-arm
+      pattern (e.g. `\'*)`) fell through to the plain `'` branch and
+      incorrectly opened a real single-quote string frame that stayed open
+      until an unrelated later `'` closed it, corrupting brace-depth
+      indentation downstream (only visible as a round1/round2 shape
+      difference, not an obviously wrong single line) — fixed by adding a
+      root-context `c == '\\'` branch (mirrors existing escape handling in
+      the `D`/`Q`/`B` frame types) that consumes the backslash and next
+      character as plain code before any quote-opening check runs. (3)
+      `emitCaseBody` had no concept of a nested `case ... in` as an outer
+      arm's body — a nested case's own terminating `esac` was only
+      recognized as exactly `esac`, so a combined `esac ;;` line (closing
+      both the nested case and the enclosing arm) fell through to the
+      generic body-line fallback, corrupting indentation from there on —
+      fixed by splitting `emitCaseBody` into a wrapper plus recursive
+      `emitCaseBodyInner` (new `CaseBodyEnd` result tracking next index +
+      whether the terminator closed an enclosing arm); terminator check now
+      accepts `esac`, `esac ;;`, or `esac;;`. (4) surfaced via
+      `tools/verifiers/bash_syntax_check.sh` after fixes 1-2 (not
+      idempotency — `plugins/wd/wd.sh` parsed clean originally but its
       round1 output did not): `pipeSpacing`'s (§2.2) lone-`|` detector
-      excluded `||`/`|&` but not the noclobber-override redirect
-      operator `>|` (`cmd >| file`), so `>|` was split into `> |`, a
-      genuine `bash -n` syntax error, not just a style nit. Fixed by also
-      excluding a `|` immediately preceded by `>` from pipe-spacing.
-      After all four fixes: round1/round2 diff empty across all 5
-      corpora; `bash -n` on `ohmyzsh` shows the same 10 pre-existing
-      error lines on both original and round1 (5 files use zsh-only
-      syntax under a `.sh`/`.bash` extension -- extended-glob
-      alternation `(|pattern)`, `${(kv)...}`, `always {}` blocks --
-      already invalid bash before any formatting, out of this job's
-      bash-only scope). **Known accepted gap, not fixed:** one of those
-      already-invalid-under-bash files (`tools/upgrade.sh`) also has
-      `pipeSpacing` insert a space inside a zsh extended-glob alternation
-      it can't distinguish from a real pipe (`(|.git)` -> `( | .git)`) --
-      since the file was never valid bash to begin with (fails `bash -n`
-      identically before and after), this isn't a new class of breakage,
-      and dialect-detecting `.sh`-extension-but-actually-zsh content is
-      out of scope (same "no general grammar, fixed transform list" job
-      boundary as every other accepted gap in this file). `make test`:
-      267/267 forward + idempotency (was 264/264 before this session --
-      3 new fixtures added: `real_code_regressions_188`-`190`). See
-      `STATE_DOGFOOD.md` for per-repo rows.
+      excluded `||`/`|&` but not the noclobber-override redirect `>|`
+      (`cmd >| file`), splitting it into `> |`, a genuine `bash -n` syntax
+      error — fixed by also excluding a `|` immediately preceded by `>`.
+      After all four fixes: round1/round2 diff empty across all 5 corpora;
+      `bash -n` on `ohmyzsh` shows the same 10 pre-existing error lines on
+      both original and round1 (5 files use zsh-only syntax under a
+      `.sh`/`.bash` extension — extended-glob alternation, `${(kv)...}`,
+      `always {}` blocks — already invalid bash before formatting, out of
+      scope). **Known accepted gap, not fixed:** one of those already-
+      invalid-under-bash files (`tools/upgrade.sh`) also has `pipeSpacing`
+      insert a space inside a zsh extended-glob alternation indistinguishable
+      from a real pipe (`(|.git)` -> `( | .git)`) — not a new class of
+      breakage since the file already failed `bash -n` before formatting;
+      dialect-detecting `.sh`-extension-but-actually-zsh content is out of
+      scope (same "no general grammar, fixed transform list" boundary as
+      every other accepted gap here). `make test`: 267/267 forward +
+      idempotency (was 264/264 -- 3 new fixtures: `real_code_regressions_188`-
+      `190`). See `STATE_DOGFOOD.md` for per-repo rows.
       **PowerShell — DONE, 1 bug found and fixed.** User ran round1/round2
       manually (`--preserve-tree`) on `PowerShell/PowerShell`
       (`/tmp/PowerShell`, 505 `*.ps1`/`*.psm1`) and `actions/runner-images`
       (`/tmp/runner-images`, 247 `*.ps1`/`*.psm1`) 2026-08-09.
       `runner-images` came back with an empty `diff -r`. `PowerShell/
-      PowerShell` had one non-empty diff: `test/powershell/engine/ETS/
-      Adapter.Tests.ps1` round1 had `("a").ForEach( { $_ })`, round2
-      turned it into `("a").ForEach ( { $_ })` -- a spurious space
-      inserted before `(`. Root cause: `PowerShellSpecificRule.
-      KEYWORD_PAREN` (§3.5's shared keyword-paren spacing, used for
-      `if`/`while`/`foreach`/etc.) matched case-insensitive `foreach`
-      with a negative lookbehind that excluded only preceding word chars
-      (`(?<![A-Za-z0-9_])`), so the method call `.ForEach(` -- preceded by
-      `.`, not a word char -- was misdetected as the `foreach` keyword.
-      Fixed by adding `.` to the lookbehind's exclusion set. Fixture
+      PowerShell` had one non-empty diff: round1 had `("a").ForEach( { $_ })`,
+      round2 turned it into `("a").ForEach ( { $_ })` (spurious space before
+      `(`). Root cause: `PowerShellSpecificRule.KEYWORD_PAREN`'s
+      case-insensitive `foreach` match used a negative lookbehind that only
+      excluded preceding word chars (`(?<![A-Za-z0-9_])`), so `.ForEach(`
+      (preceded by `.`) was misdetected as the `foreach` keyword. Fixed by
+      adding `.` to the lookbehind's exclusion set. Fixture
       `real_code_regressions_191` (nested `.ForEach( { ... })` inside a
       pipeline) confirms both the no-space-inserted output and
       round1/round2 idempotency. `make test`: 268/268 forward +
       idempotency (was 267/267). See `STATE_DOGFOOD.md` for per-repo rows.
       **PowerShell — `microsoft/azure-pipelines-tasks`, DONE - FIXED (2026-08-09,
-      follow-up session).** Root cause confirmed as originally suspected:
-      `runPassA`'s returned `PassAResult.kind` array was sized/indexed to the
-      *original* `content` string's positions, but every consumer (`applyBraceIndent`,
-      `applyOperatorSpacing`, `applyPipelineSplit`, `applyAssignAlignment`,
-      `applySwitchArmAlignment`, `applyKeywordParenSpacing`/`KEYWORD_PAREN`, `applyBraceSpacing`
-      -- confirmed via `grep passA.kind`, all seven index it against `passA.transformed`, not
-      `content`) reads it against `passA.transformed`, which diverges in length from `content`
-      once a standalone `#` comment's `ChainCollector.defer()` placeholder is substituted for a
-      different-length final comment text. Fixed via direction (a) from the original writeup:
-      `RunBuffer` now accumulates a parallel `kindOut` string in lockstep with its own `out`
-      (new `kindResult()`, appended per real output character on every `flush()`), so `kind` is
-      built aligned to `RunBuffer`'s actual emitted output rather than re-derived from `content`
-      positions. The remaining gap was the placeholder-substitution step itself:
-      `ChainCollector.resolve()` does a textual `String.replace(placeholder, finalText)` on
-      `transformed`, but the kind string (all `'C'`/`'O'` characters) never literally contains the
-      placeholder marker text, so a same-shaped textual replace can't be reused for it. Added a
-      companion `ChainCollector.resolveKind(preResolveTransformed, preResolveKind)`: it locates
-      each placeholder's position in the *original* pre-substitution `transformed` string (which
-      still contains the literal marker) via `indexOf`, then splices a run of `'O'` of the same
-      length as that entry's already-resolved final text (`resolve()` now records `resolvedLength`
-      per entry) into the kind string at the matching offset -- keeping `kind` positionally aligned
-      with `resolve()`'s own return value throughout. `Entry.resolvedLength` (new mutable field,
-      set by `resolve()`, read by `resolveKind()`) is the only state threaded between the two calls;
-      `resolveKind()` must be called after `resolve()`. Verified via a minimal repro
-      (standalone `#` comment followed by `if($x -eq $null)`) that reproduced the round1/round2
-      divergence pre-fix and is clean post-fix; re-ran round1/round2 on the original
-      `Tasks/Common/VstsAzureHelpers_/Utility.ps1` -- diff now empty; re-ran round1/round2 on the
-      full corpus (all 1123 `.ps1` files under `/tmp/azure-pipelines-tasks`) -- diff empty, zero
-      formatter errors. New permanent fixture `test/real_code_regressions_192_{inp,out}.ps1`
-      (registered in `Makefile` `INP_FILES` and `test/README.txt`). `make test`: 269/269 forward +
-      idempotency (was 268/268 before this fix). One accepted loose end: the original
-      content-indexed `char[] kind` local inside `runPassA` is now a dead write-only array (every
-      `kind[i] = ...` assignment throughout the tokenizer is never read after this fix, since
-      `result.kind` is now built from `RunBuffer`/`ChainCollector` instead) -- left in place rather
-      than stripped, since removing ~50 individual dead-store lines scattered across the whole
-      tokenizer body was judged higher-risk than leaving harmless dead code; a future cleanup pass
-      may strip it. See `STATE_DOGFOOD.md`'s `microsoft/azure-pipelines-tasks` row (updated from
-      "OPEN Q" to fixed).
+      follow-up session).** Root cause: `runPassA`'s returned `PassAResult.kind`
+      array was sized/indexed to the *original* `content` string's positions,
+      but every consumer (`applyBraceIndent`, `applyOperatorSpacing`,
+      `applyPipelineSplit`, `applyAssignAlignment`, `applySwitchArmAlignment`,
+      `applyKeywordParenSpacing`/`KEYWORD_PAREN`, `applyBraceSpacing` — all
+      seven, confirmed via `grep passA.kind`) reads it against
+      `passA.transformed`, which diverges in length from `content` once a
+      standalone `#` comment's `ChainCollector.defer()` placeholder is
+      substituted for a different-length final comment text. Fixed by having
+      `RunBuffer` accumulate a parallel `kindOut` string in lockstep with its
+      own `out` (new `kindResult()`, appended per real output character on
+      every `flush()`), so `kind` is built aligned to `RunBuffer`'s actual
+      emitted output rather than re-derived from `content` positions. The
+      remaining gap was the placeholder-substitution step itself:
+      `ChainCollector.resolve()`'s textual `String.replace(placeholder,
+      finalText)` on `transformed` can't be reused for the kind string (all
+      `'C'`/`'O'` characters, never literally contains the placeholder marker
+      text) — added a companion `ChainCollector.resolveKind(preResolveTransformed,
+      preResolveKind)` that locates each placeholder's position in the
+      pre-substitution `transformed` string via `indexOf`, then splices a run
+      of `'O'` of the same length as that entry's resolved final text
+      (`resolve()` now records `resolvedLength` per entry) into the kind
+      string at the matching offset, keeping `kind` positionally aligned with
+      `resolve()`'s return value. `resolveKind()` must be called after
+      `resolve()`. Verified via a minimal repro (standalone `#` comment
+      followed by `if($x -eq $null)`), the original `Tasks/Common/
+      VstsAzureHelpers_/Utility.ps1` (diff now empty), and the full corpus
+      (all 1123 `.ps1` files under `/tmp/azure-pipelines-tasks`, diff empty,
+      zero formatter errors). New permanent fixture
+      `test/real_code_regressions_192_{inp,out}.ps1` (registered in
+      `Makefile` `INP_FILES` and `test/README.txt`). `make test`: 269/269
+      forward + idempotency (was 268/268 before this fix). **Accepted loose
+      end:** the original content-indexed `char[] kind` local inside
+      `runPassA` is now dead write-only code (every `kind[i] = ...`
+      assignment is never read after this fix) — left in place rather than
+      stripped (~50 scattered dead-store lines judged higher-risk to remove
+      than to leave); a future cleanup pass may strip it. See
+      `STATE_DOGFOOD.md`'s `microsoft/azure-pipelines-tasks` row (updated
+      from "OPEN Q" to fixed).
       **Makefile — DONE.** Batched `/tmp/PEGTL/Makefile`,
       `/tmp/frozen/tests/Makefile`, `/tmp/frozen/benchmarks/Makefile`, and
       `/tmp/fmt/support/Android.mk` (211 lines total) through round1/round2:
@@ -449,14 +432,13 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       breakage. Content diff showed only the intended §1.1-§1.4 +
       RDD_KEY_261 transforms; no bug found. See `STATE_DOGFOOD.md` for
       per-repo rows.
-      **Makefile — `ericniebler/range-v3` + `python/cpython`, DONE.** User
-      re-cloned both fresh 2026-08-09 (the 2026-08-07 checkouts were
-      broken/incomplete). `range-v3` genuinely has zero `Makefile`/
-      `makefile`/`*.mk` files anywhere in the tree (it's a header-only
-      library built via CMake) -- confirmed via `find`, not a checkout
-      problem; nothing to dogfood, closed as DONE rather than left
-      NOT STARTED. `cpython` does have real Make files; ran round1/round2
-      on them and `diff -r` came back empty (idempotent), no bug found.
+      **Makefile — `ericniebler/range-v3` + `python/cpython`, DONE (2026-08-09,
+      fresh re-clones after the 2026-08-07 checkouts were found
+      broken/incomplete).** `range-v3` genuinely has zero `Makefile`/
+      `makefile`/`*.mk` files anywhere in the tree (header-only, CMake-built) —
+      confirmed via `find`; closed as DONE (nothing to dogfood) rather than
+      left NOT STARTED. `cpython` does have real Make files; round1/round2
+      `diff -r` empty (idempotent), no bug found.
       **Bash — DONE.** Ran `nvm-sh/nvm`'s 5 `.sh` files (5766 lines:
       `nvm.sh`, `install.sh`, `test/common.sh`, `rename_test.sh`,
       `update_test_mocks.sh`) through round1/round2: `diff -ru` empty
@@ -470,47 +452,38 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       new bug. See `STATE_DOGFOOD.md` for the row.
       **PowerShell — DONE, 2 bugs found and fixed.** Ran all 228
       `.ps1`/`.psm1` files (24151 lines) under `PowerShell/PSScriptAnalyzer`
-      through round1/round2; first pass found a non-empty diff (real
-      idempotency bug), so implementation stopped and investigated first
-      per protocol. Root causes
+      through round1/round2; found a non-empty diff (real idempotency bug),
+      investigated first per protocol. Root causes
       (`src/com/jxmake/formatter/rules/PowerShellSpecificRule.java`):
       (1) `applySwitchArmAlignment`'s `parseArm` scans a line for its first
       depth-0 `{` and treats everything before it as a switch-arm pattern
       whenever the prefix isn't a control-flow header, with no check for a
       depth-0 `|` in that prefix — a still-unsplit pipeline line
       (`$x = ... | Where-Object {...}`, before `applyPipelineSplit` runs)
-      read as one giant arm pattern, while the *same* line post-split (a
-      bare `Where-Object {...}` continuation) did not. Since `format()`'s
-      original order ran both alignment passes *before*
-      `applyPipelineSplit`, round1 (fresh pipeline) and round2 (already
-      split) fed different shapes into the same passes, producing
-      different padding each round. Fixed two ways: `parseArm` now rejects
-      any line with a depth-0 `|` before the `{`; `format()`'s pass order
-      moved `applyPipelineSplit` ahead of `applyAssignAlignment`/
-      `applySwitchArmAlignment` so both always see an already-split, stable
-      shape. (2) `applyOperatorSpacing` treated bare `/` (not just `/=`) as
-      binary division with no awareness of PowerShell's command-argument
-      parsing mode — real bareword paths/URLs as command arguments
-      (`Copy-Item -Force $profileDir/* $targetProfileDir`,
-      `-LiteralPath $ruleDocDirectory/README.md`, an unquoted
-      `https://api.nuget.org/v3/index.json`) got corrupted into extra,
-      wrongly-split arguments — real content corruption, not just a style
+      read as one giant arm pattern, while the same line post-split (a bare
+      `Where-Object {...}` continuation) did not, so round1 vs round2 fed
+      different shapes into the same alignment passes. Fixed two ways:
+      `parseArm` now rejects any line with a depth-0 `|` before the `{`;
+      `format()`'s pass order moved `applyPipelineSplit` ahead of
+      `applyAssignAlignment`/`applySwitchArmAlignment` so both always see an
+      already-split, stable shape. (2) `applyOperatorSpacing` treated bare
+      `/` (not just `/=`) as binary division with no awareness of
+      PowerShell's command-argument parsing mode — real bareword paths/URLs
+      as command arguments (`Copy-Item -Force $profileDir/* $targetProfileDir`,
+      an unquoted `https://api.nuget.org/v3/index.json`) got corrupted into
+      extra, wrongly-split arguments — real content corruption, not a style
       nit. Fixed by dropping bare `/` from the binary-operator set entirely
-      (kept unambiguous `/=`); corpus-wide re-scan after the fix found zero
-      remaining corruption and zero genuine-division use going unspaced.
-      After both fixes: round1/round2 diff empty across all 228 files,
-      `make test` 252/252 forward + idempotency (was 251/251 before this
-      session — new fixture added). No PowerShell interpreter/
-      `Invoke-ScriptAnalyzer`/`PSParser` available in this sandbox
-      (confirmed via `which pwsh`/`which powershell`, both absent), so
-      validity relied on round1/round2 idempotency plus manual reading of
-      representative diffs (`build.psm1`, `AvoidOneChar.tests.ps1`,
-      `RuleDocumentation.tests.ps1`) — no corpus-scale automated syntax
-      check was possible; STYLE_TOOLING.md's "availability unconfirmed"
+      (kept unambiguous `/=`); corpus-wide re-scan found zero remaining
+      corruption and zero genuine-division use going unspaced. After both
+      fixes: round1/round2 diff empty across all 228 files, `make test`
+      252/252 forward + idempotency (was 251/251). No PowerShell
+      interpreter/`Invoke-ScriptAnalyzer`/`PSParser` available in this
+      sandbox (confirmed via `which pwsh`/`which powershell`, both absent),
+      so validity relied on round1/round2 idempotency plus manual reading of
+      representative diffs — STYLE_TOOLING.md's "availability unconfirmed"
       caveat now resolved as **not available**. New permanent fixture pair
-      `test/real_code_regressions_182_{inp,out}.ps1` (registered in
-      `Makefile` `INP_FILES` and `test/README.txt`) reproduces both bugs
-      minimally, distilled from the three real files above.
+      `test/real_code_regressions_182_{inp,out}.ps1` reproduces both bugs
+      minimally, distilled from the three real files diffed above.
 - [x] Implement comment normalization for Makefile/Bash/PowerShell
       (RDD_KEY_261) -- previously untouched entirely (STYLE_TOOLING.md §0).
       New shared `ToolingCommentNormalizer` (first-letter capitalization +

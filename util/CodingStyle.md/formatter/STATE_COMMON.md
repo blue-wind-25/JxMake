@@ -503,6 +503,8 @@ any of the four bench scenarios; `test-server-concurrent`'s 80-simultaneous-
 request run is the real evidence this feature works. A future session
 wanting a real multi-client throughput bench should add a fifth scenario
 starting several independent client processes concurrently.
+**NOT NEEDED, 2026-08-10**: already done via another method — see the
+2026-08-09 follow-up immediately below (user's own manual multi-client run).
 
 Documented in `README.md`'s "Server mode" section (with the
 `server-concurrency + 2` client-read-ahead guidance) and "Config file

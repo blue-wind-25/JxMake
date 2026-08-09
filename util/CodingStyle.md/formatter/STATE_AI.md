@@ -1202,3 +1202,23 @@ under `comment-normalization-classifier=on`).
 `GruTrainer` retrain against the grown corpus — GRU-side work is a separate, much larger effort
 (hours-per-round CV per the 2026-08-02/2026-08-03 session log above) and wasn't asked for; the
 linear-classifier re-derivation above is the only classifier this session's ask targets.
+
+**2026-08-10 note:** `GruTrainer` retrain against the grown 594-row corpus and a fresh
+`cross_validate.py` GRU-vs-linear CV are both **recurring** work, already covered by TIER 0's
+"[GRU]" job in `XL.txt` (grow corpus → `gru-acquire-corpus` → user retrains via `gru-train` from
+another console → check GRU %/CV) — not separate one-off TODOs. `gru-acquire-corpus` was re-run
+2026-08-10 (`tools/gru/sample_default.txt`, 119641 lines, includes the grown hand-labeled corpus);
+retrain/CV deliberately left for the user to run themselves.
+
+**2026-08-10 — confirmed: `MiscRuleCore.stripSoleTrailingPeriod`'s `dotCount != 1` path DOES
+route through `GruAbstainResolver`.** Read the method body directly (line ~2713): the
+`commentNormalizationClassifier`-gated `classifyComment(content, lastTokenIndex(content))` call
+(which reaches `GruAbstainResolver.resolve` unconditionally when the classifier is on) runs
+*before* `dotCount` is even computed — the trailing-char/`dotCount` checks are pure mechanical
+bail-outs applied after the classifier already ran. So for a comment ending in `.` with
+`dotCount != 1` (e.g. `.hpp`, `e.g.`, an ellipsis), `GruAbstainResolver` is invoked and its result
+computed, then discarded by the mechanical dot-count bail-out regardless of what it returned —
+a real but harmless (correctness-wise) wasted classifier call, not a wiring gap. No fix needed;
+this only clarifies TIER 4's "mid-word-dot sentence-boundary detection" item (`XL.txt`) — that
+item is about teaching the *classifier* to handle multi-dot content, not about routing, which
+was never broken.

@@ -1300,19 +1300,12 @@ public final class PowerShellSpecificRule {
 
         String s = content;
         s = applyKeywordParenSpacing(s); // §3.5 (also benefits if/while/... examples in §3.1)
-
         s = applyOperatorSpacing(s); // §3.2 spacing
-
         s = applyBraceSpacing(s); // §3.6 (before indent/align so later passes see spaced braces)
-
         s = applyBraceIndent(s); // §3.1 (also multi-line hashtable bodies -- §3.4)
-
         s = applyPipelineSplit(s); // §3.3 (after indent so continuation uses base+1 level)
-
         s = applyAssignAlignment(s); // §3.2 alignment (also multi-line hashtable entries -- §3.4)
-
         s = applySwitchArmAlignment(s); // §3.5 arm `{` alignment (after indent)
-
         return s;
     }
 

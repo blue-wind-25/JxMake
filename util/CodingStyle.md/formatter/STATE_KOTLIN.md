@@ -132,7 +132,7 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_142 | `BlockCanvasView.kt`/`ToolbarActions.kt` compile corruption: `label@` state machine misfired on `@Annotation` after a class name/trailing identifier — new `isLoopLabelTarget` lookahead. Fixture `_25` |
 | RDD_KEY_143 | `Optimizer.kt` compile error: bare-`else` braceless-collapse matched a `when` arm's `else ->` label — new `isWhenArrow` bail. Fixture `_26` |
 | RDD_KEY_144 | `ProgramBuilder.kt` — 2 unrelated bugs: (A) `!is`/`!in` negated operators corrupted to `! is`/`! in` by generic KEYWORD spacing, Kotlin-gated fix; (B) `parseSignature`'s C-style parser misapplied to Kotlin call args (`it.func.funcName` misparsed), split into a separate `sigForRender`. Fixture `_27` |
-| RDD_KEY_118 | §24 import-ordering implementation — `KotlinSpecificRule.enforceKotlinImportOrdering`, no `static` bucket, new `kotlin-import-*` config keys; verified standalone, not yet wired into `Formatter.formatOne` |
+| RDD_KEY_118 | §24 import-ordering implementation — `KotlinSpecificRule.enforceKotlinImportOrdering`, no `static` bucket, new `kotlin-import-*` config keys; wired into `FormatterCurly.java:429` (STALE note "not yet wired" corrected 2026-08-10) |
 | RDD_KEY_145 | `square/okio` testing: initial diff was a test-methodology mistake (default `indent-size=4` vs. okio's own `2`), not a bug; no code change |
 | RDD_KEY_146 | `square/okio` bug #1: unary minus/plus mis-spacing in declaration initializers — new `renderTokens` override + `isUnaryMinusOperand` lookback |
 | RDD_KEY_147 | `square/okio` bug #2: `: ReturnType` tail detection merged an unrelated `val ... by lazy {}` across a blank line — new `hasTopLevelBlankLine` guard |
@@ -292,7 +292,9 @@ through the same pipeline as Java/C++. Config uses `.jxmake-code-formatter`
       `-blank-lines` config keys, `KotlinSpecificRule.enforceKotlinImportOrdering`
       (mirrors Java's; no `static` bucket, replaced by a `kotlin` group;
       aliased/wildcard imports sort by original qualified name). RDD_KEY_118.
-      Verified standalone; not yet wired into `Formatter.formatOne`.
+      **STALE, 2026-08-10**: this line said "not yet wired into
+      `Formatter.formatOne`" — false, `FormatterCurly.java:429` already
+      calls `kotlinRule.enforceKotlinImportOrdering(...)`. Wired.
 - [x] JXM_CFMT_DIS/ENA + `--format-off` — confirmed working, language-generic.
 - [x] README.md/README.txt updated for Kotlin support.
 

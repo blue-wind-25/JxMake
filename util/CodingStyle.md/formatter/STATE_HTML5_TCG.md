@@ -10,6 +10,7 @@ only contains what's specific to this job.
 
 All four gaps (levels 1-4) are landed behind the cumulative
 `html5-tc-gap-level` config key (default `0`, still off by default —
+**intentional by design, user-confirmed 2026-08-10, not a leftover TODO** —
 current behavior unchanged unless a caller opts in). Full-suite dogfood
 re-validation across all three corpora (`apache/ant manual/`,
 `WordPress/wordpress-develop`, `alexandersandberg/html5-elements-tester`)

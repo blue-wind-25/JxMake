@@ -144,9 +144,10 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `MakefileSpecificRule` (line-oriented, no tokenizer needed — only
       distinguishes tab-prefixed recipe lines, which are never touched).
       Smoke-tested manually (diff + idempotency + `--lang makefile` +
-      extensionless `Makefile` + `.mk` detection all verified); no local
-      test fixture pair registered yet (that's still the separate,
-      unchecked "Author local test fixture pairs" item below). Comments
+      extensionless `Makefile` + `.mk` detection all verified). **STALE,
+      2026-08-10**: "no local test fixture pair registered yet" — not
+      needed, already done via the "Author local test fixture pairs" item
+      below (`makefile_combined_{inp,out}.mk`, `[x]`). Comments
       remain untouched (out of scope, STYLE_TOOLING.md §0).
 - [x] Bash: build/extend a tokenizer sufficient to safely skip quoting,
       heredocs, comments, command substitution, and arithmetic contexts.
@@ -170,8 +171,8 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       (STYLE_TOOLING.md §2 combined example, pipe-in-string/comment safety,
       heredoc/backtick/`$(...)` safety — all byte-identical + idempotent).
       `make test` clean after landing: 248/248 forward, 248/248 idempotency —
-      purely additive. No local fixture pair yet (deferred at user's
-      explicit request — separate unchecked item below).
+      purely additive. **STALE, 2026-08-10**: "no local fixture pair yet" —
+      not needed, already done (`bash_combined_{inp,out}.sh`, `[x]` below).
 - [x] PowerShell: build/extend a tokenizer sufficient to safely skip
       string literals, here-strings, and comments.
       Landed as `Lang.isPowerShell`/`Lang.infer` `.ps1`/`.psm1` extension
@@ -192,8 +193,9 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       can refuse here-string-body / full-comment lines. Smoke-tested:
       kind map for all construct types, purity, multi-construct identity,
       `--lang powershell` + extension infer, idempotent. `make test` clean:
-      248/248 forward, 248/248 idempotency — purely additive. No local
-      fixture pair yet (deferred with the shared fixtures checklist item).
+      248/248 forward, 248/248 idempotency — purely additive. **STALE,
+      2026-08-10**: "no local fixture pair yet" — not needed, already done
+      (`powershell_combined_{inp,out}.ps1`, `[x]` below).
       §3.1–§3.6 transforms landed in subsequent checklist items.
 - [x] Implement PowerShell §3.1 brace-depth indentation.
       Naive brace-depth reindent over code-kind `{`/`}` only (opaque

@@ -40,10 +40,11 @@ frozen C++17/20/23 baseline in `STYLE_CPP20.md`) with:
 4. Contracts (`pre`/`post`/`contract_assert`) — comparable to existing
    trailing-`requires`-clause handling; each clause own line, overflow-
    triggered wrap like `requires`.
-5. Reflection (`^^`, `[:`, `:]`) — **provisional/draft**, explicitly
-   flagged in the style doc as needing a tokenizer-support pass before any
-   rule is trusted (new `MULTI_CHAR_OPS` entries, longest-prefix-first
-   ordering; same risk category as Kotlin's Step 0 tokenizer work).
+5. Reflection (`^^`, `[:`, `:]`) — **STALE, 2026-08-10: already implemented**
+   (tokenizer support, tight/loose padding, `enforceReflectionOperatorSpacing`
+   — see Checklist items around line 197-236). This "provisional/draft"
+   label predates that work landing; do not re-scope as a TODO without
+   re-checking the Checklist first.
 6. Config — no new config keys for §1–4; §5 deliberately has none yet
    since its rules aren't trusted. See "Config" below.
 7. Test fixtures — authored and registered in `formatter/test/`. See "Test
@@ -153,10 +154,11 @@ which is family-generic, no C++-specific branching to extend).
 
 ## Open Questions
 
-None recorded yet. Note: `STYLE_CPP26.md` §5 (Reflection) is explicitly
-marked provisional/draft pending a tokenizer validation pass — a known gap
-in the style doc itself, not yet elevated to a formal blocked Open
-Question here since real implementation hasn't started.
+None recorded yet. **STALE, 2026-08-10**: this section (and Scope §5 above)
+previously claimed §5 Reflection real implementation "hasn't started" —
+false, see Checklist items ~197-236 (tokenizer pass, tight/loose padding,
+`enforceReflectionOperatorSpacing` all landed). No open question remains
+for §5.
 
 ---
 

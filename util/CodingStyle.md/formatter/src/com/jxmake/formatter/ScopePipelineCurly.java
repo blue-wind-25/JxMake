@@ -1687,37 +1687,60 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         final String      inheritedIndent
     )
     {
-        return processScope(tokens, depth, scopeStartFrozen, inheritedIndent, false);
+        return processScope(tokens, depth, scopeStartFrozen, inheritedIndent, RERUN_MODE_FULL);
     }
 
+    /** Full fresh-format pass sequence -- see {@link #processScope(List, int, boolean, String, int)}. */
+    private static final int RERUN_MODE_FULL = 0;
+    /** Closing-brace + declarations + assignments re-run -- see same javadoc. */
+    private static final int RERUN_MODE_CLOSING_BRACE_AND_DECLARATIONS = 1;
     /**
-     * RDD_KEY_246/RDD_KEY_248/RDD_KEY_270 -- {@code closingBraceAndDeclarationsOnly} is the
-     * narrower "middle ground" re-run: when {@code true}, this scope (and every child scope it
-     * recurses into) only re-runs {@link #applyOversizedAggregateInitClosingBracePass}, then
-     * {@link #applyDeclarationsPass}, then {@link #applyAssignmentsPass} (closing-brace first, so
-     * the later passes see the corrected, post-call-wrap `{...}` shape rather than re-deriving
-     * their own stale decision), skipping applySignaturePass/applyGetterSetterPass entirely (those
-     * were not shown to depend on the post-call-wrap shape, and Attempt 2 in RDD_KEY_246 showed
-     * re-running unrelated passes a second time in the same round risks silently re-collapsing
-     * already-correct output, e.g. a trailing-comment-after-`}` shape). All of the surrounding
-     * span-recursion/indent-resolution logic below is identical in both modes -- only the pass
-     * sequence at the top differs -- so a real fresh format (mode {@code false}) and this fixup
-     * re-run (mode {@code true}) walk the exact same tree shape.
+     * Assignments-pass-only re-run (RDD_KEY_270's Java-family follow-up): re-derives just
+     *  {@link #applyAssignmentsPass}'s trailing-comment-column/`=`-column padding against the
+     *  post-call-wrap shape, touching nothing else -- narrower than {@code
+     *  RERUN_MODE_CLOSING_BRACE_AND_DECLARATIONS}, which also re-runs {@link
+     *  #applyOversizedAggregateInitClosingBracePass}/{@link #applyDeclarationsPass} and was shown
+     *  (see the Open Questions entry in STATE_C_CPP_JAVA.md, "attempt 2") to silently re-collapse
+     *  unrelated already-correct output for Java (`JavaSpecificRule.separateEnumConstantListTerminator`'s
+     *  enum-constant-list `;`-separation) when widened beyond JS/TS. Since `applyAssignmentsPass`
+     *  only ever touches genuine assignment-statement groups (`MiscRuleCurly.groupAssignments`),
+     *  re-running it alone cannot touch an enum constant list or an aggregate-init closing brace.
+     */
+    private static final int RERUN_MODE_ASSIGNMENTS_ONLY = 2;
+
+    /**
+     * RDD_KEY_246/RDD_KEY_248/RDD_KEY_270 -- {@code reRunMode} selects which pass subset this
+     * scope (and every child scope it recurses into) runs: {@link #RERUN_MODE_FULL} is a real
+     * fresh format; {@link #RERUN_MODE_CLOSING_BRACE_AND_DECLARATIONS} re-runs
+     * {@link #applyOversizedAggregateInitClosingBracePass}, then {@link #applyDeclarationsPass},
+     * then {@link #applyAssignmentsPass} (closing-brace first, so the later passes see the
+     * corrected, post-call-wrap `{...}` shape rather than re-deriving their own stale decision),
+     * skipping applySignaturePass/applyGetterSetterPass entirely (those were not shown to depend
+     * on the post-call-wrap shape, and Attempt 2 in RDD_KEY_246 showed re-running unrelated passes
+     * a second time in the same round risks silently re-collapsing already-correct output, e.g. a
+     * trailing-comment-after-`}` shape); {@link #RERUN_MODE_ASSIGNMENTS_ONLY} re-runs only
+     * {@link #applyAssignmentsPass}, for languages (Java) where even the closing-brace+declarations
+     * bundle regressed unrelated output. All of the surrounding span-recursion/indent-resolution
+     * logic below is identical across every mode -- only the pass sequence at the top differs --
+     * so a real fresh format and any fixup re-run walk the exact same tree shape.
      */
     private String processScope(
         final List<Token> tokens,
         final int         depth,
         final boolean     scopeStartFrozen,
         final String      inheritedIndent,
-        final boolean     closingBraceAndDeclarationsOnly
+        final int         reRunMode
     )
     {
         List<Token> current = tokens;
-        if(closingBraceAndDeclarationsOnly) {
+        if(reRunMode == RERUN_MODE_CLOSING_BRACE_AND_DECLARATIONS) {
             current = tokenize(
                 applyOversizedAggregateInitClosingBracePass(current), scopeStartFrozen
             );
             current = tokenize( applyDeclarationsPass(current, depth), scopeStartFrozen );
+            current = tokenize( applyAssignmentsPass(current), scopeStartFrozen );
+        } // if
+        else if(reRunMode == RERUN_MODE_ASSIGNMENTS_ONLY) {
             current = tokenize( applyAssignmentsPass(current), scopeStartFrozen );
         } // if
         else {
@@ -1910,7 +1933,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                     childDepth,
                     childStartFrozen,
                     childInheritedIndent,
-                    closingBraceAndDeclarationsOnly
+                    reRunMode
                 );
                 // The gap between the last statement and the closing `}` belongs to no
                 // statement, so no pass above ever re-derives its indentation from depth --
@@ -1934,7 +1957,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 // force-reindented every trailing gap correctly once; this second, narrower run
                 // only needs the two token-level passes' own splices, not a second independent
                 // re-derivation of indentation.
-                if( closingBraceAndDeclarationsOnly
+                if( reRunMode != RERUN_MODE_FULL
                         || anyFrozen(current, span.openBraceIdx, span.closeBraceIdx + 1)
                         || trailingGapHasComment(
                             current, span.closeBraceIdx
@@ -1987,7 +2010,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
      */
     public String process(final String source)
     {
-        return processScope( tokenize(source, formatOff), 0, formatOff, "", false );
+        return processScope( tokenize(source, formatOff), 0, formatOff, "", RERUN_MODE_FULL );
     }
 
     /**
@@ -1995,12 +2018,32 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
      *  JS/TS-only fixup: re-runs only {@link #applyOversizedAggregateInitClosingBracePass} +
      *  {@link #applyDeclarationsPass} (closing-brace first, so declarations sees the corrected
      *  shape) across the whole scope tree, leaving every other pass single-pass for this round.
-     *  See {@link #processScope(List, int, boolean, String, boolean)}'s doc comment for the full
+     *  See {@link #processScope(List, int, boolean, String, int)}'s doc comment for the full
      *  rationale.
      */
     public String reapplyClosingBraceAndDeclarationsPass(final String source)
     {
-        return processScope( tokenize(source, formatOff), 0, formatOff, "", true );
+        return processScope(
+            tokenize(source, formatOff), 0, formatOff, "",
+            RERUN_MODE_CLOSING_BRACE_AND_DECLARATIONS
+        );
+    }
+
+    /**
+     * RDD_KEY_270 Java-family follow-up -- narrow re-run entry point for {@code
+     *  FormatterCurly.format}'s Java-only fixup: re-runs only {@link #applyAssignmentsPass} across
+     *  the whole scope tree, re-deriving an assignment alignment group's trailing-comment-column
+     *  padding against the post-call-wrap shape without touching {@link
+     *  #applyOversizedAggregateInitClosingBracePass}/{@link #applyDeclarationsPass} (the two passes
+     *  that widening {@link #reapplyClosingBraceAndDeclarationsPass} to Java was found to regress --
+     *  see STATE_C_CPP_JAVA.md's Open Questions entry, "attempt 1"/"attempt 2"). See {@link
+     *  #processScope(List, int, boolean, String, int)}'s doc comment for the full rationale.
+     */
+    public String reapplyAssignmentsPassOnly(final String source)
+    {
+        return processScope(
+            tokenize(source, formatOff), 0, formatOff, "", RERUN_MODE_ASSIGNMENTS_ONLY
+        );
     }
 
     /**

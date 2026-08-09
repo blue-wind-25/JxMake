@@ -293,6 +293,21 @@ public final class FormatterCurly extends FormatterCore {
             // closing-brace pass alone (left the declarations pass working off stale data).
             text = scopePipeline.reapplyClosingBraceAndDeclarationsPass(text);
         } // if
+        else if(lang.isJava) {
+            // RDD_KEY_270 Java-family follow-up (see STATE_C_CPP_JAVA.md's Open Questions entry,
+            // "4th idea"): an `applyAssignmentsPass` alignment group's trailing-comment-column
+            // padding is computed above (inside scopePipeline.process) BEFORE the call-wrap just
+            // above has run -- if one sibling's call gets wrapped by enforceCallLineBreaking, every
+            // OTHER sibling's padding stays stale (computed against the pre-wrap width), and only
+            // collapses once a later round's input already has the wrap baked in -- round1 !=
+            // round2. Widening the JS/TS `reapplyClosingBraceAndDeclarationsPass` bundle above to
+            // Java was tried and reverted twice (re-running `applyOversizedAggregateInitClosingBracePass`/
+            // `applyDeclarationsPass` a second time re-collapsed already-correct Java aggregate-init
+            // closing braces and enum-constant-list `;`-separation respectively). Re-run ONLY
+            // `applyAssignmentsPass` instead -- it exclusively touches genuine assignment-statement
+            // groups, so it cannot re-collapse either of those unrelated constructs.
+            text = scopePipeline.reapplyAssignmentsPassOnly(text);
+        } // if
         // EnforceCallLineBreaking can turn a one-liner function body into a multi-line one (an
         // overlong call inside it gets wrapped across lines) -- but enforceFunctionDefinitionAllman
         // BraceStyle already ran earlier, above, back when the body still looked like a one-liner,

@@ -3439,6 +3439,28 @@ Real-code regressions:
                                                         offsets `resolve()` substitutes, keeping it aligned
                                                         with `transformed` throughout.
 
+  real_code_regressions_193_inp/out.java             -- Minimal repro of the Java assignment- alignment
+                                                        trailing-comment padding vs. `enforceCallLineBreaking`
+                                                        ordering bug (open for several sessions, see
+                                                        STATE_C_CPP_JAVA.md's Open Questions): a run of `s =
+                                                        applyX(s); // comment` assignment statements forms an
+                                                        `applyAssignmentsPass` alignment group whose
+                                                        trailing-comment column is padded to the widest
+                                                        sibling's pre-wrap width; one sibling's deliberately
+                                                        long call name gets wrapped across lines by
+                                                        `enforceCallLineBreaking`, which runs after
+                                                        `applyAssignmentsPass`, leaving every other sibling's
+                                                        padding stale and only collapsing it on a second
+                                                        format pass -- non-idempotent. Fixed via a new
+                                                        `FormatterCurly.format` Java-only re-run,
+                                                        `ScopePipelineCurly.reapplyAssignmentsPassOnly`, that
+                                                        re-derives just `applyAssignmentsPass`'s padding
+                                                        against the post-wrap shape without touching
+                                                        `applyOversizedAggregateInitClosingBracePass`/
+                                                        `applyDeclarationsPass` (the two passes that widening
+                                                        the existing JS/TS bundle to Java was found to regress
+                                                        in two earlier attempts).
+
 How Tests Are Run
 -----------------
 

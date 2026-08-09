@@ -309,6 +309,42 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   `README.md`'s Known Limitations (curly-brace family, item 5) per this session's disposition —
   matches the pattern of the two already-reverted attempts, no fix landed.
 
+  **2026-08-09 session — 4th idea (above) attempted and LANDED, FIXED.** Implemented option (b):
+  rather than re-running the whole `applyOversizedAggregateInitClosingBracePass`/`applyDeclarationsPass`/
+  `applyAssignmentsPass` bundle (attempts 1/2's failure mode), added a brand-new, much narrower
+  re-run mode that re-derives ONLY `applyAssignmentsPass`'s output. Mechanism:
+  `ScopePipelineCurly.processScope`'s old `closingBraceAndDeclarationsOnly boolean` parameter was
+  generalized to an `int reRunMode` with three values — `RERUN_MODE_FULL` (fresh format, unchanged
+  behavior), `RERUN_MODE_CLOSING_BRACE_AND_DECLARATIONS` (the existing JS/TS bundle, unchanged
+  behavior), and a new `RERUN_MODE_ASSIGNMENTS_ONLY` which re-runs nothing but
+  `applyAssignmentsPass` itself at every scope level. A new public entry point,
+  `ScopePipelineCurly.reapplyAssignmentsPassOnly(String)`, drives the whole tree through this new
+  mode. `FormatterCurly.format` gained an `else if(lang.isJava)` branch immediately after the first
+  `enforceCallLineBreaking` call (same call site the JS/TS `reapplyClosingBraceAndDeclarationsPass`
+  already runs from) that invokes it. Because `applyAssignmentsPass` only ever touches genuine
+  assignment-statement groups (`MiscRuleCurly.groupAssignments`), re-running it alone structurally
+  cannot re-collapse an aggregate-init closing brace or an enum-constant-list `;`-separator — the
+  exact two collateral-damage classes attempts 1 and 2 hit — since neither construct is an
+  assignment statement `applyAssignmentsPass` would ever touch.
+
+  **Verification:** `make test` stayed exactly 269/269 forward + idempotency before and after (no
+  regressions), then 270/270 after adding the new fixture below. Manual repro (7-line
+  `s = applyX(s); // comment` chain, one sibling given a deliberately long method name so
+  `enforceCallLineBreaking` wraps only that one call): round1 and round2 output now byte-for-byte
+  identical — the previously-stale wide comment-column padding on the non-wrapped siblings is now
+  correctly re-derived against the post-wrap group shape on the very first format pass, matching
+  what a second format pass used to independently converge on. New permanent fixture:
+  `test/real_code_regressions_193_{inp,out}.java`, registered in the Makefile's `INP_FILES` and
+  `test/README.txt`. `README.md`'s Known Limitations item 5 (curly-brace family) removed since it
+  no longer applies — see that file's own changelog-style note for the removal.
+
+  This also resolves the `src/com/jxmake/formatter/rules/PowerShellSpecificRule.java` self-format
+  trigger instance documented above (the blank-line source-layout workaround from 2026-08-08 is
+  no longer structurally required now that the underlying formatter bug is fixed, though it was
+  left in place — removing it and re-running the formatter self-format dogfood-and-adopt process
+  is optional future cleanup, not required for this fix, and was not done this session to keep
+  this session's diff scoped to the actual bug fix).
+
 - **NOT REPRODUCED, 2026-08-03 — closed as unconfirmed/stale, not conflated with the above.**
   Ran every registered `test/*_out.cpp`/`test/*_out.hpp` fixture (37 files) through both
   `g++ -std=c++20 -fsyntax-only` and `clang++ -std=c++23 -fsyntax-only` (tools (2)/(3), incl.

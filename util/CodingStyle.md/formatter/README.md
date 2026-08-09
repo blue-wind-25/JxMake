@@ -771,26 +771,7 @@ when it actually gains a documented gap.
    its own brace-nesting depth, including through nested switches, so it no longer exhibits this
    gap.)
 
-5. **Assignment-alignment trailing-comment padding can go stale when a sibling call wraps,
-   affecting C/C++/Java/Kotlin/JS/TS.** A run of consecutive `x = call(x); // comment`
-   assignment statements forms an alignment group whose trailing-`//`-comment column is padded
-   to the widest sibling's single-line width. If one sibling's call is later wrapped across
-   multiple lines because it doesn't fit the line-length limit, every *other* sibling in the
-   group keeps its comment-column padding computed against the pre-wrap width — the padding is
-   never re-derived after the wrap decision. Formatting that output a second time re-derives the
-   group from the now-multi-line shape and collapses the padding, so the two passes disagree —
-   i.e. formatting is not always idempotent for this shape. Two fixes were attempted and
-   reverted (widening/narrowing an existing re-run gate around the declarations/assignments
-   passes — both re-collapsed unrelated already-correct output elsewhere, such as C/C++/Java
-   aggregate-init closing braces or Java's enum-constant-list `;` separation); a third idea
-   (making the wrap decision itself ignore alignment padding) was tried and found insufficient —
-   it stabilizes the wrap/no-wrap verdict but does not address the stale padding on the
-   non-wrapped siblings, which is computed by an entirely separate pass. No workaround exists
-   short of avoiding a long run of same-shape assignment statements with trailing comments where
-   one call is close to the line-length limit; splitting such a run with a blank line (which
-   breaks alignment-group membership) avoids the trigger.
-
-6. **`normalize-comment-start-case-multiline` (opt-in, off by default) can capitalize
+5. **`normalize-comment-start-case-multiline` (opt-in, off by default) can capitalize
    commented-out code inside a multi-line comment group; affects C/C++/Java/Kotlin/JS/TS and
    also the `#`-comment tooling family (Makefile/Bash/PowerShell) and YAML/TOML.** See "Config
    file format" → [Multi-sentence comment

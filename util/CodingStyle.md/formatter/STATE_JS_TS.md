@@ -85,6 +85,7 @@ convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_269 | `angular/angular` cluster 4 residue — `shared.ts`/`directive_outputs.ts`, FIXED: widened `BlockStructureRule.alignBracelessElseIfChain`'s chain-recovery to also tolerate a bare `else` re-indented one level deeper than its paired `if` (opposite direction from the pre-existing narrower-`if`-line recovery), stripping the excess back to the `if`'s own indent. New fixture: `test/real_code_regressions_184_{inp,out}.ts` |
 | RDD_KEY_270 | `microsoft/TypeScript` cluster #3 — `harness/collectionsImpl.ts`, FIXED: `applyAssignmentsPass` added as a third pass inside `ScopePipelineCurly.processScope`'s existing `closingBraceAndDeclarationsOnly` narrow re-run mode (direct extension of RDD_KEY_248), after the closing-brace and declarations passes. New fixture: `test/real_code_regressions_185_{inp,out}.ts` |
 | RDD_KEY_271 | `angular/angular` cluster 4 residue group #3 — `web_animations_player_spec.ts`/`input_transform.ts`, FIXED: (a) `JsTsSpecificRule.tryParseClassField` now collapses a multi-line class-field initializer's embedded NEWLINE into a soft space instead of bailing to "unrecognized member"; (b) `enforceUnionIntersectionSpacing`/`enforceTypeColonSpacing` pulled forward to run before `enforceDecoratorOverflowCascade` in `FormatterCurly.format`, so its inline-decorator-fits measurement sees the final post-spacing width. Neither touches `ScopePipelineCurly`/`closingBraceAndDeclarationsOnly` at all. New fixture: `test/real_code_regressions_186_{inp,out}.ts` |
+| RDD_KEY_273 | 2026-08-09 `microsoft/TypeScript` dogfood-reconfirmation Tier-3 shape #1 (braceless if/else-if body-column-alignment padding going stale on round2) — `compiler/builder.ts`/`compiler/moduleNameResolver.ts`/`services/findAllReferences.ts`, FIXED: `BlockStructureRule.alignBracelessElseIfChain` splits on `"\n"` only, leaving a trailing `'\r'` on every line of CRLF-original source (CRLF/LF normalization happens once, at the very end, in `Main.applyLineEndings`) — that stray byte skews the `lineLengthLimit` padding guard's length math, landing on different sides of the boundary between round1 (still-CRLF) and round2 (already-LF-only). Fixed by stripping any trailing `'\r'` from each split line up front. New fixture: `test/real_code_regressions_195_{inp,out}.ts` (deliberately CRLF-encoded, `.gitattributes`-marked `-text`) |
 
 ---
 
@@ -1101,6 +1102,60 @@ full `watchPublic.ts` file (both syntax-clean and idempotent
 post-fix), a genuine C++ `[[nodiscard]]` attribute (still tokenizes
 correctly, no regression), and `make test` (271/271 forward + idempotency,
 zero regressions). New fixture: `real_code_regressions_194_inp/out.ts`.
+
+### Braceless if/else-if body-column-alignment padding, CRLF-staleness — FIXED (2026-08-09, RDD_KEY_273)
+
+Found in the same 2026-08-09 reconfirmation of the 14 previously-flagged
+dogfood files (see "Note on `microsoft/TypeScript`'s status" below), Tier-3
+shape #1: `BlockStructureRule.alignBracelessElseIfChain`'s single-statement
+body-column padding for a braceless `if`/`else if` chain went stale across a
+second format pass — round1 leaves a short `if` branch's body unpadded
+(natural width), round2 (fed round1's own output) pads it to align with its
+`else if` sibling's wider column. Example, `compiler/moduleNameResolver.ts`:
+`if(options.resolvePackageJsonExports) features |= NodeResolutionFeatures.
+Exports;` stays unpadded on round1 but gains extra spaces before `features`
+on round2. Affected files: `compiler/builder.ts`, `compiler/
+moduleNameResolver.ts`, `services/findAllReferences.ts` — all three are
+CRLF-original source, which turned out to be the actual trigger.
+
+Root-caused with `JXFMT_DEBUG_ELSEIF`-env-gated `System.err` instrumentation
+added to the body-padding loop (same pattern as the `watchPublic.ts` fix
+above): debug prints showed `end`/`target`/`spaces` identical between round1
+and round2, but `body.length()` differing by exactly 1 (44 vs. 43). `od -c`
+on the raw line traced the extra byte to a literal trailing `'\r'`.
+`alignBracelessElseIfChain` splits its working text on `"\n"` only (not
+`"\r\n"`), so every line retains a trailing `'\r'` while formatting
+CRLF-original text — `Main.applyLineEndings`'s own comment already
+documents that CRLF/LF normalization happens exactly once, at the very end,
+precisely because "the internal formatting pipeline is not guaranteed to
+have stripped every original `'\r'`". That stray character skews every
+length computation this method makes, invisible almost everywhere except
+the exact `lineLengthLimit`-boundary guard deciding whether to pad a
+branch: on round1 (still-CRLF mid-pipeline) a branch's would-be-padded width
+computes to just over the limit (guard refuses to pad); on round2 (fed
+round1's own already-LF-only, one-byte-narrower-per-line output) the same
+computation lands exactly at the limit (guard allows the pad) — non-
+idempotent.
+
+Fixed by stripping any trailing `'\r'` from each split line immediately
+after the initial `split("\n", -1)`, before any measurement — safe to drop
+rather than restore, since `Main.applyLineEndings` independently re-derives
+the final output's line-ending style from the *original* file text (its
+`"preserve"` branch calls `detectDominantLineEnding(original)`), never from
+`'\r'` bytes surviving inside the internal pipeline. Verified: A/B rebuild
+(reverted via `git checkout`, rebuilt, reproduced the exact stale-padding
+symptom on both the new fixture and `compiler/moduleNameResolver.ts`
+directly; restored, rebuilt, confirmed idempotent), all 3 originally-flagged
+files re-verified idempotent against the fresh `microsoft/TypeScript` clone,
+and `make test` (271/271 -> 272/272 forward + idempotency, zero
+regressions). New fixture: `real_code_regressions_195_inp/out.ts`
+(deliberately CRLF-encoded, `.gitattributes`-marked `-text`, same precedent
+as `real_code_regressions_147_inp.ts`).
+
+This same CRLF-trailing-`'\r'`-skews-a-length-guard mechanism was also the
+root cause of Tier-3 shape #4 (see below) and turned out not to be the root
+cause of shapes #2/#3 — see their own writeups for what those turned out to
+be.
 
 ### Known false positives (no source change needed, fixture-only)
 

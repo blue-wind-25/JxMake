@@ -3119,6 +3119,22 @@ public class BlockStructureRule {
     public String alignBracelessElseIfChain(final List<Token> tokens)
     {
         final String[] lines = joinVerbatim(tokens).split("\n", -1);
+        // A CRLF-original input can still carry a stray trailing '\r' on some/all of these split
+        // lines at this point in the pipeline -- final CRLF/LF normalization only happens once, at
+        // the very end, in Main.applyLineEndings (see that method's own comment on why: an
+        // untouched WHITESPACE token from CRLF input can carry '\r' straight through). Left in
+        // place, that extra character skews every length-based computation below (indentLen is
+        // unaffected since '\r' only ever appears at a line's end, but `body.length()`/`end`/
+        // `target` all include it), which only visibly matters when a computed width sits exactly
+        // on the `lineLengthLimit` boundary -- present on round1 (CRLF-original text mid-pipeline)
+        // and absent on round2 (LF-only, already-normalized input), silently changing which side of
+        // the guard a branch lands on and making this method non-idempotent on CRLF sources. Strip
+        // it here, before any measurement -- safe to simply drop rather than restore, since the
+        // final output's line-ending style is independently re-derived from the *original* file by
+        // `Main.applyLineEndings`, never from '\r' bytes surviving inside the internal pipeline.
+        for( int li = 0; li < lines.length; ++li ) {
+            if( lines[li].endsWith("\r") ) lines[li] = lines[li].substring(0, lines[li].length() - 1);
+        }
               int      i     = 0;
         while(i < lines.length) {
             int indentLen = leadingWhitespaceLength( lines[i] );

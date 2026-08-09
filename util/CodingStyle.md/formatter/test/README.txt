@@ -3485,6 +3485,31 @@ Real-code regressions:
                                                         terminator inside it. Fixed by adding the missing `&&
                                                         lang.isCpp` guard.
 
+  real_code_regressions_195_inp/out.ts               -- Minimal repro (deliberately CRLF-encoded, see
+                                                        `.gitattributes`) of an idempotency bug found in the
+                                                        2026-08-09 `microsoft/TypeScript` dogfood
+                                                        reconfirmation: a braceless `if`/`else if` pair's
+                                                        single-statement-body column-alignment padding
+                                                        (`BlockStructureRule. alignBracelessElseIfChain`) went
+                                                        stale across a second format pass on CRLF-original
+                                                        source -- e.g. `compiler/moduleNameResolver.ts`'s `if
+                                                        (options.resolvePackageJsonExports) features |= ...`
+                                                        gained extra padding to match its `else if` sibling's
+                                                        width on round2, though round1 left it unpadded. Root
+                                                        cause: this method's per-line array (split on `\n`,
+                                                        not `\r\n`) retains a trailing `\r` on every line
+                                                        while formatting CRLF-original text (CRLF/LF
+                                                        normalization only happens once, at the very end, in
+                                                        `Main.applyLineEndings`), and that extra character
+                                                        skews the length-based `lineLengthLimit` guard
+                                                        deciding whether to pad a branch -- present on round1
+                                                        (still-CRLF text mid-pipeline) but absent on round2
+                                                        (fed round1's already-LF-only output), so a width
+                                                        sitting exactly on the boundary lands on different
+                                                        sides of the guard between rounds. Fixed by stripping
+                                                        any trailing `\r` from each split line up front,
+                                                        before any measurement.
+
 How Tests Are Run
 -----------------
 

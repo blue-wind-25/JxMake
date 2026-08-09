@@ -10,3 +10,10 @@ test/real_code_regressions_118_inp.hpp -text
 # section, category 1 cluster #4 / test/README.txt) -- must not be normalized by git on
 # checkout/commit, or the fixture stops testing what it's meant to test.
 test/real_code_regressions_147_inp.ts -text
+
+# real_code_regressions_195_inp.ts deliberately contains CRLF line endings (reproduces the
+# braceless if/else-if body-column-alignment-padding staleness idempotency bug found via the
+# 2026-08-09 microsoft/TypeScript dogfood reconfirmation, see STATE_JS_TS.md's Dogfood:
+# microsoft/TypeScript section / test/README.txt) -- must not be normalized by git on
+# checkout/commit, or the fixture stops testing what it's meant to test.
+test/real_code_regressions_195_inp.ts -text

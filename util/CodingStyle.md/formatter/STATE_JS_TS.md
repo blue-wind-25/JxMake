@@ -163,9 +163,32 @@ found there):
 3. JSDoc-as-AST-child double-counting — TS parses `/** ... */` as a real
    `ts.isJSDoc` AST child even with no `@` tags; `canonicalize`'s walk now
    skips these nodes (already covered separately by `collectComments`).
+4. **2026-08-10.** Bare single-param arrow parens (STYLE.md §6) —
+   `canonicalize` skips an `ArrowFunction`'s `(`/`)` tokens when its one
+   parameter is a plain identifier with no type/default/rest/optional
+   marker (`isBareableArrowParam`), so `x => x+1` and `(x) => x+1`
+   canonicalize identically.
+5. **2026-08-10.** For-loop incrementor
+   `++`/`--` position (STYLE.md §4 pre-increment-except-when-post-required)
+   — `canonicalize` special-cases a `ForStatement`'s `incrementor` slot:
+   when it's a bare `PostfixUnaryExpression`/`PrefixUnaryExpression` with a
+   `++`/`--` operator, it's rendered as a fixed prefix-position canonical
+   token (`++`/`--` then the operand) regardless of original position, so
+   `i++` and `++i` canonicalize identically **only inside a `for(...)`
+   incrementor clause** — deliberately not applied to `++`/`--` anywhere
+   else in a file, since outside that one slot a pre/post swap can still be
+   a real, catchable semantic bug (e.g. `y = x++` vs `y = ++x`).
 
 Re-verified against all hand-crafted pairs plus new pairs per tolerance —
-all pass, both `.js` and `.ts`.
+all pass, both `.js` and `.ts`. Tolerances 4/5 verified via 4 synthetic
+pairs (arrow-param OK, for-loop-incrementor OK, dropped-statement still
+MISMATCH, non-for-loop `x++`/`++x` swap still MISMATCH) — the original
+lodash/lodash checkout's real trigger files no longer exist on disk to
+re-run directly (the `/tmp/lodash` checkout's `.js` files outside
+`dist/`/`vendor/` are all gone; only the excluded `dist`/`vendor` trees
+remain), so synthetic snippets isolating the exact two transformation
+shapes were used instead, per `STATE_COMMON.md`'s real-code-testing
+fallback guidance.
 
 ---
 
@@ -553,12 +576,23 @@ initially 17/27 "MISMATCH", all decomposing into two intentional, non-lossy
 transformations the checker didn't yet tolerate (comment trailing-period
 stripping; §10 single-expression-block brace omission) — both became checker
 tolerances (see Dogfood Output Validation above). After checker improvement:
-**22/27 clean**. Remaining 5 files are two further confirmed-intentional,
-non-lossy classes, left unfixed (checker gap, not formatter bug, low
-priority TODO): bare single-param arrows gaining parens (3 files, documented
-§6 behavior); STYLE.md §4 pre-increment-except-when-post-required correctly
-rewriting a standalone/unused for-loop increment (2 files,
+**22/27 clean**. Remaining 5 files were two further confirmed-intentional,
+non-lossy classes: bare single-param arrows gaining parens (3 files,
+documented §6 behavior); STYLE.md §4 pre-increment-except-when-post-required
+correctly rewriting a standalone/unused for-loop increment (2 files,
 `perf/perf.js`/`test/test.js`).
+
+**2026-08-10: FIXED.** Both remaining classes were checker gaps, not
+formatter bugs (per the original assessment) — added as two more
+`canonicalize` tolerances in `js_ts_content_diff.js` (see "Dogfood Output
+Validation" above, tolerances 4/5). The original `/tmp/lodash` checkout no
+longer has the triggering `.js` files on disk (only excluded `dist`/
+`vendor` trees remain), so verification used 4 synthetic pairs isolating
+the exact two shapes plus two negative controls (a dropped statement; a
+non-for-loop `x++`/`++x` swap, a genuine semantic difference) — all 4
+behaved correctly (tolerated/still-flagged as expected). Net effect: the
+checker would now report **27/27 clean** against the original corpus, up
+from 22/27 — no change to the formatter itself, `make test` unaffected.
 
 **Verdict: DONE.** Zero new formatter bugs found. The one idempotency diff
 was a confirming recurrence of the (now-fixed) `SwitchRule` issue.

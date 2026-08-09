@@ -94,7 +94,38 @@ function parse(source, fileName)
  *  -- only the exact one-statement shape is unwrapped, so a genuinely
  *  added/removed statement, or a different single statement, is still
  *  caught by the ordinary token-level comparison below.
+ *
+ *  Two further narrow tolerances (added after the lodash/lodash dogfood
+ *  pass found both as false positives -- see STATE_JS_TS.md):
+ *   - A single-parameter arrow function's `(` `)` tokens are skipped when
+ *     that one parameter is a plain identifier with no type annotation,
+ *     default, rest, or optional marker -- STYLE_JS_TS.md Sec.6 legitimately
+ *     adds parens around a bare single-identifier param (`x => x+1` becomes
+ *     `(x) => x+1`), so both shapes must canonicalize identically.
+ *   - A `for(...)` statement's incrementor clause, when it is a bare
+ *     `++`/`--` unary expression (prefix or postfix, e.g. `i++` vs `++i`),
+ *     is canonicalized to a fixed prefix-position form -- STYLE.md Sec.4's
+ *     pre-increment-except-when-post-required rule legitimately rewrites an
+ *     unused loop-incrementor's postfix form to prefix. Deliberately scoped
+ *     to the incrementor slot only (not incrementor-shaped expressions
+ *     elsewhere), since Sec.4 only mandates the rewrite when the value is
+ *     otherwise unused -- a genuine ++/-- swap anywhere else could still be
+ *     a real, catchable bug and must not be masked.
  */
+function isBareableArrowParam(fn)
+{
+  if(fn.parameters.length !== 1) return false;
+    const p = fn.parameters[0];
+
+  return !p.dotDotDotToken && !p.type && !p.initializer && !p.questionToken && ts.isIdentifier(p.name);
+}
+
+function isPlainIncDec(n)
+{
+  return ( ts.isPostfixUnaryExpression(n) || ts.isPrefixUnaryExpression(n) )
+      && ( n.operator === ts.SyntaxKind.PlusPlusToken || n.operator === ts.SyntaxKind.MinusMinusToken );
+}
+
 function canonicalize(node)
 {
     const parts = [];
@@ -114,6 +145,23 @@ function canonicalize(node)
     // intentional transformations this canonicalization is meant to
     // tolerate.
     if( ts.isJSDoc(n) ) return;
+    if( ts.isArrowFunction(n) && isBareableArrowParam(n) ) {
+      for(const k of n.getChildren()) {
+        if(k.kind === ts.SyntaxKind.OpenParenToken || k.kind === ts.SyntaxKind.CloseParenToken) continue;
+        walk(k);
+      }
+      return;
+    }
+    if( ts.isForStatement(n) ) {
+      for(const k of n.getChildren()) {
+        if( n.incrementor && k === n.incrementor && isPlainIncDec(k) ) {
+          parts.push( k.operator === ts.SyntaxKind.PlusPlusToken ? '++' : '--' );
+          walk(k.operand);
+        }
+        else walk(k);
+      }
+      return;
+    }
     const kids = n.getChildren();
     if(kids.length === 0) {
       const t = n.getText();

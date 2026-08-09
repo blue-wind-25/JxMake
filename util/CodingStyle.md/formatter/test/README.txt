@@ -3387,6 +3387,21 @@ Real-code regressions:
                                                         `enforceDecoratorOverflowCascade`, same shape as the
                                                         other Phase-4-pulled-forward passes above it.
 
+  real_code_regressions_187_inp/out.java             -- Minimized from `openrewrite/rewrite`'s
+                                                        `ReloadableJava25ParserVisitor.java` (item 17's
+                                                        full-tree re-verification pass):
+                                                        `isSingleStatementBody`'s declaration guard only
+                                                        caught a braced single-statement body qualified by
+                                                        `final`/`const` (`final boolean ignored = ...;`) -- an
+                                                        un-qualified primitive-type declaration (`int
+                                                        saveCursor = cursor;`) slipped through and was
+                                                        collapsed to an illegal braceless `if (...) int
+                                                        saveCursor = cursor;`, which javac rejects with
+                                                        "variable declaration not allowed here". Fixed by
+                                                        adding a `PRIMITIVE_TYPE_KEYWORDS`-led-declaration
+                                                        check alongside the existing `final`/`const` guard in
+                                                        `BlockStructureRule.isSingleStatementBody`.
+
 How Tests Are Run
 -----------------
 

@@ -591,8 +591,8 @@ on the noted commits/fixtures)
      re-indent — same root cause as "Known Gaps — Open" (1/1997 files). `javac` compile-check not
      run (gated on fully-clean idempotency); accepted Finished per user decision — see
      `README.md`'s "Known Limitations".
-(17) HUGE `openrewrite/rewrite` (3373 `.java` files) — IN PROGRESS, not DONE. Full-tree forward
-     pass (default config): 0 errors. Round1/round2 idempotency: 34 differing files, 6 clusters,
+(17) HUGE `openrewrite/rewrite` — DONE. Full-tree forward pass (default config): 0 errors.
+     Round1/round2 idempotency (original 6-cluster investigation): 34 differing files, 6 clusters,
      all now fixed:
      - Cluster 1 (~20 files, ANTLR-generated, incl. `tree/J.java`) — 2 sub-bugs, same root-cause
        shape (fits-check made before a later width-growing pass ran): (a) `isSingleLineBody`
@@ -621,10 +621,62 @@ on the noted commits/fixtures)
        across rounds. Fixed via a new `STATEMENT_LEADING_KEYWORDS` guard at the
        function-pointer-detection call site. Verified: real `K.java` round1/round2
        byte-identical, `make test` 220/220 (up from 219/219). Fixture: `real_code_regressions_171`.
-     `make test` after fixes: 220/220 forward + idempotency, zero regressions. Full-tree
-     round1/round2 re-run + `javac` compile-check across the whole 3373-file tree (deferred
-     until all 6 clusters resolved) is now unblocked — still NOT yet run, left for a future
-     session.
+     `make test` after fixes: 220/220 forward + idempotency, zero regressions.
+
+     **Full-tree round1/round2 re-run + syntax-check, 2026-08-09 (this was the deferred
+     re-verification, now run).** Corpus re-cloned fresh (`git clone --depth 1
+     https://github.com/openrewrite/rewrite` into `/tmp/rewrite` — the prior session's `/tmp/rewrite`
+     checkout on disk was a stale/incomplete sparse-checkout skeleton, only 1 file/4.6M, not the real
+     tree; a plain full clone was simplest per this session's task). Repo has grown since the
+     original 3373-file count — fresh clone has 3510 `.java` files; used as the ground truth for this
+     run. Batched per top-level module subdirectory (`for d in /tmp/rewrite/*/`) per
+     `STATE_COMMON.md`'s batching guidance, `--out`/`--preserve-tree`/`--root`.
+
+     Round1/round2 diff: 4 residual idempotency diffs found, all cosmetic (no invalid-syntax risk),
+     left **open/undiagnosed** as newly-found Known Gaps (see below) rather than blind-fixed, given
+     each matches an already-documented deep/risky architectural bug family in this file (indent-
+     width-decided-before-a-later-pass-grows-it, alignment-padding-collapse, switch-arrow-brace
+     pass-ordering) — same judgment call already exercised for the open `PowerShellSpecificRule.java`
+     self-format bug in `STATE_COMMON.md`'s "Formatter self-formatting" section:
+     - `rewrite-java-test/.../ModerneWebsiteExampleTest.java`: a switch-arrow braceless `if/else`
+       body followed by the arm's own closing `}` on the same physical line
+       (`else b.append(c); }`) gets its `}` pulled onto its own line only on round2.
+     - `rewrite-kotlin/.../TabsAndIndentsVisitor.java` and `rewrite-yaml/.../YamlParser.java`: a
+       wrapped call argument's closing-paren continuation line gains 4 extra indent spaces between
+       round1 and round2 (indent-width-decided-before-a-later-pass-grows-it family).
+     - `rewrite-python/.../Pep508RequirementTest.java`: a `List<String>` declaration's
+       alignment-group padding (3 spaces) collapses to 1 space on round2 (alignment-padding-collapse
+       family, same shape as the already-fixed Cluster 5 but a different trigger site).
+
+     One transient, non-reproducible `NoClassDefFoundError: MiscRuleCore$SepMatch` crash was hit
+     mid-batch on the first round2 attempt (JVM classloader/resource-pressure hiccup during the very
+     large batch loop, not a formatter bug) — confirmed non-reproducible by re-running just the
+     affected subdirectory (`rewrite-gradle`, 241 files) in isolation, which completed cleanly with
+     no diff against the rest of the tree.
+
+     `javac` compile of the whole tree was judged impractical standalone (Gradle multi-module project
+     with ANTLR-generated sources and real inter-module dependencies, per this item's own long-
+     standing note) — used the `java_syntax_check` fallback instead (same pattern as items 25/26).
+     Baseline (original unformatted 3510 files): 3510/3510 OK, 0 syntax errors. Round1 (first pass,
+     before the fix below): **1 new syntax error**, not present in baseline —
+     `rewrite-java-25/.../ReloadableJava25ParserVisitor.java:764: variable declaration not allowed
+     here`. Root cause: `BlockStructureRule.isSingleStatementBody`'s declaration guard only refused
+     collapse for a `final`/`const`-qualified leading token (`final boolean ignored = ...;`) — an
+     un-qualified primitive-type declaration (`int saveCursor = cursor;`, no `final`/`const`) was
+     never caught, so `if (...) { int saveCursor = cursor; }` got collapsed to the illegal braceless
+     `if (...) int saveCursor = cursor;`. Fixed by adding a new `PRIMITIVE_TYPE_KEYWORDS` set
+     (mirrors `DeclarationAlignmentRuleCurly`'s own `TYPE_KEYWORDS_C`/`TYPE_KEYWORDS_JAVA`) and a
+     sibling guard alongside the existing `final`/`const` check: refuse collapse when the leading
+     token is a primitive/built-in type keyword directly followed by an identifier. Verified: `make
+     test` 264/264 (up from 263/263, new fixture `real_code_regressions_187`); full-tree re-run after
+     the fix — round1 syntax-check 3510/3510 OK (matches baseline exactly); round1/round2 idempotency
+     diff unchanged at the same 4 residual files above (confirms the fix didn't touch that unrelated
+     bug family); the earlier transient crash did not recur.
+
+     **Disposition: DONE.** Full-tree idempotency and syntax-check baselines are now established for
+     the first time; the one real (syntax-breaking) bug found is fixed and fixtured
+     (`real_code_regressions_187`). The 4 residual cosmetic idempotency diffs are recorded as new
+     Known Gaps below rather than chased further this session.
 (18) Local `VMA-GIT/anemonesoft/` (82 `.java`) — 1 bug: `renderCallCandidate` swallowed a
      multi-line brace-bodied trailing argument. Verified (4). Fixture: `real_code_regressions_29`.
 (19) Local `ARMCortexMThumbC.java.in` (PCPP template) — no bug found; verified (5), 0-line
@@ -843,6 +895,37 @@ RDD_KEY_88.
   raw indentation for that line is inconsistent with the block's structural depth — same shape as
   the (now-fixed) switch-case gap, triggered via the declarations pass instead. Same disposition:
   ACCEPTED, not fixed, single occurrence. No fixture.
+
+- **`openrewrite/rewrite` full-tree re-verification (2026-08-09), 4 residual idempotency diffs —
+  ACCEPTED, not fixed.** Found during item (17)'s deferred full-tree round1/round2 re-run (see that
+  entry for the run's own detail — this only records the 4 unresolved diffs left over after that
+  session's one real bug, the primitive-type-declaration collapse, was fixed and fixtured as
+  `real_code_regressions_187`). All 4 are cosmetic (idempotency-only, no invalid-syntax risk — the
+  `java_syntax_check` full-tree baseline stayed 3510/3510 clean both before and after), and each
+  matches an already-documented deep/risky architectural bug family elsewhere in this file rather
+  than being a novel shape — judged not worth a blind fix at this session's scope, same call already
+  made for the open `PowerShellSpecificRule.java` self-format bug in `STATE_COMMON.md`'s "Formatter
+  self-formatting" section. No fixture registered (root cause not isolated to a minimal repro this
+  session). Left OPEN for a future session:
+  - `rewrite-java-test/src/test/java/org/openrewrite/java/ModerneWebsiteExampleTest.java`: a
+    switch-arrow braceless `if/else` body followed by the arm's own closing `}` on the same physical
+    line (`default -> { if(...) ...; else b.append(c); }`) keeps the `}` attached to the `else`
+    branch's body on round1, but gets it pulled onto its own line on round2 — switch-arrow-brace
+    pass-ordering family, same shape as the original Cluster 2 fix
+    (`appendChainNewlineBeforeElse`)/`findBracelessStatementEnd` but a different trigger site
+    (switch-arrow body, not a plain `if/else` chain).
+  - `rewrite-kotlin/src/main/java/org/openrewrite/kotlin/format/TabsAndIndentsVisitor.java` and
+    `rewrite-yaml/src/main/java/org/openrewrite/yaml/YamlParser.java`: a wrapped call argument's
+    closing-paren continuation line gains 4 extra indent spaces between round1 and round2 —
+    indent-width-decided-before-a-later-pass-grows-it family, same root-cause shape as the original
+    Cluster 1 fix (`isSingleLineBody`/`expandedIndentWidth`) and the still-open
+    `PowerShellSpecificRule.java` self-format bug, but a different trigger site (a wrapped-call
+    continuation line's own indent, not a comment-column-alignment width).
+  - `rewrite-python/src/test/java/org/openrewrite/python/internal/pep508/Pep508RequirementTest.java`:
+    a `List<String>` declaration's alignment-group padding (3 spaces before the variable name)
+    collapses to 1 space on round2 — alignment-padding-collapse family, same shape as the original
+    (now-fixed) Cluster 5 (`DeclarationAlignmentRuleCurly.parseDeclaration`'s function-pointer-
+    declarator misdetection), but a different trigger site not yet isolated.
 
 
 ## Known Gaps — Fixed

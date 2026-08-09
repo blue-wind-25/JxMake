@@ -65,7 +65,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Java | STATE_CURLY_GDR.md | javaparser/javaparser (javaparser-core-generators, GDR multipass) | DONE | curly-general-scope-reindent-multipass=on: 13/43 single-pass non-idempotent files → 0/43 |
 | Java | STATE_CURLY_GDR.md | tool/JSONEncoderLite.java (local, GDR multipass) | DONE | curly-general-scope-reindent-multipass=on: 112-line single-pass non-idempotency diff → 0 |
 | Java | STATE_C_CPP_JAVA.md | jenkinsci/jenkins | DONE | PluginManager.java fixed (RDD_KEY_225, pre-flight bail-out in DeclarationAlignmentRuleCurly.parseDeclaration); make test 224→225/225 |
-| Java | STATE_C_CPP_JAVA.md | openrewrite/rewrite | DONE - PARTIAL FIX | all 6 idempotency clusters fixed (cluster 5 via STATEMENT_LEADING_KEYWORDS guard); full-tree re-run + javac compile-check (3373 files) unblocked but not yet run |
+| Java | STATE_C_CPP_JAVA.md | openrewrite/rewrite | DONE | all 6 idempotency clusters fixed (cluster 5 via STATEMENT_LEADING_KEYWORDS guard); full-tree re-run + syntax-check completed 2026-08-09 (fresh clone, 3510 files) — found and fixed 1 new syntax-breaking bug (primitive-type declaration collapse, fixture `real_code_regressions_187`); 4 residual cosmetic idempotency diffs left as accepted Known Gaps (no syntax/compile risk) |
 | Java | STATE_C_CPP_JAVA.md | pcpp_java tool (local) | DONE | |
 | Java | STATE_C_CPP_JAVA.md | RobotCoding gui_frontend | DONE | |
 | Java | STATE_C_CPP_JAVA.md | self-dogfood (formatter's own src/) | DONE | |

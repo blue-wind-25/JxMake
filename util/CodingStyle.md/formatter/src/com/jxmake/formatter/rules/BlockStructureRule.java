@@ -48,6 +48,23 @@ public class BlockStructureRule {
     // STYLE.md §7 default; overridable via `closing-comment-min-lines` once Config.java exists.
     private static final int DEFAULT_CLOSING_COMMENT_MIN_LINES = 5;
 
+    // Primitive/built-in type keywords that can lead a local variable declaration in C/C++/Java
+    // (`int x = 1;`, `boolean ignored = ...;`) -- mirrors `DeclarationAlignmentRuleCurly`'s own
+    // `TYPE_KEYWORDS_C`/`TYPE_KEYWORDS_JAVA` sets (kept as a separate narrow copy here rather than
+    // a shared import, same precedent as this file's own `TIGHT_PAREN_KEYWORDS` copy of
+    // `MiscRuleCore.TIGHT_PAREN_KEYWORDS`). Used by `isSingleStatementBody`'s declaration guard
+    // below, alongside the existing `final`/`const` leading-token check, which only caught a
+    // declaration when explicitly qualified -- a plain `int saveCursor = cursor;` slipped through
+    // (found via openrewrite/rewrite real-code testing,
+    // `ReloadableJava25ParserVisitor.java`'s `parsePackage`: `if (...) { int saveCursor = cursor;
+    // }` collapsed to the illegal braceless `if (...) int saveCursor = cursor;` -- javac rejects it
+    // with "variable declaration not allowed here").
+    private static final Set<String> PRIMITIVE_TYPE_KEYWORDS = setOf(
+        "void", "char", "short", "int", "long", "float", "double", "boolean", "byte",
+        "signed", "unsigned", "struct", "enum", "union", "bool", "_Bool",
+        "wchar_t", "char16_t", "char32_t", "auto", "class", "var"
+    );
+
     private final Lang lang;
     private final int  closingCommentMinLines;
     /**
@@ -731,6 +748,16 @@ public class BlockStructureRule {
         // body is a bare declaration -- javac rejects it with "variable declaration not allowed
         // here"). Refuse collapse rather than emit invalid code.
         if( "final".equals( sig.get(0).text ) || "const".equals( sig.get(0).text ) ) return false;
+        // Sibling case to the `final`/`const` check just above: an un-qualified declaration whose
+        // leading token is itself a primitive/built-in type keyword (`int x = ...;`) is just as
+        // illegal a braceless body -- only Kotlin's `val`/`var` are handled separately below since
+        // Kotlin has no primitive-type-keyword declaration shape.
+        if( !lang.isKotlin
+                && sig.size() >= 2
+                && sig.get(0).type == TokenType.KEYWORD
+                && PRIMITIVE_TYPE_KEYWORDS.contains( sig.get(0).text )
+                && sig.get(1).type == TokenType.IDENTIFIER
+        ) return false;
 
         int semiCount = 0;
         int semiIdx   = -1;

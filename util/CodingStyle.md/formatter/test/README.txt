@@ -3364,126 +3364,62 @@ Real-code regressions:
                                                         `applyAssignmentsPass`, so it also sees the
                                                         post-call-wrap shape.
 
-  real_code_regressions_186_inp/out.ts               -- Minimized from `angular/angular`'s
-                                                        `web_animations_player_spec.ts`/`input_transform.ts`
-                                                        (cluster 4 residual group #3, RDD_KEY_271): two
-                                                        independent JS/TS-only idempotency bugs. (a) A
-                                                        class-field alignment-grid member (STYLE.md §11.2)
-                                                        whose initializer gets wrapped by a later call-wrap
-                                                        pass -- `tryParseClassField` bailed to "unrecognized
-                                                        member" on any embedded NEWLINE, misclassifying the
-                                                        field once fed its own round-1 output. Fixed by
-                                                        collapsing the multi-line initializer back to its
-                                                        logical single-line text instead of bailing. (b) A
-                                                        decorator argument's union-type spacing
-                                                        (`string|number` -> `string | number`) is applied by a
-                                                        Phase 4 pass that runs *after*
-                                                        `enforceDecoratorOverflowCascade`'s inline-fit
-                                                        measurement, so a fresh format stays inline and
-                                                        self-violates `lineLengthLimit`, while a reformat
-                                                        measures the already-widened text and wraps. Fixed by
-                                                        pulling `enforceUnionIntersectionSpacing`/
-                                                        `enforceTypeColonSpacing` forward to run before
-                                                        `enforceDecoratorOverflowCascade`, same shape as the
-                                                        other Phase-4-pulled-forward passes above it.
+  real_code_regressions_186_inp/out.ts               -- Minimized from `angular/angular` (cluster 4 residual
+                                                        group #3, RDD_KEY_271): two JS/TS idempotency bugs.
+                                                        (a) `tryParseClassField` bailed on an embedded NEWLINE
+                                                        in an already-wrapped initializer; fixed by collapsing
+                                                        it back to single-line text before parsing. (b)
+                                                        decorator-argument union-type spacing ran in a Phase 4
+                                                        pass *after* `enforceDecoratorOverflowCascade`'s
+                                                        inline-fit check, so a fresh format measured narrower
+                                                        than a reformat; fixed by pulling
+                                                        `enforceUnionIntersectionSpacing`/
+                                                        `enforceTypeColonSpacing` forward before it.
 
-  real_code_regressions_187_inp/out.java             -- Minimized from `openrewrite/rewrite`'s
-                                                        `ReloadableJava25ParserVisitor.java` (item 17's
-                                                        full-tree re-verification pass):
-                                                        `isSingleStatementBody`'s declaration guard only
-                                                        caught a braced single-statement body qualified by
-                                                        `final`/`const` (`final boolean ignored = ...;`) -- an
-                                                        un-qualified primitive-type declaration (`int
-                                                        saveCursor = cursor;`) slipped through and was
-                                                        collapsed to an illegal braceless `if (...) int
-                                                        saveCursor = cursor;`, which javac rejects with
-                                                        "variable declaration not allowed here". Fixed by
-                                                        adding a `PRIMITIVE_TYPE_KEYWORDS`-led-declaration
-                                                        check alongside the existing `final`/`const` guard in
+  real_code_regressions_187_inp/out.java             -- Minimized from `openrewrite/rewrite` (item 17
+                                                        full-tree re-verification): `isSingleStatementBody`'s
+                                                        declaration guard only caught `final`/`const`
+                                                        declarations, so an unqualified `int x = ...;` body
+                                                        got collapsed into an illegal braceless `if` (javac:
+                                                        "variable declaration not allowed here"). Fixed by
+                                                        adding a `PRIMITIVE_TYPE_KEYWORDS` guard alongside the
+                                                        existing `final`/`const` check in
                                                         `BlockStructureRule.isSingleStatementBody`.
 
-  real_code_regressions_188_inp/out.sh               -- Minimized from `ohmyzsh/ohmyzsh`'s
-                                                        `plugins/gitfast/git-completion.bash` (Bash dogfood
-                                                        pass): two round1/round2 non-idempotency bugs in
-                                                        `BashSpecificRule`. (1) `emitCaseBody`'s case-arm
-                                                        pattern-boundary regex (`CASE_ARM`) located the
-                                                        pattern's terminating `)` via simple first-match
-                                                        regex, with no awareness of backslash escapes -- a
-                                                        pattern containing an escaped paren pair like `\(\))`
-                                                        had its *escaped* `)` mistaken for the real
-                                                        terminator, splitting the arm mid-pattern. Fixed by
-                                                        replacing the regex with a char-by-char `matchCaseArm`
-                                                        scan that skips `\`-escaped characters when searching
-                                                        for the terminator. (2) `runPassA`'s root/code-mode
-                                                        tokenizer had no backslash-escape handling at all -- a
-                                                        `\'` case-arm pattern (escaped literal single-quote,
-                                                        e.g. `\'*)`) fell through to the plain `'` branch on
-                                                        the following character, incorrectly opening a real
-                                                        single-quote string frame that stayed open (kind 'O')
-                                                        until some later unrelated `'` closed it, corrupting
-                                                        brace-depth-based indentation for every line in
-                                                        between; being state carried across the whole
-                                                        tokenizer pass, this only became visible as a
-                                                        differing shape between round1 and round2 rather than
-                                                        an immediately obvious single-file bug. Fixed by
-                                                        adding a root-context `c == '\\'` branch (mirrors the
-                                                        existing escape handling already present inside
-                                                        `D`/`Q`/`B` frame types) that consumes both the
-                                                        backslash and the following character as plain code
-                                                        before any quote-opening check runs.
+  real_code_regressions_188_inp/out.sh               -- Minimized from `ohmyzsh/ohmyzsh` (Bash dogfood):
+                                                        two round1/round2 bugs in `BashSpecificRule`. (1)
+                                                        `CASE_ARM`'s first-match regex mistook an escaped `)`
+                                                        in a pattern like `\(\))` for the terminator; fixed
+                                                        via a backslash-aware `matchCaseArm` char scan. (2)
+                                                        `runPassA`'s tokenizer had no root-context backslash
+                                                        handling, so `\'` in a case pattern opened a real
+                                                        string frame that stayed open across lines, corrupting
+                                                        indentation; fixed by adding a `c == '\\'` branch that
+                                                        consumes the escaped char before any quote check.
 
-  real_code_regressions_189_inp/out.sh               -- Minimized from `ohmyzsh/ohmyzsh`'s
-                                                        `tools/changelog.sh` (Bash dogfood pass, found after
-                                                        fixing real_code_regressions_188's two bugs above): a
-                                                        third round1/round2 non-idempotency bug in
-                                                        `BashSpecificRule`. `emitCaseBody` had no concept of a
-                                                        nested `case ... in` appearing as an outer arm's body
-                                                        -- a nested case's own terminating `esac` line was
-                                                        only ever recognized when the trimmed line was exactly
-                                                        `esac`, so a combined `esac ;;` line (closing the
-                                                        nested case *and* the enclosing arm on one physical
-                                                        line) fell through to the generic body-line fallback
-                                                        instead, corrupting indentation from that point on and
-                                                        producing a different shape each round. Fixed by
-                                                        splitting `emitCaseBody` into a thin public wrapper
-                                                        plus a recursive `emitCaseBodyInner` (new
-                                                        `CaseBodyEnd` result record: next index + whether the
-                                                        terminator closed an enclosing arm): a body line
-                                                        matching `CASE_START` now recurses at one deeper
-                                                        indent level, and the terminator check accepts `esac`,
-                                                        `esac ;;`, or `esac;;`, re-emitting the trailing `;;`
-                                                        as its own line and propagating `expectingPattern =
-                                                        true` back to the enclosing call so the next line is
-                                                        read as a fresh arm pattern rather than a continuation
-                                                        of the previous arm's body.
+  real_code_regressions_189_inp/out.sh               -- Minimized from `ohmyzsh/ohmyzsh` (Bash dogfood,
+                                                        found after 188's fixes): `emitCaseBody` didn't
+                                                        recognize a combined `esac ;;` line closing both a
+                                                        nested `case` and its enclosing arm, corrupting
+                                                        indentation from that point. Fixed by splitting into
+                                                        `emitCaseBody`/recursive `emitCaseBodyInner`, which
+                                                        recurses on nested `CASE_START` and accepts `esac`,
+                                                        `esac ;;`, or `esac;;` as the nested terminator.
 
-  real_code_regressions_190_inp/out.sh               -- Minimized from `ohmyzsh/ohmyzsh`'s `plugins/wd/wd.sh`
-                                                        (Bash dogfood pass): a real syntax-corruption bug (not
-                                                        just an idempotency nit) in
-                                                        `BashSpecificRule.pipeSpacing` (§2.2). The lone-`|`
-                                                        detector excluded `||`/`|&` but not the
-                                                        noclobber-override redirect operator `>|` (`cmd >|
-                                                        file` -- write even if `noclobber` is set), so `>|`
-                                                        was split into `> |`, which `bash -n` rejects as a
-                                                        genuine syntax error (a stray pipe with nothing on its
-                                                        left). Confirmed via
-                                                        `tools/verifiers/bash_syntax_check.sh`: the original
-                                                        file parsed clean, the formatted round1 output did
-                                                        not. Fixed by also excluding a `|` immediately
-                                                        preceded by `>` from pipe-spacing.
+  real_code_regressions_190_inp/out.sh               -- Minimized from `ohmyzsh/ohmyzsh` (Bash dogfood): a
+                                                        real syntax-corruption bug (not just idempotency) in
+                                                        `BashSpecificRule.pipeSpacing` (§2.2) -- the lone-`|`
+                                                        detector excluded `||`/`|&` but not the noclobber
+                                                        redirect `>|`, splitting it into `> |` (a `bash -n`
+                                                        syntax error). Fixed by also excluding `|` immediately
+                                                        preceded by `>`.
 
-  real_code_regressions_191_inp/out.ps1              -- Minimized from `PowerShell/PowerShell`'s
-                                                        `test/powershell/engine/ETS/Adapter.Tests.ps1`
-                                                        (PowerShell dogfood pass, run manually by the user):
-                                                        an idempotency bug in
-                                                        `PowerShellSpecificRule.KEYWORD_PAREN` (shared
-                                                        §3.5 keyword-paren spacing). Its lookbehind excluded
-                                                        only preceding word chars, so the method call
-                                                        `.ForEach(` -- preceded by `.`, not a word char -- was
-                                                        misdetected as the `foreach` keyword and gained a
-                                                        spurious space before `(` on round2
-                                                        (`("a").ForEach ( { $_ })`). Fixed by adding `.` to the
-                                                        lookbehind's exclusion set.
+  real_code_regressions_191_inp/out.ps1              -- Minimized from `PowerShell/PowerShell` (PowerShell
+                                                        dogfood, run manually by the user): `KEYWORD_PAREN`'s
+                                                        lookbehind excluded only word chars, so the method
+                                                        call `.ForEach(` was misdetected as the `foreach`
+                                                        keyword and gained a spurious space before `(` on
+                                                        round2. Fixed by adding `.` to the exclusion set.
 
 How Tests Are Run
 -----------------

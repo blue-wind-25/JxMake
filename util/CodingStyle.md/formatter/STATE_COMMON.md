@@ -426,6 +426,41 @@ copies alone (`DeclarationAlignmentRuleCore`, `MiscRuleCore`,
 common ancestor short of a bigger, riskier shared-utility-class move. No
 other duplicated helper found worth promoting.
 
+**2026-08-10 cleanup-pass follow-up:** re-swept `FormatterCurly`/
+`FormatterIndent`/`FormatterTags`, `ScopePipelineCurly`/`ScopePipelineIndent`/
+`ScopePipelineTags`, `MiscRuleCurly`/`MiscRuleIndent`/`MiscRuleTags`,
+`IndentationDetector`, and the `gdr/` package for unused private methods/
+fields and unused imports (grep-verified zero call sites anywhere in
+`src/`/`test/`/`tools/`, not just single-file scope). Found and removed one
+genuinely dead method: `MiscRuleCurly.lineEndIndex` (a NEWLINE-scanning
+line-end finder) — RDD_KEY_163 already documents that its one former call
+site was replaced by the depth-aware `effectiveLineEndIndex` to fix a
+Kotlin round1/round2 idempotency bug, but the superseded method itself was
+left behind unused; `JsTsSpecificRule` has its own separate same-named
+private method, unaffected. Removed its now-unused `HashSet`/`Set`/
+`CommentDecision` imports from the same file (the latter two only ever
+referenced by that dead method's neighbors, not by it — double-checked
+each still has zero remaining references file-wide before removing).
+Two other low-reference-count hits investigated and left alone as false
+positives: `MiscRuleIndent.isCommentChainLink`/`isCommentRewritable`
+looked unused by same-file grep but are legitimate `@Override`s of
+`MiscRuleCore` methods that `MiscRuleCore` itself calls polymorphically
+(Python's own doc comment on the override explains why it always returns
+`true`) — correctly not dead. No unused private methods found in any other
+swept file this round (all had either zero or >1 same-file references); no
+unused `static final` constants found either. No new safe duplication-
+consolidation candidates found beyond the 2026-07-28 `setOf` promotion.
+`make test`: confirmed the single pre-existing `test/cpp_comments_inp.cpp`
+failure (GRU comment-classifier capitalization verdict differs from a
+prior committed run — not caused by, or related to, this session's edits)
+was already present identically before this session's two edits were
+applied (verified by reverting `MiscRuleCurly.java` to its committed
+`HEAD` version and re-running `make clean && make test`, same single
+failure); left uninvestigated as out of scope for a dead-code sweep — a
+future AI-assist-job session should check `STATE_AI.md`/classifier weight
+provenance for why a checked-in fixture doesn't match a fresh build
+deterministically.
+
 ---
 
 ## Architectural TODOs

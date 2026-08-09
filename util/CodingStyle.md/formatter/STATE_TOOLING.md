@@ -305,6 +305,78 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       No dogfood *run* yet — listing + materialize only.
 - [x] Run a real-code dogfood pass, one language at a time (Makefile, then
       Bash, then PowerShell).
+      **Bash — DONE, 4 bugs found and fixed (3 idempotency, 1 syntax
+      corruption).** Batched 5 corpora already materialized from prior
+      sessions: `javaparser/javaparser` (`/tmp/javaparser_gdr`, 7 `.sh`),
+      `jenkinsci/jenkins` (`/tmp/jenkins_scope`, 3 `.sh`),
+      `wordpress/wordpress-develop` (`/tmp/wordpress-develop`, 3 `.sh`),
+      `acmesh-official/acme.sh` (`/tmp/acme.sh`, full shallow clone, 276
+      `.sh`), `ohmyzsh/ohmyzsh` (`/tmp/ohmyzsh`, stripped to 17
+      `.sh`/`.bash`) -- through round1/round2. The first four came back
+      clean (idempotent, `bash -n` matching originals). `ohmyzsh` found a
+      non-empty round1/round2 diff, so implementation stopped and
+      investigated per protocol (evidence-over-reasoning: bisected the
+      failing file down to a minimal reproduction rather than reasoning
+      about the tokenizer in the abstract). Root causes, all in
+      `src/com/jxmake/formatter/rules/BashSpecificRule.java`:
+      (1) `emitCaseBody`'s case-arm pattern-boundary regex (`CASE_ARM`)
+      found the pattern's terminating `)` via first-match with no
+      backslash-escape awareness -- a pattern containing an escaped paren
+      pair like `\(\))` had its *escaped* `)` mistaken for the real
+      terminator, splitting the arm mid-pattern. Fixed by replacing the
+      regex with a char-by-char `matchCaseArm` scan that skips
+      `\`-escaped characters when searching for the terminator.
+      (2) `runPassA`'s root/code-mode tokenizer had no backslash-escape
+      handling at all -- a `\'` case-arm pattern (e.g. `\'*)`) fell
+      through to the plain `'` branch on the next character, incorrectly
+      opening a real single-quote string frame that stayed open (kind
+      'O') until some later unrelated `'` closed it, corrupting
+      brace-depth-based indentation for everything in between; being
+      carried in tokenizer state across the whole pass, this only showed
+      up as a round1/round2 shape difference rather than an obviously
+      wrong single line. Fixed by adding a root-context `c == '\\'`
+      branch (mirrors the existing escape handling already present
+      inside the `D`/`Q`/`B` frame types) that consumes both the
+      backslash and the following character as plain code before any
+      quote-opening check runs. (3) `emitCaseBody` had no concept of a
+      nested `case ... in` appearing as an outer arm's body -- a nested
+      case's own terminating `esac` line was only recognized when the
+      trimmed line was exactly `esac`, so a combined `esac ;;` line
+      (closing the nested case *and* the enclosing arm on one physical
+      line) fell through to the generic body-line fallback, corrupting
+      indentation from that point on. Fixed by splitting `emitCaseBody`
+      into a thin wrapper plus a recursive `emitCaseBodyInner` (new
+      `CaseBodyEnd` result: next index + whether the terminator closed an
+      enclosing arm): a body line matching `CASE_START` now recurses at
+      one deeper indent, and the terminator check accepts `esac`,
+      `esac ;;`, or `esac;;`, propagating `expectingPattern = true` back
+      to the caller when the trailing `;;` was present. After fixes (1)
+      and (2), a fourth, independent bug surfaced via
+      `tools/verifiers/bash_syntax_check.sh` (not idempotency --
+      `plugins/wd/wd.sh`'s original parsed clean under `bash -n` but its
+      round1 output did not): `pipeSpacing`'s (§2.2) lone-`|` detector
+      excluded `||`/`|&` but not the noclobber-override redirect
+      operator `>|` (`cmd >| file`), so `>|` was split into `> |`, a
+      genuine `bash -n` syntax error, not just a style nit. Fixed by also
+      excluding a `|` immediately preceded by `>` from pipe-spacing.
+      After all four fixes: round1/round2 diff empty across all 5
+      corpora; `bash -n` on `ohmyzsh` shows the same 10 pre-existing
+      error lines on both original and round1 (5 files use zsh-only
+      syntax under a `.sh`/`.bash` extension -- extended-glob
+      alternation `(|pattern)`, `${(kv)...}`, `always {}` blocks --
+      already invalid bash before any formatting, out of this job's
+      bash-only scope). **Known accepted gap, not fixed:** one of those
+      already-invalid-under-bash files (`tools/upgrade.sh`) also has
+      `pipeSpacing` insert a space inside a zsh extended-glob alternation
+      it can't distinguish from a real pipe (`(|.git)` -> `( | .git)`) --
+      since the file was never valid bash to begin with (fails `bash -n`
+      identically before and after), this isn't a new class of breakage,
+      and dialect-detecting `.sh`-extension-but-actually-zsh content is
+      out of scope (same "no general grammar, fixed transform list" job
+      boundary as every other accepted gap in this file). `make test`:
+      267/267 forward + idempotency (was 264/264 before this session --
+      3 new fixtures added: `real_code_regressions_188`-`190`). See
+      `STATE_DOGFOOD.md` for per-repo rows.
       **Makefile — DONE.** Batched `/tmp/PEGTL/Makefile`,
       `/tmp/frozen/tests/Makefile`, `/tmp/frozen/benchmarks/Makefile`, and
       `/tmp/fmt/support/Android.mk` (211 lines total) through round1/round2:

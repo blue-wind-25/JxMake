@@ -119,7 +119,7 @@ Update and fix `CLAUDE.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.m
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_186_inp/out.ts`
-    to   `real_code_regressions_189_inp/out.sh`
+    to   `real_code_regressions_190_inp/out.sh`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -170,6 +170,11 @@ Use sub-agent. This can be a substantial work.
        - Bash (all materialized, never run):
            `javaparser/javaparser`, `jenkinsci/jenkins`, `wordpress/wordpress-develop`,
            `acmesh-official/acme.sh`, `ohmyzsh/ohmyzsh`
+           [DONE — all 5 corpora run; 4 real bugs found and fixed (case-arm escaped-paren
+           mismatch, root-mode `\'` backslash-escape mis-tokenizing, nested `case...esac`
+           non-idempotency, `>|` noclobber redirect split by pipe-spacing); fixtures
+           real_code_regressions_188-190; zsh-dialect files in ohmyzsh documented as an
+           accepted known gap — see STATE_TOOLING.md / STATE_DOGFOOD.md]
        - PowerShell (materialized, never run):
            `PowerShell/PowerShell`, `actions/runner-images`
    - LOWER PRIORITY, needs setup work first:

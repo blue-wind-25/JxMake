@@ -615,7 +615,7 @@ public class TokenizerCurly extends TokenizerCore {
             else if( isIdentifierStart(c) ) {
                 t = emitIdentifierOrKeyword();
             }
-            else if( c == '[' && peek(1) == '[' && looksLikeAttributeOpen() ) {
+            else if( c == '[' && peek(1) == '[' && lang.isCpp && looksLikeAttributeOpen() ) {
                 t = emitOperator();
             }
             else if( c == ']' && peek(1) == ']' && lang.isCpp ) {

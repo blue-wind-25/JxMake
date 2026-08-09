@@ -782,13 +782,13 @@ when it actually gains a documented gap.
 
 ### Tag-based family (XML/HTML5)
 
-5. **HTML5 deep tree-construction gap coverage (`html5-tc-gap-level`) is a narrow, documented
+1. **HTML5 deep tree-construction gap coverage (`html5-tc-gap-level`) is a narrow, documented
    approximation of each corresponding HTML5 spec algorithm, not a full spec-faithful
    implementation.** See "Config file format" → [HTML5 tree-construction gap
    levels](#html5-tree-construction-gap-levels-html5-tc-gap-level) above for what the key is,
    what each level enables, and each level's own documented gap.
 
-6. **HTML/XML single-word comments are never capitalized, even when they're genuine one-word
+2. **HTML/XML single-word comments are never capitalized, even when they're genuine one-word
    prose.** See "Config file format" → [Comment capitalization
    exceptions](#comment-capitalization-exceptions-normalize-comment-start-case) above for what
    `normalize-comment-start-case` skips and why (e.g. `<!--more-->`-style directive comments).

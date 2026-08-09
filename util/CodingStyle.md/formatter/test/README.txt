@@ -3461,6 +3461,30 @@ Real-code regressions:
                                                         the existing JS/TS bundle to Java was found to regress
                                                         in two earlier attempts).
 
+  real_code_regressions_194_inp/out.ts               -- Minimal repro of a syntax-corruption bug found
+                                                        dogfooding `microsoft/TypeScript`'s
+                                                        `compiler/watchPublic.ts`: a nested/double-bracketed
+                                                        array literal used as a call argument (`new
+                                                        Map([[undefined, undefined]])`) got a stray `;`
+                                                        inserted inside the parens on format. Root cause:
+                                                        `TokenizerCurly`'s C++11 `[[attribute]]`-open
+                                                        detection (`c == '[' && peek(1) == '[' &&
+                                                        looksLikeAttributeOpen()`) was missing the `&&
+                                                        lang.isCpp` guard its sibling branches (`]]` close,
+                                                        `[:`) both have, so a TS nested `[[` array-open
+                                                        matched the C++ heuristic and got tokenized as an OP
+                                                        "attribute open" while its matching `]]` close (not
+                                                        gated to non-C++) fell through to the ordinary PUNCT
+                                                        bracket-close path -- an asymmetric OP/PUNCT pair that
+                                                        undercounted the open relative to the close in every
+                                                        downstream `isPunct(t, "[")`-based depth tracker,
+                                                        including `enforceCallLineBreaking`'s own
+                                                        `matchParenForward` scan, which then read the call's
+                                                        argument slice as extending one token too far (past
+                                                        the real `)`) and rendered a spurious statement
+                                                        terminator inside it. Fixed by adding the missing `&&
+                                                        lang.isCpp` guard.
+
 How Tests Are Run
 -----------------
 

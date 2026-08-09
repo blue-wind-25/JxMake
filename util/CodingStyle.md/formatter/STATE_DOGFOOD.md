@@ -109,7 +109,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | JS | STATE_JS_TS.md | lodash/lodash | DONE | |
 | TS | STATE_JS_TS.md | angular/angular | DONE | all clusters fixed: 1-3 fixed, 5 RESOLVED 2026-08-05 (3/3 files idempotent via curly-general-scope-reindent(-multipass), opt-in recommendation only), 4 fully fixed (RDD_KEY_248 resolved 7/9 residual files 2026-08-07; final 4 — `shared.ts`/`directive_outputs.ts` via RDD_KEY_269, `web_animations_player_spec.ts`/`input_transform.ts` via RDD_KEY_271) |
 | TS | STATE_CURLY_GDR.md | angular/angular (cluster 5 files, GDR multipass) | DONE - FULL FIX | curly-general-scope-reindent-multipass=on: fixes user_metric_spec.ts + i18n_parse.ts (previously non-idempotent under single-pass GDR); emit.ts already idempotent under single-pass, stays idempotent under multipass. Re-confirmed fresh 2026-08-05 (0-line round1/round2 diff on all 3, js_ts_syntax_check.sh exit 0) |
-| TS | STATE_JS_TS.md | microsoft/TypeScript | DONE - PARTIAL FIX | 4/4 named clusters fixed, incl. `harness/collectionsImpl.ts` (RDD_KEY_270, fixture real_code_regressions_185). Residual: `compiler/checker.ts` and others still hit the separate `hasBreakableCall` approximation gap (angular cluster-4 root-cause #3 family, README Known Limitations item 2), accepted/not this bug (see STATE_JS_TS.md) |
+| TS | STATE_JS_TS.md | microsoft/TypeScript | DONE - PARTIAL FIX | 4/4 named clusters fixed, incl. `harness/collectionsImpl.ts` (RDD_KEY_270, fixture real_code_regressions_185). 2026-08-09 reconfirmation against a fresh clone (14 previously-flagged files): 6/14 now clean (fixed as side effects of other work); of the remaining 8, `compiler/watchPublic.ts`'s nested-array-literal `;`-corruption is FIXED (see STATE_JS_TS.md, fixture real_code_regressions_194); the other 7 split into 4 distinct un-fixed shapes (if/else body-padding, declaration `:`-column padding, a brace-closing indent mismatch, a non-idempotent closing-brace comment) tracked in XL.txt Tier 3 -- NOT all one `hasBreakableCall` gap as previously (inaccurately) noted here |
 | TS | STATE_JS_TS.md | nestjs/nest | DONE | |
 | TS | STATE_JS_TS.md | vuejs/core | DONE | switch-fallthrough idempotency bug FIXED 2026-08-07 (RDD_KEY_263) |
 | Python3 | STATE_PYTHON3.md | django/django | DONE | |
@@ -135,10 +135,15 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | PowerShell | STATE_TOOLING.md | microsoft/azure-pipelines-tasks | DONE - FIXED | user completed a fresh full download (1123 `.ps1` files) 2026-08-09 and ran round1/round2; found 1 real idempotency bug (`KEYWORD_PAREN`/`kind[]` misalignment after a standalone comment placeholder). Follow-up session fixed it: `RunBuffer` now tracks `kind` aligned to its own output, `ChainCollector.resolveKind` splices placeholder substitutions in lockstep (see STATE_TOOLING.md); re-ran round1/round2 on the full 1123-file corpus, diff empty; `real_code_regressions_192` fixture added; `make test` 269/269 |
 
 **Note on `microsoft/TypeScript`'s status**: cluster #3's shared braceless-
-collapse root cause (same as `angular/angular` cluster 4) is fixed; the
-residual mismatch is now traced to `applyAssignmentsPass` (see table row
-above) — see `STATE_JS_TS.md`'s "Dogfood: microsoft/TypeScript" section for
-the full cluster list/ranking.
+collapse root cause (same as `angular/angular` cluster 4) is fixed.
+`applyAssignmentsPass` vs. `enforceCallLineBreaking` ordering (formerly
+tracked here as the residual cause) is also now fixed, shared-curly-pipeline
+scope, not JS/TS-specific (see STATE_C_CPP_JAVA.md Open Questions,
+`ScopePipelineCurly.reapplyAssignmentsPassOnly`). The 2026-08-09
+reconfirmation found the true remaining residue is 5 distinct shapes (one
+now fixed, `watchPublic.ts`'s nested-array-literal corruption; 4 open,
+Tier 3) — see table row above and `STATE_JS_TS.md`'s "Dogfood:
+microsoft/TypeScript" section for the full list.
 
 Corpus scope: `src/` only (601 real `.ts` files, 379045 lines) —
 `tests/cases/**` (20089 hand-authored compiler test fixtures, including

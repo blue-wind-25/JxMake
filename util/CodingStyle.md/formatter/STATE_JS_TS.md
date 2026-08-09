@@ -1069,6 +1069,39 @@ bug-hunt pass)
 No fixture-only false positives found in that pass (used direct
 TS-compiler-API parse-checking + raw `diff`, not `js_ts_content_diff.js`).
 
+### `compiler/watchPublic.ts` nested-array-literal syntax corruption — FIXED (2026-08-09)
+
+Found re-confirming the `microsoft/TypeScript` dogfood residual-files list
+(see "Note on `microsoft/TypeScript`'s status" below): `new Map([[undefined,
+undefined]])` (a call whose sole argument is a nested/double-bracketed
+array literal `[[...]]`) got a stray `;` inserted inside the parens on a
+single format pass — genuine output corruption, not merely an idempotency
+gap. Reproduced independent of C/C++/Java scope (isolated with a plain
+`.ts` repro, both as a single physical line and as a source-multi-line
+call).
+
+Root cause was shared-tokenizer, not JS/TS-specific:
+`TokenizerCurly`'s C++11 `[[attribute]]`-open detection (`c == '[' &&
+peek(1) == '[' && looksLikeAttributeOpen()`) was missing the `&&
+lang.isCpp` guard its two sibling branches (`]]` attribute-close, `[:`)
+both already have. A TS nested `[[` array-open matched the C++ heuristic
+and got tokenized as an `OP` "attribute open" token, while its matching
+`]]` close (correctly *not* gated to non-C++ languages) fell through to
+the ordinary `PUNCT` bracket-close path — an asymmetric OP/PUNCT pair.
+Every downstream `isPunct(t, "[")`-based bracket-depth tracker then
+undercounted this array's open relative to its close, including
+`MiscRuleCurly.enforceCallLineBreaking`'s own `matchParenForward` scan,
+which read the call's argument slice as extending one token too far (past
+the real `)`, through to the statement's own `;`) and rendered a spurious
+statement terminator inside the call.
+
+Fixed by adding the missing `&& lang.isCpp` guard to the `[[`-open branch
+(one-line change, `TokenizerCurly.java`). Verified: the isolated repro, the
+full `watchPublic.ts` file (both syntax-clean and idempotent
+post-fix), a genuine C++ `[[nodiscard]]` attribute (still tokenizes
+correctly, no regression), and `make test` (271/271 forward + idempotency,
+zero regressions). New fixture: `real_code_regressions_194_inp/out.ts`.
+
 ### Known false positives (no source change needed, fixture-only)
 
 - Spurious-looking blank line after a class's opening `{` in older `.js`

@@ -126,3 +126,12 @@ this file.
 | 96 | `static was chosen here specifically to avoid an extra allocation per call` | no | no | no | NO | "static" naming the actual keyword under retrospective discussion, code reference despite zero mechanical feature. |
 | 97 | `static analysis in CI caught this null-pointer dereference before merge` | no | no | no | YES | "static" as part of the ordinary English phrase "static analysis", not the storage-class keyword. |
 | 98 | `static cling was blamed for the intermittent hardware fault, not this driver` | no | no | no | YES | "static" as an ordinary English noun (static cling), prose unrelated to the keyword. |
+
+Rows 99-102 added 2026-08-10 (STATE_AI.md's "grow hand-labeled hard-case corpus" session, "more
+NO samples" pass) -- more zero-mechanical-feature NO coverage for keywords already present but
+thin on naturalistic-phrasing NO rows.
+
+| 99 | `explicit here prevents an accidental implicit conversion from a raw int` | no | no | no | NO | "explicit" naming the actual constructor-qualifier keyword being described, code reference despite zero mechanical feature. |
+| 100 | `virtual here was needed so the derived class override actually gets called` | no | no | no | NO | "virtual" naming the actual dispatch keyword being described, code reference despite zero mechanical feature. |
+| 101 | `template here is instantiated once per distinct type at compile time` | no | no | no | NO | "template" naming the actual generic-code keyword being described, code reference despite zero mechanical feature. |
+| 102 | `namespace here was added specifically to avoid a symbol clash with another library` | no | no | no | NO | "namespace" naming the actual scoping keyword being described, code reference despite zero mechanical feature. |

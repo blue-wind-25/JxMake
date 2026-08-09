@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Derives CommentClassifierWeights constants from the labeled examples in
-tools/classifier_weights/examples_{c,cpp,java,kotlin,js,ts}.md via a small logistic regression
+tools/classifier_weights/examples_{c,cpp,java,kotlin,js,ts,python3}.md via a small logistic regression
 trained in this script (pure Python, no dependencies). Run with:
     python3 tools/classifier_weights/derive_weights.py
 
@@ -29,6 +29,7 @@ LANG_BY_STEM = {
     "examples_kotlin": "kotlin",
     "examples_js": "js",
     "examples_ts": "ts",
+    "examples_python3": "python3",
 }
 
 CELL_SPLIT_RE = re.compile(r"(?<!\\)\|")

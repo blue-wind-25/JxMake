@@ -109,3 +109,12 @@ rows in this file.
 | 74 | `interface was picked here deliberately since consumers need to extend it` | no | no | no | NO | "interface" naming the actual language construct under retrospective discussion, code reference despite zero mechanical feature. |
 | 75 | `interface between the two teams has been the real bottleneck, not this code` | no | no | no | YES | "interface" as an ordinary English noun (a working relationship), prose unrelated to the keyword. |
 | 76 | `interface design matters as much as implementation quality in a library like this` | no | no | no | YES | "interface" as an ordinary English noun ("interface design"), prose. |
+
+Rows 77-80 added 2026-08-10 (STATE_AI.md's "grow hand-labeled hard-case corpus" session, "more
+NO samples" pass) -- more zero-mechanical-feature NO coverage for keywords already present but
+thin on naturalistic-phrasing NO rows.
+
+| 77 | `enum here replaces the loose set of string constants used throughout the old code` | no | no | no | NO | "enum" naming the actual type-declaration keyword being described, code reference despite zero mechanical feature. |
+| 78 | `readonly here just prevents accidental reassignment after construction` | no | no | no | NO | "readonly" naming the actual modifier keyword being described, code reference despite zero mechanical feature. |
+| 79 | `declare here only tells the compiler the value exists at runtime, nothing more` | no | no | no | NO | "declare" naming the actual ambient-declaration keyword being described, code reference despite zero mechanical feature. |
+| 80 | `namespace here was kept only for backward compatibility with the old build output` | no | no | no | NO | "namespace" naming the actual scoping keyword being described, code reference despite zero mechanical feature. |

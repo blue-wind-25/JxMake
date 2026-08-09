@@ -1150,3 +1150,55 @@ keyed-cache machinery anyway, just relocated. `GruClassifier` itself stays an
 ordinary immutable class; nothing about its own code needed to change.
 Confined to `GruAbstainResolver.java`. `make test`: 238/238 forward +
 238/238 idempotency, unchanged.
+
+---
+
+**2026-08-10 — grew hand-labeled hard-case corpus; confirmed python3 is the only new-reachable
+language among a broader candidate list.** User asked to add `examples_*.md` files for json5,
+css, yaml, toml, xml, html5, js, ts, python3, makefile, bash, powershell (js/ts already existed)
+and more NO samples, then re-run `derive_weights.py`. Investigated actual call paths before
+writing anything (per the file-exclusion/ambiguity discipline in `STATE_COMMON.md`) rather than
+trusting the 2026-08-01 "only c/cpp/java/kotlin/js/ts reach the gate" note verbatim, since
+python3 comment normalization landed 2026-08-08 (after that note was written):
+
+- `KeywordAmbiguityGate`/`classifyComment` is only called from `MiscRuleCore` (curly:
+  c/cpp/java/kotlin/js/ts) and `MiscRuleIndent` (python3, `#`-comment normalization wired
+  2026-08-08 per `STATE_PYTHON3.md`).
+- `ToolingCommentNormalizer.java`'s own doc comment states yaml/toml/makefile/bash/powershell
+  (and xml, which reuses the same chain-grouping) use "No classifier/GRU dependency" — a separate
+  ad hoc capitalization rule (STYLE_TOOLING.md §0 pattern) with no keyword-ambiguity concept.
+- json5/css/html5 have no comment-normalization wiring calling `classifyComment` at all.
+
+So of the requested list, only **python3** actually feeds this classifier; the other 9 languages
+would get an inert `examples_*.md` file (never affecting runtime behavior). Flagged this to the
+user via `AskUserQuestion` before proceeding; user chose "python3 only + fix keyword-set bug
+first".
+
+**Fix:** `KeywordAmbiguityGate.hasLeadingKeywordMatch` had no python3 branch (same bug shape
+originally found for JS/TS) and silently fell through to the wrong `KEYWORDS_C` default. Added
+`KEYWORDS_PYTHON` (full CPython `keyword.kwlist` + soft keywords `match`/`case`) + a
+`lang.isPython3` dispatch branch. Updated the stale "python3 never reaches this gate" comment in
+the same file to reflect the 2026-08-08 wiring change.
+
+**New `tools/classifier_weights/examples_python3.md`** (48 rows, balanced zero-feature YES/NO
+from the start per the `KEYWORD_BIAS`-flip lesson) + 4 new zero-feature NO rows each to
+`examples_{c,cpp,java,kotlin,js,ts}.md` (naturalistic-phrasing NO coverage for keywords already
+present, no new keywords — the "more NO samples" part of the ask). Registered the new stem in
+both `tools/classifier_weights/derive_weights.py`'s and `tools/gru/convert_classifier_weights_examples.py`'s
+`LANG_BY_STEM` maps (both needed it, same caveat each file's own comment already documents).
+
+**Re-derived weights** (594 rows total across 7 files):
+`KEYWORD_BIAS=-1.14719, KEYWORD_WEIGHT_PAREN=-2.31089, KEYWORD_WEIGHT_ARROW=-0.61513,
+KEYWORD_WEIGHT_SEMICOLON=-2.63047, KEYWORD_WEIGHT_URL_OR_NUMBER=-0.06490`. 459/594 (77.27%)
+classified as labeled — essentially unchanged from the 522-row set's 77.97% (added rows were
+mostly zero-feature NO, which a 4-feature linear model can't separate from zero-feature YES any
+better than before; expected, not a regression). Copied into `CommentClassifierWeights.java` +
+`tools/classifier_weights/weights.md`. `make jar` + `make test`: **275/275 forward, 275/275
+idempotency** — clean (python3's `KeywordAmbiguityGate` fix didn't move any existing fixture,
+since no test fixture currently exercises a python3 comment starting with a Python-only keyword
+under `comment-normalization-classifier=on`).
+
+**Not done this session (out of scope, not requested):** `make gru-acquire-corpus` /
+`GruTrainer` retrain against the grown corpus — GRU-side work is a separate, much larger effort
+(hours-per-round CV per the 2026-08-02/2026-08-03 session log above) and wasn't asked for; the
+linear-classifier re-derivation above is the only classifier this session's ask targets.

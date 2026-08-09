@@ -112,3 +112,12 @@ shape (`is`, `this`, `var`, `when`, `object`, `class`, `interface`, `as`, `fun`,
 | 73 | `object expression was preferred here over a full class for a one-off listener` | no | no | no | no | NO | "object" naming the actual anonymous-object construct being described, code reference despite zero mechanical feature. |
 | 74 | `object of the exercise was never really to minimize allocations, just readability` | no | no | no | no | YES | "object" as an ordinary English noun ("object of the exercise"), prose. |
 | 75 | `object permanence is a concept every toddler eventually figures out, unlike this bug` | no | no | no | no | YES | "object" as an ordinary English noun phrase unrelated to code, prose. |
+
+Rows 76-79 added 2026-08-10 (STATE_AI.md's "grow hand-labeled hard-case corpus" session, "more
+NO samples" pass) -- more zero-mechanical-feature NO coverage for keywords already present but
+thin on naturalistic-phrasing NO rows.
+
+| 76 | `when here was picked over a long if/else chain once the branch count grew` | no | no | no | no | NO | "when" naming the actual branching keyword being described, code reference despite zero mechanical feature. |
+| 77 | `typealias here just gives the long generic signature a readable short name` | no | no | no | no | NO | "typealias" naming the actual keyword being described, code reference despite zero mechanical feature. |
+| 78 | `interface here only declares the one method every implementation must provide` | no | no | no | no | NO | "interface" naming the actual type-declaration keyword being described, code reference despite zero mechanical feature. |
+| 79 | `fun here is only a factory, the actual work happens in the constructor` | no | no | no | no | NO | "fun" naming the actual function-declaration keyword being described, code reference despite zero mechanical feature. |

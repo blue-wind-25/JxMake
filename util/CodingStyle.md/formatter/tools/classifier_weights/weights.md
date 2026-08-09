@@ -154,6 +154,36 @@ Result: 407/522 examples classified as labeled (77.97%), all mismatches the same
 asymmetric-risk tradeoff as every prior pass. Bias stayed negative. `CommentClassifierWeights.java`
 updated to match.
 
+### 2026-08-10 re-derivation (594-example set, python3 added)
+
+Confirmed (STATE_AI.md's investigation this session) that python3 is the only one of
+{json5, css, yaml, toml, xml, html5, js, ts, python3, makefile, bash, powershell} whose comment
+normalization actually reaches `KeywordAmbiguityGate` (`MiscRuleIndent`'s `#`-comment path, wired
+2026-08-08) -- the rest have either no comment-classifier wiring at all, or (yaml/toml/xml/
+makefile/bash/powershell) use `ToolingCommentNormalizer`'s deliberately classifier-free ad hoc
+capitalization instead. Added `examples_python3.md` (48 rows, `KeywordAmbiguityGate.KEYWORDS_PYTHON`
++ `lang.isPython3` dispatch branch added alongside, same bug shape as the original JS/TS
+wrong-`KEYWORDS_C`-fallback fix) plus 4 new zero-feature NO rows each to `examples_{c,cpp,java,
+kotlin,js,ts}.md` (a "more NO samples" pass, no new keywords -- naturalistic-phrasing NO coverage
+for keywords already present). New total: 594 rows across all 7 `examples_*.md` files. Re-ran
+`derive_weights.py`:
+
+```
+KEYWORD_BIAS                  = -1.14719
+KEYWORD_WEIGHT_PAREN          = -2.31089
+KEYWORD_WEIGHT_ARROW          = -0.61513
+KEYWORD_WEIGHT_SEMICOLON      = -2.63047
+KEYWORD_WEIGHT_URL_OR_NUMBER  = -0.06490
+KEYWORD_THRESHOLD             =  0.0        (fixed sigmoid decision boundary, not trained)
+```
+
+Result: 459/594 examples classified as labeled (77.27%), same accepted asymmetric-risk mismatch
+pattern as every prior pass (essentially unchanged from the 522-row set's 77.97% -- the added rows
+were mostly zero-feature NO, which the four-feature linear model can't separate from zero-feature
+YES any better than before; expected, not a regression). Bias stayed negative.
+`CommentClassifierWeights.java` updated to match. `make test`: unchanged from before this session's
+changes (see STATE_AI.md).
+
 ### 2026-07-30 re-derivation
 
 The original 40-example set had no zero-feature NO example at all, so the bias trained

@@ -125,3 +125,12 @@ this file.
 | 87 | `class was chosen here over a plain object to get private fields for free` | no | no | no | NO | "class" naming the actual language construct under retrospective discussion, code reference despite zero mechanical feature. |
 | 88 | `class act on the reviewer's part, catching this edge case before merge` | no | no | no | YES | "class" as part of the ordinary English idiom ("class act"), prose. |
 | 89 | `class of bugs like this one keeps slipping through the review process` | no | no | no | YES | "class" as an ordinary English noun ("class of bugs"), prose unrelated to the keyword. |
+
+Rows 90-93 added 2026-08-10 (STATE_AI.md's "grow hand-labeled hard-case corpus" session, "more
+NO samples" pass) -- more zero-mechanical-feature NO coverage for keywords already present but
+thin on naturalistic-phrasing NO rows.
+
+| 90 | `switch here was picked over a chain of else-if once the case count grew past four` | no | no | no | NO | "switch" naming the actual control-flow keyword being described, code reference despite zero mechanical feature. |
+| 91 | `instanceof here was avoided since it breaks across realms in an iframe` | no | no | no | NO | "instanceof" naming the actual operator being described, code reference despite zero mechanical feature. |
+| 92 | `extends here pulls in the shared error-handling logic from the base class` | no | no | no | NO | "extends" naming the actual inheritance keyword being described, code reference despite zero mechanical feature. |
+| 93 | `super here calls the parent constructor before this subclass sets its own fields` | no | no | no | NO | "super" naming the actual keyword being described, code reference despite zero mechanical feature. |

@@ -204,9 +204,13 @@ public final class KeywordAmbiguityGate {
     // session): js/ts route through the same curly-brace `MiscRuleCurly.enforceCommentStyle`
     // call path as c/cpp/java/kotlin (see Lang.isCurly), so they need their own real keyword
     // sets too -- previously silently fell through to KEYWORDS_C, which is wrong (JS/TS share
-    // almost no keywords with C). json/json5/css/yaml/toml/xml/html5/python3 never reach this
-    // gate at all (only FormatterCurly calls enforceCommentStyle) -- see STATE_AI.md for the
-    // full investigation.
+    // almost no keywords with C). json/json5/css/yaml/toml/xml/html5 never reach this gate at
+    // all (their comment normalization has no classifier/GRU dependency at all -- see
+    // ToolingCommentNormalizer's own doc comment); python3 was in that same "never reaches"
+    // category until MiscRuleIndent wired `#`-comment normalization through the same
+    // classifyComment path 2026-08-08 (STATE_PYTHON3.md), which silently fell through to this
+    // same wrong KEYWORDS_C default until the KEYWORDS_PYTHON branch below was added -- see
+    // STATE_AI.md for the full investigation.
     private static final Set<String> KEYWORDS_JS = setOf(
         "async",
         "await",
@@ -275,6 +279,49 @@ public final class KeywordAmbiguityGate {
         "unknown"
     );
 
+    // Full CPython keyword.kwlist (Python 3), plus the two soft keywords `match`/`case` used by
+    // structural pattern matching -- included since they're the exact kind of "reads like an
+    // ordinary English word" false-friend this gate exists for.
+    private static final Set<String> KEYWORDS_PYTHON = setOf(
+        "False",
+        "None",
+        "True",
+        "and",
+        "as",
+        "assert",
+        "async",
+        "await",
+        "break",
+        "case",
+        "class",
+        "continue",
+        "def",
+        "del",
+        "elif",
+        "else",
+        "except",
+        "finally",
+        "for",
+        "from",
+        "global",
+        "if",
+        "import",
+        "in",
+        "is",
+        "lambda",
+        "match",
+        "nonlocal",
+        "not",
+        "or",
+        "pass",
+        "raise",
+        "return",
+        "try",
+        "while",
+        "with",
+        "yield"
+    );
+
     private KeywordAmbiguityGate()
     {
     }
@@ -301,6 +348,7 @@ public final class KeywordAmbiguityGate {
             leadingWord
         );
         if(lang.isJs) return KEYWORDS_JS.contains(leadingWord);
+        if(lang.isPython3) return KEYWORDS_PYTHON.contains(leadingWord);
 
         return KEYWORDS_C.contains(leadingWord);
     }

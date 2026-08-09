@@ -124,3 +124,12 @@ file.
 | 98 | `static was picked here deliberately to avoid a per-request allocation` | no | no | no | NO | "static" naming the actual keyword under retrospective discussion, code reference despite zero mechanical feature. |
 | 99 | `static analysis flagged this resource leak during the nightly build` | no | no | no | YES | "static" as part of the ordinary English phrase "static analysis", not the modifier keyword. |
 | 100 | `static electricity kept tripping the sensor, not anything in this code` | no | no | no | YES | "static" as an ordinary English noun (static electricity), prose unrelated to the keyword. |
+
+Rows 101-104 added 2026-08-10 (STATE_AI.md's "grow hand-labeled hard-case corpus" session, "more
+NO samples" pass) -- more zero-mechanical-feature NO coverage for keywords already present but
+thin on naturalistic-phrasing NO rows.
+
+| 101 | `synchronized here was the simplest fix, even if it isn't the fastest one` | no | no | no | NO | "synchronized" naming the actual locking keyword being described, code reference despite zero mechanical feature. |
+| 102 | `transient here keeps the cache field out of the serialized form entirely` | no | no | no | NO | "transient" naming the actual field-modifier keyword being described, code reference despite zero mechanical feature. |
+| 103 | `interface here only declares the two methods every implementation must provide` | no | no | no | NO | "interface" naming the actual type-declaration keyword being described, code reference despite zero mechanical feature. |
+| 104 | `implements here was added once the class started fulfilling that contract` | no | no | no | NO | "implements" naming the actual keyword being described, code reference despite zero mechanical feature. |

@@ -127,3 +127,12 @@ had zero example rows in this file after rows 22-37.
 | 82 | `return was added late in review after the original bug report` | no | no | no | NO | "return" naming the actual keyword being discussed retrospectively, code reference despite zero mechanical feature. |
 | 83 | `return to this file once the dependency issue upstream is resolved` | no | no | no | YES | "return" as an ordinary English verb (come back to), prose. |
 | 84 | `return on this investment was never clearly measured by the team` | no | no | no | YES | "return" as an ordinary English noun (an investment return), prose unrelated to the keyword. |
+
+Rows 85-88 added 2026-08-10 (STATE_AI.md's "grow hand-labeled hard-case corpus" session, "more
+NO samples" pass) -- more zero-mechanical-feature NO coverage for keywords already present but
+thin on naturalistic-phrasing NO rows.
+
+| 85 | `switch here was picked over a chain of if/else once the case count grew past four` | no | no | no | NO | "switch" naming the actual control-flow keyword being described in retrospective prose, code reference despite zero mechanical feature. |
+| 86 | `const here documents that the caller must never mutate the returned pointer` | no | no | no | NO | "const" naming the actual qualifier keyword being described, code reference despite zero mechanical feature. |
+| 87 | `struct here groups the three fields that always travel together anyway` | no | no | no | NO | "struct" naming the actual aggregate-type keyword being described, code reference despite zero mechanical feature. |
+| 88 | `typedef here exists purely so the rest of the file reads more clearly` | no | no | no | NO | "typedef" naming the actual alias keyword being described, code reference despite zero mechanical feature. |

@@ -377,6 +377,25 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       267/267 forward + idempotency (was 264/264 before this session --
       3 new fixtures added: `real_code_regressions_188`-`190`). See
       `STATE_DOGFOOD.md` for per-repo rows.
+      **PowerShell — DONE, 1 bug found and fixed.** User ran round1/round2
+      manually (`--preserve-tree`) on `PowerShell/PowerShell`
+      (`/tmp/PowerShell`, 505 `*.ps1`/`*.psm1`) and `actions/runner-images`
+      (`/tmp/runner-images`, 247 `*.ps1`/`*.psm1`) 2026-08-09.
+      `runner-images` came back with an empty `diff -r`. `PowerShell/
+      PowerShell` had one non-empty diff: `test/powershell/engine/ETS/
+      Adapter.Tests.ps1` round1 had `("a").ForEach( { $_ })`, round2
+      turned it into `("a").ForEach ( { $_ })` -- a spurious space
+      inserted before `(`. Root cause: `PowerShellSpecificRule.
+      KEYWORD_PAREN` (§3.5's shared keyword-paren spacing, used for
+      `if`/`while`/`foreach`/etc.) matched case-insensitive `foreach`
+      with a negative lookbehind that excluded only preceding word chars
+      (`(?<![A-Za-z0-9_])`), so the method call `.ForEach(` -- preceded by
+      `.`, not a word char -- was misdetected as the `foreach` keyword.
+      Fixed by adding `.` to the lookbehind's exclusion set. Fixture
+      `real_code_regressions_191` (nested `.ForEach( { ... })` inside a
+      pipeline) confirms both the no-space-inserted output and
+      round1/round2 idempotency. `make test`: 268/268 forward +
+      idempotency (was 267/267). See `STATE_DOGFOOD.md` for per-repo rows.
       **Makefile — DONE.** Batched `/tmp/PEGTL/Makefile`,
       `/tmp/frozen/tests/Makefile`, `/tmp/frozen/benchmarks/Makefile`, and
       `/tmp/fmt/support/Android.mk` (211 lines total) through round1/round2:

@@ -1076,7 +1076,7 @@ public final class PowerShellSpecificRule {
     // ---- §3.5 switch formatting (+ shared keyword-paren spacing) ------------------------------
 
     private static final Pattern KEYWORD_PAREN = Pattern.compile(
-        "(?i)(?<![A-Za-z0-9_])(if|elseif|while|for|foreach|switch|catch|trap|until)(\\s*)\\("
+        "(?i)(?<![A-Za-z0-9_.])(if|elseif|while|for|foreach|switch|catch|trap|until)(\\s*)\\("
     );
 
     /**

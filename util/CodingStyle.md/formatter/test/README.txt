@@ -3386,8 +3386,8 @@ Real-code regressions:
                                                         existing `final`/`const` check in
                                                         `BlockStructureRule.isSingleStatementBody`.
 
-  real_code_regressions_188_inp/out.sh               -- Minimized from `ohmyzsh/ohmyzsh` (Bash dogfood):
-                                                        two round1/round2 bugs in `BashSpecificRule`. (1)
+  real_code_regressions_188_inp/out.sh               -- Minimized from `ohmyzsh/ohmyzsh` (Bash dogfood): two
+                                                        round1/round2 bugs in `BashSpecificRule`. (1)
                                                         `CASE_ARM`'s first-match regex mistook an escaped `)`
                                                         in a pattern like `\(\))` for the terminator; fixed
                                                         via a backslash-aware `matchCaseArm` char scan. (2)
@@ -3397,11 +3397,11 @@ Real-code regressions:
                                                         indentation; fixed by adding a `c == '\\'` branch that
                                                         consumes the escaped char before any quote check.
 
-  real_code_regressions_189_inp/out.sh               -- Minimized from `ohmyzsh/ohmyzsh` (Bash dogfood,
-                                                        found after 188's fixes): `emitCaseBody` didn't
-                                                        recognize a combined `esac ;;` line closing both a
-                                                        nested `case` and its enclosing arm, corrupting
-                                                        indentation from that point. Fixed by splitting into
+  real_code_regressions_189_inp/out.sh               -- Minimized from `ohmyzsh/ohmyzsh` (Bash dogfood, found
+                                                        after 188's fixes): `emitCaseBody` didn't recognize a
+                                                        combined `esac ;;` line closing both a nested `case`
+                                                        and its enclosing arm, corrupting indentation from
+                                                        that point. Fixed by splitting into
                                                         `emitCaseBody`/recursive `emitCaseBodyInner`, which
                                                         recurses on nested `CASE_START` and accepts `esac`,
                                                         `esac ;;`, or `esac;;` as the nested terminator.
@@ -3420,6 +3420,24 @@ Real-code regressions:
                                                         call `.ForEach(` was misdetected as the `foreach`
                                                         keyword and gained a spurious space before `(` on
                                                         round2. Fixed by adding `.` to the exclusion set.
+
+  real_code_regressions_192_inp/out.ps1              -- Minimized from `microsoft/azure-pipelines-tasks`
+                                                        (`Tasks/Common/VstsAzureHelpers_/Utility.ps1`):
+                                                        `runPassA`'s `kind[]` array was indexed against the
+                                                        original `content` string while every consumer reads
+                                                        it against `passA.transformed`, which diverges in
+                                                        length once a standalone `#` comment's placeholder is
+                                                        substituted for differently-sized final text --
+                                                        `applyKeywordParenSpacing` read the wrong slot for
+                                                        `if($x -eq $null)` after an earlier standalone
+                                                        comment, so round1 left it unspaced and round2 (seeing
+                                                        already-normalized comment text realign by luck)
+                                                        spaced it. Fixed by building `kind` from `RunBuffer`'s
+                                                        own output in lockstep (a new `kindResult()`) and
+                                                        adding a companion `ChainCollector.resolveKind` that
+                                                        splices the kind string at the same placeholder
+                                                        offsets `resolve()` substitutes, keeping it aligned
+                                                        with `transformed` throughout.
 
 How Tests Are Run
 -----------------

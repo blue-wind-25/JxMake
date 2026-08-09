@@ -397,34 +397,45 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       pipeline) confirms both the no-space-inserted output and
       round1/round2 idempotency. `make test`: 268/268 forward +
       idempotency (was 267/267). See `STATE_DOGFOOD.md` for per-repo rows.
-      **PowerShell — `microsoft/azure-pipelines-tasks`, DONE - OPEN Q (architectural
-      gap found, not fixed).** User completed a fresh full clone (prior partial
-      download had been removed) and ran round1/round2 manually on all 1123 `.ps1`
-      files 2026-08-09; found 1 non-empty diff (`Tasks/Common/VstsAzureHelpers_/
-      Utility.ps1`, 2 occurrences): `if($Endpoint.data.GraphUrl -eq $null)` stayed
-      unspaced on round1 but gained the expected `if (` space on round2. Root cause
-      (found via debug prints per the evidence-over-reasoning protocol, then
-      reverted): `runPassA`'s returned `PassAResult.kind` array is sized and indexed
-      to the *original* `content` string's length/positions, but
-      `PassAResult.transformed` (built separately via `RunBuffer`) can be a
-      *different length* whenever `ToolingCommentNormalizer.ChainCollector.defer()`
-      substitutes a standalone comment with a short placeholder marker (e.g.
-      `CHAIN0`, far shorter than the real comment text) -- the
-      placeholder text is only later substituted back by the chain-collector's own
-      caller, not inside `runPassA` itself. Any pass that does
-      `passA.kind[someIndexIntoTransformed]` (confirmed for `applyKeywordParenSpacing`
-      / `KEYWORD_PAREN`, likely also affects other kind-aware §3.x passes) is reading
-      the wrong array slot for every character after the *first* standalone comment
-      anywhere earlier in the file, once `transformed` and `kind`'s indexing spaces
-      have diverged. This is architectural/cross-cutting (the fix would need every
-      `passA.kind`-consuming pass to either re-derive kind against `transformed`
-      directly, or have `runPassA` track kind in lockstep with `RunBuffer`'s actual
-      output instead of the original content) -- **not attempted this session**,
-      flagged as a Known Gap needing a dedicated pass rather than a narrow patch.
-      No fixture registered (reproduction requires a real multi-hundred-line file
-      with a standalone comment ahead of a keyword-paren site; not economical to
-      minimize into a `test/` fixture without first deciding the fix shape). See
-      `STATE_DOGFOOD.md`'s `microsoft/azure-pipelines-tasks` row.
+      **PowerShell — `microsoft/azure-pipelines-tasks`, DONE - FIXED (2026-08-09,
+      follow-up session).** Root cause confirmed as originally suspected:
+      `runPassA`'s returned `PassAResult.kind` array was sized/indexed to the
+      *original* `content` string's positions, but every consumer (`applyBraceIndent`,
+      `applyOperatorSpacing`, `applyPipelineSplit`, `applyAssignAlignment`,
+      `applySwitchArmAlignment`, `applyKeywordParenSpacing`/`KEYWORD_PAREN`, `applyBraceSpacing`
+      -- confirmed via `grep passA.kind`, all seven index it against `passA.transformed`, not
+      `content`) reads it against `passA.transformed`, which diverges in length from `content`
+      once a standalone `#` comment's `ChainCollector.defer()` placeholder is substituted for a
+      different-length final comment text. Fixed via direction (a) from the original writeup:
+      `RunBuffer` now accumulates a parallel `kindOut` string in lockstep with its own `out`
+      (new `kindResult()`, appended per real output character on every `flush()`), so `kind` is
+      built aligned to `RunBuffer`'s actual emitted output rather than re-derived from `content`
+      positions. The remaining gap was the placeholder-substitution step itself:
+      `ChainCollector.resolve()` does a textual `String.replace(placeholder, finalText)` on
+      `transformed`, but the kind string (all `'C'`/`'O'` characters) never literally contains the
+      placeholder marker text, so a same-shaped textual replace can't be reused for it. Added a
+      companion `ChainCollector.resolveKind(preResolveTransformed, preResolveKind)`: it locates
+      each placeholder's position in the *original* pre-substitution `transformed` string (which
+      still contains the literal marker) via `indexOf`, then splices a run of `'O'` of the same
+      length as that entry's already-resolved final text (`resolve()` now records `resolvedLength`
+      per entry) into the kind string at the matching offset -- keeping `kind` positionally aligned
+      with `resolve()`'s own return value throughout. `Entry.resolvedLength` (new mutable field,
+      set by `resolve()`, read by `resolveKind()`) is the only state threaded between the two calls;
+      `resolveKind()` must be called after `resolve()`. Verified via a minimal repro
+      (standalone `#` comment followed by `if($x -eq $null)`) that reproduced the round1/round2
+      divergence pre-fix and is clean post-fix; re-ran round1/round2 on the original
+      `Tasks/Common/VstsAzureHelpers_/Utility.ps1` -- diff now empty; re-ran round1/round2 on the
+      full corpus (all 1123 `.ps1` files under `/tmp/azure-pipelines-tasks`) -- diff empty, zero
+      formatter errors. New permanent fixture `test/real_code_regressions_192_{inp,out}.ps1`
+      (registered in `Makefile` `INP_FILES` and `test/README.txt`). `make test`: 269/269 forward +
+      idempotency (was 268/268 before this fix). One accepted loose end: the original
+      content-indexed `char[] kind` local inside `runPassA` is now a dead write-only array (every
+      `kind[i] = ...` assignment throughout the tokenizer is never read after this fix, since
+      `result.kind` is now built from `RunBuffer`/`ChainCollector` instead) -- left in place rather
+      than stripped, since removing ~50 individual dead-store lines scattered across the whole
+      tokenizer body was judged higher-risk than leaving harmless dead code; a future cleanup pass
+      may strip it. See `STATE_DOGFOOD.md`'s `microsoft/azure-pipelines-tasks` row (updated from
+      "OPEN Q" to fixed).
       **Makefile — DONE.** Batched `/tmp/PEGTL/Makefile`,
       `/tmp/frozen/tests/Makefile`, `/tmp/frozen/benchmarks/Makefile`, and
       `/tmp/fmt/support/Android.mk` (211 lines total) through round1/round2:

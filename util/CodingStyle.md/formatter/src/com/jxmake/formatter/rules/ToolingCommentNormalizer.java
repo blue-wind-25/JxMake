@@ -223,6 +223,7 @@ final class ToolingCommentNormalizer {
             final String placeholder;
             final String body;
             final int    lineNo;
+            int          resolvedLength = -1; // set by resolve(); length of the final substituted text
 
             Entry(final String placeholder, final String body, final int lineNo)
             {
@@ -303,13 +304,44 @@ final class ToolingCommentNormalizer {
                 final List<String> normalized = normalizeChain(
                     bodies, blanks, normalizeStartCase, normalizeEndPeriod, noCapitalizeWords, multiSentenceCase
                 );
-                for(int k = i; k <= j; ++k) out = out.replace(
-                    entries.get(k).placeholder, normalized.get(k - i)
-                );
+                for(int k = i; k <= j; ++k) {
+                    entries.get(k).resolvedLength = normalized.get(k - i).length();
+                    out = out.replace( entries.get(k).placeholder, normalized.get(k - i) );
+                } // for
                 i = j + 1;
             } // while
 
             return out;
+        }
+
+        /**
+         * Companion to {@link #resolve}, called with the SAME pre-substitution {@code transformed}
+         *  string originally passed to {@link #resolve} (so placeholder text can still be located by
+         *  position) plus a kind-string that is character-for-character aligned with it -- substitutes
+         *  each placeholder span with a run of {@code 'O'} matching the length of that placeholder's
+         *  *final* substituted text (recorded by the prior {@link #resolve} call), keeping the returned
+         *  kind string aligned with {@code resolve}'s own return value. A textual {@code String.replace}
+         *  (as {@link #resolve} itself uses) does not work here -- the kind string is built from 'C'/'O'
+         *  characters only and never literally contains the placeholder marker text -- so this scans
+         *  {@code preResolveTransformed} for each placeholder's position and splices the kind string at
+         *  the same offsets instead. Must be called after {@link #resolve} (uses its recorded
+         *  {@code resolvedLength} per entry). A no-op if no comment was deferred.
+         */
+        String resolveKind(final String preResolveTransformed, final String preResolveKind)
+        {
+            if( entries.isEmpty() ) return preResolveKind;
+
+            final StringBuilder out = new StringBuilder( preResolveKind.length() );
+            int                 pos = 0;
+            for( final Entry e : entries ) {
+                final int idx = preResolveTransformed.indexOf(e.placeholder, pos);
+                out.append( preResolveKind, pos, idx );
+                for(int k = 0; k < e.resolvedLength; ++k) out.append('O');
+                pos = idx + e.placeholder.length();
+            } // for
+            out.append( preResolveKind, pos, preResolveKind.length() );
+
+            return out.toString();
         }
 
     } // class ChainCollector

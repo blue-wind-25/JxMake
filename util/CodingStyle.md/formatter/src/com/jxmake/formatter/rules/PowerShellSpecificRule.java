@@ -98,9 +98,10 @@ public final class PowerShellSpecificRule {
     /** Accumulates characters and flushes on kind change (identity for both kinds, for now) */
     private static final class RunBuffer {
 
-        private final StringBuilder out  = new StringBuilder();
-        private final StringBuilder run  = new StringBuilder();
-        private       char          kind = 'C';
+        private final StringBuilder out     = new StringBuilder();
+        private final StringBuilder kindOut = new StringBuilder(); // per emitted OUTPUT character, aligned with `out`
+        private final StringBuilder run     = new StringBuilder();
+        private       char          kind    = 'C';
 
         void emit(final char c, final char k)
         {
@@ -115,6 +116,7 @@ public final class PowerShellSpecificRule {
             // Both 'C' and 'O' runs are emitted unchanged here. Token-level §3.x transforms
             // (operator spacing, brace spacing) plug in on 'C' flushes in later checklist items.
             out.append(run);
+            for( int i = 0; i < run.length(); ++i ) kindOut.append(kind);
             run.setLength(0);
         }
 
@@ -123,6 +125,12 @@ public final class PowerShellSpecificRule {
             flush();
 
             return out.toString();
+        }
+
+        /** Per-output-character kind, aligned with {@link #result()} -- call only after {@link #result()}. */
+        String kindResult()
+        {
+            return kindOut.toString();
         }
 
     } // class RunBuffer
@@ -476,15 +484,22 @@ public final class PowerShellSpecificRule {
             }
         } // if
 
-        String transformed = buf.result();
-        transformed = chainCollector.resolve(
-            transformed, normalizeCommentStartCase, normalizeCommentEndPeriod, null,
+        final String preResolveTransformed = buf.result();
+        final String preResolveKind        = buf.kindResult();
+        final String transformed = chainCollector.resolve(
+            preResolveTransformed, normalizeCommentStartCase, normalizeCommentEndPeriod, null,
             normalizeCommentMultiSentenceCase
         );
+        // Must run after resolve() above -- reuses its per-entry resolvedLength to keep the kind
+        // string aligned with `transformed` (RDD: kind[] was previously indexed against the original
+        // `content` string, diverging from `transformed` once a standalone comment's placeholder was
+        // substituted for a different-length final comment text -- every downstream consumer already
+        // indexes kind[] against `transformed`, so kind must be built aligned to it instead).
+        final String resolvedKind = chainCollector.resolveKind(preResolveTransformed, preResolveKind);
 
         final PassAResult result = new PassAResult();
         result.transformed = transformed;
-        result.kind        = kind;
+        result.kind        = resolvedKind.toCharArray();
 
         return result;
     }

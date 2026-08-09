@@ -60,9 +60,28 @@ public class BlockStructureRule {
     // }` collapsed to the illegal braceless `if (...) int saveCursor = cursor;` -- javac rejects it
     // with "variable declaration not allowed here").
     private static final Set<String> PRIMITIVE_TYPE_KEYWORDS = setOf(
-        "void", "char", "short", "int", "long", "float", "double", "boolean", "byte",
-        "signed", "unsigned", "struct", "enum", "union", "bool", "_Bool",
-        "wchar_t", "char16_t", "char32_t", "auto", "class", "var"
+        "void",
+        "char",
+        "short",
+        "int",
+        "long",
+        "float",
+        "double",
+        "boolean",
+        "byte",
+        "signed",
+        "unsigned",
+        "struct",
+        "enum",
+        "union",
+        "bool",
+        "_Bool",
+        "wchar_t",
+        "char16_t",
+        "char32_t",
+        "auto",
+        "class",
+        "var"
     );
 
     private final Lang lang;
@@ -996,7 +1015,7 @@ public class BlockStructureRule {
                 }
                 else if( "}".equals(t.text) ) {
                     if(depth == 0) {
-                        bodyEnd = k; // this body was the last statement in its enclosing scope
+                        bodyEnd = k; // This body was the last statement in its enclosing scope
                         break;
                     }
                     --depth;
@@ -3132,10 +3151,14 @@ public class BlockStructureRule {
         // it here, before any measurement -- safe to simply drop rather than restore, since the
         // final output's line-ending style is independently re-derived from the *original* file by
         // `Main.applyLineEndings`, never from '\r' bytes surviving inside the internal pipeline.
-        for( int li = 0; li < lines.length; ++li ) {
-            if( lines[li].endsWith("\r") ) lines[li] = lines[li].substring(0, lines[li].length() - 1);
-        }
-              int      i     = 0;
+        for(int li = 0; li < lines.length; ++li) {
+            if( lines[li].endsWith(
+                "\r"
+            ) ) lines[li] = lines[li].substring(
+                0, lines[li].length() - 1
+            );
+        } // for
+                int i = 0;
         while(i < lines.length) {
             int indentLen = leadingWhitespaceLength( lines[i] );
             if( !lines[i].regionMatches(indentLen, "if(", 0, 3) ) {

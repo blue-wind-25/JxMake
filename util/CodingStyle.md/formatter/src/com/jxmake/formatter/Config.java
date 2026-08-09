@@ -53,9 +53,9 @@ public final class Config {
     private static final String[] INDENT_STYLE_CHOICES = { "spaces", "tabs", "auto" };
     private static final String[] LINE_ENDINGS_CHOICES = { "lf", "crlf", "preserve" };
 
-    public static final String DEFAULT_INDENT_STYLE = "spaces";
-    public static final int    DEFAULT_INDENT_SIZE  = 4;
-    public static final int    DEFAULT_LINE_LENGTH  = 100;
+    public static final String DEFAULT_INDENT_STYLE             = "spaces";
+    public static final int    DEFAULT_INDENT_SIZE              = 4;
+    public static final int    DEFAULT_LINE_LENGTH              = 100;
     public static final int    DEFAULT_LINE_LENGTH_WITH_COMMENT = 120;
 
     /**
@@ -70,15 +70,15 @@ public final class Config {
      */
     public static final String DEFAULT_GRU_WEIGHTS_PATH = "";
 
-    private int     lineLength                = DEFAULT_LINE_LENGTH;
+    private int lineLength = DEFAULT_LINE_LENGTH;
     // "code + comment" line-length limit -- used wherever a fits-check's measured width
     // deliberately includes a trailing same-line comment (as opposed to `lineLength`, which
     // governs a bare-code-only measurement). See `lineLengthWithComment()`'s own doc comment for
     // exactly which passes consume this.
-    private int     lineLengthWithComment      = DEFAULT_LINE_LENGTH_WITH_COMMENT;
-    private int     indentSize                = DEFAULT_INDENT_SIZE;
-    private String  indentStyle               = DEFAULT_INDENT_STYLE;
-    private int     serverPort                = 17173;
+    private int    lineLengthWithComment = DEFAULT_LINE_LENGTH_WITH_COMMENT;
+    private int    indentSize            = DEFAULT_INDENT_SIZE;
+    private String indentStyle           = DEFAULT_INDENT_STYLE;
+    private int    serverPort            = 17173;
     /**
      * {@code server-concurrency} -- thread-pool size {@code ServerMode.start} uses for the
      *  HTTP server's executor. Default 1: today's implicit single-threaded {@code HttpServer}
@@ -88,7 +88,7 @@ public final class Config {
      *  process/server-invocation-scoped category as {@code server-port} -- cannot be set per-file
      *  via {@code JXM_CFMT_CFG} (see {@code InFileConfig.isPerFileApplicable}).
      */
-    private int     serverConcurrency         = 1;
+    private int serverConcurrency = 1;
     /**
      * {@code client-read-ahead} -- how many requests {@code Main.delegateToServerBatch} (the
      *  one-by-one CLI-delegation path) keeps in flight at once, instead of today's strict
@@ -113,7 +113,7 @@ public final class Config {
     // adding real regression-derived and hand-authored zero-feature NO examples to
     // tools/classifier_weights/examples_{c,cpp,java,kotlin}.md and re-deriving the weights -- see STATE_AI.md's
     // 2026-07-30 section and tools/classifier_weights/weights.md.
-    private boolean      commentNormalizationClassifier = true;
+    private boolean commentNormalizationClassifier = true;
     /**
      * {@code normalize-comment-start-case-multiline} -- gates capitalizing sentence 2+ within a
      *  comment group/chain (today's {@code normalize-comment-start-case} only ever touches
@@ -123,13 +123,13 @@ public final class Config {
      *  rationale/history. No effect when {@code normalize-comment-start-case} is itself off.
      */
     private boolean      normalizeCommentMultiSentenceCase = false;
-    private boolean      headerGuardRename              = false;
-    private List<String> javaImportOrder                = Arrays.asList(
+    private boolean      headerGuardRename                 = false;
+    private List<String> javaImportOrder                   = Arrays.asList(
         "java", "com", "org", "other", "local", "static"
     );
-    private boolean      javaImportSort                 = true;
-    private int          javaImportDepth                = 2;
-    private int          javaImportBlankLines           = 1;
+    private boolean      javaImportSort                    = true;
+    private int          javaImportDepth                   = 2;
+    private int          javaImportBlankLines              = 1;
 
     private List<String> kotlinImportOrder      = Arrays.asList(
         "kotlin", "java", "android", "com", "org", "other", "local"
@@ -555,7 +555,7 @@ public final class Config {
     {
         final String   defaultValue;
         final String[] allowedValues;
-        String         note = null;
+              String   note = null;
         switch(key) {
 
             case "line-length":
@@ -858,7 +858,9 @@ public final class Config {
     {
         final Config config = new Config();
         config.lineLength                         = parseInt(raw, "line-length", config.lineLength);
-        config.lineLengthWithComment              = parseInt(raw, "line-length-with-comment", config.lineLengthWithComment);
+        config.lineLengthWithComment              = parseInt(
+            raw, "line-length-with-comment", config.lineLengthWithComment
+        );
         config.indentSize                         = parseInt(raw, "indent-size", config.indentSize);
         config.indentStyle                        = parseChoice(
             raw, "indent-style", config.indentStyle, INDENT_STYLE_CHOICES

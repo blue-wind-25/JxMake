@@ -42,7 +42,7 @@ public final class MakefileSpecificRule {
     private final boolean normalizeCommentStartCase;
     private final boolean normalizeCommentEndPeriod;
     // `normalize-comment-start-case-multiline` -- default off, set post-construction (matches the
-    // curly family's MiscRuleCore#setNormalizeCommentMultiSentenceCase pattern).
+    // curly family's MiscRuleCore#setNormalizeCommentMultiSentenceCase pattern)
     private boolean normalizeCommentMultiSentenceCase = false;
 
     public MakefileSpecificRule(
@@ -138,7 +138,11 @@ public final class MakefileSpecificRule {
                 final List<Boolean> blanks = new ArrayList<>();
                 for( int k = 0; k < bodies.size(); ++k ) blanks.add(false);
                 final List<String> normalized = ToolingCommentNormalizer.normalizeChain(
-                    bodies, blanks, normalizeCommentStartCase, normalizeCommentEndPeriod, null,
+                    bodies,
+                    blanks,
+                    normalizeCommentStartCase,
+                    normalizeCommentEndPeriod,
+                    null,
                     normalizeCommentMultiSentenceCase
                 );
                 for( int k = 0; k < normalized.size(); ++k ) out.add(

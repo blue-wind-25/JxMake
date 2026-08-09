@@ -81,7 +81,7 @@ public final class BashSpecificRule {
     private final boolean normalizeCommentStartCase;
     private final boolean normalizeCommentEndPeriod;
     // `normalize-comment-start-case-multiline` -- default off, set post-construction (matches the
-    // curly family's MiscRuleCore#setNormalizeCommentMultiSentenceCase pattern).
+    // curly family's MiscRuleCore#setNormalizeCommentMultiSentenceCase pattern)
     private boolean normalizeCommentMultiSentenceCase = false;
 
     public BashSpecificRule(
@@ -490,7 +490,10 @@ public final class BashSpecificRule {
     private void emitNormalizedComment(final RunBuffer buf, final String body)
     {
         final String normalized = ToolingCommentNormalizer.normalize(
-            body, normalizeCommentStartCase, normalizeCommentEndPeriod, NO_CAPITALIZE_TOOLS,
+            body,
+            normalizeCommentStartCase,
+            normalizeCommentEndPeriod,
+            NO_CAPITALIZE_TOOLS,
             normalizeCommentMultiSentenceCase
         );
         for( int i = 0; i < normalized.length(); ++i ) buf.emit( normalized.charAt(i), 'O' );
@@ -706,7 +709,7 @@ public final class BashSpecificRule {
     {
         if( trimmed.isEmpty() ) return null;
         final char first = trimmed.charAt(0);
-        if( first == '(' || first == ')' ) return null;
+        if(first == '(' || first == ')') return null;
 
         int i = 0;
         while( i < trimmed.length() ) {
@@ -715,7 +718,7 @@ public final class BashSpecificRule {
                 i += 2;
                 continue;
             }
-            if( c == ')' ) {
+            if(c == ')') {
                 return new String[] { trimmed.substring(0, i), trimmed.substring(i + 1).trim() };
             }
             ++i;
@@ -838,11 +841,13 @@ public final class BashSpecificRule {
     }
 
     /** §2.4: pattern lines at the case's own indent, arm bodies + `;;` at one level deeper */
-    /** Result of a (possibly nested) case-body scan: where it ended, and whether its terminating
+    /**
+     * Result of a (possibly nested) case-body scan: where it ended, and whether its terminating
      *  `esac` line also carried a trailing `;;` that closes an *enclosing* case arm on the same line
-     *  (e.g. a nested `case ... in ... esac ;;` used as one outer arm's entire body). */
-    private static final class CaseBodyEnd
-    {
+     *  (e.g. a nested `case ... in ... esac ;;` used as one outer arm's entire body).
+     */
+    private static final class CaseBodyEnd {
+
         final int     idx;
         final boolean closesEnclosingArm;
 
@@ -851,7 +856,8 @@ public final class BashSpecificRule {
             this.idx                = idx;
             this.closesEnclosingArm = closesEnclosingArm;
         }
-    }
+
+    } // class CaseBodyEnd
 
     private int emitCaseBody(
         final List<String> lines,
@@ -877,9 +883,13 @@ public final class BashSpecificRule {
               boolean expectingPattern = true;
         while( idx < lines.size() ) {
             final String trimmed = lines.get(idx).trim();
-            if( pure[idx] && (trimmed.equals("esac") || trimmed.equals("esac ;;") || trimmed.equals(
+            if( pure[idx] && ( trimmed.equals(
+                "esac"
+            ) || trimmed.equals(
+                "esac ;;"
+            ) || trimmed.equals(
                 "esac;;"
-            )) ) {
+            ) ) ) {
                 final boolean hasTrailingSemi = !trimmed.equals("esac");
                 out.add(basePrefix + "esac");
                 if(hasTrailingSemi) out.add(basePrefix + ";;");
@@ -897,7 +907,7 @@ public final class BashSpecificRule {
                     continue;
                 } // if
                 final String[] arm = expectingPattern ? matchCaseArm(trimmed) : null;
-                if( arm != null ) {
+                if(arm != null) {
                     out.add( basePrefix + arm[0].trim() + ")" );
                     String rest = arm[1].trim();
                     if( rest.endsWith(";;") ) {

@@ -58,8 +58,8 @@ public abstract class MiscRuleCore {
     {
         this.normalizeCommentMultiSentenceCase = value;
     }
-    public    final int     indentWidth;
-    public    final int     lineLengthLimit;
+    public final int indentWidth;
+    public final int lineLengthLimit;
     // "code + comment" line-length limit (`line-length-with-comment` config key, default
     // DEFAULT_LINE_LENGTH_WITH_COMMENT_LIMIT/120) -- used in place of `lineLengthLimit` wherever a
     // fits-check's measured width deliberately includes a trailing same-line comment. See
@@ -67,8 +67,8 @@ public abstract class MiscRuleCore {
     // this. Every constructor below that doesn't take it explicitly defaults it to
     // DEFAULT_LINE_LENGTH_WITH_COMMENT_LIMIT, matching `Config`'s own default -- no behavior
     // change for any caller that hasn't threaded the real config value through yet.
-    public    final int     lineLengthWithCommentLimit;
-    protected final String  indentUnit;
+    public    final int    lineLengthWithCommentLimit;
+    protected final String indentUnit;
 
     protected MiscRuleCore(
         final Lang    lang,
@@ -107,7 +107,7 @@ public abstract class MiscRuleCore {
 
     /**
      * Full constructor additionally taking the {@code line-length-with-comment} config value --
-     *  see {@link #lineLengthWithCommentLimit}'s own doc comment.
+     *  see {@link #lineLengthWithCommentLimit}'s own doc comment
      */
     protected MiscRuleCore(
         final Lang    lang,
@@ -157,7 +157,7 @@ public abstract class MiscRuleCore {
      */
     public static final int DEFAULT_INDENT_WIDTH = 4;
 
-    public static final int DEFAULT_LINE_LENGTH_LIMIT = 100;
+    public static final int DEFAULT_LINE_LENGTH_LIMIT              = 100;
     public static final int DEFAULT_LINE_LENGTH_WITH_COMMENT_LIMIT = 120;
 
     protected static final Set<String> COMMENT_NO_CAPITALIZE_C    = setOf(
@@ -1981,9 +1981,11 @@ public static final class Assignment {
                 );
                 if(normalizeCommentMultiSentenceCase) {
                     final List<Boolean> rewritableFlags = new ArrayList<>();
-                    for(final int idx : group) rewritableFlags.add( isCommentRewritable(tokens, idx) );
+                    for(final int idx : group) rewritableFlags.add(
+                        isCommentRewritable(tokens, idx)
+                    );
                     capitalizeMultiSentence(contents, rewritableFlags);
-                }
+                } // if
                 for( int k = 0; k < group.size(); ++k ) {
                     if( isCommentRewritable(
                         tokens, group.get(k)
@@ -2516,7 +2518,7 @@ public static final class Assignment {
     )
     {
         if( !normalizeCommentStartCase || contents.isEmpty() ) return;
-        final int[]         lineStart = new int[contents.size()];
+        final int[]         lineStart = new int[ contents.size() ];
         final StringBuilder combined  = new StringBuilder();
         for( int i = 0; i < contents.size(); ++i ) {
             if(i > 0) combined.append(' ');
@@ -2534,13 +2536,14 @@ public static final class Assignment {
         final Map<Integer, Character> capitalized = new HashMap<>();
         while( matcher.find() ) {
             final int letterPos = matcher.start(1);
-            if(letterPos == 0) continue; // Sentence 1 -- already handled separately.
+            if(letterPos == 0) continue; // Sentence 1 -- already handled separately
             if( !isEligibleSentenceBoundary( combinedText, matcher.start(), letterPos ) ) continue;
-            final char c = combinedText.charAt(letterPos);
-            boolean    allow;
+            final char    c = combinedText.charAt(letterPos);
+                  boolean allow;
             if(commentNormalizationClassifier) {
-                final int targetWordIndex =
-                        GruClassifier.tokenize( combinedText.substring(0, letterPos) ).size();
+                final int targetWordIndex = GruClassifier.tokenize(
+                    combinedText.substring(0, letterPos)
+                ).size();
                 allow = classifyComment(combinedText, targetWordIndex) == CommentDecision.YES;
             }
             else {
@@ -2558,16 +2561,16 @@ public static final class Assignment {
             if( !rewritableFlags.get(i) ) continue;
             final int           start = lineStart[i];
             final int           end   = start + contents.get(i).length();
-            StringBuilder        line = null;
+                  StringBuilder line  = null;
             for( final Map.Entry<Integer, Character> e : capitalized.entrySet() ) {
                 final int pos = e.getKey();
-                if( pos >= start && pos < end ) {
+                if(pos >= start && pos < end) {
                     if(line == null) line = new StringBuilder( contents.get(i) );
                     line.setCharAt( pos - start, e.getValue() );
                 }
-            }
+            } // for e
             if(line != null) contents.set( i, line.toString() );
-        } // for
+        } // for i
     }
     /**
      * Common multi-letter abbreviations that legitimately end in `.` mid-sentence -- checked
@@ -2612,15 +2615,15 @@ public static final class Assignment {
         while( wordStart > 0 && Character.isLetter( text.charAt(wordStart - 1) ) ) --wordStart;
         final String precedingWord = text.substring(wordStart, punctPos);
         if( precedingWord.length() <= 1 ) return false;
-        if( MULTI_SENTENCE_ABBREVIATIONS.contains( precedingWord.toLowerCase(java.util.Locale.ROOT) ) ) {
-            return false;
-        }
+        if( MULTI_SENTENCE_ABBREVIATIONS.contains(
+            precedingWord.toLowerCase(java.util.Locale.ROOT)
+        ) ) return false;
 
         int followingEnd = letterPos;
         while( followingEnd < text.length() && ( Character.isLetterOrDigit(
             text.charAt(followingEnd)
         ) || text.charAt(followingEnd) == '_' ) ) ++followingEnd;
-        for( int i = letterPos + 1; i < followingEnd; ++i ) {
+        for(int i = letterPos + 1; i < followingEnd; ++i) {
             if( Character.isUpperCase( text.charAt(i) ) ) return false;
         }
         // A single-letter following "word" immediately followed by `.` is an abbreviation start,
@@ -2630,7 +2633,9 @@ public static final class Assignment {
         // A following word immediately followed by `:` with no space after is a directive/URL-
         // scheme shape (`https:`, `ftp:`, `tslint:`, `TODO:...`), not a real sentence-initial
         // English word -- ordinary prose always has a space after a sentence-leading `Word:`.
-        if( followingEnd < text.length() && text.charAt(followingEnd) == ':' && followingEnd + 1 < text.length()
+        if( followingEnd < text.length() && text.charAt(
+            followingEnd
+        ) == ':' && followingEnd + 1 < text.length()
                 && !Character.isWhitespace( text.charAt(followingEnd + 1) ) ) return false;
 
         return true;

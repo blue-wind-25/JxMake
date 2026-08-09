@@ -86,7 +86,7 @@ public class MiscRuleCurly extends MiscRuleCore {
 
     /**
      * Full constructor additionally taking the {@code line-length-with-comment} config value --
-     *  see {@link MiscRuleCore#lineLengthWithCommentLimit}'s own doc comment.
+     *  see {@link MiscRuleCore#lineLengthWithCommentLimit}'s own doc comment
      */
     public MiscRuleCurly(
         final Lang    lang,
@@ -1413,10 +1413,11 @@ public static final class Signature {
         // comment-aware limit unconditionally regressed ~30 fixtures with no trailing comment at
         // all (e.g. `real_code_regressions_3`/`_7`/`_16`), because it silently raised the effective
         // wrap threshold for every call, not just comment-trailing ones.
-        final int  lineEndIdx    = effectiveLineEndIndex(tokens, closeIdx);
-        final int  effectiveLimit =
-            hasCommentBetween(tokens, closeIdx, lineEndIdx) ? lineLengthWithCommentLimit : lineLengthLimit;
-        final String wholeLineRest = collapseToOneLine(
+        final int    lineEndIdx     = effectiveLineEndIndex(tokens, closeIdx);
+        final int    effectiveLimit = hasCommentBetween(
+            tokens, closeIdx, lineEndIdx
+        ) ? lineLengthWithCommentLimit : lineLengthLimit;
+        final String wholeLineRest  = collapseToOneLine(
             tokens, lineStartIndex(tokens, nameIdx), lineEndIdx - 1
         );
         if( expandedIndentWidth(

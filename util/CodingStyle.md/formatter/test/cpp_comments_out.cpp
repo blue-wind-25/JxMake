@@ -43,7 +43,7 @@ concept HasDraw = requires(T t /* The object */) {
 }; // concept HasDraw
 
 // Comment between class specifier and base
-class /* Derived */ Derived /* From */ : /* Public */ public Base {
+class /* Derived */ Derived /* From */ : /* public */ public Base {
 
 public:
     // Comment before constructor
@@ -64,7 +64,7 @@ private:
 // Comment inside function definition with complex params
 void complexFunction(
     int                      a, // Plain int
-    const std::string&       b, /* Const ref string */
+    const std::string&       b, /* const ref string */
     std::vector<int>         c, // Vector by value
     std::function<void(int)> d  /* Callback */
 )

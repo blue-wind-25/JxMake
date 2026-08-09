@@ -176,7 +176,7 @@ public final class GruAbstainResolverSelfTest {
     {
         return new CommentFeatureVector(
             target, prev, next, false, false, false, false,
-            TokenType.COMMENT_LINE, false, false, false, false, false, false
+            TokenType.COMMENT_LINE, false, false, false, false, false, false, false
         );
     }
 
@@ -187,7 +187,7 @@ public final class GruAbstainResolverSelfTest {
         // from the rule-based classifier for this test
         return new CommentFeatureVector(
             "word", null, null, false, false, false, false,
-            TokenType.COMMENT_LINE, true, false, false, false, false, false
+            TokenType.COMMENT_LINE, true, false, false, false, false, false, false
         );
     }
 

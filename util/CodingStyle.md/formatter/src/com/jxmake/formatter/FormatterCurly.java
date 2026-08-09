@@ -49,16 +49,16 @@ public final class FormatterCurly extends FormatterCore {
             return tokens;
         };
 
-        final int                indentWidth              = config.indentSize();
-        final int                lineLengthLimit           = config.lineLength();
+        final int                indentWidth                = config.indentSize();
+        final int                lineLengthLimit            = config.lineLength();
         final int                lineLengthWithCommentLimit = config.lineLengthWithComment();
-        final BlockStructureRule blockRule       = new BlockStructureRule(
+        final BlockStructureRule blockRule                  = new BlockStructureRule(
             lang, config.closingCommentMinLines(), indentWidth, lineLengthLimit
         );
-        final SwitchRule         switchRule      = new SwitchRule(
+        final SwitchRule         switchRule                 = new SwitchRule(
             lang, lineLengthLimit, indentWidth
         );
-        final MiscRuleCurly      miscRule        = new MiscRuleCurly(
+        final MiscRuleCurly      miscRule                   = new MiscRuleCurly(
             lang,
             config.isNormalizeCommentStartCase(),
             config.isNormalizeCommentEndPeriod(),
@@ -69,17 +69,19 @@ public final class FormatterCurly extends FormatterCore {
             lineLengthLimit,
             lineLengthWithCommentLimit
         );
-        miscRule.setNormalizeCommentMultiSentenceCase( config.isNormalizeCommentMultiSentenceCase() );
-        final CppSpecificRule    cppRule         = isCOrCpp ? new CppSpecificRule(
+        miscRule.setNormalizeCommentMultiSentenceCase(
+            config.isNormalizeCommentMultiSentenceCase()
+        );
+        final CppSpecificRule    cppRule    = isCOrCpp ? new CppSpecificRule(
             lang, lineLengthLimit, indentWidth
         ) : null;
-        final JavaSpecificRule   javaRule        = lang.isJava ? new JavaSpecificRule(
+        final JavaSpecificRule   javaRule   = lang.isJava ? new JavaSpecificRule(
             lang, lineLengthLimit, indentWidth, lineLengthWithCommentLimit
         ) : null;
-        final KotlinSpecificRule kotlinRule      = lang.isKotlin ? new KotlinSpecificRule(
+        final KotlinSpecificRule kotlinRule = lang.isKotlin ? new KotlinSpecificRule(
             lang, lineLengthLimit, indentWidth
         ) : null;
-        final JsTsSpecificRule   jsTsRule        = (lang.isJs || lang.isTs) ? new JsTsSpecificRule(
+        final JsTsSpecificRule   jsTsRule   = (lang.isJs || lang.isTs) ? new JsTsSpecificRule(
             lang, lineLengthLimit, indentWidth
         ) : null;
 

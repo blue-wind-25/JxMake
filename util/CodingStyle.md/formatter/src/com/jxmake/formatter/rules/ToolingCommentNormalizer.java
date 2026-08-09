@@ -36,7 +36,7 @@ final class ToolingCommentNormalizer {
         return normalize(body, normalizeStartCase, normalizeEndPeriod, noCapitalizeWords, false);
     }
 
-    /** Same as {@link #normalize(String, boolean, boolean, Set)}, plus {@code multiSentenceCase}. */
+    /** Same as {@link #normalize(String, boolean, boolean, Set)}, plus {@code multiSentenceCase} */
     static String normalize(
         final String      body,
         final boolean     normalizeStartCase,
@@ -145,7 +145,9 @@ final class ToolingCommentNormalizer {
             if( normalizeStartCase && !chain.isEmpty() ) chain.set(
                 0, capitalizeFirstLetter( chain.get(0), noCapitalizeWords )
             );
-            if( multiSentenceCase && normalizeStartCase ) capitalizeMultiSentence(chain, noCapitalizeWords);
+            if(multiSentenceCase && normalizeStartCase) capitalizeMultiSentence(
+                chain, noCapitalizeWords
+            );
             out.addAll(chain);
             i = j + 1;
         } // while
@@ -156,15 +158,15 @@ final class ToolingCommentNormalizer {
     /**
      * See {@link #normalizeChain(List, List, boolean, boolean, Set, boolean)}'s doc comment --
      * mutates {@code chain} in place, capitalizing sentence 2+ of the combined text back onto each
-     * original element.
+     * original element
      */
     private static void capitalizeMultiSentence(
-        final List<String>  chain,
-        final Set<String>   noCapitalizeWords
+        final List<String> chain,
+        final Set<String>  noCapitalizeWords
     )
     {
         if( chain.isEmpty() ) return;
-        final int[]         lineStart = new int[chain.size()];
+        final int[]         lineStart = new int[ chain.size() ];
         final StringBuilder combined  = new StringBuilder();
         for( int i = 0; i < chain.size(); ++i ) {
             if(i > 0) combined.append(' ');
@@ -178,11 +180,13 @@ final class ToolingCommentNormalizer {
         while( matcher.find() ) {
             final int letterPos = matcher.start(1);
             if(letterPos == 0) continue;
-            if( !MiscRuleCore.isEligibleSentenceBoundary( combinedText, matcher.start(), letterPos ) ) {
-                continue;
-            }
+            if( !MiscRuleCore.isEligibleSentenceBoundary(
+                combinedText, matcher.start(), letterPos
+            ) ) continue;
             int end = letterPos;
-            while( end < combinedText.length() && Character.isLetter( combinedText.charAt(end) ) ) ++end;
+            while( end < combinedText.length() && Character.isLetter(
+                combinedText.charAt(end)
+            ) ) ++end;
             if( noCapitalizeWords != null && noCapitalizeWords.contains(
                 combinedText.substring(letterPos, end)
             ) ) continue;
@@ -191,18 +195,18 @@ final class ToolingCommentNormalizer {
         if( capitalized.isEmpty() ) return;
 
         for( int i = 0; i < chain.size(); ++i ) {
-            final int     start = lineStart[i];
-            final int     end   = start + chain.get(i).length();
-            StringBuilder line  = null;
+            final int           start = lineStart[i];
+            final int           end   = start + chain.get(i).length();
+                  StringBuilder line  = null;
             for( final java.util.Map.Entry<Integer, Character> e : capitalized.entrySet() ) {
                 final int pos = e.getKey();
-                if( pos >= start && pos < end ) {
+                if(pos >= start && pos < end) {
                     if(line == null) line = new StringBuilder( chain.get(i) );
                     line.setCharAt( pos - start, e.getValue() );
                 }
-            }
+            } // for e
             if(line != null) chain.set( i, line.toString() );
-        } // for
+        } // for i
     }
 
     /**
@@ -223,7 +227,7 @@ final class ToolingCommentNormalizer {
             final String placeholder;
             final String body;
             final int    lineNo;
-            int          resolvedLength = -1; // set by resolve(); length of the final substituted text
+                  int    resolvedLength = -1; // Set by resolve(); length of the final substituted text
 
             Entry(final String placeholder, final String body, final int lineNo)
             {
@@ -270,10 +274,12 @@ final class ToolingCommentNormalizer {
             final Set<String> noCapitalizeWords
         )
         {
-            return resolve(transformed, normalizeStartCase, normalizeEndPeriod, noCapitalizeWords, false);
+            return resolve(
+                transformed, normalizeStartCase, normalizeEndPeriod, noCapitalizeWords, false
+            );
         }
 
-        /** Same as {@link #resolve(String, boolean, boolean, Set)}, plus {@code multiSentenceCase}. */
+        /** Same as {@link #resolve(String, boolean, boolean, Set)}, plus {@code multiSentenceCase} */
         String resolve(
             final String      transformed,
             final boolean     normalizeStartCase,
@@ -302,7 +308,12 @@ final class ToolingCommentNormalizer {
                     false
                 ); }
                 final List<String> normalized = normalizeChain(
-                    bodies, blanks, normalizeStartCase, normalizeEndPeriod, noCapitalizeWords, multiSentenceCase
+                    bodies,
+                    blanks,
+                    normalizeStartCase,
+                    normalizeEndPeriod,
+                    noCapitalizeWords,
+                    multiSentenceCase
                 );
                 for(int k = i; k <= j; ++k) {
                     entries.get(k).resolvedLength = normalized.get(k - i).length();
@@ -332,10 +343,10 @@ final class ToolingCommentNormalizer {
             if( entries.isEmpty() ) return preResolveKind;
 
             final StringBuilder out = new StringBuilder( preResolveKind.length() );
-            int                 pos = 0;
-            for( final Entry e : entries ) {
+                  int           pos = 0;
+            for(final Entry e : entries) {
                 final int idx = preResolveTransformed.indexOf(e.placeholder, pos);
-                out.append( preResolveKind, pos, idx );
+                out.append(preResolveKind, pos, idx);
                 for(int k = 0; k < e.resolvedLength; ++k) out.append('O');
                 pos = idx + e.placeholder.length();
             } // for

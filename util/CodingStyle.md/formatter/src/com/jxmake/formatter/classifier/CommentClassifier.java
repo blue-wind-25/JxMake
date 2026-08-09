@@ -38,6 +38,14 @@ public final class CommentClassifier {
         // the accepted cost is a false skip (zero-cost per the asymmetric-risk design), never a
         // wrong capitalize.
         if(features.leadingWordFollowedBySlash) return CommentDecision.NO;
+        // Gate 1c-2 (found 2026-08-10 self-formatting dogfood on tools/*): leading word
+        // immediately followed by "(" -- a call/reference shape (e.g. "getName() defaults...",
+        // "toString() returns...") -- same rationale as Gate 1c above, but only for a non-keyword
+        // leading word. A keyword leading word (e.g. "for(...)") is left to Gate 2's
+        // KeywordAmbiguityGate scoring below, which already independently weighs this same
+        // nextCharIsOpenParen signal for that narrower case -- this gate must not preempt that
+        // already-tuned scoring path.
+        if(!features.hasLeadingKeywordMatch && features.leadingWordFollowedByParen) return CommentDecision.NO;
         // Gate 1d (found 2026-07-30 disagreement-sampling pass, item 6 in STATE_AI.md's "further
         // NO-producing gates" TODO): a comment ending in ";" combined with a second, independent
         // code-shape signal (assignment/call/increment-decrement/typed-declaration) reads as

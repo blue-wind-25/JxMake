@@ -100,6 +100,18 @@ public final class CommentFeatureExtractor {
         final boolean leadingWordFollowedBySlash = targetWordIndex == 0 && targetBounds[1] < commentText.length() && commentText.charAt(
             targetBounds[1]
         ) == '/';
+        // Same rationale/scoping as leadingWordFollowedBySlash above, but for a call/reference
+        // shape instead of a slash-list -- an identifier immediately followed by "(" with no
+        // intervening whitespace (e.g. "getName() defaults...", "toString() returns...") is a
+        // code reference, not prose, even when the leading word isn't a language keyword and so
+        // never reaches Gate 2's KeywordAmbiguityGate scoring (which already independently weighs
+        // nextCharIsOpenParen, but only for keyword leading words). Found 2026-08-10 self-
+        // formatting dogfood: a retrained GRU classifier capitalized "getName()" to "GetName()" in
+        // a real comment, which no existing mechanical gate caught. Mirrors CommentedOutCodeGate's
+        // CALL_SHAPE precedent (identifier immediately followed by "(").
+        final boolean leadingWordFollowedByParen = targetWordIndex == 0 && targetBounds[1] < commentText.length() && commentText.charAt(
+            targetBounds[1]
+        ) == '(';
         // Not targetWordIndex-scoped -- unlike hasLeadingKeywordMatch/leadingWordFollowedBySlash,
         // this is a whole-comment shape signal (trailing ";" plus a second code-shape signal
         // anywhere in the text), independent of which token the decision hinges on. See
@@ -119,7 +131,7 @@ public final class CommentFeatureExtractor {
             targetWord, previousWord, nextWord, nextCharIsOpenParen,
             nextTokenIsArrow, containsSemicolon, containsUrlOrFilenameOrNumber, commentType,
             hasNonLatinScript, hasLeadingKeywordMatch, isDecorativeOnly, leadingWordFollowedBySlash,
-            looksLikeCommentedOutCode, looksLikeLicenseBlock
+            leadingWordFollowedByParen, looksLikeCommentedOutCode, looksLikeLicenseBlock
         );
     }
 

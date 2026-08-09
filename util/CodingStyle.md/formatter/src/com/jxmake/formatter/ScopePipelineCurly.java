@@ -1690,9 +1690,9 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         return processScope(tokens, depth, scopeStartFrozen, inheritedIndent, RERUN_MODE_FULL);
     }
 
-    /** Full fresh-format pass sequence -- see {@link #processScope(List, int, boolean, String, int)}. */
+    /** Full fresh-format pass sequence -- see {@link #processScope(List, int, boolean, String, int)} */
     private static final int RERUN_MODE_FULL = 0;
-    /** Closing-brace + declarations + assignments re-run -- see same javadoc. */
+    /** Closing-brace + declarations + assignments re-run -- see same javadoc */
     private static final int RERUN_MODE_CLOSING_BRACE_AND_DECLARATIONS = 1;
     /**
      * Assignments-pass-only re-run (RDD_KEY_270's Java-family follow-up): re-derives just

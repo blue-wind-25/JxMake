@@ -59,10 +59,18 @@ ONLY=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --out-dir) OUT_DIR="$2"; shift 2 ;;
-        --keep-clones) KEEP_CLONES=1; shift ;;
-        --only) ONLY="$2"; shift 2 ;;
-        *) echo "acquire_corpus.sh: unknown argument: $1" >&2; exit 2 ;;
+    --out-dir)
+        OUT_DIR="$2"; shift 2
+        ;;
+    --keep-clones)
+        KEEP_CLONES=1; shift
+        ;;
+    --only)
+        ONLY="$2"; shift 2
+        ;;
+    *)
+        echo "acquire_corpus.sh: unknown argument: $1" >&2; exit 2
+        ;;
     esac
 done
 
@@ -70,7 +78,7 @@ mkdir -p "$OUT_DIR"
 CLONE_DIR="$OUT_DIR/clones"
 mkdir -p "$CLONE_DIR"
 
-# name|kind|location -- kind is "local" (already-owned dogfood path, ~ expanded)
+# Name|kind|location -- kind is "local" (already-owned dogfood path, ~ expanded)
 # or "github" (org/repo, shallow-cloned). Sourced from STATE_AI.md's own
 # run-by-run log (RDD_EXT_16's own-repos-first batch, plus item 9's vetted
 # MIT/BSD-3-Clause/Apache-2.0 public-repo list) -- add new entries here as
@@ -108,8 +116,11 @@ for entry in "${SOURCES[@]}"; do
 
     if [ -n "$ONLY" ]; then
         case ",$ONLY," in
-            *",$name,"*) ;;
-            *) continue ;;
+        *",$name,"*)
+            ;;
+        *)
+            continue
+            ;;
         esac
     fi
 

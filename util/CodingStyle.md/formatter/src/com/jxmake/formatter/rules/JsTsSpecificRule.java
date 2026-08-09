@@ -2843,7 +2843,7 @@ public final class JsTsSpecificRule {
      */
     private boolean isFieldNameKeywordUsage(final List<Token> tokens, final int kwIdx)
     {
-        for(int j = kwIdx + 1; j < tokens.size(); ++j) {
+        for( int j = kwIdx + 1; j < tokens.size(); ++j ) {
             final Token t = tokens.get(j);
             if( isGapToken(t) ) continue;
             return isOp(t, ":") || isOp(t, "?") || isPunct(t, "?");

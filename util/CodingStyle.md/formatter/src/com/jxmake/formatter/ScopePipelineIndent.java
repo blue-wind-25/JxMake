@@ -273,9 +273,13 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     private int nextSignificantSkipBackslash(final List<Token> tokens, final int from, final int to)
     {
         int i = nextSignificant(tokens, from, to);
-        while( i >= 0 && i < to && tokens.get(i).type == TokenType.OP && "\\".equals( tokens.get(i).text ) ) {
-            i = nextSignificant(tokens, i + 1, to);
-        }
+        while( i >= 0 && i < to && tokens.get(
+            i
+        ).type == TokenType.OP && "\\".equals(
+            tokens.get(i).text
+        ) ) i = nextSignificant(
+            tokens, i + 1, to
+        );
 
         return i;
     }
@@ -430,7 +434,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
               int               groupStart   = -1;
         final int               n            = rawLines.size();
         for(int idx = 0; idx < n; ++idx) {
-            final RawLine  line = rawLines.get(idx);
+            final RawLine line = rawLines.get(idx);
             // Unlike §2's applyAssignmentAlignment, a multiPhysicalLine candidate is no longer
             // rejected outright here -- classifyImport itself now recognizes a parenthesized
             // `from X import (...)` (possibly spanning many physical lines) and a backslash-
@@ -656,15 +660,17 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                 final int    unitStart  = q;
                 final String moduleName = readDottedName(tokens, q, line.end);
                 if( moduleName == null || moduleName.isEmpty() ) return null;
-                int after   = advancePastDottedName(tokens, q, line.end);
-                // advancePastDottedName returns -1 when the dotted name is the last significant
+                int after = advancePastDottedName(tokens, q, line.end);
+                // AdvancePastDottedName returns -1 when the dotted name is the last significant
                 // token on the line (e.g. the final module in `import c, a`, or a lone `import os`)
                 // -- unlike `after`, which stays -1 for the control-flow checks below (matching the
                 // pre-existing single-module code's own >= 0 guards), `unitEnd` must never be -1 or
                 // include the trailing NEWLINE/whitespace gap: scan backward for the name's own last
                 // significant token instead of defaulting to `line.end` (which would splice the
                 // physical line's terminating NEWLINE text into this unit, corrupting the rebuild).
-                int unitEnd = after >= 0 ? after : prevSignificant(tokens, line.end - 1, unitStart - 1) + 1;
+                int unitEnd = after >= 0 ? after : prevSignificant(
+                    tokens, line.end - 1, unitStart - 1
+                ) + 1;
                 if( after >= 0 && after < line.end && isKeyword( tokens.get(after), "as" ) ) {
                     after = nextSignificant(tokens, after + 1, line.end);
                     if( after < 0 || tokens.get(after).type != TokenType.IDENTIFIER ) return null;
@@ -680,7 +686,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                     if( q < 0 || tokens.get(q).type != TokenType.IDENTIFIER ) return null;
                     continue;
                 }
-                if( after >= 0 && after < line.end ) return null; // Trailing junk -- unrecognized, bail safely
+                if(after >= 0 && after < line.end) return null; // Trailing junk -- unrecognized, bail safely
                 break;
             } // while
             if( names.isEmpty() ) return null;
@@ -688,7 +694,9 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             // nothing to reorder within one module. Multi-module `import a, b, c` gets the same
             // name-list rebuild machinery §3's `from` clause already uses (single physical line or
             // backslash-continued only, per this method's own call-site gating below).
-            if(names.size() < 2) return new PyImport( PyImport.Kind.IMPORT, names.get(0), new ArrayList<>() );
+            if( names.size() < 2 ) return new PyImport(
+                PyImport.Kind.IMPORT, names.get(0), new ArrayList<>()
+            );
 
             return new PyImport(
                 PyImport.Kind.IMPORT, names.get(0), names, nameListStart, lastUnitEnd, unitTexts
@@ -733,7 +741,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                 scanLimit     = closeIdx;
                 q             = nextSignificant(tokens, q + 1, closeIdx);
                 if(q < 0) return null; // Empty parens -- nothing to import, malformed
-            }
+            } // if
             final List<String> names         = new ArrayList<>();
             final List<String> unitTexts     = new ArrayList<>();
             final int          nameListStart = q;
@@ -741,7 +749,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             while( q >= 0 && q < scanLimit && tokens.get(q).type == TokenType.IDENTIFIER ) {
                 final int unitStart = q;
                 names.add( tokens.get(q).text );
-                int unitEnd = q + 1;                                    // Index right after the name (or alias) itself, no trailing gap
+                int unitEnd = q + 1;                                     // Index right after the name (or alias) itself, no trailing gap
                 int after   = nextSignificant(tokens, q + 1, scanLimit);
                 if( after >= 0 && after < scanLimit && isKeyword( tokens.get(after), "as" ) ) {
                     after = nextSignificant(tokens, after + 1, scanLimit);
@@ -762,23 +770,27 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             if( names.isEmpty() ) return null;
             if(parenthesized) {
                 // Whatever's left before the close paren must be nothing, or a single trailing comma
-                // -- any other shape here is unrecognized, bail safely rather than guess.
+                // -- any other shape here is unrecognized, bail safely rather than guess
                 final int afterList = nextSignificant(tokens, lastUnitEnd, scanLimit);
-                if( afterList >= 0 && afterList < scanLimit ) {
+                if(afterList >= 0 && afterList < scanLimit) {
                     final boolean soleTrailingComma = tokens.get(
                         afterList
                     ).type == TokenType.PUNCT && ",".equals(
                         tokens.get(afterList).text
-                    ) && nextSignificant(tokens, afterList + 1, scanLimit) < 0;
+                    ) && nextSignificant(
+                        tokens, afterList + 1, scanLimit
+                    ) < 0;
                     if(!soleTrailingComma) return null;
-                }
+                } // if
             } // if
-            final boolean isFuture   = "__future__".equals( module.toString() );
+            final boolean isFuture = "__future__".equals( module.toString() );
             // Scan the *whole* parenthesized span, not just [nameListStart, closeIdx) -- a comment
             // can sit right after the opening `(` itself, before any name (real-world find:
             // django/db/models/__init__.py's `from django.db.models.fields.related import (  #
             // isort:skip`), and would otherwise go undetected by a narrower nameListStart-based scan.
-            final boolean hasComment = parenthesized && containsComment(tokens, parenOpenIdx, closeIdx);
+            final boolean hasComment = parenthesized && containsComment(
+                tokens, parenOpenIdx, closeIdx
+            );
             return new PyImport(
                 isFuture ? PyImport.Kind.FUTURE : PyImport.Kind.FROM, module.toString(), names,
                 hasComment ? -1 : nameListStart, hasComment ? -1 : lastUnitEnd,

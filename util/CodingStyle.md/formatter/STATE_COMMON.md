@@ -874,3 +874,56 @@ see `STATE_C_CPP_JAVA.md`'s Open Questions entry (`applyAssignmentsPass`
 narrow re-run, RDD_KEY_193 fixture). The blank-line workaround in
 `PowerShellSpecificRule.java` is no longer structurally required but was
 left in place as optional future cleanup.
+
+**2026-08-10: re-ran against `tools/*` (added `.sh` to scope; 67 files
+total), adopted.** Round1/round2 idempotency diff empty. `diff -rq` against
+originals found 3 files with actual changes: `tools/gru/acquire_corpus.sh`
+(cosmetic case-block reindent + a benign comment capitalization),
+`tools/verifiers/js_ts_content_diff.js` (byte-identical to its already-
+adopted state, no new diff), `tools/verifiers/kotlin_content_diff.java`.
+The last surfaced a real, non-cosmetic bug: the GRU comment classifier
+(retrained earlier the same session — see `STATE_AI.md`) capitalized a
+comment starting with a real method reference, `// getName() defaults...`
+-> `// GetName() defaults...`, changing its meaning (implies a differently-
+cased method). Root-caused as a genuine mechanical-gate gap, not a
+training/weights problem: `nextCharIsOpenParen` already existed as a
+feature but was only ever consulted inside `KeywordAmbiguityGate`'s scoring
+(gated behind `hasLeadingKeywordMatch`, i.e. only for language-keyword
+leading words) — there was no equivalent of the existing Gate 1c
+(`leadingWordFollowedBySlash`) for the plain call-shape case. Fixed by
+adding `leadingWordFollowedByParen` (`CommentFeatureVector`/
+`CommentFeatureExtractor`) and a new Gate 1c-2 in `CommentClassifier.classify`
+mirroring Gate 1c exactly, guarded by `!hasLeadingKeywordMatch` so it can't
+preempt the already-tuned keyword-ambiguity scoring path. Updated
+`GruAbstainResolverSelfTest.java`'s two `CommentFeatureVector` call sites
+for the new constructor param. `kotlin_content_diff.java`'s remaining
+reported content-diff mismatch (a single-statement `if` body losing its
+braces) is a known, intentional, documented Java brace-collapse feature
+(`BlockStructureRule.tryCollapse`, see `STATE_C_CPP_JAVA.md`) that
+`java_content_diff.java`'s AST-based declaration comparator doesn't
+tolerate — a checker limitation, not a formatter bug; confirmed by
+comparing javac's raw parsed-tree `toString()` output directly. All three
+files adopted over real `tools/*` after the mechanical-gate fix landed;
+`make test` 276/276 forward + idempotency, both before and after.
+
+**2026-08-10 (later, same session): re-ran against the formatter's own
+`src/` (same simplification, already-built JAR, no round2-JAR fixed-point
+check), adopted.** Round1/round2 idempotency diff empty. 18 files differed
+from real `src/`; content-diffed all 18. 14 were `OK: content preserved`.
+4 (`Main.java`, `MiscRuleCore.java`, `ToolingCommentNormalizer.java`,
+`ScopePipelineIndent.java`) reported a "top-level declaration structure
+differs" mismatch, each root-caused individually as one of two already-
+understood, non-bug classes: (a) `java_content_diff.java`'s AST-based
+declaration comparator doesn't tolerate the documented single-statement
+brace-collapse feature (`BlockStructureRule.tryCollapse`), the same
+limitation noted for `kotlin_content_diff.java` above; (b) `src/` simply
+predated the existing closing-brace loop-variable-naming feature (`// for`
+-> `// for i`/`// for e`, see `BlockStructureRule`'s loop-variable-name
+logic) and a few ordinary sentence-initial comment capitalizations on
+identifiers not immediately followed by `(` (e.g. `advancePastDottedName
+returns...` -> `AdvancePastDottedName returns...`) -- correctly outside the
+new Gate 1c-2's narrow scope (only slash/paren-adjacent/keyword shapes are
+exempted from capitalization, not arbitrary identifiers, per this
+classifier's asymmetric-risk design). No real content loss found in any of
+the 18. Adopted over real `src/`; `make clean && make test` 276/276 forward
++ idempotency, `make test-server` all passed.

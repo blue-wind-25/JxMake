@@ -39,7 +39,7 @@ public final class YamlSpecificRule {
     private final boolean normalizeCommentStartCase;
     private final boolean normalizeCommentEndPeriod;
     // `normalize-comment-start-case-multiline` -- default off, set post-construction (matches the
-    // curly family's MiscRuleCore#setNormalizeCommentMultiSentenceCase pattern).
+    // curly family's MiscRuleCore#setNormalizeCommentMultiSentenceCase pattern)
     private boolean normalizeCommentMultiSentenceCase = false;
 
     public void setNormalizeCommentMultiSentenceCase(final boolean value)
@@ -136,7 +136,11 @@ public final class YamlSpecificRule {
             blanks.add(cl.blankBefore);
         }
         final List<String>      normBodies = ToolingCommentNormalizer.normalizeChain(
-            bodies, blanks, normalizeCommentStartCase, normalizeCommentEndPeriod, null,
+            bodies,
+            blanks,
+            normalizeCommentStartCase,
+            normalizeCommentEndPeriod,
+            null,
             normalizeCommentMultiSentenceCase
         );
         final List<CommentLine> out        = new ArrayList<>();

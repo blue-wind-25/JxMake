@@ -123,9 +123,9 @@ public class kotlin_content_diff {
     {
         PsiElement psi = n.getPsi();
         if( !(psi instanceof KtBlockExpression) ) return false;
-        if( !(psi.getParent() instanceof KtContainerNodeForControlStructureBody) ) return false;
+        if( !( psi.getParent() instanceof KtContainerNodeForControlStructureBody ) ) return false;
 
-        return ((KtBlockExpression) psi).getStatements().size() == 1;
+        return ( (KtBlockExpression) psi ).getStatements().size() == 1;
     }
 
     static void collectLeafText(ASTNode n, StringBuilder sb)
@@ -140,7 +140,7 @@ public class kotlin_content_diff {
         else if( isCollapsibleControlBlock(n) ) {
             for(ASTNode c : children) {
                 IElementType et = c.getElementType();
-                if( et == KtTokens.LBRACE || et == KtTokens.RBRACE ) continue;
+                if(et == KtTokens.LBRACE || et == KtTokens.RBRACE) continue;
                 collectLeafText(c, sb);
             }
         }
@@ -213,9 +213,13 @@ public class kotlin_content_diff {
      */
     static String normalizeTrailingPeriod(String s)
     {
-        if( s.endsWith(".") && s.chars().filter( c -> c == '.' ).count() == 1 ) {
-            return s.substring( 0, s.length() - 1 );
-        }
+        if( s.endsWith(
+            "."
+        ) && s.chars().filter(
+            c -> c == '.'
+        ).count() == 1 ) return s.substring(
+            0, s.length() - 1
+        );
 
         return s;
     }
@@ -299,34 +303,34 @@ public class kotlin_content_diff {
             out.add( java.util.Collections.singletonList("init") );
         }
         else if(e instanceof KtClassOrObject) {
-            KtClassOrObject co = (KtClassOrObject) e;
+            KtClassOrObject co = (KtClassOrObject)e;
             // getName() defaults an anonymous companion object to "Companion"
             // even with no explicit name written in source -- getNameIdentifier()
             // is null in exactly that case, which is what distinguishes
-            // "companion object" from an explicitly-named "companion object Foo".
-            String name = ( co.getNameIdentifier() == null ) ? null : co.getName();
+            // "companion object" from an explicitly-named "companion object Foo"
+            String       name     = ( co.getNameIdentifier() == null ) ? null : co.getName();
             List<String> variants = new ArrayList<>();
             if( co instanceof KtObjectDeclaration && ( (KtObjectDeclaration) co ).isCompanion() ) {
-                variants.add( ( name == null ) ? "companion object" : ( "companion object " + name ) );
+                variants.add( (name == null) ? "companion object" : ("companion object " + name) );
             }
             else if(co instanceof KtObjectDeclaration) {
                 if(name == null) {
                     variants.add("object");
                 }
                 else {
-                    variants.add( "object " + name );
-                    variants.add( "class " + name );   // observed formatter quirk, see doc above
-                    variants.add(name);                // observed formatter quirk, see doc above
+                    variants.add("object " + name);
+                    variants.add("class " + name);   // Observed formatter quirk, see doc above
+                    variants.add(name);                // Observed formatter quirk, see doc above
                 }
             }
             else if( co instanceof KtClass && ( (KtClass) co ).isInterface() ) {
-                variants.add( "interface " + name );
+                variants.add("interface " + name);
             }
             else if( co instanceof KtClass && ( (KtClass) co ).isEnum() ) {
-                variants.add( "enum class " + name );
+                variants.add("enum class " + name);
             }
             else {
-                variants.add( "class " + name );
+                variants.add("class " + name);
             }
             List<String> normalized = new ArrayList<>();
             for(String v : variants) normalized.add( normalizeWhitespace(v).toLowerCase() );
@@ -361,20 +365,22 @@ public class kotlin_content_diff {
     {
         if(e instanceof org.jetbrains.kotlin.psi.KtWhenExpression) {
             org.jetbrains.kotlin.psi.KtWhenExpression w = (org.jetbrains.kotlin.psi.KtWhenExpression) e;
-            PsiElement lp = w.getLeftParenthesis();
-            PsiElement rp = w.getRightParenthesis();
+            PsiElement   lp       = w.getLeftParenthesis();
+            PsiElement   rp       = w.getRightParenthesis();
             List<String> variants = new ArrayList<>();
             if(lp != null && rp != null) {
                 String rawSubject = w.getContainingFile().getText().substring(
                     lp.getTextRange().getEndOffset(), rp.getTextRange().getStartOffset()
                 );
-                variants.add( normalizeWhitespace( "when " + normalizeWhitespace(rawSubject) ).toLowerCase() );
-            }
+                variants.add(
+                    normalizeWhitespace( "when " + normalizeWhitespace(rawSubject) ).toLowerCase()
+                );
+            } // if
             else {
                 variants.add("when");
             }
             out.add(variants);
-        }
+        } // if
         for( PsiElement c : e.getChildren() ) collectWhenClosingComments(c, out);
     }
 
@@ -411,10 +417,12 @@ public class kotlin_content_diff {
      *  entry is only tolerated if it's either a loose control-flow closing
      *  annotation, or one consumed (one-for-one, not just "present anywhere
      *  in the set") from `namedConstructAllowed`'s per-file real-construct
-     *  count.
+     *  count
      */
     static List<String> diffCommentMultisets(
-        List<String> a, List<String> b, List<List<String>> namedConstructAllowed
+        List<String>       a,
+        List<String>       b,
+        List<List<String>> namedConstructAllowed
     )
     {
         List<String> mismatches = new ArrayList<>();
@@ -431,8 +439,8 @@ public class kotlin_content_diff {
 
         // Each group represents ONE real declaration -- consume at most one
         // variant per group, so a single construct can excuse at most one
-        // added comment, no matter how many acceptable shapes its group lists.
-        for( List<String> group : namedConstructAllowed ) {
+        // added comment, no matter how many acceptable shapes its group lists
+        for(List<String> group : namedConstructAllowed) {
             for(String variant : group) {
                 if( bCopy.remove(variant) ) break;
             }
@@ -484,7 +492,9 @@ public class kotlin_content_diff {
             );
         } // for
 
-        List<List<String>> closingCommentGroups = new ArrayList<>( namedConstructClosingComments(origFile) );
+        List<List<String>> closingCommentGroups = new ArrayList<>( namedConstructClosingComments(
+            origFile
+        ) );
         closingCommentGroups.addAll( whenClosingComments(origFile) );
         mismatches.addAll(
             diffCommentMultisets(

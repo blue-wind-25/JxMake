@@ -40,7 +40,7 @@ public final class PowerShellSpecificRule {
     private final boolean normalizeCommentStartCase;
     private final boolean normalizeCommentEndPeriod;
     // `normalize-comment-start-case-multiline` -- default off, set post-construction (matches the
-    // curly family's MiscRuleCore#setNormalizeCommentMultiSentenceCase pattern).
+    // curly family's MiscRuleCore#setNormalizeCommentMultiSentenceCase pattern)
     private boolean normalizeCommentMultiSentenceCase = false;
 
     public PowerShellSpecificRule(
@@ -99,7 +99,7 @@ public final class PowerShellSpecificRule {
     private static final class RunBuffer {
 
         private final StringBuilder out     = new StringBuilder();
-        private final StringBuilder kindOut = new StringBuilder(); // per emitted OUTPUT character, aligned with `out`
+        private final StringBuilder kindOut = new StringBuilder(); // Per emitted OUTPUT character, aligned with `out`
         private final StringBuilder run     = new StringBuilder();
         private       char          kind    = 'C';
 
@@ -127,7 +127,7 @@ public final class PowerShellSpecificRule {
             return out.toString();
         }
 
-        /** Per-output-character kind, aligned with {@link #result()} -- call only after {@link #result()}. */
+        /** Per-output-character kind, aligned with {@link #result()} -- call only after {@link #result()} */
         String kindResult()
         {
             return kindOut.toString();
@@ -486,16 +486,21 @@ public final class PowerShellSpecificRule {
 
         final String preResolveTransformed = buf.result();
         final String preResolveKind        = buf.kindResult();
-        final String transformed = chainCollector.resolve(
-            preResolveTransformed, normalizeCommentStartCase, normalizeCommentEndPeriod, null,
+        final String transformed           = chainCollector.resolve(
+            preResolveTransformed,
+            normalizeCommentStartCase,
+            normalizeCommentEndPeriod,
+            null,
             normalizeCommentMultiSentenceCase
         );
         // Must run after resolve() above -- reuses its per-entry resolvedLength to keep the kind
         // string aligned with `transformed` (RDD: kind[] was previously indexed against the original
         // `content` string, diverging from `transformed` once a standalone comment's placeholder was
         // substituted for a different-length final comment text -- every downstream consumer already
-        // indexes kind[] against `transformed`, so kind must be built aligned to it instead).
-        final String resolvedKind = chainCollector.resolveKind(preResolveTransformed, preResolveKind);
+        // indexes kind[] against `transformed`, so kind must be built aligned to it instead)
+        final String resolvedKind = chainCollector.resolveKind(
+            preResolveTransformed, preResolveKind
+        );
 
         final PassAResult result = new PassAResult();
         result.transformed = transformed;
@@ -508,7 +513,10 @@ public final class PowerShellSpecificRule {
     private void emitNormalizedComment(final RunBuffer buf, final String body)
     {
         final String normalized = ToolingCommentNormalizer.normalize(
-            body, normalizeCommentStartCase, normalizeCommentEndPeriod, null,
+            body,
+            normalizeCommentStartCase,
+            normalizeCommentEndPeriod,
+            null,
             normalizeCommentMultiSentenceCase
         );
         for( int i = 0; i < normalized.length(); ++i ) buf.emit( normalized.charAt(i), 'O' );
@@ -1300,12 +1308,12 @@ public final class PowerShellSpecificRule {
 
         String s = content;
         s = applyKeywordParenSpacing(s); // §3.5 (also benefits if/while/... examples in §3.1)
-        s = applyOperatorSpacing(s); // §3.2 spacing
-        s = applyBraceSpacing(s); // §3.6 (before indent/align so later passes see spaced braces)
-        s = applyBraceIndent(s); // §3.1 (also multi-line hashtable bodies -- §3.4)
-        s = applyPipelineSplit(s); // §3.3 (after indent so continuation uses base+1 level)
-        s = applyAssignAlignment(s); // §3.2 alignment (also multi-line hashtable entries -- §3.4)
-        s = applySwitchArmAlignment(s); // §3.5 arm `{` alignment (after indent)
+        s = applyOperatorSpacing(s);     // §3.2 spacing
+        s = applyBraceSpacing(s);        // §3.6 (before indent/align so later passes see spaced braces)
+        s = applyBraceIndent(s);         // §3.1 (also multi-line hashtable bodies -- §3.4)
+        s = applyPipelineSplit(s);       // §3.3 (after indent so continuation uses base+1 level)
+        s = applyAssignAlignment(s);     // §3.2 alignment (also multi-line hashtable entries -- §3.4)
+        s = applySwitchArmAlignment(s);  // §3.5 arm `{` alignment (after indent)
         return s;
     }
 

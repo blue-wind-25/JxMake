@@ -92,13 +92,15 @@ public final class ServerMode {
             return false;
         }
 
-        // server-concurrency: default 1 keeps HttpServer's implicit single-threaded default
+        // Server-concurrency: default 1 keeps HttpServer's implicit single-threaded default
         // executor (today's behavior, unchanged). Explicitly raising it installs a fixed thread
         // pool of that size -- see the thread-safety audit note in STATE_COMMON.md's "Server
         // concurrency + client read-ahead" section for why FormatHandler/GdrPipelineGate and
         // everything they call are safe to invoke concurrently once this is > 1.
         final int concurrency = config.serverConcurrency() > 0 ? config.serverConcurrency() : 1;
-        if(concurrency > 1) httpServer.setExecutor( java.util.concurrent.Executors.newFixedThreadPool(concurrency) );
+        if(concurrency > 1) httpServer.setExecutor(
+            java.util.concurrent.Executors.newFixedThreadPool(concurrency)
+        );
 
         httpServer.createContext( "/format", new FormatHandler() );
         httpServer.createContext( "/shutdown", new ShutdownHandler(httpServer, lockfilePath) );

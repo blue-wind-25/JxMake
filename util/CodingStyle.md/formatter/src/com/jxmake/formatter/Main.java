@@ -179,18 +179,24 @@ public final class Main {
             "one of --out DIR, --diff, --check, or --in-place is required " + "(in-place overwriting is no longer the implicit default)"
         );
 
-        // client-read-ahead: only relevant to the one-by-one server-delegation path (not
+        // Client-read-ahead: only relevant to the one-by-one server-delegation path (not
         // --standalone, and only if a server is actually live to delegate to) -- default 1
         // keeps today's strict request/response/request serial dispatch. When explicitly
         // raised and a server is live, pipeline up to that many requests in flight instead of
         // waiting for each one to finish before starting the next. See README.md's "Server
         // mode" section and STATE_COMMON.md's "Server concurrency + client read-ahead" entry.
-        final Config configForReadAhead = Config.resolve( Paths.get(".").toAbsolutePath(), cliOverrides );
+        final Config configForReadAhead = Config.resolve(
+            Paths.get(".").toAbsolutePath(), cliOverrides
+        );
         final int    readAhead          = configForReadAhead.clientReadAhead() > 0 ? configForReadAhead.clientReadAhead() : 1;
         final int    liveServerPort     = standalone ? -1 : ServerMode.findRunningServerPort();
 
-        final java.util.concurrent.atomic.AtomicBoolean anyChangedHolder = new java.util.concurrent.atomic.AtomicBoolean(false);
-        final java.util.concurrent.atomic.AtomicBoolean anyErrorHolder   = new java.util.concurrent.atomic.AtomicBoolean(false);
+        final java.util.concurrent.atomic.AtomicBoolean anyChangedHolder = new java.util.concurrent.atomic.AtomicBoolean(
+            false
+        );
+        final java.util.concurrent.atomic.AtomicBoolean anyErrorHolder   = new java.util.concurrent.atomic.AtomicBoolean(
+            false
+        );
 
         if(readAhead > 1 && liveServerPort > 0) {
             runFilesWithReadAhead(
@@ -199,33 +205,42 @@ public final class Main {
             );
         } // if
         else {
-            for(final String file : files) {
-                runOneFile(
-                    file, outputMode, outDir, standalone, formatOff, cliOverrides,
-                    explicitLanguage, preserveTree, rootDir, anyChangedHolder, anyErrorHolder
-                );
-            } // for
+            for(final String file : files) runOneFile(
+                file,
+                outputMode,
+                outDir,
+                standalone,
+                formatOff,
+                cliOverrides,
+                explicitLanguage,
+                preserveTree,
+                rootDir,
+                anyChangedHolder,
+                anyErrorHolder
+            ); // For
         } // if/else
 
-        if(anyErrorHolder.get()) return 1;
-        if(outputMode == OutputMode.CHECK && anyChangedHolder.get()) return 1;
+        if( anyErrorHolder.get() ) return 1;
+        if( outputMode == OutputMode.CHECK && anyChangedHolder.get() ) return 1;
 
         return 0;
     }
 
-    /** One file's worth of work from the old serial loop body, factored out so both the serial
+    /**
+     * One file's worth of work from the old serial loop body, factored out so both the serial
      *  and read-ahead-pipelined dispatch paths share the exact same per-file logic/error
-     *  handling. */
+     *  handling
+     */
     private static void runOneFile(
-        final String               file,
-        final OutputMode           outputMode,
-        final String               outDir,
-        final boolean              standalone,
-        final boolean              formatOff,
-        final Map<String, String>  cliOverrides,
-        final String               explicitLanguage,
-        final boolean              preserveTree,
-        final String               rootDir,
+        final String                                    file,
+        final OutputMode                                outputMode,
+        final String                                    outDir,
+        final boolean                                   standalone,
+        final boolean                                   formatOff,
+        final Map<String, String>                       cliOverrides,
+        final String                                    explicitLanguage,
+        final boolean                                   preserveTree,
+        final String                                    rootDir,
         final java.util.concurrent.atomic.AtomicBoolean anyChangedHolder,
         final java.util.concurrent.atomic.AtomicBoolean anyErrorHolder
     )
@@ -262,29 +277,33 @@ public final class Main {
         }
     }
 
-    /** Bounded read-ahead pipeline: up to {@code readAhead} files are formatted concurrently
+    /**
+     * Bounded read-ahead pipeline: up to {@code readAhead} files are formatted concurrently
      *  (each on its own worker thread, each independently going through the exact same
      *  {@code processFile} path -- including its own server-delegation HTTP round trip) instead
      *  of strictly one at a time, while still consuming/printing results in original file order
      *  so diff output / exit-status aggregation stay deterministic. This keeps the server's own
      *  thread pool (see {@code server-concurrency}) continuously fed instead of idling between
-     *  requests. */
+     *  requests.
+     */
     private static void runFilesWithReadAhead(
-        final List<String>         files,
-        final OutputMode           outputMode,
-        final String               outDir,
-        final boolean              standalone,
-        final boolean              formatOff,
-        final Map<String, String>  cliOverrides,
-        final String               explicitLanguage,
-        final boolean              preserveTree,
-        final String               rootDir,
-        final int                  readAhead,
+        final List<String>                              files,
+        final OutputMode                                outputMode,
+        final String                                    outDir,
+        final boolean                                   standalone,
+        final boolean                                   formatOff,
+        final Map<String, String>                       cliOverrides,
+        final String                                    explicitLanguage,
+        final boolean                                   preserveTree,
+        final String                                    rootDir,
+        final int                                       readAhead,
         final java.util.concurrent.atomic.AtomicBoolean anyChangedHolder,
         final java.util.concurrent.atomic.AtomicBoolean anyErrorHolder
     )
     {
-        final java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(readAhead);
+        final java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(
+            readAhead
+        );
         try {
             final java.util.ArrayDeque<java.util.concurrent.Future<?>> inFlight = new java.util.ArrayDeque<java.util.concurrent.Future<?>>();
             for(final String file : files) {
@@ -292,7 +311,7 @@ public final class Main {
                     file, outputMode, outDir, standalone, formatOff, cliOverrides,
                     explicitLanguage, preserveTree, rootDir, anyChangedHolder, anyErrorHolder
                 ) ) );
-                if(inFlight.size() >= readAhead) drainOne(inFlight);
+                if( inFlight.size() >= readAhead ) drainOne(inFlight);
             } // for
             while( !inFlight.isEmpty() ) drainOne(inFlight);
         }
@@ -301,7 +320,9 @@ public final class Main {
         }
     }
 
-    private static void drainOne(final java.util.ArrayDeque<java.util.concurrent.Future<?>> inFlight)
+    private static void drainOne(
+        final java.util.ArrayDeque<java.util.concurrent.Future<?>> inFlight
+    )
     {
         final java.util.concurrent.Future<?> next = inFlight.pollFirst();
         try {
@@ -311,10 +332,10 @@ public final class Main {
             Thread.currentThread().interrupt();
         }
         catch(final java.util.concurrent.ExecutionException e) {
-            // runOneFile already catches/reports its own exceptions and never lets one
+            // RunOneFile already catches/reports its own exceptions and never lets one
             // propagate out -- this branch is unreachable in practice, kept only as a safety
-            // net so a future refactor of runOneFile can't silently swallow a real failure.
-            System.err.println("jxmake-code-formatter: INTERNAL ERROR: " + e.getCause());
+            // net so a future refactor of runOneFile can't silently swallow a real failure
+            System.err.println( "jxmake-code-formatter: INTERNAL ERROR: " + e.getCause() );
         }
     }
 
@@ -349,19 +370,29 @@ public final class Main {
         System.err.println("  jxmake-code-formatter <output-mode> [options] [file...]");
         System.err.println();
         System.err.println("  Output mode (exactly one required):");
-        System.err.println("    --in-place       overwrite each input file with its formatted output");
+        System.err.println(
+            "    --in-place       overwrite each input file with its formatted output"
+        );
         System.err.println("    --diff           print a unified diff, do not write anything");
         System.err.println("    --check          exit 1 if any file would change (for CI)");
         System.err.println("    --out DIR        write formatted output under DIR instead");
         System.err.println();
         System.err.println("  Options:");
-        System.err.println("    --lang LANG      force language instead of inferring from extension");
+        System.err.println(
+            "    --lang LANG      force language instead of inferring from extension"
+        );
         System.err.println("                     LANG is one of: " + langs);
-        System.err.println("    --standalone     format as a standalone file (no enclosing project)");
+        System.err.println(
+            "    --standalone     format as a standalone file (no enclosing project)"
+        );
         System.err.println("    --format-off     disable all formatting (pass-through)");
-        System.err.println("    --preserve-tree  with --out DIR, preserve each file's subdirectory");
+        System.err.println(
+            "    --preserve-tree  with --out DIR, preserve each file's subdirectory"
+        );
         System.err.println("                     structure instead of flattening to its basename");
-        System.err.println("    --root DIR       root directory --preserve-tree paths are relative to");
+        System.err.println(
+            "    --root DIR       root directory --preserve-tree paths are relative to"
+        );
         System.err.println("    --version        print version and exit");
         System.err.println();
         System.err.println("Server mode:");

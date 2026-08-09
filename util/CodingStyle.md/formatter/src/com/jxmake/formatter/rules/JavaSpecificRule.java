@@ -323,8 +323,9 @@ public class JavaSpecificRule {
             // line and must keep agreeing with `MiscRuleCurly.enforceCallLineBreaking`'s own
             // code-only fits-check (`lineLengthLimit`), which itself only switches to
             // `lineLengthWithCommentLimit` when it detects a trailing comment (see that method).
-            final int effectiveLimit =
-                hasCommentBetween(tokens, closeBraceIdx, lineEnd + 1) ? lineLengthWithCommentLimit : lineLengthLimit;
+            final int effectiveLimit = hasCommentBetween(
+                tokens, closeBraceIdx, lineEnd + 1
+            ) ? lineLengthWithCommentLimit : lineLengthLimit;
             if(width > effectiveLimit) return false;
         } // if
 

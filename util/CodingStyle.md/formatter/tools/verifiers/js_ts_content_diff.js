@@ -117,13 +117,15 @@ function isBareableArrowParam(fn)
   if(fn.parameters.length !== 1) return false;
     const p = fn.parameters[0];
 
-  return !p.dotDotDotToken && !p.type && !p.initializer && !p.questionToken && ts.isIdentifier(p.name);
-}
+  return !p.dotDotDotToken && !p.type && !p.initializer && !p.questionToken && ts.isIdentifier(
+      p.name
+  );
+} // isBareableArrowParam
 
 function isPlainIncDec(n)
 {
   return ( ts.isPostfixUnaryExpression(n) || ts.isPrefixUnaryExpression(n) )
-      && ( n.operator === ts.SyntaxKind.PlusPlusToken || n.operator === ts.SyntaxKind.MinusMinusToken );
+      && (n.operator === ts.SyntaxKind.PlusPlusToken || n.operator === ts.SyntaxKind.MinusMinusToken);
 }
 
 function canonicalize(node)
@@ -146,22 +148,22 @@ function canonicalize(node)
     // tolerate.
     if( ts.isJSDoc(n) ) return;
     if( ts.isArrowFunction(n) && isBareableArrowParam(n) ) {
-      for(const k of n.getChildren()) {
+      for( const k of n.getChildren() ) {
         if(k.kind === ts.SyntaxKind.OpenParenToken || k.kind === ts.SyntaxKind.CloseParenToken) continue;
         walk(k);
       }
       return;
-    }
+    } // if
     if( ts.isForStatement(n) ) {
-      for(const k of n.getChildren()) {
+      for( const k of n.getChildren() ) {
         if( n.incrementor && k === n.incrementor && isPlainIncDec(k) ) {
-          parts.push( k.operator === ts.SyntaxKind.PlusPlusToken ? '++' : '--' );
+          parts.push(k.operator === ts.SyntaxKind.PlusPlusToken ? '++' : '--');
           walk(k.operand);
         }
         else walk(k);
-      }
+      } // for
       return;
-    }
+    } // if
     const kids = n.getChildren();
     if(kids.length === 0) {
       const t = n.getText();

@@ -335,7 +335,7 @@ public final class CssSpecificRule {
                 }
                 if( parenDepth == 0 && Token.isPunct(tok, "}") ) {
                     terminator = TERM_BRACE_CLOSE_IMPLICIT;
-                    break; // do not consume -- the outer loop's pre-check handles it
+                    break; // Do not consume -- the outer loop's pre-check handles it
                 }
                 if( parenDepth == 0 && colonOffset < 0 && Token.isPunct(
                     tok, ":"

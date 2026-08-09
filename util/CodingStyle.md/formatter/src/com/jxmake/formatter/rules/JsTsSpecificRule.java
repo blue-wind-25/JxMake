@@ -2809,13 +2809,46 @@ public final class JsTsSpecificRule {
             ) ) ) return null;
             else if( depth == 0 && t.type == TokenType.KEYWORD && "class".equals(
                 t.text
-            ) ) return "CLASS";
+            ) ) {
+                // `class`/`interface` are also legal TS property/field names (e.g. `readonly
+                // class: ExpressionWithTypeArguments & { readonly expression: ...; };`, seen in
+                // microsoft/TypeScript's compiler/types.ts JSDocAugmentsTag/JSDocImplementsTag) --
+                // the tokenizer still tags that occurrence as a KEYWORD token by text alone, so a
+                // bare text match here misclassifies the field's own nested inline object-type-
+                // literal `{...}` brace as if it were this "class" token's OWN class-declaration
+                // body. A real class-declaration keyword is always immediately followed by the
+                // class name (an IDENTIFIER); a field-name usage is immediately followed by `:`
+                // (optionally `?` first) instead -- skip (keep walking backward) rather than
+                // returning "CLASS" when that's the shape seen.
+                if( isFieldNameKeywordUsage(tokens, i) ) continue;
+                return "CLASS";
+            }
             else if( depth == 0 && t.type == TokenType.KEYWORD && "interface".equals(
                 t.text
-            ) ) return "IFACE";
+            ) ) {
+                if( isFieldNameKeywordUsage(tokens, i) ) continue;
+                return "IFACE";
+            }
         } // for
 
         return null;
+    }
+
+    /**
+     * True iff the KEYWORD token at index {@code kwIdx} (text `class` or `interface`) is being
+     *  used as a TS property/field name, not a class/interface declaration keyword -- i.e. the
+     *  next significant (non-gap) token forward is `:` or `?` (an optional-marker before `:`)
+     *  rather than an identifier (the declared class/interface's own name). See
+     *  {@link #classBraceKind}'s call sites for the exact bug this guards against.
+     */
+    private boolean isFieldNameKeywordUsage(final List<Token> tokens, final int kwIdx)
+    {
+        for(int j = kwIdx + 1; j < tokens.size(); ++j) {
+            final Token t = tokens.get(j);
+            if( isGapToken(t) ) continue;
+            return isOp(t, ":") || isOp(t, "?") || isPunct(t, "?");
+        } // for
+        return false;
     }
 
     /**

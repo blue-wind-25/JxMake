@@ -88,6 +88,7 @@ convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_273 | 2026-08-09 `microsoft/TypeScript` dogfood-reconfirmation Tier-3 shape #1 (braceless if/else-if body-column-alignment padding going stale on round2) — `compiler/builder.ts`/`compiler/moduleNameResolver.ts`/`services/findAllReferences.ts`, FIXED: `BlockStructureRule.alignBracelessElseIfChain` splits on `"\n"` only, leaving a trailing `'\r'` on every line of CRLF-original source (CRLF/LF normalization happens once, at the very end, in `Main.applyLineEndings`) — that stray byte skews the `lineLengthLimit` padding guard's length math, landing on different sides of the boundary between round1 (still-CRLF) and round2 (already-LF-only). Fixed by stripping any trailing `'\r'` from each split line up front. New fixture: `test/real_code_regressions_195_{inp,out}.ts` (deliberately CRLF-encoded, `.gitattributes`-marked `-text`) |
 | RDD_KEY_274 | 2026-08-09 `microsoft/TypeScript` dogfood-reconfirmation Tier-3 shape #2 (class-field `:`-type-annotation column-alignment group splitting apart on round2) — `server/editorServices.ts`/`server/project.ts`, FIXED: a same-line leading comment (`/** @internal */ readonly x: T;`) forces its own line when `JsTsSpecificRule.flushClassFieldGroup` renders a group, adding a NEWLINE the source never had; `blankLineBetween`'s old "count total NEWLINEs in the gap, blank if >= 2" logic then miscounted that forced line break as a genuine blank line on round2 (fed round1's own already-comment-on-its-own-line output), splitting a group round1 had correctly kept joined. Fixed by requiring the two NEWLINEs be strictly back-to-back (only WHITESPACE allowed between, a COMMENT resets the count) to count as a real blank line. New fixture: `test/real_code_regressions_196_{inp,out}.ts` — not CRLF-specific, a distinct root cause from RDD_KEY_273 despite sharing the same flagged-file corpus |
 | RDD_KEY_275 | 2026-08-09 `microsoft/TypeScript` dogfood-reconfirmation Tier-3 shape #4 (closing `}` non-idempotently gaining a stale `// if` trailing comment on round2) — `services/codefixes/fixMissingTypeAnnotationOnExports.ts`, FIXED as a verified side effect of RDD_KEY_273 (no separate code change): A/B bisection on a 100-line real-file excerpt (lines 1050-1150) proved reverting only RDD_KEY_273's `alignBracelessElseIfChain` fix reproduces this bug and restoring it resolves it, though the full causal chain into `BlockStructureRule.decideComment`/`countContentLines`'s NEWLINE-count threshold was not separately hand-traced. New fixture: `test/real_code_regressions_197_{inp,out}.ts` (CRLF-encoded excerpt, `.gitattributes`-marked `-text`) — exists purely to lock in this second symptom's coverage |
+| RDD_KEY_276 | 2026-08-09 `microsoft/TypeScript` dogfood-reconfirmation Tier-3 shape #3 (an interface's intersection-type closing brace `};` shifting from column 0 to indented on round2) — `compiler/types.ts`, FIXED: a field literally named `class` (`readonly class: ExpressionWithTypeArguments & { readonly expression: ...; };`, a legal TS property name) made `JsTsSpecificRule.classBraceKind`'s backward KEYWORD-text scan misclassify the field's own nested inline object-type-literal `{...}` brace as a class-declaration body, feeding it into `enforceClassFieldAlignmentGrid`'s class-field grid rewrite and corrupting/destabilizing the nested brace's formatting. Fixed by adding `isFieldNameKeywordUsage` — `classBraceKind` now skips (keeps walking backward) a candidate `class`/`interface` KEYWORD token immediately followed by `:`/`?` (field-name usage) instead of an identifier (declared name). New fixture: `test/real_code_regressions_198_{inp,out}.ts` (plain LF, distinct root cause from RDD_KEY_273/274/275's cluster) |
 
 ---
 
@@ -1245,6 +1246,52 @@ regressions). New fixture: `real_code_regressions_197_inp/out.ts` — a
 100-line CRLF-encoded excerpt (lines 1050-1150) of the real
 `fixMissingTypeAnnotationOnExports.ts`, existing purely to lock in this
 second symptom's coverage of the already-landed RDD_KEY_273 fix.
+
+### Interface intersection-type field named `class`/`interface` misclassifies its own nested object-type brace — FIXED (2026-08-09, RDD_KEY_276)
+
+Tier-3 shape #3 from the same 2026-08-09 reconfirmation: `compiler/
+types.ts`'s `JSDocAugmentsTag`/`JSDocImplementsTag` interfaces each have a
+field literally named `class` (a reserved word, but a legal TS property
+name): `readonly class: ExpressionWithTypeArguments & { readonly
+expression: Identifier | PropertyAccessEntityNameExpression; };`. The
+nested inline object-type literal's own closing `};` shifted from column 0
+(round1) to indented (round2) — round1's own output was already corrupted
+(stray padding inline after the nested `{`), just differently corrupted
+than round2's.
+
+Root cause, isolated via a 3-line minimal repro rather than debug prints
+(small enough to reason about directly): `JsTsSpecificRule.classBraceKind`
+walks backward from a `{` looking for a `class`/`interface` KEYWORD token
+at depth 0 to classify the enclosing construct as `"CLASS"`/`"IFACE"`. The
+tokenizer tags `class` a KEYWORD by text alone, with no regard for whether
+it's used as a declaration keyword or a property name — so walking
+backward from the field's own nested object-type-literal brace, the scan
+hits the field's own name token `class` first and misclassifies that
+nested brace as a class-declaration body. `enforceClassFieldAlignmentGrid`
+then picks up that misclassified brace via `allClassOpens` and runs its
+class-field alignment-grid rewrite on the object-type-literal's interior
+(`readonly expression: ...`) as if it were a top-level class field list —
+corrupted, non-idempotently-corrupted output.
+
+Fixed by adding `isFieldNameKeywordUsage(tokens, kwIdx)`: true when the
+token immediately after a candidate `class`/`interface` KEYWORD is `:` or
+`?` (field-name usage) rather than an identifier (the construct's declared
+name). `classBraceKind`'s two branches now `continue` (keep walking
+backward) instead of returning a kind when that shape is seen. First
+attempt used `isPunct(t, ":")`, verified via `JXFMT_DEBUG_CBK`-env-gated
+debug prints (temporarily added, fully removed before landing) to never
+actually match — `:` tokenizes as an `OP`-type token in this codebase, not
+`PUNCT`; corrected to `isOp(t, ":")`.
+
+Verified: minimal 3-line repro confirmed non-idempotent pre-fix, idempotent
+post-fix; the full real `compiler/types.ts` (CRLF-original, ~9800 lines)
+also confirmed idempotent post-fix at the exact originally-reported
+`JSDocAugmentsTag`/`JSDocImplementsTag` `};` lines. `make test` (274/274 ->
+275/275 forward + idempotency, zero regressions). New fixture:
+`real_code_regressions_198_inp/out.ts` — a minimized `JSDocAugmentsTag`-
+shaped interface; plain LF, not CRLF-specific, confirming this is a
+distinct root cause from RDD_KEY_273/274/275's cluster despite sharing the
+same dogfood pass.
 
 ### Known false positives (no source change needed, fixture-only)
 

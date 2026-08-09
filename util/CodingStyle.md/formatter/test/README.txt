@@ -3553,14 +3553,47 @@ Real-code regressions:
                                                         `countContentLines` (the NEWLINE-count-based logic
                                                         that decides whether to add the `// if` comment) was
                                                         not separately hand-traced beyond this empirical
-                                                        bisection -- plausibly an earlier width-sensitive
-                                                        pass inside the same enclosing block was CRLF-skewed
-                                                        by exactly the same stray `\r`, changing that block's
+                                                        bisection -- plausibly an earlier width-sensitive pass
+                                                        inside the same enclosing block was CRLF-skewed by
+                                                        exactly the same stray `\r`, changing that block's
                                                         internal NEWLINE count across the
                                                         `closingCommentMinLines` threshold between rounds. No
                                                         separate code change was needed; this fixture exists
                                                         purely to lock in the already-landed fix's coverage of
                                                         this second symptom.
+
+  real_code_regressions_198_inp/out.ts               -- Minimal repro (distilled from `compiler/types.ts`'s
+                                                        `JSDocAugmentsTag` interface) of a fourth idempotency
+                                                        bug found in the same 2026-08-09
+                                                        `microsoft/TypeScript` dogfood reconfirmation: an
+                                                        interface member's intersection-type field with a
+                                                        trailing inline object-type literal (`readonly class:
+                                                        ExpressionWithTypeArguments & { readonly expression:
+                                                        ...; };`) got its nested `{...}` body corrupted --
+                                                        reflowed with stray padding and its closing `};`
+                                                        mis-indented, changing between round1 and round2. Root
+                                                        cause: `JsTsSpecificRule.classBraceKind` walks
+                                                        backward from a brace to classify it as a
+                                                        class/interface body by looking for a `class`/
+                                                        `interface` KEYWORD token, but `class` is also a legal
+                                                        TS property name -- the tokenizer still tags that
+                                                        occurrence a KEYWORD by text alone, so the field named
+                                                        `class` here was misread as a class-declaration
+                                                        keyword, making `classBraceKind` misclassify the
+                                                        field's own nested inline object-type-literal brace as
+                                                        if it were that keyword's class body, feeding it into
+                                                        `enforceClassFieldAlignmentGrid`'s class-field
+                                                        alignment-grid rewrite. Fixed by adding
+                                                        `isFieldNameKeywordUsage`, which checks whether the
+                                                        token immediately after the candidate
+                                                        `class`/`interface` keyword is `:` or `?` (a
+                                                        field-name usage) rather than an identifier (the
+                                                        declared name) -- skips (keeps walking backward)
+                                                        instead of returning a class/interface kind when that
+                                                        shape is seen. (First attempt used `isPunct(t, ":")`,
+                                                        which never matched -- `:` tokenizes as an `OP` token,
+                                                        not `PUNCT`; corrected to `isOp(t, ":")` before
+                                                        landing.)
 
 How Tests Are Run
 -----------------

@@ -522,6 +522,66 @@ newly-landed rule.
       keeping open rather than accepting permanently: added to `XL.txt`
       TIER 9 (not README Known Limitations).
 
+      **§3 gap closed (2026-08-10, RDD_KEY_277 — XL.txt TIER 9 item).**
+      `classifyImport` extended to recognize all three previously-rejected
+      shapes: single-line multi-module `import a, b` (the `import` branch
+      now loops a comma-separated dotted-name list, each optionally
+      `as alias`, via `readDottedName`/`advancePastDottedName`); parenthesized
+      `from X import (...)` possibly spanning many physical lines (the
+      `from` branch detects a leading `(` via `matchBracket`, bounds the
+      name-list scan to the parenthesized span, and tolerates only a lone
+      trailing comma before the close paren); and backslash-continued
+      `import a, \` / `b, c` (new `nextSignificantSkipBackslash` helper —
+      `isGapToken` does not treat a literal `\` OP token as transparently
+      skippable, unlike WHITESPACE/NEWLINE/COMMENT, so both branches'
+      comma-continuation sites needed it explicitly). Multi-module
+      `import a, b` was confirmed a genuinely separate gap from the
+      `multiPhysicalLine` call-site gate — its rejection was an internal
+      `classifyImport` comma-check, unrelated to that gate, so a plain
+      single-physical-line `import a, b` was rejected too before this fix.
+      A parenthesized clause carrying any comment inside its span (checked
+      via the pre-existing `containsComment` helper, now scanned from the
+      opening `(` itself rather than from the first name — a real
+      `django` corpus file had a comment sitting right after `(`, before
+      any name, which a narrower scan missed) disables only that clause's
+      own within-clause resort (`nameListStart`/`nameListEnd` set to -1,
+      forcing `flushImportGroup`'s pre-existing verbatim-reproduction
+      fallback for that one statement) — the statement still participates
+      in cross-statement group classification/movement, since that's
+      already unconditionally safe (verbatim whole-line reproduction).
+      Two safety bugs found and fixed via real-code testing (see
+      RDD_KEY_277 for full detail): an off-by-one where
+      `advancePastDottedName`'s `-1` "last token on the line" return value
+      was naively defaulted to `line.end`, splicing a RawLine's terminating
+      NEWLINE token's text into the last comma-separated unit and
+      corrupting the rebuild; and the comment-scan-range bug above, found
+      via a 2927-file `/tmp/django` dogfood pass, which had actually
+      corrupted a real `# isort:skip`-marked import block before the fix.
+      Verified: `make test` 275/275 forward + idempotency unchanged
+      before/after; new feature fixture `test/py_import_multiline_inp/out.py`
+      covers all three shapes plus a per-name-commented parenthesized
+      clause; full `/tmp/django` corpus (2927 files) dogfooded twice
+      (before and after the comment-scan-range fix) with zero crashes both
+      times. A final post-fix corpus re-run found exactly 2 remaining
+      non-idempotent files; both were isolated via A/B testing (pre-change
+      git-stash build vs. post-change build, same minimized input) to be
+      **pre-existing, unrelated comment-normalization-classifier
+      non-determinism**, not caused by this change: a `# isort:skip`
+      capitalization flip that reproduces identically on the unmodified
+      pre-change codebase in isolation (confirmed pre-existing), and a
+      `# RemovedInDjango70Warning.` trailing-period-stripping flip that
+      only reproduces post-change because the parenthesized clause it
+      lives in was previously frozen/untouched by the old reject-outright
+      behavior and is now, correctly, exposed to the separate (already-
+      flaky, out-of-scope for this job — see the comment-grammar
+      classifier job) comment-normalization pass for the first time. In
+      both cases only comment *styling* differs between rounds — no
+      import name/module content is lost, reordered incorrectly, or
+      otherwise corrupted. §3's gap list above (multi-physical-line
+      untouched / parenthesized rejected / multi-module rejected) is now
+      historical — superseded by this entry — and the `XL.txt` TIER 9
+      item is resolved.
+
       **§4 (Decorators).** New `ScopePipelineIndent.applyDecoratorSpacing`
       + bracket-padding helpers. For each single-physical-line `@` line:
       gap between `@` and the next token collapsed to zero; every

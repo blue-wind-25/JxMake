@@ -257,6 +257,29 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         return i < to ? i : -1;
     }
 
+    /**
+     * Same as {@link #nextSignificant}, but also skips a backslash line-continuation OP token (a
+     *  lone {@code "\"} is never a real Python operator elsewhere -- it's only ever emitted as an
+     *  OP token by {@code TokenizerIndent} for this exact continuation use, per {@code
+     *  TokenizerIndent#isBackslashContinuation}'s own javadoc, so treating it as transparent here is
+     *  safe). {@link #isGapToken} itself can't be widened for this because it's shared with every
+     *  other pass, where a backslash's presence still matters (e.g. §2's own {@code
+     *  RawLine#multiPhysicalLine} boundary detection). Used by {@link #classifyImport}'s comma-list
+     *  parsing so a backslash-continued `import a, \` / `from x import a, \` continuation's comma
+     *  is followed correctly onto the next physical line's first name, instead of the `\` token
+     *  itself being mistaken for the next name and causing a safe-bail (never a crash, but a real
+     *  coverage gap this method exists to close).
+     */
+    private int nextSignificantSkipBackslash(final List<Token> tokens, final int from, final int to)
+    {
+        int i = nextSignificant(tokens, from, to);
+        while( i >= 0 && i < to && tokens.get(i).type == TokenType.OP && "\\".equals( tokens.get(i).text ) ) {
+            i = nextSignificant(tokens, i + 1, to);
+        }
+
+        return i;
+    }
+
     // ── §2: Assignment Alignment ─────────────────────────────────────────────────────
 
     /**
@@ -408,7 +431,12 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final int               n            = rawLines.size();
         for(int idx = 0; idx < n; ++idx) {
             final RawLine  line = rawLines.get(idx);
-            final PyImport imp  = line.multiPhysicalLine ? null : classifyImport(tokens, line);
+            // Unlike §2's applyAssignmentAlignment, a multiPhysicalLine candidate is no longer
+            // rejected outright here -- classifyImport itself now recognizes a parenthesized
+            // `from X import (...)` (possibly spanning many physical lines) and a backslash-
+            // continued `import a, \` form, each safely (see classifyImport's own javadoc for the
+            // per-shape safety guarantees).
+            final PyImport imp = classifyImport(tokens, line);
             if( imp != null && ( group.isEmpty() || line.depth == groupDepth ) ) {
                 if( group.isEmpty() ) groupStart = idx;
                 group.add(line);
@@ -592,12 +620,24 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     }
 
     /**
-     * Classifies one line as a §3 import candidate: `import dotted[.dotted...][ as alias][, ...]`
-     *  or `from [.[.[...]]][dotted] import (name[ as alias][, ...] | *)`. Rejects (returns null)
-     *  a parenthesized `from X import (...)` multi-line-capable form entirely -- even a single-
-     *  physical-line parenthesized list -- since distinguishing that reliably from this slice's
-     *  simpler comma-list parsing isn't worth the risk; deferred alongside true multi-physical-line
-     *  continuations, same as §2.
+     * Classifies one line (now including a {@link RawLine#multiPhysicalLine} candidate) as a §3
+     *  import candidate: `import dotted[.dotted...][ as alias][, ...]` (single- or multi-module, the
+     *  latter on one physical line or backslash-continued) or `from [.[.[...]]][dotted] import
+     *  (name[ as alias][, ...] | *)` (bare comma-list or a parenthesized, possibly multi-physical-
+     *  line, list). Every shape's within-clause name list is still only reordered when doing so can't
+     *  silently drop content: a parenthesized list containing any comment token anywhere between its
+     *  own `(`/`)` disables {@code nameListStart}/{@code nameListEnd} (kept at {@code -1}, matching
+     *  the pre-existing "no name-list to rebuild" shape {@code sortedNameUnits} already treats as a
+     *  no-op) -- {@code names}/{@code moduleName}/{@code kind} are still populated, so the statement
+     *  still participates in cross-statement group sorting and always moves as one verbatim block
+     *  (comments, original per-line layout, and comma/parenthesis style all preserved exactly) via
+     *  {@link #flushImportGroup}'s existing "no sortedUnits -- reproduce the whole line verbatim"
+     *  path. A backslash-continued list can never carry a mid-list comment (the backslash must be the
+     *  physical line's last character, which a `#` comment would swallow, guaranteeing a syntax
+     *  error) so no equivalent guard is needed there. Any shape this method can't confidently parse
+     *  (malformed brackets, unrecognized trailing tokens, empty parens) returns {@code null} --
+     *  §3.2's group-boundary rule then treats the whole line as an ordinary non-import statement,
+     *  safely excluding it from grouping/sorting without corrupting it.
      */
     private PyImport classifyImport(final List<Token> tokens, final RawLine line)
     {
@@ -605,21 +645,54 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         if( kwIdx < 0 || tokens.get(kwIdx).type != TokenType.KEYWORD ) return null;
         final Token kw = tokens.get(kwIdx);
         if( isKeyword(kw, "import") ) {
-            final int    nameIdx    = nextSignificant(tokens, kwIdx + 1, line.end);
-            final String moduleName = readDottedName(tokens, nameIdx, line.end);
-            if( moduleName == null || moduleName.isEmpty() ) return null;
-            int after = advancePastDottedName(tokens, nameIdx, line.end);
-            if( after >= 0 && after < line.end && isKeyword( tokens.get(after), "as" ) ) {
-                after = nextSignificant(tokens, after + 1, line.end);
-                if( after < 0 || tokens.get(after).type != TokenType.IDENTIFIER ) return null;
-                after = nextSignificant(tokens, after + 1, line.end);
-            }
-            if( after >= 0 && after < line.end && tokens.get(
-                after
-            ).type == TokenType.PUNCT && ",".equals(
-                tokens.get(after).text
-            ) ) return null; // Multi-module `import a, b` on one line -- deferred, see method javadoc
-            return new PyImport( PyImport.Kind.IMPORT, moduleName, new ArrayList<>() );
+            final int firstIdx = nextSignificant(tokens, kwIdx + 1, line.end);
+            if( firstIdx < 0 || tokens.get(firstIdx).type != TokenType.IDENTIFIER ) return null;
+            final List<String> names         = new ArrayList<>();
+            final List<String> unitTexts     = new ArrayList<>();
+            final int          nameListStart = firstIdx;
+                  int          lastUnitEnd   = firstIdx;
+                  int          q             = firstIdx;
+            while(true) {
+                final int    unitStart  = q;
+                final String moduleName = readDottedName(tokens, q, line.end);
+                if( moduleName == null || moduleName.isEmpty() ) return null;
+                int after   = advancePastDottedName(tokens, q, line.end);
+                // advancePastDottedName returns -1 when the dotted name is the last significant
+                // token on the line (e.g. the final module in `import c, a`, or a lone `import os`)
+                // -- unlike `after`, which stays -1 for the control-flow checks below (matching the
+                // pre-existing single-module code's own >= 0 guards), `unitEnd` must never be -1 or
+                // include the trailing NEWLINE/whitespace gap: scan backward for the name's own last
+                // significant token instead of defaulting to `line.end` (which would splice the
+                // physical line's terminating NEWLINE text into this unit, corrupting the rebuild).
+                int unitEnd = after >= 0 ? after : prevSignificant(tokens, line.end - 1, unitStart - 1) + 1;
+                if( after >= 0 && after < line.end && isKeyword( tokens.get(after), "as" ) ) {
+                    after = nextSignificant(tokens, after + 1, line.end);
+                    if( after < 0 || tokens.get(after).type != TokenType.IDENTIFIER ) return null;
+                    unitEnd = after + 1;
+                    after   = nextSignificant(tokens, after + 1, line.end);
+                }
+                names.add(moduleName);
+                unitTexts.add( verbatimLineText(tokens, unitStart, unitEnd) );
+                lastUnitEnd = unitEnd;
+                if( after >= 0 && after < line.end && tokens.get(after).type == TokenType.PUNCT
+                        && ",".equals( tokens.get(after).text ) ) {
+                    q = nextSignificantSkipBackslash(tokens, after + 1, line.end);
+                    if( q < 0 || tokens.get(q).type != TokenType.IDENTIFIER ) return null;
+                    continue;
+                }
+                if( after >= 0 && after < line.end ) return null; // Trailing junk -- unrecognized, bail safely
+                break;
+            } // while
+            if( names.isEmpty() ) return null;
+            // Single-module `import a.b.c[ as alias]` keeps the pre-existing no-name-list shape --
+            // nothing to reorder within one module. Multi-module `import a, b, c` gets the same
+            // name-list rebuild machinery §3's `from` clause already uses (single physical line or
+            // backslash-continued only, per this method's own call-site gating below).
+            if(names.size() < 2) return new PyImport( PyImport.Kind.IMPORT, names.get(0), new ArrayList<>() );
+
+            return new PyImport(
+                PyImport.Kind.IMPORT, names.get(0), names, nameListStart, lastUnitEnd, unitTexts
+            );
         } // if
         if( isKeyword(kw, "from") ) {
               int           p      = nextSignificant(tokens, kwIdx + 1, line.end);
@@ -643,46 +716,73 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             if( importKwIdx < 0 || !isKeyword( tokens.get(importKwIdx), "import" ) ) return null;
             int q = nextSignificant(tokens, importKwIdx + 1, line.end);
             if(q < 0) return null;
-            if( tokens.get(
-                q
-            ).type == TokenType.PUNCT && "(".equals(
-                tokens.get(q).text
-            ) ) return null; // Parenthesized import list -- deferred, see method javadoc
             if( tokens.get(q).type == TokenType.OP && "*".equals( tokens.get(q).text ) ) {
                 final List<String> names = new ArrayList<>();
                 names.add("*");
                 return new PyImport( PyImport.Kind.FROM, module.toString(), names );
             }
+            boolean parenthesized = false;
+            int     parenOpenIdx  = -1;
+            int     closeIdx      = -1;
+            int     scanLimit     = line.end;
+            if( tokens.get(q).type == TokenType.PUNCT && "(".equals( tokens.get(q).text ) ) {
+                closeIdx = matchBracket(tokens, q, line.end);
+                if(closeIdx < 0) return null; // Malformed brackets -- bail safely
+                parenthesized = true;
+                parenOpenIdx  = q;
+                scanLimit     = closeIdx;
+                q             = nextSignificant(tokens, q + 1, closeIdx);
+                if(q < 0) return null; // Empty parens -- nothing to import, malformed
+            }
             final List<String> names         = new ArrayList<>();
             final List<String> unitTexts     = new ArrayList<>();
             final int          nameListStart = q;
                   int          lastUnitEnd   = q;
-            while( q >= 0 && q < line.end && tokens.get(q).type == TokenType.IDENTIFIER ) {
+            while( q >= 0 && q < scanLimit && tokens.get(q).type == TokenType.IDENTIFIER ) {
                 final int unitStart = q;
                 names.add( tokens.get(q).text );
                 int unitEnd = q + 1;                                    // Index right after the name (or alias) itself, no trailing gap
-                int after   = nextSignificant(tokens, q + 1, line.end);
-                if( after >= 0 && after < line.end && isKeyword( tokens.get(after), "as" ) ) {
-                    after = nextSignificant(tokens, after + 1, line.end);
+                int after   = nextSignificant(tokens, q + 1, scanLimit);
+                if( after >= 0 && after < scanLimit && isKeyword( tokens.get(after), "as" ) ) {
+                    after = nextSignificant(tokens, after + 1, scanLimit);
                     if( after < 0 || tokens.get(after).type != TokenType.IDENTIFIER ) return null;
                     unitEnd = after + 1;
-                    after   = nextSignificant(tokens, after + 1, line.end);
+                    after   = nextSignificant(tokens, after + 1, scanLimit);
                 }
                 lastUnitEnd = unitEnd;
                 unitTexts.add( verbatimLineText(tokens, unitStart, unitEnd) );
-                if( after >= 0 && after < line.end && tokens.get(after).type == TokenType.PUNCT
+                if( after >= 0 && after < scanLimit && tokens.get(after).type == TokenType.PUNCT
                         && ",".equals( tokens.get(after).text ) ) {
-                    q = nextSignificant(tokens, after + 1, line.end);
+                    q = nextSignificantSkipBackslash(tokens, after + 1, scanLimit);
                     continue;
                 }
                 q = after;
                 break;
             } // while
             if( names.isEmpty() ) return null;
-            final boolean isFuture = "__future__".equals( module.toString() );
+            if(parenthesized) {
+                // Whatever's left before the close paren must be nothing, or a single trailing comma
+                // -- any other shape here is unrecognized, bail safely rather than guess.
+                final int afterList = nextSignificant(tokens, lastUnitEnd, scanLimit);
+                if( afterList >= 0 && afterList < scanLimit ) {
+                    final boolean soleTrailingComma = tokens.get(
+                        afterList
+                    ).type == TokenType.PUNCT && ",".equals(
+                        tokens.get(afterList).text
+                    ) && nextSignificant(tokens, afterList + 1, scanLimit) < 0;
+                    if(!soleTrailingComma) return null;
+                }
+            } // if
+            final boolean isFuture   = "__future__".equals( module.toString() );
+            // Scan the *whole* parenthesized span, not just [nameListStart, closeIdx) -- a comment
+            // can sit right after the opening `(` itself, before any name (real-world find:
+            // django/db/models/__init__.py's `from django.db.models.fields.related import (  #
+            // isort:skip`), and would otherwise go undetected by a narrower nameListStart-based scan.
+            final boolean hasComment = parenthesized && containsComment(tokens, parenOpenIdx, closeIdx);
             return new PyImport(
                 isFuture ? PyImport.Kind.FUTURE : PyImport.Kind.FROM, module.toString(), names,
-                nameListStart, lastUnitEnd, unitTexts
+                hasComment ? -1 : nameListStart, hasComment ? -1 : lastUnitEnd,
+                hasComment ? null : unitTexts
             );
         } // if
 

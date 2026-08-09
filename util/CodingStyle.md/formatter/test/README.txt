@@ -567,6 +567,22 @@ Python3:
                                                         sorted (`python-import-sort`, default on) alongside
                                                         the blank-line normalization.
 
+  py_import_multiline_inp/out.py                     -- RDD_KEY_277: `classifyImport` extended to sort/group
+                                                        the three multi-physical-line import shapes it
+                                                        previously left untouched -- a single-line
+                                                        multi-module `import sys, os`; a parenthesized `from x
+                                                        import (b, a,)` spanning several physical lines; and a
+                                                        backslash-continued `import m, \` / `l, n`. All three
+                                                        sort/group alongside ordinary single-module imports in
+                                                        the same contiguous block. A per-name trailing comment
+                                                        inside a parenthesized list (`from y import (z,  #
+                                                        comment\n y,)`) is preserved verbatim positionally:
+                                                        the group still sorts/moves as a whole but that
+                                                        clause's own within-clause name order is left
+                                                        untouched (comment presence disables only the internal
+                                                        resort, per the safety guard described in
+                                                        STATE_PYTHON3.md §3).
+
 Makefile/Bash/PowerShell:
   makefile_combined_inp/out.mk                       -- STYLE_TOOLING.md §1 combined: assignment-alignment
                                                         group (`=`/`:=`/`+=`), backslash continuation-line

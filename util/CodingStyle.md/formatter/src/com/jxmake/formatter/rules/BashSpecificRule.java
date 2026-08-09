@@ -405,6 +405,18 @@ public final class BashSpecificRule {
                 ++i;
                 continue;
             } // if
+            if( c == '\\' && i + 1 < content.length() ) {
+                // Root/code-mode backslash escape (e.g. a `\'` case-arm pattern like `\'*)` that
+                //  literally matches a leading quote character): the escaped character must never
+                //  be interpreted as opening a string/comment -- both chars are real code.
+                kind[i] = 'C';
+                buf.emit(c, 'C');
+                ++i;
+                kind[i] = 'C';
+                buf.emit( content.charAt(i), 'C' );
+                ++i;
+                continue;
+            } // if
             if(c == '\'') { stack.add(
                 new Frame('S', true)
             ); kind[i] = 'O'; buf.emit(
@@ -679,7 +691,36 @@ public final class BashSpecificRule {
         "^([A-Za-z_][A-Za-z0-9_]*)\\s*\\(\\s*\\)\\s*\\{\\s*$"
     );
     private static final Pattern CASE_START = Pattern.compile("^case\\s+.+\\s+in\\s*$");
-    private static final Pattern CASE_ARM   = Pattern.compile("^([^()][^)]*)\\)\\s*(.*)$");
+
+    /**
+     * Locates a case-arm pattern's terminating `)` in a trimmed line, honoring backslash escapes
+     *  (e.g. `\(\))` -- a pattern literally matching a shell subshell/function marker) so an escaped
+     *  `\)` is never mistaken for the real pattern-closing paren. Mirrors the previous
+     *  `^([^()][^)]*)\)\s*(.*)$` regex's contract (group[0] = pattern text before `)`, group[1] =
+     *  trimmed remainder after `)`) but scans char-by-char instead of relying on regex backtracking,
+     *  which always stopped at the *first* `)` regardless of any preceding backslash escape.
+     */
+    private static String[] matchCaseArm(final String trimmed)
+    {
+        if( trimmed.isEmpty() ) return null;
+        final char first = trimmed.charAt(0);
+        if( first == '(' || first == ')' ) return null;
+
+        int i = 0;
+        while( i < trimmed.length() ) {
+            final char c = trimmed.charAt(i);
+            if( c == '\\' && i + 1 < trimmed.length() ) {
+                i += 2;
+                continue;
+            }
+            if( c == ')' ) {
+                return new String[] { trimmed.substring(0, i), trimmed.substring(i + 1).trim() };
+            }
+            ++i;
+        } // while
+
+        return null;
+    }
 
     public String format(final String content)
     {
@@ -813,10 +854,10 @@ public final class BashSpecificRule {
                 return idx + 1;
             }
             if( pure[idx] && !trimmed.isEmpty() ) {
-                final Matcher arm = expectingPattern ? CASE_ARM.matcher(trimmed) : null;
-                if( arm != null && arm.matches() ) {
-                    out.add( basePrefix + arm.group(1).trim() + ")" );
-                    String rest = arm.group(2).trim();
+                final String[] arm = expectingPattern ? matchCaseArm(trimmed) : null;
+                if( arm != null ) {
+                    out.add( basePrefix + arm[0].trim() + ")" );
+                    String rest = arm[1].trim();
                     if( rest.endsWith(";;") ) {
                         rest = rest.substring( 0, rest.length() - 2 ).trim();
                         if( !rest.isEmpty() ) out.add(bodyPrefix + rest);

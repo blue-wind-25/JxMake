@@ -3402,6 +3402,37 @@ Real-code regressions:
                                                         check alongside the existing `final`/`const` guard in
                                                         `BlockStructureRule.isSingleStatementBody`.
 
+  real_code_regressions_188_inp/out.sh               -- Minimized from `ohmyzsh/ohmyzsh`'s
+                                                        `plugins/gitfast/git-completion.bash` (Bash dogfood
+                                                        pass): two round1/round2 non-idempotency bugs in
+                                                        `BashSpecificRule`. (1) `emitCaseBody`'s case-arm
+                                                        pattern-boundary regex (`CASE_ARM`) located the
+                                                        pattern's terminating `)` via simple first-match
+                                                        regex, with no awareness of backslash escapes -- a
+                                                        pattern containing an escaped paren pair like
+                                                        `\(\))` had its *escaped* `)` mistaken for the
+                                                        real terminator, splitting the arm mid-pattern.
+                                                        Fixed by replacing the regex with a char-by-char
+                                                        `matchCaseArm` scan that skips `\`-escaped
+                                                        characters when searching for the terminator. (2)
+                                                        `runPassA`'s root/code-mode tokenizer had no
+                                                        backslash-escape handling at all -- a `\'` case-arm
+                                                        pattern (escaped literal single-quote, e.g. `\'*)`)
+                                                        fell through to the plain `'` branch on the
+                                                        following character, incorrectly opening a real
+                                                        single-quote string frame that stayed open (kind
+                                                        'O') until some later unrelated `'` closed it,
+                                                        corrupting brace-depth-based indentation for every
+                                                        line in between; being state carried across the
+                                                        whole tokenizer pass, this only became visible as a
+                                                        differing shape between round1 and round2 rather
+                                                        than an immediately obvious single-file bug. Fixed
+                                                        by adding a root-context `c == '\\'` branch (mirrors
+                                                        the existing escape handling already present inside
+                                                        `D`/`Q`/`B` frame types) that consumes both the
+                                                        backslash and the following character as plain code
+                                                        before any quote-opening check runs.
+
 How Tests Are Run
 -----------------
 

@@ -183,6 +183,12 @@ concrete validation case to revisit once the infrastructure exists.
 an independently open Kotlin item — see that file's D3 sections and its
 Step-5/dogfood summary lines for the pointer back to this file.
 
+**Disposition (2026-08-10):** already documented in `README.md`'s Known
+Limitations → "Curly-brace family" item 2 (wrap decision can flap,
+C/C++/Java/Kotlin/JS/TS) — this D3 entry is the Kotlin-specific instance of
+that same gap, not a separate one. Removed the redundant standalone
+`XL.txt` TIER 9 entry.
+
 ---
 
 ## Open design proposal: bounded multi-pass remediation for RDD_KEY_229 (discussion only, NOT decided/implemented)
@@ -1152,8 +1158,16 @@ Do the above checklist one by one. Test, commit, and ask me whether to continue 
 None currently open. (The prior "how to fix the base single-pass `RDD_KEY_229`
 bug" question was resolved 2026-08-06 as a documentation-only fix — see
 `RDD_KEY_243` in Resolved Design Decisions above. Option (B), a direct change
-to `MiscRuleCurly`'s wrap fits-check, remains un-attempted and would need its
-own explicit go-ahead if ever revisited.)
+to `MiscRuleCurly`'s wrap fits-check, remains un-attempted.
+
+**Disposition (2026-08-10): removed from `XL.txt` TIER 4 entirely, not
+demoted to TIER 9.** Option (B) was an alternative fix for the same
+`RDD_KEY_229`-shape bug that `RDD_KEY_243` already resolved (multipass
+empirically confirmed to fix every instance found across every corpus
+tested — 100% resolution rate, no residual cases). There is no remaining
+bug left for Option (B) to fix; attempting it now would be a second,
+riskier route to a problem already solved by a config flag. Only worth
+revisiting if a future case surfaces that `-multipass` doesn't cover.)
 
 ## Scoping
 

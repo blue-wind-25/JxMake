@@ -141,6 +141,13 @@ unstarted: depended on the small-LLM fallback's multi-language
 understanding, which is NOT FEASIBLE — no Step 3 LLM branch exists to route
 to. `RDD_KEY_95`'s behavior stands unchanged. A GRU trained specifically on
 non-Latin/mixed-language examples would be a distinct, unexplored idea.
+**Disposition (2026-08-10): assessed, not planned.** A dedicated non-Latin
+GRU would need its own training corpus (no dogfood corpus for any non-Latin
+script exists in this project), its own weights file, and a second model to
+load/maintain at runtime — cost disproportionate to the benefit, since the
+underlying decision (leading-keyword/trailing-period English-prose-vs-code
+ambiguity) mostly doesn't apply to non-Latin text anyway. Documented in
+`README.md`'s Known Limitations → new "AI-assist (GRU)" family section.
 
 ### GRU implementation design (v1 target) — architecture finalized
 
@@ -942,6 +949,10 @@ out, directionally consistent). **`Config.gruClassifier` flipped back
 `make build` + `make test`: **228/228 forward, 228/228 idempotency**.
 `gru-classifier` now `on` by default at `abstainThreshold=0.7`, alongside
 `comment-normalization-classifier` (on since 2026-07-30).
+**Disposition (2026-08-10):** the accepted 2.7% residual NO false-positive
+rate at this threshold is documented in `README.md`'s Known Limitations →
+"AI-assist (GRU)"; removed from `XL.txt` TIER 9 (accepted, not further
+reduced, not a live TODO).
 
 **Confirmed same day — fresh from-scratch CV at 0.7.** Added
 `cross_validate.py --eval-threshold` (fixed threshold through each round's
@@ -1222,3 +1233,6 @@ a real but harmless (correctness-wise) wasted classifier call, not a wiring gap.
 this only clarifies TIER 4's "mid-word-dot sentence-boundary detection" item (`XL.txt`) — that
 item is about teaching the *classifier* to handle multi-dot content, not about routing, which
 was never broken.
+**Disposition (2026-08-10):** documented in `README.md`'s Known Limitations →
+"AI-assist (GRU)"; removed from `XL.txt` TIER 9 (canceled, not a live TODO,
+per the 2026-08-04 CANCELED entry above).

@@ -445,9 +445,16 @@ newly-landed rule.
       tokenizer level (Slice 2); `:=` walrus as one `OP` token (Slice 3);
       f-string interpolation sub-tokenization (`FSTRING_START`/`MIDDLE`/
       `END`/`FORMAT_SPEC` types, recursive field expression scan,
-      `!conversion` handling) — **known limitation, still open: a nested
-      replacement field *within* a format spec (`f"{x:{width}}"`) is not
-      recursively sub-tokenized**, only the outer field is (Slice 4);
+      `!conversion` handling) — **known limitation, DEFERRED 2026-08-10
+      (not planned): a nested replacement field *within* a format spec
+      (`f"{x:{width}}"`) is not recursively sub-tokenized**, only the outer
+      field is (Slice 4). Cost/value assessed: the full CPython dogfood
+      (2343 files, incl. `Lib/test/test_fstring.py`) found zero real
+      instances of this mattering — the gap is cosmetic-only (untouched,
+      never corrupted) and nested format-spec fields are almost always
+      bare identifiers with no internal whitespace to normalize. Documented
+      in `README.md`'s Known Limitations → "Indent-based family (Python
+      3)". Revisit only if a real corpus surfaces a concrete case;
       INDENT/DEDENT synthesis (CPython-style indent-width stack, merged
       bracket-nesting counter suppresses significance inside brackets/
       backslash-continuations) — no tabs/spaces consistency validation,
@@ -486,6 +493,14 @@ newly-landed rule.
       multi-line RHS (bracket/backslash continuation) never a candidate;
       bare-IDENTIFIER-target-only (matches C-family's exclusion of
       `self.x = 1`/tuple-assignment). 5-case smoke + `make test` 114/114.
+      **Disposition (2026-08-10):** not a Python3-specific limitation —
+      verified via grep that the curly-family's own declaration/assignment-
+      alignment rules (`JsTsDeclarationAlignmentRule.spansMultipleLines`,
+      4 call sites) bail out of alignment identically once the RHS spans
+      multiple physical lines, and that exclusion is itself undocumented
+      anywhere (no README Known Limitations entry). Matches established
+      family-wide by-design behavior, not a real gap — no README entry, no
+      `XL.txt` TIER 9 entry added.
 
       **§3 (Import Ordering).** New `MiscRuleIndent.PyImport` (`Kind` enum
       `FUTURE < IMPORT < FROM`) plus `ScopePipelineIndent.applyImportSort`,
@@ -498,6 +513,14 @@ newly-landed rule.
       `from X import (...)` rejected entirely; multi-module `import a, b`
       rejected/deferred (only single-module `import a.b.c[ as alias]`
       recognized). 6-case smoke + `make test` 114/114.
+      **Disposition (2026-08-10):** unlike §2's gap, this one is safe
+      (excluded line breaks the group boundary, never corrupted) but a
+      genuine coverage gap on common real-world Python style — parenthesized
+      multi-line imports and multi-module `import a, b` are frequent.
+      Plausible to fix by extending `classifyImport`/`flushImportGroup` to
+      parse across the parenthesized span and the comma-list. Judged worth
+      keeping open rather than accepting permanently: added to `XL.txt`
+      TIER 9 (not README Known Limitations).
 
       **§4 (Decorators).** New `ScopePipelineIndent.applyDecoratorSpacing`
       + bracket-padding helpers. For each single-physical-line `@` line:

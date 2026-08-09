@@ -362,7 +362,10 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       breakage since the file already failed `bash -n` before formatting;
       dialect-detecting `.sh`-extension-but-actually-zsh content is out of
       scope (same "no general grammar, fixed transform list" boundary as
-      every other accepted gap here). `make test`: 267/267 forward +
+      every other accepted gap here). **Disposition (2026-08-10):** documented
+      in `README.md`'s Known Limitations → new "Build/dev-tooling scripts
+      (Makefile/Bash/PowerShell)" family section; removed from `XL.txt`
+      TIER 9 (permanent, not a live TODO). `make test`: 267/267 forward +
       idempotency (was 264/264 -- 3 new fixtures: `real_code_regressions_188`-
       `190`). See `STATE_DOGFOOD.md` for per-repo rows.
       **PowerShell — DONE, 1 bug found and fixed.** User ran round1/round2

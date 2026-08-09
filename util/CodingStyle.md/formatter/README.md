@@ -701,10 +701,10 @@ third-party client only needs to speak this HTTP protocol, not link against the 
 ## Known Limitations
 
 Grouped by which language family each limitation affects (curly-brace family, then
-tag-based/markup family), then by effect size within each group. Families with no currently
-documented limitations (data formats, indent-based Python 3, build/dev-tooling scripts) are
-omitted rather than listed with an empty placeholder — add a new family heading here if and
-when it actually gains a documented gap.
+tag-based/markup family, then indent-based Python 3, then build/dev-tooling scripts, then
+AI-assist), then by effect size within each group. A family with no currently documented
+limitations is omitted rather than listed with an empty placeholder — add a new family heading
+here if and when it actually gains a documented gap.
 
 ### Curly-brace family (C/C++/Java/Kotlin/JS/TS)
 
@@ -796,6 +796,65 @@ when it actually gains a documented gap.
    `<!--todo-->`) will keep it lowercase instead of capitalizing it — a false negative, not a
    false positive (no comment is ever wrongly rewritten by this rule, only possibly left
    as-is).
+
+3. **XML has no text reflow — only attribute wrapping.** A long text node's own content is never
+   rewrapped/reflowed onto multiple lines; only an element's attribute list wraps when the
+   element's own line exceeds the width limit. Intentionally out of scope: XML text content
+   (unlike HTML5 prose) commonly carries meaningful whitespace, so reflowing it would risk
+   changing document meaning, not just layout. Not planned.
+
+### Indent-based family (Python 3)
+
+1. **A replacement field nested inside an f-string's format spec is not recursively
+   sub-tokenized, so it never receives §5 (f-strings) spacing normalization.** In
+   `f"{x:{width}}"`, the outer `{x:...}` field is tokenized and spacing-normalized normally, but
+   the tokenizer emits the entire `:{width}` format-spec tail as one opaque token rather than
+   recursively re-tokenizing the nested `{width}` field into its own sub-tokens. Any whitespace
+   inside that nested field (e.g. `f"{x:{ width }}"`) is left exactly as written — never
+   corrupted, just not normalized. Accepted: a full CPython dogfood run (2343 files, including
+   `Lib/test/test_fstring.py`, which specifically exercises this shape) found zero real instances
+   of this actually mattering — nested format-spec fields are almost always bare identifiers with
+   no internal whitespace to normalize. Not planned unless a real corpus turns up a concrete case.
+
+### Build/dev-tooling scripts (Makefile/Bash/PowerShell)
+
+1. **Bash's pipe-spacing rule can't distinguish a real pipe from a zsh extended-glob
+   alternation, e.g. `(|.git)` → `( | .git)`, when zsh-only syntax appears under a `.sh`/`.bash`
+   extension.** This formatter has one fixed bash-grammar transform list, not a zsh dialect
+   detector — a file using zsh-only extensions (extended-glob alternation, `${(kv)...}`,
+   `always {}` blocks) under a bash extension is already invalid `bash -n` input before
+   formatting, so the misfire doesn't turn valid bash into broken bash. Permanent, by-design
+   out-of-scope limitation; zsh-dialect detection is not planned.
+
+### AI-assist (GRU)
+
+1. **Non-Latin/mixed-language comments always `ABSTAIN` from the rule-based classifier
+   (`NonLatinScriptGate`) and never reach the GRU.** The gate disables classification entirely for
+   any comment containing a non-Latin codepoint, leaving it untouched rather than attempting a
+   capitalize/trailing-period decision. A dedicated GRU trained specifically on non-Latin/mixed-
+   language examples is a distinct, unexplored idea, but not planned: it would need its own
+   training corpus (a language/script this project has no dogfood corpus for), its own weights
+   file, and a second model to load/maintain — cost disproportionate to the benefit, since the
+   affected decision (leading-keyword/trailing-period ambiguity) is an English-prose-vs-code-
+   keyword distinction that mostly doesn't apply to non-Latin text in the first place. Accepted:
+   no crash/malformed output, just no normalization on these comments.
+
+2. **A trailing period next to more than one `.` in the same comment (`dotCount != 1`,
+   e.g. `.hpp`, `e.g.`, an ellipsis) is always left as-is, even when the GRU already ran and
+   produced a real answer.** `MiscRuleCore.stripSoleTrailingPeriod` calls the classifier first,
+   then discards its result via a mechanical dot-count bail-out — distinguishing a mid-word/
+   mid-token dot from a true sentence-ending dot is a separate judgment call the shared model
+   was never trained on (no `task` dimension in the training schema to keep it from degrading
+   the model's main "is this substantive prose" job). Canceled, not merely deferred, unless a
+   future job commissions real task separation (a second model/weights file, or a schema
+   change) — see `STATE_AI.md`'s "CANCELED — Comment sentence-boundary detection defeated by
+   mid-word dots" section for the full reasoning.
+
+3. **The GRU's residual false-positive rate on `NO` cases (~2.7% at the shipped
+   `abstainThreshold = 0.7`) is accepted, not further reduced.** Lowering the threshold recovers
+   more `YES` resolutions but raises this rate; `0.7` was chosen as the best trade-off found
+   (see [`DESIGN_NOTES.md`](DESIGN_NOTES.md)). Not planned unless a future corpus expansion
+   moves the curve.
 
 ---
 

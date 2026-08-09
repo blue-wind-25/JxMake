@@ -691,7 +691,11 @@ on the noted commits/fixtures)
      unrelated work since the original run, not investigated further). `JikesOutputParser.java`
      still reproduces the identical shape byte-for-byte, including with
      `curly-general-scope-reindent` turned on (GDR changes the specific bytes touched but the
-     round1/round2 diff is still non-empty — GDR does not currently close this gap either). Only
+     round1/round2 diff is still non-empty — GDR does not currently close this gap either).
+     **Disposition (2026-08-10):** this `apache/ant` finding is just a real-corpus instance of
+     the already-documented "Non-idempotent reindent on internally-inconsistent generated
+     source" gap — see `README.md`'s Known Limitations → "Curly-brace family" item 4. No new
+     documentation needed; removed the redundant standalone `XL.txt` TIER 9 entry. Only
      these 2 files were re-checked (sparse-fetched individually, not a full-tree clone); no other
      part of the 1337-file corpus was re-verified.
 

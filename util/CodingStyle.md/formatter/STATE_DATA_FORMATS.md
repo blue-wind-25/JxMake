@@ -584,6 +584,10 @@ per-repo dogfood bugs):
       `make test`: 202/202. **Known simplification, not exercised by
       current fixtures:** no text reflow (only attributes wrap) — see
       below, this one is intentionally out of scope, do not implement.
+      **Disposition (2026-08-10):** documented in `README.md`'s Known
+      Limitations → "Tag-based family (XML/HTML5)"; removed from `XL.txt`
+      TIER 9 Dogfood (it was never actually a dogfood-corpus finding, and is
+      permanent, not a live TODO).
 
       **Mixed text+element content splitting onto separate lines —
       FIXED (2026-08-04).** Was a real correctness bug, not just style: an

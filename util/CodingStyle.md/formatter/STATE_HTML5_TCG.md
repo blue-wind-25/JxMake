@@ -108,6 +108,9 @@ re-run, item 4): when source has no explicit `<head>` tag either, the
 heuristic wraps `<meta>`/`<title>`/`<script>` into `<body>` immediately
 instead of implicitly opening `<head>` first — spec-accuracy gap only, no
 crash/malformed output, logged as a known limitation, not fixed.
+**Disposition (2026-08-10):** judged plausible to fix (track a real "head
+insertion mode closed" transition instead of the sibling heuristic) —
+added to `XL.txt` TIER 9 rather than left as permanent.
 Fixtures: `test/html_tc_gap_level1_body_insertion_{inp,out}.html`,
 `test/html_tc_gap_level0_body_unchanged_{inp,out}.html`.
 
@@ -164,6 +167,9 @@ next-sibling clone. **Known limitation:** a second, simultaneous misnesting
 (two formatting elements orphaned by the same ancestor's close) only
 reconstructs the innermost one — an outer one is silently dropped (field
 overwritten, not queued). Not fixed, logged for a future session.
+**Disposition (2026-08-10):** judged plausible to fix (upgrade the
+single-slot field to a small stack/list) — added to `XL.txt` TIER 9
+rather than left as permanent.
 **Real bug found and fixed pre-fixture:** level 2's foster-parenting branch
 used an early `continue` that bypassed the level-4 reconstruction check
 entirely, silently dropping a formatting element that should have been

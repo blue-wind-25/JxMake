@@ -3457,6 +3457,21 @@ Real-code regressions:
                                                         read as a fresh arm pattern rather than a continuation
                                                         of the previous arm's body.
 
+  real_code_regressions_190_inp/out.sh               -- Minimized from `ohmyzsh/ohmyzsh`'s `plugins/wd/wd.sh`
+                                                        (Bash dogfood pass): a real syntax-corruption bug (not
+                                                        just an idempotency nit) in
+                                                        `BashSpecificRule.pipeSpacing` (§2.2). The lone-`|`
+                                                        detector excluded `||`/`|&` but not the
+                                                        noclobber-override redirect operator `>|` (`cmd >|
+                                                        file` -- write even if `noclobber` is set), so `>|`
+                                                        was split into `> |`, which `bash -n` rejects as a
+                                                        genuine syntax error (a stray pipe with nothing on its
+                                                        left). Confirmed via
+                                                        `tools/verifiers/bash_syntax_check.sh`: the original
+                                                        file parsed clean, the formatted round1 output did
+                                                        not. Fixed by also excluding a `|` immediately
+                                                        preceded by `>` from pipe-spacing.
+
 How Tests Are Run
 -----------------
 

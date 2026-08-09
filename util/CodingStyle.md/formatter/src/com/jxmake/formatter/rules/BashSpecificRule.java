@@ -625,7 +625,9 @@ public final class BashSpecificRule {
             final char c = run.charAt(i);
             if( c == '|' && !( i > 0 && run.charAt(
                 i - 1
-            ) == '|' ) && !( i + 1 < run.length() && ( run.charAt(
+            ) == '|' ) && !( i > 0 && run.charAt(
+                i - 1
+            ) == '>' ) && !( i + 1 < run.length() && ( run.charAt(
                 i + 1
             ) == '|' || run.charAt(
                 i + 1

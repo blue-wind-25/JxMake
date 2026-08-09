@@ -3472,6 +3472,19 @@ Real-code regressions:
                                                         not. Fixed by also excluding a `|` immediately
                                                         preceded by `>` from pipe-spacing.
 
+  real_code_regressions_191_inp/out.ps1              -- Minimized from `PowerShell/PowerShell`'s
+                                                        `test/powershell/engine/ETS/Adapter.Tests.ps1`
+                                                        (PowerShell dogfood pass, run manually by the user):
+                                                        an idempotency bug in
+                                                        `PowerShellSpecificRule.KEYWORD_PAREN` (shared
+                                                        §3.5 keyword-paren spacing). Its lookbehind excluded
+                                                        only preceding word chars, so the method call
+                                                        `.ForEach(` -- preceded by `.`, not a word char -- was
+                                                        misdetected as the `foreach` keyword and gained a
+                                                        spurious space before `(` on round2
+                                                        (`("a").ForEach ( { $_ })`). Fixed by adding `.` to the
+                                                        lookbehind's exclusion set.
+
 How Tests Are Run
 -----------------
 

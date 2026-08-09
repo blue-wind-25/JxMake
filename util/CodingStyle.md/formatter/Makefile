@@ -7,9 +7,9 @@ JAR          ?= jar
 JAVA         ?= java
 JAVA_VERSION ?= 8
 
-# Single source of truth for the version number -- propagated into the jar
-# manifest (Implementation-Version), read at runtime by Main.java's
-# printUsage()/--version, and picked up by code-formatter.sh/.cmd via glob.
+# Single source of truth for the version number -- propagated into the JAR
+# manifest (Implementation-Version), read at runtime by `Main.java`'s
+# `printUsage()`/`--version`, and picked up by `code-formatter.sh/.cmd` via glob.
 VERSION       = 1.0.0
 ARTIFACT      = code-formatter-$(VERSION)
 MAIN_CLASS    = com.jxmake.formatter.Main
@@ -28,17 +28,18 @@ TEST_LOCK     = $(BUILD_DIR)/.test.lock
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
 
-.PHONY: all build jar clean                      \
-        gru-extract-pool-a                       \
-        gru-extract-pool-b                       \
-        gru-measure-abstain-rate                 \
-        gru-acquire-corpus                       \
-        gru-hand-labeled-examples                \
-        gru-train                                \
-        gru-cv-corpus                            \
-        gru-sync-weights                         \
-        test test-quiet _test_serial             \
-        bench test-server test-server-concurrent
+.PHONY: all build jar clean                \
+	gru-extract-pool-a                 \
+	gru-extract-pool-b                 \
+	gru-measure-abstain-rate           \
+	gru-acquire-corpus                 \
+	gru-hand-labeled-examples          \
+	gru-train                          \
+	gru-cv-corpus                      \
+	gru-sync-weights                   \
+	test test-quiet _test_serial       \
+	test-server test-server-concurrent \
+	bench
 
 
 all build jar:
@@ -179,9 +180,9 @@ gru-measure-abstain-rate: $(JAR_FILE)
 # Usage:
 #     make gru-acquire-corpus [GRU_CORPUS_OUT_DIR=/tmp/gru_corpus]
 #
-GRU_CORPUS_OUT_DIR       ?= /tmp/gru_corpus
-GRU_SAMPLE_DEFAULT        = $(GRU_TOOLS_DIR)/sample_default.txt
-GRU_DISAGREEMENT_CORRECTIONS = $(GRU_TOOLS_DIR)/disagreement_corrections.txt
+GRU_CORPUS_OUT_DIR           ?= /tmp/gru_corpus
+GRU_SAMPLE_DEFAULT            = $(GRU_TOOLS_DIR)/sample_default.txt
+GRU_DISAGREEMENT_CORRECTIONS  = $(GRU_TOOLS_DIR)/disagreement_corrections.txt
 
 gru-acquire-corpus: $(JAR_FILE)
 	@rm -rf $(GRU_CORPUS_OUT_DIR)
@@ -242,7 +243,7 @@ GRU_WEIGHTS_FILENAME     = code-formatter-ai-assist-weights.json
 GRU_WEIGHTS_OUT          = $(GRU_BUILD_DIR)/$(GRU_WEIGHTS_FILENAME)
 GRU_CKPT_CURRENT         = $(GRU_WEIGHTS_OUT).ckpt-current.bin
 GRU_SAMPLE_EXAMPLES      = $(GRU_SAMPLE_DEFAULT)
-GRU_TRAIN_ARGS          ?= --threads=3 --epochs=9 --patience=3 --batch-size=16 --progress-every=1000
+GRU_TRAIN_ARGS          ?= --threads=3 --epochs=9 --patience=3 --batch-size=16 --progress-every=2500
 GRU_HAND_LABELED_REPEAT ?= 3
 
 gru-train: $(JAR_FILE)
@@ -277,10 +278,10 @@ gru-train: $(JAR_FILE)
 #     make gru-cv-corpus GRU_CV_ROUNDS=3 GRU_CV_LOG=/tmp/my_cv.log
 #     ( make gru-cv-corpus cd ~; data-ro.sh ) < /dev/null > /tmp/gru_cv_corpus.out 2>&1 &
 #
-GRU_CV_ROUNDS      ?= 5
-GRU_CV_WORK_DIR    ?= $(GRU_BUILD_DIR)/cv_corpus
-GRU_CV_LOG         ?= $(GRU_BUILD_DIR)/cv_corpus.log
-GRU_CV_ARGS        ?= --epochs 40 --patience 6 --eval-threshold 0.7
+GRU_CV_ROUNDS   ?= 5
+GRU_CV_WORK_DIR ?= $(GRU_BUILD_DIR)/cv_corpus
+GRU_CV_LOG      ?= $(GRU_BUILD_DIR)/cv_corpus.log
+GRU_CV_ARGS     ?= --epochs 40 --patience 6 --eval-threshold 0.7
 
 gru-cv-corpus: $(JAR_FILE)
 	@mkdir -p $(GRU_BUILD_DIR)
@@ -705,73 +706,6 @@ _test_serial: gru-sync-weights
 	)
 
 
-# ── Bench target ─────────────────────────────────────────────────────────────
-#
-# Benchmarks total formatting time (excluding server start/stop) across the test files in four
-# configurations:
-#
-#     1. `--standalone`, one file per invocation
-#     2. `--standalone`, all files in one invocation
-#     3. client-server , one file per invocation
-#     4. client-server , all files in one invocation
-#
-# Override `JAVA` or `JAR_FILE` on the command line if needed, same as `make test`.
-#
-bench: $(JAR_FILE) gru-sync-weights
-	@(                                                                                                                                              \
-		mkdir -p $(TEST_TMP);                                                                                                                   \
-		files="$(addprefix $(TEST_DIR)/,$(INP_FILES))";                                                                                         \
-		set -- $$files; probe="$$1";                                                                                                            \
-		clear;                                                                                                                                  \
-		echo "";                                                                                                                                \
-		echo "=== Bench: standalone, one-by-one ===";                                                                                           \
-		start=$$(date +%s%N);                                                                                                                   \
-		for f in $$files; do                                                                                                                    \
-			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$f" 2>/dev/null;                                                      \
-		done;                                                                                                                                   \
-		end=$$(date +%s%N);                                                                                                                     \
-		base_ns=$$(( end - start ));                                                                                                            \
-		printf "Total: %5dmS\n" $$(( base_ns / 1000000 ));                                                                                      \
-		echo "";                                                                                                                                \
-		echo "=== Bench: standalone, all-at-once ===";                                                                                          \
-		start=$$(date +%s%N);                                                                                                                   \
-		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) $$files 2>/dev/null;                                                            \
-		end=$$(date +%s%N);                                                                                                                     \
-		ns=$$(( end - start ));                                                                                                                 \
-		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
-		echo "";                                                                                                                                \
-		JXMAKE_CODE_FORMATTER_SERVER_CONCURRENCY=3 $(JAVA) -jar $(JAR_FILE) --server 2>/dev/null &                                              \
-		sleep 1;                                                                                                                                \
-		echo "";                                                                                                                                \
-		echo "=== Bench: client-server, one-by-one ===";                                                                                        \
-		start=$$(date +%s%N);                                                                                                                   \
-		for f in $$files; do                                                                                                                    \
-			$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$f" 2>/dev/null;                                                                   \
-		done;                                                                                                                                   \
-		end=$$(date +%s%N);                                                                                                                     \
-		ns=$$(( end - start ));                                                                                                                 \
-		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
-		echo "";                                                                                                                                \
-		echo "=== Bench: client-server, all-at-once ===";                                                                                       \
-		start=$$(date +%s%N);                                                                                                                   \
-		$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) $$files 2>/dev/null;                                                                         \
-		end=$$(date +%s%N);                                                                                                                     \
-		ns=$$(( end - start ));                                                                                                                 \
-		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
-		echo "";                                                                                                                                \
-		echo "=== Bench: client-server, all-at-once (concurrent) ===";                                                                          \
-		start=$$(date +%s%N);                                                                                                                   \
-		JXMAKE_CODE_FORMATTER_CLIENT_READ_AHEAD=5 $(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) $$files 2>/dev/null;                               \
-		end=$$(date +%s%N);                                                                                                                     \
-		ns=$$(( end - start ));                                                                                                                 \
-		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
-		echo "";                                                                                                                                \
-		$(JAVA) -jar $(JAR_FILE) --stop;                                                                                                        \
-		sleep 1;                                                                                                                                \
-		echo "";                                                                                                                                \
-	)
-
-
 # ── Server-mode test target ───────────────────────────────────────────────────
 #
 # Functional (not benchmark) coverage of the /format inline-config query parameters added for
@@ -783,10 +717,10 @@ bench: $(JAR_FILE) gru-sync-weights
 #     2. inline config overriding a `.jxmake-code-formatter` file next to `path`
 #     3. an unrecognized config-shaped query key -> HTTP 400
 #     4. language auto-inferred from `path`'s extension, no explicit `lang`
-#     5. a full round-trip through a non-Java language (yaml), proving the
-#        server actually reformats rather than echoing the body back verbatim
-#     6. an unrecognized `lang` (e.g. `jsx` -- no longer even scaffold-only,
-#        since `Lang.SCAFFOLD_ONLY_LANGUAGES` is now empty) -> HTTP 400
+#     5. a full round-trip through a non-Java language (yaml), proving the server actually reformats
+#        rather than echoing the body back verbatim
+#     6. an unrecognized `lang` (e.g. `jsx` -- no longer even scaffold-only, since
+#        `Lang.SCAFFOLD_ONLY_LANGUAGES` is now empty) -> HTTP 400
 #
 # Runs against a dedicated port so it doesn't collide with a server a developer already has running.
 # Always stops its own server on exit, pass or fail.
@@ -866,16 +800,12 @@ test-server: $(JAR_FILE) gru-sync-weights
 
 # ── Server-concurrency load test ──────────────────────────────────────────────
 #
-# `test-server`/`make test` only ever exercise the server at its default `server-concurrency = 1`
-# (today's single-threaded behavior, unchanged). This target is the dedicated concurrent-load
-# coverage the "server concurrency + client read-ahead" job (STATE_COMMON.md's "Server concurrency
-# + client read-ahead" entry) requires before `server-concurrency > 1` can be considered safe:
-# starts a server with `server-concurrency = 4`, fires many concurrent requests at it for two
-# distinct inputs (interleaved, so a race would corrupt one input with the other's output), and
-# verifies every single response byte-for-byte matches the same request's single-threaded/serial
-# result -- not just "no exception", which a data race could easily pass while still corrupting
-# output. Runs on its own dedicated port so it doesn't collide with `test-server` or a developer's
-# own running server.
+# This target is the dedicated concurrent-load coverage the "server concurrency + client read-ahead".
+# It starts a server with `server-concurrency = 4`, fires many concurrent requests at it for two distinct inputs
+# (interleaved, so a race would corrupt one input with the other's output), and verifies every single response
+# byte-for-byte matches the same request's single-threaded/serial result -- not just "no exception", which a data
+# race could easily pass while still corrupting output. It runs on its own dedicated port so it doesn't collide
+# with `test-server` or a developer's own running server.
 #
 TEST_SERVER_CONCURRENT_PORT := 17998
 TEST_SERVER_CONCURRENT_TMP   = $(BUILD_DIR)/test-server-concurrent-out
@@ -936,4 +866,94 @@ test-server-concurrent: $(JAR_FILE) gru-sync-weights
 		if [ $$fail -ne 0 ]; then exit 1; fi;                                                                                             \
 		echo "All server-concurrency load tests passed.";                                                                                 \
 		echo "";                                                                                                                          \
+	)
+
+
+# ── Bench target ─────────────────────────────────────────────────────────────
+#
+# Benchmarks total formatting time (excluding server start/stop) across the test files in various
+# configurations:
+#
+#     1. `--standalone`, one file     per invocation
+#     2. `--standalone`, all files in one invocation
+#     3. client-server , one file     per invocation (1st run)
+#     4. client-server , one file     per invocation (2nd run)
+#     5. client-server , all files in one invocation (read-ahead=1)
+#     6. client-server , all files in one invocation (read-ahead=N)
+#
+# Override `JAVA` or `JAR_FILE` on the command line if needed, same as `make test`.
+#
+bench: $(JAR_FILE) gru-sync-weights
+	@(                                                                                                                                              \
+		mkdir -p $(TEST_TMP);                                                                                                                   \
+		files="$(addprefix $(TEST_DIR)/,$(INP_FILES))";                                                                                         \
+		set -- $$files; probe="$$1";                                                                                                            \
+		clear;                                                                                                                                  \
+		echo "";                                                                                                                                \
+		echo "=== Bench: standalone, one-by-one ===";                                                                                           \
+		start=$$(date +%s%N);                                                                                                                   \
+		for f in $$files; do                                                                                                                    \
+			$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$f" 2>/dev/null;                                                      \
+		done;                                                                                                                                   \
+		end=$$(date +%s%N);                                                                                                                     \
+		base_ns=$$(( end - start ));                                                                                                            \
+		printf "Total: %5dmS\n" $$(( base_ns / 1000000 ));                                                                                      \
+		echo "";                                                                                                                                \
+		echo "=== Bench: standalone, all-at-once ===";                                                                                          \
+		start=$$(date +%s%N);                                                                                                                   \
+		$(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) $$files 2>/dev/null;                                                            \
+		end=$$(date +%s%N);                                                                                                                     \
+		ns=$$(( end - start ));                                                                                                                 \
+		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
+		echo "";                                                                                                                                \
+		                                                                                                                                        \
+		$(JAVA) -jar $(JAR_FILE) --server 2>/dev/null &                                                                                         \
+		sleep 1;                                                                                                                                \
+		echo "";                                                                                                                                \
+		                                                                                                                                        \
+		echo "=== Bench: client-server, one-by-one (1st run) ===";                                                                              \
+		start=$$(date +%s%N);                                                                                                                   \
+		for f in $$files; do                                                                                                                    \
+			$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$f" 2>/dev/null;                                                                   \
+		done;                                                                                                                                   \
+		end=$$(date +%s%N);                                                                                                                     \
+		ns=$$(( end - start ));                                                                                                                 \
+		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
+		echo "";                                                                                                                                \
+		                                                                                                                                        \
+		$(JAVA) -jar $(JAR_FILE) --stop;                                                                                                        \
+		sleep 1;                                                                                                                                \
+		CONCURRENCY=3;                                                                                                                          \
+		READ_AHEAD=$$(( CONCURRENCY + 2 ));                                                                                                     \
+		JXMAKE_CODE_FORMATTER_SERVER_CONCURRENCY=$$CONCURRENCY $(JAVA) -jar $(JAR_FILE) --server 2>/dev/null &                                  \
+		sleep 1;                                                                                                                                \
+		echo "";                                                                                                                                \
+		                                                                                                                                        \
+		echo "=== Bench: client-server, one-by-one (2nd run) ===";                                                                              \
+		start=$$(date +%s%N);                                                                                                                   \
+		for f in $$files; do                                                                                                                    \
+			$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) "$$f" 2>/dev/null;                                                                   \
+		done;                                                                                                                                   \
+		end=$$(date +%s%N);                                                                                                                     \
+		ns=$$(( end - start ));                                                                                                                 \
+		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
+		echo "";                                                                                                                                \
+		echo "=== Bench: client-server, all-at-once (read-ahead=1) ===";                                                                        \
+		start=$$(date +%s%N);                                                                                                                   \
+		$(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) $$files 2>/dev/null;                                                                         \
+		end=$$(date +%s%N);                                                                                                                     \
+		ns=$$(( end - start ));                                                                                                                 \
+		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
+		echo "";                                                                                                                                \
+		echo "=== Bench: client-server, all-at-once (read-ahead=$$READ_AHEAD) ===";                                                             \
+		start=$$(date +%s%N);                                                                                                                   \
+		JXMAKE_CODE_FORMATTER_CLIENT_READ_AHEAD=$$READ_AHEAD $(JAVA) -jar $(JAR_FILE) --out $(TEST_TMP) $$files 2>/dev/null;                    \
+		end=$$(date +%s%N);                                                                                                                     \
+		ns=$$(( end - start ));                                                                                                                 \
+		printf "Total: %5dmS (%s)\n" $$(( ns / 1000000 )) "$$(awk -v base_ns="$$base_ns" -v ns="$$ns" 'BEGIN{printf "%5.2fx", base_ns / ns}')"; \
+		echo "";                                                                                                                                \
+		                                                                                                                                        \
+		$(JAVA) -jar $(JAR_FILE) --stop;                                                                                                        \
+		sleep 1;                                                                                                                                \
+		echo "";                                                                                                                                \
 	)

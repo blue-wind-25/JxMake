@@ -167,183 +167,54 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   "Finished dogfood / real-code testing" below. Full narrative: `RDD_KEY_169` in `RDD_LOG.md`.
 
 - **[Shared with STATE_JS_TS.md family] Java assignment-alignment trailing-comment padding vs.
-  `enforceCallLineBreaking` ordering — 2026-08-08 investigation session, no code change landed
-  (reverted after regression found).** Same architectural bug already tracked above (the
-  `ScopePipelineCurly.processScope` outer-first-then-recurse double-pass entry) and the same
-  concrete mechanism RDD_KEY_248/RDD_KEY_270 already fixed for JS/TS via
-  `FormatterCurly.format`'s `if(lang.isJs || lang.isTs) scopePipeline.
-  reapplyClosingBraceAndDeclarationsPass(text)` narrow re-run — but this session found the
-  identical bug shape occurring for **Java**, not JS/TS. Found via the formatter's own
-  self-format dogfood (`src/com/jxmake/formatter/rules/PowerShellSpecificRule.java`'s `format()`
-  method): a run of `s = someCall(s); // §N.n comment` assignment statements forms an
-  `applyAssignmentsPass` alignment group; when one sibling's call name is long enough that
-  `enforceCallLineBreaking` (which runs AFTER `applyAssignmentsPass`, inside `processScope`)
-  wraps that one call across lines, every *other* sibling's trailing-comment column was already
-  padded (during `applyAssignmentsPass`) against the pre-wrap single-line width of the widest
-  member — round1 keeps that stale wide padding, round2 (fed round1's own now-multi-line input)
-  recomputes the group differently and collapses the padding to one space — non-idempotent.
-  Minimal repro (not committed, see below): a small class with 7 `s = applyX(s); // comment`
-  lines, one calling a deliberately long method name so `enforceCallLineBreaking` wraps only that
-  one; `diff -ru` between round1 and round2 output confirmed the exact padding-then-collapse
-  shape byte-for-byte matching the `PowerShellSpecificRule.java` symptom.
+  `enforceCallLineBreaking` ordering — FIXED 2026-08-09 (four sessions/attempts total).** Same
+  architectural bug family already tracked above (`ScopePipelineCurly.processScope`'s
+  outer-first-then-recurse double-pass) and the same mechanism RDD_KEY_248/RDD_KEY_270 fixed for
+  JS/TS via a narrow `reapplyClosingBraceAndDeclarationsPass` re-run — this time occurring for
+  **Java**. Found via the formatter's own self-format dogfood
+  (`src/com/jxmake/formatter/rules/PowerShellSpecificRule.java`'s `format()` method): a run of
+  `s = someCall(s); // §N.n comment` assignment statements forms an `applyAssignmentsPass`
+  alignment group; when `enforceCallLineBreaking` (runs after `applyAssignmentsPass`) wraps one
+  sibling's call across lines, every *other* sibling's trailing-comment column was already padded
+  against the pre-wrap width — round1 keeps the stale wide padding, round2 recomputes it and
+  collapses to one space — non-idempotent.
 
-  **Attempted fix 1 (reverted): widen `FormatterCurly.format`'s existing JS/TS-only
-  `if(lang.isJs || lang.isTs)` gate around `reapplyClosingBraceAndDeclarationsPass` to
-  `lang.isCurly`** (run for every curly-family language, on the theory the mechanism is already
-  proven language-agnostic since RDD_KEY_270 added `applyAssignmentsPass` to it for JS/TS). Broke
-  8 pre-existing fixtures (`hpp_core`, `cpp_core`, `hpp_combined`, `cpp_combined`, `java_core`,
-  `java_combined`, `cpp26_reflection`, `real_code_regressions_58`) — re-running
-  `applyOversizedAggregateInitClosingBracePass` a second time in the same round for C/C++/Java
-  re-collapsed already-correct, unrelated output (exactly the failure mode RDD_KEY_246's own
-  doc comment warns "Attempt 2" hit: "re-running unrelated passes a second time in the same round
-  risks silently re-collapsing already-correct output").
+  **Attempt 1 (reverted):** widen the JS/TS-only re-run gate to all curly languages. Broke 8
+  fixtures — re-running `applyOversizedAggregateInitClosingBracePass` a second time re-collapsed
+  already-correct C/C++/Java output (RDD_KEY_246's "Attempt 2" failure mode).
 
-  **Attempted fix 2 (reverted): narrow the gate to `lang.isJs || lang.isTs || lang.isJava` only,
-  and additionally skip `applyOversizedAggregateInitClosingBracePass` specifically for Java**
-  (Java has no oversized-aggregate-init-closing-brace construct that pass is meant to fix, so
-  skipping it for Java looked lossless). This narrowed the regression from 8 files to 3
-  (`java_core`, `java_combined`, `real_code_regressions_58`), all the same symptom: Java's
-  enum-constant-list `;`-separation (`JavaSpecificRule.separateEnumConstantListTerminator`,
-  RDD_KEY_89 -- detaches the constant-list-terminating `;` onto its own line with a blank line
-  above it) got re-collapsed back onto the constant list (`ACTIVE, INACTIVE, PENDING\n\n;` →
-  `ACTIVE, INACTIVE, PENDING;`) by the re-run. Since `applyOversizedAggregateInitClosingBracePass`
-  was already excluded, the culprit re-run pass is `applyDeclarationsPass` and/or
-  `applyAssignmentsPass` themselves re-collapsing the separated `;` line back — not investigated
-  further to find which one or why (would need isolating each pass individually inside the
-  re-run, which starts to approach the same "re-running unrelated passes regresses unrelated
-  output" risk class RDD_KEY_246 already flagged, now for Java's own enum-separation pass rather
-  than JS/TS's dangling-`}` shape).
+  **Attempt 2 (reverted):** narrow the gate to JS/TS/Java only and additionally skip
+  `applyOversizedAggregateInitClosingBracePass` for Java (irrelevant to Java). Narrowed the
+  regression to 3 fixtures, but `applyDeclarationsPass`/`applyAssignmentsPass` still re-collapsed
+  Java's enum-constant-list `;`-separator (RDD_KEY_89) back onto the list — not isolated further.
 
-  **Disposition:** both attempts fully reverted (`FormatterCurly.java`/`ScopePipelineCurly.java`
-  back to their pre-session state, confirmed via `git diff` showing no residual changes to either
-  file); `make test` re-confirmed clean at the pre-existing baseline (261/261 forward +
-  idempotency) after the revert. No fixture added (no fix landed). Left OPEN, same as the sibling
-  JS/TS-family entry above — a future session picking this up should either (a) find exactly
-  which of `applyDeclarationsPass`/`applyAssignmentsPass` re-collapses the enum `;` separator
-  when re-run a second time for Java and make that specific behavior idempotent/order-safe rather
-  than skipping the whole pass, or (b) find a narrower re-run than the shared
-  `reapplyClosingBraceAndDeclarationsPass` three-pass bundle that only re-derives
-  `applyAssignmentsPass`'s trailing-comment/`=`-column width for Java without touching whatever
-  re-collapses the enum separator.
+  **Attempt 3 (reverted):** target the wrap *decision* instead of re-running passes —
+  `MiscRuleCurly.flushCollapseGap` collapses the gap before a trailing comment to one canonical
+  space so `enforceCallLineBreaking`'s own fits-check ignores alignment padding. Safe alone
+  (261/261 clean) but insufficient: it stabilizes the wrap decision, not
+  `applyAssignmentsPass`'s stale padding on non-wrapped siblings, so the repro still diverged.
 
-  **TODO (2026-08-08, later same day) — instance worked around, root cause still open.** The
-  concrete trigger instance in `rules/PowerShellSpecificRule.java` was NOT fixed at the formatter-
-  source level (both attempts above remain reverted) — instead it was sidestepped by manually
-  inserting a blank line between each `s = applyX(s); // comment` statement in that file's
-  `format()` method, which breaks `applyAssignmentsPass`'s alignment-group membership per
-  RDD_KEY_254's "blank line breaks the group" rule, so the group that was triggering the stale-
-  padding-then-collapse behavior no longer forms at all. This is a source-layout workaround in one
-  call site, not a fix to the formatter — the underlying `applyAssignmentsPass`-vs-
-  `enforceCallLineBreaking` ordering bug documented above is unchanged and still applies to any
-  other curly-family file (C/C++/Java) with a similar run of `x = call(x); // comment` assignment
-  statements where one sibling's call is long enough to get wrapped by `enforceCallLineBreaking`.
-  A future session should still pursue (a) or (b) above for a real fix; until then, be aware this
-  bug can resurface anywhere in the codebase (including future edits to
-  `PowerShellSpecificRule.java` itself, if the blank lines are ever removed) and is not something
-  `make test`'s existing 261-fixture baseline will catch, since no fixture reproducing it has been
-  registered (the repro used for investigation was a scratch file, not committed to `test/`).
+  **Attempt 4 (LANDED, FIXED):** added a new, much narrower re-run mode that re-derives ONLY
+  `applyAssignmentsPass`'s output, instead of re-running the whole three-pass bundle (attempts
+  1/2's failure mode). `ScopePipelineCurly.processScope`'s old
+  `closingBraceAndDeclarationsOnly boolean` parameter generalized to an `int reRunMode`
+  (`RERUN_MODE_FULL`, `RERUN_MODE_CLOSING_BRACE_AND_DECLARATIONS` = existing JS/TS bundle
+  unchanged, new `RERUN_MODE_ASSIGNMENTS_ONLY`). New entry point
+  `ScopePipelineCurly.reapplyAssignmentsPassOnly(String)`; `FormatterCurly.format` gained an
+  `else if(lang.isJava)` branch at the same call site JS/TS's re-run already uses. Because
+  `applyAssignmentsPass` only ever touches genuine assignment-statement groups
+  (`MiscRuleCurly.groupAssignments`), re-running it alone structurally cannot touch an
+  aggregate-init closing brace or enum `;`-separator — the two collateral-damage classes
+  attempts 1/2 hit.
 
-  **Repro fixture (blank-line-separated, non-buggy shape) now committed**: `test/
-  java_combined_inp.java`'s `evaluateAt2` method (end of the file, after the `aaa`/`b`/`ccccc`
-  declarations) has the same 7-line `s = applyX(s); // §N.n comment` call chain from
-  `PowerShellSpecificRule.java`, blank-line-separated into 4 sub-groups exactly like the
-  post-workaround file — this is the *working* shape (`java_combined_out.java` shows it formats
-  stably, no wrap). It's a convenient anchor for a future session: to reproduce the actual bug,
-  remove the blank lines between the 7 statements (re-forming one contiguous `applyAssignmentsPass`
-  group) and re-run round1/round2 — this should still diverge (stale comment-column padding vs. two
-  lines getting wrapped by `enforceCallLineBreaking`, per the shape recorded above) until (a)/(b) or
-  the idea below lands.
-
-  **New fix idea (2026-08-08, not yet attempted) — make `enforceCallLineBreaking`'s fits-check
-  ignore alignment padding.** Distinct from attempts 1/2 above (which both tried *re-running*
-  `applyAssignmentsPass` after wrapping); this instead targets the wrap *decision* itself. Right
-  now `enforceCallLineBreaking` measures a line's length using whatever comment-column padding
-  `applyAssignmentsPass` already inserted — so the wrap decision is a function of alignment width,
-  which itself depends on group membership, which shifts once something wraps. If the fits-check
-  instead measured the line as if the comment gap were a single canonical space (i.e. ignoring
-  alignment padding entirely, the same class of fix as RDD_KEY_172's `isSingleLineBody` fits-check
-  correction — there it was *missing* indent+comment width, here it's *including a variable* padding
-  width it shouldn't), the wrap/no-wrap decision would be stable across rounds by construction,
-  since it would no longer depend on a value that the wrap itself invalidates. This is a narrower,
-  more surgical change than attempts 1/2 (a measurement change, not a pass re-run) and might avoid
-  their specific regressions (aggregate-init closing braces, Java enum `;` separation), but it still
-  touches a method shared by every curly-family language (~15 languages, 260+ fixtures via the
-  shared curly pipeline) and needs verification that no other pass or fixture actually relies on
-  `enforceCallLineBreaking` seeing the true padded width for a correct wrap (e.g. a line that's
-  genuinely too wide for the reader only once alignment padding is included). Investigate this idea
-  first, in isolation, before touching `FormatterCurly.java`'s re-run gate again.
-
-  **2026-08-09 session — approach 1 (the "new fix idea" above) tried, reverted; insufficient by
-  itself.** Implemented: `MiscRuleCurly.flushCollapseGap` (used by `collapseToOneLine`, which
-  backs `enforceCallLineBreaking`'s own whole-line fits-check at line ~1391) gained a special
-  case collapsing any gap immediately before a trailing `COMMENT_LINE`/`COMMENT_BLOCK` token to a
-  single canonical space, even when it's pure horizontal whitespace with no `NEWLINE` — leaving
-  the existing verbatim-preserve behavior untouched for mid-statement alignment padding (e.g. a
-  declaration grid's `=`-column, the reason that verbatim-preserve rule exists in the first
-  place per its own doc comment, from the vuejs/core `scripts/release.js` bug). `make test`:
-  261/261 forward + idempotency, zero regressions — the change alone is safe. **However, a fresh
-  minimal repro (7-line `s = applyX(s); // comment` chain, one sibling given a deliberately long
-  method name so `enforceCallLineBreaking` wraps only that one) still reproduced the bug
-  byte-for-byte after this change**: round1 kept wide stale padding on the non-wrapped siblings
-  (`s = applyX(s);                                                                   // §1
-  comment`), round2 collapsed it to one space, non-idempotent. Root cause: this fix only changes
-  what `enforceCallLineBreaking` measures when deciding whether *its own* line needs to wrap — it
-  does not touch `ScopePipelineCurly.applyAssignmentsPass`, which is the pass that actually
-  computes and commits each sibling's trailing-comment-column padding, and which never re-runs or
-  re-derives that padding after `enforceCallLineBreaking` (a later pass in the same round) changes
-  one sibling's line shape. Stabilizing the wrap *decision* was necessary but not sufficient; the
-  stale-padding-on-siblings problem lives entirely in a different pass this approach never
-  touched. **Reverted** (`git checkout -- src/com/jxmake/formatter/rules/MiscRuleCurly.java`,
-  confirmed via `git diff` showing no residual change to that file).
-
-  Approaches (a)/(b) from the disposition note above (find which pass re-collapses the enum `;`
-  separator when re-run for Java; or find a narrower re-run than the shared three-pass bundle)
-  were NOT attempted this session — given this session's evidence that the real bug lives in
-  `applyAssignmentsPass` not being re-derived post-wrap, a future session's most promising next
-  step is likely a fourth idea, not yet attempted: make `applyAssignmentsPass` itself run (or its
-  comment-column-width computation alone re-run) *after* `enforceCallLineBreaking` in
-  `ScopePipelineCurly.processScope`'s pass order for the specific case of a group containing a
-  member `enforceCallLineBreaking` just wrapped — i.e. treat the group's true single-line width as
-  unknowable until call-wrapping has already been decided, rather than trying to make the
-  fits-check ignore a value computed too early. Left OPEN; documented as an accepted gap in
-  `README.md`'s Known Limitations (curly-brace family, item 5) per this session's disposition —
-  matches the pattern of the two already-reverted attempts, no fix landed.
-
-  **2026-08-09 session — 4th idea (above) attempted and LANDED, FIXED.** Implemented option (b):
-  rather than re-running the whole `applyOversizedAggregateInitClosingBracePass`/`applyDeclarationsPass`/
-  `applyAssignmentsPass` bundle (attempts 1/2's failure mode), added a brand-new, much narrower
-  re-run mode that re-derives ONLY `applyAssignmentsPass`'s output. Mechanism:
-  `ScopePipelineCurly.processScope`'s old `closingBraceAndDeclarationsOnly boolean` parameter was
-  generalized to an `int reRunMode` with three values — `RERUN_MODE_FULL` (fresh format, unchanged
-  behavior), `RERUN_MODE_CLOSING_BRACE_AND_DECLARATIONS` (the existing JS/TS bundle, unchanged
-  behavior), and a new `RERUN_MODE_ASSIGNMENTS_ONLY` which re-runs nothing but
-  `applyAssignmentsPass` itself at every scope level. A new public entry point,
-  `ScopePipelineCurly.reapplyAssignmentsPassOnly(String)`, drives the whole tree through this new
-  mode. `FormatterCurly.format` gained an `else if(lang.isJava)` branch immediately after the first
-  `enforceCallLineBreaking` call (same call site the JS/TS `reapplyClosingBraceAndDeclarationsPass`
-  already runs from) that invokes it. Because `applyAssignmentsPass` only ever touches genuine
-  assignment-statement groups (`MiscRuleCurly.groupAssignments`), re-running it alone structurally
-  cannot re-collapse an aggregate-init closing brace or an enum-constant-list `;`-separator — the
-  exact two collateral-damage classes attempts 1 and 2 hit — since neither construct is an
-  assignment statement `applyAssignmentsPass` would ever touch.
-
-  **Verification:** `make test` stayed exactly 269/269 forward + idempotency before and after (no
-  regressions), then 270/270 after adding the new fixture below. Manual repro (7-line
-  `s = applyX(s); // comment` chain, one sibling given a deliberately long method name so
-  `enforceCallLineBreaking` wraps only that one call): round1 and round2 output now byte-for-byte
-  identical — the previously-stale wide comment-column padding on the non-wrapped siblings is now
-  correctly re-derived against the post-wrap group shape on the very first format pass, matching
-  what a second format pass used to independently converge on. New permanent fixture:
-  `test/real_code_regressions_193_{inp,out}.java`, registered in the Makefile's `INP_FILES` and
-  `test/README.txt`. `README.md`'s Known Limitations item 5 (curly-brace family) removed since it
-  no longer applies — see that file's own changelog-style note for the removal.
-
-  This also resolves the `src/com/jxmake/formatter/rules/PowerShellSpecificRule.java` self-format
-  trigger instance documented above (the blank-line source-layout workaround from 2026-08-08 is
-  no longer structurally required now that the underlying formatter bug is fixed, though it was
-  left in place — removing it and re-running the formatter self-format dogfood-and-adopt process
-  is optional future cleanup, not required for this fix, and was not done this session to keep
-  this session's diff scoped to the actual bug fix).
+  **Verification:** `make test` 269/269 → 270/270 (new fixture) forward + idempotency, zero
+  regressions. Manual repro (7-line `s = applyX(s); // comment` chain, one sibling with a long
+  method name so only it wraps): round1 == round2 byte-for-byte. New fixture:
+  `test/real_code_regressions_193_{inp,out}.java`. `README.md`'s Known Limitations item 5
+  (curly-brace family) removed as no longer applicable. Also resolves the
+  `PowerShellSpecificRule.java` self-format trigger (its 2026-08-08 blank-line source-layout
+  workaround is no longer structurally required, but was left in place — removing it is optional
+  future cleanup).
 
 - **NOT REPRODUCED, 2026-08-03 — closed as unconfirmed/stale, not conflated with the above.**
   Ran every registered `test/*_out.cpp`/`test/*_out.hpp` fixture (37 files) through both
@@ -659,60 +530,43 @@ on the noted commits/fixtures)
        byte-identical, `make test` 220/220 (up from 219/219). Fixture: `real_code_regressions_171`.
      `make test` after fixes: 220/220 forward + idempotency, zero regressions.
 
-     **Full-tree round1/round2 re-run + syntax-check, 2026-08-09 (this was the deferred
-     re-verification, now run).** Corpus re-cloned fresh (`git clone --depth 1
-     https://github.com/openrewrite/rewrite` into `/tmp/rewrite` — the prior session's `/tmp/rewrite`
-     checkout on disk was a stale/incomplete sparse-checkout skeleton, only 1 file/4.6M, not the real
-     tree; a plain full clone was simplest per this session's task). Repo has grown since the
-     original 3373-file count — fresh clone has 3510 `.java` files; used as the ground truth for this
-     run. Batched per top-level module subdirectory (`for d in /tmp/rewrite/*/`) per
-     `STATE_COMMON.md`'s batching guidance, `--out`/`--preserve-tree`/`--root`.
+     **Full-tree round1/round2 re-run + syntax-check, 2026-08-09 (deferred re-verification, now
+     run).** Corpus re-cloned fresh (prior `/tmp/rewrite` checkout was a stale sparse-checkout
+     skeleton). Fresh clone has grown to 3510 `.java` files (from 3373); batched per top-level
+     module subdirectory. `javac` of the whole tree still impractical (Gradle multi-module +
+     ANTLR-generated sources); used `java_syntax_check` as before.
 
-     Round1/round2 diff: 4 residual idempotency diffs found, all cosmetic (no invalid-syntax risk),
-     left **open/undiagnosed** as newly-found Known Gaps (see below) rather than blind-fixed, given
-     each matches an already-documented deep/risky architectural bug family in this file (indent-
-     width-decided-before-a-later-pass-grows-it, alignment-padding-collapse, switch-arrow-brace
-     pass-ordering) — same judgment call already exercised for the open `PowerShellSpecificRule.java`
-     self-format bug in `STATE_COMMON.md`'s "Formatter self-formatting" section:
-     - `rewrite-java-test/.../ModerneWebsiteExampleTest.java`: a switch-arrow braceless `if/else`
-       body followed by the arm's own closing `}` on the same physical line
-       (`else b.append(c); }`) gets its `}` pulled onto its own line only on round2.
-     - `rewrite-kotlin/.../TabsAndIndentsVisitor.java` and `rewrite-yaml/.../YamlParser.java`: a
-       wrapped call argument's closing-paren continuation line gains 4 extra indent spaces between
-       round1 and round2 (indent-width-decided-before-a-later-pass-grows-it family).
-     - `rewrite-python/.../Pep508RequirementTest.java`: a `List<String>` declaration's
-       alignment-group padding (3 spaces) collapses to 1 space on round2 (alignment-padding-collapse
-       family, same shape as the already-fixed Cluster 5 but a different trigger site).
+     Round1/round2 diff: 4 residual idempotency diffs found, all cosmetic (no invalid-syntax
+     risk), left open/undiagnosed as new Known Gaps (below) rather than blind-fixed — each
+     matches an already-documented architectural bug family (indent-width-decided-before-a-
+     later-pass-grows-it; alignment-padding-collapse; switch-arrow-brace pass-ordering), same
+     judgment call as the open `PowerShellSpecificRule.java` self-format bug. Files:
+     `rewrite-java-test/.../ModerneWebsiteExampleTest.java` (switch-arrow braceless if/else body's
+     closing `}` moves between rounds), `rewrite-kotlin/.../TabsAndIndentsVisitor.java` +
+     `rewrite-yaml/.../YamlParser.java` (wrapped call continuation line gains 4 indent spaces
+     between rounds), `rewrite-python/.../Pep508RequirementTest.java` (`List<String>` alignment
+     padding collapses 3→1 space on round2). One transient non-reproducible
+     `NoClassDefFoundError: MiscRuleCore$SepMatch` crash hit mid-batch (JVM classloader/resource
+     hiccup, not a formatter bug) — re-running the affected subdirectory alone (`rewrite-gradle`,
+     241 files) was clean.
 
-     One transient, non-reproducible `NoClassDefFoundError: MiscRuleCore$SepMatch` crash was hit
-     mid-batch on the first round2 attempt (JVM classloader/resource-pressure hiccup during the very
-     large batch loop, not a formatter bug) — confirmed non-reproducible by re-running just the
-     affected subdirectory (`rewrite-gradle`, 241 files) in isolation, which completed cleanly with
-     no diff against the rest of the tree.
+     Baseline (unformatted 3510 files): 3510/3510 OK. Round1 (before fix): **1 new syntax error**
+     — `rewrite-java-25/.../ReloadableJava25ParserVisitor.java:764: variable declaration not
+     allowed here`. Root cause: `BlockStructureRule.isSingleStatementBody`'s declaration guard
+     only refused collapse for a `final`/`const`-qualified leading token; an unqualified
+     primitive-type declaration (`int saveCursor = cursor;`) wasn't caught, so
+     `if (...) { int saveCursor = cursor; }` collapsed to illegal braceless `if (...) int
+     saveCursor = cursor;`. Fixed via a new `PRIMITIVE_TYPE_KEYWORDS` set (mirrors
+     `DeclarationAlignmentRuleCurly`'s `TYPE_KEYWORDS_C`/`TYPE_KEYWORDS_JAVA`) and a sibling guard
+     refusing collapse when the leading token is a primitive/built-in type keyword followed by an
+     identifier. Verified: `make test` 264/264 (new fixture `real_code_regressions_187`);
+     full-tree re-run — round1 syntax-check 3510/3510 OK, idempotency diff unchanged at the same
+     4 residual files (confirms no interaction), crash did not recur.
 
-     `javac` compile of the whole tree was judged impractical standalone (Gradle multi-module project
-     with ANTLR-generated sources and real inter-module dependencies, per this item's own long-
-     standing note) — used the `java_syntax_check` fallback instead (same pattern as items 25/26).
-     Baseline (original unformatted 3510 files): 3510/3510 OK, 0 syntax errors. Round1 (first pass,
-     before the fix below): **1 new syntax error**, not present in baseline —
-     `rewrite-java-25/.../ReloadableJava25ParserVisitor.java:764: variable declaration not allowed
-     here`. Root cause: `BlockStructureRule.isSingleStatementBody`'s declaration guard only refused
-     collapse for a `final`/`const`-qualified leading token (`final boolean ignored = ...;`) — an
-     un-qualified primitive-type declaration (`int saveCursor = cursor;`, no `final`/`const`) was
-     never caught, so `if (...) { int saveCursor = cursor; }` got collapsed to the illegal braceless
-     `if (...) int saveCursor = cursor;`. Fixed by adding a new `PRIMITIVE_TYPE_KEYWORDS` set
-     (mirrors `DeclarationAlignmentRuleCurly`'s own `TYPE_KEYWORDS_C`/`TYPE_KEYWORDS_JAVA`) and a
-     sibling guard alongside the existing `final`/`const` check: refuse collapse when the leading
-     token is a primitive/built-in type keyword directly followed by an identifier. Verified: `make
-     test` 264/264 (up from 263/263, new fixture `real_code_regressions_187`); full-tree re-run after
-     the fix — round1 syntax-check 3510/3510 OK (matches baseline exactly); round1/round2 idempotency
-     diff unchanged at the same 4 residual files above (confirms the fix didn't touch that unrelated
-     bug family); the earlier transient crash did not recur.
-
-     **Disposition: DONE.** Full-tree idempotency and syntax-check baselines are now established for
-     the first time; the one real (syntax-breaking) bug found is fixed and fixtured
-     (`real_code_regressions_187`). The 4 residual cosmetic idempotency diffs are recorded as new
-     Known Gaps below rather than chased further this session.
+     **Disposition: DONE.** Full-tree idempotency/syntax-check baselines established for the
+     first time; the one syntax-breaking bug found is fixed and fixtured
+     (`real_code_regressions_187`). The 4 residual cosmetic diffs are recorded as new Known Gaps
+     below.
 (18) Local `VMA-GIT/anemonesoft/` (82 `.java`) — 1 bug: `renderCallCandidate` swallowed a
      multi-line brace-bodied trailing argument. Verified (4). Fixture: `real_code_regressions_29`.
 (19) Local `ARMCortexMThumbC.java.in` (PCPP template) — no bug found; verified (5), 0-line

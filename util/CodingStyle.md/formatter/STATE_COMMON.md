@@ -314,36 +314,21 @@ appropriate for README.md's user-facing doc:
 - `python-import-sort` / `python-import-blank-lines`: wired into `Config.java`'s `ALL_KEYS`
   2026-08-06 (RDD_KEY_247) — see `STATE_PYTHON3.md`.
 - `line-length-with-comment`: added 2026-08-09, default `120`. Scopes the "code + comment" width
-  fits-check (i.e. wherever the formatter measures a candidate line's width *including* a trailing
+  fits-check (wherever the formatter measures a candidate line's width *including* a trailing
   same-line `//`/`/* */` comment) separately from the code-only `line-length` limit. Wired into the
   curly-brace family only: `MiscRuleCurly.enforceCallLineBreaking`'s whole-line fits-check and
-  `JavaSpecificRule.isSingleLineBody`'s fits-prediction (RDD_KEY_172 requires these two to agree).
-  Both call sites first check whether a trailing comment is actually present in the measured span
-  (via each file's own `hasCommentBetween` helper) and only use `lineLengthWithCommentLimit` when
-  one is; a plain code-only line still uses `lineLengthLimit` unchanged. (An earlier same-session
-  attempt wired the comment-aware limit unconditionally, regressing ~30 fixtures with no trailing
-  comment at all because it silently raised the effective wrap threshold for every call, not just
-  comment-trailing ones — caught via fixture diffing and fixed before landing.) NOT wired into any
-  other language/pipeline. This is NOT because those formats lack comment syntax -- JSON5
-  (`//`/`/* */`), YAML/TOML (`#`), XML/HTML5 (`<!-- -->`), and CSS (`/* */`) all have comments; only
-  strict JSON does not. It's because none of their existing `lineLengthLimit` fits-checks measure
-  comment-inclusive width at all, so there is nothing to redirect at the new key without building a
-  new fits-check from scratch (out of scope for "wire wherever the formatter *currently* measures
-  it"): `JsonSpecificRule.canBeTight()` rejects a trailing-comment candidate before any width check
-  runs; `XmlSpecificRule.renderElement` measures `tightLine`/`tightOpenLine` before the trailing
-  comment is appended via `appendWithTrailing` (comment sits entirely outside the measured window);
-  `CssSpecificRule`'s `lineLengthLimit` field and `TomlSpecificRule`'s equivalent parameter are both
-  stored/accepted but never read by any fits-check in either file; `YamlSpecificRule.fits(...)` is
-  only ever called with `renderFlowTight(node)` output, which never references a trailing `#`
-  comment. Indent-based (Python3) and tooling (Makefile/Bash/PowerShell) pipelines likewise have no
-  comment-inclusive fits-check point yet. A future session having a data-format or indent-based
-  language build a real comment-inclusive fits-check for its own wrap decision should reuse this
-  key rather than inventing a new one. `make test` after landing: 2
-  pre-existing fixtures (`real_code_regressions_65_out.java`, `real_code_regressions_124_out.hpp`)
-  now fail because both have a trailing comment that pushed their code+comment width past the old
-  100-char `line-length` limit (100-107 wide) but under the new 120-char default — this is the
-  intended effect of the new default and was left for the user to review/update those two fixtures
-  themselves, per this job's fixture-touching rule.
+  `JavaSpecificRule.isSingleLineBody`'s fits-prediction (RDD_KEY_172 requires these two to agree),
+  each gated on a trailing comment actually being present (`hasCommentBetween`) — a plain code-only
+  line still uses `lineLengthLimit`. NOT wired into any other language/pipeline: not because those
+  formats lack comment syntax (JSON5/YAML/TOML/XML/HTML5/CSS all have comments; only strict JSON
+  doesn't), but because none of their existing fits-checks measure comment-inclusive width at all
+  yet, so there's nothing to redirect without building a new fits-check from scratch — out of
+  scope here. A future data-format or indent-based-language session building a real
+  comment-inclusive fits-check should reuse this key rather than inventing a new one. `make test`
+  after landing: 2 pre-existing fixtures (`real_code_regressions_65_out.java`,
+  `real_code_regressions_124_out.hpp`) now fail because their code+comment width falls between the
+  old 100-char `line-length` limit and the new 120-char default — intended effect, left for the
+  user to review/update those two fixtures per this job's fixture-touching rule.
 
 For every added, deleted, or modified configuration item, synchronize it
 with `README.md` and the implementation of *In-file Config Support* (the
@@ -475,81 +460,49 @@ number.
 
 **2026-08-09: implemented.** Landed `server-concurrency` (default `1`,
 `Config.java`/`ServerMode.start` -- `HttpServer.setExecutor(Executors.newFixedThreadPool(N))`
-when `N > 1`, otherwise today's implicit single-threaded default executor
-unchanged) and `client-read-ahead` (default `1`, `Main.java`'s file loop --
+when `N > 1`, otherwise the prior implicit single-threaded executor unchanged) and
+`client-read-ahead` (default `1`, `Main.java`'s file loop --
 `runFilesWithReadAhead` pipelines up to `M` `processFile` calls concurrently
 via a fixed thread pool + sliding-window `Future` deque when a live server
 is found and `M > 1`, otherwise the original strictly-serial `runOneFile`
-loop, byte-for-byte unchanged). Both are process/server-invocation-scoped
-config keys, same category as `server-port` -- added to `Config.ALL_KEYS`/
-`GROUPS`/`describeAll()`'s switch/`fromRawMap`, and excluded from
-`JXM_CFMT_CFG` the same way `server-port` already was
-(`InFileConfig.SERVER_SCOPED_KEYS`).
+loop unchanged). Both process/server-invocation-scoped config keys, same
+category as `server-port` -- added to `Config.ALL_KEYS`/`GROUPS`/
+`describeAll()`'s switch/`fromRawMap`, excluded from `JXM_CFMT_CFG` the
+same way `server-port` already was (`InFileConfig.SERVER_SCOPED_KEYS`).
 
-**Thread-safety audit (required before shipping `server-concurrency > 1`):**
+**Thread-safety audit** (required before shipping `server-concurrency > 1`):
 grepped every `.java` file under `src/com/jxmake/formatter/` for a
-non-`final` `static` field (filtered for `static final`) -- zero hits
-anywhere reachable from `ServerMode`/`FormatHandler`/`Config`/
-`GdrPipelineGate`/the GRU classifier stack. Two specific hazards named in
-the task were checked by hand: `IndentationDetector.detect(Path, Map)`
-takes its cache as a per-call parameter, not a shared instance/static
-field, so there is no cross-request sharing at all; `GruAbstainResolver.CLASSIFIER_CACHE`
-is a `static final ConcurrentHashMap`, safe under concurrent access by
-construction (the field reference never changes, only the map's own
-thread-safe internals mutate). `Main.java`'s own standalone-mode
-`/tmp/jxmake-code-formatter-indent-<sha256>.cache` file (a different,
-CLI-side cache, not server-side -- server requests never touch it) was also
-checked: concurrent readers/writers to the same file are self-healing by
-construction, since a corrupted/partial read already falls through to
-`NumberFormatException` → delete-and-rescan, and the file is
-process-agnostic content keyed only by a directory's own `lastModified`, so
-a lost/interleaved write only costs a redundant rescan next time, never a
-wrong formatting result. No hazard required a code change; conclusion is
-"already safe," not "made safe."
+non-`final` `static` field -- zero hits reachable from
+`ServerMode`/`FormatHandler`/`Config`/`GdrPipelineGate`/the GRU classifier
+stack. Two specific hazards checked by hand and confirmed safe:
+`IndentationDetector.detect(Path, Map)` takes its cache as a per-call
+parameter (no cross-request sharing at all); `GruAbstainResolver.CLASSIFIER_CACHE`
+is a `static final ConcurrentHashMap` (safe by construction).
+`Main.java`'s standalone-mode indent cache file (CLI-side only, server
+requests never touch it) is self-healing under concurrent access (a
+corrupted/partial read falls through to delete-and-rescan). No hazard
+required a code change -- "already safe," not "made safe."
 
-**Verification:** `make test`/`make test-server` both stayed 263/263 green
-at the shipped defaults (both new keys at `1`, byte-for-byte unchanged
-behavior). Added `make test-server-concurrent` (new Makefile target,
-mirrors `test-server`'s structure/section-header style): starts a server
-with `server-concurrency = 4`, fires 80 real concurrent HTTP requests
-(2 distinct Java inputs × 40 each, interleaved so a race would corrupt one
-input with the other's output) via backgrounded `curl` + `wait`, and diffs
-every single response byte-for-byte against the same input's single-
-threaded/standalone reference output -- not just "no exception," which a
-genuine data race could pass while still corrupting output. All 80/80
-matched, no hang. `make bench`'s `client-server, all-at-once` scenario was
-updated (only that one scenario, per the original task's scope) to start
-its server with `server-concurrency = $(nproc)` and run the client with
-`client-read-ahead = $(nproc)+2`; the other three scenarios are untouched/
-still default-`1`. Bench comparison (this machine, one run each,
-2026-08-09):
-
-```
-                                          before        after
-standalone, one-by-one                48508mS  ->   52825mS   (machine variance, not this change)
-standalone, all-at-once                2471mS  ->    2915mS   (machine variance, not this change)
-client-server, one-by-one             36672mS  ->   39675mS   (machine variance, not this change; untouched scenario)
-client-server, all-at-once             1708mS  ->    2405mS   (concurrency=4, read-ahead=6 -- see below)
-```
-
-The `client-server, all-at-once` scenario shows no further speedup from
-concurrency/read-ahead (in fact slower here, within this run's machine
-variance) -- confirms the background note's original prediction: it's
-already one client call processing every file in one JVM invocation, and
-the per-file HTTP delegation loop inside it was already fast relative to
-per-request thread-pool/scheduling overhead at this file count, so
-pipelining more requests in flight adds scheduling overhead without
-removing any real bottleneck. The feature's actual target -- many
-independent client processes/editor instances hitting one shared server
-concurrently -- isn't represented by any of the four existing bench
-scenarios (each is a single client, sequential or batched);
-`test-server-concurrent`'s 80-simultaneous-request run is the real evidence
-this feature works, not the bench numbers above. Left as a documented gap
-rather than force-fit a misleading "before/after" framing onto a scenario
-the feature isn't designed for -- a future session wanting a real
-multi-client throughput bench should add a fifth scenario that starts
-several independent client processes concurrently against one server,
-which none of `bench`'s current four scenarios do.
+**Verification:** `make test`/`make test-server` stayed 263/263 green at
+the shipped defaults (both keys at `1`, byte-for-byte unchanged). New
+`make test-server-concurrent` Makefile target starts a server with
+`server-concurrency = 4`, fires 80 concurrent HTTP requests (2 distinct
+Java inputs × 40 each, interleaved) and diffs every response byte-for-byte
+against the single-threaded reference output (not just "no exception") --
+80/80 matched, no hang. `make bench`'s `client-server, all-at-once`
+scenario updated to `server-concurrency = $(nproc)` /
+`client-read-ahead = $(nproc)+2`; the other three scenarios untouched.
+That scenario showed no further speedup from concurrency/read-ahead (this
+run: 1708mS -> 2405mS, within machine variance of the other unrelated
+scenarios' own before/after drift) -- expected, since it's already one
+client call processing every file in one JVM invocation with the per-file
+HTTP loop already fast relative to thread-pool overhead at this file
+count. The feature's actual target (many independent concurrent
+clients/editor instances hitting one shared server) isn't represented by
+any of the four bench scenarios; `test-server-concurrent`'s 80-simultaneous-
+request run is the real evidence this feature works. A future session
+wanting a real multi-client throughput bench should add a fifth scenario
+starting several independent client processes concurrently.
 
 Documented in `README.md`'s "Server mode" section (with the
 `server-concurrency + 2` client-read-ahead guidance) and "Config file
@@ -586,22 +539,20 @@ onto the original per-line array (never re-splitting transformed text).
 `MiscRuleCore`, shared with the tooling family via a `protected static`
 cross-call): runs before a candidate boundary is ever offered to the
 classifier, rejecting shapes no classifier should need to be asked about —
-punctuation not directly attached to a preceding letter/digit (rejects
-ellipsis/multi-punct runs and standalone symbols like `` `! is` ``), a
-preceding word that's a single letter or a known abbreviation (`vs.`,
-`etc.`, `e.g.`, `i.e.`, `al.`, `cf.`, ...), a following word with an
-internal uppercase letter (camelCase/dotted code identifiers), and a
-following word immediately followed by `:` with no trailing space (URL
-schemes and directive comments — `https:`, `ftp:`, `tslint:`). This filter
-was built in two passes: the first (ellipsis/standalone-symbol/abbreviation/
-camelCase checks) fixed all 4 regressions `make test` found with the flag
+punctuation not directly attached to a preceding letter/digit (ellipsis/
+multi-punct runs, standalone symbols), a preceding word that's a single
+letter or a known abbreviation (`vs.`, `etc.`, `e.g.`, `i.e.`, `al.`,
+`cf.`, ...), a following word with an internal uppercase letter (camelCase/
+dotted identifiers), and a following word immediately followed by `:` with
+no trailing space (URL schemes/directive comments — `https:`, `ftp:`,
+`tslint:`). Built in two passes: the first (ellipsis/symbol/abbreviation/
+camelCase checks) fixed all 4 `make test` regressions found with the flag
 forced on; the second (colon/single-letter-abbreviation checks) was added
-after real-code dogfood testing against `/tmp/angular` (angular/angular,
-300 `.ts` files) found `https://...`/`ftp://...`/`tslint:...`/`e.g.`/`i.e.`
-self-capitalization bugs not covered by the fixture suite — that dogfood
-pass went from 16 differing files to 7, of which 6 are legitimate
-sentence-start capitalizations and 1 is an accepted known limitation (see
-below).
+after real-code dogfood against `/tmp/angular` (angular/angular, 300 `.ts`
+files) found `https://...`/`ftp://...`/`tslint:...`/`e.g.`/`i.e.`
+self-capitalization bugs the fixture suite hadn't covered — that dogfood
+pass went from 16 differing files to 7 (6 legitimate, 1 accepted known
+limitation, below).
 
 **Accepted known limitation, not fixed further:** with
 `comment-normalization-classifier = on`, the keyword-exception list
@@ -832,71 +783,46 @@ annotations from the "unexplained addition" check); re-ran clean, all 9
 `tools/gru` files zero comment mismatches. No classifier fix was needed.
 
 **2026-08-08: broadened to all of `tools/*` (simplified process, no
-round2-JAR fixed-point check).** Scope widened from the `tools/gru`-only
-`.java` example above to every `.java`/`.py`/`.js` file under `tools/*`
-(`tools/classifier_weights`, `tools/gru`, `tools/verifiers` — 40 files
-total), using the already-built `target/code-formatter-*.jar` via
-`code-formatter.sh` rather than a fresh trial build, since the round2-JAR
-fixed-point check (step 3 above) was explicitly skipped for this run. Idempotency
-(round1 vs round2) empty diff; content-diff clean on all 40 files
-(`java_content_diff.sh`/`python_content_diff.sh`/`js_ts_content_diff.sh`).
-8 files had an actual diff, all trailing-period comment normalization
-(STYLE.md #15) — same class of change as the original `tools/gru` run
-above, not a bug. Adopted over real `tools/*`; `make test` unaffected
-(261/261 forward + idempotency, before and after). See `STATE_DOGFOOD.md`
-for the summary row.
+round2-JAR fixed-point check).** Widened from the `tools/gru`-only example
+above to every `.java`/`.py`/`.js` file under `tools/*` (40 files), using
+the already-built JAR rather than a fresh trial build. Idempotency empty
+diff; content-diff clean on all 40 files. 8 files had an actual diff, all
+trailing-period comment normalization (STYLE.md #15), not a bug. Adopted
+over real `tools/*`; `make test` unaffected (261/261). See
+`STATE_DOGFOOD.md` for the summary row.
 
-**2026-08-08: re-ran against the formatter's own `src/` (the documented
-procedure's actual primary subject), same simplification (no round2-JAR
-fixed-point check).** A prior same-day session had only done the `tools/*`
-broadening above and skipped re-running this on `src/` itself despite that
-being the task's title; this run fills that gap. Result: **not adopted**.
-`diff -ru` between a fresh round1 and round2 format of real `src/` was
-**not** empty — one file, `rules/PowerShellSpecificRule.java`, 2 hunks: a
-group-aligned trailing `//` comment after a call that `enforceCallLineBreaking`
-wraps onto its own line (e.g. `applyBraceSpacing(\n s\n); // §3.6 ...`)
-keeps stale wide alignment padding computed for the call's pre-wrap
-single-line shape through round1, then collapses to one space in round2
-once the input already shows the wrapped shape — same pass-ordering bug
-family as the `isSingleLineBody` doc comment in `JavaSpecificRule.java`
-(comment-column-alignment width computed independently of
-`enforceCallLineBreaking`'s own line-length verdict). Root-caused but not
-fixed this session — it touches the curly-family call-line-breaking /
-trailing-comment-alignment pass interaction shared by C/C++/Java, judged
-too risky to patch blind at this session's scope. Ancillary checks still
-run for the record: round1 compiled clean and its JAR passed `make test`
-261/261 forward+idempotency; 24 of the 25 files round1 actually changed
-content-diffed clean via `java_content_diff.sh` (legitimate comment
-capitalization/trailing-period-strip/line-wrap changes). Real `src/` was
-left untouched — see `STATE_DOGFOOD.md`'s new row for the summary.
+**2026-08-08: re-ran against the formatter's own `src/` (same
+simplification), result not adopted.** `diff -ru` between a fresh round1
+and round2 format of real `src/` was not empty — `rules/PowerShellSpecificRule.java`:
+a group-aligned trailing `//` comment after a call that
+`enforceCallLineBreaking` wraps onto its own line keeps stale wide
+alignment padding through round1, then collapses to one space in round2 —
+same pass-ordering bug family as `JavaSpecificRule.isSingleLineBody`
+(comment-column width computed independently of `enforceCallLineBreaking`'s
+own verdict). Root-caused but not fixed this session (too risky to patch
+blind at this scope). Round1 compiled clean, passed `make test` 261/261,
+and 24/25 changed files content-diffed clean (legitimate cosmetic
+changes). Real `src/` left untouched.
 
-**2026-08-08 (later same day): re-ran a second time after a manual
-source-layout workaround, this time adopted.** The formatter-source fix
-attempt for the `PowerShellSpecificRule.java` trigger (two attempts, both
-reverted — see `STATE_C_CPP_JAVA.md`'s Open Questions entry) was abandoned
-as too risky. Instead, blank lines were manually inserted between each
-`s = applyX(s); // comment` statement in that file's `format()` method,
-breaking `applyAssignmentsPass`'s alignment-group membership per
-RDD_KEY_254's "blank line breaks the group" rule — this sidesteps the
-trigger shape without touching formatter source, since the underlying
-bug only fires when consecutive assignment statements are grouped for
-comment-column alignment. Verified in isolation first (fresh round1/round2
-of the file alone, empty diff), then the full simplified `src/`
-dogfood-and-adopt was re-run end to end: round1/round2 `diff -ru` over all
-of real `src/` was empty (confirms the one previously-failing file is now
-clean and nothing else regressed); `java_content_diff.sh` spot-check on
-all 26 changed files showed only the same already-documented cosmetic
-classes (closing-brace annotation rewording such as `// for c` → `// for`,
-trailing-period stripping, array/parameter list reflow — no real content
-loss); adopted over real `src/`; `make clean && make test` on the rebuilt
-JAR passed 261/261 forward + 261/261 idempotency; `make test-server`
-passed all cases. The underlying architectural bug (`applyAssignmentsPass`
-padding decided before `enforceCallLineBreaking`'s wrap verdict, for the
-non-JS/TS curly languages) remains **open and unfixed at the
-formatter-source level** — this adoption only removes the one known
-trigger instance from `src/` via a source-layout change, it does not fix
-the formatter. Any other curly-family file with a similar
-`x = call(x); // comment` alignment-group chain could still trigger the
-same non-idempotency. See `STATE_C_CPP_JAVA.md`'s Open Questions entry for
-the TODO tracking this, and `STATE_DOGFOOD.md`'s row update for the
-summary.
+**2026-08-08 (later): re-ran after a manual source-layout workaround, this
+time adopted.** A formatter-source fix for the `PowerShellSpecificRule.java`
+trigger (two attempts, both reverted — see `STATE_C_CPP_JAVA.md`'s Open
+Questions entry) was abandoned as too risky. Instead, blank lines were
+manually inserted between each `s = applyX(s); // comment` statement in
+that file's `format()` method, breaking `applyAssignmentsPass`'s
+alignment-group membership (RDD_KEY_254's "blank line breaks the group"
+rule) — sidesteps the trigger without touching formatter source. Verified
+in isolation (empty diff), then the full `src/` dogfood-and-adopt re-run
+end to end: round1/round2 diff over all of real `src/` empty; 26 changed
+files content-diffed clean (same cosmetic classes as before, no real
+content loss); adopted; `make clean && make test` 261/261 forward +
+idempotency; `make test-server` passed. The underlying
+`applyAssignmentsPass`-vs-`enforceCallLineBreaking` ordering bug for the
+non-JS/TS curly languages was, at the time, still open at the
+formatter-source level — this adoption only removed the one known trigger
+instance from `src/` via a source-layout change. **Superseded 2026-08-09:**
+the underlying bug is now actually fixed at the formatter-source level —
+see `STATE_C_CPP_JAVA.md`'s Open Questions entry (`applyAssignmentsPass`
+narrow re-run, RDD_KEY_193 fixture). The blank-line workaround in
+`PowerShellSpecificRule.java` is no longer structurally required but was
+left in place as optional future cleanup.

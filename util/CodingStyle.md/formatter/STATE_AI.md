@@ -1236,3 +1236,30 @@ was never broken.
 **Disposition (2026-08-10):** documented in `README.md`'s Known Limitations →
 "AI-assist (GRU)"; removed from `XL.txt` TIER 9 (canceled, not a live TODO,
 per the 2026-08-04 CANCELED entry above).
+
+**2026-08-10 — `make gru-train` re-run by user against the grown
+`sample_default.txt` (119641 lines, includes the grown hand-labeled corpus,
+per the entry above).** `trainExamples=97490` (594 hand-labeled rows
+oversampled x3 = 1782 extra rows folded in), `validationExamples=23926`.
+Early-stopped at epoch 7 (no validation improvement for 3 epochs, patience
+3), best weights from epoch 4: `trainLoss=0.0171390,
+validationLoss=0.0217870` (lowest of the run — validationLoss rose again at
+epochs 5-7: 0.0263591, 0.0360400, 0.0377724, classic overfit-after-best-
+epoch shape). Epoch 4 validation confusion matrix (positive=YES):
+`tp=23134, fp=60, tn=658, fn=74, precision=0.99741, recall=0.99681,
+f1=0.99711` — this is validation-split precision from training, not a
+GruEval held-out figure. Wrote `target/gru/code-formatter-ai-assist-
+weights.json`.
+
+**Quick on-bench `GruEval` check (user explicitly asked for just this, not
+a fresh multi-hour `cross_validate.py` CV run) against the 594-row
+hand-labeled bench (`target/gru/classifier_weights_examples.tsv`, same
+convert script as always):** `threshold=0.7 total=594 abstain=0 decided=594
+correct=594 precision=100.0% (yesCorrect=135/135, noCorrect=459/459)`.
+**Same caveat as every prior on-bench figure:** this 594-row set is
+oversampled directly into training data, so 100% is training-fit, not a
+true generalization measure — same shape as the 98.7%-vs-86.3% gap on
+2026-08-02. A genuine held-out number needs `cross_validate.py`
+(`make gru-cv-corpus`), which the user deferred for time. Weights not yet
+promoted to `$(CLASS_DIR)`/repo root/`code-formatter-ai-assist-weights.json`
+as of this entry — still sitting in `target/gru/`.

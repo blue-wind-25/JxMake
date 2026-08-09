@@ -118,8 +118,8 @@ Update and fix `CLAUDE.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.m
 `../AI_PREAMBLE_AESTHETIC.md`, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_187_inp/out.java`
-    to   `...`
+    from `real_code_regressions_186_inp/out.ts`
+    to   `real_code_regressions_189_inp/out.sh`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -173,22 +173,11 @@ Use sub-agent. This can be a substantial work.
        - PowerShell (materialized, never run):
            `PowerShell/PowerShell`, `actions/runner-images`
    - LOWER PRIORITY, needs setup work first:
-       - PowerShell: `microsoft/azure-pipelines-tasks` (partial tree was removed after the aborted
-         ~567/1145 pull — needs a fresh full download, not just a dogfood run).
+       - PowerShell: `microsoft/azure-pipelines-tasks` (partial tree was removed after the
+         aborted ~567/1145 pull — needs a fresh full download, not just a dogfood run).
        - Makefile: `range-v3`/`cpython` (need a Makefile-only restore completed first —
          current checkouts broken/sparse; also lower value since Makefile dogfood is already
          DONE against 3 other repos: PEGTL, frozen x2).
-
-So do you think the remnants of `openrewrite/rewrite` should be moved to `Tier 9` in XL.txt?
-Update STATE_DOGFOOD.md.
-
-2. [C_CPP_JAVA] `openrewrite/rewrite` full-tree round1/round2 re-run + syntax-check — DONE
-   2026-08-09 (fresh clone, 3510 `.java` files, repo grew since the original 3373 count).
-   Found and fixed 1 new syntax-breaking bug (unqualified primitive-type declaration collapsed
-   into an illegal braceless if-body, fixture `real_code_regressions_187`); 4 residual cosmetic
-   idempotency diffs left as accepted Known Gaps in `STATE_C_CPP_JAVA.md` (no syntax/compile
-   risk — full-tree `java_syntax_check` baseline 3510/3510 clean before and after). See
-   `STATE_C_CPP_JAVA.md` item (17) and `STATE_DOGFOOD.md`'s row for detail.
 
 Use sub-agent. This can be a substantial work.
 
@@ -212,9 +201,9 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing ===
 
-- [C_CPP_JAVA] `apache/ant` dogfood — 1 file (`JikesOutputParser.java`) still hits an accepted
-  reindent gap, documented, no fix planned. (`PathTest.java`, the other of the original 2, was
-  re-checked 2026-08-09 and no longer reproduces.)
+- [C_CPP_JAVA] `apache/ant` dogfood — 1 file (`JikesOutputParser.java`) still hits
+  an accepted reindent gap, documented, no fix planned. (`PathTest.java`, the other
+  of the original 2, was re-checked 2026-08-09 and no longer reproduces.)
 
 - [KOTLIN / CURLY_GDR, shared] Kotlin statement-boundary tracking for
   `MiscRuleCurly.renderCallCandidate`'s wrap-decision flap (D3)

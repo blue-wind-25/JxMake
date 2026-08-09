@@ -28,7 +28,10 @@ SOURCE_EXTS = (
     ".js",
     ".ts",
     ".html",
-    ".py"
+    ".py",
+    ".mk",
+    ".sh",
+    ".ps1"
 )
 
 

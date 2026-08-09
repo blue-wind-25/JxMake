@@ -581,8 +581,8 @@ Makefile/Bash/PowerShell:
                                                         placement with body indent, `case` arm/`;;`
                                                         formatting, arithmetic operator spacing inside
                                                         `$((...))`, plus safety cases proving pipes/arith in
-                                                        strings and `#` comments, a heredoc body, and
-                                                        `$(...)` command-substitution content are all left
+                                                        strings and `#` comments, a heredoc body, and `$(...)`
+                                                        command-substitution content are all left
                                                         byte-identical.
 
   powershell_combined_inp/out.ps1                    -- STYLE_TOOLING.md §3 combined: naive brace-depth
@@ -3310,8 +3310,8 @@ Real-code regressions:
                                                         `applyPipelineSplit` call ahead of both alignment
                                                         passes so they always see an already-split shape. (2)
                                                         `applyOperatorSpacing` treated bare `/` as division
-                                                        even in bareword command-argument position,
-                                                        corrupting Unix-style paths/URLs (`$profileDir/*`,
+                                                        even in bareword command-argument position, corrupting
+                                                        Unix-style paths/URLs (`$profileDir/*`,
                                                         `$dir/README.md`) into wrongly-split arguments --
                                                         fixed by dropping bare `/` from the binary-operator
                                                         set (the unambiguous `/=` case is unaffected); zero
@@ -3409,57 +3409,53 @@ Real-code regressions:
                                                         pattern-boundary regex (`CASE_ARM`) located the
                                                         pattern's terminating `)` via simple first-match
                                                         regex, with no awareness of backslash escapes -- a
-                                                        pattern containing an escaped paren pair like
-                                                        `\(\))` had its *escaped* `)` mistaken for the
-                                                        real terminator, splitting the arm mid-pattern.
-                                                        Fixed by replacing the regex with a char-by-char
-                                                        `matchCaseArm` scan that skips `\`-escaped
-                                                        characters when searching for the terminator. (2)
-                                                        `runPassA`'s root/code-mode tokenizer had no
-                                                        backslash-escape handling at all -- a `\'` case-arm
-                                                        pattern (escaped literal single-quote, e.g. `\'*)`)
-                                                        fell through to the plain `'` branch on the
-                                                        following character, incorrectly opening a real
-                                                        single-quote string frame that stayed open (kind
-                                                        'O') until some later unrelated `'` closed it,
-                                                        corrupting brace-depth-based indentation for every
-                                                        line in between; being state carried across the
-                                                        whole tokenizer pass, this only became visible as a
-                                                        differing shape between round1 and round2 rather
-                                                        than an immediately obvious single-file bug. Fixed
-                                                        by adding a root-context `c == '\\'` branch (mirrors
-                                                        the existing escape handling already present inside
+                                                        pattern containing an escaped paren pair like `\(\))`
+                                                        had its *escaped* `)` mistaken for the real
+                                                        terminator, splitting the arm mid-pattern. Fixed by
+                                                        replacing the regex with a char-by-char `matchCaseArm`
+                                                        scan that skips `\`-escaped characters when searching
+                                                        for the terminator. (2) `runPassA`'s root/code-mode
+                                                        tokenizer had no backslash-escape handling at all -- a
+                                                        `\'` case-arm pattern (escaped literal single-quote,
+                                                        e.g. `\'*)`) fell through to the plain `'` branch on
+                                                        the following character, incorrectly opening a real
+                                                        single-quote string frame that stayed open (kind 'O')
+                                                        until some later unrelated `'` closed it, corrupting
+                                                        brace-depth-based indentation for every line in
+                                                        between; being state carried across the whole
+                                                        tokenizer pass, this only became visible as a
+                                                        differing shape between round1 and round2 rather than
+                                                        an immediately obvious single-file bug. Fixed by
+                                                        adding a root-context `c == '\\'` branch (mirrors the
+                                                        existing escape handling already present inside
                                                         `D`/`Q`/`B` frame types) that consumes both the
                                                         backslash and the following character as plain code
                                                         before any quote-opening check runs.
 
   real_code_regressions_189_inp/out.sh               -- Minimized from `ohmyzsh/ohmyzsh`'s
-                                                        `tools/changelog.sh` (Bash dogfood pass,
-                                                        found after fixing real_code_regressions_188's
-                                                        two bugs above): a third round1/round2
-                                                        non-idempotency bug in `BashSpecificRule`.
-                                                        `emitCaseBody` had no concept of a nested `case
-                                                        ... in` appearing as an outer arm's body --
-                                                        a nested case's own terminating `esac` line was
-                                                        only ever recognized when the trimmed line was
-                                                        exactly `esac`, so a combined `esac ;;` line
-                                                        (closing the nested case *and* the enclosing
-                                                        arm on one physical line) fell through to the
-                                                        generic body-line fallback instead, corrupting
-                                                        indentation from that point on and producing a
-                                                        different shape each round. Fixed by splitting
-                                                        `emitCaseBody` into a thin public wrapper plus a
-                                                        recursive `emitCaseBodyInner` (new `CaseBodyEnd`
-                                                        result record: next index + whether the
+                                                        `tools/changelog.sh` (Bash dogfood pass, found after
+                                                        fixing real_code_regressions_188's two bugs above): a
+                                                        third round1/round2 non-idempotency bug in
+                                                        `BashSpecificRule`. `emitCaseBody` had no concept of a
+                                                        nested `case ... in` appearing as an outer arm's body
+                                                        -- a nested case's own terminating `esac` line was
+                                                        only ever recognized when the trimmed line was exactly
+                                                        `esac`, so a combined `esac ;;` line (closing the
+                                                        nested case *and* the enclosing arm on one physical
+                                                        line) fell through to the generic body-line fallback
+                                                        instead, corrupting indentation from that point on and
+                                                        producing a different shape each round. Fixed by
+                                                        splitting `emitCaseBody` into a thin public wrapper
+                                                        plus a recursive `emitCaseBodyInner` (new
+                                                        `CaseBodyEnd` result record: next index + whether the
                                                         terminator closed an enclosing arm): a body line
                                                         matching `CASE_START` now recurses at one deeper
-                                                        indent level, and the terminator check accepts
-                                                        `esac`, `esac ;;`, or `esac;;`, re-emitting the
-                                                        trailing `;;` as its own line and propagating
-                                                        `expectingPattern = true` back to the enclosing
-                                                        call so the next line is read as a fresh arm
-                                                        pattern rather than a continuation of the
-                                                        previous arm's body.
+                                                        indent level, and the terminator check accepts `esac`,
+                                                        `esac ;;`, or `esac;;`, re-emitting the trailing `;;`
+                                                        as its own line and propagating `expectingPattern =
+                                                        true` back to the enclosing call so the next line is
+                                                        read as a fresh arm pattern rather than a continuation
+                                                        of the previous arm's body.
 
 How Tests Are Run
 -----------------

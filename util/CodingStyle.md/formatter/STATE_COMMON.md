@@ -508,6 +508,17 @@ Documented in `README.md`'s "Server mode" section (with the
 `server-concurrency + 2` client-read-ahead guidance) and "Config file
 format"/"In-file config overrides" sections.
 
+**2026-08-09 follow-up:** the "no further speedup" note above was measured
+with one client hitting the server serially; a real many-clients bench
+(user's own run, `server-concurrency=3`/`client-read-ahead=5` via
+`JXMAKE_CODE_FORMATTER_SERVER_CONCURRENCY`/`JXMAKE_CODE_FORMATTER_CLIENT_READ_AHEAD`
+env vars) does show it: client-server all-at-once concurrent 1143mS vs.
+non-concurrent 1912mS (45.85x vs. 27.42x standalone-baseline speedup) --
+confirms the feature's actual target scenario. Also noted: server-vs-
+standalone gap narrows session-to-session if the server process isn't
+restarted between benches -- JIT warm-up (JVM tiered compilation), not a
+formatter bug.
+
 ### Multi-sentence comment capitalization (landed, off by default)
 
 **Outcome:** landed behind `normalize-comment-start-case-multiline` (default

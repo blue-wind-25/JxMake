@@ -49,12 +49,12 @@ optimum instead of diverging on this (near-)separable data — see the script's 
 `L2_LAMBDA` for why that matters. Current output (`lr=0.5`, `5000` epochs, 125 examples):
 
 ```
-KEYWORD_BIAS                  = -0.08711
-KEYWORD_WEIGHT_PAREN          = -3.08818
-KEYWORD_WEIGHT_ARROW          = -1.57140
-KEYWORD_WEIGHT_SEMICOLON      = -3.57490
-KEYWORD_WEIGHT_URL_OR_NUMBER  = -0.93665
-KEYWORD_THRESHOLD             =  0.0        (fixed sigmoid decision boundary, not trained)
+KEYWORD_BIAS                 = -0.08711
+KEYWORD_WEIGHT_PAREN         = -3.08818
+KEYWORD_WEIGHT_ARROW         = -1.57140
+KEYWORD_WEIGHT_SEMICOLON     = -3.57490
+KEYWORD_WEIGHT_URL_OR_NUMBER = -0.93665
+KEYWORD_THRESHOLD            =  0.0        (fixed sigmoid decision boundary, not trained)
 ```
 
 Result: 82/125 examples classified as labeled. All 43 mismatches are the accepted asymmetric-risk
@@ -93,12 +93,12 @@ per-file/per-keyword breakdown), bringing the total to 173 examples. Re-ran `der
 (now auto-parsing `DATASET` from the `.md` files directly, no manual transcription step):
 
 ```
-KEYWORD_BIAS                  = -0.05634
-KEYWORD_WEIGHT_PAREN          = -3.10644
-KEYWORD_WEIGHT_ARROW          = -1.55819
-KEYWORD_WEIGHT_SEMICOLON      = -3.59572
-KEYWORD_WEIGHT_URL_OR_NUMBER  = -0.96329
-KEYWORD_THRESHOLD             =  0.0        (fixed sigmoid decision boundary, not trained)
+KEYWORD_BIAS                 = -0.05634
+KEYWORD_WEIGHT_PAREN         = -3.10644
+KEYWORD_WEIGHT_ARROW         = -1.55819
+KEYWORD_WEIGHT_SEMICOLON     = -3.59572
+KEYWORD_WEIGHT_URL_OR_NUMBER = -0.96329
+KEYWORD_THRESHOLD            =  0.0        (fixed sigmoid decision boundary, not trained)
 ```
 
 Result: 106/173 examples classified as labeled (61.3%, down from 82/125 = 65.6% — expected, not a
@@ -121,12 +121,12 @@ zero-feature YES/NO pair so the batch can't skew `KEYWORD_BIAS`; see `STATE_AI.m
 session for the full per-file breakdown). Re-ran `derive_weights.py`:
 
 ```
-KEYWORD_BIAS                  = -0.04180
-KEYWORD_WEIGHT_PAREN          = -3.10833
-KEYWORD_WEIGHT_ARROW          = -1.52024
-KEYWORD_WEIGHT_SEMICOLON      = -3.60170
-KEYWORD_WEIGHT_URL_OR_NUMBER  = -0.97619
-KEYWORD_THRESHOLD             =  0.0        (fixed sigmoid decision boundary, not trained)
+KEYWORD_BIAS                 = -0.04180
+KEYWORD_WEIGHT_PAREN         = -3.10833
+KEYWORD_WEIGHT_ARROW         = -1.52024
+KEYWORD_WEIGHT_SEMICOLON     = -3.60170
+KEYWORD_WEIGHT_URL_OR_NUMBER = -0.97619
+KEYWORD_THRESHOLD            =  0.0        (fixed sigmoid decision boundary, not trained)
 ```
 
 Result: 130/221 examples classified as labeled (58.8%, down from 106/173 = 61.3% — same expected
@@ -142,12 +142,12 @@ The hand-labeled hard-case set grew past 221 (up through the 2026-08-02 growth p
 hadn't been re-run against the grown set yet. Re-ran it:
 
 ```
-KEYWORD_BIAS                  = -1.18218
-KEYWORD_WEIGHT_PAREN          = -2.17830
-KEYWORD_WEIGHT_ARROW          = -0.64725
-KEYWORD_WEIGHT_SEMICOLON      = -2.66553
-KEYWORD_WEIGHT_URL_OR_NUMBER  = -0.03338
-KEYWORD_THRESHOLD             =  0.0        (fixed sigmoid decision boundary, not trained)
+KEYWORD_BIAS                 = -1.18218
+KEYWORD_WEIGHT_PAREN         = -2.17830
+KEYWORD_WEIGHT_ARROW         = -0.64725
+KEYWORD_WEIGHT_SEMICOLON     = -2.66553
+KEYWORD_WEIGHT_URL_OR_NUMBER = -0.03338
+KEYWORD_THRESHOLD            =  0.0        (fixed sigmoid decision boundary, not trained)
 ```
 
 Result: 407/522 examples classified as labeled (77.97%), all mismatches the same accepted
@@ -169,12 +169,12 @@ for keywords already present). New total: 594 rows across all 7 `examples_*.md` 
 `derive_weights.py`:
 
 ```
-KEYWORD_BIAS                  = -1.14719
-KEYWORD_WEIGHT_PAREN          = -2.31089
-KEYWORD_WEIGHT_ARROW          = -0.61513
-KEYWORD_WEIGHT_SEMICOLON      = -2.63047
-KEYWORD_WEIGHT_URL_OR_NUMBER  = -0.06490
-KEYWORD_THRESHOLD             =  0.0        (fixed sigmoid decision boundary, not trained)
+KEYWORD_BIAS                 = -1.14719
+KEYWORD_WEIGHT_PAREN         = -2.31089
+KEYWORD_WEIGHT_ARROW         = -0.61513
+KEYWORD_WEIGHT_SEMICOLON     = -2.63047
+KEYWORD_WEIGHT_URL_OR_NUMBER = -0.06490
+KEYWORD_THRESHOLD            =  0.0        (fixed sigmoid decision boundary, not trained)
 ```
 
 Result: 459/594 examples classified as labeled (77.27%), same accepted asymmetric-risk mismatch

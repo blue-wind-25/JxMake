@@ -92,6 +92,7 @@ SOURCES=(
     "google-google-java-format|github|google/google-java-format"
     "apache-ant|github|apache/ant"
     "actions-starter-workflows|github|actions/starter-workflows"
+    "django|github|django/django"
 )
 
 echo "acquire_corpus: building jar once up front"

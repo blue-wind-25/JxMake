@@ -3510,6 +3510,33 @@ Real-code regressions:
                                                         any trailing `\r` from each split line up front,
                                                         before any measurement.
 
+  real_code_regressions_196_inp/out.ts               -- Minimal repro of a second idempotency bug found in the
+                                                        same 2026-08-09 `microsoft/TypeScript` dogfood
+                                                        reconfirmation: a class-field alignment group
+                                                        (`JsTsSpecificRule. enforceClassFieldAlignmentGrid`)
+                                                        split apart on round2 that round1 had correctly kept
+                                                        joined -- e.g. `server/editorServices.ts`'s `readonly
+                                                        throttledOperations : ...` collapsed from its
+                                                        group-wide padded column back to its own natural
+                                                        (narrower) width on round2. Root cause: the field's
+                                                        leading comment (`/** @internal */`) sits on the *same
+                                                        source line* as the field in round1's input, but
+                                                        `flushClassFieldGroup` always renders a leading
+                                                        comment on its own line -- adding a NEWLINE that did
+                                                        not exist in the original text. `blankLineBetween`'s
+                                                        old logic (count total NEWLINE tokens across the gap,
+                                                        blank if >= 2) then miscounted that comment's now-
+                                                        forced own line, on round2, as a genuine blank line (2
+                                                        NEWLINEs total: one after the previous field's `;`,
+                                                        one after the comment), splitting a group that should
+                                                        have stayed joined -- round1, whose input still had
+                                                        the comment inline, only ever saw 1 NEWLINE in that
+                                                        gap. Fixed by redefining `blankLineBetween` to require
+                                                        two NEWLINE tokens *back-to-back* (only WHITESPACE
+                                                        allowed between them, never a COMMENT or anything
+                                                        else) -- matches a real blank source line but not a
+                                                        same-line leading comment's forced line break.
+
 How Tests Are Run
 -----------------
 

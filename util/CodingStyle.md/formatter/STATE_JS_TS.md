@@ -86,6 +86,7 @@ convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_270 | `microsoft/TypeScript` cluster #3 — `harness/collectionsImpl.ts`, FIXED: `applyAssignmentsPass` added as a third pass inside `ScopePipelineCurly.processScope`'s existing `closingBraceAndDeclarationsOnly` narrow re-run mode (direct extension of RDD_KEY_248), after the closing-brace and declarations passes. New fixture: `test/real_code_regressions_185_{inp,out}.ts` |
 | RDD_KEY_271 | `angular/angular` cluster 4 residue group #3 — `web_animations_player_spec.ts`/`input_transform.ts`, FIXED: (a) `JsTsSpecificRule.tryParseClassField` now collapses a multi-line class-field initializer's embedded NEWLINE into a soft space instead of bailing to "unrecognized member"; (b) `enforceUnionIntersectionSpacing`/`enforceTypeColonSpacing` pulled forward to run before `enforceDecoratorOverflowCascade` in `FormatterCurly.format`, so its inline-decorator-fits measurement sees the final post-spacing width. Neither touches `ScopePipelineCurly`/`closingBraceAndDeclarationsOnly` at all. New fixture: `test/real_code_regressions_186_{inp,out}.ts` |
 | RDD_KEY_273 | 2026-08-09 `microsoft/TypeScript` dogfood-reconfirmation Tier-3 shape #1 (braceless if/else-if body-column-alignment padding going stale on round2) — `compiler/builder.ts`/`compiler/moduleNameResolver.ts`/`services/findAllReferences.ts`, FIXED: `BlockStructureRule.alignBracelessElseIfChain` splits on `"\n"` only, leaving a trailing `'\r'` on every line of CRLF-original source (CRLF/LF normalization happens once, at the very end, in `Main.applyLineEndings`) — that stray byte skews the `lineLengthLimit` padding guard's length math, landing on different sides of the boundary between round1 (still-CRLF) and round2 (already-LF-only). Fixed by stripping any trailing `'\r'` from each split line up front. New fixture: `test/real_code_regressions_195_{inp,out}.ts` (deliberately CRLF-encoded, `.gitattributes`-marked `-text`) |
+| RDD_KEY_274 | 2026-08-09 `microsoft/TypeScript` dogfood-reconfirmation Tier-3 shape #2 (class-field `:`-type-annotation column-alignment group splitting apart on round2) — `server/editorServices.ts`/`server/project.ts`, FIXED: a same-line leading comment (`/** @internal */ readonly x: T;`) forces its own line when `JsTsSpecificRule.flushClassFieldGroup` renders a group, adding a NEWLINE the source never had; `blankLineBetween`'s old "count total NEWLINEs in the gap, blank if >= 2" logic then miscounted that forced line break as a genuine blank line on round2 (fed round1's own already-comment-on-its-own-line output), splitting a group round1 had correctly kept joined. Fixed by requiring the two NEWLINEs be strictly back-to-back (only WHITESPACE allowed between, a COMMENT resets the count) to count as a real blank line. New fixture: `test/real_code_regressions_196_{inp,out}.ts` — not CRLF-specific, a distinct root cause from RDD_KEY_273 despite sharing the same flagged-file corpus |
 
 ---
 
@@ -1154,8 +1155,53 @@ as `real_code_regressions_147_inp.ts`).
 
 This same CRLF-trailing-`'\r'`-skews-a-length-guard mechanism was also the
 root cause of Tier-3 shape #4 (see below) and turned out not to be the root
-cause of shapes #2/#3 — see their own writeups for what those turned out to
+cause of shape #2 (see below) — see each writeup for what it turned out to
 be.
+
+### Class-field alignment-group splitting on a same-line leading comment — FIXED (2026-08-09, RDD_KEY_274)
+
+Tier-3 shape #2 from the same 2026-08-09 reconfirmation: `server/
+editorServices.ts`'s `readonly throttledOperations : ThrottledOperations;`
+(preceded by `readonly configFileExistenceInfoCache : Map<...> = new
+Map();`, its class-field alignment-group sibling) round-trips at its group's
+wide padded column on round1 but collapses to its own narrow, unpadded
+natural width on round2 — the group silently splits apart. Same symptom
+shape as `server/project.ts`. Both files are CRLF-original like Tier-3 shape
+#1's files, but debug instrumentation showed this bug's mechanism is
+unrelated to CRLF: the token-range boundaries and raw dump differed by a
+genuine extra NEWLINE token, not a stray `'\r'`.
+
+Root cause: in the original source, the field's leading comment sits on the
+*same physical line* as the field it documents (`/** @internal */ readonly
+throttledOperations: ThrottledOperations;`), so round1's input has exactly 1
+NEWLINE in the gap since the previous field. `JsTsSpecificRule.
+flushClassFieldGroup` (the class-field alignment grid's renderer)
+unconditionally renders every leading comment on its *own* line regardless
+of whether the source had it inline, though — adding a NEWLINE that was
+never in the original. Round2, tokenizing round1's own rendered output, now
+finds 2 NEWLINEs in that same logical gap (one after the previous field's
+`;`, one after the comment's new forced line break), and the old
+`blankLineBetween` helper (`private boolean blankLineBetween(...)`, simply
+counted total NEWLINE tokens across the gap, blank if `>= 2`) wrongly judged
+this a genuine blank source line, splitting the two fields into separate
+one-field groups.
+
+Fixed by redefining `blankLineBetween` to require the two NEWLINEs be
+strictly *back-to-back* — only WHITESPACE tokens permitted between them; any
+other token (in particular a COMMENT) resets the "just saw a NEWLINE" state
+— matching a real blank source line (two adjacent NEWLINEs, at most
+indentation whitespace between) without matching a same-line leading
+comment's now-forced line break (NEWLINE, COMMENT, NEWLINE — the COMMENT
+breaks adjacency). Verified: A/B rebuild (reverted via `git checkout`,
+rebuilt, reproduced the exact stale-column-collapse symptom on both the new
+fixture and both real files directly; restored, rebuilt, confirmed
+idempotent), both originally-flagged files re-verified idempotent against
+the fresh clone, and `make test` (272/272 -> 273/273 forward + idempotency,
+zero regressions). New fixture: `real_code_regressions_196_inp/out.ts` — a
+minimized `Foo` class distilled from the `configFileExistenceInfoCache`/
+`throttledOperations` pair; not CRLF-specific (reproduces on plain LF
+input), confirming this is a distinct root cause from Tier-3 shape #1
+despite sharing the same flagged-file corpus.
 
 ### Known false positives (no source change needed, fixture-only)
 

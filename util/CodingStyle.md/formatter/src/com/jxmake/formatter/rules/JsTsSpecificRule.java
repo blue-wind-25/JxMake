@@ -2153,19 +2153,34 @@ public final class JsTsSpecificRule {
     }
 
     /**
-     * True when two or more NEWLINE tokens (a genuine blank line) appear in {@code tokens}
-     *  between {@code fromIdx} (exclusive; -1 means "no prior field, never a blank-line break")
-     *  and {@code toIdx} (exclusive)
+     * True when two NEWLINE tokens appear back-to-back (with only WHITESPACE, never a COMMENT or
+     *  anything else, between them) somewhere in {@code tokens} between {@code fromIdx} (exclusive;
+     *  -1 means "no prior field, never a blank-line break") and {@code toIdx} (exclusive) -- a
+     *  genuine blank source line, as opposed to merely two-or-more NEWLINEs total across the gap.
+     *  A same-line leading comment (`/** @internal *&#47; readonly x: T;`) forces its own line when
+     *  {@link #flushClassFieldGroup} renders a group (one NEWLINE after the comment, one more after
+     *  the previous field's `;`) without there ever having been a real blank line in the source --
+     *  simply counting total NEWLINEs previously miscounted that shape as blank on a second pass fed
+     *  the first pass's own rendered (now comment-on-its-own-line) output, splitting a group that
+     *  should have stayed joined and making the resulting column alignment non-idempotent (found via
+     *  `microsoft/TypeScript`'s `server/editorServices.ts`/`server/project.ts`).
      */
     private boolean blankLineBetween(final List<Token> tokens, final int fromIdx, final int toIdx)
     {
         if(fromIdx < 0) return false;
-        int newlineCount = 0;
+        boolean sawNewline = false;
         for(int i = fromIdx; i < toIdx; ++i) {
-            if( tokens.get(i).type == TokenType.NEWLINE ) newlineCount++;
-        }
+            final TokenType t = tokens.get(i).type;
+            if(t == TokenType.NEWLINE) {
+                if(sawNewline) return true;
+                sawNewline = true;
+            }
+            else if(t != TokenType.WHITESPACE) {
+                sawNewline = false;
+            }
+        } // for
 
-        return newlineCount >= 2;
+        return false;
     }
 
     /**

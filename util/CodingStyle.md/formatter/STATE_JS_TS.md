@@ -87,6 +87,7 @@ convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_271 | `angular/angular` cluster 4 residue group #3 — `web_animations_player_spec.ts`/`input_transform.ts`, FIXED: (a) `JsTsSpecificRule.tryParseClassField` now collapses a multi-line class-field initializer's embedded NEWLINE into a soft space instead of bailing to "unrecognized member"; (b) `enforceUnionIntersectionSpacing`/`enforceTypeColonSpacing` pulled forward to run before `enforceDecoratorOverflowCascade` in `FormatterCurly.format`, so its inline-decorator-fits measurement sees the final post-spacing width. Neither touches `ScopePipelineCurly`/`closingBraceAndDeclarationsOnly` at all. New fixture: `test/real_code_regressions_186_{inp,out}.ts` |
 | RDD_KEY_273 | 2026-08-09 `microsoft/TypeScript` dogfood-reconfirmation Tier-3 shape #1 (braceless if/else-if body-column-alignment padding going stale on round2) — `compiler/builder.ts`/`compiler/moduleNameResolver.ts`/`services/findAllReferences.ts`, FIXED: `BlockStructureRule.alignBracelessElseIfChain` splits on `"\n"` only, leaving a trailing `'\r'` on every line of CRLF-original source (CRLF/LF normalization happens once, at the very end, in `Main.applyLineEndings`) — that stray byte skews the `lineLengthLimit` padding guard's length math, landing on different sides of the boundary between round1 (still-CRLF) and round2 (already-LF-only). Fixed by stripping any trailing `'\r'` from each split line up front. New fixture: `test/real_code_regressions_195_{inp,out}.ts` (deliberately CRLF-encoded, `.gitattributes`-marked `-text`) |
 | RDD_KEY_274 | 2026-08-09 `microsoft/TypeScript` dogfood-reconfirmation Tier-3 shape #2 (class-field `:`-type-annotation column-alignment group splitting apart on round2) — `server/editorServices.ts`/`server/project.ts`, FIXED: a same-line leading comment (`/** @internal */ readonly x: T;`) forces its own line when `JsTsSpecificRule.flushClassFieldGroup` renders a group, adding a NEWLINE the source never had; `blankLineBetween`'s old "count total NEWLINEs in the gap, blank if >= 2" logic then miscounted that forced line break as a genuine blank line on round2 (fed round1's own already-comment-on-its-own-line output), splitting a group round1 had correctly kept joined. Fixed by requiring the two NEWLINEs be strictly back-to-back (only WHITESPACE allowed between, a COMMENT resets the count) to count as a real blank line. New fixture: `test/real_code_regressions_196_{inp,out}.ts` — not CRLF-specific, a distinct root cause from RDD_KEY_273 despite sharing the same flagged-file corpus |
+| RDD_KEY_275 | 2026-08-09 `microsoft/TypeScript` dogfood-reconfirmation Tier-3 shape #4 (closing `}` non-idempotently gaining a stale `// if` trailing comment on round2) — `services/codefixes/fixMissingTypeAnnotationOnExports.ts`, FIXED as a verified side effect of RDD_KEY_273 (no separate code change): A/B bisection on a 100-line real-file excerpt (lines 1050-1150) proved reverting only RDD_KEY_273's `alignBracelessElseIfChain` fix reproduces this bug and restoring it resolves it, though the full causal chain into `BlockStructureRule.decideComment`/`countContentLines`'s NEWLINE-count threshold was not separately hand-traced. New fixture: `test/real_code_regressions_197_{inp,out}.ts` (CRLF-encoded excerpt, `.gitattributes`-marked `-text`) — exists purely to lock in this second symptom's coverage |
 
 ---
 
@@ -1202,6 +1203,48 @@ minimized `Foo` class distilled from the `configFileExistenceInfoCache`/
 `throttledOperations` pair; not CRLF-specific (reproduces on plain LF
 input), confirming this is a distinct root cause from Tier-3 shape #1
 despite sharing the same flagged-file corpus.
+
+### Closing brace non-idempotently gains a `// if` trailing comment — FIXED as side effect (2026-08-09, RDD_KEY_275)
+
+Tier-3 shape #4 from the same 2026-08-09 reconfirmation: `services/
+codefixes/fixMissingTypeAnnotationOnExports.ts` had a closing `}` that
+round-tripped bare on round1 but non-idempotently gained a trailing `// if`
+annotation comment on round2. The comment-adding logic lives in
+`BlockStructureRule.decideComment`/`countContentLines`, which counts
+`NEWLINE` tokens between a block's braces against a `closingCommentMinLines`
+threshold — a different mechanism from RDD_KEY_273's raw split-on-`"\n"`
+string-length guard, so this was not assumed to be the same bug going in.
+
+Minimization was hard: small hand-crafted snippets, and even the exact
+affected function plus its neighbors wrapped in an isolating `function
+outer(){}`, did not reproduce it — it needs broader real-file context. Line-
+range bisection directly against the real CRLF-original file (1176 lines)
+found the bug reproduces on the whole file and remains reproducible on a
+self-contained 100-line excerpt, lines 1050-1150 (complete standalone
+functions, no unclosed braces); narrower ranges past ~line 1060 lose
+reproduction.
+
+A/B rebuild on that excerpt conclusively isolated the cause without a full
+independent trace: restoring `BlockStructureRule.java` to its pre-RDD_KEY_273
+state reproduces the exact `}` → `} // if` diff; the current RDD_KEY_273-
+fixed state (already committed, no further code change made here) is
+idempotent on the same excerpt. No new code change was needed or made for
+this shape — RDD_KEY_273's CRLF trailing-`'\r'` strip in
+`alignBracelessElseIfChain` already fixes it as a side effect. The precise
+causal chain from that fix into `decideComment`/`countContentLines`'s
+NEWLINE-count threshold was not separately hand-traced (evidence-over-
+reasoning: A/B bisection is direct empirical evidence even without a fully
+walked mechanism) — plausibly an earlier width-sensitive pass inside the
+same enclosing `if(typeNode){...}` block was itself CRLF-skewed by the same
+stray `'\r'`, shifting that block's internal NEWLINE count across the
+`closingCommentMinLines` boundary between round1 and round2, independently
+of the if/else-if padding guard RDD_KEY_273 directly targeted.
+
+Verified: `make test` (273/273 -> 274/274 forward + idempotency, zero
+regressions). New fixture: `real_code_regressions_197_inp/out.ts` — a
+100-line CRLF-encoded excerpt (lines 1050-1150) of the real
+`fixMissingTypeAnnotationOnExports.ts`, existing purely to lock in this
+second symptom's coverage of the already-landed RDD_KEY_273 fix.
 
 ### Known false positives (no source change needed, fixture-only)
 

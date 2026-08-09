@@ -17,3 +17,13 @@ test/real_code_regressions_147_inp.ts -text
 # microsoft/TypeScript section / test/README.txt) -- must not be normalized by git on
 # checkout/commit, or the fixture stops testing what it's meant to test.
 test/real_code_regressions_195_inp.ts -text
+
+# real_code_regressions_197_inp.ts is an excerpt (lines 1050-1150) of the real
+# microsoft/TypeScript source services/codefixes/fixMissingTypeAnnotationOnExports.ts,
+# deliberately kept CRLF-encoded -- it reproduces the closing-brace-gains-a-stale
+# "// if" trailing-annotation-comment idempotency bug found via the 2026-08-09
+# microsoft/TypeScript dogfood reconfirmation (fixed as a verified side effect of
+# RDD_KEY_273, see RDD_KEY_275 / STATE_JS_TS.md's Dogfood: microsoft/TypeScript
+# section / test/README.txt) -- must not be normalized by git on checkout/commit,
+# or the fixture stops testing what it's meant to test.
+test/real_code_regressions_197_inp.ts -text

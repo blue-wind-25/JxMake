@@ -3537,6 +3537,31 @@ Real-code regressions:
                                                         else) -- matches a real blank source line but not a
                                                         same-line leading comment's forced line break.
 
+  real_code_regressions_197_inp/out.ts               -- Minimal repro (lines 1050-1150 of the real
+                                                        `services/codefixes/
+                                                        fixMissingTypeAnnotationOnExports.ts`) of a third
+                                                        idempotency bug found in the same 2026-08-09
+                                                        `microsoft/TypeScript` dogfood reconfirmation: a
+                                                        closing `}` non-idempotently gained a stale `// if`
+                                                        trailing-annotation comment on round2 that round1 did
+                                                        not add. Confirmed via A/B bisection to be fixed
+                                                        solely by RDD_KEY_273's CRLF trailing-`\r` strip in
+                                                        `BlockStructureRule. alignBracelessElseIfChain` --
+                                                        reverting only that method's fix reproduces this bug
+                                                        again, with no other change needed. The full causal
+                                                        chain into `BlockStructureRule.decideComment` /
+                                                        `countContentLines` (the NEWLINE-count-based logic
+                                                        that decides whether to add the `// if` comment) was
+                                                        not separately hand-traced beyond this empirical
+                                                        bisection -- plausibly an earlier width-sensitive
+                                                        pass inside the same enclosing block was CRLF-skewed
+                                                        by exactly the same stray `\r`, changing that block's
+                                                        internal NEWLINE count across the
+                                                        `closingCommentMinLines` threshold between rounds. No
+                                                        separate code change was needed; this fixture exists
+                                                        purely to lock in the already-landed fix's coverage of
+                                                        this second symptom.
+
 How Tests Are Run
 -----------------
 

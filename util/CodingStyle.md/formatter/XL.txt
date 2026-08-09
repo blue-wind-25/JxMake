@@ -118,8 +118,8 @@ Update and fix `CLAUDE.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.m
 `../AI_PREAMBLE_AESTHETIC.md`, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_186_inp/out.ts`
-    to   `real_code_regressions_191_inp/out.ps1`
+    from `real_code_regressions_192_inp/out.ps1`
+    to   `...`
 [DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
@@ -165,14 +165,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 1: Analysis/docs/testing only — ~zero regression risk ===
 
-1. [TOOLING] [DONE 2026-08-09] Finish materializing + dogfood the skipped/NOT-STARTED
-   STATE_TOOLING.md corpus candidates (STATE_DOGFOOD.md). All sub-items closed:
-   Bash (5 corpora, 4 bugs fixed), PowerShell `PowerShell/PowerShell` +
-   `runner-images` (1 bug fixed) + `azure-pipelines-tasks` (1 bug found,
-   architectural, moved to Tier 4 below), Makefile `range-v3` (zero Make files,
-   nothing to dogfood) + `cpython` (clean). See STATE_TOOLING.md/STATE_DOGFOOD.md
-   for details.
-
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 
@@ -190,15 +183,17 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
 
-- [TOOLING] `PowerShellSpecificRule.runPassA`'s `PassAResult.kind` (indexed to original
-  `content` positions) vs `PassAResult.transformed` (built by `RunBuffer`, can be a
-  shorter/different length after a `ChainCollector.defer()` standalone-comment
-  placeholder substitution) diverge in indexing once a placeholder is emitted, so any
-  `passA.kind[indexIntoTransformed]` read afterward (confirmed: `applyKeywordParenSpacing`;
-  likely other kind-aware §3.x passes too) is wrong. Needs `runPassA` to track kind in
-  lockstep with `RunBuffer`'s actual output, or every consumer to re-derive kind against
-  `transformed` directly — a real design change, not a one-line patch. Found dogfooding
-  `microsoft/azure-pipelines-tasks` 2026-08-09, not fixed.
+- [C_CPP_JAVA] `applyAssignmentsPass` vs. `enforceCallLineBreaking` ordering
+  bug (non-JS/TS curly languages, shared with JS/TS's own analogous family
+  below) — comment-column alignment for a group-aligned trailing `//`
+  comment is computed before/independent of whether the call gets wrapped
+  onto its own line, so the padding is wrong post-wrap. Found dogfooding
+  the formatter's own `src/` (`PowerShellSpecificRule.java`), worked around
+  locally by inserting blank lines to break the alignment group rather than
+  fixing the formatter, root cause still open. Two prior fix attempts were
+  tried and reverted (too risky). See STATE_C_CPP_JAVA.md Open Questions.
+  (Note: `microsoft/TypeScript`'s `harness/collectionsImpl.ts` instance of
+  this same family was already fixed, RDD_KEY_270 — see STATE_JS_TS.md.)
 
 Use sub-agent. This can be a substantial work.
 

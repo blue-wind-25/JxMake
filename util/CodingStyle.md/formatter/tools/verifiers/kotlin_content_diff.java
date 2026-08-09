@@ -245,9 +245,27 @@ public class kotlin_content_diff {
      *  (namedConstructClosingComments below), verified against the file's
      *  actual declarations, since those always carry a real name that a
      *  wrong/corrupted closing comment could plausibly get wrong.
+     *
+     * `when` is deliberately EXCLUDED from this loose keyword list (unlike
+     *  the shipped 2026-08-10 version, which included it): RDD_KEY_101's
+     *  `when` closing comment names the FULL `when(...)` subject verbatim,
+     *  which for a `when (val x = expr)` capture form is a multi-word
+     *  expression (`val`/`var` name + `=` + an arbitrary initializer), not a
+     *  single trailing identifier -- e.g. `// when val accessDenied =
+     *  error.suppressedExceptions.single()`. The single-trailing-word clause
+     *  rejected this shape as an unexplained addition, a false MISMATCH
+     *  against a real, always-emitted closing comment (confirmed against
+     *  PathRecursiveFunctionsTest.kt/PathTreeWalkTest.kt/coreRuntime.kt), but
+     *  widening the trailing clause to accept ANY text after `when` (tried
+     *  first, reverted) let a genuinely WRONG subject name slip through
+     *  uncaught -- a real regression the checker exists to prevent. `when`'s
+     *  closing comment is instead verified against the file's actual `when`
+     *  subject text via whenClosingComments below, the same
+     *  verified-per-construct precedent namedConstructClosingComments already
+     *  uses for `class`/`object`/`init`, rather than a free-floating pattern.
      */
     static final java.util.regex.Pattern CONTROL_FLOW_CLOSING = java.util.regex.Pattern.compile(
-        "^(while|for|if|else|do|try|catch|finally|when)( \\S+)?$");
+        "^(while|for|if|else|do|try|catch|finally)( \\S+)?$");
 
     /**
      * STYLE_KOTLIN.md §3.1: `class`/`object`/`companion object` bodies (and
@@ -321,6 +339,49 @@ public class kotlin_content_diff {
     {
         List<List<String>> out = new ArrayList<>();
         collectNamedConstructClosings(file, out);
+
+        return out;
+    }
+
+    /**
+     * RDD_KEY_101 (`STATE_KOTLIN.md`): every `when [(subject)] { ... }` gets a
+     *  `// when <subject>` closing comment (bare `// when` if subject-less) --
+     *  new content the formatter intentionally adds, not a normalization of
+     *  pre-existing text. `<subject>` is the raw text between the `when`'s own
+     *  `(`/`)`, whitespace-collapsed to one line -- mirrors
+     *  `KotlinSpecificRule.formatWhenExpressions`'s own `subject =
+     *  literalSlice(tokens, j + 1, closeParen).trim().replaceAll("\\s+", " ")`
+     *  exactly, so the tolerance only accepts the one subject text a real
+     *  `when` in the ORIGINAL file could actually produce -- a closing
+     *  comment naming the wrong subject (or naming a `when` that doesn't
+     *  exist at all) is still flagged as a genuine mismatch, unlike a
+     *  free-floating regex.
+     */
+    static void collectWhenClosingComments(PsiElement e, List<List<String>> out)
+    {
+        if(e instanceof org.jetbrains.kotlin.psi.KtWhenExpression) {
+            org.jetbrains.kotlin.psi.KtWhenExpression w = (org.jetbrains.kotlin.psi.KtWhenExpression) e;
+            PsiElement lp = w.getLeftParenthesis();
+            PsiElement rp = w.getRightParenthesis();
+            List<String> variants = new ArrayList<>();
+            if(lp != null && rp != null) {
+                String rawSubject = w.getContainingFile().getText().substring(
+                    lp.getTextRange().getEndOffset(), rp.getTextRange().getStartOffset()
+                );
+                variants.add( normalizeWhitespace( "when " + normalizeWhitespace(rawSubject) ).toLowerCase() );
+            }
+            else {
+                variants.add("when");
+            }
+            out.add(variants);
+        }
+        for( PsiElement c : e.getChildren() ) collectWhenClosingComments(c, out);
+    }
+
+    static List<List<String>> whenClosingComments(KtFile file)
+    {
+        List<List<String>> out = new ArrayList<>();
+        collectWhenClosingComments(file, out);
 
         return out;
     }
@@ -423,11 +484,13 @@ public class kotlin_content_diff {
             );
         } // for
 
+        List<List<String>> closingCommentGroups = new ArrayList<>( namedConstructClosingComments(origFile) );
+        closingCommentGroups.addAll( whenClosingComments(origFile) );
         mismatches.addAll(
             diffCommentMultisets(
                 commentMultiset(origFile),
                 commentMultiset(fmtFile),
-                namedConstructClosingComments(origFile)
+                closingCommentGroups
             )
         );
 

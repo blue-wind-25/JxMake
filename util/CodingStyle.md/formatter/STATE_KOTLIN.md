@@ -174,6 +174,7 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_220 | `JetBrains/kotlin` dogfood cluster **D1**, third sub-shape left open by RDD_KEY_219 — **FIXED, closes D1 fully**: group-padding-induced overflow in `KotlinGetterSetterRule`'s one-liner grouping (member's own raw width fits under `lineLengthLimit`, but shared-column padding alone pushes it over; pre-fix this was silently absorbed by a later `MiscRule.enforceCallLineBreaking` call-argument wrap). Fixed by porting RDD_KEY_162's fixed-point budget-exclusion loop into a new depth-aware 3-arg `GetterSetterRuleCurly.render`/`KotlinGetterSetterRule.render` override, gated on `GetterSetterRuleCore.hasBreakableCall`, reusing RDD_KEY_219's contiguous-run rendering for survivors; `depth` threaded through `ScopePipelineCurly.applyGetterSetterPass`/`renderKotlinFilteredRuns`. Fixture `_170`. `make test`: 218/218 → 219/219 forward + idempotency, zero regressions. |
 | RDD_KEY_221 | `JetBrains/kotlin` dogfood cluster **D3** — root cause confirmed, fix **NOT landed**: `MiscRuleCurly.renderCallCandidate`'s no-newline-branch fits-check measures a candidate against its entire enclosing physical source line (`lineStartIndex(tokens, nameIdx)`) instead of a stable position tied to the candidate itself, causing the wrap decision to flap across rounds as the enclosing line's own length changes. Candidate fix (anchor measurement at `nameIdx`) regressed 28 fixtures across C/C++/Java/TS/Kotlin at `make test` — reverted, not committed. Documented as a `README.md` Known Limitations bullet; D3 remains open. |
 | RDD_KEY_226 | `JetBrains/kotlin` dogfood cluster **D3**, 2026-07-31 design session's `statementStartIndex` (depth-0 `;`/`{`/`}` backward-scan) fix **implemented, validated, and REVERTED** — the design's own documented "Known open risk" (Kotlin statements are usually NEWLINE-, not `;`-separated) materialized: 16 Kotlin fixtures regressed (e.g. `real_code_regressions_20_inp.kt`'s `val display = ...` followed by `showMessage(context, display)` — the backward scan walks past the current statement into the entire preceding sibling statement, inflating the measured width, false-positive wrap), zero regressions in C/C++/Java/TS (gate itself worked). Reverted in full; `make test` back to 225/225. D3 remains open; needs real statement-boundary tracking (depth-0 NEWLINE as a statement end vs. mid-wrap), closer to the "General scope-depth reindentation" architectural TODO than a self-contained fix. |
+| RDD_KEY_278 | **Follow-up fix, `kotlin_content_diff.java` regression introduced by the `37c806a` closing-comment-tolerance fix** — `CONTROL_FLOW_CLOSING`'s inclusion of `when` in its one-trailing-word loose regex was too NARROW, not too loose: a `when (val x = expr)` capture-form subject is a multi-word expression, so a real, always-emitted `// when val accessDenied = error.suppressedExceptions.single()` closing comment was rejected as an unexplained addition (false MISMATCH). Fixed by removing `when` from the generic loose regex and adding a `namedConstructClosingComments`-style verified collector (`collectWhenClosingComments`/`whenClosingComments`) keyed off the file's real `KtWhenExpression` subject text — see "2026-08-10 follow-up" dogfood entry below for full detail/verification. |
 
 ---
 
@@ -556,6 +557,79 @@ tolerance gaps found and fixed in `kotlin_content_diff.java`:**
    (4 KDoc comments, period-only difference — now passes clean) and a
    negative control (two KDoc comments differing by more than a trailing
    period still correctly mismatch).
+
+**2026-08-10 follow-up (RDD_KEY_278): regression in gap 3's `CONTROL_FLOW_CLOSING`
+tolerance, found and fixed.** A follow-up session hit a bogus MISMATCH on
+`libraries/stdlib/jdk7/test/PathRecursiveFunctionsTest.kt` (line 98's
+`when (val accessDenied = error.suppressedExceptions.single()) {`, a genuine
+`when`-with-captured-subject statement) reported as
+`comments: present in formatted, missing from original: [when val
+accessdenied = error.suppressedexceptions.single()]`. Root cause was NOT a
+structural comment-collection bug (`collectComments` correctly extracted the
+comment via `ASTNode.getChildren(null)`, exactly as designed) and NOT
+misclassified code — the formatted file genuinely has a real, always-emitted
+`} // when val accessDenied = error.suppressedExceptions.single()` closing
+comment there (`KotlinSpecificRule.formatWhenExpressions`/RDD_KEY_101 names
+the `when`'s full parenthesized subject verbatim, whitespace-collapsed).
+Gap 3's `CONTROL_FLOW_CLOSING` regex (`^(...|when)( \S+)?$`) only tolerates
+`when` + at most one trailing word, so a multi-word `val`/`var`-capture
+subject like this one was rejected as an unexplained addition — the
+tolerance was too NARROW in this direction, the opposite of how it was
+initially (mis)diagnosed. Confirmed the same shape in
+`PathTreeWalkTest.kt` (`when (val pathString = ...)`) and
+`coreRuntime.kt` (`when val typeOf = jsTypeOf(obj)`);
+`PathRecursiveCopyBetweenIncompatibleFileSystemsTest.kt` (the 4th named
+repro) turned out to contain no `when` at all and was not actually affected
+by this bug — its existing MISMATCH output (`top-level declaration #1`/`#3`)
+is a separate, pre-existing, unrelated issue, untouched here.
+
+First fix attempt (widen `when`'s own trailing clause to accept any text,
+`^when( .+)?$`) was tried and caught by this session's own negative control
+before landing: it also let a WRONG subject name slip through uncaught
+(`// when val wrongName = x` on an actual `when (val accessDenied = x)`
+incorrectly reported as content-preserved) — reverted, since a checker whose
+whole purpose is catching genuine content loss must not swallow a real wrong
+comment just to fix a false positive elsewhere.
+
+Landed fix: removed `when` from `CONTROL_FLOW_CLOSING`'s loose keyword list
+entirely (`while`/`for`/`if`/`else`/`do`/`try`/`catch`/`finally` keep their
+original one-trailing-word tolerance, unchanged) and added a new
+`collectWhenClosingComments`/`whenClosingComments`, mirroring
+`namedConstructClosingComments`'s already-verified-per-declaration precedent
+instead of a free-floating pattern: walks the ORIGINAL file's real
+`KtWhenExpression` nodes, extracts the raw source text between each one's own
+`getLeftParenthesis()`/`getRightParenthesis()` (whitespace-collapsed, bare
+`"when"` for a subject-less `when {}`) — deliberately mirroring
+`KotlinSpecificRule.formatWhenExpressions`'s own subject-capture expression
+verbatim so the tolerance only ever accepts the one subject text a real
+`when` in that file could actually produce. Consumed one-per-`when`, same
+one-for-one consumption discipline as the `class`/`object` groups.
+
+**Verified:**
+- All 4 originally-named repro files re-checked: `PathRecursiveFunctionsTest.kt`
+  and `PathTreeWalkTest.kt` now report `OK` (previously bogus MISMATCH);
+  `coreRuntime.kt` and `PathRecursiveCopyBetweenIncompatibleFileSystemsTest.kt`
+  still report MISMATCH, but only on their separate pre-existing
+  `top-level declaration` content issues — the specific bogus `when`-comment
+  flag is confirmed gone from all four (never present in the 4th to begin
+  with).
+- `37c806a`'s original positive case, `Promise.kt`
+  (`libraries/stdlib/common-js-wasmjs/src/kotlin/js/Promise.kt`), still
+  reports `OK`.
+- Local `test/kt_combined_inp/out.kt` / `test/kt_comments_inp/out.kt`:
+  unchanged output before/after this fix — same pre-existing unrelated
+  `top-level declaration #10` mismatch (both fixtures) and `// end for`/
+  `// end foreach` comment-loss flag (`kt_comments` only), exactly as
+  documented in `37c806a`'s own entry above. No `test/` fixture modified.
+- Two new negative controls (hand-crafted, `/tmp` only, not registered as
+  permanent fixtures): (1) a `when (val accessDenied = x) {...}` whose
+  formatted closing comment names the wrong captured variable
+  (`// when val wrongName = x`) — still correctly flagged; (2) a subject-less
+  `when {...}` whose formatted closing comment names a nonexistent subject
+  (`// when x`) — still correctly flagged.
+
+No formatter source changed — `tools/verifiers/kotlin_content_diff.java`
+only.
 
 **Verification beyond the 4 named repros:** re-ran against a 25-file and a
 40-file random sample from the same two on-disk trees. 25-file sample went

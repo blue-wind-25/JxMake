@@ -119,9 +119,9 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Python3 | STATE_PYTHON3.md | python/cpython | DONE | |
 | Makefile | STATE_TOOLING.md | serge-sans-paille/frozen | DONE | round1/round2 idempotent (empty diff); `make -n` spot-check shows only pre-existing environment failures (missing sources/old compiler), same on unmodified originals -- no formatter-induced syntax breakage |
 | Makefile | STATE_TOOLING.md | fmtlib/fmt | DONE | `support/Android.mk` run together with frozen+PEGTL in the same batch; idempotent, no formatter-induced issue |
-| Makefile | STATE_TOOLING.md | ericniebler/range-v3 | NOT STARTED | `/tmp/range-v3` present but Make-empty / incomplete prior checkout; Makefile restore skipped |
+| Makefile | STATE_TOOLING.md | ericniebler/range-v3 | DONE | user re-cloned fresh 2026-08-09; repo genuinely has zero `Makefile`/`makefile`/`*.mk` files (header-only CMake project) -- nothing to dogfood, not a tooling gap |
 | Makefile | STATE_TOOLING.md | taocpp/PEGTL | DONE | round1/round2 idempotent (empty diff); `make -n` spot-check shows only pre-existing environment failures (missing sources/old compiler), same on unmodified originals -- no formatter-induced syntax breakage |
-| Makefile | STATE_TOOLING.md | python/cpython | NOT STARTED | `/tmp/cpython` present but Make-sparse; Makefile-only restore skipped |
+| Makefile | STATE_TOOLING.md | python/cpython | DONE | user re-cloned fresh 2026-08-09 and ran round1/round2 on its `*Makefile`/`*makefile`/`*.mk` files; `diff -r` empty (idempotent), no bug found |
 | Bash | STATE_TOOLING.md | javaparser/javaparser | DONE | 7 `*.sh` release/generator scripts, `/tmp/javaparser_gdr`; round1/round2 idempotent (empty diff), `bash -n` clean, matching originals -- no formatter-induced breakage |
 | Bash | STATE_TOOLING.md | jenkinsci/jenkins | DONE | `ath.sh` + 2 test-resource `.sh`, `/tmp/jenkins_scope`; round1/round2 idempotent (empty diff), `bash -n` clean, matching originals -- no formatter-induced breakage |
 | Bash | STATE_TOOLING.md | wordpress/wordpress-develop | DONE | 3 `tools/`/`.devcontainer/` `.sh`, `/tmp/wordpress-develop`; round1/round2 idempotent (empty diff), `bash -n` clean, matching originals -- no formatter-induced breakage |

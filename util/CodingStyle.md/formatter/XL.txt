@@ -165,20 +165,14 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 1: Analysis/docs/testing only — ~zero regression risk ===
 
-1. [TOOLING] Finish materializing + dogfood the skipped/NOT-STARTED STATE_TOOLING.md
-   corpus candidates (STATE_DOGFOOD.md). 2026-08-09 assessment — needs setup work first:
-     - [DONE 2026-08-09] PowerShell `microsoft/azure-pipelines-tasks` — user completed a
-       fresh full download (1123 files) and ran round1/round2. Found 1 real idempotency
-       bug: `runPassA`'s `kind[]` array is indexed to original-content positions but
-       `transformed` can be a different length after a standalone-comment placeholder
-       substitution, misaligning every kind-aware pass reading `kind[]` after that point
-       — see STATE_TOOLING.md "PowerShell — microsoft/azure-pipelines-tasks". Investigated
-       via debug prints (reverted), confirmed architectural/cross-cutting, NOT fixed —
-       moved to Tier 4 below.
+1. [TOOLING] [DONE 2026-08-09] Finish materializing + dogfood the skipped/NOT-STARTED
+   STATE_TOOLING.md corpus candidates (STATE_DOGFOOD.md). All sub-items closed:
+   Bash (5 corpora, 4 bugs fixed), PowerShell `PowerShell/PowerShell` +
+   `runner-images` (1 bug fixed) + `azure-pipelines-tasks` (1 bug found,
+   architectural, moved to Tier 4 below), Makefile `range-v3` (zero Make files,
+   nothing to dogfood) + `cpython` (clean). See STATE_TOOLING.md/STATE_DOGFOOD.md
+   for details.
 
-     - Makefile: `range-v3`/`cpython` (need a Makefile-only restore completed first —
-       current checkouts broken/sparse; also lower value since Makefile dogfood is already
-       DONE against 3 other repos: PEGTL, frozen x2).
 
 Use sub-agent. This can be a substantial work.
 

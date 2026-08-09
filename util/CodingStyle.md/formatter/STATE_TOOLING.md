@@ -293,14 +293,15 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
         `/tmp/PowerShell` (505 `*.ps1`/`*.psm1` selective),
         `/tmp/runner-images` (247 `*.ps1`/`*.psm1` selective)
 
-      **Skipped / not usable this session:**
-      - `microsoft/azure-pipelines-tasks` — download aborted mid-way
-        (~567/1145); partial tree removed
-      - `ericniebler/range-v3` — `/tmp/range-v3` present but empty of
-        Make files (broken/incomplete prior checkout); Makefile-only
-        restore not completed
-      - `python/cpython` — `/tmp/cpython` present but Make-sparse;
-        Makefile-only restore not completed
+      **2026-08-07 skip list, since resolved (2026-08-09):** at materialize time,
+      `microsoft/azure-pipelines-tasks` (download aborted mid-way, ~567/1145),
+      `ericniebler/range-v3` (`/tmp/range-v3` present but empty of Make files --
+      broken/incomplete prior checkout), and `python/cpython` (`/tmp/cpython`
+      present but Make-sparse) were all left un-dogfooded. All three were
+      re-cloned fresh and actually run 2026-08-09 -- see the dogfood-pass
+      writeups below and `STATE_DOGFOOD.md` for final per-repo status
+      (`azure-pipelines-tasks`: DONE - OPEN Q, new Tier 4 gap found;
+      `range-v3`: DONE, genuinely has zero Make files; `cpython`: DONE, clean).
 
       No dogfood *run* yet — listing + materialize only.
 - [x] Run a real-code dogfood pass, one language at a time (Makefile, then
@@ -437,6 +438,14 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       breakage. Content diff showed only the intended §1.1-§1.4 +
       RDD_KEY_261 transforms; no bug found. See `STATE_DOGFOOD.md` for
       per-repo rows.
+      **Makefile — `ericniebler/range-v3` + `python/cpython`, DONE.** User
+      re-cloned both fresh 2026-08-09 (the 2026-08-07 checkouts were
+      broken/incomplete). `range-v3` genuinely has zero `Makefile`/
+      `makefile`/`*.mk` files anywhere in the tree (it's a header-only
+      library built via CMake) -- confirmed via `find`, not a checkout
+      problem; nothing to dogfood, closed as DONE rather than left
+      NOT STARTED. `cpython` does have real Make files; ran round1/round2
+      on them and `diff -r` came back empty (idempotent), no bug found.
       **Bash — DONE.** Ran `nvm-sh/nvm`'s 5 `.sh` files (5766 lines:
       `nvm.sh`, `install.sh`, `test/common.sh`, `rename_test.sh`,
       `update_test_mocks.sh`) through round1/round2: `diff -ru` empty

@@ -120,6 +120,7 @@ Update and fix `CLAUDE.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.m
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_186_inp/out.ts`
     to   `real_code_regressions_191_inp/out.ps1`
+[DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -165,22 +166,19 @@ Use sub-agent. This can be a substantial work.
 === TIER 1: Analysis/docs/testing only — ~zero regression risk ===
 
 1. [TOOLING] Finish materializing + dogfood the skipped/NOT-STARTED STATE_TOOLING.md
-   corpus candidates (STATE_DOGFOOD.md). 2026-08-09 assessment — split by readiness:
-   - [DONE 2026-08-09] Bash (5 corpora) — dispatched as background agent, 4 bugs
-     found and fixed (see STATE_TOOLING.md "Bash — DONE"). `make test` 267/267.
-   - [DONE 2026-08-09] PowerShell `PowerShell/PowerShell` + `actions/runner-images`
-     — user ran round1/round2 manually (quota was at ~92%, too tight to dispatch a
-     sub-agent). `runner-images` came back clean. `PowerShell/PowerShell` found one
-     idempotency bug: `.ForEach(` method call misdetected as the `foreach` keyword
-     by `KEYWORD_PAREN`'s lookbehind (missing `.` in the exclusion set), producing
-     `("a").ForEach ( { $_ })` on round2. Fixed, fixture `real_code_regressions_191`,
-     `make test` now 268/268. See STATE_TOOLING.md "PowerShell — DONE".
-   - LOWER PRIORITY, needs setup work first:
-       - PowerShell: `microsoft/azure-pipelines-tasks` (partial tree was removed after the
-         aborted ~567/1145 pull — needs a fresh full download, not just a dogfood run).
-       - Makefile: `range-v3`/`cpython` (need a Makefile-only restore completed first —
-         current checkouts broken/sparse; also lower value since Makefile dogfood is already
-         DONE against 3 other repos: PEGTL, frozen x2).
+   corpus candidates (STATE_DOGFOOD.md). 2026-08-09 assessment — needs setup work first:
+     - [DONE 2026-08-09] PowerShell `microsoft/azure-pipelines-tasks` — user completed a
+       fresh full download (1123 files) and ran round1/round2. Found 1 real idempotency
+       bug: `runPassA`'s `kind[]` array is indexed to original-content positions but
+       `transformed` can be a different length after a standalone-comment placeholder
+       substitution, misaligning every kind-aware pass reading `kind[]` after that point
+       — see STATE_TOOLING.md "PowerShell — microsoft/azure-pipelines-tasks". Investigated
+       via debug prints (reverted), confirmed architectural/cross-cutting, NOT fixed —
+       moved to Tier 4 below.
+
+     - Makefile: `range-v3`/`cpython` (need a Makefile-only restore completed first —
+       current checkouts broken/sparse; also lower value since Makefile dogfood is already
+       DONE against 3 other repos: PEGTL, frozen x2).
 
 Use sub-agent. This can be a substantial work.
 
@@ -198,7 +196,15 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
 
-NONE FOR NOW
+- [TOOLING] `PowerShellSpecificRule.runPassA`'s `PassAResult.kind` (indexed to original
+  `content` positions) vs `PassAResult.transformed` (built by `RunBuffer`, can be a
+  shorter/different length after a `ChainCollector.defer()` standalone-comment
+  placeholder substitution) diverge in indexing once a placeholder is emitted, so any
+  `passA.kind[indexIntoTransformed]` read afterward (confirmed: `applyKeywordParenSpacing`;
+  likely other kind-aware §3.x passes too) is wrong. Needs `runPassA` to track kind in
+  lockstep with `RunBuffer`'s actual output, or every consumer to re-derive kind against
+  `transformed` directly — a real design change, not a one-line patch. Found dogfooding
+  `microsoft/azure-pipelines-tasks` 2026-08-09, not fixed.
 
 Use sub-agent. This can be a substantial work.
 

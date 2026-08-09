@@ -396,6 +396,34 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       pipeline) confirms both the no-space-inserted output and
       round1/round2 idempotency. `make test`: 268/268 forward +
       idempotency (was 267/267). See `STATE_DOGFOOD.md` for per-repo rows.
+      **PowerShell — `microsoft/azure-pipelines-tasks`, DONE - OPEN Q (architectural
+      gap found, not fixed).** User completed a fresh full clone (prior partial
+      download had been removed) and ran round1/round2 manually on all 1123 `.ps1`
+      files 2026-08-09; found 1 non-empty diff (`Tasks/Common/VstsAzureHelpers_/
+      Utility.ps1`, 2 occurrences): `if($Endpoint.data.GraphUrl -eq $null)` stayed
+      unspaced on round1 but gained the expected `if (` space on round2. Root cause
+      (found via debug prints per the evidence-over-reasoning protocol, then
+      reverted): `runPassA`'s returned `PassAResult.kind` array is sized and indexed
+      to the *original* `content` string's length/positions, but
+      `PassAResult.transformed` (built separately via `RunBuffer`) can be a
+      *different length* whenever `ToolingCommentNormalizer.ChainCollector.defer()`
+      substitutes a standalone comment with a short placeholder marker (e.g.
+      `CHAIN0`, far shorter than the real comment text) -- the
+      placeholder text is only later substituted back by the chain-collector's own
+      caller, not inside `runPassA` itself. Any pass that does
+      `passA.kind[someIndexIntoTransformed]` (confirmed for `applyKeywordParenSpacing`
+      / `KEYWORD_PAREN`, likely also affects other kind-aware §3.x passes) is reading
+      the wrong array slot for every character after the *first* standalone comment
+      anywhere earlier in the file, once `transformed` and `kind`'s indexing spaces
+      have diverged. This is architectural/cross-cutting (the fix would need every
+      `passA.kind`-consuming pass to either re-derive kind against `transformed`
+      directly, or have `runPassA` track kind in lockstep with `RunBuffer`'s actual
+      output instead of the original content) -- **not attempted this session**,
+      flagged as a Known Gap needing a dedicated pass rather than a narrow patch.
+      No fixture registered (reproduction requires a real multi-hundred-line file
+      with a standalone comment ahead of a keyword-paren site; not economical to
+      minimize into a `test/` fixture without first deciding the fix shape). See
+      `STATE_DOGFOOD.md`'s `microsoft/azure-pipelines-tasks` row.
       **Makefile — DONE.** Batched `/tmp/PEGTL/Makefile`,
       `/tmp/frozen/tests/Makefile`, `/tmp/frozen/benchmarks/Makefile`, and
       `/tmp/fmt/support/Android.mk` (211 lines total) through round1/round2:

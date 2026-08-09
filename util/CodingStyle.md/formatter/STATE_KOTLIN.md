@@ -477,6 +477,106 @@ ASTNode-traversal fix above. Test fixtures kept in `/tmp` only
 (hand-crafted verification pairs, not registered as permanent `test/`
 fixtures).
 
+**2026-08-10: first full-corpus-scale run (JetBrains/kotlin, ~16000 files,
+`/tmp/jb_kotlin_kt_new/kotlin-master` vs. round1 output
+`/tmp/kt_r1_content`) found an 85% false-flag rate in the first 500 files —
+by-hand investigation showed every difference sampled was a legitimate,
+already-documented formatter transformation, not content loss. Four
+tolerance gaps found and fixed in `kotlin_content_diff.java`:**
+
+1. **Allman brace insertion for function bodies (STYLE_KOTLIN.md §3) —
+   investigated, turned out NOT to be a real gap.** `canonicalize`'s
+   leaf-token walk already joins tokens with single spaces regardless of
+   which physical line a `{`/`}` sits on, so a pure Allman-only
+   transformation (verified with a synthetic `fun bar(): Int\n{ ... }` vs.
+   the K&R original) already round-trips clean with zero code change. The
+   original 500-file sample's Allman-tagged false flags were actually
+   gap 2 (braceless-collapse) and/or gap 3 (closing comments) co-occurring
+   in the same class/function — misattributed during the initial by-hand
+   triage, not a distinct bug of their own. No fix needed or made for this
+   item.
+2. **Single-statement control-block brace omission (STYLE_KOTLIN.md §10,
+   mirrors STYLE.md's general rule and js_ts_content_diff.js's existing
+   Block-with-one-statement tolerance) — FIXED.** `collectLeafText`'s
+   ASTNode walk now special-cases a `KtBlockExpression` whose PSI parent is
+   `KtContainerNodeForControlStructureBody` (confirmed empirically: this one
+   parent type covers `for`/`while`/`do`/`if`/`else` bodies alike, no need
+   to enumerate keywords) and whose body is exactly one statement — its
+   `LBRACE`/`RBRACE` leaf tokens are skipped, the statement is walked
+   directly. A block with 0 or 2+ statements is untouched (still walked with
+   braces), so a genuinely dropped/added statement inside a
+   braceless-collapsed body is still caught by the ordinary per-leaf
+   comparison — verified via negative control (a `for` loop with 2
+   statements collapsed down to 1 correctly still reports
+   `top-level declaration #0 structure/content differs`).
+3. **Closing-comment addition for `class`/`object`/`companion object`/`init`
+   bodies (STYLE_KOTLIN.md §3.1/§3.4) — FIXED, and widened once past the
+   Promise.kt repro to a real observed formatter quirk.** New
+   `namedConstructClosingComments(KtFile)` walks the ORIGINAL file's own
+   `KtClassOrObject`/`KtClassInitializer` declarations and builds a
+   per-declaration group of acceptable closing-comment texts, consumed
+   one-per-group (not membership-only) against the formatted side's
+   comment multiset before flagging anything as an unexplained addition —
+   `class`/`interface`/`enum class` name detection distinguishes an
+   anonymous companion/object (`getNameIdentifier() == null`, since
+   `getName()` itself defaults an anonymous companion to `"Companion"`)
+   from a named one. **Real-corpus spot-checking beyond the assigned repro**
+   (25-file random sample from the same corpus) found the formatter's own
+   `object`-closing-comment naming is inconsistent: a plain
+   `object GeneratedSuites {}` got `// class GeneratedSuites` (wrong
+   keyword), while a supertyped `object Default : X {}` / `object
+   BuilderContext : Y {}` got bare `// Default` / `// BuilderContext`
+   (keyword omitted) — looks like a pre-existing quirk in the formatter's
+   own named-construct classifier for `object` specifically (NOT touched
+   here, out of this checker-fix's scope). Widened the `object` variant
+   group to accept all four observed shapes (`object <name>`,
+   `class <name>`, bare `<name>`, plus the always-correct anonymous
+   `object`), still requiring the group's own real declared name — a wrong
+   name is still rejected (verified via negative control: `class Bar`
+   closing-comment on an actual `class Foo` still flags
+   `class bar` as an unexplained addition). General non-named-construct
+   closing comments (`// for`, `// if`, `// when kind`, STYLE.md's general
+   length-gated §7 rule, discovered as a second false-flag source in the
+   same real files) get a separate, deliberately loose
+   `CONTROL_FLOW_CLOSING` regex tolerance (keyword + at most one trailing
+   word), same precedent as `java_content_diff.java`'s existing
+   `BRACE_ANNOTATION` pattern for the same keyword family — not verified
+   against an actual construct, matching the already-shipped Java
+   tolerance's own looseness for this construct family.
+4. **KDoc trailing-period tolerance (STYLE.md §15) — root cause was NOT a
+   pairing/matching bug as guessed, it simply never existed in this file.**
+   `kotlin_content_diff.java`'s own top-of-file doc comment claimed trailing-
+   period differences were already tolerated, but `stripCommentDelims` had
+   no such logic at all — confirmed via `grep -n "period"` returning zero
+   hits before this fix, unlike `java_content_diff.java` which has had
+   `normalizeTrailingPeriod` since RDD_KEY-era work on that tool. Fixed by
+   porting `normalizeTrailingPeriod` verbatim (same single-trailing-period
+   guard, so a real ellipsis/decimal run is left alone) into
+   `stripCommentDelims`. Verified against `JsArray.kt`
+   (4 KDoc comments, period-only difference — now passes clean) and a
+   negative control (two KDoc comments differing by more than a trailing
+   period still correctly mismatch).
+
+**Verification beyond the 4 named repros:** re-ran against a 25-file and a
+40-file random sample from the same two on-disk trees. 25-file sample went
+from 18/25 to 21/25 passing; remaining 4 failures are pre-existing, distinct
+issues confirmed present before this session's changes too (via
+`git stash`) — not caused or masked by this fix, out of scope for this pass:
+(a) a real, separately-reproducible trailing-comma-drop when a multi-line
+call/initializer argument list collapses onto one line (conflicts with
+STYLE_KOTLIN.md's own §7.2 "trailing comma preserved as-is, no pass
+adds/strips one" — worth a future formatter-source investigation, not a
+checker-tolerance gap); (b) one file
+(`LLFirSupertypeLazyResolver.kt`) has an unrelated, pre-existing
+comment-multiset anomaly not investigated further this session. Local
+`test/kt_combined_inp/out.kt` and `test/kt_comments_inp/out.kt` fixtures
+re-checked before/after: before this fix both had spurious closing-comment
+additions flagged (now clean on that front); both still report one
+unrelated pre-existing `top-level declaration #10` mismatch and (for
+`kt_comments`) an unrelated pre-existing `// end for` comment-loss flag —
+both confirmed present before this session's changes too, not touched here.
+No `test/` fixture files were modified.
+
 **Tools/compiler used**
 
 (1) `kotlinc` — bare standalone compiler, e.g.:

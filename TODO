@@ -2,8 +2,6 @@
 To-Do List (Tentative - Somewhat Sorted by Importance)
 ====================================================================================================
 
-# Further complete, verify, and improve the implementation of 'util/CodingStyle.md/formatter'.
-
 # Verify the remaining changes made by AI coding agents, and then delete all '_0_*.diff' files:
       hardware/JxMake_USB_GPIO_II/Firmware/_0_ATmega8A_Common.diff
       hardware/JxMake_USB_GPIO_II/Firmware/_0_ATmega1284P.diff
@@ -62,6 +60,8 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 
 # Update the Java SDK requirement to Java SDK 11 or later (should be safe as of 2026).
 # Fix/update/remove all deprecated uses of Java features (as much as possible).
+
+# Further verify and improve the implementation of 'util/CodingStyle.md/formatter'.
 
 # Replace (VERY UNLIKELY) 'org.tukaani.xz' with JxMake's own derivative library?
 

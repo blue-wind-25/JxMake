@@ -3422,9 +3422,9 @@ Real-code regressions:
                                                         round2. Fixed by adding `.` to the exclusion set.
 
   real_code_regressions_192_inp/out.ps1              -- Minimized from `microsoft/azure-pipelines-tasks`
-                                                        (`Tasks/Common/VstsAzureHelpers_/Utility.ps1`):
-                                                        `if($x -eq $null)` was spaced on round2 but not round1
-                                                        -- non-idempotent. Root cause: `runPassA`'s `kind[]`
+                                                        (`Tasks/Common/VstsAzureHelpers_/Utility.ps1`): `if($x
+                                                        -eq $null)` was spaced on round2 but not round1 --
+                                                        non-idempotent. Root cause: `runPassA`'s `kind[]`
                                                         array was indexed against the original `content`
                                                         string while consumers read it against
                                                         `passA.transformed`, which diverges in length once a
@@ -3432,8 +3432,8 @@ Real-code regressions:
                                                         so `applyKeywordParenSpacing` read the wrong slot.
                                                         Fixed by building `kind` from `RunBuffer`'s own output
                                                         in lockstep (`kindResult()`) plus a companion
-                                                        `ChainCollector.resolveKind` that splices `kind` at the
-                                                        same placeholder offsets `resolve()` uses.
+                                                        `ChainCollector.resolveKind` that splices `kind` at
+                                                        the same placeholder offsets `resolve()` uses.
 
   real_code_regressions_193_inp/out.java             -- Minimal repro of the Java assignment-alignment
                                                         trailing-comment padding vs. `enforceCallLineBreaking`
@@ -3441,12 +3441,13 @@ Real-code regressions:
                                                         Questions): a run of `s = applyX(s); // comment`
                                                         assignments forms an `applyAssignmentsPass` alignment
                                                         group whose comment column is padded to the widest
-                                                        sibling's pre-wrap width; one sibling then gets wrapped
-                                                        by `enforceCallLineBreaking` (which runs after
-                                                        `applyAssignmentsPass`), leaving the rest stale until a
-                                                        second pass -- non-idempotent. Fixed via a Java-only
-                                                        re-run, `ScopePipelineCurly.reapplyAssignmentsPassOnly`,
-                                                        that re-derives just `applyAssignmentsPass`'s padding
+                                                        sibling's pre-wrap width; one sibling then gets
+                                                        wrapped by `enforceCallLineBreaking` (which runs after
+                                                        `applyAssignmentsPass`), leaving the rest stale until
+                                                        a second pass -- non-idempotent. Fixed via a Java-only
+                                                        re-run,
+                                                        `ScopePipelineCurly.reapplyAssignmentsPassOnly`, that
+                                                        re-derives just `applyAssignmentsPass`'s padding
                                                         against the post-wrap shape.
 
   real_code_regressions_194_inp/out.ts               -- Minimal repro of a syntax-corruption bug found
@@ -3456,14 +3457,15 @@ Real-code regressions:
                                                         parens. Root cause: `TokenizerCurly`'s C++11
                                                         `[[attribute]]`-open detection was missing the `&&
                                                         lang.isCpp` guard its sibling branches (`]]` close,
-                                                        `[:`) both have, so a TS nested `[[` array-open matched
-                                                        the C++ heuristic (tokenized as OP) while its `]]`
-                                                        close fell through to the ordinary PUNCT path --
-                                                        the asymmetric OP/PUNCT pair undercounted bracket depth
-                                                        in `enforceCallLineBreaking`'s `matchParenForward`
-                                                        scan, which then read the argument slice one token too
-                                                        far and rendered a spurious statement terminator.
-                                                        Fixed by adding the missing `&& lang.isCpp` guard.
+                                                        `[:`) both have, so a TS nested `[[` array-open
+                                                        matched the C++ heuristic (tokenized as OP) while its
+                                                        `]]` close fell through to the ordinary PUNCT path --
+                                                        the asymmetric OP/PUNCT pair undercounted bracket
+                                                        depth in `enforceCallLineBreaking`'s
+                                                        `matchParenForward` scan, which then read the argument
+                                                        slice one token too far and rendered a spurious
+                                                        statement terminator. Fixed by adding the missing `&&
+                                                        lang.isCpp` guard.
 
   real_code_regressions_195_inp/out.ts               -- Minimal repro (deliberately CRLF-encoded, see
                                                         `.gitattributes`) of an idempotency bug found in the
@@ -3479,8 +3481,8 @@ Real-code regressions:
                                                         end (`Main.applyLineEndings`), so the extra character
                                                         skewed the length-based `lineLengthLimit` guard
                                                         differently on round1 (still-CRLF) vs. round2
-                                                        (already-LF). Fixed by stripping any trailing `\r` from
-                                                        each split line up front, before measurement.
+                                                        (already-LF). Fixed by stripping any trailing `\r`
+                                                        from each split line up front, before measurement.
                                                         (RDD_KEY_273.)
 
   real_code_regressions_196_inp/out.ts               -- Minimal repro of a second idempotency bug found in the
@@ -3490,11 +3492,11 @@ Real-code regressions:
                                                         e.g. `server/editorServices.ts`'s `readonly
                                                         throttledOperations`, split apart on round2 though
                                                         round1 kept it joined. Root cause: a field's leading
-                                                        same-line comment (`/** @internal */`) gets rendered on
-                                                        its own line by `flushClassFieldGroup`, adding a NEWLINE
-                                                        not in the original text; `blankLineBetween`'s old
-                                                        logic (blank if total NEWLINEs across the gap >= 2)
-                                                        then miscounted that forced line, on round2, as a
+                                                        same-line comment (`/** @internal */`) gets rendered
+                                                        on its own line by `flushClassFieldGroup`, adding a
+                                                        NEWLINE not in the original text; `blankLineBetween`'s
+                                                        old logic (blank if total NEWLINEs across the gap >=
+                                                        2) then miscounted that forced line, on round2, as a
                                                         genuine blank line, splitting the group. Fixed by
                                                         requiring the two NEWLINE tokens be back-to-back (only
                                                         WHITESPACE allowed between, never a COMMENT).
@@ -3509,10 +3511,10 @@ Real-code regressions:
                                                         A/B bisection to be fixed solely by RDD_KEY_273's CRLF
                                                         trailing-`\r` strip in
                                                         `BlockStructureRule.alignBracelessElseIfChain` (see
-                                                        fixture 195) -- reverting only that fix reproduces this
-                                                        bug too, so no separate code change was needed; this
-                                                        fixture just locks in that fix's coverage of the second
-                                                        symptom.
+                                                        fixture 195) -- reverting only that fix reproduces
+                                                        this bug too, so no separate code change was needed;
+                                                        this fixture just locks in that fix's coverage of the
+                                                        second symptom.
 
   real_code_regressions_198_inp/out.ts               -- Minimal repro (distilled from `compiler/types.ts`'s
                                                         `JSDocAugmentsTag` interface) of a fourth idempotency
@@ -3521,19 +3523,19 @@ Real-code regressions:
                                                         intersection-type field with a trailing inline
                                                         object-type literal (`readonly class:
                                                         ExpressionWithTypeArguments & { readonly expression:
-                                                        ...; };`) got its nested `{...}` body corrupted between
-                                                        round1 and round2. Root cause: `JsTsSpecificRule.
-                                                        classBraceKind` walks backward from a brace looking for
-                                                        a `class`/`interface` KEYWORD token to classify it, but
-                                                        `class` is also a legal TS property name and still
-                                                        tagged KEYWORD by the tokenizer, so the field named
-                                                        `class` was misread as a class-declaration keyword,
-                                                        feeding its own nested brace into
-                                                        `enforceClassFieldAlignmentGrid`'s rewrite. Fixed by
-                                                        `isFieldNameKeywordUsage`, which checks whether the
-                                                        token after the candidate keyword is `:`/`?` (field
-                                                        usage) rather than an identifier (declared name), and
-                                                        skips such occurrences.
+                                                        ...; };`) got its nested `{...}` body corrupted
+                                                        between round1 and round2. Root cause:
+                                                        `JsTsSpecificRule. classBraceKind` walks backward from
+                                                        a brace looking for a `class`/`interface` KEYWORD
+                                                        token to classify it, but `class` is also a legal TS
+                                                        property name and still tagged KEYWORD by the
+                                                        tokenizer, so the field named `class` was misread as a
+                                                        class-declaration keyword, feeding its own nested
+                                                        brace into `enforceClassFieldAlignmentGrid`'s rewrite.
+                                                        Fixed by `isFieldNameKeywordUsage`, which checks
+                                                        whether the token after the candidate keyword is
+                                                        `:`/`?` (field usage) rather than an identifier
+                                                        (declared name), and skips such occurrences.
 
 How Tests Are Run
 -----------------

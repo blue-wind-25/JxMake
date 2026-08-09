@@ -836,7 +836,33 @@ public final class BashSpecificRule {
     }
 
     /** §2.4: pattern lines at the case's own indent, arm bodies + `;;` at one level deeper */
+    /** Result of a (possibly nested) case-body scan: where it ended, and whether its terminating
+     *  `esac` line also carried a trailing `;;` that closes an *enclosing* case arm on the same line
+     *  (e.g. a nested `case ... in ... esac ;;` used as one outer arm's entire body). */
+    private static final class CaseBodyEnd
+    {
+        final int     idx;
+        final boolean closesEnclosingArm;
+
+        CaseBodyEnd(final int idx, final boolean closesEnclosingArm)
+        {
+            this.idx                = idx;
+            this.closesEnclosingArm = closesEnclosingArm;
+        }
+    }
+
     private int emitCaseBody(
+        final List<String> lines,
+        final boolean[]    pure,
+        final int          startIdx,
+        final String       basePrefix,
+        final List<String> out
+    )
+    {
+        return emitCaseBodyInner(lines, pure, startIdx, basePrefix, out).idx;
+    }
+
+    private CaseBodyEnd emitCaseBodyInner(
         final List<String> lines,
         final boolean[]    pure,
         final int          startIdx,
@@ -849,11 +875,25 @@ public final class BashSpecificRule {
               boolean expectingPattern = true;
         while( idx < lines.size() ) {
             final String trimmed = lines.get(idx).trim();
-            if( pure[idx] && trimmed.equals("esac") ) {
+            if( pure[idx] && (trimmed.equals("esac") || trimmed.equals("esac ;;") || trimmed.equals(
+                "esac;;"
+            )) ) {
+                final boolean hasTrailingSemi = !trimmed.equals("esac");
                 out.add(basePrefix + "esac");
-                return idx + 1;
+                if(hasTrailingSemi) out.add(basePrefix + ";;");
+                return new CaseBodyEnd(idx + 1, hasTrailingSemi);
             }
             if( pure[idx] && !trimmed.isEmpty() ) {
+                if( !expectingPattern && CASE_START.matcher(trimmed).matches() ) {
+                    // A nested `case ... in` used as (the start of) the current arm's body.
+                    out.add(bodyPrefix + trimmed);
+                    final CaseBodyEnd nested = emitCaseBodyInner(
+                        lines, pure, idx + 1, bodyPrefix, out
+                    );
+                    idx              = nested.idx;
+                    expectingPattern = nested.closesEnclosingArm;
+                    continue;
+                } // if
                 final String[] arm = expectingPattern ? matchCaseArm(trimmed) : null;
                 if( arm != null ) {
                     out.add( basePrefix + arm[0].trim() + ")" );
@@ -893,7 +933,7 @@ public final class BashSpecificRule {
             ++idx;
         } // while
 
-        return idx;
+        return new CaseBodyEnd(idx, false);
     }
 
     /**

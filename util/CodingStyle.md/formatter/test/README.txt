@@ -3433,6 +3433,34 @@ Real-code regressions:
                                                         backslash and the following character as plain code
                                                         before any quote-opening check runs.
 
+  real_code_regressions_189_inp/out.sh               -- Minimized from `ohmyzsh/ohmyzsh`'s
+                                                        `tools/changelog.sh` (Bash dogfood pass,
+                                                        found after fixing real_code_regressions_188's
+                                                        two bugs above): a third round1/round2
+                                                        non-idempotency bug in `BashSpecificRule`.
+                                                        `emitCaseBody` had no concept of a nested `case
+                                                        ... in` appearing as an outer arm's body --
+                                                        a nested case's own terminating `esac` line was
+                                                        only ever recognized when the trimmed line was
+                                                        exactly `esac`, so a combined `esac ;;` line
+                                                        (closing the nested case *and* the enclosing
+                                                        arm on one physical line) fell through to the
+                                                        generic body-line fallback instead, corrupting
+                                                        indentation from that point on and producing a
+                                                        different shape each round. Fixed by splitting
+                                                        `emitCaseBody` into a thin public wrapper plus a
+                                                        recursive `emitCaseBodyInner` (new `CaseBodyEnd`
+                                                        result record: next index + whether the
+                                                        terminator closed an enclosing arm): a body line
+                                                        matching `CASE_START` now recurses at one deeper
+                                                        indent level, and the terminator check accepts
+                                                        `esac`, `esac ;;`, or `esac;;`, re-emitting the
+                                                        trailing `;;` as its own line and propagating
+                                                        `expectingPattern = true` back to the enclosing
+                                                        call so the next line is read as a fresh arm
+                                                        pattern rather than a continuation of the
+                                                        previous arm's body.
+
 How Tests Are Run
 -----------------
 

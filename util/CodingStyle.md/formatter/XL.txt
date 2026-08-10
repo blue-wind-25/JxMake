@@ -206,20 +206,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 8: Low priority ===
 
-- [HTML5_TCG] Level 1: no explicit `<head>` present wraps `<meta>`/`<title>`/`<script>` into the
-  synthesized `<body>` instead of implicitly opening `<head>` first — currently also documented
-  generically in README's HTML5 config section (as one of 4 levels' gaps), but plausible to fix
-  by tracking a real "head insertion mode closed" transition instead of the current
-  sibling-heuristic. Low risk (an isolated heuristic tweak, no other level depends on it), low
-  value (needs a document with no explicit `<head>` at all — rare).
-
-- [HTML5_TCG] Level 4 (adoption agency): only a single-slot "most-recently-orphaned formatting
-  element" is tracked, so a second simultaneous misnesting under the same ancestor loses the
-  outer element (overwritten, not queued) — currently also documented generically in README's
-  HTML5 config section, but plausible to fix by upgrading the single field to a small stack/list.
-  Low-medium risk (touches the adoption-agency reconstruction path directly, levels 1-3 already
-  cumulative on top of it), low value (needs two *simultaneous* misnestings — rarer than level
-  1's gap).
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 

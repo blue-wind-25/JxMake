@@ -2789,10 +2789,10 @@ Real-code regressions:
                                                         test`: 197/197 forward + 197/197 idempotency. See
                                                         `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
                                                         cluster C5 (also closed cluster C4 as a miscategorized
-                                                        instance of this same bug). **2026-08-11 update**: this
-                                                        fixture's own checked-in expected output had, by
-                                                        coincidence, already baked in a second, distinct bug in
-                                                        the same closing-comment mechanism -- the collapsed
+                                                        instance of this same bug). **2026-08-11 update**:
+                                                        this fixture's own checked-in expected output had, by
+                                                        coincidence, already baked in a second, distinct bug
+                                                        in the same closing-comment mechanism -- the collapsed
                                                         subject text kept a spurious space directly inside a
                                                         wrapped call's own parens (`min( left, 2 )` instead of
                                                         `min(left, 2)`) whenever `enforceCallLineBreaking`'s

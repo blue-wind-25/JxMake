@@ -5,6 +5,11 @@
  * See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
  */
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -71,11 +76,26 @@ import org.jetbrains.kotlin.psi.KtPsiFactory;
  *     KLIB=~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib
  *     $JDK/bin/javac -cp "$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_content_diff.java
  *
- * Run:
- *     $JDK/bin/java -cp ".:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_content_diff <original.kt> <formatted.kt>
+ * Run (two modes -- see also Usage: in main below):
+ *     Single pair:
+ *         $JDK/bin/java -cp ".:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_content_diff <original.kt> <formatted.kt>
+ *     Batch (one JVM invocation over a whole corpus, avoiding a JRE restart
+ *     per file -- rel-path list, one path per line, relative to both base
+ *     dirs alike):
+ *         $JDK/bin/java -cp ".:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_content_diff <original_base_dir> <formatted_base_dir> <kt_rel_path_file_list.txt>
  *
- * Exit 0 if content is preserved, 1 with a description of each mismatch
- * otherwise.
+ * Before each pair's AST diff, a "[yyyy-MM-dd HH:mm:ss.SSS] <relative path>"
+ * line is printed -- lets a hang/slow file in a large batch run be pinpointed
+ * (same "print immediately before the risky step" precedent as
+ * Main.main's/ServerMode.FormatHandler's own "processing <file>" stderr
+ * trace, see STATE_COMMON.md). In batch mode, a rel-path missing from either
+ * base dir (or both) is a warning, not a crash -- the file is skipped and
+ * the run continues; the final SUMMARY line and process exit code still
+ * reflect it.
+ *
+ * Exit 0 if content is preserved (all pairs, in batch mode), 1 if any
+ * mismatch/missing file/error is found (description printed for each), 2 on
+ * a usage error.
  */
 public class kotlin_content_diff {
 
@@ -453,19 +473,31 @@ public class kotlin_content_diff {
         return mismatches;
     }
 
-    public static void main(String[] args) throws Exception
-    {
-        if(args.length != 2) {
-            System.err.println("Usage: kotlin_content_diff.sh <original.kt> <formatted.kt>");
-            System.exit(2);
-        }
+    static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
-        String origSrc = new String(
-            java.nio.file.Files.readAllBytes( java.nio.file.Paths.get( args[0] ) )
-        );
-        String fmtSrc  = new String(
-            java.nio.file.Files.readAllBytes( java.nio.file.Paths.get( args[1] ) )
-        );
+    /**
+     * Printed immediately before a pair's AST diff starts -- if the tool
+     *  hangs/is slow on one particular file in a large batch, this line
+     *  (already flushed to stdout for every prior file) shows exactly which
+     *  file and when, mirroring Main.main's/ServerMode.FormatHandler's own
+     *  "processing <file>" trace precedent (STATE_COMMON.md).
+     */
+    static void printTimestampedHeader(String relPath)
+    {
+        System.out.println( "[" + LocalDateTime.now().format(TIMESTAMP_FORMAT) + "] " + relPath );
+    }
+
+    /**
+     * The full single-pair AST-diff check (imports/declarations/comments),
+     *  shared by both the single-pair and batch modes. Assumes both paths
+     *  are already confirmed to exist -- callers are responsible for the
+     *  missing-file check so a batch run can warn-and-skip instead of
+     *  throwing.
+     */
+    static boolean compareOne(Path origPath, Path fmtPath, String origLabel, String fmtLabel) throws Exception
+    {
+        String origSrc = new String( Files.readAllBytes(origPath) );
+        String fmtSrc  = new String( Files.readAllBytes(fmtPath) );
 
         KtFile origFile = parse(origSrc);
         KtFile fmtFile  = parse(fmtSrc);
@@ -505,14 +537,104 @@ public class kotlin_content_diff {
         );
 
         if( mismatches.isEmpty() ) {
-            System.out.println( "OK: content preserved (" + args[0] + " == " + args[1] + ")" );
+            System.out.println( "OK: content preserved (" + origLabel + " == " + fmtLabel + ")" );
+
+            return true;
         }
         else {
             System.out.println(
-                "MISMATCH: content differs between " + args[0] + " and " + args[1]
+                "MISMATCH: content differs between " + origLabel + " and " + fmtLabel
             );
             for(String m : mismatches) System.out.println("  " + m);
+
+            return false;
+        }
+    }
+
+    static void printUsage()
+    {
+        System.err.println("Usage: kotlin_content_diff.sh <original.kt> <formatted.kt>");
+        System.err.println("       kotlin_content_diff.sh <original_base_dir> <formatted_base_dir> <kt_rel_path_file_list.txt>");
+    }
+
+    static void runSingle(String origArg, String fmtArg) throws Exception
+    {
+        Path origPath = Paths.get(origArg);
+        Path fmtPath  = Paths.get(fmtArg);
+
+        printTimestampedHeader(origArg);
+
+        boolean origExists = Files.exists(origPath);
+        boolean fmtExists  = Files.exists(fmtPath);
+        if( !origExists || !fmtExists ) {
+                 if( !origExists && !fmtExists ) System.out.println( "WARNING: both " + origArg + " and " + fmtArg + " are missing" );
+            else if( !origExists )               System.out.println( "WARNING: " + origArg + " is missing" );
+            else                                 System.out.println( "WARNING: " + fmtArg + " is missing" );
             System.exit(1);
+        }
+
+        if( !compareOne(origPath, fmtPath, origArg, fmtArg) ) System.exit(1);
+    }
+
+    static void runBatch(String origBaseDir, String fmtBaseDir, String fileListPath) throws Exception
+    {
+        List<String> relPaths = Files.readAllLines( Paths.get(fileListPath) );
+
+        int okCount = 0, mismatchCount = 0, missingCount = 0;
+
+        for(String rel : relPaths) {
+            rel = rel.trim();
+            if( rel.isEmpty() ) continue;
+
+            Path origPath = Paths.get(origBaseDir, rel);
+            Path fmtPath  = Paths.get(fmtBaseDir, rel);
+
+            printTimestampedHeader(rel);
+
+            boolean origExists = Files.exists(origPath);
+            boolean fmtExists  = Files.exists(fmtPath);
+            if( !origExists && !fmtExists ) {
+                System.out.println( "  WARNING: missing from both " + origBaseDir + " and " + fmtBaseDir + " -- skipping" );
+                ++missingCount;
+                continue;
+            }
+            if( !origExists ) {
+                System.out.println( "  WARNING: missing from " + origBaseDir + " -- skipping" );
+                ++missingCount;
+                continue;
+            }
+            if( !fmtExists ) {
+                System.out.println( "  WARNING: missing from " + fmtBaseDir + " -- skipping" );
+                ++missingCount;
+                continue;
+            }
+
+            try {
+                if( compareOne(origPath, fmtPath, rel, rel) ) ++okCount;
+                else ++mismatchCount;
+            }
+            catch(Exception e) {
+                System.out.println( "  ERROR: " + e );
+                ++mismatchCount;
+            }
+        } // for
+
+        System.out.println();
+        System.out.println(
+            "SUMMARY: " + okCount + " OK, " + mismatchCount + " MISMATCH/ERROR, " + missingCount +
+            " MISSING (of " + (okCount + mismatchCount + missingCount) + " files checked)"
+        );
+
+        if( mismatchCount > 0 || missingCount > 0 ) System.exit(1);
+    }
+
+    public static void main(String[] args) throws Exception
+    {
+             if(args.length == 2) runSingle(args[0], args[1]);
+        else if(args.length == 3) runBatch(args[0], args[1], args[2]);
+        else {
+            printUsage();
+            System.exit(2);
         }
     }
 

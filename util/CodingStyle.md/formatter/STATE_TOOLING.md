@@ -420,6 +420,22 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       than to leave); a future cleanup pass may strip it. See
       `STATE_DOGFOOD.md`'s `microsoft/azure-pipelines-tasks` row (updated
       from "OPEN Q" to fixed).
+      **Resolved, 2026-08-11 (Tier1 cleanup):** the dead-write-only
+      `char[] kind` local was removed from `runPassA` entirely — the
+      declaration plus all ~32 now-unread `kind[i] = ...`/
+      `kind[i] = kind[i + 1] = ...` assignment statements (verified via
+      `grep -n "kind\["` that every one fell inside `runPassA`'s own body
+      and that `PassAResult.kind` is built solely from
+      `chainCollector.resolveKind(...)`, never from this local — so every
+      write was genuinely unread). Every other `kind[...]` reference in the
+      file (`computeLinePurity`, `applyOperatorSpacing`,
+      `applyPipelineSplit`, etc.) reads a *different* `kind`/`char[]` --
+      either a method parameter or `passA.kind` -- and was left untouched.
+      Pure deletion, no behavior change: `make test` 278/278 forward +
+      idempotency (unchanged pass count), and
+      `powershell_combined_{inp,out}.ps1`,
+      `real_code_regressions_{182,191,192}_out.ps1` all reformat
+      byte-identical to their committed `_out` fixtures before and after.
       **Makefile — DONE.** Batched `/tmp/PEGTL/Makefile`,
       `/tmp/frozen/tests/Makefile`, `/tmp/frozen/benchmarks/Makefile`, and
       `/tmp/fmt/support/Android.mk` (211 lines total) through round1/round2:

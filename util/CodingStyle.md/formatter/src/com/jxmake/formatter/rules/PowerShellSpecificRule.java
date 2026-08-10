@@ -137,7 +137,6 @@ public final class PowerShellSpecificRule {
 
     private PassAResult runPassA(final String content)
     {
-        final char[]        kind        = new char[ content.length() ];
         final List<Frame>   stack       = new ArrayList<>();
         final RunBuffer     buf         = new RunBuffer();
         final StringBuilder commentBody = new StringBuilder();
@@ -166,13 +165,11 @@ public final class PowerShellSpecificRule {
                         emitNormalizedComment( buf, commentBody.toString() );
                     }
                     commentBody.setLength(0);
-                    kind[i] = 'C';
                     buf.emit(c, 'C');
                     atLineStart = true;
                     ++i;
                     continue;
                 } // if
-                kind[i] = 'O';
                 commentBody.append(c);
                 atLineStart = false;
                 ++i;
@@ -182,7 +179,6 @@ public final class PowerShellSpecificRule {
             // ---- block comment (nestable) ---------------------------------------------------
             if(top != null && top.type == 'B') {
                 if( c == '<' && i + 1 < content.length() && content.charAt(i + 1) == '#' ) {
-                    kind[i] = kind[i + 1] = 'O';
                     buf.emit('<', 'O'); buf.emit('#', 'O');
                     top.parenDepth++;
                     atLineStart  = false;
@@ -190,7 +186,6 @@ public final class PowerShellSpecificRule {
                     continue;
                 } // if
                 if( c == '#' && i + 1 < content.length() && content.charAt(i + 1) == '>' ) {
-                    kind[i] = kind[i + 1] = 'O';
                     buf.emit('#', 'O'); buf.emit('>', 'O');
                     if(top.parenDepth > 0) top.parenDepth--;
                     else                   stack.remove( stack.size() - 1 );
@@ -198,7 +193,6 @@ public final class PowerShellSpecificRule {
                     i           += 2;
                     continue;
                 } // if
-                kind[i] = 'O';
                 buf.emit(c, 'O');
                 if(c == '\n') atLineStart = true;
                 else          atLineStart = false;
@@ -210,13 +204,11 @@ public final class PowerShellSpecificRule {
             if(top != null && top.type == 'S') {
                 // '' is the only escape inside single-quoted strings
                 if( c == '\'' && i + 1 < content.length() && content.charAt(i + 1) == '\'' ) {
-                    kind[i] = kind[i + 1] = 'O';
                     buf.emit('\'', 'O'); buf.emit('\'', 'O');
                     atLineStart  = false;
                     i           += 2;
                     continue;
                 } // if
-                kind[i] = 'O';
                 buf.emit(c, 'O');
                 if(c == '\'') stack.remove( stack.size() - 1 );
                 if(c == '\n') atLineStart = true;
@@ -230,14 +222,12 @@ public final class PowerShellSpecificRule {
                 if( atLineStart && c == '\'' && i + 1 < content.length() && content.charAt(
                     i + 1
                 ) == '@' ) {
-                    kind[i] = kind[i + 1] = 'O';
                     buf.emit('\'', 'O'); buf.emit('@', 'O');
                     stack.remove( stack.size() - 1 );
                     atLineStart  = false;
                     i           += 2;
                     continue;
                 } // if
-                kind[i] = 'O';
                 buf.emit(c, 'O');
                 if(c == '\n') atLineStart = true;
                 else          atLineStart = false;
@@ -250,7 +240,6 @@ public final class PowerShellSpecificRule {
                 // Expandable here-string terminator: "@ at column 0
                 if( top.type == 'H' && atLineStart && c == '"' && i + 1 < content.length()
                         && content.charAt(i + 1) == '@' ) {
-                    kind[i] = kind[i + 1] = 'O';
                     buf.emit('"', 'O'); buf.emit('@', 'O');
                     stack.remove( stack.size() - 1 );
                     atLineStart  = false;
@@ -259,10 +248,8 @@ public final class PowerShellSpecificRule {
                 } // if
                 // Backtick escape (next char stays opaque, does not close the string)
                 if( c == '`' && i + 1 < content.length() ) {
-                    kind[i] = 'O';
                     buf.emit(c, 'O');
                     ++i;
-                    kind[i] = 'O';
                     buf.emit( content.charAt(i), 'O' );
                     if( content.charAt(i) == '\n' ) atLineStart = true;
                     else                            atLineStart = false;
@@ -272,7 +259,6 @@ public final class PowerShellSpecificRule {
                 // Subexpression $(...) -- re-enter code mode so future brace rules see real braces
                 if( c == '$' && i + 1 < content.length() && content.charAt(i + 1) == '(' ) {
                     stack.add( new Frame('C') );
-                    kind[i] = kind[i + 1] = 'C';
                     buf.emit('$', 'C'); buf.emit('(', 'C');
                     atLineStart  = false;
                     i           += 2;
@@ -281,13 +267,11 @@ public final class PowerShellSpecificRule {
                 // Braced variable ${...} -- stay opaque (name, not code)
                 if( c == '$' && i + 1 < content.length() && content.charAt(i + 1) == '{' ) {
                     stack.add( new Frame('V') );
-                    kind[i] = kind[i + 1] = 'O';
                     buf.emit('$', 'O'); buf.emit('{', 'O');
                     atLineStart  = false;
                     i           += 2;
                     continue;
                 } // if
-                kind[i] = 'O';
                 buf.emit(c, 'O');
                 if(top.type == 'D' && c == '"') stack.remove( stack.size() - 1 );
                 if(c == '\n') atLineStart = true;
@@ -300,7 +284,6 @@ public final class PowerShellSpecificRule {
             if(top != null && top.type == 'V') {
                 if(c == '{') {
                     top.parenDepth++;
-                    kind[i] = 'O';
                     buf.emit(c, 'O');
                     atLineStart = false;
                     ++i;
@@ -309,19 +292,16 @@ public final class PowerShellSpecificRule {
                 if(c == '}') {
                     if(top.parenDepth > 0) {
                         top.parenDepth--;
-                        kind[i] = 'O';
                         buf.emit(c, 'O');
                     }
                     else {
                         stack.remove( stack.size() - 1 );
-                        kind[i] = 'O';
                         buf.emit(c, 'O');
                     }
                     atLineStart = false;
                     ++i;
                     continue;
                 } // if
-                kind[i] = 'O';
                 buf.emit(c, 'O');
                 if(c == '\n') atLineStart = true;
                 else          atLineStart = false;
@@ -338,10 +318,8 @@ public final class PowerShellSpecificRule {
 
             // Backtick escape: next character is literal code (so `" does not open a string)
             if( c == '`' && i + 1 < content.length() ) {
-                kind[i] = 'C';
                 buf.emit(c, 'C');
                 ++i;
-                kind[i] = 'C';
                 buf.emit( content.charAt(i), 'C' );
                 if( content.charAt(i) == '\n' ) atLineStart = true;
                 else                            atLineStart = false;
@@ -359,7 +337,6 @@ public final class PowerShellSpecificRule {
                 int p = i;
                 while( p < content.length() ) {
                     final char ch = content.charAt(p);
-                    kind[p] = 'O';
                     buf.emit(ch, 'O');
                     ++p;
                     if(ch == '\n') break;
@@ -372,7 +349,6 @@ public final class PowerShellSpecificRule {
             // Block comment
             if( c == '<' && i + 1 < content.length() && content.charAt(i + 1) == '#' ) {
                 stack.add( new Frame('B') );
-                kind[i] = kind[i + 1] = 'O';
                 buf.emit('<', 'O'); buf.emit('#', 'O');
                 atLineStart  = false;
                 i           += 2;
@@ -389,7 +365,6 @@ public final class PowerShellSpecificRule {
                 for(int p = 0; p < lineStart; ++p) if( content.charAt(p) == '\n' ) ++ln;
                 f.lineNo = ln;
                 stack.add(f);
-                kind[i] = 'O';
                 buf.emit(c, 'O');
                 atLineStart = false;
                 ++i;
@@ -399,7 +374,6 @@ public final class PowerShellSpecificRule {
             // Single / double quoted strings
             if(c == '\'') {
                 stack.add( new Frame('S') );
-                kind[i] = 'O';
                 buf.emit(c, 'O');
                 atLineStart = false;
                 ++i;
@@ -407,7 +381,6 @@ public final class PowerShellSpecificRule {
             } // if
             if(c == '"') {
                 stack.add( new Frame('D') );
-                kind[i] = 'O';
                 buf.emit(c, 'O');
                 atLineStart = false;
                 ++i;
@@ -417,7 +390,6 @@ public final class PowerShellSpecificRule {
             // Subexpression $(...) at code level
             if( c == '$' && i + 1 < content.length() && content.charAt(i + 1) == '(' ) {
                 stack.add( new Frame('C') );
-                kind[i] = kind[i + 1] = 'C';
                 buf.emit('$', 'C'); buf.emit('(', 'C');
                 atLineStart  = false;
                 i           += 2;
@@ -427,7 +399,6 @@ public final class PowerShellSpecificRule {
             // Braced variable ${...} at code level (opaque name)
             if( c == '$' && i + 1 < content.length() && content.charAt(i + 1) == '{' ) {
                 stack.add( new Frame('V') );
-                kind[i] = kind[i + 1] = 'O';
                 buf.emit('$', 'O'); buf.emit('{', 'O');
                 atLineStart  = false;
                 i           += 2;
@@ -439,7 +410,6 @@ public final class PowerShellSpecificRule {
             if(top != null && top.type == 'C') {
                 if(c == '(') {
                     top.parenDepth++;
-                    kind[i] = 'C';
                     buf.emit(c, 'C');
                     atLineStart = false;
                     ++i;
@@ -448,12 +418,10 @@ public final class PowerShellSpecificRule {
                 if(c == ')') {
                     if(top.parenDepth > 0) {
                         top.parenDepth--;
-                        kind[i] = 'C';
                         buf.emit(c, 'C');
                     }
                     else {
                         stack.remove( stack.size() - 1 );
-                        kind[i] = 'C';
                         buf.emit(c, 'C');
                     }
                     atLineStart = false;
@@ -462,7 +430,6 @@ public final class PowerShellSpecificRule {
                 } // if
             } // if
 
-            kind[i] = 'C';
             buf.emit(c, 'C');
             if(c == '\n') atLineStart = true;
             else          atLineStart = false;

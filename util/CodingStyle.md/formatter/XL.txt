@@ -133,27 +133,31 @@ Compact (don't use sub-agent because I will end this session soon) the narration
 
 === TIER 0: Recurring job ===
 
-0. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
+1. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
+
    Open-ended "project refactoring/cleanup" sweep — unused boilerplate, duplicated
    `*Curly`/`*Indent`/`*Tags` helper logic. etc.
 
    Use sub-agent. This can be a substantial work.
 
-1. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
+2. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
-   Re-execute `Formatter self-formatting (dogfood-and-adopt) process` in `STATE_COMMON.md`.
-   Make it simpler: no need to test reformat using the round2 JAR.
+   Apply the formatter to all `*.java/py/js/sh` source files inside `tools/*` subdirectories.
+   Output the result to `/tmp/tools_round1` and then `/tmp/tools_round2`. Perform idempotency
+   check  and content-diff check. If all OK, copy back the formatted round1 to the `tools/*`
+   subdirectories.
 
-   Apply the formatter to all `*.java/py/js` source files inside `tools/*` subdirectories. Output
-   the result to `/tmp/tools_round1` and then `/tmp/tools_round2`. Perform idempotency check and
-   content-diff check. If all OK, copy back the formatted round1 to the `tools/*` subdirectories.
+   Apply the formatter to all the formatter's `*.java` source files inside `src/**/*.java`
+   subdirectories. Output the result to `/tmp/fmt_round1` and then `/tmp/fmt_round2`. Perform
+   idempotency check and content-diff check. If all OK, copy back the formatted round1 to the
+   formatter's `src/**/` subdirectories.
 
    Update and fix `CLAUDE.md`, `STATE_DOGFOOD.md`, `README.md`, `../README.txt`,
    `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`, etc. as needed.
 
    Use sub-agent. This can be a substantial work.
 
-2. [GRU] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
+3. [GRU] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
    Further grow the hand-labeled hard-case corpus (`tools/classifier_weights/examples_*.md`),
    especially with the the `NO` samples.
@@ -196,6 +200,18 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 8: Low priority ===
 
+- [KOTLIN] **OPEN ITEM (2026-08-10, not yet fixed): trailing-comma drop on multi-line
+  call/list-literal collapse-preserve.**
+
+- [KOTLIN] Re-run full 16153-file JetBrains/kotlin dogfood `kotlin_content_diff` corpus pass.
+  Originals at `/tmp/jb_kotlin_kt_new/kotlin-master`, round1 formatter output already generated
+  at `/tmp/kt_r1_content`. Two real checker tolerance gaps/regressions were found and fixed this
+  session (commits `37c806a`, `126ae68`) via partial/sampled runs (~500-2000 files each) — the
+  full pass was never actually completed end-to-end (killed twice: once for taking too long
+  serially, once mid-parallel-run to let the second checker fix land safely). Use the parallel
+  driver approach (`xargs -P 4`, matching this machine's `nproc`), not serial. Once complete,
+  update `STATE_KOTLIN.md` and `STATE_DOGFOOD.md` with final mismatch/error counts.
+
 - [HTML5_TCG] Level 1: no explicit `<head>` present wraps `<meta>`/`<title>`/`<script>` into the
   synthesized `<body>` instead of implicitly opening `<head>` first — currently also documented
   generically in README's HTML5 config section (as one of 4 levels' gaps), but plausible to fix
@@ -213,18 +229,18 @@ Use sub-agent. This can be a substantial work.
 
 Use sub-agent. This can be a substantial work.
 
-=== TIER 9: May not worth pursuing -- Bug ===
+=== TIER 9: May not worth pursuing -- [Bug] ===
 
 NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 
-[2026-08-10] The 3 former entries here were removed as `README.md` Known Limitations entry:
-    apache/ant `JikesOutputParser.java`
-    ohmyzsh    `tools/upgrade.sh` pipe-spacing
-    Kotlin D3 wrap-decision-flap statement-boundary tracking
+NOTE: [2026-08-10] The 3 former entries here were removed as `README.md` Known Limitations entry:
+- apache/ant `JikesOutputParser.java`
+- ohmyzsh `tools/upgrade.sh` pipe-spacing
+- Kotlin D3 wrap-decision-flap statement-boundary tracking
 
-=== TIER 9: May not worth pursuing -- Feature ===
+=== TIER 9: May not worth pursuing -- [Feature] ===
 
 - [CURLY_GDR] `curly-general-scope-reindent = on` correctness still a "hard, multi-session
   problem" (continuation-vs-block depth, exclusion zones, ordering). HIGH risk (architectural,
@@ -241,7 +257,7 @@ Use sub-agent. This can be a substantial work.
 
 Use sub-agent. This can be a substantial work.
 
-=== TIER 9: May not worth pursuing -- Dogfood ===
+=== TIER 9: May not worth pursuing -- [Dogfood] ===
 
 - [C_CPP_JAVA] `gcc-mirror/gcc`, `llvm/llvm-project` dogfood — NOT STARTED, TOO MASSIVE to even
   LOC-count, let alone dogfood in one pass.
